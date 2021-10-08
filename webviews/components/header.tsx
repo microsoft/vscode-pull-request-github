@@ -85,29 +85,31 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: 
 
 	return (
 		<div className="overview-title">
-			{editableTitle}
-			<div className="block-select">
-				{/*
-			  For whatever reason, triple click on a block element in MacOS will select everything in that element, *and* every `user-select: false` block adjacent to that element.
-			  Add an empty selectable div here to block triple click on title from selecting the following buttons. Issue #628.
-			*/}
-			</div>
-			{canEdit && !inEditMode ? (
-				<div className="flex-action-bar comment-actions">
-					{
-						<button title="Edit" onClick={() => setEditMode(true)}>
-							{editIcon}
-						</button>
-					}
-					{
-						<button title="Copy Link" onClick={copyPrLink}>
-							{copyIcon}
-						</button>
-					}
+			<div className="title-and-edit">
+				{editableTitle}
+				<div className="block-select">
+					{/*
+				For whatever reason, triple click on a block element in MacOS will select everything in that element, *and* every `user-select: false` block adjacent to that element.
+				Add an empty selectable div here to block triple click on title from selecting the following buttons. Issue #628.
+				*/}
 				</div>
-			) : (
-				<div className="flex-action-bar comment-actions"></div>
-			)}
+				{canEdit && !inEditMode ? (
+					<div className="flex-action-bar comment-actions">
+						{
+							<button title="Edit" onClick={() => setEditMode(true)}>
+								{editIcon}
+							</button>
+						}
+						{
+							<button title="Copy Link" onClick={copyPrLink}>
+								{copyIcon}
+							</button>
+						}
+					</div>
+				) : (
+					<div className="flex-action-bar comment-actions"></div>
+				)}
+			</div>
 			<div className="button-group">
 				<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue }} />
 				<button onClick={refresh}>Refresh</button>

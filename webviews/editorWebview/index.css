@@ -345,6 +345,8 @@ body button .icon {
 .overview-title {
 	display: flex;
 	position: relative;
+	flex-wrap: wrap;
+	justify-content: space-between;
 }
 
 .overview-title h2 {
@@ -357,9 +359,13 @@ body button .icon {
 
 .overview-title .button-group {
 	padding-top: 2px;
-	margin-left: auto;
 	display: flex;
 	align-self: start;
+}
+
+.overview-title .title-and-edit {
+	display: flex;
+	flex-grow: 1;
 }
 
 .title-container {
@@ -387,8 +393,11 @@ body button .icon {
 }
 
 body .overview-title .button-group button {
-	margin-left: 10px;
 	display: flex;
+}
+
+body .overview-title .button-group button:last-child {
+	margin-left: 10px;
 }
 
 #status {
@@ -603,6 +612,7 @@ textarea {
 	padding: 5px 0;
 	display: flex;
 	flex-direction: column;
+	min-width: 300px;
 }
 
 .editing-form .form-actions {
@@ -968,7 +978,7 @@ code {
 	display: flex;
 	justify-content: space-between;
 	z-index: 100;
-	top: 9px; 
+	top: 9px;
 	right: 9px;
 }
 
