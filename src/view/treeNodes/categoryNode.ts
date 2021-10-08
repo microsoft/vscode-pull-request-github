@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { AuthenticationError } from '../../common/authentication';
+import { PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 import { ITelemetry } from '../../common/telemetry';
 import { formatError } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
@@ -13,7 +14,6 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 import { PRNode } from './pullRequestNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
-const PR_CONFIGURATION: string = 'githubPullRequests';
 const QUERIES_CONFIGURATION: string = 'queries';
 
 export enum PRCategoryActionType {
@@ -149,7 +149,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async editQuery() {
-		const config = vscode.workspace.getConfiguration(PR_CONFIGURATION);
+		const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
 		const inspect = config.inspect<{ label: string; query: string }[]>(QUERIES_CONFIGURATION);
 		let command: string;
 		if (inspect?.workspaceValue) {
