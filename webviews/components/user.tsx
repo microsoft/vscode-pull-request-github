@@ -9,11 +9,7 @@ import { Icon } from './icon';
 
 export const Avatar = ({ for: author }: { for: Partial<PullRequest['author']> }) => (
 	<a className="avatar-link" href={author.url}>
-		{author.avatarUrl ? (
-			<img className="avatar" src={author.avatarUrl} alt="" />
-		) : (
-			<img className="avatar" src='../github.png' />
-		)}
+		<img className="avatar" src={author.avatarUrl} alt="" />
 	</a>
 );
 
