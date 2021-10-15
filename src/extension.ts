@@ -257,9 +257,12 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	Logger.debug('Creating credential store.', 'Activation');
 	const credentialStore = new CredentialStore(telemetry);
 	context.subscriptions.push(credentialStore);
-	await credentialStore.initialize(AuthProvider.github);
-	if (hasEnterpriseUri()) {
-		await credentialStore.initialize(AuthProvider['github-enterprise']);
+	// For older clients that don't have this function. The hasSession won't show the Accounts badge if we don't have a session.
+	if (!vscode.authentication.hasSession || await credentialStore.hasSession(AuthProvider.github)) {
+		await credentialStore.initialize(AuthProvider.github);
+		if (hasEnterpriseUri()) {
+			await credentialStore.initialize(AuthProvider['github-enterprise']);
+		}
 	}
 
 	Logger.debug('Registering built in git provider.', 'Activation');
