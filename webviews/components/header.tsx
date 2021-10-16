@@ -35,12 +35,9 @@ export function Header({
 				{!isIssue ? <Avatar for={author} /> : null}
 				<span className="author">
 					{!isIssue ? (
-						<Spaced>
-							<AuthorLink for={author} />
-							{getActionText(state)}
-							into<code>{base}</code>
-							from<code>{head}</code>
-						</Spaced>
+						<div>
+							<AuthorLink for={author} /> {getActionText(state)} into <code> {base} </code> from <code> {head} </code>
+						</div>
 					) : null}
 				</span>
 				<span className="created-at">
@@ -79,7 +76,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: 
 		</form>
 	) : (
 		<h2>
-			{currentTitle} (<a href={url}>#{number}</a>)
+			{currentTitle} <a href={url}>#{number}</a>
 		</h2>
 	);
 

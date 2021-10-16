@@ -218,6 +218,10 @@ export class CredentialStore implements vscode.Disposable {
 		return (octokit && github?.currentUser)!;
 	}
 
+	public async hasSession(authProviderId: AuthProvider): Promise<boolean> {
+		return await vscode.authentication.hasSession(authProviderId, SCOPES);
+	}
+
 	private async setCurrentUser(github: GitHub): Promise<void> {
 		const user = await github.octokit.users.getAuthenticated({});
 		github.currentUser = user.data;

@@ -946,7 +946,6 @@ code {
 	}
 
 	.section-item.reviewer {
-		border: 1px solid var(--vscode-badge-background);
 		border-radius: 3px;
 		padding: 2px 6px;
 	}
@@ -969,13 +968,14 @@ code {
 	display: flex;
 	justify-content: space-between;
 	z-index: 100;
-	top: 9px;
+	top: 9px; 
 	right: 9px;
 }
 
 .flex-action-bar {
 	display: flex;
 	justify-content: space-between;
+	align-items: center;
 	z-index: 100;
 	margin-left: 9px;
 	min-width: 42px;

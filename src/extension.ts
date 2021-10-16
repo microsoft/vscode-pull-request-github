@@ -238,6 +238,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 
 	// initialize resources
 	Resource.initialize(context);
+	Logger.debug('Creating API implementation.', 'Activation');
 	const apiImpl = new GitApiImpl();
 
 	const version = vscode.extensions.getExtension(EXTENSION_ID)!.packageJSON.version;
@@ -250,26 +251,34 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 }
 
 async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitApiImpl, showPRController: ShowPullRequest) {
+	Logger.debug('Initializing state.', 'Activation');
 	PersistentState.init(context);
 	TemporaryState.init(context);
+	Logger.debug('Creating credential store.', 'Activation');
 	const credentialStore = new CredentialStore(telemetry);
 	context.subscriptions.push(credentialStore);
-	await credentialStore.initialize(AuthProvider.github);
-	if (hasEnterpriseUri()) {
-		await credentialStore.initialize(AuthProvider['github-enterprise']);
+	// For older clients that don't have this function. The hasSession won't show the Accounts badge if we don't have a session.
+	if (!vscode.authentication.hasSession || await credentialStore.hasSession(AuthProvider.github)) {
+		await credentialStore.initialize(AuthProvider.github);
+		if (hasEnterpriseUri()) {
+			await credentialStore.initialize(AuthProvider['github-enterprise']);
+		}
 	}
 
+	Logger.debug('Registering built in git provider.', 'Activation');
 	const builtInGitProvider = await registerBuiltinGitProvider(credentialStore, apiImpl);
 	if (builtInGitProvider) {
 		context.subscriptions.push(builtInGitProvider);
 	}
 
+	Logger.debug('Registering live share git provider.', 'Activation');
 	const liveshareGitProvider = registerLiveShareGitProvider(apiImpl);
 	context.subscriptions.push(liveshareGitProvider);
 	const liveshareApiPromise = liveshareGitProvider.initialize();
 
 	context.subscriptions.push(apiImpl);
 
+	Logger.debug('Creating tree view.', 'Activation');
 	const prTree = new PullRequestsTreeDataProvider(telemetry);
 	context.subscriptions.push(prTree);
 

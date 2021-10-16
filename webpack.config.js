@@ -298,13 +298,6 @@ async function getExtensionConfig(target, mode, env) {
 							'index.js',
 						),
 						'node-fetch': 'cross-fetch',
-						'vscode-extension-telemetry': path.resolve(
-							__dirname,
-							'src',
-							'env',
-							'browser',
-							'vscode-extension-telemetry.js',
-						),
 						'../env/node/net': path.resolve(__dirname, 'src', 'env', 'browser', 'net'),
 						'../env/node/ssh': path.resolve(__dirname, 'src', 'env', 'browser', 'ssh'),
 						'../../env/node/ssh': path.resolve(__dirname, 'src', 'env', 'browser', 'ssh'),
