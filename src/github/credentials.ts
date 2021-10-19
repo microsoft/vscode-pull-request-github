@@ -248,8 +248,21 @@ export class CredentialStore implements vscode.Disposable {
 			baseUrl = `${enterpriseServerUri.scheme}://${enterpriseServerUri.authority}/api/v3`;
 		}
 
+		let fetchCore: ((url: string, options: { headers?: Record<string, string> }) => any) | undefined;
+		if (vscode.env.uiKind === vscode.UIKind.Web) {
+			fetchCore = (url: string, options: { headers?: Record<string, string> }) => {
+				if (options.headers !== undefined) {
+					const { 'user-agent': userAgent, ...headers } = options.headers;
+					if (userAgent) {
+						options.headers = headers;
+					}
+				}
+				return fetch(url, options);
+			};
+		}
+
 		const octokit = new Octokit({
-			request: { agent },
+			request: { agent, fetch: fetchCore },
 			userAgent: 'GitHub VSCode Pull Requests',
 			// `shadow-cat-preview` is required for Draft PR API access -- https://developer.github.com/v3/previews/#draft-pull-requests
 			previews: ['shadow-cat-preview'],
