@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.31.1
+
+### Fixes
+
+- Don't ask for auth upon activation. https://github.com/microsoft/vscode-pull-request-github/issues/3044
+
 ## 0.31.0
 
 ### Changes
