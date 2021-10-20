@@ -207,21 +207,17 @@ export class CurrentIssue {
 			undefined,
 			await this.getUser(),
 		);
-		if (this._branchName !== branchNameConfig) {
+		if ((createBranchConfig === 'on') && this._branchName !== branchNameConfig) {
 			const branchExists = await this.branchExists(this._branchName!);
 			if (!branchExists) {
 				this._branchName = branchNameConfig;
 			}
 		}
 		if (!this._branchName) {
-			if (createBranchConfig === 'on') {
-				this._branchName = branchNameConfig;
-			} else {
-				this._branchName = await vscode.window.showInputBox({
-					value: branchNameConfig,
-					prompt: 'Enter the label for the new branch.',
-				});
-			}
+			this._branchName = await vscode.window.showInputBox({
+				value: branchNameConfig,
+				prompt: 'Enter the label for the new branch.',
+			});
 		}
 		if (!this._branchName) {
 			// user has cancelled
