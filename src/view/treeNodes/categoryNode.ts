@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { AuthenticationError } from '../../common/authentication';
+import { PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 import { ITelemetry } from '../../common/telemetry';
 import { formatError } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
@@ -12,6 +13,8 @@ import { PRType } from '../../github/interface';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { PRNode } from './pullRequestNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
+
+const QUERIES_CONFIGURATION: string = 'queries';
 
 export enum PRCategoryActionType {
 	Empty,
@@ -108,6 +111,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public prs: PullRequestModel[];
 	public fetchNextPage: boolean = false;
 	public repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
+	public contextValue: string;
 
 	constructor(
 		public parent: TreeNodeParent,
@@ -137,6 +141,36 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				break;
 			default:
 				break;
+		}
+
+		if (this._categoryQuery) {
+			this.contextValue = 'query';
+		}
+	}
+
+	async editQuery() {
+		const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
+		const inspect = config.inspect<{ label: string; query: string }[]>(QUERIES_CONFIGURATION);
+		let command: string;
+		if (inspect?.workspaceValue) {
+			command = 'workbench.action.openWorkspaceSettingsFile';
+		} else {
+			const value = config.get<{ label: string; query: string }[]>(QUERIES_CONFIGURATION);
+			if (inspect?.defaultValue && JSON.stringify(inspect?.defaultValue) === JSON.stringify(value)) {
+				config.update(QUERIES_CONFIGURATION, inspect.defaultValue, vscode.ConfigurationTarget.Global);
+			}
+			command = 'workbench.action.openSettingsJson';
+		}
+		await vscode.commands.executeCommand(command);
+		const editor = vscode.window.activeTextEditor;
+		if (editor) {
+			const text = editor.document.getText();
+			const search = text.search(this.label!);
+			if (search >= 0) {
+				const position = editor.document.positionAt(search);
+				editor.revealRange(new vscode.Range(position, position));
+				editor.selection = new vscode.Selection(position, position);
+			}
 		}
 	}
 
