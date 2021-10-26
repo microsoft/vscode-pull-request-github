@@ -286,7 +286,8 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 	const [isBusy, setBusy] = useState(false);
 
 	return (
-		<form
+		<div>
+			<form
 			onSubmit={async event => {
 				event.preventDefault();
 
@@ -312,7 +313,8 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 				</button>
 				<input disabled={isBusy} type="submit" id="confirm-merge" value={MERGE_METHODS[method]} />
 			</div>
-		</form>
+			</form>
+		</div>
 	);
 }
 
