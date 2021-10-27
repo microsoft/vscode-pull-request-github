@@ -591,7 +591,7 @@ export interface CheckRun {
 }
 
 export function isCheckRun(x: CheckRun | StatusContext): x is CheckRun {
-	return !!(x as CheckRun).conclusion;
+	return (x as any).__typename === 'CheckRun';
 }
 
 export interface GetChecksResponse {
