@@ -219,7 +219,12 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public async hasSession(authProviderId: AuthProvider): Promise<boolean> {
-		return await vscode.authentication.hasSession(authProviderId, SCOPES);
+		try {
+			return await vscode.authentication.hasSession(authProviderId, SCOPES);
+		} catch (e) {
+			// When the provider id is github-enterprise hasSession throws.
+			return false;
+		}
 	}
 
 	private async setCurrentUser(github: GitHub): Promise<void> {
