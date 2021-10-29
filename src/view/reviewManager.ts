@@ -314,9 +314,9 @@ export class ReviewManager {
 			return;
 		}
 
-		if(!pr.isOpen){
+		if(pr.isClosed){
 			this.clear(true);
-			Logger.appendLine('Review> This PR is no longer open');
+			Logger.appendLine('Review> This PR is closed');
 			return;
 		}
 
