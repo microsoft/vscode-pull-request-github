@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.32.0
+
+### Changes
+
+- Action to navigate directly to pull request query in settings.json
+
+![Navigate to pull request query](documentation/changelog/0.32.0/navigate-pr-query.gif)
+
+### Fixes
+
+- Cannot set branch tile when starting working on an issue despite useBranchForIssues=prompt. https://github.com/microsoft/vscode-pull-request-github/issues/3032
+- No issue hovers in code editor. https://github.com/microsoft/vscode-pull-request-github/issues/3013
+- Pending checks section is empty. https://github.com/microsoft/vscode-pull-request-github/issues/2949
+
+**_Thank You_**
+
+* [@burkeholland (Burke Holland)](https://github.com/burkeholland)
+  * Fixes Commit hash should use a monospace font #2957 [PR #2968](https://github.com/microsoft/vscode-pull-request-github/pull/2968)
+  * Burkeholland-issue1635 [PR #2993](https://github.com/microsoft/vscode-pull-request-github/pull/2993)
+  * Title doesn't have enough horizontal space in small tabs [PR #3029](https://github.com/microsoft/vscode-pull-request-github/pull/3029)
+  * Fix 2959 - Merge title box needs top margin [PR #3039](https://github.com/microsoft/vscode-pull-request-github/pull/3039)
+* [@nicholas-l (Nicholas Latham)](https://github.com/nicholas-l): Allow authentication for github enterprise [PR #3064](https://github.com/microsoft/vscode-pull-request-github/pull/3064)
+
 ## 0.31.1
 
 ### Fixes
@@ -22,6 +45,7 @@
 - Skipped status check is shown as pending. https://github.com/microsoft/vscode-pull-request-github/issues/2580
 
 **_Thank You_**
+
 - fix: make pending checks "show" button / link accessible. [2972](https://github.com/microsoft/vscode-pull-request-github/pull/2972) by @moshfeu
 - Fixes Tick SVG doesn't look right #2950. [2971](https://github.com/microsoft/vscode-pull-request-github/pull/2971) by @burkeholland
 - Create commit select horizontal padding is too high. [2970](https://github.com/microsoft/vscode-pull-request-github/pull/2970) by @burkeholland
