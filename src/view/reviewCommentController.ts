@@ -424,12 +424,12 @@ export class ReviewCommentController
 			const ranges: vscode.Range[] = [];
 
 			if (matchedFile) {
-				if (matchedFile.status === GitChangeType.RENAME) {
+				const diffHunks = matchedFile.diffHunks;
+				if ((matchedFile.status === GitChangeType.RENAME) && (diffHunks.length === 0)) {
 					return [];
 				}
 
 				const contentDiff = await this.getContentDiff(document.uri, matchedFile.fileName);
-				const diffHunks = matchedFile.diffHunks;
 
 				for (let i = 0; i < diffHunks.length; i++) {
 					const diffHunk = diffHunks[i];
