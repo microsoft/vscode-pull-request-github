@@ -480,7 +480,7 @@ export async function createGithubPermalink(
 		new Promise<Remote | undefined>(resolve => {
 			setTimeout(() => {
 				resolve(fallbackUpstream);
-			}, 2000);
+			}, 1500);
 		}),
 	]) : await fallbackUpstream;
 
