@@ -107,6 +107,7 @@ export class CreatePullRequestHelper {
 		folderRepoManager: FolderRepositoryManager,
 		compareBranch: string | undefined,
 	) {
+		await folderRepoManager.loginAndUpdate();
 		vscode.commands.executeCommand('setContext', 'github:createPullRequest', true);
 
 		const branch =

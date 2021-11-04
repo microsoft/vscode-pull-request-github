@@ -23,7 +23,6 @@ import { setSyncedKeys } from './extensionState';
 import { AuthProvider, CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { RepositoriesManager } from './github/repositoriesManager';
-import { hasEnterpriseUri } from './github/utils';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
@@ -259,10 +258,7 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	context.subscriptions.push(credentialStore);
 	// For older clients that don't have this function. The hasSession won't show the Accounts badge if we don't have a session.
 	if (!vscode.authentication.hasSession || await credentialStore.hasSession(AuthProvider.github) || await credentialStore.hasSession(AuthProvider['github-enterprise'])) {
-		await credentialStore.initialize(AuthProvider.github);
-		if (hasEnterpriseUri()) {
-			await credentialStore.initialize(AuthProvider['github-enterprise']);
-		}
+		await credentialStore.create();
 	}
 
 	Logger.debug('Registering built in git provider.', 'Activation');

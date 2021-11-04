@@ -162,6 +162,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}),
 		);
 
+		this._subs.push(_credentialStore.onDidInitialize(() => this.updateRepositories()));
+
 		this.setUpCompletionItemProvider();
 
 		this.cleanStoredRepoState();
@@ -466,6 +468,19 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	get credentialStore(): CredentialStore {
 		return this._credentialStore;
+	}
+
+	public async loginAndUpdate() {
+		if (!this._credentialStore.isAnyAuthenticated()) {
+			const waitForRepos = new Promise<void>(c => {
+				const onReposChange = this.onDidChangeRepositories(() => {
+					onReposChange.dispose();
+					c();
+				});
+			});
+			await this._credentialStore.login(AuthProvider.github);
+			await waitForRepos;
+		}
 	}
 
 	private async getActiveRemotes(): Promise<Remote[]> {

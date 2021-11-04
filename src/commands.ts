@@ -728,7 +728,7 @@ export function registerCommands(
 			"pr.editQuery" : {}
 		*/
 			telemetry.sendTelemetryEvent('pr.editQuery');
-			return query.editQuery();	
+			return query.editQuery();
 		}),
 	);
 
