@@ -314,6 +314,12 @@ export class ReviewManager {
 			return;
 		}
 
+		if(pr.isClosed){
+			this.clear(true);
+			Logger.appendLine('Review> This PR is closed');
+			return;
+		}
+
 		this._folderRepoManager.activePullRequest = pr;
 		this._lastCommitSha = pr.head.sha;
 
