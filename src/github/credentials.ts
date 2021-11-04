@@ -100,20 +100,29 @@ export class CredentialStore implements vscode.Disposable {
 		}
 	}
 
-	public async recreate() {
-		await this.initialize(AuthProvider.github, true);
+	private async doCreate(force?: boolean) {
+		await this.initialize(AuthProvider.github, force);
 		if (hasEnterpriseUri()) {
-			await this.initialize(AuthProvider['github-enterprise'], true);
+			await this.initialize(AuthProvider['github-enterprise'], force);
 		}
+	}
+
+	public async create() {
+		this.doCreate();
+	}
+
+	public async recreate() {
+		return this.doCreate(true);
 	}
 
 	public async reset() {
 		this._githubAPI = undefined;
 		this._githubEnterpriseAPI = undefined;
-		await this.initialize(AuthProvider.github);
-		if (hasEnterpriseUri()) {
-			await this.initialize(AuthProvider['github-enterprise']);
-		}
+		return this.create();
+	}
+
+	public isAnyAuthenticated() {
+		return this.isAuthenticated(AuthProvider.github) || this.isAuthenticated(AuthProvider['github-enterprise']);
 	}
 
 	public isAuthenticated(authProviderId: AuthProvider): boolean {
