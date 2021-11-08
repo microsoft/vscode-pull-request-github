@@ -9,32 +9,30 @@ import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
 import { fromReviewUri } from '../common/uri';
 import { getRepositoryForFile } from '../github/utils';
+import { ReadonlyFileSystemProvider } from './readonlyFileSystemProvider';
 
-export class GitContentProvider implements vscode.TextDocumentContentProvider {
-	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
-	get onDidChange(): vscode.Event<vscode.Uri> {
-		return this._onDidChange.event;
-	}
-
+export class GitContentFileSystemProvider extends ReadonlyFileSystemProvider {
 	private _fallback?: (uri: vscode.Uri) => Promise<string>;
 
-	constructor(private gitAPI: GitApiImpl) {}
+	constructor(private gitAPI: GitApiImpl) {
+		super();
+	}
 
-	async provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): Promise<string> {
+	async readFile(uri: vscode.Uri): Promise<Uint8Array> {
 		if (!this._fallback) {
-			return '';
+			return new TextEncoder().encode('');
 		}
 
 		const { path, commit, rootPath } = fromReviewUri(uri.query);
 
 		if (!path || !commit) {
-			return '';
+			return new TextEncoder().encode('');
 		}
 
 		const repository = getRepositoryForFile(this.gitAPI, vscode.Uri.file(rootPath));
 		if (!repository) {
 			vscode.window.showErrorMessage(`We couldn't find an open repository for ${commit} locally.`);
-			return '';
+			return new TextEncoder().encode('');
 		}
 
 		const absolutePath = pathLib.join(repository.rootUri.fsPath, path).replace(/\\/g, '/');
@@ -60,7 +58,7 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider {
 			}
 		}
 
-		return content || '';
+		return new TextEncoder().encode(content || '');
 	}
 
 	registerTextDocumentContentFallback(provider: (uri: vscode.Uri) => Promise<string>) {

@@ -11,6 +11,7 @@ import Logger from '../common/logger';
 import { fromGitHubURI } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
+import { ReadonlyFileSystemProvider } from './readonlyFileSystemProvider';
 import { GitHubFileChangeNode } from './treeNodes/fileChangeNode';
 import { TreeNode } from './treeNodes/treeNode';
 
@@ -173,8 +174,29 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
  * Provides file contents for documents with GITHUB_FILE_SCHEME (githubpr) scheme. Contents are fetched from GitHub based on
  * information in the document's query string.
  */
-class GitHubContentProvider {
-	constructor(public gitHubRepository: GitHubRepository) { }
+class GitHubContentProvider extends ReadonlyFileSystemProvider {
+	constructor(public gitHubRepository: GitHubRepository) {
+		super();
+	}
+
+	async readFile(uri: any): Promise<Uint8Array> {
+		const params = fromGitHubURI(uri);
+		if (!params || params.isEmpty) {
+			return new TextEncoder().encode('');
+		}
+
+		const { octokit, remote } = await this.gitHubRepository.ensure();
+		const fileContent = await octokit.repos.getContent({
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			path: params.fileName,
+			ref: params.branch,
+		});
+
+		const contents = (fileContent.data as any).content ?? '';
+		const buff = buffer.Buffer.from(contents, (fileContent.data as any).encoding);
+		return buff;
+	}
 
 	async provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): Promise<string> {
 		const params = fromGitHubURI(uri);

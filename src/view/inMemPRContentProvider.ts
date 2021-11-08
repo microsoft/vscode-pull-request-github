@@ -6,33 +6,10 @@
 
 import * as vscode from 'vscode';
 import { fromPRUri } from '../common/uri';
+import { ReadonlyFileSystemProvider } from './readonlyFileSystemProvider';
 
-export class InMemPRContentProvider implements vscode.TextDocumentContentProvider {
-	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
-	get onDidChange(): vscode.Event<vscode.Uri> {
-		return this._onDidChange.event;
-	}
-
-	fireDidChange(uri: vscode.Uri) {
-		this._onDidChange.fire(uri);
-	}
-
+export class InMemPRFileSystemProvider extends ReadonlyFileSystemProvider {
 	private _prFileChangeContentProviders: { [key: number]: (uri: vscode.Uri) => Promise<string> } = {};
-
-	constructor() {}
-
-	async provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): Promise<string> {
-		const prUriParams = fromPRUri(uri);
-		if (prUriParams && prUriParams.prNumber) {
-			const provider = this._prFileChangeContentProviders[prUriParams.prNumber];
-
-			if (provider) {
-				return await provider(uri);
-			}
-		}
-
-		return '';
-	}
 
 	registerTextDocumentContentProvider(
 		prNumber: number,
@@ -46,10 +23,24 @@ export class InMemPRContentProvider implements vscode.TextDocumentContentProvide
 			},
 		};
 	}
+
+	async readFile(uri: any): Promise<Uint8Array> {
+		const prUriParams = fromPRUri(uri);
+		if (prUriParams && prUriParams.prNumber) {
+			const provider = this._prFileChangeContentProviders[prUriParams.prNumber];
+
+			if (provider) {
+				const content = await provider(uri);
+				return new TextEncoder().encode(content);
+			}
+		}
+
+		return new TextEncoder().encode('');
+	}
 }
 
-const inMemPRContentProvider = new InMemPRContentProvider();
+const inMemPRFileSystemProvider = new InMemPRFileSystemProvider();
 
-export function getInMemPRContentProvider(): InMemPRContentProvider {
-	return inMemPRContentProvider;
+export function getInMemPRFileSystemProvider(): InMemPRFileSystemProvider {
+	return inMemPRFileSystemProvider;
 }
