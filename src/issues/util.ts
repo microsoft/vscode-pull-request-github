@@ -511,7 +511,7 @@ export async function createGithubPermalink(
 }
 
 export function sanitizeIssueTitle(title: string): string {
-	const regex = /[~^:;'".,~#?%*[\]@\\{}]|\/\//g;
+	const regex = /[~^:;'".,~#?%*[\]@\\{}()]|\/\//g;
 
 	return title.replace(regex, '').trim().replace(/\s+/g, '-');
 }
