@@ -408,7 +408,7 @@
 				{
 					"id": "github:activePullRequest:welcome",
 					"name": "Active Pull Request",
-					"when": "!github:initialized && github:focusedReview"
+					"when": "!github:stateValidated && github:focusedReview"
 				}
 			]
 		},
@@ -816,7 +816,7 @@
 			},
 			{
 				"view": "github:activePullRequest:welcome",
-				"when": "!github:initialized",
+				"when": "!github:stateValidated",
 				"contents": "Loading..."
 			}
 		],

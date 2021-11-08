@@ -235,16 +235,21 @@ export class ReviewManager {
 		}
 		if (!this._validateStatusInProgress) {
 			Logger.appendLine('Review> Validate state in progress');
-			this._validateStatusInProgress = this.validateState(silent, openDiff);
+			this._validateStatusInProgress = this.validateStatueAndSetContext(silent, openDiff);
 			return this._validateStatusInProgress;
 		} else {
 			Logger.appendLine('Review> Queuing additional validate state');
 			this._validateStatusInProgress = this._validateStatusInProgress.then(async _ => {
-				return await this.validateState(silent, openDiff);
+				return await this.validateStatueAndSetContext(silent, openDiff);
 			});
 
 			return this._validateStatusInProgress;
 		}
+	}
+
+	private async validateStatueAndSetContext(silent: boolean, openDiff: boolean) {
+		await this.validateState(silent, openDiff);
+		await vscode.commands.executeCommand('setContext', 'github:stateValidated', true);
 	}
 
 	private async validateState(silent: boolean, openDiff: boolean) {
@@ -862,7 +867,7 @@ export class ReviewManager {
 
 	private async updateFocusedViewMode(): Promise<void> {
 		const focusedSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get('focusedMode');
-		if (focusedSetting && this._folderRepoManager.activePullRequest) {
+		if (focusedSetting) {
 			vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, true);
 			await this._context.workspaceState.update(FOCUS_REVIEW_MODE, true);
 		} else {
