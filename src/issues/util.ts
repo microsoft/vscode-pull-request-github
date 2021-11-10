@@ -488,7 +488,7 @@ export async function createGithubPermalink(
 		// Check fallback
 		upstream = await fallbackUpstream;
 		if (!upstream || !upstream.fetchUrl) {
-			return { permalink: undefined, error: 'There is no suitable remote.', originalFile: uri };
+			return { permalink: undefined, error: 'The selection may not exist on any remote.', originalFile: uri };
 		}
 	}
 	const pathSegment = uri.path.substring(repository.rootUri.path.length);
