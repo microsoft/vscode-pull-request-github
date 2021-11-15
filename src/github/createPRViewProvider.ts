@@ -357,7 +357,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 			const headRepo = this._folderRepositoryManager.findRepo(byRemoteName(remote!));
 			if (!headRepo) {
-				throw new Error(`Unable to find GitHub repository matching '${remote}'.`);
+				throw new Error(`Unable to find GitHub repository matching '${remote}'. You can add '${remote}' to the setting "githubPullRequests.remotes" to ensure '${remote}' is found.`);
 			}
 
 			const head = `${headRepo.remote.owner}:${branchName}`;
