@@ -19,7 +19,7 @@ function Diff({ hunks }: { hunks: DiffHunk[] }) {
 
 export default Diff;
 
-const Hunk = ({ hunk, maxLines = 4 }: { hunk: DiffHunk; maxLines?: number }) => (
+const Hunk = ({ hunk, maxLines = 8 }: { hunk: DiffHunk; maxLines?: number }) => (
 	<>
 		{hunk.diffLines.slice(-maxLines).map(line => (
 			<div key={keyForDiffLine(line)} className={`diffLine ${getDiffChangeClass(line.type)}`}>
