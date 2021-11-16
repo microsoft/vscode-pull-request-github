@@ -62,11 +62,11 @@ const CommitEventView = (event: CommitEvent) => (
 				<Avatar for={event.author} />
 			</div>
 			<AuthorLink for={event.author} />
-			<a className="message" href={event.htmlUrl}>
+			<a className="message" href={event.htmlUrl} title={event.htmlUrl}>
 				{event.message}
 			</a>
 		</div>
-		<a className="sha" href={event.htmlUrl}>
+		<a className="sha" href={event.htmlUrl} title={event.htmlUrl}>
 			{event.sha.slice(0, 7)}
 		</a>
 		{nbsp}
@@ -208,7 +208,7 @@ const MergedEventView = (event: MergedEvent) => (
 			<AuthorLink for={event.user} />
 			<div className="message">
 				merged commit{nbsp}
-				<a className="sha" href={event.commitUrl}>
+				<a className="sha" href={event.commitUrl} title={event.commitUrl}>
 					{event.sha.substr(0, 7)}
 				</a>
 				{nbsp}

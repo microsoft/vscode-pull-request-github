@@ -365,7 +365,7 @@ const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) => (
 						{s.context} {s.description ? `— ${s.description}` : ''}
 					</span>
 				</div>
-				{!!s.target_url ? <a href={s.target_url}>Details</a> : null}
+				{!!s.target_url ? <a href={s.target_url} title={s.target_url}>Details</a> : null}
 			</div>
 		))}
 	</div>
