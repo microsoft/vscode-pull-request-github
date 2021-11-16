@@ -4,11 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PullRequestDefaults } from '../github/folderRepositoryManager';
+import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IMilestone } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { MilestoneModel } from '../github/milestoneModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { extractIssueOriginFromQuery, NEW_ISSUE_SCHEME } from './issueFile';
 import { StateManager } from './stateManager';
 import {
 	getIssueNumberLabel,
@@ -52,8 +53,10 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		if (
 			position.character <= 6 &&
 			document.languageId === 'markdown' &&
-			document.getText(new vscode.Range(position.with(undefined, 0), position)) ===
-				new Array(position.character + 1).join('#')
+			(document.getText(new vscode.Range(position.with(undefined, 0), position)) ===
+				new Array(position.character + 1).join('#')) &&
+			document.uri.scheme !== 'comment' &&
+			context.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter
 		) {
 			return [];
 		}
@@ -96,18 +99,24 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 					  )?.uri
 					: undefined;
 		} else {
-			uri = vscode.workspace.getWorkspaceFolder(document.uri)?.uri;
+			uri = document.uri.scheme === NEW_ISSUE_SCHEME
+				? extractIssueOriginFromQuery(document.uri) ?? document.uri
+				: document.languageId === 'scminput'
+					? getRootUriFromScmInputUri(document.uri)
+					: document.uri;
 		}
 		if (!uri) {
 			return [];
 		}
 
+		let folderManager: FolderRepositoryManager | undefined;
 		try {
-			repo = await this.repositoriesManager.getManagerForFile(uri)?.getPullRequestDefaults();
+			folderManager = this.repositoriesManager.getManagerForFile(uri);
+			repo = await folderManager?.getPullRequestDefaults();
 		} catch (e) {
 			// leave repo undefined
 		}
-		const issueData = this.stateManager.getIssueCollection(uri);
+		const issueData = this.stateManager.getIssueCollection(folderManager?.repository.rootUri ?? uri);
 		for (const issueQuery of issueData) {
 			const issuesOrMilestones: IssueModel[] | MilestoneModel[] = (await issueQuery[1]) ?? [];
 			if (issuesOrMilestones.length === 0) {
