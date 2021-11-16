@@ -17,6 +17,7 @@ import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
+import { GitHubRepository } from './github/githubRepository';
 import { PullRequest } from './github/interface';
 import { GHPRComment, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
@@ -844,5 +845,36 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.collapseAllComments', () => {
 			sessionState.commentsExpandState = false;
+		}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.checkoutByNumber', async () => {
+
+			const githubRepositories: { manager: FolderRepositoryManager, repo: GitHubRepository }[] = [];
+			reposManager.folderManagers.forEach(manager => {
+				githubRepositories.push(...(manager.gitHubRepositories.map(repo => { return { manager, repo }; })));
+			});
+			const githubRepo = await chooseItem<{ manager: FolderRepositoryManager, repo: GitHubRepository }>(
+				githubRepositories,
+				itemValue => `${itemValue.repo.remote.owner}/${itemValue.repo.remote.repositoryName}`,
+				{ placeHolder: 'Which GitHub repository do you want to checkout the pull request from?' }
+			);
+			if (!githubRepo) {
+				return;
+			}
+			const prNumber = await vscode.window.showInputBox({
+				ignoreFocusOut: true, prompt: 'Enter the a pull request number',
+				validateInput: (input) => {
+					const asNumber = Number(input);
+					if (Number.isNaN(asNumber)) {
+						return 'Value must be a number';
+					}
+					return undefined;
+				}
+			});
+			if (prNumber === undefined) {
+				return;
+			}
+			return githubRepo.manager.checkoutById(githubRepo.repo, Number(prNumber));
 		}));
 }

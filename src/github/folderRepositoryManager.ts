@@ -1821,6 +1821,22 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return this.repository.checkout(branchName);
 	}
 
+	async checkoutById(githubRepo: GitHubRepository, id: number): Promise<void> {
+		const pullRequest = await githubRepo.getPullRequest(id);
+		if (pullRequest) {
+			try {
+				await this.fetchAndCheckout(pullRequest);
+			} catch (e) {
+				Logger.appendLine(e.stderr, 'FolderRepositoryManager');
+				if ((e.stderr as string).startsWith('fatal: couldn\'t find remote ref')) {
+					vscode.window.showErrorMessage(`The branch for request number ${id} has been deleted from ${githubRepo.remote.owner}/${githubRepo.remote.owner}`);
+				}
+			}
+		} else {
+			vscode.window.showErrorMessage(`Pull request number ${id} does not exist in ${githubRepo.remote.owner}/${githubRepo.remote.owner}`);
+		}
+	}
+
 	public async checkoutDefaultBranch(branch: string): Promise<void> {
 		try {
 			const branchObj = await this.repository.getBranch(branch);

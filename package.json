@@ -505,6 +505,12 @@
 				"category": "GitHub Pull Requests"
 			},
 			{
+				"command": "pr.checkoutByNumber",
+				"title": "Checkout Pull Request by Number",
+				"category": "GitHub Pull Requests",
+				"icon": "$(symbol-numeric)"
+			},
+			{
 				"command": "review.openFile",
 				"title": "Open File",
 				"icon": "$(go-to-file)"
@@ -1070,14 +1076,19 @@
 					"group": "navigation@1"
 				},
 				{
+					"command": "pr.checkoutByNumber",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
+					"group": "navigation@2"
+				},
+				{
 					"command": "pr.configurePRViewlet",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view =~ /(pr|issues):github/",
-					"group": "navigation@3"
+					"group": "navigation@4"
 				},
 				{
 					"command": "pr.refreshList",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
-					"group": "navigation@2"
+					"group": "navigation@3"
 				},
 				{
 					"command": "pr.refreshChanges",
