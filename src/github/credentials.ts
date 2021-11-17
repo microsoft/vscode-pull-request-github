@@ -62,18 +62,19 @@ export class CredentialStore implements vscode.Disposable {
 		);
 	}
 
-	public async initialize(authProviderId: AuthProvider, force: boolean = false): Promise<void> {
+	public async initialize(authProviderId: AuthProvider, getAuthSessionOptions?: vscode.AuthenticationGetSessionOptions): Promise<void> {
 		if (authProviderId === AuthProvider['github-enterprise']) {
 			if (!hasEnterpriseUri()) {
 				Logger.debug(`GitHub Enterprise provider selected without URI.`, 'Authentication');
 				return;
 			}
 		}
+		getAuthSessionOptions = { ...getAuthSessionOptions, ...{ createIfNone: false } };
 		let session;
 		try {
-			session = await vscode.authentication.getSession(authProviderId, SCOPES, { createIfNone: false, forceNewSession: force });
+			session = await vscode.authentication.getSession(authProviderId, SCOPES, getAuthSessionOptions);
 		} catch (e) {
-			if (force && (e.message === 'User did not consent to login.')) {
+			if (getAuthSessionOptions.forceNewSession && (e.message === 'User did not consent to login.')) {
 				// There are cases where a forced login may not be 100% needed, so just continue as usual if
 				// the user didn't consent to the login prompt.
 			} else {
@@ -100,19 +101,19 @@ export class CredentialStore implements vscode.Disposable {
 		}
 	}
 
-	private async doCreate(force?: boolean) {
-		await this.initialize(AuthProvider.github, force);
+	private async doCreate(options: vscode.AuthenticationGetSessionOptions) {
+		await this.initialize(AuthProvider.github, options);
 		if (hasEnterpriseUri()) {
-			await this.initialize(AuthProvider['github-enterprise'], force);
+			await this.initialize(AuthProvider['github-enterprise'], options);
 		}
 	}
 
-	public async create() {
-		this.doCreate();
+	public async create(options: vscode.AuthenticationGetSessionOptions = {}) {
+		this.doCreate(options);
 	}
 
 	public async recreate() {
-		return this.doCreate(true);
+		return this.doCreate({ forceNewSession: true });
 	}
 
 	public async reset() {
@@ -225,15 +226,6 @@ export class CredentialStore implements vscode.Disposable {
 		const github = this.getHub(authProviderId);
 		const octokit = github?.octokit;
 		return (octokit && github?.currentUser)!;
-	}
-
-	public async hasSession(authProviderId: AuthProvider): Promise<boolean> {
-		try {
-			return await vscode.authentication.hasSession(authProviderId, SCOPES);
-		} catch (e) {
-			// When the provider id is github-enterprise hasSession throws.
-			return false;
-		}
 	}
 
 	private async setCurrentUser(github: GitHub): Promise<void> {
