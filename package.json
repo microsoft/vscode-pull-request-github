@@ -519,7 +519,8 @@
 			},
 			{
 				"command": "review.suggestDiff",
-				"title": "Suggest Edit"
+				"title": "Suggest Edit",
+				"category": "GitHub Pull Requests"
 			},
 			{
 				"command": "pr.refreshList",

@@ -185,18 +185,19 @@ export function registerCommands(
 				await vscode.commands.executeCommand('git.unstageAll');
 
 				const tempFilePath = pathLib.join(
-					folderManager.repository.rootUri.path,
+					folderManager.repository.rootUri.fsPath,
 					'.git',
 					`${folderManager.activePullRequest.number}.diff`,
 				);
 				const encoder = new TextEncoder();
-				const tempUri = vscode.Uri.parse(tempFilePath);
+				const tempUri = vscode.Uri.file(tempFilePath);
 
 				await vscode.workspace.fs.writeFile(tempUri, encoder.encode(diff));
 				await folderManager.repository.apply(tempFilePath, true);
 				await vscode.workspace.fs.delete(tempUri);
 			} catch (err) {
-				Logger.appendLine(`Applying patch failed: ${err}`);
+				const moreError = `${err}${err.stderr ? `\n${err.stderr}` : ''}`;
+				Logger.appendLine(`Applying patch failed: ${moreError}`);
 				vscode.window.showErrorMessage(`Applying patch failed: ${formatError(err)}`);
 			}
 		}),
