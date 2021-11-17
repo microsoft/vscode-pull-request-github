@@ -10,7 +10,9 @@
 	"bugs": {
 		"url": "https://github.com/Microsoft/vscode-pull-request-github/issues"
 	},
-	"enableProposedApi": true,
+	"enabledApiProposals": [
+		"tokenInformation"
+	],
 	"preview": true,
 	"version": "0.32.0",
 	"publisher": "GitHub",
