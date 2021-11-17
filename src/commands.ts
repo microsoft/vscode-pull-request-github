@@ -172,7 +172,7 @@ export function registerCommands(
 
 				const diff = await folderManager.repository.diff(true);
 
-				let suggestEditMessage = '';
+				let suggestEditMessage = 'Suggested edit:\n';
 				if (e && e.inputBox && e.inputBox.value) {
 					suggestEditMessage = `${e.inputBox.value}\n`;
 					e.inputBox.value = '';
