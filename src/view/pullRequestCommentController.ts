@@ -303,8 +303,15 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				await this.pullRequestModel.submitReview();
 			}
 		} catch (e) {
-			vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
-
+			if (e.graphQLErrors?.length && e.graphQLErrors[0].type === 'NOT_FOUND') {
+				vscode.window.showWarningMessage('The comment that you\'re replying to was deleted. Refresh to update.', 'Refresh').then(result => {
+					if (result === 'Refresh') {
+						this.pullRequestModel.inValidate();
+					}
+				});
+			} else {
+				vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
+			}
 			thread.comments = thread.comments.map(c => {
 				if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
 					c.mode = vscode.CommentMode.Editing;
