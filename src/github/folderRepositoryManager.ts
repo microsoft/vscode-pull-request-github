@@ -213,11 +213,15 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return Promise.resolve([]);
 		}
 
-		remotesSetting.forEach(remote => {
-			if (!allGitHubRemotes.some(repo => repo.remoteName === remote)) {
-				Logger.appendLine(`No remote with name '${remote}' found.`);
-			}
+		const missingRemotes = remotesSetting.filter(remote => {
+			return !allGitHubRemotes.some(repo => repo.remoteName === remote);
 		});
+
+		if (missingRemotes.length === remotesSetting.length) {
+			Logger.appendLine(`No remotes found. The following remotes are missing: ${missingRemotes.join(', ')}`);
+		} else {
+			Logger.debug(`Not all remotes found. The following remotes are missing: ${missingRemotes.join(', ')}`, FolderRepositoryManager.ID);
+		}
 
 		Logger.debug(`Displaying configured remotes: ${remotesSetting.join(', ')}`, FolderRepositoryManager.ID);
 
