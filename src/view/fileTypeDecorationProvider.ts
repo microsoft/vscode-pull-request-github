@@ -29,6 +29,7 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 			return {
 				propagate: false,
 				badge: this.letter(fileChangeUriParams.status),
+				color: this.color(fileChangeUriParams.status)
 			};
 		}
 
@@ -38,10 +39,36 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 			return {
 				propagate: false,
 				badge: this.letter(prParams.status),
+				color: this.color(prParams.status)
 			};
 		}
 
 		return undefined;
+	}
+
+	color(status: GitChangeType): vscode.ThemeColor | undefined {
+		let color: string | undefined;
+		switch (status) {
+			case GitChangeType.MODIFY:
+				color = 'gitDecoration.modifiedResourceForeground';
+				break;
+			case GitChangeType.ADD:
+				color = 'gitDecoration.addedResourceForeground';
+				break;
+			case GitChangeType.DELETE:
+				color = 'gitDecoration.deletedResourceForeground';
+				break;
+			case GitChangeType.RENAME:
+				color = 'gitDecoration.renamedResourceForeground';
+				break;
+			case GitChangeType.UNKNOWN:
+				color = undefined;
+				break;
+			case GitChangeType.UNMERGED:
+				color = 'gitDecoration.conflictingResourceForeground';
+				break;
+		}
+		return color ? new vscode.ThemeColor(color) : undefined;
 	}
 
 	letter(status: GitChangeType): string {
