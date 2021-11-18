@@ -36,7 +36,6 @@ export type ParsedIssue = {
 export const ISSUES_CONFIGURATION: string = 'githubIssues';
 export const QUERIES_CONFIGURATION = 'queries';
 export const DEFAULT_QUERY_CONFIGURATION = 'default';
-export const BRANCH_NAME_CONFIGURATION_DEPRECATED = 'workingIssueBranch';
 export const BRANCH_NAME_CONFIGURATION = 'issueBranchTitle';
 export const BRANCH_CONFIGURATION = 'useBranchForIssues';
 export const SCM_MESSAGE_CONFIGURATION = 'workingIssueFormatScm';

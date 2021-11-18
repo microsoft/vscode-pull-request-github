@@ -12,7 +12,6 @@ import { IssueState, StateManager } from './stateManager';
 import {
 	BRANCH_CONFIGURATION,
 	BRANCH_NAME_CONFIGURATION,
-	BRANCH_NAME_CONFIGURATION_DEPRECATED,
 	ISSUES_CONFIGURATION,
 	SCM_MESSAGE_CONFIGURATION,
 	variableSubstitution,
@@ -148,23 +147,7 @@ export class CurrentIssue {
 		return this.user;
 	}
 
-	// TODO: #1972 Delete the deprecated setting
-	private async ensureBranchTitleConfigMigrated(): Promise<string> {
-		const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION);
-		const deprecatedConfigInspect = configuration.inspect(BRANCH_NAME_CONFIGURATION_DEPRECATED);
-		async function migrate(value: any, target: vscode.ConfigurationTarget) {
-			await configuration.update(BRANCH_NAME_CONFIGURATION, value, target);
-			await configuration.update(BRANCH_NAME_CONFIGURATION_DEPRECATED, undefined, target);
-		}
-		if (deprecatedConfigInspect?.globalValue) {
-			await migrate(deprecatedConfigInspect.globalValue, vscode.ConfigurationTarget.Global);
-		}
-		if (deprecatedConfigInspect?.workspaceValue) {
-			await migrate(deprecatedConfigInspect.workspaceValue, vscode.ConfigurationTarget.Workspace);
-		}
-		if (deprecatedConfigInspect?.workspaceFolderValue) {
-			await migrate(deprecatedConfigInspect.workspaceFolderValue, vscode.ConfigurationTarget.WorkspaceFolder);
-		}
+	private async getBranchTitle(): Promise<string> {
 		return (
 			vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get<string>(BRANCH_NAME_CONFIGURATION) ??
 			this.getBasicBranchName(await this.getUser())
@@ -202,7 +185,7 @@ export class CurrentIssue {
 		const state: IssueState = this.stateManager.getSavedIssueState(this.issueModel.number);
 		this._branchName = this.shouldPromptForBranch ? undefined : state.branch;
 		const branchNameConfig = await variableSubstitution(
-			await this.ensureBranchTitleConfigMigrated(),
+			await this.getBranchTitle(),
 			this.issue,
 			undefined,
 			await this.getUser(),
