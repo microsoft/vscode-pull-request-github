@@ -107,6 +107,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _onDidChangeFileViewedState = new vscode.EventEmitter<FileViewedStateChangeEvent>();
 	public onDidChangeFileViewedState = this._onDidChangeFileViewedState.event;
 
+	private _onDidInvalidate = new vscode.EventEmitter<void>();
+	public onDidInvalidate = this._onDidInvalidate.event;
+
 	// Whether the pull request is currently checked out locally
 	public isActive: boolean;
 	_telemetry: ITelemetry;
@@ -124,6 +127,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		this.isActive = !!isActive;
 
 		this.update(item);
+	}
+
+	public async inValidate() {
+		// Something about the PR data is stale
+		this._onDidInvalidate.fire();
 	}
 
 	public async initializeReviewThreadCache(): Promise<void> {

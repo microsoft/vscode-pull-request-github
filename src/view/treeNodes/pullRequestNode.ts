@@ -48,6 +48,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 	// #region Tree
 	async getChildren(): Promise<TreeNode[]> {
 		Logger.debug(`Fetch children of PRNode #${this.pullRequestModel.number}`, PRNode.ID);
+		this.pullRequestModel.onDidInvalidate(() => this.refresh(this));
+
 		try {
 			if (this.childrenDisposables && this.childrenDisposables.length) {
 				this.childrenDisposables.forEach(dp => dp.dispose());
