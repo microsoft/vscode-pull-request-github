@@ -625,24 +625,26 @@ export class ReviewManager {
 
 			if (e.message === 'User aborted') {
 				// The user cancelled the action
-				return;
-			}
-
-			if (e.gitErrorCode) {
+			} else if (e.gitErrorCode && (
+				e.gitErrorCode === GitErrorCodes.LocalChangesOverwritten ||
+				e.gitErrorCode === GitErrorCodes.DirtyWorkTree
+			)) {
 				// for known git errors, we should provide actions for users to continue.
-				if (
-					e.gitErrorCode === GitErrorCodes.LocalChangesOverwritten ||
-					e.gitErrorCode === GitErrorCodes.DirtyWorkTree
-				) {
-					vscode.window.showErrorMessage(
-						'Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches',
-					);
-					return;
-				}
+				vscode.window.showErrorMessage(
+					'Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches',
+				);
+			} else if ((e.stderr as string).startsWith('fatal: couldn\'t find remote ref')) {
+				vscode.window.showErrorMessage('The remote branch for this pull request has been deleted. The pull request cannot be checked out.');
+			} else {
+				vscode.window.showErrorMessage(formatError(e));
 			}
-
-			vscode.window.showErrorMessage(formatError(e));
 			// todo, we should try to recover, for example, git checkout succeeds but set config fails.
+			if (this._folderRepoManager.activePullRequest) {
+				this.setStatusForPr(this._folderRepoManager.activePullRequest);
+			} else {
+				this.statusBarItem.hide();
+				this.switchingToReviewMode = false;
+			}
 			return;
 		}
 
@@ -659,13 +661,17 @@ export class ReviewManager {
 			this._telemetry.sendTelemetryEvent('pr.checkout');
 			Logger.appendLine(`Review> switch to Pull Request #${pr.number} - done`, ReviewManager.ID);
 		} finally {
-			this.switchingToReviewMode = false;
-			this.justSwitchedToReviewMode = true;
-			this.statusBarItem.text = `Pull Request #${pr.number}`;
-			this.statusBarItem.command = undefined;
-			this.statusBarItem.show();
+			this.setStatusForPr(pr);
 			await this._repository.status();
 		}
+	}
+
+	private setStatusForPr(pr: PullRequestModel) {
+		this.switchingToReviewMode = false;
+		this.justSwitchedToReviewMode = true;
+		this.statusBarItem.text = `Pull Request #${pr.number}`;
+		this.statusBarItem.command = undefined;
+		this.statusBarItem.show();
 	}
 
 	public async publishBranch(branch: Branch): Promise<Branch | undefined> {
