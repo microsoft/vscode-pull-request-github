@@ -197,7 +197,7 @@ export class ReviewManager {
 		}, 1000 * 60 * 5);
 	}
 
-	private async checkBranchUpToDate(pr: IResolvedPullRequestModel): Promise<void> {
+	private async checkBranchUpToDate(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
 		const branch = this._repository.state.HEAD;
 		if (branch) {
 			const remote = branch.upstream ? branch.upstream.remote : null;
@@ -212,7 +212,7 @@ export class ReviewManager {
 					const pull = 'Pull';
 					const never = 'Never show again';
 					const result = await vscode.window.showInformationMessage(
-						'There are updates available for this pull request.',
+						`There are updates available for pull request ${pr.number}: ${pr.title}.`,
 						{},
 						pull,
 						never
@@ -220,7 +220,7 @@ export class ReviewManager {
 
 					if (result === pull) {
 						if (this._repository.state.HEAD?.name === branch.name) {
-							await vscode.commands.executeCommand('git.pull');
+							await this._repository.pull();
 						}
 						this._updateMessageShown = false;
 					} else if (never) {
