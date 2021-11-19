@@ -1316,7 +1316,7 @@
 				},
 				{
 					"command": "pr.create",
-					"when": "scmProvider =~ /^git|^remoteHub:/",
+					"when": "scmProvider =~ /^git|^remoteHub:/ && !github:inReviewMode",
 					"group": "navigation"
 				}
 			],
