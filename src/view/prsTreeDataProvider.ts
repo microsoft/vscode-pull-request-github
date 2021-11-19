@@ -164,7 +164,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
 		if (!this._reposManager) {
 			if (!vscode.workspace.workspaceFolders) {
-				return Promise.resolve([new PRCategoryActionNode(this, PRCategoryActionType.NoOpenFolder)]);
+				return [];
 			} else {
 				return Promise.resolve([new PRCategoryActionNode(this, PRCategoryActionType.NoGitRepositories)]);
 			}

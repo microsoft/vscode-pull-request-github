@@ -810,13 +810,23 @@
 			},
 			{
 				"view": "pr:github",
-				"when": "!github:initialized",
+				"when": "!github:initialized && workspaceFolderCount > 0",
+				"contents": "Loading..."
+			},
+			{
+				"view": "pr:github",
+				"when": "!github:initialized && workspaceFolderCount == 0",
+				"contents": "You have not yet opened a folder."
+			},
+			{
+				"view": "issues:github",
+				"when": "!github:initialized && workspaceFolderCount > 0",
 				"contents": "Loading..."
 			},
 			{
 				"view": "issues:github",
-				"when": "!github:initialized",
-				"contents": "Loading..."
+				"when": "!github:initialized && workspaceFolderCount == 0",
+				"contents": "You have not yet opened a folder."
 			},
 			{
 				"view": "github:activePullRequest:welcome",
