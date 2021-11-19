@@ -8,6 +8,10 @@ import { ITelemetry } from '../common/telemetry';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { shouldShowHover, USER_EXPRESSION, userMarkdown } from './util';
 
+
+// https://jsdoc.app/index.html
+const JSDOC_NON_USERS = ['abstract', 'access', 'alias', 'async', 'augments', 'author', 'borrows', 'callback', 'class', 'classdesc', 'constant', 'constructs', 'copyright', 'default', 'deprecated', 'description', 'enum', 'event', 'example', 'exports', 'external', 'host', 'file', 'fires', 'function', 'generator', 'global', 'hideconstructor', 'ignore', 'implements', 'inheritdoc', 'inner', 'instance', 'interface', 'kind', 'lends', 'license', 'listens', 'member', 'memberof', 'mixes', 'mixin', 'module', 'name', 'namespace', 'override', 'package', 'param', 'private', 'property', 'protected', 'public', 'readonly', 'requires', 'returns', 'see', 'since', 'static', 'summary', 'this', 'throws', 'exception', 'todo', 'tutorial', 'type', 'typedef', 'variation', 'version', 'yields', 'yield', 'link'];
+
 export class UserHoverProvider implements vscode.HoverProvider {
 	constructor(private manager: RepositoriesManager, private telemetry: ITelemetry) {}
 
@@ -29,7 +33,13 @@ export class UserHoverProvider implements vscode.HoverProvider {
 			const word = document.getText(wordPosition);
 			const match = word.match(USER_EXPRESSION);
 			if (match) {
-				return this.createHover(document.uri, match[1], wordPosition);
+				const username = match[1];
+				// JS and TS doc checks
+				if (((document.languageId === 'javascript') || (document.languageId === 'typescript'))
+					&& JSDOC_NON_USERS.indexOf(username) >= 0) {
+					return;
+				}
+				return this.createHover(document.uri, username, wordPosition);
 			}
 		} else {
 			return;
