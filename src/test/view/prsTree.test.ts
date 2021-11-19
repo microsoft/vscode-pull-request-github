@@ -125,9 +125,7 @@ describe('GitHub Pull Requests view', function () {
 			telemetry,
 			mockSessionState
 		);
-		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
-			return new MockGitHubRepository(remote, cStore, telemetry, sinon);
-		});
+
 		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 		await manager.folderManagers[0].updateRepositories();
 		provider.initialize(manager);
