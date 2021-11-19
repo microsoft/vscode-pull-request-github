@@ -219,7 +219,9 @@ export class ReviewManager {
 					);
 
 					if (result === pull) {
-						await vscode.commands.executeCommand('git.pull');
+						if (this._repository.state.HEAD?.name === branch.name) {
+							await vscode.commands.executeCommand('git.pull');
+						}
 						this._updateMessageShown = false;
 					} else if (never) {
 						await this._context.globalState.update(NEVER_SHOW_PULL_NOTIFICATION, true);
