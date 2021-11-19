@@ -657,7 +657,7 @@ export class GitHubRepository implements vscode.Disposable {
 			model.update(pullRequest);
 		} else {
 			model = new PullRequestModel(this._telemetry, this, this.remote, pullRequest);
-			model.onDidInvalidate(() => this.getPullRequest(pullRequest.id));
+			model.onDidInvalidate(() => this.getPullRequest(pullRequest.number));
 			this._pullRequestModels.set(pullRequest.number, model);
 		}
 

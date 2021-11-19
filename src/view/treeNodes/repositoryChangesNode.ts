@@ -28,7 +28,8 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 		private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
 	) {
 		super(parent, _pullRequest.title, _pullRequest.userAvatarUri!, _pullRequest);
-		this.label = this._pullRequest.title;
+		// Cause tree values to be filled
+		this.getTreeItem();
 
 		this._disposables.push(
 			vscode.window.onDidChangeActiveTextEditor(e => {
@@ -43,6 +44,10 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 				this.revealActiveEditorInTree(activeEditorUri);
 			}),
 		);
+
+		this._disposables.push(_pullRequest.onDidInvalidate(() => {
+			this.refresh();
+		}));
 	}
 
 	private revealActiveEditorInTree(activeEditorUri: string | undefined): void {
@@ -68,6 +73,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	}
 
 	getTreeItem(): vscode.TreeItem {
+		this.label = this._pullRequest.title;
 		return this;
 	}
 

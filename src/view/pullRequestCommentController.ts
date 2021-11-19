@@ -306,7 +306,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			if (e.graphQLErrors?.length && e.graphQLErrors[0].type === 'NOT_FOUND') {
 				vscode.window.showWarningMessage('The comment that you\'re replying to was deleted. Refresh to update.', 'Refresh').then(result => {
 					if (result === 'Refresh') {
-						this.pullRequestModel.inValidate();
+						this.pullRequestModel.invalidate();
 					}
 				});
 			} else {

@@ -1871,13 +1871,30 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 	}
 
-	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
-		return new GitHubRepository(remote, credentialStore, this.telemetry, this._sessionState);
+	private findExistingGitHubRepository(remote: {owner: string, repositoryName: string}): GitHubRepository | undefined {
+		return this._githubRepositories.find(
+			r => r.remote.owner === remote.owner && r.remote.repositoryName === remote.repositoryName,
+		);
 	}
 
-	createGitHubRepositoryFromOwnerName(owner: string, name: string): GitHubRepository {
-		const uri = `https://github.com/${owner}/${name}`;
-		return new GitHubRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore, this.telemetry, this._sessionState);
+	private createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore) {
+		const repo = new GitHubRepository(remote, credentialStore, this.telemetry, this._sessionState);
+		this._githubRepositories.push(repo);
+		return repo;
+	}
+
+	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
+		return this.findExistingGitHubRepository(remote) ??
+			this.createAndAddGitHubRepository(remote, credentialStore);
+	}
+
+	createGitHubRepositoryFromOwnerName(owner: string, repositoryName: string): GitHubRepository {
+		const existing = this.findExistingGitHubRepository({owner, repositoryName});
+		if (existing) {
+			return existing;
+		}
+		const uri = `https://github.com/${owner}/${repositoryName}`;
+		return this.createAndAddGitHubRepository(new Remote(repositoryName, uri, new Protocol(uri)), this._credentialStore);
 	}
 
 	async findUpstreamForItem(item: {
