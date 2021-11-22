@@ -42,6 +42,8 @@ import {
 const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
 const USER_COMPLETIONS_CONFIGURATION = 'userCompletions.enabled';
 
+const CREATING_ISSUE_FROM_FILE_CONTEXT = 'issues.creatingFromFile';
+
 export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
 	private createIssueInfo:
@@ -333,12 +335,14 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(
 			vscode.commands.registerCommand(
 				'issue.createIssueFromFile',
-				() => {
+				async () => {
 					/* __GDPR__
 				"issue.createIssueFromFile" : {}
 			*/
 					this.telemetry.sendTelemetryEvent('issue.createIssueFromFile');
-					return this.createIssueFromFile();
+					await vscode.commands.executeCommand('setContext', CREATING_ISSUE_FROM_FILE_CONTEXT, true);
+					await this.createIssueFromFile();
+					await vscode.commands.executeCommand('setContext', CREATING_ISSUE_FROM_FILE_CONTEXT, false);
 				},
 				this,
 			),

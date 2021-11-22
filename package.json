@@ -776,7 +776,8 @@
 			{
 				"command": "issue.createIssueFromFile",
 				"title": "Create Issue",
-				"icon": "$(check)"
+				"icon": "$(check)",
+				"enablement": "!issues.creatingFromFile"
 			},
 			{
 				"command": "issue.issueCompletion",
