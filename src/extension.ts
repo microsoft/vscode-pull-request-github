@@ -75,7 +75,15 @@ async function init(
 				return;
 			}
 
-			if (!folderManagers.find(manager => manager.gitHubRepositories.length > 0)) {
+			const folderManager = folderManagers.find(
+				manager => manager.repository.rootUri.toString() === e.repository.rootUri.toString());
+
+			if (!folderManager || folderManager.gitHubRepositories.length === 0) {
+				return;
+			}
+
+			const defaults = await folderManager.getPullRequestDefaults();
+			if (defaults.base === e.branch) {
 				return;
 			}
 
