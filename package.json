@@ -842,6 +842,7 @@
 			},
 			{
 				"key": "ctrl+s",
+				"mac": "cmd+s",
 				"command": "issue.createIssueFromFile",
 				"when": "resourceScheme == newIssue && config.files.autoSave != off"
 			}
