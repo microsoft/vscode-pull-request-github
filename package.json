@@ -995,6 +995,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.markFileAsViewed",
+					"when": "false"
+				},
+				{
 					"command": "issue.openIssue",
 					"when": "false"
 				},
