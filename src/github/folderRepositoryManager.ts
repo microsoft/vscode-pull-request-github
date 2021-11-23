@@ -1874,9 +1874,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 	}
 
-	private findExistingGitHubRepository(remote: {owner: string, repositoryName: string}): GitHubRepository | undefined {
+	private findExistingGitHubRepository(remote: { owner: string, repositoryName: string, remoteName?: string }): GitHubRepository | undefined {
 		return this._githubRepositories.find(
-			r => r.remote.owner === remote.owner && r.remote.repositoryName === remote.repositoryName,
+			r =>
+				(r.remote.owner === remote.owner)
+				&& (r.remote.repositoryName === remote.repositoryName)
+				&& (!remote.remoteName || (r.remote.remoteName === remote.remoteName)),
 		);
 	}
 
