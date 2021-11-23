@@ -1760,7 +1760,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			});
 			return parseGraphQLUser(data, githubRepository);
 		} catch (e) {
-			console.log(e);
+			// Ignore cases where the user doesn't exist
+			if (!(e.message as string).startsWith('GraphQL error: Could not resolve to a User with the login of')) {
+				Logger.appendLine(e.message);
+			}
 		}
 		return undefined;
 	}
