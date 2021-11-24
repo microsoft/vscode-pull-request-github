@@ -328,7 +328,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 
 		const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
-		const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
+		const assignableUsers = allAssignableUsers[this._item.remote.remoteName] ?? [];
 
 		// used to track logins that shouldn't be added to pick list
 		// e.g. author, existing and already added reviewers
