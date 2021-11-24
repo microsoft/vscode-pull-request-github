@@ -146,12 +146,12 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					);
 				}
 
+				this._item = pullRequest;
 				if (!this._view) {
 					// If the there is no PR webview, then there is nothing else to update.
 					return;
 				}
 
-				this._item = pullRequest;
 				this._view.title = `${pullRequest.title} #${pullRequestModel.number.toString()}`;
 
 				const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
