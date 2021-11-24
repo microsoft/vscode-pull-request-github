@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
+import Logger from '../common/logger';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { DescriptionNode } from './treeNodes/descriptionNode';
@@ -86,7 +87,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		this._onDidChangeTreeData.fire();
 
 		if (shouldReveal) {
-			this._view.reveal(node);
+			this.reveal(node);
 		}
 	}
 
@@ -115,7 +116,11 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		element: TreeNode,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
 	): Promise<void> {
-		this._view.reveal(element, options);
+		try {
+			await this._view.reveal(element, options);
+		} catch (e) {
+			Logger.appendLine(e, 'PullRequestChangesTreeDataProvider');
+		}
 	}
 
 	async getChildren(element?: GitFileChangeNode): Promise<TreeNode[]> {
