@@ -11,8 +11,7 @@ const minor = stableVersion[2];
 let patch = argv['v'];
 if (typeof patch !== 'string') {
 	const date = new Date();
-	const monthMinutes = (date.getDate() - 1) * 24 * 60 + date.getHours() * 60 + date.getMinutes();
-	patch = `${date.getFullYear()}${date.getMonth() + 1}${monthMinutes}`;
+	patch = `${date.getFullYear()}${date.getMonth() + 1}${date.getDate()}${date.getHours()}`;
 }
 
 // The stable version should always be <major>.<minor_even_number>.patch
