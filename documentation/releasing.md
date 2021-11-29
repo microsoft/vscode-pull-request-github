@@ -2,6 +2,7 @@
 
 1. Edit version in [package.json](https://github.com/Microsoft/vscode-pull-request-github/blob/main/package.json)
     - Update version of the extension - this is usually the minor version.
+	**Until the marketplace supports semantic versioning, the minor version should always be an event number. Odd numbers are reserved for the pre-release version of the extension.**
     - (If necessary) Update vscode engine version
 
 
