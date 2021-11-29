@@ -49,7 +49,7 @@ jobs:
 
       - script: >
           node ./scripts/prepare-nightly-build.js
-          -v "$VERSION""
+          -v "$VERSION"
         displayName: Generate package.json
 
       - script: |
