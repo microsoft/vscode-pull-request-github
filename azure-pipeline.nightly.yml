@@ -55,8 +55,6 @@ jobs:
       - script: |
           mv ./package.json ./package.json.bak
           mv ./package.insiders.json ./package.json
-          mv ./README.md ./README.md.bak
-          mv ./README.insiders.md ./README.md
           npx vsce publish --pre-release -p "$TOKEN" --yarn --noVerify
         displayName: Publish
         env:

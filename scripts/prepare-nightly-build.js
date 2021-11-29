@@ -21,16 +21,3 @@ const insiderPackageJson = Object.assign(json, {
 });
 
 fs.writeFileSync('./package.insiders.json', JSON.stringify(insiderPackageJson));
-
-const readme = fs.readFileSync('./README.md');
-const previewReadme = `
-> **This pre-release version now uses VS Code's pre-release extension support. If you used the old nightly build of this extension you have been automatically updated to this version and the old extension state was not migrated. Thank you for helping make GitHub Pull Requests and Issues better!**
-
-# GitHub Pull Request Pre-release Build
-
-This is the nightly build of [GitHub Pull Request extension](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github) for early feedback and testing.
-
-${readme}
-`;
-
-fs.writeFileSync('./README.insiders.md', previewReadme);
