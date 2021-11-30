@@ -246,8 +246,9 @@ export function AddComment({
 	const form = useRef<HTMLFormElement>();
 	const textareaRef = useRef<HTMLTextAreaElement>();
 
-	emitter.addListener('quoteReply', message => {
-		updatePR({ pendingCommentText: `> ${message} \n\n` });
+	emitter.addListener('quoteReply', (message: string) => {
+		const quoted = message.replace(/\n\n/g, '\n\n> ');
+		updatePR({ pendingCommentText: `> ${quoted} \n\n` });
 		textareaRef.current.scrollIntoView();
 		textareaRef.current.focus();
 	});
