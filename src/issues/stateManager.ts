@@ -5,6 +5,7 @@
 
 import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
+import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { parseRepositoryRemotes } from '../common/remote';
 import { AuthProvider } from '../github/credentials';
@@ -143,35 +144,46 @@ export class StateManager {
 	}
 
 	private registerRepositoryChangeEvent() {
-		this.gitAPI.repositories.forEach(repository => {
+		async function updateRepository(repository: Repository) {
+			const state = this.getOrCreateSingleRepoState(repository.rootUri);
+			// setIssueData can cause the last head and branch state to change. Capture them before that can happen.
+			const oldHead = state.lastHead;
+			const oldBranch = state.lastBranch;
+			const newHead = repository.state.HEAD ? repository.state.HEAD.commit : undefined;
+			if ((repository.state.HEAD ? repository.state.HEAD.commit : undefined) !== oldHead) {
+				await this.setIssueData(state.folderManager);
+			}
+
+			const newBranch = repository.state.HEAD?.name;
+			if (
+				(oldHead !== newHead || oldBranch !== newBranch) &&
+				(!state.currentIssue || newBranch !== state.currentIssue.branchName)
+			) {
+				if (newBranch) {
+					if (state.folderManager) {
+						await this.setCurrentIssueFromBranch(state, newBranch);
+					}
+				} else {
+					await this.setCurrentIssue(state, undefined);
+				}
+			}
+			state.lastHead = repository.state.HEAD ? repository.state.HEAD.commit : undefined;
+			state.lastBranch = repository.state.HEAD ? repository.state.HEAD.name : undefined;
+		}
+
+		function addChangeEvent(repository: Repository) {
 			this.context.subscriptions.push(
 				repository.state.onDidChange(async () => {
-					const state = this.getOrCreateSingleRepoState(repository.rootUri);
-					// setIssueData can cause the last head and branch state to change. Capture them before that can happen.
-					const oldHead = state.lastHead;
-					const oldBranch = state.lastBranch;
-					const newHead = repository.state.HEAD ? repository.state.HEAD.commit : undefined;
-					if ((repository.state.HEAD ? repository.state.HEAD.commit : undefined) !== oldHead) {
-						await this.setIssueData(state.folderManager);
-					}
-
-					const newBranch = repository.state.HEAD?.name;
-					if (
-						(oldHead !== newHead || oldBranch !== newBranch) &&
-						(!state.currentIssue || newBranch !== state.currentIssue.branchName)
-					) {
-						if (newBranch) {
-							if (state.folderManager) {
-								await this.setCurrentIssueFromBranch(state, newBranch);
-							}
-						} else {
-							await this.setCurrentIssue(state, undefined);
-						}
-					}
-					state.lastHead = repository.state.HEAD ? repository.state.HEAD.commit : undefined;
-					state.lastBranch = repository.state.HEAD ? repository.state.HEAD.name : undefined;
 				}),
 			);
+		}
+
+		this.context.subscriptions.push(this.gitAPI.onDidOpenRepository(repository => {
+			updateRepository(repository);
+			addChangeEvent(repository);
+		}));
+		this.gitAPI.repositories.forEach(repository => {
+			addChangeEvent(repository);
 		});
 	}
 
