@@ -13,7 +13,6 @@
 	"enabledApiProposals": [
 		"tokenInformation"
 	],
-	"preview": true,
 	"version": "0.32.0",
 	"publisher": "GitHub",
 	"engines": {
