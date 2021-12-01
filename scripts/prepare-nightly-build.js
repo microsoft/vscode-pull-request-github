@@ -6,12 +6,22 @@ const stableVersion = json.version.match(/(\d+)\.(\d+)\.(\d+)/);
 const major = stableVersion[1];
 const minor = stableVersion[2];
 
+function prependZero(number) {
+	if (number > 99) {
+		throw 'Unexpected value to prepend with zero';
+	}
+	return `${number < 10 ? '0' : ''}${number}`;
+}
+
 // update name, publisher and description
 // calculate version
 let patch = argv['v'];
 if (typeof patch !== 'string') {
 	const date = new Date();
-	patch = `${date.getFullYear()}${date.getMonth() + 1}${date.getDate()}${date.getHours()}`;
+	const month = date.getMonth() + 1;
+	const day = date.getDate();
+	const hours = date.getHours();
+	patch = `${date.getFullYear()}${prependZero(month)}${prependZero(day)}${prependZero(hours)}`;
 }
 
 // The stable version should always be <major>.<minor_even_number>.patch
