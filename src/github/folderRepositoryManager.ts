@@ -1840,7 +1840,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				}
 			}
 		} else {
-			vscode.window.showErrorMessage(`Pull request number ${id} does not exist in ${githubRepo.remote.owner}/${githubRepo.remote.owner}`);
+			vscode.window.showErrorMessage(`Pull request number ${id} does not exist in ${githubRepo.remote.owner}/${githubRepo.remote.repositoryName}`, { modal: true });
 		}
 	}
 
