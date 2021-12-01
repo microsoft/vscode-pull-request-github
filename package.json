@@ -1402,7 +1402,8 @@
 			"comments/commentThread/title": [
 				{
 					"command": "pr.collapseAllComments",
-					"group": "collapse@0"
+					"group": "collapse@0",
+					"when": "commentController =~ /^github-(browse|review)/"
 				}
 			],
 			"comments/comment/context": [
