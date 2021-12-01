@@ -257,6 +257,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	return apiImpl;
 }
 
+async function doRegisterBuiltinGitProvider(context: vscode.ExtensionContext, credentialStore: CredentialStore, apiImpl: GitApiImpl): Promise<boolean> {
+	const builtInGitProvider = await registerBuiltinGitProvider(credentialStore, apiImpl);
+	if (builtInGitProvider) {
+		context.subscriptions.push(builtInGitProvider);
+		return true;
+	}
+	return false;
+}
+
 async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitApiImpl, showPRController: ShowPullRequest) {
 	Logger.debug('Initializing state.', 'Activation');
 	PersistentState.init(context);
@@ -267,9 +276,13 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	await credentialStore.create({ silent: true });
 
 	Logger.debug('Registering built in git provider.', 'Activation');
-	const builtInGitProvider = await registerBuiltinGitProvider(credentialStore, apiImpl);
-	if (builtInGitProvider) {
-		context.subscriptions.push(builtInGitProvider);
+	if (!(await doRegisterBuiltinGitProvider(context, credentialStore, apiImpl))) {
+		const extensionsChangedDisposable = vscode.extensions.onDidChange(async () => {
+			if (await doRegisterBuiltinGitProvider(context, credentialStore, apiImpl)) {
+				extensionsChangedDisposable.dispose();
+			}
+		});
+		context.subscriptions.push(extensionsChangedDisposable);
 	}
 
 	Logger.debug('Registering live share git provider.', 'Activation');
