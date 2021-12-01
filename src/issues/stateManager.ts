@@ -216,8 +216,8 @@ export class StateManager {
 				}
 			}),
 		);
-		await this.setAllIssueData();
 		this.registerRepositoryChangeEvent();
+		await this.setAllIssueData();
 		this.context.subscriptions.push(
 			this.onRefreshCacheNeeded(async () => {
 				await this.refresh();
