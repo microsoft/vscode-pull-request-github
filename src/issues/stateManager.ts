@@ -144,14 +144,14 @@ export class StateManager {
 	}
 
 	private registerRepositoryChangeEvent() {
-		async function updateRepository(repository: Repository) {
-			const state = this.getOrCreateSingleRepoState(repository.rootUri);
+		async function updateRepository(that: StateManager, repository: Repository) {
+			const state = that.getOrCreateSingleRepoState(repository.rootUri);
 			// setIssueData can cause the last head and branch state to change. Capture them before that can happen.
 			const oldHead = state.lastHead;
 			const oldBranch = state.lastBranch;
 			const newHead = repository.state.HEAD ? repository.state.HEAD.commit : undefined;
 			if ((repository.state.HEAD ? repository.state.HEAD.commit : undefined) !== oldHead) {
-				await this.setIssueData(state.folderManager);
+				await that.setIssueData(state.folderManager);
 			}
 
 			const newBranch = repository.state.HEAD?.name;
@@ -161,29 +161,30 @@ export class StateManager {
 			) {
 				if (newBranch) {
 					if (state.folderManager) {
-						await this.setCurrentIssueFromBranch(state, newBranch);
+						await that.setCurrentIssueFromBranch(state, newBranch);
 					}
 				} else {
-					await this.setCurrentIssue(state, undefined);
+					await that.setCurrentIssue(state, undefined);
 				}
 			}
 			state.lastHead = repository.state.HEAD ? repository.state.HEAD.commit : undefined;
 			state.lastBranch = repository.state.HEAD ? repository.state.HEAD.name : undefined;
 		}
 
-		function addChangeEvent(repository: Repository) {
-			this.context.subscriptions.push(
+		function addChangeEvent(that: StateManager, repository: Repository) {
+			that.context.subscriptions.push(
 				repository.state.onDidChange(async () => {
+					updateRepository(that, repository);
 				}),
 			);
 		}
 
 		this.context.subscriptions.push(this.gitAPI.onDidOpenRepository(repository => {
-			updateRepository(repository);
-			addChangeEvent(repository);
+			updateRepository(this, repository);
+			addChangeEvent(this, repository);
 		}));
 		this.gitAPI.repositories.forEach(repository => {
-			addChangeEvent(repository);
+			addChangeEvent(this, repository);
 		});
 	}
 
