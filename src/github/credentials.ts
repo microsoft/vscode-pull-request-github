@@ -218,6 +218,13 @@ export class CredentialStore implements vscode.Disposable {
 		return octokit;
 	}
 
+	public async showSamlMessageAndAuth() {
+		const result = await vscode.window.showWarningMessage('GitHub Pull Requests and Issues requires that you provide SAML access to your organization when you sign in.', { modal: true }, 'OK');
+		if (result === 'OK') {
+			return this.recreate();
+		}
+	}
+
 	public isCurrentUser(username: string): boolean {
 		return this._githubAPI?.currentUser?.login === username || this._githubEnterpriseAPI?.currentUser?.login == username;
 	}

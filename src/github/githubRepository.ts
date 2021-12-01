@@ -7,7 +7,7 @@ import { Octokit } from '@octokit/rest';
 import * as OctokitTypes from '@octokit/types';
 import { ApolloQueryResult, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
 import * as vscode from 'vscode';
-import { AuthenticationError } from '../common/authentication';
+import { AuthenticationError, isSamlError } from '../common/authentication';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { parseRemote, Remote } from '../common/remote';
@@ -218,13 +218,17 @@ export class GitHubRepository implements vscode.Disposable {
 		return this._metadata;
 	}
 
-	async resolveRemote(): Promise<void> {
+	async resolveRemote(): Promise<boolean> {
 		try {
 			const { clone_url } = await this.getMetadata();
 			this.remote = parseRemote(this.remote.remoteName, clone_url, this.remote.gitProtocol)!;
 		} catch (e) {
 			Logger.appendLine(`Unable to resolve remote: ${e}`);
+			if (isSamlError(e)) {
+				return false;
+			}
 		}
+		return true;
 	}
 
 	async ensure(): Promise<GitHubRepository> {

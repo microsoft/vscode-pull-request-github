@@ -502,7 +502,16 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return activeRemotes;
 	}
 
+	private _updatingRepositories: Promise<void> | undefined;
 	async updateRepositories(silent: boolean = false): Promise<void> {
+		if (this._updatingRepositories) {
+			await this._updatingRepositories;
+		}
+		this._updatingRepositories = this.doUpdateRepositories(silent);
+		return this._updatingRepositories;
+	}
+
+	private async doUpdateRepositories(silent: boolean): Promise<void> {
 		if (this._git.state === 'uninitialized') {
 			Logger.appendLine('Cannot updates repositories as git is uninitialized');
 
@@ -514,7 +523,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		vscode.commands.executeCommand('setContext', 'github:authenticated', isAuthenticated);
 
 		const repositories: GitHubRepository[] = [];
-		const resolveRemotePromises: Promise<void>[] = [];
+		const resolveRemotePromises: Promise<boolean>[] = [];
 
 		const authenticatedRemotes = activeRemotes.filter(remote => this._credentialStore.isAuthenticated(remote.authProviderId));
 		authenticatedRemotes.forEach(remote => {
@@ -523,7 +532,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			repositories.push(repository);
 		});
 
-		return Promise.all(resolveRemotePromises).then(async _ => {
+		return Promise.all(resolveRemotePromises).then(async (remoteResults: boolean[]) => {
+			if (remoteResults.some(value => !value)) {
+				return this._credentialStore.showSamlMessageAndAuth();
+			}
+
 			const oldRepositories = this._githubRepositories;
 			this._githubRepositories = repositories;
 			oldRepositories.forEach(repo => repo.dispose());
