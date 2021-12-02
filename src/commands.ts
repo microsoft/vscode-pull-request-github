@@ -863,19 +863,23 @@ export function registerCommands(
 			if (!githubRepo) {
 				return;
 			}
+			const prNumberMatcher = /#?(\d*)/;
 			const prNumber = await vscode.window.showInputBox({
 				ignoreFocusOut: true, prompt: 'Enter the a pull request number',
-				validateInput: (input) => {
-					const asNumber = Number(input);
-					if (Number.isNaN(asNumber)) {
+				validateInput: (input: string) => {
+					const matches = input.match(prNumberMatcher);
+					if (!matches || (matches.length !== 2) || Number.isNaN(Number(matches[1]))) {
 						return 'Value must be a number';
 					}
 					return undefined;
 				}
 			});
-			if (prNumber === undefined) {
+			if ((prNumber === undefined) || prNumber === '#') {
 				return;
 			}
-			return githubRepo.manager.checkoutById(githubRepo.repo, Number(prNumber));
+			const prModel = await githubRepo.manager.fetchById(githubRepo.repo, Number(prNumber.match(prNumberMatcher)![1]));
+			if (prModel) {
+				return ReviewManager.getReviewManagerForFolderManager(reviewManagers, githubRepo.manager)?.switch(prModel);
+			}
 		}));
 }
