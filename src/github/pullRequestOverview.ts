@@ -384,17 +384,18 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return reviewers;
 	}
 	private getAssigneesQuickPickItems(
-		assignableUsers: IAccount[],
+		assignableUsers: IAccount[] | undefined,
 		suggestedReviewers: ISuggestedReviewer[] | undefined,
-	): (vscode.QuickPickItem & { assignee: IAccount })[] {
+	): (vscode.QuickPickItem & { assignee?: IAccount })[] {
 		if (!suggestedReviewers) {
 			return [];
 		}
+		assignableUsers = assignableUsers ?? [];
 		// used to track logins that shouldn't be added to pick list
 		// e.g. author, existing and already added reviewers
 		const skipList: Set<string> = new Set([...(this._item.assignees?.map(assignee => assignee.login) ?? [])]);
 
-		const assignees: (vscode.QuickPickItem & { assignee: IAccount })[] = [];
+		const assignees: (vscode.QuickPickItem & { assignee?: IAccount })[] = [];
 		for (const suggestedReviewer of suggestedReviewers) {
 			const { login, name, isAuthor, isCommenter } = suggestedReviewer;
 			if (skipList.has(login)) {
@@ -429,6 +430,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				label: user.login,
 				description: user.name,
 				assignee: user,
+			});
+		}
+
+		if (assignees.length === 0) {
+			assignees.push({
+				label: 'No reviewers available for this repository'
 			});
 		}
 
@@ -519,13 +526,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
 			const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
 
-			const assigneesToAdd = await vscode.window.showQuickPick(
+			const assigneesToAdd = (await vscode.window.showQuickPick(
 				this.getAssigneesQuickPickItems(assignableUsers, []),
 				{
 					canPickMany: true,
 					matchOnDescription: true,
 				},
-			);
+			))?.filter(item => item.assignee) as (vscode.QuickPickItem & { assignee: IAccount })[] | undefined;;
 
 			if (assigneesToAdd) {
 				const addedAssignees: IAccount[] = assigneesToAdd.map(item => item.assignee);
