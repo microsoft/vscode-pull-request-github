@@ -863,7 +863,7 @@ export function registerCommands(
 			if (!githubRepo) {
 				return;
 			}
-			const prNumberMatcher = /#?(\d*)/;
+			const prNumberMatcher = /^#?(\d*)$/;
 			const prNumber = await vscode.window.showInputBox({
 				ignoreFocusOut: true, prompt: 'Enter the a pull request number',
 				validateInput: (input: string) => {
