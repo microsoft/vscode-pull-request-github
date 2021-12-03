@@ -322,7 +322,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async getReviewersQuickPickItems(
 		suggestedReviewers: ISuggestedReviewer[] | undefined,
-	): Promise<(vscode.QuickPickItem & { reviewer: IAccount })[]> {
+	): Promise<(vscode.QuickPickItem & { reviewer?: IAccount })[]> {
 		if (!suggestedReviewers) {
 			return [];
 		}
@@ -337,7 +337,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			...this._existingReviewers.map(reviewer => reviewer.reviewer.login),
 		]);
 
-		const reviewers: (vscode.QuickPickItem & { reviewer: IAccount })[] = [];
+		const reviewers: (vscode.QuickPickItem & { reviewer?: IAccount })[] = [];
 		for (const user of suggestedReviewers) {
 			const { login, name, isAuthor, isCommenter } = user;
 			if (skipList.has(login)) {
@@ -372,6 +372,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				label: user.login,
 				description: user.name,
 				reviewer: user,
+			});
+		}
+
+		if (reviewers.length === 0) {
+			reviewers.push({
+				label: 'No reviewers available for this repository'
 			});
 		}
 
@@ -431,13 +437,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async addReviewers(message: IRequestMessage<void>): Promise<void> {
 		try {
-			const reviewersToAdd = await vscode.window.showQuickPick(
+			const reviewersToAdd: (vscode.QuickPickItem & { reviewer: IAccount })[] | undefined = (await vscode.window.showQuickPick(
 				this.getReviewersQuickPickItems(this._item.suggestedReviewers),
 				{
 					canPickMany: true,
 					matchOnDescription: true,
 				},
-			);
+			))?.filter(item => item.reviewer) as (vscode.QuickPickItem & { reviewer: IAccount })[] | undefined;
 
 			if (reviewersToAdd) {
 				await this._item.requestReview(reviewersToAdd.map(r => r.label));
