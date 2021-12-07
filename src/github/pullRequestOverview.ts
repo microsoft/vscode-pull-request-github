@@ -435,7 +435,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		if (assignees.length === 0) {
 			assignees.push({
-				label: 'No reviewers available for this repository'
+				label: 'No assignees available for this repository'
 			});
 		}
 
