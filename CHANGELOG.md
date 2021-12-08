@@ -6,14 +6,14 @@
 
 - This extension now supports pre-releases using VS Code's built in pre-release feature. Version 0.33.0 was skipped to support this.
 
-![Extension pre-release support](.\documentation\changelog\0.34.0\pre-release-extension.png)
+![Extension pre-release support](documentation/changelog/0.34.0/pre-release-extension.png)
 
 - Support for opening a pull request by number.
 - The default issue query now includes recent issues to help with issue completions.
 - Create PR button no longer shows if there is already a PR.
 - Git file status colors are now used for PR files.
 
-![Git change colors for PR files](.\documentation\changelog\0.34.0\git-change-colors.png)
+![Git change colors for PR files](documentation/changelog/0.34.0/git-change-colors.png)
 
 ### Fixes
 
