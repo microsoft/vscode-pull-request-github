@@ -1156,7 +1156,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (!upstream) {
 				const remote = (await this.getAllGitHubRemotes()).find(r => r.remoteName === upstreamRef.remote);
 				if (remote) {
-					return new GitHubRepository(remote, this._credentialStore, this.telemetry, this._sessionState);
+					return this.createAndAddGitHubRepository(remote, this._credentialStore);
 				}
 
 				Logger.appendLine(`The remote '${upstreamRef.remote}' is not a GitHub repository.`);
