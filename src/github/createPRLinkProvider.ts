@@ -24,10 +24,6 @@ export class GitHubCreatePullRequestLinkProvider implements vscode.TerminalLinkP
 			.get<'vscode' | 'github' | undefined>(TERMINAL_LINK_HANDLER);
 	}
 
-	private static canShowLinkMessage() {
-		return GitHubCreatePullRequestLinkProvider.getSettingsValue() !== 'github';
-	}
-
 	static registerProvider(disposables: vscode.Disposable[], reviewManager: ReviewManager, folderManager: FolderRepositoryManager) {
 		disposables.push(
 			vscode.window.registerTerminalLinkProvider(
