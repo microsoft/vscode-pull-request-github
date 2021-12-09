@@ -164,11 +164,7 @@ export class ReviewManager {
 			}),
 		);
 
-		this._disposables.push(
-			vscode.window.registerTerminalLinkProvider(
-				new GitHubCreatePullRequestLinkProvider(this, this._folderRepoManager),
-			),
-		);
+		GitHubCreatePullRequestLinkProvider.registerProvider(this._disposables, this, this._folderRepoManager);
 	}
 
 	get statusBarItem() {

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { PR_SETTINGS_NAMESPACE, TERMINAL_LINK_HANDLER } from '../common/settingKeys';
 import { ReviewManager } from '../view/reviewManager';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 
@@ -16,6 +17,20 @@ export class GitHubCreatePullRequestLinkProvider implements vscode.TerminalLinkP
 		private readonly reviewManager: ReviewManager,
 		private readonly folderRepositoryManager: FolderRepositoryManager,
 	) {}
+
+	private static getSettingsValue() {
+		return vscode.workspace
+			.getConfiguration(PR_SETTINGS_NAMESPACE)
+			.get<'vscode' | 'github' | undefined>(TERMINAL_LINK_HANDLER);
+	}
+
+	static registerProvider(disposables: vscode.Disposable[], reviewManager: ReviewManager, folderManager: FolderRepositoryManager) {
+		disposables.push(
+			vscode.window.registerTerminalLinkProvider(
+				new GitHubCreatePullRequestLinkProvider(reviewManager, folderManager),
+			)
+		);
+	}
 
 	provideTerminalLinks(
 		context: vscode.TerminalLinkContext,
@@ -59,13 +74,15 @@ export class GitHubCreatePullRequestLinkProvider implements vscode.TerminalLinkP
 		return [];
 	}
 
+	private openLink(link: GitHubCreateTerminalLink) {
+		return vscode.env.openExternal(vscode.Uri.parse(link.url));
+	}
+
 	handleTerminalLink(link: GitHubCreateTerminalLink): vscode.ProviderResult<void> {
-		const defaultHandler = vscode.workspace
-			.getConfiguration('githubPullRequests')
-			.get<'vscode' | 'github' | undefined>('terminalLinksHandler');
+		const defaultHandler = GitHubCreatePullRequestLinkProvider.getSettingsValue();
 
 		if (defaultHandler === 'github') {
-			vscode.env.openExternal(vscode.Uri.parse(link.url));
+			this.openLink(link);
 			return;
 		}
 
@@ -74,17 +91,28 @@ export class GitHubCreatePullRequestLinkProvider implements vscode.TerminalLinkP
 			return;
 		}
 
+		const yes = 'Yes';
+		const neverShow = 'Don\'t show again';
+
 		vscode.window
 			.showInformationMessage(
 				'Do you want to create a pull request using the GitHub Pull Requests and Issues extension?',
-				'Yes',
+				yes,
 				'No, continue to github.com',
+				neverShow
 			)
 			.then(notificationResult => {
-				if (notificationResult === 'Yes') {
-					this.reviewManager.createPullRequest();
-				} else {
-					vscode.env.openExternal(vscode.Uri.parse(link.url));
+				switch (notificationResult) {
+					case yes: {
+						this.reviewManager.createPullRequest();
+						break;
+					}
+					case neverShow: {
+						vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(TERMINAL_LINK_HANDLER, 'github', vscode.ConfigurationTarget.Global);
+						this.openLink(link);
+						break;
+					}
+					default: this.openLink(link);
 				}
 			});
 	}
