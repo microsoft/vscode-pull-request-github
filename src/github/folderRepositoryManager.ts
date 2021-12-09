@@ -539,7 +539,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 			const oldRepositories = this._githubRepositories;
 			this._githubRepositories = repositories;
-			oldRepositories.forEach(repo => repo.dispose());
+			oldRepositories.filter(old => this._githubRepositories.indexOf(old) < 0).forEach(repo => repo.dispose());
 
 			const repositoriesChanged =
 				oldRepositories.length !== this._githubRepositories.length ||
