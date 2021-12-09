@@ -810,7 +810,7 @@
 			},
 			{
 				"view": "pr:github",
-				"when": "!github:initialized && workspaceFolderCount > 0",
+				"when": "git.state != initialized && !github:initialized && workspaceFolderCount > 0",
 				"contents": "Loading..."
 			},
 			{
@@ -819,14 +819,24 @@
 				"contents": "You have not yet opened a folder."
 			},
 			{
+				"view": "pr:github",
+				"when": "git.state == initialized && gitOpenRepositoryCount == 0",
+				"contents": "No git repositories found"
+			},
+			{
 				"view": "issues:github",
-				"when": "!github:initialized && workspaceFolderCount > 0",
+				"when": "git.state != initialized && !github:initialized && workspaceFolderCount > 0",
 				"contents": "Loading..."
 			},
 			{
 				"view": "issues:github",
 				"when": "!github:initialized && workspaceFolderCount == 0",
 				"contents": "You have not yet opened a folder."
+			},
+			{
+				"view": "issues:github",
+				"when": "git.state == initialized && gitOpenRepositoryCount == 0",
+				"contents": "No git repositories found"
 			},
 			{
 				"view": "github:activePullRequest:welcome",

@@ -22,7 +22,6 @@ export enum PRCategoryActionType {
 	TryOtherRemotes,
 	Login,
 	NoRemotes,
-	NoGitRepositories,
 	NoMatchingRemotes,
 	ConfigureRemotes,
 	Initializing,
@@ -69,9 +68,6 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				break;
 			case PRCategoryActionType.NoRemotes:
 				this.label = 'No GitHub repositories found.';
-				break;
-			case PRCategoryActionType.NoGitRepositories:
-				this.label = 'No git repositories found.';
 				break;
 			case PRCategoryActionType.NoMatchingRemotes:
 				this.label = 'No remotes match the current setting.';
