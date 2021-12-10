@@ -62,7 +62,7 @@ export class CredentialStore implements vscode.Disposable {
 		);
 	}
 
-	public async initialize(authProviderId: AuthProvider, getAuthSessionOptions?: vscode.AuthenticationGetSessionOptions): Promise<void> {
+	private async initialize(authProviderId: AuthProvider, getAuthSessionOptions?: vscode.AuthenticationGetSessionOptions): Promise<void> {
 		if (authProviderId === AuthProvider['github-enterprise']) {
 			if (!hasEnterpriseUri()) {
 				Logger.debug(`GitHub Enterprise provider selected without URI.`, 'Authentication');
