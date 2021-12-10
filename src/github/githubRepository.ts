@@ -235,7 +235,12 @@ export class GitHubRepository implements vscode.Disposable {
 		this._initialized = true;
 
 		if (!this._credentialStore.isAuthenticated(this.remote.authProviderId)) {
-			this._hub = await this._credentialStore.showSignInNotification(this.remote.authProviderId);
+			// We need auth now. (ex., a PR is already checked out)
+			// We can no longer wait until later for login to be done
+			await this._credentialStore.create();
+			if (!this._credentialStore.isAuthenticated(this.remote.authProviderId)) {
+				this._hub = await this._credentialStore.showSignInNotification(this.remote.authProviderId);
+			}
 		} else {
 			this._hub = this._credentialStore.getHub(this.remote.authProviderId);
 		}
