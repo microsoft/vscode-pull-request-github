@@ -14,6 +14,7 @@ import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { ISessionState } from '../common/sessionState';
+import { PR_SETTINGS_NAMESPACE, USE_REVIEW_MODE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { fromReviewUri, toReviewUri } from '../common/uri';
 import { formatError, groupBy } from '../common/utils';
@@ -317,9 +318,17 @@ export class ReviewManager {
 			return;
 		}
 
-		if(pr.isClosed){
+		const useReviewConfiguration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(USE_REVIEW_MODE, []);
+
+		if (pr.isClosed && !useReviewConfiguration.includes('closed')) {
 			this.clear(true);
 			Logger.appendLine('Review> This PR is closed');
+			return;
+		}
+
+		if (pr.isMerged && !useReviewConfiguration.includes('merged')) {
+			this.clear(true);
+			Logger.appendLine('Review> This PR is merged');
 			return;
 		}
 

@@ -201,6 +201,22 @@
 					"default": "expandUnresolved",
 					"description": "Controls whether comments are expanded when a document with comments is opened."
 				},
+				"githubPullRequests.useReviewMode": {
+					"type": "array",
+					"description": "Controls which pull requests states cause the extension to go into review mode. Open pull requests will always use review mode.",
+					"items": {
+						"type": "string",
+						"enum": [
+							"open",
+							"merged",
+							"closed"
+						]
+					},
+					"default": [
+						"open",
+						"merged"
+					]
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],
