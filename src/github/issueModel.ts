@@ -64,6 +64,10 @@ export class IssueModel<TItem extends Issue = Issue> {
 		return this.state === GithubItemStateEnum.Closed;
 	}
 
+	public get isMerged(): boolean {
+		return this.state === GithubItemStateEnum.Merged;
+	}
+
 	public get userAvatar(): string | undefined {
 		if (this.item) {
 			return this.item.user.avatarUrl;
