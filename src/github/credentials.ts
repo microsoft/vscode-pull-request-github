@@ -109,7 +109,7 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public async create(options: vscode.AuthenticationGetSessionOptions = {}) {
-		this.doCreate(options);
+		return this.doCreate(options);
 	}
 
 	public async recreate() {
