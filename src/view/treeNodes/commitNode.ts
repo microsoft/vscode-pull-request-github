@@ -10,7 +10,7 @@ import { getGitChangeType } from '../../common/diffHunk';
 import { toReviewUri } from '../../common/uri';
 import { OctokitCommon } from '../../github/common';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
-import { PullRequestModel } from '../../github/pullRequestModel';
+import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { GitFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
@@ -61,7 +61,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 			const fileChangeNode = new GitFileChangeNode(
 				this,
 				this.pullRequestManager,
-				this.pullRequest,
+				this.pullRequest as (PullRequestModel & IResolvedPullRequestModel),
 				{
 					status: getGitChangeType(change.status!),
 					fileName,
@@ -85,7 +85,6 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 					{ base: true },
 					this.pullRequestManager.repository.rootUri,
 				),
-				[],
 				matchingComments,
 				this.commit.sha,
 				this.isCurrent

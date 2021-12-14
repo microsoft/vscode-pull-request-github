@@ -20,9 +20,10 @@ export interface SimpleFileChange {
 	readonly status: GitChangeType;
 	readonly fileName: string;
 	readonly blobUrl: string | undefined;
+	readonly diffHunks?: DiffHunk[];
 }
 
-export class InMemFileChange {
+export class InMemFileChange implements SimpleFileChange {
 	constructor(
 		public readonly baseCommit: string,
 		public readonly status: GitChangeType,
@@ -35,7 +36,7 @@ export class InMemFileChange {
 	) {}
 }
 
-export class SlimFileChange {
+export class SlimFileChange implements SimpleFileChange {
 	constructor(
 		public readonly baseCommit: string,
 		public readonly blobUrl: string,
