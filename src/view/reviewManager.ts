@@ -148,7 +148,7 @@ export class ReviewManager {
 					// For subsequent changes, we don't want to make visible updates.
 					// This occurs on branch changes.
 					// Note that the visible changes will occur when checking out a PR.
-					this.updateState(!!this._folderRepoManager.gitHubRepositories.length);
+					this.updateState(true);
 				}
 			}),
 		);
@@ -253,7 +253,7 @@ export class ReviewManager {
 
 	private async validateState(silent: boolean, openDiff: boolean) {
 		Logger.appendLine('Review> Validating state...');
-		await this._folderRepoManager.updateRepositories(silent);
+		await this._folderRepoManager.updateRepositories(false);
 
 		if (!this._repository.state.HEAD) {
 			this.clear(true);
