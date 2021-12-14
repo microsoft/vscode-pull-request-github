@@ -9,7 +9,7 @@ import type { Branch, Repository } from '../api/api';
 import { GitErrorCodes } from '../api/api1';
 import { openDescription } from '../commands';
 import { IComment } from '../common/comment';
-import { DiffChangeType, DiffHunk, parseDiff, parsePatch } from '../common/diffHunk';
+import { DiffChangeType, parseDiff } from '../common/diffHunk';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
@@ -471,19 +471,6 @@ export class ReviewManager {
 
 		for (let i = 0; i < contentChanges.length; i++) {
 			const change = contentChanges[i];
-			let diffHunks: DiffHunk[] = [];
-
-			if (change instanceof InMemFileChange) {
-				diffHunks = change.diffHunks;
-			} else if (change.status !== GitChangeType.RENAME) {
-				try {
-					const patch = await this._repository.diffBetween(pr.base.sha, pr.head.sha, change.fileName);
-					diffHunks = parsePatch(patch);
-				} catch (e) {
-					Logger.appendLine(`Failed to parse patch for outdated comments: ${e}`);
-				}
-			}
-
 			const filePath = nodePath.join(this._repository.rootUri.path, change.fileName).replace(/\\/g, '/');
 			const uri = this._repository.rootUri.with({ path: filePath });
 
@@ -506,12 +493,9 @@ export class ReviewManager {
 				this.changesInPrDataProvider,
 				this._folderRepoManager,
 				pr,
-				change.status,
-				change.fileName,
-				change.blobUrl,
+				change,
 				modifiedFileUri,
 				originalFileUri,
-				diffHunks,
 				activeComments.filter(comment => comment.path === change.fileName),
 				headSha,
 			);
@@ -542,23 +526,17 @@ export class ReviewManager {
 				const commentsForFile = groupBy(commentsForCommit, comment => comment.path!);
 
 				for (const fileName in commentsForFile) {
-					let diffHunks: DiffHunk[] = [];
-					try {
-						const patch = await this._repository.diffBetween(pr.base.sha, commit, fileName);
-						diffHunks = parsePatch(patch);
-					} catch (e) {
-						Logger.appendLine(`Failed to parse patch for outdated comments: ${e}`);
-					}
-
 					const oldComments = commentsForFile[fileName];
 					const uri = vscode.Uri.file(nodePath.join(`commit~${commit.substr(0, 8)}`, fileName));
 					const obsoleteFileChange = new GitFileChangeNode(
 						this.changesInPrDataProvider,
 						this._folderRepoManager,
 						pr,
-						GitChangeType.MODIFY,
-						fileName,
-						undefined,
+						{
+							status: GitChangeType.MODIFY,
+							fileName,
+							blobUrl: undefined,
+						},
 						toReviewUri(
 							uri,
 							fileName,
@@ -577,7 +555,6 @@ export class ReviewManager {
 							{ base: true },
 							this._repository.rootUri,
 						),
-						diffHunks,
 						oldComments,
 						commit,
 					);
@@ -928,7 +905,7 @@ export class ReviewManager {
 		if (changedItems.length) {
 			const changedItem = changedItems[0];
 			const diffChangeTypeFilter = commit === changedItem.sha ? DiffChangeType.Delete : DiffChangeType.Add;
-			const ret = changedItem.diffHunks.map(diffHunk =>
+			const ret = (await changedItem.diffHunks()).map(diffHunk =>
 				diffHunk.diffLines
 					.filter(diffLine => diffLine.type !== diffChangeTypeFilter)
 					.map(diffLine => diffLine.text),

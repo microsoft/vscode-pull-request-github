@@ -403,7 +403,7 @@ export class ReviewCommentController
 			const matchedFile = this.findMatchedFileChangeForReviewDiffView(this._localFileChanges, document.uri);
 
 			if (matchedFile) {
-				return getCommentingRanges(matchedFile.diffHunks, query.base);
+				return getCommentingRanges(await matchedFile.diffHunks(), query.base);
 			}
 		}
 
@@ -424,7 +424,7 @@ export class ReviewCommentController
 			const ranges: vscode.Range[] = [];
 
 			if (matchedFile) {
-				const diffHunks = matchedFile.diffHunks;
+				const diffHunks = await matchedFile.diffHunks();
 				if ((matchedFile.status === GitChangeType.RENAME) && (diffHunks.length === 0)) {
 					return [];
 				}
