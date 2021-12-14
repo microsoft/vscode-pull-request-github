@@ -212,10 +212,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				this._folderReposManager,
 				this,
 				this.pullRequestModel,
-				change.status,
-				change.fileName,
+				change,
 				change.previousFileName,
-				change.blobUrl,
 				toPRUri(
 					vscode.Uri.file(resolvePath(this._folderReposManager.repository.rootUri, change.fileName)),
 					this.pullRequestModel,
@@ -338,7 +336,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 						'Open on GitHub',
 					)
 					.then(result => {
-						if (result === 'Open on GitHub') {
+						if ((result === 'Open on GitHub') && fileChange.blobUrl) {
 							vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(fileChange.blobUrl));
 						}
 					});

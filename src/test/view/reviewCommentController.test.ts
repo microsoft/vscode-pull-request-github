@@ -94,9 +94,11 @@ describe('ReviewCommentController', function () {
 			provider,
 			manager,
 			activePullRequest,
-			GitChangeType.MODIFY,
-			fileName,
-			'https://example.com',
+			{
+				status: GitChangeType.MODIFY,
+				fileName,
+				blobUrl: 'https://example.com'
+			},
 			uri,
 			toReviewUri(uri, fileName, undefined, '1', false, { base: true }, rootUri),
 			[

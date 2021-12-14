@@ -62,9 +62,11 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 				this,
 				this.pullRequestManager,
 				this.pullRequest,
-				getGitChangeType(change.status!),
-				fileName,
-				undefined,
+				{
+					status: getGitChangeType(change.status!),
+					fileName,
+					blobUrl: undefined
+				},
 				toReviewUri(
 					uri,
 					fileName,

@@ -7,7 +7,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { IComment, ViewedState } from '../../common/comment';
 import { DiffHunk } from '../../common/diffHunk';
-import { GitChangeType } from '../../common/file';
+import { GitChangeType, SimpleFileChange } from '../../common/file';
 import { asImageDataURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, toResourceUri } from '../../common/uri';
 import { groupBy } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
@@ -158,12 +158,22 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public childrenDisposables: vscode.Disposable[] = [];
 	private _viewed: ViewedState;
 
+	get status(): GitChangeType {
+		return this.change.status;
+	}
+
+	get fileName(): string {
+		return this.change.fileName;
+	}
+
+	get blobUrl(): string | undefined {
+		return this.change.blobUrl;
+	}
+
 	constructor(
 		public readonly parent: TreeNodeParent,
 		public readonly pullRequest: PullRequestModel,
-		public readonly status: GitChangeType,
-		public readonly fileName: string,
-		public readonly blobUrl: string | undefined,
+		private readonly change: SimpleFileChange,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
 		public readonly diffHunks: DiffHunk[],
@@ -171,11 +181,11 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly sha?: string,
 	) {
 		super();
-		const viewed = this.pullRequest.fileChangeViewedState[fileName] ?? ViewedState.UNVIEWED;
-		this.contextValue = `filechange:${GitChangeType[status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
+		const viewed = this.pullRequest.fileChangeViewedState[this.fileName] ?? ViewedState.UNVIEWED;
+		this.contextValue = `filechange:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
-		this.label = path.basename(fileName);
-		this.description = vscode.workspace.asRelativePath(path.dirname(fileName), false);
+		this.label = path.basename(this.fileName);
+		this.description = vscode.workspace.asRelativePath(path.dirname(this.fileName), false);
 		if (this.description === '.') {
 			this.description = '';
 		}
@@ -277,10 +287,8 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 		private readonly folderRepositoryManager: FolderRepositoryManager,
 		public readonly parent: TreeNodeParent,
 		public readonly pullRequest: PullRequestModel,
-		public readonly status: GitChangeType,
-		public readonly fileName: string,
+		change: SimpleFileChange,
 		public readonly previousFileName: string | undefined,
-		public readonly blobUrl: string,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
 		public isPartial: boolean,
@@ -289,7 +297,7 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 		public comments: IComment[],
 		public readonly sha?: string,
 	) {
-		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
+		super(parent, pullRequest, change, filePath, parentFilePath, diffHunks, comments, sha);
 	}
 
 	getTreeItem(): vscode.TreeItem {
@@ -315,9 +323,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		public readonly parent: TreeNodeParent,
 		private readonly pullRequestManager: FolderRepositoryManager,
 		public readonly pullRequest: PullRequestModel,
-		public readonly status: GitChangeType,
-		public readonly fileName: string,
-		public readonly blobUrl: string | undefined,
+		change: SimpleFileChange,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
 		public readonly diffHunks: DiffHunk[],
@@ -325,7 +331,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		public readonly sha?: string,
 		private isCurrent?: boolean
 	) {
-		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
+		super(parent, pullRequest, change, filePath, parentFilePath, diffHunks, comments, sha);
 	}
 
 	private _useViewChangesCommand = false;
