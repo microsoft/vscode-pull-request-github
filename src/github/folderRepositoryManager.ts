@@ -1856,7 +1856,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 			const currentBranch = this.repository.state.HEAD?.name;
 			if (currentBranch === branchObj.name) {
-				vscode.window.showInformationMessage('The default branch is already checked out.');
+				const chooseABranch = 'Choose a branch';
+				vscode.window.showInformationMessage('The default branch is already checked out.', 'Choose a branch').then(choice => {
+					if (choice === chooseABranch) {
+						return vscode.commands.executeCommand('git.checkout');
+					}
+				});
 				return;
 			}
 
