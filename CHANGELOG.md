@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.34.2
+
+### Fixes
+
+- Being on a branch with a PR replaces my active editor. https://github.com/microsoft/vscode-pull-request-github/issues/3194
+
 ## 0.34.1
 
 ### Fixes
