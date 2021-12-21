@@ -1805,11 +1805,15 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return null;
 		}
 
+		const headGitHubRepo = this.gitHubRepositories.find(
+			repo => repo.remote.remoteName === this.repository.state.HEAD?.upstream?.remote,
+		);
+
 		// Find the github repo that matches the upstream
 		for (const repo of this.gitHubRepositories) {
 			if (repo.remote.remoteName === this.repository.state.HEAD.upstream.remote) {
 				const matchingPullRequest = await repo.getPullRequestForBranch(
-					this.repository.state.HEAD.upstream.name,
+					`${headGitHubRepo?.remote.owner}:${this.repository.state.HEAD.upstream.name}`,
 				);
 				if (matchingPullRequest && matchingPullRequest.length > 0) {
 					return {

@@ -356,14 +356,14 @@ export class GitHubRepository implements vscode.Disposable {
 		return undefined;
 	}
 
-	async getPullRequestForBranch(branch: string): Promise<PullRequestModel[] | undefined> {
+	async getPullRequestForBranch(remoteAndBranch: string): Promise<PullRequestModel[] | undefined> {
 		try {
 			Logger.debug(`Fetch pull requests for branch - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
 			const result = await octokit.pulls.list({
 				owner: remote.owner,
 				repo: remote.repositoryName,
-				head: `${remote.owner}:${branch}`,
+				head: remoteAndBranch
 			});
 
 			const pullRequests = result.data
