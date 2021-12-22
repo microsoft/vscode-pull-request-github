@@ -112,8 +112,8 @@ export class CredentialStore implements vscode.Disposable {
 		return this.doCreate(options);
 	}
 
-	public async recreate() {
-		return this.doCreate({ forceNewSession: true });
+	public async recreate(reason?: string) {
+		return this.doCreate({ forceNewSession: reason ? { detail: reason } : true });
 	}
 
 	public async reset() {
@@ -219,10 +219,7 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public async showSamlMessageAndAuth() {
-		const result = await vscode.window.showWarningMessage('GitHub Pull Requests and Issues requires that you provide SAML access to your organization when you sign in.', { modal: true }, 'OK');
-		if (result === 'OK') {
-			return this.recreate();
-		}
+		return this.recreate('GitHub Pull Requests and Issues requires that you provide SAML access to your organization when you sign in.');
 	}
 
 	public isCurrentUser(username: string): boolean {
