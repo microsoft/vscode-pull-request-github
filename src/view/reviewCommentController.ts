@@ -200,7 +200,7 @@ export class ReviewCommentController
 		if (!activePullRequest || !activePullRequest.isResolved()) {
 			return;
 		}
-		if (activePullRequest.reviewThreadsCache && this._reviewModel.hasLocalFileChanges) {
+		if (activePullRequest.reviewThreadsCacheReady && this._reviewModel.hasLocalFileChanges) {
 			await this.doInitializeCommentThreads(activePullRequest.reviewThreadsCache);
 			await this.registerListeners();
 		} else {
@@ -419,6 +419,7 @@ export class ReviewCommentController
 		return false;
 	}
 
+	// TODO: need to wait until initialized before returning.
 	async provideCommentingRanges(
 		document: vscode.TextDocument,
 		_token: vscode.CancellationToken,

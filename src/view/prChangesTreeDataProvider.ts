@@ -14,7 +14,7 @@ import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
-	private _onDidChangeTreeData = new vscode.EventEmitter<void>();
+	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private _disposables: vscode.Disposable[] = [];
 
@@ -48,8 +48,8 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		);
 	}
 
-	refresh() {
-		this._onDidChangeTreeData.fire();
+	refresh(treeNode?: TreeNode) {
+		this._onDidChangeTreeData.fire(treeNode);
 	}
 
 	private updateViewTitle(): void {

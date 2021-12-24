@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { PullRequestModel } from '../../github/pullRequestModel';
 import { ReviewModel } from '../reviewModel';
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
@@ -16,10 +17,13 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 	constructor(
 		public parent: TreeNodeParent,
 		private _reviewModel: ReviewModel,
+		private _pullRequestModel: PullRequestModel
 	) {
 		super();
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 		this._reviewModel.onDidChangeLocalFileChanges(() => this.refresh(this));
+		this._pullRequestModel.onDidChangeReviewThreads(() => this.refresh(this));
+		this._pullRequestModel.onDidChangeComments(() => this.refresh(this));
 	}
 
 	getTreeItem(): vscode.TreeItem {

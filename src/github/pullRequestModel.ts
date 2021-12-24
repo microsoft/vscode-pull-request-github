@@ -132,6 +132,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		this.update(item);
 	}
 
+	public clear() {
+		this.comments = [];
+		this._reviewThreadsCacheInitialized = false;
+		this._reviewThreadsCache = [];
+	}
+
 	public async initializeReviewThreadCache(): Promise<void> {
 		await this.getReviewThreads();
 		this._reviewThreadsCacheInitialized = true;

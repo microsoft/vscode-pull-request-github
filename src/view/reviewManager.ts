@@ -872,12 +872,15 @@ export class ReviewManager {
 
 	private clear(quitReviewMode: boolean) {
 		this._updateMessageShown = false;
-
+		this._reviewModel.clear();
 		this._localToDispose.forEach(disposable => disposable.dispose());
+		// Ensure file explorer decorations are removed. When switching to a different PR branch,
+		// comments are recalculated when getting the data and the change decoration fired then,
+		// so comments only needs to be emptied in this case.
+		this._folderRepoManager.activePullRequest?.clear();
 
 		if (quitReviewMode) {
 			this._prNumber = undefined;
-			const oldPr = this._folderRepoManager.activePullRequest;
 			this._folderRepoManager.activePullRequest = undefined;
 
 			if (this._statusBarItem) {
@@ -886,13 +889,6 @@ export class ReviewManager {
 
 			if (this.changesInPrDataProvider) {
 				this.changesInPrDataProvider.removePrFromView(this._folderRepoManager);
-			}
-
-			// Ensure file explorer decorations are removed. When switching to a different PR branch,
-			// comments are recalculated when getting the data and the change decoration fired then,
-			// so comments only needs to be emptied in this case.
-			if (oldPr) {
-				oldPr.comments = [];
 			}
 
 			vscode.commands.executeCommand('pr.refreshList');

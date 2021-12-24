@@ -35,4 +35,9 @@ export class ReviewModel {
 	set obsoleteFileChanges(obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[]) {
 		this._obsoleteFileChanges = obsoleteFileChanges;
 	}
+
+	clear() {
+		this.obsoleteFileChanges = [];
+		this._localFileChanges = undefined;
+	}
 }
