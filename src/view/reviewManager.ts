@@ -572,6 +572,22 @@ export class ReviewManager {
 	}
 
 	private async registerCommentController() {
+		if (this._folderRepoManager.activePullRequest?.reviewThreadsCacheReady && this._reviewModel.hasLocalFileChanges) {
+			await this.doRegisterCommentController();
+		} else {
+			const changeThreadsDisposable: vscode.Disposable | undefined =
+				this._folderRepoManager.activePullRequest?.onDidChangeReviewThreads(async () => {
+					if (this._folderRepoManager.activePullRequest?.reviewThreadsCache && this._reviewModel.hasLocalFileChanges) {
+						await this.doRegisterCommentController();
+						if (changeThreadsDisposable) {
+							changeThreadsDisposable.dispose();
+						}
+					}
+				});
+		}
+	}
+
+	private async doRegisterCommentController() {
 		this._reviewCommentController = new ReviewCommentController(
 			this,
 			this._folderRepoManager,

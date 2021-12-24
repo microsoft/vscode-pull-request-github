@@ -200,31 +200,7 @@ export class ReviewCommentController
 		if (!activePullRequest || !activePullRequest.isResolved()) {
 			return;
 		}
-		if (activePullRequest.reviewThreadsCacheReady && this._reviewModel.hasLocalFileChanges) {
-			await this.doInitializeCommentThreads(activePullRequest.reviewThreadsCache);
-			await this.registerListeners();
-		} else {
-			async function tryInitAndDispose(that: ReviewCommentController) {
-				if (activePullRequest?.reviewThreadsCache && that._reviewModel.hasLocalFileChanges) {
-					await that.doInitializeCommentThreads(activePullRequest.reviewThreadsCache);
-					await that.registerListeners();
-					if (changeThreadsDisposable) {
-						changeThreadsDisposable.dispose();
-						changeThreadsDisposable = undefined;
-					}
-					if (changeLocalDisposable) {
-						changeLocalDisposable.dispose();
-						changeLocalDisposable = undefined;
-					}
-				}
-			}
-			let changeThreadsDisposable: vscode.Disposable | undefined = activePullRequest.onDidChangeReviewThreads(() => {
-				tryInitAndDispose(this);
-			});
-			let changeLocalDisposable: vscode.Disposable | undefined = this._reviewModel.onDidChangeLocalFileChanges(async () => {
-				tryInitAndDispose(this);
-			});
-		}
+		return this.doInitializeCommentThreads(activePullRequest.reviewThreadsCache);
 	}
 
 	async registerListeners(): Promise<void> {
@@ -419,7 +395,6 @@ export class ReviewCommentController
 		return false;
 	}
 
-	// TODO: need to wait until initialized before returning.
 	async provideCommentingRanges(
 		document: vscode.TextDocument,
 		_token: vscode.CancellationToken,
