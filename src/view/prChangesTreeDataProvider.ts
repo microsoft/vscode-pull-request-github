@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { ReviewModel } from './reviewModel';
 import { DescriptionNode } from './treeNodes/descriptionNode';
-import { GitFileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
+import { GitFileChangeNode } from './treeNodes/fileChangeNode';
 import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 
@@ -68,17 +68,15 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 	async addPrToView(
 		pullRequestManager: FolderRepositoryManager,
-		pullRequest: PullRequestModel,
-		localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
-		comments: IComment[],
+		pullRequestModel: PullRequestModel,
+		reviewModel: ReviewModel,
 		shouldReveal: boolean,
 	) {
 		const node: RepositoryChangesNode = new RepositoryChangesNode(
 			this,
-			pullRequest,
+			pullRequestModel,
 			pullRequestManager,
-			comments,
-			localFileChanges,
+			reviewModel
 		);
 		this._pullRequestManagerMap.set(pullRequestManager, node);
 		this.updateViewTitle();

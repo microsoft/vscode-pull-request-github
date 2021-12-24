@@ -8,7 +8,6 @@ import * as vscode from 'vscode';
 import type { Branch, Repository } from '../api/api';
 import { GitErrorCodes } from '../api/api1';
 import { openDescription } from '../commands';
-import { IComment } from '../common/comment';
 import { DiffChangeType, parseDiff } from '../common/diffHunk';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
@@ -30,6 +29,7 @@ import { CreatePullRequestHelper } from './createPullRequestHelper';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { RemoteQuickPickItem } from './quickpick';
 import { ReviewCommentController } from './reviewCommentController';
+import { ReviewModel } from './reviewModel';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 
 export class ReviewManager {
@@ -37,9 +37,7 @@ export class ReviewManager {
 	private _localToDispose: vscode.Disposable[] = [];
 	private _disposables: vscode.Disposable[];
 
-	private _comments: IComment[] = [];
-	private _localFileChanges: GitFileChangeNode[] = [];
-	private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
+	private _reviewModel: ReviewModel = new ReviewModel();
 	private _lastCommitSha?: string;
 	private _updateMessageShown: boolean = false;
 	private _validateStatusInProgress?: Promise<void>;
@@ -179,10 +177,6 @@ export class ReviewManager {
 
 	get repository(): Repository {
 		return this._repository;
-	}
-
-	get localFileChanges(): GitFileChangeNode[] {
-		return this._localFileChanges;
 	}
 
 	private pollForStatusChange() {
@@ -341,12 +335,12 @@ export class ReviewManager {
 		}
 
 		Logger.appendLine('Review> Fetching pull request data');
-		await this.getPullRequestData(pr);
+		// Don't await.
+		this.initializePullRequestData(pr);
 		await this.changesInPrDataProvider.addPrToView(
 			this._folderRepoManager,
 			pr,
-			this._localFileChanges,
-			this._comments,
+			this._reviewModel,
 			this.justSwitchedToReviewMode,
 		);
 		this.justSwitchedToReviewMode = false;
@@ -405,19 +399,31 @@ export class ReviewManager {
 		this._validateStatusInProgress = undefined;
 	}
 
-	private _doFocusShow(openDiff: boolean) {
-		this._webviewViewProvider?.show();
-
-		if (openDiff && this.localFileChanges.length > 0) {
+	private openDiff() {
+		if (this._reviewModel.localFileChanges.length) {
 			let fileChangeToShow: GitFileChangeNode | undefined;
-			for (const fileChange of this.localFileChanges) {
+			for (const fileChange of this._reviewModel.localFileChanges) {
 				if (fileChange.status === GitChangeType.MODIFY) {
 					fileChangeToShow = fileChange;
 					break;
 				}
 			}
-			fileChangeToShow = fileChangeToShow ?? this.localFileChanges[0];
+			fileChangeToShow = fileChangeToShow ?? this._reviewModel.localFileChanges[0];
 			fileChangeToShow.openDiff(this._folderRepoManager);
+		}
+	}
+
+	private _doFocusShow(openDiff: boolean) {
+		this._webviewViewProvider?.show();
+		if (openDiff) {
+			if (this._reviewModel.localFileChanges.length) {
+				this.openDiff();
+			} else {
+				const localFileChangesDisposable = this._reviewModel.onDidChangeLocalFileChanges(() => {
+					this.openDiff();
+					localFileChangesDisposable.dispose();
+				});
+			}
 		}
 	}
 
@@ -454,8 +460,8 @@ export class ReviewManager {
 
 		await this.checkBranchUpToDate(pr);
 
-		await this.getPullRequestData(pr);
-		await this._reviewCommentController.update(this._localFileChanges);
+		await this.initializePullRequestData(pr);
+		await this._reviewCommentController.update();
 
 		return Promise.resolve(void 0);
 	}
@@ -463,7 +469,6 @@ export class ReviewManager {
 	private async getLocalChangeNodes(
 		pr: PullRequestModel & IResolvedPullRequestModel,
 		contentChanges: (InMemFileChange | SlimFileChange)[],
-		activeComments: IComment[],
 	): Promise<GitFileChangeNode[]> {
 		const nodes: GitFileChangeNode[] = [];
 		const mergeBase = pr.mergeBase || pr.base.sha;
@@ -496,7 +501,6 @@ export class ReviewManager {
 				change,
 				modifiedFileUri,
 				originalFileUri,
-				activeComments.filter(comment => comment.path === change.fileName),
 				headSha,
 			);
 			nodes.push(changedItem);
@@ -505,22 +509,18 @@ export class ReviewManager {
 		return nodes;
 	}
 
-	private async getPullRequestData(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
+	private async initializePullRequestData(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
 		try {
-			this._comments = await pr.getReviewComments();
-			await pr.initializeReviewThreadCache();
-			await pr.getPullRequestFileViewState();
-			const activeComments = this._comments.filter(comment => comment.position);
-			const outdatedComments = this._comments.filter(comment => !comment.position);
-
 			const data = await pr.getFileChangesInfo();
 			const mergeBase = pr.mergeBase || pr.base.sha;
 
 			const contentChanges = await parseDiff(data, this._repository, mergeBase!);
-			this._localFileChanges = await this.getLocalChangeNodes(pr, contentChanges, activeComments);
+			this._reviewModel.localFileChanges = await this.getLocalChangeNodes(pr, contentChanges);
+			await Promise.all([pr.initializeReviewComments(), pr.initializeReviewThreadCache(), pr.initializePullRequestFileViewState()]);
+			const outdatedComments = pr.comments.filter(comment => !comment.position);
 
 			const commitsGroup = groupBy(outdatedComments, comment => comment.originalCommitId!);
-			this._obsoleteFileChanges = [];
+			const obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[] = [];
 			for (const commit in commitsGroup) {
 				const commentsForCommit = commitsGroup[commit];
 				const commentsForFile = groupBy(commentsForCommit, comment => comment.path!);
@@ -555,13 +555,15 @@ export class ReviewManager {
 							{ base: true },
 							this._repository.rootUri,
 						),
-						oldComments,
 						commit,
+						false,
+						oldComments
 					);
 
-					this._obsoleteFileChanges.push(obsoleteFileChange);
+					obsoleteFileChanges.push(obsoleteFileChange);
 				}
 			}
+			this._reviewModel.obsoleteFileChanges = obsoleteFileChanges;
 
 			return Promise.resolve(void 0);
 		} catch (e) {
@@ -574,7 +576,7 @@ export class ReviewManager {
 			this,
 			this._folderRepoManager,
 			this._repository,
-			this._localFileChanges,
+			this._reviewModel,
 			this._sessionState
 		);
 
@@ -583,7 +585,9 @@ export class ReviewManager {
 		this._localToDispose.push(this._reviewCommentController);
 		this._localToDispose.push(
 			this._reviewCommentController.onDidChangeComments(comments => {
-				this._comments = comments;
+				if (this._folderRepoManager.activePullRequest) {
+					this._folderRepoManager.activePullRequest.comments = comments;
+				}
 			}),
 		);
 	}
@@ -873,6 +877,7 @@ export class ReviewManager {
 
 		if (quitReviewMode) {
 			this._prNumber = undefined;
+			const oldPr = this._folderRepoManager.activePullRequest;
 			this._folderRepoManager.activePullRequest = undefined;
 
 			if (this._statusBarItem) {
@@ -886,7 +891,9 @@ export class ReviewManager {
 			// Ensure file explorer decorations are removed. When switching to a different PR branch,
 			// comments are recalculated when getting the data and the change decoration fired then,
 			// so comments only needs to be emptied in this case.
-			this._comments = [];
+			if (oldPr) {
+				oldPr.comments = [];
+			}
 
 			vscode.commands.executeCommand('pr.refreshList');
 		}
@@ -894,7 +901,7 @@ export class ReviewManager {
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string | undefined> {
 		const { path, commit } = fromReviewUri(uri.query);
-		let changedItems = gitFileChangeNodeFilter(this._localFileChanges)
+		let changedItems = gitFileChangeNodeFilter(this._reviewModel.localFileChanges)
 			.filter(change => change.fileName === path)
 			.filter(
 				fileChange =>
@@ -913,7 +920,7 @@ export class ReviewManager {
 			return ret.reduce((prev, curr) => prev.concat(...curr), []).join('\n');
 		}
 
-		changedItems = gitFileChangeNodeFilter(this._obsoleteFileChanges)
+		changedItems = gitFileChangeNodeFilter(this._reviewModel.obsoleteFileChanges)
 			.filter(change => change.fileName === path)
 			.filter(
 				fileChange =>

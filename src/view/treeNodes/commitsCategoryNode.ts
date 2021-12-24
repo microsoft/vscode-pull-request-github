@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IComment } from '../../common/comment';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { CommitNode } from './commitNode';
@@ -15,19 +14,16 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	private _folderRepoManager: FolderRepositoryManager;
 	private _pr: PullRequestModel;
-	private _comments: IComment[];
 
 	constructor(
 		parent: TreeNodeParent,
 		reposManager: FolderRepositoryManager,
 		pr: PullRequestModel,
-		comments: IComment[],
 	) {
 		super();
 		this.parent = parent;
 		this._pr = pr;
 		this._folderRepoManager = reposManager;
-		this._comments = comments;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 	}
 
@@ -39,7 +35,7 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 		try {
 			const commits = await this._pr.getCommits();
 			const commitNodes = commits.map(
-				(commit, index) => new CommitNode(this, this._folderRepoManager, this._pr, commit, this._comments, index === commits.length - 1),
+				(commit, index) => new CommitNode(this, this._folderRepoManager, this._pr, commit, index === commits.length - 1),
 			);
 			return Promise.resolve(commitNodes);
 		} catch (e) {
