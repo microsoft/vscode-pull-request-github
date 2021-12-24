@@ -45,9 +45,9 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			this.registerListeners();
 		} else {
 			const reviewThreadsDisposable = this.pullRequestModel.onDidChangeReviewThreads(() => {
+				reviewThreadsDisposable.dispose();
 				this.initializeThreadsInOpenEditors();
 				this.registerListeners();
-				reviewThreadsDisposable.dispose();
 			});
 		}
 	}

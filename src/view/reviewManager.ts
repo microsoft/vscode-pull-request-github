@@ -420,8 +420,8 @@ export class ReviewManager {
 				this.openDiff();
 			} else {
 				const localFileChangesDisposable = this._reviewModel.onDidChangeLocalFileChanges(() => {
-					this.openDiff();
 					localFileChangesDisposable.dispose();
+					this.openDiff();
 				});
 			}
 		}
@@ -577,11 +577,11 @@ export class ReviewManager {
 		} else {
 			const changeThreadsDisposable: vscode.Disposable | undefined =
 				this._folderRepoManager.activePullRequest?.onDidChangeReviewThreads(async () => {
+					if (changeThreadsDisposable) {
+						changeThreadsDisposable.dispose();
+					}
 					if (this._folderRepoManager.activePullRequest?.reviewThreadsCache && this._reviewModel.hasLocalFileChanges) {
 						await this.doRegisterCommentController();
-						if (changeThreadsDisposable) {
-							changeThreadsDisposable.dispose();
-						}
 					}
 				});
 		}
