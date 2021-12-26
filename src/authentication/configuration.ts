@@ -42,4 +42,15 @@ export const HostHelper = class {
 			return `/api/v3${path}`;
 		}
 	}
+	
+	// TODO: Add support for URIs with explicit port number e.g. {schema}://{domain}:{port}/{repo}
+	// for now just hardcode http = 80, https = 443
+	public static getHostPort(host: IHostConfiguration): number {
+		const hostUri: vscode.Uri = host instanceof vscode.Uri ? host : vscode.Uri.parse(host.host);
+		if (hostUri.scheme === 'http') {
+			return 80;
+		} else {
+			return 443;
+		}
+	}
 };

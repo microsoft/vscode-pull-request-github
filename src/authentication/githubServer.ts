@@ -55,12 +55,13 @@ export class GitHubManager {
 		}
 
 		const uri = vscode.Uri.joinPath(await HostHelper.getApiHost(hostUri), HostHelper.getApiPath(hostUri, path));
+		const portNum = HostHelper.getHostPort(hostUri);
 
 		return [
 			uri,
 			{
 				hostname: uri.authority,
-				port: 443,
+				port: portNum,
 				method,
 				headers,
 				agent,
