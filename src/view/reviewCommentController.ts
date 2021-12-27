@@ -77,6 +77,7 @@ export class ReviewCommentController
 		);
 		await this._reposManager.activePullRequest!.validateDraftMode();
 		await this.initializeCommentThreads();
+		await this.registerListeners();
 	}
 
 	/**
@@ -195,7 +196,7 @@ export class ReviewCommentController
 		});
 	}
 
-	async initializeCommentThreads(): Promise<void> {
+	private async initializeCommentThreads(): Promise<void> {
 		const activePullRequest = this._reposManager.activePullRequest;
 		if (!activePullRequest || !activePullRequest.isResolved()) {
 			return;
@@ -203,7 +204,7 @@ export class ReviewCommentController
 		return this.doInitializeCommentThreads(activePullRequest.reviewThreadsCache);
 	}
 
-	async registerListeners(): Promise<void> {
+	private async registerListeners(): Promise<void> {
 		this._localToDispose.push(
 			this._reposManager.activePullRequest!.onDidChangePendingReviewState(newDraftMode => {
 				[

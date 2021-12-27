@@ -335,7 +335,7 @@ export class ReviewManager {
 		}
 
 		Logger.appendLine('Review> Fetching pull request data');
-		// Don't await.
+		// Don't await. Events will be fired as part of the initialization.
 		this.initializePullRequestData(pr);
 		await this.changesInPrDataProvider.addPrToView(
 			this._folderRepoManager,

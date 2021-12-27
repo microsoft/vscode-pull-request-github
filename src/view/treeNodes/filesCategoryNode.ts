@@ -32,6 +32,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 
 	async getChildren(): Promise<TreeNode[]> {
 		if (this._reviewModel.localFileChanges.length === 0) {
+			// Provide loading feedback until we get the files.
 			return new Promise<TreeNode[]>(resolve => {
 				const promiseResolver = this._reviewModel.onDidChangeLocalFileChanges(() => {
 					resolve([]);
