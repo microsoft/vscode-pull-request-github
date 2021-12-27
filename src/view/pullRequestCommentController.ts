@@ -40,8 +40,16 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		this._commentHandlerId = uuid();
 		registerCommentHandler(this._commentHandlerId, this);
 
-		this.initializeThreadsInOpenEditors();
-		this.registerListeners();
+		if (this.pullRequestModel.reviewThreadsCacheReady) {
+			this.initializeThreadsInOpenEditors();
+			this.registerListeners();
+		} else {
+			const reviewThreadsDisposable = this.pullRequestModel.onDidChangeReviewThreads(() => {
+				reviewThreadsDisposable.dispose();
+				this.initializeThreadsInOpenEditors();
+				this.registerListeners();
+			});
+		}
 	}
 
 	private registerListeners(): void {

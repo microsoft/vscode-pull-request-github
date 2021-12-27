@@ -13,6 +13,7 @@ class Log {
 	private _outputChannel: vscode.OutputChannel;
 	private _logLevel: LogLevel;
 	private _disposable: vscode.Disposable;
+	private _activePerfMarkers: Map<string, number> = new Map();
 
 	constructor() {
 		this._outputChannel = vscode.window.createOutputChannel('GitHub Pull Request');
@@ -20,6 +21,18 @@ class Log {
 			this.getLogLevel();
 		});
 		this.getLogLevel();
+	}
+
+	public startPerfMarker(marker: string) {
+		const startTime = (new Date()).getTime();
+		this._outputChannel.appendLine(`PERF_MARKER> Start ${marker}`);
+		this._activePerfMarkers.set(marker, startTime);
+	}
+
+	public endPerfMarker(marker: string) {
+		const endTime = (new Date()).getTime();
+		this._outputChannel.appendLine(`PERF_MARKER> End ${marker}: ${endTime - this._activePerfMarkers.get(marker)!} ms`);
+		this._activePerfMarkers.delete(marker);
 	}
 
 	public appendLine(message: string, component?: string) {

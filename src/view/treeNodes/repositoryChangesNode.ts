@@ -4,12 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IComment } from '../../common/comment';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { ReviewModel } from '../reviewModel';
 import { CommitsNode } from './commitsCategoryNode';
 import { DescriptionNode } from './descriptionNode';
-import { GitFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { FilesCategoryNode } from './filesCategoryNode';
 import { BaseTreeNode, TreeNode } from './treeNode';
 
@@ -24,8 +23,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 		public parent: BaseTreeNode,
 		private _pullRequest: PullRequestModel,
 		private _pullRequestManager: FolderRepositoryManager,
-		private _comments: IComment[],
-		private _localFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
+		private _reviewModel: ReviewModel,
 	) {
 		super(parent, _pullRequest.title, _pullRequest.userAvatarUri!, _pullRequest);
 		// Cause tree values to be filled
@@ -52,7 +50,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 
 	private revealActiveEditorInTree(activeEditorUri: string | undefined): void {
 		if (this.parent.view.visible && activeEditorUri) {
-			const matchingFile = this._localFileChanges.find(change => change.filePath.toString() === activeEditorUri);
+			const matchingFile = this._reviewModel.localFileChanges.find(change => change.filePath.toString() === activeEditorUri);
 			if (matchingFile) {
 				this.reveal(matchingFile, { select: true });
 			}
@@ -61,12 +59,11 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 
 	async getChildren(): Promise<TreeNode[]> {
 		if (!this._filesCategoryNode || !this._commitsCategoryNode) {
-			this._filesCategoryNode = new FilesCategoryNode(this.parent, this._localFileChanges);
+			this._filesCategoryNode = new FilesCategoryNode(this.parent, this._reviewModel, this._pullRequest);
 			this._commitsCategoryNode = new CommitsNode(
 				this.parent,
 				this._pullRequestManager,
 				this._pullRequest,
-				this._comments,
 			);
 		}
 		return [this._filesCategoryNode, this._commitsCategoryNode];

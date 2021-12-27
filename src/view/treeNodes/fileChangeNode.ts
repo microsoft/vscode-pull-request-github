@@ -195,7 +195,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		protected readonly change: SimpleFileChange,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
-		public comments: IComment[],
 		public readonly sha?: string,
 	) {
 		super();
@@ -237,6 +236,16 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 				}
 			}),
 		);
+
+		this.childrenDisposables.push(this.pullRequest.onDidChangeComments(() => {
+			this.updateShowOptions();
+			this.refresh(this);
+		}));
+
+		this.childrenDisposables.push(this.pullRequest.onDidChangeReviewThreads(() => {
+			this.updateShowOptions();
+			this.refresh(this);
+		}));
 
 		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link' };
 	}
@@ -311,10 +320,13 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 		public readonly parentFilePath: vscode.Uri,
 		public isPartial: boolean,
 		public readonly patch: string,
-		public comments: IComment[],
 		public readonly sha?: string,
 	) {
-		super(parent, folderRepositoryManager, pullRequest, change, filePath, parentFilePath, comments, sha);
+		super(parent, folderRepositoryManager, pullRequest, change, filePath, parentFilePath, sha);
+	}
+
+	get comments(): IComment[] {
+		return this.pullRequest.comments.filter(comment => (comment.path === this.change.fileName) && (comment.position !== null));
 	}
 
 	getTreeItem(): vscode.TreeItem {
@@ -343,11 +355,25 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		change: SimpleFileChange,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
-		public comments: IComment[] = [],
 		public readonly sha?: string,
-		private isCurrent?: boolean
+		private isCurrent?: boolean,
+		private _comments?: IComment[]
 	) {
-		super(parent, pullRequestManager, pullRequest, change, filePath, parentFilePath, comments, sha);
+		super(parent, pullRequestManager, pullRequest, change, filePath, parentFilePath, sha);
+	}
+
+	get comments(): IComment[] {
+		if (this._comments) {
+			return this._comments;
+		}
+		// if there's a commit sha, then the comment must belong to the commit.
+		return this.pullRequest.comments.filter(comment => {
+			if (!this.sha || this.sha === this.pullRequest.head.sha) {
+				return comment.position && (comment.path === this.change.fileName);
+			} else {
+				return (comment.path === this.change.fileName) && (comment.originalCommitId === this.sha);
+			}
+		});
 	}
 
 	private _useViewChangesCommand = false;

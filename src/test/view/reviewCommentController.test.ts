@@ -30,6 +30,8 @@ import { ReviewManager, ShowPullRequest } from '../../view/reviewManager';
 import { PullRequestChangesTreeDataProvider } from '../../view/prChangesTreeDataProvider';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockSessionState } from '../mocks/mockSessionState';
+import { ReviewModel } from '../../view/reviewModel';
+import { Resource } from '../../common/resources';
 const schema = require('../../github/queries.gql');
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -64,6 +66,7 @@ describe('ReviewCommentController', function () {
 
 		provider = new PullRequestsTreeDataProvider(telemetry);
 		const context = new MockExtensionContext();
+		Resource.initialize(context);
 		manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore, new MockSessionState());
 		const tree = new PullRequestChangesTreeDataProvider(context);
 		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree, new ShowPullRequest(), new MockSessionState());
@@ -125,7 +128,6 @@ describe('ReviewCommentController', function () {
 			},
 			uri,
 			toReviewUri(uri, fileName, undefined, '1', false, { base: true }, rootUri),
-			[],
 			'abcd',
 		);
 	}
@@ -148,7 +150,9 @@ describe('ReviewCommentController', function () {
 		const fileName = 'data/products.json';
 		const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
 		const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
-		const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, localFileChanges, new MockSessionState());
+		const reviewModel = new ReviewModel();
+		reviewModel.localFileChanges = localFileChanges;
+		const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, reviewModel, new MockSessionState());
 
 		sinon.stub(activePullRequest, 'validateDraftMode').returns(Promise.resolve(false));
 		sinon.stub(activePullRequest, 'getReviewThreads').returns(
@@ -202,11 +206,13 @@ describe('ReviewCommentController', function () {
 			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
 			await activePullRequest.initializeReviewThreadCache();
 			const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
+			const reviewModel = new ReviewModel();
+			reviewModel.localFileChanges = localFileChanges;
 			const reviewCommentController = new TestReviewCommentController(
 				reviewManager,
 				manager,
 				repository,
-				localFileChanges,
+				reviewModel,
 				new MockSessionState()
 			);
 			const thread = createGHPRCommentThread('review-1.1', uri);

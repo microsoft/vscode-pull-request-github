@@ -68,7 +68,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 			}
 
 			await this.pullRequestModel.initializeReviewThreadCache();
-			await this.pullRequestModel.getPullRequestFileViewState();
+			await this.pullRequestModel.initializePullRequestFileViewState();
 			this._fileChanges = await this.resolveFileChanges();
 
 			if (!this._inMemPRContentProvider) {
@@ -159,7 +159,6 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 			return [];
 		}
 
-		const comments = await this.pullRequestModel.getReviewComments();
 		const data = await this.pullRequestModel.getFileChangesInfo();
 
 		// Merge base is set as part of getPullRequestFileChangesInfo
@@ -233,8 +232,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 					change.status,
 				),
 				change.isPartial,
-				change.patch,
-				comments.filter(comment => comment.path === change.fileName && comment.position !== null),
+				change.patch
 			);
 
 			return changedItem;

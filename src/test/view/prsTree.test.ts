@@ -64,32 +64,20 @@ describe('GitHub Pull Requests view', function () {
 		sinon.restore();
 	});
 
-	it('displays a message when no workspace folders are open', async function () {
+	it('has no children when no workspace folders are open', async function () {
 		sinon.stub(vscode.workspace, 'workspaceFolders').value(undefined);
 
 		const rootNodes = await provider.getChildren();
-		assert.strictEqual(rootNodes.length, 1);
-
-		const [onlyNode] = rootNodes;
-		const onlyItem = onlyNode.getTreeItem();
-		assert.strictEqual(onlyItem.collapsibleState, vscode.TreeItemCollapsibleState.None);
-		assert.strictEqual(onlyItem.label, 'You have not yet opened a folder.');
-		assert.strictEqual(onlyItem.command, undefined);
+		assert.strictEqual(rootNodes.length, 0);
 	});
 
-	it('displays a message when no GitHub remotes are available', async function () {
+	it('has no children when no GitHub remotes are available', async function () {
 		sinon
 			.stub(vscode.workspace, 'workspaceFolders')
 			.value([{ index: 0, name: __dirname, uri: vscode.Uri.file(__dirname) }]);
 
 		const rootNodes = await provider.getChildren();
-		assert.strictEqual(rootNodes.length, 1);
-
-		const [onlyNode] = rootNodes;
-		const onlyItem = onlyNode.getTreeItem();
-		assert.strictEqual(onlyItem.collapsibleState, vscode.TreeItemCollapsibleState.None);
-		assert.strictEqual(onlyItem.label, 'No git repositories found.');
-		assert.strictEqual(onlyItem.command, undefined);
+		assert.strictEqual(rootNodes.length, 0);
 	});
 
 	it('displays a message when repositories have not yet been initialized', async function () {

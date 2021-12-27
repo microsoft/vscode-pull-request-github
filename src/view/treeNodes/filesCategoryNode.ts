@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { PullRequestModel } from '../../github/pullRequestModel';
+import { ReviewModel } from '../reviewModel';
 import { DirectoryTreeNode } from './directoryTreeNode';
-import { GitFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
 export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
@@ -15,21 +16,14 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 
 	constructor(
 		public parent: TreeNodeParent,
-		private _fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
+		private _reviewModel: ReviewModel,
+		private _pullRequestModel: PullRequestModel
 	) {
 		super();
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-
-		// tree view
-		const dirNode = new DirectoryTreeNode(this, '');
-		this._fileChanges.forEach(f => dirNode.addFile(f));
-		dirNode.finalize();
-		if (dirNode.label === '') {
-			// nothing on the root changed, pull children to parent
-			this.directories = dirNode.children;
-		} else {
-			this.directories = [dirNode];
-		}
+		this._reviewModel.onDidChangeLocalFileChanges(() => this.refresh(this));
+		this._pullRequestModel.onDidChangeReviewThreads(() => this.refresh(this));
+		this._pullRequestModel.onDidChangeComments(() => this.refresh(this));
 	}
 
 	getTreeItem(): vscode.TreeItem {
@@ -37,12 +31,33 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
+		if (this._reviewModel.localFileChanges.length === 0) {
+			// Provide loading feedback until we get the files.
+			return new Promise<TreeNode[]>(resolve => {
+				const promiseResolver = this._reviewModel.onDidChangeLocalFileChanges(() => {
+					resolve([]);
+					promiseResolver.dispose();
+				});
+			});
+		}
+
 		let nodes: TreeNode[];
 		const layout = vscode.workspace.getConfiguration('githubPullRequests').get<string>('fileListLayout');
+
+		const dirNode = new DirectoryTreeNode(this, '');
+		this._reviewModel.localFileChanges.forEach(f => dirNode.addFile(f));
+		dirNode.finalize();
+		if (dirNode.label === '') {
+			// nothing on the root changed, pull children to parent
+			this.directories = dirNode.children;
+		} else {
+			this.directories = [dirNode];
+		}
+
 		if (layout === 'tree') {
 			nodes = this.directories;
 		} else {
-			nodes = this._fileChanges;
+			nodes = this._reviewModel.localFileChanges;
 		}
 		return Promise.resolve(nodes);
 	}

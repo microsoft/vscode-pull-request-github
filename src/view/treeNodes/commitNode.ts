@@ -5,7 +5,6 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { IComment } from '../../common/comment';
 import { getGitChangeType } from '../../common/diffHunk';
 import { toReviewUri } from '../../common/uri';
 import { OctokitCommon } from '../../github/common';
@@ -25,7 +24,6 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		private readonly pullRequestManager: FolderRepositoryManager,
 		private readonly pullRequest: PullRequestModel,
 		private readonly commit: OctokitCommon.PullsListCommitsResponseItem,
-		private readonly comments: IComment[],
 		private readonly isCurrent: boolean
 	) {
 		super();
@@ -53,9 +51,6 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		const fileChanges = (await this.pullRequest.getCommitChangedFiles(this.commit)) ?? [];
 
 		const fileChangeNodes = fileChanges.map(change => {
-			const matchingComments = this.comments.filter(
-				comment => comment.path === change.filename && comment.originalCommitId === this.commit.sha,
-			);
 			const fileName = change.filename!;
 			const uri = vscode.Uri.parse(path.posix.join(`commit~${this.commit.sha.substr(0, 8)}`, fileName));
 			const fileChangeNode = new GitFileChangeNode(
@@ -85,7 +80,6 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 					{ base: true },
 					this.pullRequestManager.repository.rootUri,
 				),
-				matchingComments,
 				this.commit.sha,
 				this.isCurrent
 			);
