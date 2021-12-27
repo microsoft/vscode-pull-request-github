@@ -31,6 +31,7 @@ import { PullRequestChangesTreeDataProvider } from '../../view/prChangesTreeData
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockSessionState } from '../mocks/mockSessionState';
 import { ReviewModel } from '../../view/reviewModel';
+import { Resource } from '../../common/resources';
 const schema = require('../../github/queries.gql');
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -65,6 +66,7 @@ describe('ReviewCommentController', function () {
 
 		provider = new PullRequestsTreeDataProvider(telemetry);
 		const context = new MockExtensionContext();
+		Resource.initialize(context);
 		manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore, new MockSessionState());
 		const tree = new PullRequestChangesTreeDataProvider(context);
 		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree, new ShowPullRequest(), new MockSessionState());
