@@ -1622,7 +1622,7 @@
 		"ssh-config": "^2.0.0-alpha.3",
 		"tunnel": "0.0.6",
 		"uuid": "8.3.2",
-		"vscode-extension-telemetry": "0.3.2",
+		"vscode-extension-telemetry": "0.4.4",
 		"vscode-tas-client": "^0.1.17",
 		"vsls": "^0.3.967"
 	},
