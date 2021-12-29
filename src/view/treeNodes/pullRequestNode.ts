@@ -11,7 +11,7 @@ import Logger from '../../common/logger';
 import { fromPRUri, resolvePath, toPRUri } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
-import { getInMemPRContentProvider } from '../inMemPRContentProvider';
+import { getInMemPRFileSystemProvider } from '../inMemPRContentProvider';
 import { DescriptionNode } from './descriptionNode';
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
@@ -72,7 +72,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 			this._fileChanges = await this.resolveFileChanges();
 
 			if (!this._inMemPRContentProvider) {
-				this._inMemPRContentProvider = getInMemPRContentProvider().registerTextDocumentContentProvider(
+				this._inMemPRContentProvider = getInMemPRFileSystemProvider().registerTextDocumentContentProvider(
 					this.pullRequestModel.number,
 					this.provideDocumentContent.bind(this),
 				);

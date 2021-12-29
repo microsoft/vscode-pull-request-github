@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
 import { ITelemetry } from '../common/telemetry';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { GitContentProvider } from './gitContentProvider';
+import { GitContentFileSystemProvider } from './gitContentProvider';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { ReviewManager } from './reviewManager';
@@ -26,9 +26,9 @@ export class ReviewsManager {
 		gitApi: GitApiImpl,
 	) {
 		this._disposables = [];
-		const gitContentProvider = new GitContentProvider(gitApi);
+		const gitContentProvider = new GitContentFileSystemProvider(gitApi);
 		gitContentProvider.registerTextDocumentContentFallback(this.provideTextDocumentContent.bind(this));
-		this._disposables.push(vscode.workspace.registerTextDocumentContentProvider('review', gitContentProvider));
+		this._disposables.push(vscode.workspace.registerFileSystemProvider('review', gitContentProvider, { isReadonly: true }));
 		this.registerListeners();
 		this._disposables.push(this._prsTreeDataProvider);
 	}
