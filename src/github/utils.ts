@@ -690,7 +690,7 @@ export function parseGraphQLTimelineEvents(
 			case Common.EventType.Committed:
 				const commitEv = event as GraphQL.Commit;
 				normalizedEvents.push({
-					id: commitEv.databaseId,
+					id: commitEv.id,
 					event: type,
 					sha: commitEv.commit.oid,
 					author: commitEv.commit.author.user

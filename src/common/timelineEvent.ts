@@ -52,7 +52,7 @@ export interface ReviewEvent {
 }
 
 export interface CommitEvent {
-	id: number;
+	id: string;
 	author: IAccount;
 	event: EventType;
 	sha: string;
