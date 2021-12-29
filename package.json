@@ -24,7 +24,10 @@
 	"activationEvents": [
 		"*",
 		"onCommand:github.api.preloadPullRequest",
-		"onFileSystem:newIssue"
+		"onFileSystem:newIssue",
+		"onFileSystem:pr",
+		"onFileSystem:githubpr",
+		"onFileSystem:review"
 	],
 	"browser": "./dist/browser/extension",
 	"main": "./dist/extension",

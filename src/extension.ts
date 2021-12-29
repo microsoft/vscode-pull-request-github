@@ -16,7 +16,6 @@ import { Resource } from './common/resources';
 import { SessionState } from './common/sessionState';
 import { TemporaryState } from './common/temporaryState';
 import { handler as uriHandler } from './common/uri';
-import { onceEvent } from './common/utils';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
 import { setSyncedKeys } from './extensionState';
@@ -252,7 +251,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	telemetry = new ExperimentationTelemetry(new TelemetryReporter(EXTENSION_ID, version, aiKey));
 	context.subscriptions.push(telemetry);
 
-	void deferredActivate(context, apiImpl, showPRController);
+	await deferredActivate(context, apiImpl, showPRController);
 
 	return apiImpl;
 }
@@ -301,15 +300,7 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	const repositories = apiImpl.repositories;
 	Logger.appendLine(`Found ${repositories.length} repositories during activation`);
 
-	if (repositories.length > 0) {
-		await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController);
-	} else {
-		Logger.appendLine('Waiting for git repository');
-		onceEvent(apiImpl.onDidOpenRepository)(async r => {
-			Logger.appendLine(`Repository ${r.rootUri} opened`);
-			await init(context, apiImpl, credentialStore, [r], prTree, liveshareApiPromise, showPRController);
-		});
-	}
+	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController);
 }
 
 export async function deactivate() {

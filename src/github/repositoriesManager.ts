@@ -95,6 +95,8 @@ export class RepositoriesManager implements vscode.Disposable {
 	}
 
 	insertFolderManager(folderManager: FolderRepositoryManager) {
+		this._subs.push(folderManager.onDidLoadRepositories(state => (this.state = state)));
+
 		// Try to insert the new repository in workspace folder order
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 		if (workspaceFolders) {
