@@ -114,6 +114,9 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 	const { mergeable: _mergeable } = pr;
 
 	const [mergeable, setMergeability] = useState(_mergeable);
+	if (_mergeable !== mergeable) {
+		setMergeability(_mergeable);
+	}
 	const { checkMergeability } = useContext(PullRequestContext);
 
 	useEffect(() => {
