@@ -108,7 +108,6 @@ export interface ReviewComment {
 export interface Commit {
 	__typename: string;
 	id: string;
-	databaseId: number;
 	commit: {
 		author: {
 			user: {
