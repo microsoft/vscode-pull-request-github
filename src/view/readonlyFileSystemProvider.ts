@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 
-export class ReadonlyFileSystemProvider implements vscode.FileSystemProvider {
+export abstract class ReadonlyFileSystemProvider implements vscode.FileSystemProvider {
 	protected _onDidChangeFile = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
 	onDidChangeFile = this._onDidChangeFile.event;
 
@@ -34,9 +34,7 @@ export class ReadonlyFileSystemProvider implements vscode.FileSystemProvider {
 		/** no op */
 	}
 
-	async readFile(_uri: vscode.Uri): Promise<Uint8Array> {
-		throw new Error('Not Implemented');
-	}
+	abstract readFile(_uri: vscode.Uri): Promise<Uint8Array>;
 
 	writeFile(_uri: vscode.Uri, _content: Uint8Array, _options: { create: boolean; overwrite: boolean; }): void {
 		/** no op */

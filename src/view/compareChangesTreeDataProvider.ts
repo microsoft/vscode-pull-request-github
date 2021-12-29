@@ -128,8 +128,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		if (!this._contentProvider) {
 			this._contentProvider = new GitHubContentProvider(this._gitHubRepository);
 			this._disposables.push(
-				vscode.workspace.registerTextDocumentContentProvider(GITHUB_FILE_SCHEME, this._contentProvider),
-			);
+				vscode.workspace.registerFileSystemProvider(GITHUB_FILE_SCHEME, this._contentProvider, { isReadonly: true }));
 		}
 
 		const { octokit, remote } = await this._gitHubRepository.ensure();
@@ -196,24 +195,5 @@ class GitHubContentProvider extends ReadonlyFileSystemProvider {
 		const contents = (fileContent.data as any).content ?? '';
 		const buff = buffer.Buffer.from(contents, (fileContent.data as any).encoding);
 		return buff;
-	}
-
-	async provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): Promise<string> {
-		const params = fromGitHubURI(uri);
-		if (!params || params.isEmpty) {
-			return '';
-		}
-
-		const { octokit, remote } = await this.gitHubRepository.ensure();
-		const fileContent = await octokit.repos.getContent({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			path: params.fileName,
-			ref: params.branch,
-		});
-
-		const contents = (fileContent.data as any).content ?? '';
-		const buff = buffer.Buffer.from(contents, (fileContent.data as any).encoding);
-		return buff.toString();
 	}
 }
