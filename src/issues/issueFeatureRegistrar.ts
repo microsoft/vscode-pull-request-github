@@ -10,6 +10,7 @@ import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { getRepositoryForFile } from '../github/utils';
 import { ReviewManager } from '../view/reviewManager';
 import { CurrentIssue } from './currentIssue';
 import { IssueCompletionProvider } from './issueCompletionProvider';
@@ -40,6 +41,8 @@ import {
 
 const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
 const USER_COMPLETIONS_CONFIGURATION = 'userCompletions.enabled';
+
+const CREATING_ISSUE_FROM_FILE_CONTEXT = 'issues.creatingFromFile';
 
 export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
@@ -332,12 +335,14 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(
 			vscode.commands.registerCommand(
 				'issue.createIssueFromFile',
-				() => {
+				async () => {
 					/* __GDPR__
 				"issue.createIssueFromFile" : {}
 			*/
 					this.telemetry.sendTelemetryEvent('issue.createIssueFromFile');
-					return this.createIssueFromFile();
+					await vscode.commands.executeCommand('setContext', CREATING_ISSUE_FROM_FILE_CONTEXT, true);
+					await this.createIssueFromFile();
+					await vscode.commands.executeCommand('setContext', CREATING_ISSUE_FROM_FILE_CONTEXT, false);
 				},
 				this,
 			),
@@ -774,6 +779,25 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		return this.createTodoIssue(undefined, await vscode.env.clipboard.readText());
 	}
 
+	private async createTodoIssueBody(newIssue?: NewIssue, issueBody?: string): Promise<string | undefined> {
+		if (issueBody || newIssue?.document.isUntitled) {
+			return issueBody;
+		}
+
+		let contents = '';
+		if (newIssue) {
+			const repository = getRepositoryForFile(this.gitAPI, newIssue.document.uri);
+			const changeAffectingFile = repository?.state.workingTreeChanges.find(value => value.uri.toString() === newIssue.document.uri.toString());
+			if (changeAffectingFile) {
+				// The file we're creating the issue for has uncommitted changes.
+				// Add a quote of the line so that the issue body is still meaningful.
+				contents = `\`\`\`\n${newIssue.line}\n\`\`\`\n\n`;
+			}
+		}
+		contents += (await createGithubPermalink(this.gitAPI, newIssue)).permalink;
+		return contents;
+	}
+
 	async createTodoIssue(newIssue?: NewIssue, issueBody?: string) {
 		let document: vscode.TextDocument;
 		let titlePlaceholder: string | undefined;
@@ -800,10 +824,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			assignee = [matches[1]];
 		}
 		let title: string | undefined;
-		const body: string | undefined =
-			issueBody || newIssue?.document.isUntitled
-				? issueBody
-				: (await createGithubPermalink(this.gitAPI, newIssue)).permalink;
+		const body: string | undefined = await this.createTodoIssueBody(newIssue, issueBody);
 
 		const quickInput = vscode.window.createInputBox();
 		quickInput.value = titlePlaceholder ?? '';

@@ -143,7 +143,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		// compare branch if it has a GitHub remote.
 		const origin = await this._folderRepositoryManager.getOrigin(this.compareBranch);
 
-		let useBranchName = false;
+		let useBranchName = this._pullRequestDefaults.base === this.compareBranch?.name;
 
 		try {
 			const totalCommits = await this.getTotalCommits();
@@ -185,27 +185,28 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 	private async getDescription(): Promise<string> {
 		// Try to match github's default, first look for template, then use commit body if available.
-		const pullRequestTemplate = await this.getPullRequestTemplate();
-		if (pullRequestTemplate) {
-			try {
-				const totalCommits = await this.getTotalCommits();
+		let commitMessage: string | undefined;
+		try {
+			const totalCommits = await this.getTotalCommits();
 
-				// If there's just a single commit, we include it as well as the PR template
-				if (totalCommits === 1 && this.compareBranch?.name) {
-					const message = titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name)).body;
-
-					return `${message}\n\n${pullRequestTemplate}`;
-				}
-			} catch (e) {
-				// Ignore and fall back to the template
+			// If there's just a single commit
+			if (totalCommits === 1 && this.compareBranch?.name) {
+				commitMessage = titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name)).body;
 			}
-
-			return pullRequestTemplate;
+		} catch (e) {
+			// Ignore and show nothing for the commit message.
 		}
 
-		return this.compareBranch?.name
-			? titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(this.compareBranch.name)).body
-			: '';
+		const pullRequestTemplate = await this.getPullRequestTemplate();
+		if (pullRequestTemplate && commitMessage) {
+			return `${commitMessage}\n\n${pullRequestTemplate}`;
+		} else if (pullRequestTemplate) {
+			return pullRequestTemplate;
+		} else if (commitMessage && (this._pullRequestDefaults.base !== this.compareBranch?.name)) {
+			return commitMessage;
+		} else {
+			return '';
+		}
 	}
 
 	public async initializeParams(reset: boolean = false): Promise<void> {
@@ -357,7 +358,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 			const headRepo = this._folderRepositoryManager.findRepo(byRemoteName(remote!));
 			if (!headRepo) {
-				throw new Error(`Unable to find GitHub repository matching '${remote}'.`);
+				throw new Error(`Unable to find GitHub repository matching '${remote}'. You can add '${remote}' to the setting "githubPullRequests.remotes" to ensure '${remote}' is found.`);
 			}
 
 			const head = `${headRepo.remote.owner}:${branchName}`;

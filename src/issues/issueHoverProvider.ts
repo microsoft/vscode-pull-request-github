@@ -44,7 +44,7 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 			const match = word.match(ISSUE_OR_URL_EXPRESSION);
 			const tryParsed = parseIssueExpressionOutput(match);
 
-			const folderManager = this.manager.getManagerForFile(document.uri);
+			const folderManager = this.manager.getManagerForFile(document.uri) ?? this.manager.folderManagers[0];
 			if (!folderManager) {
 				return;
 			}

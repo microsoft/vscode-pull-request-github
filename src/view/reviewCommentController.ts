@@ -26,6 +26,7 @@ import {
 	updateThread,
 } from '../github/utils';
 import { ReviewManager } from './reviewManager';
+import { ReviewModel } from './reviewModel';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 
 export class ReviewCommentController
@@ -55,7 +56,7 @@ export class ReviewCommentController
 		private _reviewManager: ReviewManager,
 		private _reposManager: FolderRepositoryManager,
 		private _repository: Repository,
-		private _localFileChanges: GitFileChangeNode[],
+		private _reviewModel: ReviewModel,
 		private readonly _sessionState: ISessionState
 	) {
 		this._commentController = vscode.comments.createCommentController(
@@ -160,12 +161,7 @@ export class ReviewCommentController
 		return createVSCodeCommentThreadForReviewThread(reviewUri, range, thread, this._commentController);
 	}
 
-	async initializeCommentThreads(): Promise<void> {
-		if (!this._reposManager.activePullRequest || !this._reposManager.activePullRequest.isResolved()) {
-			return;
-		}
-
-		const reviewThreads = this._reposManager.activePullRequest!.reviewThreadsCache;
+	private async doInitializeCommentThreads(reviewThreads: IReviewThread[]): Promise<void> {
 		const threadsByPath = groupBy(reviewThreads, thread => thread.path);
 
 		Object.keys(threadsByPath).forEach(path => {
@@ -200,7 +196,15 @@ export class ReviewCommentController
 		});
 	}
 
-	async registerListeners(): Promise<void> {
+	private async initializeCommentThreads(): Promise<void> {
+		const activePullRequest = this._reposManager.activePullRequest;
+		if (!activePullRequest || !activePullRequest.isResolved()) {
+			return;
+		}
+		return this.doInitializeCommentThreads(activePullRequest.reviewThreadsCache);
+	}
+
+	private async registerListeners(): Promise<void> {
 		this._localToDispose.push(
 			this._reposManager.activePullRequest!.onDidChangePendingReviewState(newDraftMode => {
 				[
@@ -400,10 +404,10 @@ export class ReviewCommentController
 			(document.uri.query && document.uri.query !== '') ? fromReviewUri(document.uri.query) : undefined;
 
 		if (query) {
-			const matchedFile = this.findMatchedFileChangeForReviewDiffView(this._localFileChanges, document.uri);
+			const matchedFile = this.findMatchedFileChangeForReviewDiffView(this._reviewModel.localFileChanges, document.uri);
 
 			if (matchedFile) {
-				return getCommentingRanges(matchedFile.diffHunks, query.base);
+				return getCommentingRanges(await matchedFile.diffHunks(), query.base);
 			}
 		}
 
@@ -418,18 +422,18 @@ export class ReviewCommentController
 			}
 
 			const fileName = this.gitRelativeRootPath(document.uri.path);
-			const matchedFile = gitFileChangeNodeFilter(this._localFileChanges).find(
+			const matchedFile = gitFileChangeNodeFilter(this._reviewModel.localFileChanges).find(
 				fileChange => fileChange.fileName === fileName,
 			);
 			const ranges: vscode.Range[] = [];
 
 			if (matchedFile) {
-				if (matchedFile.status === GitChangeType.RENAME) {
+				const diffHunks = await matchedFile.diffHunks();
+				if ((matchedFile.status === GitChangeType.RENAME) && (diffHunks.length === 0)) {
 					return [];
 				}
 
 				const contentDiff = await this.getContentDiff(document.uri, matchedFile.fileName);
-				const diffHunks = matchedFile.diffHunks;
 
 				for (let i = 0; i < diffHunks.length; i++) {
 					const diffHunk = diffHunks[i];
@@ -675,7 +679,15 @@ export class ReviewCommentController
 				await this._reposManager.activePullRequest.submitReview();
 			}
 		} catch (e) {
-			vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
+			if (e.graphQLErrors?.length && e.graphQLErrors[0].type === 'NOT_FOUND') {
+				vscode.window.showWarningMessage('The comment that you\'re replying to was deleted. Refresh to update.', 'Refresh').then(result => {
+					if (result === 'Refresh') {
+						this._reviewManager.updateComments();
+					}
+				});
+			} else {
+				vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
+			}
 
 			thread.comments = thread.comments.map(c => {
 				if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
@@ -774,7 +786,7 @@ export class ReviewCommentController
 				this._reposManager.activePullRequest.hasPendingReview = inDraftMode;
 			}
 
-			this.update(this._localFileChanges);
+			this.update();
 		} catch (e) {
 			throw new Error(formatError(e));
 		}
@@ -783,9 +795,8 @@ export class ReviewCommentController
 	// #endregion
 
 	// #region Incremental update comments
-	public async update(localFileChanges: GitFileChangeNode[]): Promise<void> {
+	public async update(): Promise<void> {
 		await this._reposManager.activePullRequest!.validateDraftMode();
-		this._localFileChanges = localFileChanges;
 	}
 	// #endregion
 

@@ -20,10 +20,9 @@ import { onceEvent } from './common/utils';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
 import { setSyncedKeys } from './extensionState';
-import { AuthProvider, CredentialStore } from './github/credentials';
+import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { RepositoriesManager } from './github/repositoriesManager';
-import { hasEnterpriseUri } from './github/utils';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
@@ -76,7 +75,15 @@ async function init(
 				return;
 			}
 
-			if (!folderManagers.find(manager => manager.gitHubRepositories.length > 0)) {
+			const folderManager = folderManagers.find(
+				manager => manager.repository.rootUri.toString() === e.repository.rootUri.toString());
+
+			if (!folderManager || folderManager.gitHubRepositories.length === 0) {
+				return;
+			}
+
+			const defaults = await folderManager.getPullRequestDefaults();
+			if (defaults.base === e.branch) {
 				return;
 			}
 
@@ -250,6 +257,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	return apiImpl;
 }
 
+async function doRegisterBuiltinGitProvider(context: vscode.ExtensionContext, credentialStore: CredentialStore, apiImpl: GitApiImpl): Promise<boolean> {
+	const builtInGitProvider = await registerBuiltinGitProvider(credentialStore, apiImpl);
+	if (builtInGitProvider) {
+		context.subscriptions.push(builtInGitProvider);
+		return true;
+	}
+	return false;
+}
+
 async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitApiImpl, showPRController: ShowPullRequest) {
 	Logger.debug('Initializing state.', 'Activation');
 	PersistentState.init(context);
@@ -257,15 +273,16 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	Logger.debug('Creating credential store.', 'Activation');
 	const credentialStore = new CredentialStore(telemetry);
 	context.subscriptions.push(credentialStore);
-	await credentialStore.initialize(AuthProvider.github);
-	if (hasEnterpriseUri()) {
-		await credentialStore.initialize(AuthProvider['github-enterprise']);
-	}
+	await credentialStore.create({ silent: true });
 
 	Logger.debug('Registering built in git provider.', 'Activation');
-	const builtInGitProvider = await registerBuiltinGitProvider(credentialStore, apiImpl);
-	if (builtInGitProvider) {
-		context.subscriptions.push(builtInGitProvider);
+	if (!(await doRegisterBuiltinGitProvider(context, credentialStore, apiImpl))) {
+		const extensionsChangedDisposable = vscode.extensions.onDidChange(async () => {
+			if (await doRegisterBuiltinGitProvider(context, credentialStore, apiImpl)) {
+				extensionsChangedDisposable.dispose();
+			}
+		});
+		context.subscriptions.push(extensionsChangedDisposable);
 	}
 
 	Logger.debug('Registering live share git provider.', 'Activation');

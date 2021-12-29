@@ -108,7 +108,6 @@ export interface ReviewComment {
 export interface Commit {
 	__typename: string;
 	id: string;
-	databaseId: number;
 	commit: {
 		author: {
 			user: {
@@ -591,7 +590,7 @@ export interface CheckRun {
 }
 
 export function isCheckRun(x: CheckRun | StatusContext): x is CheckRun {
-	return !!(x as CheckRun).conclusion;
+	return (x as any).__typename === 'CheckRun';
 }
 
 export interface GetChecksResponse {

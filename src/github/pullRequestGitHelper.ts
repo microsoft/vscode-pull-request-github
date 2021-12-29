@@ -126,7 +126,12 @@ export class PullRequestGitHelper {
 			await repository.pull(true);
 		} catch (e) {
 			Logger.appendLine(`Unshallowing failed: ${e}. Falling back to git pull`);
-			await repository.pull();
+			try {
+				await repository.pull(false);
+			} catch (e) {
+				Logger.appendLine(`Pull after failed unshallow still failed: ${e}`);
+				throw e;
+			}
 		}
 	}
 

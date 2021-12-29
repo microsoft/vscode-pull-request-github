@@ -10,12 +10,13 @@
 	"bugs": {
 		"url": "https://github.com/Microsoft/vscode-pull-request-github/issues"
 	},
-	"enableProposedApi": true,
-	"preview": true,
-	"version": "0.31.0",
+	"enabledApiProposals": [
+		"tokenInformation"
+	],
+	"version": "0.34.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.60.0"
+		"vscode": "^1.63.0"
 	},
 	"categories": [
 		"Other"
@@ -200,6 +201,22 @@
 					"default": "expandUnresolved",
 					"description": "Controls whether comments are expanded when a document with comments is opened."
 				},
+				"githubPullRequests.useReviewMode": {
+					"type": "array",
+					"description": "Controls which pull requests states cause the extension to go into review mode. Open pull requests will always use review mode.",
+					"items": {
+						"type": "string",
+						"enum": [
+							"open",
+							"merged",
+							"closed"
+						]
+					},
+					"default": [
+						"open",
+						"merged"
+					]
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],
@@ -263,11 +280,6 @@
 					],
 					"description": "Languages that the '@' character should not be used to trigger user completion suggestions."
 				},
-				"githubIssues.workingIssueBranch": {
-					"type": "string",
-					"deprecationMessage": "This setting is replaced by the better named setting githubIssues.issueBranchTitle and may be removed in the future.",
-					"description": "Advanced settings for the name of the branch that is created when you start working on an issue. ${user} will be replace with the currently logged in username and ${issueNumber} will be replaced with the current issue number. You can also use ${sanitizedIssueTitle}."
-				},
 				"githubIssues.issueBranchTitle": {
 					"type": "string",
 					"default": "${user}/issue${issueNumber}",
@@ -324,6 +336,10 @@
 						{
 							"label": "Created Issues",
 							"query": "author:${user} state:open repo:${owner}/${repository} sort:created-desc"
+						},
+						{
+							"label": "Recent Issues",
+							"query": "state:open repo:${owner}/${repository} sort:updated-desc"
 						}
 					]
 				},
@@ -404,7 +420,7 @@
 				{
 					"id": "github:activePullRequest:welcome",
 					"name": "Active Pull Request",
-					"when": "!github:initialized && github:focusedReview"
+					"when": "!github:stateValidated && github:focusedReview"
 				}
 			]
 		},
@@ -501,13 +517,20 @@
 				"category": "GitHub Pull Requests"
 			},
 			{
+				"command": "pr.checkoutByNumber",
+				"title": "Checkout Pull Request by Number",
+				"category": "GitHub Pull Requests",
+				"icon": "$(symbol-numeric)"
+			},
+			{
 				"command": "review.openFile",
 				"title": "Open File",
 				"icon": "$(go-to-file)"
 			},
 			{
 				"command": "review.suggestDiff",
-				"title": "Suggest Edit"
+				"title": "Suggest Edit",
+				"category": "GitHub Pull Requests"
 			},
 			{
 				"command": "pr.refreshList",
@@ -651,6 +674,12 @@
 				"icon": "$(collapse-all)"
 			},
 			{
+				"command": "pr.editQuery",
+				"title": "Edit Query",
+				"category": "GitHub Pull Requests",
+				"icon": "$(edit)"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "Create Issue From Selection",
 				"category": "GitHub Issues"
@@ -762,7 +791,8 @@
 			{
 				"command": "issue.createIssueFromFile",
 				"title": "Create Issue",
-				"icon": "$(check)"
+				"icon": "$(check)",
+				"enablement": "!issues.creatingFromFile"
 			},
 			{
 				"command": "issue.issueCompletion",
@@ -796,17 +826,37 @@
 			},
 			{
 				"view": "pr:github",
-				"when": "!github:initialized",
+				"when": "git.state != initialized && !github:initialized && workspaceFolderCount > 0",
+				"contents": "Loading..."
+			},
+			{
+				"view": "pr:github",
+				"when": "!github:initialized && workspaceFolderCount == 0",
+				"contents": "You have not yet opened a folder."
+			},
+			{
+				"view": "pr:github",
+				"when": "git.state == initialized && gitOpenRepositoryCount == 0",
+				"contents": "No git repositories found"
+			},
+			{
+				"view": "issues:github",
+				"when": "git.state != initialized && !github:initialized && workspaceFolderCount > 0",
 				"contents": "Loading..."
 			},
 			{
 				"view": "issues:github",
-				"when": "!github:initialized",
-				"contents": "Loading..."
+				"when": "!github:initialized && workspaceFolderCount == 0",
+				"contents": "You have not yet opened a folder."
+			},
+			{
+				"view": "issues:github",
+				"when": "git.state == initialized && gitOpenRepositoryCount == 0",
+				"contents": "No git repositories found"
 			},
 			{
 				"view": "github:activePullRequest:welcome",
-				"when": "!github:initialized",
+				"when": "!github:stateValidated",
 				"contents": "Loading..."
 			}
 		],
@@ -818,6 +868,7 @@
 			},
 			{
 				"key": "ctrl+s",
+				"mac": "cmd+s",
 				"command": "issue.createIssueFromFile",
 				"when": "resourceScheme == newIssue && config.files.autoSave != off"
 			}
@@ -965,6 +1016,18 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.editQuery",
+					"when": "false"
+				},
+				{
+					"command": "pr.markFileAsViewed",
+					"when": "false"
+				},
+				{
+					"command": "pr.checkoutByNumber",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && github:authenticated"
+				},
+				{
 					"command": "issue.openIssue",
 					"when": "false"
 				},
@@ -1056,14 +1119,19 @@
 					"group": "navigation@1"
 				},
 				{
+					"command": "pr.checkoutByNumber",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
+					"group": "navigation@2"
+				},
+				{
 					"command": "pr.configurePRViewlet",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view =~ /(pr|issues):github/",
-					"group": "navigation@3"
+					"group": "navigation@4"
 				},
 				{
 					"command": "pr.refreshList",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
-					"group": "navigation@2"
+					"group": "navigation@3"
 				},
 				{
 					"command": "pr.refreshChanges",
@@ -1167,6 +1235,15 @@
 				{
 					"command": "pr.openModifiedFile",
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/"
+				},
+				{
+					"command": "pr.editQuery",
+					"when": "view == pr:github && viewItem == query",
+					"group": "inline"
+				},
+				{
+					"command": "pr.editQuery",
+					"when": "view == pr:github && viewItem == query"
 				},
 				{
 					"command": "issue.openIssue",
@@ -1284,7 +1361,7 @@
 				},
 				{
 					"command": "pr.create",
-					"when": "scmProvider =~ /^git|^remoteHub:/",
+					"when": "scmProvider =~ /^git|^remoteHub:/ && !github:inReviewMode",
 					"group": "navigation"
 				}
 			],
@@ -1355,7 +1432,8 @@
 			"comments/commentThread/title": [
 				{
 					"command": "pr.collapseAllComments",
-					"group": "collapse@0"
+					"group": "collapse@0",
+					"when": "commentController =~ /^github-(browse|review)/"
 				}
 			],
 			"comments/comment/context": [
@@ -1544,7 +1622,7 @@
 		"ssh-config": "^2.0.0-alpha.3",
 		"tunnel": "0.0.6",
 		"uuid": "8.3.2",
-		"vscode-extension-telemetry": "0.3.2",
+		"vscode-extension-telemetry": "0.4.4",
 		"vscode-tas-client": "^0.1.17",
 		"vsls": "^0.3.967"
 	},

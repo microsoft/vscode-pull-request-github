@@ -30,6 +30,8 @@ import { ReviewManager, ShowPullRequest } from '../../view/reviewManager';
 import { PullRequestChangesTreeDataProvider } from '../../view/prChangesTreeDataProvider';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockSessionState } from '../mocks/mockSessionState';
+import { ReviewModel } from '../../view/reviewModel';
+import { Resource } from '../../common/resources';
 const schema = require('../../github/queries.gql');
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -64,6 +66,7 @@ describe('ReviewCommentController', function () {
 
 		provider = new PullRequestsTreeDataProvider(telemetry);
 		const context = new MockExtensionContext();
+		Resource.initialize(context);
 		manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore, new MockSessionState());
 		const tree = new PullRequestChangesTreeDataProvider(context);
 		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree, new ShowPullRequest(), new MockSessionState());
@@ -94,35 +97,37 @@ describe('ReviewCommentController', function () {
 			provider,
 			manager,
 			activePullRequest,
-			GitChangeType.MODIFY,
-			fileName,
-			'https://example.com',
+			{
+				status: GitChangeType.MODIFY,
+				fileName,
+				blobUrl: 'https://example.com',
+				diffHunks:
+				[
+					{
+						oldLineNumber: 22,
+						oldLength: 5,
+						newLineNumber: 22,
+						newLength: 11,
+						positionInHunk: 0,
+						diffLines: [
+							new DiffLine(3, -1, -1, 0, '@@ -22,5 +22,11 @@', true),
+							new DiffLine(0, 22, 22, 1, "     'title': 'Papayas',", true),
+							new DiffLine(0, 23, 23, 2, "     'title': 'Papayas',", true),
+							new DiffLine(0, 24, 24, 3, "     'title': 'Papayas',", true),
+							new DiffLine(1, -1, 25, 4, '+  {', true),
+							new DiffLine(1, -1, 26, 5, '+  {', true),
+							new DiffLine(1, -1, 27, 6, '+  {', true),
+							new DiffLine(1, -1, 28, 7, '+  {', true),
+							new DiffLine(1, -1, 29, 8, '+  {', true),
+							new DiffLine(1, -1, 30, 9, '+  {', true),
+							new DiffLine(0, 25, 31, 10, '+  {', true),
+							new DiffLine(0, 26, 32, 11, '+  {', true),
+						],
+					},
+				]
+			},
 			uri,
 			toReviewUri(uri, fileName, undefined, '1', false, { base: true }, rootUri),
-			[
-				{
-					oldLineNumber: 22,
-					oldLength: 5,
-					newLineNumber: 22,
-					newLength: 11,
-					positionInHunk: 0,
-					diffLines: [
-						new DiffLine(3, -1, -1, 0, '@@ -22,5 +22,11 @@', true),
-						new DiffLine(0, 22, 22, 1, "     'title': 'Papayas',", true),
-						new DiffLine(0, 23, 23, 2, "     'title': 'Papayas',", true),
-						new DiffLine(0, 24, 24, 3, "     'title': 'Papayas',", true),
-						new DiffLine(1, -1, 25, 4, '+  {', true),
-						new DiffLine(1, -1, 26, 5, '+  {', true),
-						new DiffLine(1, -1, 27, 6, '+  {', true),
-						new DiffLine(1, -1, 28, 7, '+  {', true),
-						new DiffLine(1, -1, 29, 8, '+  {', true),
-						new DiffLine(1, -1, 30, 9, '+  {', true),
-						new DiffLine(0, 25, 31, 10, '+  {', true),
-						new DiffLine(0, 26, 32, 11, '+  {', true),
-					],
-				},
-			],
-			[],
 			'abcd',
 		);
 	}
@@ -145,7 +150,9 @@ describe('ReviewCommentController', function () {
 		const fileName = 'data/products.json';
 		const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
 		const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
-		const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, localFileChanges, new MockSessionState());
+		const reviewModel = new ReviewModel();
+		reviewModel.localFileChanges = localFileChanges;
+		const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, reviewModel, new MockSessionState());
 
 		sinon.stub(activePullRequest, 'validateDraftMode').returns(Promise.resolve(false));
 		sinon.stub(activePullRequest, 'getReviewThreads').returns(
@@ -199,11 +206,13 @@ describe('ReviewCommentController', function () {
 			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
 			await activePullRequest.initializeReviewThreadCache();
 			const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
+			const reviewModel = new ReviewModel();
+			reviewModel.localFileChanges = localFileChanges;
 			const reviewCommentController = new TestReviewCommentController(
 				reviewManager,
 				manager,
 				repository,
-				localFileChanges,
+				reviewModel,
 				new MockSessionState()
 			);
 			const thread = createGHPRCommentThread('review-1.1', uri);

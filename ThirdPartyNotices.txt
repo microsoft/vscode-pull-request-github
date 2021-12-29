@@ -501,6 +501,7 @@ THE SOFTWARE.
 @octokit/graphql 4.6.1 - MIT
 https://github.com/octokit/graphql.js#readme
 
+Copyright (c) 2018 Octokit
 
 The MIT License
 
@@ -696,9 +697,10 @@ THE SOFTWARE.
 
 ---------------------------------------------------------
 
-@octokit/types 6.12.2 - MIT
+@octokit/types 6.10.0 - MIT
 https://github.com/octokit/types.ts#readme
 
+Copyright (c) 2019 Octokit
 
 MIT License Copyright (c) 2019 Octokit contributors
 
@@ -713,10 +715,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ---------------------------------------------------------
 
-@octokit/types 6.10.0 - MIT
+@octokit/types 6.12.2 - MIT
 https://github.com/octokit/types.ts#readme
 
-Copyright (c) 2019 Octokit
 
 MIT License Copyright (c) 2019 Octokit contributors
 

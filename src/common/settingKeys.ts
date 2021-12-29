@@ -4,3 +4,5 @@
  *--------------------------------------------------------------------------------------------*/
 
 export const PR_SETTINGS_NAMESPACE = 'githubPullRequests';
+export const TERMINAL_LINK_HANDLER = 'terminalLinksHandler';
+export const USE_REVIEW_MODE = 'useReviewMode';

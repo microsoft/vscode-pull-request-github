@@ -7,7 +7,7 @@ import { Octokit } from '@octokit/rest';
 import * as OctokitTypes from '@octokit/types';
 import { ApolloQueryResult, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
 import * as vscode from 'vscode';
-import { AuthenticationError } from '../common/authentication';
+import { AuthenticationError, isSamlError } from '../common/authentication';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { parseRemote, Remote } from '../common/remote';
@@ -218,20 +218,29 @@ export class GitHubRepository implements vscode.Disposable {
 		return this._metadata;
 	}
 
-	async resolveRemote(): Promise<void> {
+	async resolveRemote(): Promise<boolean> {
 		try {
 			const { clone_url } = await this.getMetadata();
 			this.remote = parseRemote(this.remote.remoteName, clone_url, this.remote.gitProtocol)!;
 		} catch (e) {
 			Logger.appendLine(`Unable to resolve remote: ${e}`);
+			if (isSamlError(e)) {
+				return false;
+			}
 		}
+		return true;
 	}
 
 	async ensure(): Promise<GitHubRepository> {
 		this._initialized = true;
 
 		if (!this._credentialStore.isAuthenticated(this.remote.authProviderId)) {
-			this._hub = await this._credentialStore.showSignInNotification(this.remote.authProviderId);
+			// We need auth now. (ex., a PR is already checked out)
+			// We can no longer wait until later for login to be done
+			await this._credentialStore.create();
+			if (!this._credentialStore.isAuthenticated(this.remote.authProviderId)) {
+				this._hub = await this._credentialStore.showSignInNotification(this.remote.authProviderId);
+			}
 		} else {
 			this._hub = this._credentialStore.getHub(this.remote.authProviderId);
 		}
@@ -347,14 +356,14 @@ export class GitHubRepository implements vscode.Disposable {
 		return undefined;
 	}
 
-	async getPullRequestForBranch(branch: string): Promise<PullRequestModel[] | undefined> {
+	async getPullRequestForBranch(remoteAndBranch: string): Promise<PullRequestModel[] | undefined> {
 		try {
 			Logger.debug(`Fetch pull requests for branch - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
 			const result = await octokit.pulls.list({
 				owner: remote.owner,
 				repo: remote.repositoryName,
-				head: `${remote.owner}:${branch}`,
+				head: remoteAndBranch
 			});
 
 			const pullRequests = result.data
@@ -657,6 +666,7 @@ export class GitHubRepository implements vscode.Disposable {
 			model.update(pullRequest);
 		} else {
 			model = new PullRequestModel(this._telemetry, this, this.remote, pullRequest);
+			model.onDidInvalidate(() => this.getPullRequest(pullRequest.number));
 			this._pullRequestModels.set(pullRequest.number, model);
 		}
 

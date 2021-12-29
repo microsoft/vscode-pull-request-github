@@ -2,7 +2,7 @@ steps:
   - task: NodeTool@0
     displayName: Upgrade Node
     inputs:
-      versionSpec: '10.x'
+      versionSpec: '14.x'
 
   - script: yarn install
     displayName: Install dependencies

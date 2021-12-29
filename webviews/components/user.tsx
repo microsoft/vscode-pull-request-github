@@ -8,7 +8,7 @@ import { PullRequest } from '../common/cache';
 import { Icon } from './icon';
 
 export const Avatar = ({ for: author }: { for: Partial<PullRequest['author']> }) => (
-	<a className="avatar-link" href={author.url}>
+	<a className="avatar-link" href={author.url} title={author.url}>
 		{author.avatarUrl ? (
 			<img className="avatar" src={author.avatarUrl} alt="" />
 		) : (
@@ -18,7 +18,7 @@ export const Avatar = ({ for: author }: { for: Partial<PullRequest['author']> })
 );
 
 export const AuthorLink = ({ for: author, text = author.login }: { for: PullRequest['author']; text?: string }) => (
-	<a className="author-link" href={author.url}>
+	<a className="author-link" href={author.url} title={author.url}>
 		{text}
 	</a>
 );

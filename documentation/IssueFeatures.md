@@ -11,7 +11,7 @@ You can also create an issue from a text selection by running the **Create Issue
 
 # Commands
 
-There are two new commands for easily creating GitHub permalinks. The **Copy GitHub Permalink** command will take the text you have selected and make a git hub permalink. The **Open Permalink on GitHub** command creates the same permalink, but also opens the link in your browser.
+There are two new commands for easily creating GitHub permalinks. The **Copy GitHub Permalink** command will take the text you have selected and make a GitHub permalink. The **Open Permalink on GitHub** command creates the same permalink, but also opens the link in your browser.
 
 # Creating an issue
 
@@ -91,3 +91,16 @@ From the issues view you can start working on an issue. This creates a branch, p
 ![Start Working](images/startWorking.gif)
 
 **Start Working** is customizable. If you don't want a branch to be created, use `"githubIssues.useBranchForIssues": "off"`. If you always want to be prompted to enter the name of the branch use the `"prompt"` option of the setting. If you have a different naming scheme for your branches you can use `"githubIssues.issueBranchTitle": "${user}/issue${issueNumber}"` to configure it.
+
+## GitHub variables
+
+Some of the settings (ex. `githubIssues.workingIssueFormatScm` and `githubIssues.issueCompletionFormatScm`) for the issues features support `${variablesName}` style variables. The following variables exist and may be available in some settings:
+
+- `${user}`: The currently logged in user.
+- `${issueNumber}`: The number of the current issue.
+- `${issueNumberLabel}`: A label for the current issue such as `#123` or if the issue is outside of the current repo then `owner/repo#123`.
+- `${issueTitle}`: The title of the current issue.
+- `${repository}`: The currently open repository.
+- `${owner}`: The owner of the current repository.
+- `${sanitizedIssueTitle}`: The title of the current issue with characters that git forbids removed.
+- `${sanitizedLowercaseIssueTitle}`: The lowercase title of the current issue with characters that git forbids removed.

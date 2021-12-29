@@ -40,8 +40,16 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		this._commentHandlerId = uuid();
 		registerCommentHandler(this._commentHandlerId, this);
 
-		this.initializeThreadsInOpenEditors();
-		this.registerListeners();
+		if (this.pullRequestModel.reviewThreadsCacheReady) {
+			this.initializeThreadsInOpenEditors();
+			this.registerListeners();
+		} else {
+			const reviewThreadsDisposable = this.pullRequestModel.onDidChangeReviewThreads(() => {
+				reviewThreadsDisposable.dispose();
+				this.initializeThreadsInOpenEditors();
+				this.registerListeners();
+			});
+		}
 	}
 
 	private registerListeners(): void {
@@ -303,8 +311,15 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				await this.pullRequestModel.submitReview();
 			}
 		} catch (e) {
-			vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
-
+			if (e.graphQLErrors?.length && e.graphQLErrors[0].type === 'NOT_FOUND') {
+				vscode.window.showWarningMessage('The comment that you\'re replying to was deleted. Refresh to update.', 'Refresh').then(result => {
+					if (result === 'Refresh') {
+						this.pullRequestModel.invalidate();
+					}
+				});
+			} else {
+				vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
+			}
 			thread.comments = thread.comments.map(c => {
 				if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
 					c.mode = vscode.CommentMode.Editing;

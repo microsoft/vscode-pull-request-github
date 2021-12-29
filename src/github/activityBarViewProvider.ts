@@ -18,6 +18,7 @@ import { isInCodespaces, parseReviewers } from './utils';
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public readonly viewType = 'github:activePullRequest';
 	private _existingReviewers: ReviewState[] = [];
+	private _prChangeListener: vscode.Disposable | undefined;
 
 	constructor(
 		extensionUri: vscode.Uri,
@@ -122,6 +123,10 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	public async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
+		if (!this._prChangeListener || (pullRequestModel.number !== this._item.number)) {
+			this._prChangeListener?.dispose();
+			this._prChangeListener = pullRequestModel.onDidInvalidate(() => this.updatePullRequest(pullRequestModel));
+		}
 		return Promise.all([
 			this._folderRepositoryManager.resolvePullRequest(
 				pullRequestModel.remote.owner,
@@ -141,12 +146,12 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					);
 				}
 
+				this._item = pullRequest;
 				if (!this._view) {
 					// If the there is no PR webview, then there is nothing else to update.
 					return;
 				}
 
-				this._item = pullRequest;
 				this._view.title = `${pullRequest.title} #${pullRequestModel.number.toString()}`;
 
 				const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);

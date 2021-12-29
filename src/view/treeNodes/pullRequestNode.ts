@@ -10,8 +10,8 @@ import { GitChangeType, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { fromPRUri, resolvePath, toPRUri } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
-import { PullRequestModel } from '../../github/pullRequestModel';
 import { getInMemPRFileSystemProvider } from '../inMemPRContentProvider';
+import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { DescriptionNode } from './descriptionNode';
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
@@ -48,6 +48,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 	// #region Tree
 	async getChildren(): Promise<TreeNode[]> {
 		Logger.debug(`Fetch children of PRNode #${this.pullRequestModel.number}`, PRNode.ID);
+		this.pullRequestModel.onDidInvalidate(() => this.refresh(this));
+
 		try {
 			if (this.childrenDisposables && this.childrenDisposables.length) {
 				this.childrenDisposables.forEach(dp => dp.dispose());
@@ -66,7 +68,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 			}
 
 			await this.pullRequestModel.initializeReviewThreadCache();
-			await this.pullRequestModel.getPullRequestFileViewState();
+			await this.pullRequestModel.initializePullRequestFileViewState();
 			this._fileChanges = await this.resolveFileChanges();
 
 			if (!this._inMemPRContentProvider) {
@@ -157,7 +159,6 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 			return [];
 		}
 
-		const comments = await this.pullRequestModel.getReviewComments();
 		const data = await this.pullRequestModel.getFileChangesInfo();
 
 		// Merge base is set as part of getPullRequestFileChangesInfo
@@ -209,11 +210,9 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 			const changedItem = new InMemFileChangeNode(
 				this._folderReposManager,
 				this,
-				this.pullRequestModel,
-				change.status,
-				change.fileName,
+				this.pullRequestModel as (PullRequestModel & IResolvedPullRequestModel),
+				change,
 				change.previousFileName,
-				change.blobUrl,
 				toPRUri(
 					vscode.Uri.file(resolvePath(this._folderReposManager.repository.rootUri, change.fileName)),
 					this.pullRequestModel,
@@ -233,9 +232,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 					change.status,
 				),
 				change.isPartial,
-				change.patch,
-				change.diffHunks,
-				comments.filter(comment => comment.path === change.fileName && comment.position !== null),
+				change.patch
 			);
 
 			return changedItem;
@@ -290,7 +287,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				return undefined;
 			}
 
-			return getCommentingRanges(fileChange.diffHunks, params.isBase);
+			return getCommentingRanges(await fileChange.diffHunks(), params.isBase);
 		}
 
 		return undefined;
@@ -336,7 +333,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 						'Open on GitHub',
 					)
 					.then(result => {
-						if (result === 'Open on GitHub') {
+						if ((result === 'Open on GitHub') && fileChange.blobUrl) {
 							vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(fileChange.blobUrl));
 						}
 					});
@@ -352,9 +349,10 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				if (params.isBase) {
 					// left
 					const left: string[] = [];
-					for (let i = 0; i < fileChange.diffHunks.length; i++) {
-						for (let j = 0; j < fileChange.diffHunks[i].diffLines.length; j++) {
-							const diffLine = fileChange.diffHunks[i].diffLines[j];
+					const diffHunks = await fileChange.diffHunks();
+					for (let i = 0; i < diffHunks.length; i++) {
+						for (let j = 0; j < diffHunks[i].diffLines.length; j++) {
+							const diffLine = diffHunks[i].diffLines[j];
 							if (diffLine.type === DiffChangeType.Add) {
 								// nothing
 							} else if (diffLine.type === DiffChangeType.Delete) {
@@ -370,9 +368,10 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 					return left.join('\n');
 				} else {
 					const right: string[] = [];
-					for (let i = 0; i < fileChange.diffHunks.length; i++) {
-						for (let j = 0; j < fileChange.diffHunks[i].diffLines.length; j++) {
-							const diffLine = fileChange.diffHunks[i].diffLines[j];
+					const diffHunks = await fileChange.diffHunks();
+					for (let i = 0; i < diffHunks.length; i++) {
+						for (let j = 0; j < diffHunks[i].diffLines.length; j++) {
+							const diffLine = diffHunks[i].diffLines[j];
 							if (diffLine.type === DiffChangeType.Add) {
 								right.push(diffLine.text);
 							} else if (diffLine.type === DiffChangeType.Delete) {

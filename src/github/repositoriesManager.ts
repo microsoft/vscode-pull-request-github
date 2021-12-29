@@ -6,15 +6,12 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { Repository, UpstreamRef } from '../api/api';
-import { Protocol } from '../common/protocol';
-import { Remote } from '../common/remote';
 import { ISessionState } from '../common/sessionState';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
 import { compareIgnoreCase } from '../common/utils';
 import { AuthProvider, CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
-import { GitHubRepository } from './githubRepository';
 import { IssueModel } from './issueModel';
 import { hasEnterpriseUri } from './utils';
 
@@ -194,15 +191,6 @@ export class RepositoriesManager implements vscode.Disposable {
 			githubEnterprise = await this._credentialStore.login(AuthProvider['github-enterprise']);
 		}
 		return !!github || !!githubEnterprise;
-	}
-
-	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
-		return new GitHubRepository(remote, credentialStore, this._telemetry, this._sessionState);
-	}
-
-	createGitHubRepositoryFromOwnerName(owner: string, name: string): GitHubRepository {
-		const uri = `https://github.com/${owner}/${name}`;
-		return new GitHubRepository(new Remote(name, uri, new Protocol(uri)), this._credentialStore, this._telemetry, this._sessionState);
 	}
 
 	dispose() {

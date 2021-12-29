@@ -6,12 +6,13 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { IComment, ViewedState } from '../../common/comment';
-import { DiffHunk } from '../../common/diffHunk';
-import { GitChangeType } from '../../common/file';
+import { DiffHunk, parsePatch } from '../../common/diffHunk';
+import { GitChangeType, InMemFileChange, SimpleFileChange } from '../../common/file';
+import Logger from '../../common/logger';
 import { asImageDataURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, toResourceUri } from '../../common/uri';
 import { groupBy } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
-import { PullRequestModel } from '../../github/pullRequestModel';
+import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { GITHUB_FILE_SCHEME } from '../compareChangesTreeDataProvider';
 import { FileViewedDecorationProvider } from '../fileViewedDecorationProvider';
 import { DecorationProvider } from '../treeDecorationProvider';
@@ -158,24 +159,50 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public childrenDisposables: vscode.Disposable[] = [];
 	private _viewed: ViewedState;
 
+	get status(): GitChangeType {
+		return this.change.status;
+	}
+
+	get fileName(): string {
+		return this.change.fileName;
+	}
+
+	get blobUrl(): string | undefined {
+		return this.change.blobUrl;
+	}
+
+	async diffHunks(): Promise<DiffHunk[]> {
+		let diffHunks: DiffHunk[] = [];
+
+		if (this.change instanceof InMemFileChange) {
+			diffHunks = this.change.diffHunks;
+		} else if (this.status !== GitChangeType.RENAME) {
+			try {
+				const commit = this.sha ?? this.pullRequest.head.sha;
+				const patch = await this.pullRequestManager.repository.diffBetween(this.pullRequest.base.sha, commit, this.change.fileName);
+				diffHunks = parsePatch(patch);
+			} catch (e) {
+				Logger.appendLine(`Failed to parse patch for outdated comments: ${e}`);
+			}
+		}
+		return diffHunks;
+	}
+
 	constructor(
 		public readonly parent: TreeNodeParent,
-		public readonly pullRequest: PullRequestModel,
-		public readonly status: GitChangeType,
-		public readonly fileName: string,
-		public readonly blobUrl: string | undefined,
+		protected readonly pullRequestManager: FolderRepositoryManager,
+		public readonly pullRequest: PullRequestModel & IResolvedPullRequestModel,
+		protected readonly change: SimpleFileChange,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
-		public readonly diffHunks: DiffHunk[],
-		public comments: IComment[],
 		public readonly sha?: string,
 	) {
 		super();
-		const viewed = this.pullRequest.fileChangeViewedState[fileName] ?? ViewedState.UNVIEWED;
-		this.contextValue = `filechange:${GitChangeType[status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
+		const viewed = this.pullRequest.fileChangeViewedState[this.fileName] ?? ViewedState.UNVIEWED;
+		this.contextValue = `filechange:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
-		this.label = path.basename(fileName);
-		this.description = vscode.workspace.asRelativePath(path.dirname(fileName), false);
+		this.label = path.basename(this.fileName);
+		this.description = vscode.workspace.asRelativePath(path.dirname(this.fileName), false);
 		if (this.description === '.') {
 			this.description = '';
 		}
@@ -209,6 +236,16 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 				}
 			}),
 		);
+
+		this.childrenDisposables.push(this.pullRequest.onDidChangeComments(() => {
+			this.updateShowOptions();
+			this.refresh(this);
+		}));
+
+		this.childrenDisposables.push(this.pullRequest.onDidChangeReviewThreads(() => {
+			this.updateShowOptions();
+			this.refresh(this);
+		}));
 
 		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link' };
 	}
@@ -276,20 +313,20 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 	constructor(
 		private readonly folderRepositoryManager: FolderRepositoryManager,
 		public readonly parent: TreeNodeParent,
-		public readonly pullRequest: PullRequestModel,
-		public readonly status: GitChangeType,
-		public readonly fileName: string,
+		public readonly pullRequest: PullRequestModel & IResolvedPullRequestModel,
+		change: SimpleFileChange,
 		public readonly previousFileName: string | undefined,
-		public readonly blobUrl: string,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
 		public isPartial: boolean,
 		public readonly patch: string,
-		public readonly diffHunks: DiffHunk[],
-		public comments: IComment[],
 		public readonly sha?: string,
 	) {
-		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
+		super(parent, folderRepositoryManager, pullRequest, change, filePath, parentFilePath, sha);
+	}
+
+	get comments(): IComment[] {
+		return this.pullRequest.comments.filter(comment => (comment.path === this.change.fileName) && (comment.position !== null));
 	}
 
 	getTreeItem(): vscode.TreeItem {
@@ -313,19 +350,30 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem {
 	constructor(
 		public readonly parent: TreeNodeParent,
-		private readonly pullRequestManager: FolderRepositoryManager,
-		public readonly pullRequest: PullRequestModel,
-		public readonly status: GitChangeType,
-		public readonly fileName: string,
-		public readonly blobUrl: string | undefined,
+		pullRequestManager: FolderRepositoryManager,
+		public readonly pullRequest: PullRequestModel & IResolvedPullRequestModel,
+		change: SimpleFileChange,
 		public readonly filePath: vscode.Uri,
 		public readonly parentFilePath: vscode.Uri,
-		public readonly diffHunks: DiffHunk[],
-		public comments: IComment[] = [],
 		public readonly sha?: string,
-		private isCurrent?: boolean
+		private isCurrent?: boolean,
+		private _comments?: IComment[]
 	) {
-		super(parent, pullRequest, status, fileName, blobUrl, filePath, parentFilePath, diffHunks, comments, sha);
+		super(parent, pullRequestManager, pullRequest, change, filePath, parentFilePath, sha);
+	}
+
+	get comments(): IComment[] {
+		if (this._comments) {
+			return this._comments;
+		}
+		// if there's a commit sha, then the comment must belong to the commit.
+		return this.pullRequest.comments.filter(comment => {
+			if (!this.sha || this.sha === this.pullRequest.head.sha) {
+				return comment.position && (comment.path === this.change.fileName);
+			} else {
+				return (comment.path === this.change.fileName) && (comment.originalCommitId === this.sha);
+			}
+		});
 	}
 
 	private _useViewChangesCommand = false;

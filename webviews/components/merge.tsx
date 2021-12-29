@@ -114,6 +114,9 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 	const { mergeable: _mergeable } = pr;
 
 	const [mergeable, setMergeability] = useState(_mergeable);
+	if (_mergeable !== mergeable) {
+		setMergeability(_mergeable);
+	}
 	const { checkMergeability } = useContext(PullRequestContext);
 
 	useEffect(() => {
@@ -286,7 +289,8 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 	const [isBusy, setBusy] = useState(false);
 
 	return (
-		<form
+		<div>
+			<form
 			onSubmit={async event => {
 				event.preventDefault();
 
@@ -312,7 +316,8 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 				</button>
 				<input disabled={isBusy} type="submit" id="confirm-merge" value={MERGE_METHODS[method]} />
 			</div>
-		</form>
+			</form>
+		</div>
 	);
 }
 
@@ -363,7 +368,7 @@ const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) => (
 						{s.context} {s.description ? `— ${s.description}` : ''}
 					</span>
 				</div>
-				{!!s.target_url ? <a href={s.target_url}>Details</a> : null}
+				{!!s.target_url ? <a href={s.target_url} title={s.target_url}>Details</a> : null}
 			</div>
 		))}
 	</div>

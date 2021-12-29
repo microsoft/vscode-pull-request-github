@@ -16,7 +16,14 @@ export enum GitChangeType {
 	UNMERGED,
 }
 
-export class InMemFileChange {
+export interface SimpleFileChange {
+	readonly status: GitChangeType;
+	readonly fileName: string;
+	readonly blobUrl: string | undefined;
+	readonly diffHunks?: DiffHunk[];
+}
+
+export class InMemFileChange implements SimpleFileChange {
 	constructor(
 		public readonly baseCommit: string,
 		public readonly status: GitChangeType,
@@ -24,13 +31,12 @@ export class InMemFileChange {
 		public readonly previousFileName: string | undefined,
 		public readonly patch: string,
 		public readonly diffHunks: DiffHunk[],
-
 		public readonly isPartial: boolean,
 		public readonly blobUrl: string,
 	) {}
 }
 
-export class SlimFileChange {
+export class SlimFileChange implements SimpleFileChange {
 	constructor(
 		public readonly baseCommit: string,
 		public readonly blobUrl: string,

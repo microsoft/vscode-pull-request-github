@@ -49,22 +49,13 @@ jobs:
 
       - script: >
           node ./scripts/prepare-nightly-build.js
-          -v "$VERSION" -i "$NAME" -n "$DISPLAYNAME" -d "$DESCRIPTION" -p "$PUBLISHER"
+          -v "$VERSION"
         displayName: Generate package.json
-        env:
-          NAME: vscode-pull-request-github-insiders
-          DISPLAYNAME: GitHub Pull Request Nightly Build
-          DESCRIPTION: Nightly Build GitHub Pull Request extension
-          PUBLISHER: GitHub
 
       - script: |
           mv ./package.json ./package.json.bak
           mv ./package.insiders.json ./package.json
-          mv ./README.md ./README.md.bak
-          mv ./README.insiders.md ./README.md
-          mv ./src/constants.ts ./src/constants.ts.bak
-          mv ./src/constants.insiders.ts ./src/constants.ts
-          npx vsce publish -p "$TOKEN" --yarn --noVerify
+          npx vsce publish --pre-release -p "$TOKEN" --yarn --noVerify
         displayName: Publish
         env:
           TOKEN: $(vsce.token)

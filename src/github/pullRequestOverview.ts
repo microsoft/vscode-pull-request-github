@@ -322,13 +322,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async getReviewersQuickPickItems(
 		suggestedReviewers: ISuggestedReviewer[] | undefined,
-	): Promise<(vscode.QuickPickItem & { reviewer: IAccount })[]> {
+	): Promise<(vscode.QuickPickItem & { reviewer?: IAccount })[]> {
 		if (!suggestedReviewers) {
 			return [];
 		}
 
 		const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
-		const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
+		const assignableUsers = allAssignableUsers[this._item.remote.remoteName] ?? [];
 
 		// used to track logins that shouldn't be added to pick list
 		// e.g. author, existing and already added reviewers
@@ -337,7 +337,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			...this._existingReviewers.map(reviewer => reviewer.reviewer.login),
 		]);
 
-		const reviewers: (vscode.QuickPickItem & { reviewer: IAccount })[] = [];
+		const reviewers: (vscode.QuickPickItem & { reviewer?: IAccount })[] = [];
 		for (const user of suggestedReviewers) {
 			const { login, name, isAuthor, isCommenter } = user;
 			if (skipList.has(login)) {
@@ -375,20 +375,27 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			});
 		}
 
+		if (reviewers.length === 0) {
+			reviewers.push({
+				label: 'No reviewers available for this repository'
+			});
+		}
+
 		return reviewers;
 	}
 	private getAssigneesQuickPickItems(
-		assignableUsers: IAccount[],
+		assignableUsers: IAccount[] | undefined,
 		suggestedReviewers: ISuggestedReviewer[] | undefined,
-	): (vscode.QuickPickItem & { assignee: IAccount })[] {
+	): (vscode.QuickPickItem & { assignee?: IAccount })[] {
 		if (!suggestedReviewers) {
 			return [];
 		}
+		assignableUsers = assignableUsers ?? [];
 		// used to track logins that shouldn't be added to pick list
 		// e.g. author, existing and already added reviewers
 		const skipList: Set<string> = new Set([...(this._item.assignees?.map(assignee => assignee.login) ?? [])]);
 
-		const assignees: (vscode.QuickPickItem & { assignee: IAccount })[] = [];
+		const assignees: (vscode.QuickPickItem & { assignee?: IAccount })[] = [];
 		for (const suggestedReviewer of suggestedReviewers) {
 			const { login, name, isAuthor, isCommenter } = suggestedReviewer;
 			if (skipList.has(login)) {
@@ -426,18 +433,24 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			});
 		}
 
+		if (assignees.length === 0) {
+			assignees.push({
+				label: 'No assignees available for this repository'
+			});
+		}
+
 		return assignees;
 	}
 
 	private async addReviewers(message: IRequestMessage<void>): Promise<void> {
 		try {
-			const reviewersToAdd = await vscode.window.showQuickPick(
+			const reviewersToAdd: (vscode.QuickPickItem & { reviewer: IAccount })[] | undefined = (await vscode.window.showQuickPick(
 				this.getReviewersQuickPickItems(this._item.suggestedReviewers),
 				{
 					canPickMany: true,
 					matchOnDescription: true,
 				},
-			);
+			))?.filter(item => item.reviewer) as (vscode.QuickPickItem & { reviewer: IAccount })[] | undefined;
 
 			if (reviewersToAdd) {
 				await this._item.requestReview(reviewersToAdd.map(r => r.label));
@@ -513,13 +526,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
 			const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
 
-			const assigneesToAdd = await vscode.window.showQuickPick(
+			const assigneesToAdd = (await vscode.window.showQuickPick(
 				this.getAssigneesQuickPickItems(assignableUsers, []),
 				{
 					canPickMany: true,
 					matchOnDescription: true,
 				},
-			);
+			))?.filter(item => item.assignee) as (vscode.QuickPickItem & { assignee: IAccount })[] | undefined;;
 
 			if (assigneesToAdd) {
 				const addedAssignees: IAccount[] = assigneesToAdd.map(item => item.assignee);

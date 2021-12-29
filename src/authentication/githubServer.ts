@@ -5,15 +5,15 @@ import { agent } from '../env/node/net';
 import { HostHelper } from './configuration';
 
 export class GitHubManager {
-	private _servers: Map<string, boolean> = new Map().set('github.com', true);
+	private _servers: Map<string, boolean> = new Map().set('github.com', true).set('ssh.github.com', true);
 
 	public async isGitHub(host: vscode.Uri): Promise<boolean> {
 		if (host === null) {
 			return false;
 		}
 
-		// .wiki repos are not supported
-		if (host.path.endsWith('.wiki')) {
+		// .wiki/.git repos are not supported
+		if (host.path.endsWith('.wiki') || host.authority.match(/gist[.]github[.]com/)) {
 			return false;
 		}
 

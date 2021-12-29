@@ -87,6 +87,8 @@ export interface FileViewedStateChangeEvent {
 	}[];
 }
 
+export type FileViewedState = { [key: string]: ViewedState };
+
 export class PullRequestModel extends IssueModel<PullRequest> implements IPullRequestModel {
 	static ID = 'PullRequestModel';
 
@@ -103,9 +105,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _onDidChangeReviewThreads = new vscode.EventEmitter<ReviewThreadChangeEvent>();
 	public onDidChangeReviewThreads = this._onDidChangeReviewThreads.event;
 
-	public fileChangeViewedState: { [key: string]: ViewedState } = {};
+	private _fileChangeViewedState: FileViewedState = {};
 	private _onDidChangeFileViewedState = new vscode.EventEmitter<FileViewedStateChangeEvent>();
 	public onDidChangeFileViewedState = this._onDidChangeFileViewedState.event;
+
+	private _comments: IComment[] | undefined;
+	private _onDidChangeComments: vscode.EventEmitter<void> = new vscode.EventEmitter();
+	public readonly onDidChangeComments: vscode.Event<void> = this._onDidChangeComments.event;
 
 	// Whether the pull request is currently checked out locally
 	public isActive: boolean;
@@ -126,17 +132,23 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		this.update(item);
 	}
 
+	public clear() {
+		this.comments = [];
+		this._reviewThreadsCacheInitialized = false;
+		this._reviewThreadsCache = [];
+	}
+
 	public async initializeReviewThreadCache(): Promise<void> {
 		await this.getReviewThreads();
 		this._reviewThreadsCacheInitialized = true;
 	}
 
 	public get reviewThreadsCache(): IReviewThread[] {
-		if (!this._reviewThreadsCacheInitialized) {
-			throw new Error('Cache has not been initialized yet');
-		} else {
-			return this._reviewThreadsCache;
-		}
+		return this._reviewThreadsCache;
+	}
+
+	public get reviewThreadsCacheReady(): boolean {
+		return this._reviewThreadsCacheInitialized;
 	}
 
 	public get isMerged(): boolean {
@@ -152,6 +164,19 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this._hasPendingReview = hasPendingReview;
 			this._onDidChangePendingReviewState.fire(this._hasPendingReview);
 		}
+	}
+
+	get comments(): IComment[] {
+		return this._comments ?? [];
+	}
+
+	set comments(comments: IComment[]) {
+		this._comments = comments;
+		this._onDidChangeComments.fire();
+	}
+
+	get fileChangeViewedState(): FileViewedState {
+		return this._fileChangeViewedState;
 	}
 
 	public isRemoteHeadDeleted?: boolean;
@@ -755,7 +780,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * Get all review comments.
 	 */
-	async getReviewComments(): Promise<IComment[]> {
+	async initializeReviewComments(): Promise<void> {
 		const { remote, query, schema } = await this.githubRepository.ensure();
 		try {
 			const { data } = await query<PullRequestCommentsResponse>({
@@ -774,10 +799,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					return a.createdAt > b.createdAt ? 1 : -1;
 				});
 
-			return comments;
+			this.comments = comments;
 		} catch (e) {
 			Logger.appendLine(`Failed to get pull request review comments: ${e}`);
-			return [];
 		}
 	}
 
@@ -1306,7 +1330,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	async getPullRequestFileViewState(): Promise<{ [path: string]: ViewedState }> {
+	async initializePullRequestFileViewState(): Promise<void> {
 		const { query, schema, remote } = await this.githubRepository.ensure();
 
 		const changed: { fileName: string, viewed: ViewedState }[] = [];
@@ -1325,11 +1349,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			});
 
 			data.repository.pullRequest.files.nodes.forEach(n => {
-				if (this.fileChangeViewedState[n.path] !== n.viewerViewedState) {
+				if (this._fileChangeViewedState[n.path] !== n.viewerViewedState) {
 					changed.push({ fileName: n.path, viewed: n.viewerViewedState });
 				}
 
-				this.fileChangeViewedState[n.path] = n.viewerViewedState;
+				this._fileChangeViewedState[n.path] = n.viewerViewedState;
 			});
 
 			hasNextPage = data.repository.pullRequest.files.pageInfo.hasNextPage;
@@ -1339,8 +1363,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		if (changed.length) {
 			this._onDidChangeFileViewedState.fire({ changed });
 		}
-
-		return this.fileChangeViewedState;
 	}
 
 	async markFileAsViewed(fileName: string): Promise<void> {
@@ -1355,7 +1377,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			},
 		});
 
-		this.fileChangeViewedState[fileName] = ViewedState.VIEWED;
+		this._fileChangeViewedState[fileName] = ViewedState.VIEWED;
 		this._onDidChangeFileViewedState.fire({ changed: [{ fileName, viewed: ViewedState.VIEWED }] });
 	}
 
@@ -1371,7 +1393,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			},
 		});
 
-		this.fileChangeViewedState[fileName] = ViewedState.UNVIEWED;
+		this._fileChangeViewedState[fileName] = ViewedState.UNVIEWED;
 		this._onDidChangeFileViewedState.fire({ changed: [{ fileName, viewed: ViewedState.UNVIEWED }] });
 	}
 }

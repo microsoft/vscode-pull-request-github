@@ -1,5 +1,70 @@
 # Changelog
 
+## 0.34.0
+
+### Changes
+
+- This extension now supports pre-releases using VS Code's built in pre-release feature. Version 0.33.0 was skipped to support this.
+
+![Extension pre-release support](documentation/changelog/0.34.0/pre-release-extension.png)
+
+- Support for opening a pull request by number.
+- The default issue query now includes recent issues to help with issue completions.
+- Create PR button no longer shows if there is already a PR.
+- Git file status colors are now used for PR files.
+
+![Git change colors for PR files](documentation/changelog/0.34.0/git-change-colors.png)
+
+### Fixes
+
+- Fails to load pull requests when using ssh.github.com for ssh over https. https://github.com/microsoft/vscode-pull-request-github/issues/3052
+- vscode.dev/github.dev: Support .github/pull_request_template.md when creating a PR within vscode. https://github.com/microsoft/vscode-pull-request-github/issues/3055
+- quote reply doesn't handle nested replies. https://github.com/microsoft/vscode-pull-request-github/issues/3059
+- Don't show hover cards for @-mentioned users when related to JSDoc. https://github.com/microsoft/vscode-pull-request-github/issues/2498
+- Edit PR title, does not (auto) update title of PR in treeview (PR in list on left side). https://github.com/microsoft/vscode-pull-request-github/issues/2299
+
+**_Thank You_**
+
+* [@38elements (38elements)](https://github.com/38elements)
+  * Fix typo [PR #3049](https://github.com/microsoft/vscode-pull-request-github/pull/3049)
+  * justSwitchedToRevieMode -> justSwitchedToReviewMode [PR #3060](https://github.com/microsoft/vscode-pull-request-github/pull/3060)
+* [@burkeholland (Burke Holland)](https://github.com/burkeholland): Opening a gist repository gives a fetch error [PR #2933](https://github.com/microsoft/vscode-pull-request-github/pull/2933)
+* [@emtei (Mateusz Stopka)](https://github.com/emtei): Do not activate review mode for closed or merged PR [PR #3021](https://github.com/microsoft/vscode-pull-request-github/pull/3021)
+* [@taisph (Tais P. Hansen)](https://github.com/taisph): Fix generated branch name requiring quotes in bash [PR #3084](https://github.com/microsoft/vscode-pull-request-github/pull/3084)
+
+## 0.33.*
+
+- **This is a pre-release version** that uses VS Code's built-in pre-release extension support. The old nightly build (GitHub Pull Requests Nightly) is being deprecated in favor of the this built-in support. Users of the the old nightly build will be automatically upgraded to the new pre-release version; however, extension state will not be migrated. Thank you for helping make GitHub Pull Requests and Issues better!
+
+## 0.32.0
+
+### Changes
+
+- Action to navigate directly to pull request query in settings.json
+
+![Navigate to pull request query](documentation/changelog/0.32.0/navigate-pr-query.gif)
+
+### Fixes
+
+- Cannot set branch tile when starting working on an issue despite useBranchForIssues=prompt. https://github.com/microsoft/vscode-pull-request-github/issues/3032
+- No issue hovers in code editor. https://github.com/microsoft/vscode-pull-request-github/issues/3013
+- Pending checks section is empty. https://github.com/microsoft/vscode-pull-request-github/issues/2949
+
+**_Thank You_**
+
+* [@burkeholland (Burke Holland)](https://github.com/burkeholland)
+  * Fixes Commit hash should use a monospace font #2957 [PR #2968](https://github.com/microsoft/vscode-pull-request-github/pull/2968)
+  * Burkeholland-issue1635 [PR #2993](https://github.com/microsoft/vscode-pull-request-github/pull/2993)
+  * Title doesn't have enough horizontal space in small tabs [PR #3029](https://github.com/microsoft/vscode-pull-request-github/pull/3029)
+  * Fix 2959 - Merge title box needs top margin [PR #3039](https://github.com/microsoft/vscode-pull-request-github/pull/3039)
+* [@nicholas-l (Nicholas Latham)](https://github.com/nicholas-l): Allow authentication for github enterprise [PR #3064](https://github.com/microsoft/vscode-pull-request-github/pull/3064)
+
+## 0.31.1
+
+### Fixes
+
+- Don't ask for auth upon activation. https://github.com/microsoft/vscode-pull-request-github/issues/3044
+
 ## 0.31.0
 
 ### Changes
@@ -16,6 +81,7 @@
 - Skipped status check is shown as pending. https://github.com/microsoft/vscode-pull-request-github/issues/2580
 
 **_Thank You_**
+
 - fix: make pending checks "show" button / link accessible. [2972](https://github.com/microsoft/vscode-pull-request-github/pull/2972) by @moshfeu
 - Fixes Tick SVG doesn't look right #2950. [2971](https://github.com/microsoft/vscode-pull-request-github/pull/2971) by @burkeholland
 - Create commit select horizontal padding is too high. [2970](https://github.com/microsoft/vscode-pull-request-github/pull/2970) by @burkeholland

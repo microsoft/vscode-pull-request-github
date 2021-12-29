@@ -5,3 +5,7 @@ export class AuthenticationError extends Error {
 		super(message);
 	}
 }
+
+export function isSamlError(e: {message?: string}): boolean {
+	return !!e.message?.startsWith('Resource protected by organization SAML enforcement.');
+}

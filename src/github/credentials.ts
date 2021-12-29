@@ -62,18 +62,19 @@ export class CredentialStore implements vscode.Disposable {
 		);
 	}
 
-	public async initialize(authProviderId: AuthProvider, force: boolean = false): Promise<void> {
+	private async initialize(authProviderId: AuthProvider, getAuthSessionOptions?: vscode.AuthenticationGetSessionOptions): Promise<void> {
 		if (authProviderId === AuthProvider['github-enterprise']) {
 			if (!hasEnterpriseUri()) {
 				Logger.debug(`GitHub Enterprise provider selected without URI.`, 'Authentication');
 				return;
 			}
 		}
+		getAuthSessionOptions = { ...getAuthSessionOptions, ...{ createIfNone: false } };
 		let session;
 		try {
-			session = await vscode.authentication.getSession(authProviderId, SCOPES, { createIfNone: false, forceNewSession: force });
+			session = await vscode.authentication.getSession(authProviderId, SCOPES, getAuthSessionOptions);
 		} catch (e) {
-			if (force && (e.message === 'User did not consent to login.')) {
+			if (getAuthSessionOptions.forceNewSession && (e.message === 'User did not consent to login.')) {
 				// There are cases where a forced login may not be 100% needed, so just continue as usual if
 				// the user didn't consent to the login prompt.
 			} else {
@@ -100,20 +101,29 @@ export class CredentialStore implements vscode.Disposable {
 		}
 	}
 
-	public async recreate() {
-		await this.initialize(AuthProvider.github, true);
+	private async doCreate(options: vscode.AuthenticationGetSessionOptions) {
+		await this.initialize(AuthProvider.github, options);
 		if (hasEnterpriseUri()) {
-			await this.initialize(AuthProvider['github-enterprise'], true);
+			await this.initialize(AuthProvider['github-enterprise'], options);
 		}
+	}
+
+	public async create(options: vscode.AuthenticationGetSessionOptions = {}) {
+		return this.doCreate(options);
+	}
+
+	public async recreate(reason?: string) {
+		return this.doCreate({ forceNewSession: reason ? { detail: reason } : true });
 	}
 
 	public async reset() {
 		this._githubAPI = undefined;
 		this._githubEnterpriseAPI = undefined;
-		await this.initialize(AuthProvider.github);
-		if (hasEnterpriseUri()) {
-			await this.initialize(AuthProvider['github-enterprise']);
-		}
+		return this.create();
+	}
+
+	public isAnyAuthenticated() {
+		return this.isAuthenticated(AuthProvider.github) || this.isAuthenticated(AuthProvider['github-enterprise']);
 	}
 
 	public isAuthenticated(authProviderId: AuthProvider): boolean {
@@ -208,6 +218,10 @@ export class CredentialStore implements vscode.Disposable {
 		return octokit;
 	}
 
+	public async showSamlMessageAndAuth() {
+		return this.recreate('GitHub Pull Requests and Issues requires that you provide SAML access to your organization when you sign in.');
+	}
+
 	public isCurrentUser(username: string): boolean {
 		return this._githubAPI?.currentUser?.login === username || this._githubEnterpriseAPI?.currentUser?.login == username;
 	}
@@ -244,8 +258,21 @@ export class CredentialStore implements vscode.Disposable {
 			baseUrl = `${enterpriseServerUri.scheme}://${enterpriseServerUri.authority}/api/v3`;
 		}
 
+		let fetchCore: ((url: string, options: { headers?: Record<string, string> }) => any) | undefined;
+		if (vscode.env.uiKind === vscode.UIKind.Web) {
+			fetchCore = (url: string, options: { headers?: Record<string, string> }) => {
+				if (options.headers !== undefined) {
+					const { 'user-agent': userAgent, ...headers } = options.headers;
+					if (userAgent) {
+						options.headers = headers;
+					}
+				}
+				return fetch(url, options);
+			};
+		}
+
 		const octokit = new Octokit({
-			request: { agent },
+			request: { agent, fetch: fetchCore },
 			userAgent: 'GitHub VSCode Pull Requests',
 			// `shadow-cat-preview` is required for Draft PR API access -- https://developer.github.com/v3/previews/#draft-pull-requests
 			previews: ['shadow-cat-preview'],
