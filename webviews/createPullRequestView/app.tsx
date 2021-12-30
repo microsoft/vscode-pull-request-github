@@ -19,7 +19,6 @@ export const RemoteSelect = ({ onChange, defaultOption, repos }:
 			}} >
 				{repos.map(param => {
 					const value = param.owner + '/' + param.repositoryName;
-
 					return <option
 						key={value}
 						value={value}>
