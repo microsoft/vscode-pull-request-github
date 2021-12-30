@@ -85,3 +85,7 @@ body {
 .selector-group .wrapper {
 	padding-right: 5px;
 }
+.select-style {
+	background-color: #3d3c3d;
+	-webkit-appearance: none;
+}
