@@ -373,7 +373,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				return openCodeLink(issueModel, this.manager);
 			}),
 		);
-		return this._stateManager.tryInitializeAndWait().then(() => {
+		this._stateManager.tryInitializeAndWait().then(() => {
 			this.context.subscriptions.push(
 				vscode.languages.registerHoverProvider(
 					'*',
