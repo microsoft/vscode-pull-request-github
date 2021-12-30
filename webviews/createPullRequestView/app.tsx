@@ -12,21 +12,27 @@ import { gitCompareIcon, repoIcon } from '../components/icon';
 
 export const RemoteSelect = ({ onChange, defaultOption, repos }:
 	{ onChange: (owner: string, repositoryName: string) => Promise<void>, defaultOption: string, repos: RemoteInfo[] }) => {
+	let caseCorrectedDefaultOption: string | undefined;
+	const options = repos.map(param => {
+		const value = param.owner + '/' + param.repositoryName;
+		const label = `${param.owner}/${param.repositoryName}`;
+		if (label.toLowerCase() === defaultOption) {
+			caseCorrectedDefaultOption = label;
+		}
+		return <option
+			key={value}
+			value={value}>
+			{label}
+		</option>;
+	});
+
 	return <ErrorBoundary>
 		<div className='wrapper flex'>
-			{repoIcon}<select value={defaultOption} onChange={(e) => {
+			{repoIcon}<select value={caseCorrectedDefaultOption ?? defaultOption} onChange={(e) => {
 				const [owner, repositoryName] = e.currentTarget.value.split('/');
 				onChange(owner, repositoryName);
 			}}>
-				{repos.map(param => {
-					const value = param.owner + '/' + param.repositoryName;
-
-					return <option
-						key={value}
-						value={value}>
-						{param.owner}/{param.repositoryName}
-					</option>;
-				})}
+				{options}
 			</select>
 		</div>
 	</ErrorBoundary>;
