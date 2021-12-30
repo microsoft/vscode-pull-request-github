@@ -635,7 +635,7 @@ export class ReviewManager {
 				vscode.window.showErrorMessage(
 					'Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches',
 				);
-			} else if ((e.stderr as string).startsWith('fatal: couldn\'t find remote ref')) {
+			} else if ((e.stderr as string)?.startsWith('fatal: couldn\'t find remote ref')) {
 				vscode.window.showErrorMessage('The remote branch for this pull request has been deleted. The pull request cannot be checked out.');
 			} else {
 				vscode.window.showErrorMessage(formatError(e));
