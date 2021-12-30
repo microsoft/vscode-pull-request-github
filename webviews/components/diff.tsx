@@ -10,8 +10,8 @@ import { DiffChangeType, DiffHunk, DiffLine } from '../../src/common/diffHunk';
 function Diff({ hunks }: { hunks: DiffHunk[] }) {
 	return (
 		<div className="diff">
-			{hunks.map(hunk => (
-				<Hunk hunk={hunk} />
+			{hunks.map((hunk, index) => (
+				<Hunk key={index} hunk={hunk} />
 			))}
 		</div>
 	);

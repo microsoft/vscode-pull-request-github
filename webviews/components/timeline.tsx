@@ -132,12 +132,12 @@ const ReviewEventView = (event: ReviewEvent) => {
 	);
 };
 
-function CommentThread({ key, thread, eventId }: { key: string; thread: IComment[]; eventId: number }) {
+function CommentThread({ thread, eventId }: { thread: IComment[]; eventId: number }) {
 	const comment = thread[0];
 	const [revealed, setRevealed] = useState(!comment.isResolved);
 	const { openDiff } = useContext(PullRequestContext);
 	return (
-		<div key={key} className="diff-container">
+		<div key={eventId} className="diff-container">
 			<div className="resolved-container">
 				<div>
 					{comment.position === null ? (
@@ -161,7 +161,7 @@ function CommentThread({ key, thread, eventId }: { key: string; thread: IComment
 				<div>
 					<Diff hunks={comment.diffHunks} />
 					{thread.map(c => (
-						<CommentView {...c} pullRequestReviewId={eventId} />
+						<CommentView key={c.id} {...c} pullRequestReviewId={eventId} />
 					))}
 				</div>
 			) : null}
