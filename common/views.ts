@@ -1,0 +1,39 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+export interface RemoteInfo {
+	owner: string;
+	repositoryName: string;
+}
+
+export interface CreateParams {
+	availableRemotes: RemoteInfo[];
+	branchesForRemote: string[];
+	branchesForCompare: string[];
+
+	defaultBaseRemote?: RemoteInfo;
+	defaultBaseBranch?: string;
+	defaultCompareRemote?: RemoteInfo;
+	defaultCompareBranch?: string;
+	defaultTitle?: string;
+	defaultDescription?: string;
+
+	pendingTitle?: string;
+	pendingDescription?: string;
+	baseRemote?: RemoteInfo;
+	baseBranch?: string;
+	compareRemote?: RemoteInfo;
+	compareBranch?: string;
+	isDraft: boolean;
+
+	validate?: boolean;
+	showTitleValidationError?: boolean;
+	createError?: string;
+}
+
+export interface ScrollPosition {
+	x: number;
+	y: number;
+}

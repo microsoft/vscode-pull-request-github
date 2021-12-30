@@ -5,7 +5,8 @@
 
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
-import PullRequestContext, { CreateParams, RemoteInfo } from '../common/createContext';
+import { CreateParams, RemoteInfo } from '../../common/views';
+import PullRequestContext from '../common/createContext';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { gitCompareIcon, repoIcon } from '../components/icon';
 

@@ -4,30 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createContext } from 'react';
+import { CreateParams, ScrollPosition } from '../../common/views';
 import { getMessageHandler, MessageHandler, vscode } from './message';
-
-export interface RemoteInfo {
-	owner: string;
-	repositoryName: string;
-}
-
-export interface CreateParams {
-	availableRemotes: RemoteInfo[];
-	branchesForRemote: string[];
-	branchesForCompare: string[];
-
-	pendingTitle?: string;
-	pendingDescription?: string;
-	baseRemote?: RemoteInfo;
-	baseBranch?: string;
-	compareRemote?: RemoteInfo;
-	compareBranch?: string;
-	isDraft: boolean;
-
-	validate: boolean;
-	showTitleValidationError: boolean;
-	createError?: string;
-}
 
 const defaultCreateParams: CreateParams = {
 	availableRemotes: [],
@@ -137,9 +115,12 @@ export class CreatePRContext {
 		return this._handler.postMessage(message);
 	};
 
-	handleMessage = async (message: any): Promise<void> => {
+	handleMessage = async (message: {command: string, params?: CreateParams, scrollPosition?: ScrollPosition}): Promise<void> => {
 		switch (message.command) {
 			case 'pr.initialize':
+				if (!message.params) {
+					return;
+				}
 				if (this.createParams.pendingTitle === undefined) {
 					message.params.pendingTitle = message.params.defaultTitle;
 				}
@@ -186,6 +167,9 @@ export class CreatePRContext {
 				return;
 
 			case 'reset':
+				if (!message.params) {
+					return;
+				}
 				message.params.pendingTitle = message.params.defaultTitle;
 				message.params.pendingDescription = message.params.defaultDescription;
 				message.params.baseRemote = message.params.defaultBaseRemote;
@@ -196,6 +180,9 @@ export class CreatePRContext {
 				return;
 
 			case 'set-scroll':
+				if (!message.scrollPosition) {
+					return;
+				}
 				window.scrollTo(message.scrollPosition.x, message.scrollPosition.y);
 				return;
 		}

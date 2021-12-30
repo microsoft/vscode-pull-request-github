@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { CreateParams, RemoteInfo } from '../../common/views';
 import type { Branch } from '../api/api';
 import { RefType } from '../api/api1';
 import Logger from '../common/logger';
@@ -18,11 +19,6 @@ import {
 } from './folderRepositoryManager';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
-
-interface RemoteInfo {
-	owner: string;
-	repositoryName: string;
-}
 
 export class CreatePullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public readonly viewType = 'github:createPullRequest';
@@ -251,22 +247,23 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			branchesForCompare.push(this.compareBranch.name);
 			branchesForCompare.sort();
 		}
+		const params: CreateParams = {
+			availableRemotes: remotes,
+			defaultBaseRemote,
+			defaultBaseBranch: this._pullRequestDefaults.base,
+			defaultCompareRemote,
+			defaultCompareBranch: this.compareBranch.name ?? '',
+			branchesForRemote,
+			branchesForCompare,
+			defaultTitle,
+			defaultDescription,
+			compareBranch: this.compareBranch.name ?? '',
+			isDraft: false,
+		};
 
 		this._postMessage({
 			command: reset ? 'reset' : 'pr.initialize',
-			params: {
-				availableRemotes: remotes,
-				defaultBaseRemote,
-				defaultBaseBranch: this._pullRequestDefaults.base,
-				defaultCompareRemote,
-				defaultCompareBranch: this.compareBranch.name ?? '',
-				branchesForRemote,
-				branchesForCompare,
-				defaultTitle,
-				defaultDescription,
-				compareBranch: this.compareBranch.name ?? '',
-				isDraft: false,
-			},
+			params,
 		});
 	}
 

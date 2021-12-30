@@ -195,7 +195,7 @@ export class PRContext {
 			case 'pr.update-checkout-status':
 				return this.updatePR({ isCurrentlyCheckedOut: message.isCurrentlyCheckedOut });
 			case 'pr.deleteBranch':
-				const stateChange: { isLocalHeadDeleted?: boolean, isRemoteHeadDeleted?: boolean } = {}
+				const stateChange: { isLocalHeadDeleted?: boolean, isRemoteHeadDeleted?: boolean } = {};
 				message.branchTypes && message.branchTypes.map((branchType: string) => {
 					if (branchType === 'local') {
 						stateChange.isLocalHeadDeleted = true;
@@ -203,8 +203,8 @@ export class PRContext {
 					else if (branchType === 'remote') {
 						stateChange.isRemoteHeadDeleted = true;
 					}
-				})
-				return this.updatePR(stateChange)
+				});
+				return this.updatePR(stateChange);
 			case 'pr.enable-exit':
 				return this.updatePR({ isCurrentlyCheckedOut: true });
 			case 'set-scroll':
