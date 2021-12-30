@@ -29,6 +29,11 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	private _commentHandlerId: string;
 	private _commentThreadCache: { [key: string]: GHPRCommentThread[] } = {};
 	private _openPREditors: vscode.TextEditor[] = [];
+	/**
+	 * Cached threads belong to editors that are closed, but that we keep cached because they were recently used.
+	 * This prevents comment replies that haven't been submitted from getting deleted too easily.
+	 */
+	private _closedEditorCachedThreads: Set<string> = new Set();
 	private _disposables: vscode.Disposable[] = [];
 
 	constructor(
@@ -133,7 +138,24 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		return `${fileName}-${isBase ? 'original' : 'modified'}`;
 	}
 
-	private addThreadsForEditors(editors: vscode.TextEditor[]): void {
+	private tryUsedCachedEditor(editors: vscode.TextEditor[]): vscode.TextEditor[] {
+		const uncachedEditors: vscode.TextEditor[] = [];
+		editors.forEach(editor => {
+			const { fileName, isBase } = fromPRUri(editor.document.uri)!;
+			const key = this.getCommentThreadCacheKey(fileName, isBase);
+			if (this._closedEditorCachedThreads.has(key)) {
+				// Update position in cache
+				this._closedEditorCachedThreads.delete(key);
+				this._closedEditorCachedThreads.add(key);
+			} else {
+				uncachedEditors.push(editor);
+			}
+		});
+		return uncachedEditors;
+	}
+
+	private addThreadsForEditors(newEditors: vscode.TextEditor[]): void {
+		const editors = this.tryUsedCachedEditor(newEditors);
 		const reviewThreads = this.pullRequestModel.reviewThreadsCache;
 		const threadsByPath = groupBy(reviewThreads, thread => thread.path);
 		editors.forEach(editor => {
@@ -168,20 +190,44 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		this.addThreadsForEditors(prEditors);
 	}
 
+	private cleanCachedEditors() {
+		// Keep the most recent 4 editors (2 diffs) around and clean up the rest.
+		if (this._closedEditorCachedThreads.size > 4) {
+			const keys = Array.from(this._closedEditorCachedThreads.keys());
+			for (let i = 0; i < this._closedEditorCachedThreads.size - 4; i++) {
+				const key = keys[i];
+				this.cleanCachedEditor(key);
+				this._closedEditorCachedThreads.delete(key);
+			}
+		}
+	}
+
+	private cleanCachedEditor(key: string) {
+		const threads = this._commentThreadCache[key] || [];
+		threads.forEach(t => t.dispose());
+		delete this._commentThreadCache[key];
+	}
+
+	private addCachedEditors(editors: vscode.TextEditor[]) {
+		editors.forEach(editor => {
+			const { fileName, isBase } = fromPRUri(editor.document.uri)!;
+			const key = this.getCommentThreadCacheKey(fileName, isBase);
+			if (this._closedEditorCachedThreads.has(key)) {
+				// Delete to update position in the cache
+				this._closedEditorCachedThreads.delete(key);
+			}
+			this._closedEditorCachedThreads.add(key);
+		});
+	}
+
 	private onDidChangeOpenEditors(editors: vscode.TextEditor[]): void {
 		const prEditors = this.getPREditors(editors);
 		const removed = this._openPREditors.filter(x => !prEditors.includes(x));
+		this.addCachedEditors(removed);
+		this.cleanCachedEditors();
+
 		const added = prEditors.filter(x => !this._openPREditors.includes(x));
 		this._openPREditors = prEditors;
-
-		removed.forEach(editor => {
-			const { fileName, isBase } = fromPRUri(editor.document.uri)!;
-			const key = this.getCommentThreadCacheKey(fileName, isBase);
-			const threads = this._commentThreadCache[key] || [];
-			threads.forEach(t => t.dispose());
-			delete this._commentThreadCache[key];
-		});
-
 		if (added.length) {
 			this.addThreadsForEditors(added);
 		}
