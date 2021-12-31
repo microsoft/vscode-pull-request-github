@@ -9,7 +9,8 @@ export interface RemoteInfo {
 }
 
 export interface CreateParams {
-	availableRemotes: RemoteInfo[];
+	availableBaseRemotes: RemoteInfo[];
+	availableCompareRemotes: RemoteInfo[];
 	branchesForRemote: string[];
 	branchesForCompare: string[];
 
@@ -36,4 +37,16 @@ export interface CreateParams {
 export interface ScrollPosition {
 	x: number;
 	y: number;
+}
+
+export interface CreatePullRequest {
+	title: string;
+	body: string;
+	owner: string;
+	repo: string;
+	base: string
+	compareBranch: string;
+	compareOwner: string;
+	compareRepo: string;
+	draft: boolean;
 }

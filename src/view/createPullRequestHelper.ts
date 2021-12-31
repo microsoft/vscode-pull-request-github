@@ -69,7 +69,7 @@ export class CreatePullRequestHelper {
 			this._disposables.push(
 				this.repository.state.onDidChange(_ => {
 					if (this._createPRViewProvider && this.repository.state.HEAD) {
-						this._createPRViewProvider.compareBranch = this.repository.state.HEAD;
+						this._createPRViewProvider.defaultCompareBranch = this.repository.state.HEAD;
 					}
 				}),
 			);
