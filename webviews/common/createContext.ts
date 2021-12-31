@@ -102,6 +102,9 @@ export class CreatePRContext {
 					owner: this.createParams.baseRemote.owner,
 					repo: this.createParams.baseRemote.repositoryName,
 					base: this.createParams.baseBranch,
+					compareBranch: this.createParams.compareBranch,
+					compareOwner: this.createParams.compareRemote.owner,
+					compareRepo: this.createParams.compareRemote.repositoryName,
 					draft: this.createParams.isDraft,
 				},
 			});

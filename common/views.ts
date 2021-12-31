@@ -37,3 +37,15 @@ export interface ScrollPosition {
 	x: number;
 	y: number;
 }
+
+export interface CreatePullRequest {
+	title: string;
+	body: string;
+	owner: string;
+	repo: string;
+	base: string
+	compareBranch: string;
+	compareOwner: string;
+	compareRepo: string;
+	draft: boolean;
+}
