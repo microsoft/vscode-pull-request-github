@@ -8,7 +8,8 @@ import { CreateParams, ScrollPosition } from '../../common/views';
 import { getMessageHandler, MessageHandler, vscode } from './message';
 
 const defaultCreateParams: CreateParams = {
-	availableRemotes: [],
+	availableBaseRemotes: [],
+	availableCompareRemotes: [],
 	branchesForRemote: [],
 	branchesForCompare: [],
 	validate: false,

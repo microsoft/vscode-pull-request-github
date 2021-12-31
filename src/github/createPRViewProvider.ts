@@ -207,14 +207,22 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			repositoryName: defaultOrigin.remote.repositoryName,
 		};
 
-		const [githubRemotes, branchesForRemote, defaultTitle, defaultDescription] = await Promise.all([
+		const [configuredGitHubRemotes, allGitHubRemotes, branchesForRemote, defaultTitle, defaultDescription] = await Promise.all([
 			this._folderRepositoryManager.getGitHubRemotes(),
-			this._folderRepositoryManager.listBranches(this._pullRequestDefaults.owner, this._pullRequestDefaults.repo),
+			this._folderRepositoryManager.getAllGitHubRemotes(),
+			defaultOrigin.listBranches(this._pullRequestDefaults.owner, this._pullRequestDefaults.repo),
 			this.getTitle(this.defaultCompareBranch),
 			this.getDescription(this.defaultCompareBranch),
 		]);
 
-		const remotes: RemoteInfo[] = githubRemotes.map(remote => {
+		const configuredRemotes: RemoteInfo[] = configuredGitHubRemotes.map(remote => {
+			return {
+				owner: remote.owner,
+				repositoryName: remote.repositoryName,
+			};
+		});
+
+		const allRemotes: RemoteInfo[] = allGitHubRemotes.map(remote => {
 			return {
 				owner: remote.owner,
 				repositoryName: remote.repositoryName,
@@ -223,7 +231,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 		let branchesForCompare = branchesForRemote;
 		if (defaultCompareRemote.owner !== defaultBaseRemote.owner) {
-			branchesForCompare = await this._folderRepositoryManager.listBranches(
+			branchesForCompare = await defaultOrigin.listBranches(
 				defaultCompareRemote.owner,
 				defaultCompareRemote.repositoryName,
 			);
@@ -234,7 +242,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			branchesForCompare.sort();
 		}
 		const params: CreateParams = {
-			availableRemotes: remotes,
+			availableBaseRemotes: configuredRemotes,
+			availableCompareRemotes: allRemotes,
 			defaultBaseRemote,
 			defaultBaseBranch: this._pullRequestDefaults.base,
 			defaultCompareRemote,
@@ -257,16 +266,20 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		isBase: boolean,
 	): Promise<void> {
 		const { owner, repositoryName } = message.args;
-		const githubRepository = this._folderRepositoryManager.findRepo(
+
+		let githubRepository = this._folderRepositoryManager.findRepo(
 			repo => owner === repo.remote.owner && repositoryName === repo.remote.repositoryName,
 		);
 
+		if (!githubRepository) {
+			githubRepository = this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(owner, repositoryName);
+		}
 		if (!githubRepository) {
 			throw new Error('No matching GitHub repository found.');
 		}
 
 		const defaultBranch = await githubRepository.getDefaultBranch();
-		const newBranches = await this._folderRepositoryManager.listBranches(owner, repositoryName);
+		const newBranches = await githubRepository.listBranches(owner, repositoryName);
 
 		if (!isBase && this.defaultCompareBranch?.name && !newBranches.includes(this.defaultCompareBranch.name)) {
 			newBranches.push(this.defaultCompareBranch.name);
@@ -280,7 +293,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			this._onDidChangeCompareRemote.fire({ owner, repositoryName });
 		}
 
-		return this._replyMessage(message, { branches: newBranches, defaultBranch: isBase ? defaultBranch : this.defaultCompareBranch });
+		return this._replyMessage(message, { branches: newBranches, defaultBranch: isBase ? defaultBranch : this.defaultCompareBranch?.name });
 	}
 
 	private async create(message: IRequestMessage<CreatePullRequest>): Promise<void> {
