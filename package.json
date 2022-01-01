@@ -189,7 +189,7 @@
 					"description": "Default handler for terminal links."
 				},
 				"githubPullRequests.commentExpandState": {
-					"type":"string",
+					"type": "string",
 					"enum": [
 						"expandUnresolved",
 						"collapseAll"
