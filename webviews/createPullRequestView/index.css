@@ -11,6 +11,9 @@ textarea {
 
 select {
 	width: 100%;
+	background-color: var(--vscode-dropdown-background);
+	color: var(--vscode-dropdown-foreground);
+	-webkit-appearance: none;
 }
 
 textarea {
@@ -84,8 +87,4 @@ body {
 
 .selector-group .wrapper {
 	padding-right: 5px;
-}
-.select-style {
-	background-color: #3d3c3d;
-	-webkit-appearance: none;
 }

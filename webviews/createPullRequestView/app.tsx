@@ -12,7 +12,7 @@ import { gitCompareIcon, repoIcon } from '../components/icon';
 export const RemoteSelect = ({ onChange, defaultOption, repos }:
 	{ onChange: (owner: string, repositoryName: string) => Promise<void>, defaultOption: string, repos: RemoteInfo[] }) => {
 	return <ErrorBoundary>
-		<div className='wrapper flex select-style'>
+		<div className='wrapper flex '>
 			{repoIcon}<select value={defaultOption} onChange={(e) => {
 				const [owner, repositoryName] = e.currentTarget.value.split('/');
 				onChange(owner, repositoryName);
@@ -33,7 +33,7 @@ export const RemoteSelect = ({ onChange, defaultOption, repos }:
 export const BranchSelect = ({ onChange, defaultOption, branches }:
 	{ onChange: (branch: string) => void, defaultOption: string, branches: string[] }) => {
 	return <ErrorBoundary>
-		<div className='wrapper flex select-style' >
+		<div className='wrapper flex ' >
 			{gitCompareIcon}<select value={defaultOption} onChange={(e) => onChange(e.currentTarget.value)}>
 				{branches.map(branchName =>
 					<option
