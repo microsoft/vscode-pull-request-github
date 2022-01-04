@@ -20,22 +20,26 @@ stages:
         - script: yarn run compile
           displayName: Compile
 
-        - script: yarn run test
+        - task: Npm@1
+          inputs: run test
           displayName: Run test suite
           env:
             TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
 
-        - script: yarn run browsertest --browserType=chromium
+        - task: Npm@1
+          inputs: run browsertest --browserType=chromium
           displayName: Run test suite (chromium)
           env:
             TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-chromium-test-results.xml
 
-        - script: yarn run browsertest --browserType=firefox
+        - task: Npm@1
+          inputs:  run browsertest --browserType=firefox
           displayName: Run test suite (firefox)
           env:
             TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
 
-        - script: yarn run browsertest --browserType=webkit
+        - task: Npm@1
+          inputs:  run browsertest --browserType=webkit
           displayName: Run test suite (webkit)
           env:
             TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
