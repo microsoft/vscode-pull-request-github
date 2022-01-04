@@ -53,8 +53,8 @@ stages:
   - job: publish
     displayName: Publish
     strategy:
-      runOnce:
-        deploy:
+      deploy:
+        runOnce:
           steps:
             - template: scripts/ci/common-setup.yml
 
