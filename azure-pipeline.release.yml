@@ -52,6 +52,7 @@ stages:
   jobs:
   - job: publish
     displayName: Publish
+    environment: VSCode-Marketplace
     strategy:
       deploy:
         runOnce:
