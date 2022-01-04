@@ -21,25 +21,33 @@ stages:
           displayName: Compile
 
         - task: Npm@1
-          inputs: run test
+          inputs:
+            command: custom
+            customCommand: run test
           displayName: Run test suite
           env:
             TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
 
         - task: Npm@1
-          inputs: run browsertest --browserType=chromium
+          inputs:
+            command: custom
+            customCommand: run browsertest --browserType=chromium
           displayName: Run test suite (chromium)
           env:
             TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-chromium-test-results.xml
 
         - task: Npm@1
-          inputs:  run browsertest --browserType=firefox
+          inputs:
+            command: custom
+            customCommand: run browsertest --browserType=firefox
           displayName: Run test suite (firefox)
           env:
             TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
 
         - task: Npm@1
-          inputs:  run browsertest --browserType=webkit
+          inputs:
+            command: custom
+            customCommand: run browsertest --browserType=webkit
           displayName: Run test suite (webkit)
           env:
             TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
