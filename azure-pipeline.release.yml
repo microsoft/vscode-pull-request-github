@@ -24,6 +24,7 @@ stages:
           inputs:
             command: custom
             customCommand: run test
+          continueOnError: false
           displayName: Run test suite
           env:
             TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
