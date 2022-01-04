@@ -53,17 +53,18 @@ stages:
   - job: publish
     displayName: Publish
     strategy:
-      runOnce:
-        steps:
-          - template: scripts/ci/common-setup.yml
+      deploy:
+        runOnce:
+          steps:
+            - template: scripts/ci/common-setup.yml
 
-          - script: |
-              VSIX=$(node -p "require(\"./package.json\").name + \"-\" + require(\"./package.json\").version + \".vsix\"")
-              echo "##vso[task.setvariable variable=VSIX]$VSIX"
-            displayName: Set environment variable
+            - script: |
+                VSIX=$(node -p "require(\"./package.json\").name + \"-\" + require(\"./package.json\").version + \".vsix\"")
+                echo "##vso[task.setvariable variable=VSIX]$VSIX"
+              displayName: Set environment variable
 
-          # - script: npx vsce publish p "$TOKEN" --packagePath $(Pipeline.Workspace)/extension/$(VSIX)
-          #   displayName: Publish extension
-          #   env:
-          #     TOKEN: $(vsce.token)
+            # - script: npx vsce publish p "$TOKEN" --packagePath $(Pipeline.Workspace)/extension/$(VSIX)
+            #   displayName: Publish extension
+            #   env:
+            #     TOKEN: $(vsce.token)
   condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
