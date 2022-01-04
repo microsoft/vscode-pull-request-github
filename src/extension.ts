@@ -155,8 +155,7 @@ async function init(
 	});
 
 	git.onDidOpenRepository(repo => {
-		const disposable = repo.state.onDidChange(() => {
-			Logger.appendLine(`Repo state for ${repo.rootUri} changed.`);
+		function addRepo() {
 			// Make sure we don't already have a folder manager for this repo.
 			const existing = reposManager.getManagerForFile(repo.rootUri);
 			if (existing) {
@@ -176,6 +175,11 @@ async function init(
 			);
 			reviewManagers.push(newReviewManager);
 			tree.refresh();
+		}
+		addRepo();
+		const disposable = repo.state.onDidChange(() => {
+			Logger.appendLine(`Repo state for ${repo.rootUri} changed.`);
+			addRepo();
 			disposable.dispose();
 		});
 	});
