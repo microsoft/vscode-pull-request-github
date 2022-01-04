@@ -51,7 +51,6 @@ stages:
   jobs:
   - deployment: DeployAppService
     displayName: Publish
-    environment: VSCode-Marketplace
     strategy:
       runOnce:
             deploy:
