@@ -12,9 +12,9 @@ stages:
         - template: scripts/ci/common-setup.yml
 
         - script: |
-          VSIX=$(node -p "require(\"./package.json\").name + \"-\" + require(\"./package.json\").version + \".vsix\"")
-          echo "##vso[task.setvariable variable=VSIX]$VSIX"
-        displayName: Set environment variable
+            VSIX=$(node -p "require(\"./package.json\").name + \"-\" + require(\"./package.json\").version + \".vsix\"")
+            echo "##vso[task.setvariable variable=VSIX]$VSIX"
+          displayName: Set environment variable
 
         - script: yarn run compile
           displayName: Compile
