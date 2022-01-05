@@ -4,5 +4,5 @@ steps:
     inputs:
       versionSpec: '14.x'
 
-  - script: yarn install
+  - script: yarn install --frozen-lockfile
     displayName: Install dependencies

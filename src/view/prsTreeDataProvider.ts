@@ -9,7 +9,6 @@ import { EXTENSION_ID } from '../constants';
 import { REMOTES_SETTING, ReposManagerState, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { FileViewedDecorationProvider } from './fileViewedDecorationProvider';
-import { getInMemPRFileSystemProvider } from './inMemPRContentProvider';
 import { DecorationProvider } from './treeDecorationProvider';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
@@ -35,7 +34,6 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 	constructor(private _telemetry: ITelemetry) {
 		this._disposables = [];
-		this._disposables.push(vscode.workspace.registerFileSystemProvider('pr', getInMemPRFileSystemProvider(), { isReadonly: true }));
 		this._disposables.push(vscode.window.registerFileDecorationProvider(DecorationProvider));
 		this._disposables.push(vscode.window.registerFileDecorationProvider(FileViewedDecorationProvider));
 		this._disposables.push(
