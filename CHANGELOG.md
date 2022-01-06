@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.34.3
+
+### Fixes
+
+- Extension causes high cpu load. https://github.com/microsoft/vscode-pull-request-github/issues/841
+
 ## 0.34.2
 
 ### Fixes
