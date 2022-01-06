@@ -57,6 +57,8 @@ stages:
         runOnce:
           deploy:
             steps:
+              - checkout: self
+
               - template: scripts/ci/common-setup.yml
 
               - script: |
