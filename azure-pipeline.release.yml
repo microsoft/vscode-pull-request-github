@@ -66,7 +66,7 @@ stages:
                   echo "##vso[task.setvariable variable=VSIX]$VSIX"
                 displayName: Set environment variable
 
-              - script: npx vsce publish -p "$TOKEN" --packagePath $(Pipeline.Workspace)/extension/$(VSIX)
+              - script: npx vsce publish -p "$TOKEN" --packagePath $(Pipeline.Workspace)/extension/$(VSIX) --noVerify
                 displayName: Publish extension
                 env:
                   TOKEN: $(vsce.token)
