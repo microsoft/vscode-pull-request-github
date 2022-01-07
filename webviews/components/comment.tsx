@@ -361,7 +361,7 @@ const COMMENT_METHODS = {
 };
 
 export const AddCommentSimple = (pr: PullRequest) => {
-	const { updatePR, requestChanges, approve, comment, openOnGitHub } = useContext(PullRequestContext);
+	const { updatePR, requestChanges, approve, submit, openOnGitHub } = useContext(PullRequestContext);
 	const textareaRef = useRef<HTMLTextAreaElement>();
 
 	async function submitAction(selected: string): Promise<void> {
@@ -379,7 +379,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 				await approve(value);
 				break;
 			default:
-				await comment(value);
+				await submit(value);
 		}
 		updatePR({ pendingCommentText: '', pendingReviewType: undefined });
 	}
@@ -389,9 +389,9 @@ export const AddCommentSimple = (pr: PullRequest) => {
 	};
 
 	const availableActions = pr.isAuthor
-		? { comment: 'Comment' }
+		? { comment: 'Comment and Submit' }
 		: pr.continueOnGitHub
-		? { comment: 'Comment', approve: 'Approve on github.com', requestChanges: 'Request changes on github.com' }
+		? { comment: 'Comment and Submit', approve: 'Approve on github.com', requestChanges: 'Request changes on github.com' }
 		: COMMENT_METHODS;
 
 	return (
