@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.34.3
+
+### Fixes
+
+- Extension causes high cpu load. https://github.com/microsoft/vscode-pull-request-github/issues/841
+
+## 0.34.2
+
+### Fixes
+
+- Being on a branch with a PR replaces my active editor. https://github.com/microsoft/vscode-pull-request-github/issues/3194
+
+## 0.34.1
+
+### Fixes
+
+- Every time I open a new instance of vscode I'm being prompted to sign in to GitHub. https://github.com/microsoft/vscode-pull-request-github/issues/3165
+- Comments disappearing after exiting review mode. https://github.com/microsoft/vscode-pull-request-github/issues/3173
+
 ## 0.34.0
 
 ### Changes
