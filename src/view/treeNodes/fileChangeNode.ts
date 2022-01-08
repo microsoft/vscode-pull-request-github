@@ -19,11 +19,12 @@ import { FileViewedDecorationProvider } from '../fileViewedDecorationProvider';
 import { DecorationProvider } from '../treeDecorationProvider';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
-export function openFileCommand(uri: vscode.Uri): vscode.Command {
+export function openFileCommand(uri: vscode.Uri, _opts: Pick<vscode.TextDocumentShowOptions, 'preview'>): vscode.Command {
 	const activeTextEditor = vscode.window.activeTextEditor;
 	const opts: vscode.TextDocumentShowOptions = {
 		preserveFocus: true,
 		viewColumn: vscode.ViewColumn.Active,
+		..._opts
 	};
 
 	// Check if active text editor has same path as other editor. we cannot compare via
@@ -299,8 +300,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		return this;
 	}
 
-	openFileCommand(): vscode.Command {
-		return openFileCommand(this.filePath);
+	openFileCommand(opts: Pick<vscode.TextDocumentShowOptions, 'preview'>): vscode.Command {
+		return openFileCommand(this.filePath, opts);
 	}
 
 	async openDiff(folderManager: FolderRepositoryManager): Promise<void> {
@@ -469,7 +470,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 					this.status,
 				);
 			} else {
-				this.command = this.openFileCommand();
+				this.command = this.openFileCommand({ preview: true });
 			}
 		}
 	}

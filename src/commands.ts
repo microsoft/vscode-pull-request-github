@@ -12,7 +12,7 @@ import { IComment } from './common/comment';
 import Logger from './common/logger';
 import { SessionState } from './common/sessionState';
 import { ITelemetry } from './common/telemetry';
-import { asImageDataURI } from './common/uri';
+import { asImageDataURI, resolvePath } from './common/uri';
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { CredentialStore } from './github/credentials';
@@ -201,6 +201,36 @@ export function registerCommands(
 				vscode.window.showErrorMessage(`Applying patch failed: ${formatError(err)}`);
 			}
 		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'pr.openAllChangesLocally',
+			async () => {
+				const activePullRequestsWithRootUri = reposManager.folderManagers
+					.filter(fm => fm.activePullRequest != null)
+					.map(fm => (( {activePr: fm.activePullRequest! , rootUri: fm.repository.rootUri } )));
+
+				const activePullRequestWithRootUri = activePullRequestsWithRootUri.length >= 1
+					? (
+						await chooseItem(
+							activePullRequestsWithRootUri,
+							itemValue => itemValue.activePr.html_url,
+						)
+					)
+					: activePullRequestsWithRootUri[0];
+
+				if (activePullRequestWithRootUri == null) {
+					return;
+				}
+
+				const { activePr, rootUri } = activePullRequestWithRootUri;
+				(await activePr.getFileChangesInfo())
+					.map(({ filename }) => vscode.Uri.file(resolvePath(rootUri, filename)))
+					.map(uri => openFileCommand(uri, { preview: false }))
+					.forEach(command => vscode.commands.executeCommand(command.command, ...(command.arguments ?? [])));
+			}
+		)
 	);
 
 	context.subscriptions.push(
@@ -779,7 +809,7 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('review.openFile', (value: GitFileChangeNode | vscode.Uri) => {
-			const command = value instanceof GitFileChangeNode ? value.openFileCommand() : openFileCommand(value);
+			const command = value instanceof GitFileChangeNode ? value.openFileCommand({ preview: true }) : openFileCommand(value, { preview: true });
 			vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
 		}),
 	);
