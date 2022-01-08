@@ -20,7 +20,7 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 
 	private updateTriggers() {
 		const triggers = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('createIssueTriggers', []);
-		this.expression = triggers.length > 0 ? new RegExp(triggers.join('|')) : undefined;
+		this.expression = triggers.length > 0 ? new RegExp(triggers.join('|'), 'i') : undefined;
 	}
 
 	async provideCodeActions(
