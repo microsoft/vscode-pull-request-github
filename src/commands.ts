@@ -140,6 +140,37 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'pr.openAllChangesLocally',
+			async () => {
+				const activePullRequestsWithRootUri = reposManager.folderManagers
+					.filter(fm => fm.activePullRequest != null)
+					.map(fm => (( {activePr: fm.activePullRequest! , rootUri: fm.repository.rootUri } )));
+
+				const activePullRequestWithRootUri = activePullRequestsWithRootUri.length >= 1
+					? (
+						await chooseItem(
+							activePullRequestsWithRootUri,
+							itemValue => itemValue.activePr.html_url,
+						)
+					)
+					: activePullRequestsWithRootUri[0];
+
+				if (activePullRequestWithRootUri == null) {
+					return;
+				}
+
+				const { activePr, rootUri } = activePullRequestWithRootUri;
+				(await activePr.getFileChangesInfo())
+					.map(({ filename }) => vscode.Uri.file(resolvePath(rootUri, filename)))
+					.map(uri => openFileCommand(uri, { preview: false }))
+					.forEach(command => vscode.commands.executeCommand(command.command, ...(command.arguments ?? [])));
+			}
+		)
+	);
+
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('review.suggestDiff', async e => {
 			try {
 				const folderManager = await chooseItem<FolderRepositoryManager>(
@@ -201,36 +232,6 @@ export function registerCommands(
 				vscode.window.showErrorMessage(`Applying patch failed: ${formatError(err)}`);
 			}
 		}),
-	);
-
-	context.subscriptions.push(
-		vscode.commands.registerCommand(
-			'pr.openAllChangesLocally',
-			async () => {
-				const activePullRequestsWithRootUri = reposManager.folderManagers
-					.filter(fm => fm.activePullRequest != null)
-					.map(fm => (( {activePr: fm.activePullRequest! , rootUri: fm.repository.rootUri } )));
-
-				const activePullRequestWithRootUri = activePullRequestsWithRootUri.length >= 1
-					? (
-						await chooseItem(
-							activePullRequestsWithRootUri,
-							itemValue => itemValue.activePr.html_url,
-						)
-					)
-					: activePullRequestsWithRootUri[0];
-
-				if (activePullRequestWithRootUri == null) {
-					return;
-				}
-
-				const { activePr, rootUri } = activePullRequestWithRootUri;
-				(await activePr.getFileChangesInfo())
-					.map(({ filename }) => vscode.Uri.file(resolvePath(rootUri, filename)))
-					.map(uri => openFileCommand(uri, { preview: false }))
-					.forEach(command => vscode.commands.executeCommand(command.command, ...(command.arguments ?? [])));
-			}
-		)
 	);
 
 	context.subscriptions.push(
