@@ -169,7 +169,6 @@ export function registerCommands(
 		)
 	);
 
-
 	context.subscriptions.push(
 		vscode.commands.registerCommand('review.suggestDiff', async e => {
 			try {
