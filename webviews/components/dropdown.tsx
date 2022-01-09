@@ -20,7 +20,7 @@ export const Dropdown = ({ options, defaultOption, submitAction }) => {
 	const dropdownId = uuid();
 	const EXPAND_OPTIONS_BUTTON = `expandOptions${dropdownId}`;
 
-	const onClick = e => {
+	const onClick = () => {
 		setOptionsVisible(!areOptionsVisible);
 	};
 
