@@ -11,17 +11,11 @@ import {
 	CommentEvent,
 	CommitEvent,
 	HeadRefDeleteEvent,
-	isAssignEvent,
-	isCommentEvent,
-	isCommitEvent,
-	isHeadDeleteEvent,
-	isMergedEvent,
-	isReviewEvent,
 	MergedEvent,
 	ReviewEvent,
 	TimelineEvent,
 } from '../../src/common/timelineEvent';
-import { groupBy } from '../../src/common/utils';
+import { groupBy, UnreachableCaseError } from '../../src/common/utils';
 import PullRequestContext from '../common/context';
 import { CommentBody, CommentView } from './comment';
 import Diff from './diff';
@@ -32,22 +26,25 @@ import { AuthorLink, Avatar } from './user';
 
 export const Timeline = ({ events }: { events: TimelineEvent[] }) => (
 	<>
-		{events.map(event =>
-			// TODO: Maybe make TimelineEvent a tagged union type?
-			isCommitEvent(event) ? (
-				<CommitEventView key={event.id} {...event} />
-			) : isReviewEvent(event) ? (
-				<ReviewEventView key={event.id} {...event} />
-			) : isCommentEvent(event) ? (
-				<CommentEventView key={event.id} {...event} />
-			) : isMergedEvent(event) ? (
-				<MergedEventView key={event.id} {...event} />
-			) : isAssignEvent(event) ? (
-				<AssignEventView key={event.id} {...event} />
-			) : isHeadDeleteEvent(event) ? (
-				<HeadDeleteEventView key={event.id} {...event} />
-			) : null,
-		)}
+		{events.map(event => {
+			const kind = event.eventKind;
+			switch (kind) {
+				case 'comment':
+					return <CommentEventView key={event.id} {...event} />;
+				case 'merged':
+					return <MergedEventView key={event.id} {...event} />;
+				case 'assign':
+					return <AssignEventView key={event.id} {...event} />;
+				case 'head-ref-delete':
+					return <HeadDeleteEventView key={event.id} {...event} />;
+				case 'review':
+					return <ReviewEventView key={event.id} {...event} />;
+				case 'commit':
+					return <CommitEventView key={event.id} {...event} />;
+				default:
+					throw new UnreachableCaseError(kind);
+			}
+		})}
 	</>
 );
 

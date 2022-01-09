@@ -269,6 +269,7 @@ export function convertRESTReviewEvent(
 	githubRepository: GitHubRepository,
 ): Common.ReviewEvent {
 	return {
+		eventKind: 'review',
 		event: Common.EventType.Reviewed,
 		comments: [],
 		submittedAt: (review as any).submitted_at, // TODO fix typings upstream
@@ -628,6 +629,7 @@ export function parseGraphQLReviewEvent(
 	githubRepository: GitHubRepository,
 ): Common.ReviewEvent {
 	return {
+		eventKind: 'review',
 		event: Common.EventType.Reviewed,
 		comments: review.comments.nodes.map(comment => parseGraphQLComment(comment, false)).filter(c => !c.inReplyToId),
 		submittedAt: review.submittedAt,
@@ -660,6 +662,7 @@ export function parseGraphQLTimelineEvents(
 			case Common.EventType.Commented:
 				const commentEvent = event as GraphQL.IssueComment;
 				normalizedEvents.push({
+					eventKind: 'comment',
 					htmlUrl: commentEvent.url,
 					body: commentEvent.body,
 					bodyHTML: commentEvent.bodyHTML,
@@ -668,13 +671,14 @@ export function parseGraphQLTimelineEvents(
 					canEdit: commentEvent.viewerCanUpdate,
 					canDelete: commentEvent.viewerCanDelete,
 					id: commentEvent.databaseId,
-					graphNodeId: commentEvent.id,
+					// graphNodeId: commentEvent.id,
 					createdAt: commentEvent.createdAt,
 				});
 				return;
 			case Common.EventType.Reviewed:
 				const reviewEvent = event as GraphQL.Review;
 				normalizedEvents.push({
+					eventKind: 'review',
 					event: type,
 					comments: [],
 					submittedAt: reviewEvent.submittedAt,
@@ -705,6 +709,7 @@ export function parseGraphQLTimelineEvents(
 				const mergeEv = event as GraphQL.MergedEvent;
 
 				normalizedEvents.push({
+					eventKind: 'merged',
 					id: mergeEv.databaseId,
 					event: type,
 					user: parseAuthor(mergeEv.actor, githubRepository),
@@ -720,6 +725,7 @@ export function parseGraphQLTimelineEvents(
 				const assignEv = event as GraphQL.AssignedEvent;
 
 				normalizedEvents.push({
+					eventKind: 'assign',
 					id: assignEv.databaseId,
 					event: type,
 					user: assignEv.user,
@@ -730,6 +736,7 @@ export function parseGraphQLTimelineEvents(
 				const deletedEv = event as GraphQL.HeadRefDeletedEvent;
 
 				normalizedEvents.push({
+					eventKind: 'head-ref-delete',
 					id: deletedEv.id,
 					event: type,
 					actor: deletedEv.actor,
@@ -826,21 +833,21 @@ export function getRelatedUsersFromTimelineEvents(
 	const ret: { login: string; name: string }[] = [];
 
 	timelineEvents.forEach(event => {
-		if (Common.isCommitEvent(event)) {
+		if (event.eventKind === 'commit') {
 			ret.push({
 				login: event.author.login,
 				name: event.author.name || '',
 			});
 		}
 
-		if (Common.isReviewEvent(event)) {
+		if (event.eventKind === 'review') {
 			ret.push({
 				login: event.user.login,
 				name: event.user.name ?? event.user.login,
 			});
 		}
 
-		if (Common.isCommentEvent(event)) {
+		if (event.eventKind === 'comment') {
 			ret.push({
 				login: event.user.login,
 				name: event.user.name ?? event.user.login,
@@ -891,7 +898,7 @@ export function parseReviewers(
 	timelineEvents: Common.TimelineEvent[],
 	author: IAccount,
 ): ReviewState[] {
-	const reviewEvents = timelineEvents.filter(Common.isReviewEvent).filter(event => event.state !== 'PENDING');
+	const reviewEvents = timelineEvents.filter((e): e is Common.ReviewEvent => e.eventKind === 'review').filter(event => event.state !== 'PENDING');
 	let reviewers: ReviewState[] = [];
 	const seen = new Map<string, boolean>();
 

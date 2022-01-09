@@ -27,6 +27,7 @@ export interface Committer {
 }
 
 export interface CommentEvent {
+	eventKind: 'comment';
 	id: number;
 	htmlUrl: string;
 	body: string;
@@ -39,6 +40,7 @@ export interface CommentEvent {
 }
 
 export interface ReviewEvent {
+	eventKind: 'review';
 	id: number;
 	event: EventType;
 	comments: IComment[];
@@ -52,6 +54,7 @@ export interface ReviewEvent {
 }
 
 export interface CommitEvent {
+	eventKind: 'commit';
 	id: string;
 	author: IAccount;
 	event: EventType;
@@ -63,6 +66,7 @@ export interface CommitEvent {
 }
 
 export interface MergedEvent {
+	eventKind: 'merged';
 	id: number;
 	graphNodeId: string;
 	user: IAccount;
@@ -75,6 +79,7 @@ export interface MergedEvent {
 }
 
 export interface AssignEvent {
+	eventKind: 'assign';
 	id: number;
 	event: EventType;
 	user: IAccount;
@@ -82,6 +87,7 @@ export interface AssignEvent {
 }
 
 export interface HeadRefDeleteEvent {
+	eventKind: 'head-ref-delete'
 	id: string;
 	event: EventType;
 	actor: IAccount;
@@ -90,27 +96,3 @@ export interface HeadRefDeleteEvent {
 }
 
 export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent;
-
-export function isReviewEvent(event: TimelineEvent): event is ReviewEvent {
-	return event.event === EventType.Reviewed;
-}
-
-export function isCommitEvent(event: TimelineEvent): event is CommitEvent {
-	return event.event === EventType.Committed;
-}
-
-export function isCommentEvent(event: TimelineEvent): event is CommentEvent {
-	return event.event === EventType.Commented;
-}
-
-export function isMergedEvent(event: TimelineEvent): event is MergedEvent {
-	return event.event === EventType.Merged;
-}
-
-export function isAssignEvent(event: TimelineEvent): event is AssignEvent {
-	return event.event === EventType.Assigned;
-}
-
-export function isHeadDeleteEvent(event: TimelineEvent): event is HeadRefDeleteEvent {
-	return event.event === EventType.HeadRefDeleted;
-}
