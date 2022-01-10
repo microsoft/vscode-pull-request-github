@@ -11,7 +11,7 @@ declare module 'vscode' {
 		Other = 0,
 		Comment = 1,
 		String = 2,
-		RegEx = 3
+		RegEx = 4
 	}
 
 	export interface TokenInformation {
