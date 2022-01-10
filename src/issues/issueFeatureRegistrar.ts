@@ -384,7 +384,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager, this.telemetry)),
 			);
 			this.context.subscriptions.push(
-				vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context)),
+				vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context), { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
 			);
 		});
 	}
