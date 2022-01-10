@@ -6,6 +6,7 @@
 
 import * as pathLib from 'path';
 import * as vscode from 'vscode';
+import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { fromReviewUri } from '../common/uri';
 import { getRepositoryForFile } from '../github/utils';
@@ -16,6 +17,27 @@ export class GitContentFileSystemProvider extends ReadonlyFileSystemProvider {
 
 	constructor(private gitAPI: GitApiImpl) {
 		super();
+	}
+
+	private async getRepositoryForFile(file: vscode.Uri): Promise<Repository | undefined> {
+		if (this.gitAPI.state !== 'initialized') {
+			let eventDisposable: vscode.Disposable | undefined = undefined;
+			const openPromise = new Promise<void>(resolve => {
+				eventDisposable = this.gitAPI.onDidOpenRepository(() => {
+					eventDisposable?.dispose();
+					eventDisposable = undefined;
+					resolve();
+				});
+			});
+			const timeoutPromise = new Promise<void>(resolve => {
+				setTimeout(() => resolve(), 4000);
+			});
+			await Promise.race([openPromise, timeoutPromise]);
+			if (eventDisposable) {
+				eventDisposable!.dispose();
+			}
+		}
+		return getRepositoryForFile(this.gitAPI, file);
 	}
 
 	async readFile(uri: vscode.Uri): Promise<Uint8Array> {
@@ -29,7 +51,7 @@ export class GitContentFileSystemProvider extends ReadonlyFileSystemProvider {
 			return new TextEncoder().encode('');
 		}
 
-		const repository = getRepositoryForFile(this.gitAPI, vscode.Uri.file(rootPath));
+		const repository = await this.getRepositoryForFile(vscode.Uri.file(rootPath));
 		if (!repository) {
 			vscode.window.showErrorMessage(`We couldn't find an open repository for ${commit} locally.`);
 			return new TextEncoder().encode('');
