@@ -56,7 +56,7 @@ export class PullRequestGitHelper {
 		// set remote tracking branch for the local branch
 		await repository.setBranchUpstream(localBranchName, `refs/remotes/${remoteName}/${pullRequest.head.ref}`);
 		await this.unshallow(repository);
-		PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, localBranchName);
+		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, localBranchName);
 	}
 
 	static async fetchAndCheckout(
