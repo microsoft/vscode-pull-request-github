@@ -247,6 +247,8 @@ export class ReviewManager {
 
 	private async validateState(silent: boolean, openDiff: boolean) {
 		Logger.appendLine('Review> Validating state...');
+		const oldLastCommitSha = this._lastCommitSha;
+		this._lastCommitSha = undefined;
 		await this._folderRepoManager.updateRepositories(false);
 
 		if (!this._repository.state.HEAD) {
@@ -261,7 +263,7 @@ export class ReviewManager {
 			Logger.appendLine(`Review> no matching pull request metadata found for current branch ${branch.name}`);
 			const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub();
 			if (metadataFromGithub) {
-				PullRequestGitHelper.associateBranchWithPullRequest(
+				await PullRequestGitHelper.associateBranchWithPullRequest(
 					this._repository,
 					metadataFromGithub.model,
 					branch.name!,
@@ -278,7 +280,7 @@ export class ReviewManager {
 			return;
 		}
 
-		const hasPushedChanges = branch.commit !== this._lastCommitSha && branch.ahead === 0 && branch.behind === 0;
+		const hasPushedChanges = branch.commit !== oldLastCommitSha && branch.ahead === 0 && branch.behind === 0;
 		if (this._prNumber === matchingPullRequestMetadata.prNumber && !hasPushedChanges) {
 			vscode.commands.executeCommand('pr.refreshList');
 			return;
@@ -297,7 +299,6 @@ export class ReviewManager {
 		);
 		this.clear(false);
 		this._prNumber = matchingPullRequestMetadata.prNumber;
-		this._lastCommitSha = undefined;
 
 		const { owner, repositoryName } = matchingPullRequestMetadata;
 		Logger.appendLine('Review> Resolving pull request');
