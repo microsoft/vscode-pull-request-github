@@ -19,12 +19,12 @@ import { FileViewedDecorationProvider } from '../fileViewedDecorationProvider';
 import { DecorationProvider } from '../treeDecorationProvider';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
-export function openFileCommand(uri: vscode.Uri, _opts: Pick<vscode.TextDocumentShowOptions, 'preview'>): vscode.Command {
+export function openFileCommand(uri: vscode.Uri, options: Pick<vscode.TextDocumentShowOptions, 'preview'>): vscode.Command {
 	const activeTextEditor = vscode.window.activeTextEditor;
 	const opts: vscode.TextDocumentShowOptions = {
 		preserveFocus: true,
 		viewColumn: vscode.ViewColumn.Active,
-		..._opts
+		...options
 	};
 
 	// Check if active text editor has same path as other editor. we cannot compare via

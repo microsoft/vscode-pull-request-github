@@ -472,8 +472,8 @@
 				"icon": "$(globe)"
 			},
 			{
-				"command": "pr.openAllChangesLocally",
-				"title": "Open All Changes Locally",
+				"command": "pr.openAllChanges",
+				"title": "Open All Changes",
 				"category": "GitHub Pull Requests"
 			},
 			{
@@ -928,7 +928,7 @@
 					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
 				},
 				{
-					"command": "pr.openAllChangesLocally",
+					"command": "pr.openAllChanges",
 					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
 				},
 				{

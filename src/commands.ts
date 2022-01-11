@@ -141,11 +141,13 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'pr.openAllChangesLocally',
+			'pr.openAllChanges',
 			async () => {
 				const activePullRequestsWithRootUri = reposManager.folderManagers
-					.filter(fm => fm.activePullRequest != null)
-					.map(fm => (( {activePr: fm.activePullRequest! , rootUri: fm.repository.rootUri } )));
+					.filter(folderManager => folderManager.activePullRequest)
+					.map(folderManager => {
+						return (({ activePr: folderManager.activePullRequest!, rootUri: folderManager.repository.rootUri }));
+					});
 
 				const activePullRequestWithRootUri = activePullRequestsWithRootUri.length >= 1
 					? (
@@ -156,7 +158,7 @@ export function registerCommands(
 					)
 					: activePullRequestsWithRootUri[0];
 
-				if (activePullRequestWithRootUri == null) {
+				if (!activePullRequestWithRootUri) {
 					return;
 				}
 
