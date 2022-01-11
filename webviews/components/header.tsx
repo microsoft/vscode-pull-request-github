@@ -9,7 +9,6 @@ import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
 import { checkIcon, copyIcon, editIcon } from './icon';
-import { Spaced } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
 
