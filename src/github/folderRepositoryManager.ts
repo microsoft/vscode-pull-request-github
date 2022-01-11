@@ -1063,27 +1063,37 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		 * - At the root, the docs folder, or the.github folder, named pull_request_template.md or PULL_REQUEST_TEMPLATE.md
 		 * - At the same folder locations under a PULL_REQUEST_TEMPLATE folder with any name
 		 */
+		const pattern1 = '{pull_request_template,PULL_REQUEST_TEMPLATE}.md';
 		const templatesPattern1 = await vscode.workspace.findFiles(
-			new vscode.RelativePattern(
-				this._repository.rootUri,
-				'{pull_request_template,PULL_REQUEST_TEMPLATE}.md',
-			),
+			new vscode.RelativePattern(this._repository.rootUri, pattern1),
 		);
+
+		const pattern2 = '{docs,.github}/{pull_request_template,PULL_REQUEST_TEMPLATE}.md';
 		const templatesPattern2 = await vscode.workspace.findFiles(
-			new vscode.RelativePattern(
-				this._repository.rootUri,
-				'{docs,.github}/{pull_request_template,PULL_REQUEST_TEMPLATE}.md',
-			),
+			new vscode.RelativePattern(this._repository.rootUri, pattern2),
 		);
 
+		const pattern3 = 'PULL_REQUEST_TEMPLATE/*.md';
 		const templatesPattern3 = await vscode.workspace.findFiles(
-			new vscode.RelativePattern(this._repository.rootUri, 'PULL_REQUEST_TEMPLATE/*.md'),
-		);
-		const templatesPattern4 = await vscode.workspace.findFiles(
-			new vscode.RelativePattern(this._repository.rootUri, '{docs,.github}/PULL_REQUEST_TEMPLATE/*.md'),
+			new vscode.RelativePattern(this._repository.rootUri, pattern3),
 		);
 
-		return [...templatesPattern1, ...templatesPattern2, ...templatesPattern3, ...templatesPattern4];
+		const pattern4 = '{docs,.github}/PULL_REQUEST_TEMPLATE/*.md';
+		const templatesPattern4 = await vscode.workspace.findFiles(
+			new vscode.RelativePattern(this._repository.rootUri, pattern4),
+		);
+
+		const allResults = [...templatesPattern1, ...templatesPattern2, ...templatesPattern3, ...templatesPattern4];
+		function patternLog(uris: vscode.Uri[], name: string) {
+			return uris.length ? `"${name}"` : '';
+		}
+		const foundPatterns = [patternLog(templatesPattern1, pattern1),
+			patternLog(templatesPattern2, pattern2),
+			patternLog(templatesPattern3, pattern3),
+			patternLog(templatesPattern4, pattern4)].filter(log => log).join(', ');
+
+		Logger.appendLine(`Found ${allResults.length} templates${foundPatterns ? ` using pattern(s) ${foundPatterns}` : ''}`);
+		return allResults;
 	}
 
 	async getPullRequestDefaults(branch?: Branch): Promise<PullRequestDefaults> {
