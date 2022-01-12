@@ -5220,10 +5220,10 @@ verror@1.10.0:
     core-util-is "1.0.2"
     extsprintf "^1.2.0"
 
-vscode-extension-telemetry@0.4.4:
-  version "0.4.4"
-  resolved "https://registry.yarnpkg.com/vscode-extension-telemetry/-/vscode-extension-telemetry-0.4.4.tgz#e5d5ac90ea7d07ec054f5310893d95d43d5984b0"
-  integrity sha512-LzirNf2GnykXCAqqWrvj+snYqgkPVyjwM72tYOHgcZiG/ZRuNjmqlgvs+SomEJdmD8cutduitPmhoyIuzOrVfA==
+vscode-extension-telemetry@0.4.5:
+  version "0.4.5"
+  resolved "https://registry.yarnpkg.com/vscode-extension-telemetry/-/vscode-extension-telemetry-0.4.5.tgz#1957d5a8b0cd6ad9a79d4f260fe037fbf98732bb"
+  integrity sha512-YhPiPcelqM5xyYWmD46jIcsxLYWkPZhAxlBkzqmpa218fMtTT17ERdOZVCXcs1S5AjvDHlq43yCgi8TaVQjjEg==
 
 vscode-tas-client@^0.1.17:
   version "0.1.17"
