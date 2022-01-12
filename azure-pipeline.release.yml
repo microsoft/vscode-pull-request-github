@@ -20,10 +20,10 @@ extends:
   template: azure-pipelines/extension/stable.yml@templates
   parameters:
     buildSteps:
-      - script: yarn install --frozen-lockfile
+      - bash: yarn install --frozen-lockfile
         displayName: Install dependencies
 
-      - script: yarn run compile
+      - bash: yarn run compile
         displayName: Compile
 
 # pool:
