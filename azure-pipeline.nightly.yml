@@ -10,26 +10,33 @@ schedules:
       include:
         - main
 
-jobs:
-  - job: nightly_release
-    displayName: Nightly Release
-    pool:
-      vmImage: 'macOS-10.15'
-    steps:
-      - template: scripts/ci/common-setup.yml
+resources:
+  repositories:
+    - repository: templates
+      type: github
+      name: microsoft/vscode-engineering
+      ref: main
+      endpoint: Monaco
 
-      - task: ComponentGovernanceComponentDetection@0
-        inputs:
-          scanType: 'Register'
-          verbosity: 'Verbose'
-          alertWarningLevel: 'High'
+extends:
+  template: azure-pipelines/extension/pre-release.yml@templates
+  parameters:
+    buildSteps:
+      - script: yarn install --frozen-lockfile
+        displayName: Install dependencies
 
-      - script: yarn run compile
+      - script: yarn run bundle
         displayName: Compile
+
+      - bash: |
+          /usr/bin/Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+          echo ">>> Started xvfb"
+        displayName: Start xvfb
 
       - script: yarn run test
         displayName: Run test suite
         env:
+          DISPLAY: ':99.0'
           TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
 
       - script: yarn run browsertest --browserType=chromium
@@ -42,10 +49,10 @@ jobs:
         env:
           TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
 
-      - script: yarn run browsertest --browserType=webkit
-        displayName: Run test suite (webkit)
-        env:
-          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
+      # - script: yarn run browsertest --browserType=webkit
+      #   displayName: Run test suite (webkit)
+      #   env:
+      #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
 
       - script: >
           node ./scripts/prepare-nightly-build.js
@@ -55,7 +62,4 @@ jobs:
       - script: |
           mv ./package.json ./package.json.bak
           mv ./package.insiders.json ./package.json
-          npx vsce publish --pre-release -p "$TOKEN" --yarn --noVerify
-        displayName: Publish
-        env:
-          TOKEN: $(vsce.token)
+        displayName: Override package.json
