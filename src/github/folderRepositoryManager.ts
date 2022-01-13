@@ -1065,22 +1065,22 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		 */
 		const pattern1 = '{pull_request_template,PULL_REQUEST_TEMPLATE}.md';
 		const templatesPattern1 = await vscode.workspace.findFiles(
-			new vscode.RelativePattern(this._repository.rootUri, pattern1),
+			new vscode.RelativePattern(this._repository.rootUri, pattern1)
 		);
 
 		const pattern2 = '{docs,.github}/{pull_request_template,PULL_REQUEST_TEMPLATE}.md';
 		const templatesPattern2 = await vscode.workspace.findFiles(
-			new vscode.RelativePattern(this._repository.rootUri, pattern2),
+			new vscode.RelativePattern(this._repository.rootUri, pattern2), null
 		);
 
 		const pattern3 = 'PULL_REQUEST_TEMPLATE/*.md';
 		const templatesPattern3 = await vscode.workspace.findFiles(
-			new vscode.RelativePattern(this._repository.rootUri, pattern3),
+			new vscode.RelativePattern(this._repository.rootUri, pattern3)
 		);
 
 		const pattern4 = '{docs,.github}/PULL_REQUEST_TEMPLATE/*.md';
 		const templatesPattern4 = await vscode.workspace.findFiles(
-			new vscode.RelativePattern(this._repository.rootUri, pattern4),
+			new vscode.RelativePattern(this._repository.rootUri, pattern4), null
 		);
 
 		const allResults = [...templatesPattern1, ...templatesPattern2, ...templatesPattern3, ...templatesPattern4];
