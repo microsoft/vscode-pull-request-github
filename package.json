@@ -1524,6 +1524,7 @@
 		]
 	},
 	"scripts": {
+		"postinstall": "yarn update-dts",
 		"vscode:prepublish": "yarn run bundle",
 		"bundle": "webpack --mode production --env esbuild",
 		"bundle:node": "webpack --mode production --config-name extension:node --config-name webviews",

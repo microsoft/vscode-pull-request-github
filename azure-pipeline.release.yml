@@ -20,11 +20,31 @@ extends:
   template: azure-pipelines/extension/stable.yml@templates
   parameters:
     buildSteps:
-      - bash: yarn install --frozen-lockfile
+      - script: yarn install --frozen-lockfile
         displayName: Install dependencies
 
-      - bash: yarn run compile
+      - script: yarn run compile
         displayName: Compile
+
+      - script: yarn run test
+        displayName: Run test suite
+        env:
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
+
+      - script: yarn run browsertest --browserType=chromium
+        displayName: Run test suite (chromium)
+        env:
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-chromium-test-results.xml
+
+      - script: yarn run browsertest --browserType=firefox
+        displayName: Run test suite (firefox)
+        env:
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
+
+      - script: yarn run browsertest --browserType=webkit
+        displayName: Run test suite (webkit)
+        env:
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
 
 # pool:
 #   vmImage: 'macOS-10.15'
