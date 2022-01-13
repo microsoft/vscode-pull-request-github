@@ -23,7 +23,7 @@ extends:
       - script: yarn install --frozen-lockfile
         displayName: Install dependencies
 
-      - script: yarn run compile
+      - script: yarn run bundle
         displayName: Compile
 
       - bash: |

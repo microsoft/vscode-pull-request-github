@@ -192,7 +192,7 @@
 					"description": "Default handler for terminal links."
 				},
 				"githubPullRequests.commentExpandState": {
-					"type":"string",
+					"type": "string",
 					"enum": [
 						"expandUnresolved",
 						"collapseAll"
@@ -1525,7 +1525,6 @@
 	},
 	"scripts": {
 		"postinstall": "yarn update-dts",
-		"vscode:prepublish": "yarn run bundle",
 		"bundle": "webpack --mode production --env esbuild",
 		"bundle:node": "webpack --mode production --config-name extension:node --config-name webviews",
 		"bundle:web": "webpack --mode production --config-name extension:webworker --config-name webviews",
