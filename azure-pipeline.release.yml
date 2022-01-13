@@ -1,73 +1,53 @@
-trigger: none
+name: $(Date:yyyyMMdd)$(Rev:.r)
+
+trigger:
+  branches:
+    include:
+      - main
+  tags:
+    include: ['*']
 pr: none
 
-pool:
-  vmImage: 'macOS-10.15'
+resources:
+  repositories:
+    - repository: templates
+      type: github
+      name: microsoft/vscode-engineering
+      ref: main
+      endpoint: Monaco
 
-stages:
-- stage: Package
-  jobs:
-    - job: compile
-      displayName: Compile and Package
-      steps:
-        - template: scripts/ci/common-setup.yml
+extends:
+  template: azure-pipelines/extension/stable.yml@templates
+  parameters:
+    buildSteps:
+      - script: yarn install --frozen-lockfile
+        displayName: Install dependencies
 
-        - script: |
-            VSIX=$(node -p "require(\"./package.json\").name + \"-\" + require(\"./package.json\").version + \".vsix\"")
-            echo "##vso[task.setvariable variable=VSIX]$VSIX"
-          displayName: Set environment variable
+      - script: yarn run bundle
+        displayName: Compile
 
-        - script: yarn run compile
-          displayName: Compile
+      - bash: |
+          /usr/bin/Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+          echo ">>> Started xvfb"
+        displayName: Start xvfb
 
-        - script: yarn run test
-          displayName: Run test suite
-          env:
-            TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
+      - script: yarn run test
+        displayName: Run test suite
+        env:
+          DISPLAY: ':99.0'
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
 
-        - script: yarn run browsertest --browserType=chromium
-          displayName: Run test suite (chromium)
-          env:
-            TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-chromium-test-results.xml
+      - script: yarn run browsertest --browserType=chromium
+        displayName: Run test suite (chromium)
+        env:
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-chromium-test-results.xml
 
-        - script: yarn run browsertest --browserType=firefox
-          displayName: Run test suite (firefox)
-          env:
-            TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
+      - script: yarn run browsertest --browserType=firefox
+        displayName: Run test suite (firefox)
+        env:
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
 
-        - script: yarn run browsertest --browserType=webkit
-          displayName: Run test suite (webkit)
-          env:
-            TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
-
-        - script: npx vsce package -o ./$(VSIX)
-          displayName: Package extension
-
-        - publish: $(System.DefaultWorkingDirectory)/$(VSIX)
-          artifact: extension
-          displayName: Publish artifact
-
-- stage:
-  displayName: Publish
-  jobs:
-  - deployment: DeployAppService
-    displayName: Publish
-    environment: VSCode-Marketplace
-    strategy:
-        runOnce:
-          deploy:
-            steps:
-              - checkout: self
-
-              - template: scripts/ci/common-setup.yml
-
-              - script: |
-                  VSIX=$(node -p "require(\"./package.json\").name + \"-\" + require(\"./package.json\").version + \".vsix\"")
-                  echo "##vso[task.setvariable variable=VSIX]$VSIX"
-                displayName: Set environment variable
-
-              - script: npx vsce publish -p "$TOKEN" --packagePath $(Pipeline.Workspace)/extension/$(VSIX) --noVerify
-                displayName: Publish extension
-                env:
-                  TOKEN: $(vsce.token)
-  condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
+      # - script: yarn run browsertest --browserType=webkit
+      #   displayName: Run test suite (webkit)
+      #   env:
+      #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
