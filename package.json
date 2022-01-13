@@ -1544,7 +1544,7 @@
 		"browsertest": "yarn run browsertest:preprocess && node ./dist/browser/test/runTests.js",
 		"test:preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/src/github/queries.gql",
 		"test:preprocess-svg": "node scripts/preprocess-svg --in ../resources/ --out out/resources",
-		"update-dts": "pushd \"src/@types\" && npx vscode-dts main && npx vscode-dts dev && popd",
+		"update-dts": "cd \"src/@types\" && npx vscode-dts main && npx vscode-dts dev",
 		"watch": "webpack --watch --mode development --env esbuild",
 		"watch:web": "webpack --watch --mode development --config-name extension:webworker --config-name webviews"
 	},
