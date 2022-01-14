@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { FILE_LIST_LAYOUT } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EXTENSION_ID } from '../constants';
 import { REMOTES_SETTING, ReposManagerState, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
@@ -83,7 +84,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 		this._disposables.push(
 			vscode.workspace.onDidChangeConfiguration(e => {
-				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.fileListLayout`)) {
+				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)) {
 					this._onDidChangeTreeData.fire();
 				}
 			}),

@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import Logger from '../common/logger';
+import { FILE_LIST_LAYOUT } from '../common/settingKeys';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { ReviewModel } from './reviewModel';
@@ -35,11 +36,11 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 		this._disposables.push(
 			vscode.workspace.onDidChangeConfiguration(async e => {
-				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.fileListLayout`)) {
+				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)) {
 					this._onDidChangeTreeData.fire();
 					const layout = vscode.workspace
 						.getConfiguration(`${SETTINGS_NAMESPACE}`)
-						.get<string>('fileListLayout');
+						.get<string>(FILE_LIST_LAYOUT);
 					await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
 				} else if (e.affectsConfiguration('git.openDiffOnClick')) {
 					this._onDidChangeTreeData.fire();

@@ -14,13 +14,14 @@ import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
 import { Resource } from './common/resources';
 import { SessionState } from './common/sessionState';
+import { FILE_LIST_LAYOUT } from './common/settingKeys';
 import { TemporaryState } from './common/temporaryState';
 import { handler as uriHandler } from './common/uri';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
 import { setSyncedKeys } from './extensionState';
 import { CredentialStore } from './github/credentials';
-import { FolderRepositoryManager } from './github/folderRepositoryManager';
+import { FolderRepositoryManager, SETTINGS_NAMESPACE } from './github/folderRepositoryManager';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
@@ -205,7 +206,7 @@ async function init(
 	setSyncedKeys(context);
 	registerCommands(context, sessionState, reposManager, reviewManagers, telemetry, credentialStore, tree);
 
-	const layout = vscode.workspace.getConfiguration('githubPullRequests').get<string>('fileListLayout');
+	const layout = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
 
 	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewManagers, context, telemetry);

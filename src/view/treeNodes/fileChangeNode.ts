@@ -9,9 +9,10 @@ import { IComment, ViewedState } from '../../common/comment';
 import { DiffHunk, parsePatch } from '../../common/diffHunk';
 import { GitChangeType, InMemFileChange, SimpleFileChange } from '../../common/file';
 import Logger from '../../common/logger';
+import { FILE_LIST_LAYOUT } from '../../common/settingKeys';
 import { asImageDataURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, toResourceUri } from '../../common/uri';
 import { groupBy } from '../../common/utils';
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { GITHUB_FILE_SCHEME } from '../compareChangesTreeDataProvider';
 import { FileViewedDecorationProvider } from '../fileViewedDecorationProvider';
@@ -144,7 +145,6 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
  * File change node whose content is stored in memory and resolved when being revealed.
  */
 export class FileChangeNode extends TreeNode implements vscode.TreeItem {
-	public description: string;
 	public iconPath?:
 		| string
 		| vscode.Uri
@@ -202,10 +202,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.contextValue = `filechange:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
 		this.label = path.basename(this.fileName);
-		this.description = vscode.workspace.asRelativePath(path.dirname(this.fileName), false);
-		if (this.description === '.') {
-			this.description = '';
-		}
 		this.iconPath = vscode.ThemeIcon.File;
 		this.opts = {
 			preserveFocus: true,
@@ -248,6 +244,19 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		}));
 
 		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link' };
+	}
+
+	get description(): string {
+		const layout = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
+		if (layout === 'flat') {
+			let description = vscode.workspace.asRelativePath(path.dirname(this.fileName), false);
+			if (description === '.') {
+				description = '';
+			}
+			return description;
+		} else {
+			return '';
+		}
 	}
 
 	updateViewed(viewed: ViewedState) {
@@ -357,7 +366,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		public readonly parentFilePath: vscode.Uri,
 		public readonly sha?: string,
 		private isCurrent?: boolean,
-		private _comments?: IComment[]
+		private _comments?: IComment[],
 	) {
 		super(parent, pullRequestManager, pullRequest, change, filePath, parentFilePath, sha);
 	}
