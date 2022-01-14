@@ -170,7 +170,7 @@ export function registerCommands(
 				}
 
 				reviewManager.reviewModel.localFileChanges
-					.forEach(lfc => lfc.openDiff(folderManager, { preview: false }));
+					.forEach(localFileChange => localFileChange.openDiff(folderManager, { preview: false }));
 			}
 		),
 	);
