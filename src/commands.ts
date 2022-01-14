@@ -12,7 +12,7 @@ import { IComment } from './common/comment';
 import Logger from './common/logger';
 import { SessionState } from './common/sessionState';
 import { ITelemetry } from './common/telemetry';
-import { asImageDataURI, resolvePath } from './common/uri';
+import { asImageDataURI } from './common/uri';
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { CredentialStore } from './github/credentials';
@@ -815,7 +815,7 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('review.openFile', (value: GitFileChangeNode | vscode.Uri) => {
-			const command = value instanceof GitFileChangeNode ? value.openFileCommand({ preview: true }) : openFileCommand(value, { preview: true });
+			const command = value instanceof GitFileChangeNode ? value.openFileCommand() : openFileCommand(value);
 			vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
 		}),
 	);
