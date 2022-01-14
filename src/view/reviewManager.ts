@@ -179,6 +179,10 @@ export class ReviewManager {
 		return this._repository;
 	}
 
+	get reviewModel() {
+		return this._reviewModel;
+	}
+
 	private pollForStatusChange() {
 		setTimeout(async () => {
 			if (!this._validateStatusInProgress) {
