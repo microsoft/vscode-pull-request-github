@@ -5,7 +5,7 @@
 .vscode-test-web/**
 build/**
 out/**
-dist/test/**
+dist/browser/test/**
 documentation/**
 node_modules/**
 scripts/**
