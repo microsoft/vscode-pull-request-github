@@ -472,8 +472,8 @@
 				"icon": "$(globe)"
 			},
 			{
-				"command": "pr.openAllChanges",
-				"title": "Open All Changes",
+				"command": "pr.openAllDiffs",
+				"title": "Open All Diffs",
 				"category": "GitHub Pull Requests"
 			},
 			{
@@ -928,7 +928,7 @@
 					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
 				},
 				{
-					"command": "pr.openAllChanges",
+					"command": "pr.openAllDiffs",
 					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
 				},
 				{

@@ -141,7 +141,7 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'pr.openAllChanges',
+			'pr.openAllDiffs',
 			async () => {
 				const activePullRequestsWithRootUri = reposManager.folderManagers
 					.filter(folderManager => folderManager.activePullRequest)
