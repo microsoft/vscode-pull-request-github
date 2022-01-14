@@ -304,12 +304,15 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		return openFileCommand(this.filePath, opts);
 	}
 
-	async openDiff(folderManager: FolderRepositoryManager): Promise<void> {
+	async openDiff(folderManager: FolderRepositoryManager, _opts?: vscode.TextDocumentShowOptions): Promise<void> {
 		const command = await openDiffCommand(
 			folderManager,
 			this.parentFilePath,
 			this.filePath,
-			this.opts,
+			{
+				...this.opts,
+				..._opts,
+			},
 			this.status,
 		);
 		vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
