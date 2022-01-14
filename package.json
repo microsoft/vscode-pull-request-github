@@ -472,6 +472,11 @@
 				"icon": "$(globe)"
 			},
 			{
+				"command": "pr.openAllDiffs",
+				"title": "Open All Diffs",
+				"category": "GitHub Pull Requests"
+			},
+			{
 				"command": "pr.refreshPullRequest",
 				"title": "Refresh Pull Request",
 				"category": "GitHub Pull Requests"
@@ -920,6 +925,10 @@
 				},
 				{
 					"command": "pr.openPullRequestOnGitHub",
+					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
+				},
+				{
+					"command": "pr.openAllDiffs",
 					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
 				},
 				{
