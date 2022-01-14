@@ -143,32 +143,36 @@ export function registerCommands(
 		vscode.commands.registerCommand(
 			'pr.openAllDiffs',
 			async () => {
-				const activePullRequestsWithRootUri = reposManager.folderManagers
+				const activePullRequestsWithFolderManager = reposManager.folderManagers
 					.filter(folderManager => folderManager.activePullRequest)
 					.map(folderManager => {
-						return (({ activePr: folderManager.activePullRequest!, rootUri: folderManager.repository.rootUri }));
+						return (({ activePr: folderManager.activePullRequest!, folderManager }));
 					});
 
-				const activePullRequestWithRootUri = activePullRequestsWithRootUri.length >= 1
+				const activePullRequestAndFolderManager = activePullRequestsWithFolderManager.length >= 1
 					? (
 						await chooseItem(
-							activePullRequestsWithRootUri,
+							activePullRequestsWithFolderManager,
 							itemValue => itemValue.activePr.html_url,
 						)
 					)
-					: activePullRequestsWithRootUri[0];
+					: activePullRequestsWithFolderManager[0];
 
-				if (!activePullRequestWithRootUri) {
+				if (!activePullRequestAndFolderManager) {
 					return;
 				}
 
-				const { activePr, rootUri } = activePullRequestWithRootUri;
-				(await activePr.getFileChangesInfo())
-					.map(({ filename }) => vscode.Uri.file(resolvePath(rootUri, filename)))
-					.map(uri => openFileCommand(uri, { preview: false }))
-					.forEach(command => vscode.commands.executeCommand(command.command, ...(command.arguments ?? [])));
+				const { folderManager } = activePullRequestAndFolderManager;
+				const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
+
+				if (!reviewManager) {
+					return;
+				}
+
+				reviewManager.reviewModel.localFileChanges
+					.forEach(lfc => lfc.openDiff(folderManager, { preview: false }));
 			}
-		)
+		),
 	);
 
 	context.subscriptions.push(
