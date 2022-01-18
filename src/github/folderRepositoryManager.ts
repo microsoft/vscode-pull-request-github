@@ -524,6 +524,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		const repositories: GitHubRepository[] = [];
 		const resolveRemotePromises: Promise<boolean>[] = [];
+		const oldRepositories: GitHubRepository[] = [];
+		this._githubRepositories.forEach(repo => oldRepositories.push(repo));
 
 		const authenticatedRemotes = activeRemotes.filter(remote => this._credentialStore.isAuthenticated(remote.authProviderId));
 		authenticatedRemotes.forEach(remote => {
@@ -537,7 +539,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				return this._credentialStore.showSamlMessageAndAuth();
 			}
 
-			const oldRepositories = this._githubRepositories;
 			this._githubRepositories = repositories;
 			oldRepositories.filter(old => this._githubRepositories.indexOf(old) < 0).forEach(repo => repo.dispose());
 
