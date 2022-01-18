@@ -65,13 +65,15 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 			return [];
 		}
 
+		const repoUri = this.manager.getManagerForFile(uri)?.repository.rootUri ?? uri;
+
 		const completionItems: vscode.CompletionItem[] = [];
-		(await this.stateManager.getUserMap(uri)).forEach(item => {
+		(await this.stateManager.getUserMap(repoUri)).forEach(item => {
 			const completionItem: UserCompletion = new UserCompletion(
 				{ label: item.login, description: item.name }, vscode.CompletionItemKind.User);
 			completionItem.insertText = `@${item.login}`;
 			completionItem.login = item.login;
-			completionItem.uri = uri;
+			completionItem.uri = repoUri;
 			completionItem.range = range;
 			completionItem.detail = item.name;
 			completionItem.filterText = `@ ${item.login} ${item.name}`;
