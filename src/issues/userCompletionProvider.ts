@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { User } from '../github/interface';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { extractIssueOriginFromQuery, NEW_ISSUE_SCHEME } from './issueFile';
+import { ASSIGNEES, extractIssueOriginFromQuery, NEW_ISSUE_SCHEME } from './issueFile';
 import { StateManager } from './stateManager';
 import { getRootUriFromScmInputUri, isComment, ISSUES_CONFIGURATION, UserCompletion, userMarkdown } from './util';
 
@@ -30,6 +30,15 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 			position.character > 0 &&
 			context.triggerKind === vscode.CompletionTriggerKind.Invoke &&
 			document.getText(new vscode.Range(position.with(undefined, position.character - 1), position)) !== '@'
+		) {
+			return [];
+		}
+
+		// If the suggest was not triggered  by the trigger character and it's in a new issue file, make sure it's on the Assignees line.
+		if (
+			(document.uri.scheme === NEW_ISSUE_SCHEME) &&
+			(context.triggerKind === vscode.CompletionTriggerKind.Invoke) &&
+			(document.getText(new vscode.Range(position.with(undefined, 0), position.with(undefined, ASSIGNEES.length))) !== ASSIGNEES)
 		) {
 			return [];
 		}
