@@ -197,6 +197,8 @@ export class GHPRComment implements vscode.Comment {
 	 */
 	public contextValue: string;
 
+	public detail: Date;
+
 	constructor(comment: IComment, parent: GHPRCommentThread) {
 		this._rawComment = comment;
 		this.commentId = comment.id.toString();
@@ -220,6 +222,7 @@ export class GHPRComment implements vscode.Comment {
 
 		this.contextValue = contextValues.join(',');
 		this.parent = parent;
+		this.detail = new Date(comment.createdAt);
 	}
 
 	startEdit() {
