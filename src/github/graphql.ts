@@ -9,7 +9,6 @@ import { ForkDetails } from './githubRepository';
 export interface MergedEvent {
 	__typename: string;
 	id: string;
-	databaseId: number;
 	actor: {
 		login: string;
 		avatarUrl: string;

@@ -705,7 +705,7 @@ export function parseGraphQLTimelineEvents(
 				const mergeEv = event as GraphQL.MergedEvent;
 
 				normalizedEvents.push({
-					id: mergeEv.databaseId,
+					id: mergeEv.id,
 					event: type,
 					user: parseAuthor(mergeEv.actor, githubRepository),
 					createdAt: mergeEv.createdAt,

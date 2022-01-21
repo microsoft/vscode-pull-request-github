@@ -63,7 +63,7 @@ export interface CommitEvent {
 }
 
 export interface MergedEvent {
-	id: number;
+	id: string;
 	graphNodeId: string;
 	user: IAccount;
 	createdAt: string;
