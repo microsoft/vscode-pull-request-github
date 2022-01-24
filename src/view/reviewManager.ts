@@ -317,15 +317,16 @@ export class ReviewManager {
 			return;
 		}
 
-		const useReviewConfiguration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(USE_REVIEW_MODE, []);
+		const useReviewConfiguration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)
+			.get<{ open: boolean, merged: boolean, closed: boolean }>(USE_REVIEW_MODE, {});
 
-		if (pr.isClosed && !useReviewConfiguration.includes('closed')) {
+		if (pr.isClosed && !useReviewConfiguration.closed) {
 			this.clear(true);
 			Logger.appendLine('Review> This PR is closed');
 			return;
 		}
 
-		if (pr.isMerged && !useReviewConfiguration.includes('merged')) {
+		if (pr.isMerged && !useReviewConfiguration.merged) {
 			this.clear(true);
 			Logger.appendLine('Review> This PR is merged');
 			return;

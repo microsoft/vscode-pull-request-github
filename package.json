@@ -206,20 +206,35 @@
 					"description": "Controls whether comments are expanded when a document with comments is opened."
 				},
 				"githubPullRequests.useReviewMode": {
-					"type": "array",
+					"type": "object",
 					"description": "Controls which pull requests states cause the extension to go into review mode. Open pull requests will always use review mode.",
-					"items": {
-						"type": "string",
-						"enum": [
-							"open",
-							"merged",
-							"closed"
-						]
+					"properties": {
+						"open": {
+							"type": "boolean",
+							"description": "Whether review mode will be used for open pull requests.",
+							"default": true
+						},
+						"merged": {
+							"type": "boolean",
+							"description": "Whether review mode will be used for merged pull requests.",
+							"default": true
+						},
+						"closed": {
+							"type": "boolean",
+							"description": "Whether review mode will be used for closed pull requests.",
+							"default": false
+						}
 					},
-					"default": [
+					"required": [
 						"open",
-						"merged"
-					]
+						"merged",
+						"closed"
+					],
+					"default": {
+						"open": true,
+						"merged": true,
+						"closed": false
+					}
 				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
