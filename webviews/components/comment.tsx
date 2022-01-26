@@ -10,7 +10,6 @@ import { PullRequest, ReviewType } from '../common/cache';
 import PullRequestContext from '../common/context';
 import emitter from '../common/events';
 import { useStateProp } from '../common/hooks';
-import { escapeMarkdownSyntaxTokens } from '../common/markdown';
 import { Dropdown } from './dropdown';
 import { commentIcon, deleteIcon, editIcon } from './icon';
 import { nbsp, Spaced } from './space';
@@ -35,7 +34,7 @@ export function CommentView(comment: Props) {
 		return React.cloneElement(comment.headerInEditMode ? <CommentBox for={comment} /> : <></>, {}, [
 			<EditComment
 				id={id}
-				body={currentDraft || escapeMarkdownSyntaxTokens(bodyMd)}
+				body={currentDraft || bodyMd}
 				onCancel={() => {
 					if (pr.pendingCommentDrafts) {
 						delete pr.pendingCommentDrafts[id];
