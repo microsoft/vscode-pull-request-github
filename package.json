@@ -209,11 +209,6 @@
 					"type": "object",
 					"description": "Controls which pull requests states cause the extension to go into review mode. Open pull requests will always use review mode.",
 					"properties": {
-						"open": {
-							"type": "boolean",
-							"description": "Whether review mode will be used for open pull requests.",
-							"default": true
-						},
 						"merged": {
 							"type": "boolean",
 							"description": "Whether review mode will be used for merged pull requests.",
@@ -226,12 +221,10 @@
 						}
 					},
 					"required": [
-						"open",
 						"merged",
 						"closed"
 					],
 					"default": {
-						"open": true,
 						"merged": true,
 						"closed": false
 					}

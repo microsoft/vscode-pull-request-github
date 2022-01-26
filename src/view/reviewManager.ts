@@ -318,7 +318,7 @@ export class ReviewManager {
 		}
 
 		const useReviewConfiguration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)
-			.get<{ open: boolean, merged: boolean, closed: boolean }>(USE_REVIEW_MODE, { open: true, merged: true, closed: false });
+			.get<{ merged: boolean, closed: boolean }>(USE_REVIEW_MODE, { merged: true, closed: false });
 
 		if (pr.isClosed && !useReviewConfiguration.closed) {
 			this.clear(true);
