@@ -207,16 +207,16 @@
 				},
 				"githubPullRequests.useReviewMode": {
 					"type": "object",
-					"description": "Controls which pull requests states cause the extension to go into review mode. Open pull requests will always use review mode.",
+					"description": "Choose which pull request states will use review mode. \"Open\" pull requests will always use review mode.",
 					"properties": {
 						"merged": {
 							"type": "boolean",
-							"description": "Whether review mode will be used for merged pull requests.",
+							"description": "Use review mode for merged pull requests.",
 							"default": true
 						},
 						"closed": {
 							"type": "boolean",
-							"description": "Whether review mode will be used for closed pull requests. Merged pull requests are not considered \"closed\".",
+							"description": "Use review mode for closed pull requests. Merged pull requests are not considered \"closed\".",
 							"default": false
 						}
 					},
