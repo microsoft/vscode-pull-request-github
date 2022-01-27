@@ -560,11 +560,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 
 			this.getAssignableUsers(repositoriesChanged);
-			this._onDidLoadRepositories.fire(
-				isAuthenticated || !activeRemotes.length
-					? ReposManagerState.RepositoriesLoaded
-					: ReposManagerState.NeedsAuthentication,
-			);
+			if (isAuthenticated && activeRemotes.length) {
+				this._onDidLoadRepositories.fire(ReposManagerState.RepositoriesLoaded);
+			} else if (!isAuthenticated) {
+				this._onDidLoadRepositories.fire(ReposManagerState.NeedsAuthentication);
+			}
 			if (!silent) {
 				this._onDidChangeRepositories.fire();
 			}
