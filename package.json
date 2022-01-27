@@ -216,7 +216,7 @@
 						},
 						"closed": {
 							"type": "boolean",
-							"description": "Whether review mode will be used for closed pull requests.",
+							"description": "Whether review mode will be used for closed pull requests. Merged pull requests are not considered \"closed\".",
 							"default": false
 						}
 					},
