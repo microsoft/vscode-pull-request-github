@@ -124,7 +124,8 @@ export class IssuesTreeData
 	}
 
 	getStateChildren(): IssueUriTreeItem[] {
-		if (this.manager.state === ReposManagerState.NeedsAuthentication) {
+		if ((this.manager.state === ReposManagerState.NeedsAuthentication)
+			|| !this.manager.folderManagers.length) {
 			return [];
 		} else {
 			return [new IssueUriTreeItem(undefined, 'Loading...')];

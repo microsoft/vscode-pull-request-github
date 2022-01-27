@@ -161,7 +161,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	}
 
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
-		if (!this._reposManager) {
+		if (!this._reposManager?.folderManagers.length) {
 			return [];
 		}
 
