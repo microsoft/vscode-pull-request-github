@@ -208,6 +208,7 @@
 				"githubPullRequests.useReviewMode": {
 					"type": "object",
 					"description": "Choose which pull request states will use review mode. \"Open\" pull requests will always use review mode.",
+					"additionalProperties": false,
 					"properties": {
 						"merged": {
 							"type": "boolean",
