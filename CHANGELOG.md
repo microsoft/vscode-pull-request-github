@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.36.0
+
+### Changes
+
+- Pull request loading performance in vscode.dev and github.dev (and to a lesser extension, desktop VS Code) is significantly improved. As part of this:
+	- The "changes in pull request" tree shows faster.
+	- Individual file diffs are not loaded until the diff is opened.
+	- Comments load in with a delay.
+- There is a new setting that can disable review mode for merged and/or closed pull requests.
+
+```json
+"githubPullRequests.useReviewMode" {
+	"closed": false,
+	"merged": true
+}
+```
+
+- Added a "Don't show again" button to the "Do you want to create a pull request" notification to better surface the associated setting.
+![Notification with don't show again button](documentation/changelog/0.36.0/dont-show-button.png)
+- There's a new command "Open All Diffs".
+- Comments now show a timestamp using the new VS Code comment `timestamp` API.
+
+## Fixes
+
+- Markdown content escaped when editing comments. https://github.com/microsoft/vscode-pull-request-github/issues/3254
+- Many spurious user mentions inserted in text. https://github.com/microsoft/vscode-pull-request-github/issues/3257
+- Issues loading forever in folder with git not initialized. https://github.com/microsoft/vscode-pull-request-github/issues/3160
+- Not able to mention people in my code. https://github.com/microsoft/vscode-pull-request-github/issues/3251
+- Losing focus/switching tabs while a comment entered (but not submitted) loses comment. https://github.com/microsoft/vscode-pull-request-github/issues/3200
+- Comments appear being pending instead of submitted. https://github.com/microsoft/vscode-pull-request-github/issues/3232
+
+**_Thank You_**
+
+* [@blindpirate (Bo Zhang)](https://github.com/blindpirate)
+  * Fix react warnings in timeline [PR #3212](https://github.com/microsoft/vscode-pull-request-github/pull/3212)
+  * Fix more React warnings of incorrect `props.key` [PR #3214](https://github.com/microsoft/vscode-pull-request-github/pull/3214)
+* [@joshuaobrien (Joshua O'Brien)](https://github.com/joshuaobrien): Add command to open all diffs [PR #3238](https://github.com/microsoft/vscode-pull-request-github/pull/3238)
+
+
 ## 0.34.3
 
 ### Fixes
