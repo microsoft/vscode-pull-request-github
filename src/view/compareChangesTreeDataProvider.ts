@@ -16,6 +16,7 @@ import { GitHubFileChangeNode } from './treeNodes/fileChangeNode';
 import { TreeNode } from './treeNodes/treeNode';
 
 export const GITHUB_FILE_SCHEME = 'githubpr';
+export const FILECHANGE_FILE_SCHEME = 'filechange';
 
 export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 	private _view: vscode.TreeView<TreeNode>;

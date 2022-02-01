@@ -9,6 +9,7 @@ import * as pathUtils from 'path';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { FILECHANGE_FILE_SCHEME } from '../view/compareChangesTreeDataProvider';
 import { GitChangeType } from './file';
 import { TemporaryState } from './temporaryState';
 
@@ -130,7 +131,7 @@ export function toResourceUri(uri: vscode.Uri, prNumber: number, fileName: strin
 	};
 
 	return uri.with({
-		scheme: 'filechange',
+		scheme: FILECHANGE_FILE_SCHEME,
 		query: JSON.stringify(params),
 	});
 }
