@@ -14,10 +14,10 @@
 		"tokenInformation",
 		"commentTimestamp"
 	],
-	"version": "0.34.0",
+	"version": "0.36.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.63.0"
+		"vscode": "^1.64.0"
 	},
 	"categories": [
 		"Other"
