@@ -164,9 +164,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				this._commentThreadCache[this.getCommentThreadCacheKey(fileName, isBase)] = threadsByPath[fileName]
 					.filter(
 						thread =>
-							((thread.diffSide === DiffSide.LEFT && isBase) ||
-							(thread.diffSide === DiffSide.RIGHT && !isBase))
-							&& (thread.line !== null),
+							(thread.diffSide === DiffSide.LEFT && isBase) ||
+							(thread.diffSide === DiffSide.RIGHT && !isBase),
 					)
 					.map(thread => {
 						const range = new vscode.Range(
