@@ -196,8 +196,9 @@ export class ReviewManager {
 		const branch = this._repository.state.HEAD;
 		if (branch) {
 			const remote = branch.upstream ? branch.upstream.remote : null;
+			const remoteBranch = branch.upstream ? branch.upstream.name : branch.name;
 			if (remote) {
-				await this._repository.fetch(remote, this._repository.state.HEAD?.name);
+				await this._repository.fetch(remote, remoteBranch);
 				const canShowNotification = !this._context.globalState.get<boolean>(NEVER_SHOW_PULL_NOTIFICATION, false);
 				if (canShowNotification && !this._updateMessageShown &&
 					((this._lastCommitSha && (pr.head.sha !== this._lastCommitSha))
