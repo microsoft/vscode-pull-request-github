@@ -22,7 +22,7 @@
 - There's a new command "Open All Diffs".
 - Comments now show a timestamp using the new VS Code comment `timestamp` API.
 
-## Fixes
+### Fixes
 
 - Markdown content escaped when editing comments. https://github.com/microsoft/vscode-pull-request-github/issues/3254
 - Many spurious user mentions inserted in text. https://github.com/microsoft/vscode-pull-request-github/issues/3257

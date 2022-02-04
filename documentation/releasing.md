@@ -21,7 +21,7 @@
 
 6. Push a tag with the new version number to the appropriate commit (ex. `v0.5.0`).
 
-7. Run the release pipeline, which will cause the extension to be published.
+7. Wait for the release pipeline to finish running.
 
 8. Draft new GitHub release
     - Go to: https://github.com/Microsoft/vscode-pull-request-github/releases
