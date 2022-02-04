@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import { IAccount } from './github/interface';
 
+
 // Synced keys
 export const NEVER_SHOW_PULL_NOTIFICATION = 'github.pullRequest.pullNotification.show';
 

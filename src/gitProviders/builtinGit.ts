@@ -12,6 +12,7 @@ export class BuiltinGitProvider implements IGit, vscode.Disposable {
 		return this._gitAPI.repositories as any[];
 	}
 
+
 	get state(): APIState {
 		return this._gitAPI.state;
 	}

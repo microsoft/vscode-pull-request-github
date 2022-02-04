@@ -13,6 +13,7 @@ import {
 	VSLS_STATE_CHANGE_NOTIFY_NAME,
 } from '../constants';
 
+
 export class VSLSHost implements vscode.Disposable {
 	private _sharedService?: SharedService;
 	private _disposables: vscode.Disposable[];

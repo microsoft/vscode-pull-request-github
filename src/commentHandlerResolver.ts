@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
+
 import * as vscode from 'vscode';
 import Logger from './common/logger';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
