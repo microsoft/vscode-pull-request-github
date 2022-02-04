@@ -7,7 +7,7 @@ import { Octokit } from '@octokit/rest';
 import { ApolloClient, InMemoryCache, NormalizedCacheObject } from 'apollo-boost';
 import { setContext } from 'apollo-link-context';
 import { createHttpLink } from 'apollo-link-http';
-import fetch from 'node-fetch';
+import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
