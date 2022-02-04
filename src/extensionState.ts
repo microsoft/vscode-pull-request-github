@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
-import { IAccount } from './github/interface';
+import
+{ IAccount } from './github/interface';
 
 
 // Synced keys

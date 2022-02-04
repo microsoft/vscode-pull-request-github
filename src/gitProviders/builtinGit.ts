@@ -19,6 +19,8 @@ export class BuiltinGitProvider implements IGit, vscode.Disposable {
 
 	}
 
+
+	
 	private _onDidOpenRepository = new vscode.EventEmitter<Repository>();
 	readonly onDidOpenRepository: vscode.Event<Repository> = this._onDidOpenRepository.event;
 	private _onDidCloseRepository = new vscode.EventEmitter<Repository>();

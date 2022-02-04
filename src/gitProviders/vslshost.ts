@@ -14,6 +14,8 @@ import {
 } from '../constants';
 
 
+
+
 export class VSLSHost implements vscode.Disposable {
 	private _sharedService?: SharedService;
 	private _disposables: vscode.Disposable[];
@@ -21,7 +23,7 @@ export class VSLSHost implements vscode.Disposable {
 		this._disposables = [];
 	}
 
-	
+
 	public async initialize() {
 		this._sharedService = (await this._liveShareAPI!.shareService(VSLS_GIT_PR_SESSION_NAME)) || undefined;
 
