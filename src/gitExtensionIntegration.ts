@@ -13,6 +13,7 @@ interface Repository {
 	readonly description: string | null;
 	readonly clone_url: string;
 	readonly ssh_url: string;
+
 }
 
 function repoResponseAsRemoteSource(raw: OctokitCommon.SearchReposResponseItem): RemoteSource {
@@ -21,6 +22,7 @@ function repoResponseAsRemoteSource(raw: OctokitCommon.SearchReposResponseItem):
 		description: raw.description || undefined,
 		url: raw.url,
 	};
+	
 }
 
 function asRemoteSource(raw: Repository): RemoteSource {

@@ -13,6 +13,7 @@ import { GitApiImpl } from './api/api1';
 import { registerCommands } from './commands';
 import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
+
 import { Resource } from './common/resources';
 import { SessionState } from './common/sessionState';
 import { FILE_LIST_LAYOUT } from './common/settingKeys';
