@@ -63,7 +63,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 
 	async getChildren(): Promise<TreeNode[]> {
 		if (!this._filesCategoryNode || !this._commitsCategoryNode) {
-			this._filesCategoryNode = new FilesCategoryNode(this.parent, this._reviewModel, this._pullRequest);
+			this._filesCategoryNode = new FilesCategoryNode(this.parent, this._reviewModel);
 			this._commitsCategoryNode = new CommitsNode(
 				this.parent,
 				this._pullRequestManager,
