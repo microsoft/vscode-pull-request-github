@@ -30,6 +30,7 @@ import { ReviewManager } from './view/reviewManager';
 import { CategoryTreeNode } from './view/treeNodes/categoryNode';
 import { CommitNode } from './view/treeNodes/commitNode';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
+
 import {
 	GitFileChangeNode,
 	InMemFileChangeNode,

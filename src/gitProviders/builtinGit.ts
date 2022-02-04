@@ -15,6 +15,8 @@ export class BuiltinGitProvider implements IGit, vscode.Disposable {
 
 	get state(): APIState {
 		return this._gitAPI.state;
+
+
 	}
 
 	private _onDidOpenRepository = new vscode.EventEmitter<Repository>();

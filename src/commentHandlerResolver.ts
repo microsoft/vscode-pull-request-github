@@ -24,6 +24,7 @@ export interface CommentHandler {
 	unresolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void>;
 }
 
+
 export interface CommentReply {
 	thread: GHPRCommentThread & { value: GHPRCommentThread };
 	text: string;

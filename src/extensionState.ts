@@ -15,6 +15,7 @@ export const REPO_KEYS = 'github.pullRequest.repos';
 export interface RepoState {
 	mentionableUsers?: IAccount[];
 	stateModifiedTime?: number;
+	
 }
 
 export interface ReposState {
