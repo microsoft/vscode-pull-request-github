@@ -46,6 +46,10 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 		this._disposables.push(_pullRequest.onDidInvalidate(() => {
 			this.refresh();
 		}));
+
+		this._disposables.push(this._reviewModel.onDidChangeLocalFileChanges(() => this.refresh(this)));
+		this._disposables.push(this._pullRequest.onDidChangeReviewThreads(() => this.refresh(this)));
+		this._disposables.push(this._pullRequest.onDidChangeComments(() => this.refresh(this)));
 	}
 
 	private revealActiveEditorInTree(activeEditorUri: string | undefined): void {

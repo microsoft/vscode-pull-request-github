@@ -21,9 +21,6 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 	) {
 		super();
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-		this._reviewModel.onDidChangeLocalFileChanges(() => this.refresh(this));
-		this._pullRequestModel.onDidChangeReviewThreads(() => this.refresh(this));
-		this._pullRequestModel.onDidChangeComments(() => this.refresh(this));
 	}
 
 	getTreeItem(): vscode.TreeItem {
