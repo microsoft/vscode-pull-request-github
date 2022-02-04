@@ -1,4 +1,4 @@
-import fetch, { RequestInit } from 'node-fetch';
+import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import Logger from '../common/logger';
 import { agent } from '../env/node/net';
@@ -55,16 +55,17 @@ export class GitHubManager {
 		}
 
 		const uri = vscode.Uri.joinPath(await HostHelper.getApiHost(hostUri), HostHelper.getApiPath(hostUri, path));
+		const requestInit = {
+			hostname: uri.authority,
+			port: 443,
+			method,
+			headers,
+			agent
+		};
 
 		return [
 			uri,
-			{
-				hostname: uri.authority,
-				port: 443,
-				method,
-				headers,
-				agent,
-			},
+			requestInit as RequestInit,
 		];
 	}
 }
