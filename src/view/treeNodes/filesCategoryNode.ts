@@ -17,13 +17,14 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 	constructor(
 		public parent: TreeNodeParent,
 		private _reviewModel: ReviewModel,
-		private _pullRequestModel: PullRequestModel
+		_pullRequestModel: PullRequestModel
 	) {
 		super();
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-		this._reviewModel.onDidChangeLocalFileChanges(() => this.refresh(this));
-		this._pullRequestModel.onDidChangeReviewThreads(() => this.refresh(this));
-		this._pullRequestModel.onDidChangeComments(() => this.refresh(this));
+		this.childrenDisposables = [];
+		this.childrenDisposables.push(this._reviewModel.onDidChangeLocalFileChanges(() => this.refresh(this)));
+		this.childrenDisposables.push(_pullRequestModel.onDidChangeReviewThreads(() => this.refresh(this)));
+		this.childrenDisposables.push(_pullRequestModel.onDidChangeComments(() => this.refresh(this)));
 	}
 
 	getTreeItem(): vscode.TreeItem {
