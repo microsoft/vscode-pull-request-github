@@ -11,7 +11,6 @@ import { LiveShare } from 'vsls/vscode.js';
 import { Repository } from './api/api';
 import { GitApiImpl } from './api/api1';
 
-
 import { registerCommands } from './commands';
 import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';

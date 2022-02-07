@@ -28,4 +28,3 @@ export function setSyncedKeys(context: vscode.ExtensionContext) {
 	context.globalState.setKeysForSync([NEVER_SHOW_PULL_NOTIFICATION]);
 }
 
-

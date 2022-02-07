@@ -7,9 +7,6 @@ import { RemoteSource, RemoteSourceProvider } from './@types/git';
 import { OctokitCommon } from './github/common';
 import { AuthProvider, CredentialStore, GitHub } from './github/credentials';
 
-
-
-
 interface Repository {
 	readonly full_name: string;
 	readonly description: string | null;
