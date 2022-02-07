@@ -8,6 +8,8 @@ import { OctokitCommon } from './github/common';
 import { AuthProvider, CredentialStore, GitHub } from './github/credentials';
 
 
+
+
 interface Repository {
 	readonly full_name: string;
 	readonly description: string | null;
@@ -22,7 +24,7 @@ function repoResponseAsRemoteSource(raw: OctokitCommon.SearchReposResponseItem):
 		description: raw.description || undefined,
 		url: raw.url,
 	};
-	
+
 }
 
 function asRemoteSource(raw: Repository): RemoteSource {
