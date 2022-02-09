@@ -582,12 +582,12 @@ export class ReviewManager {
 		if (this._folderRepoManager.activePullRequest?.reviewThreadsCacheReady && this._reviewModel.hasLocalFileChanges) {
 			await this.doRegisterCommentController();
 		} else {
-			const changeThreadsDisposable: vscode.Disposable | undefined =
-				this._folderRepoManager.activePullRequest?.onDidChangeReviewThreads(async () => {
-					if (changeThreadsDisposable) {
-						changeThreadsDisposable.dispose();
-					}
+			const changedLocalFilesChangesDisposable: vscode.Disposable | undefined =
+				this._reviewModel.onDidChangeLocalFileChanges(async () => {
 					if (this._folderRepoManager.activePullRequest?.reviewThreadsCache && this._reviewModel.hasLocalFileChanges) {
+						if (changedLocalFilesChangesDisposable) {
+							changedLocalFilesChangesDisposable.dispose();
+						}
 						await this.doRegisterCommentController();
 					}
 				});
