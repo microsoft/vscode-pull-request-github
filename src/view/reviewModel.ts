@@ -16,7 +16,7 @@ export class ReviewModel {
 	constructor() { }
 
 	get hasLocalFileChanges() {
-		return !!this._localFileChanges;
+		return this._localFileChanges && (this._localFileChanges.length > 0);
 	}
 
 	get localFileChanges(): GitFileChangeNode[] {
