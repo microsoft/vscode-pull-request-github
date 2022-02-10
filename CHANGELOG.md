@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.36.1
+
+### Fixes
+
+- After making a change to a PR that was made on a fork the "Files" tree is empty. https://github.com/microsoft/vscode-pull-request-github/issues/3294
+- Commenting ranges often don't show when using github.dev or vscode.dev. https://github.com/microsoft/vscode-pull-request-github/issues/3306
+
 ## 0.36.0
 
 ### Changes
