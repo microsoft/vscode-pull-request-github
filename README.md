@@ -32,6 +32,8 @@ It's easy to get started with GitHub Pull Requests for Visual Studio Code. Simpl
 1. You may need to configure the `githubPullRequests.remotes` setting, by default the extension will look for PRs for `origin` and `upstream`. If you have different remotes, add them to the remotes list.
 1. You should be good to go!
 
+
+
 # Configuring the extension
 
 There are several settings that can be used to configure the extension.

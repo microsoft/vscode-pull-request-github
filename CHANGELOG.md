@@ -2,6 +2,7 @@
 
 ## 0.36.0
 
+
 ### Changes
 
 - Pull request loading performance in vscode.dev and github.dev (and to a lesser extension, desktop VS Code) is significantly improved. As part of this:
