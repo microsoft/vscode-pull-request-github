@@ -17,6 +17,9 @@
 }
 ```
 
+
+
+
 - Added a "Don't show again" button to the "Do you want to create a pull request" notification to better surface the associated setting.
 ![Notification with don't show again button](documentation/changelog/0.36.0/dont-show-button.png)
 - There's a new command "Open All Diffs".
