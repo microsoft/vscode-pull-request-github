@@ -18,6 +18,8 @@ const JSON5 = require('json5');
 const TerserPlugin = require('terser-webpack-plugin');
 const webpack = require('webpack');
 
+
+
 async function resolveTSConfig(configFile) {
 	const data = await new Promise((resolve, reject) => {
 		execFile(
