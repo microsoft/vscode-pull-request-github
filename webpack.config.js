@@ -17,7 +17,7 @@ const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const JSON5 = require('json5');
 const TerserPlugin = require('terser-webpack-plugin');
 const webpack = require('webpack');
-
+//uy
 async function resolveTSConfig(configFile) {
 	const data = await new Promise((resolve, reject) => {
 		execFile(
