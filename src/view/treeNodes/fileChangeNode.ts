@@ -233,15 +233,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 			}),
 		);
 
-		this.childrenDisposables.push(this.pullRequest.onDidChangeComments(() => {
-			this.updateShowOptions();
-			this.refresh(this);
-		}));
-
-		this.childrenDisposables.push(this.pullRequest.onDidChangeReviewThreads(() => {
-			this.updateShowOptions();
-			this.refresh(this);
-		}));
 
 		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link' };
 	}

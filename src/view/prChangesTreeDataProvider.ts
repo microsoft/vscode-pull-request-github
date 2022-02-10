@@ -73,6 +73,12 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		reviewModel: ReviewModel,
 		shouldReveal: boolean,
 	) {
+		if (this._pullRequestManagerMap.has(pullRequestManager)) {
+			const existingNode = this._pullRequestManagerMap.get(pullRequestManager);
+			if (existingNode && (existingNode.pullRequestModel === pullRequestModel)) {
+				return;
+			}
+		}
 		const node: RepositoryChangesNode = new RepositoryChangesNode(
 			this,
 			pullRequestModel,
