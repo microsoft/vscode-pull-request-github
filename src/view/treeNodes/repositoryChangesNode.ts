@@ -75,6 +75,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	}
 
 	dispose() {
+		super.dispose();
 		this._disposables.forEach(d => d.dispose());
 		this._disposables = [];
 	}

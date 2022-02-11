@@ -77,6 +77,8 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 			const existingNode = this._pullRequestManagerMap.get(pullRequestManager);
 			if (existingNode && (existingNode.pullRequestModel === pullRequestModel)) {
 				return;
+			} else {
+				existingNode?.dispose();
 			}
 		}
 		const node: RepositoryChangesNode = new RepositoryChangesNode(
@@ -97,6 +99,8 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	}
 
 	async removePrFromView(pullRequestManager: FolderRepositoryManager) {
+		const oldPR = this._pullRequestManagerMap.has(pullRequestManager) ? this._pullRequestManagerMap.get(pullRequestManager) : undefined;
+		oldPR?.dispose();
 		this._pullRequestManagerMap.delete(pullRequestManager);
 		this.updateViewTitle();
 		if (this._pullRequestManagerMap.size === 0) {
