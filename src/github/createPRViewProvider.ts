@@ -155,7 +155,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		if (templateUris[0]) {
 			try {
 				const templateContent = await vscode.workspace.fs.readFile(templateUris[0]);
-				return templateContent.toString();
+				return new TextDecoder('utf-8').decode(templateContent);
 			} catch (e) {
 				Logger.appendLine(`Reading pull request template failed: ${e}`);
 				return undefined;
