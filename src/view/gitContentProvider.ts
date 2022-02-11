@@ -8,6 +8,7 @@ import * as pathLib from 'path';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
+import Logger from '../common/logger';
 import { fromReviewUri } from '../common/uri';
 import { getRepositoryForFile } from '../github/utils';
 import { ReadonlyFileSystemProvider } from './readonlyFileSystemProvider';
@@ -19,24 +20,38 @@ export class GitContentFileSystemProvider extends ReadonlyFileSystemProvider {
 		super();
 	}
 
-	private async getRepositoryForFile(file: vscode.Uri): Promise<Repository | undefined> {
-		if (this.gitAPI.state !== 'initialized') {
-			let eventDisposable: vscode.Disposable | undefined = undefined;
-			const openPromise = new Promise<void>(resolve => {
-				eventDisposable = this.gitAPI.onDidOpenRepository(() => {
-					eventDisposable?.dispose();
-					eventDisposable = undefined;
-					resolve();
-				});
+	private async waitForRepos(milliseconds: number): Promise<void> {
+		Logger.appendLine('Waiting for repositories.', 'GitContentFileSystemProvider');
+		let eventDisposable: vscode.Disposable | undefined = undefined;
+		const openPromise = new Promise<void>(resolve => {
+			eventDisposable = this.gitAPI.onDidOpenRepository(() => {
+				Logger.appendLine('Found at least one repository.', 'GitContentFileSystemProvider');
+				eventDisposable?.dispose();
+				eventDisposable = undefined;
+				resolve();
 			});
-			const timeoutPromise = new Promise<void>(resolve => {
-				setTimeout(() => resolve(), 4000);
-			});
-			await Promise.race([openPromise, timeoutPromise]);
-			if (eventDisposable) {
-				eventDisposable!.dispose();
-			}
+		});
+		let timeout: NodeJS.Timeout | undefined;
+		const timeoutPromise = new Promise<void>(resolve => {
+			timeout = setTimeout(() => {
+				Logger.appendLine('Timed out while waiting for repositories.', 'GitContentFileSystemProvider');
+				resolve();
+			}, milliseconds);
+		});
+		await Promise.race([openPromise, timeoutPromise]);
+		if (timeout) {
+			clearTimeout(timeout);
 		}
+		if (eventDisposable) {
+			eventDisposable!.dispose();
+		}
+	}
+
+	private async getRepositoryForFile(file: vscode.Uri): Promise<Repository | undefined> {
+		if ((this.gitAPI.state !== 'initialized') || (this.gitAPI.repositories.length === 0)) {
+			await this.waitForRepos(4000);
+		}
+
 		return getRepositoryForFile(this.gitAPI, file);
 	}
 
