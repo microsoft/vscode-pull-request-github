@@ -75,6 +75,7 @@ export class GitContentFileSystemProvider extends ReadonlyFileSystemProvider {
 		const absolutePath = pathLib.join(repository.rootUri.fsPath, path).replace(/\\/g, '/');
 		let content: string;
 		try {
+			Logger.appendLine(`Getting repository (${repository.rootUri}) content for commit ${commit} and path ${absolutePath}`, 'GitContentFileSystemProvider');
 			content = await repository.show(commit, absolutePath);
 			if (!content) {
 				throw new Error();
