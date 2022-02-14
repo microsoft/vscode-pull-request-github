@@ -58,7 +58,20 @@ export class CreatePRContext {
 	};
 
 	public changeBaseBranch = async (branch: string): Promise<void> => {
-		return this.postMessage({ command: 'pr.changeBaseBranch', args: branch });
+		const response: { title?: string, description?: string } = await this.postMessage({
+			command: 'pr.changeBaseBranch',
+			args: branch
+		});
+
+		const pendingTitle = (!this.createParams.pendingTitle || (this.createParams.pendingTitle === this.createParams.defaultTitle))
+			? response.title : this.createParams.pendingTitle;
+		const pendingDescription = (!this.createParams.pendingDescription || (this.createParams.pendingDescription === this.createParams.defaultDescription))
+			? response.description : this.createParams.pendingDescription;
+
+		this.updateState({
+			pendingTitle,
+			pendingDescription
+		});
 	};
 
 	public changeCompareRemote = async (owner: string, repositoryName: string): Promise<void> => {
