@@ -38,6 +38,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	private _onDidChangeCompareBranch = new vscode.EventEmitter<string>();
 	readonly onDidChangeCompareBranch: vscode.Event<string> = this._onDidChangeCompareBranch.event;
 
+	private _compareBranch: string;
+	private _baseBranch: string;
+
 	private _firstLoad: boolean = true;
 
 	constructor(
@@ -94,7 +97,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		super.show();
 	}
 
-	private async getTotalCommits(compareBranch: Branch): Promise<number> {
+	private async getTotalCommits(compareBranch: Branch, baseBranchName: string): Promise<number> {
 		const origin = await this._folderRepositoryManager.getOrigin(compareBranch);
 
 		if (compareBranch.upstream) {
@@ -102,14 +105,14 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 			if (headRepo) {
 				const headBranch = `${headRepo.remote.owner}:${compareBranch.name ?? ''}`;
-				const baseBranch = `${this._pullRequestDefaults.owner}:${this._pullRequestDefaults.base}`;
+				const baseBranch = `${this._pullRequestDefaults.owner}:${baseBranchName}`;
 				const { total_commits } = await origin.compareCommits(baseBranch, headBranch);
 
 				return total_commits;
 			}
 		} else if (compareBranch.commit) {
 			// We can use the git API instead of the GitHub API
-			const baseBranch = await this._folderRepositoryManager.repository.getBranch(this._pullRequestDefaults.base);
+			const baseBranch = await this._folderRepositoryManager.repository.getBranch(baseBranchName);
 			if (baseBranch.commit) {
 				const changes = await this._folderRepositoryManager.repository.diffBetween(baseBranch.commit, compareBranch.commit);
 				return changes.length;
@@ -119,7 +122,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		return 0;
 	}
 
-	private async getTitle(compareBranch: Branch): Promise<string> {
+	private async getTitle(compareBranch: Branch, baseBranch: string): Promise<string> {
 		// Use same default as GitHub, if there is only one commit, use the commit, otherwise use the branch name, as long as it is not the default branch.
 		// By default, the base branch we use for comparison is the base branch of origin. Compare this to the
 		// compare branch if it has a GitHub remote.
@@ -128,7 +131,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		let useBranchName = this._pullRequestDefaults.base === compareBranch.name;
 
 		try {
-			const totalCommits = await this.getTotalCommits(compareBranch);
+			const totalCommits = await this.getTotalCommits(compareBranch, baseBranch);
 			if (totalCommits > 1) {
 				const defaultBranch = await origin.getDefaultBranch();
 				useBranchName = defaultBranch !== compareBranch.name;
@@ -165,11 +168,11 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		return undefined;
 	}
 
-	private async getDescription(compareBranch: Branch): Promise<string> {
+	private async getDescription(compareBranch: Branch, baseBranch: string): Promise<string> {
 		// Try to match github's default, first look for template, then use commit body if available.
 		let commitMessage: string | undefined;
 		try {
-			const totalCommits = await this.getTotalCommits(compareBranch);
+			const totalCommits = await this.getTotalCommits(compareBranch, baseBranch);
 
 			// If there's just a single commit
 			if (totalCommits === 1 && compareBranch.name) {
@@ -207,12 +210,14 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			repositoryName: defaultOrigin.remote.repositoryName,
 		};
 
+		const defaultBaseBranch = this._pullRequestDefaults.base;
+
 		const [configuredGitHubRemotes, allGitHubRemotes, branchesForRemote, defaultTitle, defaultDescription] = await Promise.all([
 			this._folderRepositoryManager.getGitHubRemotes(),
 			this._folderRepositoryManager.getAllGitHubRemotes(),
 			defaultOrigin.listBranches(this._pullRequestDefaults.owner, this._pullRequestDefaults.repo),
-			this.getTitle(this.defaultCompareBranch),
-			this.getDescription(this.defaultCompareBranch),
+			this.getTitle(this.defaultCompareBranch, defaultBaseBranch),
+			this.getDescription(this.defaultCompareBranch, defaultBaseBranch),
 		]);
 
 		const configuredRemotes: RemoteInfo[] = configuredGitHubRemotes.map(remote => {
@@ -245,7 +250,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			availableBaseRemotes: configuredRemotes,
 			availableCompareRemotes: allRemotes,
 			defaultBaseRemote,
-			defaultBaseBranch: this._pullRequestDefaults.base,
+			defaultBaseBranch,
 			defaultCompareRemote,
 			defaultCompareBranch: this.defaultCompareBranch.name ?? '',
 			branchesForRemote,
@@ -254,6 +259,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			defaultDescription,
 			isDraft: false,
 		};
+
+		this._compareBranch = this.defaultCompareBranch.name ?? '';
+		this._baseBranch = defaultBaseBranch;
 
 		this._postMessage({
 			command: reset ? 'reset' : 'pr.initialize',
@@ -286,14 +294,21 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			newBranches.sort();
 		}
 
+		let newBranch: string | undefined;
 		if (isBase) {
+			newBranch = defaultBranch;
+			this._baseBranch = defaultBranch;
 			this._onDidChangeBaseRemote.fire({ owner, repositoryName });
 			this._onDidChangeBaseBranch.fire(defaultBranch);
 		} else {
+			if (this.defaultCompareBranch?.name) {
+				newBranch = this.defaultCompareBranch?.name;
+				this._compareBranch = this.defaultCompareBranch?.name;
+			}
 			this._onDidChangeCompareRemote.fire({ owner, repositoryName });
 		}
 
-		return this._replyMessage(message, { branches: newBranches, defaultBranch: isBase ? defaultBranch : this.defaultCompareBranch?.name });
+		return this._replyMessage(message, { branches: newBranches, defaultBranch: newBranch });
 	}
 
 	private async create(message: IRequestMessage<CreatePullRequest>): Promise<void> {
@@ -369,6 +384,27 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		}
 	}
 
+	private async changeBranch(message: IRequestMessage<string | { name: string }>, isBase: boolean): Promise<void> {
+		const newBranch = (typeof message.args === 'string') ? message.args : message.args.name;
+		let compareBranch: Branch | undefined;
+		if (isBase) {
+			this._baseBranch = newBranch;
+			this._onDidChangeBaseBranch.fire(newBranch);
+		} else {
+			try {
+				compareBranch = await this._folderRepositoryManager.repository.getBranch(newBranch);
+				this._onDidChangeCompareBranch.fire(compareBranch.name!);
+			} catch (e) {
+				vscode.window.showErrorMessage('Branch does not exist locally.');
+			}
+		}
+
+		compareBranch = compareBranch ?? await this._folderRepositoryManager.repository.getBranch(this._compareBranch);
+		const title = await this.getTitle(compareBranch, this._baseBranch);
+		const description = await this.getDescription(compareBranch, this._baseBranch);
+		return this._replyMessage(message, { title, description });
+	}
+
 	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		const result = await super._onDidReceiveMessage(message);
 		if (result !== this.MESSAGE_UNHANDLED) {
@@ -388,20 +424,13 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				return this.changeRemote(message, true);
 
 			case 'pr.changeBaseBranch':
-				this._onDidChangeBaseBranch.fire(message.args);
-				return this._replyMessage(message, undefined);
+				return this.changeBranch(message, true);
 
 			case 'pr.changeCompareRemote':
 				return this.changeRemote(message, false);
 
 			case 'pr.changeCompareBranch':
-				try {
-					const compareBranch = await this._folderRepositoryManager.repository.getBranch(message.args.name ?? message.args);
-					this._onDidChangeCompareBranch.fire(compareBranch.name!);
-				} catch (e) {
-					vscode.window.showErrorMessage('Branch does not exist locally.');
-				}
-				return this._replyMessage(message, undefined);
+				return this.changeBranch(message, false);
 
 			default:
 				// Log error
