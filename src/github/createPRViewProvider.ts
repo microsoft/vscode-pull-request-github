@@ -105,7 +105,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 			if (headRepo) {
 				const headBranch = `${headRepo.remote.owner}:${compareBranch.name ?? ''}`;
-				const { total_commits } = await origin.compareCommits(baseBranchName, headBranch);
+				const baseBranch = `${this._pullRequestDefaults.owner}:${baseBranchName}`;
+				const { total_commits } = await origin.compareCommits(baseBranch, headBranch);
 
 				return total_commits;
 			}
@@ -399,8 +400,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		}
 
 		compareBranch = compareBranch ?? await this._folderRepositoryManager.repository.getBranch(this._compareBranch);
-		const title = this._compareBranch ? await this.getTitle(compareBranch, this._baseBranch) : undefined;
-		const description = this._compareBranch ? await this.getDescription(compareBranch, this._baseBranch) : undefined;
+		const title = await this.getTitle(compareBranch, this._baseBranch);
+		const description = await this.getDescription(compareBranch, this._baseBranch);
 		return this._replyMessage(message, { title, description });
 	}
 
