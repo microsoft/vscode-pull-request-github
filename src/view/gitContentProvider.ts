@@ -10,13 +10,14 @@ import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import Logger from '../common/logger';
 import { fromReviewUri } from '../common/uri';
+import { CredentialStore } from '../github/credentials';
 import { getRepositoryForFile } from '../github/utils';
 import { ReadonlyFileSystemProvider } from './readonlyFileSystemProvider';
 
 export class GitContentFileSystemProvider extends ReadonlyFileSystemProvider {
 	private _fallback?: (uri: vscode.Uri) => Promise<string>;
 
-	constructor(private gitAPI: GitApiImpl) {
+	constructor(private gitAPI: GitApiImpl, private credentialStore: CredentialStore) {
 		super();
 	}
 
@@ -47,7 +48,15 @@ export class GitContentFileSystemProvider extends ReadonlyFileSystemProvider {
 		}
 	}
 
+	private async waitForAuth(): Promise<void> {
+		if (this.credentialStore.isAnyAuthenticated()) {
+			return;
+		}
+		return new Promise(resolve => this.credentialStore.onDidGetSession(() => resolve()));
+	}
+
 	private async getRepositoryForFile(file: vscode.Uri): Promise<Repository | undefined> {
+		await this.waitForAuth();
 		if ((this.gitAPI.state !== 'initialized') || (this.gitAPI.repositories.length === 0)) {
 			await this.waitForRepos(4000);
 		}
