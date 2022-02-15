@@ -234,6 +234,12 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			};
 		});
 
+		// Ensure default into branch is in the remotes list
+		if (!branchesForRemote.includes(this._pullRequestDefaults.base)) {
+			branchesForRemote.push(this._pullRequestDefaults.base);
+			branchesForRemote.sort();
+		}
+
 		let branchesForCompare = branchesForRemote;
 		if (defaultCompareRemote.owner !== defaultBaseRemote.owner) {
 			branchesForCompare = await defaultOrigin.listBranches(
@@ -242,10 +248,12 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			);
 		}
 
+		// Ensure default from branch is in the remotes list
 		if (this.defaultCompareBranch.name && !branchesForCompare.includes(this.defaultCompareBranch.name)) {
 			branchesForCompare.push(this.defaultCompareBranch.name);
 			branchesForCompare.sort();
 		}
+
 		const params: CreateParams = {
 			availableBaseRemotes: configuredRemotes,
 			availableCompareRemotes: allRemotes,
