@@ -11,13 +11,12 @@
 		"url": "https://github.com/Microsoft/vscode-pull-request-github/issues"
 	},
 	"enabledApiProposals": [
-		"tokenInformation",
-		"commentTimestamp"
+		"tokenInformation"
 	],
 	"version": "0.36.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.64.0"
+		"vscode": "^1.65.0"
 	},
 	"categories": [
 		"Other"
