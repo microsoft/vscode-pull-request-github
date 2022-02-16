@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { getCommentingRanges } from '../../common/commentingRanges';
-import { DiffChangeType, getModifiedContentFromDiffHunk, parseDiff } from '../../common/diffHunk';
+import { DiffChangeType, getModifiedContentFromDiffHunk } from '../../common/diffHunk';
 import { GitChangeType, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT } from '../../common/settingKeys';
@@ -160,15 +160,13 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 			return [];
 		}
 
-		const data = await this.pullRequestModel.getFileChangesInfo();
+		const rawChanges = await this.pullRequestModel.getFileChangesInfo(this._folderReposManager.repository);
 
 		// Merge base is set as part of getPullRequestFileChangesInfo
 		const mergeBase = this.pullRequestModel.mergeBase;
 		if (!mergeBase) {
 			return [];
 		}
-
-		const rawChanges = await parseDiff(data, this._folderReposManager.repository, mergeBase);
 
 		return rawChanges.map(change => {
 			const headCommit = this.pullRequestModel.head!.sha;

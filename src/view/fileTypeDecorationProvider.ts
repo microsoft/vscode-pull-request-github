@@ -6,8 +6,9 @@
 import * as vscode from 'vscode';
 import { ViewedState } from '../common/comment';
 import { GitChangeType } from '../common/file';
-import { fromFileChangeNodeUri, fromPRUri } from '../common/uri';
+import { fromFileChangeNodeUri, fromPRUri, toResourceUri } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
+import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { ReviewManager } from './reviewManager';
 
@@ -27,30 +28,41 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 		this._registerListeners();
 	}
 
-	private _registerFileViewedListeners(folderManager: FolderRepositoryManager) {
+	private _registerFileViewedListeners(folderManager: FolderRepositoryManager, model: PullRequestModel) {
+		return model.onDidChangeFileViewedState(changed => {
+			changed.changed.forEach(change => {
+				const uri = vscode.Uri.joinPath(folderManager.repository.rootUri, change.fileName);
+				const fileChangeUri = toResourceUri(uri, model.number, change.fileName, model.fileChanges.get(change.fileName)!.status);
+				this._onDidChangeFileDecorations.fire(fileChangeUri);
+				this._onDidChangeFileDecorations.fire(fileChangeUri.with({ scheme: 'file' }));
+				this._onDidChangeFileDecorations.fire(fileChangeUri.with({ scheme: 'pr' }));
+			});
+		});
+	}
+
+	private _registerPullRequestAddedListeners(folderManager: FolderRepositoryManager) {
 		let viewedListeners: vscode.Disposable[] = [];
 		if (this._fileViewedListeners.has(folderManager)) {
 			this._fileViewedListeners.get(folderManager)?.forEach(disposable => disposable.dispose());
 		}
 		this._fileViewedListeners.set(folderManager, viewedListeners);
-		if (folderManager.activePullRequest) {
-			viewedListeners.push(folderManager.activePullRequest.onDidChangeFileViewedState(changed => {
-				this._onDidChangeFileDecorations.fire(changed.changed.map(change => {
-					const reviewManager = ReviewManager.getReviewManagerForFolderManager(this._reviewManagers, folderManager);
-					const fileChangeNode = reviewManager?.reviewModel.localFileChangesMap.get(change.fileName);
-					return fileChangeNode!.resourceUri;
-				}));
+		folderManager.gitHubRepositories.forEach(gitHubRepo => {
+			viewedListeners.push(gitHubRepo.onDidAddPullRequest(model => {
+				viewedListeners.push(this._registerFileViewedListeners(folderManager, model));
 			}));
-		}
+			viewedListeners.push(...Array.from(gitHubRepo.pullRequestModels.values()).map(model => {
+				return this._registerFileViewedListeners(folderManager, model);
+			}));
+		});
 	}
 
 	private _registerActivePullRequestListeners() {
 		this._activePullRequestListeners.forEach(disposable => disposable.dispose());
 		this._fileViewedListeners.forEach(dispose => dispose.forEach(dispose => dispose.dispose()));
 		this._activePullRequestListeners.push(...this._repositoriesManager.folderManagers.map(folderManager => {
-			this._registerFileViewedListeners(folderManager);
+			this._registerPullRequestAddedListeners(folderManager);
 			return folderManager.onDidChangeActivePullRequest(() => {
-				this._registerFileViewedListeners(folderManager);
+				this._registerPullRequestAddedListeners(folderManager);
 			});
 		}));
 	}
@@ -63,9 +75,15 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 
 	}
 
-	private getViewedState(fileName: string, uri: vscode.Uri) {
-		const manager = this._repositoriesManager.getManagerForFile(uri);
-		return manager?.activePullRequest?.fileChangeViewedState[fileName] ?? ViewedState.UNVIEWED;
+	private getViewedState(number: number, fileName: string, uri: vscode.Uri) {
+		const gitHubRepositories = this._repositoriesManager.getManagerForFile(uri)?.gitHubRepositories ?? [];
+		for (const gitHubRepo of gitHubRepositories) {
+			const prModel = gitHubRepo.pullRequestModels.get(number);
+			if (prModel) {
+				return prModel.fileChangeViewedState[fileName] ?? ViewedState.UNVIEWED;
+			}
+		}
+		return ViewedState.UNVIEWED;
 	}
 
 	provideFileDecoration(
@@ -78,10 +96,11 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 
 		const fileChangeUriParams = fromFileChangeNodeUri(uri);
 		if (fileChangeUriParams && fileChangeUriParams.status !== undefined) {
+			const viewedState = this.getViewedState(fileChangeUriParams.prNumber, fileChangeUriParams.fileName, uri);
 			return {
 				propagate: false,
-				badge: this.letter(fileChangeUriParams.status),
-				color: this.color(fileChangeUriParams.status, this.getViewedState(fileChangeUriParams.fileName, uri))
+				badge: this.letter(fileChangeUriParams.status, viewedState),
+				color: this.color(fileChangeUriParams.status, viewedState)
 			};
 		}
 
@@ -127,23 +146,34 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 		return color ? new vscode.ThemeColor(color) : undefined;
 	}
 
-	letter(status: GitChangeType): string {
-		switch (status) {
-			case GitChangeType.MODIFY:
-				return 'M';
-			case GitChangeType.ADD:
-				return 'A';
-			case GitChangeType.DELETE:
-				return 'D';
-			case GitChangeType.RENAME:
-				return 'R';
-			case GitChangeType.UNKNOWN:
-				return 'U';
-			case GitChangeType.UNMERGED:
-				return 'C';
+	letter(status: GitChangeType, viewedState?: ViewedState): string {
+		const result: string[] = [];
+		if (viewedState === ViewedState.VIEWED) {
+			result.push('✓');
 		}
 
-		return '';
+		switch (status) {
+			case GitChangeType.MODIFY:
+				result.push('M');
+				break;
+			case GitChangeType.ADD:
+				result.push('A');
+				break;
+			case GitChangeType.DELETE:
+				result.push('D');
+				break;
+			case GitChangeType.RENAME:
+				result.push('R');
+				break;
+			case GitChangeType.UNKNOWN:
+				result.push('U');
+				break;
+			case GitChangeType.UNMERGED:
+				result.push('C');
+				break;
+		}
+
+		return result.length ? result.join(',') : '';
 	}
 
 	dispose() {

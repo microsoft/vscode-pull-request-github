@@ -133,7 +133,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.contextValue = `${FILECHANGE_FILE_SCHEME}:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
 		FileViewedDecorationProvider.updateFileViewedState(
-			this.fileChangeResourceUri,
+			this.resourceUri,
 			this.pullRequest.number,
 			this.fileName,
 			viewed,
@@ -263,7 +263,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.contextValue = `${FILECHANGE_FILE_SCHEME}:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
 		FileViewedDecorationProvider.updateFileViewedState(
-			this.fileChangeResourceUri,
+			this.resourceUri,
 			this.pullRequest.number,
 			this.fileName,
 			viewed,

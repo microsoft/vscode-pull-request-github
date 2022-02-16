@@ -7,9 +7,10 @@ import * as buffer from 'buffer';
 import * as path from 'path';
 import equals from 'fast-deep-equal';
 import * as vscode from 'vscode';
+import { Repository } from '../api/api';
 import { DiffSide, IComment, IReviewThread, ViewedState } from '../common/comment';
 import { parseDiff } from '../common/diffHunk';
-import { GitChangeType } from '../common/file';
+import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
@@ -1022,9 +1023,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		pullRequestModel: PullRequestModel,
 		comment: IComment,
 	): Promise<void> {
-		const fileChanges = await pullRequestModel.getFileChangesInfo();
-		const mergeBase = pullRequestModel.mergeBase || pullRequestModel.base.sha;
-		const contentChanges = await parseDiff(fileChanges, folderManager.repository, mergeBase);
+		const contentChanges = await pullRequestModel.getFileChangesInfo(folderManager.repository);
 		const change = contentChanges.find(
 			fileChange => fileChange.fileName === comment.path || fileChange.previousFileName === comment.path,
 		);
@@ -1070,6 +1069,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					)
 					: uri;
 
+			const mergeBase = pullRequestModel.mergeBase || pullRequestModel.base.sha;
 			baseUri = toReviewUri(
 				uri,
 				change.status === GitChangeType.RENAME ? change.previousFileName : change.fileName,
@@ -1091,10 +1091,26 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		);
 	}
 
+	private _fileChanges: Map<string, SlimFileChange | InMemFileChange> = new Map();
+	get fileChanges(): Map<string, SlimFileChange | InMemFileChange> {
+		return this._fileChanges;
+	}
+	
+	async getFileChangesInfo(repo: Repository) {
+		this._fileChanges.clear();
+		const data = await this.getRawFileChangesInfo();
+		const mergebase = this.mergeBase || this.base.sha;
+		const parsed = await parseDiff(data, repo, mergebase);
+		parsed.forEach(fileChange => {
+			this._fileChanges.set(fileChange.fileName, fileChange);
+		});
+		return parsed;
+	}
+
 	/**
 	 * List the changed files in a pull request.
 	 */
-	async getFileChangesInfo(): Promise<IRawFileChange[]> {
+	private async getRawFileChangesInfo(): Promise<IRawFileChange[]> {
 		Logger.debug(
 			`Fetch file changes, base, head and merge base of PR #${this.number} - enter`,
 			PullRequestModel.ID,

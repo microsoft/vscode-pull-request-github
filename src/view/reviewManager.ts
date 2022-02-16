@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import type { Branch, Repository } from '../api/api';
 import { GitErrorCodes } from '../api/api1';
 import { openDescription } from '../commands';
-import { DiffChangeType, parseDiff } from '../common/diffHunk';
+import { DiffChangeType } from '../common/diffHunk';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
@@ -518,10 +518,7 @@ export class ReviewManager {
 
 	private async initializePullRequestData(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
 		try {
-			const data = await pr.getFileChangesInfo();
-			const mergeBase = pr.mergeBase || pr.base.sha;
-
-			const contentChanges = await parseDiff(data, this._repository, mergeBase!);
+			const contentChanges = await pr.getFileChangesInfo(this._repository);
 			this._reviewModel.localFileChanges = await this.getLocalChangeNodes(pr, contentChanges);
 			await Promise.all([pr.initializeReviewComments(), pr.initializeReviewThreadCache(), pr.initializePullRequestFileViewState()]);
 			const outdatedComments = pr.comments.filter(comment => !comment.position);
