@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.36.2
+
+### Fixes
+
+- "The current repository does not have a push remote for..." when trying to create a PR from github.dev. https://github.com/microsoft/vscode-pull-request-github/issues/3309
+
 ## 0.36.1
 
 ### Fixes
