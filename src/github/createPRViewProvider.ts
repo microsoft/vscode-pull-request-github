@@ -303,8 +303,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			const compareBranchName = message.args.compareBranch;
 			const compareGithubRemoteName = `${compareOwner}/${compareRepositoryName}`;
 			const compareBranch = await this._folderRepositoryManager.repository.getBranch(compareBranchName);
-			let headRepo = compareBranch.upstream ? this._folderRepositoryManager.findRepo(byRemoteName(compareBranch.upstream.remote))
-				: undefined;
+			let headRepo = compareBranch.upstream ? this._folderRepositoryManager.findRepo((githubRepo) => {
+				return (githubRepo.remote.owner === compareOwner) && (githubRepo.remote.repositoryName === compareRepositoryName);
+			}) : undefined;
 			let existingCompareUpstream = headRepo?.remote;
 
 			if (!existingCompareUpstream
