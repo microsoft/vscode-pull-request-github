@@ -14,7 +14,7 @@
 		"tokenInformation",
 		"commentTimestamp"
 	],
-	"version": "0.36.1",
+	"version": "0.36.2",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.64.0"
