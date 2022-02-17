@@ -15,7 +15,6 @@ import { groupBy } from '../../common/utils';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { FILECHANGE_FILE_SCHEME, GITHUB_FILE_SCHEME } from '../compareChangesTreeDataProvider';
-import { FileViewedDecorationProvider } from '../fileViewedDecorationProvider';
 import { DecorationProvider } from '../treeDecorationProvider';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
@@ -132,12 +131,6 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this._viewed = viewed;
 		this.contextValue = `${FILECHANGE_FILE_SCHEME}:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
-		FileViewedDecorationProvider.updateFileViewedState(
-			this.fileChangeResourceUri,
-			this.pullRequest.number,
-			this.fileName,
-			viewed,
-		);
 	}
 
 	getTreeItem(): vscode.TreeItem {
@@ -262,12 +255,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		this._viewed = viewed;
 		this.contextValue = `${FILECHANGE_FILE_SCHEME}:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
-		FileViewedDecorationProvider.updateFileViewedState(
-			this.fileChangeResourceUri,
-			this.pullRequest.number,
-			this.fileName,
-			viewed,
-		);
 	}
 
 	updateShowOptions() {

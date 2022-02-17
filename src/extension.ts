@@ -104,7 +104,6 @@ async function init(
 	);
 
 	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
-	context.subscriptions.push(new FileTypeDecorationProvider());
 
 	// Sort the repositories to match folders in a multiroot workspace (if possible).
 	const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -148,6 +147,8 @@ async function init(
 	const reviewManagers = folderManagers.map(
 		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree, showPRController, sessionState),
 	);
+	context.subscriptions.push(new FileTypeDecorationProvider(reposManager, reviewManagers));
+
 	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, credentialStore, git);
 	context.subscriptions.push(reviewsManager);
 
