@@ -14,8 +14,9 @@ import { ReviewManager } from './reviewManager';
 
 export class FileTypeDecorationProvider implements vscode.FileDecorationProvider {
 	private _disposables: vscode.Disposable[] = [];
-	private _activePullRequestListeners: vscode.Disposable[] = [];
-	private _fileViewedListeners: Map<FolderRepositoryManager, vscode.Disposable[]> = new Map();
+	private _gitHubReposListeners: vscode.Disposable[] = [];
+	private _pullRequestListeners: vscode.Disposable[] = [];
+	private _fileViewedListeners: vscode.Disposable[] = [];
 
 	_onDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<
 		vscode.Uri | vscode.Uri[]
@@ -41,36 +42,34 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 	}
 
 	private _registerPullRequestAddedListeners(folderManager: FolderRepositoryManager) {
-		let viewedListeners: vscode.Disposable[] = [];
-		if (this._fileViewedListeners.has(folderManager)) {
-			this._fileViewedListeners.get(folderManager)?.forEach(disposable => disposable.dispose());
-		}
-		this._fileViewedListeners.set(folderManager, viewedListeners);
 		folderManager.gitHubRepositories.forEach(gitHubRepo => {
-			viewedListeners.push(gitHubRepo.onDidAddPullRequest(model => {
-				viewedListeners.push(this._registerFileViewedListeners(folderManager, model));
+			this._pullRequestListeners.push(gitHubRepo.onDidAddPullRequest(model => {
+				this._fileViewedListeners.push(this._registerFileViewedListeners(folderManager, model));
 			}));
-			viewedListeners.push(...Array.from(gitHubRepo.pullRequestModels.values()).map(model => {
+			this._fileViewedListeners.push(...Array.from(gitHubRepo.pullRequestModels.values()).map(model => {
 				return this._registerFileViewedListeners(folderManager, model);
 			}));
 		});
 	}
 
-	private _registerActivePullRequestListeners() {
-		this._activePullRequestListeners.forEach(disposable => disposable.dispose());
-		this._fileViewedListeners.forEach(dispose => dispose.forEach(dispose => dispose.dispose()));
-		this._activePullRequestListeners.push(...this._repositoriesManager.folderManagers.map(folderManager => {
-			this._registerPullRequestAddedListeners(folderManager);
-			return folderManager.onDidChangeActivePullRequest(() => {
-				this._registerPullRequestAddedListeners(folderManager);
-			});
-		}));
+	private _registerRepositoriesChangedListeners() {
+		this._gitHubReposListeners.forEach(disposable => disposable.dispose());
+		this._gitHubReposListeners = [];
+		this._pullRequestListeners.forEach(disposable => disposable.dispose());
+		this._pullRequestListeners = [];
+		this._fileViewedListeners.forEach(disposable => disposable.dispose());
+		this._fileViewedListeners = [];
+		this._repositoriesManager.folderManagers.forEach(folderManager => {
+			this._gitHubReposListeners.push(folderManager.onDidChangeRepositories(() => {
+				this._registerPullRequestAddedListeners(folderManager,);
+			}));
+		});
 	}
 
 	private _registerListeners() {
-		this._registerActivePullRequestListeners();
+		this._registerRepositoriesChangedListeners();
 		this._disposables.push(this._repositoriesManager.onDidChangeFolderRepositories(() => {
-			this._registerActivePullRequestListeners();
+			this._registerRepositoriesChangedListeners();
 		}));
 
 	}
@@ -171,7 +170,8 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 
 	dispose() {
 		this._disposables.forEach(dispose => dispose.dispose());
-		this._activePullRequestListeners.forEach(dispose => dispose.dispose());
-		this._fileViewedListeners.forEach(dispose => dispose.forEach(dispose => dispose.dispose()));
+		this._gitHubReposListeners.forEach(dispose => dispose.dispose());
+		this._pullRequestListeners.forEach(dispose => dispose.dispose());
+		this._fileViewedListeners.forEach(dispose => dispose.dispose());
 	}
 }
