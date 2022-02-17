@@ -147,33 +147,26 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 	}
 
 	letter(status: GitChangeType, viewedState?: ViewedState): string {
-		const result: string[] = [];
 		if (viewedState === ViewedState.VIEWED) {
-			result.push('✓');
+			return '✓';
 		}
 
 		switch (status) {
 			case GitChangeType.MODIFY:
-				result.push('M');
-				break;
+				return 'M';
 			case GitChangeType.ADD:
-				result.push('A');
-				break;
+				return 'A';
 			case GitChangeType.DELETE:
-				result.push('D');
-				break;
+				return 'D';
 			case GitChangeType.RENAME:
-				result.push('R');
-				break;
+				return 'R';
 			case GitChangeType.UNKNOWN:
-				result.push('U');
-				break;
+				return 'U';
 			case GitChangeType.UNMERGED:
-				result.push('C');
-				break;
+				return 'C';
 		}
 
-		return result.length ? result.join(',') : '';
+		return '';
 	}
 
 	dispose() {
