@@ -70,6 +70,7 @@ export class CreatePullRequestHelper {
 				this.repository.state.onDidChange(_ => {
 					if (this._createPRViewProvider && this.repository.state.HEAD) {
 						this._createPRViewProvider.defaultCompareBranch = this.repository.state.HEAD;
+						this._treeView?.updateCompareBranch();
 					}
 				}),
 			);

@@ -85,9 +85,11 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		}
 	}
 
-	async updateCompareBranch(branch: string): Promise<void> {
-		await this.updateHasUpstream(branch);
-		this.compareBranchName = branch;
+	async updateCompareBranch(branch?: string): Promise<void> {
+		if (branch) {
+			await this.updateHasUpstream(branch);
+			this.compareBranchName = branch;
+		}
 		this._onDidChangeTreeData.fire();
 	}
 
