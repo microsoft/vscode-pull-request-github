@@ -33,10 +33,13 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 		return model.onDidChangeFileViewedState(changed => {
 			changed.changed.forEach(change => {
 				const uri = vscode.Uri.joinPath(folderManager.repository.rootUri, change.fileName);
-				const fileChangeUri = toResourceUri(uri, model.number, change.fileName, model.fileChanges.get(change.fileName)!.status);
-				this._onDidChangeFileDecorations.fire(fileChangeUri);
-				this._onDidChangeFileDecorations.fire(fileChangeUri.with({ scheme: 'file' }));
-				this._onDidChangeFileDecorations.fire(fileChangeUri.with({ scheme: 'pr' }));
+				const fileChange = model.fileChanges.get(change.fileName);
+				if (fileChange) {
+					const fileChangeUri = toResourceUri(uri, model.number, change.fileName, fileChange.status);
+					this._onDidChangeFileDecorations.fire(fileChangeUri);
+					this._onDidChangeFileDecorations.fire(fileChangeUri.with({ scheme: 'file' }));
+					this._onDidChangeFileDecorations.fire(fileChangeUri.with({ scheme: 'pr' }));
+				}
 			});
 		});
 	}

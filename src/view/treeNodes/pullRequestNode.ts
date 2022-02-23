@@ -204,8 +204,6 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				);
 			}
 
-			console.log(vscode.Uri.file(resolvePath(this._folderReposManager.repository.rootUri, change.fileName)));
-
 			const changedItem = new InMemFileChangeNode(
 				this._folderReposManager,
 				this,
