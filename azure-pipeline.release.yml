@@ -50,8 +50,8 @@ extends:
         env:
           TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
 
-      - ${{ if eq(variables['Agent.OS'], 'Darwin') }}:
-        - script: yarn run browsertest --browserType=webkit
-          displayName: Run test suite (webkit)
-          env:
-            TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
+      - script: yarn run browsertest --browserType=webkit
+        displayName: Run test suite (webkit)
+        env:
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
