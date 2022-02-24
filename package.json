@@ -1045,6 +1045,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.unmarkFileAsViewed",
+					"when": "false"
+				},
+				{
 					"command": "pr.checkoutByNumber",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && github:authenticated"
 				},
