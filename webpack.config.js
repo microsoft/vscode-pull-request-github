@@ -28,14 +28,14 @@ async function resolveTSConfig(configFile) {
 				if (error != null) {
 					reject(error);
 				}
-
 				resolve(stdout);
 			},
 		);
 	});
 
-	const index = data.indexOf('\n');
-	const json = JSON5.parse(data.substr(index + 1));
+	const index = data.indexOf('{');
+	const endIndex = data.indexOf('Done in');
+	const json = JSON5.parse(data.substring(index, endIndex));
 	return json;
 }
 
