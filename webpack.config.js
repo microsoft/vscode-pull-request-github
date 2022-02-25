@@ -34,8 +34,12 @@ async function resolveTSConfig(configFile) {
 	});
 
 	const index = data.indexOf('{\n');
+	console.log('index: ' + index);
 	const endIndex = data.indexOf('Done in');
-	const json = JSON5.parse(data.substring(index, endIndex));
+	console.log('endIndex: ' + endIndex);
+	const substr = data.substring(index, endIndex);
+	console.log('substr: ' + substr);
+	const json = JSON5.parse(substr);
 	return json;
 }
 
