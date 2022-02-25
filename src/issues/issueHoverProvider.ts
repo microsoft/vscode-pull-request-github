@@ -37,7 +37,7 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 		let wordPosition = document.getWordRangeAtPosition(position, ISSUE_OR_URL_EXPRESSION);
 		if (wordPosition && wordPosition.start.character > 0) {
 			wordPosition = new vscode.Range(
-				new vscode.Position(wordPosition.start.line, wordPosition.start.character - 1),
+				new vscode.Position(wordPosition.start.line, wordPosition.start.character),
 				wordPosition.end,
 			);
 			const word = document.getText(wordPosition);
