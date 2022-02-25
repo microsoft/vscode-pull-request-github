@@ -35,7 +35,7 @@ async function resolveTSConfig(configFile) {
 
 	const index = data.indexOf('{\n');
 	const endIndex = data.indexOf('Done in');
-	const substr = data.substring(index, endIndex > index ? endIndex : data.length);
+	const substr = data.substring(index, endIndex > index ? endIndex : undefined);
 	const json = JSON5.parse(substr);
 	return json;
 }
