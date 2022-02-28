@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.38.0
+
+### Changes
+
+- The "Mark File as Viewed" and "Mark File as Unviewed" actions have new icons, and we've generally tried to improve the UX around marking as viewed/unviewed.
+![Mark file as viewed UX](documentation/changelog/0.38.0/mark-file-viewed.gif)
+
+### Fixes
+
+- "We couldn't find an open repository for...". https://github.com/microsoft/vscode-pull-request-github/issues/3242
+- Placeholder title when creating a PR does not behave like GitHub website. https://github.com/microsoft/vscode-pull-request-github/issues/2988
+- Github.dev: Weird Default Description When Creating PR. https://github.com/microsoft/vscode-pull-request-github/issues/3316
+- New pull requests on branches off master try to merge into a wrong branch. https://github.com/microsoft/vscode-pull-request-github/issues/3303
+
 ## 0.36.2
 
 ### Fixes
