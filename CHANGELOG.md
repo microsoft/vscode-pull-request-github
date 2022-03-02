@@ -4,7 +4,8 @@
 
 ### Changes
 
-- The "Mark File as Viewed" and "Mark File as Unviewed" actions have new icons, and we've generally tried to improve the UX around marking as viewed/unviewed.
+The **Mark File as Viewed** and **Mark File as Unviewed** actions have new icons, and we've generally tried to improve the UX around marking as viewed/unviewed.
+
 ![Mark file as viewed UX](documentation/changelog/0.38.0/mark-file-viewed.gif)
 
 ### Fixes
