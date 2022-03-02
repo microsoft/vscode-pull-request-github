@@ -119,6 +119,20 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			// leave repo undefined
 		}
 		const issueData = this.stateManager.getIssueCollection(folderManager?.repository.rootUri ?? uri);
+
+		// Count up total number of issues. The number of queries is expected to be small.
+		let totalIssues = 0;
+		for (const issueQuery of issueData) {
+			const issuesOrMilestones: IssueModel[] | MilestoneModel[] = (await issueQuery[1]) ?? [];
+			if (issuesOrMilestones[0] instanceof IssueModel) {
+				totalIssues += issuesOrMilestones.length;
+			} else {
+				for (const milestone of issuesOrMilestones) {
+					totalIssues += (milestone as MilestoneModel).issues.length;
+				}
+			}
+		}
+
 		for (const issueQuery of issueData) {
 			const issuesOrMilestones: IssueModel[] | MilestoneModel[] = (await issueQuery[1]) ?? [];
 			if (issuesOrMilestones.length === 0) {
@@ -129,7 +143,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 				for (const issue of issuesOrMilestones) {
 					completionItems.set(
 						getIssueNumberLabel(issue as IssueModel),
-						await this.completionItemFromIssue(repo, issue as IssueModel, now, range, document, index++),
+						await this.completionItemFromIssue(repo, issue as IssueModel, now, range, document, index++, totalIssues),
 					);
 				}
 			} else {
@@ -145,6 +159,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 								range,
 								document,
 								index,
+								totalIssues,
 								value.milestone,
 							),
 						);
@@ -162,6 +177,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		range: vscode.Range,
 		document: vscode.TextDocument,
 		index: number,
+		totalCount: number,
 		milestone?: IMilestone,
 	): Promise<IssueCompletionItem> {
 		const item: IssueCompletionItem = new IssueCompletionItem(issue);
@@ -180,9 +196,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		item.documentation = issue.body;
 		item.range = range;
 		item.detail = milestone ? milestone.title : issue.milestone?.title;
-		let updatedAt: string = (now.getTime() - new Date(issue.updatedAt).getTime()).toString();
-		updatedAt = new Array(20 - updatedAt.length).join('0') + updatedAt;
-		item.sortText = `${index} ${updatedAt}`;
+		item.sortText = `${index}`.padStart(`${totalCount}`.length, '0');
 		item.filterText = `${item.detail} # ${issue.number} ${issue.title} ${item.documentation}`;
 		return item;
 	}
