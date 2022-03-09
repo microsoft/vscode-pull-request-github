@@ -1381,12 +1381,12 @@
 			"scm/title": [
 				{
 					"command": "review.suggestDiff",
-					"when": "scmProvider =~ /^git|^remoteHub:/ && github:inReviewMode",
+					"when": "scmProvider =~ /^git|^remoteHub:github/ && github:inReviewMode",
 					"group": "inline"
 				},
 				{
 					"command": "pr.create",
-					"when": "scmProvider =~ /^git|^remoteHub:/ && !github:inReviewMode",
+					"when": "scmProvider =~ /^git|^remoteHub:github/ && !github:inReviewMode",
 					"group": "navigation"
 				}
 			],
@@ -1510,7 +1510,7 @@
 			"remoteHub/pullRequest": [
 				{
 					"command": "pr.create",
-					"when": "scmProvider =~ /^remoteHub:/",
+					"when": "scmProvider =~ /^remoteHub:github/",
 					"group": "1_modification@0"
 				}
 			]
