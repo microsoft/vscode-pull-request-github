@@ -350,6 +350,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			);
 			if (threadWithComment) {
 				threadWithComment.comments = reviewEvent.comments;
+				threadWithComment.viewerCanResolve = true;
 				this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
 			}
 			return reviewEvent;
@@ -1095,7 +1096,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	get fileChanges(): Map<string, SlimFileChange | InMemFileChange> {
 		return this._fileChanges;
 	}
-	
+
 	async getFileChangesInfo(repo: Repository) {
 		this._fileChanges.clear();
 		const data = await this.getRawFileChangesInfo();

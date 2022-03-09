@@ -244,6 +244,7 @@ export class ReviewCommentController
 						newThread = this._pendingCommentThreadAdds[index];
 						newThread.gitHubThreadId = thread.id;
 						newThread.comments = thread.comments.map(c => new GHPRComment(c, newThread));
+						updateThread(newThread, thread);
 						this._pendingCommentThreadAdds.splice(index, 1);
 					} else {
 						const fullPath = nodePath.join(this._repository.rootUri.path, path).replace(/\\/g, '/');
