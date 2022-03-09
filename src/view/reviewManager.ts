@@ -9,6 +9,7 @@ import type { Branch, Repository } from '../api/api';
 import { GitErrorCodes } from '../api/api1';
 import { openDescription } from '../commands';
 import { DiffChangeType } from '../common/diffHunk';
+import { commands } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
@@ -421,6 +422,7 @@ export class ReviewManager {
 	}
 
 	private _doFocusShow(openDiff: boolean) {
+		commands.executeCommand('workbench.action.focusCommentsPanel');
 		this._webviewViewProvider?.show();
 		if (openDiff) {
 			if (this._reviewModel.localFileChanges.length) {

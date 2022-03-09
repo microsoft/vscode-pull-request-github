@@ -10,6 +10,7 @@ import { LiveShare } from 'vsls/vscode.js';
 import { Repository } from './api/api';
 import { GitApiImpl } from './api/api1';
 import { registerCommands } from './commands';
+import { commands } from './common/executeCommands';
 import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
 import { Resource } from './common/resources';
@@ -243,7 +244,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	const showPRController = new ShowPullRequest();
 	vscode.commands.registerCommand('github.api.preloadPullRequest', async (shouldShow: boolean) => {
 		await vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, true);
-		await vscode.commands.executeCommand('github:activePullRequest:welcome.focus');
+		await commands.focusView('github:activePullRequest:welcome');
 		showPRController.shouldShow = shouldShow;
 	});
 	const openDiff = vscode.workspace.getConfiguration('git').get('openDiffOnClick', true);
