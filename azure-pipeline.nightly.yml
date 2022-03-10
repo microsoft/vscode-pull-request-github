@@ -22,6 +22,7 @@ extends:
   template: azure-pipelines/extension/pre-release.yml@templates
   parameters:
     buildPlatforms:
+      - Linux
       - MacOS
     buildSteps:
       - script: yarn install --frozen-lockfile
@@ -55,6 +56,7 @@ extends:
         displayName: Run test suite (webkit)
         env:
           TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
 
       - script: >
           node ./scripts/prepare-nightly-build.js
