@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.38.1
+
+### Fixes
+
+- The extension got extremely large with v0.38.0. https://github.com/microsoft/vscode-pull-request-github/issues/3392
+
 ## 0.38.0
 
 ### Changes
