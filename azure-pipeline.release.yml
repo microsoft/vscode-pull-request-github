@@ -19,8 +19,6 @@ resources:
 extends:
   template: azure-pipelines/extension/stable.yml@templates
   parameters:
-    buildPlatforms:
-      - MacOS
     buildSteps:
       - script: yarn install --frozen-lockfile
         displayName: Install dependencies
@@ -49,7 +47,7 @@ extends:
         env:
           TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
 
-      - script: yarn run browsertest --browserType=webkit
-        displayName: Run test suite (webkit)
-        env:
-          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
+      # - script: yarn run browsertest --browserType=webkit
+      #   displayName: Run test suite (webkit)
+      #   env:
+      #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
