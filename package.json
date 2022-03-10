@@ -13,7 +13,7 @@
 	"enabledApiProposals": [
 		"tokenInformation"
 	],
-	"version": "0.38.0",
+	"version": "0.38.1",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.65.0"
