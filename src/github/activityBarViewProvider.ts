@@ -122,17 +122,12 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		await this.updatePullRequest(this._item);
 	}
 
-	private _updatingPRPromise: Promise<void> | undefined;
 	public async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
-		// If we're already updating, don't try to update again.
-		if (this._updatingPRPromise) {
-			return this._updatingPRPromise;
-		}
 		if (!this._prChangeListener || (pullRequestModel.number !== this._item.number)) {
 			this._prChangeListener?.dispose();
 			this._prChangeListener = pullRequestModel.onDidInvalidate(() => this.updatePullRequest(pullRequestModel));
 		}
-		this._updatingPRPromise = Promise.all([
+		return Promise.all([
 			this._folderRepositoryManager.resolvePullRequest(
 				pullRequestModel.remote.owner,
 				pullRequestModel.remote.repositoryName,
@@ -143,7 +138,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			pullRequestModel.getReviewRequests(),
 			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
 		])
-			.then(async (result) => {
+			.then(result => {
 				const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo] = result;
 				if (!pullRequest) {
 					throw new Error(
@@ -181,7 +176,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 				const continueOnGitHub = isCrossRepository && isInCodespaces();
 
-				await this._postMessage({
+				this._postMessage({
 					command: 'pr.initialize',
 					pullrequest: {
 						number: pullRequest.number,
@@ -218,13 +213,10 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 						continueOnGitHub,
 					},
 				});
-				this._updatingPRPromise = undefined;
 			})
 			.catch(e => {
 				vscode.window.showErrorMessage(formatError(e));
-				this._updatingPRPromise = undefined;
 			});
-		return this._updatingPRPromise;
 	}
 
 	private close(message: IRequestMessage<string>): void {
