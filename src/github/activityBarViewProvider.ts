@@ -27,8 +27,6 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	) {
 		super(extensionUri);
 
-		this.registerFolderRepositoryListener();
-
 		onDidUpdatePR(
 			pr => {
 				if (pr) {
@@ -49,18 +47,6 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				command: 'update-state',
 				state: GithubItemStateEnum.Merged,
 			});
-		}));
-	}
-
-	private registerFolderRepositoryListener() {
-		this._disposables.push(this._folderRepositoryManager.onDidChangeActivePullRequest(_ => {
-			if (this._folderRepositoryManager && this._item) {
-				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
-				this._postMessage({
-					command: 'pr.update-checkout-status',
-					isCurrentlyCheckedOut,
-				});
-			}
 		}));
 	}
 

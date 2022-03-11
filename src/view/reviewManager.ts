@@ -375,7 +375,7 @@ export class ReviewManager {
 				}),
 			);
 		} else {
-			this._webviewViewProvider.updatePullRequest(pr);
+			await this._webviewViewProvider.updatePullRequest(pr);
 		}
 
 		this.statusBarItem.text = `$(git-pull-request) Pull Request #${this._prNumber}`;
