@@ -125,15 +125,22 @@ export class StateManager {
 	async tryInitializeAndWait() {
 		if (!this.initializePromise) {
 			this.initializePromise = new Promise(resolve => {
-				if (this.manager.state === ReposManagerState.RepositoriesLoaded) {
-					this.doInitialize();
+				if (!this.manager.credentialStore.isAnyAuthenticated()) {
+					// We don't wait for sign in to finish initializing.
+					const disposable = this.manager.credentialStore.onDidGetSession(() => {
+						disposable.dispose();
+						this.doInitialize();
+					});
 					resolve();
+				} else if (this.manager.state === ReposManagerState.RepositoriesLoaded) {
+					this.doInitialize().then(() => resolve());
 				} else {
 					const disposable = this.manager.onDidChangeState(() => {
 						if (this.manager.state === ReposManagerState.RepositoriesLoaded) {
-							this.doInitialize();
-							disposable.dispose();
-							resolve();
+							this.doInitialize().then(() => {
+								disposable.dispose();
+								resolve();
+							});
 						}
 					});
 					this.context.subscriptions.push(disposable);
@@ -265,12 +272,12 @@ export class StateManager {
 		return userMap;
 	}
 
-	getUserMap(uri: vscode.Uri): Promise<Map<string, IAccount>> {
+	async getUserMap(uri: vscode.Uri): Promise<Map<string, IAccount>> {
 		if (!this.initializePromise) {
 			return Promise.resolve(new Map());
 		}
 		const state = this.getOrCreateSingleRepoState(uri);
-		if (!state.userMap) {
+		if (!state.userMap || (await state.userMap).size === 0) {
 			state.userMap = this.getUsers(uri);
 		}
 		return state.userMap;
