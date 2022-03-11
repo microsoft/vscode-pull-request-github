@@ -31,8 +31,10 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 
 		this._disposables.push(
 			vscode.window.onDidChangeActiveTextEditor(e => {
-				const activeEditorUri = e?.document.uri.toString();
-				this.revealActiveEditorInTree(activeEditorUri);
+				if (vscode.workspace.getConfiguration('explorer').get('autoReveal')) {
+					const activeEditorUri = e?.document.uri.toString();
+					this.revealActiveEditorInTree(activeEditorUri);
+				}
 			}),
 		);
 
