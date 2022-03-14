@@ -191,6 +191,19 @@
 					"default": "ask",
 					"description": "Default handler for terminal links."
 				},
+				"githubPullRequests.createOnPublishBranch": {
+					"type": "string",
+					"enum": [
+						"never",
+						"ask"
+					],
+					"enumDescriptions": [
+						"Never create a pull request when a branch is published.",
+						"Ask if you want to create a pull request when a branch is published."
+					],
+					"default": "ask",
+					"description": "Create a pull request when a branch is published."
+				},
 				"githubPullRequests.commentExpandState": {
 					"type": "string",
 					"enum": [
