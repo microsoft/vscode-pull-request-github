@@ -192,8 +192,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	}
 
 	private cleanCachedEditors() {
-		// Keep the most recent 4 editors (2 diffs) around and clean up the rest.
-		if (this._closedEditorCachedThreads.size > 4) {
+		// Keep the most recent 8 editors (4 diffs) around and clean up the rest.
+		if (this._closedEditorCachedThreads.size > 8) {
 			const keys = Array.from(this._closedEditorCachedThreads.keys());
 			for (let i = 0; i < this._closedEditorCachedThreads.size - 4; i++) {
 				const key = keys[i];
