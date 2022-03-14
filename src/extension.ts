@@ -177,7 +177,7 @@ async function init(
 				showPRController,
 				sessionState
 			);
-			reviewManagers.push(newReviewManager);
+			reviewsManager.addReviewManager(newReviewManager);
 			tree.refresh();
 		}
 		addRepo();
@@ -190,16 +190,7 @@ async function init(
 
 	git.onDidCloseRepository(repo => {
 		reposManager.removeRepo(repo);
-
-		const reviewManagerIndex = reviewManagers.findIndex(
-			manager => manager.repository.rootUri.toString() === repo.rootUri.toString(),
-		);
-		if (reviewManagerIndex) {
-			const manager = reviewManagers[reviewManagerIndex];
-			reviewManagers.splice(reviewManagerIndex);
-			manager.dispose();
-		}
-
+		reviewsManager.removeReviewManager(repo);
 		tree.refresh();
 	});
 
