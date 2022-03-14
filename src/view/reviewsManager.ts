@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { ITelemetry } from '../common/telemetry';
 import { CredentialStore } from '../github/credentials';
@@ -64,6 +65,21 @@ export class ReviewsManager {
 			}
 		}
 		return '';
+	}
+
+	public addReviewManager(reviewManager: ReviewManager) {
+		this._reviewManagers.push(reviewManager);
+	}
+
+	public removeReviewManager(repo: Repository) {
+		const reviewManagerIndex = this._reviewManagers.findIndex(
+			manager => manager.repository.rootUri.toString() === repo.rootUri.toString(),
+		);
+		if (reviewManagerIndex) {
+			const manager = this._reviewManagers[reviewManagerIndex];
+			this._reviewManagers.splice(reviewManagerIndex);
+			manager.dispose();
+		}
 	}
 
 	dispose() {

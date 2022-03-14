@@ -9,7 +9,7 @@ import { DiffChangeType, getModifiedContentFromDiffHunk } from '../../common/dif
 import { GitChangeType, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT } from '../../common/settingKeys';
-import { fromPRUri, resolvePath, toPRUri } from '../../common/uri';
+import { fromPRUri, resolvePath, toPRUri, toReviewUri } from '../../common/uri';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { getInMemPRFileSystemProvider } from '../inMemPRContentProvider';
@@ -112,6 +112,11 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 	}
 
 	private async resolvePRCommentController(): Promise<void> {
+		// If the current branch is this PR's branch, then we can rely on the review comment controller instead.
+		if (this.pullRequestModel.equals(this._folderReposManager.activePullRequest)) {
+			return;
+		}
+
 		await this.pullRequestModel.githubRepository.ensureCommentsController();
 		this._commentController = this.pullRequestModel.githubRepository.commentsController!;
 
@@ -160,6 +165,10 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 			return [];
 		}
 
+		// If this PR is the the current PR, then we should be careful to use
+		// URIs that will cause the review comment controller to be used.
+		const isCurrentPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
+
 		const rawChanges = await this.pullRequestModel.getFileChangesInfo(this._folderReposManager.repository);
 
 		// Merge base is set as part of getPullRequestFileChangesInfo
@@ -204,14 +213,19 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				);
 			}
 
+			const filePath = vscode.Uri.file(resolvePath(this._folderReposManager.repository.rootUri, change.fileName));
+			const parentPath = vscode.Uri.file(resolvePath(this._folderReposManager.repository.rootUri, parentFileName));
 			const changedItem = new InMemFileChangeNode(
 				this._folderReposManager,
 				this,
 				this.pullRequestModel as (PullRequestModel & IResolvedPullRequestModel),
 				change,
 				change.previousFileName,
-				toPRUri(
-					vscode.Uri.file(resolvePath(this._folderReposManager.repository.rootUri, change.fileName)),
+				isCurrentPR ? ((change.status === GitChangeType.DELETE)
+					? toReviewUri(filePath, undefined, undefined, '', false, { base: false }, this._folderReposManager.repository.rootUri)
+					: filePath)
+					: toPRUri(
+						filePath,
 					this.pullRequestModel,
 					change.baseCommit,
 					headCommit,
@@ -219,8 +233,16 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 					false,
 					change.status,
 				),
-				toPRUri(
-					vscode.Uri.file(resolvePath(this._folderReposManager.repository.rootUri, parentFileName)),
+				isCurrentPR ? (toReviewUri(
+					parentPath,
+					change.status === GitChangeType.RENAME ? change.previousFileName : change.fileName,
+					undefined,
+					change.status === GitChangeType.ADD ? '' : mergeBase,
+					false,
+					{ base: true },
+					this._folderReposManager.repository.rootUri,
+				)) : toPRUri(
+					parentPath,
 					this.pullRequestModel,
 					change.baseCommit,
 					headCommit,
