@@ -5,5 +5,6 @@
 
 export const PR_SETTINGS_NAMESPACE = 'githubPullRequests';
 export const TERMINAL_LINK_HANDLER = 'terminalLinksHandler';
+export const BRANCH_PUBLISH = 'createOnPublishBranch';
 export const USE_REVIEW_MODE = 'useReviewMode';
 export const FILE_LIST_LAYOUT = 'fileListLayout';
