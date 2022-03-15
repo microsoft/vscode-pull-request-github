@@ -959,7 +959,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Get the status checks of the pull request, those for the last commit.
 	 */
 	async getStatusChecks(): Promise<PullRequestChecks> {
-		const { query, remote, schema } = await this.githubRepository.ensure();
+		const { query, remote, schema, octokit } = await this.githubRepository.ensure();
 		let result;
 		try {
 			result = await query<GetChecksResponse>({
@@ -991,7 +991,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			};
 		}
 
-		return {
+		const checks: PullRequestChecks = {
 			state: statusCheckRollup.state.toLowerCase(),
 			statuses: statusCheckRollup.contexts.nodes.map(context => {
 				if (isCheckRun(context)) {
@@ -1017,6 +1017,26 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				}
 			}),
 		};
+
+		// Fun info: The checks don't include whether a review is required.
+		// Also, unless you're an admin on the repo, you can't just do octokit.repos.getBranchProtection
+		const isBlocked = (await octokit.pulls.get({ owner: remote.owner, repo: remote.repositoryName, pull_number: this.number }))?.data.mergeable_state === 'blocked';
+		if (isBlocked && checks.state === 'success') {
+			const branch = await octokit.repos.getBranch({ branch: 'main', owner: remote.owner, repo: remote.repositoryName });
+			if (branch.data.protected && branch.data.protection.required_status_checks.enforcement_level !== 'off') {
+				// We need to add the "review required" check manually.
+				checks.statuses.unshift({
+					id: 'unknown',
+					context: 'Review Required',
+					description: 'At least 1 approving review is required.',
+					state: 'failure',
+					target_url: 'https://docs.github.com/articles/about-pull-request-reviews/'
+				});
+				checks.state = 'failure';
+			}
+		}
+
+		return checks;
 	}
 
 	static async openDiffFromComment(
