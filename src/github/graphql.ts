@@ -417,6 +417,7 @@ export interface PullRequest {
 	};
 	merged: boolean;
 	mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
 	isDraft?: boolean;
 	suggestedReviewers: SuggestedReviewerResponse[];
 	milestone?: {
@@ -437,6 +438,16 @@ export interface PullRequest {
 export interface PullRequestResponse {
 	repository: {
 		pullRequest: PullRequest;
+	};
+	rateLimit: RateLimit;
+}
+
+export interface PullRequestMergabilityResponse {
+	repository: {
+		pullRequest: {
+			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+			mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+		};
 	};
 	rateLimit: RateLimit;
 }

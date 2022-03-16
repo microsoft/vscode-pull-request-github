@@ -34,7 +34,7 @@ import {
 	PendingReviewIdResponse,
 	PullRequestCommentsResponse,
 	PullRequestFilesResponse,
-	PullRequestResponse,
+	PullRequestMergabilityResponse,
 	ReactionGroup,
 	ResolveReviewThreadResponse,
 	StartReviewResponse,
@@ -959,7 +959,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Get the status checks of the pull request, those for the last commit.
 	 */
 	async getStatusChecks(): Promise<PullRequestChecks> {
-		const { query, remote, schema } = await this.githubRepository.ensure();
+		const { query, remote, schema, octokit } = await this.githubRepository.ensure();
 		let result;
 		try {
 			result = await query<GetChecksResponse>({
@@ -991,7 +991,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			};
 		}
 
-		return {
+		const checks: PullRequestChecks = {
 			state: statusCheckRollup.state.toLowerCase(),
 			statuses: statusCheckRollup.contexts.nodes.map(context => {
 				if (isCheckRun(context)) {
@@ -1017,6 +1017,25 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				}
 			}),
 		};
+
+		// Fun info: The checks don't include whether a review is required.
+		// Also, unless you're an admin on the repo, you can't just do octokit.repos.getBranchProtection
+		if (this.item.mergeable === PullRequestMergeability.NotMergeable) {
+			const branch = await octokit.repos.getBranch({ branch: this.base.ref, owner: remote.owner, repo: remote.repositoryName });
+			if (branch.data.protected && branch.data.protection.required_status_checks.enforcement_level !== 'off') {
+				// We need to add the "review required" check manually.
+				checks.statuses.unshift({
+					id: 'unknown',
+					context: 'Branch Protection',
+					description: 'Requirements have not been met.',
+					state: 'failure',
+					target_url: this.html_url
+				});
+				checks.state = 'failure';
+			}
+		}
+
+		return checks;
 	}
 
 	static async openDiffFromComment(
@@ -1186,7 +1205,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			Logger.debug(`Fetch pull request mergeability ${this.number} - enter`, PullRequestModel.ID);
 			const { query, remote, schema } = await this.githubRepository.ensure();
 
-			const { data } = await query<PullRequestResponse>({
+			const { data } = await query<PullRequestMergabilityResponse>({
 				query: schema.PullRequestMergeability,
 				variables: {
 					owner: remote.owner,
@@ -1195,7 +1214,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			});
 			Logger.debug(`Fetch pull request mergeability ${this.number} - done`, PullRequestModel.ID);
-			return parseMergeability(data.repository.pullRequest.mergeable);
+			return parseMergeability(data.repository.pullRequest.mergeable, data.repository.pullRequest.mergeStateStatus);
 		} catch (e) {
 			Logger.appendLine(`PullRequestModel> Unable to fetch PR Mergeability: ${e}`);
 			return PullRequestMergeability.Unknown;

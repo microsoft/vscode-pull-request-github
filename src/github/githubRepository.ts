@@ -705,7 +705,6 @@ export class GitHubRepository implements vscode.Disposable {
 				},
 			});
 			Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
-
 			return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data, this));
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
@@ -728,7 +727,7 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 			Logger.debug(`Fetch issue ${id} - done`, GitHubRepository.ID);
 
-			return new IssueModel(this, remote, parseGraphQLPullRequest(data, this));
+			return new IssueModel(this, remote, parseGraphQLIssue(data.repository.pullRequest, this));
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch issue: ${e}`);
 			return;
