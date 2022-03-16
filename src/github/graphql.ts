@@ -441,6 +441,15 @@ export interface PullRequestResponse {
 	rateLimit: RateLimit;
 }
 
+export interface PullRequestMergabilityResponse {
+	repository: {
+		pullRequest: {
+			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+		};
+	};
+	rateLimit: RateLimit;
+}
+
 export interface IssuesSearchResponse {
 	search: {
 		issueCount: number;

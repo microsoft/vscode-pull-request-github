@@ -479,20 +479,29 @@ export function parseMilestone(
 	};
 }
 
-export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFLICTING'): PullRequestMergeability {
+export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFLICTING', blocked?: string): PullRequestMergeability {
+	let parsed: PullRequestMergeability;
 	switch (mergeability) {
 		case 'UNKNOWN':
-			return PullRequestMergeability.Unknown;
+			parsed = PullRequestMergeability.Unknown;
+			break;
 		case 'MERGEABLE':
-			return PullRequestMergeability.Mergeable;
+			parsed = PullRequestMergeability.Mergeable;
+			break;
 		case 'CONFLICTING':
-			return PullRequestMergeability.NotMergeable;
+			parsed = PullRequestMergeability.Conflict;
+			break;
 	}
+	if ((parsed !== PullRequestMergeability.Conflict) && (blocked === 'blocked')) {
+		parsed = PullRequestMergeability.NotMergeable;
+	}
+	return parsed;
 }
 
 export function parseGraphQLPullRequest(
 	pullRequest: GraphQL.PullRequestResponse,
 	githubRepository: GitHubRepository,
+	blocked: string
 ): PullRequest {
 	const graphQLPullRequest = pullRequest.repository.pullRequest;
 
@@ -513,7 +522,7 @@ export function parseGraphQLPullRequest(
 		base: parseRef(graphQLPullRequest.baseRef?.name ?? graphQLPullRequest.baseRefName, graphQLPullRequest.baseRefOid, graphQLPullRequest.baseRepository),
 		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
-		mergeable: parseMergeability(graphQLPullRequest.mergeable),
+		mergeable: parseMergeability(graphQLPullRequest.mergeable, blocked),
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),

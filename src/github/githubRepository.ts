@@ -694,7 +694,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
 		try {
 			Logger.debug(`Fetch pull request ${id} - enter`, GitHubRepository.ID);
-			const { query, remote, schema } = await this.ensure();
+			const { query, remote, schema, octokit } = await this.ensure();
 
 			const { data } = await query<PullRequestResponse>({
 				query: schema.PullRequest,
@@ -705,8 +705,13 @@ export class GitHubRepository implements vscode.Disposable {
 				},
 			});
 			Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
+			Logger.debug(`Fetch pull request blocked state ${id} - enter`, GitHubRepository.ID);
+			// TODO: Check back later to see if there's any better way to see if the PR is actually mergeable
+			// The graphql API just says if there's a conflict, not if it's actually mergeable.
+			const blocked = (await octokit.pulls.get({ owner: remote.owner, repo: remote.repositoryName, pull_number: id }))?.data.mergeable_state;
+			Logger.debug(`Fetch pull request blocked state ${id} - done`, GitHubRepository.ID);
 
-			return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data, this));
+			return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data, this, blocked));
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return;
@@ -728,7 +733,7 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 			Logger.debug(`Fetch issue ${id} - done`, GitHubRepository.ID);
 
-			return new IssueModel(this, remote, parseGraphQLPullRequest(data, this));
+			return new IssueModel(this, remote, parseGraphQLIssue(data.repository.pullRequest, this));
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch issue: ${e}`);
 			return;

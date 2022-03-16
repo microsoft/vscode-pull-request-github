@@ -34,7 +34,7 @@ import {
 	PendingReviewIdResponse,
 	PullRequestCommentsResponse,
 	PullRequestFilesResponse,
-	PullRequestResponse,
+	PullRequestMergabilityResponse,
 	ReactionGroup,
 	ResolveReviewThreadResponse,
 	StartReviewResponse,
@@ -1020,17 +1020,16 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		// Fun info: The checks don't include whether a review is required.
 		// Also, unless you're an admin on the repo, you can't just do octokit.repos.getBranchProtection
-		const isBlocked = (await octokit.pulls.get({ owner: remote.owner, repo: remote.repositoryName, pull_number: this.number }))?.data.mergeable_state === 'blocked';
-		if (isBlocked && checks.state === 'success') {
-			const branch = await octokit.repos.getBranch({ branch: 'main', owner: remote.owner, repo: remote.repositoryName });
+		if (this.item.mergeable === PullRequestMergeability.NotMergeable) {
+			const branch = await octokit.repos.getBranch({ branch: this.base.ref, owner: remote.owner, repo: remote.repositoryName });
 			if (branch.data.protected && branch.data.protection.required_status_checks.enforcement_level !== 'off') {
 				// We need to add the "review required" check manually.
 				checks.statuses.unshift({
 					id: 'unknown',
-					context: 'Review Required',
-					description: 'At least 1 approving review is required.',
+					context: 'Branch Protection',
+					description: 'Requirements have not been met.',
 					state: 'failure',
-					target_url: 'https://docs.github.com/articles/about-pull-request-reviews/'
+					target_url: this.html_url
 				});
 				checks.state = 'failure';
 			}
@@ -1206,7 +1205,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			Logger.debug(`Fetch pull request mergeability ${this.number} - enter`, PullRequestModel.ID);
 			const { query, remote, schema } = await this.githubRepository.ensure();
 
-			const { data } = await query<PullRequestResponse>({
+			const { data } = await query<PullRequestMergabilityResponse>({
 				query: schema.PullRequestMergeability,
 				variables: {
 					owner: remote.owner,
