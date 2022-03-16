@@ -1214,7 +1214,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			});
 			Logger.debug(`Fetch pull request mergeability ${this.number} - done`, PullRequestModel.ID);
-			return parseMergeability(data.repository.pullRequest.mergeable);
+			return parseMergeability(data.repository.pullRequest.mergeable, data.repository.pullRequest.mergeStateStatus);
 		} catch (e) {
 			Logger.appendLine(`PullRequestModel> Unable to fetch PR Mergeability: ${e}`);
 			return PullRequestMergeability.Unknown;

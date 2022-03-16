@@ -151,7 +151,7 @@ describe('GitHub Pull Requests view', function () {
 						);
 					});
 				}).pullRequest;
-				const prItem0 = parseGraphQLPullRequest(pr0, gitHubRepository, 'notblocked');
+				const prItem0 = parseGraphQLPullRequest(pr0, gitHubRepository);
 				const pullRequest0 = new PullRequestModel(telemetry, gitHubRepository, remote, prItem0);
 
 				const pr1 = gitHubRepository.addGraphQLPullRequest(builder => {
@@ -167,7 +167,7 @@ describe('GitHub Pull Requests view', function () {
 					);
 				});
 			}).pullRequest;
-			const prItem1 = parseGraphQLPullRequest(pr1, gitHubRepository, 'notblocked');
+			const prItem1 = parseGraphQLPullRequest(pr1, gitHubRepository);
 			const pullRequest1 = new PullRequestModel(telemetry, gitHubRepository, remote, prItem1);
 
 			const repository = new MockRepository();

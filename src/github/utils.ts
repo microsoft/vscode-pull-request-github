@@ -479,7 +479,8 @@ export function parseMilestone(
 	};
 }
 
-export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFLICTING', blocked?: string): PullRequestMergeability {
+export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFLICTING',
+	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE'): PullRequestMergeability {
 	let parsed: PullRequestMergeability;
 	switch (mergeability) {
 		case 'UNKNOWN':
@@ -492,7 +493,7 @@ export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFL
 			parsed = PullRequestMergeability.Conflict;
 			break;
 	}
-	if ((parsed !== PullRequestMergeability.Conflict) && (blocked === 'blocked')) {
+	if ((parsed !== PullRequestMergeability.Conflict) && (mergeStateStatus === 'BLOCKED')) {
 		parsed = PullRequestMergeability.NotMergeable;
 	}
 	return parsed;
@@ -501,7 +502,6 @@ export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFL
 export function parseGraphQLPullRequest(
 	pullRequest: GraphQL.PullRequestResponse,
 	githubRepository: GitHubRepository,
-	blocked: string
 ): PullRequest {
 	const graphQLPullRequest = pullRequest.repository.pullRequest;
 
@@ -522,7 +522,7 @@ export function parseGraphQLPullRequest(
 		base: parseRef(graphQLPullRequest.baseRef?.name ?? graphQLPullRequest.baseRefName, graphQLPullRequest.baseRefOid, graphQLPullRequest.baseRepository),
 		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
-		mergeable: parseMergeability(graphQLPullRequest.mergeable, blocked),
+		mergeable: parseMergeability(graphQLPullRequest.mergeable, graphQLPullRequest.mergeStateStatus),
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
@@ -596,7 +596,7 @@ export function parseGraphQLIssuesRequest(
 		base: parseRef(graphQLPullRequest.baseRef?.name ?? graphQLPullRequest.baseRefName, graphQLPullRequest.baseRefOid, graphQLPullRequest.baseRepository),
 		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
-		mergeable: parseMergeability(graphQLPullRequest.mergeable),
+		mergeable: parseMergeability(graphQLPullRequest.mergeable, pullRequest.mergeStateStatus),
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),

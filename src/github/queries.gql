@@ -334,6 +334,7 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 			}
 			merged
 			mergeable
+			mergeStateStatus
 			id
 			databaseId
 			isDraft
@@ -502,6 +503,7 @@ query PullRequestMergeability($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
 			mergeable
+			mergeStateStatus
 		}
 	}
 	rateLimit {
