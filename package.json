@@ -1394,6 +1394,16 @@
 					"command": "issue.createIssueFromFile",
 					"group": "navigation",
 					"when": "resourceFilename == NewIssue.md"
+				},
+				{
+					"command": "pr.markFileAsViewed",
+					"group": "navigation",
+					"when": "resourceScheme != pr && resourceSchem != review && resourcePath in github:unviewedFiles"
+				},
+				{
+					"command": "pr.unmarkFileAsViewed",
+					"group": "navigation",
+					"when": "resourceScheme != pr && resourceSchem != review && resourcePath in github:viewedFiles"
 				}
 			],
 			"scm/title": [

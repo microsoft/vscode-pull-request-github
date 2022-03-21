@@ -853,9 +853,14 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.markFileAsViewed', async (treeNode: GitFileChangeNode) => {
+		vscode.commands.registerCommand('pr.markFileAsViewed', async (treeNode: GitFileChangeNode | vscode.Uri) => {
 			try {
-				await treeNode.pullRequest.markFileAsViewed(treeNode.fileName);
+				if (treeNode instanceof GitFileChangeNode) {
+					await treeNode.pullRequest.markFileAsViewed(treeNode.fileName);
+				} else {
+					const manager = reposManager.getManagerForFile(treeNode);
+					await manager?.activePullRequest?.markFileAsViewed(treeNode.path);
+				}
 			} catch (e) {
 				vscode.window.showErrorMessage(`Marked file as viewed failed: ${e}`);
 			}
@@ -863,9 +868,14 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.unmarkFileAsViewed', async (treeNode: GitFileChangeNode) => {
+		vscode.commands.registerCommand('pr.unmarkFileAsViewed', async (treeNode: GitFileChangeNode | vscode.Uri) => {
 			try {
-				await treeNode.pullRequest.unmarkFileAsViewed(treeNode.fileName);
+				if (treeNode instanceof GitFileChangeNode) {
+					await treeNode.pullRequest.unmarkFileAsViewed(treeNode.fileName);
+				} else {
+					const manager = reposManager.getManagerForFile(treeNode);
+					await manager?.activePullRequest?.unmarkFileAsViewed(treeNode.path);
+				}
 			} catch (e) {
 				vscode.window.showErrorMessage(`Marked file as not viewed failed: ${e}`);
 			}
