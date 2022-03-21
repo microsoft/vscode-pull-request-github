@@ -176,10 +176,6 @@ export class GitHubRepository implements vscode.Disposable {
 			if ((query.query !== this.schema.GetChecks) && e.message?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
 				await this._credentialStore.recreate();
 				rsp = await gql.query<T>(query);
-			} else if (e.message?.startsWith('GraphQL error: API rate limit exceeded')) {
-				// Unclear why we can get an API rate limit error when signed in, but when we do the fix is to force a re-auth.
-				await this._credentialStore.recreate();
-				rsp = await gql.query<T>(query);
 			} else {
 				throw e;
 			}
@@ -729,7 +725,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 			return new IssueModel(this, remote, parseGraphQLIssue(data.repository.pullRequest, this));
 		} catch (e) {
-			Logger.appendLine(`GithubRepository> Unable to fetch issue: ${e}`);
+			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return;
 		}
 	}
