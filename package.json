@@ -725,6 +725,11 @@
 				"category": "GitHub Issues"
 			},
 			{
+				"command": "issue.copyGithubHeadLink",
+				"title": "Copy GitHub Head Link",
+				"category": "GitHub Issues"
+			},
+			{
 				"command": "issue.copyMarkdownGithubPermalink",
 				"title": "Copy GitHub Permalink as Markdown",
 				"category": "GitHub Issues"
@@ -1494,6 +1499,10 @@
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
 					"when": "gitHubOpenRepositoryCount != 0"
+				},
+				{
+					"command": "issue.copyGithubHeadLink",
+					"when": "gitHubOpenRepositoryCount != 0"
 				}
 			],
 			"editor/title/context": [
@@ -1501,6 +1510,11 @@
 					"command": "issue.copyGithubPermalink",
 					"when": "gitHubOpenRepositoryCount != 0",
 					"group": "1_cutcopypaste@10"
+				},
+				{
+					"command": "issue.copyGithubHeadLink",
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "1_cutcopypaste@11"
 				}
 			],
 			"explorer/context": [
@@ -1508,6 +1522,11 @@
 					"command": "issue.copyGithubPermalink",
 					"when": "gitHubOpenRepositoryCount != 0",
 					"group": "5_cutcopypaste@10"
+				},
+				{
+					"command": "issue.copyGithubHeadLink",
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "5_cutcopypaste@11"
 				}
 			],
 			"menuBar/edit/copy": [
