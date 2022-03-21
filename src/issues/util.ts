@@ -423,11 +423,7 @@ async function getUpstream(repository: Repository, commit: Commit): Promise<Remo
 	return bestRemote;
 }
 
-export async function createGithubPermalink(
-	gitAPI: GitApiImpl,
-	positionInfo?: NewIssue,
-	fileUri?: vscode.Uri
-): Promise<{ permalink: string | undefined; error: string | undefined, originalFile: vscode.Uri | undefined }> {
+function getFileAndPosition(fileUri?: vscode.Uri, positionInfo?: NewIssue): { uri: vscode.Uri | undefined, range: vscode.Range | undefined } {
 	let uri: vscode.Uri;
 	let range: vscode.Range | undefined;
 	if (fileUri) {
@@ -442,6 +438,34 @@ export async function createGithubPermalink(
 		uri = positionInfo.document.uri;
 		range = positionInfo.range;
 	} else {
+		return { uri: undefined, range: undefined };
+	}
+	return { uri, range };
+}
+
+export interface PermalinkInfo {
+	permalink: string | undefined;
+	error: string | undefined;
+	originalFile: vscode.Uri | undefined;
+}
+
+function getSimpleUpstream(repository: Repository) {
+	if (repository.state.HEAD?.upstream) {
+		for (const remote of repository.state.remotes) {
+			if (repository.state.HEAD.upstream.remote === remote.name) {
+				return remote;
+			}
+		}
+	}
+}
+
+export async function createGithubPermalink(
+	gitAPI: GitApiImpl,
+	positionInfo?: NewIssue,
+	fileUri?: vscode.Uri
+): Promise<PermalinkInfo> {
+	const { uri, range } = getFileAndPosition(fileUri, positionInfo);
+	if (!uri) {
 		return { permalink: undefined, error: 'No active text editor position to create permalink from.', originalFile: undefined };
 	}
 
@@ -464,14 +488,7 @@ export async function createGithubPermalink(
 	}
 
 	const fallbackUpstream = new Promise<Remote | undefined>(resolve => {
-		if (repository.state.HEAD?.upstream) {
-			for (const remote of repository.state.remotes) {
-				if (repository.state.HEAD.upstream.remote === remote.name) {
-					resolve(remote);
-				}
-			}
-		}
-		resolve(undefined);
+		resolve(getSimpleUpstream(repository));
 	});
 
 	let upstream: Remote | undefined = commit ? await Promise.race([
@@ -491,19 +508,47 @@ export async function createGithubPermalink(
 		}
 	}
 	const pathSegment = uri.path.substring(repository.rootUri.path.length);
-	const rangeString = () => {
-		if (!range) {
-			return '';
-		}
-		let hash = `#L${range.start.line + 1}`;
-		if (range.start.line !== range.end.line) {
-			hash += `-L${range.end.line + 1}`;
-		}
-		return hash;
-	};
+
 	return {
 		permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${commitHash
-			}${pathSegment}${rangeString()}`,
+			}${pathSegment}${rangeString(range)}`,
+		error: undefined,
+		originalFile: uri
+	};
+}
+
+function rangeString(range: vscode.Range | undefined) {
+	if (!range) {
+		return '';
+	}
+	let hash = `#L${range.start.line + 1}`;
+	if (range.start.line !== range.end.line) {
+		hash += `-L${range.end.line + 1}`;
+	}
+	return hash;
+}
+
+export async function createGitHubLink(
+	managers: RepositoriesManager,
+	fileUri?: vscode.Uri
+): Promise<PermalinkInfo> {
+	const { uri, range } = getFileAndPosition(fileUri);
+	if (!uri) {
+		return { permalink: undefined, error: 'No active text editor position to create permalink from.', originalFile: undefined };
+	}
+	const folderManager = managers.getManagerForFile(uri);
+	if (!folderManager) {
+		return { permalink: undefined, error: 'Current file does not belong to an open repository.', originalFile: undefined };
+	}
+	const defaults = await folderManager.getPullRequestDefaults();
+	const upstream = getSimpleUpstream(folderManager.repository);
+	if (!upstream?.fetchUrl) {
+		return { permalink: undefined, error: 'Repository does not have any remotes.', originalFile: undefined };
+	}
+	const pathSegment = uri.path.substring(folderManager.repository.rootUri.path.length);
+	return {
+		permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${defaults.base
+			}${pathSegment}${rangeString(range)}`,
 		error: undefined,
 		originalFile: uri
 	};
