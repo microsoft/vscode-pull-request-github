@@ -1553,7 +1553,8 @@
 				"defaults": {
 					"dark": "#ffffff48",
 					"light": "#00000048",
-					"highContrast": "editor.foreground"
+					"highContrast": "editor.foreground",
+					"highContrastLight": "editor.foreground"
 				},
 				"description": "The color used for the assignees and labels fields in a new issue editor."
 			},
@@ -1562,7 +1563,8 @@
 				"defaults": {
 					"dark": "#22863a",
 					"light": "#22863a",
-					"highContrast": "editor.foreground"
+					"highContrast": "editor.foreground",
+					"highContrastLight": "editor.foreground"
 				},
 				"description": "The color used for indicating that an issue is open."
 			},
@@ -1571,7 +1573,8 @@
 				"defaults": {
 					"dark": "#cb2431",
 					"light": "#cb2431",
-					"highContrast": "editor.foreground"
+					"highContrast": "editor.foreground",
+					"highContrastLight": "editor.foreground"
 				},
 				"description": "The color used for indicating that an issue is closed."
 			}
