@@ -14,7 +14,7 @@ import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { ISessionState } from '../common/sessionState';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
-import { fromPRUri } from '../common/uri';
+import { fromPRUri, Schemes } from '../common/uri';
 import { compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
 import { REPO_KEYS, ReposState } from '../extensionState';
@@ -262,7 +262,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						const activeTextEditors = vscode.window.visibleTextEditors;
 						if (activeTextEditors.length) {
 							const visiblePREditor = activeTextEditors.find(
-								editor => editor.document.uri.scheme === 'pr',
+								editor => editor.document.uri.scheme === Schemes.Pr,
 							);
 
 							if (visiblePREditor) {

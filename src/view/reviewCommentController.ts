@@ -13,7 +13,7 @@ import { getCommentingRanges } from '../common/commentingRanges';
 import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPositionMapping';
 import { GitChangeType } from '../common/file';
 import { ISessionState } from '../common/sessionState';
-import { fromReviewUri, ReviewUriParams, toReviewUri } from '../common/uri';
+import { fromReviewUri, ReviewUriParams, Schemes, toReviewUri } from '../common/uri';
 import { formatError, groupBy, uniqBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
@@ -378,7 +378,7 @@ export class ReviewCommentController
 	// #endregion
 
 	hasCommentThread(thread: vscode.CommentThread): boolean {
-		if (thread.uri.scheme === 'review') {
+		if (thread.uri.scheme === Schemes.Review) {
 			return true;
 		}
 
@@ -530,7 +530,7 @@ export class ReviewCommentController
 
 	// #region Review
 	private getCommentSide(thread: GHPRCommentThread): DiffSide {
-		if (thread.uri.scheme === 'review') {
+		if (thread.uri.scheme === Schemes.Review) {
 			const query = fromReviewUri(thread.uri.query);
 			return query.base ? DiffSide.LEFT : DiffSide.RIGHT;
 		}

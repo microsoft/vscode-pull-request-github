@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { ViewedState } from '../common/comment';
 import { GitChangeType } from '../common/file';
-import { fromFileChangeNodeUri, fromPRUri, toResourceUri } from '../common/uri';
+import { fromFileChangeNodeUri, fromPRUri, Schemes, toResourceUri } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
@@ -38,7 +38,7 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 					const fileChangeUri = toResourceUri(uri, model.number, change.fileName, fileChange.status);
 					this._onDidChangeFileDecorations.fire(fileChangeUri);
 					this._onDidChangeFileDecorations.fire(fileChangeUri.with({ scheme: folderManager.repository.rootUri.scheme }));
-					this._onDidChangeFileDecorations.fire(fileChangeUri.with({ scheme: 'pr', authority: '' }));
+					this._onDidChangeFileDecorations.fire(fileChangeUri.with({ scheme: Schemes.Pr, authority: '' }));
 				}
 			});
 		});
