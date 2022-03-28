@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.40.0
+
+### Changes
+
+- @user completions work in CODEOWNERS files
+- Merging is blocked when branch protection Fails
+
+![Branch protection blocks merge](./documentation/changelog/0.40.0/branch-protection.png)
+
+- There is a new setting for "Don't show again" on the notification shown when a branch is published: `githubPullRequests.createOnPublishBranch`.
+
+### Fixes
+
+- Sorting order of issues in SCM commit box is off. https://github.com/microsoft/vscode-pull-request-github/issues/3365
+- Comments panel - comment appears twice. https://github.com/microsoft/vscode-pull-request-github/issues/3349
+
 ## 0.38.0
 
 ### Changes
