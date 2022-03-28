@@ -5,10 +5,6 @@
 ### Changes
 
 - @user completions works in CODEOWNERS files
-- Merging is blocked when branch protection fails
-
-![Branch protection blocks merge](./documentation/changelog/0.40.0/branch-protection.png)
-
 - There is a new setting for "Don't show again" on the notification shown when a branch is published: `githubPullRequests.createOnPublishBranch`.
 
 ### Fixes
