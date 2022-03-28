@@ -24,7 +24,6 @@ export enum GithubItemStateEnum {
 export enum PullRequestMergeability {
 	Mergeable,
 	NotMergeable,
-	Conflict,
 	Unknown,
 }
 

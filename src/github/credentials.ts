@@ -284,7 +284,7 @@ export class CredentialStore implements vscode.Disposable {
 			request: { agent, fetch: fetchCore },
 			userAgent: 'GitHub VSCode Pull Requests',
 			// `shadow-cat-preview` is required for Draft PR API access -- https://developer.github.com/v3/previews/#draft-pull-requests
-			previews: ['shadow-cat-preview', 'merge-info-preview'],
+			previews: ['shadow-cat-preview'],
 			auth: `${token || ''}`,
 			baseUrl: baseUrl,
 		});
@@ -321,7 +321,7 @@ const link = (url: string, token: string) =>
 		headers: {
 			...headers,
 			authorization: token ? `Bearer ${token}` : '',
-			Accept: 'application/vnd.github.shadow-cat-preview+json, application/vnd.github.antiope-preview+json, application/vnd.github.merge-info-preview+json',
+			Accept: 'application/vnd.github.shadow-cat-preview+json, application/vnd.github.antiope-preview+json',
 		},
 	})).concat(
 		createHttpLink({

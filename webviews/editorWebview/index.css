@@ -235,16 +235,6 @@ body .comment-container .review-comment-header {
 	width: 16px;
 }
 
-#status-checks .avatar-link svg {
-	width: 24px;
-	margin-right: 0px;
-    vertical-align: middle;
-}
-
-.status-check .avatar-link .avatar-icon {
-	margin-right: 0px;
-}
-
 #status-checks .merge-select-container {
 	display: flex;
 	align-items: center;

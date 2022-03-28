@@ -479,24 +479,15 @@ export function parseMilestone(
 	};
 }
 
-export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFLICTING',
-	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE'): PullRequestMergeability {
-	let parsed: PullRequestMergeability;
+export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFLICTING'): PullRequestMergeability {
 	switch (mergeability) {
 		case 'UNKNOWN':
-			parsed = PullRequestMergeability.Unknown;
-			break;
+			return PullRequestMergeability.Unknown;
 		case 'MERGEABLE':
-			parsed = PullRequestMergeability.Mergeable;
-			break;
+			return PullRequestMergeability.Mergeable;
 		case 'CONFLICTING':
-			parsed = PullRequestMergeability.Conflict;
-			break;
+			return PullRequestMergeability.NotMergeable;
 	}
-	if ((parsed !== PullRequestMergeability.Conflict) && (mergeStateStatus === 'BLOCKED')) {
-		parsed = PullRequestMergeability.NotMergeable;
-	}
-	return parsed;
 }
 
 export function parseGraphQLPullRequest(
@@ -522,7 +513,7 @@ export function parseGraphQLPullRequest(
 		base: parseRef(graphQLPullRequest.baseRef?.name ?? graphQLPullRequest.baseRefName, graphQLPullRequest.baseRefOid, graphQLPullRequest.baseRepository),
 		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
-		mergeable: parseMergeability(graphQLPullRequest.mergeable, graphQLPullRequest.mergeStateStatus),
+		mergeable: parseMergeability(graphQLPullRequest.mergeable),
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
@@ -596,7 +587,7 @@ export function parseGraphQLIssuesRequest(
 		base: parseRef(graphQLPullRequest.baseRef?.name ?? graphQLPullRequest.baseRefName, graphQLPullRequest.baseRefOid, graphQLPullRequest.baseRepository),
 		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
-		mergeable: parseMergeability(graphQLPullRequest.mergeable, pullRequest.mergeStateStatus),
+		mergeable: parseMergeability(graphQLPullRequest.mergeable),
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
