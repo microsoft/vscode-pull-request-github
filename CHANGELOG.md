@@ -5,7 +5,7 @@
 ### Changes
 
 - @user completions work in CODEOWNERS files
-- Merging is blocked when branch protection Fails
+- Merging is blocked when branch protection fails
 
 ![Branch protection blocks merge](./documentation/changelog/0.40.0/branch-protection.png)
 
