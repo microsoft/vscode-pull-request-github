@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import Logger, { PR_TREE } from '../../common/logger';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { ReviewModel } from '../reviewModel';
 import { DirectoryTreeNode } from './directoryTreeNode';
@@ -22,9 +23,18 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 		super();
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 		this.childrenDisposables = [];
-		this.childrenDisposables.push(this._reviewModel.onDidChangeLocalFileChanges(() => this.refresh(this)));
-		this.childrenDisposables.push(_pullRequestModel.onDidChangeReviewThreads(() => this.refresh(this)));
-		this.childrenDisposables.push(_pullRequestModel.onDidChangeComments(() => this.refresh(this)));
+		this.childrenDisposables.push(this._reviewModel.onDidChangeLocalFileChanges(() => {
+			Logger.appendLine(`Local files have changed, refreshing Files node`, PR_TREE);
+			this.refresh(this);
+		}));
+		this.childrenDisposables.push(_pullRequestModel.onDidChangeReviewThreads(() => {
+			Logger.appendLine(`Review threads have changed, refreshing Files node`, PR_TREE);
+			this.refresh(this);
+		}));
+		this.childrenDisposables.push(_pullRequestModel.onDidChangeComments(() => {
+			Logger.appendLine(`Comments have changed, refreshing Files node`, PR_TREE);
+			this.refresh(this);
+		}));
 	}
 
 	getTreeItem(): vscode.TreeItem {
@@ -32,6 +42,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
+		Logger.appendLine(`Getting children for Files node`, PR_TREE);
 		if (this._reviewModel.localFileChanges.length === 0) {
 			// Provide loading feedback until we get the files.
 			return new Promise<TreeNode[]>(resolve => {
@@ -60,6 +71,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 		} else {
 			nodes = this._reviewModel.localFileChanges;
 		}
+		Logger.appendLine(`Got all children for Files node`, PR_TREE);
 		return Promise.resolve(nodes);
 	}
 }
