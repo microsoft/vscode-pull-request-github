@@ -60,8 +60,58 @@ export interface GitUriOptions {
 }
 
 const ImageMimetypes = ['image/png', 'image/gif', 'image/jpeg', 'image/webp', 'image/tiff', 'image/bmp'];
-// This list of extensions isn't exhaustive and is just intended to be a quick way to avoid checking the mime type of the file.
-const NonImageExtensions = ['.bat', '.c', '.csharp', '.cpp', '.css', '.go', '.html', '.java', '.js', '.md', '.php', '.ts'];
+// Known media types that VS Code can handle: https://github.com/microsoft/vscode/blob/a64e8e5673a44e5b9c2d493666bde684bd5a135c/src/vs/base/common/mime.ts#L33-L84
+const KnownMediaExtensions =[
+	'.aac',
+	'.avi',
+	'.bmp',
+	'.flv',
+	'.gif',
+	'.ico',
+	'.jpe',
+	'.jpeg',
+	'.jpg',
+	'.m1v',
+	'.m2a',
+	'.m2v',
+	'.m3a',
+	'.mid',
+	'.midi',
+	'.mk3d',
+	'.mks',
+	'.mkv',
+	'.mov',
+	'.movie',
+	'.mp2',
+	'.mp2a',
+	'.mp3',
+	'.mp4',
+	'.mp4a',
+	'.mp4v',
+	'.mpe',
+	'.mpeg',
+	'.mpg',
+	'.mpg4',
+	'.mpga',
+	'.oga',
+	'.ogg',
+	'.opus',
+	'.ogv',
+	'.png',
+	'.psd',
+	'.qt',
+	'.spx',
+	'.svg',
+	'.tga',
+	'.tif',
+	'.tiff',
+	'.wav',
+	'.webm',
+	'.webp',
+	'.wma',
+	'.wmv',
+	'.woff'
+];
 
 // a 1x1 pixel transparent gif, from http://png-pixel.com/
 export const EMPTY_IMAGE_URI = vscode.Uri.parse(
@@ -72,7 +122,7 @@ export async function asImageDataURI(uri: vscode.Uri, repository: Repository): P
 	try {
 		const { commit, baseCommit, headCommit, isBase, path } = JSON.parse(uri.query);
 		const ext = pathUtils.extname(path);
-		if (NonImageExtensions.includes(ext)) {
+		if (!KnownMediaExtensions.includes(ext)) {
 			return;
 		}
 		const ref = uri.scheme === 'review' ? commit : isBase ? baseCommit : headCommit;
