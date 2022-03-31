@@ -172,7 +172,7 @@ body img.avatar {
 
 .vscode-high-contrast input {
 	outline: none;
-	background: var(--vscode-input.background);
+	background: var(--vscode-input-background);
 	border: 1px solid var(--vscode-contrastBorder);
 }
 
