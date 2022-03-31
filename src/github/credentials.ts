@@ -321,8 +321,7 @@ const link = (url: string, token: string) =>
 		headers: {
 			...headers,
 			authorization: token ? `Bearer ${token}` : '',
-			Accept: 'application/vnd.github.shadow-cat-preview+json, application/vnd.github.antiope-preview+json',
-			'GraphQL-Features': 'application/vnd.github.merge-info-preview+json'
+			Accept: 'application/vnd.github.merge-info-preview'
 		},
 	})).concat(
 		createHttpLink({
