@@ -60,6 +60,8 @@ export interface GitUriOptions {
 }
 
 const ImageMimetypes = ['image/png', 'image/gif', 'image/jpeg', 'image/webp', 'image/tiff', 'image/bmp'];
+// This list of extensions isn't exhaustive and is just intended to be a quick way to avoid checking the mime type of the file.
+const NonImageExtensions = ['.bat', '.c', '.csharp', '.cpp', '.css', '.go', '.html', '.java', '.js', '.md', '.php', '.ts'];
 
 // a 1x1 pixel transparent gif, from http://png-pixel.com/
 export const EMPTY_IMAGE_URI = vscode.Uri.parse(
@@ -69,6 +71,10 @@ export const EMPTY_IMAGE_URI = vscode.Uri.parse(
 export async function asImageDataURI(uri: vscode.Uri, repository: Repository): Promise<vscode.Uri | undefined> {
 	try {
 		const { commit, baseCommit, headCommit, isBase, path } = JSON.parse(uri.query);
+		const ext = pathUtils.extname(path);
+		if (NonImageExtensions.includes(ext)) {
+			return;
+		}
 		const ref = uri.scheme === 'review' ? commit : isBase ? baseCommit : headCommit;
 		const { object } = await repository.getObjectDetails(ref, uri.fsPath);
 		const { mimetype } = await repository.detectObjectType(object);
