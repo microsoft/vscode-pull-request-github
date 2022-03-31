@@ -97,13 +97,24 @@ export class CredentialStore implements vscode.Disposable {
 			} else {
 				this._enterpriseSessionId = session.id;
 			}
-			const github = await this.createHub(session.accessToken, authProviderId);
+			let github: GitHub | undefined;
+			try {
+				github = await this.createHub(session.accessToken, authProviderId);
+			} catch (e) {
+				if ((e.message === 'Bad credentials') && !getAuthSessionOptions.forceNewSession) {
+					getAuthSessionOptions.forceNewSession = true;
+					getAuthSessionOptions.silent = false;
+					return this.initialize(authProviderId, getAuthSessionOptions);
+				}
+			}
 			if (authProviderId === AuthProvider.github) {
 				this._githubAPI = github;
 			} else {
 				this._githubEnterpriseAPI = github;
 			}
-			await this.setCurrentUser(github);
+			if (github) {
+				await this.setCurrentUser(github);
+			}
 			this._onDidInitialize.fire();
 		} else {
 			Logger.debug(`No GitHub${getGitHubSuffix(authProviderId)} token found.`, 'Authentication');
