@@ -15,6 +15,7 @@ import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockSessionState } from '../mocks/mockSessionState';
+import { Uri } from 'vscode';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
@@ -46,7 +47,8 @@ describe('PullRequestManager', function () {
 			const url = 'https://github.com/aaa/bbb.git';
 			const protocol = new Protocol(url);
 			const remote = new Remote('origin', url, protocol);
-			const repository = new GitHubRepository(remote, manager.credentialStore, telemetry, new MockSessionState());
+			const rootUri = Uri.file('C:\\users\\test\\repo');
+			const repository = new GitHubRepository(remote, rootUri, manager.credentialStore, telemetry, new MockSessionState());
 			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
 			const pr = new PullRequestModel(telemetry, repository, remote, prItem);
 

@@ -7,6 +7,7 @@ import { Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { GitHubRepository } from '../../github/githubRepository';
 import { MockSessionState } from '../mocks/mockSessionState';
+import { Uri } from 'vscode';
 
 describe('GitHubRepository', function () {
 	let sinon: SinonSandbox;
@@ -29,14 +30,16 @@ describe('GitHubRepository', function () {
 		it('detects when the remote is pointing to github.com', function () {
 			const url = 'https://github.com/some/repo';
 			const remote = new Remote('origin', url, new Protocol(url));
-			const dotcomRepository = new GitHubRepository(remote, credentialStore, telemetry, new MockSessionState());
+			const rootUri = Uri.file('C:\\users\\test\\repo');
+			const dotcomRepository = new GitHubRepository(remote, rootUri, credentialStore, telemetry, new MockSessionState());
 			assert(dotcomRepository.isGitHubDotCom);
 		});
 
 		it('detects when the remote is pointing somewhere other than github.com', function () {
 			const url = 'https://github.enterprise.horse/some/repo';
 			const remote = new Remote('origin', url, new Protocol(url));
-			const dotcomRepository = new GitHubRepository(remote, credentialStore, telemetry, new MockSessionState());
+			const rootUri = Uri.file('C:\\users\\test\\repo');
+			const dotcomRepository = new GitHubRepository(remote, rootUri, credentialStore, telemetry, new MockSessionState());
 			assert(!dotcomRepository.isGitHubDotCom);
 		});
 	});

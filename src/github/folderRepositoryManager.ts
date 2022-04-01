@@ -1894,7 +1894,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	private createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore) {
-		const repo = new GitHubRepository(remote, credentialStore, this.telemetry, this._sessionState);
+		const repo = new GitHubRepository(remote, this.repository.rootUri, credentialStore, this.telemetry, this._sessionState);
 		this._githubRepositories.push(repo);
 		return repo;
 	}

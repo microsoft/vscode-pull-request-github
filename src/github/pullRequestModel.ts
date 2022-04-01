@@ -10,6 +10,7 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { DiffSide, IComment, IReviewThread, ViewedState } from '../common/comment';
 import { parseDiff } from '../common/diffHunk';
+import { commands, contexts } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
@@ -107,6 +108,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public onDidChangeReviewThreads = this._onDidChangeReviewThreads.event;
 
 	private _fileChangeViewedState: FileViewedState = {};
+	private _viewedFiles: Set<string> = new Set();
+	private _unviewedFiles: Set<string> = new Set();
 	private _onDidChangeFileViewedState = new vscode.EventEmitter<FileViewedStateChangeEvent>();
 	public onDidChangeFileViewedState = this._onDidChangeFileViewedState.event;
 
@@ -1388,8 +1391,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				if (this._fileChangeViewedState[n.path] !== n.viewerViewedState) {
 					changed.push({ fileName: n.path, viewed: n.viewerViewedState });
 				}
-
-				this._fileChangeViewedState[n.path] = n.viewerViewedState;
+				// No event for setting the file viewed state here.
+				// Instead, wait until all the changes have been made and set the context at the end.
+				this.setFileViewedState(n.path, n.viewerViewedState, false);
 			});
 
 			hasNextPage = data.repository.pullRequest.files.pageInfo.hasNextPage;
@@ -1401,8 +1405,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	async markFileAsViewed(fileName: string): Promise<void> {
+	async markFileAsViewed(filePathOrSubpath: string): Promise<void> {
 		const { mutate, schema } = await this.githubRepository.ensure();
+		const fileName = filePathOrSubpath.startsWith(this.githubRepository.rootUri.path) ?
+			filePathOrSubpath.substring(this.githubRepository.rootUri.path.length + 1) : filePathOrSubpath;
 		await mutate<void>({
 			mutation: schema.MarkFileAsViewed,
 			variables: {
@@ -1413,12 +1419,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			},
 		});
 
-		this._fileChangeViewedState[fileName] = ViewedState.VIEWED;
-		this._onDidChangeFileViewedState.fire({ changed: [{ fileName, viewed: ViewedState.VIEWED }] });
+		this.setFileViewedState(fileName, ViewedState.VIEWED, true);
 	}
 
-	async unmarkFileAsViewed(fileName: string): Promise<void> {
+	async unmarkFileAsViewed(filePathOrSubpath: string): Promise<void> {
 		const { mutate, schema } = await this.githubRepository.ensure();
+		const fileName = filePathOrSubpath.startsWith(this.githubRepository.rootUri.path) ?
+			filePathOrSubpath.substring(this.githubRepository.rootUri.path.length + 1) : filePathOrSubpath;
 		await mutate<void>({
 			mutation: schema.UnmarkFileAsViewed,
 			variables: {
@@ -1429,7 +1436,39 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			},
 		});
 
-		this._fileChangeViewedState[fileName] = ViewedState.UNVIEWED;
-		this._onDidChangeFileViewedState.fire({ changed: [{ fileName, viewed: ViewedState.UNVIEWED }] });
+		this.setFileViewedState(fileName, ViewedState.UNVIEWED, true);
+	}
+
+	private setFileViewedState(fileSubpath: string, viewedState: ViewedState, event: boolean) {
+		const filePath = vscode.Uri.joinPath(this.githubRepository.rootUri, fileSubpath).fsPath;
+		switch (viewedState) {
+			case ViewedState.DISMISSED: {
+				this._viewedFiles.delete(filePath);
+				this._unviewedFiles.delete(filePath);
+				break;
+			}
+			case ViewedState.UNVIEWED: {
+				this._viewedFiles.delete(filePath);
+				this._unviewedFiles.add(filePath);
+				break;
+			}
+			case ViewedState.VIEWED: {
+				this._viewedFiles.add(filePath);
+				this._unviewedFiles.delete(filePath);
+			}
+		}
+		this._fileChangeViewedState[fileSubpath] = viewedState;
+		if (event) {
+			this._onDidChangeFileViewedState.fire({ changed: [{ fileName: fileSubpath, viewed: viewedState }] });
+		}
+	}
+
+	/**
+	 * Using these contexts is fragile in a multi-root workspace where multiple PRs are checked out.
+	 * If you have two active PRs that have the same file path relative to their rootdir, then these context can get confused.
+	 */
+	public setFileViewedContext() {
+		commands.setContext(contexts.VIEWED_FILES, Array.from(this._viewedFiles));
+		commands.setContext(contexts.UNVIEWED_FILES, Array.from(this._unviewedFiles));
 	}
 }

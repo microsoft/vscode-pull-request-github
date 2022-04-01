@@ -30,6 +30,7 @@ import { CategoryTreeNode } from './view/treeNodes/categoryNode';
 import { CommitNode } from './view/treeNodes/commitNode';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
 import {
+	FileChangeNode,
 	GitFileChangeNode,
 	InMemFileChangeNode,
 	openFileCommand,
@@ -853,9 +854,19 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.markFileAsViewed', async (treeNode: GitFileChangeNode) => {
+		vscode.commands.registerCommand('pr.markFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri) => {
 			try {
-				await treeNode.pullRequest.markFileAsViewed(treeNode.fileName);
+				if (treeNode instanceof FileChangeNode) {
+					await treeNode.pullRequest.markFileAsViewed(treeNode.fileName);
+					const manager = reposManager.getManagerForFile(treeNode.filePath);
+					if (treeNode.pullRequest === manager?.activePullRequest) {
+						treeNode.pullRequest.setFileViewedContext();
+					}
+				} else {
+					const manager = reposManager.getManagerForFile(treeNode);
+					await manager?.activePullRequest?.markFileAsViewed(treeNode.path);
+					manager?.activePullRequest?.setFileViewedContext();
+				}
 			} catch (e) {
 				vscode.window.showErrorMessage(`Marked file as viewed failed: ${e}`);
 			}
@@ -863,9 +874,19 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.unmarkFileAsViewed', async (treeNode: GitFileChangeNode) => {
+		vscode.commands.registerCommand('pr.unmarkFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri) => {
 			try {
-				await treeNode.pullRequest.unmarkFileAsViewed(treeNode.fileName);
+				if (treeNode instanceof FileChangeNode) {
+					await treeNode.pullRequest.unmarkFileAsViewed(treeNode.fileName);
+					const manager = reposManager.getManagerForFile(treeNode.filePath);
+					if (treeNode.pullRequest === manager?.activePullRequest) {
+						treeNode.pullRequest.setFileViewedContext();
+					}
+				} else {
+					const manager = reposManager.getManagerForFile(treeNode);
+					await manager?.activePullRequest?.unmarkFileAsViewed(treeNode.path);
+					manager?.activePullRequest?.setFileViewedContext();
+				}
 			} catch (e) {
 				vscode.window.showErrorMessage(`Marked file as not viewed failed: ${e}`);
 			}

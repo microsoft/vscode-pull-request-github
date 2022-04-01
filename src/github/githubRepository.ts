@@ -148,6 +148,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 	constructor(
 		public remote: Remote,
+		public readonly rootUri: vscode.Uri,
 		private readonly _credentialStore: CredentialStore,
 		private readonly _telemetry: ITelemetry,
 		private readonly _sessionState: ISessionState
@@ -410,7 +411,7 @@ export class GitHubRepository implements vscode.Disposable {
 				parsedIssue.repositoryUrl,
 				new Protocol(parsedIssue.repositoryUrl),
 			);
-			githubRepository = new GitHubRepository(remote, this._credentialStore, this._telemetry, this._sessionState);
+			githubRepository = new GitHubRepository(remote, this.rootUri, this._credentialStore, this._telemetry, this._sessionState);
 		}
 		return githubRepository;
 	}
