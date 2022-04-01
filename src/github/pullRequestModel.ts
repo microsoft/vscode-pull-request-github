@@ -1391,7 +1391,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				if (this._fileChangeViewedState[n.path] !== n.viewerViewedState) {
 					changed.push({ fileName: n.path, viewed: n.viewerViewedState });
 				}
-
+				// No event for setting the file viewed state here.
+				// Instead, wait until all the changes have been made and set the context at the end.
 				this.setFileViewedState(n.path, n.viewerViewedState, false);
 			});
 
