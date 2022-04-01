@@ -9,7 +9,6 @@ import * as pathUtils from 'path';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { FILECHANGE_FILE_SCHEME } from '../view/compareChangesTreeDataProvider';
 import { GitChangeType } from './file';
 import { TemporaryState } from './temporaryState';
 
@@ -125,7 +124,7 @@ export async function asImageDataURI(uri: vscode.Uri, repository: Repository): P
 		if (!KnownMediaExtensions.includes(ext)) {
 			return;
 		}
-		const ref = uri.scheme === 'review' ? commit : isBase ? baseCommit : headCommit;
+		const ref = uri.scheme === Schemes.Review ? commit : isBase ? baseCommit : headCommit;
 		const { object } = await repository.getObjectDetails(ref, uri.fsPath);
 		const { mimetype } = await repository.detectObjectType(object);
 
@@ -167,7 +166,7 @@ export function toReviewUri(
 	}
 
 	return uri.with({
-		scheme: 'review',
+		scheme: Schemes.Review,
 		path,
 		query: JSON.stringify(params),
 	});
@@ -187,7 +186,7 @@ export function toResourceUri(uri: vscode.Uri, prNumber: number, fileName: strin
 	};
 
 	return uri.with({
-		scheme: FILECHANGE_FILE_SCHEME,
+		scheme: Schemes.FileChange,
 		query: JSON.stringify(params),
 	});
 }
@@ -220,18 +219,22 @@ export function toPRUri(
 	const path = uri.path;
 
 	return uri.with({
-		scheme: 'pr',
+		scheme: Schemes.Pr,
 		path,
 		query: JSON.stringify(params),
 	});
 }
 
-export enum Schemas {
-	file = 'file'
+export enum Schemes {
+	File = 'file',
+	Review = 'review',
+	Pr = 'pr',
+	FileChange = 'filechange',
+	GithubPr = 'githubpr'
 }
 
 export function resolvePath(from: vscode.Uri, to: string) {
-	if (from.scheme === Schemas.file) {
+	if (from.scheme === Schemes.File) {
 		return pathUtils.resolve(from.fsPath, to);
 	} else {
 		return pathUtils.posix.resolve(from.path, to);

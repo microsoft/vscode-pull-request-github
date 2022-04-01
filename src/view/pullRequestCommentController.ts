@@ -10,7 +10,7 @@ import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from
 import { DiffSide, IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { ISessionState } from '../common/sessionState';
-import { fromPRUri } from '../common/uri';
+import { fromPRUri, Schemes } from '../common/uri';
 import { groupBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
@@ -106,7 +106,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		}
 
 		const editorUri = editor.document.uri;
-		if (editorUri.scheme !== 'pr') {
+		if (editorUri.scheme !== Schemes.Pr) {
 			return;
 		}
 
@@ -120,7 +120,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 	private getPREditors(editors: vscode.TextEditor[]): vscode.TextEditor[] {
 		return editors.filter(editor => {
-			if (editor.document.uri.scheme !== 'pr') {
+			if (editor.document.uri.scheme !== Schemes.Pr) {
 				return false;
 			}
 
@@ -306,7 +306,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	}
 
 	hasCommentThread(thread: GHPRCommentThread): boolean {
-		if (thread.uri.scheme !== 'pr') {
+		if (thread.uri.scheme !== Schemes.Pr) {
 			return false;
 		}
 
@@ -533,7 +533,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	}
 
 	public async toggleReaction(comment: GHPRComment, reaction: vscode.CommentReaction): Promise<void> {
-		if (comment.parent!.uri.scheme !== 'pr') {
+		if (comment.parent!.uri.scheme !== Schemes.Pr) {
 			return;
 		}
 

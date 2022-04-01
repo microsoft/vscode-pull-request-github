@@ -9,7 +9,7 @@ import { DiffChangeType, getModifiedContentFromDiffHunk } from '../../common/dif
 import { GitChangeType, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT } from '../../common/settingKeys';
-import { fromPRUri, resolvePath, toPRUri, toReviewUri } from '../../common/uri';
+import { fromPRUri, resolvePath, Schemes, toPRUri, toReviewUri } from '../../common/uri';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { getInMemPRFileSystemProvider } from '../inMemPRContentProvider';
@@ -293,7 +293,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		document: vscode.TextDocument,
 		_token: vscode.CancellationToken,
 	): Promise<vscode.Range[] | undefined> {
-		if (document.uri.scheme === 'pr') {
+		if (document.uri.scheme === Schemes.Pr) {
 			const params = fromPRUri(document.uri);
 
 			if (!params || params.prNumber !== this.pullRequestModel.number) {

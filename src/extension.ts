@@ -17,7 +17,7 @@ import { Resource } from './common/resources';
 import { SessionState } from './common/sessionState';
 import { BRANCH_PUBLISH, FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { TemporaryState } from './common/temporaryState';
-import { handler as uriHandler } from './common/uri';
+import { Schemes, handler as uriHandler } from './common/uri';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
 import { setSyncedKeys } from './extensionState';
@@ -302,7 +302,7 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	Logger.debug('Creating tree view.', 'Activation');
 	const prTree = new PullRequestsTreeDataProvider(telemetry);
 	context.subscriptions.push(prTree);
-	context.subscriptions.push(vscode.workspace.registerFileSystemProvider('pr', getInMemPRFileSystemProvider(), { isReadonly: true }));
+	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.Pr, getInMemPRFileSystemProvider(), { isReadonly: true }));
 
 	Logger.appendLine('Looking for git repository');
 
