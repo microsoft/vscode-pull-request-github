@@ -1401,7 +1401,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		} while (hasNextPage);
 
 		if (changed.length) {
-			this.setFileViewedContext();
 			this._onDidChangeFileViewedState.fire({ changed });
 		}
 	}
@@ -1460,13 +1459,15 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 		this._fileChangeViewedState[fileSubpath] = viewedState;
 		if (event) {
-			this.setFileViewedContext();
 			this._onDidChangeFileViewedState.fire({ changed: [{ fileName: fileSubpath, viewed: viewedState }] });
 		}
 	}
 
-	private setFileViewedContext() {
-		// TODO: only do if this is the active PR.
+	/**
+	 * Using these contexts is fragile in a multi-root workspace where multiple PRs are checked out.
+	 * If you have two active PRs that have the same file path relative to their rootdir, then these context can get confused.
+	 */
+	public setFileViewedContext() {
 		commands.setContext(contexts.VIEWED_FILES, Array.from(this._viewedFiles));
 		commands.setContext(contexts.UNVIEWED_FILES, Array.from(this._unviewedFiles));
 	}
