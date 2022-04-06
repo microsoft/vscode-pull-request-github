@@ -254,6 +254,7 @@ describe('ReviewCommentController', function () {
 							body: 'hello world',
 							pullRequestId: activePullRequest.graphNodeId,
 							pullRequestReviewId: undefined,
+							startLine: undefined,
 							line: 22,
 							side: 'RIGHT'
 						}
@@ -268,6 +269,8 @@ describe('ReviewCommentController', function () {
 								viewCanResolve: true,
 								path: fileName,
 								line: 22,
+								startLine: null,
+								originalStartLine: null,
 								originalLine: 22,
 								diffSide: 'RIGHT',
 								isOutdated: false,
