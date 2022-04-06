@@ -854,7 +854,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async copyPrLink(): Promise<void> {
 		await vscode.env.clipboard.writeText(this._item.html_url);
-		vscode.window.showInformationMessage(`Copied link to PR ${this._item.title}!`);
+		vscode.window.showInformationMessage(`Copied link to PR "${this._item.title}"!`);
 	}
 
 	protected editCommentPromise(comment: IComment, text: string): Promise<IComment> {
