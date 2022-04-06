@@ -164,8 +164,10 @@ describe('ReviewCommentController', function () {
 					viewerCanUnresolve: false,
 					path: fileName,
 					diffSide: DiffSide.RIGHT,
-					line: 372,
-					originalLine: 372,
+					startLine: 372,
+					endLine: 372,
+					originalStartLine: 372,
+					originalEndLine: 372,
 					isOutdated: false,
 					comments: [
 						{

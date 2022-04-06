@@ -32,8 +32,10 @@ export interface IReviewThread {
 	viewerCanUnresolve: boolean;
 	path: string;
 	diffSide: DiffSide;
-	line: number;
-	originalLine: number;
+	startLine: number;
+	endLine: number;
+	originalStartLine: number;
+	originalEndLine: number;
 	isOutdated: boolean;
 	comments: IComment[];
 }

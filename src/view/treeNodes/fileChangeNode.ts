@@ -269,8 +269,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		);
 
 		if (reviewThreadsForNode.length) {
-			reviewThreadsForNode.sort((a, b) => a.line - b.line);
-			this.opts.selection = new vscode.Range(reviewThreadsForNode[0].line, 0, reviewThreadsForNode[0].line, 0);
+			reviewThreadsForNode.sort((a, b) => a.endLine - b.endLine);
+			this.opts.selection = new vscode.Range(reviewThreadsForNode[0].startLine, 0, reviewThreadsForNode[0].endLine, 0);
 		} else {
 			delete this.opts.selection;
 		}
@@ -421,10 +421,10 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		const reviewThreadsByFile = groupBy(reviewThreads, t => t.path);
 		const reviewThreadsForNode = (reviewThreadsByFile[this.fileName] || [])
 			.filter(thread => thread.isOutdated)
-			.sort((a, b) => a.line - b.line);
+			.sort((a, b) => a.endLine - b.endLine);
 
 		if (reviewThreadsForNode.length) {
-			options.selection = new vscode.Range(reviewThreadsForNode[0].originalLine, 0, reviewThreadsForNode[0].originalLine, 0);
+			options.selection = new vscode.Range(reviewThreadsForNode[0].originalStartLine, 0, reviewThreadsForNode[0].originalEndLine, 0);
 		}
 
 		return {

@@ -168,7 +168,9 @@ export interface ReviewThread {
 	viewerCanUnresolve: boolean;
 	path: string;
 	diffSide: DiffSide;
+	startLine: number | null;
 	line: number;
+	originalStartLine: number | null;
 	originalLine: number;
 	isOutdated: boolean;
 	comments: {
