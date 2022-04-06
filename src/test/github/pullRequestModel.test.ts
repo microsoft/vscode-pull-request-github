@@ -25,7 +25,9 @@ const reviewThreadResponse = {
 	viewerCanResolve: true,
 	path: 'README.md',
 	diffSide: 'RIGHT',
+	startLine: null,
 	line: 4,
+	originalStartLine: null,
 	originalLine: 4,
 	isOutdated: false,
 	comments: {

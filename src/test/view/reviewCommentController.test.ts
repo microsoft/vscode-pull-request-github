@@ -164,8 +164,10 @@ describe('ReviewCommentController', function () {
 					viewerCanUnresolve: false,
 					path: fileName,
 					diffSide: DiffSide.RIGHT,
-					line: 372,
-					originalLine: 372,
+					startLine: 372,
+					endLine: 372,
+					originalStartLine: 372,
+					originalEndLine: 372,
 					isOutdated: false,
 					comments: [
 						{
@@ -252,6 +254,7 @@ describe('ReviewCommentController', function () {
 							body: 'hello world',
 							pullRequestId: activePullRequest.graphNodeId,
 							pullRequestReviewId: undefined,
+							startLine: undefined,
 							line: 22,
 							side: 'RIGHT'
 						}
@@ -266,6 +269,8 @@ describe('ReviewCommentController', function () {
 								viewCanResolve: true,
 								path: fileName,
 								line: 22,
+								startLine: null,
+								originalStartLine: null,
 								originalLine: 22,
 								diffSide: 'RIGHT',
 								isOutdated: false,

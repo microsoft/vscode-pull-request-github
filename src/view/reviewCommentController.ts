@@ -100,8 +100,8 @@ export class ReviewCommentController
 		);
 
 		const range = new vscode.Range(
-			new vscode.Position(thread.originalLine - 1, 0),
-			new vscode.Position(thread.originalLine - 1, 0),
+			new vscode.Position(thread.originalStartLine - 1, 0),
+			new vscode.Position(thread.originalEndLine - 1, 0),
 		);
 
 		return createVSCodeCommentThreadForReviewThread(reviewUri, range, thread, this._commentController);
@@ -120,13 +120,15 @@ export class ReviewCommentController
 		path: string,
 		thread: IReviewThread,
 	): Promise<GHPRCommentThread> {
-		let line = thread.line;
+		let startLine = thread.startLine;
+		let endLine = thread.endLine;
 		const localDiff = await this._repository.diffWithHEAD(path);
 		if (localDiff) {
-			line = mapOldPositionToNew(localDiff, thread.line);
+			startLine = mapOldPositionToNew(localDiff, startLine);
+			endLine = mapOldPositionToNew(localDiff, endLine);
 		}
 
-		const range = new vscode.Range(new vscode.Position(line - 1, 0), new vscode.Position(line - 1, 0));
+		const range = new vscode.Range(new vscode.Position(startLine - 1, 0), new vscode.Position(endLine - 1, 0));
 
 		return createVSCodeCommentThreadForReviewThread(uri, range, thread, this._commentController);
 	}
@@ -154,8 +156,8 @@ export class ReviewCommentController
 		);
 
 		const range = new vscode.Range(
-			new vscode.Position(thread.line - 1, 0),
-			new vscode.Position(thread.line - 1, 0),
+			new vscode.Position(thread.startLine - 1, 0),
+			new vscode.Position(thread.endLine - 1, 0),
 		);
 
 		return createVSCodeCommentThreadForReviewThread(reviewUri, range, thread, this._commentController);
@@ -234,8 +236,8 @@ export class ReviewCommentController
 						}
 
 						const diff = await this.getContentDiff(t.uri, fileName);
-						const line = mapNewPositionToOld(diff, t.range.start.line);
-						const sameLine = line + 1 === thread.line;
+						const line = mapNewPositionToOld(diff, t.range.end.line);
+						const sameLine = line + 1 === thread.endLine;
 						return sameLine;
 					});
 
@@ -550,15 +552,18 @@ export class ReviewCommentController
 
 				// If the thread is on the workspace file, make sure the position
 				// is properly adjusted to account for any local changes.
-				let line: number;
+				let startLine: number;
+				let endLine: number;
 				if (side === DiffSide.RIGHT) {
 					const diff = await this.getContentDiff(thread.uri, fileName);
-					line = mapNewPositionToOld(diff, thread.range.start.line);
+					startLine = mapNewPositionToOld(diff, thread.range.start.line);
+					endLine = mapNewPositionToOld(diff, thread.range.end.line);
 				} else {
-					line = thread.range.start.line;
+					startLine = thread.range.start.line;
+					endLine = thread.range.end.line;
 				}
 
-				await this._reposManager.activePullRequest!.createReviewThread(input, fileName, line + 1, side);
+				await this._reposManager.activePullRequest!.createReviewThread(input, fileName, startLine + 1, endLine + 1, side);
 			} else {
 				const comment = thread.comments[0];
 				if (comment instanceof GHPRComment) {
@@ -649,17 +654,21 @@ export class ReviewCommentController
 
 				// If the thread is on the workspace file, make sure the position
 				// is properly adjusted to account for any local changes.
-				let line: number;
+				let startLine: number;
+				let endLine: number;
 				if (side === DiffSide.RIGHT) {
 					const diff = await this.getContentDiff(thread.uri, fileName);
-					line = mapNewPositionToOld(diff, thread.range.start.line);
+					startLine = mapNewPositionToOld(diff, thread.range.start.line);
+					endLine = mapNewPositionToOld(diff, thread.range.end.line);
 				} else {
-					line = thread.range.start.line;
+					startLine = thread.range.start.line;
+					endLine = thread.range.end.line;
 				}
 				await this._reposManager.activePullRequest.createReviewThread(
 					input,
 					fileName,
-					line + 1,
+					startLine + 1,
+					endLine + 1,
 					side,
 					isSingleComment,
 				);

@@ -147,6 +147,8 @@ fragment ReviewThread on PullRequestReviewThread {
 	path
 	diffSide
 	line
+	startLine
+	originalStartLine
 	originalLine
 	isOutdated
 	comments(first: 100) {
@@ -269,7 +271,9 @@ query PullRequestComments($owner: String!, $name: String!, $number: Int!, $first
 					viewerCanUnresolve
 					path
 					diffSide
+					startLine
 					line
+					originalStartLine
 					originalLine
 					isOutdated
 					comments(first: 100) {

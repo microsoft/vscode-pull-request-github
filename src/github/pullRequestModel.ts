@@ -467,7 +467,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * a new review.
 	 * @param body The body of the thread's first comment.
 	 * @param commentPath The path to the file being commented on.
-	 * @param line The line on which to add the comment.
+	 * @param startLine The start line on which to add the comment.
+	 * @param endLine The end line on which to add the comment.
 	 * @param side The side the comment should be deleted on, i.e. the original or modified file.
 	 * @param suppressDraftModeUpdate If a draft mode change should event should be suppressed. In the
 	 * case of a single comment add, the review is created and then immediately submitted, so this prevents
@@ -477,7 +478,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	async createReviewThread(
 		body: string,
 		commentPath: string,
-		line: number,
+		startLine: number,
+		endLine: number,
 		side: DiffSide,
 		suppressDraftModeUpdate?: boolean,
 	): Promise<IReviewThread | undefined> {
@@ -495,7 +497,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					body,
 					pullRequestId: this.graphNodeId,
 					pullRequestReviewId: pendingReviewId,
-					line,
+					startLine: startLine === endLine ? undefined : startLine,
+					line: endLine,
 					side,
 				},
 			},

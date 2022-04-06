@@ -165,13 +165,13 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 					.filter(
 						thread =>
 							((thread.diffSide === DiffSide.LEFT && isBase) ||
-							(thread.diffSide === DiffSide.RIGHT && !isBase))
-							&& (thread.line !== null),
+								(thread.diffSide === DiffSide.RIGHT && !isBase))
+							&& (thread.endLine !== null),
 					)
 					.map(thread => {
 						const range = new vscode.Range(
-							new vscode.Position(thread.line - 1, 0),
-							new vscode.Position(thread.line - 1, 0),
+							new vscode.Position(thread.startLine - 1, 0),
+							new vscode.Position(thread.endLine - 1, 0),
 						);
 
 						return createVSCodeCommentThreadForReviewThread(
@@ -239,7 +239,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			const fileName = thread.path;
 			const index = this._pendingCommentThreadAdds.findIndex(t => {
 				const samePath = this.gitRelativeRootPath(t.uri.path) === thread.path;
-				const sameLine = t.range.start.line + 1 === thread.line;
+				const sameLine = t.range.end.line + 1 === thread.endLine;
 				return samePath && sameLine;
 			});
 
@@ -261,8 +261,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 				if (matchingEditor) {
 					const range = new vscode.Range(
-						new vscode.Position(thread.line - 1, 0),
-						new vscode.Position(thread.line - 1, 0),
+						new vscode.Position(thread.startLine - 1, 0),
+						new vscode.Position(thread.endLine - 1, 0),
 					);
 
 					newThread = createVSCodeCommentThreadForReviewThread(
@@ -334,8 +334,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		const isDraft = isSingleComment
 			? false
 			: inDraft !== undefined
-			? inDraft
-			: this.pullRequestModel.hasPendingReview;
+				? inDraft
+				: this.pullRequestModel.hasPendingReview;
 		const temporaryCommentId = this.optimisticallyAddComment(thread, input, isDraft);
 
 		try {
@@ -349,6 +349,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 					input,
 					fileName,
 					thread.range.start.line + 1,
+					thread.range.end.line + 1,
 					side,
 					isSingleComment,
 				);
@@ -461,7 +462,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				const fileName = this.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
 				this._pendingCommentThreadAdds.push(thread);
-				await this.pullRequestModel.createReviewThread(input, fileName, thread.range.start.line + 1, side);
+				await this.pullRequestModel.createReviewThread(input, fileName, thread.range.start.line + 1, thread.range.end.line + 1, side);
 			} else {
 				await this.reply(thread, input, false);
 			}
