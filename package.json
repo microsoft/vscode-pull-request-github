@@ -11,7 +11,8 @@
 		"url": "https://github.com/Microsoft/vscode-pull-request-github/issues"
 	},
 	"enabledApiProposals": [
-		"tokenInformation"
+		"tokenInformation",
+		"commentsResolvedState"
 	],
 	"version": "0.40.0",
 	"publisher": "GitHub",
