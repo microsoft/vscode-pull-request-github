@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { commands, contexts } from '../common/executeCommands';
 import Logger, { PR_TREE } from '../common/logger';
 import { FILE_LIST_LAYOUT } from '../common/settingKeys';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
@@ -92,7 +93,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		this._pullRequestManagerMap.set(pullRequestManager, node);
 		this.updateViewTitle();
 
-		await vscode.commands.executeCommand('setContext', 'github:inReviewMode', true);
+		await commands.setContext(contexts.IN_REVIEW_MODE, true);
 		this._onDidChangeTreeData.fire();
 
 		if (shouldReveal) {
@@ -114,7 +115,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	}
 
 	async hide() {
-		await vscode.commands.executeCommand('setContext', 'github:inReviewMode', false);
+		await commands.setContext(contexts.IN_REVIEW_MODE, false);
 	}
 
 	getTreeItem(element: TreeNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
