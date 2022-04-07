@@ -146,7 +146,7 @@ async function init(
 		}
 	});
 
-	const changesTree = new PullRequestChangesTreeDataProvider(context);
+	const changesTree = new PullRequestChangesTreeDataProvider(context, git, reposManager);
 	context.subscriptions.push(changesTree);
 
 	const reviewManagers = folderManagers.map(

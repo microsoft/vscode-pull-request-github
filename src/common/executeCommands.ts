@@ -9,6 +9,8 @@ export namespace contexts {
 	export const VIEWED_FILES = 'github:viewedFiles';
 	export const UNVIEWED_FILES = 'github:unviewedFiles';
 	export const IN_REVIEW_MODE = 'github:inReviewMode';
+	export const REPOS_NOT_IN_REVIEW_MODE = 'github:reposNotInReviewMode';
+	export const REPOS_IN_REVIEW_MODE = 'github:reposInReviewMode';
 }
 
 export namespace commands {
