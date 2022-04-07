@@ -95,7 +95,6 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		this._pullRequestManagerMap.set(pullRequestManager, node);
 		this.updateViewTitle();
 
-		await commands.setContext(contexts.IN_REVIEW_MODE, true);
 		await this.setReviewModeContexts();
 		this._onDidChangeTreeData.fire();
 
