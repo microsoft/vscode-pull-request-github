@@ -1177,8 +1177,7 @@ ${body ?? ''}\n
 	async openPermalink() {
 		const link = await this.getPermalinkWithError();
 		if (link.permalink) {
-			return vscode.env.openExternal(vscode.Uri.parse(
-				link.originalFile ? (await this.getContextualizedLink(link.originalFile, link.permalink)) : link.permalink));
+			return vscode.env.openExternal(vscode.Uri.parse(link.permalink));
 		}
 		return undefined;
 	}
