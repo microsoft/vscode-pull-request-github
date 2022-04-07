@@ -113,6 +113,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			this._prChangeListener?.dispose();
 			this._prChangeListener = pullRequestModel.onDidInvalidate(() => this.updatePullRequest(pullRequestModel));
 		}
+		this._item = pullRequestModel;
 		return Promise.all([
 			this._folderRepositoryManager.resolvePullRequest(
 				pullRequestModel.remote.owner,
