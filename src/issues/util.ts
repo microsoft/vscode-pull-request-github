@@ -15,7 +15,7 @@ import { GithubItemStateEnum, User } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { getRepositoryForFile } from '../github/utils';
+import { getEnterpriseUri, getRepositoryForFile } from '../github/utils';
 import { ReviewManager } from '../view/reviewManager';
 import { CODE_PERMALINK, findCodeLinkLocally } from './issueLinkLookup';
 import { StateManager } from './stateManager';
@@ -508,13 +508,30 @@ export async function createGithubPermalink(
 		}
 	}
 	const pathSegment = uri.path.substring(repository.rootUri.path.length);
-
+	const originOfFetchUrl = getUpstreamOrigin(upstream).replace(/\/$/, '');
 	return {
-		permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${commitHash
+		permalink: `${originOfFetchUrl}/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${commitHash
 			}${pathSegment}${rangeString(range)}`,
 		error: undefined,
 		originalFile: uri
 	};
+}
+
+function getUpstreamOrigin(upstream: Remote) {
+	const enterpriseUri = getEnterpriseUri();
+	if (enterpriseUri && upstream.fetchUrl) {
+		// upstream's origin by https
+		if (upstream.fetchUrl.startsWith('https://') && !upstream.fetchUrl.startsWith('https://github.com/')) {
+			const origin = new URL(upstream.fetchUrl).origin;
+			if (origin === enterpriseUri.authority) return origin;
+		}
+		// upstream's origin by ssh
+		if (upstream.fetchUrl.startsWith('git@') && !upstream.fetchUrl.startsWith('git@github.com')) {
+			const host = upstream.fetchUrl.split('@')[1]?.split(':')[0];
+			if (host === enterpriseUri.authority) return `https://${host}`;
+		}
+	}
+	return 'https://github.com/';
 }
 
 function rangeString(range: vscode.Range | undefined) {
