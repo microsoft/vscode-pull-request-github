@@ -518,20 +518,21 @@ export async function createGithubPermalink(
 }
 
 function getUpstreamOrigin(upstream: Remote) {
+	let resultHost: string = 'github.com';
 	const enterpriseUri = getEnterpriseUri();
 	if (enterpriseUri && upstream.fetchUrl) {
 		// upstream's origin by https
 		if (upstream.fetchUrl.startsWith('https://') && !upstream.fetchUrl.startsWith('https://github.com/')) {
-			const origin = new URL(upstream.fetchUrl).origin;
-			if (origin === enterpriseUri.authority) return origin;
+			const host = new URL(upstream.fetchUrl).host;
+			if (host === enterpriseUri.authority) resultHost = host;
 		}
 		// upstream's origin by ssh
 		if (upstream.fetchUrl.startsWith('git@') && !upstream.fetchUrl.startsWith('git@github.com')) {
 			const host = upstream.fetchUrl.split('@')[1]?.split(':')[0];
-			if (host === enterpriseUri.authority) return `https://${host}`;
+			if (host === enterpriseUri.authority) resultHost = host;
 		}
 	}
-	return 'https://github.com/';
+	return `https://${resultHost}`;
 }
 
 function rangeString(range: vscode.Range | undefined) {
