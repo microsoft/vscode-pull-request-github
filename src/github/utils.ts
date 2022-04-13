@@ -108,7 +108,7 @@ export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IRev
 
 export function updateCommentThreadLabel(thread: GHPRCommentThread) {
 	if (thread.state === vscode.CommentThreadState.Resolved) {
-		thread.label = 'This thread has been marked as resolved';
+		thread.label = 'Marked as resolved';
 		return;
 	}
 
