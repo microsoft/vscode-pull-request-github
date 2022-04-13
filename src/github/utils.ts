@@ -36,6 +36,15 @@ export interface CommentReactionHandler {
 	toggleReaction(comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void>;
 }
 
+export function threadRange(startLine: number, endLine: number, endCharacter?: number): vscode.Range {
+	if ((startLine !== endLine) && (endCharacter === undefined)) {
+		endCharacter = 300; // 300 is a "large" number that will select a lot of the line since don't know anything about the line length
+	} else {
+		endCharacter = 0;
+	}
+	return new vscode.Range(startLine, 0, endLine, endCharacter);
+}
+
 export function createVSCodeCommentThreadForReviewThread(
 	uri: vscode.Uri,
 	range: vscode.Range,

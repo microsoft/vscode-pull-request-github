@@ -19,6 +19,7 @@ import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import {
 	CommentReactionHandler,
 	createVSCodeCommentThreadForReviewThread,
+	threadRange,
 	updateCommentReviewState,
 	updateCommentThreadLabel,
 	updateThread,
@@ -169,10 +170,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 							&& (thread.endLine !== null),
 					)
 					.map(thread => {
-						const range = new vscode.Range(
-							new vscode.Position(thread.startLine - 1, 0),
-							new vscode.Position(thread.endLine - 1, 0),
-						);
+						const endLine = thread.endLine - 1;
+						const range = threadRange(thread.startLine - 1, endLine, editor.document.lineAt(endLine).range.end.character);
 
 						return createVSCodeCommentThreadForReviewThread(
 							editor.document.uri,
@@ -260,10 +259,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				});
 
 				if (matchingEditor) {
-					const range = new vscode.Range(
-						new vscode.Position(thread.startLine - 1, 0),
-						new vscode.Position(thread.endLine - 1, 0),
-					);
+					const endLine = thread.endLine - 1;
+					const range = threadRange(thread.startLine - 1, endLine, matchingEditor.document.lineAt(endLine).range.end.character);
 
 					newThread = createVSCodeCommentThreadForReviewThread(
 						matchingEditor.document.uri,
