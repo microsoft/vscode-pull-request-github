@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { URLSearchParams } from 'url';
+import { URL, URLSearchParams } from 'url';
 import LRUCache from 'lru-cache';
 import * as marked from 'marked';
 import * as vscode from 'vscode';
@@ -15,7 +15,7 @@ import { GithubItemStateEnum, User } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { getRepositoryForFile } from '../github/utils';
+import { getEnterpriseUri, getRepositoryForFile } from '../github/utils';
 import { ReviewManager } from '../view/reviewManager';
 import { CODE_PERMALINK, findCodeLinkLocally } from './issueLinkLookup';
 import { StateManager } from './stateManager';
@@ -508,13 +508,35 @@ export async function createGithubPermalink(
 		}
 	}
 	const pathSegment = uri.path.substring(repository.rootUri.path.length);
-
+	const originOfFetchUrl = getUpstreamOrigin(upstream).replace(/\/$/, '');
 	return {
-		permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${commitHash
+		permalink: `${originOfFetchUrl}/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${commitHash
 			}${pathSegment}${rangeString(range)}`,
 		error: undefined,
 		originalFile: uri
 	};
+}
+
+function getUpstreamOrigin(upstream: Remote) {
+	let resultHost: string = 'github.com';
+	const enterpriseUri = getEnterpriseUri();
+	if (enterpriseUri && upstream.fetchUrl) {
+		// upstream's origin by https
+		if (upstream.fetchUrl.startsWith('https://') && !upstream.fetchUrl.startsWith('https://github.com/')) {
+			const host = new URL(upstream.fetchUrl).host;
+			if (host === enterpriseUri.authority) {
+				resultHost = host;
+			}
+		}
+		// upstream's origin by ssh
+		if (upstream.fetchUrl.startsWith('git@') && !upstream.fetchUrl.startsWith('git@github.com')) {
+			const host = upstream.fetchUrl.split('@')[1]?.split(':')[0];
+			if (host === enterpriseUri.authority) {
+				resultHost = host;
+			}
+		}
+	}
+	return `https://${resultHost}`;
 }
 
 function rangeString(range: vscode.Range | undefined) {
