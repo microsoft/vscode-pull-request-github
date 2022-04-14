@@ -199,8 +199,7 @@ export class PRContext {
 				message.branchTypes && message.branchTypes.map((branchType: string) => {
 					if (branchType === 'local') {
 						stateChange.isLocalHeadDeleted = true;
-					}
-					else if (branchType === 'remote') {
+					} else if ((branchType === 'remote') || (branchType === 'upstream')) {
 						stateChange.isRemoteHeadDeleted = true;
 					}
 				});
