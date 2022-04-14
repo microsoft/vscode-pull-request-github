@@ -920,7 +920,7 @@ export function registerCommands(
 			}
 			const prNumberMatcher = /^#?(\d*)$/;
 			const prNumber = await vscode.window.showInputBox({
-				ignoreFocusOut: true, prompt: 'Enter the a pull request number',
+				ignoreFocusOut: true, prompt: 'Enter the pull request number',
 				validateInput: (input: string) => {
 					const matches = input.match(prNumberMatcher);
 					if (!matches || (matches.length !== 2) || Number.isNaN(Number(matches[1]))) {
