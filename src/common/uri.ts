@@ -230,7 +230,8 @@ export enum Schemes {
 	Review = 'review',
 	Pr = 'pr',
 	FileChange = 'filechange',
-	GithubPr = 'githubpr'
+	GithubPr = 'githubpr',
+	VscodeVfs = 'vscode-vfs' // Remote Repository
 }
 
 export function resolvePath(from: vscode.Uri, to: string) {
