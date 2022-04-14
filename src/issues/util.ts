@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { URLSearchParams } from 'url';
+import { URL, URLSearchParams } from 'url';
 import LRUCache from 'lru-cache';
 import * as marked from 'marked';
 import * as vscode from 'vscode';
@@ -524,12 +524,16 @@ function getUpstreamOrigin(upstream: Remote) {
 		// upstream's origin by https
 		if (upstream.fetchUrl.startsWith('https://') && !upstream.fetchUrl.startsWith('https://github.com/')) {
 			const host = new URL(upstream.fetchUrl).host;
-			if (host === enterpriseUri.authority) resultHost = host;
+			if (host === enterpriseUri.authority) {
+				resultHost = host;
+			}
 		}
 		// upstream's origin by ssh
 		if (upstream.fetchUrl.startsWith('git@') && !upstream.fetchUrl.startsWith('git@github.com')) {
 			const host = upstream.fetchUrl.split('@')[1]?.split(':')[0];
-			if (host === enterpriseUri.authority) resultHost = host;
+			if (host === enterpriseUri.authority) {
+				resultHost = host;
+			}
 		}
 	}
 	return `https://${resultHost}`;
