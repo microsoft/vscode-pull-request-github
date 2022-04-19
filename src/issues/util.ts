@@ -463,7 +463,7 @@ function getSimpleUpstream(repository: Repository) {
 	}
 }
 
-async function getBestPossibleUpstream(repository: Repository, commit: Commit): Promise<Remote | undefined> {
+async function getBestPossibleUpstream(repository: Repository, commit: Commit | undefined): Promise<Remote | undefined> {
 	const fallbackUpstream = new Promise<Remote | undefined>(resolve => {
 		resolve(getSimpleUpstream(repository));
 	});
@@ -515,7 +515,7 @@ export async function createGithubPermalink(
 		commitHash = repository.state.HEAD?.commit;
 	}
 
-	const upstream = commit ? await getBestPossibleUpstream(repository, commit) : undefined;
+	const upstream = await getBestPossibleUpstream(repository, commit);
 	if (!upstream || !upstream.fetchUrl) {
 		return { permalink: undefined, error: 'The selection may not exist on any remote.', originalFile: uri };
 	}
