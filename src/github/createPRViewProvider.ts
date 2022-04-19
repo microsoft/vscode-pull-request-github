@@ -129,15 +129,17 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		const origin = await this._folderRepositoryManager.getOrigin(compareBranch);
 
 		let useBranchName = this._pullRequestDefaults.base === compareBranch.name;
-
+		Logger.debug(`Compare branch name: ${compareBranch.name}, Base branch name: ${this._pullRequestDefaults.base}`, 'CreatePullRequestViewProvider');
 		try {
 			const totalCommits = await this.getTotalCommits(compareBranch, baseBranch);
+			Logger.debug(`Total commits: ${totalCommits}`, 'CreatePullRequestViewProvider');
 			if (totalCommits > 1) {
 				const defaultBranch = await origin.getDefaultBranch();
 				useBranchName = defaultBranch !== compareBranch.name;
 			}
 		} catch (e) {
 			// Ignore and fall back to commit message
+			Logger.debug(`Error while getting total commits: ${e}`, 'CreatePullRequestViewProvider');
 		}
 
 		if (useBranchName) {
