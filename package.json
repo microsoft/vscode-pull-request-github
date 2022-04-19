@@ -711,6 +711,12 @@
 				"icon": "$(edit)"
 			},
 			{
+				"command": "pr.openPullsWebsite",
+				"title": "Open on GitHub",
+				"category": "GitHub Pull Requests",
+				"icon": "$(globe)"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "Create Issue From Selection",
 				"category": "GitHub Issues"
@@ -847,6 +853,12 @@
 				"command": "issue.goToLinkedCode",
 				"title": "Go to Linked Code",
 				"category": "GitHub Issues"
+			},
+			{
+				"command": "issues.openIssuesWebsite",
+				"title": "Open on GitHub",
+				"category": "GitHub Pull Requests",
+				"icon": "$(globe)"
 			}
 		],
 		"viewsWelcome": [
@@ -1154,6 +1166,43 @@
 				{
 					"command": "pr.refreshActivePullRequest",
 					"when": "false"
+				},
+				{
+					"command": "pr.openPullsWebsite",
+					"when": "github:hasGitHubRemotes"
+				},
+				{
+					"command": "issues.openIssuesWebsite",
+					"when": "github:hasGitHubRemotes"
+				}
+			],
+			"github.pullRequests.overflow": [
+				{
+					"command": "pr.openPullsWebsite",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized",
+					"group": "navigation@1"
+				},
+				{
+					"command": "pr.checkoutByNumber",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized",
+					"group": "navigation@2"
+				},
+				{
+					"command": "pr.configurePRViewlet",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized",
+					"group": "navigation@3"
+				}
+			],
+			"github.issues.overflow": [
+				{
+					"command": "issues.openIssuesWebsite",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized",
+					"group": "navigation@1"
+				},
+				{
+					"command": "pr.configurePRViewlet",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized",
+					"group": "navigation@2"
 				}
 			],
 			"view/title": [
@@ -1163,17 +1212,12 @@
 					"group": "navigation@1"
 				},
 				{
-					"command": "pr.checkoutByNumber",
+					"command": "pr.refreshList",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
 					"group": "navigation@2"
 				},
 				{
-					"command": "pr.configurePRViewlet",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view =~ /(pr|issues):github/",
-					"group": "navigation@4"
-				},
-				{
-					"command": "pr.refreshList",
+					"submenu": "github.pullRequests.overflow",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
 					"group": "navigation@3"
 				},
@@ -1193,14 +1237,19 @@
 					"group": "navigation"
 				},
 				{
+					"command": "issue.createIssue",
+					"when": "view == issues:github && github:hasGitHubRemotes",
+					"group": "navigation@1"
+				},
+				{
 					"command": "issue.refresh",
 					"when": "view == issues:github",
 					"group": "navigation@2"
 				},
 				{
-					"command": "issue.createIssue",
-					"when": "view == issues:github && github:hasGitHubRemotes",
-					"group": "navigation@1"
+					"submenu": "github.issues.overflow",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == issues:github",
+					"group": "navigation@3"
 				},
 				{
 					"command": "pr.refreshActivePullRequest",
@@ -1558,6 +1607,18 @@
 				}
 			]
 		},
+		"submenus": [
+			{
+				"id": "github.pullRequests.overflow",
+				"label": "More actions...",
+				"icon": "$(ellipsis)"
+			},
+			{
+				"id": "github.issues.overflow",
+				"label": "More actions...",
+				"icon": "$(ellipsis)"
+			}
+		],
 		"colors": [
 			{
 				"id": "issues.newIssueDecoration",

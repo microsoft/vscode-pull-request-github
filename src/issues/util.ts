@@ -11,6 +11,7 @@ import { Commit, Ref, Remote, Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { Protocol } from '../common/protocol';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
+import { GitHubRepository } from '../github/githubRepository';
 import { GithubItemStateEnum, User } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -459,6 +460,30 @@ function getSimpleUpstream(repository: Repository) {
 	}
 }
 
+async function getBestPossibleUpstream(repository: Repository, commit: Commit): Promise<Remote | undefined> {
+	const fallbackUpstream = new Promise<Remote | undefined>(resolve => {
+		resolve(getSimpleUpstream(repository));
+	});
+
+	let upstream: Remote | undefined = commit ? await Promise.race([
+		getUpstream(repository, commit),
+		new Promise<Remote | undefined>(resolve => {
+			setTimeout(() => {
+				resolve(fallbackUpstream);
+			}, 1500);
+		}),
+	]) : await fallbackUpstream;
+
+	if (!upstream || !upstream.fetchUrl) {
+		// Check fallback
+		upstream = await fallbackUpstream;
+		if (!upstream || !upstream.fetchUrl) {
+			return undefined;
+		}
+	}
+	return upstream;
+}
+
 export async function createGithubPermalink(
 	gitAPI: GitApiImpl,
 	positionInfo?: NewIssue,
@@ -487,26 +512,11 @@ export async function createGithubPermalink(
 		commitHash = repository.state.HEAD?.commit;
 	}
 
-	const fallbackUpstream = new Promise<Remote | undefined>(resolve => {
-		resolve(getSimpleUpstream(repository));
-	});
-
-	let upstream: Remote | undefined = commit ? await Promise.race([
-		getUpstream(repository, commit),
-		new Promise<Remote | undefined>(resolve => {
-			setTimeout(() => {
-				resolve(fallbackUpstream);
-			}, 1500);
-		}),
-	]) : await fallbackUpstream;
-
+	const upstream = commit ? await getBestPossibleUpstream(repository, commit) : undefined;
 	if (!upstream || !upstream.fetchUrl) {
-		// Check fallback
-		upstream = await fallbackUpstream;
-		if (!upstream || !upstream.fetchUrl) {
-			return { permalink: undefined, error: 'The selection may not exist on any remote.', originalFile: uri };
-		}
+		return { permalink: undefined, error: 'The selection may not exist on any remote.', originalFile: uri };
 	}
+
 	const pathSegment = uri.path.substring(repository.rootUri.path.length);
 	const originOfFetchUrl = getUpstreamOrigin(upstream).replace(/\/$/, '');
 	return {

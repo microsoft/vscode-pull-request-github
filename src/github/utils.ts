@@ -989,3 +989,11 @@ export function getAvatarWithEnterpriseFallback(avatarUrl: string, email: string
 	return authProviderId === AuthProvider.github ? avatarUrl : (email ? generateGravatarUrl(
 		crypto.createHash('md5').update(email?.trim()?.toLowerCase()).digest('hex')) : undefined);
 }
+
+export function getPullsUrl(repo: GitHubRepository) {
+	return vscode.Uri.parse(`https://${repo.remote.host}/${repo.remote.owner}/${repo.remote.repositoryName}/pulls`);
+}
+
+export function getIssuesUrl(repo: GitHubRepository) {
+	return vscode.Uri.parse(`https://${repo.remote.host}/${repo.remote.owner}/${repo.remote.repositoryName}/issues`);
+}
