@@ -11,7 +11,6 @@ import { Commit, Ref, Remote, Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { Protocol } from '../common/protocol';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
-import { GitHubRepository } from '../github/githubRepository';
 import { GithubItemStateEnum, User } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
