@@ -23,7 +23,7 @@ import { GHPRComment, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
-import { isInCodespaces } from './github/utils';
+import { getIssuesUrl, getPullsUrl, isInCodespaces } from './github/utils';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
 import { CategoryTreeNode } from './view/treeNodes/categoryNode';
@@ -937,4 +937,30 @@ export function registerCommands(
 				return ReviewManager.getReviewManagerForFolderManager(reviewManagers, githubRepo.manager)?.switch(prModel);
 			}
 		}));
+
+		function chooseRepoToOpen() {
+			const githubRepositories: GitHubRepository[] = [];
+				reposManager.folderManagers.forEach(manager => {
+					githubRepositories.push(...(manager.gitHubRepositories));
+				});
+				return chooseItem<GitHubRepository>(
+					githubRepositories,
+					itemValue => `${itemValue.remote.owner}/${itemValue.remote.repositoryName}`,
+					{ placeHolder: 'Which GitHub repository do you want to open?' }
+				);
+		}
+		context.subscriptions.push(
+			vscode.commands.registerCommand('pr.openPullsWebsite', async () => {
+				const githubRepo = await chooseRepoToOpen();
+				if (githubRepo) {
+					vscode.env.openExternal(getPullsUrl(githubRepo));
+				}
+			}));
+		context.subscriptions.push(
+			vscode.commands.registerCommand('issues.openIssuesWebsite', async () => {
+				const githubRepo = await chooseRepoToOpen();
+				if (githubRepo) {
+					vscode.env.openExternal(getIssuesUrl(githubRepo));
+				}
+			}));
 }
