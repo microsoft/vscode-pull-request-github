@@ -7,7 +7,7 @@ import { URL, URLSearchParams } from 'url';
 import LRUCache from 'lru-cache';
 import * as marked from 'marked';
 import * as vscode from 'vscode';
-import { Commit, Ref, Remote, Repository } from '../api/api';
+import { Commit, Ref, Remote, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { Protocol } from '../common/protocol';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
@@ -405,17 +405,21 @@ async function getUpstream(repository: Repository, commit: Commit): Promise<Remo
 	let bestRemote: Remote | undefined;
 	for (let branchIndex = 0; branchIndex < branchNames.length && !bestRef; branchIndex++) {
 		for (let remoteIndex = 0; remoteIndex < remoteNames.length && !bestRef; remoteIndex++) {
-			const remotes = (
-				await repository.getBranches({
-					contains: commit.hash,
-					remote: true,
-					pattern: `remotes/${remoteNames[remoteIndex].name}/${branchNames[branchIndex]}`,
-					count: 1,
-				})
-			).filter(value => value.remote && value.name);
-			if (remotes && remotes.length > 0) {
-				bestRef = remotes[0];
-				bestRemote = remoteNames[remoteIndex].remote;
+			try {
+				const remotes = (
+					await repository.getBranches({
+						contains: commit.hash,
+						remote: true,
+						pattern: `remotes/${remoteNames[remoteIndex].name}/${branchNames[branchIndex]}`,
+						count: 1,
+					})
+				).filter(value => value.remote && value.name);
+				if (remotes && remotes.length > 0) {
+					bestRef = remotes[0];
+					bestRemote = remoteNames[remoteIndex].remote;
+				}
+			} catch (e) {
+				// continue
 			}
 		}
 	}
@@ -450,11 +454,11 @@ export interface PermalinkInfo {
 }
 
 function getSimpleUpstream(repository: Repository) {
-	if (repository.state.HEAD?.upstream) {
-		for (const remote of repository.state.remotes) {
-			if (repository.state.HEAD.upstream.remote === remote.name) {
-				return remote;
-			}
+	const upstream: UpstreamRef | undefined = repository.state.HEAD?.upstream;
+	for (const remote of repository.state.remotes) {
+		// If we don't have an upstream, then just use the first remote.
+		if (!upstream || (upstream.remote === remote.name)) {
+			return remote;
 		}
 	}
 }
