@@ -290,8 +290,23 @@
 						"description": "Language that issue completions should not trigger on '#'."
 					},
 					"default": [
+						"coffeescript",
+						"diff",
+						"dockerfile",
+						"dockercompose",
+						"git-commit",
+						"git-rebase",
+						"ignore",
+						"ini",
+						"julia",
+						"makefile",
+						"perl",
+						"powershell",
 						"python",
-						"makefile"
+						"r",
+						"ruby",
+						"shellscript",
+						"yaml"
 					],
 					"description": "Languages that the '#' character should not be used to trigger issue completion suggestions."
 				},
