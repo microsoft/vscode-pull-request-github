@@ -575,9 +575,12 @@ export async function createGitHubLink(
 	if (!folderManager) {
 		return { permalink: undefined, error: 'Current file does not belong to an open repository.', originalFile: undefined };
 	}
-	const headBranchName = folderManager.repository.state.HEAD?.name;
-	if (!headBranchName) {
-		return { permalink: undefined, error: 'Not currently on a branch.', originalFile: undefined };
+	let branchName = folderManager.repository.state.HEAD?.name;
+	if (!branchName) {
+		// Fall back to default branch name if we are not currently on a branch
+		const origin = await folderManager.getOrigin();
+		const metadata = await origin.getMetadata();
+		branchName = metadata.default_branch;
 	}
 	const upstream = getSimpleUpstream(folderManager.repository);
 	if (!upstream?.fetchUrl) {
@@ -585,7 +588,7 @@ export async function createGitHubLink(
 	}
 	const pathSegment = uri.path.substring(folderManager.repository.rootUri.path.length);
 	return {
-		permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${headBranchName
+		permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${branchName
 			}${pathSegment}${rangeString(range)}`,
 		error: undefined,
 		originalFile: uri
