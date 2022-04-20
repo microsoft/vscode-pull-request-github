@@ -575,14 +575,20 @@ export async function createGitHubLink(
 	if (!folderManager) {
 		return { permalink: undefined, error: 'Current file does not belong to an open repository.', originalFile: undefined };
 	}
-	const defaults = await folderManager.getPullRequestDefaults();
+	let branchName = folderManager.repository.state.HEAD?.name;
+	if (!branchName) {
+		// Fall back to default branch name if we are not currently on a branch
+		const origin = await folderManager.getOrigin();
+		const metadata = await origin.getMetadata();
+		branchName = metadata.default_branch;
+	}
 	const upstream = getSimpleUpstream(folderManager.repository);
 	if (!upstream?.fetchUrl) {
 		return { permalink: undefined, error: 'Repository does not have any remotes.', originalFile: undefined };
 	}
 	const pathSegment = uri.path.substring(folderManager.repository.rootUri.path.length);
 	return {
-		permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${defaults.base
+		permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${branchName
 			}${pathSegment}${rangeString(range)}`,
 		error: undefined,
 		originalFile: uri
