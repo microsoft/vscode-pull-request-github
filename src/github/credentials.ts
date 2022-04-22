@@ -25,7 +25,8 @@ const PROMPT_FOR_SIGN_IN_SCOPE = 'prompt for sign in';
 const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
 
 // If the scopes are changed, make sure to notify all interested parties to make sure this won't cause problems.
-const SCOPES = ['read:user', 'user:email', 'repo'];
+const SCOPES_OLD = ['read:user', 'user:email', 'repo'];
+const SCOPES = ['read:user', 'user:email', 'repo', 'workflow'];
 
 export enum AuthProvider {
 	github = 'github',
@@ -81,7 +82,7 @@ export class CredentialStore implements vscode.Disposable {
 		getAuthSessionOptions = { ...getAuthSessionOptions, ...{ createIfNone: false } };
 		let session;
 		try {
-			session = await vscode.authentication.getSession(authProviderId, SCOPES, getAuthSessionOptions);
+			session = await this.getSession(authProviderId, getAuthSessionOptions);
 		} catch (e) {
 			if (getAuthSessionOptions.forceNewSession && (e.message === 'User did not consent to login.')) {
 				// There are cases where a forced login may not be 100% needed, so just continue as usual if
@@ -257,8 +258,16 @@ export class CredentialStore implements vscode.Disposable {
 		github.currentUser = user.data;
 	}
 
+	private async getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions) {
+		let session: vscode.AuthenticationSession | undefined = await vscode.authentication.getSession(authProviderId, SCOPES, { silent: true });
+		if (!session) {
+			session = await vscode.authentication.getSession(authProviderId, SCOPES_OLD, getAuthSessionOptions);
+		}
+		return session;
+	}
+
 	private async getSessionOrLogin(authProviderId: AuthProvider): Promise<string> {
-		const session = await vscode.authentication.getSession(authProviderId, SCOPES, { createIfNone: true });
+		const session = (await this.getSession(authProviderId, { createIfNone: true }))!;
 		if (authProviderId === AuthProvider.github) {
 			this._sessionId = session.id;
 		} else {
