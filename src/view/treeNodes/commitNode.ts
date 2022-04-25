@@ -6,10 +6,12 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { getGitChangeType } from '../../common/diffHunk';
+import { FILE_LIST_LAYOUT } from '../../common/settingKeys';
 import { toReviewUri } from '../../common/uri';
 import { OctokitCommon } from '../../github/common';
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
+import { DirectoryTreeNode } from './directoryTreeNode';
 import { GitFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
@@ -89,6 +91,23 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 			return fileChangeNode;
 		});
 
-		return Promise.resolve(fileChangeNodes);
+		let result: TreeNode[] = [];
+		const layout = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
+		if (layout === 'tree') {
+			// tree view
+			const dirNode = new DirectoryTreeNode(this, '');
+			fileChangeNodes.forEach(f => dirNode.addFile(f));
+			dirNode.finalize();
+			if (dirNode.label === '') {
+				// nothing on the root changed, pull children to parent
+				result.push(...dirNode.children);
+			} else {
+				result.push(dirNode);
+			}
+		} else {
+			// flat view
+			result = fileChangeNodes;
+		}
+		return Promise.resolve(result);
 	}
 }
