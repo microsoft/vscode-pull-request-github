@@ -71,7 +71,6 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(
 			vscode.workspace.registerFileSystemProvider(NEW_ISSUE_SCHEME, new IssueFileSystemProvider()),
 		);
-		this.registerCompletionProviders();
 		this.context.subscriptions.push(
 			vscode.languages.registerCompletionItemProvider(
 				{ scheme: NEW_ISSUE_SCHEME },
@@ -389,6 +388,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			}),
 		);
 		this._stateManager.tryInitializeAndWait().then(() => {
+			this.registerCompletionProviders();
+
 			this.context.subscriptions.push(
 				vscode.languages.registerHoverProvider(
 					'*',

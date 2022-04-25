@@ -83,8 +83,6 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			}
 		}
 
-		await this.stateManager.tryInitializeAndWait();
-
 		const completionItems: Map<string, vscode.CompletionItem> = new Map();
 		const now = new Date();
 		let repo: PullRequestDefaults | undefined;
