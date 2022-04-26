@@ -331,8 +331,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param body The summary comment text.
 	 */
 	async submitReview(event?: ReviewEvent, body?: string): Promise<CommonReviewEvent> {
-		const pendingReviewId = await this.getPendingReviewId();
+		let pendingReviewId = await this.getPendingReviewId();
 		const { mutate, schema } = await this.githubRepository.ensure();
+
+		if (!pendingReviewId && (event === ReviewEvent.Comment)) {
+			// Create a new review so that we can comment on it.
+			pendingReviewId = await this.startReview();
+		}
 
 		if (pendingReviewId) {
 			const { data } = await mutate<SubmitReviewResponse>({
