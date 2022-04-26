@@ -22,6 +22,9 @@
 	"categories": [
 		"Other"
 	],
+	"extensionDependencies": [
+		"vscode.github-authentication"
+	],
 	"activationEvents": [
 		"*",
 		"onCommand:github.api.preloadPullRequest",
