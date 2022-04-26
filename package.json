@@ -1668,6 +1668,17 @@
 				},
 				"description": "The color used for indicating that an issue is closed."
 			}
+		],
+		"resourceLabelFormatters": [
+			{
+				"scheme": "review",
+				"formatting": {
+					"label": "${path}",
+					"separator": "/",
+					"workspaceSuffix": "GitHub",
+					"stripPathStartingSeparator": true
+				}
+			}
 		]
 	},
 	"scripts": {
