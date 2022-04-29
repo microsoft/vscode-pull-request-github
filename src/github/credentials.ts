@@ -260,9 +260,24 @@ export class CredentialStore implements vscode.Disposable {
 
 	private async getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions) {
 		let session: vscode.AuthenticationSession | undefined = await vscode.authentication.getSession(authProviderId, SCOPES, { silent: true });
-		if (!session) {
+		if (session) {
+			return session;
+		}
+
+		if (getAuthSessionOptions.createIfNone) {
+			const silent = getAuthSessionOptions.silent;
+			getAuthSessionOptions.createIfNone = false;
+			getAuthSessionOptions.silent = true;
+			session = await vscode.authentication.getSession(authProviderId, SCOPES_OLD, getAuthSessionOptions);
+			if (!session) {
+				getAuthSessionOptions.createIfNone = true;
+				getAuthSessionOptions.silent = silent;
+				session = await vscode.authentication.getSession(authProviderId, SCOPES, getAuthSessionOptions);
+			}
+		} else {
 			session = await vscode.authentication.getSession(authProviderId, SCOPES_OLD, getAuthSessionOptions);
 		}
+
 		return session;
 	}
 
