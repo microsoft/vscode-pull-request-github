@@ -23,6 +23,7 @@ import {
 	updateCommentReviewState,
 	updateCommentThreadLabel,
 	updateThread,
+	updateThreadWithRange,
 } from '../github/utils';
 
 export class PullRequestCommentController implements CommentHandler, CommentReactionHandler {
@@ -247,6 +248,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				newThread = this._pendingCommentThreadAdds[index];
 				newThread.gitHubThreadId = thread.id;
 				newThread.comments = thread.comments.map(c => new GHPRComment(c, newThread!));
+				updateThreadWithRange(newThread, thread);
 				this._pendingCommentThreadAdds.splice(index, 1);
 			} else {
 				const openPREditors = this.getPREditors(vscode.window.visibleTextEditors);

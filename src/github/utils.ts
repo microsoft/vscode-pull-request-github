@@ -39,7 +39,7 @@ export interface CommentReactionHandler {
 export function threadRange(startLine: number, endLine: number, endCharacter?: number): vscode.Range {
 	if ((startLine !== endLine) && (endCharacter === undefined)) {
 		endCharacter = 300; // 300 is a "large" number that will select a lot of the line since don't know anything about the line length
-	} else {
+	} else if (!endCharacter) {
 		endCharacter = 0;
 	}
 	return new vscode.Range(startLine, 0, endLine, endCharacter);
@@ -89,7 +89,20 @@ export function getCommentCollapsibleState(isResolved: boolean, expand?: boolean
 		? vscode.CommentThreadCollapsibleState.Expanded : vscode.CommentThreadCollapsibleState.Collapsed;
 }
 
-export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, expand?: boolean) {
+
+export function updateThreadWithRange(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, expand?: boolean) {
+	const editors = vscode.window.visibleTextEditors;
+	for (let editor of editors) {
+		if (editor.document.uri.toString() === vscodeThread.uri.toString()) {
+			const endLine = editor.document.lineAt(vscodeThread.range.end.line);
+			const range = new vscode.Range(vscodeThread.range.start.line, 0, vscodeThread.range.end.line, endLine.text.length);
+			updateThread(vscodeThread, reviewThread, expand, range);
+			break;
+		}
+	}
+}
+
+export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, expand?: boolean, range?: vscode.Range) {
 	if (reviewThread.viewerCanResolve && !reviewThread.isResolved) {
 		vscodeThread.contextValue = 'canResolve';
 	} else if (reviewThread.viewerCanUnresolve && reviewThread.isResolved) {
@@ -101,7 +114,9 @@ export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IRev
 		vscodeThread.state = newResolvedState;
 	}
 	vscodeThread.collapsibleState = getCommentCollapsibleState(reviewThread.isResolved, expand);
-
+	if (range) {
+		vscodeThread.range = range;
+	}
 	vscodeThread.comments = reviewThread.comments.map(c => new GHPRComment(c, vscodeThread));
 	updateCommentThreadLabel(vscodeThread);
 }
