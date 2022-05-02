@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.42.0
+
+### Changes
+
+- New actions to go to github.com/owner/repo/issues and github.com/owner/repo/pulls
+
+  ![Open on GitHub](documentation/changelog/0.42.0/open-on-github.png)
+- Support for multiline comments
+
+  ![Multiline comments](documentation/changelog/0.42.0/multiline-comments.gif)
+- Commit changes can now show in a tree or list depending on the value of `githubPullRequests.fileListLayout`
+- "Create Permalink" works on github.dev and vscode.dev from a tag or commit number.
+- "Mark as Viewed" and "Mark as Unviewed" are available in the editor toolbar
+
+  ![Mark file as viewed from the editor toolbar](documentation/changelog/0.42.0/mark-as-viewed-toolbar.png)
+- Better defaults for `githubIssues.ignoreCompletionTrigger`.
+
+### Fixes
+
+- Invisible Button/Input Text in High Contrast Themes. https://github.com/microsoft/vscode-pull-request-github/issues/3342
+- Create PR icon dissapears from Source Control view. https://github.com/microsoft/vscode-pull-request-github/issues/3410
+- Don't make potentially expensive getObjectDetails and detectObjectType calls for known file extensions. https://github.com/microsoft/vscode-pull-request-github/issues/3446
+- Web: Broken state for deleting branch in repo that deletes on merge. https://github.com/microsoft/vscode-pull-request-github/issues/3453
+- Can't leave a comment in PR webviewview without a pending review. https://github.com/microsoft/vscode-pull-request-github/issues/3480
+- Text suggestions load forever on first column. https://github.com/microsoft/vscode-pull-request-github/issues/3485
+
+**_Thank You_**
+
+* [@hoontae24](https://github.com/hoontae24): Support the copied permalink for Github Enterprise URL [PR #3460](https://github.com/microsoft/vscode-pull-request-github/pull/3460)
+
 ## 0.40.0
 
 ### Changes
