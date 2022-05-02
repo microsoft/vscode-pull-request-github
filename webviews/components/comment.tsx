@@ -309,7 +309,7 @@ export function AddComment({
 				placeholder="Leave a comment"
 			/>
 			<div className="form-actions">
-				{hasWritePermission && !isIssue ? (
+				{(hasWritePermission || isAuthor) && !isIssue ? (
 					<button
 						id="close"
 						className="secondary"
