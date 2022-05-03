@@ -158,6 +158,86 @@ fragment ReviewThread on PullRequestReviewThread {
 	}
 }
 
+fragment PullRequestFragment on PullRequest {
+	number
+	url
+	state
+	body
+	bodyHTML
+	title
+	author {
+		login
+		url
+		avatarUrl
+		... on User {
+			email
+		}
+		... on Organization {
+			email
+		}
+	}
+	createdAt
+	updatedAt
+	headRef {
+		...Ref
+	}
+	headRefName
+	headRefOid
+	headRepository {
+		owner {
+			login
+		}
+		url
+	}
+	baseRef {
+		...Ref
+	}
+	baseRefName
+	baseRefOid
+	baseRepository {
+		owner {
+			login
+		}
+		url
+	}
+	labels(first: 50) {
+		nodes {
+			name
+		}
+	}
+	merged
+	mergeable
+	mergeStateStatus
+	id
+	databaseId
+	isDraft
+	milestone {
+		title
+		dueOn
+		createdAt
+		id
+	}
+	assignees(first: 10) {
+		nodes {
+			login
+			name
+			avatarUrl
+			url
+			email
+		}
+	}
+	suggestedReviewers {
+		isAuthor
+		isCommenter
+		reviewer {
+			login
+			avatarUrl
+			name
+			url
+		}
+	}
+}
+
 query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 150) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
@@ -290,83 +370,7 @@ query PullRequestComments($owner: String!, $name: String!, $number: Int!, $first
 query PullRequest($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
-			number
-			url
-			state
-			body
-			bodyHTML
-			title
-			author {
-				login
-				url
-				avatarUrl
-				... on User {
-					email
-				}
-				... on Organization {
-					email
-				}
-			}
-			createdAt
-			updatedAt
-			headRef {
-				...Ref
-			}
-			headRefName
-			headRefOid
-			headRepository {
-				owner {
-					login
-				}
-				url
-			}
-			baseRef {
-				...Ref
-			}
-			baseRefName
-			baseRefOid
-			baseRepository {
-				owner {
-					login
-				}
-				url
-			}
-			labels(first: 50) {
-				nodes {
-					name
-				}
-			}
-			merged
-			mergeable
-			mergeStateStatus
-			id
-			databaseId
-			isDraft
-			milestone {
-				title
-				dueOn
-				createdAt
-				id
-			}
-			assignees(first: 10) {
-				nodes {
-					login
-					name
-					avatarUrl
-					url
-					email
-				}
-			}
-			suggestedReviewers {
-				isAuthor
-				isCommenter
-				reviewer {
-					login
-					avatarUrl
-					name
-					url
-				}
-			}
+			...PullRequestFragment
 		}
 	}
 	rateLimit {
@@ -524,6 +528,16 @@ query PullRequestState($owner: String!, $name: String!, $number: Int!) {
 			title
 			number
 			state
+		}
+	}
+}
+
+query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!) {
+	repository(owner: $owner, name: $name) {
+		pullRequests(first: 1, headRefName: $headRefName) {
+			nodes {
+				...PullRequestFragment
+			}
 		}
 	}
 }

@@ -25,6 +25,7 @@ import {
 	MentionableUsersResponse,
 	MilestoneIssuesResponse,
 	PullRequestResponse,
+	PullRequestsResponse,
 	ViewerPermissionResponse,
 } from './graphql';
 import { IAccount, IMilestone, Issue, PullRequest, RepoAccessAndMergeMethods } from './interface';
@@ -364,26 +365,23 @@ export class GitHubRepository implements vscode.Disposable {
 		return undefined;
 	}
 
-	async getPullRequestForBranch(remoteAndBranch: string): Promise<PullRequestModel[] | undefined> {
+	async getPullRequestForBranch(branch: string): Promise<PullRequestModel | undefined> {
 		try {
 			Logger.debug(`Fetch pull requests for branch - enter`, GitHubRepository.ID);
-			const { octokit, remote } = await this.ensure();
-			const result = await octokit.pulls.list({
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				head: remoteAndBranch
+			const { query, remote, schema } = await this.ensure();
+			const { data } = await query<PullRequestsResponse>({
+				query: schema.PullRequestForHead,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					headRefName: branch,
+				},
 			});
-
-			const pullRequests = result.data
-				.map(pullRequest => {
-					return this.createOrUpdatePullRequestModel(
-						convertRESTPullRequestToRawPullRequest(pullRequest, this),
-					);
-				})
-				.filter(item => item !== null) as PullRequestModel[];
-
 			Logger.debug(`Fetch pull requests for branch - done`, GitHubRepository.ID);
-			return pullRequests;
+
+			if (data.repository.pullRequests.nodes.length > 0) {
+				return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data.repository.pullRequests.nodes[0], this));
+			}
 		} catch (e) {
 			Logger.appendLine(`Fetching pull requests for branch failed: ${e}`, GitHubRepository.ID);
 			if (e.code === 404) {
@@ -702,7 +700,7 @@ export class GitHubRepository implements vscode.Disposable {
 				},
 			});
 			Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
-			return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data, this));
+			return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data.repository.pullRequest, this));
 		} catch (e) {
 			Logger.appendLine(`GithubRepository> Unable to fetch PR: ${e}`);
 			return;
