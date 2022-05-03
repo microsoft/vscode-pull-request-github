@@ -7,9 +7,11 @@ import * as buffer from 'buffer';
 import * as path from 'path';
 import equals from 'fast-deep-equal';
 import * as vscode from 'vscode';
+import { Repository } from '../api/api';
 import { DiffSide, IComment, IReviewThread, ViewedState } from '../common/comment';
 import { parseDiff } from '../common/diffHunk';
-import { GitChangeType } from '../common/file';
+import { commands, contexts } from '../common/executeCommands';
+import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
@@ -33,7 +35,7 @@ import {
 	PendingReviewIdResponse,
 	PullRequestCommentsResponse,
 	PullRequestFilesResponse,
-	PullRequestResponse,
+	PullRequestMergabilityResponse,
 	ReactionGroup,
 	ResolveReviewThreadResponse,
 	StartReviewResponse,
@@ -106,6 +108,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public onDidChangeReviewThreads = this._onDidChangeReviewThreads.event;
 
 	private _fileChangeViewedState: FileViewedState = {};
+	private _viewedFiles: Set<string> = new Set();
+	private _unviewedFiles: Set<string> = new Set();
 	private _onDidChangeFileViewedState = new vscode.EventEmitter<FileViewedStateChangeEvent>();
 	public onDidChangeFileViewedState = this._onDidChangeFileViewedState.event;
 
@@ -327,8 +331,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param body The summary comment text.
 	 */
 	async submitReview(event?: ReviewEvent, body?: string): Promise<CommonReviewEvent> {
-		const pendingReviewId = await this.getPendingReviewId();
+		let pendingReviewId = await this.getPendingReviewId();
 		const { mutate, schema } = await this.githubRepository.ensure();
+
+		if (!pendingReviewId && (event === ReviewEvent.Comment)) {
+			// Create a new review so that we can comment on it.
+			pendingReviewId = await this.startReview();
+		}
 
 		if (pendingReviewId) {
 			const { data } = await mutate<SubmitReviewResponse>({
@@ -349,6 +358,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			);
 			if (threadWithComment) {
 				threadWithComment.comments = reviewEvent.comments;
+				threadWithComment.viewerCanResolve = true;
 				this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
 			}
 			return reviewEvent;
@@ -462,7 +472,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * a new review.
 	 * @param body The body of the thread's first comment.
 	 * @param commentPath The path to the file being commented on.
-	 * @param line The line on which to add the comment.
+	 * @param startLine The start line on which to add the comment.
+	 * @param endLine The end line on which to add the comment.
 	 * @param side The side the comment should be deleted on, i.e. the original or modified file.
 	 * @param suppressDraftModeUpdate If a draft mode change should event should be suppressed. In the
 	 * case of a single comment add, the review is created and then immediately submitted, so this prevents
@@ -472,7 +483,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	async createReviewThread(
 		body: string,
 		commentPath: string,
-		line: number,
+		startLine: number,
+		endLine: number,
 		side: DiffSide,
 		suppressDraftModeUpdate?: boolean,
 	): Promise<IReviewThread | undefined> {
@@ -490,7 +502,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					body,
 					pullRequestId: this.graphNodeId,
 					pullRequestReviewId: pendingReviewId,
-					line,
+					startLine: startLine === endLine ? undefined : startLine,
+					line: endLine,
 					side,
 				},
 			},
@@ -957,7 +970,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Get the status checks of the pull request, those for the last commit.
 	 */
 	async getStatusChecks(): Promise<PullRequestChecks> {
-		const { query, remote, schema } = await this.githubRepository.ensure();
+		const { query, remote, schema, octokit } = await this.githubRepository.ensure();
 		let result;
 		try {
 			result = await query<GetChecksResponse>({
@@ -989,7 +1002,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			};
 		}
 
-		return {
+		const checks: PullRequestChecks = {
 			state: statusCheckRollup.state.toLowerCase(),
 			statuses: statusCheckRollup.contexts.nodes.map(context => {
 				if (isCheckRun(context)) {
@@ -1015,6 +1028,25 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				}
 			}),
 		};
+
+		// Fun info: The checks don't include whether a review is required.
+		// Also, unless you're an admin on the repo, you can't just do octokit.repos.getBranchProtection
+		if (this.item.mergeable === PullRequestMergeability.NotMergeable) {
+			const branch = await octokit.repos.getBranch({ branch: this.base.ref, owner: remote.owner, repo: remote.repositoryName });
+			if (branch.data.protected && branch.data.protection.required_status_checks.enforcement_level !== 'off') {
+				// We need to add the "review required" check manually.
+				checks.statuses.unshift({
+					id: 'unknown',
+					context: 'Branch Protection',
+					description: 'Requirements have not been met.',
+					state: 'failure',
+					target_url: this.html_url
+				});
+				checks.state = 'failure';
+			}
+		}
+
+		return checks;
 	}
 
 	static async openDiffFromComment(
@@ -1022,9 +1054,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		pullRequestModel: PullRequestModel,
 		comment: IComment,
 	): Promise<void> {
-		const fileChanges = await pullRequestModel.getFileChangesInfo();
-		const mergeBase = pullRequestModel.mergeBase || pullRequestModel.base.sha;
-		const contentChanges = await parseDiff(fileChanges, folderManager.repository, mergeBase);
+		const contentChanges = await pullRequestModel.getFileChangesInfo(folderManager.repository);
 		const change = contentChanges.find(
 			fileChange => fileChange.fileName === comment.path || fileChange.previousFileName === comment.path,
 		);
@@ -1070,6 +1100,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					)
 					: uri;
 
+			const mergeBase = pullRequestModel.mergeBase || pullRequestModel.base.sha;
 			baseUri = toReviewUri(
 				uri,
 				change.status === GitChangeType.RENAME ? change.previousFileName : change.fileName,
@@ -1091,10 +1122,26 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		);
 	}
 
+	private _fileChanges: Map<string, SlimFileChange | InMemFileChange> = new Map();
+	get fileChanges(): Map<string, SlimFileChange | InMemFileChange> {
+		return this._fileChanges;
+	}
+
+	async getFileChangesInfo(repo: Repository) {
+		this._fileChanges.clear();
+		const data = await this.getRawFileChangesInfo();
+		const mergebase = this.mergeBase || this.base.sha;
+		const parsed = await parseDiff(data, repo, mergebase);
+		parsed.forEach(fileChange => {
+			this._fileChanges.set(fileChange.fileName, fileChange);
+		});
+		return parsed;
+	}
+
 	/**
 	 * List the changed files in a pull request.
 	 */
-	async getFileChangesInfo(): Promise<IRawFileChange[]> {
+	private async getRawFileChangesInfo(): Promise<IRawFileChange[]> {
 		Logger.debug(
 			`Fetch file changes, base, head and merge base of PR #${this.number} - enter`,
 			PullRequestModel.ID,
@@ -1169,7 +1216,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			Logger.debug(`Fetch pull request mergeability ${this.number} - enter`, PullRequestModel.ID);
 			const { query, remote, schema } = await this.githubRepository.ensure();
 
-			const { data } = await query<PullRequestResponse>({
+			const { data } = await query<PullRequestMergabilityResponse>({
 				query: schema.PullRequestMergeability,
 				variables: {
 					owner: remote.owner,
@@ -1178,7 +1225,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			});
 			Logger.debug(`Fetch pull request mergeability ${this.number} - done`, PullRequestModel.ID);
-			return parseMergeability(data.repository.pullRequest.mergeable);
+			return parseMergeability(data.repository.pullRequest.mergeable, data.repository.pullRequest.mergeStateStatus);
 		} catch (e) {
 			Logger.appendLine(`PullRequestModel> Unable to fetch PR Mergeability: ${e}`);
 			return PullRequestMergeability.Unknown;
@@ -1352,8 +1399,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				if (this._fileChangeViewedState[n.path] !== n.viewerViewedState) {
 					changed.push({ fileName: n.path, viewed: n.viewerViewedState });
 				}
-
-				this._fileChangeViewedState[n.path] = n.viewerViewedState;
+				// No event for setting the file viewed state here.
+				// Instead, wait until all the changes have been made and set the context at the end.
+				this.setFileViewedState(n.path, n.viewerViewedState, false);
 			});
 
 			hasNextPage = data.repository.pullRequest.files.pageInfo.hasNextPage;
@@ -1365,8 +1413,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	async markFileAsViewed(fileName: string): Promise<void> {
+	async markFileAsViewed(filePathOrSubpath: string): Promise<void> {
 		const { mutate, schema } = await this.githubRepository.ensure();
+		const fileName = filePathOrSubpath.startsWith(this.githubRepository.rootUri.path) ?
+			filePathOrSubpath.substring(this.githubRepository.rootUri.path.length + 1) : filePathOrSubpath;
 		await mutate<void>({
 			mutation: schema.MarkFileAsViewed,
 			variables: {
@@ -1377,12 +1427,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			},
 		});
 
-		this._fileChangeViewedState[fileName] = ViewedState.VIEWED;
-		this._onDidChangeFileViewedState.fire({ changed: [{ fileName, viewed: ViewedState.VIEWED }] });
+		this.setFileViewedState(fileName, ViewedState.VIEWED, true);
 	}
 
-	async unmarkFileAsViewed(fileName: string): Promise<void> {
+	async unmarkFileAsViewed(filePathOrSubpath: string): Promise<void> {
 		const { mutate, schema } = await this.githubRepository.ensure();
+		const fileName = filePathOrSubpath.startsWith(this.githubRepository.rootUri.path) ?
+			filePathOrSubpath.substring(this.githubRepository.rootUri.path.length + 1) : filePathOrSubpath;
 		await mutate<void>({
 			mutation: schema.UnmarkFileAsViewed,
 			variables: {
@@ -1393,7 +1444,39 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			},
 		});
 
-		this._fileChangeViewedState[fileName] = ViewedState.UNVIEWED;
-		this._onDidChangeFileViewedState.fire({ changed: [{ fileName, viewed: ViewedState.UNVIEWED }] });
+		this.setFileViewedState(fileName, ViewedState.UNVIEWED, true);
+	}
+
+	private setFileViewedState(fileSubpath: string, viewedState: ViewedState, event: boolean) {
+		const filePath = vscode.Uri.joinPath(this.githubRepository.rootUri, fileSubpath).fsPath;
+		switch (viewedState) {
+			case ViewedState.DISMISSED: {
+				this._viewedFiles.delete(filePath);
+				this._unviewedFiles.delete(filePath);
+				break;
+			}
+			case ViewedState.UNVIEWED: {
+				this._viewedFiles.delete(filePath);
+				this._unviewedFiles.add(filePath);
+				break;
+			}
+			case ViewedState.VIEWED: {
+				this._viewedFiles.add(filePath);
+				this._unviewedFiles.delete(filePath);
+			}
+		}
+		this._fileChangeViewedState[fileSubpath] = viewedState;
+		if (event) {
+			this._onDidChangeFileViewedState.fire({ changed: [{ fileName: fileSubpath, viewed: viewedState }] });
+		}
+	}
+
+	/**
+	 * Using these contexts is fragile in a multi-root workspace where multiple PRs are checked out.
+	 * If you have two active PRs that have the same file path relative to their rootdir, then these context can get confused.
+	 */
+	public setFileViewedContext() {
+		commands.setContext(contexts.VIEWED_FILES, Array.from(this._viewedFiles));
+		commands.setContext(contexts.UNVIEWED_FILES, Array.from(this._unviewedFiles));
 	}
 }

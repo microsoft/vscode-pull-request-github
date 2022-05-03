@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { commands } from './executeCommands';
 
 export interface IRequestMessage<T> {
 	req: string;
@@ -129,7 +130,7 @@ export class WebviewViewBase extends WebviewBase {
 		if (this._view) {
 			this._view.show();
 		} else {
-			vscode.commands.executeCommand(`${this.viewType}.focus`);
+			commands.focusView(this.viewType);
 		}
 	}
 }

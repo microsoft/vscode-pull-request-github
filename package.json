@@ -12,12 +12,12 @@
 	},
 	"enabledApiProposals": [
 		"tokenInformation",
-		"commentTimestamp"
+		"commentsResolvedState"
 	],
-	"version": "0.36.0",
+	"version": "0.40.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.64.0"
+		"vscode": "^1.67.0"
 	},
 	"categories": [
 		"Other"
@@ -192,6 +192,19 @@
 					"default": "ask",
 					"description": "Default handler for terminal links."
 				},
+				"githubPullRequests.createOnPublishBranch": {
+					"type": "string",
+					"enum": [
+						"never",
+						"ask"
+					],
+					"enumDescriptions": [
+						"Never create a pull request when a branch is published.",
+						"Ask if you want to create a pull request when a branch is published."
+					],
+					"default": "ask",
+					"description": "Create a pull request when a branch is published."
+				},
 				"githubPullRequests.commentExpandState": {
 					"type": "string",
 					"enum": [
@@ -277,8 +290,23 @@
 						"description": "Language that issue completions should not trigger on '#'."
 					},
 					"default": [
+						"coffeescript",
+						"diff",
+						"dockerfile",
+						"dockercompose",
+						"git-commit",
+						"git-rebase",
+						"ignore",
+						"ini",
+						"julia",
+						"makefile",
+						"perl",
+						"powershell",
 						"python",
-						"makefile"
+						"r",
+						"ruby",
+						"shellscript",
+						"yaml"
 					],
 					"description": "Languages that the '#' character should not be used to trigger issue completion suggestions."
 				},
@@ -666,13 +694,13 @@
 				"command": "pr.markFileAsViewed",
 				"title": "Mark File As Viewed",
 				"category": "GitHub Pull Requests",
-				"icon": "$(check)"
+				"icon": "$(pass)"
 			},
 			{
 				"command": "pr.unmarkFileAsViewed",
 				"title": "Mark File As Not Viewed",
 				"category": "GitHub Pull Requests",
-				"icon": "$(eye-closed)"
+				"icon": "$(pass-filled)"
 			},
 			{
 				"command": "pr.openReview",
@@ -698,6 +726,12 @@
 				"icon": "$(edit)"
 			},
 			{
+				"command": "pr.openPullsWebsite",
+				"title": "Open on GitHub",
+				"category": "GitHub Pull Requests",
+				"icon": "$(globe)"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "Create Issue From Selection",
 				"category": "GitHub Issues"
@@ -710,6 +744,11 @@
 			{
 				"command": "issue.copyGithubPermalink",
 				"title": "Copy GitHub Permalink",
+				"category": "GitHub Issues"
+			},
+			{
+				"command": "issue.copyGithubHeadLink",
+				"title": "Copy GitHub Head Link",
 				"category": "GitHub Issues"
 			},
 			{
@@ -829,6 +868,12 @@
 				"command": "issue.goToLinkedCode",
 				"title": "Go to Linked Code",
 				"category": "GitHub Issues"
+			},
+			{
+				"command": "issues.openIssuesWebsite",
+				"title": "Open on GitHub",
+				"category": "GitHub Pull Requests",
+				"icon": "$(globe)"
 			}
 		],
 		"viewsWelcome": [
@@ -1046,6 +1091,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.unmarkFileAsViewed",
+					"when": "false"
+				},
+				{
 					"command": "pr.checkoutByNumber",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && github:authenticated"
 				},
@@ -1132,6 +1181,43 @@
 				{
 					"command": "pr.refreshActivePullRequest",
 					"when": "false"
+				},
+				{
+					"command": "pr.openPullsWebsite",
+					"when": "github:hasGitHubRemotes"
+				},
+				{
+					"command": "issues.openIssuesWebsite",
+					"when": "github:hasGitHubRemotes"
+				}
+			],
+			"github.pullRequests.overflow": [
+				{
+					"command": "pr.openPullsWebsite",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized",
+					"group": "navigation@1"
+				},
+				{
+					"command": "pr.checkoutByNumber",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized",
+					"group": "navigation@2"
+				},
+				{
+					"command": "pr.configurePRViewlet",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized",
+					"group": "navigation@3"
+				}
+			],
+			"github.issues.overflow": [
+				{
+					"command": "issues.openIssuesWebsite",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized",
+					"group": "navigation@1"
+				},
+				{
+					"command": "pr.configurePRViewlet",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized",
+					"group": "navigation@2"
 				}
 			],
 			"view/title": [
@@ -1141,17 +1227,12 @@
 					"group": "navigation@1"
 				},
 				{
-					"command": "pr.checkoutByNumber",
+					"command": "pr.refreshList",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
 					"group": "navigation@2"
 				},
 				{
-					"command": "pr.configurePRViewlet",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view =~ /(pr|issues):github/",
-					"group": "navigation@4"
-				},
-				{
-					"command": "pr.refreshList",
+					"submenu": "github.pullRequests.overflow",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
 					"group": "navigation@3"
 				},
@@ -1171,14 +1252,19 @@
 					"group": "navigation"
 				},
 				{
+					"command": "issue.createIssue",
+					"when": "view == issues:github && github:hasGitHubRemotes",
+					"group": "navigation@1"
+				},
+				{
 					"command": "issue.refresh",
 					"when": "view == issues:github",
 					"group": "navigation@2"
 				},
 				{
-					"command": "issue.createIssue",
-					"when": "view == issues:github && github:hasGitHubRemotes",
-					"group": "navigation@1"
+					"submenu": "github.issues.overflow",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == issues:github",
+					"group": "navigation@3"
 				},
 				{
 					"command": "pr.refreshActivePullRequest",
@@ -1242,13 +1328,23 @@
 				},
 				{
 					"command": "review.openFile",
-					"group": "inline",
+					"group": "inline@0",
 					"when": "openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
 				},
 				{
 					"command": "pr.openDiffView",
-					"group": "inline",
+					"group": "inline@0",
 					"when": "!openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
+				},
+				{
+					"command": "pr.markFileAsViewed",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(.*):unviewed/",
+					"group": "inline@1"
+				},
+				{
+					"command": "pr.unmarkFileAsViewed",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(.*):viewed/",
+					"group": "inline@1"
 				},
 				{
 					"command": "pr.openOriginalFile",
@@ -1351,16 +1447,6 @@
 				{
 					"command": "issue.editQuery",
 					"when": "view == issues:github && viewItem == query"
-				},
-				{
-					"command": "pr.markFileAsViewed",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(.*):unviewed/",
-					"group": "inline"
-				},
-				{
-					"command": "pr.unmarkFileAsViewed",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(.*):viewed/",
-					"group": "inline"
 				}
 			],
 			"editor/title": [
@@ -1373,17 +1459,27 @@
 					"command": "issue.createIssueFromFile",
 					"group": "navigation",
 					"when": "resourceFilename == NewIssue.md"
+				},
+				{
+					"command": "pr.markFileAsViewed",
+					"group": "navigation",
+					"when": "resourceScheme != pr && resourceScheme != review && resourceScheme != filechange && resourcePath in github:unviewedFiles"
+				},
+				{
+					"command": "pr.unmarkFileAsViewed",
+					"group": "navigation",
+					"when": "resourceScheme != pr && resourceScheme != review && resourceScheme != filechange && resourcePath in github:viewedFiles"
 				}
 			],
 			"scm/title": [
 				{
 					"command": "review.suggestDiff",
-					"when": "scmProvider =~ /^git|^remoteHub:/ && github:inReviewMode",
+					"when": "scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposInReviewMode",
 					"group": "inline"
 				},
 				{
 					"command": "pr.create",
-					"when": "scmProvider =~ /^git|^remoteHub:/ && !github:inReviewMode",
+					"when": "scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposNotInReviewMode",
 					"group": "navigation"
 				}
 			],
@@ -1478,6 +1574,10 @@
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
 					"when": "gitHubOpenRepositoryCount != 0"
+				},
+				{
+					"command": "issue.copyGithubHeadLink",
+					"when": "gitHubOpenRepositoryCount != 0"
 				}
 			],
 			"editor/title/context": [
@@ -1485,6 +1585,11 @@
 					"command": "issue.copyGithubPermalink",
 					"when": "gitHubOpenRepositoryCount != 0",
 					"group": "1_cutcopypaste@10"
+				},
+				{
+					"command": "issue.copyGithubHeadLink",
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "1_cutcopypaste@11"
 				}
 			],
 			"explorer/context": [
@@ -1492,6 +1597,11 @@
 					"command": "issue.copyGithubPermalink",
 					"when": "gitHubOpenRepositoryCount != 0",
 					"group": "5_cutcopypaste@10"
+				},
+				{
+					"command": "issue.copyGithubHeadLink",
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "5_cutcopypaste@11"
 				}
 			],
 			"menuBar/edit/copy": [
@@ -1507,18 +1617,31 @@
 			"remoteHub/pullRequest": [
 				{
 					"command": "pr.create",
-					"when": "scmProvider =~ /^remoteHub:/",
+					"when": "scmProvider =~ /^remoteHub:github/",
 					"group": "1_modification@0"
 				}
 			]
 		},
+		"submenus": [
+			{
+				"id": "github.pullRequests.overflow",
+				"label": "More actions...",
+				"icon": "$(ellipsis)"
+			},
+			{
+				"id": "github.issues.overflow",
+				"label": "More actions...",
+				"icon": "$(ellipsis)"
+			}
+		],
 		"colors": [
 			{
 				"id": "issues.newIssueDecoration",
 				"defaults": {
 					"dark": "#ffffff48",
 					"light": "#00000048",
-					"highContrast": "editor.foreground"
+					"highContrast": "editor.foreground",
+					"highContrastLight": "editor.foreground"
 				},
 				"description": "The color used for the assignees and labels fields in a new issue editor."
 			},
@@ -1527,7 +1650,8 @@
 				"defaults": {
 					"dark": "#22863a",
 					"light": "#22863a",
-					"highContrast": "editor.foreground"
+					"highContrast": "editor.foreground",
+					"highContrastLight": "editor.foreground"
 				},
 				"description": "The color used for indicating that an issue is open."
 			},
@@ -1536,9 +1660,21 @@
 				"defaults": {
 					"dark": "#cb2431",
 					"light": "#cb2431",
-					"highContrast": "editor.foreground"
+					"highContrast": "editor.foreground",
+					"highContrastLight": "editor.foreground"
 				},
 				"description": "The color used for indicating that an issue is closed."
+			}
+		],
+		"resourceLabelFormatters": [
+			{
+				"scheme": "review",
+				"formatting": {
+					"label": "${path}",
+					"separator": "/",
+					"workspaceSuffix": "GitHub",
+					"stripPathStartingSeparator": true
+				}
 			}
 		]
 	},
@@ -1582,7 +1718,7 @@
 		"@typescript-eslint/eslint-plugin": "4.18.0",
 		"@typescript-eslint/parser": "4.18.0",
 		"@vscode/test-electron": "^1.6.1",
-		"@vscode/test-web": "^0.0.8",
+		"@vscode/test-web": "^0.0.22",
 		"assert": "^2.0.0",
 		"buffer": "^6.0.3",
 		"constants-browserify": "^1.0.0",
@@ -1601,7 +1737,7 @@
 		"jsdom-global": "3.0.2",
 		"json5": "2.2.0",
 		"merge-options": "3.0.4",
-		"minimist": "^1.2.5",
+		"minimist": "^1.2.6",
 		"mkdirp": "1.0.4",
 		"mocha": "^9.0.1",
 		"mocha-junit-reporter": "1.23.0",
@@ -1631,7 +1767,7 @@
 		"@octokit/types": "6.10.0",
 		"apollo-boost": "^0.4.9",
 		"apollo-link-context": "1.0.20",
-		"cross-fetch": "3.0.6",
+		"cross-fetch": "3.1.5",
 		"dayjs": "1.10.4",
 		"events": "3.2.0",
 		"fast-deep-equal": "^3.1.3",

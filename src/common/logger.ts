@@ -8,6 +8,7 @@ const enum LogLevel {
 
 const SETTINGS_NAMESPACE = 'githubPullRequests';
 const LOG_LEVEL_SETTING = 'logLevel';
+export const PR_TREE = 'PullRequestTree';
 
 class Log {
 	private _outputChannel: vscode.OutputChannel;

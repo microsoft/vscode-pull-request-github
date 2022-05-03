@@ -53,7 +53,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 			return [];
 		}
 
-		if (document.languageId !== 'scminput' && !(await isComment(document, position))) {
+		if (!this.isCodeownersFiles(document.uri) && document.languageId !== 'scminput' && !(await isComment(document, position))) {
 			return [];
 		}
 
@@ -92,6 +92,16 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 			completionItems.push(completionItem);
 		});
 		return completionItems;
+	}
+
+	private isCodeownersFiles(uri: vscode.Uri): boolean {
+		const repositoryManager = this.manager.getManagerForFile(uri);
+		if (!repositoryManager || !uri.path.startsWith(repositoryManager.repository.rootUri.path)) {
+			return false;
+		}
+		const subpath = uri.path.substring(repositoryManager.repository.rootUri.path.length).toLowerCase();
+		const codeownersFiles = ['/codeowners', '/docs/codeowners', '/.github/codeowners'];
+		return !!codeownersFiles.find(file => file === subpath);
 	}
 
 	async resolveCompletionItem(item: UserCompletion, _token: vscode.CancellationToken): Promise<vscode.CompletionItem> {

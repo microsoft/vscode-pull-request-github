@@ -10,12 +10,10 @@ import { DiffHunk, parsePatch } from '../../common/diffHunk';
 import { GitChangeType, InMemFileChange, SimpleFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT } from '../../common/settingKeys';
-import { asImageDataURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, toResourceUri } from '../../common/uri';
+import { asImageDataURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, Schemes, toResourceUri } from '../../common/uri';
 import { groupBy } from '../../common/utils';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
-import { FILECHANGE_FILE_SCHEME, GITHUB_FILE_SCHEME } from '../compareChangesTreeDataProvider';
-import { FileViewedDecorationProvider } from '../fileViewedDecorationProvider';
 import { DecorationProvider } from '../treeDecorationProvider';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
@@ -92,7 +90,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	) {
 		super();
 		const viewed = this.pullRequest.fileChangeViewedState[fileName] ?? ViewedState.UNVIEWED;
-		this.contextValue = `${FILECHANGE_FILE_SCHEME}:${GitChangeType[status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
+		this.contextValue = `${Schemes.FileChange}:${GitChangeType[status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
 		this.label = path.basename(fileName);
 		this.description = vscode.workspace.asRelativePath(path.dirname(fileName), false);
@@ -130,14 +128,8 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		this._viewed = viewed;
-		this.contextValue = `${FILECHANGE_FILE_SCHEME}:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
+		this.contextValue = `${Schemes.FileChange}:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
-		FileViewedDecorationProvider.updateFileViewedState(
-			this.fileChangeResourceUri,
-			this.pullRequest.number,
-			this.fileName,
-			viewed,
-		);
 	}
 
 	getTreeItem(): vscode.TreeItem {
@@ -203,7 +195,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	) {
 		super();
 		const viewed = this.pullRequest.fileChangeViewedState[this.fileName] ?? ViewedState.UNVIEWED;
-		this.contextValue = `${FILECHANGE_FILE_SCHEME}:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
+		this.contextValue = `${Schemes.FileChange}:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
 		this.label = path.basename(this.fileName);
 		this.iconPath = vscode.ThemeIcon.File;
@@ -237,15 +229,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 			}),
 		);
 
-		this.childrenDisposables.push(this.pullRequest.onDidChangeComments(() => {
-			this.updateShowOptions();
-			this.refresh(this);
-		}));
-
-		this.childrenDisposables.push(this.pullRequest.onDidChangeReviewThreads(() => {
-			this.updateShowOptions();
-			this.refresh(this);
-		}));
 
 		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link' };
 	}
@@ -269,14 +252,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		this._viewed = viewed;
-		this.contextValue = `${FILECHANGE_FILE_SCHEME}:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
+		this.contextValue = `${Schemes.FileChange}:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
-		FileViewedDecorationProvider.updateFileViewedState(
-			this.fileChangeResourceUri,
-			this.pullRequest.number,
-			this.fileName,
-			viewed,
-		);
 	}
 
 	updateShowOptions() {
@@ -292,8 +269,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		);
 
 		if (reviewThreadsForNode.length) {
-			reviewThreadsForNode.sort((a, b) => a.line - b.line);
-			this.opts.selection = new vscode.Range(reviewThreadsForNode[0].line, 0, reviewThreadsForNode[0].line, 0);
+			reviewThreadsForNode.sort((a, b) => a.endLine - b.endLine);
+			this.opts.selection = new vscode.Range(reviewThreadsForNode[0].startLine, 0, reviewThreadsForNode[0].endLine, 0);
 		} else {
 			delete this.opts.selection;
 		}
@@ -444,10 +421,10 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		const reviewThreadsByFile = groupBy(reviewThreads, t => t.path);
 		const reviewThreadsForNode = (reviewThreadsByFile[this.fileName] || [])
 			.filter(thread => thread.isOutdated)
-			.sort((a, b) => a.line - b.line);
+			.sort((a, b) => a.endLine - b.endLine);
 
 		if (reviewThreadsForNode.length) {
-			options.selection = new vscode.Range(reviewThreadsForNode[0].originalLine, 0, reviewThreadsForNode[0].originalLine, 0);
+			options.selection = new vscode.Range(reviewThreadsForNode[0].originalStartLine, 0, reviewThreadsForNode[0].originalEndLine, 0);
 		}
 
 		return {
@@ -504,36 +481,36 @@ export class GitHubFileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.label = fileName;
 		this.iconPath = vscode.ThemeIcon.File;
 		this.fileChangeResourceUri = vscode.Uri.file(fileName).with({
-			scheme: GITHUB_FILE_SCHEME,
+			scheme: Schemes.GithubPr,
 			query: JSON.stringify({ status, fileName }),
 		});
 
 		let parentURI = vscode.Uri.file(fileName).with({
-			scheme: GITHUB_FILE_SCHEME,
+			scheme: Schemes.GithubPr,
 			query: JSON.stringify({ fileName, branch: baseBranch }),
 		});
 		let headURI = vscode.Uri.file(fileName).with({
-			scheme: GITHUB_FILE_SCHEME,
+			scheme: Schemes.GithubPr,
 			query: JSON.stringify({ fileName, branch: headBranch }),
 		});
 		switch (status) {
 			case GitChangeType.ADD:
 				parentURI = vscode.Uri.file(fileName).with({
-					scheme: GITHUB_FILE_SCHEME,
+					scheme: Schemes.GithubPr,
 					query: JSON.stringify({ fileName, branch: baseBranch, isEmpty: true }),
 				});
 				break;
 
 			case GitChangeType.RENAME:
 				parentURI = vscode.Uri.file(previousFileName!).with({
-					scheme: GITHUB_FILE_SCHEME,
+					scheme: Schemes.GithubPr,
 					query: JSON.stringify({ fileName: previousFileName, branch: baseBranch, isEmpty: true }),
 				});
 				break;
 
 			case GitChangeType.DELETE:
 				headURI = vscode.Uri.file(fileName).with({
-					scheme: GITHUB_FILE_SCHEME,
+					scheme: Schemes.GithubPr,
 					query: JSON.stringify({ fileName, branch: headBranch, isEmpty: true }),
 				});
 				break;

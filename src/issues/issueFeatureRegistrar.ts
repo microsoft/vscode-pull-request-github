@@ -31,9 +31,11 @@ import { StateManager } from './stateManager';
 import { UserCompletionProvider } from './userCompletionProvider';
 import { UserHoverProvider } from './userHoverProvider';
 import {
+	createGitHubLink,
 	createGithubPermalink,
 	ISSUES_CONFIGURATION,
 	NewIssue,
+	PermalinkInfo,
 	pushAndCreatePR,
 	QUERIES_CONFIGURATION,
 	USER_EXPRESSION,
@@ -69,7 +71,6 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(
 			vscode.workspace.registerFileSystemProvider(NEW_ISSUE_SCHEME, new IssueFileSystemProvider()),
 		);
-		this.registerCompletionProviders();
 		this.context.subscriptions.push(
 			vscode.languages.registerCompletionItemProvider(
 				{ scheme: NEW_ISSUE_SCHEME },
@@ -119,6 +120,19 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			*/
 					this.telemetry.sendTelemetryEvent('issue.copyGithubPermalink');
 					return this.copyPermalink(fileUri instanceof vscode.Uri ? fileUri : undefined);
+				},
+				this,
+			),
+		);
+		this.context.subscriptions.push(
+			vscode.commands.registerCommand(
+				'issue.copyGithubHeadLink',
+				(fileUri: any) => {
+					/* __GDPR__
+				"issue.copyGithubHeadLink" : {}
+			*/
+					this.telemetry.sendTelemetryEvent('issue.copyGithubHeadLink');
+					return this.copyHeadLink(fileUri);
 				},
 				this,
 			),
@@ -374,6 +388,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			}),
 		);
 		this._stateManager.tryInitializeAndWait().then(() => {
+			this.registerCompletionProviders();
+
 			this.context.subscriptions.push(
 				vscode.languages.registerHoverProvider(
 					'*',
@@ -1080,7 +1096,7 @@ ${body ?? ''}\n
 		return false;
 	}
 
-	private async getPermalinkWithError(fileUri?: vscode.Uri): Promise<{ permalink: string | undefined, originalFile: vscode.Uri | undefined }> {
+	private async getPermalinkWithError(fileUri?: vscode.Uri): Promise<PermalinkInfo> {
 		const link = await createGithubPermalink(this.gitAPI, undefined, fileUri);
 		if (link.error) {
 			vscode.window.showWarningMessage(`Unable to create a GitHub permalink for the selection. ${link.error}`);
@@ -1088,7 +1104,15 @@ ${body ?? ''}\n
 		return link;
 	}
 
-	private async getContextualizedPermalink(file: vscode.Uri, link: string): Promise<string> {
+	private async getHeadLinkWithError(fileUri?: vscode.Uri): Promise<PermalinkInfo> {
+		const link = await createGitHubLink(this.manager, fileUri);
+		if (link.error) {
+			vscode.window.showWarningMessage(`Unable to create a GitHub link for the selection. ${link.error}`);
+		}
+		return link;
+	}
+
+	private async getContextualizedLink(file: vscode.Uri, link: string): Promise<string> {
 		let uri: vscode.Uri;
 		try {
 			uri = await vscode.env.asExternalUri(file);
@@ -1096,7 +1120,7 @@ ${body ?? ''}\n
 			// asExternalUri can throw when in the browser and the embedder doesn't set a uri resolver.
 			return link;
 		}
-		const authority = (uri.scheme === 'https' && /^(vscode|github)\./.test(uri.authority)) ? uri.authority : undefined;
+		const authority = (uri.scheme === 'https' && /^(insiders\.vscode|vscode|github)\./.test(uri.authority)) ? uri.authority : undefined;
 		if (!authority) {
 			return link;
 		}
@@ -1109,7 +1133,15 @@ ${body ?? ''}\n
 		const link = await this.getPermalinkWithError(fileUri);
 		if (link.permalink) {
 			return vscode.env.clipboard.writeText(
-				link.originalFile ? (await this.getContextualizedPermalink(link.originalFile, link.permalink)) : link.permalink);
+				link.originalFile ? (await this.getContextualizedLink(link.originalFile, link.permalink)) : link.permalink);
+		}
+	}
+
+	async copyHeadLink(fileUri?: vscode.Uri) {
+		const link = await this.getHeadLinkWithError(fileUri);
+		if (link.permalink) {
+			return vscode.env.clipboard.writeText(
+				link.originalFile ? (await this.getContextualizedLink(link.originalFile, link.permalink)) : link.permalink);
 		}
 	}
 
@@ -1146,8 +1178,7 @@ ${body ?? ''}\n
 	async openPermalink() {
 		const link = await this.getPermalinkWithError();
 		if (link.permalink) {
-			return vscode.env.openExternal(vscode.Uri.parse(
-				link.originalFile ? (await this.getContextualizedPermalink(link.originalFile, link.permalink)) : link.permalink));
+			return vscode.env.openExternal(vscode.Uri.parse(link.permalink));
 		}
 		return undefined;
 	}

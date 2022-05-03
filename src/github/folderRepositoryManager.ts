@@ -14,7 +14,7 @@ import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { ISessionState } from '../common/sessionState';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
-import { fromPRUri } from '../common/uri';
+import { fromPRUri, Schemes } from '../common/uri';
 import { compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
 import { REPO_KEYS, ReposState } from '../extensionState';
@@ -262,7 +262,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						const activeTextEditors = vscode.window.visibleTextEditors;
 						if (activeTextEditors.length) {
 							const visiblePREditor = activeTextEditors.find(
-								editor => editor.document.uri.scheme === 'pr',
+								editor => editor.document.uri.scheme === Schemes.Pr,
 							);
 
 							if (visiblePREditor) {
@@ -1065,36 +1065,28 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		 * - At the same folder locations under a PULL_REQUEST_TEMPLATE folder with any name
 		 */
 		const pattern1 = '{pull_request_template,PULL_REQUEST_TEMPLATE}.md';
-		const templatesPattern1 = await vscode.workspace.findFiles(
+		const templatesPattern1 = vscode.workspace.findFiles(
 			new vscode.RelativePattern(this._repository.rootUri, pattern1)
 		);
 
 		const pattern2 = '{docs,.github}/{pull_request_template,PULL_REQUEST_TEMPLATE}.md';
-		const templatesPattern2 = await vscode.workspace.findFiles(
+		const templatesPattern2 = vscode.workspace.findFiles(
 			new vscode.RelativePattern(this._repository.rootUri, pattern2), null
 		);
 
 		const pattern3 = 'PULL_REQUEST_TEMPLATE/*.md';
-		const templatesPattern3 = await vscode.workspace.findFiles(
+		const templatesPattern3 = vscode.workspace.findFiles(
 			new vscode.RelativePattern(this._repository.rootUri, pattern3)
 		);
 
 		const pattern4 = '{docs,.github}/PULL_REQUEST_TEMPLATE/*.md';
-		const templatesPattern4 = await vscode.workspace.findFiles(
+		const templatesPattern4 = vscode.workspace.findFiles(
 			new vscode.RelativePattern(this._repository.rootUri, pattern4), null
 		);
 
-		const allResults = [...templatesPattern1, ...templatesPattern2, ...templatesPattern3, ...templatesPattern4];
-		function patternLog(uris: vscode.Uri[], name: string) {
-			return uris.length ? `"${name}"` : '';
-		}
-		const foundPatterns = [patternLog(templatesPattern1, pattern1),
-			patternLog(templatesPattern2, pattern2),
-			patternLog(templatesPattern3, pattern3),
-			patternLog(templatesPattern4, pattern4)].filter(log => log).join(', ');
+		const allResults = await Promise.all([templatesPattern1, templatesPattern2, templatesPattern3, templatesPattern4]);
 
-		Logger.appendLine(`Found ${allResults.length} templates${foundPatterns ? ` using pattern(s) ${foundPatterns}` : ''}`);
-		return allResults;
+		return [...allResults[0], ...allResults[1], ...allResults[2], ...allResults[3]];
 	}
 
 	async getPullRequestDefaults(branch?: Branch): Promise<PullRequestDefaults> {
@@ -1902,7 +1894,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	private createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore) {
-		const repo = new GitHubRepository(remote, credentialStore, this.telemetry, this._sessionState);
+		const repo = new GitHubRepository(remote, this.repository.rootUri, credentialStore, this.telemetry, this._sessionState);
 		this._githubRepositories.push(repo);
 		return repo;
 	}

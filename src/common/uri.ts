@@ -9,7 +9,6 @@ import * as pathUtils from 'path';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { FILECHANGE_FILE_SCHEME } from '../view/compareChangesTreeDataProvider';
 import { GitChangeType } from './file';
 import { TemporaryState } from './temporaryState';
 
@@ -60,6 +59,58 @@ export interface GitUriOptions {
 }
 
 const ImageMimetypes = ['image/png', 'image/gif', 'image/jpeg', 'image/webp', 'image/tiff', 'image/bmp'];
+// Known media types that VS Code can handle: https://github.com/microsoft/vscode/blob/a64e8e5673a44e5b9c2d493666bde684bd5a135c/src/vs/base/common/mime.ts#L33-L84
+const KnownMediaExtensions =[
+	'.aac',
+	'.avi',
+	'.bmp',
+	'.flv',
+	'.gif',
+	'.ico',
+	'.jpe',
+	'.jpeg',
+	'.jpg',
+	'.m1v',
+	'.m2a',
+	'.m2v',
+	'.m3a',
+	'.mid',
+	'.midi',
+	'.mk3d',
+	'.mks',
+	'.mkv',
+	'.mov',
+	'.movie',
+	'.mp2',
+	'.mp2a',
+	'.mp3',
+	'.mp4',
+	'.mp4a',
+	'.mp4v',
+	'.mpe',
+	'.mpeg',
+	'.mpg',
+	'.mpg4',
+	'.mpga',
+	'.oga',
+	'.ogg',
+	'.opus',
+	'.ogv',
+	'.png',
+	'.psd',
+	'.qt',
+	'.spx',
+	'.svg',
+	'.tga',
+	'.tif',
+	'.tiff',
+	'.wav',
+	'.webm',
+	'.webp',
+	'.wma',
+	'.wmv',
+	'.woff'
+];
 
 // a 1x1 pixel transparent gif, from http://png-pixel.com/
 export const EMPTY_IMAGE_URI = vscode.Uri.parse(
@@ -69,7 +120,11 @@ export const EMPTY_IMAGE_URI = vscode.Uri.parse(
 export async function asImageDataURI(uri: vscode.Uri, repository: Repository): Promise<vscode.Uri | undefined> {
 	try {
 		const { commit, baseCommit, headCommit, isBase, path } = JSON.parse(uri.query);
-		const ref = uri.scheme === 'review' ? commit : isBase ? baseCommit : headCommit;
+		const ext = pathUtils.extname(path);
+		if (!KnownMediaExtensions.includes(ext)) {
+			return;
+		}
+		const ref = uri.scheme === Schemes.Review ? commit : isBase ? baseCommit : headCommit;
 		const { object } = await repository.getObjectDetails(ref, uri.fsPath);
 		const { mimetype } = await repository.detectObjectType(object);
 
@@ -111,7 +166,7 @@ export function toReviewUri(
 	}
 
 	return uri.with({
-		scheme: 'review',
+		scheme: Schemes.Review,
 		path,
 		query: JSON.stringify(params),
 	});
@@ -131,7 +186,7 @@ export function toResourceUri(uri: vscode.Uri, prNumber: number, fileName: strin
 	};
 
 	return uri.with({
-		scheme: FILECHANGE_FILE_SCHEME,
+		scheme: Schemes.FileChange,
 		query: JSON.stringify(params),
 	});
 }
@@ -164,18 +219,23 @@ export function toPRUri(
 	const path = uri.path;
 
 	return uri.with({
-		scheme: 'pr',
+		scheme: Schemes.Pr,
 		path,
 		query: JSON.stringify(params),
 	});
 }
 
-export enum Schemas {
-	file = 'file'
+export enum Schemes {
+	File = 'file',
+	Review = 'review',
+	Pr = 'pr',
+	FileChange = 'filechange',
+	GithubPr = 'githubpr',
+	VscodeVfs = 'vscode-vfs' // Remote Repository
 }
 
 export function resolvePath(from: vscode.Uri, to: string) {
-	if (from.scheme === Schemas.file) {
+	if (from.scheme === Schemes.File) {
 		return pathUtils.resolve(from.fsPath, to);
 	} else {
 		return pathUtils.posix.resolve(from.path, to);

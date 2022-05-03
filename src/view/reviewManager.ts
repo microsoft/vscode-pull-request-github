@@ -8,7 +8,8 @@ import * as vscode from 'vscode';
 import type { Branch, Repository } from '../api/api';
 import { GitErrorCodes } from '../api/api1';
 import { openDescription } from '../commands';
-import { DiffChangeType, parseDiff } from '../common/diffHunk';
+import { DiffChangeType } from '../common/diffHunk';
+import { commands } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
@@ -374,7 +375,7 @@ export class ReviewManager {
 				}),
 			);
 		} else {
-			this._webviewViewProvider.updatePullRequest(pr);
+			await this._webviewViewProvider.updatePullRequest(pr);
 		}
 
 		this.statusBarItem.text = `$(git-pull-request) Pull Request #${this._prNumber}`;
@@ -421,6 +422,7 @@ export class ReviewManager {
 	}
 
 	private _doFocusShow(openDiff: boolean) {
+		commands.executeCommand('workbench.action.focusCommentsPanel');
 		this._webviewViewProvider?.show();
 		if (openDiff) {
 			if (this._reviewModel.localFileChanges.length) {
@@ -518,12 +520,10 @@ export class ReviewManager {
 
 	private async initializePullRequestData(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
 		try {
-			const data = await pr.getFileChangesInfo();
-			const mergeBase = pr.mergeBase || pr.base.sha;
-
-			const contentChanges = await parseDiff(data, this._repository, mergeBase!);
+			const contentChanges = await pr.getFileChangesInfo(this._repository);
 			this._reviewModel.localFileChanges = await this.getLocalChangeNodes(pr, contentChanges);
 			await Promise.all([pr.initializeReviewComments(), pr.initializeReviewThreadCache(), pr.initializePullRequestFileViewState()]);
+			pr.setFileViewedContext();
 			const outdatedComments = pr.comments.filter(comment => !comment.position);
 
 			const commitsGroup = groupBy(outdatedComments, comment => comment.originalCommitId!);
@@ -582,12 +582,12 @@ export class ReviewManager {
 		if (this._folderRepoManager.activePullRequest?.reviewThreadsCacheReady && this._reviewModel.hasLocalFileChanges) {
 			await this.doRegisterCommentController();
 		} else {
-			const changeThreadsDisposable: vscode.Disposable | undefined =
-				this._folderRepoManager.activePullRequest?.onDidChangeReviewThreads(async () => {
-					if (changeThreadsDisposable) {
-						changeThreadsDisposable.dispose();
-					}
+			const changedLocalFilesChangesDisposable: vscode.Disposable | undefined =
+				this._reviewModel.onDidChangeLocalFileChanges(async () => {
 					if (this._folderRepoManager.activePullRequest?.reviewThreadsCache && this._reviewModel.hasLocalFileChanges) {
+						if (changedLocalFilesChangesDisposable) {
+							changedLocalFilesChangesDisposable.dispose();
+						}
 						await this.doRegisterCommentController();
 					}
 				});

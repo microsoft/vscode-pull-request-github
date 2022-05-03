@@ -36,6 +36,15 @@ export interface CommentReactionHandler {
 	toggleReaction(comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void>;
 }
 
+export function threadRange(startLine: number, endLine: number, endCharacter?: number): vscode.Range {
+	if ((startLine !== endLine) && (endCharacter === undefined)) {
+		endCharacter = 300; // 300 is a "large" number that will select a lot of the line since don't know anything about the line length
+	} else if (!endCharacter) {
+		endCharacter = 0;
+	}
+	return new vscode.Range(startLine, 0, endLine, endCharacter);
+}
+
 export function createVSCodeCommentThreadForReviewThread(
 	uri: vscode.Uri,
 	range: vscode.Range,
@@ -47,7 +56,7 @@ export function createVSCodeCommentThreadForReviewThread(
 	(vscodeThread as GHPRCommentThread).gitHubThreadId = thread.id;
 
 	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(comment, vscodeThread as GHPRCommentThread));
-	(vscodeThread as GHPRCommentThread).isResolved = thread.isResolved;
+	vscodeThread.state = isResolvedToResolvedState(thread.isResolved);
 
 	if (thread.viewerCanResolve && !thread.isResolved) {
 		vscodeThread.contextValue = 'canResolve';
@@ -61,6 +70,9 @@ export function createVSCodeCommentThreadForReviewThread(
 	return vscodeThread as GHPRCommentThread;
 }
 
+function isResolvedToResolvedState(isResolved: boolean) {
+	return isResolved ? vscode.CommentThreadState.Resolved : vscode.CommentThreadState.Unresolved;
+}
 
 export const COMMENT_EXPAND_STATE_SETTING = 'commentExpandState';
 export const COMMENT_EXPAND_STATE_COLLAPSE_VALUE = 'collapseAll';
@@ -77,25 +89,41 @@ export function getCommentCollapsibleState(isResolved: boolean, expand?: boolean
 		? vscode.CommentThreadCollapsibleState.Expanded : vscode.CommentThreadCollapsibleState.Collapsed;
 }
 
-export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, expand?: boolean) {
+
+export function updateThreadWithRange(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, expand?: boolean) {
+	const editors = vscode.window.visibleTextEditors;
+	for (let editor of editors) {
+		if (editor.document.uri.toString() === vscodeThread.uri.toString()) {
+			const endLine = editor.document.lineAt(vscodeThread.range.end.line);
+			const range = new vscode.Range(vscodeThread.range.start.line, 0, vscodeThread.range.end.line, endLine.text.length);
+			updateThread(vscodeThread, reviewThread, expand, range);
+			break;
+		}
+	}
+}
+
+export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, expand?: boolean, range?: vscode.Range) {
 	if (reviewThread.viewerCanResolve && !reviewThread.isResolved) {
 		vscodeThread.contextValue = 'canResolve';
 	} else if (reviewThread.viewerCanUnresolve && reviewThread.isResolved) {
 		vscodeThread.contextValue = 'canUnresolve';
 	}
 
-	if (vscodeThread.isResolved !== reviewThread.isResolved) {
-		vscodeThread.isResolved = reviewThread.isResolved;
+	const newResolvedState = isResolvedToResolvedState(reviewThread.isResolved);
+	if (vscodeThread.state !== newResolvedState) {
+		vscodeThread.state = newResolvedState;
 	}
 	vscodeThread.collapsibleState = getCommentCollapsibleState(reviewThread.isResolved, expand);
-
+	if (range) {
+		vscodeThread.range = range;
+	}
 	vscodeThread.comments = reviewThread.comments.map(c => new GHPRComment(c, vscodeThread));
 	updateCommentThreadLabel(vscodeThread);
 }
 
 export function updateCommentThreadLabel(thread: GHPRCommentThread) {
-	if (thread.isResolved) {
-		thread.label = 'This thread has been marked as resolved';
+	if (thread.state === vscode.CommentThreadState.Resolved) {
+		thread.label = 'Marked as resolved';
 		return;
 	}
 
@@ -354,8 +382,10 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread): IReviewT
 		viewerCanResolve: thread.viewerCanResolve,
 		viewerCanUnresolve: thread.viewerCanUnresolve,
 		path: thread.path,
-		line: thread.line,
-		originalLine: thread.originalLine,
+		startLine: thread.startLine ?? thread.line,
+		endLine: thread.line,
+		originalStartLine: thread.originalStartLine ?? thread.originalLine,
+		originalEndLine: thread.originalLine,
 		diffSide: thread.diffSide,
 		isOutdated: thread.isOutdated,
 		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved)),
@@ -479,15 +509,24 @@ export function parseMilestone(
 	};
 }
 
-export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFLICTING'): PullRequestMergeability {
+export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFLICTING',
+	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE'): PullRequestMergeability {
+	let parsed: PullRequestMergeability;
 	switch (mergeability) {
 		case 'UNKNOWN':
-			return PullRequestMergeability.Unknown;
+			parsed = PullRequestMergeability.Unknown;
+			break;
 		case 'MERGEABLE':
-			return PullRequestMergeability.Mergeable;
+			parsed = PullRequestMergeability.Mergeable;
+			break;
 		case 'CONFLICTING':
-			return PullRequestMergeability.NotMergeable;
+			parsed = PullRequestMergeability.Conflict;
+			break;
 	}
+	if ((parsed !== PullRequestMergeability.Conflict) && (mergeStateStatus === 'BLOCKED')) {
+		parsed = PullRequestMergeability.NotMergeable;
+	}
+	return parsed;
 }
 
 export function parseGraphQLPullRequest(
@@ -513,7 +552,7 @@ export function parseGraphQLPullRequest(
 		base: parseRef(graphQLPullRequest.baseRef?.name ?? graphQLPullRequest.baseRefName, graphQLPullRequest.baseRefOid, graphQLPullRequest.baseRepository),
 		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
-		mergeable: parseMergeability(graphQLPullRequest.mergeable),
+		mergeable: parseMergeability(graphQLPullRequest.mergeable, graphQLPullRequest.mergeStateStatus),
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
@@ -587,7 +626,7 @@ export function parseGraphQLIssuesRequest(
 		base: parseRef(graphQLPullRequest.baseRef?.name ?? graphQLPullRequest.baseRefName, graphQLPullRequest.baseRefOid, graphQLPullRequest.baseRepository),
 		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
-		mergeable: parseMergeability(graphQLPullRequest.mergeable),
+		mergeable: parseMergeability(graphQLPullRequest.mergeable, pullRequest.mergeStateStatus),
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
@@ -964,4 +1003,12 @@ export function generateGravatarUrl(gravatarId: string | undefined, size: number
 export function getAvatarWithEnterpriseFallback(avatarUrl: string, email: string | undefined, authProviderId: AuthProvider): string | undefined {
 	return authProviderId === AuthProvider.github ? avatarUrl : (email ? generateGravatarUrl(
 		crypto.createHash('md5').update(email?.trim()?.toLowerCase()).digest('hex')) : undefined);
+}
+
+export function getPullsUrl(repo: GitHubRepository) {
+	return vscode.Uri.parse(`https://${repo.remote.host}/${repo.remote.owner}/${repo.remote.repositoryName}/pulls`);
+}
+
+export function getIssuesUrl(repo: GitHubRepository) {
+	return vscode.Uri.parse(`https://${repo.remote.host}/${repo.remote.owner}/${repo.remote.repositoryName}/issues`);
 }

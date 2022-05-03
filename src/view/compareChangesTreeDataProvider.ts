@@ -8,15 +8,13 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { getGitChangeType } from '../common/diffHunk';
 import Logger from '../common/logger';
-import { fromGitHubURI } from '../common/uri';
+import { fromGitHubURI, Schemes } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
 import { ReadonlyFileSystemProvider } from './readonlyFileSystemProvider';
 import { GitHubFileChangeNode } from './treeNodes/fileChangeNode';
 import { TreeNode } from './treeNodes/treeNode';
 
-export const GITHUB_FILE_SCHEME = 'githubpr';
-export const FILECHANGE_FILE_SCHEME = 'filechange';
 
 export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 	private _view: vscode.TreeView<TreeNode>;
@@ -85,9 +83,11 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		}
 	}
 
-	async updateCompareBranch(branch: string): Promise<void> {
-		await this.updateHasUpstream(branch);
-		this.compareBranchName = branch;
+	async updateCompareBranch(branch?: string): Promise<void> {
+		if (branch) {
+			await this.updateHasUpstream(branch);
+			this.compareBranchName = branch;
+		}
 		this._onDidChangeTreeData.fire();
 	}
 
@@ -129,7 +129,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		if (!this._contentProvider) {
 			this._contentProvider = new GitHubContentProvider(this._gitHubRepository);
 			this._disposables.push(
-				vscode.workspace.registerFileSystemProvider(GITHUB_FILE_SCHEME, this._contentProvider, { isReadonly: true }));
+				vscode.workspace.registerFileSystemProvider(Schemes.GithubPr, this._contentProvider, { isReadonly: true }));
 		}
 
 		const { octokit, remote } = await this._gitHubRepository.ensure();

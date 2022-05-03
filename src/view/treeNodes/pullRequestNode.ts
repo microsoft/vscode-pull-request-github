@@ -5,11 +5,11 @@
 
 import * as vscode from 'vscode';
 import { getCommentingRanges } from '../../common/commentingRanges';
-import { DiffChangeType, getModifiedContentFromDiffHunk, parseDiff } from '../../common/diffHunk';
+import { DiffChangeType, getModifiedContentFromDiffHunk } from '../../common/diffHunk';
 import { GitChangeType, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT } from '../../common/settingKeys';
-import { fromPRUri, resolvePath, toPRUri } from '../../common/uri';
+import { fromPRUri, resolvePath, Schemes, toPRUri, toReviewUri } from '../../common/uri';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { getInMemPRFileSystemProvider } from '../inMemPRContentProvider';
@@ -112,6 +112,11 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 	}
 
 	private async resolvePRCommentController(): Promise<void> {
+		// If the current branch is this PR's branch, then we can rely on the review comment controller instead.
+		if (this.pullRequestModel.equals(this._folderReposManager.activePullRequest)) {
+			return;
+		}
+
 		await this.pullRequestModel.githubRepository.ensureCommentsController();
 		this._commentController = this.pullRequestModel.githubRepository.commentsController!;
 
@@ -160,15 +165,17 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 			return [];
 		}
 
-		const data = await this.pullRequestModel.getFileChangesInfo();
+		// If this PR is the the current PR, then we should be careful to use
+		// URIs that will cause the review comment controller to be used.
+		const isCurrentPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
+
+		const rawChanges = await this.pullRequestModel.getFileChangesInfo(this._folderReposManager.repository);
 
 		// Merge base is set as part of getPullRequestFileChangesInfo
 		const mergeBase = this.pullRequestModel.mergeBase;
 		if (!mergeBase) {
 			return [];
 		}
-
-		const rawChanges = await parseDiff(data, this._folderReposManager.repository, mergeBase);
 
 		return rawChanges.map(change => {
 			const headCommit = this.pullRequestModel.head!.sha;
@@ -206,16 +213,19 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				);
 			}
 
-			console.log(vscode.Uri.file(resolvePath(this._folderReposManager.repository.rootUri, change.fileName)));
-
+			const filePath = vscode.Uri.file(resolvePath(this._folderReposManager.repository.rootUri, change.fileName));
+			const parentPath = vscode.Uri.file(resolvePath(this._folderReposManager.repository.rootUri, parentFileName));
 			const changedItem = new InMemFileChangeNode(
 				this._folderReposManager,
 				this,
 				this.pullRequestModel as (PullRequestModel & IResolvedPullRequestModel),
 				change,
 				change.previousFileName,
-				toPRUri(
-					vscode.Uri.file(resolvePath(this._folderReposManager.repository.rootUri, change.fileName)),
+				isCurrentPR ? ((change.status === GitChangeType.DELETE)
+					? toReviewUri(filePath, undefined, undefined, '', false, { base: false }, this._folderReposManager.repository.rootUri)
+					: filePath)
+					: toPRUri(
+						filePath,
 					this.pullRequestModel,
 					change.baseCommit,
 					headCommit,
@@ -223,8 +233,16 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 					false,
 					change.status,
 				),
-				toPRUri(
-					vscode.Uri.file(resolvePath(this._folderReposManager.repository.rootUri, parentFileName)),
+				isCurrentPR ? (toReviewUri(
+					parentPath,
+					change.status === GitChangeType.RENAME ? change.previousFileName : change.fileName,
+					undefined,
+					change.status === GitChangeType.ADD ? '' : mergeBase,
+					false,
+					{ base: true },
+					this._folderReposManager.repository.rootUri,
+				)) : toPRUri(
+					parentPath,
 					this.pullRequestModel,
 					change.baseCommit,
 					headCommit,
@@ -275,7 +293,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		document: vscode.TextDocument,
 		_token: vscode.CancellationToken,
 	): Promise<vscode.Range[] | undefined> {
-		if (document.uri.scheme === 'pr') {
+		if (document.uri.scheme === Schemes.Pr) {
 			const params = fromPRUri(document.uri);
 
 			if (!params || params.prNumber !== this.pullRequestModel.number) {

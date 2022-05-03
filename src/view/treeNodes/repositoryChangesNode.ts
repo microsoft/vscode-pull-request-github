@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import Logger, { PR_TREE } from '../../common/logger';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { ReviewModel } from '../reviewModel';
@@ -31,8 +32,10 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 
 		this._disposables.push(
 			vscode.window.onDidChangeActiveTextEditor(e => {
-				const activeEditorUri = e?.document.uri.toString();
-				this.revealActiveEditorInTree(activeEditorUri);
+				if (vscode.workspace.getConfiguration('explorer').get('autoReveal')) {
+					const activeEditorUri = e?.document.uri.toString();
+					this.revealActiveEditorInTree(activeEditorUri);
+				}
 			}),
 		);
 
@@ -59,6 +62,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 
 	async getChildren(): Promise<TreeNode[]> {
 		if (!this._filesCategoryNode || !this._commitsCategoryNode) {
+			Logger.appendLine(`Creating file and commit nodes for PR #${this.pullRequestModel.number}`, PR_TREE);
 			this._filesCategoryNode = new FilesCategoryNode(this.parent, this._reviewModel, this._pullRequest);
 			this._commitsCategoryNode = new CommitsNode(
 				this.parent,
@@ -75,6 +79,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	}
 
 	dispose() {
+		super.dispose();
 		this._disposables.forEach(d => d.dispose());
 		this._disposables = [];
 	}

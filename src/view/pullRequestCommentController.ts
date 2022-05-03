@@ -10,7 +10,7 @@ import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from
 import { DiffSide, IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { ISessionState } from '../common/sessionState';
-import { fromPRUri } from '../common/uri';
+import { fromPRUri, Schemes } from '../common/uri';
 import { groupBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
@@ -19,9 +19,11 @@ import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import {
 	CommentReactionHandler,
 	createVSCodeCommentThreadForReviewThread,
+	threadRange,
 	updateCommentReviewState,
 	updateCommentThreadLabel,
 	updateThread,
+	updateThreadWithRange,
 } from '../github/utils';
 
 export class PullRequestCommentController implements CommentHandler, CommentReactionHandler {
@@ -106,7 +108,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		}
 
 		const editorUri = editor.document.uri;
-		if (editorUri.scheme !== 'pr') {
+		if (editorUri.scheme !== Schemes.Pr) {
 			return;
 		}
 
@@ -120,7 +122,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 	private getPREditors(editors: vscode.TextEditor[]): vscode.TextEditor[] {
 		return editors.filter(editor => {
-			if (editor.document.uri.scheme !== 'pr') {
+			if (editor.document.uri.scheme !== Schemes.Pr) {
 				return false;
 			}
 
@@ -165,14 +167,12 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 					.filter(
 						thread =>
 							((thread.diffSide === DiffSide.LEFT && isBase) ||
-							(thread.diffSide === DiffSide.RIGHT && !isBase))
-							&& (thread.line !== null),
+								(thread.diffSide === DiffSide.RIGHT && !isBase))
+							&& (thread.endLine !== null),
 					)
 					.map(thread => {
-						const range = new vscode.Range(
-							new vscode.Position(thread.line - 1, 0),
-							new vscode.Position(thread.line - 1, 0),
-						);
+						const endLine = thread.endLine - 1;
+						const range = threadRange(thread.startLine - 1, endLine, editor.document.lineAt(endLine).range.end.character);
 
 						return createVSCodeCommentThreadForReviewThread(
 							editor.document.uri,
@@ -192,8 +192,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	}
 
 	private cleanCachedEditors() {
-		// Keep the most recent 4 editors (2 diffs) around and clean up the rest.
-		if (this._closedEditorCachedThreads.size > 4) {
+		// Keep the most recent 8 editors (4 diffs) around and clean up the rest.
+		if (this._closedEditorCachedThreads.size > 8) {
 			const keys = Array.from(this._closedEditorCachedThreads.keys());
 			for (let i = 0; i < this._closedEditorCachedThreads.size - 4; i++) {
 				const key = keys[i];
@@ -239,7 +239,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			const fileName = thread.path;
 			const index = this._pendingCommentThreadAdds.findIndex(t => {
 				const samePath = this.gitRelativeRootPath(t.uri.path) === thread.path;
-				const sameLine = t.range.start.line + 1 === thread.line;
+				const sameLine = t.range.end.line + 1 === thread.endLine;
 				return samePath && sameLine;
 			});
 
@@ -248,6 +248,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				newThread = this._pendingCommentThreadAdds[index];
 				newThread.gitHubThreadId = thread.id;
 				newThread.comments = thread.comments.map(c => new GHPRComment(c, newThread!));
+				updateThreadWithRange(newThread, thread);
 				this._pendingCommentThreadAdds.splice(index, 1);
 			} else {
 				const openPREditors = this.getPREditors(vscode.window.visibleTextEditors);
@@ -260,10 +261,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				});
 
 				if (matchingEditor) {
-					const range = new vscode.Range(
-						new vscode.Position(thread.line - 1, 0),
-						new vscode.Position(thread.line - 1, 0),
-					);
+					const endLine = thread.endLine - 1;
+					const range = threadRange(thread.startLine - 1, endLine, matchingEditor.document.lineAt(endLine).range.end.character);
 
 					newThread = createVSCodeCommentThreadForReviewThread(
 						matchingEditor.document.uri,
@@ -306,7 +305,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	}
 
 	hasCommentThread(thread: GHPRCommentThread): boolean {
-		if (thread.uri.scheme !== 'pr') {
+		if (thread.uri.scheme !== Schemes.Pr) {
 			return false;
 		}
 
@@ -334,8 +333,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		const isDraft = isSingleComment
 			? false
 			: inDraft !== undefined
-			? inDraft
-			: this.pullRequestModel.hasPendingReview;
+				? inDraft
+				: this.pullRequestModel.hasPendingReview;
 		const temporaryCommentId = this.optimisticallyAddComment(thread, input, isDraft);
 
 		try {
@@ -349,6 +348,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 					input,
 					fileName,
 					thread.range.start.line + 1,
+					thread.range.end.line + 1,
 					side,
 					isSingleComment,
 				);
@@ -461,7 +461,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				const fileName = this.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
 				this._pendingCommentThreadAdds.push(thread);
-				await this.pullRequestModel.createReviewThread(input, fileName, thread.range.start.line + 1, side);
+				await this.pullRequestModel.createReviewThread(input, fileName, thread.range.start.line + 1, thread.range.end.line + 1, side);
 			} else {
 				await this.reply(thread, input, false);
 			}
@@ -533,7 +533,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	}
 
 	public async toggleReaction(comment: GHPRComment, reaction: vscode.CommentReaction): Promise<void> {
-		if (comment.parent!.uri.scheme !== 'pr') {
+		if (comment.parent!.uri.scheme !== Schemes.Pr) {
 			return;
 		}
 

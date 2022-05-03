@@ -30,7 +30,7 @@ export interface CommentHandler {
 
 
 export interface CommentReply {
-	thread: GHPRCommentThread & { value: GHPRCommentThread };
+	thread: GHPRCommentThread;
 	text: string;
 }
 
