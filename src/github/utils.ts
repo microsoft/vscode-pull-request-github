@@ -530,11 +530,9 @@ export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFL
 }
 
 export function parseGraphQLPullRequest(
-	pullRequest: GraphQL.PullRequestResponse,
+	graphQLPullRequest: GraphQL.PullRequest,
 	githubRepository: GitHubRepository,
 ): PullRequest {
-	const graphQLPullRequest = pullRequest.repository.pullRequest;
-
 	return {
 		id: graphQLPullRequest.databaseId,
 		graphNodeId: graphQLPullRequest.id,

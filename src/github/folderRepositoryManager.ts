@@ -1800,25 +1800,18 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return null;
 		}
 
-		const headGitHubRepo = this.gitHubRepositories.find(
-			repo => repo.remote.remoteName === this.repository.state.HEAD?.upstream?.remote,
-		);
-
-		// Find the github repo that matches the upstream
+		// Search through each github repo to see if it has a PR with this head branch.
 		for (const repo of this.gitHubRepositories) {
-			if (repo.remote.remoteName === this.repository.state.HEAD.upstream.remote) {
-				const matchingPullRequest = await repo.getPullRequestForBranch(
-					`${headGitHubRepo?.remote.owner}:${this.repository.state.HEAD.upstream.name}`,
-				);
-				if (matchingPullRequest && matchingPullRequest.length > 0) {
-					return {
-						owner: repo.remote.owner,
-						repositoryName: repo.remote.repositoryName,
-						prNumber: matchingPullRequest[0].number,
-						model: matchingPullRequest[0],
-					};
-				}
-				break;
+			const matchingPullRequest = await repo.getPullRequestForBranch(
+				this.repository.state.HEAD.upstream.name,
+			);
+			if (matchingPullRequest) {
+				return {
+					owner: repo.remote.owner,
+					repositoryName: repo.remote.repositoryName,
+					prNumber: matchingPullRequest.number,
+					model: matchingPullRequest,
+				};
 			}
 		}
 		return null;
@@ -1905,7 +1898,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	createGitHubRepositoryFromOwnerName(owner: string, repositoryName: string): GitHubRepository {
-		const existing = this.findExistingGitHubRepository({owner, repositoryName});
+		const existing = this.findExistingGitHubRepository({ owner, repositoryName });
 		if (existing) {
 			return existing;
 		}

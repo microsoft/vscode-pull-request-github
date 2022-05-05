@@ -504,6 +504,14 @@ export interface IssuesResponse {
 	};
 }
 
+export interface PullRequestsResponse {
+	repository: {
+		pullRequests: {
+			nodes: PullRequest[]
+		}
+	}
+}
+
 export interface MaxIssueResponse {
 	repository: {
 		issues: {
