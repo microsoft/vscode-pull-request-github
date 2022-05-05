@@ -17,10 +17,13 @@
 	"version": "0.42.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.67.0"
+		"vscode": "^1.68.0"
 	},
 	"categories": [
 		"Other"
+	],
+	"extensionDependencies": [
+		"vscode.github-authentication"
 	],
 	"activationEvents": [
 		"*",
