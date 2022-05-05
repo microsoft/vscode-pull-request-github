@@ -1438,8 +1438,8 @@ SOFTWARE.
 is-plain-object 5.0.0 - MIT
 https://github.com/jonschlinkert/is-plain-object
 
-Copyright (c) 2014-2017, Jon Schlinkert.
-Copyright (c) 2019, Jon Schlinkert (https://github.com/jonschlinkert).
+Copyright (c) 2014-2017, Jon Schlinkert
+Copyright (c) 2019, Jon Schlinkert (https://github.com/jonschlinkert)
 
 The MIT License (MIT)
 
@@ -1763,8 +1763,9 @@ SOFTWARE.
 react-dom 16.14.0 - MIT
 https://reactjs.org/
 
+(c) Db (c)
 Copyright (c) 2013-present, Facebook, Inc.
-Copyright (c) Facebook, Inc. and its affiliates.
+Copyright (c) Facebook, Inc. and its affiliates
 
 MIT License
 
@@ -1796,7 +1797,7 @@ SOFTWARE.
 react-is 16.13.1 - MIT
 https://reactjs.org/
 
-Copyright (c) Facebook, Inc. and its affiliates.
+Copyright (c) Facebook, Inc. and its affiliates
 
 MIT License
 
@@ -1894,6 +1895,7 @@ https://github.com/blesh/symbol-observable#readme
 
 Copyright (c) Ben Lesh <ben@benlesh.com>
 Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
+(c) Sindre Sorhus (https://sindresorhus.com) and Ben Lesh (https://github.com/benlesh)
 
 The MIT License (MIT)
 
@@ -2028,6 +2030,7 @@ uuid 8.3.2 - MIT
 https://github.com/uuidjs/uuid#readme
 
 Copyright 2011, Sebastian Tschan https://blueimp.net
+Copyright (c) 2010-2020 Robert Kieffer and other contributors
 Copyright (c) Paul Johnston 1999 - 2009 Other contributors Greg Holt, Andrew Kepert, Ydnar, Lostinet
 
 The MIT License (MIT)
@@ -2100,7 +2103,7 @@ THE SOFTWARE.
 zen-observable 0.8.15 - MIT
 https://github.com/zenparsing/zen-observable
 
-Copyright (c) 2018
+Copyright (c) 2018 zenparsing Kevin
 
 Copyright (c) 2018 zenparsing (Kevin Smith)
 
