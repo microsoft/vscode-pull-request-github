@@ -268,6 +268,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			defaultTitle,
 			defaultDescription,
 			isDraft: false,
+			createError: ''
 		};
 
 		this._compareBranch = this.defaultCompareBranch.name ?? '';
