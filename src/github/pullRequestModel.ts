@@ -49,6 +49,7 @@ import {
 	IAccount,
 	IRawFileChange,
 	ISuggestedReviewer,
+	MergeMethod,
 	PullRequest,
 	PullRequestChecks,
 	PullRequestMergeability,
@@ -1374,6 +1375,31 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			const thread = parseGraphQLReviewThread(data.unresolveReviewThread.thread);
 			this._reviewThreadsCache.splice(index, 1, thread);
 			this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
+		}
+	}
+
+	async enableAutoMerge(mergeMethod: MergeMethod): Promise<void> {
+		try {
+			const { mutate, schema } = await this.githubRepository.ensure();
+			const { data } = await mutate({
+				mutation: schema.EnablePullRequestAutoMerge,
+				variables: {
+					input: {
+						mergeMethod: mergeMethod.toUpperCase(),
+						pullRequestId: this.graphNodeId
+					}
+				}
+			});
+
+			if (!data) {
+				throw new Error('Enable auto-merge failed.');
+			}
+		} catch (e) {
+			if (e.message === 'GraphQL error: ["Pull request Pull request is in clean status"]') {
+				vscode.window.showWarningMessage('Unable to enable auto-merge. Pull request status checks are already green.');
+			} else {
+				throw e;
+			}
 		}
 	}
 

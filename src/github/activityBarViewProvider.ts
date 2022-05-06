@@ -10,7 +10,7 @@ import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, MergeMethod, ReviewEvent, ReviewState } from './interface';
+import { GithubItemStateEnum, ReviewEvent, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
@@ -146,10 +146,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				const hasWritePermission = repositoryAccess!.hasWritePermission;
 				const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
 				const canEdit = hasWritePermission || this._item.canEdit();
-				const preferredMergeMethod = vscode.workspace
-					.getConfiguration('githubPullRequests')
-					.get<MergeMethod>('defaultMergeMethod');
-				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
+				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
 				const currentUser = this._folderRepositoryManager.getCurrentUser(this._item);
 				this._existingReviewers = parseReviewers(
 					requestedReviewers ?? [],

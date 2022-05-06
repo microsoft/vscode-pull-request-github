@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
+import React, { ChangeEventHandler, useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
 import { groupBy } from '../../src/common/utils';
 import { GithubItemStateEnum, MergeMethod, PullRequestMergeability } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
@@ -344,11 +344,11 @@ const MERGE_METHODS = {
 	rebase: 'Rebase and Merge',
 };
 
-type MergeSelectProps = Pick<PullRequest, 'mergeMethodsAvailability'> & Pick<PullRequest, 'defaultMergeMethod'>;
+type MergeSelectProps = Pick<PullRequest, 'mergeMethodsAvailability'> & Pick<PullRequest, 'defaultMergeMethod'> & {onChange?: ChangeEventHandler<HTMLSelectElement>};
 
-const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>(
-	({ defaultMergeMethod, mergeMethodsAvailability: avail }: MergeSelectProps, ref) => (
-		<select ref={ref} defaultValue={defaultMergeMethod}>
+export const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>(
+	({ defaultMergeMethod, mergeMethodsAvailability: avail, onChange }: MergeSelectProps, ref) => (
+		<select ref={ref} defaultValue={defaultMergeMethod} onChange={onChange}>
 			{Object.entries(MERGE_METHODS).map(([method, text]) => (
 				<option key={method} value={method} disabled={!avail[method]}>
 					{text}

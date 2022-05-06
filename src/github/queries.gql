@@ -989,6 +989,14 @@ mutation UnresolveReviewThread($input: UnresolveReviewThreadInput!) {
 	}
 }
 
+mutation EnablePullRequestAutoMerge($input: EnablePullRequestAutoMergeInput!) {
+	enablePullRequestAutoMerge(input: $input) {
+		pullRequest {
+			id
+		}
+	}
+}
+
 mutation MarkFileAsViewed($input: MarkFileAsViewedInput!) {
 	markFileAsViewed(input: $input) {
 		pullRequest {

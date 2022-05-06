@@ -284,16 +284,17 @@ export class GitHubRepository implements vscode.Disposable {
 				repo: remote.repositoryName,
 			});
 			Logger.debug(`Fetch repo permissions and available merge methods - done`, GitHubRepository.ID);
-
+			const hasWritePermission = data.permissions?.push ?? false;
 			return {
 				// Users with push access to repo have rights to merge/close PRs,
 				// edit title/description, assign reviewers/labels etc.
-				hasWritePermission: data.permissions?.push ?? false,
+				hasWritePermission,
 				mergeMethodsAvailability: {
 					merge: data.allow_merge_commit ?? false,
 					squash: data.allow_squash_merge ?? false,
 					rebase: data.allow_rebase_merge ?? false,
 				},
+				viewerCanAutoMerge: ((data as any).allow_auto_merge && hasWritePermission) ?? false
 			};
 		} catch (e) {
 			Logger.appendLine(`GitHubRepository> Fetching repo permissions and available merge methods failed: ${e}`);
@@ -306,6 +307,7 @@ export class GitHubRepository implements vscode.Disposable {
 				squash: true,
 				rebase: true,
 			},
+			viewerCanAutoMerge: false
 		};
 	}
 
