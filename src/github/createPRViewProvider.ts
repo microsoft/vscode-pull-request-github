@@ -278,6 +278,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			defaultMergeMethod: getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability),
 			allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
 			mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability
+			createError: ''
 		};
 
 		this._compareBranch = this.defaultCompareBranch.name ?? '';
@@ -360,7 +361,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 							return false;
 						}
 						const testRemote = new Remote(localRemote.name, localRemote.pushUrl, new Protocol(localRemote.pushUrl));
-						if ((testRemote.owner === compareOwner) && (testRemote.repositoryName === compareRepositoryName)) {
+						if ((testRemote.owner.toLowerCase() === compareOwner.toLowerCase()) && (testRemote.repositoryName.toLowerCase() === compareRepositoryName.toLowerCase())) {
 							createdPushRemote = testRemote;
 							return true;
 						}
