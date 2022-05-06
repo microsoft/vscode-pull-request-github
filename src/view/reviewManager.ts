@@ -314,6 +314,7 @@ export class ReviewManager {
 			matchingPullRequestMetadata.prNumber,
 		);
 		if (!pr || !pr.isResolved()) {
+			this.clear(true);
 			this._prNumber = undefined;
 			Logger.appendLine('Review> This PR is no longer valid');
 			return;

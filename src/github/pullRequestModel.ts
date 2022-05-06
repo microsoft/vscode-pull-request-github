@@ -206,14 +206,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this.isRemoteHeadDeleted = item.isRemoteHeadDeleted;
 		}
 		if (item.head) {
-			this.head = new GitHubRef(item.head.ref, item.head.label, item.head.sha, item.head.repo.cloneUrl);
+			this.head = new GitHubRef(item.head.ref, item.head.label, item.head.sha, item.head.repo.cloneUrl, item.head.repo.owner, item.head.repo.name);
 		}
 
 		if (item.isRemoteBaseDeleted != null) {
 			this.isRemoteBaseDeleted = item.isRemoteBaseDeleted;
 		}
 		if (item.base) {
-			this.base = new GitHubRef(item.base.ref, item.base!.label, item.base!.sha, item.base!.repo.cloneUrl);
+			this.base = new GitHubRef(item.base.ref, item.base!.label, item.base!.sha, item.base!.repo.cloneUrl, item.base.repo.owner, item.base.repo.name);
 		}
 	}
 

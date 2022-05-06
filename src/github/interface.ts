@@ -62,6 +62,8 @@ export interface MergePullRequest {
 
 export interface IRepository {
 	cloneUrl: string;
+	owner: string;
+	name: string;
 }
 
 export interface IGitHubRef {
