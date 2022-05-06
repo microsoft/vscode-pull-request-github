@@ -1607,8 +1607,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 			// Check local branches
 			const results = await this.getBranchDeletionItems();
+			const defaults = await this.getPullRequestDefaults();
 			quickPick.items = results;
-			quickPick.selectedItems = results.filter(result => result.picked);
+			quickPick.selectedItems = results.filter(result => {
+				// Do not pick the default branch for the repo.
+				return result.picked && !((result.label === defaults.base) && (result.metadata.owner === defaults.owner) && (result.metadata.repositoryName === defaults.repo));
+			});
 			quickPick.busy = false;
 
 			let firstStep = true;
