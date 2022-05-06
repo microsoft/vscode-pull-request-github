@@ -8,6 +8,7 @@ import { render } from 'react-dom';
 import { CreateParams, RemoteInfo } from '../../common/views';
 import PullRequestContext from '../common/createContext';
 import { ErrorBoundary } from '../common/errorBoundary';
+import { AutoMerge } from '../components/automergeSelect';
 import { gitCompareIcon, repoIcon } from '../components/icon';
 
 export const RemoteSelect = ({ onChange, defaultOption, repos }:
@@ -140,6 +141,8 @@ export function main() {
 							{params.createError}
 						</ErrorBoundary>
 					</div>
+					<AutoMerge {...params}></AutoMerge>
+					
 					<div className="wrapper flex">
 						<input
 							id="draft-checkbox"

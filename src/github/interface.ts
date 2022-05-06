@@ -142,6 +142,7 @@ export type MergeMethodsAvailability = {
 export type RepoAccessAndMergeMethods = {
 	hasWritePermission: boolean;
 	mergeMethodsAvailability: MergeMethodsAvailability;
+	viewerCanAutoMerge: boolean;
 };
 
 export interface User extends IAccount {

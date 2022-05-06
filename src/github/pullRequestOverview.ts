@@ -189,10 +189,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				const hasWritePermission = repositoryAccess!.hasWritePermission;
 				const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
 				const canEdit = hasWritePermission || this._item.canEdit();
-				const preferredMergeMethod = vscode.workspace
-					.getConfiguration('githubPullRequests')
-					.get<MergeMethod>('defaultMergeMethod');
-				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
+
+				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
 				this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
 				const currentUser = this._folderRepositoryManager.getCurrentUser(this._item);
 
@@ -769,13 +767,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 export function getDefaultMergeMethod(
 	methodsAvailability: MergeMethodsAvailability,
-	userPreferred: MergeMethod | undefined,
 ): MergeMethod {
+	const userPreferred = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
 	// Use default merge method specified by user if it is available
 	if (userPreferred && methodsAvailability.hasOwnProperty(userPreferred) && methodsAvailability[userPreferred]) {
 		return userPreferred;
 	}
 	const methods: MergeMethod[] = ['merge', 'squash', 'rebase'];
-	// GitHub requires to have at leas one merge method to be enabled; use first available as default
+	// GitHub requires to have at least one merge method to be enabled; use first available as default
 	return methods.find(method => methodsAvailability[method])!;
 }

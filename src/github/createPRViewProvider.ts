@@ -17,8 +17,9 @@ import {
 	PullRequestDefaults,
 	titleAndBodyFrom,
 } from './folderRepositoryManager';
-import { PullRequestGitHelper } from './pullRequestGitHelper';
+import { RepoAccessAndMergeMethods } from './interface';
 import { PullRequestModel } from './pullRequestModel';
+import { getDefaultMergeMethod } from './pullRequestOverview';
 
 export class CreatePullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public readonly viewType = 'github:createPullRequest';
@@ -196,6 +197,11 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		}
 	}
 
+	private async getMergeConfiguration(owner: string, name: string): Promise<RepoAccessAndMergeMethods> {
+		const repo = this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(owner, name);
+		return repo.getRepoAccessAndMergeMethods();
+	}
+
 	public async initializeParams(reset: boolean = false): Promise<void> {
 		if (!this.defaultCompareBranch) {
 			throw new DetachedHeadError(this._folderRepositoryManager.repository);
@@ -214,12 +220,13 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 		const defaultBaseBranch = this._pullRequestDefaults.base;
 
-		const [configuredGitHubRemotes, allGitHubRemotes, branchesForRemote, defaultTitle, defaultDescription] = await Promise.all([
+		const [configuredGitHubRemotes, allGitHubRemotes, branchesForRemote, defaultTitle, defaultDescription, mergeConfiguration] = await Promise.all([
 			this._folderRepositoryManager.getGitHubRemotes(),
 			this._folderRepositoryManager.getAllGitHubRemotes(),
 			defaultOrigin.listBranches(this._pullRequestDefaults.owner, this._pullRequestDefaults.repo),
 			this.getTitle(this.defaultCompareBranch, defaultBaseBranch),
 			this.getDescription(this.defaultCompareBranch, defaultBaseBranch),
+			this.getMergeConfiguration(defaultBaseRemote.owner, defaultBaseRemote.repositoryName)
 		]);
 
 		const configuredRemotes: RemoteInfo[] = configuredGitHubRemotes.map(remote => {
@@ -268,6 +275,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			defaultTitle,
 			defaultDescription,
 			isDraft: false,
+			defaultMergeMethod: getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability),
+			allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
+			mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability
 		};
 
 		this._compareBranch = this.defaultCompareBranch.name ?? '';
@@ -318,6 +328,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			this._onDidChangeCompareRemote.fire({ owner, repositoryName });
 		}
 
+		// TODO: if base is change need to update auto merge
 		return this._replyMessage(message, { branches: newBranches, defaultBranch: newBranch });
 	}
 
@@ -376,17 +387,15 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 			const head = `${headRepo.remote.owner}:${compareBranchName}`;
 			const createdPR = await this._folderRepositoryManager.createPullRequest({ ...message.args, head });
-
+			
 			// Create was cancelled
 			if (!createdPR) {
 				this._throwError(message, 'There must be a difference in commits to create a pull request.');
 			} else {
+				if (message.args.autoMerge) {
+					await createdPR.enableAutoMerge(message.args.mergeMethod);
+				}
 				await this._replyMessage(message, {});
-				await PullRequestGitHelper.associateBranchWithPullRequest(
-					this._folderRepositoryManager.repository,
-					createdPR,
-					compareBranchName,
-				);
 				this._onDone.fire(createdPR);
 			}
 		} catch (e) {

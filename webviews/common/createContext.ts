@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createContext } from 'react';
-import { CreateParams, ScrollPosition } from '../../common/views';
+import { CreateParams, CreatePullRequest, ScrollPosition } from '../../common/views';
 import { getMessageHandler, MessageHandler, vscode } from './message';
 
 const defaultCreateParams: CreateParams = {
@@ -108,19 +108,22 @@ export class CreatePRContext {
 
 	public submit = async (): Promise<void> => {
 		try {
+			const args: CreatePullRequest = {
+				title: this.createParams.pendingTitle,
+				body: this.createParams.pendingDescription,
+				owner: this.createParams.baseRemote.owner,
+				repo: this.createParams.baseRemote.repositoryName,
+				base: this.createParams.baseBranch,
+				compareBranch: this.createParams.compareBranch,
+				compareOwner: this.createParams.compareRemote.owner,
+				compareRepo: this.createParams.compareRemote.repositoryName,
+				draft: this.createParams.isDraft,
+				autoMerge: this.createParams.autoMerge,
+				mergeMethod: this.createParams.mergeMethod
+			};
 			await this.postMessage({
 				command: 'pr.create',
-				args: {
-					title: this.createParams.pendingTitle,
-					body: this.createParams.pendingDescription,
-					owner: this.createParams.baseRemote.owner,
-					repo: this.createParams.baseRemote.repositoryName,
-					base: this.createParams.baseBranch,
-					compareBranch: this.createParams.compareBranch,
-					compareOwner: this.createParams.compareRemote.owner,
-					compareRepo: this.createParams.compareRemote.repositoryName,
-					draft: this.createParams.isDraft,
-				},
+				args,
 			});
 			vscode.setState(defaultCreateParams);
 		} catch (e) {

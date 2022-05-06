@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { MergeMethod, MergeMethodsAvailability } from '../src/github/interface';
+
 export interface RemoteInfo {
 	owner: string;
 	repositoryName: string;
@@ -32,6 +34,12 @@ export interface CreateParams {
 	validate?: boolean;
 	showTitleValidationError?: boolean;
 	createError?: string;
+
+	autoMerge?: boolean;
+	mergeMethod?: MergeMethod;
+	allowAutoMerge?: boolean;
+	defaultMergeMethod?: MergeMethod;
+	mergeMethodsAvailability?: MergeMethodsAvailability;
 }
 
 export interface ScrollPosition {
@@ -49,4 +57,6 @@ export interface CreatePullRequest {
 	compareOwner: string;
 	compareRepo: string;
 	draft: boolean;
+	autoMerge: boolean;
+	mergeMethod: MergeMethod;
 }
