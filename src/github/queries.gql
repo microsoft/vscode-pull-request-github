@@ -534,7 +534,7 @@ query PullRequestState($owner: String!, $name: String!, $number: Int!) {
 
 query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!) {
 	repository(owner: $owner, name: $name) {
-		pullRequests(first: 1, headRefName: $headRefName) {
+		pullRequests(first: 1, headRefName: $headRefName, orderBy: {field: CREATED_AT, direction: DESC}) {
 			nodes {
 				...PullRequestFragment
 			}
