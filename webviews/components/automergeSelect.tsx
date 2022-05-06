@@ -23,7 +23,7 @@ export const AutoMerge = (createParams: CreateParams) => {
 				type="checkbox"
 				name="automerge"
 				checked={createParams.autoMerge}
-				onChange={() => ctx.updateState({ autoMerge: !createParams.autoMerge })}
+				onChange={() => ctx.updateState({ autoMerge: !createParams.autoMerge, mergeMethod: select.current.value as MergeMethod })}
 			></input>
 		</div>
 		<label htmlFor="automerge-checkbox" className="automerge-checkbox-label">Auto-merge</label>
