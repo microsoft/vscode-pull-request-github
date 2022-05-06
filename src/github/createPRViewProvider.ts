@@ -277,7 +277,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			isDraft: false,
 			defaultMergeMethod: getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability),
 			allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
-			mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability
+			mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
 			createError: ''
 		};
 
@@ -388,7 +388,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 			const head = `${headRepo.remote.owner}:${compareBranchName}`;
 			const createdPR = await this._folderRepositoryManager.createPullRequest({ ...message.args, head });
-			
+
 			// Create was cancelled
 			if (!createdPR) {
 				this._throwError(message, 'There must be a difference in commits to create a pull request.');
