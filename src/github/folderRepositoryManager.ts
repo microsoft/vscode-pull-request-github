@@ -1800,12 +1800,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return null;
 		}
 
+		const headGitHubRepo = this.gitHubRepositories.find(
+			repo => repo.remote.remoteName === this.repository.state.HEAD?.upstream?.remote,
+		);
+
 		// Search through each github repo to see if it has a PR with this head branch.
 		for (const repo of this.gitHubRepositories) {
 			const matchingPullRequest = await repo.getPullRequestForBranch(
 				this.repository.state.HEAD.upstream.name,
 			);
-			if (matchingPullRequest) {
+			if (matchingPullRequest && (matchingPullRequest.head?.owner === headGitHubRepo?.remote.owner)
+				&& (matchingPullRequest.head?.name === headGitHubRepo?.remote.repositoryName)) {
 				return {
 					owner: repo.remote.owner,
 					repositoryName: repo.remote.repositoryName,

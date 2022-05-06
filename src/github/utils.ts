@@ -193,7 +193,11 @@ export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListRespons
 		label: head.label,
 		ref: head.ref,
 		sha: head.sha,
-		repo: { cloneUrl: head.repo.clone_url },
+		repo: {
+			cloneUrl: head.repo.clone_url,
+			owner: head.repo.owner!.login,
+			name: head.repo.name
+		},
 	};
 }
 
@@ -472,6 +476,8 @@ function parseRef(refName: string, oid: string, repository?: GraphQL.RefReposito
 		sha: oid,
 		repo: {
 			cloneUrl: repository.url,
+			owner: repository.owner.login,
+			name: refName
 		},
 	};
 }
