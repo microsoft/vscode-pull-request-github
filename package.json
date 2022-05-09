@@ -246,6 +246,10 @@
 						"closed": false
 					}
 				},
+				"githubPullRequests.assignCreated": {
+					"type": "string",
+					"description": "All pull requests created with this extension will be assigned to this user. To assign to yourself, use the '${user}' variable."
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],
