@@ -21,6 +21,7 @@ import {
 	ForkDetailsResponse,
 	IssuesResponse,
 	IssuesSearchResponse,
+	ListBranchesResponse,
 	MaxIssueResponse,
 	MentionableUsersResponse,
 	MilestoneIssuesResponse,
@@ -732,32 +733,41 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	async listBranches(owner: string, repositoryName: string): Promise<string[]> {
-		const { octokit } = await this.ensure();
+		const { query, remote, schema } = await this.ensure();
 		Logger.debug(`List branches for ${owner}/${repositoryName} - enter`, GitHubRepository.ID);
 
-		try {
-			let branches: string[] = [];
-			const startingTime = new Date().getTime();
-			for await (const response of octokit.paginate.iterator<OctokitCommon.ReposListBranchesResponseData>(
-				'GET /repos/:owner/:repo/branches',
-				{
-					owner: owner,
-					repo: repositoryName,
-					per_page: 100
-				},
-			) as any) {
-				branches.push(...response.data.map(branch => branch.name));
+		let after: string | null = null;
+		let hasNextPage = false;
+		const branches: string[] = [];
+		const startingTime = new Date().getTime();
+
+		do {
+			try {
+				const { data } = await query<ListBranchesResponse>({
+					query: schema.ListBranches,
+					variables: {
+						owner: remote.owner,
+						name: remote.repositoryName,
+						first: 100,
+						after: after,
+					},
+				});
+
+				branches.push(...data.repository.refs.nodes.map(node => node.name));
 				if (new Date().getTime() - startingTime > 5000) {
+					Logger.appendLine('List branches timeout hit.', 'GitHubRepository');
 					break;
 				}
+				hasNextPage = data.repository.refs.pageInfo.hasNextPage;
+				after = data.repository.refs.pageInfo.endCursor;
+			} catch (e) {
+				Logger.debug(`List branches for ${owner}/${repositoryName} failed`, GitHubRepository.ID);
+				throw e;
 			}
+		} while (hasNextPage);
 
-			Logger.debug(`List branches for ${owner}/${repositoryName} - done`, GitHubRepository.ID);
-			return branches;
-		} catch (e) {
-			Logger.debug(`List branches for ${owner}/${repositoryName} failed`, GitHubRepository.ID);
-			throw e;
-		}
+		Logger.debug(`List branches for ${owner}/${repositoryName} - done`, GitHubRepository.ID);
+		return branches;
 	}
 
 	async deleteBranch(pullRequestModel: PullRequestModel): Promise<void> {

@@ -706,6 +706,20 @@ query GetAssignableUsers($owner: String!, $name: String!, $first: Int!, $after: 
 	}
 }
 
+query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		refs(first: $first, after: $after, refPrefix: "refs/heads/") {
+			nodes {
+				name
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+}
+
 query IssuesWithoutMilestone($owner: String!, $name: String!, $assignee: String!) {
 	repository(owner: $owner, name: $name) {
 		issues(

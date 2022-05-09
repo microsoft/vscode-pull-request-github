@@ -351,6 +351,20 @@ export interface UpdatePullRequestResponse {
 	};
 }
 
+export interface ListBranchesResponse {
+	repository: {
+		refs: {
+			nodes: {
+				name: string;
+			}[];
+			pageInfo: {
+				hasNextPage: boolean;
+				endCursor: string;
+			};
+		};
+	};
+}
+
 export interface RefRepository {
 	owner: {
 		login: string;
