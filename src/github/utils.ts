@@ -50,6 +50,7 @@ export function createVSCodeCommentThreadForReviewThread(
 	range: vscode.Range,
 	thread: IReviewThread,
 	commentController: vscode.CommentController,
+	currentUser: string
 ): GHPRCommentThread {
 	const vscodeThread = commentController.createCommentThread(uri, range, []);
 
@@ -65,7 +66,7 @@ export function createVSCodeCommentThreadForReviewThread(
 	}
 
 	updateCommentThreadLabel(vscodeThread as GHPRCommentThread);
-	vscodeThread.collapsibleState = getCommentCollapsibleState(thread.isResolved);
+	vscodeThread.collapsibleState = getCommentCollapsibleState(thread, undefined, currentUser);
 
 	return vscodeThread as GHPRCommentThread;
 }
@@ -77,8 +78,9 @@ function isResolvedToResolvedState(isResolved: boolean) {
 export const COMMENT_EXPAND_STATE_SETTING = 'commentExpandState';
 export const COMMENT_EXPAND_STATE_COLLAPSE_VALUE = 'collapseAll';
 export const COMMENT_EXPAND_STATE_EXPAND_VALUE = 'expandUnresolved';
-export function getCommentCollapsibleState(isResolved: boolean, expand?: boolean) {
-	if (isResolved) {
+export function getCommentCollapsibleState(thread: IReviewThread, expand?: boolean, currentUser?: string) {
+	if (thread.isResolved
+		|| (currentUser && thread.comments[thread.comments.length - 1].user?.login === currentUser)) {
 		return vscode.CommentThreadCollapsibleState.Collapsed;
 	}
 	if (expand === undefined) {
@@ -113,7 +115,7 @@ export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IRev
 	if (vscodeThread.state !== newResolvedState) {
 		vscodeThread.state = newResolvedState;
 	}
-	vscodeThread.collapsibleState = getCommentCollapsibleState(reviewThread.isResolved, expand);
+	vscodeThread.collapsibleState = getCommentCollapsibleState(reviewThread, expand);
 	if (range) {
 		vscodeThread.range = range;
 	}
