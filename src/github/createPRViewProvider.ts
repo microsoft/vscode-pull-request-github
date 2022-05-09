@@ -9,12 +9,15 @@ import type { Branch } from '../api/api';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { Remote } from '../common/remote';
+import { ASSIGN_TO } from '../common/settingKeys';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
+import { variableSubstitution } from '../issues/util';
 import {
 	byRemoteName,
 	DetachedHeadError,
 	FolderRepositoryManager,
 	PullRequestDefaults,
+	SETTINGS_NAMESPACE,
 	titleAndBodyFrom,
 } from './folderRepositoryManager';
 import { RepoAccessAndMergeMethods } from './interface';
@@ -314,6 +317,22 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		return this._replyMessage(message, { branches: newBranches, defaultBranch: newBranch });
 	}
 
+	private async autoAssign(pr: PullRequestModel): Promise<void> {
+		const configuration = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string | undefined>(ASSIGN_TO);
+		if (!configuration) {
+			return;
+		}
+		const resolved = await variableSubstitution(configuration, pr, undefined, this._folderRepositoryManager.getCurrentUser(pr)?.login);
+		if (!resolved) {
+			return;
+		}
+		try {
+			await pr.updateAssignees([resolved]);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unable to assign pull request to user ${resolved}.`);
+		}
+	}
+
 	private async create(message: IRequestMessage<CreatePullRequest>): Promise<void> {
 		try {
 			const compareOwner = message.args.compareOwner;
@@ -377,6 +396,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				if (message.args.autoMerge) {
 					await createdPR.enableAutoMerge(message.args.mergeMethod);
 				}
+				await this.autoAssign(createdPR);
 				await this._replyMessage(message, {});
 				this._onDone.fire(createdPR);
 			}
