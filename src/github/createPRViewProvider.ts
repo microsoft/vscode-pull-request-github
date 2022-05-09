@@ -120,6 +120,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	}
 
 	private async getTitleAndDescription(compareBranch: Branch, baseBranch: string): Promise<{ title: string, description: string }> {
+		let title: string = '';
+		let description: string = '';
+
 		// Use same default as GitHub, if there is only one commit, use the commit, otherwise use the branch name, as long as it is not the default branch.
 		// By default, the base branch we use for comparison is the base branch of origin. Compare this to the
 		// compare branch if it has a GitHub remote.
@@ -128,7 +131,13 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		let useBranchName = this._pullRequestDefaults.base === compareBranch.name;
 		Logger.debug(`Compare branch name: ${compareBranch.name}, Base branch name: ${this._pullRequestDefaults.base}`, 'CreatePullRequestViewProvider');
 		try {
-			const totalCommits = await this.getTotalGitHubCommits(compareBranch, baseBranch);
+			const name = compareBranch.name;
+			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
+				this.getTotalGitHubCommits(compareBranch, baseBranch),
+				name ? titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(name)) : undefined,
+				await this.getPullRequestTemplate()
+			]);
+
 			Logger.debug(`Total commits: ${totalCommits}`, 'CreatePullRequestViewProvider');
 			if (totalCommits === undefined) {
 				// There is no upstream branch. Use the last commit as the title and description.
@@ -137,33 +146,26 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				const defaultBranch = await origin.getDefaultBranch();
 				useBranchName = defaultBranch !== compareBranch.name;
 			}
+
+			// Set title
+			if (useBranchName && name) {
+				title = `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+			} else if (name && lastCommit) {
+				title = lastCommit.title;
+			}
+
+			// Set description
+			if (pullRequestTemplate && lastCommit?.body) {
+				description = `${lastCommit.body}\n\n${pullRequestTemplate}`;
+			} else if (pullRequestTemplate) {
+				description = pullRequestTemplate;
+			} else if (lastCommit?.body && (this._pullRequestDefaults.base !== compareBranch.name)) {
+				description = lastCommit.body;
+			}
 		} catch (e) {
 			// Ignore and fall back to commit message
 			Logger.debug(`Error while getting total commits: ${e}`, 'CreatePullRequestViewProvider');
 		}
-
-		const name = compareBranch.name;
-		const lastCommit = name ? titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(name)) : undefined;
-		let title: string = '';
-		let description: string = '';
-
-		// Set title
-		if (useBranchName && name) {
-			title = `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
-		} else if (name && lastCommit) {
-			title = lastCommit.title;
-		}
-
-		// Set description
-		const pullRequestTemplate = await this.getPullRequestTemplate();
-		if (pullRequestTemplate && lastCommit?.body) {
-			description = `${lastCommit.body}\n\n${pullRequestTemplate}`;
-		} else if (pullRequestTemplate) {
-			description = pullRequestTemplate;
-		} else if (lastCommit?.body && (this._pullRequestDefaults.base !== compareBranch.name)) {
-			description = lastCommit.body;
-		}
-
 		return { title, description };
 	}
 
@@ -188,6 +190,49 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	}
 
 	public async initializeParams(reset: boolean = false): Promise<void> {
+		// Do the fast initialization first, then update with the slower initialization.
+		const params = await this.initializeParamsFast(reset);
+		this.initializeParamsSlow(params);
+	}
+
+	private async initializeParamsSlow(params: CreateParams): Promise<void> {
+		if (!this.defaultCompareBranch) {
+			throw new DetachedHeadError(this._folderRepositoryManager.repository);
+		}
+		if (!params.defaultBaseRemote || !params.defaultCompareRemote) {
+			throw new Error('Create Pull Request view unable to initialize without default remotes.');
+		}
+		const defaultOrigin = await this._folderRepositoryManager.getOrigin(this.defaultCompareBranch);
+
+		const branchesForRemote = await defaultOrigin.listBranches(this._pullRequestDefaults.owner, this._pullRequestDefaults.repo);
+		// Ensure default into branch is in the remotes list
+		if (!branchesForRemote.includes(this._pullRequestDefaults.base)) {
+			branchesForRemote.push(this._pullRequestDefaults.base);
+			branchesForRemote.sort();
+		}
+
+		let branchesForCompare = branchesForRemote;
+		if (params.defaultCompareRemote.owner !== params.defaultBaseRemote.owner) {
+			branchesForCompare = await defaultOrigin.listBranches(
+				params.defaultCompareRemote.owner,
+				params.defaultCompareRemote.repositoryName,
+			);
+		}
+
+		// Ensure default from branch is in the remotes list
+		if (this.defaultCompareBranch.name && !branchesForCompare.includes(this.defaultCompareBranch.name)) {
+			branchesForCompare.push(this.defaultCompareBranch.name);
+			branchesForCompare.sort();
+		}
+		params.branchesForRemote = branchesForRemote;
+		params.branchesForCompare = branchesForCompare;
+		this._postMessage({
+			command: 'pr.initialize',
+			params,
+		});
+	}
+
+	private async initializeParamsFast(reset: boolean = false): Promise<CreateParams> {
 		if (!this.defaultCompareBranch) {
 			throw new DetachedHeadError(this._folderRepositoryManager.repository);
 		}
@@ -204,13 +249,11 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		};
 
 		const defaultBaseBranch = this._pullRequestDefaults.base;
-
-		const [configuredGitHubRemotes, allGitHubRemotes, branchesForRemote, defaultTitleAndDescription, mergeConfiguration] = await Promise.all([
+		const [configuredGitHubRemotes, allGitHubRemotes, defaultTitleAndDescription, mergeConfiguration] = await Promise.all([
 			this._folderRepositoryManager.getGitHubRemotes(),
 			this._folderRepositoryManager.getAllGitHubRemotes(),
-			defaultOrigin.listBranches(this._pullRequestDefaults.owner, this._pullRequestDefaults.repo),
 			this.getTitleAndDescription(this.defaultCompareBranch, defaultBaseBranch),
-      this.getMergeConfiguration(defaultBaseRemote.owner, defaultBaseRemote.repositoryName)
+			this.getMergeConfiguration(defaultBaseRemote.owner, defaultBaseRemote.repositoryName)
 		]);
 
 		const configuredRemotes: RemoteInfo[] = configuredGitHubRemotes.map(remote => {
@@ -226,26 +269,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				repositoryName: remote.repositoryName,
 			};
 		});
-
-		// Ensure default into branch is in the remotes list
-		if (!branchesForRemote.includes(this._pullRequestDefaults.base)) {
-			branchesForRemote.push(this._pullRequestDefaults.base);
-			branchesForRemote.sort();
-		}
-
-		let branchesForCompare = branchesForRemote;
-		if (defaultCompareRemote.owner !== defaultBaseRemote.owner) {
-			branchesForCompare = await defaultOrigin.listBranches(
-				defaultCompareRemote.owner,
-				defaultCompareRemote.repositoryName,
-			);
-		}
-
-		// Ensure default from branch is in the remotes list
-		if (this.defaultCompareBranch.name && !branchesForCompare.includes(this.defaultCompareBranch.name)) {
-			branchesForCompare.push(this.defaultCompareBranch.name);
-			branchesForCompare.sort();
-		}
+		const defaultCompareBranch = this.defaultCompareBranch.name ?? '';
 
 		const params: CreateParams = {
 			availableBaseRemotes: configuredRemotes,
@@ -253,9 +277,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			defaultBaseRemote,
 			defaultBaseBranch,
 			defaultCompareRemote,
-			defaultCompareBranch: this.defaultCompareBranch.name ?? '',
-			branchesForRemote,
-			branchesForCompare,
+			defaultCompareBranch,
+			branchesForRemote: [defaultBaseBranch], // We'll populate the branches in the slow phase as they are less likely to be needed.
+			branchesForCompare: [defaultCompareBranch],
 			defaultTitle: defaultTitleAndDescription.title,
 			defaultDescription: defaultTitleAndDescription.description,
 			isDraft: false,
@@ -272,6 +296,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			command: reset ? 'reset' : 'pr.initialize',
 			params,
 		});
+		return params;
 	}
 
 	private async changeRemote(
