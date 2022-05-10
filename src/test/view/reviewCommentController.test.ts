@@ -33,6 +33,7 @@ import { MockSessionState } from '../mocks/mockSessionState';
 import { ReviewModel } from '../../view/reviewModel';
 import { Resource } from '../../common/resources';
 import { RepositoriesManager } from '../../github/repositoriesManager';
+import { WebviewViewCoordinator } from '../../view/webviewViewCoordinator';
 const schema = require('../../github/queries.gql');
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -67,11 +68,12 @@ describe('ReviewCommentController', function () {
 
 		provider = new PullRequestsTreeDataProvider(telemetry);
 		const context = new MockExtensionContext();
+		const activePrViewCoordinator = new WebviewViewCoordinator(context);
 		Resource.initialize(context);
 		const gitApiImpl = new GitApiImpl();
 		manager = new FolderRepositoryManager(context, repository, telemetry, gitApiImpl, credentialStore, new MockSessionState());
 		const tree = new PullRequestChangesTreeDataProvider(context, gitApiImpl, new RepositoriesManager([manager], credentialStore, telemetry, new MockSessionState()));
-		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree, new ShowPullRequest(), new MockSessionState());
+		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree, new ShowPullRequest(), new MockSessionState(), activePrViewCoordinator);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
 			return new MockGitHubRepository(r, cStore, telemetry, sinon);
 		});
