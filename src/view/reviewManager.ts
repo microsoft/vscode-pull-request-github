@@ -20,7 +20,6 @@ import { fromReviewUri, toReviewUri } from '../common/uri';
 import { formatError, groupBy } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
 import { NEVER_SHOW_PULL_NOTIFICATION } from '../extensionState';
-import { PullRequestViewProvider } from '../github/activityBarViewProvider';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
@@ -32,6 +31,7 @@ import { RemoteQuickPickItem } from './quickpick';
 import { ReviewCommentController } from './reviewCommentController';
 import { ReviewModel } from './reviewModel';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
+import { WebviewViewCoordinator } from './webviewViewCoordinator';
 
 export class ReviewManager {
 	public static ID = 'Review';
@@ -51,7 +51,6 @@ export class ReviewManager {
 		remotes: Remote[];
 	};
 
-	private _webviewViewProvider: PullRequestViewProvider | undefined;
 	private _createPullRequestHelper: CreatePullRequestHelper | undefined;
 
 	private _switchingToReviewMode: boolean;
@@ -83,7 +82,8 @@ export class ReviewManager {
 		private _telemetry: ITelemetry,
 		public changesInPrDataProvider: PullRequestChangesTreeDataProvider,
 		private _showPullRequest: ShowPullRequest,
-		private readonly _sessionState: ISessionState
+		private readonly _sessionState: ISessionState,
+		private readonly _activePrViewCoordinator: WebviewViewCoordinator
 	) {
 		this._switchingToReviewMode = false;
 		this._disposables = [];
@@ -358,26 +358,7 @@ export class ReviewManager {
 		await this.registerCommentController();
 		const isFocusMode = this._context.workspaceState.get(FOCUS_REVIEW_MODE);
 
-		if (!this._webviewViewProvider) {
-			this._webviewViewProvider = new PullRequestViewProvider(
-				this._context.extensionUri,
-				this._folderRepoManager,
-				pr,
-			);
-			this._context.subscriptions.push(
-				vscode.window.registerWebviewViewProvider(
-					this._webviewViewProvider.viewType,
-					this._webviewViewProvider,
-				),
-			);
-			this._context.subscriptions.push(
-				vscode.commands.registerCommand('pr.refreshActivePullRequest', _ => {
-					this._webviewViewProvider?.refresh();
-				}),
-			);
-		} else {
-			await this._webviewViewProvider.updatePullRequest(pr);
-		}
+		this._activePrViewCoordinator.setPullRequest(pr, this._folderRepoManager);
 
 		this.statusBarItem.text = `$(git-pull-request) Pull Request #${this._prNumber}`;
 		this.statusBarItem.command = {
@@ -393,12 +374,12 @@ export class ReviewManager {
 		Logger.appendLine(`Review> state validation silent = ${silent}.`);
 		Logger.appendLine(`Review> PR show should show = ${this._showPullRequest.shouldShow}.`);
 		if ((!silent || this._showPullRequest.shouldShow) && isFocusMode) {
-			this._doFocusShow(openDiff);
+			this._doFocusShow(pr, openDiff);
 		} else if (!this._showPullRequest.shouldShow && isFocusMode) {
 			const showPRChangedDisposable = this._showPullRequest.onChangedShowValue(shouldShow => {
 				Logger.appendLine(`Review> PR show value changed = ${shouldShow}.`);
 				if (shouldShow) {
-					this._doFocusShow(openDiff);
+					this._doFocusShow(pr, openDiff);
 				}
 				showPRChangedDisposable.dispose();
 			});
@@ -422,9 +403,9 @@ export class ReviewManager {
 		}
 	}
 
-	private _doFocusShow(openDiff: boolean) {
+	private _doFocusShow(pr: PullRequestModel, openDiff: boolean) {
 		commands.executeCommand('workbench.action.focusCommentsPanel');
-		this._webviewViewProvider?.show();
+		this._activePrViewCoordinator.show(pr);
 		if (openDiff) {
 			if (this._reviewModel.localFileChanges.length) {
 				this.openDiff();
