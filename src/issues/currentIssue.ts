@@ -71,7 +71,7 @@ export class CurrentIssue {
 			if (await this.createIssueBranch()) {
 				await this.setCommitMessageAndGitEvent();
 				this._onDidChangeCurrentIssueState.fire();
-				const login = this.manager.getCurrentUser(this.issueModel).login;
+				const login = this.manager.getCurrentUser(this.issueModel.githubRepository).login;
 				if (
 					vscode.workspace.getConfiguration('githubIssues').get('assignWhenWorking') &&
 					!this.issueModel.assignees?.find(value => value.login === login)
