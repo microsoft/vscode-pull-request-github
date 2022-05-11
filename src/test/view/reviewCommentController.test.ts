@@ -33,6 +33,7 @@ import { MockSessionState } from '../mocks/mockSessionState';
 import { ReviewModel } from '../../view/reviewModel';
 import { Resource } from '../../common/resources';
 import { RepositoriesManager } from '../../github/repositoriesManager';
+import { GitFileChangeModel } from '../../view/fileChangeModel';
 import { WebviewViewCoordinator } from '../../view/webviewViewCoordinator';
 const schema = require('../../github/queries.gql');
 
@@ -97,8 +98,7 @@ describe('ReviewCommentController', function () {
 	});
 
 	function createLocalFileChange(uri: vscode.Uri, fileName: string, rootUri: vscode.Uri): GitFileChangeNode {
-		return new GitFileChangeNode(
-			provider,
+		const gitFileChangeModel = new GitFileChangeModel(
 			manager,
 			activePullRequest,
 			{
@@ -132,7 +132,14 @@ describe('ReviewCommentController', function () {
 			},
 			uri,
 			toReviewUri(uri, fileName, undefined, '1', false, { base: true }, rootUri),
-			'abcd',
+			'abcd'
+		);
+
+		return new GitFileChangeNode(
+			provider,
+			manager,
+			activePullRequest,
+			gitFileChangeModel
 		);
 	}
 

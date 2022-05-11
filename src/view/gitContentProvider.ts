@@ -12,50 +12,16 @@ import Logger from '../common/logger';
 import { fromReviewUri } from '../common/uri';
 import { CredentialStore } from '../github/credentials';
 import { getRepositoryForFile } from '../github/utils';
-import { ReadonlyFileSystemProvider } from './readonlyFileSystemProvider';
+import { RepositoryFileSystemProvider } from './repositoryFileSystemProvider';
 
-export class GitContentFileSystemProvider extends ReadonlyFileSystemProvider {
+export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
 	private _fallback?: (uri: vscode.Uri) => Promise<string>;
 
-	constructor(private gitAPI: GitApiImpl, private credentialStore: CredentialStore) {
-		super();
+	constructor(gitAPI: GitApiImpl, credentialStore: CredentialStore) {
+		super(gitAPI, credentialStore);
 	}
 
-	private async waitForRepos(milliseconds: number): Promise<void> {
-		Logger.appendLine('Waiting for repositories.', 'GitContentFileSystemProvider');
-		let eventDisposable: vscode.Disposable | undefined = undefined;
-		const openPromise = new Promise<void>(resolve => {
-			eventDisposable = this.gitAPI.onDidOpenRepository(() => {
-				Logger.appendLine('Found at least one repository.', 'GitContentFileSystemProvider');
-				eventDisposable?.dispose();
-				eventDisposable = undefined;
-				resolve();
-			});
-		});
-		let timeout: NodeJS.Timeout | undefined;
-		const timeoutPromise = new Promise<void>(resolve => {
-			timeout = setTimeout(() => {
-				Logger.appendLine('Timed out while waiting for repositories.', 'GitContentFileSystemProvider');
-				resolve();
-			}, milliseconds);
-		});
-		await Promise.race([openPromise, timeoutPromise]);
-		if (timeout) {
-			clearTimeout(timeout);
-		}
-		if (eventDisposable) {
-			eventDisposable!.dispose();
-		}
-	}
-
-	private async waitForAuth(): Promise<void> {
-		if (this.credentialStore.isAnyAuthenticated()) {
-			return;
-		}
-		return new Promise(resolve => this.credentialStore.onDidGetSession(() => resolve()));
-	}
-
-	private async getRepositoryForFile(file: vscode.Uri): Promise<Repository | undefined> {
+	protected async getRepositoryForFile(file: vscode.Uri): Promise<Repository | undefined> {
 		await this.waitForAuth();
 		if ((this.gitAPI.state !== 'initialized') || (this.gitAPI.repositories.length === 0)) {
 			await this.waitForRepos(4000);
