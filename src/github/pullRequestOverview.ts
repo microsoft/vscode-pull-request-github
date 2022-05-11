@@ -192,7 +192,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
 				this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
-				const currentUser = this._folderRepositoryManager.getCurrentUser(this._item);
+				const currentUser = this._folderRepositoryManager.getCurrentUser(this._item.githubRepository);
 
 				const isCrossRepository =
 					pullRequest.base &&

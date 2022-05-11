@@ -1343,8 +1343,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 	}
 
-	getCurrentUser(issueModel: IssueModel): IAccount {
-		return convertRESTUserToAccount(this._credentialStore.getCurrentUser(issueModel.githubRepository.remote.authProviderId), issueModel.githubRepository);
+	getCurrentUser(githubRepository?: GitHubRepository): IAccount {
+		if (!githubRepository) {
+			githubRepository = this.gitHubRepositories[0];
+		}
+		return convertRESTUserToAccount(this._credentialStore.getCurrentUser(githubRepository.remote.authProviderId), githubRepository);
 	}
 
 	async mergePullRequest(

@@ -34,6 +34,7 @@ import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProv
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager, ShowPullRequest } from './view/reviewManager';
 import { ReviewsManager } from './view/reviewsManager';
+import { WebviewViewCoordinator } from './view/webviewViewCoordinator';
 
 const aiKey = 'AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217';
 
@@ -143,8 +144,9 @@ async function init(
 	const changesTree = new PullRequestChangesTreeDataProvider(context, git, reposManager);
 	context.subscriptions.push(changesTree);
 
+	const activePrViewCoordinator = new WebviewViewCoordinator(context);
 	const reviewManagers = folderManagers.map(
-		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree, showPRController, sessionState),
+		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree, showPRController, sessionState, activePrViewCoordinator),
 	);
 	context.subscriptions.push(new FileTypeDecorationProvider(reposManager, reviewManagers));
 
@@ -173,7 +175,8 @@ async function init(
 				telemetry,
 				changesTree,
 				showPRController,
-				sessionState
+				sessionState,
+				activePrViewCoordinator
 			);
 			reviewsManager.addReviewManager(newReviewManager);
 			tree.refresh();

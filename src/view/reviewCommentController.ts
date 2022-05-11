@@ -103,7 +103,7 @@ export class ReviewCommentController
 		);
 
 		const range = threadRange(thread.originalStartLine - 1, thread.originalEndLine - 1);
-		return createVSCodeCommentThreadForReviewThread(reviewUri, range, thread, this._commentController);
+		return createVSCodeCommentThreadForReviewThread(reviewUri, range, thread, this._commentController, this._reposManager.getCurrentUser().login);
 	}
 
 	/**
@@ -128,7 +128,7 @@ export class ReviewCommentController
 		}
 
 		const range = threadRange(startLine - 1, endLine - 1);
-		return createVSCodeCommentThreadForReviewThread(uri, range, thread, this._commentController);
+		return createVSCodeCommentThreadForReviewThread(uri, range, thread, this._commentController, this._reposManager.getCurrentUser().login);
 	}
 
 	/**
@@ -154,7 +154,7 @@ export class ReviewCommentController
 		);
 
 		const range = threadRange(thread.startLine - 1, thread.endLine - 1);
-		return createVSCodeCommentThreadForReviewThread(reviewUri, range, thread, this._commentController);
+		return createVSCodeCommentThreadForReviewThread(reviewUri, range, thread, this._commentController, this._reposManager.getCurrentUser().login);
 	}
 
 	private async doInitializeCommentThreads(reviewThreads: IReviewThread[]): Promise<void> {
@@ -591,7 +591,7 @@ export class ReviewCommentController
 
 	// #endregion
 	private optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): number {
-		const currentUser = this._reposManager.getCurrentUser(this._reposManager.activePullRequest!);
+		const currentUser = this._reposManager.getCurrentUser();
 		const comment = new TemporaryComment(thread, input, inDraft, currentUser);
 		this.updateCommentThreadComments(thread, [...thread.comments, comment]);
 		return comment.id;
@@ -603,7 +603,7 @@ export class ReviewCommentController
 	}
 
 	private optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): number {
-		const currentUser = this._reposManager.getCurrentUser(this._reposManager.activePullRequest!);
+		const currentUser = this._reposManager.getCurrentUser();
 		const temporaryComment = new TemporaryComment(
 			thread,
 			comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,

@@ -179,6 +179,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 							range,
 							thread,
 							this._commentController,
+							this._folderReposManager.getCurrentUser().login
 						);
 					});
 			}
@@ -269,6 +270,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 						range,
 						thread,
 						this._commentController,
+						this._folderReposManager.getCurrentUser().login
 					);
 				}
 			}
@@ -388,7 +390,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	}
 
 	private optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): number {
-		const currentUser = this._folderReposManager.getCurrentUser(this.pullRequestModel);
+		const currentUser = this._folderReposManager.getCurrentUser(this.pullRequestModel.githubRepository);
 		const temporaryComment = new TemporaryComment(
 			thread,
 			comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
@@ -492,7 +494,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	}
 
 	private optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): number {
-		const currentUser = this._folderReposManager.getCurrentUser(this.pullRequestModel);
+		const currentUser = this._folderReposManager.getCurrentUser(this.pullRequestModel.githubRepository);
 		const comment = new TemporaryComment(thread, input, inDraft, currentUser);
 		this.updateCommentThreadComments(thread, [...thread.comments, comment]);
 		return comment.id;

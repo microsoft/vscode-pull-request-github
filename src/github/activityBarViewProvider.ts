@@ -147,7 +147,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
 				const canEdit = hasWritePermission || this._item.canEdit();
 				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
-				const currentUser = this._folderRepositoryManager.getCurrentUser(this._item);
+				const currentUser = this._folderRepositoryManager.getCurrentUser(this._item.githubRepository);
 				this._existingReviewers = parseReviewers(
 					requestedReviewers ?? [],
 					timelineEvents ?? [],
