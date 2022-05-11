@@ -11,6 +11,7 @@ import { toReviewUri } from '../../common/uri';
 import { OctokitCommon } from '../../github/common';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
+import { GitFileChangeModel } from '../fileChangeModel';
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { GitFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
@@ -55,10 +56,9 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		const fileChangeNodes = fileChanges.map(change => {
 			const fileName = change.filename!;
 			const uri = vscode.Uri.parse(path.posix.join(`commit~${this.commit.sha.substr(0, 8)}`, fileName));
-			const fileChangeNode = new GitFileChangeNode(
-				this,
+			const changeModel = new GitFileChangeModel(
 				this.pullRequestManager,
-				this.pullRequest as (PullRequestModel & IResolvedPullRequestModel),
+				this.pullRequest,
 				{
 					status: getGitChangeType(change.status!),
 					fileName,
@@ -82,7 +82,12 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 					{ base: true },
 					this.pullRequestManager.repository.rootUri,
 				),
-				this.commit.sha,
+				this.commit.sha);
+			const fileChangeNode = new GitFileChangeNode(
+				this,
+				this.pullRequestManager,
+				this.pullRequest as (PullRequestModel & IResolvedPullRequestModel),
+				changeModel,
 				this.isCurrent
 			);
 

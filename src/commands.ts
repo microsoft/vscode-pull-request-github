@@ -244,15 +244,15 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.openFileOnGitHub', async (e: GitFileChangeNode | RemoteFileChangeNode) => {
 			if (e instanceof RemoteFileChangeNode) {
 				const choice = await vscode.window.showInformationMessage(
-					`${e.fileName} can't be opened locally. Do you want to open it on GitHub?`,
+					`${e.changeModel.fileName} can't be opened locally. Do you want to open it on GitHub?`,
 					'Open',
 				);
 				if (!choice) {
 					return;
 				}
 			}
-			if (e.blobUrl) {
-				return vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.blobUrl));
+			if (e.changeModel.blobUrl) {
+				return vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.changeModel.blobUrl));
 			}
 		}),
 	);
@@ -268,15 +268,15 @@ export function registerCommands(
 			// if this is an image, encode it as a base64 data URI
 			const folderManager = reposManager.getManagerForIssueModel(e.pullRequest);
 			if (folderManager) {
-				const imageDataURI = await asImageDataURI(e.parentFilePath, folderManager.repository);
-				vscode.commands.executeCommand('vscode.open', imageDataURI || e.parentFilePath);
+				const imageDataURI = await asImageDataURI(e.changeModel.parentFilePath, folderManager.repository);
+				vscode.commands.executeCommand('vscode.open', imageDataURI || e.changeModel.parentFilePath);
 			}
 		}),
 	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.openModifiedFile', (e: GitFileChangeNode) => {
-			vscode.commands.executeCommand('vscode.open', e.filePath);
+			vscode.commands.executeCommand('vscode.open', e.changeModel.filePath);
 		}),
 	);
 
@@ -858,7 +858,7 @@ export function registerCommands(
 			try {
 				if (treeNode instanceof FileChangeNode) {
 					await treeNode.pullRequest.markFileAsViewed(treeNode.fileName);
-					const manager = reposManager.getManagerForFile(treeNode.filePath);
+					const manager = reposManager.getManagerForFile(treeNode.changeModel.filePath);
 					if (treeNode.pullRequest === manager?.activePullRequest) {
 						treeNode.pullRequest.setFileViewedContext();
 					}
@@ -878,7 +878,7 @@ export function registerCommands(
 			try {
 				if (treeNode instanceof FileChangeNode) {
 					await treeNode.pullRequest.unmarkFileAsViewed(treeNode.fileName);
-					const manager = reposManager.getManagerForFile(treeNode.filePath);
+					const manager = reposManager.getManagerForFile(treeNode.changeModel.filePath);
 					if (treeNode.pullRequest === manager?.activePullRequest) {
 						treeNode.pullRequest.setFileViewedContext();
 					}

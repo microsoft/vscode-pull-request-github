@@ -27,6 +27,7 @@ import {
 	updateThread,
 	updateThreadWithRange,
 } from '../github/utils';
+import { RemoteFileChangeModel } from './fileChangeModel';
 import { ReviewManager } from './reviewManager';
 import { ReviewModel } from './reviewModel';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
@@ -403,7 +404,7 @@ export class ReviewCommentController
 			const matchedFile = this.findMatchedFileChangeForReviewDiffView(this._reviewModel.localFileChanges, document.uri);
 
 			if (matchedFile) {
-				return getCommentingRanges(await matchedFile.diffHunks(), query.base);
+				return getCommentingRanges(await matchedFile.changeModel.diffHunks(), query.base);
 			}
 		}
 
@@ -424,7 +425,7 @@ export class ReviewCommentController
 			const ranges: vscode.Range[] = [];
 
 			if (matchedFile) {
-				const diffHunks = await matchedFile.diffHunks();
+				const diffHunks = await matchedFile.changeModel.diffHunks();
 				if ((matchedFile.status === GitChangeType.RENAME) && (diffHunks.length === 0)) {
 					return [];
 				}
@@ -478,8 +479,9 @@ export class ReviewCommentController
 		uri: vscode.Uri,
 	): GitFileChangeNode | undefined {
 		const query = fromReviewUri(uri.query);
-		const matchedFiles = fileChanges.filter(fileChange => {
-			if (fileChange instanceof RemoteFileChangeNode) {
+		const matchedFiles = fileChanges.filter(fileChangeNode => {
+			const fileChange = fileChangeNode.changeModel;
+			if (fileChange instanceof RemoteFileChangeModel) {
 				return false;
 			}
 

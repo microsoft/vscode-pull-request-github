@@ -27,6 +27,7 @@ import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
 import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
 import { IResolvedPullRequestModel, PullRequestModel } from '../github/pullRequestModel';
 import { CreatePullRequestHelper } from './createPullRequestHelper';
+import { GitFileChangeModel } from './fileChangeModel';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { RemoteQuickPickItem } from './quickpick';
 import { ReviewCommentController } from './reviewCommentController';
@@ -504,14 +505,12 @@ export class ReviewManager {
 				this._repository.rootUri,
 			);
 
+			const changeModel = new GitFileChangeModel(this._folderRepoManager, pr, change, modifiedFileUri, originalFileUri, headSha);
 			const changedItem = new GitFileChangeNode(
 				this.changesInPrDataProvider,
 				this._folderRepoManager,
 				pr,
-				change,
-				modifiedFileUri,
-				originalFileUri,
-				headSha,
+				changeModel
 			);
 			nodes.push(changedItem);
 		}
@@ -536,16 +535,15 @@ export class ReviewManager {
 				for (const fileName in commentsForFile) {
 					const oldComments = commentsForFile[fileName];
 					const uri = vscode.Uri.file(nodePath.join(`commit~${commit.substr(0, 8)}`, fileName));
-					const obsoleteFileChange = new GitFileChangeNode(
-						this.changesInPrDataProvider,
+					const changeModel = new GitFileChangeModel(
 						this._folderRepoManager,
 						pr,
 						{
 							status: GitChangeType.MODIFY,
 							fileName,
 							blobUrl: undefined,
-						},
-						toReviewUri(
+
+						}, toReviewUri(
 							uri,
 							fileName,
 							undefined,
@@ -563,7 +561,12 @@ export class ReviewManager {
 							{ base: true },
 							this._repository.rootUri,
 						),
-						commit,
+						commit);
+					const obsoleteFileChange = new GitFileChangeNode(
+						this.changesInPrDataProvider,
+						this._folderRepoManager,
+						pr,
+						changeModel,
 						false,
 						oldComments
 					);
@@ -926,13 +929,13 @@ export class ReviewManager {
 			.filter(
 				fileChange =>
 					fileChange.sha === commit ||
-					(fileChange.parentSha ? fileChange.parentSha : `${fileChange.sha}^`) === commit,
+					`${fileChange.sha}^` === commit,
 			);
 
 		if (changedItems.length) {
 			const changedItem = changedItems[0];
 			const diffChangeTypeFilter = commit === changedItem.sha ? DiffChangeType.Delete : DiffChangeType.Add;
-			const ret = (await changedItem.diffHunks()).map(diffHunk =>
+			const ret = (await changedItem.changeModel.diffHunks()).map(diffHunk =>
 				diffHunk.diffLines
 					.filter(diffLine => diffLine.type !== diffChangeTypeFilter)
 					.map(diffLine => diffLine.text),
@@ -945,7 +948,7 @@ export class ReviewManager {
 			.filter(
 				fileChange =>
 					fileChange.sha === commit ||
-					(fileChange.parentSha ? fileChange.parentSha : `${fileChange.sha}^`) === commit,
+					`${fileChange.sha}^` === commit,
 			);
 
 		if (changedItems.length) {
