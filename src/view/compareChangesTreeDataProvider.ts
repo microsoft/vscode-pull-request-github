@@ -144,6 +144,8 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 
 			if (!data.files.length) {
 				this._view.message = `There are no commits between the base '${this.baseBranchName}' branch and the comparing '${this.compareBranchName}' branch`;
+			} else if (this._isDisposed) {
+				return [];
 			} else {
 				this._view.message = undefined;
 			}
@@ -164,7 +166,9 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		}
 	}
 
+	private _isDisposed: boolean = false;
 	dispose() {
+		this._isDisposed = true;
 		this._disposables.forEach(d => d.dispose());
 		this._contentProvider = undefined;
 	}
