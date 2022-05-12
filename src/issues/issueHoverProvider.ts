@@ -52,7 +52,8 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 			if (
 				tryParsed &&
 				match &&
-				tryParsed.issueNumber <= this.stateManager.maxIssueNumber(folderManager.repository.rootUri)
+				// Only check the max issue number if the owner/repo format isn't used here.
+				(tryParsed.owner || tryParsed.issueNumber <= this.stateManager.maxIssueNumber(folderManager.repository.rootUri))
 			) {
 				return this.createHover(folderManager, match[0], tryParsed, wordPosition);
 			}
