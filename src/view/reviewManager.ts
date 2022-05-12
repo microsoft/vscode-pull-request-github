@@ -202,10 +202,7 @@ export class ReviewManager {
 			if (remote) {
 				await this._repository.fetch(remote, remoteBranch);
 				const canShowNotification = !this._context.globalState.get<boolean>(NEVER_SHOW_PULL_NOTIFICATION, false);
-				if (canShowNotification && !this._updateMessageShown &&
-					((this._lastCommitSha && (pr.head.sha !== this._lastCommitSha))
-						|| (branch.behind !== undefined && branch.behind > 0))
-				) {
+				if (canShowNotification && !this._updateMessageShown &&	(branch.behind !== undefined && branch.behind > 0)) {
 					this._updateMessageShown = true;
 					const pull = 'Pull';
 					const never = 'Never show again';
