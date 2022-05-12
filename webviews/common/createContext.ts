@@ -121,11 +121,11 @@ export class CreatePRContext {
 				autoMerge: this.createParams.autoMerge,
 				mergeMethod: this.createParams.mergeMethod
 			};
+			vscode.setState(defaultCreateParams);
 			await this.postMessage({
 				command: 'pr.create',
 				args,
 			});
-			vscode.setState(defaultCreateParams);
 		} catch (e) {
 			this.updateState({ createError: (typeof e === 'string') ? e : (e.message ? e.message : 'An unknown error occurred.') });
 		}
