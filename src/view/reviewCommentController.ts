@@ -21,6 +21,7 @@ import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import {
 	CommentReactionHandler,
 	createVSCodeCommentThreadForReviewThread,
+	isFileInRepo,
 	threadRange,
 	updateCommentReviewState,
 	updateCommentThreadLabel,
@@ -378,15 +379,12 @@ export class ReviewCommentController
 			return true;
 		}
 
-		const currentWorkspace = vscode.workspace.getWorkspaceFolder(thread.uri);
-		if (!currentWorkspace) {
+
+		if (!isFileInRepo(this._repository, thread.uri)) {
 			return false;
 		}
 
-		if (
-			thread.uri.scheme === currentWorkspace.uri.scheme &&
-			thread.uri.fsPath.startsWith(this._repository.rootUri.fsPath)
-		) {
+		if (thread.uri.scheme === this._repository.rootUri.scheme) {
 			return true;
 		}
 
@@ -408,12 +406,11 @@ export class ReviewCommentController
 			}
 		}
 
-		const currentWorkspace = vscode.workspace.getWorkspaceFolder(document.uri);
-		if (!currentWorkspace) {
+		if (!isFileInRepo(this._repository, document.uri)) {
 			return;
 		}
 
-		if (document.uri.scheme === currentWorkspace.uri.scheme) {
+		if (document.uri.scheme === this._repository.rootUri.scheme) {
 			if (!this._reposManager.activePullRequest!.isResolved()) {
 				return;
 			}

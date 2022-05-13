@@ -909,13 +909,15 @@ export function parseGraphQLViewerPermission(
 	return ViewerPermission.Unknown;
 }
 
+export function isFileInRepo(repository: Repository, file: vscode.Uri): boolean {
+	return file.path.toLowerCase() === repository.rootUri.path.toLowerCase() ||
+		(file.path.toLowerCase().startsWith(repository.rootUri.path.toLowerCase()) &&
+			file.path.substring(repository.rootUri.path.length).startsWith('/'));
+}
+
 export function getRepositoryForFile(gitAPI: GitApiImpl, file: vscode.Uri): Repository | undefined {
 	for (const repository of gitAPI.repositories) {
-		if (
-			file.path.toLowerCase() === repository.rootUri.path.toLowerCase() ||
-			(file.path.toLowerCase().startsWith(repository.rootUri.path.toLowerCase()) &&
-				file.path.substring(repository.rootUri.path.length).startsWith('/'))
-		) {
+		if (isFileInRepo(repository, file)) {
 			return repository;
 		}
 	}
