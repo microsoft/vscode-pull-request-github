@@ -80,6 +80,11 @@ export class CredentialStore implements vscode.Disposable {
 			}
 		}
 		getAuthSessionOptions = { ...getAuthSessionOptions, ...{ createIfNone: false } };
+		
+		if (authProviderId === AuthProvider['github-enterprise']) {
+            getAuthSessionOptions = { ...getAuthSessionOptions, ...{ createIfNone: true, silent: false } };
+        }
+		
 		let session;
 		try {
 			session = await this.getSession(authProviderId, getAuthSessionOptions);
