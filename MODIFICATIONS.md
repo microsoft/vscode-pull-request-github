@@ -1,83 +1,88 @@
-> GitHub Enterprise Fix
+> GitHub Enterprise Fix [Pull Request](https://github.com/microsoft/vscode-pull-request-github/pull/3564)
 
-This extension allows you to review and manage GitHub pull requests and issues in Visual Studio Code. The support includes:
+### I take no credit for this fix, that should go to [harshanarayana](https://github.com/microsoft/vscode-pull-request-github/issues/3371)
 
-- Authenticating and connecting VS Code to GitHub. GitHub Enterprise is supported by the community, please see this [PR](https://github.com/microsoft/vscode/pull/115940) for how to set it up.
-- Listing and browsing PRs from within VS Code.
-- Reviewing PRs from within VS Code with in-editor commenting.
-- Validating PRs from within VS Code with easy checkouts.
-- Terminal integration that enables UI and CLIs to co-exist.
-- Listing and browsing issues from within VS Code.
-- Hover cards for "@" mentioned users and for issues.
-- Completion suggestions for users and issues.
-- A "Start working on issue" action which can create a branch for you.
-- Code actions to create issues from "todo" comments.
+In the file src/github/credentials.ts
 
-![PR Demo](.readme/demo.gif)
-
-![Issue Demo](.readme/issueDemo.gif)
-
-# Getting Started
-
-It's easy to get started with GitHub Pull Requests for Visual Studio Code. Simply follow these steps to get started.
-
-1. Install the extension from within VS Code or download it from [the marketplace](https://aka.ms/vscodepr-download).
-1. Open your desired GitHub repository in VS Code.
-1. A new viewlet will appear on the activity bar which shows a list of pull requests and issues.
-1. Use the button on the viewlet to sign in to GitHub.
-1. You may need to configure the `githubPullRequests.remotes` setting, by default the extension will look for PRs for `origin` and `upstream`. If you have different remotes, add them to the remotes list.
-1. You should be good to go!
-
-# Configuring the extension
-
-There are several settings that can be used to configure the extension.
-
-As mentioned above, `githubPullRequests.remotes` is used to specify what remotes the extension should try to fetch pull requests from.
-
-To customize the pull request tree, you can use the `githubPullRequests.queries` setting. This setting is a list of labels and search queries which populate the categories of the tree. By default, these queries are "Waiting For My Review", "Assigned To Me", and "Created By Me". An example of adding a "Mentioned Me" category is to change the setting to the following:
+The following code block is required in the initialize function:
 
 ```
-"githubPullRequests.queries": [
-	{
-		"label": "Waiting For My Review",
-		"query": "is:open review-requested:${user}"
-	},
-	{
-		"label": "Assigned To Me",
-		"query": "is:open assignee:${user}"
-	},
-	{
-		"label": "Created By Me",
-		"query": "is:open author:${user}"
-	},
-	{
-		"label": "Mentioned Me",
-		"query": "is:open mentions:${user}"
+if (authProviderId === AuthProvider['github-enterprise']) {
+	getAuthSessionOptions = { ...getAuthSessionOptions, ...{ createIfNone: true, silent: false } };
+}
+```
+
+So
+
+```
+private async initialize(authProviderId: AuthProvider, getAuthSessionOptions?: vscode.AuthenticationGetSessionOptions): Promise<void> {
+if (authProviderId === AuthProvider['github-enterprise']) {
+	if (!hasEnterpriseUri()) {
+		Logger.debug(`GitHub Enterprise provider selected without URI.`, 'Authentication');
+		return;
 	}
-]
+}
+getAuthSessionOptions = { ...getAuthSessionOptions, ...{ createIfNone: false } };
+
+let session;
 ```
 
-Similarly, there is a setting to configure your issues queries: `githubIssues.queries`.
+Becomes
 
-Queries use [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax).
+```
+private async initialize(authProviderId: AuthProvider, getAuthSessionOptions?: vscode.AuthenticationGetSessionOptions): Promise<void> {
+if (authProviderId === AuthProvider['github-enterprise']) {
+	if (!hasEnterpriseUri()) {
+		Logger.debug(`GitHub Enterprise provider selected without URI.`, 'Authentication');
+		return;
+	}
+}
+getAuthSessionOptions = { ...getAuthSessionOptions, ...{ createIfNone: false } };
 
-To view additional settings for the extension, you can open VS Code settings and search for "github pull requests".
+if (authProviderId === AuthProvider['github-enterprise']) {
+	getAuthSessionOptions = { ...getAuthSessionOptions, ...{ createIfNone: true, silent: false } };
+}
 
-# Issues
+let session;
+```
 
-This extension is still in development, so please refer to our [issue tracker for known issues](https://github.com/Microsoft/vscode-pull-request-github/issues), and please contribute with additional information if you encounter an issue yourself.
+> Requirements
 
-## Questions? Authentication? GitHub Enterprise?
+- VSCode >=1.67
 
-See our [wiki](https://github.com/Microsoft/vscode-pull-request-github/wiki) for our FAQ.
+> Setup
+> The official setup instructions are specified in the [wiki](https://github.com/microsoft/vscode-pull-request-github/issues/3371)
 
-## Contributing
+1. Create a GitHub Enterprise [Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token) with the following scopes
+   - repo
+   - workflow
+   - read:user
+   - user:email
+2. In VSCode Settings Set `Github-enterprise: Uri` to your company's github uri e.g: 'https://github3.abcd-comp.com'
+3. Download the extension from [releases](https://github.com/jpspringall/vscode-pull-request-github/releases)
+4. Install the extension via the `Install from VSIX` ... menu from the VSCode Extensions Panel
+5. Restart VSCode
+6. It should then ask "The extension 'GitHub Pull Requests and Issues' wants to sign in using **GitHub Enterprise.**"
+   - Select Allow
+   - It will then prompt for the Personal Access Token created in Step 1
+7. Restart VSCode
+8. GitHub Enterprise should now be sucessfully configured
 
-[![Total alerts](https://img.shields.io/lgtm/alerts/g/Microsoft/vscode-pull-request-github.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/Microsoft/vscode-pull-request-github/alerts/)
+> Build it yourself
 
-If you're interested in contributing, or want to explore the source code of this extension yourself, see our [contributing guide](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing), which includes:
+While I believe I have been transparent with regards to changes made I understand you may wish to build the extension yourself
 
-- [How to Build and Run](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#build-and-run)
-- [Architecture](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#architecture)
-- [Making Pull Requests](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#pull-requests)
-- [Code of Conduct](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#code-of-conduct)
+1. Follow the initial [Build and Run](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#build-and-run) instructions
+   - Node version 14 is required to build the VSIX, rather than node >=10 as stated
+2. Clone the microsoft repository
+3. If you working from `main`
+   - At the time of writing VSCode >=v1.68 is required
+   - So you will need to use the VSCode Insiders build
+   - So you may consider using a Node Version Manager
+4. Make the code change described above
+5. Run the following commands in your cloned repository root folder
+   - yarn # Installation of node_modules
+   - yarn bundle # Building of the extension
+   - yarn package # Packaging of the extension as VSIX
+6. If all goes well you should now have a .VSIX in the root of your repository
+7. You can now carry on from step 4) of setup
