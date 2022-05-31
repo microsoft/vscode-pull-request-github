@@ -1740,7 +1740,7 @@
 		"glob": "7.1.6",
 		"graphql": "15.5.0",
 		"graphql-tag": "2.11.0",
-		"jsdom": "16.4.0",
+		"jsdom": "19.0.0",
 		"jsdom-global": "3.0.2",
 		"json5": "2.2.0",
 		"merge-options": "3.0.4",
