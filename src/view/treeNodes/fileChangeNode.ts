@@ -82,7 +82,7 @@ export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
 	) {
 		super();
 		const viewed = changeModel.viewed;
-		this.contextValue = `${Schemes.FileChange}:${GitChangeType[status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
+		this.contextValue = `${Schemes.FileChange}:${GitChangeType[this.changeModel.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
 		this.label = path.basename(changeModel.fileName);
 		this.description = vscode.workspace.asRelativePath(path.dirname(changeModel.fileName), false);
