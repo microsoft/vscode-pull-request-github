@@ -92,6 +92,7 @@ body {
 
 .automerge-section .merge-select-container{
 	padding-top: 4px;
+	padding-left: 4px;
 }
 
 .automerge-checkbox-wrapper,
