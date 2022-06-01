@@ -1816,8 +1816,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const matchingPullRequest = await repo.getPullRequestForBranch(
 				this.repository.state.HEAD.upstream.name,
 			);
-			if (matchingPullRequest && (matchingPullRequest.head?.owner === headGitHubRepo?.remote.owner)
-				&& (matchingPullRequest.head?.name === headGitHubRepo?.remote.repositoryName)) {
+			if (matchingPullRequest && (matchingPullRequest.head?.owner === headGitHubRepo?.remote.owner)) {
 				return {
 					owner: repo.remote.owner,
 					repositoryName: repo.remote.repositoryName,
