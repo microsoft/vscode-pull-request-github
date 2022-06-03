@@ -119,32 +119,46 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 		return undefined;
 	}
 
+	gitColors(status: GitChangeType): string | undefined {
+		switch (status) {
+			case GitChangeType.MODIFY:
+				return 'gitDecoration.modifiedResourceForeground';
+			case GitChangeType.ADD:
+				return 'gitDecoration.addedResourceForeground';
+			case GitChangeType.DELETE:
+				return 'gitDecoration.deletedResourceForeground';
+			case GitChangeType.RENAME:
+				return 'gitDecoration.renamedResourceForeground';
+			case GitChangeType.UNKNOWN:
+				return undefined;
+			case GitChangeType.UNMERGED:
+				return 'gitDecoration.conflictingResourceForeground';
+		}
+	}
+
+	remoteReposColors(status: GitChangeType): string | undefined {
+		switch (status) {
+			case GitChangeType.MODIFY:
+				return 'remoteHub.decorations.modifiedForegroundColor';
+			case GitChangeType.ADD:
+				return 'remoteHub.decorations.addedForegroundColor';
+			case GitChangeType.DELETE:
+				return 'remoteHub.decorations.deletedForegroundColor';
+			case GitChangeType.RENAME:
+				return 'remoteHub.decorations.incomingRenamedForegroundColor';
+			case GitChangeType.UNKNOWN:
+				return undefined;
+			case GitChangeType.UNMERGED:
+				return 'remoteHub.decorations.conflictForegroundColor';
+		}
+	}
+
 	color(status: GitChangeType, viewedState?: ViewedState): vscode.ThemeColor | undefined {
 		if (viewedState === ViewedState.VIEWED) {
 			return undefined;
 		}
 
-		let color: string | undefined;
-		switch (status) {
-			case GitChangeType.MODIFY:
-				color = 'gitDecoration.modifiedResourceForeground';
-				break;
-			case GitChangeType.ADD:
-				color = 'gitDecoration.addedResourceForeground';
-				break;
-			case GitChangeType.DELETE:
-				color = 'gitDecoration.deletedResourceForeground';
-				break;
-			case GitChangeType.RENAME:
-				color = 'gitDecoration.renamedResourceForeground';
-				break;
-			case GitChangeType.UNKNOWN:
-				color = undefined;
-				break;
-			case GitChangeType.UNMERGED:
-				color = 'gitDecoration.conflictingResourceForeground';
-				break;
-		}
+		let color: string | undefined = vscode.extensions.getExtension('vscode.git') ? this.gitColors(status) : this.remoteReposColors(status);
 		return color ? new vscode.ThemeColor(color) : undefined;
 	}
 
