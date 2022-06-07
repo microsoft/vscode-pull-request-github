@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.44.0
+
+### Changes
+
+- Auto-merge support from the "Create" view.
+
+	![Auto-merge from the create view](documentation/changelog/0.44.0/auto-merge-create-view.png)
+
+### Fixes
+
+- Creating a pull request doesn't use commit message for PR description when the base branch has more commits. https://github.com/microsoft/vscode-pull-request-github/issues/3350
+- Fails to activate with "Timed out waiting for authentication provider to register". https://github.com/microsoft/vscode-pull-request-github/issues/3469
+- Prompted about updates to PR after pushing to the PR branch. https://github.com/microsoft/vscode-pull-request-github/issues/3479
+- Pull requests created from a fork on a topic branch aren't discovered. https://github.com/microsoft/vscode-pull-request-github/issues/3511
+- Unable to create PR in web. https://github.com/microsoft/vscode-pull-request-github/issues/3528
+
+**_Thank You_**
+
+* [@jpspringall](https://github.com/jpspringall): Issue #3371 | Updated getAuthSessionOptions in case of GitHub Enterprise AuthProvider [PR #3565](https://github.com/microsoft/vscode-pull-request-github/pull/3565)
+
 ## 0.42.0
 
 ### Changes
