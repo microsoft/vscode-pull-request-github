@@ -241,7 +241,7 @@ export class StateManager {
 			this._singleRepoStates.set(folderManager.repository.rootUri.path, singleRepoState);
 			const branch = folderManager.repository.state.HEAD?.name;
 			if (!singleRepoState.currentIssue && branch) {
-				await this.setCurrentIssueFromBranch(singleRepoState, branch);
+				await this.setCurrentIssueFromBranch(singleRepoState, branch, true);
 			}
 		}
 	}
@@ -340,7 +340,7 @@ export class StateManager {
 		});
 	}
 
-	private async setCurrentIssueFromBranch(singleRepoState: SingleRepoState, branchName: string) {
+	private async setCurrentIssueFromBranch(singleRepoState: SingleRepoState, branchName: string, silent: boolean = false) {
 		const createBranchConfig = vscode.workspace
 			.getConfiguration(ISSUES_CONFIGURATION)
 			.get<string>(BRANCH_CONFIGURATION);
@@ -376,6 +376,7 @@ export class StateManager {
 					await this.setCurrentIssue(
 						singleRepoState,
 						new CurrentIssue(issueModel, singleRepoState.folderManager, this),
+						silent
 					);
 				}
 				return;
@@ -457,7 +458,7 @@ export class StateManager {
 	}
 
 	private isSettingIssue: boolean = false;
-	async setCurrentIssue(repoState: SingleRepoState | FolderRepositoryManager, issue: CurrentIssue | undefined) {
+	async setCurrentIssue(repoState: SingleRepoState | FolderRepositoryManager, issue: CurrentIssue | undefined, silent: boolean = false) {
 		if (this.isSettingIssue && issue === undefined) {
 			return;
 		}
@@ -480,7 +481,7 @@ export class StateManager {
 				this.context.subscriptions.push(issue.onDidChangeCurrentIssueState(() => this.updateStatusBar()));
 			}
 			this.context.workspaceState.update(CURRENT_ISSUE_KEY, issue?.issue.number);
-			if (!issue || (await issue.startWorking())) {
+			if (!issue || (await issue.startWorking(silent))) {
 				repoState.currentIssue = issue;
 				this.updateStatusBar();
 			}
