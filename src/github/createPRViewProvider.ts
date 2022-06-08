@@ -377,9 +377,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				const shouldPushUpstream = await vscode.window.showInformationMessage(
 					`There is no upstream branch for '${compareBranchName}'.\n\nDo you want to publish it and then create the pull request?`,
 					{ modal: true },
-					'Publish branch',
+					'Publish Branch',
 				);
-				if (shouldPushUpstream === 'Publish branch') {
+				if (shouldPushUpstream === 'Publish Branch') {
 					let createdPushRemote: Remote | undefined;
 					const pushRemote = this._folderRepositoryManager.repository.state.remotes.find(localRemote => {
 						if (!localRemote.pushUrl) {
