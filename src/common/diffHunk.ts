@@ -7,7 +7,6 @@
  * Inspired by and includes code from GitHub/VisualStudio project, obtained from  https://github.com/github/VisualStudio/blob/master/src/GitHub.Exports/Models/DiffLine.cs
  */
 
-import { Repository } from '../api/api';
 import { IRawFileChange } from '../github/interface';
 import { GitChangeType, InMemFileChange, SlimFileChange } from './file';
 
@@ -262,7 +261,6 @@ export function getGitChangeType(status: string): GitChangeType {
 
 export async function parseDiff(
 	reviews: IRawFileChange[],
-	repository: Repository,
 	parentCommit: string,
 ): Promise<(InMemFileChange | SlimFileChange)[]> {
 	const fileChanges: (InMemFileChange | SlimFileChange)[] = [];
@@ -284,30 +282,7 @@ export async function parseDiff(
 			continue;
 		}
 
-		let originalFileExist = false;
-
-		switch (gitChangeType) {
-			case GitChangeType.DELETE:
-			case GitChangeType.MODIFY:
-				try {
-					await repository.getObjectDetails(parentCommit, review.filename);
-					originalFileExist = true;
-				} catch (err) {
-					/* noop */
-				}
-				break;
-			case GitChangeType.RENAME:
-				try {
-					await repository.getObjectDetails(parentCommit, review.previous_filename!);
-					originalFileExist = true;
-				} catch (err) {
-					/* noop */
-				}
-				break;
-		}
-
 		const diffHunks = parsePatch(review.patch);
-		const isPartial = !originalFileExist && gitChangeType !== GitChangeType.ADD;
 		fileChanges.push(
 			new InMemFileChange(
 				parentCommit,
@@ -316,7 +291,6 @@ export async function parseDiff(
 				review.previous_filename,
 				review.patch,
 				diffHunks,
-				isPartial,
 				review.blob_url,
 			),
 		);
