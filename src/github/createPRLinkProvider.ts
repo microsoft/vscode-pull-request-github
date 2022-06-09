@@ -92,7 +92,7 @@ export class GitHubCreatePullRequestLinkProvider implements vscode.TerminalLinkP
 		}
 
 		const yes = 'Yes';
-		const neverShow = 'Don\'t show again';
+		const neverShow = 'Don\'t Show Again';
 
 		vscode.window
 			.showInformationMessage(

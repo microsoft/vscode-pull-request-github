@@ -18,8 +18,8 @@ import { getEnterpriseUri, hasEnterpriseUri } from './utils';
 
 const TRY_AGAIN = 'Try again?';
 const CANCEL = 'Cancel';
-const SIGNIN_COMMAND = 'Sign in';
-const IGNORE_COMMAND = "Don't show again";
+const SIGNIN_COMMAND = 'Sign In';
+const IGNORE_COMMAND = "Don't Show Again";
 
 const PROMPT_FOR_SIGN_IN_SCOPE = 'prompt for sign in';
 const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
@@ -80,11 +80,11 @@ export class CredentialStore implements vscode.Disposable {
 			}
 		}
 		getAuthSessionOptions = { ...getAuthSessionOptions, ...{ createIfNone: false } };
-		
+
 		if (authProviderId === AuthProvider['github-enterprise']) {
 			getAuthSessionOptions = { ...getAuthSessionOptions, ...{ createIfNone: true, silent: false } };
 		}
-		
+
 		let session;
 		try {
 			session = await this.getSession(authProviderId, getAuthSessionOptions);

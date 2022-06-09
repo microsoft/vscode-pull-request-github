@@ -1214,9 +1214,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					const shouldPush = await vscode.window.showInformationMessage(
 						`There are no commits between '${params.base}' and '${params.head}'.\n\nDo you want to push your local commits and create the pull request?`,
 						{ modal: true },
-						'Push commits',
+						'Push Commits',
 					);
-					if (shouldPush === 'Push commits') {
+					if (shouldPush === 'Push Commits') {
 						await this._repository.push();
 						return this.createPullRequest(params);
 					} else {
@@ -1229,9 +1229,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					const shouldCommit = await vscode.window.showInformationMessage(
 						`There are no commits between '${params.base}' and '${params.head}'.\n\nDo you want to commit your changes and create the pull request?`,
 						{ modal: true },
-						'Commit changes',
+						'Commit Changes',
 					);
-					if (shouldCommit === 'Commit changes') {
+					if (shouldCommit === 'Commit Changes') {
 						await vscode.commands.executeCommand('git.commit');
 						await this._repository.push();
 						return this.createPullRequest(params);
@@ -1245,9 +1245,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				const shouldPushUpstream = await vscode.window.showInformationMessage(
 					`There is no upstream branch for '${params.base}'.\n\nDo you want to publish it and create the pull request?`,
 					{ modal: true },
-					'Publish branch',
+					'Publish Branch',
 				);
-				if (shouldPushUpstream === 'Publish branch') {
+				if (shouldPushUpstream === 'Publish Branch') {
 					await this._repository.push(repo.remote.remoteName, params.base, true);
 					return this.createPullRequest(params);
 				} else {
@@ -1859,8 +1859,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 			const currentBranch = this.repository.state.HEAD?.name;
 			if (currentBranch === branchObj.name) {
-				const chooseABranch = 'Choose a branch';
-				vscode.window.showInformationMessage('The default branch is already checked out.', 'Choose a branch').then(choice => {
+				const chooseABranch = 'Choose a Branch';
+				vscode.window.showInformationMessage('The default branch is already checked out.', chooseABranch).then(choice => {
 					if (choice === chooseABranch) {
 						return vscode.commands.executeCommand('git.checkout');
 					}

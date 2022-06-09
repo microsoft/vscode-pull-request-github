@@ -205,7 +205,7 @@ export class ReviewManager {
 				if (canShowNotification && !this._updateMessageShown &&	(branch.behind !== undefined && branch.behind > 0)) {
 					this._updateMessageShown = true;
 					const pull = 'Pull';
-					const never = 'Never show again';
+					const never = 'Never Show Again';
 					const result = await vscode.window.showInformationMessage(
 						`There are updates available for pull request ${pr.number}: ${pr.title}.`,
 						{},
