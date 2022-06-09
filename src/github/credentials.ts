@@ -80,11 +80,11 @@ export class CredentialStore implements vscode.Disposable {
 			}
 		}
 		getAuthSessionOptions = { ...getAuthSessionOptions, ...{ createIfNone: false } };
-		
+
 		if (authProviderId === AuthProvider['github-enterprise']) {
 			getAuthSessionOptions = { ...getAuthSessionOptions, ...{ createIfNone: true, silent: false } };
 		}
-		
+
 		let session;
 		try {
 			session = await this.getSession(authProviderId, getAuthSessionOptions);
@@ -259,8 +259,18 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	private async setCurrentUser(github: GitHub): Promise<void> {
-		const user = await github.octokit.users.getAuthenticated({});
-		github.currentUser = user.data;
+		try {
+			const user = await github.octokit.users.getAuthenticated({});
+			github.currentUser = user.data;
+		} catch (e) {
+			if (e.contains('ETIMEDOUT')) {
+				Logger.appendLine(`Error setting the user ${e}.`, 'Authentication');
+				await this.recreate('GitHub Pull Requests and Issues has encountered a problem with your login. Check the "GitHub Pull Request" output for more details.');
+				return this.setCurrentUser(github);
+			} else {
+				throw e;
+			}
+		}
 	}
 
 	private async getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions) {
