@@ -7,7 +7,6 @@ import * as buffer from 'buffer';
 import * as path from 'path';
 import equals from 'fast-deep-equal';
 import * as vscode from 'vscode';
-import { Repository } from '../api/api';
 import { DiffSide, IComment, IReviewThread, ViewedState } from '../common/comment';
 import { parseDiff } from '../common/diffHunk';
 import { commands, contexts } from '../common/executeCommands';
@@ -1055,7 +1054,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		pullRequestModel: PullRequestModel,
 		comment: IComment,
 	): Promise<void> {
-		const contentChanges = await pullRequestModel.getFileChangesInfo(folderManager.repository);
+		const contentChanges = await pullRequestModel.getFileChangesInfo();
 		const change = contentChanges.find(
 			fileChange => fileChange.fileName === comment.path || fileChange.previousFileName === comment.path,
 		);
@@ -1128,11 +1127,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return this._fileChanges;
 	}
 
-	async getFileChangesInfo(repo: Repository) {
+	async getFileChangesInfo() {
 		this._fileChanges.clear();
 		const data = await this.getRawFileChangesInfo();
 		const mergebase = this.mergeBase || this.base.sha;
-		const parsed = await parseDiff(data, repo, mergebase);
+		const parsed = await parseDiff(data, mergebase);
 		parsed.forEach(fileChange => {
 			this._fileChanges.set(fileChange.fileName, fileChange);
 		});

@@ -66,7 +66,7 @@ export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 		if (!pr) {
 			return;
 		}
-		const rawChanges = await pr.getFileChangesInfo(folderRepositoryManager.repository);
+		const rawChanges = await pr.getFileChangesInfo();
 		const mergeBase = pr.mergeBase;
 		if (!mergeBase) {
 			return;
@@ -130,7 +130,7 @@ export async function provideDocumentContentForChangeModel(folderRepoManager: Fo
 		return '';
 	}
 
-	if ((fileChange instanceof RemoteFileChangeModel) || ((fileChange instanceof InMemFileChangeModel) && fileChange.isPartial)) {
+	if ((fileChange instanceof RemoteFileChangeModel) || ((fileChange instanceof InMemFileChangeModel) && await fileChange.isPartial())) {
 		try {
 			if (params.isBase) {
 				return pullRequestModel.getFile(

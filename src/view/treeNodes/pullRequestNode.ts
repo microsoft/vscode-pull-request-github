@@ -169,7 +169,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		// URIs that will cause the review comment controller to be used.
 		const isCurrentPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
 
-		const rawChanges = await this.pullRequestModel.getFileChangesInfo(this._folderReposManager.repository);
+		const rawChanges = await this.pullRequestModel.getFileChangesInfo();
 
 		// Merge base is set as part of getFileChangesInfo
 		const mergeBase = this.pullRequestModel.mergeBase;

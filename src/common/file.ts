@@ -31,7 +31,6 @@ export class InMemFileChange implements SimpleFileChange {
 		public readonly previousFileName: string | undefined,
 		public readonly patch: string,
 		public readonly diffHunks: DiffHunk[],
-		public readonly isPartial: boolean,
 		public readonly blobUrl: string,
 	) {}
 }

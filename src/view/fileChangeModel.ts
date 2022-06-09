@@ -64,7 +64,7 @@ export abstract class FileChangeModel {
 	}
 
 	constructor(public readonly pullRequest: PullRequestModel,
-		private readonly folderRepoManager: FolderRepositoryManager,
+		protected readonly folderRepoManager: FolderRepositoryManager,
 		public readonly change: SimpleFileChange,
 		public readonly sha?: string) {	}
 }
@@ -89,8 +89,29 @@ export class InMemFileChangeModel extends FileChangeModel {
 		return this.change.previousFileName;
 	}
 
-	get isPartial(): boolean {
-		return this.change.isPartial;
+	async isPartial(): Promise<boolean> {
+		let originalFileExist = false;
+
+		switch (this.change.status) {
+			case GitChangeType.DELETE:
+			case GitChangeType.MODIFY:
+				try {
+					await this.folderRepoManager.repository.getObjectDetails(this.change.baseCommit, this.change.fileName);
+					originalFileExist = true;
+				} catch (err) {
+					/* noop */
+				}
+				break;
+			case GitChangeType.RENAME:
+				try {
+					await this.folderRepoManager.repository.getObjectDetails(this.change.baseCommit, this.change.previousFileName!);
+					originalFileExist = true;
+				} catch (err) {
+					/* noop */
+				}
+				break;
+		}
+		return !originalFileExist && (this.change.status !== GitChangeType.ADD);
 	}
 
 	get patch(): string {
