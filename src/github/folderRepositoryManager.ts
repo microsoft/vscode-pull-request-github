@@ -35,6 +35,7 @@ import {
 	getRelatedUsersFromTimelineEvents,
 	loginComparator,
 	parseGraphQLUser,
+	variableSubstitution,
 } from './utils';
 
 interface PageInformation {
@@ -925,12 +926,15 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const fetchPage = async (
 				pageNumber: number,
 			): Promise<{ items: any[]; hasMorePages: boolean } | undefined> => {
+				// Resolve variables in the query with each repo
+				const resolvedQuery = query ? await variableSubstitution(query, undefined,
+					{ base: await githubRepository.getDefaultBranch(), owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName }) : undefined;
 				switch (pagedDataType) {
 					case PagedDataType.PullRequest: {
 						if (type === PRType.All) {
 							return githubRepository.getAllPullRequests(pageNumber);
 						} else {
-							return githubRepository.getPullRequestsForCategory(query || '', pageNumber);
+							return githubRepository.getPullRequestsForCategory(resolvedQuery || '', pageNumber);
 						}
 					}
 					case PagedDataType.Milestones: {
@@ -940,7 +944,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						return githubRepository.getIssuesWithoutMilestone(pageInformation.pullRequestPage);
 					}
 					case PagedDataType.IssueSearch: {
-						return githubRepository.getIssues(pageInformation.pullRequestPage, query);
+						return githubRepository.getIssues(pageInformation.pullRequestPage, resolvedQuery);
 					}
 				}
 			};
@@ -972,8 +976,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			//    OR we're fetching all (cases 1&3), and we've fetched as far as we had previously (or further, in case 1).
 			if (
 				itemData.items.length &&
-				(options.fetchNextPage === true ||
-					(options.fetchNextPage === false && pagesFetched >= getTotalFetchedPages()))
+				(options.fetchNextPage ||
+					((options.fetchNextPage === false) && !options.fetchOnePagePerRepo && (pagesFetched >= getTotalFetchedPages())))
 			) {
 				if (getTotalFetchedPages() === 0) {
 					// We're in case 1, manually set number of pages we looked through until we found first results.
@@ -989,7 +993,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 
 		return {
-			items: [],
+			items: itemData.items,
 			hasMorePages: false,
 			hasUnsearchedRepositories: false,
 		};
@@ -1036,8 +1040,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return milestones;
 	}
 
+	/**
+	 * Pull request defaults in the query, like owner and repository variables, will be resolved.
+	 */
 	async getIssues(
-		options: IPullRequestsPagingOptions = { fetchNextPage: false },
+		options: IPullRequestsPagingOptions = { fetchNextPage: false, fetchOnePagePerRepo: true },
 		query?: string,
 	): Promise<ItemsResponseResult<IssueModel>> {
 		return this.fetchPagedData<IssueModel>(options, 'issuesKey', PagedDataType.IssueSearch, PRType.All, query);

@@ -5,13 +5,13 @@
 import * as vscode from 'vscode';
 import { ReposManagerState } from '../github/folderRepositoryManager';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { ParsedIssue } from '../github/utils';
 import { StateManager } from './stateManager';
 import {
 	getIssue,
 	isComment,
 	ISSUE_EXPRESSION,
 	MAX_LINE_LENGTH,
-	ParsedIssue,
 	parseIssueExpressionOutput,
 } from './util';
 

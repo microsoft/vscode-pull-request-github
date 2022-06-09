@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { default as assert } from 'assert';
-import { getPRFetchQuery } from '../../github/utils';
+import { getPRFetchQuery, sanitizeIssueTitle } from '../../github/utils';
 
 describe('utils', () => {
 
@@ -15,6 +15,31 @@ describe('utils', () => {
 			const query = 'reviewed-by:${user} -author:${user}';
 			const result = getPRFetchQuery(repo, user, query)
 			assert.strictEqual(result, 'is:pull-request reviewed-by:rmacfarlane -author:rmacfarlane type:pr repo:microsoft/vscode-pull-request-github');
+		});
+	});
+
+	describe('sanitizeIssueTitle', () => {
+		[
+			{ input: 'Issue', expected: 'Issue' },
+			{ input: 'Issue A', expected: 'Issue-A' },
+			{ input: 'Issue  A', expected: 'Issue-A' },
+			{ input: 'Issue     A', expected: 'Issue-A' },
+			{ input: 'Issue @ A', expected: 'Issue-A' },
+			{ input: "Issue 'A'", expected: 'Issue-A' },
+			{ input: 'Issue "A"', expected: 'Issue-A' },
+			{ input: '@Issue "A"', expected: 'Issue-A' },
+			{ input: 'Issue "A"%', expected: 'Issue-A' },
+			{ input: 'Issue .A', expected: 'Issue-A' },
+			{ input: 'Issue ,A', expected: 'Issue-A' },
+			{ input: 'Issue :A', expected: 'Issue-A' },
+			{ input: 'Issue ;A', expected: 'Issue-A' },
+			{ input: 'Issue ~A', expected: 'Issue-A' },
+			{ input: 'Issue #A', expected: 'Issue-A' },
+		].forEach(testCase => {
+			it(`Transforms '${testCase.input}' into '${testCase.expected}'`, () => {
+				const actual = sanitizeIssueTitle(testCase.input);
+				assert.strictEqual(actual, testCase.expected);
+			});
 		});
 	});
 });

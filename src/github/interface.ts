@@ -128,6 +128,7 @@ export interface IRawFileChange {
 
 export interface IPullRequestsPagingOptions {
 	fetchNextPage: boolean;
+	fetchOnePagePerRepo?: boolean;
 }
 
 export interface IPullRequestEditData {

@@ -9,13 +9,13 @@ import { Remote } from '../common/remote';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { GithubItemStateEnum } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
+import { variableSubstitution } from '../github/utils';
 import { IssueState, StateManager } from './stateManager';
 import {
 	BRANCH_CONFIGURATION,
 	BRANCH_NAME_CONFIGURATION,
 	ISSUES_CONFIGURATION,
-	SCM_MESSAGE_CONFIGURATION,
-	variableSubstitution,
+	SCM_MESSAGE_CONFIGURATION
 } from './util';
 
 export class CurrentIssue {
