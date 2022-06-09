@@ -11,7 +11,6 @@ import { Protocol } from '../common/protocol';
 import { Remote } from '../common/remote';
 import { ASSIGN_TO } from '../common/settingKeys';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
-import { variableSubstitution } from '../issues/util';
 import {
 	byRemoteName,
 	DetachedHeadError,
@@ -23,6 +22,7 @@ import {
 import { RepoAccessAndMergeMethods } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
+import { variableSubstitution } from './utils';
 
 export class CreatePullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public readonly viewType = 'github:createPullRequest';

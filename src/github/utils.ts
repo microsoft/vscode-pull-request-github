@@ -15,7 +15,7 @@ import * as Common from '../common/timelineEvent';
 import { uniqBy } from '../common/utils';
 import { OctokitCommon } from './common';
 import { AuthProvider } from './credentials';
-import { SETTINGS_NAMESPACE } from './folderRepositoryManager';
+import { PullRequestDefaults, SETTINGS_NAMESPACE } from './folderRepositoryManager';
 import { GitHubRepository, ViewerPermission } from './githubRepository';
 import * as GraphQL from './graphql';
 import {
@@ -30,11 +30,19 @@ import {
 	ReviewState,
 	User,
 } from './interface';
+import { IssueModel } from './issueModel';
 import { GHPRComment, GHPRCommentThread } from './prComment';
 
 export interface CommentReactionHandler {
 	toggleReaction(comment: vscode.Comment, reaction: vscode.CommentReaction): Promise<void>;
 }
+
+export type ParsedIssue = {
+	owner: string | undefined;
+	name: string | undefined;
+	issueNumber: number;
+	commentNumber?: number;
+};
 
 export function threadRange(startLine: number, endLine: number, endCharacter?: number): vscode.Range {
 	if ((startLine !== endLine) && (endCharacter === undefined)) {
@@ -1019,4 +1027,62 @@ export function getPullsUrl(repo: GitHubRepository) {
 
 export function getIssuesUrl(repo: GitHubRepository) {
 	return vscode.Uri.parse(`https://${repo.remote.host}/${repo.remote.owner}/${repo.remote.repositoryName}/issues`);
+}
+
+export function sanitizeIssueTitle(title: string): string {
+	const regex = /[~^:;'".,~#?%*[\]@\\{}()]|\/\//g;
+
+	return title.replace(regex, '').trim().replace(/\s+/g, '-');
+}
+
+const VARIABLE_PATTERN = /\$\{(.*?)\}/g;
+export async function variableSubstitution(
+	value: string,
+	issueModel?: IssueModel,
+	defaults?: PullRequestDefaults,
+	user?: string,
+): Promise<string> {
+	return value.replace(VARIABLE_PATTERN, (match: string, variable: string) => {
+		switch (variable) {
+			case 'user':
+				return user ? user : match;
+			case 'issueNumber':
+				return issueModel ? `${issueModel.number}` : match;
+			case 'issueNumberLabel':
+				return issueModel ? `${getIssueNumberLabel(issueModel, defaults)}` : match;
+			case 'issueTitle':
+				return issueModel ? issueModel.title : match;
+			case 'repository':
+				return defaults ? defaults.repo : match;
+			case 'owner':
+				return defaults ? defaults.owner : match;
+			case 'sanitizedIssueTitle':
+				return issueModel ? sanitizeIssueTitle(issueModel.title) : match; // check what characters are permitted
+			case 'sanitizedLowercaseIssueTitle':
+				return issueModel ? sanitizeIssueTitle(issueModel.title).toLowerCase() : match;
+			default:
+				return match;
+		}
+	});
+}
+
+export function getIssueNumberLabel(issue: IssueModel, repo?: PullRequestDefaults) {
+	const parsedIssue: ParsedIssue = { issueNumber: issue.number, owner: undefined, name: undefined };
+	if (
+		repo &&
+		(repo.owner.toLowerCase() !== issue.remote.owner.toLowerCase() ||
+			repo.repo.toLowerCase() !== issue.remote.repositoryName.toLowerCase())
+	) {
+		parsedIssue.owner = issue.remote.owner;
+		parsedIssue.name = issue.remote.repositoryName;
+	}
+	return getIssueNumberLabelFromParsed(parsedIssue);
+}
+
+export function getIssueNumberLabelFromParsed(parsed: ParsedIssue) {
+	if (!parsed.owner || !parsed.name) {
+		return `#${parsed.issueNumber}`;
+	} else {
+		return `${parsed.owner}/${parsed.name}#${parsed.issueNumber}`;
+	}
 }

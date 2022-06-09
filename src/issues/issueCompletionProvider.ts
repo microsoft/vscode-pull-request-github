@@ -9,15 +9,14 @@ import { IMilestone } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { MilestoneModel } from '../github/milestoneModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { getIssueNumberLabel, variableSubstitution } from '../github/utils';
 import { extractIssueOriginFromQuery, NEW_ISSUE_SCHEME } from './issueFile';
 import { StateManager } from './stateManager';
 import {
-	getIssueNumberLabel,
 	getRootUriFromScmInputUri,
 	isComment,
 	issueMarkdown,
 	ISSUES_CONFIGURATION,
-	variableSubstitution,
 } from './util';
 
 class IssueCompletionItem extends vscode.CompletionItem {

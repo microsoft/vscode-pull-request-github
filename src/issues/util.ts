@@ -15,7 +15,7 @@ import { GithubItemStateEnum, User } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { getEnterpriseUri, getRepositoryForFile } from '../github/utils';
+import { getEnterpriseUri, getIssueNumberLabelFromParsed, getRepositoryForFile, ParsedIssue } from '../github/utils';
 import { ReviewManager } from '../view/reviewManager';
 import { CODE_PERMALINK, findCodeLinkLocally } from './issueLinkLookup';
 import { StateManager } from './stateManager';
@@ -27,12 +27,6 @@ export const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
 
 export const MAX_LINE_LENGTH = 150;
 
-export type ParsedIssue = {
-	owner: string | undefined;
-	name: string | undefined;
-	issueNumber: number;
-	commentNumber?: number;
-};
 export const ISSUES_CONFIGURATION: string = 'githubIssues';
 export const QUERIES_CONFIGURATION = 'queries';
 export const DEFAULT_QUERY_CONFIGURATION = 'default';
@@ -593,64 +587,6 @@ export async function createGitHubLink(
 		error: undefined,
 		originalFile: uri
 	};
-}
-
-export function sanitizeIssueTitle(title: string): string {
-	const regex = /[~^:;'".,~#?%*[\]@\\{}()]|\/\//g;
-
-	return title.replace(regex, '').trim().replace(/\s+/g, '-');
-}
-
-const VARIABLE_PATTERN = /\$\{(.*?)\}/g;
-export async function variableSubstitution(
-	value: string,
-	issueModel?: IssueModel,
-	defaults?: PullRequestDefaults,
-	user?: string,
-): Promise<string> {
-	return value.replace(VARIABLE_PATTERN, (match: string, variable: string) => {
-		switch (variable) {
-			case 'user':
-				return user ? user : match;
-			case 'issueNumber':
-				return issueModel ? `${issueModel.number}` : match;
-			case 'issueNumberLabel':
-				return issueModel ? `${getIssueNumberLabel(issueModel, defaults)}` : match;
-			case 'issueTitle':
-				return issueModel ? issueModel.title : match;
-			case 'repository':
-				return defaults ? defaults.repo : match;
-			case 'owner':
-				return defaults ? defaults.owner : match;
-			case 'sanitizedIssueTitle':
-				return issueModel ? sanitizeIssueTitle(issueModel.title) : match; // check what characters are permitted
-			case 'sanitizedLowercaseIssueTitle':
-				return issueModel ? sanitizeIssueTitle(issueModel.title).toLowerCase() : match;
-			default:
-				return match;
-		}
-	});
-}
-
-export function getIssueNumberLabel(issue: IssueModel, repo?: PullRequestDefaults) {
-	const parsedIssue: ParsedIssue = { issueNumber: issue.number, owner: undefined, name: undefined };
-	if (
-		repo &&
-		(repo.owner.toLowerCase() !== issue.remote.owner.toLowerCase() ||
-			repo.repo.toLowerCase() !== issue.remote.repositoryName.toLowerCase())
-	) {
-		parsedIssue.owner = issue.remote.owner;
-		parsedIssue.name = issue.remote.repositoryName;
-	}
-	return getIssueNumberLabelFromParsed(parsedIssue);
-}
-
-function getIssueNumberLabelFromParsed(parsed: ParsedIssue) {
-	if (!parsed.owner || !parsed.name) {
-		return `#${parsed.issueNumber}`;
-	} else {
-		return `${parsed.owner}/${parsed.name}#${parsed.issueNumber}`;
-	}
 }
 
 async function commitWithDefault(manager: FolderRepositoryManager, stateManager: StateManager, all: boolean) {
