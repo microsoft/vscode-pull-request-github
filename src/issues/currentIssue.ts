@@ -4,9 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Repository } from '../api/api';
+import { Branch, Repository } from '../api/api';
 import { Remote } from '../common/remote';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
+import { GithubItemStateEnum } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { IssueState, StateManager } from './stateManager';
 import {
@@ -65,10 +66,10 @@ export class CurrentIssue {
 		return this.issueModel;
 	}
 
-	public async startWorking(): Promise<boolean> {
+	public async startWorking(silent: boolean = false): Promise<boolean> {
 		try {
 			this._repoDefaults = await this.manager.getPullRequestDefaults();
-			if (await this.createIssueBranch()) {
+			if (await this.createIssueBranch(silent)) {
 				await this.setCommitMessageAndGitEvent();
 				this._onDidChangeCurrentIssueState.fire();
 				const login = this.manager.getCurrentUser(this.issueModel.githubRepository).login;
@@ -112,19 +113,18 @@ export class CurrentIssue {
 		return `${user}/issue${this.issueModel.number}`;
 	}
 
-	private async branchExists(branch: string): Promise<boolean> {
+	private async getBranch(branch: string): Promise<Branch | undefined> {
 		try {
-			const repoBranch = await this.manager.repository.getBranch(branch);
-			return !!repoBranch;
+			return await this.manager.repository.getBranch(branch);
 		} catch (e) {
 			// branch doesn't exist
 		}
-		return false;
+		return undefined;
 	}
 
 	private async createOrCheckoutBranch(branch: string): Promise<boolean> {
 		try {
-			if (await this.branchExists(branch)) {
+			if (await this.getBranch(branch)) {
 				await this.manager.repository.checkout(branch);
 			} else {
 				await this.manager.repository.createBranch(branch, true);
@@ -175,7 +175,24 @@ export class CurrentIssue {
 		});
 	}
 
-	private async createIssueBranch(): Promise<boolean> {
+	private async offerNewBranch(branch: Branch, branchNameConfig: string, branchNameMatch: RegExpMatchArray | null | undefined): Promise<string> {
+		// Check if this branch has a merged PR associated with it.
+		// If so, offer to create a new branch.
+		const pr = await this.manager.getMatchingPullRequestMetadataFromGitHub(branch.upstream?.remote, branch.upstream?.name);
+		if (pr && (pr.model.state !== GithubItemStateEnum.Open)) {
+			const createNew = await vscode.window.showInformationMessage(`The pull request for ${branch.name} has been ${pr.model.state === GithubItemStateEnum.Merged ? 'merged' : 'closed'}. Do you want to create a new branch?`,
+				{
+					modal: true
+				}, 'Create New Branch');
+			if (createNew === 'Create New Branch') {
+				const number = (branchNameMatch?.length === 4 ? (Number(branchNameMatch[3]) + 1) : 1);
+				return `${branchNameConfig}_${number}`;
+			}
+		}
+		return branchNameConfig;
+	}
+
+	private async createIssueBranch(silent: boolean): Promise<boolean> {
 		const createBranchConfig = this.shouldPromptForBranch
 			? 'prompt'
 			: vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get<string>(BRANCH_CONFIGURATION);
@@ -190,10 +207,15 @@ export class CurrentIssue {
 			undefined,
 			await this.getUser(),
 		);
-		if ((createBranchConfig === 'on') && this._branchName !== branchNameConfig) {
-			const branchExists = await this.branchExists(this._branchName!);
-			if (!branchExists) {
-				this._branchName = branchNameConfig;
+		const branchNameMatch = this._branchName?.match(new RegExp('^(' + branchNameConfig + ')(_)?(\\d*)'));
+		if ((createBranchConfig === 'on')) {
+			const branch = await this.getBranch(this._branchName!);
+			if (!branch) {
+				if (!branchNameMatch) {
+					this._branchName = branchNameConfig;
+				}
+			} else if (!silent) {
+				this._branchName = await this.offerNewBranch(branch, branchNameConfig, branchNameMatch);
 			}
 		}
 		if (!this._branchName) {
