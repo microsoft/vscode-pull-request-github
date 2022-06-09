@@ -110,9 +110,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			if (headRepo) {
 				const headBranch = `${headRepo.remote.owner}:${compareBranch.name ?? ''}`;
 				const baseBranch = `${this._pullRequestDefaults.owner}:${baseBranchName}`;
-				const { total_commits } = await origin.compareCommits(baseBranch, headBranch);
+				const compareResult = await origin.compareCommits(baseBranch, headBranch);
 
-				return total_commits;
+				return compareResult?.total_commits;
 			}
 		}
 
