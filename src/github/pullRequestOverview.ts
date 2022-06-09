@@ -308,6 +308,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.addMilestone(message);
 			case 'pr.add-assignees':
 				return this.addAssignees(message);
+			case 'pr.add-assignee-yourself':
+				return this.addAssigneeYourself(message);
 			case 'pr.remove-reviewer':
 				return this.removeReviewer(message);
 			case 'pr.remove-assignee':
@@ -543,6 +545,22 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					added: addedAssignees,
 				});
 			}
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
+		}
+	}
+
+	private async addAssigneeYourself(message: IRequestMessage<void>): Promise<void> {
+		try {
+			const currentUser = this._folderRepositoryManager.getCurrentUser();
+
+			this._item.assignees = this._item.assignees?.concat(currentUser);
+
+			await this._item.updateAssignees([currentUser.login]);
+
+			this._replyMessage(message, {
+				added: [currentUser],
+			});
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}
