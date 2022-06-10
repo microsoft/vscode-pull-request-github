@@ -63,9 +63,9 @@ export class CreatePRContext {
 			args: branch
 		});
 
-		const pendingTitle = (!this.createParams.pendingTitle || (this.createParams.pendingTitle === this.createParams.defaultTitle))
+		const pendingTitle = ((this.createParams.pendingTitle === undefined) || (this.createParams.pendingTitle === this.createParams.defaultTitle))
 			? response.title : this.createParams.pendingTitle;
-		const pendingDescription = (!this.createParams.pendingDescription || (this.createParams.pendingDescription === this.createParams.defaultDescription))
+		const pendingDescription = ((this.createParams.pendingDescription === undefined) || (this.createParams.pendingDescription === this.createParams.defaultDescription))
 			? response.description : this.createParams.pendingDescription;
 
 		this.updateState({
