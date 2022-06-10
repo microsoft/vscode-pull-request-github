@@ -11,7 +11,7 @@ import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { fromPRUri, PRUriParams } from '../common/uri';
 import { CredentialStore } from '../github/credentials';
-import { FolderRepositoryManager } from '../github/folderRepositoryManager';
+import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { FileChangeModel, InMemFileChangeModel, RemoteFileChangeModel } from './fileChangeModel';
@@ -52,14 +52,38 @@ export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 		});
 	}
 
+	private waitForGitHubRepos(folderRepositoryManager: FolderRepositoryManager, milliseconds: number) {
+		return new Promise<void>(resolve => {
+			const timeout = setTimeout(() => {
+				disposable.dispose();
+				resolve();
+			}, milliseconds);
+			const disposable = folderRepositoryManager.onDidLoadRepositories(e => {
+				if (e === ReposManagerState.RepositoriesLoaded) {
+					clearTimeout(timeout);
+					disposable.dispose();
+					resolve();
+				}
+			});
+		});
+	}
+
 	private async tryRegisterNewProvider(uri: vscode.Uri, prUriParams: PRUriParams) {
 		await this.waitForAuth();
 		if ((this.gitAPI.state !== 'initialized') || (this.gitAPI.repositories.length === 0)) {
 			await this.waitForRepos(4000);
 		}
 		const folderRepositoryManager = this.reposManagers.getManagerForFile(uri);
-		const repo = folderRepositoryManager?.findRepo(repo => repo.remote.remoteName === prUriParams.remoteName);
-		if (!folderRepositoryManager || !repo) {
+		if (!folderRepositoryManager) {
+			return;
+		}
+		let repo = folderRepositoryManager.findRepo(repo => repo.remote.remoteName === prUriParams.remoteName);
+		if (!repo) {
+			// Depending on the git provider, we might not have a GitHub repo right away, even if we already have git repos.
+			await this.waitForGitHubRepos(folderRepositoryManager, 2000);
+			repo = folderRepositoryManager.findRepo(repo => repo.remote.remoteName === prUriParams.remoteName);
+		}
+		if (!repo) {
 			return;
 		}
 		const pr = await folderRepositoryManager.resolvePullRequest(repo.remote.owner, repo.remote.repositoryName, prUriParams.prNumber);
