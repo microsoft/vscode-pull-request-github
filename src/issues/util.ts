@@ -503,8 +503,14 @@ export async function createGithubPermalink(
 		if (log.length === 0) {
 			return { permalink: undefined, error: 'No branch on a remote contains the most recent commit for the file.', originalFile: uri };
 		}
-		commit = log[0];
-		commitHash = log[0].hash;
+		// Now that we know that the file existed at some point in the repo, use the head commit to construct the URI.
+		if (repository.state.HEAD?.commit && (log[0].hash !== repository.state.HEAD?.commit)) {
+			commit = await repository.getCommit(repository.state.HEAD.commit);
+		}
+		if (!commit) {
+			commit = log[0];
+		}
+		commitHash = commit.hash;
 	} catch (e) {
 		commitHash = repository.state.HEAD?.commit;
 	}
