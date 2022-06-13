@@ -379,6 +379,12 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
+			if (pr === undefined) {
+				// This is unexpected, but has happened a few times.
+				Logger.appendLine('Unexpectedly received undefined when picking a PR.');
+				return vscode.window.showErrorMessage('No pull request was selected to checkout, please try again.');
+			}
+
 			let pullRequestModel: PullRequestModel;
 
 			if (pr instanceof PRNode || pr instanceof DescriptionNode) {
