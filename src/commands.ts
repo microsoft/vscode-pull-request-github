@@ -382,7 +382,7 @@ export function registerCommands(
 			if (pr === undefined) {
 				// This is unexpected, but has happened a few times.
 				Logger.appendLine('Unexpectedly received undefined when picking a PR.');
-				return;
+				return vscode.window.showErrorMessage('No pull request was selected to checkout, please try again.');
 			}
 
 			let pullRequestModel: PullRequestModel;
