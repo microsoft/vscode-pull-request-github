@@ -250,6 +250,19 @@
 					"type": "string",
 					"description": "All pull requests created with this extension will be assigned to this user. To assign to yourself, use the '${user}' variable."
 				},
+				"githubPullRequests.pushBranch": {
+					"type": "string",
+					"enum": [
+						"prompt",
+						"always"
+					],
+					"default": "prompt",
+					"enumDescriptions": [
+						"Prompt to push the branch when creating a PR and the \"from\" branch is not available on the remote.",
+						"Always push the branch when creating a PR and the \"from\" branch is not available on the remote."
+					],
+					"description": "Push the \"from\" branch when creating a PR and the \"from\" branch is not available on the remote."
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],

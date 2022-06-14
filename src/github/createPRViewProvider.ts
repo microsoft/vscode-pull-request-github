@@ -9,7 +9,7 @@ import type { Branch } from '../api/api';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { Remote } from '../common/remote';
-import { ASSIGN_TO } from '../common/settingKeys';
+import { ASSIGN_TO, PUSH_BRANCH } from '../common/settingKeys';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import {
 	byRemoteName,
@@ -19,6 +19,7 @@ import {
 	SETTINGS_NAMESPACE,
 	titleAndBodyFrom,
 } from './folderRepositoryManager';
+import { GitHubRepository } from './githubRepository';
 import { RepoAccessAndMergeMethods } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
@@ -358,6 +359,27 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		}
 	}
 
+	private async pushUpstream(compareOwner: string, compareRepositoryName: string, compareBranchName: string): Promise<{ compareUpstream: Remote, repo: GitHubRepository | undefined } | undefined> {
+		let createdPushRemote: Remote | undefined;
+		const pushRemote = this._folderRepositoryManager.repository.state.remotes.find(localRemote => {
+			if (!localRemote.pushUrl) {
+				return false;
+			}
+			const testRemote = new Remote(localRemote.name, localRemote.pushUrl, new Protocol(localRemote.pushUrl));
+			if ((testRemote.owner.toLowerCase() === compareOwner.toLowerCase()) && (testRemote.repositoryName.toLowerCase() === compareRepositoryName.toLowerCase())) {
+				createdPushRemote = testRemote;
+				return true;
+			}
+			return false;
+		});
+
+		if (pushRemote && createdPushRemote) {
+			Logger.appendLine(`Found push remote ${pushRemote.name} for ${compareOwner}/${compareRepositoryName} and branch ${compareBranchName}`, 'CreatePullRequestViewProvider');
+			await this._folderRepositoryManager.repository.push(pushRemote.name, compareBranchName, true);
+			return { compareUpstream: createdPushRemote, repo: this._folderRepositoryManager.findRepo(byRemoteName(createdPushRemote.remoteName)) };
+		}
+	}
+
 	private async create(message: IRequestMessage<CreatePullRequest>): Promise<void> {
 		try {
 			const compareOwner = message.args.compareOwner;
@@ -373,31 +395,18 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			if (!existingCompareUpstream
 				|| (existingCompareUpstream.owner !== compareOwner)
 				|| (existingCompareUpstream.repositoryName !== compareRepositoryName)) {
+
 				// We assume this happens only when the compare branch is based on the current branch.
-				const shouldPushUpstream = await vscode.window.showInformationMessage(
+				const pushBranchSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get(PUSH_BRANCH) === 'always';
+				if (pushBranchSetting || (await vscode.window.showInformationMessage(
 					`There is no upstream branch for '${compareBranchName}'.\n\nDo you want to publish it and then create the pull request?`,
 					{ modal: true },
 					'Publish Branch',
-				);
-				if (shouldPushUpstream === 'Publish Branch') {
-					let createdPushRemote: Remote | undefined;
-					const pushRemote = this._folderRepositoryManager.repository.state.remotes.find(localRemote => {
-						if (!localRemote.pushUrl) {
-							return false;
-						}
-						const testRemote = new Remote(localRemote.name, localRemote.pushUrl, new Protocol(localRemote.pushUrl));
-						if ((testRemote.owner.toLowerCase() === compareOwner.toLowerCase()) && (testRemote.repositoryName.toLowerCase() === compareRepositoryName.toLowerCase())) {
-							createdPushRemote = testRemote;
-							return true;
-						}
-						return false;
-					});
-
-					if (pushRemote && createdPushRemote) {
-						Logger.appendLine(`Found push remote ${pushRemote.name} for ${compareOwner}/${compareRepositoryName} and branch ${compareBranchName}`, 'CreatePullRequestViewProvider');
-						await this._folderRepositoryManager.repository.push(pushRemote.name, compareBranchName, true);
-						existingCompareUpstream = createdPushRemote;
-						headRepo = this._folderRepositoryManager.findRepo(byRemoteName(existingCompareUpstream.remoteName));
+				) === 'Publish Branch')) {
+					const pushResult = await this.pushUpstream(compareOwner, compareRepositoryName, compareBranchName);
+					if (pushResult) {
+						existingCompareUpstream = pushResult.compareUpstream;
+						headRepo = pushResult.repo;
 					} else {
 						this._throwError(message, `The current repository does not have a push remote for ${compareGithubRemoteName}`);
 					}
