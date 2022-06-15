@@ -14,7 +14,7 @@ import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRe
 import { GitFileChangeModel } from '../fileChangeModel';
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { GitFileChangeNode } from './fileChangeNode';
-import { TreeNode, TreeNodeParent } from './treeNode';
+import { LabelOnlyNode, TreeNode, TreeNodeParent } from './treeNode';
 
 export class CommitNode extends TreeNode implements vscode.TreeItem {
 	public sha: string;
@@ -52,6 +52,10 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 
 	async getChildren(): Promise<TreeNode[]> {
 		const fileChanges = (await this.pullRequest.getCommitChangedFiles(this.commit)) ?? [];
+
+		if (fileChanges.length === 0) {
+			return [new LabelOnlyNode('No changed files')];
+		}
 
 		const fileChangeNodes = fileChanges.map(change => {
 			const fileName = change.filename!;
