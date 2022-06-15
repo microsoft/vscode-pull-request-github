@@ -8,7 +8,7 @@ import Logger, { PR_TREE } from '../../common/logger';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { ReviewModel } from '../reviewModel';
 import { DirectoryTreeNode } from './directoryTreeNode';
-import { TreeNode, TreeNodeParent } from './treeNode';
+import { LabelOnlyNode, TreeNode, TreeNodeParent } from './treeNode';
 
 export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 	public label: string = 'Files';
@@ -43,7 +43,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 
 	async getChildren(): Promise<TreeNode[]> {
 		Logger.appendLine(`Getting children for Files node`, PR_TREE);
-		if (this._reviewModel.localFileChanges.length === 0) {
+		if (!this._reviewModel.hasLocalFileChanges) {
 			// Provide loading feedback until we get the files.
 			return new Promise<TreeNode[]>(resolve => {
 				const promiseResolver = this._reviewModel.onDidChangeLocalFileChanges(() => {
@@ -51,6 +51,10 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 					promiseResolver.dispose();
 				});
 			});
+		}
+
+		if (this._reviewModel.localFileChanges.length === 0) {
+			return [new LabelOnlyNode('No changed files')];
 		}
 
 		let nodes: TreeNode[];

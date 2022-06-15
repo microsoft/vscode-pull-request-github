@@ -54,3 +54,15 @@ export abstract class TreeNode implements vscode.Disposable {
 		}
 	}
 }
+
+export class LabelOnlyNode extends TreeNode {
+	public readonly label: string = '';
+	constructor(label: string) {
+		super();
+		this.label = label;
+	}
+	getTreeItem(): vscode.TreeItem {
+		return new vscode.TreeItem(this.label);
+	}
+
+}
