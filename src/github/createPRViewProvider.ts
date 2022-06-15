@@ -398,11 +398,16 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 				// We assume this happens only when the compare branch is based on the current branch.
 				const pushBranchSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get(PUSH_BRANCH) === 'always';
-				if (pushBranchSetting || (await vscode.window.showInformationMessage(
+				const messageResult = !pushBranchSetting ? await vscode.window.showInformationMessage(
 					`There is no upstream branch for '${compareBranchName}'.\n\nDo you want to publish it and then create the pull request?`,
 					{ modal: true },
 					'Publish Branch',
-				) === 'Publish Branch')) {
+					'Always Publish Branch')
+					: 'Publish Branch';
+				if (messageResult === 'Always Publish Branch') {
+					await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PUSH_BRANCH, 'always', vscode.ConfigurationTarget.Global);
+				}
+				if ((messageResult === 'Always Publish Branch') || (messageResult === 'Publish Branch')) {
 					const pushResult = await this.pushUpstream(compareOwner, compareRepositoryName, compareBranchName);
 					if (pushResult) {
 						existingCompareUpstream = pushResult.compareUpstream;
