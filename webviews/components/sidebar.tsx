@@ -16,6 +16,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 	const {
 		addReviewers,
 		addAssignees,
+		addAssigneeYourself,
 		addMilestone,
 		addLabels,
 		updatePR,
@@ -92,7 +93,17 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 						);
 					})
 				) : (
-					<div className="section-placeholder">None yet</div>
+					<div className="section-placeholder">
+							None yet{pr.canEdit ? (
+								<>
+									&mdash;
+									<a onClick={async () => {
+										const currentUser = await addAssigneeYourself();
+										updatePR({ assignees: pr.assignees.concat(currentUser.added) });
+									}}>assign yourself</a>
+								</>)
+								: null}
+					</div>
 				)}
 			</div>
 

@@ -67,6 +67,7 @@ export class PRContext {
 	public addMilestone = () => this.postMessage({ command: 'pr.add-milestone' });
 	public removeMilestone = () => this.postMessage({ command: 'pr.remove-milestone' });
 	public addAssignees = () => this.postMessage({ command: 'pr.add-assignees' });
+	public addAssigneeYourself = () => this.postMessage({ command: 'pr.add-assignee-yourself' });
 	public addLabels = () => this.postMessage({ command: 'pr.add-labels' });
 
 	public deleteComment = async (args: { id: number; pullRequestReviewId?: number }) => {
