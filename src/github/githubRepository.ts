@@ -12,10 +12,12 @@ import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { parseRemote, Remote } from '../common/remote';
 import { ISessionState } from '../common/sessionState';
+import { OVERRIDE_DEFAULT_BRANCH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
 import { OctokitCommon } from './common';
 import { CredentialStore, GitHub } from './credentials';
+import { SETTINGS_NAMESPACE } from './folderRepositoryManager';
 import {
 	AssignableUsersResponse,
 	ForkDetailsResponse,
@@ -35,6 +37,7 @@ import { PullRequestModel } from './pullRequestModel';
 import defaultSchema from './queries.gql';
 import {
 	convertRESTPullRequestToRawPullRequest,
+	getOverrideBranch,
 	getPRFetchQuery,
 	parseGraphQLIssue,
 	parseGraphQLPullRequest,
@@ -259,6 +262,10 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	async getDefaultBranch(): Promise<string> {
+		const overrideSetting = getOverrideBranch();
+		if (overrideSetting) {
+			return overrideSetting;
+		}
 		try {
 			Logger.debug(`Fetch default branch - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();

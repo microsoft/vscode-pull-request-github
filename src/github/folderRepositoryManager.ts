@@ -32,6 +32,7 @@ import {
 	convertRESTIssueToRawPullRequest,
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTUserToAccount,
+	getOverrideBranch,
 	getRelatedUsersFromTimelineEvents,
 	loginComparator,
 	parseGraphQLUser,
@@ -1113,7 +1114,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return {
 			owner: parent.owner!.login,
 			repo: parent.name,
-			base: parent.default_branch,
+			base: getOverrideBranch() ?? parent.default_branch,
 		};
 	}
 
