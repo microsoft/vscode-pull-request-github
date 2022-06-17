@@ -1580,12 +1580,12 @@
 			],
 			"comments/comment/context": [
 				{
-					"command": "pr.cancelEditComment",
+					"command": "pr.saveComment",
 					"group": "inline@1",
 					"when": "commentController =~ /^github-(browse|review)/"
 				},
 				{
-					"command": "pr.saveComment",
+					"command": "pr.cancelEditComment",
 					"group": "inline@2",
 					"when": "commentController =~ /^github-(browse|review)/"
 				}
