@@ -270,7 +270,7 @@ export class ReviewManager {
 		if (base !== currentBranchName) {
 			return false;
 		}
-		const offerResult = await vscode.window.showInformationMessage(`There\'s a pull request associated with the default branch "${currentBranchName}". Do you want to ignore this Pull Request?`, 'Ignore Pull Request', 'Don\'t Show Again');
+		const offerResult = await vscode.window.showInformationMessage(`There\'s a pull request associated with the default branch '${currentBranchName}'. Do you want to ignore this Pull Request?`, 'Ignore Pull Request', 'Don\'t Show Again');
 		if (offerResult === 'Ignore Pull Request') {
 			Logger.appendLine(`Branch ${currentBranchName} will now be ignored in ${IGNORE_PR_BRANCHES}.`, ReviewManager.ID);
 			const settingNamespace = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
