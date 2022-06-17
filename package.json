@@ -263,6 +263,15 @@
 					],
 					"description": "Push the \"from\" branch when creating a PR and the \"from\" branch is not available on the remote."
 				},
+				"githubPullRequests.ignoredPrBranches": {
+					"type": "array",
+					"default": [],
+					"items": {
+						"type": "string",
+						"description": "Branch name"
+					},
+					"description": "Prevents branches that are associated with a pull request from being automatically detected. This will prevent review mode from being entered on these branches."
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],
