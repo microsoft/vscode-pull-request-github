@@ -1180,11 +1180,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		this.mergeBase = data.merge_base_commit.sha;
 
-		const MAX_FILE_CHANGES_IN_COMPARE_COMMITS = 300;
+		const MAX_FILE_CHANGES_IN_COMPARE_COMMITS = 100;
 		let files: IRawFileChange[] = [];
 
 		if (data.files.length >= MAX_FILE_CHANGES_IN_COMPARE_COMMITS) {
-			// compareCommits will return a maximum of 300 changed files
+			// compareCommits will return a maximum of 100 changed files
 			// If we have (maybe) more than that, we'll need to fetch them with listFiles API call
 			Logger.debug(
 				`More than ${MAX_FILE_CHANGES_IN_COMPARE_COMMITS} files changed, fetching all file changes of PR #${this.number}`,
