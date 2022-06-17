@@ -14,7 +14,7 @@ import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { ISessionState } from '../common/sessionState';
-import { PR_SETTINGS_NAMESPACE, USE_REVIEW_MODE } from '../common/settingKeys';
+import { IGNORE_PR_BRANCHES, PR_SETTINGS_NAMESPACE, USE_REVIEW_MODE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { fromReviewUri, toReviewUri } from '../common/uri';
 import { formatError, groupBy } from '../common/utils';
@@ -154,8 +154,11 @@ export class ReviewManager {
 		);
 
 		this._disposables.push(
-			vscode.workspace.onDidChangeConfiguration(_ => {
+			vscode.workspace.onDidChangeConfiguration(e => {
 				this.updateFocusedViewMode();
+				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${IGNORE_PR_BRANCHES}`)) {
+					this.validateState(true, false);
+				}
 			}),
 		);
 
@@ -261,6 +264,13 @@ export class ReviewManager {
 		}
 
 		const branch = this._repository.state.HEAD;
+		const ignoreBranches = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(IGNORE_PR_BRANCHES);
+		if (ignoreBranches?.find(value => value === branch.name)) {
+			Logger.appendLine(`Branch ${branch.name} is ignored in ${IGNORE_PR_BRANCHES}.`, ReviewManager.ID);
+			this.clear(true);
+			return;
+		}
+
 		let matchingPullRequestMetadata = await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
 
 		if (!matchingPullRequestMetadata) {

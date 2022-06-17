@@ -10,4 +10,5 @@ export const USE_REVIEW_MODE = 'useReviewMode';
 export const FILE_LIST_LAYOUT = 'fileListLayout';
 export const ASSIGN_TO = 'assignCreated';
 export const PUSH_BRANCH = 'pushBranch';
+export const IGNORE_PR_BRANCHES = 'ignoredPrBranches';
 export const OVERRIDE_DEFAULT_BRANCH = 'overrideDefaultBranch';
