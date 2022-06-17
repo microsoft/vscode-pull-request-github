@@ -505,7 +505,7 @@
 			},
 			{
 				"command": "pr.exit",
-				"title": "Exit Review Mode",
+				"title": "Checkout Default Branch",
 				"category": "GitHub Pull Requests"
 			},
 			{
