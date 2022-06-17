@@ -43,7 +43,7 @@ export interface PullRequest {
 	assignees: IAccount[];
 	commitsCount: number;
 	milestone: IMilestone;
-	repositoryDefaultBranch: any;
+	repositoryDefaultBranch: string;
 	/**
 	 * User can edit PR title and description (author or user with push access)
 	 */

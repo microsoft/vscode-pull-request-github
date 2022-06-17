@@ -125,9 +125,10 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			pullRequestModel.getTimelineEvents(),
 			pullRequestModel.getReviewRequests(),
 			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
+			this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel)
 		])
 			.then(result => {
-				const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo] = result;
+				const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch] = result;
 				if (!pullRequest) {
 					throw new Error(
 						`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`,
@@ -192,6 +193,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 						events: [],
 						mergeMethodsAvailability,
 						defaultMergeMethod,
+						repositoryDefaultBranch: defaultBranch,
 						isIssue: false,
 						isAuthor: currentUser.login === pullRequest.author.login,
 						reviewers: this._existingReviewers,
