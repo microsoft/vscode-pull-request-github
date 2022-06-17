@@ -252,6 +252,39 @@ export class ReviewManager {
 		await vscode.commands.executeCommand('setContext', 'github:stateValidated', true);
 	}
 
+	private async offerIgnoreBranch(currentBranchName): Promise<boolean> {
+		const ignoreBranchStateKey = 'githubPullRequest.showOfferIgnoreBranch';
+		const showOffer = this._context.workspaceState.get(ignoreBranchStateKey, true);
+		if (!showOffer) {
+			return false;
+		}
+		// Only show once per day.
+		const lastOfferTimeKey = 'githubPullRequest.offerIgnoreBranchTime';
+		const lastOfferTime = this._context.workspaceState.get<number>(lastOfferTimeKey, 0);
+		const currentTime = new Date().getTime();
+		if ((currentTime - lastOfferTime) < (1000 * 60 * 60 * 24)) { // 1 day
+			return false;
+		}
+		await this._context.workspaceState.update(lastOfferTimeKey, currentTime);
+		const { base } = await this._folderRepoManager.getPullRequestDefaults(currentBranchName);
+		if (base !== currentBranchName) {
+			return false;
+		}
+		const offerResult = await vscode.window.showInformationMessage(`There\'s a pull request associated with the default branch "${currentBranchName}". Do you want to ignore this Pull Request?`, 'Ignore Pull Request', 'Don\'t Show Again');
+		if (offerResult === 'Ignore Pull Request') {
+			Logger.appendLine(`Branch ${currentBranchName} will now be ignored in ${IGNORE_PR_BRANCHES}.`, ReviewManager.ID);
+			const settingNamespace = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
+			const setting = settingNamespace.get<string[]>(IGNORE_PR_BRANCHES, []);
+			setting.push(currentBranchName);
+			await settingNamespace.update(IGNORE_PR_BRANCHES, setting);
+			return true;
+		} else if (offerResult === 'Don\'t Show Again') {
+			await this._context.workspaceState.update(ignoreBranchStateKey, false);
+			return false;
+		}
+		return false;
+	}
+
 	private async validateState(silent: boolean, openDiff: boolean) {
 		Logger.appendLine('Review> Validating state...');
 		const oldLastCommitSha = this._lastCommitSha;
@@ -342,6 +375,9 @@ export class ReviewManager {
 			Logger.appendLine('Review> This PR is merged');
 			return;
 		}
+
+		// Do not await the result of offering to ignore the branch.
+		this.offerIgnoreBranch(branch.name);
 
 		this._folderRepoManager.activePullRequest = pr;
 		this._lastCommitSha = pr.head.sha;
