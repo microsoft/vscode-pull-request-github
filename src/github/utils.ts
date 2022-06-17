@@ -10,7 +10,9 @@ import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { IComment, IReviewThread, Reaction } from '../common/comment';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
+import Logger from '../common/logger';
 import { Resource } from '../common/resources';
+import { OVERRIDE_DEFAULT_BRANCH } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { uniqBy } from '../common/utils';
 import { OctokitCommon } from './common';
@@ -1084,5 +1086,13 @@ export function getIssueNumberLabelFromParsed(parsed: ParsedIssue) {
 		return `#${parsed.issueNumber}`;
 	} else {
 		return `${parsed.owner}/${parsed.name}#${parsed.issueNumber}`;
+	}
+}
+
+export function getOverrideBranch(): string | undefined {
+	const overrideSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string | undefined>(OVERRIDE_DEFAULT_BRANCH);
+	if (overrideSetting) {
+		Logger.debug('Using override setting for default branch', GitHubRepository.ID);
+		return overrideSetting;
 	}
 }
