@@ -35,6 +35,7 @@ import { PullRequestModel } from './pullRequestModel';
 import defaultSchema from './queries.gql';
 import {
 	convertRESTPullRequestToRawPullRequest,
+	getOverrideBranch,
 	getPRFetchQuery,
 	parseGraphQLIssue,
 	parseGraphQLPullRequest,
@@ -259,6 +260,10 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	async getDefaultBranch(): Promise<string> {
+		const overrideSetting = getOverrideBranch();
+		if (overrideSetting) {
+			return overrideSetting;
+		}
 		try {
 			Logger.debug(`Fetch default branch - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();

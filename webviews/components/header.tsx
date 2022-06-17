@@ -25,10 +25,11 @@ export function Header({
 	isCurrentlyCheckedOut,
 	isDraft,
 	isIssue,
+	repositoryDefaultBranch
 }: PullRequest) {
 	return (
 		<>
-			<Title {...{ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }} />
+			<Title {...{ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
 			<div className="subtitle">
 				<div id="status">{getStatus(state, isDraft)}</div>
 				{!isIssue ? <Avatar for={author} /> : null}
@@ -47,7 +48,7 @@ export function Header({
 	);
 }
 
-function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: Partial<PullRequest>) {
+function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }: Partial<PullRequest>) {
 	const [inEditMode, setEditMode] = useState(false);
 	const [currentTitle, setCurrentTitle] = useStateProp(title);
 	const { setTitle, refresh, copyPrLink } = useContext(PullRequestContext);
@@ -107,14 +108,14 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: 
 				)}
 			</div>
 			<div className="button-group">
-				<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue }} />
+				<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
 				<button onClick={refresh}>Refresh</button>
 			</div>
 		</div>
 	);
 }
 
-const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue }) => {
+const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }) => {
 	const { exitReviewMode, checkout } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 
@@ -144,7 +145,7 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue }) => {
 					{checkIcon} Checked Out
 				</button>
 				<button aria-live="polite" title="Switch to a different branch than this pull request branch"disabled={isBusy} onClick={() => onClick('exitReviewMode')}>
-					Exit Review Mode
+					Checkout '{repositoryDefaultBranch}'
 				</button>
 			</>
 		);
