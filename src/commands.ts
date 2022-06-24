@@ -417,13 +417,23 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.exit', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
-			let pullRequestModel: PullRequestModel;
+		vscode.commands.registerCommand('pr.exit', async (pr: PRNode | DescriptionNode | PullRequestModel | undefined) => {
+			let pullRequestModel: PullRequestModel | undefined;
 
 			if (pr instanceof PRNode || pr instanceof DescriptionNode) {
 				pullRequestModel = pr.pullRequestModel;
+			} else if (pr === undefined) {
+				pullRequestModel = await chooseItem<PullRequestModel>(reposManager.folderManagers
+					.map(folderManager => folderManager.activePullRequest!)
+					.filter(activePR => !!activePR),
+					itemValue => `${itemValue.number}: ${itemValue.title}`,
+					{ placeHolder: 'Choose the pull request to exit' });
 			} else {
 				pullRequestModel = pr;
+			}
+
+			if (!pullRequestModel) {
+				return;
 			}
 
 			const fromDescriptionPage = pr instanceof PullRequestModel;
@@ -440,7 +450,7 @@ export function registerCommands(
 					title: `Exiting Pull Request`,
 				},
 				async () => {
-					const branch = await pullRequestModel.githubRepository.getDefaultBranch();
+					const branch = await pullRequestModel!.githubRepository.getDefaultBranch();
 					const manager = reposManager.getManagerForIssueModel(pullRequestModel);
 					if (manager) {
 						manager.checkoutDefaultBranch(branch);
