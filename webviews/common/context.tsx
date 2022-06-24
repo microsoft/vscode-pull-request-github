@@ -163,6 +163,14 @@ export class PRContext {
 		this.updatePR(state);
 	}
 
+	public async updateAutoMerge({ autoMerge, autoMergeMethod }: { autoMerge?: boolean, autoMergeMethod?: MergeMethod }) {
+		const response: { autoMerge: boolean, autoMergeMethod?: MergeMethod } = await this.postMessage({ command: 'pr.update-automerge', args: { autoMerge, autoMergeMethod } });
+		const state = this.pr;
+		state.autoMerge = response.autoMerge;
+		state.autoMergeMethod = response.autoMergeMethod;
+		this.updatePR(state);
+	}
+
 	public openDiff = (comment: IComment) => this.postMessage({ command: 'pr.open-diff', args: { comment } });
 
 	setPR = (pr: PullRequest) => {

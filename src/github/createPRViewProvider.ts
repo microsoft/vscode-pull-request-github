@@ -433,8 +433,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			if (!createdPR) {
 				this._throwError(message, 'There must be a difference in commits to create a pull request.');
 			} else {
-				if (message.args.autoMerge) {
-					await createdPR.enableAutoMerge(message.args.mergeMethod);
+				if (message.args.autoMerge && message.args.autoMergeMethod) {
+					await createdPR.enableAutoMerge(message.args.autoMergeMethod);
 				}
 				await this.autoAssign(createdPR);
 				await this._replyMessage(message, {});

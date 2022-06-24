@@ -434,6 +434,11 @@ export interface PullRequest {
 	merged: boolean;
 	mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+	autoMergeRequest?: {
+		mergeMethod: 'MERGE' | 'REBASE' | 'SQUASH'
+	};
+	viewerCanEnableAutoMerge: boolean;
+	viewerCanDisableAutoMerge: boolean;
 	isDraft?: boolean;
 	suggestedReviewers: SuggestedReviewerResponse[];
 	milestone?: {

@@ -208,6 +208,11 @@ fragment PullRequestFragment on PullRequest {
 	merged
 	mergeable
 	mergeStateStatus
+	autoMergeRequest {
+		mergeMethod
+	}
+	viewerCanEnableAutoMerge
+	viewerCanDisableAutoMerge
 	id
 	databaseId
 	isDraft
@@ -1005,6 +1010,14 @@ mutation UnresolveReviewThread($input: UnresolveReviewThreadInput!) {
 
 mutation EnablePullRequestAutoMerge($input: EnablePullRequestAutoMergeInput!) {
 	enablePullRequestAutoMerge(input: $input) {
+		pullRequest {
+			id
+		}
+	}
+}
+
+mutation DisablePullRequestAutoMerge($input: DisablePullRequestAutoMergeInput!) {
+	disablePullRequestAutoMerge(input: $input) {
 		pullRequest {
 			id
 		}

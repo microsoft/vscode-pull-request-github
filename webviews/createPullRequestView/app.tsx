@@ -141,8 +141,8 @@ export function main() {
 							{params.createError}
 						</ErrorBoundary>
 					</div>
-					<AutoMerge {...params}></AutoMerge>
-					
+					<AutoMerge {...params} updateState={ctx.updateState}></AutoMerge>
+
 					<div className="wrapper flex">
 						<input
 							id="draft-checkbox"

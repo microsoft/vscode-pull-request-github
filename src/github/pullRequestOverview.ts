@@ -235,6 +235,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						isDraft: pullRequest.isDraft,
 						mergeMethodsAvailability,
 						defaultMergeMethod,
+						autoMerge: pullRequest.autoMerge,
+						allowAutoMerge: pullRequest.allowAutoMerge,
+						autoMergeMethod: pullRequest.autoMergeMethod,
 						isIssue: false,
 						milestone: pullRequest.milestone,
 						assignees: pullRequest.assignees,
@@ -318,6 +321,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.copyPrLink();
 			case 'pr.openOnGitHub':
 				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+			case 'pr.update-automerge':
+				return this.updateAutoMerge(message);
 		}
 	}
 
@@ -764,6 +769,20 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async copyPrLink(): Promise<void> {
 		await vscode.env.clipboard.writeText(this._item.html_url);
 		vscode.window.showInformationMessage(`Copied link to PR "${this._item.title}"!`);
+	}
+
+	private async updateAutoMerge(message: IRequestMessage<{ autoMerge?: boolean, autoMergeMethod: MergeMethod }>): Promise<void> {
+		let replyMessage: { autoMerge: boolean, autoMergeMethod?: MergeMethod };
+		if (!message.args.autoMerge && !this._item.autoMerge) {
+			replyMessage = { autoMerge: false };
+		} else if ((message.args.autoMerge === false) && this._item.autoMerge) {
+			await this._item.disableAutoMerge();
+			replyMessage = { autoMerge: this._item.autoMerge };
+		} else {
+			await this._item.enableAutoMerge(message.args.autoMergeMethod);
+			replyMessage = { autoMerge: this._item.autoMerge, autoMergeMethod: this._item.autoMergeMethod };
+		}
+		this._replyMessage(message, replyMessage);
 	}
 
 	protected editCommentPromise(comment: IComment, text: string): Promise<IComment> {

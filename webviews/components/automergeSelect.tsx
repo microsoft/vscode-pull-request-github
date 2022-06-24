@@ -4,16 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { CreateParams } from '../../common/views';
-import { MergeMethod } from '../../src/github/interface';
-import PullRequestContext from '../common/createContext';
+import { MergeMethod, MergeMethodsAvailability } from '../../src/github/interface';
 import { MergeSelect } from './merge';
 
-export const AutoMerge = (createParams: CreateParams) => {
-	if (!createParams.allowAutoMerge) {
+export const AutoMerge = ({ updateState, allowAutoMerge, defaultMergeMethod, mergeMethodsAvailability, autoMerge }:
+	{ updateState: (params: Partial<{ autoMerge: boolean, autoMergeMethod: MergeMethod }>) => void,
+	allowAutoMerge?: boolean, defaultMergeMethod?: MergeMethod, mergeMethodsAvailability?: MergeMethodsAvailability, autoMerge?: boolean }) => {
+	if ((!allowAutoMerge && !autoMerge) || !mergeMethodsAvailability || !defaultMergeMethod) {
 		return null;
 	}
-	const ctx = React.useContext(PullRequestContext);
 	const select = React.useRef<HTMLSelectElement>();
 
 	return <div className="automerge-section">
@@ -22,16 +21,17 @@ export const AutoMerge = (createParams: CreateParams) => {
 				id="automerge-checkbox"
 				type="checkbox"
 				name="automerge"
-				checked={createParams.autoMerge}
-				onChange={() => ctx.updateState({ autoMerge: !createParams.autoMerge, mergeMethod: select.current.value as MergeMethod })}
+				checked={autoMerge}
+				disabled={!allowAutoMerge}
+				onChange={() => updateState({ autoMerge: !autoMerge, autoMergeMethod: select.current?.value as MergeMethod })}
 			></input>
 		</div>
 		<label htmlFor="automerge-checkbox" className="automerge-checkbox-label">Auto-merge</label>
 		<div className="merge-select-container">
-			<MergeSelect ref={select} defaultMergeMethod={createParams.defaultMergeMethod}
-				mergeMethodsAvailability={createParams.mergeMethodsAvailability}
+			<MergeSelect ref={select} defaultMergeMethod={defaultMergeMethod}
+				mergeMethodsAvailability={mergeMethodsAvailability}
 				onChange={() => {
-					ctx.updateState({ mergeMethod: select.current.value as MergeMethod });
+					updateState({ autoMergeMethod: select.current?.value as MergeMethod });
 				}}/>
 		</div>
 	</div>;
