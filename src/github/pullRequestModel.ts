@@ -1208,6 +1208,18 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return files;
 	}
 
+	get autoMerge(): boolean {
+		return !!this.item.autoMerge;
+	}
+
+	get autoMergeMethod(): MergeMethod | undefined {
+		return this.item.autoMergeMethod;
+	}
+
+	get allowAutoMerge(): boolean {
+		return !!this.item.allowAutoMerge;
+	}
+
 	/**
 	 * Get the current mergeability of the pull request.
 	 */
@@ -1393,6 +1405,33 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			if (!data) {
 				throw new Error('Enable auto-merge failed.');
 			}
+			this.item.autoMerge = true;
+			this.item.autoMergeMethod = mergeMethod;
+		} catch (e) {
+			if (e.message === 'GraphQL error: ["Pull request Pull request is in clean status"]') {
+				vscode.window.showWarningMessage('Unable to enable auto-merge. Pull request status checks are already green.');
+			} else {
+				throw e;
+			}
+		}
+	}
+
+	async disableAutoMerge(): Promise<void> {
+		try {
+			const { mutate, schema } = await this.githubRepository.ensure();
+			const { data } = await mutate({
+				mutation: schema.DisablePullRequestAutoMerge,
+				variables: {
+					input: {
+						pullRequestId: this.graphNodeId
+					}
+				}
+			});
+
+			if (!data) {
+				throw new Error('Disable auto-merge failed.');
+			}
+			this.item.autoMerge = false;
 		} catch (e) {
 			if (e.message === 'GraphQL error: ["Pull request Pull request is in clean status"]') {
 				vscode.window.showWarningMessage('Unable to enable auto-merge. Pull request status checks are already green.');

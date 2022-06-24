@@ -36,7 +36,7 @@ export interface CreateParams {
 	createError?: string;
 
 	autoMerge?: boolean;
-	mergeMethod?: MergeMethod;
+	autoMergeMethod?: MergeMethod;
 	allowAutoMerge?: boolean;
 	defaultMergeMethod?: MergeMethod;
 	mergeMethodsAvailability?: MergeMethodsAvailability;
@@ -58,5 +58,5 @@ export interface CreatePullRequest {
 	compareRepo: string;
 	draft: boolean;
 	autoMerge: boolean;
-	mergeMethod: MergeMethod;
+	autoMergeMethod?: MergeMethod;
 }

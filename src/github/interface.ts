@@ -111,6 +111,9 @@ export interface PullRequest extends Issue {
 	base?: IGitHubRef;
 	merged?: boolean;
 	mergeable?: PullRequestMergeability;
+	autoMerge?: boolean;
+	autoMergeMethod?: MergeMethod;
+	allowAutoMerge?: boolean;
 	suggestedReviewers?: ISuggestedReviewer[];
 }
 

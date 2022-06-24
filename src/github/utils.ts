@@ -27,6 +27,7 @@ import {
 	IMilestone,
 	Issue,
 	ISuggestedReviewer,
+	MergeMethod,
 	PullRequest,
 	PullRequestMergeability,
 	ReviewState,
@@ -527,6 +528,14 @@ export function parseMilestone(
 	};
 }
 
+function parseMergeMethod(mergeMethod: 'MERGE' | 'SQUASH' | 'REBASE' | undefined): MergeMethod | undefined {
+	switch (mergeMethod) {
+		case 'MERGE': return 'merge';
+		case 'REBASE': return 'rebase';
+		case 'SQUASH': return 'squash';
+	}
+}
+
 export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFLICTING',
 	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE'): PullRequestMergeability {
 	let parsed: PullRequestMergeability;
@@ -569,6 +578,9 @@ export function parseGraphQLPullRequest(
 		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
 		mergeable: parseMergeability(graphQLPullRequest.mergeable, graphQLPullRequest.mergeStateStatus),
+		autoMerge: !!graphQLPullRequest.autoMergeRequest,
+		autoMergeMethod: parseMergeMethod(graphQLPullRequest.autoMergeRequest?.mergeMethod),
+		allowAutoMerge: graphQLPullRequest.viewerCanEnableAutoMerge,
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
@@ -643,6 +655,9 @@ export function parseGraphQLIssuesRequest(
 		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
 		mergeable: parseMergeability(graphQLPullRequest.mergeable, pullRequest.mergeStateStatus),
+		allowAutoMerge: graphQLPullRequest.viewerCanEnableAutoMerge,
+		autoMerge: !!graphQLPullRequest.autoMergeRequest,
+		autoMergeMethod: parseMergeMethod(graphQLPullRequest.autoMergeRequest?.mergeMethod),
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),

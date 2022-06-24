@@ -3,12 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { ChangeEventHandler, useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
+import React, { ChangeEventHandler, Context, useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
 import { groupBy } from '../../src/common/utils';
 import { GithubItemStateEnum, MergeMethod, PullRequestMergeability } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
-import PullRequestContext from '../common/context';
+import PullRequestContext, { PRContext } from '../common/context';
 import { Reviewer } from '../components/reviewer';
+import { AutoMerge } from './automergeSelect';
 import { Dropdown } from './dropdown';
 import { alertIcon, checkIcon, deleteIcon, mergeIcon, pendingIcon, skipIcon } from './icon';
 import { nbsp } from './space';
@@ -218,6 +219,10 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 
 	if (mergeable === PullRequestMergeability.Mergeable && hasWritePermission) {
 		return isSimple ? <MergeSimple {...pr} /> : <Merge {...pr} />;
+	} else if (hasWritePermission) {
+		const ctx = useContext(PullRequestContext);
+		return <AutoMerge updateState={(params: Partial<{ autoMerge: boolean; autoMergeMethod: MergeMethod; }>) => { ctx.updateAutoMerge(params); }}
+			{...pr} defaultMergeMethod={pr.autoMergeMethod ?? pr.defaultMergeMethod} />;
 	}
 
 	return null;

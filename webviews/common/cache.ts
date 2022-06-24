@@ -60,6 +60,9 @@ export interface PullRequest {
 	mergeable: PullRequestMergeability;
 	defaultMergeMethod: MergeMethod;
 	mergeMethodsAvailability: MergeMethodsAvailability;
+	autoMerge?: boolean;
+	allowAutoMerge: boolean;
+	autoMergeMethod?: MergeMethod;
 	reviewers: ReviewState[];
 	isDraft?: boolean;
 	isIssue: boolean;

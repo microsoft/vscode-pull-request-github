@@ -70,6 +70,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 			mergeStateStatus: { default: 'CLEAN' },
 			isDraft: { default: false },
 			suggestedReviewers: { default: [] },
+			viewerCanEnableAutoMerge: { default: false }
 		}),
 	}),
 	rateLimit: { linked: RateLimitBuilder },

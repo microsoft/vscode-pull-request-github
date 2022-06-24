@@ -109,17 +109,17 @@ export class CreatePRContext {
 	public submit = async (): Promise<void> => {
 		try {
 			const args: CreatePullRequest = {
-				title: this.createParams.pendingTitle,
-				body: this.createParams.pendingDescription,
-				owner: this.createParams.baseRemote.owner,
-				repo: this.createParams.baseRemote.repositoryName,
-				base: this.createParams.baseBranch,
-				compareBranch: this.createParams.compareBranch,
-				compareOwner: this.createParams.compareRemote.owner,
-				compareRepo: this.createParams.compareRemote.repositoryName,
+				title: this.createParams.pendingTitle!,
+				body: this.createParams.pendingDescription!,
+				owner: this.createParams.baseRemote!.owner,
+				repo: this.createParams.baseRemote!.repositoryName,
+				base: this.createParams.baseBranch!,
+				compareBranch: this.createParams.compareBranch!,
+				compareOwner: this.createParams.compareRemote!.owner,
+				compareRepo: this.createParams.compareRemote!.repositoryName,
 				draft: this.createParams.isDraft,
-				autoMerge: this.createParams.autoMerge,
-				mergeMethod: this.createParams.mergeMethod
+				autoMerge: !!this.createParams.autoMerge,
+				autoMergeMethod: this.createParams.autoMergeMethod
 			};
 			vscode.setState(defaultCreateParams);
 			await this.postMessage({
