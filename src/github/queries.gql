@@ -212,6 +212,7 @@ fragment PullRequestFragment on PullRequest {
 		mergeMethod
 	}
 	viewerCanEnableAutoMerge
+	viewerCanDisableAutoMerge
 	id
 	databaseId
 	isDraft

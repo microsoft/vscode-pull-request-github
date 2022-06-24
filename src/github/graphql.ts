@@ -438,6 +438,7 @@ export interface PullRequest {
 		mergeMethod: 'MERGE' | 'REBASE' | 'SQUASH'
 	};
 	viewerCanEnableAutoMerge: boolean;
+	viewerCanDisableAutoMerge: boolean;
 	isDraft?: boolean;
 	suggestedReviewers: SuggestedReviewerResponse[];
 	milestone?: {
