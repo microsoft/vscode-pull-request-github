@@ -989,7 +989,7 @@
 				},
 				{
 					"command": "pr.exit",
-					"when": "false"
+					"when": "github:inReviewMode"
 				},
 				{
 					"command": "review.openFile",
