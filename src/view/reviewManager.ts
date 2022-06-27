@@ -265,11 +265,11 @@ export class ReviewManager {
 		if ((currentTime - lastOfferTime) < (1000 * 60 * 60 * 24)) { // 1 day
 			return false;
 		}
-		await this._context.workspaceState.update(lastOfferTimeKey, currentTime);
 		const { base } = await this._folderRepoManager.getPullRequestDefaults(currentBranchName);
 		if (base !== currentBranchName) {
 			return false;
 		}
+		await this._context.workspaceState.update(lastOfferTimeKey, currentTime);
 		const offerResult = await vscode.window.showInformationMessage(`There\'s a pull request associated with the default branch '${currentBranchName}'. Do you want to ignore this Pull Request?`, 'Ignore Pull Request', 'Don\'t Show Again');
 		if (offerResult === 'Ignore Pull Request') {
 			Logger.appendLine(`Branch ${currentBranchName} will now be ignored in ${IGNORE_PR_BRANCHES}.`, ReviewManager.ID);
