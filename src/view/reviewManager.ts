@@ -448,7 +448,11 @@ export class ReviewManager {
 	}
 
 	private _doFocusShow(pr: PullRequestModel, openDiff: boolean) {
-		commands.executeCommand('workbench.action.focusCommentsPanel');
+		// Respect the setting 'comments.openView' when it's 'never'.
+		const shouldShowCommentsView = vscode.workspace.getConfiguration('comments').get<'never' | string>('openView');
+		if (shouldShowCommentsView !== 'never') {
+			commands.executeCommand('workbench.action.focusCommentsPanel');
+		}
 		this._activePrViewCoordinator.show(pr);
 		if (openDiff) {
 			if (this._reviewModel.localFileChanges.length) {
