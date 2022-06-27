@@ -357,7 +357,7 @@
 				"githubIssues.issueBranchTitle": {
 					"type": "string",
 					"default": "${user}/issue${issueNumber}",
-					"markdownDescription": "Advanced settings for the name of the branch that is created when you start working on an issue. \n- `${user}` will be replace with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${sanitizedIssueTitle}` will be replaced with the issue title, with all spaces and unsupported characters removed"
+					"markdownDescription": "Advanced settings for the name of the branch that is created when you start working on an issue. \n- `${user}` will be replace with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${sanitizedIssueTitle}` will be replaced with the issue title, with all spaces and unsupported characters (https://git-scm.com/docs/git-check-ref-format) removed"
 				},
 				"githubIssues.useBranchForIssues": {
 					"type": "string",
