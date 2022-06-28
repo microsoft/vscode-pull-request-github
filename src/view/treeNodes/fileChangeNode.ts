@@ -236,7 +236,9 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 
 		if (reviewThreadsForNode.length) {
 			reviewThreadsForNode.sort((a, b) => a.endLine - b.endLine);
-			this.opts.selection = new vscode.Range(reviewThreadsForNode[0].startLine, 0, reviewThreadsForNode[0].endLine, 0);
+			const startLine = reviewThreadsForNode[0].startLine ?? reviewThreadsForNode[0].originalStartLine;
+			const endLine = reviewThreadsForNode[0].endLine ?? reviewThreadsForNode[0].originalEndLine;
+			this.opts.selection = new vscode.Range(startLine, 0, endLine, 0);
 		} else {
 			delete this.opts.selection;
 		}
