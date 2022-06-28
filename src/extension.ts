@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
+import TelemetryReporter from '@vscode/extension-telemetry';
 import * as vscode from 'vscode';
-import TelemetryReporter from 'vscode-extension-telemetry';
 import { LiveShare } from 'vsls/vscode.js';
 import { Repository } from './api/api';
 import { GitApiImpl } from './api/api1';
