@@ -1798,6 +1798,7 @@
 	"dependencies": {
 		"@octokit/rest": "18.2.0",
 		"@octokit/types": "6.10.0",
+		"@vscode/extension-telemetry": "0.6.2",
 		"apollo-boost": "^0.4.9",
 		"apollo-link-context": "1.0.20",
 		"cross-fetch": "3.1.5",
@@ -1811,7 +1812,6 @@
 		"ssh-config": "^2.0.0-alpha.3",
 		"tunnel": "0.0.6",
 		"uuid": "8.3.2",
-		"vscode-extension-telemetry": "0.4.5",
 		"vscode-tas-client": "^0.1.17",
 		"vsls": "^0.3.967"
 	},
