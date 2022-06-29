@@ -263,7 +263,7 @@
 					],
 					"description": "Push the \"from\" branch when creating a PR and the \"from\" branch is not available on the remote."
 				},
-				"githubPullRequests.ignoredPrBranches": {
+				"githubPullRequests.ignoredPullRequestBranches": {
 					"type": "array",
 					"default": [],
 					"items": {
