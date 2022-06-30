@@ -6,6 +6,7 @@
 
 import * as pathLib from 'path';
 import * as vscode from 'vscode';
+import { Repository } from './api/api';
 import { GitErrorCodes } from './api/api1';
 import { CommentReply, resolveCommentHandler } from './commentHandlerResolver';
 import { IComment } from './common/comment';
@@ -386,9 +387,11 @@ export function registerCommands(
 			}
 
 			let pullRequestModel: PullRequestModel;
+			let repository: Repository | undefined;
 
 			if (pr instanceof PRNode || pr instanceof DescriptionNode) {
 				pullRequestModel = pr.pullRequestModel;
+				repository = pr.repository;
 			} else {
 				pullRequestModel = pr;
 			}
@@ -410,6 +413,7 @@ export function registerCommands(
 					await ReviewManager.getReviewManagerForRepository(
 						reviewManagers,
 						pullRequestModel.githubRepository,
+						repository
 					)?.switch(pullRequestModel);
 				},
 			);

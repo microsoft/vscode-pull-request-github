@@ -288,7 +288,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 		e.changed.forEach(thread => {
 			const key = this.getCommentThreadCacheKey(thread.path, thread.diffSide === DiffSide.LEFT);
-			const index = this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id);
+			const index = this._commentThreadCache[key] ? this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id) : -1;
 			if (index > -1) {
 				const matchingThread = this._commentThreadCache[key][index];
 				updateThread(matchingThread, thread);
