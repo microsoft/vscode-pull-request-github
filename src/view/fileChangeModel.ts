@@ -51,7 +51,9 @@ export abstract class FileChangeModel {
 	async diffHunks(): Promise<DiffHunk[]> {
 		let diffHunks: DiffHunk[] = [];
 
-		if (this.status !== GitChangeType.RENAME) {
+		if (this.change instanceof InMemFileChange) {
+			return this.change.diffHunks;
+		} else if (this.status !== GitChangeType.RENAME) {
 			try {
 				const commit = this.sha ?? this.pullRequest.head!.sha;
 				const patch = await this.folderRepoManager.repository.diffBetween(this.pullRequest.base.sha, commit, this.fileName);
