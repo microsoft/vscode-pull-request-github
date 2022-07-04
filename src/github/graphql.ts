@@ -256,6 +256,22 @@ export interface AssignableUsersResponse {
 	rateLimit: RateLimit;
 }
 
+export interface PullRequestParticipantsResponse {
+	repository: {
+		pullRequest: {
+			participants: {
+				nodes: {
+					login: string;
+					avatarUrl: string;
+					name: string;
+					url: string;
+					email: string;
+				}[];
+			};
+		};
+	};
+}
+
 export interface AddReviewThreadResponse {
 	addPullRequestReviewThread: {
 		thread: ReviewThread;

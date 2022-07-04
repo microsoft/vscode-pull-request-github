@@ -724,6 +724,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return this._fetchAssignableUsersPromise;
 	}
 
+	async getPullRequestParticipants(githubRepository: GitHubRepository, pullRequestNumber: number): Promise<[IAccount[], IAccount]> {
+		return [await githubRepository.getPullRequestParticipants(pullRequestNumber), this.getCurrentUser(githubRepository)];
+	}
+
 	/**
 	 * Returns the remotes that are currently active, which is those that are important by convention (origin, upstream),
 	 * or the remotes configured by the setting githubPullRequests.remotes

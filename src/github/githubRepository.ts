@@ -25,6 +25,7 @@ import {
 	MaxIssueResponse,
 	MentionableUsersResponse,
 	MilestoneIssuesResponse,
+	PullRequestParticipantsResponse,
 	PullRequestResponse,
 	PullRequestsResponse,
 	ViewerPermissionResponse,
@@ -889,6 +890,51 @@ export class GitHubRepository implements vscode.Disposable {
 				return ret;
 			}
 		} while (hasNextPage);
+
+		return ret;
+	}
+
+	async getPullRequestParticipants(pullRequestNumber: number): Promise<IAccount[]> {
+		Logger.debug(`Fetch participants from a Pull Request`, GitHubRepository.ID);
+		const { query, remote, schema } = await this.ensure();
+
+		const ret: IAccount[] = [];
+
+		try {
+			const result: { data: PullRequestParticipantsResponse } = await query<PullRequestParticipantsResponse>({
+				query: schema.GetParticipants,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: pullRequestNumber,
+					first: 15
+				},
+			});
+
+			ret.push(
+				...result.data.repository.pullRequest.participants.nodes.map(node => {
+					return {
+						login: node.login,
+						avatarUrl: node.avatarUrl,
+						name: node.name,
+						url: node.url,
+						email: node.email,
+					};
+				}),
+			);
+		} catch (e) {
+			Logger.debug(`Unable to fetch participants from a PullRequest: ${e}`, GitHubRepository.ID);
+			if (
+				e.graphQLErrors &&
+				e.graphQLErrors.length > 0 &&
+				e.graphQLErrors[0].type === 'INSUFFICIENT_SCOPES'
+			) {
+				vscode.window.showWarningMessage(
+					`GitHub user features will not work. ${e.graphQLErrors[0].message}`,
+				);
+			}
+			return ret;
+		}
 
 		return ret;
 	}
