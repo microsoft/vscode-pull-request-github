@@ -907,7 +907,7 @@ export class GitHubRepository implements vscode.Disposable {
 					owner: remote.owner,
 					name: remote.repositoryName,
 					number: pullRequestNumber,
-					first: 15
+					first: 18
 				},
 			});
 
@@ -933,7 +933,6 @@ export class GitHubRepository implements vscode.Disposable {
 					`GitHub user features will not work. ${e.graphQLErrors[0].message}`,
 				);
 			}
-			return ret;
 		}
 
 		return ret;

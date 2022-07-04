@@ -390,8 +390,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return reviewers;
 	}
 	private getAssigneesQuickPickItems(
-		assignableUsers: IAccount[] | undefined,
-		suggestedReviewers: IAccount[] | undefined,
+		assignableUsers: IAccount[],
+		suggestedReviewers: IAccount[],
 		viewer: IAccount,
 	): (vscode.QuickPickItem & { assignee?: IAccount })[] {
 		if (!suggestedReviewers) {
@@ -544,7 +544,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
 			const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
 
-			const [participants, viewer] = await this._folderRepositoryManager.getPullRequestParticipants(this._item.githubRepository, this._item.number);
+			const { participants, viewer } = await this._folderRepositoryManager.getPullRequestParticipants(this._item.githubRepository, this._item.number);
 
 			const assigneesToAdd = (await vscode.window.showQuickPick(
 				this.getAssigneesQuickPickItems(assignableUsers, participants, viewer),

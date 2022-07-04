@@ -327,10 +327,10 @@ fragment ReviewComment on PullRequestReviewComment {
 	viewerCanDelete
 }
 
-query GetParticipants($owner: String!, $name: String!, $number: Int!) {
+query GetParticipants($owner: String!, $name: String!, $number: Int!, $first: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
-			participants(first: 18) {
+			participants(first: $first) {
 				nodes {
 					login
 					avatarUrl
