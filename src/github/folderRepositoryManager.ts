@@ -1855,8 +1855,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	public async checkoutDefaultBranch(branch: string): Promise<void> {
+		let branchObj: Branch | undefined;
 		try {
-			const branchObj = await this.repository.getBranch(branch);
+			branchObj = await this.repository.getBranch(branch);
 
 			const currentBranch = this.repository.state.HEAD?.name;
 			if (currentBranch === branchObj.name) {
@@ -1884,7 +1885,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					return;
 				}
 			}
-
+			Logger.appendLine(`Exiting failed: ${e}. Target branch ${branch} used to find branch ${branchObj?.name ?? 'unknown'} with upstream ${branchObj?.upstream ?? 'unknown'}.`);
 			vscode.window.showErrorMessage(`Exiting failed: ${e}`);
 		}
 	}
