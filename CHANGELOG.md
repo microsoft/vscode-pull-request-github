@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.46.0
+
+### Changes
+
+- Use the setting `"githubPullRequests.ignoredPullRequestBranches"` to ignore branches for pull requests.
+- The setting `"githubPullRequests.overrideDefaultBranch"` lets you override the default branch from github.com locally.
+- The "Publish branch?" dialog can be skipped when creating a PR using the setting `"githubPullRequests.pushBranch"`.
+- The auto-merge checkbox is availabe in the "Overview" editor.
+
+	![Auto-merge in the overview](documentation/changelog/0.46.0/automerge-overview.png)
+
+### Fixes
+
+- "Exit Review Mode" changed to "Checkout default Branch". https://github.com/microsoft/vscode-pull-request-github/issues/3637
+- Comments showed when opening a PR despite having "comments.openView": "never" set. https://github.com/microsoft/vscode-pull-request-github/issues/3652
+- Can't comment on a new file (via github.dev web editor). https://github.com/microsoft/vscode-pull-request-github/issues/3646
+- Cannot view more than 100 and few files in PR. https://github.com/microsoft/vscode-pull-request-github/issues/3623
+- The Copy GitHub Permalink command copies wrong commit hash. https://github.com/microsoft/vscode-pull-request-github/issues/3566
+
+**_Thank You_**
+
+* [@blindpirate (Bo Zhang)](https://github.com/blindpirate): Show pull request's close button for author [PR #3507](https://github.com/microsoft/vscode-pull-request-github/pull/3507)
+* [@leopoldsedev (Christian Leopoldseder)](https://github.com/leopoldsedev): Implement quick self assign link as available on .com (#3382) [PR #3601](https://github.com/microsoft/vscode-pull-request-github/pull/3601)
+
+
 ## 0.44.0
 
 ### Changes
