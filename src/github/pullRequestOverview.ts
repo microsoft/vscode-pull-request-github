@@ -529,6 +529,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			quickPick.busy = true;
 			quickPick.items = await getMilestoneOptions(this._folderRepositoryManager);
 			quickPick.busy = false;
+
 			quickPick.onDidAccept(async () => {
 				quickPick.hide();
 				const milestoneToAdd = quickPick.selectedItems[0];
