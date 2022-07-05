@@ -1042,6 +1042,22 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	/**
+	 * Return True if already exists and should retry?
+	 */
+	async createMilestone(repository: GitHubRepository, milestoneTitle: string) {
+		try {
+			await repository.octokit.issues.createMilestone({
+				owner: repository.remote.owner,
+				repo: repository.remote.repositoryName,
+				title: milestoneTitle
+			});
+		}
+		catch (e) {
+			vscode.window.showErrorMessage(`Failed to create a milestone ${e}`);
+		}
+	}
+
+	/**
 	 * Pull request defaults in the query, like owner and repository variables, will be resolved.
 	 */
 	async getIssues(

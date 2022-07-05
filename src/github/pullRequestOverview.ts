@@ -500,19 +500,46 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				});
 			}
 
-			const milestoneToAdd = await vscode.window.showQuickPick(
-				getMilestoneOptions(this._folderRepositoryManager),
-				{
-					canPickMany: false,
-				},
-			);
+			const quickPick = vscode.window.createQuickPick();
+			quickPick.canSelectMany = false;
+			quickPick.placeholder = 'Select a milestone to add';
+			quickPick.buttons = [{
+				iconPath: new vscode.ThemeIcon('add'),
+				tooltip: 'Create',
+			}];
+			quickPick.onDidTriggerButton((_) => {
+				quickPick.hide();
 
-			if (milestoneToAdd && isMilestoneQuickPickItem(milestoneToAdd)) {
-				await this._item.updateMilestone(milestoneToAdd.id);
-				this._replyMessage(message, {
-					added: milestoneToAdd.milestone,
+				const inputBox = vscode.window.createInputBox();
+				inputBox.title = 'Create new milestone';
+				inputBox.placeholder = 'New milestone name';
+				if (quickPick.value !== ''){
+					inputBox.value = quickPick.value;
+				}
+				inputBox.show();
+				inputBox.onDidAccept(() => {
+					if (inputBox.value !== ''){
+						this._folderRepositoryManager.createMilestone(this._item.githubRepository, inputBox.value);
+					}
+					inputBox.hide();
 				});
-			}
+			});
+			quickPick.show();
+
+			quickPick.busy = true;
+			quickPick.items = await getMilestoneOptions(this._folderRepositoryManager);
+			quickPick.busy = false;
+			quickPick.onDidAccept(async () => {
+				quickPick.hide();
+				const milestoneToAdd = quickPick.selectedItems[0];
+				if (milestoneToAdd && isMilestoneQuickPickItem(milestoneToAdd)) {
+					await this._item.updateMilestone(milestoneToAdd.id);
+					this._replyMessage(message, {
+						added: milestoneToAdd.milestone,
+					});
+				}
+			});
+
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}
