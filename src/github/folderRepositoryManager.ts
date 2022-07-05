@@ -1041,9 +1041,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return milestones;
 	}
 
-	/**
-	 * Return True if already exists and should retry?
-	 */
 	async createMilestone(repository: GitHubRepository, milestoneTitle: string) {
 		try {
 			await repository.octokit.issues.createMilestone({
