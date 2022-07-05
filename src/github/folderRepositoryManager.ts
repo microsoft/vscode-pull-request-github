@@ -1050,7 +1050,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			});
 		}
 		catch (e) {
-			vscode.window.showErrorMessage(`Failed to create a milestone ${formatError(e)}`);
+			vscode.window.showErrorMessage(`Failed to create a milestone:\n${formatError(e)}`);
 		}
 	}
 
