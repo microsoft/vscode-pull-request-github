@@ -5,6 +5,7 @@
 'use strict';
 
 import * as crypto from 'crypto';
+import * as OctokitTypes from '@octokit/types';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
@@ -885,6 +886,31 @@ export function getReactionGroup(): { title: string; label: string; icon?: vscod
 	];
 
 	return ret;
+}
+
+export async function restPaginate<R extends OctokitTypes.RequestInterface, T>(request: R, variables: Parameters<R>[0]): Promise<T[]> {
+	let page = 1;
+	let results: T[] = [];
+	let hasNextPage = false;
+
+	do {
+		const result = await request(
+			{
+				...(variables as any),
+				per_page: 100,
+				page
+			}
+		);
+
+		results = results.concat(
+			result.data as T[]
+		);
+
+		hasNextPage = !!result.headers.link && result.headers.link.indexOf('rel="next"') > -1;
+		page += 1;
+	} while (hasNextPage);
+
+	return results;
 }
 
 export function getRelatedUsersFromTimelineEvents(

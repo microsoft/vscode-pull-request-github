@@ -66,6 +66,7 @@ import {
 	parseGraphQLReviewThread,
 	parseGraphQLTimelineEvents,
 	parseMergeability,
+	restPaginate,
 } from './utils';
 
 interface IPullRequestModel {
@@ -1159,7 +1160,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		if (this.item.merged) {
-			const response = await octokit.pulls.listFiles({
+			const response = await restPaginate<typeof octokit.pulls.listFiles, IRawFileChange>(octokit.pulls.listFiles, {
 				repo: remote.repositoryName,
 				owner: remote.owner,
 				pull_number: this.number,
@@ -1168,7 +1169,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			// Use the original base to compare against for merged PRs
 			this.mergeBase = this.base.sha;
 
-			return response.data as IRawFileChange[];
+			return response;
 		}
 
 		const { data } = await octokit.repos.compareCommits({
@@ -1190,11 +1191,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				`More than ${MAX_FILE_CHANGES_IN_COMPARE_COMMITS} files changed, fetching all file changes of PR #${this.number}`,
 				PullRequestModel.ID,
 			);
-			files = await octokit.paginate(`GET /repos/:owner/:repo/pulls/:pull_number/files`, {
+			files = await restPaginate<typeof octokit.pulls.listFiles, IRawFileChange>(octokit.pulls.listFiles, {
 				owner: this.base.repositoryCloneUrl.owner,
 				pull_number: this.number,
 				repo: remote.repositoryName,
-				per_page: 100,
 			});
 		} else {
 			// if we're under the limit, just use the result from compareCommits, don't make additional API calls.
