@@ -290,6 +290,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			createError: ''
 		};
 
+		Logger.appendLine(`Initializing "create" view: ${JSON.stringify(params)}`, 'CreatePullRequestViewProvider');
+
 		this._compareBranch = this.defaultCompareBranch.name ?? '';
 		this._baseBranch = defaultBaseBranch;
 
