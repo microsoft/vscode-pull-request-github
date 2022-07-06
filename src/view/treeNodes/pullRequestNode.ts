@@ -254,7 +254,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				return undefined;
 			}
 
-			return getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase);
+			return getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase, PRNode.ID);
 		}
 
 		return undefined;
