@@ -70,7 +70,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			return [];
 		}
 
-		if (document.languageId !== 'scminput' && !(await isComment(document, position))) {
+		if ((document.languageId !== 'scminput') && (document.languageId !== 'git-commit') && !(await isComment(document, position))) {
 			return [];
 		}
 
@@ -100,9 +100,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		} else {
 			uri = document.uri.scheme === NEW_ISSUE_SCHEME
 				? extractIssueOriginFromQuery(document.uri) ?? document.uri
-				: document.languageId === 'scminput'
-					? getRootUriFromScmInputUri(document.uri)
-					: document.uri;
+				: document.uri;
 		}
 		if (!uri) {
 			return [];
