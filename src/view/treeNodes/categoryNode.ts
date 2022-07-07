@@ -104,6 +104,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public fetchNextPage: boolean = false;
 	public repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 	public contextValue: string;
+	public readonly id: string = '';
 
 	constructor(
 		public parent: TreeNodeParent,
@@ -132,8 +133,11 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				this.label = 'Local Pull Request Branches';
 				break;
 			default:
+				this.label = '';
 				break;
 		}
+
+		this.id = parent instanceof TreeNode ? `${parent.label}/${this.label}` : this.label;
 
 		if (this._categoryQuery) {
 			this.contextValue = 'query';

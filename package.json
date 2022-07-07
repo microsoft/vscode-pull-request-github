@@ -14,7 +14,7 @@
 		"tokenInformation",
 		"commentsResolvedState"
 	],
-	"version": "0.44.0",
+	"version": "0.46.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.68.0"

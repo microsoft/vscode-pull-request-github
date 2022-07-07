@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Repository } from '../../api/api';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
@@ -21,6 +22,7 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 			| { light: string | vscode.Uri; dark: string | vscode.Uri }
 			| vscode.ThemeIcon,
 		public pullRequestModel: PullRequestModel,
+		public readonly repository: Repository
 	) {
 		super();
 

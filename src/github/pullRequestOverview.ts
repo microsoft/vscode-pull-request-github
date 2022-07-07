@@ -57,8 +57,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		const activeColumn = toTheSide
 			? vscode.ViewColumn.Beside
 			: vscode.window.activeTextEditor
-			? vscode.window.activeTextEditor.viewColumn
-			: vscode.ViewColumn.One;
+				? vscode.window.activeTextEditor.viewColumn
+				: vscode.ViewColumn.One;
 
 		// If we already have a panel, show it.
 		// Otherwise, create a new panel.
@@ -354,10 +354,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				isAuthor && isCommenter
 					? 'Recently edited and reviewed changes to these files'
 					: isAuthor
-					? 'Recently edited these files'
-					: isCommenter
-					? 'Recently reviewed changes to these files'
-					: 'Suggested reviewer';
+						? 'Recently edited these files'
+						: isCommenter
+							? 'Recently reviewed changes to these files'
+							: 'Suggested reviewer';
 
 			reviewers.push({
 				label: login,
@@ -512,22 +512,55 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				});
 			}
 
-			const milestoneToAdd = await vscode.window.showQuickPick(
-				getMilestoneOptions(this._folderRepositoryManager),
-				{
-					canPickMany: false,
-				},
-			);
+			const quickPick = vscode.window.createQuickPick();
+			quickPick.canSelectMany = false;
+			quickPick.title = 'Select a milestone to add';
+			quickPick.buttons = [{
+				iconPath: new vscode.ThemeIcon('add'),
+				tooltip: 'Create',
+			}];
+			quickPick.onDidTriggerButton((_) => {
+				quickPick.hide();
 
-			if (milestoneToAdd && isMilestoneQuickPickItem(milestoneToAdd)) {
-				await this._item.updateMilestone(milestoneToAdd.id);
-				this._replyMessage(message, {
-					added: milestoneToAdd.milestone,
+				const inputBox = vscode.window.createInputBox();
+				inputBox.title = 'Create new milestone';
+				inputBox.placeholder = 'New milestone title';
+				if (quickPick.value !== '') {
+					inputBox.value = quickPick.value;
+				}
+				inputBox.show();
+				inputBox.onDidAccept(async () => {
+					inputBox.hide();
+					if (inputBox.value !== '') {
+						const milestone = await this._folderRepositoryManager.createMilestone(this._item.githubRepository, inputBox.value);
+						if (milestone !== undefined) {
+							await this.updateMilestone(milestone, message);
+						}
+					}
 				});
-			}
+			});
+
+			quickPick.show();
+			quickPick.items = await getMilestoneOptions(this._folderRepositoryManager);
+
+			quickPick.onDidAccept(async () => {
+				quickPick.hide();
+				const milestoneToAdd = quickPick.selectedItems[0];
+				if (milestoneToAdd && isMilestoneQuickPickItem(milestoneToAdd)) {
+					await this.updateMilestone(milestoneToAdd.milestone, message);
+				}
+			});
+
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}
+	}
+
+	private async updateMilestone(milestone: IMilestone, message: IRequestMessage<void>) {
+		await this._item.updateMilestone(milestone.id);
+		this._replyMessage(message, {
+			added: milestone,
+		});
 	}
 
 	private async removeMilestone(message: IRequestMessage<void>): Promise<void> {

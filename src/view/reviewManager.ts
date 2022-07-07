@@ -1014,10 +1014,15 @@ export class ReviewManager {
 
 	static getReviewManagerForRepository(
 		reviewManagers: ReviewManager[],
-		repository: GitHubRepository,
+		githubRepository: GitHubRepository,
+		repository?: Repository
 	): ReviewManager | undefined {
 		return reviewManagers.find(reviewManager =>
-			reviewManager._folderRepoManager.gitHubRepositories.some(repo => repo.equals(repository)),
+			reviewManager._folderRepoManager.gitHubRepositories.some(repo => {
+				// If we don't have a Repository, then just get the first GH repo that fits
+				// Otherwise, try to pick the review manager with the same repository.
+				return repo.equals(githubRepository) && (!repository || (reviewManager._folderRepoManager.repository === repository));
+			})
 		);
 	}
 

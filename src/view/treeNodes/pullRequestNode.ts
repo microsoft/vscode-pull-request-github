@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Repository } from '../../api/api';
 import { getCommentingRanges } from '../../common/commentingRanges';
 import { SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
@@ -37,6 +38,10 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		this._command = newCommand;
 	}
 
+	public get repository(): Repository {
+		return this._folderReposManager.repository;
+	}
+
 	constructor(
 		public parent: TreeNodeParent,
 		private _folderReposManager: FolderRepositoryManager,
@@ -62,6 +67,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				'Description',
 				new vscode.ThemeIcon('git-pull-request'),
 				this.pullRequestModel,
+				this.repository
 			);
 
 			if (!this.pullRequestModel.isResolved()) {
@@ -216,7 +222,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 
 		return {
 			label,
-			id: `${this.parent instanceof TreeNode ? this.parent.label : ''}${html_url}`, // unique id stable across checkout status
+			id: `${this.parent instanceof TreeNode ? (this.parent.id ?? this.parent.label) : ''}${html_url}`, // unique id stable across checkout status
 			tooltip,
 			description,
 			collapsibleState: 1,
@@ -248,7 +254,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				return undefined;
 			}
 
-			return getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase);
+			return getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase, PRNode.ID);
 		}
 
 		return undefined;
