@@ -390,8 +390,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return reviewers;
 	}
 	private getAssigneesQuickPickItems(
-		assignableUsers: IAccount[] | undefined,
-		suggestedReviewers: ISuggestedReviewer[] | undefined,
+		assignableUsers: IAccount[],
+		suggestedReviewers: IAccount[],
+		viewer: IAccount,
 	): (vscode.QuickPickItem & { assignee?: IAccount })[] {
 		if (!suggestedReviewers) {
 			return [];
@@ -402,30 +403,41 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		const skipList: Set<string> = new Set([...(this._item.assignees?.map(assignee => assignee.login) ?? [])]);
 
 		const assignees: (vscode.QuickPickItem & { assignee?: IAccount })[] = [];
+		// Check if the viewer is allowed to be assigned to the PR
+		if (assignableUsers.findIndex((assignableUser: IAccount) => assignableUser.login === viewer.login) !== -1){
+			assignees.push({
+				label: viewer.login,
+				description: viewer.name,
+				assignee: viewer,
+			});
+			skipList.add(viewer.login);
+		}
+
 		for (const suggestedReviewer of suggestedReviewers) {
-			const { login, name, isAuthor, isCommenter } = suggestedReviewer;
-			if (skipList.has(login)) {
+			if (skipList.has(suggestedReviewer.login)) {
 				continue;
 			}
 
-			const suggestionReason: string =
-				isAuthor && isCommenter
-					? 'Recently edited and reviewed changes to these files'
-					: isAuthor
-						? 'Recently edited these files'
-						: isCommenter
-							? 'Recently reviewed changes to these files'
-							: 'Suggested reviewer';
-
 			assignees.push({
-				label: login,
-				description: name,
-				detail: suggestionReason,
-				assignee: suggestedReviewer,
+				label: suggestedReviewer.login,
+				description: suggestedReviewer.name,
+				assignee: viewer,
 			});
 			// this user shouldn't be added later from assignable users list
-			skipList.add(login);
+			skipList.add(suggestedReviewer.login);
 		}
+
+		if (assignees.length !== 0){
+			assignees.unshift({
+				kind: vscode.QuickPickItemKind.Separator,
+				label: 'Suggestions'
+			});
+		}
+
+		assignees.push({
+			kind: vscode.QuickPickItemKind.Separator,
+			label: 'Users'
+		});
 
 		for (const user of assignableUsers) {
 			if (skipList.has(user.login)) {
@@ -565,8 +577,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
 			const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
 
+			const { participants, viewer } = await this._folderRepositoryManager.getPullRequestParticipants(this._item.githubRepository, this._item.number);
+
 			const assigneesToAdd = (await vscode.window.showQuickPick(
-				this.getAssigneesQuickPickItems(assignableUsers, []),
+				this.getAssigneesQuickPickItems(assignableUsers, participants, viewer),
 				{
 					canPickMany: true,
 					matchOnDescription: true,

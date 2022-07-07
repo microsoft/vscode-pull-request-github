@@ -327,6 +327,22 @@ fragment ReviewComment on PullRequestReviewComment {
 	viewerCanDelete
 }
 
+query GetParticipants($owner: String!, $name: String!, $number: Int!, $first: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			participants(first: $first) {
+				nodes {
+					login
+					avatarUrl
+					name
+					url
+					email
+				}
+			}
+		}
+	}
+}
+
 query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
 	node(id: $pullRequestId) {
 		... on PullRequest {
@@ -539,7 +555,7 @@ query PullRequestState($owner: String!, $name: String!, $number: Int!) {
 
 query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!) {
 	repository(owner: $owner, name: $name) {
-		pullRequests(first: 1, headRefName: $headRefName, orderBy: {field: CREATED_AT, direction: DESC}) {
+		pullRequests(first: 1, headRefName: $headRefName, orderBy: { field: CREATED_AT, direction: DESC }) {
 			nodes {
 				...PullRequestFragment
 			}
