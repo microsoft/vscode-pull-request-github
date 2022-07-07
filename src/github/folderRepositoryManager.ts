@@ -23,7 +23,7 @@ import { OctokitCommon } from './common';
 import { AuthProvider, CredentialStore } from './credentials';
 import { GitHubRepository, ItemsData, PullRequestData, ViewerPermission } from './githubRepository';
 import { PullRequestState, UserResponse } from './graphql';
-import { IAccount, ILabel, IPullRequestsPagingOptions, PRType, RepoAccessAndMergeMethods, User } from './interface';
+import { IAccount, ILabel, IMilestone, IPullRequestsPagingOptions, PRType, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
 import { MilestoneModel } from './milestoneModel';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
@@ -1039,6 +1039,26 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			});
 		}
 		return milestones;
+	}
+
+	async createMilestone(repository: GitHubRepository, milestoneTitle: string): Promise<IMilestone | undefined> {
+		try {
+			const { data } = await repository.octokit.issues.createMilestone({
+				owner: repository.remote.owner,
+				repo: repository.remote.repositoryName,
+				title: milestoneTitle
+			});
+			return {
+				title: data.title,
+				dueOn: data.due_on,
+				createdAt: data.created_at,
+				id: data.id.toString(),
+			};
+		}
+		catch (e) {
+			vscode.window.showErrorMessage(`Failed to create a milestone\n${formatError(e)}`);
+			return undefined;
+		}
 	}
 
 	/**
