@@ -327,8 +327,6 @@
 						"diff",
 						"dockerfile",
 						"dockercompose",
-						"git-commit",
-						"git-rebase",
 						"ignore",
 						"ini",
 						"julia",

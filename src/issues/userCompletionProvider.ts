@@ -53,7 +53,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 			return [];
 		}
 
-		if (!this.isCodeownersFiles(document.uri) && document.languageId !== 'scminput' && !(await isComment(document, position))) {
+		if (!this.isCodeownersFiles(document.uri) && (document.languageId !== 'scminput') && (document.languageId !== 'git-commit') && !(await isComment(document, position))) {
 			return [];
 		}
 
