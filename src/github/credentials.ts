@@ -51,7 +51,7 @@ export class CredentialStore implements vscode.Disposable {
 	private _onDidGetSession: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidGetSession = this._onDidGetSession.event;
 
-	constructor(private readonly _telemetry: ITelemetry) {
+	constructor(private readonly _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext) {
 		this._disposables = [];
 		this._disposables.push(
 			vscode.authentication.onDidChangeSessions(async () => {
@@ -120,6 +120,16 @@ export class CredentialStore implements vscode.Disposable {
 			}
 			if (github) {
 				await this.setCurrentUser(github);
+			}
+
+			// The extension behaves unexpectedly when both github and enterprise accounts are found. Warn the user.
+			const showAccountWarning = !this._context.workspaceState.get<boolean>('github.hideTwoAccountWarning', false);
+			if (this.isAuthenticated(AuthProvider.github) && this.isAuthenticated(AuthProvider['github-enterprise']) && showAccountWarning) {
+				vscode.window.showWarningMessage('Both GitHub and GitHub Enterprise accounts were found. Sign out of one account to ensure the extension works.', 'Don\'t show again').then(result => {
+					if (result === 'Don\'t show again') {
+						this._context.workspaceState.update('github.hideTwoAccountWarning', true);
+					}
+				});
 			}
 			this._onDidInitialize.fire();
 		} else {

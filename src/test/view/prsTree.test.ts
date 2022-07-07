@@ -37,7 +37,7 @@ describe('GitHub Pull Requests view', function () {
 
 		telemetry = new MockTelemetry();
 		provider = new PullRequestsTreeDataProvider(telemetry);
-		credentialStore = new CredentialStore(telemetry);
+		credentialStore = new CredentialStore(telemetry, context);
 
 		// For tree view unit tests, we don't test the authentication flow, so `showSignInNotification` returns
 		// a dummy GitHub/Octokit object.
