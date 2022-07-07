@@ -56,9 +56,9 @@ describe('PullRequestModel', function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 
-		credentials = new CredentialStore(telemetry);
-		repo = new MockGitHubRepository(remote, credentials, telemetry, sinon);
 		context = new MockExtensionContext();
+		credentials = new CredentialStore(telemetry, context);
+		repo = new MockGitHubRepository(remote, credentials, telemetry, sinon);
 		Resource.initialize(context);
 	});
 

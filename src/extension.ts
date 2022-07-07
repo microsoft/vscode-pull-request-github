@@ -275,7 +275,7 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	}
 	TemporaryState.init(context);
 	Logger.debug('Creating credential store.', 'Activation');
-	const credentialStore = new CredentialStore(telemetry);
+	const credentialStore = new CredentialStore(telemetry, context);
 	context.subscriptions.push(credentialStore);
 	await credentialStore.create({ silent: true });
 

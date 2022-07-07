@@ -8,18 +8,21 @@ import { Protocol } from '../../common/protocol';
 import { GitHubRepository } from '../../github/githubRepository';
 import { MockSessionState } from '../mocks/mockSessionState';
 import { Uri } from 'vscode';
+import { MockExtensionContext } from '../mocks/mockExtensionContext';
 
 describe('GitHubRepository', function () {
 	let sinon: SinonSandbox;
 	let credentialStore: CredentialStore;
 	let telemetry: MockTelemetry;
+	let context: MockExtensionContext;
 
 	beforeEach(function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 
 		telemetry = new MockTelemetry();
-		credentialStore = new CredentialStore(telemetry);
+		context = new MockExtensionContext();
+		credentialStore = new CredentialStore(telemetry, context);
 	});
 
 	afterEach(function () {

@@ -28,8 +28,8 @@ describe('PullRequestManager', function () {
 
 		telemetry = new MockTelemetry();
 		const repository = new MockRepository();
-		const credentialStore = new CredentialStore(telemetry);
 		const context = new MockExtensionContext();
+		const credentialStore = new CredentialStore(telemetry, context);
 		manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore, new MockSessionState());
 	});
 
