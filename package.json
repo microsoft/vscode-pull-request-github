@@ -479,7 +479,7 @@
 				{
 					"id": "prStatus:github",
 					"name": "Changes In Pull Request",
-					"when": "github:inReviewMode",
+					"when": "github:inReviewMode && !github:createPullRequest",
 					"icon": "$(git-pull-request)",
 					"visibility": "visible"
 				},
@@ -487,7 +487,7 @@
 					"id": "github:activePullRequest",
 					"type": "webview",
 					"name": "Active Pull Request",
-					"when": "github:inReviewMode && github:focusedReview"
+					"when": "github:inReviewMode && github:focusedReview && !github:createPullRequest"
 				},
 				{
 					"id": "github:activePullRequest:welcome",
