@@ -5,17 +5,5 @@
 		".eslintrc.*.json": "jsonc"
 	},
 	"files.trimTrailingWhitespace": true,
-	"gitlens.advanced.blame.customArguments": ["--ignore-revs-file", ".gitignore-revs"],
-	"[typescript]": {
-		"editor.defaultFormatter": "esbenp.prettier-vscode"
-	},
-	"[javascript]": {
-		"editor.defaultFormatter": "esbenp.prettier-vscode"
-	},
-	"[json]": {
-		"editor.defaultFormatter": "esbenp.prettier-vscode"
-	},
-	"[jsonc]": {
-		"editor.defaultFormatter": "esbenp.prettier-vscode"
-	}
+	"gitlens.advanced.blame.customArguments": ["--ignore-revs-file", ".gitignore-revs"]
 }
