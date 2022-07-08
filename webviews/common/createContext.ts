@@ -21,7 +21,7 @@ export class CreatePRContext {
 	constructor(
 		public createParams: CreateParams = { ...defaultCreateParams, ...vscode.getState() },
 		public onchange: ((ctx: CreateParams) => void) | null = null,
-		private _handler: MessageHandler = null,
+		private _handler: MessageHandler | null = null,
 	) {
 		if (!_handler) {
 			this._handler = getMessageHandler(this.handleMessage);
@@ -29,8 +29,9 @@ export class CreatePRContext {
 	}
 
 	public cancelCreate = (): Promise<void> => {
+		const args = this.copyParams();
 		vscode.setState(defaultCreateParams);
-		return this.postMessage({ command: 'pr.cancelCreate' });
+		return this.postMessage({ command: 'pr.cancelCreate', args });
 	};
 
 	public updateState = (params: Partial<CreateParams>): void => {
@@ -106,21 +107,25 @@ export class CreatePRContext {
 		return isValid;
 	};
 
+	private copyParams(): CreatePullRequest {
+		return {
+			title: this.createParams.pendingTitle!,
+			body: this.createParams.pendingDescription!,
+			owner: this.createParams.baseRemote!.owner,
+			repo: this.createParams.baseRemote!.repositoryName,
+			base: this.createParams.baseBranch!,
+			compareBranch: this.createParams.compareBranch!,
+			compareOwner: this.createParams.compareRemote!.owner,
+			compareRepo: this.createParams.compareRemote!.repositoryName,
+			draft: this.createParams.isDraft,
+			autoMerge: !!this.createParams.autoMerge,
+			autoMergeMethod: this.createParams.autoMergeMethod
+		};
+	}
+
 	public submit = async (): Promise<void> => {
 		try {
-			const args: CreatePullRequest = {
-				title: this.createParams.pendingTitle!,
-				body: this.createParams.pendingDescription!,
-				owner: this.createParams.baseRemote!.owner,
-				repo: this.createParams.baseRemote!.repositoryName,
-				base: this.createParams.baseBranch!,
-				compareBranch: this.createParams.compareBranch!,
-				compareOwner: this.createParams.compareRemote!.owner,
-				compareRepo: this.createParams.compareRemote!.repositoryName,
-				draft: this.createParams.isDraft,
-				autoMerge: !!this.createParams.autoMerge,
-				autoMergeMethod: this.createParams.autoMergeMethod
-			};
+			const args: CreatePullRequest = this.copyParams();
 			vscode.setState(defaultCreateParams);
 			await this.postMessage({
 				command: 'pr.create',
@@ -131,8 +136,8 @@ export class CreatePRContext {
 		}
 	};
 
-	postMessage = (message: any): Promise<any> => {
-		return this._handler.postMessage(message);
+	postMessage = async (message: any): Promise<any> => {
+		return this._handler?.postMessage(message);
 	};
 
 	handleMessage = async (message: {command: string, params?: CreateParams, scrollPosition?: ScrollPosition}): Promise<void> => {

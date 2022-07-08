@@ -185,9 +185,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		return undefined;
 	}
 
-	private async getMergeConfiguration(owner: string, name: string): Promise<RepoAccessAndMergeMethods> {
+	private async getMergeConfiguration(owner: string, name: string, refetch:boolean = false): Promise<RepoAccessAndMergeMethods> {
 		const repo = this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(owner, name);
-		return repo.getRepoAccessAndMergeMethods();
+		return repo.getRepoAccessAndMergeMethods(refetch);
 	}
 
 	public async initializeParams(reset: boolean = false): Promise<void> {
@@ -467,6 +467,14 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		return this._replyMessage(message, { title: titleAndDescription.title, description: titleAndDescription.description });
 	}
 
+	private async cancel(message: IRequestMessage<CreatePullRequest>) {
+		vscode.commands.executeCommand('setContext', 'github:createPullRequest', false);
+		this._onDone.fire(undefined);
+		// Re-fetch the automerge info so that it's updated for next time.
+		await this.getMergeConfiguration(message.args.owner, message.args.repo, true);
+		return this._replyMessage(message, undefined);
+	}
+
 	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		const result = await super._onDidReceiveMessage(message);
 		if (result !== this.MESSAGE_UNHANDLED) {
@@ -475,9 +483,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 		switch (message.command) {
 			case 'pr.cancelCreate':
-				vscode.commands.executeCommand('setContext', 'github:createPullRequest', false);
-				this._onDone.fire(undefined);
-				return this._replyMessage(message, undefined);
+				return this.cancel(message);
 
 			case 'pr.create':
 				return this.create(message);
