@@ -9,7 +9,7 @@ import type { Branch } from '../api/api';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { Remote } from '../common/remote';
-import { ASSIGN_TO, PUSH_BRANCH } from '../common/settingKeys';
+import { ASSIGN_TO, PULL_REQUEST_DESCRIPTION, PUSH_BRANCH } from '../common/settingKeys';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import {
 	byRemoteName,
@@ -128,6 +128,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		// By default, the base branch we use for comparison is the base branch of origin. Compare this to the
 		// compare branch if it has a GitHub remote.
 		const origin = await this._folderRepositoryManager.getOrigin(compareBranch);
+		const useTemplate = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(PULL_REQUEST_DESCRIPTION) === 'template';
 
 		let useBranchName = this._pullRequestDefaults.base === compareBranch.name;
 		Logger.debug(`Compare branch name: ${compareBranch.name}, Base branch name: ${this._pullRequestDefaults.base}`, 'CreatePullRequestViewProvider');
@@ -136,7 +137,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
 				this.getTotalGitHubCommits(compareBranch, baseBranch),
 				name ? titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(name)) : undefined,
-				await this.getPullRequestTemplate()
+				useTemplate ? await this.getPullRequestTemplate() : undefined
 			]);
 
 			Logger.debug(`Total commits: ${totalCommits}`, 'CreatePullRequestViewProvider');
@@ -185,7 +186,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		return undefined;
 	}
 
-	private async getMergeConfiguration(owner: string, name: string, refetch:boolean = false): Promise<RepoAccessAndMergeMethods> {
+	private async getMergeConfiguration(owner: string, name: string, refetch: boolean = false): Promise<RepoAccessAndMergeMethods> {
 		const repo = this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(owner, name);
 		return repo.getRepoAccessAndMergeMethods(refetch);
 	}
