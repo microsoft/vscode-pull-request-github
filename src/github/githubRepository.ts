@@ -283,9 +283,9 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	private _repoAccessAndMergeMethods: RepoAccessAndMergeMethods | undefined;
-	async getRepoAccessAndMergeMethods(): Promise<RepoAccessAndMergeMethods> {
+	async getRepoAccessAndMergeMethods(refetch: boolean = false): Promise<RepoAccessAndMergeMethods> {
 		try {
-			if (!this._repoAccessAndMergeMethods) {
+			if (!this._repoAccessAndMergeMethods || refetch) {
 				Logger.debug(`Fetch repo permissions and available merge methods - enter`, GitHubRepository.ID);
 				const { octokit, remote } = await this.ensure();
 				const { data } = await octokit.repos.get({
