@@ -281,6 +281,18 @@ query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last:
 	}
 }
 
+query LatestReviewCommit($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			viewerLatestReview {
+				commit {
+					oid
+				}
+			}
+		}
+	}
+}
+
 fragment ReviewComment on PullRequestReviewComment {
 	id
 	databaseId
@@ -539,7 +551,7 @@ query PullRequestState($owner: String!, $name: String!, $number: Int!) {
 
 query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!) {
 	repository(owner: $owner, name: $name) {
-		pullRequests(first: 1, headRefName: $headRefName, orderBy: {field: CREATED_AT, direction: DESC}) {
+		pullRequests(first: 1, headRefName: $headRefName, orderBy: { field: CREATED_AT, direction: DESC }) {
 			nodes {
 				...PullRequestFragment
 			}

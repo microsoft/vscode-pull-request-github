@@ -776,7 +776,7 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-	vscode.commands.registerCommand('pr.editQuery', (query: CategoryTreeNode) => {
+		vscode.commands.registerCommand('pr.editQuery', (query: CategoryTreeNode) => {
 			/* __GDPR__
 			"pr.editQuery" : {}
 		*/
@@ -854,6 +854,33 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.setFileListLayoutAsFlat', _ => {
 			vscode.workspace.getConfiguration('githubPullRequests').update('fileListLayout', 'flat', true);
+		}),
+	);
+
+	function updateDiffs(callback: () => any) {
+		reviewManagers.forEach(reviewManager => {
+			reviewManager.updateChangedFiles().then(() => {
+				reviewManager.changesInPrDataProvider.refresh();
+				if (callback) {
+					callback();
+				}
+			});
+		});
+	}
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.showDiffSinceReview', callback => {
+			vscode.workspace.getConfiguration('githubPullRequests').update('isShowDiffAll', false, false).then(() => {
+				updateDiffs(callback);
+			});
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.showDiffAll', callback => {
+			vscode.workspace.getConfiguration('githubPullRequests').update('isShowDiffAll', true, false).then(() => {
+				updateDiffs(callback);
+			});
 		}),
 	);
 
@@ -954,29 +981,29 @@ export function registerCommands(
 			}
 		}));
 
-		function chooseRepoToOpen() {
-			const githubRepositories: GitHubRepository[] = [];
-				reposManager.folderManagers.forEach(manager => {
-					githubRepositories.push(...(manager.gitHubRepositories));
-				});
-				return chooseItem<GitHubRepository>(
-					githubRepositories,
-					itemValue => `${itemValue.remote.owner}/${itemValue.remote.repositoryName}`,
-					{ placeHolder: 'Which GitHub repository do you want to open?' }
-				);
-		}
-		context.subscriptions.push(
-			vscode.commands.registerCommand('pr.openPullsWebsite', async () => {
-				const githubRepo = await chooseRepoToOpen();
-				if (githubRepo) {
-					vscode.env.openExternal(getPullsUrl(githubRepo));
-				}
-			}));
-		context.subscriptions.push(
-			vscode.commands.registerCommand('issues.openIssuesWebsite', async () => {
-				const githubRepo = await chooseRepoToOpen();
-				if (githubRepo) {
-					vscode.env.openExternal(getIssuesUrl(githubRepo));
-				}
-			}));
+	function chooseRepoToOpen() {
+		const githubRepositories: GitHubRepository[] = [];
+		reposManager.folderManagers.forEach(manager => {
+			githubRepositories.push(...(manager.gitHubRepositories));
+		});
+		return chooseItem<GitHubRepository>(
+			githubRepositories,
+			itemValue => `${itemValue.remote.owner}/${itemValue.remote.repositoryName}`,
+			{ placeHolder: 'Which GitHub repository do you want to open?' }
+		);
+	}
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.openPullsWebsite', async () => {
+			const githubRepo = await chooseRepoToOpen();
+			if (githubRepo) {
+				vscode.env.openExternal(getPullsUrl(githubRepo));
+			}
+		}));
+	context.subscriptions.push(
+		vscode.commands.registerCommand('issues.openIssuesWebsite', async () => {
+			const githubRepo = await chooseRepoToOpen();
+			if (githubRepo) {
+				vscode.env.openExternal(getIssuesUrl(githubRepo));
+			}
+		}));
 }

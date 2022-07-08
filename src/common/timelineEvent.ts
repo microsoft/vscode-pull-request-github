@@ -12,6 +12,7 @@ export enum EventType {
 	Subscribed,
 	Commented,
 	Reviewed,
+	NewCommitsSinceReview,
 	Labeled,
 	Milestoned,
 	Assigned,
@@ -62,6 +63,12 @@ export interface CommitEvent {
 	authoredDate: Date;
 }
 
+export interface NewCommitsSinceReviewEvent {
+	id: string;
+	isActivePR: boolean;
+	event: EventType;
+}
+
 export interface MergedEvent {
 	id: string;
 	graphNodeId: string;
@@ -89,7 +96,7 @@ export interface HeadRefDeleteEvent {
 	headRef: string;
 }
 
-export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent;
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent;
 
 export function isReviewEvent(event: TimelineEvent): event is ReviewEvent {
 	return event.event === EventType.Reviewed;
@@ -97,6 +104,10 @@ export function isReviewEvent(event: TimelineEvent): event is ReviewEvent {
 
 export function isCommitEvent(event: TimelineEvent): event is CommitEvent {
 	return event.event === EventType.Committed;
+}
+
+export function isNewCommitsSinceReviewEvent(event: TimelineEvent): event is NewCommitsSinceReviewEvent {
+	return event.event === EventType.NewCommitsSinceReview;
 }
 
 export function isCommentEvent(event: TimelineEvent): event is CommentEvent {

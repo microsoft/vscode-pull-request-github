@@ -26,7 +26,7 @@ import {
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
-import { isInCodespaces, parseReviewers } from './utils';
+import { insertNewCommmitsSinceReview, isInCodespaces, parseReviewers } from './utils';
 
 type MilestoneQuickPickItem = vscode.QuickPickItem & { id: string; milestone: IMilestone };
 
@@ -57,8 +57,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		const activeColumn = toTheSide
 			? vscode.ViewColumn.Beside
 			: vscode.window.activeTextEditor
-			? vscode.window.activeTextEditor.viewColumn
-			: vscode.ViewColumn.One;
+				? vscode.window.activeTextEditor.viewColumn
+				: vscode.ViewColumn.One;
 
 		// If we already have a panel, show it.
 		// Otherwise, create a new panel.
@@ -164,6 +164,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			pullRequestModel.getReviewRequests(),
 			this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
 			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
+			pullRequestModel.getViewerLatestReviewCommit()
 		])
 			.then(result => {
 				const [
@@ -174,6 +175,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					requestedReviewers,
 					repositoryAccess,
 					branchInfo,
+					LatestReviewCommitInfo
 				] = result;
 				if (!pullRequest) {
 					throw new Error(
@@ -193,6 +195,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
 				this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
 				const currentUser = this._folderRepositoryManager.getCurrentUser(this._item.githubRepository);
+
+				insertNewCommmitsSinceReview(timelineEvents, LatestReviewCommitInfo, currentUser, isCurrentlyCheckedOut, pullRequest.head);
 
 				const isCrossRepository =
 					pullRequest.base &&
@@ -323,7 +327,21 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 			case 'pr.update-automerge':
 				return this.updateAutoMerge(message);
+			case 'pr.gotoChangesSinceReview':
+				this.gotoChangesSinceReview(message as (IRequestMessage<any> & { isActivePR: boolean }));
+				break;
 		}
+	}
+
+	private gotoChangesSinceReview(message: IRequestMessage<any> & { isActivePR: boolean }) {
+		vscode.commands.executeCommand('pr.showDiffSinceReview', () => {
+			if (message.isActivePR) {
+				PullRequestModel.openFirstDiff(this._folderRepositoryManager, this._item);
+			}
+			else {
+				this.checkoutPullRequest(message);
+			}
+		});
 	}
 
 	private async getReviewersQuickPickItems(
@@ -354,10 +372,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				isAuthor && isCommenter
 					? 'Recently edited and reviewed changes to these files'
 					: isAuthor
-					? 'Recently edited these files'
-					: isCommenter
-					? 'Recently reviewed changes to these files'
-					: 'Suggested reviewer';
+						? 'Recently edited these files'
+						: isCommenter
+							? 'Recently reviewed changes to these files'
+							: 'Suggested reviewer';
 
 			reviewers.push({
 				label: login,
@@ -412,10 +430,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				isAuthor && isCommenter
 					? 'Recently edited and reviewed changes to these files'
 					: isAuthor
-					? 'Recently edited these files'
-					: isCommenter
-					? 'Recently reviewed changes to these files'
-					: 'Suggested reviewer';
+						? 'Recently edited these files'
+						: isCommenter
+							? 'Recently reviewed changes to these files'
+							: 'Suggested reviewer';
 
 			assignees.push({
 				label: login,

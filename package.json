@@ -170,6 +170,11 @@
 					"default": "tree",
 					"description": "The layout to use when displaying changed files list."
 				},
+				"githubPullRequests.isShowDiffAll": {
+					"type": "boolean",
+					"default": true,
+					"description": "The git diffs that should be displayed"
+				},
 				"githubPullRequests.defaultDeletionMethod.selectLocalBranch": {
 					"type": "boolean",
 					"default": true,
@@ -630,6 +635,18 @@
 				"category": "GitHub Pull Requests"
 			},
 			{
+				"command": "pr.showDiffSinceReview",
+				"title": "Changes Since Review",
+				"icon": "$(diff-modified)",
+				"category": "GitHub Pull Requests"
+			},
+			{
+				"command": "pr.showDiffAll",
+				"title": "All Changes",
+				"icon": "$(diff)",
+				"category": "GitHub Pull Requests"
+			},
+			{
 				"command": "pr.refreshChanges",
 				"title": "Refresh",
 				"icon": "$(refresh)",
@@ -1068,6 +1085,14 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.showDiffSinceReview",
+					"when": "false"
+				},
+				{
+					"command": "pr.showDiffAll",
+					"when": "false"
+				},
+				{
 					"command": "pr.refreshChanges",
 					"when": "false"
 				},
@@ -1282,6 +1307,16 @@
 				{
 					"command": "pr.setFileListLayoutAsFlat",
 					"when": "view == prStatus:github && !fileListLayout:flat",
+					"group": "navigation"
+				},
+				{
+					"command": "pr.showDiffSinceReview",
+					"when": "view == prStatus:github && config.githubPullRequests.isShowDiffAll",
+					"group": "navigation"
+				},
+				{
+					"command": "pr.showDiffAll",
+					"when": "view == prStatus:github && !config.githubPullRequests.isShowDiffAll",
 					"group": "navigation"
 				},
 				{

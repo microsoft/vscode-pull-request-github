@@ -10,6 +10,7 @@ import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { IComment, IReviewThread, Reaction } from '../common/comment';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
+import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Resource } from '../common/resources';
 import { OVERRIDE_DEFAULT_BRANCH } from '../common/settingKeys';
@@ -1004,6 +1005,47 @@ export function parseReviewers(
 	});
 
 	return reviewers;
+}
+
+export function insertNewCommmitsSinceReview(
+	timelineEvents: Common.TimelineEvent[],
+	latestReviewCommit: { sha: string } | undefined,
+	currentUser: IAccount,
+	isCurrentlyCheckedOut: boolean,
+	head: GitHubRef | null
+) {
+	if (latestReviewCommit !== undefined && head && head.sha !== latestReviewCommit.sha) {
+		let lastViewerReviewIndex: number = timelineEvents.length - 1;
+		let comittedDuringReview: boolean = false;
+		let interReviewCommits: Common.TimelineEvent[] = [];
+
+		for (let i = timelineEvents.length - 1; i > 0; i--) {
+			if (
+				timelineEvents[i].event === Common.EventType.Committed &&
+				(timelineEvents[i] as Common.CommitEvent).sha === latestReviewCommit.sha
+			) {
+				interReviewCommits.unshift({
+					id: latestReviewCommit.sha,
+					isActivePR: isCurrentlyCheckedOut,
+					event: Common.EventType.NewCommitsSinceReview
+				});
+				timelineEvents.splice(lastViewerReviewIndex + 1, 0, ...interReviewCommits);
+				break;
+			}
+			else if (comittedDuringReview && timelineEvents[i].event === Common.EventType.Committed) {
+				interReviewCommits.unshift(timelineEvents[i]);
+				timelineEvents.splice(i, 1);
+			}
+			else if (
+				!comittedDuringReview &&
+				timelineEvents[i].event === Common.EventType.Reviewed &&
+				(timelineEvents[i] as Common.ReviewEvent).user.login === currentUser.login
+			) {
+				lastViewerReviewIndex = i;
+				comittedDuringReview = true;
+			}
+		}
+	}
 }
 
 export function getPRFetchQuery(repo: string, user: string, query: string): string {

@@ -189,6 +189,18 @@ export interface TimelineEventsResponse {
 	rateLimit: RateLimit;
 }
 
+export interface LatestReviewCommitResponse {
+	repository: {
+		pullRequest: {
+			viewerLatestReview: {
+				commit: {
+					oid: string;
+				}
+			};
+		};
+	};
+}
+
 export interface PendingReviewIdResponse {
 	node: {
 		reviews: {
@@ -609,14 +621,14 @@ export interface StatusContext {
 export interface CheckRun {
 	id: string;
 	conclusion?:
-		| 'ACTION_REQUIRED'
-		| 'CANCELLED'
-		| 'FAILURE'
-		| 'NEUTRAL'
-		| 'SKIPPED'
-		| 'STALE'
-		| 'SUCCESS'
-		| 'TIMED_OUT';
+	| 'ACTION_REQUIRED'
+	| 'CANCELLED'
+	| 'FAILURE'
+	| 'NEUTRAL'
+	| 'SKIPPED'
+	| 'STALE'
+	| 'SUCCESS'
+	| 'TIMED_OUT';
 	name: string;
 	title?: string;
 	detailsUrl?: string;

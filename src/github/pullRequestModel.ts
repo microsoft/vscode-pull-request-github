@@ -30,6 +30,7 @@ import {
 	EditCommentResponse,
 	GetChecksResponse,
 	isCheckRun,
+	LatestReviewCommitResponse,
 	MarkPullRequestReadyForReviewResponse,
 	PendingReviewIdResponse,
 	PullRequestCommentsResponse,
@@ -414,6 +415,24 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		} catch (error) {
 			return;
 		}
+	}
+
+	async getViewerLatestReviewCommit(): Promise<{ sha: string } | undefined> {
+		Logger.debug(`Fetch viewers latest review commit`, IssueModel.ID);
+		const { query, remote, schema } = await this.githubRepository.ensure();
+
+		const { data } = await query<LatestReviewCommitResponse>({
+			query: schema.LatestReviewCommit,
+			variables: {
+				owner: remote.owner,
+				name: remote.repositoryName,
+				number: this.number,
+			},
+		});
+
+		return data.repository.pullRequest.viewerLatestReview ? {
+			sha: data.repository.pullRequest.viewerLatestReview.commit.oid,
+		} : undefined;
 	}
 
 	/**
@@ -1062,6 +1081,31 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			throw new Error(`Can't find matching file`);
 		}
 
+		const pathSegments = comment.path!.split('/');
+		this.openDiff(folderManager, pullRequestModel, change, pathSegments[pathSegments.length - 1]);
+	}
+
+	static async openFirstDiff(
+		folderManager: FolderRepositoryManager,
+		pullRequestModel: PullRequestModel,
+	) {
+		const contentChanges = await pullRequestModel.getFileChangesInfo();
+		if (!contentChanges.length) {
+			return;
+		}
+
+		const firstChange = contentChanges[0];
+		this.openDiff(folderManager, pullRequestModel, firstChange, firstChange.fileName);
+	}
+
+	static async openDiff(
+		folderManager: FolderRepositoryManager,
+		pullRequestModel: PullRequestModel,
+		change: SlimFileChange | InMemFileChange,
+		diffTitle: string
+	): Promise<void> {
+
+
 		let headUri, baseUri: vscode.Uri;
 		if (!pullRequestModel.equals(folderManager.activePullRequest)) {
 			const headCommit = pullRequestModel.head!.sha;
@@ -1112,12 +1156,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			);
 		}
 
-		const pathSegments = comment.path!.split('/');
 		vscode.commands.executeCommand(
 			'vscode.diff',
 			baseUri,
 			headUri,
-			`${pathSegments[pathSegments.length - 1]} (Pull Request)`,
+			`${diffTitle} (Pull Request)`,
 			{},
 		);
 	}
@@ -1158,6 +1201,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this.update(convertRESTPullRequestToRawPullRequest(info.data, githubRepository));
 		}
 
+		let compareWithBaseRef = this.base.sha;
+		if (!vscode.workspace.getConfiguration('githubPullRequests').get('isShowDiffAll') && this.isActive) {
+			const latestReview = await this.getViewerLatestReviewCommit();
+			if (latestReview !== undefined) {
+				compareWithBaseRef = latestReview.sha;
+			}
+		}
+
 		if (this.item.merged) {
 			const response = await octokit.pulls.listFiles({
 				repo: remote.repositoryName,
@@ -1174,8 +1225,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const { data } = await octokit.repos.compareCommits({
 			repo: remote.repositoryName,
 			owner: remote.owner,
-			base: `${this.base.repositoryCloneUrl.owner}:${this.base.ref}`,
-			head: `${this.head!.repositoryCloneUrl.owner}:${this.head!.ref}`,
+			base: `${this.base.repositoryCloneUrl.owner}:${compareWithBaseRef}`,
+			head: `${this.head!.repositoryCloneUrl.owner}:${this.head!.sha}`,
 		});
 
 		this.mergeBase = data.merge_base_commit.sha;

@@ -16,8 +16,10 @@ import {
 	isCommitEvent,
 	isHeadDeleteEvent,
 	isMergedEvent,
+	isNewCommitsSinceReviewEvent,
 	isReviewEvent,
 	MergedEvent,
+	NewCommitsSinceReviewEvent,
 	ReviewEvent,
 	TimelineEvent,
 } from '../../src/common/timelineEvent';
@@ -25,7 +27,7 @@ import { groupBy } from '../../src/common/utils';
 import PullRequestContext from '../common/context';
 import { CommentBody, CommentView } from './comment';
 import Diff from './diff';
-import { commitIcon, mergeIcon } from './icon';
+import { chevronIcon, commitIcon, mergeIcon } from './icon';
 import { nbsp, Spaced } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -46,6 +48,8 @@ export const Timeline = ({ events }: { events: TimelineEvent[] }) => (
 				<AssignEventView key={event.id} {...event} />
 			) : isHeadDeleteEvent(event) ? (
 				<HeadDeleteEventView key={event.id} {...event} />
+			) : isNewCommitsSinceReviewEvent(event) ? (
+				<NewCommitsSinceReviewEventView key={event.id} {...event} />
 			) : null,
 		)}
 	</>
@@ -74,12 +78,28 @@ const CommitEventView = (event: CommitEvent) => (
 	</div>
 );
 
+const NewCommitsSinceReviewEventView = (event: NewCommitsSinceReviewEvent) => {
+	const { gotoChangesSinceReview } = useContext(PullRequestContext);
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				{chevronIcon}
+				{nbsp}
+				<span style={{ fontWeight: 'bold' }}>New changes since your last Review</span>
+			</div>
+			<button aria-live="polite" title="View the changes since your last review" onClick={() => gotoChangesSinceReview(event.isActivePR)}>
+				{event.isActivePR ? 'View Changes' : 'Checkout & View Changes'}
+			</button>
+		</div>
+	);
+};
+
 const association = ({ authorAssociation }: ReviewEvent, format = (assoc: string) => `(${assoc.toLowerCase()})`) =>
 	authorAssociation.toLowerCase() === 'user'
 		? format('you')
 		: authorAssociation && authorAssociation !== 'NONE'
-		? format(authorAssociation)
-		: null;
+			? format(authorAssociation)
+			: null;
 
 const positionKey = (comment: IComment) =>
 	comment.position !== null ? `pos:${comment.position}` : `ori:${comment.originalPosition}`;
