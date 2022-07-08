@@ -12,6 +12,7 @@ import * as vscode from 'vscode';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
 import { ITelemetry } from '../common/telemetry';
+import { formatError } from '../common/utils';
 import { agent } from '../env/node/net';
 import { OctokitCommon } from './common';
 import { getEnterpriseUri, hasEnterpriseUri } from './utils';
@@ -273,8 +274,8 @@ export class CredentialStore implements vscode.Disposable {
 			const user = await github.octokit.users.getAuthenticated({});
 			github.currentUser = user.data;
 		} catch (e) {
-			if (e.contains('ETIMEDOUT')) {
-				Logger.appendLine(`Error setting the user ${e}.`, 'Authentication');
+			Logger.appendLine(`Error setting the user ${formatError(e)}.`, 'Authentication');
+			if (e.message && e.message.contains('ETIMEDOUT')) {
 				await this.recreate('GitHub Pull Requests and Issues has encountered a problem with your login. Check the "GitHub Pull Request" output for more details.');
 				return this.setCurrentUser(github);
 			} else {
