@@ -14,7 +14,7 @@ import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { ISessionState } from '../common/sessionState';
-import { IGNORE_PR_BRANCHES, PR_SETTINGS_NAMESPACE, USE_REVIEW_MODE } from '../common/settingKeys';
+import { IGNORE_PR_BRANCHES, PR_SETTINGS_NAMESPACE, PULL_BRANCH, USE_REVIEW_MODE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { fromReviewUri, toReviewUri } from '../common/uri';
 import { formatError, groupBy } from '../common/utils';
@@ -197,6 +197,15 @@ export class ReviewManager {
 		}, 1000 * 60 * 5);
 	}
 
+	private async neverShowPullNotification(): Promise<boolean> {
+		const neverShowPullNotification = this._context.globalState.get<boolean>(NEVER_SHOW_PULL_NOTIFICATION, false);
+		if (neverShowPullNotification) {
+			this._context.globalState.update(NEVER_SHOW_PULL_NOTIFICATION, false);
+			await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
+		}
+		return vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(PULL_BRANCH, 'prompt') === 'never';
+	}
+
 	private async checkBranchUpToDate(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
 		const branch = this._repository.state.HEAD;
 		if (branch) {
@@ -204,8 +213,8 @@ export class ReviewManager {
 			const remoteBranch = branch.upstream ? branch.upstream.name : branch.name;
 			if (remote) {
 				await this._repository.fetch(remote, remoteBranch);
-				const canShowNotification = !this._context.globalState.get<boolean>(NEVER_SHOW_PULL_NOTIFICATION, false);
-				if (canShowNotification && !this._updateMessageShown &&	(branch.behind !== undefined && branch.behind > 0)) {
+				const canShowNotification = !(await this.neverShowPullNotification());
+				if (canShowNotification && !this._updateMessageShown && (branch.behind !== undefined && branch.behind > 0)) {
 					this._updateMessageShown = true;
 					const pull = 'Pull';
 					const never = 'Never Show Again';
@@ -222,7 +231,7 @@ export class ReviewManager {
 						}
 						this._updateMessageShown = false;
 					} else if (never) {
-						await this._context.globalState.update(NEVER_SHOW_PULL_NOTIFICATION, true);
+						await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
 					}
 				}
 			}

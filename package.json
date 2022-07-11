@@ -259,6 +259,19 @@
 					],
 					"description": "Push the \"from\" branch when creating a PR and the \"from\" branch is not available on the remote."
 				},
+				"githubPullRequests.pullBranch": {
+					"type": "string",
+					"enum": [
+						"prompt",
+						"never"
+					],
+					"default": "prompt",
+					"enumDescriptions": [
+						"Prompt to pull a PR branch when changes are detected in the PR.",
+						"Never pull a PR branch when changes are detected in the PR."
+					],
+					"description": "Pull changes from the remote when a PR branch is checked out locally."
+				},
 				"githubPullRequests.ignoredPullRequestBranches": {
 					"type": "array",
 					"default": [],
