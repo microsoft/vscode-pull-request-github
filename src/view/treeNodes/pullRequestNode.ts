@@ -188,6 +188,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				const changeModel = new RemoteFileChangeModel(this._folderReposManager, change, this.pullRequestModel);
 				return new RemoteFileChangeNode(
 					this,
+					this._folderReposManager,
+					this.pullRequestModel as (PullRequestModel & IResolvedPullRequestModel),
 					changeModel
 				);
 			}
