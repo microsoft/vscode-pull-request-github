@@ -65,7 +65,6 @@
 					"description": "The title used when creating pull requests."
 				},
 				"githubPullRequests.pullRequestDescription": {
-					"deprecationMessage": "The pull request description now uses the same defaults as GitHub, and can be edited before create.",
 					"type": "string",
 					"enum": [
 						"template",
