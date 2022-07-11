@@ -404,7 +404,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		const assignees: (vscode.QuickPickItem & { assignee?: IAccount })[] = [];
 		// Check if the viewer is allowed to be assigned to the PR
-		if (assignableUsers.findIndex((assignableUser: IAccount) => assignableUser.login === viewer.login) !== -1){
+		if (assignableUsers.findIndex((assignableUser: IAccount) => assignableUser.login === viewer.login) !== -1) {
 			assignees.push({
 				label: viewer.login,
 				description: viewer.name,
@@ -427,7 +427,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			skipList.add(suggestedReviewer.login);
 		}
 
-		if (assignees.length !== 0){
+		if (assignees.length !== 0) {
 			assignees.unshift({
 				kind: vscode.QuickPickItemKind.Separator,
 				label: 'Suggestions'
@@ -657,7 +657,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			);
 
 			const encoder = new TextEncoder();
-			const tempUri = vscode.Uri.parse(tempFilePath);
+			const tempUri = vscode.Uri.file(tempFilePath);
 
 			await vscode.workspace.fs.writeFile(tempUri, encoder.encode(matches![1]));
 			await this._folderRepositoryManager.repository.apply(tempFilePath, true);
