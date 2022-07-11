@@ -104,8 +104,6 @@ export class GitHubRepository implements vscode.Disposable {
 	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = new vscode.EventEmitter();
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
 
-	private _userLogin: string | undefined = undefined;
-
 	public get hub(): GitHub {
 		if (!this._hub) {
 			if (!this._initialized) {
@@ -614,11 +612,7 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	async getAuthenticatedUser(): Promise<string> {
-		if (this._userLogin === undefined) {
-			const { octokit } = await this.ensure();
-			this._userLogin = (await octokit.users.getAuthenticated({})).data.login;
-		}
-		return this._userLogin;
+		return this._credentialStore.getCurrentUser(this.remote.authProviderId).login;
 	}
 
 	async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
@@ -626,13 +620,11 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
 
-			if (this._userLogin === undefined) {
-				this._userLogin = (await octokit.users.getAuthenticated({})).data.login;
-			}
+			const user = await this.getAuthenticatedUser();
 			// Search api will not try to resolve repo that redirects, so get full name first
 			const repo = await octokit.repos.get({ owner: this.remote.owner, repo: this.remote.repositoryName });
 			const { data, headers } = await octokit.search.issuesAndPullRequests({
-				q: getPRFetchQuery(repo.data.full_name, this._userLogin, categoryQuery),
+				q: getPRFetchQuery(repo.data.full_name, user, categoryQuery),
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1,
 			});
