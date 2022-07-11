@@ -62,70 +62,6 @@ async function openDiffCommand(
 }
 
 /**
- * File change node whose content can not be resolved locally and we direct users to GitHub.
- */
-export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
-	public description: string;
-	public iconPath?:
-		| string
-		| vscode.Uri
-		| { light: string | vscode.Uri; dark: string | vscode.Uri }
-		| vscode.ThemeIcon;
-	public command: vscode.Command;
-	public fileChangeResourceUri: vscode.Uri;
-	public contextValue: string;
-	public childrenDisposables: vscode.Disposable[] = [];
-
-	constructor(
-		public readonly parent: TreeNodeParent,
-		public readonly changeModel: RemoteFileChangeModel
-	) {
-		super();
-		const viewed = changeModel.viewed;
-		this.contextValue = `${Schemes.FileChange}:${GitChangeType[this.changeModel.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
-			}`;
-		this.label = path.basename(changeModel.fileName);
-		this.description = vscode.workspace.asRelativePath(path.dirname(changeModel.fileName), false);
-		if (this.description === '.') {
-			this.description = '';
-		}
-		this.iconPath = vscode.ThemeIcon.File;
-		this.fileChangeResourceUri = toResourceUri(vscode.Uri.parse(changeModel.blobUrl), changeModel.pullRequest.number, changeModel.fileName, changeModel.status);
-		this.updateViewed(viewed);
-		this.command = {
-			command: 'pr.openFileOnGitHub',
-			title: 'Open File on GitHub',
-			arguments: [this],
-		};
-
-		this.childrenDisposables.push(
-			changeModel.pullRequest.onDidChangeFileViewedState(e => {
-				const matchingChange = e.changed.find(viewStateChange => viewStateChange.fileName === changeModel.fileName);
-				if (matchingChange) {
-					this.updateViewed(matchingChange.viewed);
-					this.refresh(this);
-				}
-			}),
-		);
-		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link' };
-	}
-
-	get resourceUri(): vscode.Uri {
-		return this.changeModel.filePath.with({ query: this.fileChangeResourceUri.query });
-	}
-
-	updateViewed(viewed: ViewedState) {
-		this.changeModel.updateViewed(viewed);
-		this.contextValue = `${Schemes.FileChange}:${GitChangeType[this.changeModel.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
-			}`;
-	}
-
-	getTreeItem(): vscode.TreeItem {
-		return this;
-	}
-}
-
-/**
  * File change node whose content is stored in memory and resolved when being revealed.
  */
 export class FileChangeNode extends TreeNode implements vscode.TreeItem {
@@ -264,6 +200,42 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 			this.changeModel.status,
 		);
 		vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
+	}
+}
+
+/**
+ * File change node whose content can not be resolved locally and we direct users to GitHub.
+ */
+export class RemoteFileChangeNode extends FileChangeNode implements vscode.TreeItem {
+	get description(): string {
+		let description = vscode.workspace.asRelativePath(path.dirname(this.changeModel.fileName), false);
+		if (description === '.') {
+			description = '';
+		}
+		return description;
+	}
+
+	constructor(
+		parent: TreeNodeParent,
+		folderRepositoryManager: FolderRepositoryManager,
+		pullRequest: PullRequestModel & IResolvedPullRequestModel,
+		changeModel: RemoteFileChangeModel
+	) {
+		super(parent, folderRepositoryManager, pullRequest, changeModel);
+		this.fileChangeResourceUri = toResourceUri(vscode.Uri.parse(changeModel.blobUrl), changeModel.pullRequest.number, changeModel.fileName, changeModel.status);
+		this.command = {
+			command: 'pr.openFileOnGitHub',
+			title: 'Open File on GitHub',
+			arguments: [this],
+		};
+	}
+
+	async openDiff(): Promise<void> {
+		return vscode.commands.executeCommand(this.command.command);
+	}
+
+	openFileCommand(): vscode.Command {
+		return this.command;
 	}
 }
 
