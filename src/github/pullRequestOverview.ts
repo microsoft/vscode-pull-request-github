@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { onDidUpdatePR, openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
@@ -650,17 +649,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const regex = /```diff\n([\s\S]*)\n```/g;
 			const matches = regex.exec(comment.body);
 
-			const tempFilePath = path.join(
-				this._folderRepositoryManager.repository.rootUri.path,
-				'.git',
-				`${comment.id}.diff`,
-			);
+			const tempUri = vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, '.git', `${comment.id}.diff`);
 
 			const encoder = new TextEncoder();
-			const tempUri = vscode.Uri.file(tempFilePath);
 
 			await vscode.workspace.fs.writeFile(tempUri, encoder.encode(matches![1]));
-			await this._folderRepositoryManager.repository.apply(tempFilePath, true);
+			await this._folderRepositoryManager.repository.apply(tempUri.fsPath);
 			await vscode.workspace.fs.delete(tempUri);
 		} catch (e) {
 			Logger.appendLine(`Applying patch failed: ${e}`);
