@@ -481,7 +481,21 @@ async function getBestPossibleUpstream(repository: Repository, commit: Commit | 
 	return upstream;
 }
 
+function getOwnerAndRepo(repositoriesManager: RepositoriesManager, repository: Repository, upstream: Remote & { fetchUrl: string }): string {
+	const folderManager = repositoriesManager.getManagerForFile(repository.rootUri);
+	// Find the GitHub repository that matches the chosen upstream remote
+	const githubRepository = folderManager?.gitHubRepositories.find(githubRepository => {
+		return githubRepository.remote.remoteName === upstream.name;
+	});
+	if (githubRepository) {
+		return `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`;
+	} else {
+		return new Protocol(upstream.fetchUrl).nameWithOwner;
+	}
+}
+
 export async function createGithubPermalink(
+	repositoriesManager: RepositoriesManager,
 	gitAPI: GitApiImpl,
 	positionInfo?: NewIssue,
 	fileUri?: vscode.Uri
@@ -515,15 +529,16 @@ export async function createGithubPermalink(
 		commitHash = repository.state.HEAD?.commit;
 	}
 
-	const upstream = await getBestPossibleUpstream(repository, commit);
-	if (!upstream || !upstream.fetchUrl) {
+	const rawUpstream = await getBestPossibleUpstream(repository, commit);
+	if (!rawUpstream || !rawUpstream.fetchUrl) {
 		return { permalink: undefined, error: 'The selection may not exist on any remote.', originalFile: uri };
 	}
+	const upstream: Remote & { fetchUrl: string } = rawUpstream as any;
 
 	const pathSegment = uri.path.substring(repository.rootUri.path.length);
-	const originOfFetchUrl = getUpstreamOrigin(upstream).replace(/\/$/, '');
+	const originOfFetchUrl = getUpstreamOrigin(rawUpstream).replace(/\/$/, '');
 	return {
-		permalink: `${originOfFetchUrl}/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${commitHash
+		permalink: `${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
 			}${pathSegment}${rangeString(range)}`,
 		error: undefined,
 		originalFile: uri
