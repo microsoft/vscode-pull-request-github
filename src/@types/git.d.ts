@@ -251,6 +251,10 @@ export interface PublishEvent {
 	branch?: string;
 }
 
+export interface PostCommitCommandsProvider {
+	getCommands(repository: Repository): Command[];
+}
+
 export interface GitAPI {
 	readonly state: APIState;
 	readonly onDidChangeState: Event<APIState>;

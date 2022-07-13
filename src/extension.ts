@@ -7,7 +7,7 @@
 import TelemetryReporter from '@vscode/extension-telemetry';
 import * as vscode from 'vscode';
 import { LiveShare } from 'vsls/vscode.js';
-import { Repository } from './api/api';
+import { PostCommitCommandsProvider, Repository } from './api/api';
 import { GitApiImpl } from './api/api1';
 import { registerCommands } from './commands';
 import { commands } from './common/executeCommands';
@@ -214,7 +214,7 @@ async function init(
 	const experimentationService = await createExperimentationService(context, telemetry);
 	await experimentationService.initializePromise;
 	await experimentationService.isCachedFlightEnabled('githubaa');
-
+	registerPostCommitCommandsProvider(reposManager, git);
 	/* __GDPR__
 		"startup" : {}
 	*/
@@ -263,6 +263,39 @@ async function doRegisterBuiltinGitProvider(context: vscode.ExtensionContext, cr
 		return true;
 	}
 	return false;
+}
+
+function registerPostCommitCommandsProvider(reposManager: RepositoriesManager, git: GitApiImpl) {
+	class Provider implements PostCommitCommandsProvider {
+		getCommands(repository: Repository) {
+			const found = reposManager.folderManagers.find(folderManager => folderManager.findRepo(githubRepo => {
+				return !!repository.state.remotes.find(remote => remote.fetchUrl?.toLowerCase() === githubRepo.remote.url.toLowerCase());
+			}));
+			return found ? [{
+				command: 'pr.create',
+				title: 'Commit & Create Pull Request'
+			}] : [];
+		}
+	}
+
+	function hasGitHubRepos(): boolean {
+		return reposManager.folderManagers.some(folderManager => folderManager.gitHubRepositories.length > 0);
+	}
+	function tryRegister(): boolean {
+		if (hasGitHubRepos()) {
+			git.registerPostCommitCommandsProvider(new Provider());
+			return true;
+		}
+		return false;
+	}
+
+	if (!tryRegister()) {
+		const reposDisposable = reposManager.onDidLoadAnyRepositories(() => {
+			if (tryRegister()) {
+				reposDisposable.dispose();
+			}
+		});
+	}
 }
 
 async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitApiImpl, showPRController: ShowPullRequest) {

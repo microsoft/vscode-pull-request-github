@@ -230,6 +230,10 @@ export interface LogOptions {
 	readonly path?: string;
 }
 
+export interface PostCommitCommandsProvider {
+	getCommands(repository: Repository): Command[];
+}
+
 export { GitErrorCodes } from './api1';
 
 export interface IGit {
