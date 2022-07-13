@@ -493,9 +493,23 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	private async getActiveRemotes(): Promise<Remote[]> {
 		this._allGitHubRemotes = await this.computeAllGitHubRemotes();
 		const activeRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
+		const that = this;
+		class PostCommitCommandsProvider {
+			getCommands(repository: Repository) {
+				const found = that._githubRepositories.find(ghRepo => repository.state.remotes.find(remote => remote.fetchUrl?.toLowerCase() === ghRepo.remote.url.toLowerCase()));
+				return found ? [{
+					command: 'pr.create',
+					title: 'Commit & Create Pull Request'
+				}] : [];
+			}
+		}
 
 		if (activeRemotes.length) {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
+			const gitProvider = this._git.getGitProvider(this.repository.rootUri);
+			if (gitProvider && gitProvider.registerPostCommitCommandsProvider) {
+				gitProvider.registerPostCommitCommandsProvider(new PostCommitCommandsProvider());
+			}
 			Logger.appendLine('Found GitHub remote');
 		} else {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', false);

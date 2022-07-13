@@ -241,6 +241,8 @@ export interface IGit {
 	readonly state?: APIState;
 	readonly onDidChangeState?: Event<APIState>;
 	readonly onDidPublish?: Event<PublishEvent>;
+
+	registerPostCommitCommandsProvider?(provider: PostCommitCommandsProvider): Disposable;
 }
 
 export interface API {
