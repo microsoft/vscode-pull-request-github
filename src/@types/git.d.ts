@@ -251,6 +251,10 @@ export interface PublishEvent {
 	branch?: string;
 }
 
+export interface PostCommitCommandsProvider {
+	getCommands(repository: Repository): Command[];
+}
+
 export interface GitAPI {
 	readonly state: APIState;
 	readonly onDidChangeState: Event<APIState>;
@@ -265,6 +269,7 @@ export interface GitAPI {
 	init(root: Uri): Promise<Repository | null>;
 	openRepository(root: Uri): Promise<Repository | null>
 
+	registerPostCommitCommandsProvider?(provider: PostCommitCommandsProvider): Disposable;
 	registerRemoteSourceProvider(provider: RemoteSourceProvider): Disposable;
 	registerCredentialsProvider(provider: CredentialsProvider): Disposable;
 	registerPushErrorHandler(handler: PushErrorHandler): Disposable;
