@@ -783,7 +783,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			this.diffThreads(reviewThreads);
 			this._reviewThreadsCache = reviewThreads;
-
+			this._onDidChangeReviewThreads.fire({ added: reviewThreads, changed: [], removed: [] });
 			return reviewThreads;
 		} catch (e) {
 			Logger.appendLine(`Failed to get pull request review comments: ${e}`);
