@@ -27,7 +27,7 @@ import { groupBy } from '../../src/common/utils';
 import PullRequestContext from '../common/context';
 import { CommentBody, CommentView } from './comment';
 import Diff from './diff';
-import { chevronIcon, commitIcon, mergeIcon } from './icon';
+import { commitIcon, mergeIcon, plusIcon } from './icon';
 import { nbsp, Spaced } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -83,7 +83,7 @@ const NewCommitsSinceReviewEventView = (event: NewCommitsSinceReviewEvent) => {
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
-				{chevronIcon}
+				{plusIcon}
 				{nbsp}
 				<span style={{ fontWeight: 'bold' }}>New changes since your last Review</span>
 			</div>
