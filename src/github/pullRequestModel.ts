@@ -736,13 +736,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		});
 	}
 
-	private diffThreads(newReviewThreads: IReviewThread[]): void {
+	private diffThreads(oldReviewThreads: IReviewThread[], newReviewThreads: IReviewThread[]): void {
 		const added: IReviewThread[] = [];
 		const changed: IReviewThread[] = [];
 		const removed: IReviewThread[] = [];
 
 		newReviewThreads.forEach(thread => {
-			const existingThread = this._reviewThreadsCache.find(t => t.id === thread.id);
+			const existingThread = oldReviewThreads.find(t => t.id === thread.id);
 			if (existingThread) {
 				if (!equals(thread, existingThread)) {
 					changed.push(thread);
@@ -752,7 +752,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			}
 		});
 
-		this._reviewThreadsCache.forEach(thread => {
+		oldReviewThreads.forEach(thread => {
 			if (!newReviewThreads.find(t => t.id === thread.id)) {
 				removed.push(thread);
 			}
@@ -781,9 +781,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				return parseGraphQLReviewThread(node);
 			});
 
-			this.diffThreads(reviewThreads);
+			const oldReviewThreads = this._reviewThreadsCache;
 			this._reviewThreadsCache = reviewThreads;
-			this._onDidChangeReviewThreads.fire({ added: reviewThreads, changed: [], removed: [] });
+			this.diffThreads(oldReviewThreads, reviewThreads);
 			return reviewThreads;
 		} catch (e) {
 			Logger.appendLine(`Failed to get pull request review comments: ${e}`);
