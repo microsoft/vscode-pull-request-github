@@ -17,7 +17,7 @@
 	"version": "0.46.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.68.0"
+		"vscode": "^1.69.0"
 	},
 	"categories": [
 		"Other"
@@ -1754,7 +1754,7 @@
 		"@types/react-dom": "^16.8.2",
 		"@types/sinon": "7.0.11",
 		"@types/temp": "0.8.34",
-		"@types/vscode": "1.58.0",
+		"@types/vscode": "1.69.0",
 		"@types/webpack-env": "^1.16.0",
 		"@typescript-eslint/eslint-plugin": "4.18.0",
 		"@typescript-eslint/parser": "4.18.0",

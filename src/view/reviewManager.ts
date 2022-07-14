@@ -16,8 +16,8 @@ import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { ISessionState } from '../common/sessionState';
 import { IGNORE_PR_BRANCHES, PR_SETTINGS_NAMESPACE, PULL_BRANCH, USE_REVIEW_MODE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { fromReviewUri, toReviewUri } from '../common/uri';
-import { formatError, groupBy } from '../common/utils';
+import { fromPRUri, fromReviewUri, PRUriParams, Schemes, toReviewUri } from '../common/uri';
+import { formatError, groupBy, onceEvent } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
 import { NEVER_SHOW_PULL_NOTIFICATION } from '../extensionState';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
@@ -397,6 +397,11 @@ export class ReviewManager {
 		}
 
 		Logger.appendLine('Review> Fetching pull request data');
+		if (!silent) {
+			onceEvent(this._reviewModel.onDidChangeLocalFileChanges)(() => {
+				this._upgradePullRequestEditors(pr);
+			});
+		}
 		// Don't await. Events will be fired as part of the initialization.
 		this.initializePullRequestData(pr);
 		await this.changesInPrDataProvider.addPrToView(
@@ -473,6 +478,43 @@ export class ReviewManager {
 				});
 			}
 		}
+	}
+
+	public async _upgradePullRequestEditors(pullRequest: PullRequestModel) {
+		// Go through all open editors and find pr scheme editors that belong to the active pull request.
+		// Close the editors, and reopen them from the pull request.
+		const reopenFilenames: Set<[PRUriParams, PRUriParams]> = new Set();
+		await Promise.all(vscode.window.tabGroups.all.map(tabGroup => {
+			return tabGroup.tabs.map(tab => {
+				if (tab.input instanceof vscode.TabInputTextDiff) {
+					if ((tab.input.original.scheme === Schemes.Pr) && (tab.input.modified.scheme === Schemes.Pr)) {
+						const originalParams = fromPRUri(tab.input.original);
+						const modifiedParams = fromPRUri(tab.input.modified);
+						if ((originalParams?.prNumber === pullRequest.number) && (modifiedParams?.prNumber === pullRequest.number)) {
+							reopenFilenames.add([originalParams, modifiedParams]);
+							return vscode.window.tabGroups.close(tab);
+						}
+					}
+				}
+				return Promise.resolve(undefined);
+			});
+		}).flat());
+		const reopenPromises: Promise<void>[] = [];
+		if (reopenFilenames.size) {
+			for (const localChange of this.reviewModel.localFileChanges) {
+				for (const prFileChange of reopenFilenames) {
+					if (Array.isArray(prFileChange)) {
+						const modifiedPrChange = prFileChange[1];
+						if (localChange.fileName === modifiedPrChange.fileName) {
+							reopenPromises.push(localChange.openDiff(this._folderRepoManager, { preview: false }));
+							reopenFilenames.delete(prFileChange);
+							break;
+						}
+					}
+				}
+			}
+		}
+		return Promise.all(reopenPromises);
 	}
 
 	public async updateComments(): Promise<void> {
