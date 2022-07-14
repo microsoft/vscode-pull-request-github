@@ -12,6 +12,8 @@ import Logger from '../common/logger';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { IRequestMessage } from '../common/webview';
+import { DescriptionNode } from '../view/treeNodes/descriptionNode';
+import { PRNode } from '../view/treeNodes/pullRequestNode';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
 	GithubItemStateEnum,
@@ -53,6 +55,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		folderRepositoryManager: FolderRepositoryManager,
 		issue: PullRequestModel,
 		toTheSide: Boolean = false,
+		descriptionNode: DescriptionNode | undefined = undefined
 	) {
 		const activeColumn = toTheSide
 			? vscode.ViewColumn.Beside
@@ -71,6 +74,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				activeColumn || vscode.ViewColumn.Active,
 				title,
 				folderRepositoryManager,
+				descriptionNode
 			);
 		}
 
@@ -98,8 +102,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		column: vscode.ViewColumn,
 		title: string,
 		folderRepositoryManager: FolderRepositoryManager,
+		descriptionNode: DescriptionNode | undefined = undefined
 	) {
-		super(extensionUri, column, title, folderRepositoryManager, PullRequestOverviewPanel._viewType);
+		super(extensionUri, column, title, folderRepositoryManager, descriptionNode, PullRequestOverviewPanel._viewType);
 
 		this.registerFolderRepositoryListener();
 
@@ -328,19 +333,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			case 'pr.update-automerge':
 				return this.updateAutoMerge(message);
 			case 'pr.gotoChangesSinceReview':
-				this.gotoChangesSinceReview(message as (IRequestMessage<any> & { isActivePR: boolean }));
+				this.gotoChangesSinceReview();
 				break;
 		}
 	}
 
-	private gotoChangesSinceReview(message: IRequestMessage<any> & { isActivePR: boolean }) {
-		vscode.commands.executeCommand('pr.showDiffSinceReview', () => {
-			if (message.isActivePR) {
-				PullRequestModel.openFirstDiff(this._folderRepositoryManager, this._item);
-			}
-			else {
-				this.checkoutPullRequest(message);
-			}
+	private gotoChangesSinceReview() {
+		this._item.isShowChangesSinceReview = true;
+		PullRequestModel.openFirstDiff(this._folderRepositoryManager, this._item).then(() => {
+			this._descriptionNode?.parent.refresh(this._descriptionNode.parent as PRNode);
 		});
 	}
 

@@ -65,7 +65,7 @@ export async function openDescription(
 	const pullRequest = ensurePR(folderManager, pullRequestModel);
 	descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
 	// Create and show a new webview
-	await PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest);
+	await PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest, false, descriptionNode);
 
 	/* __GDPR__
 		"pr.openDescription" : {}
@@ -644,12 +644,26 @@ export function registerCommands(
 			const pullRequest = ensurePR(folderManager, pr);
 			descriptionNode.reveal(descriptionNode, { select: true, focus: true });
 			// Create and show a new webview
-			PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest, true);
+			PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest, true, descriptionNode);
 
 			/* __GDPR__
 			"pr.openDescriptionToTheSide" : {}
 		*/
 			telemetry.sendTelemetryEvent('pr.openDescriptionToTheSide');
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.showDiffSinceLastReview', async (descriptionNode: DescriptionNode) => {
+			descriptionNode.pullRequestModel.isShowChangesSinceReview = true;
+			descriptionNode.parent.refresh(descriptionNode.parent as PRNode);
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.showDiffAll', async (descriptionNode: DescriptionNode) => {
+			descriptionNode.pullRequestModel.isShowChangesSinceReview = false;
+			descriptionNode.refresh(descriptionNode.parent as PRNode);
 		}),
 	);
 
@@ -854,33 +868,6 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.setFileListLayoutAsFlat', _ => {
 			vscode.workspace.getConfiguration('githubPullRequests').update('fileListLayout', 'flat', true);
-		}),
-	);
-
-	function updateDiffs(callback: () => any) {
-		reviewManagers.forEach(reviewManager => {
-			reviewManager.updateChangedFiles().then(() => {
-				reviewManager.changesInPrDataProvider.refresh();
-				if (callback) {
-					callback();
-				}
-			});
-		});
-	}
-
-	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.showDiffSinceReview', callback => {
-			vscode.workspace.getConfiguration('githubPullRequests').update('isShowDiffAll', false, false).then(() => {
-				updateDiffs(callback);
-			});
-		}),
-	);
-
-	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.showDiffAll', callback => {
-			vscode.workspace.getConfiguration('githubPullRequests').update('isShowDiffAll', true, false).then(() => {
-				updateDiffs(callback);
-			});
 		}),
 	);
 

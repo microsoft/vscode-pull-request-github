@@ -170,11 +170,6 @@
 					"default": "tree",
 					"description": "The layout to use when displaying changed files list."
 				},
-				"githubPullRequests.isShowDiffAll": {
-					"type": "boolean",
-					"default": true,
-					"description": "The git diffs that should be displayed"
-				},
 				"githubPullRequests.defaultDeletionMethod.selectLocalBranch": {
 					"type": "boolean",
 					"default": true,
@@ -601,6 +596,16 @@
 				"category": "GitHub Pull Requests"
 			},
 			{
+				"command": "pr.showDiffSinceLastReview",
+				"title": "Show Changes Since Last Review",
+				"icon": "$(diff)"
+			},
+			{
+				"command": "pr.showDiffAll",
+				"title": "Show All Changes",
+				"icon": "$(diff-modified)"
+			},
+			{
 				"command": "pr.checkoutByNumber",
 				"title": "Checkout Pull Request by Number",
 				"category": "GitHub Pull Requests",
@@ -632,18 +637,6 @@
 				"command": "pr.setFileListLayoutAsFlat",
 				"title": "Toggle View Mode",
 				"icon": "$(list-flat)",
-				"category": "GitHub Pull Requests"
-			},
-			{
-				"command": "pr.showDiffSinceReview",
-				"title": "Changes Since Review",
-				"icon": "$(diff-modified)",
-				"category": "GitHub Pull Requests"
-			},
-			{
-				"command": "pr.showDiffAll",
-				"title": "All Changes",
-				"icon": "$(diff)",
 				"category": "GitHub Pull Requests"
 			},
 			{
@@ -1073,6 +1066,14 @@
 					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
 				},
 				{
+					"command": "pr.showDiffSinceLastReview",
+					"when": "false"
+				},
+				{
+					"command": "pr.showDiffAll",
+					"when": "false"
+				},
+				{
 					"command": "pr.refreshList",
 					"when": "gitHubOpenRepositoryCount != 0 && github:authenticated && github:hasGitHubRemotes"
 				},
@@ -1082,14 +1083,6 @@
 				},
 				{
 					"command": "pr.setFileListLayoutAsFlat",
-					"when": "false"
-				},
-				{
-					"command": "pr.showDiffSinceReview",
-					"when": "false"
-				},
-				{
-					"command": "pr.showDiffAll",
 					"when": "false"
 				},
 				{
@@ -1310,16 +1303,6 @@
 					"group": "navigation"
 				},
 				{
-					"command": "pr.showDiffSinceReview",
-					"when": "view == prStatus:github && config.githubPullRequests.isShowDiffAll",
-					"group": "navigation"
-				},
-				{
-					"command": "pr.showDiffAll",
-					"when": "view == prStatus:github && !config.githubPullRequests.isShowDiffAll",
-					"group": "navigation"
-				},
-				{
 					"command": "issue.createIssue",
 					"when": "view == issues:github && github:hasGitHubRemotes",
 					"group": "navigation@1"
@@ -1393,6 +1376,16 @@
 					"command": "pr.openDescriptionToTheSide",
 					"group": "inline",
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description/"
+				},
+				{
+					"command": "pr.showDiffSinceLastReview",
+					"group": "inline",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:changesSinceReview:inactive/"
+				},
+				{
+					"command": "pr.showDiffAll",
+					"group": "inline",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:changesSinceReview:active/"
 				},
 				{
 					"command": "review.openFile",

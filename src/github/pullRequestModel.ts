@@ -99,6 +99,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public localBranchName?: string;
 	public mergeBase?: string;
 	public suggestedReviewers?: ISuggestedReviewer[];
+	public hasChangesSinceLastReview?: boolean;
+	public isShowChangesSinceReview: boolean;
 	private _hasPendingReview: boolean = false;
 	private _onDidChangePendingReviewState: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
 	public onDidChangePendingReviewState = this._onDidChangePendingReviewState.event;
@@ -133,6 +135,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		this._telemetry = telemetry;
 		this.isActive = !!isActive;
+
+		this.isShowChangesSinceReview = false;
 
 		this.update(item);
 	}
@@ -1202,11 +1206,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		let compareWithBaseRef = this.base.sha;
-		if (!vscode.workspace.getConfiguration('githubPullRequests').get('isShowDiffAll') && this.isActive) {
-			const latestReview = await this.getViewerLatestReviewCommit();
-			if (latestReview !== undefined) {
-				compareWithBaseRef = latestReview.sha;
-			}
+		const latestReview = await this.getViewerLatestReviewCommit();
+		this.hasChangesSinceLastReview = latestReview !== undefined && compareWithBaseRef !== latestReview.sha;
+
+		if (this.isShowChangesSinceReview && this.hasChangesSinceLastReview && latestReview != undefined) {
+			compareWithBaseRef = latestReview.sha;
 		}
 
 		if (this.item.merged) {

@@ -49,7 +49,7 @@ export const Timeline = ({ events }: { events: TimelineEvent[] }) => (
 			) : isHeadDeleteEvent(event) ? (
 				<HeadDeleteEventView key={event.id} {...event} />
 			) : isNewCommitsSinceReviewEvent(event) ? (
-				<NewCommitsSinceReviewEventView key={event.id} {...event} />
+				<NewCommitsSinceReviewEventView key={event.id} />
 			) : null,
 		)}
 	</>
@@ -78,7 +78,7 @@ const CommitEventView = (event: CommitEvent) => (
 	</div>
 );
 
-const NewCommitsSinceReviewEventView = (event: NewCommitsSinceReviewEvent) => {
+const NewCommitsSinceReviewEventView = () => {
 	const { gotoChangesSinceReview } = useContext(PullRequestContext);
 	return (
 		<div className="comment-container commit">
@@ -87,8 +87,8 @@ const NewCommitsSinceReviewEventView = (event: NewCommitsSinceReviewEvent) => {
 				{nbsp}
 				<span style={{ fontWeight: 'bold' }}>New changes since your last Review</span>
 			</div>
-			<button aria-live="polite" title="View the changes since your last review" onClick={() => gotoChangesSinceReview(event.isActivePR)}>
-				{event.isActivePR ? 'View Changes' : 'Checkout & View Changes'}
+			<button aria-live="polite" title="View the changes since your last review" onClick={() => gotoChangesSinceReview()}>
+				View Changes
 			</button>
 		</div>
 	);

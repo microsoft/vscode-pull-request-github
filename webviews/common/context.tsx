@@ -40,7 +40,7 @@ export class PRContext {
 		});
 	};
 
-	public gotoChangesSinceReview = (isActivePR) => this.postMessage({ command: 'pr.gotoChangesSinceReview', isActivePR: isActivePR });
+	public gotoChangesSinceReview = () => this.postMessage({ command: 'pr.gotoChangesSinceReview' });
 
 	public refresh = () => this.postMessage({ command: 'pr.refresh' });
 

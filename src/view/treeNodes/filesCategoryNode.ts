@@ -54,9 +54,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (this._reviewModel.localFileChanges.length === 0) {
-			let noChangeText = vscode.workspace.getConfiguration('githubPullRequests').get('isShowDiffAll') ?
-				'No changed files' : 'No changes since Review';
-			return [new LabelOnlyNode(noChangeText)];
+			return [new LabelOnlyNode('No changed files')];
 		}
 
 		let nodes: TreeNode[];

@@ -85,6 +85,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 
 			await this.pullRequestModel.validateDraftMode();
 
+			descriptionNode.updateContextValue();
+
 			const result: TreeNode[] = [descriptionNode];
 			const layout = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 			if (layout === 'tree') {
