@@ -388,14 +388,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		return reviewers;
 	}
-	private getAssigneesQuickPickItems(
-		assignableUsers: IAccount[],
-		suggestedReviewers: IAccount[],
-		viewer: IAccount,
-	): (vscode.QuickPickItem & { assignee?: IAccount })[] {
-		if (!suggestedReviewers) {
-			return [];
-		}
+	private async getAssigneesQuickPickItems():
+		Promise<(vscode.QuickPickItem & { assignee?: IAccount })[]> {
+
+		const [allAssignableUsers, { participants, viewer }] = await Promise.all([
+			this._folderRepositoryManager.getAssignableUsers(),
+			this._folderRepositoryManager.getPullRequestParticipants(this._item.githubRepository, this._item.number)
+		]);
+
+		let assignableUsers = allAssignableUsers[this._item.remote.remoteName];
+
 		assignableUsers = assignableUsers ?? [];
 		// used to track logins that shouldn't be added to pick list
 		// e.g. author, existing and already added reviewers
@@ -412,7 +414,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			skipList.add(viewer.login);
 		}
 
-		for (const suggestedReviewer of suggestedReviewers) {
+		for (const suggestedReviewer of participants) {
 			if (skipList.has(suggestedReviewer.login)) {
 				continue;
 			}
@@ -571,15 +573,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
+	private async
+
 	private async addAssignees(message: IRequestMessage<void>): Promise<void> {
 		try {
-			const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
-			const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
-
-			const { participants, viewer } = await this._folderRepositoryManager.getPullRequestParticipants(this._item.githubRepository, this._item.number);
-
 			const assigneesToAdd = (await vscode.window.showQuickPick(
-				this.getAssigneesQuickPickItems(assignableUsers, participants, viewer),
+				this.getAssigneesQuickPickItems(),
 				{
 					canPickMany: true,
 					matchOnDescription: true,
