@@ -52,7 +52,7 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 			<div className="status-section">
 				<div className="status-item">
 					<StateIcon state={status.state} />
-					 <div>{getSummaryLabel(status.statuses)}</div>
+					<div>{getSummaryLabel(status.statuses)}</div>
 					<a href="javascript:void(0)" aria-role="button" onClick={toggleDetails}>
 						{showDetails ? 'Hide' : 'Show'}
 					</a>
@@ -98,11 +98,13 @@ export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimpl
 
 export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
 	if (isSimple && (pr.state !== GithubItemStateEnum.Open)) {
-		const string = (pr.state === GithubItemStateEnum.Merged) ? 'Pull Request Merged' : 'Pull Request Closed';
+		const { create } = useContext(PullRequestContext);
+
+		const string = 'Create New Pull Request...';
 		return (
 			<div className="branch-status-container">
 				<form>
-					<button disabled={true} type="submit">
+					<button type="submit" onClick={create}>
 						{string}
 					</button>
 				</form>
@@ -298,31 +300,31 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 	return (
 		<div>
 			<form
-			onSubmit={async event => {
-				event.preventDefault();
+				onSubmit={async event => {
+					event.preventDefault();
 
-				try {
-					setBusy(true);
-					const { title, description }: any = event.target;
-					const { state } = await merge({
-						title: title.value,
-						description: description.value,
-						method,
-					});
-					updatePR({ state });
-				} finally {
-					setBusy(false);
-				}
-			}}
-		>
-			<input type="text" name="title" defaultValue={getDefaultTitleText(method, pr)} />
-			<textarea name="description" defaultValue={getDefaultDescriptionText(method, pr)} />
-			<div className="form-actions">
-				<button className="secondary" onClick={cancel}>
-					Cancel
+					try {
+						setBusy(true);
+						const { title, description }: any = event.target;
+						const { state } = await merge({
+							title: title.value,
+							description: description.value,
+							method,
+						});
+						updatePR({ state });
+					} finally {
+						setBusy(false);
+					}
+				}}
+			>
+				<input type="text" name="title" defaultValue={getDefaultTitleText(method, pr)} />
+				<textarea name="description" defaultValue={getDefaultDescriptionText(method, pr)} />
+				<div className="form-actions">
+					<button className="secondary" onClick={cancel}>
+						Cancel
 				</button>
-				<input disabled={isBusy} type="submit" id="confirm-merge" value={MERGE_METHODS[method]} />
-			</div>
+					<input disabled={isBusy} type="submit" id="confirm-merge" value={MERGE_METHODS[method]} />
+				</div>
 			</form>
 		</div>
 	);
@@ -349,7 +351,7 @@ const MERGE_METHODS = {
 	rebase: 'Rebase and Merge',
 };
 
-type MergeSelectProps = Pick<PullRequest, 'mergeMethodsAvailability'> & Pick<PullRequest, 'defaultMergeMethod'> & {onChange?: ChangeEventHandler<HTMLSelectElement>};
+type MergeSelectProps = Pick<PullRequest, 'mergeMethodsAvailability'> & Pick<PullRequest, 'defaultMergeMethod'> & { onChange?: ChangeEventHandler<HTMLSelectElement> };
 
 export const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>(
 	({ defaultMergeMethod, mergeMethodsAvailability: avail, onChange }: MergeSelectProps, ref) => (
@@ -372,6 +374,7 @@ const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) => (
 					<StateIcon state={s.state} />
 					<Avatar for={{ avatarUrl: s.avatar_url, url: s.url }} />
 					<span className="status-check-detail-text">
+						// allow-any-unicode-next-line
 						{s.context} {s.description ? `— ${s.description}` : ''}
 					</span>
 				</div>

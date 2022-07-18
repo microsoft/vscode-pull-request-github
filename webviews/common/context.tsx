@@ -69,6 +69,7 @@ export class PRContext {
 	public addAssignees = () => this.postMessage({ command: 'pr.add-assignees' });
 	public addAssigneeYourself = () => this.postMessage({ command: 'pr.add-assignee-yourself' });
 	public addLabels = () => this.postMessage({ command: 'pr.add-labels' });
+	public create = () => this.postMessage({ command: 'pr.open-create' });
 
 	public deleteComment = async (args: { id: number; pullRequestReviewId?: number }) => {
 		await this.postMessage({ command: 'pr.delete-comment', args });
