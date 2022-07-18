@@ -53,6 +53,9 @@ async function getWebviewConfig(mode, env, entry) {
 	 * @type WebpackConfig['plugins'] | any
 	 */
 	const plugins = [
+		new webpack.optimize.LimitChunkCountPlugin({
+			maxChunks: 1
+		}),
 		new ForkTsCheckerPlugin({
 			async: false,
 			eslint: {
