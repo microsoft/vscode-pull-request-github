@@ -563,6 +563,14 @@ query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!)
 	}
 }
 
+mutation CreatePullRequest($input: CreatePullRequestInput!) {
+	createPullRequest(input: $input) {
+		pullRequest {
+			...PullRequestFragment
+		}
+	}
+}
+
 mutation AddComment($input: AddPullRequestReviewCommentInput!) {
 	addPullRequestReviewComment(input: $input) {
 		comment {

@@ -262,6 +262,12 @@ export interface PullRequestParticipantsResponse {
 	};
 }
 
+export interface CreatePullRequestResponse {
+	createPullRequest: {
+		pullRequest: PullRequest
+	}
+}
+
 export interface AddReviewThreadResponse {
 	addPullRequestReviewThread: {
 		thread: ReviewThread;
@@ -615,14 +621,14 @@ export interface StatusContext {
 export interface CheckRun {
 	id: string;
 	conclusion?:
-		| 'ACTION_REQUIRED'
-		| 'CANCELLED'
-		| 'FAILURE'
-		| 'NEUTRAL'
-		| 'SKIPPED'
-		| 'STALE'
-		| 'SUCCESS'
-		| 'TIMED_OUT';
+	| 'ACTION_REQUIRED'
+	| 'CANCELLED'
+	| 'FAILURE'
+	| 'NEUTRAL'
+	| 'SKIPPED'
+	| 'STALE'
+	| 'SUCCESS'
+	| 'TIMED_OUT';
 	name: string;
 	title?: string;
 	detailsUrl?: string;
