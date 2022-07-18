@@ -80,7 +80,7 @@ export function CommentView(comment: Props) {
 					) : null}
 				</div>
 			) : null}
-			<CommentBody comment={comment as IComment} bodyHTML={bodyHTMLState} body={bodyMd} />
+			<CommentBody comment={comment as IComment} bodyHTML={bodyHTMLState} body={bodyMd} canApplyPatch={pr.isCurrentlyCheckedOut} />
 		</CommentBox>
 	);
 }
@@ -202,9 +202,10 @@ export interface Embodied {
 	comment?: IComment;
 	bodyHTML?: string;
 	body?: string;
+	canApplyPatch: boolean
 }
 
-export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
+export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch }: Embodied) => {
 	if (!body && !bodyHTML) {
 		return (
 			<div className="comment-body">
@@ -217,7 +218,7 @@ export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
 	const renderedBody = <div dangerouslySetInnerHTML={{ __html: bodyHTML }} />;
 
 	const containsSuggestion = (body || bodyHTML).indexOf('```diff') > -1;
-	const applyPatchButton = containsSuggestion ? (
+	const applyPatchButton = (containsSuggestion && canApplyPatch) ? (
 		<button onClick={() => applyPatch(comment)}>Apply Patch</button>
 	) : (
 		<></>
