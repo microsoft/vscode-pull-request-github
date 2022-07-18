@@ -50,7 +50,8 @@ module.exports.copyrightFilter = [
 	'!.vscode/**/*',
 	'!.github/**/*',
 	'!.husky/**/*',
-	'!tsfmt.json'
+	'!tsfmt.json',
+	'!**/queries.gql'
 ];
 
 module.exports.tsFormattingFilter = [
