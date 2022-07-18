@@ -100,7 +100,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public mergeBase?: string;
 	public suggestedReviewers?: ISuggestedReviewer[];
 	public hasChangesSinceLastReview?: boolean;
-	public isShowChangesSinceReview: boolean;
+	private _showChangesSinceReview: boolean;
 	private _hasPendingReview: boolean = false;
 	private _onDidChangePendingReviewState: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
 	public onDidChangePendingReviewState = this._onDidChangePendingReviewState.event;
@@ -115,6 +115,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _unviewedFiles: Set<string> = new Set();
 	private _onDidChangeFileViewedState = new vscode.EventEmitter<FileViewedStateChangeEvent>();
 	public onDidChangeFileViewedState = this._onDidChangeFileViewedState.event;
+
+	private _onDidChangeChangesSinceReview = new vscode.EventEmitter<void>();
+	public onDidChangeChangesSinceReview = this._onDidChangeChangesSinceReview.event;
 
 	private _comments: IComment[] | undefined;
 	private _onDidChangeComments: vscode.EventEmitter<void> = new vscode.EventEmitter();
@@ -136,7 +139,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		this._telemetry = telemetry;
 		this.isActive = !!isActive;
 
-		this.isShowChangesSinceReview = false;
+		this._showChangesSinceReview = false;
 
 		this.update(item);
 	}
@@ -173,6 +176,15 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this._hasPendingReview = hasPendingReview;
 			this._onDidChangePendingReviewState.fire(this._hasPendingReview);
 		}
+	}
+
+	public get showChangesSinceReview() {
+		return this._showChangesSinceReview;
+	}
+
+	public set showChangesSinceReview(isChangesSinceReview: boolean) {
+		this._showChangesSinceReview = isChangesSinceReview;
+		this._onDidChangeChangesSinceReview.fire();
 	}
 
 	get comments(): IComment[] {
@@ -1207,9 +1219,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		let compareWithBaseRef = this.base.sha;
 		const latestReview = await this.getViewerLatestReviewCommit();
+		const oldHasChangesSinceReview = this.hasChangesSinceLastReview;
 		this.hasChangesSinceLastReview = latestReview !== undefined && compareWithBaseRef !== latestReview.sha;
 
-		if (this.isShowChangesSinceReview && this.hasChangesSinceLastReview && latestReview != undefined) {
+		if (this._showChangesSinceReview && this.hasChangesSinceLastReview && latestReview != undefined) {
 			compareWithBaseRef = latestReview.sha;
 		}
 
@@ -1254,6 +1267,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		} else {
 			// if we're under the limit, just use the result from compareCommits, don't make additional API calls.
 			files = data.files as IRawFileChange[];
+		}
+
+		if (oldHasChangesSinceReview !== this.hasChangesSinceLastReview) {
+			this._onDidChangeChangesSinceReview.fire();
 		}
 
 		Logger.debug(

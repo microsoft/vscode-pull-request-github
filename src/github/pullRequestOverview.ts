@@ -13,7 +13,6 @@ import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { IRequestMessage } from '../common/webview';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
-import { PRNode } from '../view/treeNodes/pullRequestNode';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
 	GithubItemStateEnum,
@@ -339,10 +338,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private gotoChangesSinceReview() {
-		this._item.isShowChangesSinceReview = true;
-		PullRequestModel.openFirstDiff(this._folderRepositoryManager, this._item).then(() => {
-			this._descriptionNode?.parent.refresh(this._descriptionNode.parent as PRNode);
-		});
+		this._item.showChangesSinceReview = true;
+		PullRequestModel.openFirstDiff(this._folderRepositoryManager, this._item);
 	}
 
 	private async getReviewersQuickPickItems(

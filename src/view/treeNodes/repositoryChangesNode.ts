@@ -78,6 +78,13 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 		return this;
 	}
 
+	protected registerSinceReviewChange() {
+		this.pullRequestModel.onDidChangeChangesSinceReview(_ => {
+			this.updateContextValue();
+			vscode.commands.executeCommand('pr.refreshChanges');
+		});
+	}
+
 	dispose() {
 		super.dispose();
 		this._disposables.forEach(d => d.dispose());

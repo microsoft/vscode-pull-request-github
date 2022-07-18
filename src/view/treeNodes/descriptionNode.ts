@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import Logger from '../../common/logger';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
@@ -30,6 +31,8 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 			arguments: [this],
 		};
 
+		this.registerSinceReviewChange();
+
 		this.updateContextValue();
 		this.tooltip = `Description of pull request #${pullRequestModel.number}`;
 		this.accessibilityInformation = { label: `Pull request page of pull request number ${pullRequestModel.number}`, role: 'button' };
@@ -42,6 +45,13 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 	updateContextValue(): void {
 		this.contextValue = 'description' +
 			(this.pullRequestModel.hasChangesSinceLastReview ? ':changesSinceReview' : '') +
-			(this.pullRequestModel.isShowChangesSinceReview ? ':active' : ':inactive');
+			(this.pullRequestModel.showChangesSinceReview ? ':active' : ':inactive');
+	}
+
+	protected registerSinceReviewChange() {
+		this.pullRequestModel.onDidChangeChangesSinceReview(_ => {
+			this.updateContextValue();
+			this.refresh(this.parent as TreeNode);
+		});
 	}
 }

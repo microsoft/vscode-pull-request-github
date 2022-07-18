@@ -655,15 +655,13 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.showDiffSinceLastReview', async (descriptionNode: DescriptionNode) => {
-			descriptionNode.pullRequestModel.isShowChangesSinceReview = true;
-			descriptionNode.parent.refresh(descriptionNode.parent as PRNode);
+			descriptionNode.pullRequestModel.showChangesSinceReview = true;
 		}),
 	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.showDiffAll', async (descriptionNode: DescriptionNode) => {
-			descriptionNode.pullRequestModel.isShowChangesSinceReview = false;
-			descriptionNode.refresh(descriptionNode.parent as PRNode);
+			descriptionNode.pullRequestModel.showChangesSinceReview = false;
 		}),
 	);
 
