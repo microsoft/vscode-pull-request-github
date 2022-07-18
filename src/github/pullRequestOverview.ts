@@ -655,6 +655,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			await vscode.workspace.fs.writeFile(tempUri, encoder.encode(matches![1]));
 			await this._folderRepositoryManager.repository.apply(tempUri.fsPath);
 			await vscode.workspace.fs.delete(tempUri);
+			vscode.window.showInformationMessage('Patch applied!');
 		} catch (e) {
 			Logger.appendLine(`Applying patch failed: ${e}`);
 			vscode.window.showErrorMessage(`Applying patch failed: ${formatError(e)}`);

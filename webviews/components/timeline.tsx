@@ -119,7 +119,7 @@ const ReviewEventView = (event: ReviewEvent) => {
 					</Spaced>
 				</div>
 				{event.state !== 'PENDING' && event.body ? (
-					<CommentBody body={event.body} bodyHTML={event.bodyHTML} />
+					<CommentBody body={event.body} bodyHTML={event.bodyHTML} canApplyPatch={false} />
 				) : null}
 				<div className="comment-body review-comment-body">
 					{Object.entries(comments).map(([key, thread]) => {
