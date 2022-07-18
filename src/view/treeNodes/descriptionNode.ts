@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import Logger from '../../common/logger';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
