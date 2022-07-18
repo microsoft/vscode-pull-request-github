@@ -416,7 +416,7 @@ export class ReviewManager {
 		await this.registerCommentController();
 		const isFocusMode = this._context.workspaceState.get(FOCUS_REVIEW_MODE);
 
-		this._activePrViewCoordinator.setPullRequest(pr, this._folderRepoManager);
+		this._activePrViewCoordinator.setPullRequest(pr, this._folderRepoManager, this);
 
 		this.statusBarItem.text = `$(git-pull-request) Pull Request #${this._prNumber}`;
 		this.statusBarItem.command = {
