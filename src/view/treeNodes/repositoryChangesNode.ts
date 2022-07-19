@@ -80,40 +80,38 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	}
 
 	protected registerSinceReviewChange() {
-		this.pullRequestModel.onDidChangeChangesSinceReview(_ => {
+		this.pullRequestModel.onDidChangeChangesSinceReview(directlyAfterActivation => {
 			this.updateContextValue();
 			vscode.commands.executeCommand('pr.refreshChanges').then(() => {
-				this.reopenNewDiffs();
+				this.reopenNewDiffs(directlyAfterActivation);
 			});
 		});
 	}
 
-	public async reopenNewDiffs() {
-		const reOpenFiles: { tabInput: vscode.TabInputTextDiff, isPreview: boolean }[] = [];
-
+	public async reopenNewDiffs(directlyAfterActivation: boolean | void) {
 		await Promise.all(vscode.window.tabGroups.all.map(tabGroup => {
 			return tabGroup.tabs.map(tab => {
 				if (tab.input instanceof vscode.TabInputTextDiff) {
 					if ((tab.input.original.scheme === Schemes.Review)) {
-						reOpenFiles.push({ tabInput: tab.input, isPreview: tab.isPreview });
-						return vscode.window.tabGroups.close(tab);
+
+						for (const localChange of this._reviewModel.localFileChanges) {
+							const fileName = fromReviewUri(tab.input.original.query);
+							// Don't reopen the tabs on activation if the correct diffs are displayed
+							if (directlyAfterActivation && fileName.commit && fileName.commit === localChange.pullRequest.mergeBase) {
+								break;
+							}
+							if (localChange.fileName === fileName.path) {
+								vscode.window.tabGroups.close(tab);
+								localChange.openDiff(this._pullRequestManager, { preview: tab.isPreview });
+								break;
+							}
+						}
+
 					}
 				}
 				return Promise.resolve(undefined);
 			});
 		}).flat());
-
-		if (reOpenFiles.length) {
-			for (const localChange of this._reviewModel.localFileChanges) {
-				for (const { tabInput, isPreview } of reOpenFiles) {
-					const fileName = fromReviewUri(tabInput.original.query);
-					if (localChange.fileName === fileName.path) {
-						localChange.openDiff(this._pullRequestManager, { preview: isPreview });
-						break;
-					}
-				}
-			}
-		}
 	}
 
 	dispose() {

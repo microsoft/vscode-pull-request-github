@@ -116,7 +116,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _onDidChangeFileViewedState = new vscode.EventEmitter<FileViewedStateChangeEvent>();
 	public onDidChangeFileViewedState = this._onDidChangeFileViewedState.event;
 
-	private _onDidChangeChangesSinceReview = new vscode.EventEmitter<void>();
+	private _onDidChangeChangesSinceReview = new vscode.EventEmitter<boolean | void>();
 	public onDidChangeChangesSinceReview = this._onDidChangeChangesSinceReview.event;
 
 	private _comments: IComment[] | undefined;
@@ -1270,7 +1270,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		if (oldHasChangesSinceReview !== this.hasChangesSinceLastReview) {
-			this._onDidChangeChangesSinceReview.fire();
+			this._onDidChangeChangesSinceReview.fire(oldHasChangesSinceReview === undefined);
 		}
 
 		Logger.debug(
