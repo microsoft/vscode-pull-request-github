@@ -19,7 +19,6 @@ import {
 	isNewCommitsSinceReviewEvent,
 	isReviewEvent,
 	MergedEvent,
-	NewCommitsSinceReviewEvent,
 	ReviewEvent,
 	TimelineEvent,
 } from '../../src/common/timelineEvent';

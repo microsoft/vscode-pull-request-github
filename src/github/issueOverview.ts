@@ -26,7 +26,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	protected readonly _panel: vscode.WebviewPanel;
 	protected _disposables: vscode.Disposable[] = [];
-	protected _descriptionNode: DescriptionNode | undefined;
+	protected _descriptionNode: DescriptionNode;
 	protected _item: TItem;
 	protected _folderRepositoryManager: FolderRepositoryManager;
 	protected _scrollPosition = { x: 0, y: 0 };
@@ -36,7 +36,6 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		folderRepositoryManager: FolderRepositoryManager,
 		issue: IssueModel,
 		toTheSide: Boolean = false,
-		descriptionNode: DescriptionNode | undefined = undefined
 	) {
 		const activeColumn = toTheSide
 			? vscode.ViewColumn.Beside
@@ -55,7 +54,6 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				activeColumn || vscode.ViewColumn.Active,
 				title,
 				folderRepositoryManager,
-				descriptionNode
 			);
 		}
 
@@ -73,12 +71,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		column: vscode.ViewColumn,
 		title: string,
 		folderRepositoryManager: FolderRepositoryManager,
-		descriptionNode: DescriptionNode | undefined = undefined,
 		type: string = IssueOverviewPanel._viewType,
 	) {
 		super();
 		this._folderRepositoryManager = folderRepositoryManager;
-		this._descriptionNode = descriptionNode;
 
 		// Create and show a new webview panel
 		this._panel = vscode.window.createWebviewPanel(type, title, column, {

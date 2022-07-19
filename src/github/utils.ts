@@ -1011,7 +1011,6 @@ export function insertNewCommmitsSinceReview(
 	timelineEvents: Common.TimelineEvent[],
 	latestReviewCommit: { sha: string } | undefined,
 	currentUser: IAccount,
-	isCurrentlyCheckedOut: boolean,
 	head: GitHubRef | null
 ) {
 	if (latestReviewCommit !== undefined && head && head.sha !== latestReviewCommit.sha) {

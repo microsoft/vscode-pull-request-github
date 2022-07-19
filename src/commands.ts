@@ -65,7 +65,7 @@ export async function openDescription(
 	const pullRequest = ensurePR(folderManager, pullRequestModel);
 	descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
 	// Create and show a new webview
-	await PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest, false, descriptionNode);
+	await PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest);
 
 	/* __GDPR__
 		"pr.openDescription" : {}
@@ -644,7 +644,7 @@ export function registerCommands(
 			const pullRequest = ensurePR(folderManager, pr);
 			descriptionNode.reveal(descriptionNode, { select: true, focus: true });
 			// Create and show a new webview
-			PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest, true, descriptionNode);
+			PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest, true);
 
 			/* __GDPR__
 			"pr.openDescriptionToTheSide" : {}

@@ -12,7 +12,6 @@ import Logger from '../common/logger';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { IRequestMessage } from '../common/webview';
-import { DescriptionNode } from '../view/treeNodes/descriptionNode';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
 	GithubItemStateEnum,
@@ -54,7 +53,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		folderRepositoryManager: FolderRepositoryManager,
 		issue: PullRequestModel,
 		toTheSide: Boolean = false,
-		descriptionNode: DescriptionNode | undefined = undefined
 	) {
 		const activeColumn = toTheSide
 			? vscode.ViewColumn.Beside
@@ -73,7 +71,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				activeColumn || vscode.ViewColumn.Active,
 				title,
 				folderRepositoryManager,
-				descriptionNode
 			);
 		}
 
@@ -101,9 +98,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		column: vscode.ViewColumn,
 		title: string,
 		folderRepositoryManager: FolderRepositoryManager,
-		descriptionNode: DescriptionNode | undefined = undefined
 	) {
-		super(extensionUri, column, title, folderRepositoryManager, descriptionNode, PullRequestOverviewPanel._viewType);
+		super(extensionUri, column, title, folderRepositoryManager, PullRequestOverviewPanel._viewType);
 
 		this.registerFolderRepositoryListener();
 
@@ -200,7 +196,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
 				const currentUser = this._folderRepositoryManager.getCurrentUser(this._item.githubRepository);
 
-				insertNewCommmitsSinceReview(timelineEvents, LatestReviewCommitInfo, currentUser, isCurrentlyCheckedOut, pullRequest.head);
+				insertNewCommmitsSinceReview(timelineEvents, LatestReviewCommitInfo, currentUser, pullRequest.head);
 
 				const isCrossRepository =
 					pullRequest.base &&
