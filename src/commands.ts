@@ -848,12 +848,12 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.refreshChanges', _ => {
-			reviewManagers.forEach(reviewManager => {
-				reviewManager.updateComments();
+		vscode.commands.registerCommand('pr.refreshChanges', async _ => {
+			await Promise.all(reviewManagers.map(async reviewManager => {
+				await reviewManager.updateComments();
 				PullRequestOverviewPanel.refresh();
 				reviewManager.changesInPrDataProvider.refresh();
-			});
+			}));
 		}),
 	);
 

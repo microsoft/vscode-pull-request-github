@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import Logger, { PR_TREE } from '../../common/logger';
+import { fromReviewUri, Schemes } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { ReviewModel } from '../reviewModel';
@@ -24,7 +25,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 		public parent: BaseTreeNode,
 		private _pullRequest: PullRequestModel,
 		private _pullRequestManager: FolderRepositoryManager,
-		private _reviewModel: ReviewModel,
+		private _reviewModel: ReviewModel
 	) {
 		super(parent, _pullRequest.title, _pullRequest.userAvatarUri!, _pullRequest);
 		// Cause tree values to be filled
@@ -81,8 +82,38 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	protected registerSinceReviewChange() {
 		this.pullRequestModel.onDidChangeChangesSinceReview(_ => {
 			this.updateContextValue();
-			vscode.commands.executeCommand('pr.refreshChanges');
+			vscode.commands.executeCommand('pr.refreshChanges').then(() => {
+				this.reopenNewDiffs();
+			});
 		});
+	}
+
+	public async reopenNewDiffs() {
+		const reOpenFiles: { tabInput: vscode.TabInputTextDiff, isPreview: boolean }[] = [];
+
+		await Promise.all(vscode.window.tabGroups.all.map(tabGroup => {
+			return tabGroup.tabs.map(tab => {
+				if (tab.input instanceof vscode.TabInputTextDiff) {
+					if ((tab.input.original.scheme === Schemes.Review)) {
+						reOpenFiles.push({ tabInput: tab.input, isPreview: tab.isPreview });
+						return vscode.window.tabGroups.close(tab);
+					}
+				}
+				return Promise.resolve(undefined);
+			});
+		}).flat());
+
+		if (reOpenFiles.length) {
+			for (const localChange of this._reviewModel.localFileChanges) {
+				for (const { tabInput, isPreview } of reOpenFiles) {
+					const fileName = fromReviewUri(tabInput.original.query);
+					if (localChange.fileName === fileName.path) {
+						localChange.openDiff(this._pullRequestManager, { preview: isPreview });
+						break;
+					}
+				}
+			}
+		}
 	}
 
 	dispose() {
