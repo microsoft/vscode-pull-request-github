@@ -1026,7 +1026,6 @@ export function insertNewCommmitsSinceReview(
 			) {
 				interReviewCommits.unshift({
 					id: latestReviewCommit.sha,
-					isActivePR: isCurrentlyCheckedOut,
 					event: Common.EventType.NewCommitsSinceReview
 				});
 				timelineEvents.splice(lastViewerReviewIndex + 1, 0, ...interReviewCommits);

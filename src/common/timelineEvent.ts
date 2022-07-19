@@ -65,7 +65,6 @@ export interface CommitEvent {
 
 export interface NewCommitsSinceReviewEvent {
 	id: string;
-	isActivePR: boolean;
 	event: EventType;
 }
 
