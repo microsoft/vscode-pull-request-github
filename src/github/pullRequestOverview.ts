@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { onDidUpdatePR, openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
@@ -401,43 +400,57 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		return reviewers;
 	}
-	private getAssigneesQuickPickItems(
-		assignableUsers: IAccount[] | undefined,
-		suggestedReviewers: ISuggestedReviewer[] | undefined,
-	): (vscode.QuickPickItem & { assignee?: IAccount })[] {
-		if (!suggestedReviewers) {
-			return [];
-		}
+	private async getAssigneesQuickPickItems():
+		Promise<(vscode.QuickPickItem & { assignee?: IAccount })[]> {
+
+		const [allAssignableUsers, { participants, viewer }] = await Promise.all([
+			this._folderRepositoryManager.getAssignableUsers(),
+			this._folderRepositoryManager.getPullRequestParticipants(this._item.githubRepository, this._item.number)
+		]);
+
+		let assignableUsers = allAssignableUsers[this._item.remote.remoteName];
+
 		assignableUsers = assignableUsers ?? [];
 		// used to track logins that shouldn't be added to pick list
 		// e.g. author, existing and already added reviewers
 		const skipList: Set<string> = new Set([...(this._item.assignees?.map(assignee => assignee.login) ?? [])]);
 
 		const assignees: (vscode.QuickPickItem & { assignee?: IAccount })[] = [];
-		for (const suggestedReviewer of suggestedReviewers) {
-			const { login, name, isAuthor, isCommenter } = suggestedReviewer;
-			if (skipList.has(login)) {
+		// Check if the viewer is allowed to be assigned to the PR
+		if (assignableUsers.findIndex((assignableUser: IAccount) => assignableUser.login === viewer.login) !== -1) {
+			assignees.push({
+				label: viewer.login,
+				description: viewer.name,
+				assignee: viewer,
+			});
+			skipList.add(viewer.login);
+		}
+
+		for (const suggestedReviewer of participants) {
+			if (skipList.has(suggestedReviewer.login)) {
 				continue;
 			}
 
-			const suggestionReason: string =
-				isAuthor && isCommenter
-					? 'Recently edited and reviewed changes to these files'
-					: isAuthor
-						? 'Recently edited these files'
-						: isCommenter
-							? 'Recently reviewed changes to these files'
-							: 'Suggested reviewer';
-
 			assignees.push({
-				label: login,
-				description: name,
-				detail: suggestionReason,
-				assignee: suggestedReviewer,
+				label: suggestedReviewer.login,
+				description: suggestedReviewer.name,
+				assignee: viewer,
 			});
 			// this user shouldn't be added later from assignable users list
-			skipList.add(login);
+			skipList.add(suggestedReviewer.login);
 		}
+
+		if (assignees.length !== 0) {
+			assignees.unshift({
+				kind: vscode.QuickPickItemKind.Separator,
+				label: 'Suggestions'
+			});
+		}
+
+		assignees.push({
+			kind: vscode.QuickPickItemKind.Separator,
+			label: 'Users'
+		});
 
 		for (const user of assignableUsers) {
 			if (skipList.has(user.login)) {
@@ -512,22 +525,55 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				});
 			}
 
-			const milestoneToAdd = await vscode.window.showQuickPick(
-				getMilestoneOptions(this._folderRepositoryManager),
-				{
-					canPickMany: false,
-				},
-			);
+			const quickPick = vscode.window.createQuickPick();
+			quickPick.canSelectMany = false;
+			quickPick.title = 'Select a milestone to add';
+			quickPick.buttons = [{
+				iconPath: new vscode.ThemeIcon('add'),
+				tooltip: 'Create',
+			}];
+			quickPick.onDidTriggerButton((_) => {
+				quickPick.hide();
 
-			if (milestoneToAdd && isMilestoneQuickPickItem(milestoneToAdd)) {
-				await this._item.updateMilestone(milestoneToAdd.id);
-				this._replyMessage(message, {
-					added: milestoneToAdd.milestone,
+				const inputBox = vscode.window.createInputBox();
+				inputBox.title = 'Create new milestone';
+				inputBox.placeholder = 'New milestone title';
+				if (quickPick.value !== '') {
+					inputBox.value = quickPick.value;
+				}
+				inputBox.show();
+				inputBox.onDidAccept(async () => {
+					inputBox.hide();
+					if (inputBox.value !== '') {
+						const milestone = await this._folderRepositoryManager.createMilestone(this._item.githubRepository, inputBox.value);
+						if (milestone !== undefined) {
+							await this.updateMilestone(milestone, message);
+						}
+					}
 				});
-			}
+			});
+
+			quickPick.show();
+			quickPick.items = await getMilestoneOptions(this._folderRepositoryManager);
+
+			quickPick.onDidAccept(async () => {
+				quickPick.hide();
+				const milestoneToAdd = quickPick.selectedItems[0];
+				if (milestoneToAdd && isMilestoneQuickPickItem(milestoneToAdd)) {
+					await this.updateMilestone(milestoneToAdd.milestone, message);
+				}
+			});
+
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}
+	}
+
+	private async updateMilestone(milestone: IMilestone, message: IRequestMessage<void>) {
+		await this._item.updateMilestone(milestone.id);
+		this._replyMessage(message, {
+			added: milestone,
+		});
 	}
 
 	private async removeMilestone(message: IRequestMessage<void>): Promise<void> {
@@ -539,13 +585,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
+	private async
+
 	private async addAssignees(message: IRequestMessage<void>): Promise<void> {
 		try {
-			const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
-			const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
-
 			const assigneesToAdd = (await vscode.window.showQuickPick(
-				this.getAssigneesQuickPickItems(assignableUsers, []),
+				this.getAssigneesQuickPickItems(),
 				{
 					canPickMany: true,
 					matchOnDescription: true,
@@ -615,18 +660,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const regex = /```diff\n([\s\S]*)\n```/g;
 			const matches = regex.exec(comment.body);
 
-			const tempFilePath = path.join(
-				this._folderRepositoryManager.repository.rootUri.path,
-				'.git',
-				`${comment.id}.diff`,
-			);
+			const tempUri = vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, '.git', `${comment.id}.diff`);
 
 			const encoder = new TextEncoder();
-			const tempUri = vscode.Uri.parse(tempFilePath);
 
 			await vscode.workspace.fs.writeFile(tempUri, encoder.encode(matches![1]));
-			await this._folderRepositoryManager.repository.apply(tempFilePath, true);
+			await this._folderRepositoryManager.repository.apply(tempUri.fsPath);
 			await vscode.workspace.fs.delete(tempUri);
+			vscode.window.showInformationMessage('Patch applied!');
 		} catch (e) {
 			Logger.appendLine(`Applying patch failed: ${e}`);
 			vscode.window.showErrorMessage(`Applying patch failed: ${formatError(e)}`);

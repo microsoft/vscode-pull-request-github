@@ -14,12 +14,14 @@ import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { RefType } from '../../api/api1';
 import { RepositoryBuilder } from '../builders/rest/repoBuilder';
+import { MockExtensionContext } from '../mocks/mockExtensionContext';
 
 describe('PullRequestGitHelper', function () {
 	let sinon: SinonSandbox;
 	let repository: MockRepository;
 	let telemetry: MockTelemetry;
 	let credentialStore: CredentialStore;
+	let context: MockExtensionContext;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -28,7 +30,8 @@ describe('PullRequestGitHelper', function () {
 
 		repository = new MockRepository();
 		telemetry = new MockTelemetry();
-		credentialStore = new CredentialStore(telemetry);
+		context = new MockExtensionContext();
+		credentialStore = new CredentialStore(telemetry, context);
 	});
 
 	afterEach(function () {

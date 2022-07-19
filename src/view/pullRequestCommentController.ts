@@ -120,7 +120,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		this.setContextKey(this.pullRequestModel.hasPendingReview);
 	}
 
-	private getPREditors(editors: vscode.TextEditor[]): vscode.TextEditor[] {
+	private getPREditors(editors: readonly vscode.TextEditor[]): vscode.TextEditor[] {
 		return editors.filter(editor => {
 			if (editor.document.uri.scheme !== Schemes.Pr) {
 				return false;
@@ -222,7 +222,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		});
 	}
 
-	private onDidChangeOpenEditors(editors: vscode.TextEditor[]): void {
+	private onDidChangeOpenEditors(editors: readonly vscode.TextEditor[]): void {
 		const prEditors = this.getPREditors(editors);
 		const removed = this._openPREditors.filter(x => !prEditors.includes(x));
 		this.addCachedEditors(removed);
@@ -288,7 +288,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 		e.changed.forEach(thread => {
 			const key = this.getCommentThreadCacheKey(thread.path, thread.diffSide === DiffSide.LEFT);
-			const index = this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id);
+			const index = this._commentThreadCache[key] ? this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id) : -1;
 			if (index > -1) {
 				const matchingThread = this._commentThreadCache[key][index];
 				updateThread(matchingThread, thread);

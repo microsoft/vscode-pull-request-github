@@ -12,6 +12,7 @@ import { DiffSide, IComment, IReviewThread } from '../common/comment';
 import { getCommentingRanges } from '../common/commentingRanges';
 import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPositionMapping';
 import { GitChangeType } from '../common/file';
+import Logger from '../common/logger';
 import { ISessionState } from '../common/sessionState';
 import { fromReviewUri, ReviewUriParams, Schemes, toReviewUri } from '../common/uri';
 import { formatError, groupBy, uniqBy } from '../common/utils';
@@ -35,6 +36,7 @@ import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from
 
 export class ReviewCommentController
 	implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider, CommentReactionHandler {
+	private static readonly ID = 'ReviewCommentController';
 	private _localToDispose: vscode.Disposable[] = [];
 	private _onDidChangeComments = new vscode.EventEmitter<IComment[]>();
 	public onDidChangeComments = this._onDidChangeComments.event;
@@ -402,16 +404,21 @@ export class ReviewCommentController
 			const matchedFile = this.findMatchedFileChangeForReviewDiffView(this._reviewModel.localFileChanges, document.uri);
 
 			if (matchedFile) {
-				return getCommentingRanges(await matchedFile.changeModel.diffHunks(), query.base);
+				Logger.debug('Found matched file for commenting ranges.', ReviewCommentController.ID);
+				return getCommentingRanges(await matchedFile.changeModel.diffHunks(), query.base, ReviewCommentController.ID);
 			}
 		}
 
 		if (!isFileInRepo(this._repository, document.uri)) {
+			if (document.uri.scheme !== 'output') {
+				Logger.debug('No commenting ranges: File is not in the current repository.', ReviewCommentController.ID);
+			}
 			return;
 		}
 
 		if (document.uri.scheme === this._repository.rootUri.scheme) {
 			if (!this._reposManager.activePullRequest!.isResolved()) {
+				Logger.debug('No commenting ranges: Active PR has not been resolved.', ReviewCommentController.ID);
 				return;
 			}
 
@@ -424,6 +431,7 @@ export class ReviewCommentController
 			if (matchedFile) {
 				const diffHunks = await matchedFile.changeModel.diffHunks();
 				if ((matchedFile.status === GitChangeType.RENAME) && (diffHunks.length === 0)) {
+					Logger.debug('No commenting ranges: File was renamed with no diffs.', ReviewCommentController.ID);
 					return [];
 				}
 
@@ -437,9 +445,18 @@ export class ReviewCommentController
 						ranges.push(new vscode.Range(start - 1, 0, end - 1, 0));
 					}
 				}
+
+				if (ranges.length === 0) {
+					Logger.debug('No commenting ranges: File has diffs, but they could not be mapped to current lines.', ReviewCommentController.ID);
+				}
+			} else {
+				Logger.debug('No commenting ranges: File does not match any of the files in the review.', ReviewCommentController.ID);
 			}
 
+			Logger.debug(`Providing ${ranges.length} commenting ranges for ${nodePath.basename(document.uri.fsPath)}.`, ReviewCommentController.ID);
 			return ranges;
+		} else {
+			Logger.debug('No commenting ranges: File scheme differs from repository scheme.', ReviewCommentController.ID);
 		}
 
 		return;
@@ -452,22 +469,28 @@ export class ReviewCommentController
 			editor => editor.document.uri.toString() === uri.toString(),
 		);
 		if (!this._reposManager.activePullRequest?.head) {
+			Logger.appendLine('Failed to get content diff. Cannot get content diff without an active pull request head.');
 			throw new Error('Cannot get content diff without an active pull request head.');
 		}
 
-		if (matchedEditor && matchedEditor.document.isDirty) {
-			const documentText = matchedEditor.document.getText();
-			const details = await this._repository.getObjectDetails(
-				this._reposManager.activePullRequest.head.sha,
-				fileName,
-			);
-			const idAtLastCommit = details.object;
-			const idOfCurrentText = await this._repository.hashObject(documentText);
+		try {
+			if (matchedEditor && matchedEditor.document.isDirty) {
+				const documentText = matchedEditor.document.getText();
+				const details = await this._repository.getObjectDetails(
+					this._reposManager.activePullRequest.head.sha,
+					fileName,
+				);
+				const idAtLastCommit = details.object;
+				const idOfCurrentText = await this._repository.hashObject(documentText);
 
-			// git diff <blobid> <blobid>
-			return await this._repository.diffBlobs(idAtLastCommit, idOfCurrentText);
-		} else {
-			return await this._repository.diffWith(this._reposManager.activePullRequest.head.sha, fileName);
+				// git diff <blobid> <blobid>
+				return await this._repository.diffBlobs(idAtLastCommit, idOfCurrentText);
+			} else {
+				return await this._repository.diffWith(this._reposManager.activePullRequest.head.sha, fileName);
+			}
+		} catch (e) {
+			Logger.appendLine(`Failed to get content diff. ${formatError(e)}`);
+			throw e;
 		}
 	}
 

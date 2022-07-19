@@ -27,7 +27,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 		private _pullRequestManager: FolderRepositoryManager,
 		private _reviewModel: ReviewModel
 	) {
-		super(parent, _pullRequest.title, _pullRequest.userAvatarUri!, _pullRequest);
+		super(parent, _pullRequest.title, _pullRequest.userAvatarUri!, _pullRequest, _pullRequestManager.repository);
 		// Cause tree values to be filled
 		this.getTreeItem();
 

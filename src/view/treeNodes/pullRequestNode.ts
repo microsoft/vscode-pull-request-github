@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Repository } from '../../api/api';
 import { getCommentingRanges } from '../../common/commentingRanges';
-import { SlimFileChange } from '../../common/file';
+import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT } from '../../common/settingKeys';
 import { fromPRUri, Schemes } from '../../common/uri';
@@ -37,6 +38,10 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		this._command = newCommand;
 	}
 
+	public get repository(): Repository {
+		return this._folderReposManager.repository;
+	}
+
 	constructor(
 		public parent: TreeNodeParent,
 		private _folderReposManager: FolderRepositoryManager,
@@ -62,15 +67,20 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				'Description',
 				new vscode.ThemeIcon('git-pull-request'),
 				this.pullRequestModel,
+				this.repository
 			);
 
 			if (!this.pullRequestModel.isResolved()) {
 				return [descriptionNode];
 			}
 
-			await this.pullRequestModel.initializeReviewThreadCache();
-			await this.pullRequestModel.initializePullRequestFileViewState();
-			this._fileChanges = await this.resolveFileChangeNodes();
+			[, , this._fileChanges, ,] = await Promise.all([
+				this.pullRequestModel.initializeReviewThreadCache(),
+				this.pullRequestModel.initializePullRequestFileViewState(),
+				this.resolveFileChangeNodes(),
+				(!this._commentController) ? this.resolvePRCommentController() : new Promise(() => { return; }),
+				this.pullRequestModel.validateDraftMode()
+			]);
 
 			if (!this._inMemPRContentProvider) {
 				this._inMemPRContentProvider = getInMemPRFileSystemProvider()?.registerTextDocumentContentProvider(
@@ -78,12 +88,6 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 					this.provideDocumentContent.bind(this),
 				);
 			}
-
-			if (!this._commentController) {
-				await this.resolvePRCommentController();
-			}
-
-			await this.pullRequestModel.validateDraftMode();
 
 			descriptionNode.updateContextValue();
 
@@ -169,9 +173,14 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 
 		// If this PR is the the current PR, then we should be careful to use
 		// URIs that will cause the review comment controller to be used.
+		const rawChanges: (SlimFileChange | InMemFileChange)[] = [];
 		const isCurrentPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
-
-		const rawChanges = await this.pullRequestModel.getFileChangesInfo();
+		if (isCurrentPR && this._folderReposManager.activePullRequest !== undefined) {
+			rawChanges.push(...this._folderReposManager.activePullRequest.fileChanges.values());
+		}
+		else {
+			rawChanges.push(...await this.pullRequestModel.getFileChangesInfo());
+		}
 
 		// Merge base is set as part of getFileChangesInfo
 		const mergeBase = this.pullRequestModel.mergeBase;
@@ -184,6 +193,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				const changeModel = new RemoteFileChangeModel(this._folderReposManager, change, this.pullRequestModel);
 				return new RemoteFileChangeNode(
 					this,
+					this._folderReposManager,
+					this.pullRequestModel as (PullRequestModel & IResolvedPullRequestModel),
 					changeModel
 				);
 			}
@@ -218,7 +229,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 
 		return {
 			label,
-			id: `${this.parent instanceof TreeNode ? this.parent.label : ''}${html_url}`, // unique id stable across checkout status
+			id: `${this.parent instanceof TreeNode ? (this.parent.id ?? this.parent.label) : ''}${html_url}`, // unique id stable across checkout status
 			tooltip,
 			description,
 			collapsibleState: 1,
@@ -250,7 +261,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				return undefined;
 			}
 
-			return getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase);
+			return getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase, PRNode.ID);
 		}
 
 		return undefined;

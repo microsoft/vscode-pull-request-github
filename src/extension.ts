@@ -7,7 +7,7 @@
 import TelemetryReporter from '@vscode/extension-telemetry';
 import * as vscode from 'vscode';
 import { LiveShare } from 'vsls/vscode.js';
-import { Repository } from './api/api';
+import { PostCommitCommandsProvider, Repository } from './api/api';
 import { GitApiImpl } from './api/api1';
 import { registerCommands } from './commands';
 import { commands } from './common/executeCommands';
@@ -36,7 +36,7 @@ import { ReviewManager, ShowPullRequest } from './view/reviewManager';
 import { ReviewsManager } from './view/reviewsManager';
 import { WebviewViewCoordinator } from './view/webviewViewCoordinator';
 
-const aiKey = 'AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217';
+const ingestionKey = '0c6ae279ed8443289764825290e4f9e2-1a736e7c-1324-4338-be46-fc2a58ae4d14-7255';
 
 let telemetry: ExperimentationTelemetry;
 
@@ -214,7 +214,7 @@ async function init(
 	const experimentationService = await createExperimentationService(context, telemetry);
 	await experimentationService.initializePromise;
 	await experimentationService.isCachedFlightEnabled('githubaa');
-
+	registerPostCommitCommandsProvider(reposManager, git);
 	/* __GDPR__
 		"startup" : {}
 	*/
@@ -248,7 +248,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	const apiImpl = new GitApiImpl();
 
 	const version = vscode.extensions.getExtension(EXTENSION_ID)!.packageJSON.version;
-	telemetry = new ExperimentationTelemetry(new TelemetryReporter(EXTENSION_ID, version, aiKey));
+	telemetry = new ExperimentationTelemetry(new TelemetryReporter(EXTENSION_ID, version, ingestionKey));
 	context.subscriptions.push(telemetry);
 
 	await deferredActivate(context, apiImpl, showPRController);
@@ -265,6 +265,39 @@ async function doRegisterBuiltinGitProvider(context: vscode.ExtensionContext, cr
 	return false;
 }
 
+function registerPostCommitCommandsProvider(reposManager: RepositoriesManager, git: GitApiImpl) {
+	class Provider implements PostCommitCommandsProvider {
+		getCommands(repository: Repository) {
+			const found = reposManager.folderManagers.find(folderManager => folderManager.findRepo(githubRepo => {
+				return !!repository.state.remotes.find(remote => remote.fetchUrl?.toLowerCase() === githubRepo.remote.url.toLowerCase());
+			}));
+			return found ? [{
+				command: 'pr.create',
+				title: 'Commit & Create Pull Request'
+			}] : [];
+		}
+	}
+
+	function hasGitHubRepos(): boolean {
+		return reposManager.folderManagers.some(folderManager => folderManager.gitHubRepositories.length > 0);
+	}
+	function tryRegister(): boolean {
+		if (hasGitHubRepos()) {
+			git.registerPostCommitCommandsProvider(new Provider());
+			return true;
+		}
+		return false;
+	}
+
+	if (!tryRegister()) {
+		const reposDisposable = reposManager.onDidLoadAnyRepositories(() => {
+			if (tryRegister()) {
+				reposDisposable.dispose();
+			}
+		});
+	}
+}
+
 async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitApiImpl, showPRController: ShowPullRequest) {
 	Logger.debug('Initializing state.', 'Activation');
 	PersistentState.init(context);
@@ -275,7 +308,7 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	}
 	TemporaryState.init(context);
 	Logger.debug('Creating credential store.', 'Activation');
-	const credentialStore = new CredentialStore(telemetry);
+	const credentialStore = new CredentialStore(telemetry, context);
 	context.subscriptions.push(credentialStore);
 	await credentialStore.create({ silent: true });
 

@@ -69,6 +69,14 @@ export interface ReactionGroup {
 	};
 }
 
+export interface Account {
+	login: string;
+	avatarUrl: string;
+	name: string;
+	url: string;
+	email: string;
+}
+
 export interface ReviewComment {
 	__typename: string;
 	id: string;
@@ -233,13 +241,7 @@ export interface PullRequestCommentsResponse {
 export interface MentionableUsersResponse {
 	repository: {
 		mentionableUsers: {
-			nodes: {
-				login: string;
-				avatarUrl: string;
-				name: string;
-				url: string;
-				email: string;
-			}[];
+			nodes: Account[];
 			pageInfo: {
 				hasNextPage: boolean;
 				endCursor: string;
@@ -252,13 +254,7 @@ export interface MentionableUsersResponse {
 export interface AssignableUsersResponse {
 	repository: {
 		assignableUsers: {
-			nodes: {
-				login: string;
-				avatarUrl: string;
-				name: string;
-				url: string;
-				email: string;
-			}[];
+			nodes: Account[];
 			pageInfo: {
 				hasNextPage: boolean;
 				endCursor: string;
@@ -266,6 +262,22 @@ export interface AssignableUsersResponse {
 		};
 	};
 	rateLimit: RateLimit;
+}
+
+export interface PullRequestParticipantsResponse {
+	repository: {
+		pullRequest: {
+			participants: {
+				nodes: Account[];
+			};
+		};
+	};
+}
+
+export interface CreatePullRequestResponse {
+	createPullRequest: {
+		pullRequest: PullRequest
+	}
 }
 
 export interface AddReviewThreadResponse {

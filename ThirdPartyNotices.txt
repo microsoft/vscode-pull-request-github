@@ -22,7 +22,7 @@ required to debug changes to any libraries licensed under the GNU Lesser General
 tslib 1.14.1 - 0BSD
 https://www.typescriptlang.org/
 
-Copyright (c) Microsoft Corporation.
+Copyright (c) Microsoft Corporation
 
 Copyright (c) Microsoft Corporation.
 
@@ -418,6 +418,194 @@ ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
 WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+
+---------------------------------------------------------
+
+---------------------------------------------------------
+
+@microsoft/1ds-core-js 3.2.3 - MIT
+https://github.com/microsoft/ApplicationInsights-JS#readme
+
+copyright Microsoft 2018
+copyright Microsoft 2019
+Copyright (c) Microsoft Corporation
+copyright Microsoft 2019 Simplified
+Copyright (c) Microsoft and contributors
+copyright Microsoft 2018 import AppInsightsCore as InternalCore
+
+Copyright (c) Microsoft Corporation.
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---------------------------------------------------------
+
+---------------------------------------------------------
+
+@microsoft/1ds-post-js 3.2.3 - MIT
+https://github.com/microsoft/ApplicationInsights-JS#readme
+
+copyright Microsoft 2018
+copyright Microsoft 2020
+copyright Microsoft 2018-2020
+copyright Microsoft 2022 Simple
+Copyright (c) Microsoft Corporation
+Copyright (c) Microsoft and contributors
+copyright Microsoft 2018-2020 import IExtendedAppInsightsCore, SendRequestReason, EventSendType
+copyright Microsoft 2018-2020 import IPerfManagerProvider, IValueSanitizer, FieldValueSanitizerType, FieldValueSanitizerFunc, SendRequestReason, EventSendType
+
+Copyright (c) Microsoft Corporation.
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---------------------------------------------------------
+
+---------------------------------------------------------
+
+@microsoft/applicationinsights-core-js 2.8.4 - MIT
+https://github.com/microsoft/ApplicationInsights-JS#readme
+
+Copyright (c) Microsoft Corporation
+Copyright (c) Microsoft and contributors
+
+    MIT License
+
+    Copyright (c) Microsoft Corporation. All rights reserved.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE
+
+
+---------------------------------------------------------
+
+---------------------------------------------------------
+
+@microsoft/applicationinsights-shims 2.0.1 - MIT
+https://github.com/microsoft/ApplicationInsights-JS/tree/master/tools/shims
+
+Copyright (c) Microsoft Corporation.
+Copyright (c) Microsoft and contributors.
+
+    MIT License
+
+    Copyright (c) Microsoft Corporation. All rights reserved.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE
+
+
+---------------------------------------------------------
+
+---------------------------------------------------------
+
+@microsoft/dynamicproto-js 1.1.6 - MIT
+https://github.com/microsoft/DynamicProto-JS#readme
+
+(c) James Halliday
+Copyright (c) Microsoft Corporation
+Copyright (c) 2012 Maximilian Antoni
+Copyright (c) 2013 Maximilian Antoni
+Copyright (c) 2020 Oliver Nightingale
+Copyright (c) 2020 Oliver Nightingale A
+Copyright (c) 2020 Oliver Nightingale An
+Copyright (c) Microsoft and contributors
+Copyright (c) 2010-2013 Christian Johansen
+Copyright (c) 2010-2014 Christian Johansen
+Copyright (c) 2011 Sven Fuchs, Christian Johansen
+Copyright Joyent, Inc. and other Node contributors
+Copyright jQuery Foundation and other contributors
+Copyright 2013 jQuery Foundation, Inc. and other contributors
+Copyright (c) 2010-2014, Christian Johansen, christian@cjohansen.no
+Copyright 2005, 2014 jQuery Foundation, Inc. and other contributors
+Copyright 2006 Google Inc. https://code.google.com/p/google-diff-match-patch
+
+    MIT License
+
+    Copyright (c) Microsoft Corporation.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE
 
 
 ---------------------------------------------------------
@@ -1697,7 +1885,7 @@ https://facebook.github.io/react/
 
 (c) Sindre Sorhus
 Copyright (c) 2013-present, Facebook, Inc.
-Copyright (c) Facebook, Inc. and its affiliates.
+Copyright (c) Facebook, Inc. and its affiliates
 
 MIT License
 

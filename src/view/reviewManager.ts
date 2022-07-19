@@ -14,10 +14,10 @@ import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { ISessionState } from '../common/sessionState';
-import { IGNORE_PR_BRANCHES, PR_SETTINGS_NAMESPACE, USE_REVIEW_MODE } from '../common/settingKeys';
+import { IGNORE_PR_BRANCHES, PR_SETTINGS_NAMESPACE, PULL_BRANCH, USE_REVIEW_MODE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { fromReviewUri, toReviewUri } from '../common/uri';
-import { formatError, groupBy } from '../common/utils';
+import { fromPRUri, fromReviewUri, PRUriParams, Schemes, toReviewUri } from '../common/uri';
+import { formatError, groupBy, onceEvent } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
 import { NEVER_SHOW_PULL_NOTIFICATION } from '../extensionState';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
@@ -197,6 +197,15 @@ export class ReviewManager {
 		}, 1000 * 60 * 5);
 	}
 
+	private async neverShowPullNotification(): Promise<boolean> {
+		const neverShowPullNotification = this._context.globalState.get<boolean>(NEVER_SHOW_PULL_NOTIFICATION, false);
+		if (neverShowPullNotification) {
+			this._context.globalState.update(NEVER_SHOW_PULL_NOTIFICATION, false);
+			await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
+		}
+		return vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(PULL_BRANCH, 'prompt') === 'never';
+	}
+
 	private async checkBranchUpToDate(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
 		const branch = this._repository.state.HEAD;
 		if (branch) {
@@ -204,7 +213,7 @@ export class ReviewManager {
 			const remoteBranch = branch.upstream ? branch.upstream.name : branch.name;
 			if (remote) {
 				await this._repository.fetch(remote, remoteBranch);
-				const canShowNotification = !this._context.globalState.get<boolean>(NEVER_SHOW_PULL_NOTIFICATION, false);
+				const canShowNotification = !(await this.neverShowPullNotification());
 				if (canShowNotification && !this._updateMessageShown && (branch.behind !== undefined && branch.behind > 0)) {
 					this._updateMessageShown = true;
 					const pull = 'Pull';
@@ -222,7 +231,7 @@ export class ReviewManager {
 						}
 						this._updateMessageShown = false;
 					} else if (never) {
-						await this._context.globalState.update(NEVER_SHOW_PULL_NOTIFICATION, true);
+						await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
 					}
 				}
 			}
@@ -388,6 +397,11 @@ export class ReviewManager {
 		}
 
 		Logger.appendLine('Review> Fetching pull request data');
+		if (!silent) {
+			onceEvent(this._reviewModel.onDidChangeLocalFileChanges)(() => {
+				this._upgradePullRequestEditors(pr);
+			});
+		}
 		// Don't await. Events will be fired as part of the initialization.
 		this.initializePullRequestData(pr);
 		await this.changesInPrDataProvider.addPrToView(
@@ -402,7 +416,7 @@ export class ReviewManager {
 		await this.registerCommentController();
 		const isFocusMode = this._context.workspaceState.get(FOCUS_REVIEW_MODE);
 
-		this._activePrViewCoordinator.setPullRequest(pr, this._folderRepoManager);
+		this._activePrViewCoordinator.setPullRequest(pr, this._folderRepoManager, this);
 
 		this.statusBarItem.text = `$(git-pull-request) Pull Request #${this._prNumber}`;
 		this.statusBarItem.command = {
@@ -464,6 +478,43 @@ export class ReviewManager {
 				});
 			}
 		}
+	}
+
+	public async _upgradePullRequestEditors(pullRequest: PullRequestModel) {
+		// Go through all open editors and find pr scheme editors that belong to the active pull request.
+		// Close the editors, and reopen them from the pull request.
+		const reopenFilenames: Set<[PRUriParams, PRUriParams]> = new Set();
+		await Promise.all(vscode.window.tabGroups.all.map(tabGroup => {
+			return tabGroup.tabs.map(tab => {
+				if (tab.input instanceof vscode.TabInputTextDiff) {
+					if ((tab.input.original.scheme === Schemes.Pr) && (tab.input.modified.scheme === Schemes.Pr)) {
+						const originalParams = fromPRUri(tab.input.original);
+						const modifiedParams = fromPRUri(tab.input.modified);
+						if ((originalParams?.prNumber === pullRequest.number) && (modifiedParams?.prNumber === pullRequest.number)) {
+							reopenFilenames.add([originalParams, modifiedParams]);
+							return vscode.window.tabGroups.close(tab);
+						}
+					}
+				}
+				return Promise.resolve(undefined);
+			});
+		}).flat());
+		const reopenPromises: Promise<void>[] = [];
+		if (reopenFilenames.size) {
+			for (const localChange of this.reviewModel.localFileChanges) {
+				for (const prFileChange of reopenFilenames) {
+					if (Array.isArray(prFileChange)) {
+						const modifiedPrChange = prFileChange[1];
+						if (localChange.fileName === modifiedPrChange.fileName) {
+							reopenPromises.push(localChange.openDiff(this._folderRepoManager, { preview: false }));
+							reopenFilenames.delete(prFileChange);
+							break;
+						}
+					}
+				}
+			}
+		}
+		return Promise.all(reopenPromises);
 	}
 
 	public async updateComments(): Promise<void> {
@@ -1060,10 +1111,15 @@ export class ReviewManager {
 
 	static getReviewManagerForRepository(
 		reviewManagers: ReviewManager[],
-		repository: GitHubRepository,
+		githubRepository: GitHubRepository,
+		repository?: Repository
 	): ReviewManager | undefined {
 		return reviewManagers.find(reviewManager =>
-			reviewManager._folderRepoManager.gitHubRepositories.some(repo => repo.equals(repository)),
+			reviewManager._folderRepoManager.gitHubRepositories.some(repo => {
+				// If we don't have a Repository, then just get the first GH repo that fits
+				// Otherwise, try to pick the review manager with the same repository.
+				return repo.equals(githubRepository) && (!repository || (reviewManager._folderRepoManager.repository === repository));
+			})
 		);
 	}
 

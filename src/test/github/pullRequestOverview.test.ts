@@ -35,7 +35,7 @@ describe('PullRequestOverview', function () {
 
 		const repository = new MockRepository();
 		telemetry = new MockTelemetry();
-		const credentialStore = new CredentialStore(telemetry);
+		const credentialStore = new CredentialStore(telemetry, context);
 		pullRequestManager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore, new MockSessionState());
 
 		const url = 'https://github.com/aaa/bbb';

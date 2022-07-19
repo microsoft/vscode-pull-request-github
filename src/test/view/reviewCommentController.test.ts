@@ -62,13 +62,13 @@ describe('ReviewCommentController', function () {
 		MockCommandRegistry.install(sinon);
 
 		telemetry = new MockTelemetry();
-		credentialStore = new CredentialStore(telemetry);
+		const context = new MockExtensionContext();
+		credentialStore = new CredentialStore(telemetry, context);
 
 		repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
 		provider = new PullRequestsTreeDataProvider(telemetry);
-		const context = new MockExtensionContext();
 		const activePrViewCoordinator = new WebviewViewCoordinator(context);
 		Resource.initialize(context);
 		const gitApiImpl = new GitApiImpl();

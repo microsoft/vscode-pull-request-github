@@ -9,7 +9,7 @@ import type { Branch } from '../api/api';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { Remote } from '../common/remote';
-import { ASSIGN_TO, PUSH_BRANCH } from '../common/settingKeys';
+import { ASSIGN_TO, PULL_REQUEST_DESCRIPTION, PUSH_BRANCH } from '../common/settingKeys';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import {
 	byRemoteName,
@@ -128,6 +128,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		// By default, the base branch we use for comparison is the base branch of origin. Compare this to the
 		// compare branch if it has a GitHub remote.
 		const origin = await this._folderRepositoryManager.getOrigin(compareBranch);
+		const useTemplate = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(PULL_REQUEST_DESCRIPTION) === 'template';
 
 		let useBranchName = this._pullRequestDefaults.base === compareBranch.name;
 		Logger.debug(`Compare branch name: ${compareBranch.name}, Base branch name: ${this._pullRequestDefaults.base}`, 'CreatePullRequestViewProvider');
@@ -136,7 +137,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
 				this.getTotalGitHubCommits(compareBranch, baseBranch),
 				name ? titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(name)) : undefined,
-				await this.getPullRequestTemplate()
+				useTemplate ? await this.getPullRequestTemplate() : undefined
 			]);
 
 			Logger.debug(`Total commits: ${totalCommits}`, 'CreatePullRequestViewProvider');
@@ -185,9 +186,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		return undefined;
 	}
 
-	private async getMergeConfiguration(owner: string, name: string): Promise<RepoAccessAndMergeMethods> {
+	private async getMergeConfiguration(owner: string, name: string, refetch: boolean = false): Promise<RepoAccessAndMergeMethods> {
 		const repo = this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(owner, name);
-		return repo.getRepoAccessAndMergeMethods();
+		return repo.getRepoAccessAndMergeMethods(refetch);
 	}
 
 	public async initializeParams(reset: boolean = false): Promise<void> {
@@ -290,6 +291,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			createError: ''
 		};
 
+		Logger.appendLine(`Initializing "create" view: ${JSON.stringify(params)}`, 'CreatePullRequestViewProvider');
+
 		this._compareBranch = this.defaultCompareBranch.name ?? '';
 		this._baseBranch = defaultBaseBranch;
 
@@ -381,68 +384,79 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	}
 
 	private async create(message: IRequestMessage<CreatePullRequest>): Promise<void> {
-		try {
-			const compareOwner = message.args.compareOwner;
-			const compareRepositoryName = message.args.compareRepo;
-			const compareBranchName = message.args.compareBranch;
-			const compareGithubRemoteName = `${compareOwner}/${compareRepositoryName}`;
-			const compareBranch = await this._folderRepositoryManager.repository.getBranch(compareBranchName);
-			let headRepo = compareBranch.upstream ? this._folderRepositoryManager.findRepo((githubRepo) => {
-				return (githubRepo.remote.owner === compareOwner) && (githubRepo.remote.repositoryName === compareRepositoryName);
-			}) : undefined;
-			let existingCompareUpstream = headRepo?.remote;
+		vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async progress => {
+			let totalIncrement = 0;
+			progress.report({ message: 'Checking for upstream branch', increment: totalIncrement });
+			try {
+				const compareOwner = message.args.compareOwner;
+				const compareRepositoryName = message.args.compareRepo;
+				const compareBranchName = message.args.compareBranch;
+				const compareGithubRemoteName = `${compareOwner}/${compareRepositoryName}`;
+				const compareBranch = await this._folderRepositoryManager.repository.getBranch(compareBranchName);
+				let headRepo = compareBranch.upstream ? this._folderRepositoryManager.findRepo((githubRepo) => {
+					return (githubRepo.remote.owner === compareOwner) && (githubRepo.remote.repositoryName === compareRepositoryName);
+				}) : undefined;
+				let existingCompareUpstream = headRepo?.remote;
 
-			if (!existingCompareUpstream
-				|| (existingCompareUpstream.owner !== compareOwner)
-				|| (existingCompareUpstream.repositoryName !== compareRepositoryName)) {
+				if (!existingCompareUpstream
+					|| (existingCompareUpstream.owner !== compareOwner)
+					|| (existingCompareUpstream.repositoryName !== compareRepositoryName)) {
 
-				// We assume this happens only when the compare branch is based on the current branch.
-				const pushBranchSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get(PUSH_BRANCH) === 'always';
-				const messageResult = !pushBranchSetting ? await vscode.window.showInformationMessage(
-					`There is no upstream branch for '${compareBranchName}'.\n\nDo you want to publish it and then create the pull request?`,
-					{ modal: true },
-					'Publish Branch',
-					'Always Publish Branch')
-					: 'Publish Branch';
-				if (messageResult === 'Always Publish Branch') {
-					await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PUSH_BRANCH, 'always', vscode.ConfigurationTarget.Global);
-				}
-				if ((messageResult === 'Always Publish Branch') || (messageResult === 'Publish Branch')) {
-					const pushResult = await this.pushUpstream(compareOwner, compareRepositoryName, compareBranchName);
-					if (pushResult) {
-						existingCompareUpstream = pushResult.compareUpstream;
-						headRepo = pushResult.repo;
-					} else {
-						this._throwError(message, `The current repository does not have a push remote for ${compareGithubRemoteName}`);
+					// We assume this happens only when the compare branch is based on the current branch.
+					const pushBranchSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get(PUSH_BRANCH) === 'always';
+					const messageResult = !pushBranchSetting ? await vscode.window.showInformationMessage(
+						`There is no upstream branch for '${compareBranchName}'.\n\nDo you want to publish it and then create the pull request?`,
+						{ modal: true },
+						'Publish Branch',
+						'Always Publish Branch')
+						: 'Publish Branch';
+					if (messageResult === 'Always Publish Branch') {
+						await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PUSH_BRANCH, 'always', vscode.ConfigurationTarget.Global);
+					}
+					if ((messageResult === 'Always Publish Branch') || (messageResult === 'Publish Branch')) {
+						progress.report({ message: 'Pushing branch', increment: 10 });
+						totalIncrement += 10;
+
+						const pushResult = await this.pushUpstream(compareOwner, compareRepositoryName, compareBranchName);
+						if (pushResult) {
+							existingCompareUpstream = pushResult.compareUpstream;
+							headRepo = pushResult.repo;
+						} else {
+							this._throwError(message, `The current repository does not have a push remote for ${compareGithubRemoteName}`);
+						}
 					}
 				}
-			}
-			if (!existingCompareUpstream) {
-				this._throwError(message, 'No upstream for the compare branch.');
-				return;
-			}
-
-			if (!headRepo) {
-				throw new Error(`Unable to find GitHub repository matching '${existingCompareUpstream.remoteName}'. You can add '${existingCompareUpstream.remoteName}' to the setting "githubPullRequests.remotes" to ensure '${existingCompareUpstream.remoteName}' is found.`);
-			}
-
-			const head = `${headRepo.remote.owner}:${compareBranchName}`;
-			const createdPR = await this._folderRepositoryManager.createPullRequest({ ...message.args, head });
-
-			// Create was cancelled
-			if (!createdPR) {
-				this._throwError(message, 'There must be a difference in commits to create a pull request.');
-			} else {
-				if (message.args.autoMerge && message.args.autoMergeMethod) {
-					await createdPR.enableAutoMerge(message.args.autoMergeMethod);
+				if (!existingCompareUpstream) {
+					this._throwError(message, 'No upstream for the compare branch.');
+					return;
 				}
-				await this.autoAssign(createdPR);
-				await this._replyMessage(message, {});
-				this._onDone.fire(createdPR);
+
+				if (!headRepo) {
+					throw new Error(`Unable to find GitHub repository matching '${existingCompareUpstream.remoteName}'. You can add '${existingCompareUpstream.remoteName}' to the setting "githubPullRequests.remotes" to ensure '${existingCompareUpstream.remoteName}' is found.`);
+				}
+
+				progress.report({ message: 'Creating pull request', increment: 70 - totalIncrement });
+				totalIncrement += 70 - totalIncrement;
+				const head = `${headRepo.remote.owner}:${compareBranchName}`;
+				const createdPR = await this._folderRepositoryManager.createPullRequest({ ...message.args, head });
+
+				// Create was cancelled
+				if (!createdPR) {
+					this._throwError(message, 'There must be a difference in commits to create a pull request.');
+				} else {
+					if (message.args.autoMerge && message.args.autoMergeMethod) {
+						await createdPR.enableAutoMerge(message.args.autoMergeMethod);
+					}
+					await this.autoAssign(createdPR);
+					await this._replyMessage(message, {});
+					this._onDone.fire(createdPR);
+				}
+			} catch (e) {
+				this._throwError(message, e.message);
+			} finally {
+				progress.report({ message: 'Pull request created', increment: 100 - totalIncrement });
 			}
-		} catch (e) {
-			this._throwError(message, e.message);
-		}
+		});
 	}
 
 	private async changeBranch(message: IRequestMessage<string | { name: string }>, isBase: boolean): Promise<void> {
@@ -465,6 +479,14 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		return this._replyMessage(message, { title: titleAndDescription.title, description: titleAndDescription.description });
 	}
 
+	private async cancel(message: IRequestMessage<CreatePullRequest>) {
+		vscode.commands.executeCommand('setContext', 'github:createPullRequest', false);
+		this._onDone.fire(undefined);
+		// Re-fetch the automerge info so that it's updated for next time.
+		await this.getMergeConfiguration(message.args.owner, message.args.repo, true);
+		return this._replyMessage(message, undefined);
+	}
+
 	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		const result = await super._onDidReceiveMessage(message);
 		if (result !== this.MESSAGE_UNHANDLED) {
@@ -473,9 +495,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 		switch (message.command) {
 			case 'pr.cancelCreate':
-				vscode.commands.executeCommand('setContext', 'github:createPullRequest', false);
-				this._onDone.fire(undefined);
-				return this._replyMessage(message, undefined);
+				return this.cancel(message);
 
 			case 'pr.create':
 				return this.create(message);

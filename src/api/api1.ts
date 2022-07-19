@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { APIState, PublishEvent } from '../@types/git';
 import Logger from '../common/logger';
 import { TernarySearchTree } from '../common/utils';
-import { API, IGit, Repository } from './api';
+import { API, IGit, PostCommitCommandsProvider, Repository } from './api';
 
 export const enum RefType {
 	Head,
@@ -148,6 +148,18 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 		});
 
 		return foldersMap.findSubstr(uri);
+	}
+
+	registerPostCommitCommandsProvider(provider: PostCommitCommandsProvider): vscode.Disposable {
+		const disposables = Array.from(this._providers.values()).map(gitProvider => {
+			if (gitProvider.registerPostCommitCommandsProvider) {
+				return gitProvider.registerPostCommitCommandsProvider(provider);
+			}
+			return { dispose: () => { } };
+		});
+		return {
+			dispose: () => disposables.forEach(disposable => disposable.dispose())
+		};
 	}
 
 	private _nextHandle(): number {

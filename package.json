@@ -14,10 +14,10 @@
 		"tokenInformation",
 		"commentsResolvedState"
 	],
-	"version": "0.44.0",
+	"version": "0.46.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.68.0"
+		"vscode": "^1.69.0"
 	},
 	"categories": [
 		"Other"
@@ -65,19 +65,14 @@
 					"description": "The title used when creating pull requests."
 				},
 				"githubPullRequests.pullRequestDescription": {
-					"deprecationMessage": "The pull request description now uses the same defaults as GitHub, and can be edited before create.",
 					"type": "string",
 					"enum": [
 						"template",
-						"commit",
-						"custom",
-						"ask"
+						"commit"
 					],
 					"enumDescriptions": [
-						"Use a pull request template, or use the commit description if no templates were found",
-						"Use the latest commit message",
-						"Specify a custom description",
-						"Ask which of the above methods to use"
+						"Use a pull request template and commit description, or just use the commit description if no templates were found",
+						"Use the latest commit message only"
 					],
 					"default": "template",
 					"description": "The description used when creating pull requests."
@@ -263,6 +258,19 @@
 					],
 					"description": "Push the \"from\" branch when creating a PR and the \"from\" branch is not available on the remote."
 				},
+				"githubPullRequests.pullBranch": {
+					"type": "string",
+					"enum": [
+						"prompt",
+						"never"
+					],
+					"default": "prompt",
+					"enumDescriptions": [
+						"Prompt to pull a PR branch when changes are detected in the PR.",
+						"Never pull a PR branch when changes are detected in the PR."
+					],
+					"description": "Pull changes from the remote when a PR branch is checked out locally."
+				},
 				"githubPullRequests.ignoredPullRequestBranches": {
 					"type": "array",
 					"default": [],
@@ -271,7 +279,7 @@
 						"description": "Branch name"
 					},
 					"description": "Prevents branches that are associated with a pull request from being automatically detected. This will prevent review mode from being entered on these branches."
-        },
+				},
 				"githubPullRequests.overrideDefaultBranch": {
 					"type": "string",
 					"description": "The default branch for a repository is set on github.com. With this setting, you can override that default with another branch."
@@ -327,8 +335,6 @@
 						"diff",
 						"dockerfile",
 						"dockercompose",
-						"git-commit",
-						"git-rebase",
 						"ignore",
 						"ini",
 						"julia",
@@ -481,7 +487,7 @@
 				{
 					"id": "prStatus:github",
 					"name": "Changes In Pull Request",
-					"when": "github:inReviewMode",
+					"when": "github:inReviewMode && !github:createPullRequest",
 					"icon": "$(git-pull-request)",
 					"visibility": "visible"
 				},
@@ -489,7 +495,7 @@
 					"id": "github:activePullRequest",
 					"type": "webview",
 					"name": "Active Pull Request",
-					"when": "github:inReviewMode && github:focusedReview"
+					"when": "github:inReviewMode && github:focusedReview && !github:createPullRequest"
 				},
 				{
 					"id": "github:activePullRequest:welcome",
@@ -1761,7 +1767,9 @@
 		"test:preprocess-svg": "node scripts/preprocess-svg --in ../resources/ --out out/resources",
 		"update-dts": "cd \"src/@types\" && npx vscode-dts main && npx vscode-dts dev",
 		"watch": "webpack --watch --mode development --env esbuild",
-		"watch:web": "webpack --watch --mode development --config-name extension:webworker --config-name webviews"
+		"watch:web": "webpack --watch --mode development --config-name extension:webworker --config-name webviews",
+		"hygiene": "node ./build/hygiene.js",
+		"prepare": "husky install"
 	},
 	"devDependencies": {
 		"@types/chai": "^4.1.4",
@@ -1774,7 +1782,7 @@
 		"@types/react-dom": "^16.8.2",
 		"@types/sinon": "7.0.11",
 		"@types/temp": "0.8.34",
-		"@types/vscode": "1.58.0",
+		"@types/vscode": "1.69.0",
 		"@types/webpack-env": "^1.16.0",
 		"@typescript-eslint/eslint-plugin": "4.18.0",
 		"@typescript-eslint/parser": "4.18.0",
@@ -1790,10 +1798,13 @@
 		"eslint-cli": "1.1.1",
 		"eslint-config-prettier": "8.1.0",
 		"eslint-plugin-import": "2.22.1",
+		"event-stream": "^4.0.1",
 		"fork-ts-checker-webpack-plugin": "6.1.1",
 		"glob": "7.1.6",
 		"graphql": "15.5.0",
 		"graphql-tag": "2.11.0",
+		"gulp-filter": "^7.0.0",
+		"husky": "^8.0.1",
 		"jsdom": "19.0.0",
 		"jsdom-global": "3.0.2",
 		"json5": "2.2.0",
@@ -1804,6 +1815,7 @@
 		"mocha-junit-reporter": "1.23.0",
 		"mocha-multi-reporters": "1.1.7",
 		"os-browserify": "^0.3.0",
+		"p-all": "^1.0.0",
 		"path-browserify": "1.0.1",
 		"prettier": "2.2.1",
 		"process": "^0.11.10",
@@ -1820,6 +1832,8 @@
 		"ts-loader": "8.0.18",
 		"tty": "1.0.1",
 		"typescript": "4.2.3",
+		"typescript-formatter": "^7.2.2",
+		"vinyl-fs": "^3.0.3",
 		"webpack": "5.68.0",
 		"webpack-cli": "4.2.0"
 	},

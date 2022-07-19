@@ -55,6 +55,15 @@ export class BuiltinGitProvider implements IGit, vscode.Disposable {
 		return undefined;
 	}
 
+	registerPostCommitCommandsProvider?(provider: any): vscode.Disposable {
+		if (this._gitAPI.registerPostCommitCommandsProvider) {
+			return this._gitAPI.registerPostCommitCommandsProvider(provider);
+		}
+		return {
+			dispose: () => { }
+		};
+	}
+
 	dispose() {
 		this._disposables.forEach(disposable => disposable.dispose());
 	}

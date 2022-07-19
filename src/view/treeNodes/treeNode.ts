@@ -19,6 +19,7 @@ export abstract class TreeNode implements vscode.Disposable {
 	parent: TreeNodeParent;
 	label?: string;
 	accessibilityInformation?: vscode.AccessibilityInformation;
+	id?: string;
 
 	constructor() {}
 	abstract getTreeItem(): vscode.TreeItem;

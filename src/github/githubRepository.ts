@@ -18,6 +18,7 @@ import { OctokitCommon } from './common';
 import { CredentialStore, GitHub } from './credentials';
 import {
 	AssignableUsersResponse,
+	CreatePullRequestResponse,
 	ForkDetailsResponse,
 	IssuesResponse,
 	IssuesSearchResponse,
@@ -25,6 +26,7 @@ import {
 	MaxIssueResponse,
 	MentionableUsersResponse,
 	MilestoneIssuesResponse,
+	PullRequestParticipantsResponse,
 	PullRequestResponse,
 	PullRequestsResponse,
 	ViewerPermissionResponse,
@@ -282,9 +284,9 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	private _repoAccessAndMergeMethods: RepoAccessAndMergeMethods | undefined;
-	async getRepoAccessAndMergeMethods(): Promise<RepoAccessAndMergeMethods> {
+	async getRepoAccessAndMergeMethods(refetch: boolean = false): Promise<RepoAccessAndMergeMethods> {
 		try {
-			if (!this._repoAccessAndMergeMethods) {
+			if (!this._repoAccessAndMergeMethods || refetch) {
 				Logger.debug(`Fetch repo permissions and available merge methods - enter`, GitHubRepository.ID);
 				const { octokit, remote } = await this.ensure();
 				const { data } = await octokit.repos.get({
@@ -611,20 +613,19 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	async getAuthenticatedUser(): Promise<string> {
-		const { octokit } = await this.ensure();
-		const user = await octokit.users.getAuthenticated({});
-		return user.data.login;
+		return this._credentialStore.getCurrentUser(this.remote.authProviderId).login;
 	}
 
 	async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
-			const user = await octokit.users.getAuthenticated({});
+
+			const user = await this.getAuthenticatedUser();
 			// Search api will not try to resolve repo that redirects, so get full name first
 			const repo = await octokit.repos.get({ owner: this.remote.owner, repo: this.remote.repositoryName });
 			const { data, headers } = await octokit.search.issuesAndPullRequests({
-				q: getPRFetchQuery(repo.data.full_name, user.data.login, categoryQuery),
+				q: getPRFetchQuery(repo.data.full_name, user, categoryQuery),
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1,
 			});
@@ -693,9 +694,33 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	async createPullRequest(params: OctokitCommon.PullsCreateParams): Promise<PullRequestModel> {
-		const { octokit } = await this.ensure();
-		const { data } = await octokit.pulls.create(params);
-		return this.createOrUpdatePullRequestModel(convertRESTPullRequestToRawPullRequest(data, this));
+		try {
+			Logger.debug(`Create pull request - enter`, GitHubRepository.ID);
+			const metadata = await this.getMetadata();
+			const { mutate, schema } = await this.ensure();
+
+			const { data } = await mutate<CreatePullRequestResponse>({
+				mutation: schema.CreatePullRequest,
+				variables: {
+					input: {
+						repositoryId: metadata.node_id,
+						baseRefName: params.base,
+						headRefName: params.head,
+						title: params.title,
+						body: params.body,
+						draft: params.draft
+					}
+				}
+			});
+			Logger.debug(`Create pull request - done`, GitHubRepository.ID);
+			if (!data) {
+				throw new Error('Failed to create pull request.');
+			}
+			return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data.createPullRequest.pullRequest, this));
+		} catch (e) {
+			Logger.appendLine(`GithubRepository> Unable to create PR: ${e}`);
+			throw e;
+		}
 	}
 
 	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
@@ -889,6 +914,50 @@ export class GitHubRepository implements vscode.Disposable {
 				return ret;
 			}
 		} while (hasNextPage);
+
+		return ret;
+	}
+
+	async getPullRequestParticipants(pullRequestNumber: number): Promise<IAccount[]> {
+		Logger.debug(`Fetch participants from a Pull Request`, GitHubRepository.ID);
+		const { query, remote, schema } = await this.ensure();
+
+		const ret: IAccount[] = [];
+
+		try {
+			const result: { data: PullRequestParticipantsResponse } = await query<PullRequestParticipantsResponse>({
+				query: schema.GetParticipants,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: pullRequestNumber,
+					first: 18
+				},
+			});
+
+			ret.push(
+				...result.data.repository.pullRequest.participants.nodes.map(node => {
+					return {
+						login: node.login,
+						avatarUrl: node.avatarUrl,
+						name: node.name,
+						url: node.url,
+						email: node.email,
+					};
+				}),
+			);
+		} catch (e) {
+			Logger.debug(`Unable to fetch participants from a PullRequest: ${e}`, GitHubRepository.ID);
+			if (
+				e.graphQLErrors &&
+				e.graphQLErrors.length > 0 &&
+				e.graphQLErrors[0].type === 'INSUFFICIENT_SCOPES'
+			) {
+				vscode.window.showWarningMessage(
+					`GitHub user features will not work. ${e.graphQLErrors[0].message}`,
+				);
+			}
+		}
 
 		return ret;
 	}

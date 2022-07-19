@@ -18,12 +18,13 @@ import { fromPRUri, Schemes } from '../common/uri';
 import { compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
 import { REPO_KEYS, ReposState } from '../extensionState';
+import { git } from '../gitProviders/gitCommands';
 import { UserCompletion, userMarkdown } from '../issues/util';
 import { OctokitCommon } from './common';
 import { AuthProvider, CredentialStore } from './credentials';
 import { GitHubRepository, ItemsData, PullRequestData, ViewerPermission } from './githubRepository';
 import { PullRequestState, UserResponse } from './graphql';
-import { IAccount, ILabel, IPullRequestsPagingOptions, PRType, RepoAccessAndMergeMethods, User } from './interface';
+import { IAccount, ILabel, IMilestone, IPullRequestsPagingOptions, PRType, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
 import { MilestoneModel } from './milestoneModel';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
@@ -724,6 +725,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return this._fetchAssignableUsersPromise;
 	}
 
+	async getPullRequestParticipants(githubRepository: GitHubRepository, pullRequestNumber: number): Promise<{ participants: IAccount[], viewer: IAccount }> {
+		return {
+			participants: await githubRepository.getPullRequestParticipants(pullRequestNumber),
+			viewer: this.getCurrentUser(githubRepository)
+		};
+	}
+
 	/**
 	 * Returns the remotes that are currently active, which is those that are important by convention (origin, upstream),
 	 * or the remotes configured by the setting githubPullRequests.remotes
@@ -1039,6 +1047,26 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			});
 		}
 		return milestones;
+	}
+
+	async createMilestone(repository: GitHubRepository, milestoneTitle: string): Promise<IMilestone | undefined> {
+		try {
+			const { data } = await repository.octokit.issues.createMilestone({
+				owner: repository.remote.owner,
+				repo: repository.remote.repositoryName,
+				title: milestoneTitle
+			});
+			return {
+				title: data.title,
+				dueOn: data.due_on,
+				createdAt: data.created_at,
+				id: data.id.toString(),
+			};
+		}
+		catch (e) {
+			vscode.window.showErrorMessage(`Failed to create a milestone\n${formatError(e)}`);
+			return undefined;
+		}
 	}
 
 	/**
@@ -1855,15 +1883,16 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	public async checkoutDefaultBranch(branch: string): Promise<void> {
+		let branchObj: Branch | undefined;
 		try {
-			const branchObj = await this.repository.getBranch(branch);
+			branchObj = await this.repository.getBranch(branch);
 
 			const currentBranch = this.repository.state.HEAD?.name;
 			if (currentBranch === branchObj.name) {
 				const chooseABranch = 'Choose a Branch';
 				vscode.window.showInformationMessage('The default branch is already checked out.', chooseABranch).then(choice => {
 					if (choice === chooseABranch) {
-						return vscode.commands.executeCommand('git.checkout');
+						return git.checkout();
 					}
 				});
 				return;
@@ -1872,7 +1901,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (branchObj.upstream && branch === branchObj.upstream.name) {
 				await this.repository.checkout(branch);
 			} else {
-				await vscode.commands.executeCommand('git.checkout');
+				await git.checkout();
 			}
 		} catch (e) {
 			if (e.gitErrorCode) {
@@ -1884,7 +1913,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					return;
 				}
 			}
-
+			Logger.appendLine(`Exiting failed: ${e}. Target branch ${branch} used to find branch ${branchObj?.name ?? 'unknown'} with upstream ${branchObj?.upstream ?? 'unknown'}.`);
 			vscode.window.showErrorMessage(`Exiting failed: ${e}`);
 		}
 	}

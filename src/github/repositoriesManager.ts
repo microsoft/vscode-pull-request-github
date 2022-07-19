@@ -75,6 +75,9 @@ export class RepositoriesManager implements vscode.Disposable {
 	private _onDidChangeFolderRepositories = new vscode.EventEmitter<void>();
 	readonly onDidChangeFolderRepositories = this._onDidChangeFolderRepositories.event;
 
+	private _onDidLoadAnyRepositories = new vscode.EventEmitter<void>();
+	readonly onDidLoadAnyRepositories = this._onDidLoadAnyRepositories.event;
+
 	private _state: ReposManagerState = ReposManagerState.Initializing;
 
 	constructor(
@@ -88,7 +91,10 @@ export class RepositoriesManager implements vscode.Disposable {
 
 		this._subs.push(
 			..._folderManagers.map(folderManager => {
-				return folderManager.onDidLoadRepositories(state => (this.state = state));
+				return folderManager.onDidLoadRepositories(state => {
+					this.state = state;
+					this._onDidLoadAnyRepositories.fire();
+				});
 			}),
 		);
 	}
