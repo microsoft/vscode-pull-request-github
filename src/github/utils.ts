@@ -846,41 +846,49 @@ export function getReactionGroup(): { title: string; label: string; icon?: vscod
 	const ret = [
 		{
 			title: 'THUMBS_UP',
+			// allow-any-unicode-next-line
 			label: '👍',
 			icon: Resource.icons.reactions.THUMBS_UP,
 		},
 		{
 			title: 'THUMBS_DOWN',
+			// allow-any-unicode-next-line
 			label: '👎',
 			icon: Resource.icons.reactions.THUMBS_DOWN,
 		},
 		{
 			title: 'LAUGH',
+			// allow-any-unicode-next-line
 			label: '😄',
 			icon: Resource.icons.reactions.LAUGH,
 		},
 		{
 			title: 'HOORAY',
+			// allow-any-unicode-next-line
 			label: '🎉',
 			icon: Resource.icons.reactions.HOORAY,
 		},
 		{
 			title: 'CONFUSED',
+			// allow-any-unicode-next-line
 			label: '😕',
 			icon: Resource.icons.reactions.CONFUSED,
 		},
 		{
 			title: 'HEART',
+			// allow-any-unicode-next-line
 			label: '❤️',
 			icon: Resource.icons.reactions.HEART,
 		},
 		{
 			title: 'ROCKET',
+			// allow-any-unicode-next-line
 			label: '🚀',
 			icon: Resource.icons.reactions.ROCKET,
 		},
 		{
 			title: 'EYES',
+			// allow-any-unicode-next-line
 			label: '👀',
 			icon: Resource.icons.reactions.EYES,
 		},
@@ -1035,11 +1043,11 @@ export function parseReviewers(
 
 export function insertNewCommmitsSinceReview(
 	timelineEvents: Common.TimelineEvent[],
-	latestReviewCommit: { sha: string } | undefined,
+	latestReviewCommitOid: string | undefined,
 	currentUser: IAccount,
 	head: GitHubRef | null
 ) {
-	if (latestReviewCommit !== undefined && head && head.sha !== latestReviewCommit.sha) {
+	if (latestReviewCommitOid && head && head.sha !== latestReviewCommitOid) {
 		let lastViewerReviewIndex: number = timelineEvents.length - 1;
 		let comittedDuringReview: boolean = false;
 		let interReviewCommits: Common.TimelineEvent[] = [];
@@ -1047,10 +1055,10 @@ export function insertNewCommmitsSinceReview(
 		for (let i = timelineEvents.length - 1; i > 0; i--) {
 			if (
 				timelineEvents[i].event === Common.EventType.Committed &&
-				(timelineEvents[i] as Common.CommitEvent).sha === latestReviewCommit.sha
+				(timelineEvents[i] as Common.CommitEvent).sha === latestReviewCommitOid
 			) {
 				interReviewCommits.unshift({
-					id: latestReviewCommit.sha,
+					id: latestReviewCommitOid,
 					event: Common.EventType.NewCommitsSinceReview
 				});
 				timelineEvents.splice(lastViewerReviewIndex + 1, 0, ...interReviewCommits);

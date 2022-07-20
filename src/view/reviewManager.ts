@@ -409,6 +409,7 @@ export class ReviewManager {
 			pr,
 			this._reviewModel,
 			this.justSwitchedToReviewMode,
+			this
 		);
 		this.justSwitchedToReviewMode = false;
 
@@ -697,14 +698,13 @@ export class ReviewManager {
 		}
 	}
 
-	private async updateContentChanges(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
+	private async updateContentChanges(pr: PullRequestModel & IResolvedPullRequestModel) {
 		try {
 			const contentChanges = await pr.getFileChangesInfo();
 			this._reviewModel.localFileChanges = await this.getLocalChangeNodes(pr, contentChanges);
 		} catch (e) {
 			Logger.appendLine(`Review> ${e}`);
 		}
-		return Promise.resolve(void 0);
 	}
 
 	private async registerCommentController() {

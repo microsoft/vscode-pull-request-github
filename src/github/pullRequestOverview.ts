@@ -195,7 +195,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
 				const currentUser = this._folderRepositoryManager.getCurrentUser(this._item.githubRepository);
 
-				insertNewCommmitsSinceReview(timelineEvents, LatestReviewCommitInfo, currentUser, pullRequest.head);
+				insertNewCommmitsSinceReview(timelineEvents, LatestReviewCommitInfo?.sha, currentUser, pullRequest.head);
 
 				const isCrossRepository =
 					pullRequest.base &&
@@ -333,8 +333,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private gotoChangesSinceReview() {
-		this._item.showChangesSinceReview = true;
-		PullRequestModel.openFirstDiff(this._folderRepositoryManager, this._item);
+		this._item.openFirstChangeSinceReview();
 	}
 
 	private async getReviewersQuickPickItems(

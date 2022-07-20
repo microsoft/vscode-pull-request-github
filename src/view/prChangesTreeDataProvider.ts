@@ -11,6 +11,7 @@ import { FILE_LIST_LAYOUT } from '../common/settingKeys';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { ReviewManager } from './reviewManager';
 import { ReviewModel } from './reviewModel';
 import { DescriptionNode } from './treeNodes/descriptionNode';
 import { GitFileChangeNode } from './treeNodes/fileChangeNode';
@@ -75,6 +76,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		pullRequestModel: PullRequestModel,
 		reviewModel: ReviewModel,
 		shouldReveal: boolean,
+		reviewManager: ReviewManager
 	) {
 		Logger.appendLine(`Adding PR #${pullRequestModel.number} to tree`, PR_TREE);
 		if (this._pullRequestManagerMap.has(pullRequestManager)) {
@@ -90,7 +92,8 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 			this,
 			pullRequestModel,
 			pullRequestManager,
-			reviewModel
+			reviewModel,
+			reviewManager
 		);
 		this._pullRequestManagerMap.set(pullRequestManager, node);
 		this.updateViewTitle();

@@ -102,7 +102,7 @@ export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | Pull
 	}
 
 	/** __GDPR__
-	 "pr.openInGitHub" : {}
+		"pr.openInGitHub" : {}
 	*/
 	telemetry.sendTelemetryEvent('pr.openInGitHub');
 }
@@ -852,12 +852,12 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.refreshChanges', async _ => {
-			await Promise.all(reviewManagers.map(async reviewManager => {
-				await reviewManager.updateComments();
+		vscode.commands.registerCommand('pr.refreshChanges', _ => {
+			reviewManagers.forEach(reviewManager => {
+				reviewManager.updateComments();
 				PullRequestOverviewPanel.refresh();
 				reviewManager.changesInPrDataProvider.refresh();
-			}));
+			});
 		}),
 	);
 

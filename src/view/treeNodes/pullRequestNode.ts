@@ -67,7 +67,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				'Description',
 				new vscode.ThemeIcon('git-pull-request'),
 				this.pullRequestModel,
-				this.repository
+				this.repository,
+				this._folderReposManager
 			);
 
 			if (!this.pullRequestModel.isResolved()) {
@@ -158,8 +159,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		);
 	}
 
-	private async getFileChanges(): Promise<(RemoteFileChangeNode | InMemFileChangeNode)[]> {
-		if (!this._fileChanges) {
+	public async getFileChanges(noCache: boolean | void): Promise<(RemoteFileChangeNode | InMemFileChangeNode)[]> {
+		if (!this._fileChanges || noCache) {
 			this._fileChanges = await this.resolveFileChangeNodes();
 		}
 
