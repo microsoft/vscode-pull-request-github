@@ -23,6 +23,7 @@ import { createExperimentationService, ExperimentationTelemetry } from './experi
 import { setSyncedKeys } from './extensionState';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from './github/folderRepositoryManager';
+import { NotificationProvider } from './github/notifications';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
@@ -57,6 +58,9 @@ async function init(
 ): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
+
+	const notificationProvider = new NotificationProvider(tree, credentialStore, reposManager);
+	context.subscriptions.push(notificationProvider);
 
 	vscode.authentication.onDidChangeSessions(async e => {
 		if (e.provider.id === 'github') {
@@ -182,6 +186,7 @@ async function init(
 			tree.refresh();
 		}
 		addRepo();
+		notificationProvider.refreshOrLaunchPolling();
 		const disposable = repo.state.onDidChange(() => {
 			Logger.appendLine(`Repo state for ${repo.rootUri} changed.`);
 			addRepo();
@@ -192,13 +197,14 @@ async function init(
 	git.onDidCloseRepository(repo => {
 		reposManager.removeRepo(repo);
 		reviewsManager.removeReviewManager(repo);
+		notificationProvider.refreshOrLaunchPolling();
 		tree.refresh();
 	});
 
 	tree.initialize(reposManager);
 
 	setSyncedKeys(context);
-	registerCommands(context, sessionState, reposManager, reviewManagers, telemetry, credentialStore, tree);
+	registerCommands(context, sessionState, reposManager, reviewManagers, telemetry, credentialStore, tree, notificationProvider);
 
 	const layout = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');

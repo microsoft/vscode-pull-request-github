@@ -41,6 +41,17 @@ export function fromPRUri(uri: vscode.Uri): PRUriParams | undefined {
 	} catch (e) { }
 }
 
+export interface PRNodeUriParams {
+	hasNotification: boolean;
+	prNumber: number;
+}
+
+export function fromPRNodeUri(uri: vscode.Uri): PRNodeUriParams | undefined {
+	try {
+		return JSON.parse(uri.query) as PRNodeUriParams;
+	} catch (e) { }
+}
+
 export interface GitHubUriParams {
 	fileName: string;
 	branch: string;
@@ -60,7 +71,7 @@ export interface GitUriOptions {
 
 const ImageMimetypes = ['image/png', 'image/gif', 'image/jpeg', 'image/webp', 'image/tiff', 'image/bmp'];
 // Known media types that VS Code can handle: https://github.com/microsoft/vscode/blob/a64e8e5673a44e5b9c2d493666bde684bd5a135c/src/vs/base/common/mime.ts#L33-L84
-const KnownMediaExtensions =[
+const KnownMediaExtensions = [
 	'.aac',
 	'.avi',
 	'.bmp',
@@ -225,10 +236,27 @@ export function toPRUri(
 	});
 }
 
+export function toPRNodeUri(
+	pullRequestModel: PullRequestModel
+): vscode.Uri {
+	const params: PRNodeUriParams = {
+		prNumber: pullRequestModel.number,
+		hasNotification: pullRequestModel.hasNotifications ? pullRequestModel.hasNotifications : false,
+	};
+
+	const uri = vscode.Uri.parse(`PRNode:${pullRequestModel.remote.remoteName}:${pullRequestModel.number}`);
+
+	return uri.with({
+		scheme: Schemes.PRNode,
+		query: JSON.stringify(params),
+	});
+}
+
 export enum Schemes {
 	File = 'file',
 	Review = 'review',
 	Pr = 'pr',
+	PRNode = 'prnode',
 	FileChange = 'filechange',
 	GithubPr = 'githubpr',
 	VscodeVfs = 'vscode-vfs' // Remote Repository

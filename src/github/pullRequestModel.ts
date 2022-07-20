@@ -99,6 +99,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public localBranchName?: string;
 	public mergeBase?: string;
 	public suggestedReviewers?: ISuggestedReviewer[];
+	public hasNotifications?: boolean;
 	private _hasPendingReview: boolean = false;
 	private _onDidChangePendingReviewState: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
 	public onDidChangePendingReviewState = this._onDidChangePendingReviewState.event;

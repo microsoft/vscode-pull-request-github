@@ -144,6 +144,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	private _onDidChangeAssignableUsers = new vscode.EventEmitter<IAccount[]>();
 	readonly onDidChangeAssignableUsers: vscode.Event<IAccount[]> = this._onDidChangeAssignableUsers.event;
 
+	private _onDidCreateGithubRepository = new vscode.EventEmitter<GitHubRepository[]>();
+	readonly onDidCreateGithubRepository: vscode.Event<GitHubRepository[]> = this._onDidCreateGithubRepository.event;
+
 	constructor(
 		public context: vscode.ExtensionContext,
 		private _repository: Repository,
@@ -549,6 +552,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				!oldRepositories.every(oldRepo =>
 					this._githubRepositories.some(newRepo => newRepo.remote.equals(oldRepo.remote)),
 				);
+
+			if (repositoriesChanged) {
+				this._onDidCreateGithubRepository.fire(this._githubRepositories);
+			}
 
 			if (this._githubRepositories.length && repositoriesChanged) {
 				if (await this.checkIfMissingUpstream()) {

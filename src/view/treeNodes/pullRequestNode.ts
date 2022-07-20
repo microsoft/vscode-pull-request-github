@@ -9,7 +9,7 @@ import { getCommentingRanges } from '../../common/commentingRanges';
 import { SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT } from '../../common/settingKeys';
-import { fromPRUri, Schemes } from '../../common/uri';
+import { fromPRUri, Schemes, toPRNodeUri } from '../../common/uri';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
@@ -233,7 +233,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				: new vscode.ThemeIcon('github'),
 			accessibilityInformation: {
 				label: `${isDraft ? 'Draft ' : ''}Pull request number ${formattedPRNumber}: ${title} by ${login}`
-			}
+			},
+			resourceUri: toPRNodeUri(this.pullRequestModel),
 		};
 	}
 

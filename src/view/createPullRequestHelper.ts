@@ -18,7 +18,7 @@ export class CreatePullRequestHelper {
 	private _onDidCreate = new vscode.EventEmitter<PullRequestModel>();
 	readonly onDidCreate: vscode.Event<PullRequestModel> = this._onDidCreate.event;
 
-	constructor(private readonly repository: Repository) {}
+	constructor(private readonly repository: Repository) { }
 
 	private registerListeners(usingCurrentBranchAsCompare: boolean) {
 		this._disposables.push(
@@ -113,7 +113,7 @@ export class CreatePullRequestHelper {
 
 		const branch =
 			((compareBranch ? await folderRepoManager.repository.getBranch(compareBranch) : undefined) ??
-			folderRepoManager.repository.state.HEAD)!;
+				folderRepoManager.repository.state.HEAD)!;
 
 		if (!this._createPRViewProvider) {
 			const pullRequestDefaults = await this.ensureDefaultsAreLocal(
@@ -128,7 +128,7 @@ export class CreatePullRequestHelper {
 				branch,
 			);
 
-			const compareOrigin  = await folderRepoManager.getOrigin(branch);
+			const compareOrigin = await folderRepoManager.getOrigin(branch);
 			this._treeView = new CompareChangesTreeProvider(
 				this.repository,
 				pullRequestDefaults.owner,

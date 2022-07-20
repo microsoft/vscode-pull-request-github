@@ -20,6 +20,7 @@ import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
 import { PullRequest } from './github/interface';
+import { NotificationProvider } from './github/notifications';
 import { GHPRComment, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
@@ -62,11 +63,16 @@ export async function openDescription(
 	pullRequestModel: PullRequestModel,
 	descriptionNode: DescriptionNode | undefined,
 	folderManager: FolderRepositoryManager,
+	notificationProvider?: NotificationProvider
 ) {
 	const pullRequest = ensurePR(folderManager, pullRequestModel);
 	descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
 	// Create and show a new webview
 	await PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest);
+
+	if (notificationProvider && pullRequest.hasNotifications) {
+		notificationProvider.markPrNotificationsAsRead(pullRequest);
+	}
 
 	/* __GDPR__
 		"pr.openDescription" : {}
@@ -102,7 +108,7 @@ export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | Pull
 	}
 
 	/** __GDPR__
-	 "pr.openInGitHub" : {}
+		"pr.openInGitHub" : {}
 	*/
 	telemetry.sendTelemetryEvent('pr.openInGitHub');
 }
@@ -115,6 +121,7 @@ export function registerCommands(
 	telemetry: ITelemetry,
 	credentialStore: CredentialStore,
 	tree: PullRequestsTreeDataProvider,
+	notificationProvider: NotificationProvider
 ) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
@@ -625,7 +632,7 @@ export function registerCommands(
 					descriptionNode = reviewManager.changesInPrDataProvider.getDescriptionNode(folderManager);
 				}
 
-				await openDescription(context, telemetry, pullRequestModel, descriptionNode, folderManager);
+				await openDescription(context, telemetry, pullRequestModel, descriptionNode, folderManager, notificationProvider);
 			},
 		),
 	);
@@ -780,7 +787,7 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-	vscode.commands.registerCommand('pr.editQuery', (query: CategoryTreeNode) => {
+		vscode.commands.registerCommand('pr.editQuery', (query: CategoryTreeNode) => {
 			/* __GDPR__
 			"pr.editQuery" : {}
 		*/
@@ -958,29 +965,29 @@ export function registerCommands(
 			}
 		}));
 
-		function chooseRepoToOpen() {
-			const githubRepositories: GitHubRepository[] = [];
-				reposManager.folderManagers.forEach(manager => {
-					githubRepositories.push(...(manager.gitHubRepositories));
-				});
-				return chooseItem<GitHubRepository>(
-					githubRepositories,
-					itemValue => `${itemValue.remote.owner}/${itemValue.remote.repositoryName}`,
-					{ placeHolder: 'Which GitHub repository do you want to open?' }
-				);
-		}
-		context.subscriptions.push(
-			vscode.commands.registerCommand('pr.openPullsWebsite', async () => {
-				const githubRepo = await chooseRepoToOpen();
-				if (githubRepo) {
-					vscode.env.openExternal(getPullsUrl(githubRepo));
-				}
-			}));
-		context.subscriptions.push(
-			vscode.commands.registerCommand('issues.openIssuesWebsite', async () => {
-				const githubRepo = await chooseRepoToOpen();
-				if (githubRepo) {
-					vscode.env.openExternal(getIssuesUrl(githubRepo));
-				}
-			}));
+	function chooseRepoToOpen() {
+		const githubRepositories: GitHubRepository[] = [];
+		reposManager.folderManagers.forEach(manager => {
+			githubRepositories.push(...(manager.gitHubRepositories));
+		});
+		return chooseItem<GitHubRepository>(
+			githubRepositories,
+			itemValue => `${itemValue.remote.owner}/${itemValue.remote.repositoryName}`,
+			{ placeHolder: 'Which GitHub repository do you want to open?' }
+		);
+	}
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.openPullsWebsite', async () => {
+			const githubRepo = await chooseRepoToOpen();
+			if (githubRepo) {
+				vscode.env.openExternal(getPullsUrl(githubRepo));
+			}
+		}));
+	context.subscriptions.push(
+		vscode.commands.registerCommand('issues.openIssuesWebsite', async () => {
+			const githubRepo = await chooseRepoToOpen();
+			if (githubRepo) {
+				vscode.env.openExternal(getIssuesUrl(githubRepo));
+			}
+		}));
 }
