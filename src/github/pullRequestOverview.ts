@@ -174,7 +174,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					requestedReviewers,
 					repositoryAccess,
 					branchInfo,
-					LatestReviewCommitInfo
+					latestReviewCommitInfo
 				] = result;
 				if (!pullRequest) {
 					throw new Error(
@@ -195,7 +195,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
 				const currentUser = this._folderRepositoryManager.getCurrentUser(this._item.githubRepository);
 
-				insertNewCommmitsSinceReview(timelineEvents, LatestReviewCommitInfo?.sha, currentUser, pullRequest.head);
+				insertNewCommmitsSinceReview(timelineEvents, latestReviewCommitInfo?.sha, currentUser, pullRequest.head);
 
 				const isCrossRepository =
 					pullRequest.base &&
