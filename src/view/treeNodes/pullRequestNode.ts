@@ -70,8 +70,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				'Description',
 				new vscode.ThemeIcon('git-pull-request'),
 				this.pullRequestModel,
-				this.repository,
-				this._folderReposManager
+				this.repository
 			);
 
 			if (!this.pullRequestModel.isResolved()) {
@@ -136,22 +135,24 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		let hasOpenDiff: boolean = false;
 		vscode.window.tabGroups.all.map(tabGroup => {
 			tabGroup.tabs.map(tab => {
-				if (tab.input instanceof vscode.TabInputTextDiff) {
-					if ((tab.input.original.scheme === Schemes.Pr) && (tab.input.modified.scheme === Schemes.Pr)) {
-						if (this._fileChanges) {
-							for (const localChange of this._fileChanges) {
+				if (
+					tab.input instanceof vscode.TabInputTextDiff &&
+					tab.input.original.scheme === Schemes.Pr &&
+					tab.input.modified.scheme === Schemes.Pr &&
+					this._fileChanges
+				) {
+					for (const localChange of this._fileChanges) {
 
-								const originalParams = fromPRUri(tab.input.original);
-								const modifiedParams = fromPRUri(tab.input.modified);
-								if ((originalParams?.prNumber === pullRequest.number) && (modifiedParams?.prNumber === pullRequest.number)) {
-									if (localChange.fileName === modifiedParams.fileName) {
-										hasOpenDiff = true;
-										vscode.window.tabGroups.close(tab).then(_ => localChange.openDiff(this._folderReposManager, { preview: tab.isPreview }));
-										break;
-									}
-								}
-
-							}
+						const originalParams = fromPRUri(tab.input.original);
+						const modifiedParams = fromPRUri(tab.input.modified);
+						if (
+							originalParams?.prNumber === pullRequest.number &&
+							modifiedParams?.prNumber === pullRequest.number &&
+							localChange.fileName === modifiedParams.fileName
+						) {
+							hasOpenDiff = true;
+							vscode.window.tabGroups.close(tab).then(_ => localChange.openDiff(this._folderReposManager, { preview: tab.isPreview }));
+							break;
 						}
 					}
 				}

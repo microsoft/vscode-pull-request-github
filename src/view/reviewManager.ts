@@ -600,42 +600,6 @@ export class ReviewManager {
 		return Promise.resolve(void 0);
 	}
 
-	public async updateChangedFiles(): Promise<void> {
-		const branch = this._repository.state.HEAD;
-		if (!branch) {
-			return;
-		}
-
-		const matchingPullRequestMetadata = await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
-		if (!matchingPullRequestMetadata) {
-			return;
-		}
-
-		const remote = branch.upstream ? branch.upstream.remote : null;
-		if (!remote) {
-			return;
-		}
-
-		if (this._prNumber === undefined || !this._folderRepoManager.activePullRequest) {
-			return;
-		}
-
-		const pr = await this._folderRepoManager.resolvePullRequest(
-			matchingPullRequestMetadata.owner,
-			matchingPullRequestMetadata.repositoryName,
-			this._prNumber,
-		);
-
-		if (!pr || !pr.isResolved()) {
-			Logger.appendLine('Review> This PR is no longer valid');
-			return;
-		}
-
-		await this.updateContentChanges(pr);
-
-		return Promise.resolve(void 0);
-	}
-
 	private async getLocalChangeNodes(
 		pr: PullRequestModel & IResolvedPullRequestModel,
 		contentChanges: (InMemFileChange | SlimFileChange)[],
@@ -736,15 +700,6 @@ export class ReviewManager {
 			this._reviewModel.obsoleteFileChanges = obsoleteFileChanges;
 
 			return Promise.resolve(void 0);
-		} catch (e) {
-			Logger.appendLine(`Review> ${e}`);
-		}
-	}
-
-	private async updateContentChanges(pr: PullRequestModel & IResolvedPullRequestModel) {
-		try {
-			const contentChanges = await pr.getFileChangesInfo();
-			this._reviewModel.localFileChanges = await this.getLocalChangeNodes(pr, contentChanges);
 		} catch (e) {
 			Logger.appendLine(`Review> ${e}`);
 		}

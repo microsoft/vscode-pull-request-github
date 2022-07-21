@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import { Repository } from '../../api/api';
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
@@ -13,7 +12,6 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 	public command?: vscode.Command;
 	public contextValue?: string;
 	public tooltip: string;
-
 
 	constructor(
 		public parent: TreeNodeParent,
@@ -24,8 +22,7 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 			| { light: string | vscode.Uri; dark: string | vscode.Uri }
 			| vscode.ThemeIcon,
 		public pullRequestModel: PullRequestModel,
-		public readonly repository: Repository,
-		public _folderReposManager: FolderRepositoryManager
+		public readonly repository: Repository
 	) {
 		super();
 
@@ -34,7 +31,6 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 			command: 'pr.openDescription',
 			arguments: [this],
 		};
-
 
 		this.tooltip = `Description of pull request #${pullRequestModel.number}`;
 		this.accessibilityInformation = { label: `Pull request page of pull request number ${pullRequestModel.number}`, role: 'button' };
@@ -45,7 +41,7 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 		return this;
 	}
 
-	updateContextValue(): void {
+	protected updateContextValue(): void {
 		this.contextValue = 'description' +
 			(this.pullRequestModel.hasChangesSinceLastReview ? ':changesSinceReview' : '') +
 			(this.pullRequestModel.showChangesSinceReview ? ':active' : ':inactive');
