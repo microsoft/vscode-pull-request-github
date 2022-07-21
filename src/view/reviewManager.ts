@@ -14,7 +14,7 @@ import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { ISessionState } from '../common/sessionState';
-import { IGNORE_PR_BRANCHES, PR_SETTINGS_NAMESPACE, PULL_BRANCH, USE_REVIEW_MODE } from '../common/settingKeys';
+import { IGNORE_PR_BRANCHES, POST_CREATE, PR_SETTINGS_NAMESPACE, PULL_BRANCH, USE_REVIEW_MODE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, fromReviewUri, PRUriParams, Schemes, toReviewUri } from '../common/uri';
 import { formatError, groupBy, onceEvent } from '../common/utils';
@@ -931,14 +931,17 @@ export class ReviewManager {
 			this._createPullRequestHelper = new CreatePullRequestHelper(this.repository);
 			this._createPullRequestHelper.onDidCreate(async createdPR => {
 				await this.updateState(false, false);
-				const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(this._folderRepoManager);
-				await openDescription(
-					this._context,
-					this._telemetry,
-					createdPR,
-					descriptionNode,
-					this._folderRepoManager,
-				);
+				const postCreate = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<'none' | 'openOverview'>(POST_CREATE, 'openOverview');
+				if (postCreate === 'openOverview') {
+					const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(this._folderRepoManager);
+					await openDescription(
+						this._context,
+						this._telemetry,
+						createdPR,
+						descriptionNode,
+						this._folderRepoManager,
+					);
+				}
 			});
 		}
 
