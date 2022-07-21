@@ -16,6 +16,7 @@ import { GitHubRepository } from './githubRepository';
 import { PullRequestState } from './graphql';
 import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
+import { hasEnterpriseUri } from './utils';
 
 export const NOTIFICATION_SETTING = 'notifications';
 
@@ -66,9 +67,7 @@ export class NotificationProvider {
 		this._pollingDuration = DEFAULT_POLLING_DURATION;
 		this._pollingHandler = null;
 
-
-		// TODO: CHANGE THIS BEFORE MEREGE
-		this.publicRegsiterAuthProvider(AuthProvider.github);
+		this.regsiterAuthProvider(credentialStore);
 
 		for (const manager of this._reposManager.folderManagers) {
 			manager.onDidCreateGithubRepository(() => {
@@ -95,8 +94,23 @@ export class NotificationProvider {
 		});
 	}
 
-	public publicRegsiterAuthProvider(authProvider: AuthProvider) {
-		this._authProvider = authProvider;
+	public regsiterAuthProvider(credentialStore: CredentialStore) {
+		if (credentialStore.isAuthenticated(AuthProvider.github)) {
+			this._authProvider = AuthProvider.github;
+		}
+		else if (credentialStore.isAuthenticated(AuthProvider['github-enterprise']) && hasEnterpriseUri()) {
+			this._authProvider = AuthProvider['github-enterprise'];
+		}
+
+		vscode.authentication.onDidChangeSessions(_ => {
+			if (credentialStore.isAuthenticated(AuthProvider.github)) {
+				this._authProvider = AuthProvider.github;
+			}
+
+			if (credentialStore.isAuthenticated(AuthProvider['github-enterprise']) && hasEnterpriseUri()) {
+				this._authProvider = AuthProvider['github-enterprise'];
+			}
+		});
 	}
 
 	public getPrIdentifier(pullRequest: PullRequestModel | OctokitResponse<any>['data']): string {
