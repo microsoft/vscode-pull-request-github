@@ -309,37 +309,35 @@ export class NotificationProvider {
 				const prNumber = splitPrUrl[splitPrUrl.length - 1];
 				const identifier = this.getPrIdentifier(notification);
 
-				/* const { remote, query, schema } = await githubRepo.ensure();
+				const { remote, query, schema } = await githubRepo.ensure();
 
-				const response = await query<PullRequestState>({
+				const { data } = await query<PullRequestState>({
 					query: schema.PullRequestState,
 					variables: {
 						owner: remote.owner,
 						name: remote.repositoryName,
-						number: prNumber,
+						number: Number(prNumber),
 					},
 				});
 
-				const { data } = response;
+				if (data.repository.pullRequest.state === 'OPEN') {
 
-				if (data.repository.pullRequest.state === 'OPEN') { */
+					const newNotification = new Notification(
+						identifier,
+						Number(notification.id),
+						notification.reason,
+						notification.repository.name,
+						Number(prNumber)
+					);
 
-				const newNotification = new Notification(
-					identifier,
-					Number(notification.id),
-					notification.reason,
-					notification.repository.name,
-					Number(prNumber)
-				);
-
-				const currentPrNotifications = this._notifications.get(identifier);
-				if (currentPrNotifications === undefined) {
-					this._notifications.set(identifier, [newNotification]);
+					const currentPrNotifications = this._notifications.get(identifier);
+					if (currentPrNotifications === undefined) {
+						this._notifications.set(identifier, [newNotification]);
+					}
+					else {
+						currentPrNotifications.push(newNotification);
+					}
 				}
-				else {
-					currentPrNotifications.push(newNotification);
-				}
-				//}
 
 			}
 		}));
