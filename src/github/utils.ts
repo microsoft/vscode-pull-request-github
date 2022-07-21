@@ -1041,7 +1041,7 @@ export function parseReviewers(
 	return reviewers;
 }
 
-export function insertNewCommmitsSinceReview(
+export function insertNewCommitsSinceReview(
 	timelineEvents: Common.TimelineEvent[],
 	latestReviewCommitOid: string | undefined,
 	currentUser: IAccount,

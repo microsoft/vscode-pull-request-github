@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import Logger, { PR_TREE } from '../../common/logger';
-import { fromReviewUri, Schemes } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { ReviewManager } from '../reviewManager';
@@ -21,7 +20,6 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	readonly collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 
 	private _disposables: vscode.Disposable[] = [];
-	private _refreshSinceReview;
 
 	constructor(
 		public parent: BaseTreeNode,
@@ -33,8 +31,6 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 		super(parent, _pullRequest.title, _pullRequest.userAvatarUri!, _pullRequest, _pullRequestManager.repository, _pullRequestManager);
 		// Cause tree values to be filled
 		this.getTreeItem();
-
-		this._refreshSinceReview = Promise.resolve();
 
 		this._disposables.push(
 			vscode.window.onDidChangeActiveTextEditor(e => {
@@ -67,7 +63,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
-		await this._refreshSinceReview;
+		await this._reviewManager.refreshSinceReview;
 		if (!this._filesCategoryNode || !this._commitsCategoryNode) {
 			Logger.appendLine(`Creating file and commit nodes for PR #${this.pullRequestModel.number}`, PR_TREE);
 			this._filesCategoryNode = new FilesCategoryNode(this.parent, this._reviewModel, this._pullRequest);
@@ -82,51 +78,8 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 
 	getTreeItem(): vscode.TreeItem {
 		this.label = this._pullRequest.title;
+		this.updateContextValue();
 		return this;
-	}
-
-	protected registerSinceReviewChange() {
-		this.childrenDisposables.push(
-			this.pullRequestModel.onDidChangeChangesSinceReview(data => {
-				const { afterActivation, openFirst } = data;
-				this.updateContextValue();
-
-				this._refreshSinceReview = new Promise<void>(async resolve => {
-					this._reviewManager.changesInPrDataProvider.refresh();
-					await this._reviewManager.updateComments();
-					await this.reopenNewReviewDiffs(afterActivation);
-					if (openFirst) {
-						await PullRequestModel.openFirstDiff(this._pullRequestManager, this.pullRequestModel);
-					}
-					resolve();
-				});
-			})
-		);
-	}
-
-	private async reopenNewReviewDiffs(directlyAfterActivation: boolean | void) {
-		await Promise.all(vscode.window.tabGroups.all.map(tabGroup => {
-			return tabGroup.tabs.map(tab => {
-				if (tab.input instanceof vscode.TabInputTextDiff) {
-					if ((tab.input.original.scheme === Schemes.Review)) {
-
-						for (const localChange of this._reviewModel.localFileChanges) {
-							const fileName = fromReviewUri(tab.input.original.query);
-							// Don't reopen the tabs on activation if the correct diffs are displayed
-							if (directlyAfterActivation && fileName.commit && fileName.commit === localChange.pullRequest.mergeBase) {
-								break;
-							}
-							if (localChange.fileName === fileName.path) {
-								vscode.window.tabGroups.close(tab).then(_ => localChange.openDiff(this._pullRequestManager, { preview: tab.isPreview }));
-								break;
-							}
-						}
-
-					}
-				}
-				return Promise.resolve(undefined);
-			});
-		}).flat());
 	}
 
 	dispose() {

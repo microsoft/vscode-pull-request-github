@@ -25,7 +25,7 @@ import {
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
-import { insertNewCommmitsSinceReview, isInCodespaces, parseReviewers } from './utils';
+import { insertNewCommitsSinceReview, isInCodespaces, parseReviewers } from './utils';
 
 type MilestoneQuickPickItem = vscode.QuickPickItem & { id: string; milestone: IMilestone };
 
@@ -195,7 +195,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
 				const currentUser = this._folderRepositoryManager.getCurrentUser(this._item.githubRepository);
 
-				insertNewCommmitsSinceReview(timelineEvents, latestReviewCommitInfo?.sha, currentUser, pullRequest.head);
+				insertNewCommitsSinceReview(timelineEvents, latestReviewCommitInfo?.sha, currentUser, pullRequest.head);
 
 				const isCrossRepository =
 					pullRequest.base &&
@@ -333,7 +333,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private gotoChangesSinceReview() {
-		this._item.openFirstChangeSinceReview();
+		this._item.showChangesSinceReview = true;
 	}
 
 	private async getReviewersQuickPickItems(

@@ -117,7 +117,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _onDidChangeFileViewedState = new vscode.EventEmitter<FileViewedStateChangeEvent>();
 	public onDidChangeFileViewedState = this._onDidChangeFileViewedState.event;
 
-	private _onDidChangeChangesSinceReview = new vscode.EventEmitter<{ afterActivation?: boolean, openFirst?: boolean }>();
+	private _onDidChangeChangesSinceReview = new vscode.EventEmitter<void>();
 	public onDidChangeChangesSinceReview = this._onDidChangeChangesSinceReview.event;
 
 	private _comments: IComment[] | undefined;
@@ -185,12 +185,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	public set showChangesSinceReview(isChangesSinceReview: boolean) {
 		this._showChangesSinceReview = isChangesSinceReview;
-		this._onDidChangeChangesSinceReview.fire({});
-	}
-
-	public openFirstChangeSinceReview() {
-		this._showChangesSinceReview = true;
-		this._onDidChangeChangesSinceReview.fire({ openFirst: true });
+		this._onDidChangeChangesSinceReview.fire();
 	}
 
 	get comments(): IComment[] {
@@ -1274,8 +1269,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			files = data.files as IRawFileChange[];
 		}
 
-		if (oldHasChangesSinceReview !== this.hasChangesSinceLastReview) {
-			this._onDidChangeChangesSinceReview.fire({ afterActivation: oldHasChangesSinceReview === undefined });
+		if (oldHasChangesSinceReview !== undefined && oldHasChangesSinceReview !== this.hasChangesSinceLastReview) {
+			this._onDidChangeChangesSinceReview.fire();
 		}
 
 		Logger.debug(
