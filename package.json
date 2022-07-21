@@ -159,7 +159,7 @@
 				},
 				"githubPullRequests.notifications": {
 					"type": "boolean",
-					"default": true,
+					"default": false,
 					"description": "If Github notifications should be shown to the user."
 				},
 				"githubPullRequests.fileListLayout": {
