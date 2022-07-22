@@ -16,6 +16,7 @@ import {
 	isCommitEvent,
 	isHeadDeleteEvent,
 	isMergedEvent,
+	isNewCommitsSinceReviewEvent,
 	isReviewEvent,
 	MergedEvent,
 	ReviewEvent,
@@ -25,7 +26,7 @@ import { groupBy } from '../../src/common/utils';
 import PullRequestContext from '../common/context';
 import { CommentBody, CommentView } from './comment';
 import Diff from './diff';
-import { commitIcon, mergeIcon } from './icon';
+import { commitIcon, mergeIcon, plusIcon } from './icon';
 import { nbsp, Spaced } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -46,6 +47,8 @@ export const Timeline = ({ events }: { events: TimelineEvent[] }) => (
 				<AssignEventView key={event.id} {...event} />
 			) : isHeadDeleteEvent(event) ? (
 				<HeadDeleteEventView key={event.id} {...event} />
+			) : isNewCommitsSinceReviewEvent(event) ? (
+				<NewCommitsSinceReviewEventView key={event.id} />
 			) : null,
 		)}
 	</>
@@ -74,12 +77,28 @@ const CommitEventView = (event: CommitEvent) => (
 	</div>
 );
 
+const NewCommitsSinceReviewEventView = () => {
+	const { gotoChangesSinceReview } = useContext(PullRequestContext);
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				{plusIcon}
+				{nbsp}
+				<span style={{ fontWeight: 'bold' }}>New changes since your last Review</span>
+			</div>
+			<button aria-live="polite" title="View the changes since your last review" onClick={() => gotoChangesSinceReview()}>
+				View Changes
+			</button>
+		</div>
+	);
+};
+
 const association = ({ authorAssociation }: ReviewEvent, format = (assoc: string) => `(${assoc.toLowerCase()})`) =>
 	authorAssociation.toLowerCase() === 'user'
 		? format('you')
 		: authorAssociation && authorAssociation !== 'NONE'
-		? format(authorAssociation)
-		: null;
+			? format(authorAssociation)
+			: null;
 
 const positionKey = (comment: IComment) =>
 	comment.position !== null ? `pos:${comment.position}` : `ori:${comment.originalPosition}`;

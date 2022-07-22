@@ -11,6 +11,7 @@ import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { IComment, IReviewThread, Reaction } from '../common/comment';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
+import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Resource } from '../common/resources';
 import { OVERRIDE_DEFAULT_BRANCH } from '../common/settingKeys';
@@ -845,41 +846,49 @@ export function getReactionGroup(): { title: string; label: string; icon?: vscod
 	const ret = [
 		{
 			title: 'THUMBS_UP',
+			// allow-any-unicode-next-line
 			label: '👍',
 			icon: Resource.icons.reactions.THUMBS_UP,
 		},
 		{
 			title: 'THUMBS_DOWN',
+			// allow-any-unicode-next-line
 			label: '👎',
 			icon: Resource.icons.reactions.THUMBS_DOWN,
 		},
 		{
 			title: 'LAUGH',
+			// allow-any-unicode-next-line
 			label: '😄',
 			icon: Resource.icons.reactions.LAUGH,
 		},
 		{
 			title: 'HOORAY',
+			// allow-any-unicode-next-line
 			label: '🎉',
 			icon: Resource.icons.reactions.HOORAY,
 		},
 		{
 			title: 'CONFUSED',
+			// allow-any-unicode-next-line
 			label: '😕',
 			icon: Resource.icons.reactions.CONFUSED,
 		},
 		{
 			title: 'HEART',
+			// allow-any-unicode-next-line
 			label: '❤️',
 			icon: Resource.icons.reactions.HEART,
 		},
 		{
 			title: 'ROCKET',
+			// allow-any-unicode-next-line
 			label: '🚀',
 			icon: Resource.icons.reactions.ROCKET,
 		},
 		{
 			title: 'EYES',
+			// allow-any-unicode-next-line
 			label: '👀',
 			icon: Resource.icons.reactions.EYES,
 		},
@@ -1030,6 +1039,45 @@ export function parseReviewers(
 	});
 
 	return reviewers;
+}
+
+export function insertNewCommitsSinceReview(
+	timelineEvents: Common.TimelineEvent[],
+	latestReviewCommitOid: string | undefined,
+	currentUser: IAccount,
+	head: GitHubRef | null
+) {
+	if (latestReviewCommitOid && head && head.sha !== latestReviewCommitOid) {
+		let lastViewerReviewIndex: number = timelineEvents.length - 1;
+		let comittedDuringReview: boolean = false;
+		let interReviewCommits: Common.TimelineEvent[] = [];
+
+		for (let i = timelineEvents.length - 1; i > 0; i--) {
+			if (
+				timelineEvents[i].event === Common.EventType.Committed &&
+				(timelineEvents[i] as Common.CommitEvent).sha === latestReviewCommitOid
+			) {
+				interReviewCommits.unshift({
+					id: latestReviewCommitOid,
+					event: Common.EventType.NewCommitsSinceReview
+				});
+				timelineEvents.splice(lastViewerReviewIndex + 1, 0, ...interReviewCommits);
+				break;
+			}
+			else if (comittedDuringReview && timelineEvents[i].event === Common.EventType.Committed) {
+				interReviewCommits.unshift(timelineEvents[i]);
+				timelineEvents.splice(i, 1);
+			}
+			else if (
+				!comittedDuringReview &&
+				timelineEvents[i].event === Common.EventType.Reviewed &&
+				(timelineEvents[i] as Common.ReviewEvent).user.login === currentUser.login
+			) {
+				lastViewerReviewIndex = i;
+				comittedDuringReview = true;
+			}
+		}
+	}
 }
 
 export function getPRFetchQuery(repo: string, user: string, query: string): string {

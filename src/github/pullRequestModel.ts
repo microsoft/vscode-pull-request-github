@@ -30,6 +30,7 @@ import {
 	EditCommentResponse,
 	GetChecksResponse,
 	isCheckRun,
+	LatestReviewCommitResponse,
 	MarkPullRequestReadyForReviewResponse,
 	PendingReviewIdResponse,
 	PullRequestCommentsResponse,
@@ -99,6 +100,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public localBranchName?: string;
 	public mergeBase?: string;
 	public suggestedReviewers?: ISuggestedReviewer[];
+	public hasChangesSinceLastReview?: boolean;
+	private _showChangesSinceReview: boolean;
 	private _hasPendingReview: boolean = false;
 	private _onDidChangePendingReviewState: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
 	public onDidChangePendingReviewState = this._onDidChangePendingReviewState.event;
@@ -113,6 +116,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _unviewedFiles: Set<string> = new Set();
 	private _onDidChangeFileViewedState = new vscode.EventEmitter<FileViewedStateChangeEvent>();
 	public onDidChangeFileViewedState = this._onDidChangeFileViewedState.event;
+
+	private _onDidChangeChangesSinceReview = new vscode.EventEmitter<void>();
+	public onDidChangeChangesSinceReview = this._onDidChangeChangesSinceReview.event;
 
 	private _comments: IComment[] | undefined;
 	private _onDidChangeComments: vscode.EventEmitter<void> = new vscode.EventEmitter();
@@ -133,6 +139,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		this._telemetry = telemetry;
 		this.isActive = !!isActive;
+
+		this._showChangesSinceReview = false;
 
 		this.update(item);
 	}
@@ -169,6 +177,15 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this._hasPendingReview = hasPendingReview;
 			this._onDidChangePendingReviewState.fire(this._hasPendingReview);
 		}
+	}
+
+	public get showChangesSinceReview() {
+		return this._showChangesSinceReview;
+	}
+
+	public set showChangesSinceReview(isChangesSinceReview: boolean) {
+		this._showChangesSinceReview = isChangesSinceReview;
+		this._onDidChangeChangesSinceReview.fire();
 	}
 
 	get comments(): IComment[] {
@@ -415,6 +432,24 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		} catch (error) {
 			return;
 		}
+	}
+
+	async getViewerLatestReviewCommit(): Promise<{ sha: string } | undefined> {
+		Logger.debug(`Fetch viewers latest review commit`, IssueModel.ID);
+		const { query, remote, schema } = await this.githubRepository.ensure();
+
+		const { data } = await query<LatestReviewCommitResponse>({
+			query: schema.LatestReviewCommit,
+			variables: {
+				owner: remote.owner,
+				name: remote.repositoryName,
+				number: this.number,
+			},
+		});
+
+		return data.repository.pullRequest.viewerLatestReview ? {
+			sha: data.repository.pullRequest.viewerLatestReview.commit.oid,
+		} : undefined;
 	}
 
 	/**
@@ -1063,6 +1098,31 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			throw new Error(`Can't find matching file`);
 		}
 
+		const pathSegments = comment.path!.split('/');
+		this.openDiff(folderManager, pullRequestModel, change, pathSegments[pathSegments.length - 1]);
+	}
+
+	static async openFirstDiff(
+		folderManager: FolderRepositoryManager,
+		pullRequestModel: PullRequestModel,
+	) {
+		const contentChanges = await pullRequestModel.getFileChangesInfo();
+		if (!contentChanges.length) {
+			return;
+		}
+
+		const firstChange = contentChanges[0];
+		this.openDiff(folderManager, pullRequestModel, firstChange, firstChange.fileName);
+	}
+
+	static async openDiff(
+		folderManager: FolderRepositoryManager,
+		pullRequestModel: PullRequestModel,
+		change: SlimFileChange | InMemFileChange,
+		diffTitle: string
+	): Promise<void> {
+
+
 		let headUri, baseUri: vscode.Uri;
 		if (!pullRequestModel.equals(folderManager.activePullRequest)) {
 			const headCommit = pullRequestModel.head!.sha;
@@ -1113,12 +1173,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			);
 		}
 
-		const pathSegments = comment.path!.split('/');
 		vscode.commands.executeCommand(
 			'vscode.diff',
 			baseUri,
 			headUri,
-			`${pathSegments[pathSegments.length - 1]} (Pull Request)`,
+			`${diffTitle} (Pull Request)`,
 			{},
 		);
 	}
@@ -1159,6 +1218,15 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this.update(convertRESTPullRequestToRawPullRequest(info.data, githubRepository));
 		}
 
+		let compareWithBaseRef = this.base.sha;
+		const latestReview = await this.getViewerLatestReviewCommit();
+		const oldHasChangesSinceReview = this.hasChangesSinceLastReview;
+		this.hasChangesSinceLastReview = latestReview !== undefined && compareWithBaseRef !== latestReview.sha;
+
+		if (this._showChangesSinceReview && this.hasChangesSinceLastReview && latestReview != undefined) {
+			compareWithBaseRef = latestReview.sha;
+		}
+
 		if (this.item.merged) {
 			const response = await restPaginate<typeof octokit.pulls.listFiles, IRawFileChange>(octokit.pulls.listFiles, {
 				repo: remote.repositoryName,
@@ -1175,8 +1243,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const { data } = await octokit.repos.compareCommits({
 			repo: remote.repositoryName,
 			owner: remote.owner,
-			base: `${this.base.repositoryCloneUrl.owner}:${this.base.ref}`,
-			head: `${this.head!.repositoryCloneUrl.owner}:${this.head!.ref}`,
+			base: `${this.base.repositoryCloneUrl.owner}:${compareWithBaseRef}`,
+			head: `${this.head!.repositoryCloneUrl.owner}:${this.head!.sha}`,
 		});
 
 		this.mergeBase = data.merge_base_commit.sha;
@@ -1199,6 +1267,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		} else {
 			// if we're under the limit, just use the result from compareCommits, don't make additional API calls.
 			files = data.files as IRawFileChange[];
+		}
+
+		if (oldHasChangesSinceReview !== undefined && oldHasChangesSinceReview !== this.hasChangesSinceLastReview) {
+			this._onDidChangeChangesSinceReview.fire();
 		}
 
 		Logger.debug(

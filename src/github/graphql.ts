@@ -197,6 +197,18 @@ export interface TimelineEventsResponse {
 	rateLimit: RateLimit;
 }
 
+export interface LatestReviewCommitResponse {
+	repository: {
+		pullRequest: {
+			viewerLatestReview: {
+				commit: {
+					oid: string;
+				}
+			};
+		};
+	};
+}
+
 export interface PendingReviewIdResponse {
 	node: {
 		reviews: {

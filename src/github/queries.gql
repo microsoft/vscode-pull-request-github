@@ -281,6 +281,18 @@ query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last:
 	}
 }
 
+query LatestReviewCommit($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			viewerLatestReview {
+				commit {
+					oid
+				}
+			}
+		}
+	}
+}
+
 fragment ReviewComment on PullRequestReviewComment {
 	id
 	databaseId

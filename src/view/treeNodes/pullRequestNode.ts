@@ -26,6 +26,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 	private _commentController?: vscode.CommentController;
 	private _disposables: vscode.Disposable[] = [];
 
+	private _showingChangesSinceReview;
+
 	private _inMemPRContentProvider?: vscode.Disposable;
 
 	private _command: vscode.Command;
@@ -49,6 +51,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		private _isLocal: boolean,
 	) {
 		super();
+		this.registerSinceReviewChange();
 	}
 
 	// #region Tree
@@ -107,11 +110,56 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				result.push(...this._fileChanges);
 			}
 
+			if (this.pullRequestModel.showChangesSinceReview !== this._showingChangesSinceReview || this._showingChangesSinceReview === undefined) {
+				this.reopenNewPrDiffs(this.pullRequestModel);
+			}
+			this._showingChangesSinceReview = this.pullRequestModel.showChangesSinceReview;
+
 			this.childrenDisposables = result;
 			return result;
 		} catch (e) {
 			Logger.appendLine(e);
 			return [];
+		}
+	}
+
+	protected registerSinceReviewChange() {
+		this._disposables.push(
+			this.pullRequestModel.onDidChangeChangesSinceReview(_ => {
+				this.refresh();
+			})
+		);
+	}
+
+	public async reopenNewPrDiffs(pullRequest: PullRequestModel) {
+		let hasOpenDiff: boolean = false;
+		vscode.window.tabGroups.all.map(tabGroup => {
+			tabGroup.tabs.map(tab => {
+				if (
+					tab.input instanceof vscode.TabInputTextDiff &&
+					tab.input.original.scheme === Schemes.Pr &&
+					tab.input.modified.scheme === Schemes.Pr &&
+					this._fileChanges
+				) {
+					for (const localChange of this._fileChanges) {
+
+						const originalParams = fromPRUri(tab.input.original);
+						const modifiedParams = fromPRUri(tab.input.modified);
+						if (
+							originalParams?.prNumber === pullRequest.number &&
+							modifiedParams?.prNumber === pullRequest.number &&
+							localChange.fileName === modifiedParams.fileName
+						) {
+							hasOpenDiff = true;
+							vscode.window.tabGroups.close(tab).then(_ => localChange.openDiff(this._folderReposManager, { preview: tab.isPreview }));
+							break;
+						}
+					}
+				}
+			});
+		});
+		if (!hasOpenDiff && this._fileChanges && this._fileChanges.length && !pullRequest.isActive) {
+			this._fileChanges[0].openDiff(this._folderReposManager, { preview: true });
 		}
 	}
 
@@ -156,8 +204,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		);
 	}
 
-	private async getFileChanges(): Promise<(RemoteFileChangeNode | InMemFileChangeNode)[]> {
-		if (!this._fileChanges) {
+	public async getFileChanges(noCache: boolean | void): Promise<(RemoteFileChangeNode | InMemFileChangeNode)[]> {
+		if (!this._fileChanges || noCache) {
 			this._fileChanges = await this.resolveFileChangeNodes();
 		}
 
