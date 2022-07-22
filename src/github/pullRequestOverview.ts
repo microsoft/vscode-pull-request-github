@@ -514,6 +514,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}
 
 			const quickPick = vscode.window.createQuickPick();
+			quickPick.busy = true;
 			quickPick.canSelectMany = false;
 			quickPick.title = 'Select a milestone to add';
 			quickPick.buttons = [{
@@ -543,6 +544,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			quickPick.show();
 			quickPick.items = await getMilestoneOptions(this._folderRepositoryManager);
+			quickPick.busy = false;
 
 			quickPick.onDidAccept(async () => {
 				quickPick.hide();
