@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { default as assert } from 'assert';
 import * as vscode from 'vscode';
 import { SinonSandbox, createSandbox, match as sinonMatch } from 'sinon';
@@ -110,6 +115,7 @@ describe('PullRequestOverview', function () {
 			const panel0 = PullRequestOverviewPanel.currentPanel;
 			assert.notStrictEqual(panel0, undefined);
 			assert.strictEqual(createWebviewPanel.callCount, 1);
+			assert.strictEqual(panel0!.getCurrentTitle(), 'Pull Request #1000');
 
 			const prItem1 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(2000).build(), repo);
 			const prModel1 = new PullRequestModel(telemetry, repo, remote, prItem1);
