@@ -18,7 +18,7 @@
 	"version": "0.46.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.69.0"
+		"vscode": "^1.70.0"
 	},
 	"categories": [
 		"Other"
@@ -622,12 +622,12 @@
 			{
 				"command": "pr.showDiffSinceLastReview",
 				"title": "Show Changes Since Last Review",
-				"icon": "$(diff)"
+				"icon": "$(git-pull-request-new-changes)"
 			},
 			{
 				"command": "pr.showDiffAll",
 				"title": "Show All Changes",
-				"icon": "$(diff-modified)"
+				"icon": "$(git-pull-request-go-to-changes)"
 			},
 			{
 				"command": "pr.checkoutByNumber",
