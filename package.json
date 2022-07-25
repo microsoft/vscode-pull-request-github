@@ -12,7 +12,8 @@
 	},
 	"enabledApiProposals": [
 		"tokenInformation",
-		"commentsResolvedState"
+		"commentsResolvedState",
+		"contribViewSize"
 	],
 	"version": "0.46.0",
 	"publisher": "GitHub",
@@ -489,26 +490,30 @@
 					"type": "webview",
 					"name": "Create Pull Request",
 					"when": "github:createPullRequest",
-					"visibility": "visible"
+					"visibility": "visible",
+					"size": 2
 				},
 				{
 					"id": "github:compareChanges",
 					"name": "Compare Changes",
 					"when": "github:createPullRequest",
-					"visibility": "visible"
+					"visibility": "visible",
+					"size": 1
 				},
 				{
 					"id": "prStatus:github",
 					"name": "Changes In Pull Request",
 					"when": "github:inReviewMode && !github:createPullRequest",
 					"icon": "$(git-pull-request)",
-					"visibility": "visible"
+					"visibility": "visible",
+					"size": 3
 				},
 				{
 					"id": "github:activePullRequest",
 					"type": "webview",
 					"name": "Active Pull Request",
-					"when": "github:inReviewMode && github:focusedReview && !github:createPullRequest"
+					"when": "github:inReviewMode && github:focusedReview && !github:createPullRequest",
+					"size": 2
 				},
 				{
 					"id": "github:activePullRequest:welcome",
