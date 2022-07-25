@@ -26,7 +26,6 @@ import { Resource } from '../../common/resources';
 import { GitApiImpl } from '../../api/api1';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockSessionState } from '../mocks/mockSessionState';
-import { NotificationProvider } from '../../github/notifications';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -96,8 +95,7 @@ describe('GitHub Pull Requests view', function () {
 			telemetry,
 			mockSessionState
 		);
-		const notificationProvider = new NotificationProvider(provider, credentialStore, manager);
-		provider.initialize(manager, notificationProvider);
+		provider.initialize(manager);
 
 		const rootNodes = await provider.getChildren();
 		assert.strictEqual(rootNodes.length, 1);
@@ -123,8 +121,7 @@ describe('GitHub Pull Requests view', function () {
 
 		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 		await manager.folderManagers[0].updateRepositories();
-		const notificationProvider = new NotificationProvider(provider, credentialStore, manager);
-		provider.initialize(manager, notificationProvider);
+		provider.initialize(manager);
 
 		const rootNodes = await provider.getChildren();
 
@@ -197,10 +194,7 @@ describe('GitHub Pull Requests view', function () {
 			});
 			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 			await manager.updateRepositories();
-
-			const notificationProvider = new NotificationProvider(provider, credentialStore, reposManager);
-			provider.initialize(reposManager, notificationProvider);
-
+			provider.initialize(reposManager);
 			manager.activePullRequest = pullRequest1;
 
 			const rootNodes = await provider.getChildren();
