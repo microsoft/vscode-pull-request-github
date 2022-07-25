@@ -42,8 +42,7 @@ export function fromPRUri(uri: vscode.Uri): PRUriParams | undefined {
 }
 
 export interface PRNodeUriParams {
-	hasNotification: boolean;
-	prNumber: number;
+	prIdentifier: string
 }
 
 export function fromPRNodeUri(uri: vscode.Uri): PRNodeUriParams | undefined {
@@ -236,19 +235,29 @@ export function toPRUri(
 	});
 }
 
-export function toPRNodeUri(
-	pullRequestModel: PullRequestModel
+export function createPRNodeUri(
+	pullRequest: PullRequestModel | { remote: string, prNumber: number } | string
 ): vscode.Uri {
+	let identifier: string;
+	if (pullRequest instanceof PullRequestModel) {
+		identifier = `${pullRequest.remote.url}:${pullRequest.number}`;
+	}
+	else if (typeof pullRequest === 'string') {
+		identifier = pullRequest;
+	}
+	else {
+		identifier = `${pullRequest.remote}:${pullRequest.prNumber}`;
+	}
+
 	const params: PRNodeUriParams = {
-		prNumber: pullRequestModel.number,
-		hasNotification: pullRequestModel.hasNotifications ? pullRequestModel.hasNotifications : false,
+		prIdentifier: identifier,
 	};
 
-	const uri = vscode.Uri.parse(`PRNode:${pullRequestModel.remote.remoteName}:${pullRequestModel.number}`);
+	const uri = vscode.Uri.parse(`PRNode:${identifier}`);
 
 	return uri.with({
 		scheme: Schemes.PRNode,
-		query: JSON.stringify(params),
+		query: JSON.stringify(params)
 	});
 }
 

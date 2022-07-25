@@ -6,6 +6,8 @@
 import { OctokitResponse } from '@octokit/types';
 import * as vscode from 'vscode';
 import Logger from '../common/logger';
+import { NOTIFICATION_SETTING } from '../common/settingKeys';
+import { createPRNodeUri } from '../common/uri';
 import { PullRequestsTreeDataProvider } from '../view/prsTreeDataProvider';
 import { CategoryTreeNode } from '../view/treeNodes/categoryNode';
 import { PRNode } from '../view/treeNodes/pullRequestNode';
@@ -18,40 +20,42 @@ import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
 import { hasEnterpriseUri } from './utils';
 
-export const NOTIFICATION_SETTING = 'notifications';
-
 const DEFAULT_POLLING_DURATION = 60;
 
 export class Notification {
-	public identifier;
-	public threadId: number;
-	public reason: string;
-	public repositoryName: string;
-	public pullRequestNumber: number;
+	public readonly identifier;
+	public readonly threadId: number;
+	public readonly repositoryName: string;
+	public readonly pullRequestNumber: number;
 	public pullRequestModel?: PullRequestModel;
 
-	constructor(identifier: string, threadId: number, reason: string, repositoryName: string,
+	constructor(identifier: string, threadId: number, repositoryName: string,
 		pullRequestNumber: number, pullRequestModel?: PullRequestModel) {
 
 		this.identifier = identifier;
 		this.threadId = threadId;
-		this.reason = reason;
 		this.repositoryName = repositoryName;
 		this.pullRequestNumber = pullRequestNumber;
 		this.pullRequestModel = pullRequestModel;
 	}
 }
 
-export class NotificationProvider {
-	private _gitHubPrsTree: PullRequestsTreeDataProvider;
-	private _credentialStore: CredentialStore;
+export class NotificationProvider implements vscode.Disposable {
+	private readonly _gitHubPrsTree: PullRequestsTreeDataProvider;
+	private readonly _credentialStore: CredentialStore;
 	private _authProvider: AuthProvider | undefined;
+	// The key uniquely identifies a PR from a Repository. The key is created with `getPrIdentifier`
 	private _notifications: Map<string, Notification[]>;
-	private _reposManager: RepositoriesManager;
+	private readonly _reposManager: RepositoriesManager;
 
 	private _pollingDuration: number;
 	private _lastModified: string;
 	private _pollingHandler: NodeJS.Timeout | null;
+
+	private displosables: vscode.Disposable[] = [];
+
+	private _onDidChangeNotifications: vscode.EventEmitter<vscode.Uri[]> = new vscode.EventEmitter();
+	public onDidChangeNotifications = this._onDidChangeNotifications.event;
 
 	constructor(
 		gitHubPrsTree: PullRequestsTreeDataProvider,
@@ -67,34 +71,45 @@ export class NotificationProvider {
 		this._pollingDuration = DEFAULT_POLLING_DURATION;
 		this._pollingHandler = null;
 
-		this.regsiterAuthProvider(credentialStore);
+		this.registerAuthProvider(credentialStore);
 
 		for (const manager of this._reposManager.folderManagers) {
-			manager.onDidCreateGithubRepository(() => {
-				this.refreshOrLaunchPolling();
-			});
+			this.displosables.push(
+				manager.onDidChangeGithubRepositories(() => {
+					this.refreshOrLaunchPolling();
+				})
+			);
 		};
 
-		gitHubPrsTree.onDidChangeTreeData((node) => {
-			if (vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<boolean>(NOTIFICATION_SETTING)) {
-				this.adaptPRNotifications(node);
-			}
-		});
+		this.displosables.push(
+			gitHubPrsTree.onDidChangeTreeData((node) => {
+				if (NotificationProvider.isPRNotificationsOn()) {
+					this.adaptPRNotifications(node);
+				}
+			})
+		);
+		this.displosables.push(
+			gitHubPrsTree.onDidChange(() => {
+				if (NotificationProvider.isPRNotificationsOn()) {
+					this.adaptPRNotifications();
+				}
+			})
+		);
 
-		gitHubPrsTree.onDidChange(() => {
-			if (vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<boolean>(NOTIFICATION_SETTING)) {
-				this.adaptPRNotifications();
-			}
-		});
-
-		vscode.workspace.onDidChangeConfiguration((e) => {
-			if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${NOTIFICATION_SETTING}`)) {
-				this.checkNotificationSetting();
-			}
-		});
+		this.displosables.push(
+			vscode.workspace.onDidChangeConfiguration((e) => {
+				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${NOTIFICATION_SETTING}`)) {
+					this.checkNotificationSetting();
+				}
+			})
+		);
 	}
 
-	public regsiterAuthProvider(credentialStore: CredentialStore) {
+	private static isPRNotificationsOn() {
+		return vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(NOTIFICATION_SETTING) === 'pullRequests';
+	}
+
+	private registerAuthProvider(credentialStore: CredentialStore) {
 		if (credentialStore.isAuthenticated(AuthProvider.github)) {
 			this._authProvider = AuthProvider.github;
 		}
@@ -102,18 +117,20 @@ export class NotificationProvider {
 			this._authProvider = AuthProvider['github-enterprise'];
 		}
 
-		vscode.authentication.onDidChangeSessions(_ => {
-			if (credentialStore.isAuthenticated(AuthProvider.github)) {
-				this._authProvider = AuthProvider.github;
-			}
+		this.displosables.push(
+			vscode.authentication.onDidChangeSessions(_ => {
+				if (credentialStore.isAuthenticated(AuthProvider.github)) {
+					this._authProvider = AuthProvider.github;
+				}
 
-			if (credentialStore.isAuthenticated(AuthProvider['github-enterprise']) && hasEnterpriseUri()) {
-				this._authProvider = AuthProvider['github-enterprise'];
-			}
-		});
+				if (credentialStore.isAuthenticated(AuthProvider['github-enterprise']) && hasEnterpriseUri()) {
+					this._authProvider = AuthProvider['github-enterprise'];
+				}
+			})
+		);
 	}
 
-	public getPrIdentifier(pullRequest: PullRequestModel | OctokitResponse<any>['data']): string {
+	private getPrIdentifier(pullRequest: PullRequestModel | OctokitResponse<any>['data']): string {
 		if (pullRequest instanceof PullRequestModel) {
 			return `${pullRequest.remote.url}:${pullRequest.number}`;
 		}
@@ -122,9 +139,20 @@ export class NotificationProvider {
 		return `${pullRequest.repository.html_url}.git:${prNumber}`;
 	}
 
-	public updateViewBadge(treeView: vscode.TreeView<TreeNode>) {
+	/* Takes a PullRequestModel or a PRIdentifier and
+	returns true if there is a Notification for the corresponding PR */
+	public hasNotification(pullRequest: PullRequestModel | string): boolean {
+		const identifier = pullRequest instanceof PullRequestModel ?
+			this.getPrIdentifier(pullRequest) :
+			pullRequest;
+		const prNotifications = this._notifications.get(identifier);
+		return prNotifications !== undefined && prNotifications.length > 0;
+	}
+
+	private updateViewBadge() {
+		const treeView = this._gitHubPrsTree.view;
 		treeView.badge = this._notifications.size !== 0 ? {
-			tooltip: `${this._notifications.size} Notifications`,
+			tooltip: `${this._notifications.size} ${this._notifications.size === 1 ? 'notification' : 'notifications'}`,
 			value: this._notifications.size
 		} : undefined;
 	}
@@ -140,13 +168,10 @@ export class NotificationProvider {
 				for (const prNotification of prNotifications) {
 					if (prNotification) {
 						prNotification.pullRequestModel = node.pullRequestModel;
-						prNotification.pullRequestModel.hasNotifications = true;
 						return;
 					}
 				}
 			}
-
-			node.pullRequestModel.hasNotifications = false;
 		}
 
 		this._gitHubPrsTree.getChildren().then(async (catNodes: CategoryTreeNode[]) => {
@@ -173,7 +198,6 @@ export class NotificationProvider {
 				if (prNotifications) {
 					for (const prNotification of prNotifications) {
 						prNotification.pullRequestModel = pr;
-						prNotification.pullRequestModel.hasNotifications = true;
 					}
 				}
 			});
@@ -186,7 +210,7 @@ export class NotificationProvider {
 	}
 
 	private checkNotificationSetting() {
-		const notificationsTurnedOn = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get(NOTIFICATION_SETTING);
+		const notificationsTurnedOn = NotificationProvider.isPRNotificationsOn();
 		if (notificationsTurnedOn && this._pollingHandler === null) {
 			this.startPolling();
 		}
@@ -195,17 +219,21 @@ export class NotificationProvider {
 			this._lastModified = '';
 			this._pollingHandler = null;
 			this._pollingDuration = DEFAULT_POLLING_DURATION;
-			for (const prNotifications of this._notifications.values()) {
-				for (const prNotification of prNotifications) {
-					if (prNotification.pullRequestModel) {
-						prNotification.pullRequestModel.hasNotifications = false;
-					}
-				}
-			}
+
+			this._onDidChangeNotifications.fire(this.uriFromNotifications());
 			this._notifications.clear();
-			this._gitHubPrsTree.updateNotificationBadge(this);
-			this._gitHubPrsTree.refresh();
+			this.updateViewBadge();
 		}
+	}
+
+	private uriFromNotifications(): vscode.Uri[] {
+		const notificationUris: vscode.Uri[] = [];
+		for (const [identifier, prNotifications] of this._notifications.entries()) {
+			if (prNotifications.length) {
+				notificationUris.push(createPRNodeUri(identifier));
+			}
+		}
+		return notificationUris;
 	}
 
 	private getGitHub(): GitHub | undefined {
@@ -214,44 +242,16 @@ export class NotificationProvider {
 			undefined;
 	}
 
-	public async getNotifications() {
+	private async getNotifications() {
 		const gitHub = this.getGitHub();
 		if (gitHub === undefined)
 			return undefined;
-		const { data, headers } = await gitHub.octokit.request('GET /notifications', {});
+		const { data, headers } = await gitHub.octokit.activity.listNotificationsForAuthenticatedUser();
 		return { data: data, headers: headers };
 	}
 
-	public async markNotifcationsAsReadByTime(lastReadTime: string) {
-		const gitHub = this.getGitHub();
-		await gitHub?.octokit.request('PUT /notifications', {
-			last_read_at: lastReadTime,
-			read: true
-		});
-	}
-
-	public async markAllNotificationsAsRead(owner, repo) {
-		const gitHub = this.getGitHub();
-		await gitHub?.octokit.request('PUT /repos/{owner}/{repo}/notifications', {
-			owner: owner,
-			repo: repo
-		});
-	}
-
-	public async getNotificationThread(thredId) {
-		const gitHub = this.getGitHub();
-		if (gitHub === undefined) {
-			return undefined;
-		}
-
-		const { data, headers } = await gitHub.octokit.request('GET /notifications/threads/{thread_id}', {
-			thread_id: thredId
-		});
-		return { data: data, headers: headers };
-	}
-
-	public async markNotificationThreadAsRead(thredId) {
-		await this.getGitHub()?.octokit.request('PATCH /notifications/threads/{thread_id}', {
+	private async markNotificationThreadAsRead(thredId) {
+		await this.getGitHub()?.octokit.activity.markThreadAsRead({
 			thread_id: thredId
 		});
 	}
@@ -259,19 +259,19 @@ export class NotificationProvider {
 	public async markPrNotificationsAsRead(pullRequestModel: PullRequestModel) {
 		const identifier = this.getPrIdentifier(pullRequestModel);
 		const prNotifications = this._notifications.get(identifier);
-		if (prNotifications) {
+		if (prNotifications && prNotifications.length) {
 			for (const notification of prNotifications) {
 				await this.markNotificationThreadAsRead(notification.threadId);
 			}
-			pullRequestModel.hasNotifications = false;
-			this._notifications.delete(identifier);
-			this._gitHubPrsTree.updateNotificationBadge(this);
-			this._gitHubPrsTree.refresh();
-		}
 
+			const uris = this.uriFromNotifications();
+			this._onDidChangeNotifications.fire(uris);
+			this._notifications.delete(identifier);
+			this.updateViewBadge();
+		}
 	}
 
-	public async pollForNewNotifications() {
+	private async pollForNewNotifications() {
 		const response = await this.getNotifications();
 		if (response === undefined) {
 			return;
@@ -282,7 +282,7 @@ export class NotificationProvider {
 		// Adapt polling interval if it has changed
 		if (pollTimeSuggested !== this._pollingDuration) {
 			this._pollingDuration = pollTimeSuggested;
-			if (this._pollingHandler && vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get(NOTIFICATION_SETTING)) {
+			if (this._pollingHandler && NotificationProvider.isPRNotificationsOn()) {
 				Logger.appendLine('Notifications: Clearing interval');
 				clearInterval(this._pollingHandler);
 				Logger.appendLine(`Notifications: Starting new polling interval with ${this._pollingDuration}`);
@@ -296,13 +296,7 @@ export class NotificationProvider {
 		}
 		this._lastModified = headers['last-modified'];
 
-		for (const prNotifications of this._notifications.values()) {
-			for (const notification of prNotifications) {
-				if (notification.pullRequestModel) {
-					notification.pullRequestModel.hasNotifications = false;
-				}
-			}
-		}
+		const PrNodesToUpdate = this.uriFromNotifications();
 		this._notifications.clear();
 
 		const currentRepos = new Map<string, GitHubRepository>();
@@ -320,7 +314,7 @@ export class NotificationProvider {
 
 			if (githubRepo && notification.subject.type === 'PullRequest') {
 				const splitPrUrl = notification.subject.url.split('/');
-				const prNumber = splitPrUrl[splitPrUrl.length - 1];
+				const prNumber = Number(splitPrUrl[splitPrUrl.length - 1]);
 				const identifier = this.getPrIdentifier(notification);
 
 				const { remote, query, schema } = await githubRepo.ensure();
@@ -330,23 +324,27 @@ export class NotificationProvider {
 					variables: {
 						owner: remote.owner,
 						name: remote.repositoryName,
-						number: Number(prNumber),
+						number: prNumber,
 					},
 				});
 
+				// We only consider open PullRequests as these are displayed in the AllOpen PR category.
+				// Other categories could have querries with closed PRs, but its hard to figure out if a PR
+				// belongs to a querry without loading each PR of that querry.
 				if (data.repository.pullRequest.state === 'OPEN') {
 
 					const newNotification = new Notification(
 						identifier,
 						Number(notification.id),
-						notification.reason,
 						notification.repository.name,
 						Number(prNumber)
 					);
 
 					const currentPrNotifications = this._notifications.get(identifier);
 					if (currentPrNotifications === undefined) {
-						this._notifications.set(identifier, [newNotification]);
+						this._notifications.set(
+							identifier, [newNotification]
+						);
 					}
 					else {
 						currentPrNotifications.push(newNotification);
@@ -358,11 +356,17 @@ export class NotificationProvider {
 
 		this.adaptPRNotifications();
 
-		this._gitHubPrsTree.updateNotificationBadge(this);
-		this._gitHubPrsTree.refresh();
+		this.updateViewBadge();
+		for (const uri of this.uriFromNotifications()) {
+			if (PrNodesToUpdate.find(u => u.fsPath === uri.fsPath) === undefined) {
+				PrNodesToUpdate.push(uri);
+			}
+		}
+
+		this._onDidChangeNotifications.fire(PrNodesToUpdate);
 	}
 
-	public startPolling() {
+	private startPolling() {
 		this.pollForNewNotifications();
 		this._pollingHandler = setInterval(
 			function (notificationProvider: NotificationProvider) {
@@ -377,5 +381,6 @@ export class NotificationProvider {
 		if (this._pollingHandler) {
 			clearInterval(this._pollingHandler);
 		}
+		this.displosables.forEach(displosable => displosable.dispose());
 	}
 }

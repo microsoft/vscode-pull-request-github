@@ -32,6 +32,7 @@ import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { getInMemPRFileSystemProvider } from './view/inMemPRContentProvider';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
+import { PRNodeDecorationProvider } from './view/prNodeDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager, ShowPullRequest } from './view/reviewManager';
 import { ReviewsManager } from './view/reviewsManager';
@@ -153,6 +154,7 @@ async function init(
 		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree, showPRController, sessionState, activePrViewCoordinator),
 	);
 	context.subscriptions.push(new FileTypeDecorationProvider(reposManager, reviewManagers));
+	context.subscriptions.push(new PRNodeDecorationProvider(notificationProvider));
 
 	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, credentialStore, git);
 	context.subscriptions.push(reviewsManager);

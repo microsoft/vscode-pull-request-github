@@ -70,7 +70,7 @@ export async function openDescription(
 	// Create and show a new webview
 	await PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest);
 
-	if (notificationProvider && pullRequest.hasNotifications) {
+	if (notificationProvider?.hasNotification(pullRequest)) {
 		notificationProvider.markPrNotificationsAsRead(pullRequest);
 	}
 

@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { ViewedState } from '../common/comment';
 import { GitChangeType } from '../common/file';
-import { fromFileChangeNodeUri, fromPRNodeUri, fromPRUri, Schemes, toResourceUri } from '../common/uri';
+import { fromFileChangeNodeUri, fromPRUri, Schemes, toResourceUri } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
@@ -113,15 +113,6 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 				propagate: false,
 				badge: this.letter(prParams.status),
 				color: this.color(prParams.status)
-			};
-		}
-
-		const prNodeParams = fromPRNodeUri(uri);
-
-		if (prNodeParams && prNodeParams.hasNotification !== undefined) {
-			return {
-				propagate: false,
-				color: this.color(prNodeParams.hasNotification ? GitChangeType.MODIFY : GitChangeType.UNKNOWN)
 			};
 		}
 

@@ -8,7 +8,6 @@ import { FILE_LIST_LAYOUT } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EXTENSION_ID } from '../constants';
 import { REMOTES_SETTING, ReposManagerState, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
-import { NotificationProvider } from '../github/notifications';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { DecorationProvider } from './treeDecorationProvider';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
@@ -212,10 +211,6 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 	async getParent(element: TreeNode): Promise<TreeNode | undefined> {
 		return element.getParent();
-	}
-
-	public updateNotificationBadge(notificationProvider: NotificationProvider) {
-		notificationProvider.updateViewBadge(this._view);
 	}
 
 	dispose() {

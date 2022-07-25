@@ -14,3 +14,4 @@ export const IGNORE_PR_BRANCHES = 'ignoredPullRequestBranches';
 export const OVERRIDE_DEFAULT_BRANCH = 'overrideDefaultBranch';
 export const PULL_BRANCH = 'pullBranch';
 export const PULL_REQUEST_DESCRIPTION = 'pullRequestDescription';
+export const NOTIFICATION_SETTING = 'notifications';

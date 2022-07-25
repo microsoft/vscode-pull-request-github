@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import * as vscode from 'vscode';
 import { SinonSandbox, createSandbox } from 'sinon';
 import { default as assert } from 'assert';
@@ -21,6 +26,7 @@ import { Resource } from '../../common/resources';
 import { GitApiImpl } from '../../api/api1';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { MockSessionState } from '../mocks/mockSessionState';
+import { NotificationProvider } from '../../github/notifications';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -90,7 +96,8 @@ describe('GitHub Pull Requests view', function () {
 			telemetry,
 			mockSessionState
 		);
-		provider.initialize(manager);
+		const notificationProvider = new NotificationProvider(provider, credentialStore, manager);
+		provider.initialize(manager, notificationProvider);
 
 		const rootNodes = await provider.getChildren();
 		assert.strictEqual(rootNodes.length, 1);
@@ -116,7 +123,8 @@ describe('GitHub Pull Requests view', function () {
 
 		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 		await manager.folderManagers[0].updateRepositories();
-		provider.initialize(manager);
+		const notificationProvider = new NotificationProvider(provider, credentialStore, manager);
+		provider.initialize(manager, notificationProvider);
 
 		const rootNodes = await provider.getChildren();
 
@@ -148,15 +156,15 @@ describe('GitHub Pull Requests view', function () {
 							p.baseRef!(b => b.repository(br => br.url('https://github.com/aaa/bbb')));
 							p.baseRepository(r => r.url('https://github.com/aaa/bbb'));
 						}),
-						);
-					});
-				}).pullRequest;
-				const prItem0 = parseGraphQLPullRequest(pr0.repository.pullRequest, gitHubRepository);
-				const pullRequest0 = new PullRequestModel(telemetry, gitHubRepository, remote, prItem0);
+					);
+				});
+			}).pullRequest;
+			const prItem0 = parseGraphQLPullRequest(pr0.repository.pullRequest, gitHubRepository);
+			const pullRequest0 = new PullRequestModel(telemetry, gitHubRepository, remote, prItem0);
 
-				const pr1 = gitHubRepository.addGraphQLPullRequest(builder => {
-					builder.pullRequest(pr => {
-						pr.repository(r =>
+			const pr1 = gitHubRepository.addGraphQLPullRequest(builder => {
+				builder.pullRequest(pr => {
+					pr.repository(r =>
 						r.pullRequest(p => {
 							p.number(2222);
 							p.title('one');
@@ -189,7 +197,10 @@ describe('GitHub Pull Requests view', function () {
 			});
 			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 			await manager.updateRepositories();
-			provider.initialize(reposManager);
+
+			const notificationProvider = new NotificationProvider(provider, credentialStore, reposManager);
+			provider.initialize(reposManager, notificationProvider);
+
 			manager.activePullRequest = pullRequest1;
 
 			const rootNodes = await provider.getChildren();
