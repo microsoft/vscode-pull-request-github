@@ -270,18 +270,8 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	private async setCurrentUser(github: GitHub): Promise<void> {
-		try {
-			const user = await github.octokit.users.getAuthenticated({});
-			github.currentUser = user.data;
-		} catch (e) {
-			Logger.appendLine(`Error setting the user ${formatError(e)}.`, 'Authentication');
-			if (e.message && e.message.contains('ETIMEDOUT')) {
-				await this.recreate('GitHub Pull Requests and Issues has encountered a problem with your login. Check the "GitHub Pull Request" output for more details.');
-				return this.setCurrentUser(github);
-			} else {
-				throw e;
-			}
-		}
+		const user = await github.octokit.users.getAuthenticated({});
+		github.currentUser = user.data;
 	}
 
 	private async getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions) {
