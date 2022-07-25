@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.46.1
+
+### Fixes
+
+- Unable to Sign in - TypeError: t.contains is not a function. https://github.com/microsoft/vscode-pull-request-github/issues/3692
+
 ## 0.46.0
 
 ### Changes
