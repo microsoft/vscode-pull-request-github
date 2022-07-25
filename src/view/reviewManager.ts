@@ -14,10 +14,10 @@ import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { ISessionState } from '../common/sessionState';
-import { IGNORE_PR_BRANCHES, PR_SETTINGS_NAMESPACE, PULL_BRANCH, USE_REVIEW_MODE } from '../common/settingKeys';
+import { IGNORE_PR_BRANCHES, POST_CREATE, PR_SETTINGS_NAMESPACE, PULL_BRANCH, USE_REVIEW_MODE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { fromReviewUri, toReviewUri } from '../common/uri';
-import { formatError, groupBy } from '../common/utils';
+import { fromPRUri, fromReviewUri, PRUriParams, Schemes, toReviewUri } from '../common/uri';
+import { formatError, groupBy, onceEvent } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
 import { NEVER_SHOW_PULL_NOTIFICATION } from '../extensionState';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
@@ -47,6 +47,7 @@ export class ReviewManager {
 
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber?: number;
+	private _isShowingLastReviewChanges: boolean = false;
 	private _previousRepositoryState: {
 		HEAD: Branch | undefined;
 		remotes: Remote[];
@@ -62,6 +63,7 @@ export class ReviewManager {
 	 * explicit user action from something like reloading on an existing PR branch.
 	 */
 	private justSwitchedToReviewMode: boolean = false;
+	public refreshSinceReview: Promise<void>;
 
 	public get switchingToReviewMode(): boolean {
 		return this._switchingToReviewMode;
@@ -94,6 +96,7 @@ export class ReviewManager {
 			remotes: parseRepositoryRemotes(this._repository),
 		};
 
+		this.refreshSinceReview = Promise.resolve();
 		this.registerListeners();
 
 		this.updateState(true);
@@ -336,12 +339,6 @@ export class ReviewManager {
 			return;
 		}
 
-		const hasPushedChanges = branch.commit !== oldLastCommitSha && branch.ahead === 0 && branch.behind === 0;
-		if (this._prNumber === matchingPullRequestMetadata.prNumber && !hasPushedChanges) {
-			vscode.commands.executeCommand('pr.refreshList');
-			return;
-		}
-
 		const remote = branch.upstream ? branch.upstream.remote : null;
 		if (!remote) {
 			Logger.appendLine(`Review> current branch ${this._repository.state.HEAD.name} hasn't setup remote yet`);
@@ -353,7 +350,7 @@ export class ReviewManager {
 		Logger.appendLine(
 			`Review> current branch ${this._repository.state.HEAD.name} is associated with pull request #${matchingPullRequestMetadata.prNumber}`,
 		);
-		this.clear(false);
+		const previousPrNumber = this._prNumber;
 		this._prNumber = matchingPullRequestMetadata.prNumber;
 
 		const { owner, repositoryName } = matchingPullRequestMetadata;
@@ -369,6 +366,14 @@ export class ReviewManager {
 			Logger.appendLine('Review> This PR is no longer valid');
 			return;
 		}
+
+		const hasPushedChanges = branch.commit !== oldLastCommitSha && branch.ahead === 0 && branch.behind === 0;
+		if (previousPrNumber === pr.number && !hasPushedChanges && (this._isShowingLastReviewChanges === pr.showChangesSinceReview)) {
+			vscode.commands.executeCommand('pr.refreshList');
+			return;
+		}
+		this._isShowingLastReviewChanges = pr.showChangesSinceReview;
+		this.clear(false);
 
 		const useReviewConfiguration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)
 			.get<{ merged: boolean, closed: boolean }>(USE_REVIEW_MODE, { merged: true, closed: false });
@@ -397,6 +402,11 @@ export class ReviewManager {
 		}
 
 		Logger.appendLine('Review> Fetching pull request data');
+		if (!silent) {
+			onceEvent(this._reviewModel.onDidChangeLocalFileChanges)(() => {
+				this._upgradePullRequestEditors(pr);
+			});
+		}
 		// Don't await. Events will be fired as part of the initialization.
 		this.initializePullRequestData(pr);
 		await this.changesInPrDataProvider.addPrToView(
@@ -404,6 +414,7 @@ export class ReviewManager {
 			pr,
 			this._reviewModel,
 			this.justSwitchedToReviewMode,
+			this
 		);
 		this.justSwitchedToReviewMode = false;
 
@@ -411,7 +422,17 @@ export class ReviewManager {
 		await this.registerCommentController();
 		const isFocusMode = this._context.workspaceState.get(FOCUS_REVIEW_MODE);
 
-		this._activePrViewCoordinator.setPullRequest(pr, this._folderRepoManager);
+		this._activePrViewCoordinator.setPullRequest(pr, this._folderRepoManager, this);
+		this._localToDispose.push(
+			pr.onDidChangeChangesSinceReview(async _ => {
+				this.refreshSinceReview = new Promise<void>(async resolve => {
+					this.changesInPrDataProvider.refresh();
+					await this.updateComments();
+					await this.reopenNewReviewDiffs();
+					resolve();
+				});
+			})
+		);
 
 		this.statusBarItem.text = `$(git-pull-request) Pull Request #${this._prNumber}`;
 		this.statusBarItem.command = {
@@ -440,6 +461,34 @@ export class ReviewManager {
 		}
 
 		this._validateStatusInProgress = undefined;
+	}
+
+	private async reopenNewReviewDiffs() {
+		let hasOpenDiff = false;
+		await Promise.all(vscode.window.tabGroups.all.map(tabGroup => {
+			return tabGroup.tabs.map(tab => {
+				if (tab.input instanceof vscode.TabInputTextDiff) {
+					if ((tab.input.original.scheme === Schemes.Review)) {
+
+						for (const localChange of this._reviewModel.localFileChanges) {
+							const fileName = fromReviewUri(tab.input.original.query);
+
+							if (localChange.fileName === fileName.path) {
+								hasOpenDiff = true;
+								vscode.window.tabGroups.close(tab).then(_ => localChange.openDiff(this._folderRepoManager, { preview: tab.isPreview }));
+								break;
+							}
+						}
+
+					}
+				}
+				return Promise.resolve(undefined);
+			});
+		}).flat());
+
+		if (!hasOpenDiff && this._reviewModel.localFileChanges.length) {
+			this._reviewModel.localFileChanges[0].openDiff(this._folderRepoManager, { preview: true });
+		}
 	}
 
 	private openDiff() {
@@ -473,6 +522,43 @@ export class ReviewManager {
 				});
 			}
 		}
+	}
+
+	public async _upgradePullRequestEditors(pullRequest: PullRequestModel) {
+		// Go through all open editors and find pr scheme editors that belong to the active pull request.
+		// Close the editors, and reopen them from the pull request.
+		const reopenFilenames: Set<[PRUriParams, PRUriParams]> = new Set();
+		await Promise.all(vscode.window.tabGroups.all.map(tabGroup => {
+			return tabGroup.tabs.map(tab => {
+				if (tab.input instanceof vscode.TabInputTextDiff) {
+					if ((tab.input.original.scheme === Schemes.Pr) && (tab.input.modified.scheme === Schemes.Pr)) {
+						const originalParams = fromPRUri(tab.input.original);
+						const modifiedParams = fromPRUri(tab.input.modified);
+						if ((originalParams?.prNumber === pullRequest.number) && (modifiedParams?.prNumber === pullRequest.number)) {
+							reopenFilenames.add([originalParams, modifiedParams]);
+							return vscode.window.tabGroups.close(tab);
+						}
+					}
+				}
+				return Promise.resolve(undefined);
+			});
+		}).flat());
+		const reopenPromises: Promise<void>[] = [];
+		if (reopenFilenames.size) {
+			for (const localChange of this.reviewModel.localFileChanges) {
+				for (const prFileChange of reopenFilenames) {
+					if (Array.isArray(prFileChange)) {
+						const modifiedPrChange = prFileChange[1];
+						if (localChange.fileName === modifiedPrChange.fileName) {
+							reopenPromises.push(localChange.openDiff(this._folderRepoManager, { preview: false }));
+							reopenFilenames.delete(prFileChange);
+							break;
+						}
+					}
+				}
+			}
+		}
+		return Promise.all(reopenPromises);
 	}
 
 	public async updateComments(): Promise<void> {
@@ -889,14 +975,17 @@ export class ReviewManager {
 			this._createPullRequestHelper = new CreatePullRequestHelper(this.repository);
 			this._createPullRequestHelper.onDidCreate(async createdPR => {
 				await this.updateState(false, false);
-				const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(this._folderRepoManager);
-				await openDescription(
-					this._context,
-					this._telemetry,
-					createdPR,
-					descriptionNode,
-					this._folderRepoManager,
-				);
+				const postCreate = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<'none' | 'openOverview'>(POST_CREATE, 'openOverview');
+				if (postCreate === 'openOverview') {
+					const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(this._folderRepoManager);
+					await openDescription(
+						this._context,
+						this._telemetry,
+						createdPR,
+						descriptionNode,
+						this._folderRepoManager,
+					);
+				}
 			});
 		}
 

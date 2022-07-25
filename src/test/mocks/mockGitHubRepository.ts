@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { SinonSandbox } from 'sinon';
 import { QueryOptions, ApolloQueryResult, FetchResult, MutationOptions, NetworkStatus, OperationVariables } from 'apollo-boost';
 
@@ -21,7 +26,7 @@ export class MockGitHubRepository extends GitHubRepository {
 	readonly queryProvider: QueryProvider;
 
 	constructor(remote: Remote, credentialStore: CredentialStore, telemetry: MockTelemetry, sinon: SinonSandbox) {
-		super(remote, Uri.file('C:\\users\\test\\repo'),credentialStore, telemetry, new MockSessionState());
+		super(remote, Uri.file('C:\\users\\test\\repo'), credentialStore, telemetry, new MockSessionState());
 
 		this.queryProvider = new QueryProvider(sinon);
 
@@ -89,6 +94,18 @@ export class MockGitHubRepository extends GitHubRepository {
 			},
 			{ data: responses.timelineEvents, loading: false, stale: false, networkStatus: NetworkStatus.ready },
 		);
+
+		this.queryProvider.expectGraphQLQuery(
+			{
+				query: queries.LatestReviewCommit,
+				variables: {
+					owner: this.remote.owner,
+					name: this.remote.repositoryName,
+					number: prNumber,
+				}
+			},
+			{ data: responses.latestReviewCommit, loading: false, stale: false, networkStatus: NetworkStatus.ready },
+		)
 
 		this._addPullRequestCommon(prNumber, headRef && headRef.target.oid, responses);
 

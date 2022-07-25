@@ -665,6 +665,18 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.showDiffSinceLastReview', async (descriptionNode: DescriptionNode) => {
+			descriptionNode.pullRequestModel.showChangesSinceReview = true;
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.showDiffAll', async (descriptionNode: DescriptionNode) => {
+			descriptionNode.pullRequestModel.showChangesSinceReview = false;
+		}),
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.signin', async () => {
 			await reposManager.authenticate();
 		}),

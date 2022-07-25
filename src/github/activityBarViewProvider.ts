@@ -9,6 +9,7 @@ import { IComment } from '../common/comment';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
+import { ReviewManager } from '../view/reviewManager';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GithubItemStateEnum, ReviewEvent, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
@@ -24,6 +25,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	constructor(
 		extensionUri: vscode.Uri,
 		private readonly _folderRepositoryManager: FolderRepositoryManager,
+		private readonly _reviewManager: ReviewManager,
 		private _item: PullRequestModel,
 	) {
 		super(extensionUri);
@@ -78,6 +80,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				return this.createComment(message);
 			case 'pr.merge':
 				return this.mergePullRequest(message);
+			case 'pr.open-create':
+				return this.create();
 			case 'pr.deleteBranch':
 				return this.deleteBranch(message);
 			case 'pr.readyForReview':
@@ -214,6 +218,10 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				});
 			}
 		});
+	}
+
+	private create() {
+		this._reviewManager.createPullRequest();
 	}
 
 	private createComment(message: IRequestMessage<string>) {

@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { PullRequestViewProvider } from '../github/activityBarViewProvider';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { ReviewManager } from './reviewManager';
 
 export class WebviewViewCoordinator {
 	private _webviewViewProvider?: PullRequestViewProvider;
@@ -14,8 +15,8 @@ export class WebviewViewCoordinator {
 
 	constructor(private _context: vscode.ExtensionContext) { }
 
-	private create(pullRequestModel: PullRequestModel, folderRepositoryManager: FolderRepositoryManager) {
-		this._webviewViewProvider = new PullRequestViewProvider(this._context.extensionUri, folderRepositoryManager, pullRequestModel);
+	private create(pullRequestModel: PullRequestModel, folderRepositoryManager: FolderRepositoryManager, reviewManager: ReviewManager) {
+		this._webviewViewProvider = new PullRequestViewProvider(this._context.extensionUri, folderRepositoryManager, reviewManager, pullRequestModel);
 		this._context.subscriptions.push(
 			vscode.window.registerWebviewViewProvider(
 				this._webviewViewProvider.viewType,
@@ -29,10 +30,10 @@ export class WebviewViewCoordinator {
 		);
 	}
 
-	public setPullRequest(pullRequestModel: PullRequestModel, folderRepositoryManager: FolderRepositoryManager) {
+	public setPullRequest(pullRequestModel: PullRequestModel, folderRepositoryManager: FolderRepositoryManager, reviewManager: ReviewManager) {
 		this._pullRequestModel = pullRequestModel;
 		if (!this._webviewViewProvider) {
-			this.create(pullRequestModel, folderRepositoryManager);
+			this.create(pullRequestModel, folderRepositoryManager, reviewManager);
 		} else {
 			this._webviewViewProvider.updatePullRequest(pullRequestModel);
 		}

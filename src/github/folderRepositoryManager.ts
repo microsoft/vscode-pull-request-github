@@ -18,6 +18,7 @@ import { fromPRUri, Schemes } from '../common/uri';
 import { compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
 import { REPO_KEYS, ReposState } from '../extensionState';
+import { git } from '../gitProviders/gitCommands';
 import { UserCompletion, userMarkdown } from '../issues/util';
 import { OctokitCommon } from './common';
 import { AuthProvider, CredentialStore } from './credentials';
@@ -1898,7 +1899,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				const chooseABranch = 'Choose a Branch';
 				vscode.window.showInformationMessage('The default branch is already checked out.', chooseABranch).then(choice => {
 					if (choice === chooseABranch) {
-						return vscode.commands.executeCommand('git.checkout');
+						return git.checkout();
 					}
 				});
 				return;
@@ -1907,7 +1908,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (branchObj.upstream && branch === branchObj.upstream.name) {
 				await this.repository.checkout(branch);
 			} else {
-				await vscode.commands.executeCommand('git.checkout');
+				await git.checkout();
 			}
 		} catch (e) {
 			if (e.gitErrorCode) {
@@ -1927,8 +1928,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	private findExistingGitHubRepository(remote: { owner: string, repositoryName: string, remoteName?: string }): GitHubRepository | undefined {
 		return this._githubRepositories.find(
 			r =>
-				(r.remote.owner === remote.owner)
-				&& (r.remote.repositoryName === remote.repositoryName)
+				(r.remote.owner.toLowerCase() === remote.owner.toLowerCase())
+				&& (r.remote.repositoryName.toLowerCase() === remote.repositoryName.toLowerCase())
 				&& (!remote.remoteName || (r.remote.remoteName === remote.remoteName)),
 		);
 	}

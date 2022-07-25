@@ -18,6 +18,7 @@ import { OctokitCommon } from './common';
 import { CredentialStore, GitHub } from './credentials';
 import {
 	AssignableUsersResponse,
+	CreatePullRequestResponse,
 	ForkDetailsResponse,
 	IssuesResponse,
 	IssuesSearchResponse,
@@ -612,20 +613,19 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	async getAuthenticatedUser(): Promise<string> {
-		const { octokit } = await this.ensure();
-		const user = await octokit.users.getAuthenticated({});
-		return user.data.login;
+		return this._credentialStore.getCurrentUser(this.remote.authProviderId).login;
 	}
 
 	async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
-			const user = await octokit.users.getAuthenticated({});
+
+			const user = await this.getAuthenticatedUser();
 			// Search api will not try to resolve repo that redirects, so get full name first
 			const repo = await octokit.repos.get({ owner: this.remote.owner, repo: this.remote.repositoryName });
 			const { data, headers } = await octokit.search.issuesAndPullRequests({
-				q: getPRFetchQuery(repo.data.full_name, user.data.login, categoryQuery),
+				q: getPRFetchQuery(repo.data.full_name, user, categoryQuery),
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1,
 			});
@@ -694,9 +694,33 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	async createPullRequest(params: OctokitCommon.PullsCreateParams): Promise<PullRequestModel> {
-		const { octokit } = await this.ensure();
-		const { data } = await octokit.pulls.create(params);
-		return this.createOrUpdatePullRequestModel(convertRESTPullRequestToRawPullRequest(data, this));
+		try {
+			Logger.debug(`Create pull request - enter`, GitHubRepository.ID);
+			const metadata = await this.getMetadata();
+			const { mutate, schema } = await this.ensure();
+
+			const { data } = await mutate<CreatePullRequestResponse>({
+				mutation: schema.CreatePullRequest,
+				variables: {
+					input: {
+						repositoryId: metadata.node_id,
+						baseRefName: params.base,
+						headRefName: params.head,
+						title: params.title,
+						body: params.body,
+						draft: params.draft
+					}
+				}
+			});
+			Logger.debug(`Create pull request - done`, GitHubRepository.ID);
+			if (!data) {
+				throw new Error('Failed to create pull request.');
+			}
+			return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data.createPullRequest.pullRequest, this));
+		} catch (e) {
+			Logger.appendLine(`GithubRepository> Unable to create PR: ${e}`);
+			throw e;
+		}
 	}
 
 	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {

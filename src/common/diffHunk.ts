@@ -269,7 +269,9 @@ export async function parseDiff(
 		const review = reviews[i];
 		const gitChangeType = getGitChangeType(review.status);
 
-		if (!review.patch) {
+		if (!review.patch &&
+			// We don't need to make a SlimFileChange for empty file adds.
+			!((gitChangeType === GitChangeType.ADD) && (review.additions === 0))) {
 			fileChanges.push(
 				new SlimFileChange(
 					parentCommit,
@@ -282,7 +284,7 @@ export async function parseDiff(
 			continue;
 		}
 
-		const diffHunks = parsePatch(review.patch);
+		const diffHunks = review.patch ? parsePatch(review.patch) : [];
 		fileChanges.push(
 			new InMemFileChange(
 				parentCommit,

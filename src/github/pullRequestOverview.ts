@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { onDidUpdatePR, openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
@@ -26,7 +25,7 @@ import {
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
-import { isInCodespaces, parseReviewers } from './utils';
+import { insertNewCommitsSinceReview, isInCodespaces, parseReviewers } from './utils';
 
 type MilestoneQuickPickItem = vscode.QuickPickItem & { id: string; milestone: IMilestone };
 
@@ -164,6 +163,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			pullRequestModel.getReviewRequests(),
 			this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
 			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
+			pullRequestModel.getViewerLatestReviewCommit()
 		])
 			.then(result => {
 				const [
@@ -174,6 +174,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					requestedReviewers,
 					repositoryAccess,
 					branchInfo,
+					latestReviewCommitInfo
 				] = result;
 				if (!pullRequest) {
 					throw new Error(
@@ -193,6 +194,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
 				this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
 				const currentUser = this._folderRepositoryManager.getCurrentUser(this._item.githubRepository);
+
+				insertNewCommitsSinceReview(timelineEvents, latestReviewCommitInfo?.sha, currentUser, pullRequest.head);
 
 				const isCrossRepository =
 					pullRequest.base &&
@@ -323,7 +326,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 			case 'pr.update-automerge':
 				return this.updateAutoMerge(message);
+			case 'pr.gotoChangesSinceReview':
+				this.gotoChangesSinceReview();
+				break;
 		}
+	}
+
+	private gotoChangesSinceReview() {
+		this._item.showChangesSinceReview = true;
 	}
 
 	private async getReviewersQuickPickItems(
@@ -389,14 +399,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		return reviewers;
 	}
-	private getAssigneesQuickPickItems(
-		assignableUsers: IAccount[],
-		suggestedReviewers: IAccount[],
-		viewer: IAccount,
-	): (vscode.QuickPickItem & { assignee?: IAccount })[] {
-		if (!suggestedReviewers) {
-			return [];
-		}
+	private async getAssigneesQuickPickItems():
+		Promise<(vscode.QuickPickItem & { assignee?: IAccount })[]> {
+
+		const [allAssignableUsers, { participants, viewer }] = await Promise.all([
+			this._folderRepositoryManager.getAssignableUsers(),
+			this._folderRepositoryManager.getPullRequestParticipants(this._item.githubRepository, this._item.number)
+		]);
+
+		let assignableUsers = allAssignableUsers[this._item.remote.remoteName];
+
 		assignableUsers = assignableUsers ?? [];
 		// used to track logins that shouldn't be added to pick list
 		// e.g. author, existing and already added reviewers
@@ -404,7 +416,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		const assignees: (vscode.QuickPickItem & { assignee?: IAccount })[] = [];
 		// Check if the viewer is allowed to be assigned to the PR
-		if (assignableUsers.findIndex((assignableUser: IAccount) => assignableUser.login === viewer.login) !== -1){
+		if (assignableUsers.findIndex((assignableUser: IAccount) => assignableUser.login === viewer.login) !== -1) {
 			assignees.push({
 				label: viewer.login,
 				description: viewer.name,
@@ -413,7 +425,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			skipList.add(viewer.login);
 		}
 
-		for (const suggestedReviewer of suggestedReviewers) {
+		for (const suggestedReviewer of participants) {
 			if (skipList.has(suggestedReviewer.login)) {
 				continue;
 			}
@@ -427,7 +439,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			skipList.add(suggestedReviewer.login);
 		}
 
-		if (assignees.length !== 0){
+		if (assignees.length !== 0) {
 			assignees.unshift({
 				kind: vscode.QuickPickItemKind.Separator,
 				label: 'Suggestions'
@@ -513,6 +525,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}
 
 			const quickPick = vscode.window.createQuickPick();
+			quickPick.busy = true;
 			quickPick.canSelectMany = false;
 			quickPick.title = 'Select a milestone to add';
 			quickPick.buttons = [{
@@ -542,6 +555,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			quickPick.show();
 			quickPick.items = await getMilestoneOptions(this._folderRepositoryManager);
+			quickPick.busy = false;
 
 			quickPick.onDidAccept(async () => {
 				quickPick.hide();
@@ -572,15 +586,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
+	private async
+
 	private async addAssignees(message: IRequestMessage<void>): Promise<void> {
 		try {
-			const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
-			const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
-
-			const { participants, viewer } = await this._folderRepositoryManager.getPullRequestParticipants(this._item.githubRepository, this._item.number);
-
 			const assigneesToAdd = (await vscode.window.showQuickPick(
-				this.getAssigneesQuickPickItems(assignableUsers, participants, viewer),
+				this.getAssigneesQuickPickItems(),
 				{
 					canPickMany: true,
 					matchOnDescription: true,
@@ -650,18 +661,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const regex = /```diff\n([\s\S]*)\n```/g;
 			const matches = regex.exec(comment.body);
 
-			const tempFilePath = path.join(
-				this._folderRepositoryManager.repository.rootUri.path,
-				'.git',
-				`${comment.id}.diff`,
-			);
+			const tempUri = vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, '.git', `${comment.id}.diff`);
 
 			const encoder = new TextEncoder();
-			const tempUri = vscode.Uri.parse(tempFilePath);
 
 			await vscode.workspace.fs.writeFile(tempUri, encoder.encode(matches![1]));
-			await this._folderRepositoryManager.repository.apply(tempFilePath, true);
+			await this._folderRepositoryManager.repository.apply(tempUri.fsPath);
 			await vscode.workspace.fs.delete(tempUri);
+			vscode.window.showInformationMessage('Patch applied!');
 		} catch (e) {
 			Logger.appendLine(`Applying patch failed: ${e}`);
 			vscode.window.showErrorMessage(`Applying patch failed: ${formatError(e)}`);

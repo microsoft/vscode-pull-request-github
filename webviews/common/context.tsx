@@ -40,6 +40,8 @@ export class PRContext {
 		});
 	};
 
+	public gotoChangesSinceReview = () => this.postMessage({ command: 'pr.gotoChangesSinceReview' });
+
 	public refresh = () => this.postMessage({ command: 'pr.refresh' });
 
 	public checkMergeability = () => this.postMessage({ command: 'pr.checkMergeability' });
@@ -69,6 +71,7 @@ export class PRContext {
 	public addAssignees = () => this.postMessage({ command: 'pr.add-assignees' });
 	public addAssigneeYourself = () => this.postMessage({ command: 'pr.add-assignee-yourself' });
 	public addLabels = () => this.postMessage({ command: 'pr.add-labels' });
+	public create = () => this.postMessage({ command: 'pr.open-create' });
 
 	public deleteComment = async (args: { id: number; pullRequestReviewId?: number }) => {
 		await this.postMessage({ command: 'pr.delete-comment', args });
@@ -149,7 +152,7 @@ export class PRContext {
 		this.postMessage({ command: 'pr.apply-patch', args: { comment } });
 	};
 
-	private appendReview({ review, reviewers }: {review: ReviewEvent, reviewers: ReviewState[]}) {
+	private appendReview({ review, reviewers }: { review: ReviewEvent, reviewers: ReviewState[] }) {
 		const state = this.pr;
 		const events = state.events.filter(e => !isReviewEvent(e) || e.state.toLowerCase() !== 'pending');
 		events.forEach(event => {

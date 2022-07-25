@@ -120,7 +120,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		this.setContextKey(this.pullRequestModel.hasPendingReview);
 	}
 
-	private getPREditors(editors: vscode.TextEditor[]): vscode.TextEditor[] {
+	private getPREditors(editors: readonly vscode.TextEditor[]): vscode.TextEditor[] {
 		return editors.filter(editor => {
 			if (editor.document.uri.scheme !== Schemes.Pr) {
 				return false;
@@ -222,7 +222,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		});
 	}
 
-	private onDidChangeOpenEditors(editors: vscode.TextEditor[]): void {
+	private onDidChangeOpenEditors(editors: readonly vscode.TextEditor[]): void {
 		const prEditors = this.getPREditors(editors);
 		const removed = this._openPREditors.filter(x => !prEditors.includes(x));
 		this.addCachedEditors(removed);
