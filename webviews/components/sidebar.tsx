@@ -94,15 +94,15 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					})
 				) : (
 					<div className="section-placeholder">
-							None yet{pr.canEdit ? (
-								<>
-									&mdash;
-									<a onClick={async () => {
-										const currentUser = await addAssigneeYourself();
-										updatePR({ assignees: pr.assignees.concat(currentUser.added) });
-									}}>assign yourself</a>
-								</>)
-								: null}
+						None yet{pr.canEdit ? (
+							<>
+								&mdash;
+								<a onClick={async () => {
+									const currentUser = await addAssigneeYourself();
+									updatePR({ assignees: pr.assignees.concat(currentUser.added) });
+								}}>assign yourself</a>
+							</>)
+							: null}
 					</div>
 				)}
 			</div>
@@ -171,17 +171,41 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 }
 
 function Label(label: ILabel & { canDelete: boolean }) {
-	const { name, canDelete } = label;
-	const { removeLabel } = useContext(PullRequestContext);
+	const { name, canDelete, color } = label;
+	const { removeLabel, hexToRgb, rgbToHsl, hslToHex } = useContext(PullRequestContext);
+	const rgbColor = hexToRgb(color);
+	const hslColor = rgbToHsl(rgbColor.r, rgbColor.g, rgbColor.b);
+
+	const lightnessThreshold = 0.6;
+	const backgroundAlpha = 0.18;
+	const borderAlpha = 0.3;
+
+	const perceivedLightness = (rgbColor.r * 0.2126 + rgbColor.g * 0.7152 + rgbColor.b * 0.0722) / 255;
+	const lightnessSwitch = Math.max(0, Math.min((perceivedLightness - lightnessThreshold) * -1000, 1));
+
+	const lightenBy = (lightnessThreshold - perceivedLightness) * 100 * lightnessSwitch;
+	const textColor = `#${hslToHex(hslColor.h, hslColor.s, hslColor.l + lightenBy)}`;
+	const backgroundColor = `rgba(${rgbColor.r}, ${rgbColor.g}, ${rgbColor.b}, ${backgroundAlpha})`;
+	const rgbBorder = hexToRgb(hslToHex(hslColor.h, hslColor.s, hslColor.l + lightenBy));
+	const borderColor = `rgba(${rgbBorder.r}, ${rgbBorder.g}, ${rgbBorder.b}, ${borderAlpha})`;
+
 	return (
 		<div
 			className="section-item label"
+			style={{
+				backgroundColor: backgroundColor,
+				color: textColor,
+				border: `1px solid ${borderColor}`
+			}}
 		>
 			{name}
 			{canDelete ? (
 				<>
 					{nbsp}
-					<button className="push-right remove-item" onClick={() => removeLabel(name)}>
+					<button className="push-right remove-item"
+						onClick={() => removeLabel(name)}
+						style={{ stroke: textColor }}
+					>
 						{deleteIcon}️
 					</button>
 					{nbsp}
