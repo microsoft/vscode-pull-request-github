@@ -271,6 +271,7 @@ function registerPostCommitCommandsProvider(reposManager: RepositoriesManager, g
 			const found = reposManager.folderManagers.find(folderManager => folderManager.findRepo(githubRepo => {
 				return !!repository.state.remotes.find(remote => remote.fetchUrl?.toLowerCase() === githubRepo.remote.url.toLowerCase());
 			}));
+			Logger.debug(`Found ${found ? 'a repo' : 'no repos'} when getting post commit commands.`, 'GitPostCommitCommands');
 			return found ? [{
 				command: 'pr.create',
 				title: 'Commit & Create Pull Request'
@@ -282,7 +283,9 @@ function registerPostCommitCommandsProvider(reposManager: RepositoriesManager, g
 		return reposManager.folderManagers.some(folderManager => folderManager.gitHubRepositories.length > 0);
 	}
 	function tryRegister(): boolean {
+		Logger.debug('Trying to register post commit commands.', 'GitPostCommitCommands');
 		if (hasGitHubRepos()) {
+			Logger.debug('GitHub remote(s) found, registering post commit commands.', 'GitPostCommitCommands');
 			git.registerPostCommitCommandsProvider(new Provider());
 			return true;
 		}
