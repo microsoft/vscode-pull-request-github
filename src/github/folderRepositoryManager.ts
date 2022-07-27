@@ -1060,7 +1060,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				title: data.title,
 				dueOn: data.due_on,
 				createdAt: data.created_at,
-				id: data.id.toString(),
+				id: data.node_id,
 			};
 		}
 		catch (e) {
