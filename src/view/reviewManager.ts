@@ -428,6 +428,7 @@ export class ReviewManager {
 				this.refreshSinceReview = new Promise<void>(async resolve => {
 					this.changesInPrDataProvider.refresh();
 					await this.updateComments();
+					pr.onDidChangeChangesSinceReviewActiveEmitter.fire();
 					await this.reopenNewReviewDiffs();
 					resolve();
 				});
