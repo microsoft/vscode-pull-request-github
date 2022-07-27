@@ -545,6 +545,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				inputBox.onDidAccept(async () => {
 					inputBox.hide();
 					if (inputBox.value !== '') {
+						if (inputBox.value.length > 255) {
+							vscode.window.showErrorMessage(`Failed to create milestone: The title can contain a maximum of 255 characters`);
+							return;
+						}
+						// Check if milestone already exists
+						for (const existingMilestone of quickPick.items) {
+							if (existingMilestone.label === inputBox.value) {
+								vscode.window.showErrorMessage(`Failed to create milestone: The milestone '${inputBox.value}' already exists`);
+								return;
+							}
+						}
 						const milestone = await this._folderRepositoryManager.createMilestone(this._item.githubRepository, inputBox.value);
 						if (milestone !== undefined) {
 							await this.updateMilestone(milestone, message);
