@@ -374,7 +374,7 @@ const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) => (
 					<StateIcon state={s.state} />
 					<Avatar for={{ avatarUrl: s.avatar_url, url: s.url }} />
 					<span className="status-check-detail-text">
-						// allow-any-unicode-next-line
+						{/* allow-any-unicode-next-line */}
 						{s.context} {s.description ? `— ${s.description}` : ''}
 					</span>
 				</div>

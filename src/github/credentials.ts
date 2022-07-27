@@ -12,7 +12,6 @@ import * as vscode from 'vscode';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
 import { ITelemetry } from '../common/telemetry';
-import { formatError } from '../common/utils';
 import { agent } from '../env/node/net';
 import { OctokitCommon } from './common';
 import { getEnterpriseUri, hasEnterpriseUri } from './utils';
