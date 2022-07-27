@@ -51,11 +51,9 @@ export class ReviewsManager {
 						}
 					}
 
-					const reviewModels: ReviewModel[] = this._reviewManagers.map(manager => manager.reviewModel);
-
 					this._prsTreeDataProvider.dispose();
 					this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry);
-					this._prsTreeDataProvider.initialize(this._reposManager, reviewModels);
+					this._prsTreeDataProvider.initialize(this._reposManager, this._reviewManagers.map(manager => manager.reviewModel));
 					this._disposables.push(this._prsTreeDataProvider);
 				}
 			}),
