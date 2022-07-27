@@ -14,6 +14,7 @@ import { GitContentFileSystemProvider } from './gitContentProvider';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { ReviewManager } from './reviewManager';
+import { ReviewModel } from './reviewModel';
 
 export class ReviewsManager {
 	public static ID = 'Reviews';
@@ -50,9 +51,11 @@ export class ReviewsManager {
 						}
 					}
 
+					const reviewModels: ReviewModel[] = this._reviewManagers.map(manager => manager.reviewModel);
+
 					this._prsTreeDataProvider.dispose();
 					this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry);
-					this._prsTreeDataProvider.initialize(this._reposManager);
+					this._prsTreeDataProvider.initialize(this._reposManager, reviewModels);
 					this._disposables.push(this._prsTreeDataProvider);
 				}
 			}),

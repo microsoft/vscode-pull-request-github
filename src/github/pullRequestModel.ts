@@ -120,9 +120,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _onDidChangeChangesSinceReview = new vscode.EventEmitter<void>();
 	public onDidChangeChangesSinceReview = this._onDidChangeChangesSinceReview.event;
 
-	public onDidChangeChangesSinceReviewActiveEmitter = new vscode.EventEmitter<void>();
-	public onDidChangeChangesSinceReviewActive = this.onDidChangeChangesSinceReviewActiveEmitter.event;
-
 	private _comments: IComment[] | undefined;
 	private _onDidChangeComments: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidChangeComments: vscode.Event<void> = this._onDidChangeComments.event;

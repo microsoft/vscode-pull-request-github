@@ -195,7 +195,7 @@ async function init(
 		tree.refresh();
 	});
 
-	tree.initialize(reposManager);
+	tree.initialize(reposManager, reviewManagers.map(manager => manager.reviewModel));
 
 	setSyncedKeys(context);
 	registerCommands(context, sessionState, reposManager, reviewManagers, telemetry, credentialStore, tree);

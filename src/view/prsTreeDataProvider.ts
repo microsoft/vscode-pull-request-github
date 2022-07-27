@@ -9,6 +9,7 @@ import { ITelemetry } from '../common/telemetry';
 import { EXTENSION_ID } from '../constants';
 import { REMOTES_SETTING, ReposManagerState, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { ReviewModel } from './reviewModel';
 import { DecorationProvider } from './treeDecorationProvider';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
@@ -93,7 +94,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		return this._view.reveal(element, options);
 	}
 
-	initialize(reposManager: RepositoriesManager) {
+	initialize(reposManager: RepositoriesManager, reviewModels: ReviewModel[]) {
 		if (this._initialized) {
 			throw new Error('Tree has already been initialized!');
 		}
@@ -110,6 +111,11 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 				return manager.onDidChangeRepositories(() => {
 					this._onDidChangeTreeData.fire();
 				});
+			}),
+		);
+		this._disposables.push(
+			...reviewModels.map(model => {
+				return model.onDidChangeLocalFileChanges(_ => { this.refresh(); });
 			}),
 		);
 
