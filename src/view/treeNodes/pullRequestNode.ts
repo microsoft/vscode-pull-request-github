@@ -126,7 +126,9 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 	protected registerSinceReviewChange() {
 		this._disposables.push(
 			this.pullRequestModel.onDidChangeChangesSinceReview(_ => {
-				this.refresh();
+				if (!this.pullRequestModel.isActive) {
+					this.refresh();
+				}
 			})
 		);
 	}
