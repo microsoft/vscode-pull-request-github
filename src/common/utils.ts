@@ -185,6 +185,8 @@ export function formatError(e: HookError | any): string {
 				return `Value "${error.value}" cannot be set for field ${error.field} (code: ${error.code})`;
 			})
 			.join(', ');
+	} else if (e.message.startsWith('Validation Failed:')) {
+		return e.message;
 	} else if (isHookError(e) && e.errors) {
 		return e.errors
 			.map((error: any) => {

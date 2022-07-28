@@ -544,21 +544,31 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				inputBox.show();
 				inputBox.onDidAccept(async () => {
 					inputBox.hide();
-					if (inputBox.value !== '') {
-						if (inputBox.value.length > 255) {
-							vscode.window.showErrorMessage(`Failed to create milestone: The title can contain a maximum of 255 characters`);
+					if (inputBox.value === '') {
+						return;
+					}
+					if (inputBox.value.length > 255) {
+						vscode.window.showErrorMessage(`Failed to create milestone: The title can contain a maximum of 255 characters`);
+						return;
+					}
+					// Check if milestone already exists (only check open ones)
+					for (const existingMilestone of quickPick.items) {
+						if (existingMilestone.label === inputBox.value) {
+							vscode.window.showErrorMessage(`Failed to create milestone: The milestone '${inputBox.value}' already exists`);
 							return;
 						}
-						// Check if milestone already exists
-						for (const existingMilestone of quickPick.items) {
-							if (existingMilestone.label === inputBox.value) {
-								vscode.window.showErrorMessage(`Failed to create milestone: The milestone '${inputBox.value}' already exists`);
-								return;
-							}
-						}
+					}
+					try {
 						const milestone = await this._folderRepositoryManager.createMilestone(this._item.githubRepository, inputBox.value);
 						if (milestone !== undefined) {
 							await this.updateMilestone(milestone, message);
+						}
+					} catch (e) {
+						if (e.errors && Array.isArray(e.errors) && e.errors.find(error => error.code === 'already_exists') !== undefined) {
+							vscode.window.showErrorMessage(`Failed to create milestone: The milestone already exists and might be closed`);
+						}
+						else {
+							vscode.window.showErrorMessage(`Failed to create milestone: ${formatError(e)}`);
 						}
 					}
 				});
@@ -577,7 +587,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			});
 
 		} catch (e) {
-			vscode.window.showErrorMessage(formatError(e));
+			vscode.window.showErrorMessage(`Failed to add milestone: ${formatError(e)}`);
 		}
 	}
 
