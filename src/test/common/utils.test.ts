@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { default as assert } from 'assert';
 import * as utils from '../../common/utils';
 import { EventEmitter } from 'vscode';
@@ -24,6 +29,11 @@ describe('utils', () => {
 				{ message: 'user_id can only have one pending review per pull request' },
 			]);
 			assert.strictEqual(utils.formatError(error), 'user_id can only have one pending review per pull request');
+		});
+
+		it('should not format when error message contains all information', () => {
+			const error = new HookError('Validation Failed: Some Validation error', []);
+			assert.strictEqual(utils.formatError(error), 'Validation Failed: Some Validation error information');
 		});
 
 		it('should format an error with submessages that are strings', () => {
