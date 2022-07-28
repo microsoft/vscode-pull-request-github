@@ -33,7 +33,7 @@ describe('utils', () => {
 
 		it('should not format when error message contains all information', () => {
 			const error = new HookError('Validation Failed: Some Validation error', []);
-			assert.strictEqual(utils.formatError(error), 'Validation Failed: Some Validation error information');
+			assert.strictEqual(utils.formatError(error), 'Validation Failed: Some Validation error');
 		});
 
 		it('should format an error with submessages that are strings', () => {
