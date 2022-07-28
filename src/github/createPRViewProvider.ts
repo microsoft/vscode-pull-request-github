@@ -429,6 +429,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 					}
 					if (!existingCompareUpstream) {
 						this._throwError(message, 'No upstream for the compare branch.');
+						progress.report({ message: 'Pull request cancelled', increment: 100 - totalIncrement });
 						return;
 					}
 
