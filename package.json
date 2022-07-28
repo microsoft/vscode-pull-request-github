@@ -165,7 +165,7 @@
 						"off"
 					],
 					"default": "off",
-					"description": "If Github notifications should be shown to the user."
+					"description": "If GitHub notifications should be shown to the user."
 				},
 				"githubPullRequests.fileListLayout": {
 					"type": "string",

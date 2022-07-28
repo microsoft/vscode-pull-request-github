@@ -52,7 +52,7 @@ export class NotificationProvider implements vscode.Disposable {
 	private _lastModified: string;
 	private _pollingHandler: NodeJS.Timeout | null;
 
-	private displosables: vscode.Disposable[] = [];
+	private disposables: vscode.Disposable[] = [];
 
 	private _onDidChangeNotifications: vscode.EventEmitter<vscode.Uri[]> = new vscode.EventEmitter();
 	public onDidChangeNotifications = this._onDidChangeNotifications.event;
@@ -74,21 +74,21 @@ export class NotificationProvider implements vscode.Disposable {
 		this.registerAuthProvider(credentialStore);
 
 		for (const manager of this._reposManager.folderManagers) {
-			this.displosables.push(
+			this.disposables.push(
 				manager.onDidChangeGithubRepositories(() => {
 					this.refreshOrLaunchPolling();
 				})
 			);
 		};
 
-		this.displosables.push(
+		this.disposables.push(
 			gitHubPrsTree.onDidChangeTreeData((node) => {
 				if (NotificationProvider.isPRNotificationsOn()) {
 					this.adaptPRNotifications(node);
 				}
 			})
 		);
-		this.displosables.push(
+		this.disposables.push(
 			gitHubPrsTree.onDidChange(() => {
 				if (NotificationProvider.isPRNotificationsOn()) {
 					this.adaptPRNotifications();
@@ -96,7 +96,7 @@ export class NotificationProvider implements vscode.Disposable {
 			})
 		);
 
-		this.displosables.push(
+		this.disposables.push(
 			vscode.workspace.onDidChangeConfiguration((e) => {
 				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${NOTIFICATION_SETTING}`)) {
 					this.checkNotificationSetting();
@@ -117,7 +117,7 @@ export class NotificationProvider implements vscode.Disposable {
 			this._authProvider = AuthProvider['github-enterprise'];
 		}
 
-		this.displosables.push(
+		this.disposables.push(
 			vscode.authentication.onDidChangeSessions(_ => {
 				if (credentialStore.isAuthenticated(AuthProvider.github)) {
 					this._authProvider = AuthProvider.github;
@@ -296,7 +296,7 @@ export class NotificationProvider implements vscode.Disposable {
 		}
 		this._lastModified = headers['last-modified'];
 
-		const PrNodesToUpdate = this.uriFromNotifications();
+		const prNodesToUpdate = this.uriFromNotifications();
 		this._notifications.clear();
 
 		const currentRepos = new Map<string, GitHubRepository>();
@@ -358,12 +358,12 @@ export class NotificationProvider implements vscode.Disposable {
 
 		this.updateViewBadge();
 		for (const uri of this.uriFromNotifications()) {
-			if (PrNodesToUpdate.find(u => u.fsPath === uri.fsPath) === undefined) {
-				PrNodesToUpdate.push(uri);
+			if (prNodesToUpdate.find(u => u.fsPath === uri.fsPath) === undefined) {
+				prNodesToUpdate.push(uri);
 			}
 		}
 
-		this._onDidChangeNotifications.fire(PrNodesToUpdate);
+		this._onDidChangeNotifications.fire(prNodesToUpdate);
 	}
 
 	private startPolling() {
@@ -381,6 +381,6 @@ export class NotificationProvider implements vscode.Disposable {
 		if (this._pollingHandler) {
 			clearInterval(this._pollingHandler);
 		}
-		this.displosables.forEach(displosable => displosable.dispose());
+		this.disposables.forEach(displosable => displosable.dispose());
 	}
 }
