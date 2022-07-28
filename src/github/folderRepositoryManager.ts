@@ -1268,7 +1268,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						'Commit Changes',
 					);
 					if (shouldCommit === 'Commit Changes') {
-						await vscode.commands.executeCommand('git.commit');
+						await this.repository.commit(`${params.title}${params.body ? `\n${params.body}` : ''}`);
 						await this._repository.push();
 						return this.createPullRequest(params);
 					} else {
