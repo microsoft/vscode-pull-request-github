@@ -14,7 +14,6 @@ import { GitContentFileSystemProvider } from './gitContentProvider';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { ReviewManager } from './reviewManager';
-import { ReviewModel } from './reviewModel';
 
 export class ReviewsManager {
 	public static ID = 'Reviews';
