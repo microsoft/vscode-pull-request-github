@@ -137,7 +137,7 @@ export interface Commit {
 
 export interface AssignedEvent {
 	__typename: string;
-	databaseId: number;
+	id: number;
 	actor: {
 		login: string;
 		avatarUrl: string;

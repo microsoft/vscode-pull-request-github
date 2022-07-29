@@ -93,6 +93,7 @@ fragment Commit on PullRequestCommit {
 }
 
 fragment AssignedEvent on AssignedEvent {
+	id
 	actor {
 		login
 		avatarUrl
