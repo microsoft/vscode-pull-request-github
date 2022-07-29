@@ -24,6 +24,7 @@ module.exports.all = [
 module.exports.unicodeFilter = [
 	'**',
 	// except specific files
+	'!documentation/**/*.gif',
 	'!**/ThirdPartyNotices.txt',
 	'!**/LICENSE.{txt,rtf}',
 	'!**/LICENSE',
@@ -33,6 +34,8 @@ module.exports.indentationFilter = [
 	'**',
 
 	// except specific files
+	'!CHANGELOG.md',
+	'!documentation/**/*.gif',
 	'!**/ThirdPartyNotices.txt',
 	'!**/LICENSE.{txt,rtf}',
 	'!**/LICENSE',
