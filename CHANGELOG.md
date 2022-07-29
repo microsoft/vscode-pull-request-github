@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.47.0
+## 0.48.0
 
 ### Changes
 
@@ -31,8 +31,9 @@
 
 **_Thank You_**
 
-- [@blindpirate (Bo Zhang)](https://github.com/blindpirate): Show pull request's close button for author [PR #3507](https://github.com/microsoft/vscode-pull-request-github/pull/3507)
-- [@leopoldsedev (Christian Leopoldseder)](https://github.com/leopoldsedev): Implement quick self assign link as available on .com (#3382) [PR #3601](https://github.com/microsoft/vscode-pull-request-github/pull/3601)
+* [@blindpirate (Bo Zhang)](https://github.com/blindpirate): Show pull request's close button for author [PR #3507](https://github.com/microsoft/vscode-pull-request-github/pull/3507)
+* [@leopoldsedev (Christian Leopoldseder)](https://github.com/leopoldsedev): Implement quick self assign link as available on .com (#3382) [PR #3601](https://github.com/microsoft/vscode-pull-request-github/pull/3601)
+
 
 ## 0.44.0
 
@@ -52,7 +53,7 @@
 
 **_Thank You_**
 
-- [@jpspringall](https://github.com/jpspringall): Issue #3371 | Updated getAuthSessionOptions in case of GitHub Enterprise AuthProvider [PR #3565](https://github.com/microsoft/vscode-pull-request-github/pull/3565)
+* [@jpspringall](https://github.com/jpspringall): Issue #3371 | Updated getAuthSessionOptions in case of GitHub Enterprise AuthProvider [PR #3565](https://github.com/microsoft/vscode-pull-request-github/pull/3565)
 
 ## 0.42.0
 
@@ -61,17 +62,14 @@
 - New actions to go to github.com/owner/repo/issues and github.com/owner/repo/pulls
 
   ![Open on GitHub](documentation/changelog/0.42.0/open-on-github.png)
-
 - Support for multiline comments
 
   ![Multiline comments](documentation/changelog/0.42.0/multiline-comments.gif)
-
 - Commit changes can now show in a tree or list depending on the value of `githubPullRequests.fileListLayout`
 - "Create Permalink" works on github.dev and vscode.dev from a tag or commit number.
 - "Mark as Viewed" and "Mark as Unviewed" are available in the editor toolbar
 
   ![Mark file as viewed from the editor toolbar](documentation/changelog/0.42.0/mark-as-viewed-toolbar.png)
-
 - Better defaults for `githubIssues.ignoreCompletionTrigger`.
 
 ### Fixes
@@ -85,7 +83,7 @@
 
 **_Thank You_**
 
-- [@hoontae24](https://github.com/hoontae24): Support the copied permalink for Github Enterprise URL [PR #3460](https://github.com/microsoft/vscode-pull-request-github/pull/3460)
+* [@hoontae24](https://github.com/hoontae24): Support the copied permalink for Github Enterprise URL [PR #3460](https://github.com/microsoft/vscode-pull-request-github/pull/3460)
 
 ## 0.40.0
 
@@ -160,10 +158,11 @@
 
 **_Thank You_**
 
-- [@blindpirate (Bo Zhang)](https://github.com/blindpirate)
-  - Fix react warnings in timeline [PR #3212](https://github.com/microsoft/vscode-pull-request-github/pull/3212)
-  - Fix more React warnings of incorrect `props.key` [PR #3214](https://github.com/microsoft/vscode-pull-request-github/pull/3214)
-- [@joshuaobrien (Joshua O'Brien)](https://github.com/joshuaobrien): Add command to open all diffs [PR #3238](https://github.com/microsoft/vscode-pull-request-github/pull/3238)
+* [@blindpirate (Bo Zhang)](https://github.com/blindpirate)
+  * Fix react warnings in timeline [PR #3212](https://github.com/microsoft/vscode-pull-request-github/pull/3212)
+  * Fix more React warnings of incorrect `props.key` [PR #3214](https://github.com/microsoft/vscode-pull-request-github/pull/3214)
+* [@joshuaobrien (Joshua O'Brien)](https://github.com/joshuaobrien): Add command to open all diffs [PR #3238](https://github.com/microsoft/vscode-pull-request-github/pull/3238)
+
 
 ## 0.34.3
 
@@ -209,14 +208,14 @@
 
 **_Thank You_**
 
-- [@38elements (38elements)](https://github.com/38elements)
-  - Fix typo [PR #3049](https://github.com/microsoft/vscode-pull-request-github/pull/3049)
-  - justSwitchedToRevieMode -> justSwitchedToReviewMode [PR #3060](https://github.com/microsoft/vscode-pull-request-github/pull/3060)
-- [@burkeholland (Burke Holland)](https://github.com/burkeholland): Opening a gist repository gives a fetch error [PR #2933](https://github.com/microsoft/vscode-pull-request-github/pull/2933)
-- [@emtei (Mateusz Stopka)](https://github.com/emtei): Do not activate review mode for closed or merged PR [PR #3021](https://github.com/microsoft/vscode-pull-request-github/pull/3021)
-- [@taisph (Tais P. Hansen)](https://github.com/taisph): Fix generated branch name requiring quotes in bash [PR #3084](https://github.com/microsoft/vscode-pull-request-github/pull/3084)
+* [@38elements (38elements)](https://github.com/38elements)
+  * Fix typo [PR #3049](https://github.com/microsoft/vscode-pull-request-github/pull/3049)
+  * justSwitchedToRevieMode -> justSwitchedToReviewMode [PR #3060](https://github.com/microsoft/vscode-pull-request-github/pull/3060)
+* [@burkeholland (Burke Holland)](https://github.com/burkeholland): Opening a gist repository gives a fetch error [PR #2933](https://github.com/microsoft/vscode-pull-request-github/pull/2933)
+* [@emtei (Mateusz Stopka)](https://github.com/emtei): Do not activate review mode for closed or merged PR [PR #3021](https://github.com/microsoft/vscode-pull-request-github/pull/3021)
+* [@taisph (Tais P. Hansen)](https://github.com/taisph): Fix generated branch name requiring quotes in bash [PR #3084](https://github.com/microsoft/vscode-pull-request-github/pull/3084)
 
-## 0.33.\*
+## 0.33.*
 
 - **This is a pre-release version** that uses VS Code's built-in pre-release extension support. The old nightly build (GitHub Pull Requests Nightly) is being deprecated in favor of the this built-in support. Users of the the old nightly build will be automatically upgraded to the new pre-release version; however, extension state will not be migrated. Thank you for helping make GitHub Pull Requests and Issues better!
 
@@ -236,12 +235,12 @@
 
 **_Thank You_**
 
-- [@burkeholland (Burke Holland)](https://github.com/burkeholland)
-  - Fixes Commit hash should use a monospace font #2957 [PR #2968](https://github.com/microsoft/vscode-pull-request-github/pull/2968)
-  - Burkeholland-issue1635 [PR #2993](https://github.com/microsoft/vscode-pull-request-github/pull/2993)
-  - Title doesn't have enough horizontal space in small tabs [PR #3029](https://github.com/microsoft/vscode-pull-request-github/pull/3029)
-  - Fix 2959 - Merge title box needs top margin [PR #3039](https://github.com/microsoft/vscode-pull-request-github/pull/3039)
-- [@nicholas-l (Nicholas Latham)](https://github.com/nicholas-l): Allow authentication for github enterprise [PR #3064](https://github.com/microsoft/vscode-pull-request-github/pull/3064)
+* [@burkeholland (Burke Holland)](https://github.com/burkeholland)
+  * Fixes Commit hash should use a monospace font #2957 [PR #2968](https://github.com/microsoft/vscode-pull-request-github/pull/2968)
+  * Burkeholland-issue1635 [PR #2993](https://github.com/microsoft/vscode-pull-request-github/pull/2993)
+  * Title doesn't have enough horizontal space in small tabs [PR #3029](https://github.com/microsoft/vscode-pull-request-github/pull/3029)
+  * Fix 2959 - Merge title box needs top margin [PR #3039](https://github.com/microsoft/vscode-pull-request-github/pull/3039)
+* [@nicholas-l (Nicholas Latham)](https://github.com/nicholas-l): Allow authentication for github enterprise [PR #3064](https://github.com/microsoft/vscode-pull-request-github/pull/3064)
 
 ## 0.31.1
 
@@ -254,7 +253,6 @@
 ### Changes
 
 - Variable in settings for lowercase branch names when working on and issue
-
 ```json
 {
 	"githubIssues.issueBranchTitle": "${sanitizedLowercaseIssueTitle}"
@@ -262,7 +260,6 @@
 ```
 
 ### Fixes
-
 - issueBranchTitle not Working as Expected. https://github.com/microsoft/vscode-pull-request-github/issues/2259
 - Skipped status check is shown as pending. https://github.com/microsoft/vscode-pull-request-github/issues/2580
 
@@ -287,13 +284,11 @@
 - All comments can be collapsed using the UI.
 
 ![Collapse all comments UI button](documentation/changelog/0.30.0/comments-collapse-all.png)
-
 - All comments can be expanded and collapsed via the commands **GitHub Pull Requests: Expand All Comments** and **GitHub Pull Requests: Collapse All Comments**.
 - The expand/collapse state of pull request comments can be set with the setting `githubPullRequests.commentExpandState`.
 - Adopted the new multiling string support for settings.
 
 ![Multiline setting](documentation/changelog/0.30.0/multiline-setting.png)
-
 - Improved the language on the sidebar view to better indicate that you can submit a review.
 
 ### Fixes
@@ -354,6 +349,7 @@
 
 ![Status bar name](documentation/changelog/0.28.0/status-bar-name.png)
 
+
 ### Fixes
 
 - Placeholder avatar is shown correctly with GitHub Enterprise. https://github.com/microsoft/vscode-pull-request-github/issues/2771
@@ -376,7 +372,6 @@
 - Thanks to a community PR from @kabel, there is support for GitHub Enterprise. See [the discussion in the PR](https://github.com/microsoft/vscode/pull/115940) for how to get set up.
 
 ## 0.26.0
-
 - Files that have been marked as viewed on GitHub show a checkmark decoration in the pull request tree. Each file in the tree has an inline action for marking it as viewed or not viewed.
 
 ![Hovering over a file in the pull request tree, an inline action to mark the file as viewed appears. When marked as viewed, the file is updated with a checkmark decoration and the action changes to mark as not viewed ](documentation/changelog/0.26.0/mark-as-viewed.gif)
@@ -402,7 +397,6 @@
 ## 0.25.0
 
 ### Changes
-
 - For forked repositories, an upstream remote is automatically added if it doesn't exist.
 - The `githubPullRequests.focusedMode` setting is enabled by default, causing the "Focused Mode" view for a checked out pull request to be visible in the Pull Request view container.
 
