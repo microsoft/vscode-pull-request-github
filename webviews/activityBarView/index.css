@@ -36,7 +36,6 @@ textarea {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
-	min-width: 155px;
 }
 
 .ready-for-review-button {
