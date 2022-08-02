@@ -1017,7 +1017,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return this.fetchPagedData<PullRequestModel>(options, queryId, PagedDataType.PullRequest, type, query);
 	}
 
-	async getMilestones(
+	async getMilestoneIssues(
 		options: IPullRequestsPagingOptions = { fetchNextPage: false },
 		includeIssuesWithoutMilestone: boolean = false,
 		query?: string,
