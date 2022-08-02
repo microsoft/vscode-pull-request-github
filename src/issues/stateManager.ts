@@ -390,7 +390,7 @@ export class StateManager {
 			const skipMilestones: string[] = vscode.workspace
 				.getConfiguration(ISSUES_CONFIGURATION)
 				.get(IGNORE_MILESTONES_CONFIGURATION, []);
-			const milestones = await folderManager.getMilestones(
+			const milestones = await folderManager.getMilestoneIssues(
 				{ fetchNextPage: false },
 				skipMilestones.indexOf(NO_MILESTONE) < 0,
 			);

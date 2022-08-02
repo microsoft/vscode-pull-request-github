@@ -428,12 +428,46 @@ export class GitHubRepository implements vscode.Disposable {
 		return githubRepository;
 	}
 
+	async getMilestones(includeClosed: boolean = false): Promise<any> {
+		try {
+			Logger.debug(`Fetch milestones - enter`, GitHubRepository.ID);
+			const { query, remote, schema } = await this.ensure();
+			const states = ['OPEN'];
+			if (includeClosed) {
+				states.push('CLOSED');
+			}
+			const { data } = await query<MilestoneIssuesResponse>({
+				query: schema.GetMilestones,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					states: states,
+				},
+			});
+			Logger.debug(`Fetch milestones - done`, GitHubRepository.ID);
+
+			const milestones: IMilestone[] = [];
+			if (data && data.repository.milestones && data.repository.milestones.nodes) {
+				data.repository.milestones.nodes.forEach(raw => {
+					const milestone = parseMilestone(raw);
+					if (milestone) {
+						milestones.push(milestone);
+					}
+				});
+			}
+			return milestones;
+		} catch (e) {
+			Logger.appendLine(`GithubRepository> Unable to fetch milestones: ${e}`);
+			return;
+		}
+	}
+
 	async getIssuesForUserByMilestone(_page?: number): Promise<MilestoneData | undefined> {
 		try {
 			Logger.debug(`Fetch all issues - enter`, GitHubRepository.ID);
 			const { query, remote, schema } = await this.ensure();
 			const { data } = await query<MilestoneIssuesResponse>({
-				query: schema.GetMilestones,
+				query: schema.GetMilestonesWithIssues,
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,

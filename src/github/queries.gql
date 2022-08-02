@@ -836,7 +836,20 @@ query MaxIssue($owner: String!, $name: String!) {
 	}
 }
 
-query GetMilestones($owner: String!, $name: String!, $assignee: String!) {
+query GetMilestones($owner: String!, $name: String!, $states: [MilestoneState!]!) {
+	repository(owner: $owner, name: $name) {
+			milestones(first: 12, orderBy: { direction: DESC, field: DUE_DATE }, states: $states) {
+				nodes {
+					dueOn
+					title
+					createdAt
+					id
+				}
+			}
+	}
+}
+
+query GetMilestonesWithIssues($owner: String!, $name: String!, $assignee: String!) {
 	repository(owner: $owner, name: $name) {
 		milestones(first: 12, orderBy: { direction: DESC, field: DUE_DATE }, states: OPEN) {
 			nodes {

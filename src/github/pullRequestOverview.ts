@@ -503,11 +503,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async addMilestone(message: IRequestMessage<void>): Promise<void> {
 		try {
-			async function getMilestoneOptions(
-				folderRepoManager: FolderRepositoryManager,
-			): Promise<(MilestoneQuickPickItem | vscode.QuickPickItem)[]> {
-				const milestones = await folderRepoManager.getMilestones();
-				if (!milestones.items.length) {
+			const githubRepository = this._item.githubRepository;
+			async function getMilestoneOptions(): Promise<(MilestoneQuickPickItem | vscode.QuickPickItem)[]> {
+				const milestones = await githubRepository.getMilestones();
+				if (!milestones.length) {
 					return [
 						{
 							label: 'No milestones created for this repository.',
@@ -515,11 +514,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					];
 				}
 
-				return milestones.items.map(result => {
+				return milestones.map(result => {
 					return {
-						label: result.milestone.title,
-						id: result.milestone.id,
-						milestone: result.milestone,
+						label: result.title,
+						id: result.id,
+						milestone: result,
 					};
 				});
 			}
@@ -559,7 +558,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						}
 					}
 					try {
-						const milestone = await this._folderRepositoryManager.createMilestone(this._item.githubRepository, inputBox.value);
+						const milestone = await this._folderRepositoryManager.createMilestone(githubRepository, inputBox.value);
 						if (milestone !== undefined) {
 							await this.updateMilestone(milestone, message);
 						}
@@ -575,7 +574,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			});
 
 			quickPick.show();
-			quickPick.items = await getMilestoneOptions(this._folderRepositoryManager);
+			quickPick.items = await getMilestoneOptions();
 			quickPick.busy = false;
 
 			quickPick.onDidAccept(async () => {
