@@ -6,9 +6,23 @@
 
 - The changes since last review button will appear on PRs to which a commit has been pushed since the viewers review. Pressing it will only show the diffs for the commits since the review.
 
-![Changes since last review](documentation/changelog/0.48.0/changesSinceReview.gif)
+	![Changes since last review](documentation/changelog/0.48.0/changesSinceReview.gif)
 
-- Milestones can be created directlyfrom the add milestone dropdown.
+- Milestones can be created directly from the add milestone dropdown.
+- The setting `githubPullRequests.pullRequestDescription` has been brought back from being deprecated.
+- `githubPullRequests.pullBranch` can be used to configure whether to be prompted to pull changes when a change in a PR is detected.
+- The new **Commit & Create Pull Request** action in the git SCM view let's you commit and go to the "Create PR" view in one click.
+
+	![Commit and Create Pull Request action](documentation/changelog/0.48.0/commit-and-create-pr.png)
+
+### Fixes
+
+- Improve performance of expanding a PR in the "Pull Requests" view. https://github.com/microsoft/vscode-pull-request-github/issues/3684
+- Performance: Delay in showing Assignee quick open. https://github.com/microsoft/vscode-pull-request-github/issues/3728
+- Apply patch feature bugs. https://github.com/microsoft/vscode-pull-request-github/issues/3722
+- Show a notification when there are 2 signed in GitHub accounts. https://github.com/microsoft/vscode-pull-request-github/issues/3693
+- Only first 30 files per PR show in the "Pull Requests" view on vscode.dev. https://github.com/microsoft/vscode-pull-request-github/issues/3682
+- "Upgrade" Pull request diffs opened from the "Pull Requests" view after the PR is checked out. https://github.com/microsoft/vscode-pull-request-github/issues/3631
 
 ## 0.46.0
 
