@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.48.0
+
+### Changes
+
+- The changes since last review button will appear on PRs to which a commit has been pushed since the viewers review. Pressing it will only show the diffs for the commits since the review.
+
+![Changes since last review](documentation/changelog/0.48.0/changesSinceReview.gif)
+
+- Milestones can be created directlyfrom the add milestone dropdown.
+
 ## 0.46.0
 
 ### Changes
