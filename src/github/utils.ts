@@ -789,7 +789,7 @@ export function parseGraphQLTimelineEvents(
 				const assignEv = event as GraphQL.AssignedEvent;
 
 				normalizedEvents.push({
-					id: assignEv.databaseId,
+					id: assignEv.id,
 					event: type,
 					user: assignEv.user,
 					actor: assignEv.actor,
