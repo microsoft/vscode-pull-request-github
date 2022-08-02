@@ -26,8 +26,6 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 	private _commentController?: vscode.CommentController;
 	private _disposables: vscode.Disposable[] = [];
 
-	private _showingChangesSinceReview;
-
 	private _inMemPRContentProvider?: vscode.Disposable;
 
 	private _command: vscode.Command;
@@ -110,10 +108,9 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				result.push(...this._fileChanges);
 			}
 
-			if (this.pullRequestModel.showChangesSinceReview !== this._showingChangesSinceReview || this._showingChangesSinceReview === undefined) {
+			if (this.pullRequestModel.showChangesSinceReview !== undefined) {
 				this.reopenNewPrDiffs(this.pullRequestModel);
 			}
-			this._showingChangesSinceReview = this.pullRequestModel.showChangesSinceReview;
 
 			this.childrenDisposables = result;
 			return result;
@@ -160,7 +157,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				}
 			});
 		});
-		if (!hasOpenDiff && this._fileChanges && this._fileChanges.length && !pullRequest.isActive) {
+		if (pullRequest.showChangesSinceReview && !hasOpenDiff && this._fileChanges && this._fileChanges.length && !pullRequest.isActive) {
 			this._fileChanges[0].openDiff(this._folderReposManager, { preview: true });
 		}
 	}
