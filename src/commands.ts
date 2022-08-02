@@ -20,6 +20,7 @@ import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
 import { PullRequest } from './github/interface';
+import { NotificationProvider } from './github/notifications';
 import { GHPRComment, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
@@ -62,11 +63,16 @@ export async function openDescription(
 	pullRequestModel: PullRequestModel,
 	descriptionNode: DescriptionNode | undefined,
 	folderManager: FolderRepositoryManager,
+	notificationProvider?: NotificationProvider
 ) {
 	const pullRequest = ensurePR(folderManager, pullRequestModel);
 	descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
 	// Create and show a new webview
 	await PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest);
+
+	if (notificationProvider?.hasNotification(pullRequest)) {
+		notificationProvider.markPrNotificationsAsRead(pullRequest);
+	}
 
 	/* __GDPR__
 		"pr.openDescription" : {}
@@ -115,6 +121,7 @@ export function registerCommands(
 	telemetry: ITelemetry,
 	credentialStore: CredentialStore,
 	tree: PullRequestsTreeDataProvider,
+	notificationProvider: NotificationProvider
 ) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
@@ -625,7 +632,7 @@ export function registerCommands(
 					descriptionNode = reviewManager.changesInPrDataProvider.getDescriptionNode(folderManager);
 				}
 
-				await openDescription(context, telemetry, pullRequestModel, descriptionNode, folderManager);
+				await openDescription(context, telemetry, pullRequestModel, descriptionNode, folderManager, notificationProvider);
 			},
 		),
 	);

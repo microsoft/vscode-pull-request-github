@@ -13,6 +13,7 @@
 	"enabledApiProposals": [
 		"tokenInformation",
 		"commentsResolvedState",
+		"badges",
 		"contribViewSize"
 	],
 	"version": "0.46.0",
@@ -156,6 +157,15 @@
 					"default": false,
 					"deprecationMessage": "This setting is deprecated. Views can now be dragged to any location.",
 					"description": "When true, show GitHub Pull Requests within the SCM viewlet. Otherwise show a separate view container for them."
+				},
+				"githubPullRequests.notifications": {
+					"type": "string",
+					"enum": [
+						"pullRequests",
+						"off"
+					],
+					"default": "off",
+					"description": "If GitHub notifications should be shown to the user."
 				},
 				"githubPullRequests.fileListLayout": {
 					"type": "string",
@@ -1749,6 +1759,16 @@
 					"highContrastLight": "editor.foreground"
 				},
 				"description": "The color used for indicating that an issue is closed."
+			},
+			{
+				"id": "pullRequests.notification",
+				"defaults": {
+					"dark": "notificationsInfoIcon.foreground",
+					"light": "notificationsInfoIcon.foreground",
+					"highContrast": "editor.foreground",
+					"highContrastLight": "editor.foreground"
+				},
+				"description": "The color used for indicating a notification on a pull request"
 			}
 		],
 		"resourceLabelFormatters": [
