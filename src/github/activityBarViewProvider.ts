@@ -202,6 +202,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 						isAuthor: currentUser.login === pullRequest.author.login,
 						reviewers: this._existingReviewers,
 						continueOnGitHub,
+						isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
 					},
 				});
 			})

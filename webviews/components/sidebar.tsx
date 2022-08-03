@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useContext } from 'react';
-import { ILabel } from '../../src/github/interface';
+import { gitHubLabelColor } from '../../src/common/utils';
+import { ILabel, IMilestone } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { AuthorLink, Avatar } from '../components/user';
@@ -17,11 +18,10 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 		addReviewers,
 		addAssignees,
 		addAssigneeYourself,
-		addMilestone,
 		addLabels,
+		addMilestone,
 		updatePR,
 		removeAssignee,
-		removeMilestone,
 		pr,
 	} = useContext(PullRequestContext);
 
@@ -144,58 +144,26 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					) : null}
 				</div>
 				{milestone ? (
-					<div className="section-item label">
-						{milestone.title}
-						{hasWritePermission ? (
-							<>
-								{nbsp}
-								<button
-									className="push-right remove-item"
-									onClick={async () => {
-										await removeMilestone();
-										updatePR({ milestone: null });
-									}}
-								>
-									{deleteIcon}️
-								</button>
-								{nbsp}
-							</>
-						) : null}
-					</div>
+					<Milestone key={milestone.title} {...milestone} canDelete={hasWritePermission} />
 				) : (
 					<div className="section-placeholder">No milestone</div>
 				)}
 			</div>
-		</div>
+		</div >
 	);
 }
 
 function Label(label: ILabel & { canDelete: boolean }) {
 	const { name, canDelete, color } = label;
-	const { removeLabel, hexToRgb, rgbToHsl, hslToHex } = useContext(PullRequestContext);
-	const rgbColor = hexToRgb(color);
-	const hslColor = rgbToHsl(rgbColor.r, rgbColor.g, rgbColor.b);
-
-	const lightnessThreshold = 0.6;
-	const backgroundAlpha = 0.18;
-	const borderAlpha = 0.3;
-
-	const perceivedLightness = (rgbColor.r * 0.2126 + rgbColor.g * 0.7152 + rgbColor.b * 0.0722) / 255;
-	const lightnessSwitch = Math.max(0, Math.min((perceivedLightness - lightnessThreshold) * -1000, 1));
-
-	const lightenBy = (lightnessThreshold - perceivedLightness) * 100 * lightnessSwitch;
-	const textColor = `#${hslToHex(hslColor.h, hslColor.s, hslColor.l + lightenBy)}`;
-	const backgroundColor = `rgba(${rgbColor.r}, ${rgbColor.g}, ${rgbColor.b}, ${backgroundAlpha})`;
-	const rgbBorder = hexToRgb(hslToHex(hslColor.h, hslColor.s, hslColor.l + lightenBy));
-	const borderColor = `rgba(${rgbBorder.r}, ${rgbBorder.g}, ${rgbBorder.b}, ${borderAlpha})`;
-
+	const { removeLabel, pr } = useContext(PullRequestContext);
+	const labelColor = gitHubLabelColor(color, pr.isDarkTheme, false);
 	return (
 		<div
 			className="section-item label"
 			style={{
-				backgroundColor: backgroundColor,
-				color: textColor,
-				border: `1px solid ${borderColor}`
+				backgroundColor: labelColor.backgroundColor,
+				color: labelColor.textColor,
+				border: `1px solid ${labelColor.borderColor}`
 			}}
 		>
 			{name}
@@ -204,7 +172,42 @@ function Label(label: ILabel & { canDelete: boolean }) {
 					{nbsp}
 					<button className="push-right remove-item"
 						onClick={() => removeLabel(name)}
-						style={{ stroke: textColor }}
+						style={{ stroke: labelColor.textColor }}
+					>
+						{deleteIcon}️
+					</button>
+					{nbsp}
+				</>
+			) : null}
+		</div>
+	);
+}
+
+function Milestone(milestone: IMilestone & { canDelete: boolean }) {
+	const { removeMilestone, updatePR, pr } = useContext(PullRequestContext);
+	const backgroundBadgeColor = getComputedStyle(document.documentElement).getPropertyValue('--vscode-badge-foreground');
+	const labelColor = gitHubLabelColor(backgroundBadgeColor, pr.isDarkTheme, false);
+	const { canDelete, title } = milestone;
+	return (
+		<div
+			className="section-item label"
+			style={{
+				backgroundColor: labelColor.backgroundColor,
+				color: labelColor.textColor,
+				border: `1px solid ${labelColor.borderColor}`
+			}}
+		>
+			{title}
+			{canDelete ? (
+				<>
+					{nbsp}
+					<button
+						className="push-right remove-item"
+						onClick={async () => {
+							await removeMilestone();
+							updatePR({ milestone: null });
+						}}
+						style={{ stroke: labelColor.textColor }}
 					>
 						{deleteIcon}️
 					</button>

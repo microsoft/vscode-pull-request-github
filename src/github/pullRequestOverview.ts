@@ -242,7 +242,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						assignees: pullRequest.assignees,
 						continueOnGitHub,
 						isAuthor: currentUser.login === pullRequest.author.login,
-						currentUserReviewState: reviewState
+						currentUserReviewState: reviewState,
+						isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
 					},
 				});
 			})

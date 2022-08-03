@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { GithubItemStateEnum, PullRequestMergeability } from '../../../../src/github/interface';
 import { createBuilderClass } from '../../../../src/test/builders/base';
 import { CombinedStatusBuilder } from '../../../../src/test/builders/rest/combinedStatusBuilder';
@@ -32,12 +37,13 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	mergeable: { default: PullRequestMergeability.Mergeable },
 	defaultMergeMethod: { default: 'merge' },
 	mergeMethodsAvailability: { default: { merge: true, squash: true, rebase: true } },
-	allowAutoMerge: {default: false},
+	allowAutoMerge: { default: false },
 	reviewers: { default: [] },
 	isDraft: { default: false },
 	isIssue: { default: false },
 	assignees: { default: [] },
 	milestone: { default: undefined },
 	continueOnGitHub: { default: false },
-	currentUserReviewState: { default: 'REQUESTED' }
+	currentUserReviewState: { default: 'REQUESTED' },
+	isDarkTheme: { default: true }
 });
