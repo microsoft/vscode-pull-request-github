@@ -161,7 +161,7 @@ export class GitHubRepository implements vscode.Disposable {
 		this.isGitHubDotCom = remote.host.toLowerCase() === 'github.com';
 	}
 
-	query = async <T>(query: QueryOptions): Promise<ApolloQueryResult<T>> => {
+	query = async <T>(query: QueryOptions, ignoreSamlErrors: boolean = false): Promise<ApolloQueryResult<T>> => {
 		const gql = this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${query}`, GRAPHQL_COMPONENT_ID);
@@ -178,8 +178,8 @@ export class GitHubRepository implements vscode.Disposable {
 		try {
 			rsp = await gql.query<T>(query);
 		} catch (e) {
-			// There's an issue with the GetChecks that can result in this error.
-			if ((query.query !== this.schema.GetChecks) && e.message?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
+			// Some queries just result in SAML errors, and some queries we may not want to retry because it will be too disruptive.
+			if (!ignoreSamlErrors && e.message?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
 				await this._credentialStore.recreate();
 				rsp = await gql.query<T>(query);
 			} else {
@@ -790,7 +790,7 @@ export class GitHubRepository implements vscode.Disposable {
 					name: remote.repositoryName,
 					number: id,
 				},
-			});
+			}, true); // Don't retry on SAML errors as it's too distruptive for this query.
 			Logger.debug(`Fetch issue ${id} - done`, GitHubRepository.ID);
 
 			return new IssueModel(this, remote, parseGraphQLIssue(data.repository.pullRequest, this));

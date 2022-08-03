@@ -1016,7 +1016,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					name: remote.repositoryName,
 					number: this.number,
 				},
-			});
+			}, true); // There's an issue with the GetChecks that can result in SAML errors.
 		} catch (e) {
 			if (e.message?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
 				// There seems to be an issue with fetching status checks if you haven't SAML'd with every org you have
