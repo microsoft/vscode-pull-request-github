@@ -5691,7 +5691,7 @@ vinyl-fs@^3.0.3:
   integrity sha512-vIu34EkyNyJxmP0jscNzWBSygh7VWhqun6RmqVfXePrOwi9lhvRs//dOaGOTRUQr4tx7/zd26Tk5WeSVZitgng==
   dependencies:
     fs-mkdirp-stream "^1.0.0"
-    glob-stream "^6.1.0"
+    glob-stream "7.0.0"
     graceful-fs "^4.0.0"
     is-valid-glob "^1.0.0"
     lazystream "^1.0.0"
