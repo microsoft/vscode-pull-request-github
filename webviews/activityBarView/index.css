@@ -114,6 +114,7 @@ button .icon svg {
 	background-color: var(--vscode-dropdown-background);
 	color: var(--vscode-dropdown-foreground);
 	text-align: start;
+	white-space: break-spaces;
 }
 
 .options-select button:hover,
