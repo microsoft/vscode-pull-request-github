@@ -282,6 +282,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				"pr.approve" : {}
 			*/
 			this._telemetry.sendTelemetryEvent('pr.approve');
+			this._onDidChangeComments.fire();
 			return x;
 		});
 	}
@@ -300,6 +301,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					"pr.requestChanges" : {}
 				*/
 			this._telemetry.sendTelemetryEvent('pr.requestChanges');
+			this._onDidChangeComments.fire();
 			return x;
 		});
 	}
@@ -499,7 +501,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		if (!data) {
 			throw new Error('Failed to start review');
 		}
-
+		this._onDidChangeComments.fire();
 		return data.addPullRequestReview.pullRequestReview.id;
 	}
 
