@@ -900,7 +900,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				PullRequestModel.ID,
 			);
 
-			return fullCommit.data.files?.filter(file => !!file.patch) ?? [];
+			return fullCommit.data.files ?? [];
 		} catch (e) {
 			vscode.window.showErrorMessage(`Fetching commit file changes failed: ${formatError(e)}`);
 			return [];
