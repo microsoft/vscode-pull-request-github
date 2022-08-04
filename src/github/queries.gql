@@ -204,6 +204,7 @@ fragment PullRequestFragment on PullRequest {
 	labels(first: 50) {
 		nodes {
 			name
+			color
 		}
 	}
 	merged

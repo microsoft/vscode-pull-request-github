@@ -7,6 +7,7 @@ import { URL, URLSearchParams } from 'url';
 import LRUCache from 'lru-cache';
 import * as marked from 'marked';
 import * as vscode from 'vscode';
+import { gitHubLabelColor } from '../../src/common/utils';
 import { Commit, Ref, Remote, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { Protocol } from '../common/protocol';
@@ -146,29 +147,11 @@ export function userMarkdown(origin: PullRequestDefaults, user: User): vscode.Ma
 	return markdown;
 }
 
-function convertHexToRgb(hex: string): { r: number; g: number; b: number } | undefined {
-	const result = /^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-	return result
-		? {
-			r: parseInt(result[1], 16),
-			g: parseInt(result[2], 16),
-			b: parseInt(result[3], 16),
-		}
-		: undefined;
-}
 
 function makeLabel(color: string, text: string): string {
-	const rgbColor = convertHexToRgb(color);
-	let textColor: string = 'ffffff';
-	if (rgbColor) {
-		// Color algorithm from https://stackoverflow.com/questions/1855884/determine-font-color-based-on-background-color
-		const luminance = (0.299 * rgbColor.r + 0.587 * rgbColor.g + 0.114 * rgbColor.b) / 255;
-		if (luminance > 0.5) {
-			textColor = '000000';
-		}
-	}
-
-	return `<span style="color:#${textColor};background-color:#${color};">&nbsp;&nbsp;${text}&nbsp;&nbsp;</span>`;
+	const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+	const labelColor = gitHubLabelColor(color, isDarkTheme, true);
+	return `<span style="color:${labelColor.textColor};background-color:${labelColor.backgroundColor};">&nbsp;&nbsp;${text}&nbsp;&nbsp;</span>`;
 }
 
 async function findAndModifyString(

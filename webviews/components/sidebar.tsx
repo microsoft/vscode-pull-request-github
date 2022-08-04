@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useContext } from 'react';
-import { ILabel } from '../../src/github/interface';
+import { gitHubLabelColor } from '../../src/common/utils';
+import { ILabel, IMilestone } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { AuthorLink, Avatar } from '../components/user';
@@ -17,11 +18,10 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 		addReviewers,
 		addAssignees,
 		addAssigneeYourself,
-		addMilestone,
 		addLabels,
+		addMilestone,
 		updatePR,
 		removeAssignee,
-		removeMilestone,
 		pr,
 	} = useContext(PullRequestContext);
 
@@ -94,15 +94,15 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					})
 				) : (
 					<div className="section-placeholder">
-							None yet{pr.canEdit ? (
-								<>
-									&mdash;
-									<a onClick={async () => {
-										const currentUser = await addAssigneeYourself();
-										updatePR({ assignees: pr.assignees.concat(currentUser.added) });
-									}}>assign yourself</a>
-								</>)
-								: null}
+						None yet{pr.canEdit ? (
+							<>
+								&mdash;
+								<a onClick={async () => {
+									const currentUser = await addAssigneeYourself();
+									updatePR({ assignees: pr.assignees.concat(currentUser.added) });
+								}}>assign yourself</a>
+							</>)
+							: null}
 					</div>
 				)}
 			</div>
@@ -144,44 +144,71 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					) : null}
 				</div>
 				{milestone ? (
-					<div className="section-item label">
-						{milestone.title}
-						{hasWritePermission ? (
-							<>
-								{nbsp}
-								<button
-									className="push-right remove-item"
-									onClick={async () => {
-										await removeMilestone();
-										updatePR({ milestone: null });
-									}}
-								>
-									{deleteIcon}️
-								</button>
-								{nbsp}
-							</>
-						) : null}
-					</div>
+					<Milestone key={milestone.title} {...milestone} canDelete={hasWritePermission} />
 				) : (
 					<div className="section-placeholder">No milestone</div>
 				)}
 			</div>
-		</div>
+		</div >
 	);
 }
 
 function Label(label: ILabel & { canDelete: boolean }) {
-	const { name, canDelete } = label;
-	const { removeLabel } = useContext(PullRequestContext);
+	const { name, canDelete, color } = label;
+	const { removeLabel, pr } = useContext(PullRequestContext);
+	const labelColor = gitHubLabelColor(color, pr.isDarkTheme, false);
 	return (
 		<div
 			className="section-item label"
+			style={{
+				backgroundColor: labelColor.backgroundColor,
+				color: labelColor.textColor,
+				borderColor: `${labelColor.borderColor}`
+			}}
 		>
 			{name}
 			{canDelete ? (
 				<>
 					{nbsp}
-					<button className="push-right remove-item" onClick={() => removeLabel(name)}>
+					<button className="push-right remove-item"
+						onClick={() => removeLabel(name)}
+						style={{ stroke: labelColor.textColor }}
+					>
+						{deleteIcon}️
+					</button>
+					{nbsp}
+				</>
+			) : null}
+		</div>
+	);
+}
+
+function Milestone(milestone: IMilestone & { canDelete: boolean }) {
+	const { removeMilestone, updatePR, pr } = useContext(PullRequestContext);
+	const backgroundBadgeColor = getComputedStyle(document.documentElement).getPropertyValue('--vscode-badge-foreground');
+	const labelColor = gitHubLabelColor(backgroundBadgeColor, pr.isDarkTheme, false);
+	const { canDelete, title } = milestone;
+	return (
+		<div
+			className="section-item label"
+			style={{
+				backgroundColor: labelColor.backgroundColor,
+				color: labelColor.textColor,
+				borderColor: `${labelColor.borderColor}`
+			}}
+		>
+			{title}
+			{canDelete ? (
+				<>
+					{nbsp}
+					<button
+						className="push-right remove-item"
+						onClick={async () => {
+							await removeMilestone();
+							updatePR({ milestone: null });
+						}}
+						style={{ stroke: labelColor.textColor }}
+					>
 						{deleteIcon}️
 					</button>
 					{nbsp}
