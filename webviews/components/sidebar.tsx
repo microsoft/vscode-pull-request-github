@@ -163,7 +163,7 @@ function Label(label: ILabel & { canDelete: boolean }) {
 			style={{
 				backgroundColor: labelColor.backgroundColor,
 				color: labelColor.textColor,
-				border: `1px solid ${labelColor.borderColor}`
+				borderColor: `${labelColor.borderColor}`
 			}}
 		>
 			{name}
@@ -194,7 +194,7 @@ function Milestone(milestone: IMilestone & { canDelete: boolean }) {
 			style={{
 				backgroundColor: labelColor.backgroundColor,
 				color: labelColor.textColor,
-				border: `1px solid ${labelColor.borderColor}`
+				borderColor: `${labelColor.borderColor}`
 			}}
 		>
 			{title}
