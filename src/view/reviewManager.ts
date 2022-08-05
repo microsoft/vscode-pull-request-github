@@ -28,6 +28,7 @@ import { IResolvedPullRequestModel, PullRequestModel } from '../github/pullReque
 import { CreatePullRequestHelper } from './createPullRequestHelper';
 import { GitFileChangeModel } from './fileChangeModel';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
+import { ProgressHelper } from './progress';
 import { RemoteQuickPickItem } from './quickpick';
 import { ReviewCommentController } from './reviewCommentController';
 import { ReviewModel } from './reviewModel';
@@ -56,14 +57,13 @@ export class ReviewManager {
 	private _createPullRequestHelper: CreatePullRequestHelper | undefined;
 
 	private _switchingToReviewMode: boolean;
-
+	private _changesSinceLastReviewProgress: ProgressHelper = new ProgressHelper();
 	/**
 	 * Flag set when the "Checkout" action is used and cleared on the next git
 	 * state update, once review mode has been entered. Used to disambiguate
 	 * explicit user action from something like reloading on an existing PR branch.
 	 */
 	private justSwitchedToReviewMode: boolean = false;
-	public refreshSinceReview: Promise<void>;
 
 	public get switchingToReviewMode(): boolean {
 		return this._switchingToReviewMode;
@@ -96,7 +96,6 @@ export class ReviewManager {
 			remotes: parseRepositoryRemotes(this._repository),
 		};
 
-		this.refreshSinceReview = Promise.resolve();
 		this.registerListeners();
 
 		this.updateState(true);
@@ -414,7 +413,7 @@ export class ReviewManager {
 			pr,
 			this._reviewModel,
 			this.justSwitchedToReviewMode,
-			this
+			this._changesSinceLastReviewProgress
 		);
 		this.justSwitchedToReviewMode = false;
 
@@ -425,12 +424,11 @@ export class ReviewManager {
 		this._activePrViewCoordinator.setPullRequest(pr, this._folderRepoManager, this);
 		this._localToDispose.push(
 			pr.onDidChangeChangesSinceReview(async _ => {
-				this.refreshSinceReview = new Promise<void>(async resolve => {
-					this.changesInPrDataProvider.refresh();
-					await this.updateComments();
-					await this.reopenNewReviewDiffs();
-					resolve();
-				});
+				this._changesSinceLastReviewProgress.startProgress();
+				this.changesInPrDataProvider.refresh();
+				await this.updateComments();
+				await this.reopenNewReviewDiffs();
+				this._changesSinceLastReviewProgress.endProgress();
 			})
 		);
 
