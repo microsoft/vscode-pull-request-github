@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import Logger, { PR_TREE } from '../../common/logger';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { ReviewManager } from '../reviewManager';
+import { ProgressHelper } from '../progress';
 import { ReviewModel } from '../reviewModel';
 import { CommitsNode } from './commitsCategoryNode';
 import { DescriptionNode } from './descriptionNode';
@@ -26,7 +26,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 		private _pullRequest: PullRequestModel,
 		private _pullRequestManager: FolderRepositoryManager,
 		private _reviewModel: ReviewModel,
-		private _reviewManager: ReviewManager
+		private _progress: ProgressHelper
 	) {
 		super(parent, _pullRequest.title, _pullRequest.userAvatarUri!, _pullRequest, _pullRequestManager.repository);
 		// Cause tree values to be filled
@@ -63,7 +63,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
-		await this._reviewManager.refreshSinceReview;
+		await this._progress.progress;
 		if (!this._filesCategoryNode || !this._commitsCategoryNode) {
 			Logger.appendLine(`Creating file and commit nodes for PR #${this.pullRequestModel.number}`, PR_TREE);
 			this._filesCategoryNode = new FilesCategoryNode(this.parent, this._reviewModel, this._pullRequest);
