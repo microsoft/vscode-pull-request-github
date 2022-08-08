@@ -149,6 +149,7 @@ export function main() {
 							type="checkbox"
 							name="draft"
 							checked={params.isDraft}
+							disabled={params.autoMerge}
 							onChange={() => ctx.updateState({ isDraft: !params.isDraft })}
 						></input>
 						<label htmlFor="draft-checkbox">Create as draft</label>

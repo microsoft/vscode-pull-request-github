@@ -9,7 +9,7 @@ import { onDidUpdatePR, openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
-import { formatError } from '../common/utils';
+import { dispose, formatError } from '../common/utils';
 import { IRequestMessage } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
@@ -45,7 +45,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[] = [];
 
-	private _changeActivePullRequestListener: vscode.Disposable | undefined;
+	private _prListeners: vscode.Disposable[] = [];
 
 	public static async createOrShow(
 		extensionUri: vscode.Uri,
@@ -128,7 +128,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	registerFolderRepositoryListener() {
-		this._changeActivePullRequestListener = this._folderRepositoryManager.onDidChangeActivePullRequest(_ => {
+		this._prListeners.push(this._folderRepositoryManager.onDidChangeActivePullRequest(_ => {
 			if (this._folderRepositoryManager && this._item) {
 				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
 				this._postMessage({
@@ -136,7 +136,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					isCurrentlyCheckedOut,
 				});
 			}
-		});
+		}));
+	}
+
+	registerPrListeners() {
+		this._prListeners.push(this._item.onDidChangeComments(() => {
+			this.refreshPanel();
+		}));
 	}
 
 	/**
@@ -150,7 +156,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return review?.state;
 	}
 
-	public async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
+	private async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
 		return Promise.all([
 			this._folderRepositoryManager.resolvePullRequest(
 				pullRequestModel.remote.owner,
@@ -183,6 +189,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				}
 
 				this._item = pullRequest;
+				this.registerPrListeners();
 				this._repositoryDefaultBranch = defaultBranch!;
 				this._panel.title = `Pull Request #${pullRequestModel.number.toString()}`;
 
@@ -246,7 +253,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						assignees: pullRequest.assignees,
 						continueOnGitHub,
 						isAuthor: currentUser.login === pullRequest.author.login,
-						currentUserReviewState: reviewState
+						currentUserReviewState: reviewState,
+						isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
 					},
 				});
 			})
@@ -261,11 +269,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	): Promise<void> {
 		if (this._folderRepositoryManager !== folderRepositoryManager) {
 			this._folderRepositoryManager = folderRepositoryManager;
-			if (this._changeActivePullRequestListener) {
-				this._changeActivePullRequestListener.dispose();
-				this._changeActivePullRequestListener = undefined;
-				this.registerFolderRepositoryListener();
-			}
+			dispose(this._prListeners);
+			this._prListeners = [];
+			this.registerFolderRepositoryListener();
+			this.registerPrListeners();
 		}
 
 		this._postMessage({
@@ -869,10 +876,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	dispose() {
 		super.dispose();
-
-		if (this._changeActivePullRequestListener) {
-			this._changeActivePullRequestListener.dispose();
-		}
+		dispose(this._prListeners);
 	}
 }
 

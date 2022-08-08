@@ -7,9 +7,10 @@ import * as React from 'react';
 import { MergeMethod, MergeMethodsAvailability } from '../../src/github/interface';
 import { MergeSelect } from './merge';
 
-export const AutoMerge = ({ updateState, allowAutoMerge, defaultMergeMethod, mergeMethodsAvailability, autoMerge }:
+export const AutoMerge = ({ updateState, allowAutoMerge, defaultMergeMethod, mergeMethodsAvailability, autoMerge, isDraft }:
 	{ updateState: (params: Partial<{ autoMerge: boolean, autoMergeMethod: MergeMethod }>) => void,
-	allowAutoMerge?: boolean, defaultMergeMethod?: MergeMethod, mergeMethodsAvailability?: MergeMethodsAvailability, autoMerge?: boolean }) => {
+		allowAutoMerge?: boolean, defaultMergeMethod?: MergeMethod, mergeMethodsAvailability?: MergeMethodsAvailability, autoMerge?: boolean, isDraft?: boolean
+	}) => {
 	if ((!allowAutoMerge && !autoMerge) || !mergeMethodsAvailability || !defaultMergeMethod) {
 		return null;
 	}
@@ -22,7 +23,7 @@ export const AutoMerge = ({ updateState, allowAutoMerge, defaultMergeMethod, mer
 				type="checkbox"
 				name="automerge"
 				checked={autoMerge}
-				disabled={!allowAutoMerge}
+				disabled={!allowAutoMerge || isDraft}
 				onChange={() => updateState({ autoMerge: !autoMerge, autoMergeMethod: select.current?.value as MergeMethod })}
 			></input>
 		</div>

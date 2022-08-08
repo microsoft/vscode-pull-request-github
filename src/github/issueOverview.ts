@@ -159,6 +159,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 						// TODO@eamodio What is status?
 						status: /*status ? status :*/ { statuses: [] },
 						isIssue: true,
+						isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
 					},
 				});
 			})

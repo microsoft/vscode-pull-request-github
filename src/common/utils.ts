@@ -262,6 +262,138 @@ export function dateFromNow(date: Date | string): string {
 	return `on ${djs.format('MMM D, YYYY')}`;
 }
 
+
+export function gitHubLabelColor(hexColor: string, isDark: boolean, markDown: boolean = false): { textColor: string, backgroundColor: string, borderColor: string } {
+	if (hexColor.startsWith('#')) {
+		hexColor = hexColor.substring(1);
+	}
+	const rgbColor = hexToRgb(hexColor);
+
+	if (isDark) {
+		const hslColor = rgbToHsl(rgbColor.r, rgbColor.g, rgbColor.b);
+
+		const lightnessThreshold = 0.6;
+		const backgroundAlpha = 0.18;
+		const borderAlpha = 0.3;
+
+		const perceivedLightness = (rgbColor.r * 0.2126 + rgbColor.g * 0.7152 + rgbColor.b * 0.0722) / 255;
+		const lightnessSwitch = Math.max(0, Math.min((perceivedLightness - lightnessThreshold) * -1000, 1));
+
+		const lightenBy = (lightnessThreshold - perceivedLightness) * 100 * lightnessSwitch;
+		const rgbBorder = hexToRgb(hslToHex(hslColor.h, hslColor.s, hslColor.l + lightenBy));
+
+		const textColor = `#${hslToHex(hslColor.h, hslColor.s, hslColor.l + lightenBy)}`;
+		const backgroundColor = !markDown ?
+			`rgba(${rgbColor.r},${rgbColor.g},${rgbColor.b},${backgroundAlpha})` :
+			`#${rgbToHex({ ...rgbColor, a: backgroundAlpha })}`;
+		const borderColor = !markDown ?
+			`rgba(${rgbBorder.r},${rgbBorder.g},${rgbBorder.b},${borderAlpha})` :
+			`#${rgbToHex({ ...rgbBorder, a: borderAlpha })}`;
+
+		return { textColor: textColor, backgroundColor: backgroundColor, borderColor: borderColor };
+	}
+	else {
+		return { textColor: `#${contrastColor(rgbColor)}`, backgroundColor: `#${hexColor}`, borderColor: `#${hexColor}` };
+	}
+}
+
+const rgbToHex = (color: { r: number, g: number, b: number, a?: number }) => {
+	const colors = [color.r, color.g, color.b];
+	if (color.a) {
+		colors.push(Math.floor(color.a * 255));
+	}
+	return colors.map((digit) => {
+		return digit.toString(16).padStart(2, '0');
+	}).join('');
+};
+
+function hexToRgb(color: string) {
+	const result = /^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color);
+
+	if (result) {
+		return {
+			r: parseInt(result[1], 16),
+			g: parseInt(result[2], 16),
+			b: parseInt(result[3], 16),
+		};
+	}
+	return {
+		r: 0,
+		g: 0,
+		b: 0,
+	};
+}
+
+function rgbToHsl(r: number, g: number, b: number) {
+	// Source: https://css-tricks.com/converting-color-spaces-in-javascript/
+	// Make r, g, and b fractions of 1
+	r /= 255;
+	g /= 255;
+	b /= 255;
+
+	// Find greatest and smallest channel values
+	let cmin = Math.min(r, g, b),
+		cmax = Math.max(r, g, b),
+		delta = cmax - cmin,
+		h = 0,
+		s = 0,
+		l = 0;
+
+	// Calculate hue
+	// No difference
+	if (delta == 0)
+		h = 0;
+	// Red is max
+	else if (cmax == r)
+		h = ((g - b) / delta) % 6;
+	// Green is max
+	else if (cmax == g)
+		h = (b - r) / delta + 2;
+	// Blue is max
+	else
+		h = (r - g) / delta + 4;
+
+	h = Math.round(h * 60);
+
+	// Make negative hues positive behind 360 deg
+	if (h < 0)
+		h += 360;
+
+	// Calculate lightness
+	l = (cmax + cmin) / 2;
+
+	// Calculate saturation
+	s = delta == 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+
+	// Multiply l and s by 100
+	s = +(s * 100).toFixed(1);
+	l = +(l * 100).toFixed(1);
+
+	return { h: h, s: s, l: l };
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+	// source https://www.jameslmilner.com/posts/converting-rgb-hex-hsl-colors/
+	const hDecimal = l / 100;
+	const a = (s * Math.min(hDecimal, 1 - hDecimal)) / 100;
+	const f = (n: number) => {
+		const k = (n + h / 30) % 12;
+		const color = hDecimal - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+
+		// Convert to Hex and prefix with "0" if required
+		return Math.round(255 * color)
+			.toString(16)
+			.padStart(2, '0');
+	};
+	return `${f(0)}${f(8)}${f(4)}`;
+}
+
+function contrastColor(rgbColor: { r: number, g: number, b: number }) {
+	// Color algorithm from https://stackoverflow.com/questions/1855884/determine-font-color-based-on-background-color
+	const luminance = (0.299 * rgbColor.r + 0.587 * rgbColor.g + 0.114 * rgbColor.b) / 255;
+	return luminance > 0.5 ? '000000' : 'ffffff';
+}
+
 export interface Predicate<T> {
 	(input: T): boolean;
 }
