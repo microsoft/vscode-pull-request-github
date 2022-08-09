@@ -1825,7 +1825,7 @@
 		"@typescript-eslint/eslint-plugin": "4.18.0",
 		"@typescript-eslint/parser": "4.18.0",
 		"@vscode/test-electron": "^2.1.5",
-		"@vscode/test-web": "^0.0.22",
+		"@vscode/test-web": "^0.0.29",
 		"assert": "^2.0.0",
 		"buffer": "^6.0.3",
 		"constants-browserify": "^1.0.0",
