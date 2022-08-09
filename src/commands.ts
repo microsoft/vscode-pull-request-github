@@ -21,7 +21,7 @@ import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
 import { PullRequest } from './github/interface';
 import { NotificationProvider } from './github/notifications';
-import { GHPRComment, TemporaryComment } from './github/prComment';
+import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
@@ -733,29 +733,43 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.resolveReviewThread', async (reply: CommentReply) => {
+		vscode.commands.registerCommand('pr.resolveReviewThread', async (replyOrThread: CommentReply | GHPRCommentThread) => {
 			/* __GDPR__
 			"pr.resolveReviewThread" : {}
 			*/
 			telemetry.sendTelemetryEvent('pr.resolveReviewThread');
-			const handler = resolveCommentHandler(reply.thread);
+			let thread: GHPRCommentThread;
+			let text: string = '';
+			if (CommentReply.is(replyOrThread)) {
+				thread = replyOrThread.thread;
+			} else {
+				thread = replyOrThread;
+			}
+			const handler = resolveCommentHandler(thread);
 
 			if (handler) {
-				await handler.resolveReviewThread(reply.thread, reply.text);
+				await handler.resolveReviewThread(thread, text);
 			}
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.unresolveReviewThread', async (reply: CommentReply) => {
+		vscode.commands.registerCommand('pr.unresolveReviewThread', async (replyOrThread: CommentReply | GHPRCommentThread) => {
 			/* __GDPR__
 			"pr.unresolveReviewThread" : {}
 			*/
 			telemetry.sendTelemetryEvent('pr.unresolveReviewThread');
-			const handler = resolveCommentHandler(reply.thread);
+			let thread: GHPRCommentThread;
+			let text: string = '';
+			if (CommentReply.is(replyOrThread)) {
+				thread = replyOrThread.thread;
+			} else {
+				thread = replyOrThread;
+			}
+			const handler = resolveCommentHandler(thread);
 
 			if (handler) {
-				await handler.unresolveReviewThread(reply.thread, reply.text);
+				await handler.unresolveReviewThread(thread, text);
 			}
 		}),
 	);
