@@ -33,11 +33,13 @@ export class PRNodeDecorationProvider implements vscode.FileDecorationProvider {
 
 		const prNodeParams = fromPRNodeUri(uri);
 
-		if (prNodeParams) {
+		if (prNodeParams && this._notificationProvider.hasNotification(prNodeParams.prIdentifier)) {
 			return {
 				propagate: false,
-				color: this._notificationProvider.hasNotification(prNodeParams.prIdentifier) ?
-					new vscode.ThemeColor('pullRequests.notification') : undefined
+				color: new vscode.ThemeColor('pullRequests.notification'),
+				// allow-any-unicode-next-line
+				badge: '⬤',
+				tooltip: 'unread notification'
 			};
 		}
 

@@ -180,10 +180,10 @@ export class NotificationProvider implements vscode.Disposable {
 			for (const catNode of catNodes) {
 				if (catNode.id === 'All Open') {
 					if (catNode.prs.length === 0) {
-						const prNodes = (await catNode.getChildren()) as PRNode[];
-
-						for (const prNode of prNodes) {
-							allPrs.push(prNode.pullRequestModel);
+						for (const prNode of await catNode.getChildren()) {
+							if (prNode instanceof PRNode) {
+								allPrs.push(prNode.pullRequestModel);
+							}
 						}
 					}
 					else {

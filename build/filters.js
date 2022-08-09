@@ -39,6 +39,7 @@ module.exports.indentationFilter = [
 	'!**/ThirdPartyNotices.txt',
 	'!**/LICENSE.{txt,rtf}',
 	'!**/LICENSE',
+	'!**/*.yml',
 
 	// except multiple specific files
 	'!**/package.json',
@@ -54,7 +55,8 @@ module.exports.copyrightFilter = [
 	'!.github/**/*',
 	'!.husky/**/*',
 	'!tsfmt.json',
-	'!**/queries.gql'
+	'!**/queries.gql',
+	'!**/*.yml'
 ];
 
 module.exports.tsFormattingFilter = [
