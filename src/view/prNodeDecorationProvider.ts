@@ -37,8 +37,7 @@ export class PRNodeDecorationProvider implements vscode.FileDecorationProvider {
 			return {
 				propagate: false,
 				color: new vscode.ThemeColor('pullRequests.notification'),
-				// allow-any-unicode-next-line
-				badge: '⬤',
+				badge: '●',
 				tooltip: 'unread notification'
 			};
 		}
