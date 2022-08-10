@@ -15,7 +15,7 @@
 		"commentsResolvedState",
 		"badges",
 		"contribViewSize",
-		"contribCommentWidgetContext"
+		"contribCommentPeekContext"
 	],
 	"version": "0.48.0",
 	"publisher": "GitHub",
@@ -1631,7 +1631,19 @@
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
 				}
 			],
-			"comments/commentThread/widget/context": [
+			"comments/commentThread/title/context": [
+				{
+					"command": "pr.resolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
+				},
+				{
+					"command": "pr.unresolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+				}
+			],
+			"comments/commentThread/comment/context": [
 				{
 					"command": "pr.resolveReviewThread",
 					"group": "inline@3",

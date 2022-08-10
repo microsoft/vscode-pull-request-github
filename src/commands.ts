@@ -732,19 +732,26 @@ export function registerCommands(
 		}),
 	);
 
+	function threadAndText(commentLike: CommentReply | GHPRCommentThread | GHPRComment): { thread: GHPRCommentThread, text: string } {
+		let thread: GHPRCommentThread;
+		let text: string = '';
+		if (commentLike instanceof GHPRComment) {
+			thread = commentLike.parent;
+		} else if (CommentReply.is(commentLike)) {
+			thread = commentLike.thread;
+		} else {
+			thread = commentLike;
+		}
+		return { thread, text };
+	}
+
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.resolveReviewThread', async (replyOrThread: CommentReply | GHPRCommentThread) => {
+		vscode.commands.registerCommand('pr.resolveReviewThread', async (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => {
 			/* __GDPR__
 			"pr.resolveReviewThread" : {}
 			*/
 			telemetry.sendTelemetryEvent('pr.resolveReviewThread');
-			let thread: GHPRCommentThread;
-			let text: string = '';
-			if (CommentReply.is(replyOrThread)) {
-				thread = replyOrThread.thread;
-			} else {
-				thread = replyOrThread;
-			}
+			const { thread, text } = threadAndText(commentLike);
 			const handler = resolveCommentHandler(thread);
 
 			if (handler) {
@@ -754,18 +761,13 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.unresolveReviewThread', async (replyOrThread: CommentReply | GHPRCommentThread) => {
+		vscode.commands.registerCommand('pr.unresolveReviewThread', async (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => {
 			/* __GDPR__
 			"pr.unresolveReviewThread" : {}
 			*/
 			telemetry.sendTelemetryEvent('pr.unresolveReviewThread');
-			let thread: GHPRCommentThread;
-			let text: string = '';
-			if (CommentReply.is(replyOrThread)) {
-				thread = replyOrThread.thread;
-			} else {
-				thread = replyOrThread;
-			}
+			const { thread, text } = threadAndText(commentLike);
+
 			const handler = resolveCommentHandler(thread);
 
 			if (handler) {
