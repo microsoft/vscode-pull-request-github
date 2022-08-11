@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.48.1
+
+### Fixes
+
+- Fails to open PR's description or list PR's files on GitHub Enterprise. https://github.com/microsoft/vscode-pull-request-github/issues/3829
+
 ## 0.48.0
 
 ### Changes

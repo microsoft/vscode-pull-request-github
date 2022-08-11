@@ -15,7 +15,7 @@
 		"commentsResolvedState",
 		"contribViewSize"
 	],
-	"version": "0.48.0",
+	"version": "0.48.1",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.70.0"
