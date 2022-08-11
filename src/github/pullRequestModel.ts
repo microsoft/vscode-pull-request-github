@@ -438,18 +438,23 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		Logger.debug(`Fetch viewers latest review commit`, IssueModel.ID);
 		const { query, remote, schema } = await this.githubRepository.ensure();
 
-		const { data } = await query<LatestReviewCommitResponse>({
-			query: schema.LatestReviewCommit,
-			variables: {
-				owner: remote.owner,
-				name: remote.repositoryName,
-				number: this.number,
-			},
-		});
+		try {
+			const { data } = await query<LatestReviewCommitResponse>({
+				query: schema.LatestReviewCommit,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: this.number,
+				},
+			});
 
-		return data.repository.pullRequest.viewerLatestReview ? {
-			sha: data.repository.pullRequest.viewerLatestReview.commit.oid,
-		} : undefined;
+			return data.repository.pullRequest.viewerLatestReview ? {
+				sha: data.repository.pullRequest.viewerLatestReview.commit.oid,
+			} : undefined;
+		}
+		catch (e) {
+			return undefined;
+		}
 	}
 
 	/**
