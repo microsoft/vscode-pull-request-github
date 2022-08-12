@@ -22,6 +22,7 @@ import {
 	LABELS,
 	NEW_ISSUE_FILE,
 	NEW_ISSUE_SCHEME,
+	NewIssueCache,
 } from './issueFile';
 import { IssueHoverProvider } from './issueHoverProvider';
 import { openCodeLink } from './issueLinkLookup';
@@ -51,6 +52,8 @@ const CREATING_ISSUE_FROM_FILE_CONTEXT = 'issues.creatingFromFile';
 
 export class IssueFeatureRegistrar implements vscode.Disposable {
 	private _stateManager: StateManager;
+	private _newIssueCache: NewIssueCache;
+
 	private createIssueInfo:
 		| {
 			document: vscode.TextDocument;
@@ -68,11 +71,12 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		private telemetry: ITelemetry,
 	) {
 		this._stateManager = new StateManager(gitAPI, this.manager, this.context);
+		this._newIssueCache = new NewIssueCache(context);
 	}
 
 	async initialize() {
 		this.context.subscriptions.push(
-			vscode.workspace.registerFileSystemProvider(NEW_ISSUE_SCHEME, new IssueFileSystemProvider()),
+			vscode.workspace.registerFileSystemProvider(NEW_ISSUE_SCHEME, new IssueFileSystemProvider(this._newIssueCache)),
 		);
 		this.context.subscriptions.push(
 			vscode.languages.registerCompletionItemProvider(
@@ -600,6 +604,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.createIssueInfo = undefined;
 		if (createSucceeded) {
 			await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+			this._newIssueCache.clear();
 		}
 	}
 
@@ -908,7 +913,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		const assigneeLine = `${ASSIGNEES} ${assignees && assignees.length > 0 ? assignees.map(value => '@' + value).join(', ') + ' ' : ''
 			}`;
 		const labelLine = `${LABELS} `;
-		const text = `${title ?? 'Issue Title'}\n
+		const text = this._newIssueCache.get() ?? `${title ?? 'Issue Title'}\n
 ${assigneeLine}
 ${labelLine}\n
 ${body ?? ''}\n

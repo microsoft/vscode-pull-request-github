@@ -11,6 +11,8 @@ export const NEW_ISSUE_FILE = 'NewIssue.md';
 export const ASSIGNEES = 'Assignees:';
 export const LABELS = 'Labels:';
 
+const NEW_ISSUE_CACHE = 'newIssue.cache';
+
 export function extractIssueOriginFromQuery(uri: vscode.Uri): vscode.Uri | undefined {
 	const query = JSON.parse(uri.query);
 	if (query.origin) {
@@ -25,6 +27,8 @@ export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 	private _onDidChangeFile: vscode.EventEmitter<vscode.FileChangeEvent[]> = new vscode.EventEmitter<
 		vscode.FileChangeEvent[]
 	>();
+
+	constructor(private readonly cache: NewIssueCache) { };
 	onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._onDidChangeFile.event;
 	watch(_uri: vscode.Uri, _options: { recursive: boolean; excludes: string[] }): vscode.Disposable {
 		const disposable = this.onDidChangeFile(e => {
@@ -45,7 +49,7 @@ export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 	readDirectory(_uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
 		return [];
 	}
-	createDirectory(_uri: vscode.Uri): void {}
+	createDirectory(_uri: vscode.Uri): void { }
 	readFile(_uri: vscode.Uri): Uint8Array | Thenable<Uint8Array> {
 		return this.content ?? new Uint8Array(0);
 	}
@@ -63,6 +67,7 @@ export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 			this.modifiedTime = new Date().getTime();
 			this._onDidChangeFile.fire([{ uri: uri, type: vscode.FileChangeType.Changed }]);
 		}
+		this.cache.cache(content);
 	}
 	delete(uri: vscode.Uri, _options: { recursive: boolean }): void | Thenable<void> {
 		this.content = undefined;
@@ -71,11 +76,11 @@ export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 		this._onDidChangeFile.fire([{ uri: uri, type: vscode.FileChangeType.Deleted }]);
 	}
 
-	rename(_oldUri: vscode.Uri, _newUri: vscode.Uri, _options: { overwrite: boolean }): void | Thenable<void> {}
+	rename(_oldUri: vscode.Uri, _newUri: vscode.Uri, _options: { overwrite: boolean }): void | Thenable<void> { }
 }
 
 export class LabelCompletionProvider implements vscode.CompletionItemProvider {
-	constructor(private manager: RepositoriesManager) {}
+	constructor(private manager: RepositoriesManager) { }
 
 	async provideCompletionItems(
 		document: vscode.TextDocument,
@@ -102,5 +107,26 @@ export class LabelCompletionProvider implements vscode.CompletionItemProvider {
 			item.commitCharacters = [' ', ','];
 			return item;
 		});
+	}
+}
+
+export class NewIssueCache {
+	constructor(private readonly context: vscode.ExtensionContext) {
+		this.clear();
+	}
+
+	public cache(issueFileContent: Uint8Array) {
+		this.context.workspaceState.update(NEW_ISSUE_CACHE, issueFileContent);
+	}
+
+	public clear() {
+		this.context.workspaceState.update(NEW_ISSUE_CACHE, undefined);
+	}
+
+	public get(): string | undefined {
+		const content = this.context.workspaceState.get<Uint8Array | undefined>(NEW_ISSUE_CACHE);
+		if (content) {
+			return content.toString();
+		}
 	}
 }
