@@ -176,11 +176,15 @@ export class PRContext {
 
 	public openDiff = (comment: IComment) => this.postMessage({ command: 'pr.open-diff', args: { comment } });
 
-	public toggleResolveComment = (reviewThread: ReviewEvent['reviewThread'], thread: IComment[]) => {
+	public toggleResolveComment = (reviewThread: ReviewEvent['reviewThread'], thread: IComment[], newResolved: boolean) => {
 		if (!reviewThread) {
 			return;
 		}
-		this.postMessage({ command: 'pr.resolve-comment-thread', args: { threadId: reviewThread.threadId, toResolve: reviewThread.isResolved, thread } });
+		reviewThread.isResolved = newResolved;
+		reviewThread.canUnresolve = newResolved;
+		reviewThread.canResolve = !newResolved;
+		this.updatePR({});
+		this.postMessage({ command: 'pr.resolve-comment-thread', args: { threadId: reviewThread.threadId, toResolve: newResolved, thread } });
 	};
 
 	setPR = (pr: PullRequest) => {

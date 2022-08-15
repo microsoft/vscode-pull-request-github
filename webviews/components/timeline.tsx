@@ -163,13 +163,9 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 	const toggleResolve = () => {
 		if (event.reviewThread) {
 			const newResolved = !resolved;
-			thread.forEach(c => { c.isResolved = newResolved; });
-			event.reviewThread.isResolved = newResolved;
-			event.reviewThread.canUnresolve = newResolved;
-			event.reviewThread.canResolve = !newResolved;
 			setRevealed(!newResolved);
 			setResolved(newResolved);
-			toggleResolveComment(event.reviewThread, thread);
+			toggleResolveComment(event.reviewThread, thread, newResolved);
 		}
 	};
 
