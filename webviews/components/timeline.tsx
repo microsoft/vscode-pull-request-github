@@ -142,7 +142,7 @@ const ReviewEventView = (event: ReviewEvent) => {
 				) : null}
 				<div className="comment-body review-comment-body">
 					{Object.entries(comments).map(([key, thread]) => {
-						return <CommentThread key={key} thread={thread} eventId={event.id} />;
+						return <CommentThread key={key} thread={thread} event={event} />;
 					})}
 				</div>
 				{reviewIsPending ? <AddReviewSummaryComment /> : null}
@@ -151,12 +151,30 @@ const ReviewEventView = (event: ReviewEvent) => {
 	);
 };
 
-function CommentThread({ thread, eventId }: { thread: IComment[]; eventId: number }) {
+function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEvent }) {
 	const comment = thread[0];
 	const [revealed, setRevealed] = useState(!comment.isResolved);
-	const { openDiff } = useContext(PullRequestContext);
+	const [resolved, setResolved] = useState(!!comment.isResolved);
+	const { openDiff, toggleResolveComment } = useContext(PullRequestContext);
+	const resolvePermission = event.reviewThread &&
+		((event.reviewThread.canResolve && !event.reviewThread.isResolved) ||
+			(event.reviewThread.canUnresolve && event.reviewThread.isResolved));
+
+	const toggleResolve = () => {
+		if (event.reviewThread) {
+			const newResolved = !resolved;
+			thread.forEach(c => { c.isResolved = newResolved; });
+			event.reviewThread.isResolved = newResolved;
+			event.reviewThread.canUnresolve = newResolved;
+			event.reviewThread.canResolve = !newResolved;
+			setRevealed(!newResolved);
+			setResolved(newResolved);
+			toggleResolveComment(event.reviewThread, thread);
+		}
+	};
+
 	return (
-		<div key={eventId} className="diff-container">
+		<div key={event.id} className="diff-container">
 			<div className="resolved-container">
 				<div>
 					{comment.position === null ? (
@@ -169,19 +187,25 @@ function CommentThread({ thread, eventId }: { thread: IComment[]; eventId: numbe
 							{comment.path}
 						</a>
 					)}
+					{!resolved && !revealed ? <span className='unresolvedLabel'>Unresolved</span> : null}
 				</div>
-				{comment.isResolved ? (
-					<button className="secondary" onClick={() => setRevealed(!revealed)}>
-						{revealed ? 'Hide resolved' : 'Show resolved'}
-					</button>
-				) : null}
+				<button className="secondary" onClick={() => setRevealed(!revealed)}>
+					{revealed ? 'Hide' : 'Show'}
+				</button>
 			</div>
 			{revealed ? (
 				<div>
 					<Diff hunks={comment.diffHunks} />
 					{thread.map(c => (
-						<CommentView key={c.id} {...c} pullRequestReviewId={eventId} />
+						<CommentView key={c.id} {...c} pullRequestReviewId={event.id} />
 					))}
+					{resolvePermission ?
+						<div className='comment-container comment review-comment'>
+							<button className="secondary comment-resolve" onClick={() => toggleResolve()}>
+								{resolved ? 'Unresolve Conversation' : 'Resolve Conversation'}
+							</button>
+						</div>
+						: null}
 				</div>
 			) : null}
 		</div>

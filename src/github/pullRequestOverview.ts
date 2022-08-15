@@ -311,6 +311,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.applyPatch(message);
 			case 'pr.open-diff':
 				return this.openDiff(message);
+			case 'pr.resolve-comment-thread':
+				return this.resolveComentThread(message);
 			case 'pr.checkMergeability':
 				return this._replyMessage(message, await this._item.getMergeability());
 			case 'pr.add-reviewers':
@@ -708,6 +710,20 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			return PullRequestModel.openDiffFromComment(this._folderRepositoryManager, this._item, comment);
 		} catch (e) {
 			Logger.appendLine(`Open diff view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+		}
+	}
+
+	private async resolveComentThread(message: IRequestMessage<{ threadId: string, toResolve: boolean, thread: IComment[] }>) {
+		try {
+			if (message.args.toResolve) {
+				await this._item.resolveReviewThread(message.args.threadId);
+			}
+			else {
+				await this._item.unresolveReviewThread(message.args.threadId);
+			}
+
+		} catch (e) {
+			vscode.window.showErrorMessage(e);
 		}
 	}
 

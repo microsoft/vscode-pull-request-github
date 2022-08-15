@@ -27,6 +27,7 @@ export interface Reaction {
 
 export interface IReviewThread {
 	id: string;
+	prReviewDatabaseId?: number;
 	isResolved: boolean;
 	viewerCanResolve: boolean;
 	viewerCanUnresolve: boolean;

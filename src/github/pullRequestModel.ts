@@ -997,6 +997,20 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			}
 		});
 
+		reviewThreads.forEach(thread => {
+			if (!thread.prReviewDatabaseId || !reviewEventsById[thread.prReviewDatabaseId]) {
+				return;
+			}
+			const prReviewThreadEvent = reviewEventsById[thread.prReviewDatabaseId];
+			prReviewThreadEvent.reviewThread = {
+				threadId: thread.id,
+				canResolve: thread.viewerCanResolve,
+				canUnresolve: thread.viewerCanUnresolve,
+				isResolved: thread.isResolved
+			};
+
+		});
+
 		const pendingReview = reviewEvents.filter(r => r.state.toLowerCase() === 'pending')[0];
 		if (pendingReview) {
 			// Ensures that pending comments made in reply to other reviews are included for the pending review
