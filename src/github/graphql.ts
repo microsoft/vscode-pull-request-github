@@ -183,6 +183,13 @@ export interface ReviewThread {
 	isOutdated: boolean;
 	comments: {
 		nodes: ReviewComment[];
+		edges: [{
+			node: {
+				pullRequestReview: {
+					databaseId: number
+				}
+			}
+		}]
 	};
 }
 

@@ -25,7 +25,7 @@ import {
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
-import { insertNewCommitsSinceReview, isInCodespaces, parseReviewers } from './utils';
+import { isInCodespaces, parseReviewers } from './utils';
 
 type MilestoneQuickPickItem = vscode.QuickPickItem & { id: string; milestone: IMilestone };
 
@@ -169,7 +169,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			pullRequestModel.getReviewRequests(),
 			this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
 			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
-			pullRequestModel.getViewerLatestReviewCommit()
 		])
 			.then(result => {
 				const [
@@ -180,7 +179,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					requestedReviewers,
 					repositoryAccess,
 					branchInfo,
-					latestReviewCommitInfo
 				] = result;
 				if (!pullRequest) {
 					throw new Error(
@@ -201,8 +199,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
 				this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
 				const currentUser = this._folderRepositoryManager.getCurrentUser(this._item.githubRepository);
-
-				insertNewCommitsSinceReview(timelineEvents, latestReviewCommitInfo?.sha, currentUser, pullRequest.head);
 
 				const isCrossRepository =
 					pullRequest.base &&
@@ -311,6 +307,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.applyPatch(message);
 			case 'pr.open-diff':
 				return this.openDiff(message);
+			case 'pr.resolve-comment-thread':
+				return this.resolveComentThread(message);
 			case 'pr.checkMergeability':
 				return this._replyMessage(message, await this._item.getMergeability());
 			case 'pr.add-reviewers':
@@ -708,6 +706,22 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			return PullRequestModel.openDiffFromComment(this._folderRepositoryManager, this._item, comment);
 		} catch (e) {
 			Logger.appendLine(`Open diff view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+		}
+	}
+
+	private async resolveComentThread(message: IRequestMessage<{ threadId: string, toResolve: boolean, thread: IComment[] }>) {
+		try {
+			if (message.args.toResolve) {
+				await this._item.resolveReviewThread(message.args.threadId);
+			}
+			else {
+				await this._item.unresolveReviewThread(message.args.threadId);
+			}
+			const timelineEvents = await this._item.getTimelineEvents();
+			this._replyMessage(message, timelineEvents);
+		} catch (e) {
+			vscode.window.showErrorMessage(e);
+			this._replyMessage(message, undefined);
 		}
 	}
 

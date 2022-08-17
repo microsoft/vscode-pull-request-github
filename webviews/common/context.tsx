@@ -5,7 +5,7 @@
 
 import { createContext } from 'react';
 import { IComment } from '../../src/common/comment';
-import { EventType, isReviewEvent, ReviewEvent } from '../../src/common/timelineEvent';
+import { EventType, isReviewEvent, ReviewEvent, TimelineEvent } from '../../src/common/timelineEvent';
 import { MergeMethod, ReviewState } from '../../src/github/interface';
 import { getState, PullRequest, setState, updateState } from './cache';
 import { getMessageHandler, MessageHandler } from './message';
@@ -175,6 +175,20 @@ export class PRContext {
 	}
 
 	public openDiff = (comment: IComment) => this.postMessage({ command: 'pr.open-diff', args: { comment } });
+
+	public toggleResolveComment = (threadId: string, thread: IComment[], newResolved: boolean) => {
+		this.postMessage({
+			command: 'pr.resolve-comment-thread',
+			args: { threadId: threadId, toResolve: newResolved, thread }
+		}).then((timelineEvents: TimelineEvent[] | undefined) => {
+			if (timelineEvents) {
+				this.updatePR({ events: timelineEvents });
+			}
+			else {
+				this.refresh();
+			}
+		});
+	};
 
 	setPR = (pr: PullRequest) => {
 		this.pr = pr;

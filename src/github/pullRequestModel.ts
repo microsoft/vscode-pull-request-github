@@ -61,6 +61,7 @@ import {
 	convertRESTReviewEvent,
 	convertRESTUserToAccount,
 	getReactionGroup,
+	insertNewCommitsSinceReview,
 	parseGraphQLComment,
 	parseGraphQLReaction,
 	parseGraphQLReviewEvent,
@@ -943,17 +944,25 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const { query, remote, schema } = await this.githubRepository.ensure();
 
 		try {
-			const { data } = await query<TimelineEventsResponse>({
-				query: schema.TimelineEvents,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					number: this.number,
-				},
-			});
+			const [{ data }, latestReviewCommitInfo, currentUser, reviewThreads] = await Promise.all([
+				query<TimelineEventsResponse>({
+					query: schema.TimelineEvents,
+					variables: {
+						owner: remote.owner,
+						name: remote.repositoryName,
+						number: this.number,
+					},
+				}),
+				this.getViewerLatestReviewCommit(),
+				this.githubRepository.getAuthenticatedUser(),
+				this.getReviewThreads()
+			]);
+
 			const ret = data.repository.pullRequest.timelineItems.nodes;
 			const events = parseGraphQLTimelineEvents(ret, this.githubRepository);
-			await this.addReviewTimelineEventComments(events);
+
+			this.addReviewTimelineEventComments(events, reviewThreads);
+			insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, this.head);
 
 			return events;
 		} catch (e) {
@@ -962,13 +971,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	private async addReviewTimelineEventComments(events: TimelineEvent[]): Promise<void> {
+	private addReviewTimelineEventComments(events: TimelineEvent[], reviewThreads: IReviewThread[]): void {
 		interface CommentNode extends IComment {
 			childComments?: CommentNode[];
 		}
 
 		const reviewEvents = events.filter(isReviewEvent);
-		const reviewThreads = await this.getReviewThreads();
 		const reviewComments = reviewThreads.reduce((previous, current) => (previous as IComment[]).concat(current.comments), []);
 
 		const reviewEventsById = reviewEvents.reduce((index, evt) => {
@@ -1000,6 +1008,20 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			if (review) {
 				review.comments = review.comments.concat(c).concat(c.childComments || []);
 			}
+		});
+
+		reviewThreads.forEach(thread => {
+			if (!thread.prReviewDatabaseId || !reviewEventsById[thread.prReviewDatabaseId]) {
+				return;
+			}
+			const prReviewThreadEvent = reviewEventsById[thread.prReviewDatabaseId];
+			prReviewThreadEvent.reviewThread = {
+				threadId: thread.id,
+				canResolve: thread.viewerCanResolve,
+				canUnresolve: thread.viewerCanUnresolve,
+				isResolved: thread.isResolved
+			};
+
 		});
 
 		const pendingReview = reviewEvents.filter(r => r.state.toLowerCase() === 'pending')[0];

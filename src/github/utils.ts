@@ -397,6 +397,9 @@ export function convertGraphQLEventType(text: string) {
 export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread): IReviewThread {
 	return {
 		id: thread.id,
+		prReviewDatabaseId: thread.comments.edges && thread.comments.edges.length ?
+			thread.comments.edges[0].node.pullRequestReview.databaseId :
+			undefined,
 		isResolved: thread.isResolved,
 		viewerCanResolve: thread.viewerCanResolve,
 		viewerCanUnresolve: thread.viewerCanUnresolve,
@@ -1044,7 +1047,7 @@ export function parseReviewers(
 export function insertNewCommitsSinceReview(
 	timelineEvents: Common.TimelineEvent[],
 	latestReviewCommitOid: string | undefined,
-	currentUser: IAccount,
+	currentUser: string,
 	head: GitHubRef | null
 ) {
 	if (latestReviewCommitOid && head && head.sha !== latestReviewCommitOid) {
@@ -1071,7 +1074,7 @@ export function insertNewCommitsSinceReview(
 			else if (
 				!comittedDuringReview &&
 				timelineEvents[i].event === Common.EventType.Reviewed &&
-				(timelineEvents[i] as Common.ReviewEvent).user.login === currentUser.login
+				(timelineEvents[i] as Common.ReviewEvent).user.login === currentUser
 			) {
 				lastViewerReviewIndex = i;
 				comittedDuringReview = true;

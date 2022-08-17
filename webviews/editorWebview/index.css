@@ -285,6 +285,11 @@ body .resolved-container .outdatedLabel {
 	margin-left: 5px;
 }
 
+body .resolved-container .unresolvedLabel {
+	font-style: italic;
+	margin-left: 5px;
+}
+
 body .diff .diffPath {
 	margin-right: 4px;
 }

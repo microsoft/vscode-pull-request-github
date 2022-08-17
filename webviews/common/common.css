@@ -174,7 +174,11 @@ body img.avatar {
 .automerge-checkbox-wrapper,
 .automerge-checkbox-label {
 	display: flex;
-    align-items: center;
+	align-items: center;
+}
+
+body button.comment-resolve {
+	margin: 10px;
 }
 
 /** Theming */

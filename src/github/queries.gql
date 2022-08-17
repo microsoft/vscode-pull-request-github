@@ -392,6 +392,13 @@ query PullRequestComments($owner: String!, $name: String!, $number: Int!, $first
 					originalLine
 					isOutdated
 					comments(first: 100) {
+						edges {
+							node {
+								pullRequestReview {
+									databaseId
+								}
+							}
+						}
 						nodes {
 							...ReviewComment
 						}
@@ -839,14 +846,14 @@ query MaxIssue($owner: String!, $name: String!) {
 
 query GetMilestones($owner: String!, $name: String!, $states: [MilestoneState!]!) {
 	repository(owner: $owner, name: $name) {
-			milestones(first: 100, orderBy: { direction: DESC, field: DUE_DATE }, states: $states) {
-				nodes {
-					dueOn
-					title
-					createdAt
-					id
-				}
+		milestones(first: 100, orderBy: { direction: DESC, field: DUE_DATE }, states: $states) {
+			nodes {
+				dueOn
+				title
+				createdAt
+				id
 			}
+		}
 	}
 }
 
