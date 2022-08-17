@@ -253,6 +253,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
 					},
 				});
+				if (pullRequest.isResolved()) {
+					this._folderRepositoryManager.checkBranchUpToDate(pullRequest);
+				}
 			})
 			.catch(e => {
 				vscode.window.showErrorMessage(formatError(e));

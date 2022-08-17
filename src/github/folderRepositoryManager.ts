@@ -12,12 +12,13 @@ import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { ISessionState } from '../common/sessionState';
+import { PULL_BRANCH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { fromPRUri, Schemes } from '../common/uri';
 import { compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
-import { REPO_KEYS, ReposState } from '../extensionState';
+import { NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
 import { UserCompletion, userMarkdown } from '../issues/util';
 import { OctokitCommon } from './common';
@@ -28,7 +29,7 @@ import { IAccount, ILabel, IMilestone, IPullRequestsPagingOptions, PRType, RepoA
 import { IssueModel } from './issueModel';
 import { MilestoneModel } from './milestoneModel';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
-import { PullRequestModel } from './pullRequestModel';
+import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel';
 import {
 	convertRESTIssueToRawPullRequest,
 	convertRESTPullRequestToRawPullRequest,
@@ -1922,6 +1923,65 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 			Logger.appendLine(`Exiting failed: ${e}. Target branch ${branch} used to find branch ${branchObj?.name ?? 'unknown'} with upstream ${branchObj?.upstream ?? 'unknown'}.`);
 			vscode.window.showErrorMessage(`Exiting failed: ${e}`);
+		}
+	}
+
+	private async pullBranchConfiguration(): Promise<'never' | 'prompt' | 'always'> {
+		const neverShowPullNotification = this.context.globalState.get<boolean>(NEVER_SHOW_PULL_NOTIFICATION, false);
+		if (neverShowPullNotification) {
+			this.context.globalState.update(NEVER_SHOW_PULL_NOTIFICATION, false);
+			await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
+		}
+		return vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<'never' | 'prompt' | 'always'>(PULL_BRANCH, 'prompt');
+	}
+
+	private async pullBranch(branch: Branch) {
+		if (this._repository.state.HEAD?.name === branch.name) {
+			await this._repository.pull();
+		}
+	}
+
+	private _updateMessageShown: boolean = false;
+	public async checkBranchUpToDate(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
+		if (this.activePullRequest !== pr) {
+			return;
+		}
+		const branch = this._repository.state.HEAD;
+		if (branch) {
+			const remote = branch.upstream ? branch.upstream.remote : null;
+			const remoteBranch = branch.upstream ? branch.upstream.name : branch.name;
+			if (remote) {
+				await this._repository.fetch(remote, remoteBranch);
+				const pullBranchConfiguration = await this.pullBranchConfiguration();
+				if (branch.behind !== undefined && branch.behind > 0) {
+					switch (pullBranchConfiguration) {
+						case 'always': return this.pullBranch(branch);
+						case 'prompt': {
+							if (!this._updateMessageShown) {
+								this._updateMessageShown = true;
+								const pull = 'Pull';
+								const never = 'Never Show Again';
+								const result = await vscode.window.showInformationMessage(
+									`There are updates available for pull request ${pr.number}: ${pr.title}.`,
+									{},
+									pull,
+									never
+								);
+
+								if (result === pull) {
+									await this.pullBranch(branch);
+									this._updateMessageShown = false;
+								} else if (never) {
+									await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
+								}
+							}
+							return;
+						}
+						case 'never': return;
+					}
+				}
+
+			}
 		}
 	}
 

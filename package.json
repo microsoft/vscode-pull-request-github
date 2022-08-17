@@ -273,14 +273,16 @@
 					"type": "string",
 					"enum": [
 						"prompt",
-						"never"
+						"never",
+						"always"
 					],
 					"default": "prompt",
 					"enumDescriptions": [
 						"Prompt to pull a PR branch when changes are detected in the PR.",
-						"Never pull a PR branch when changes are detected in the PR."
+						"Never pull a PR branch when changes are detected in the PR.",
+						"Always pull a PR branch when changes are detected in the PR."
 					],
-					"description": "Pull changes from the remote when a PR branch is checked out locally."
+					"description": "Pull changes from the remote when a PR branch is checked out locally. Changes are detected with the PR is manually refreshed and during periodic background updates."
 				},
 				"githubPullRequests.ignoredPullRequestBranches": {
 					"type": "array",
