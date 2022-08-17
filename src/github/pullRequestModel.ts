@@ -125,7 +125,17 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public readonly onDidChangeComments: vscode.Event<void> = this._onDidChangeComments.event;
 
 	// Whether the pull request is currently checked out locally
-	public isActive: boolean;
+	private _isActive: boolean;
+	public get isActive(): boolean {
+		return this._isActive;
+	}
+	public set isActive(isActive: boolean) {
+		this._isActive = isActive;
+		if (!this._isActive) {
+			this.clearFileViewedContext();
+		}
+	}
+
 	_telemetry: ITelemetry;
 
 	constructor(
@@ -1621,5 +1631,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public setFileViewedContext() {
 		commands.setContext(contexts.VIEWED_FILES, Array.from(this._viewedFiles));
 		commands.setContext(contexts.UNVIEWED_FILES, Array.from(this._unviewedFiles));
+	}
+
+	private clearFileViewedContext() {
+		commands.setContext(contexts.VIEWED_FILES, []);
+		commands.setContext(contexts.UNVIEWED_FILES, []);
 	}
 }
