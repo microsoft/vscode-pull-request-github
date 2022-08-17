@@ -39,7 +39,7 @@ export interface CommentEvent {
 	createdAt: string;
 }
 
-export interface reviewResolveInfo {
+export interface ReviewResolveInfo {
 	threadId: string;
 	canResolve: boolean;
 	canUnresolve: boolean;
@@ -48,7 +48,7 @@ export interface reviewResolveInfo {
 
 export interface ReviewEvent {
 	id: number;
-	reviewThread?: reviewResolveInfo
+	reviewThread?: ReviewResolveInfo
 	event: EventType;
 	comments: IComment[];
 	submittedAt: string;

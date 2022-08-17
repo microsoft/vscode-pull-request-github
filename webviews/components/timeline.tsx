@@ -165,7 +165,7 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 			const newResolved = !resolved;
 			setRevealed(!newResolved);
 			setResolved(newResolved);
-			toggleResolveComment(event.reviewThread, thread, newResolved);
+			toggleResolveComment(event.reviewThread.threadId, thread, newResolved);
 		}
 	};
 

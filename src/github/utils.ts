@@ -1047,7 +1047,7 @@ export function parseReviewers(
 export function insertNewCommitsSinceReview(
 	timelineEvents: Common.TimelineEvent[],
 	latestReviewCommitOid: string | undefined,
-	currentUser: IAccount,
+	currentUser: string,
 	head: GitHubRef | null
 ) {
 	if (latestReviewCommitOid && head && head.sha !== latestReviewCommitOid) {
@@ -1074,7 +1074,7 @@ export function insertNewCommitsSinceReview(
 			else if (
 				!comittedDuringReview &&
 				timelineEvents[i].event === Common.EventType.Reviewed &&
-				(timelineEvents[i] as Common.ReviewEvent).user.login === currentUser.login
+				(timelineEvents[i] as Common.ReviewEvent).user.login === currentUser
 			) {
 				lastViewerReviewIndex = i;
 				comittedDuringReview = true;
