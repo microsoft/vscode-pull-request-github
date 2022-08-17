@@ -14,12 +14,11 @@ import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { ISessionState } from '../common/sessionState';
-import { IGNORE_PR_BRANCHES, POST_CREATE, PR_SETTINGS_NAMESPACE, PULL_BRANCH, USE_REVIEW_MODE } from '../common/settingKeys';
+import { IGNORE_PR_BRANCHES, POST_CREATE, PR_SETTINGS_NAMESPACE, USE_REVIEW_MODE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, fromReviewUri, PRUriParams, Schemes, toReviewUri } from '../common/uri';
 import { formatError, groupBy, onceEvent } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
-import { NEVER_SHOW_PULL_NOTIFICATION } from '../extensionState';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
@@ -164,11 +163,9 @@ export class ReviewManager {
 			}),
 		);
 
-		this._disposables.push(
-			this._folderRepoManager.onDidChangeActivePullRequest(_ => {
-				this.updateFocusedViewMode();
-			}),
-		);
+		this._disposables.push(this._folderRepoManager.onDidChangeActivePullRequest(_ => {
+			this.updateFocusedViewMode();
+		}));
 
 		GitHubCreatePullRequestLinkProvider.registerProvider(this._disposables, this, this._folderRepoManager);
 	}
@@ -197,47 +194,6 @@ export class ReviewManager {
 			}
 			this.pollForStatusChange();
 		}, 1000 * 60 * 5);
-	}
-
-	private async neverShowPullNotification(): Promise<boolean> {
-		const neverShowPullNotification = this._context.globalState.get<boolean>(NEVER_SHOW_PULL_NOTIFICATION, false);
-		if (neverShowPullNotification) {
-			this._context.globalState.update(NEVER_SHOW_PULL_NOTIFICATION, false);
-			await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
-		}
-		return vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(PULL_BRANCH, 'prompt') === 'never';
-	}
-
-	private async checkBranchUpToDate(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
-		const branch = this._repository.state.HEAD;
-		if (branch) {
-			const remote = branch.upstream ? branch.upstream.remote : null;
-			const remoteBranch = branch.upstream ? branch.upstream.name : branch.name;
-			if (remote) {
-				await this._repository.fetch(remote, remoteBranch);
-				const canShowNotification = !(await this.neverShowPullNotification());
-				if (canShowNotification && !this._updateMessageShown && (branch.behind !== undefined && branch.behind > 0)) {
-					this._updateMessageShown = true;
-					const pull = 'Pull';
-					const never = 'Never Show Again';
-					const result = await vscode.window.showInformationMessage(
-						`There are updates available for pull request ${pr.number}: ${pr.title}.`,
-						{},
-						pull,
-						never
-					);
-
-					if (result === pull) {
-						if (this._repository.state.HEAD?.name === branch.name) {
-							await this._repository.pull();
-						}
-						this._updateMessageShown = false;
-					} else if (never) {
-						await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
-					}
-				}
-			}
-		}
 	}
 
 	public async updateState(silent: boolean = false, openDiff: boolean = true) {
@@ -397,7 +353,7 @@ export class ReviewManager {
 
 		if (this._isFirstLoad) {
 			this._isFirstLoad = false;
-			this.checkBranchUpToDate(pr);
+			this._folderRepoManager.checkBranchUpToDate(pr);
 		}
 
 		Logger.appendLine('Review> Fetching pull request data');
@@ -590,7 +546,7 @@ export class ReviewManager {
 			return;
 		}
 
-		await this.checkBranchUpToDate(pr);
+		await this._folderRepoManager.checkBranchUpToDate(pr);
 
 		await this.initializePullRequestData(pr);
 		await this._reviewCommentController.update();
