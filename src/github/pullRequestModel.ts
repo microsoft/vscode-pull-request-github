@@ -940,7 +940,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		try {
 			const [{ data }, latestReviewCommitInfo, currentUser, reviewThreads] = await Promise.all([
-				await query<TimelineEventsResponse>({
+				query<TimelineEventsResponse>({
 					query: schema.TimelineEvents,
 					variables: {
 						owner: remote.owner,

@@ -5,7 +5,7 @@
 
 import { createContext } from 'react';
 import { IComment } from '../../src/common/comment';
-import { EventType, isReviewEvent, ReviewEvent, ReviewResolveInfo, TimelineEvent } from '../../src/common/timelineEvent';
+import { EventType, isReviewEvent, ReviewEvent, TimelineEvent } from '../../src/common/timelineEvent';
 import { MergeMethod, ReviewState } from '../../src/github/interface';
 import { getState, PullRequest, setState, updateState } from './cache';
 import { getMessageHandler, MessageHandler } from './message';
