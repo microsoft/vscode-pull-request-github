@@ -811,6 +811,11 @@
 				"icon": "$(globe)"
 			},
 			{
+				"command": "pr.resetViewedFiles",
+				"title": "Reset Viewed Files",
+				"category": "GitHub PUll Requests"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "Create Issue From Selection",
 				"category": "GitHub Issues"
@@ -1035,6 +1040,10 @@
 				},
 				{
 					"command": "pr.exit",
+					"when": "github:inReviewMode"
+				},
+				{
+					"command": "pr.resetViewedFiles",
 					"when": "github:inReviewMode"
 				},
 				{
