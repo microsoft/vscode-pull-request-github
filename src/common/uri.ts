@@ -33,6 +33,7 @@ export interface PRUriParams {
 	prNumber: number;
 	status: GitChangeType;
 	remoteName: string;
+	previousFileName?: string;
 }
 
 export function fromPRUri(uri: vscode.Uri): PRUriParams | undefined {
@@ -185,14 +186,16 @@ export function toReviewUri(
 export interface FileChangeNodeUriParams {
 	prNumber: number;
 	fileName: string;
+	previousFileName?: string;
 	status?: GitChangeType;
 }
 
-export function toResourceUri(uri: vscode.Uri, prNumber: number, fileName: string, status: GitChangeType) {
-	const params = {
-		prNumber: prNumber,
-		fileName: fileName,
-		status: status,
+export function toResourceUri(uri: vscode.Uri, prNumber: number, fileName: string, status: GitChangeType, previousFileName?: string) {
+	const params: FileChangeNodeUriParams = {
+		prNumber,
+		fileName,
+		status,
+		previousFileName
 	};
 
 	return uri.with({
@@ -215,6 +218,7 @@ export function toPRUri(
 	fileName: string,
 	base: boolean,
 	status: GitChangeType,
+	previousFileName?: string
 ): vscode.Uri {
 	const params: PRUriParams = {
 		baseCommit: baseCommit,
@@ -224,6 +228,7 @@ export function toPRUri(
 		prNumber: pullRequestModel.number,
 		status: status,
 		remoteName: pullRequestModel.githubRepository.remote.remoteName,
+		previousFileName
 	};
 
 	const path = uri.path;

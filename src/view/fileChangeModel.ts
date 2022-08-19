@@ -68,7 +68,7 @@ export abstract class FileChangeModel {
 	constructor(public readonly pullRequest: PullRequestModel,
 		protected readonly folderRepoManager: FolderRepositoryManager,
 		public readonly change: SimpleFileChange,
-		public readonly sha?: string) {	}
+		public readonly sha?: string) { }
 }
 
 export class GitFileChangeModel extends FileChangeModel {
@@ -145,6 +145,7 @@ export class InMemFileChangeModel extends FileChangeModel {
 				change.fileName,
 				false,
 				change.status,
+				change.previousFileName
 			);
 		this._parentFilePath = isCurrentPR ? (toReviewUri(
 			parentPath,
@@ -162,6 +163,7 @@ export class InMemFileChangeModel extends FileChangeModel {
 			change.fileName,
 			true,
 			change.status,
+			change.previousFileName
 		);
 	}
 }
@@ -196,6 +198,7 @@ export class RemoteFileChangeModel extends FileChangeModel {
 			change.fileName,
 			false,
 			change.status,
+			change.previousFileName
 		);
 		this._parentFilePath = toPRUri(
 			vscode.Uri.file(
@@ -207,6 +210,7 @@ export class RemoteFileChangeModel extends FileChangeModel {
 			change.fileName,
 			true,
 			change.status,
+			change.previousFileName
 		);
 	}
 }

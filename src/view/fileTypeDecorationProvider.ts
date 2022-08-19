@@ -3,10 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { ViewedState } from '../common/comment';
 import { GitChangeType } from '../common/file';
-import { fromFileChangeNodeUri, fromPRUri, Schemes, toResourceUri } from '../common/uri';
+import { FileChangeNodeUriParams, fromFileChangeNodeUri, fromPRUri, PRUriParams, Schemes, toResourceUri } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
@@ -35,7 +36,7 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 				const uri = vscode.Uri.joinPath(folderManager.repository.rootUri, change.fileName);
 				const fileChange = model.fileChanges.get(change.fileName);
 				if (fileChange) {
-					const fileChangeUri = toResourceUri(uri, model.number, change.fileName, fileChange.status);
+					const fileChangeUri = toResourceUri(uri, model.number, change.fileName, fileChange.status, fileChange.previousFileName);
 					this._onDidChangeFileDecorations.fire(fileChangeUri);
 					this._onDidChangeFileDecorations.fire(fileChangeUri.with({ scheme: folderManager.repository.rootUri.scheme }));
 					this._onDidChangeFileDecorations.fire(fileChangeUri.with({ scheme: Schemes.Pr, authority: '' }));
@@ -102,7 +103,8 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 			return {
 				propagate: false,
 				badge: this.letter(fileChangeUriParams.status, viewedState),
-				color: this.color(fileChangeUriParams.status, viewedState)
+				color: this.color(fileChangeUriParams.status, viewedState),
+				tooltip: this.tooltip(fileChangeUriParams)
 			};
 		}
 
@@ -112,7 +114,8 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 			return {
 				propagate: false,
 				badge: this.letter(prParams.status),
-				color: this.color(prParams.status)
+				color: this.color(prParams.status),
+				tooltip: this.tooltip(prParams)
 			};
 		}
 
@@ -183,6 +186,12 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 		}
 
 		return '';
+	}
+
+	tooltip(change: FileChangeNodeUriParams | PRUriParams) {
+		if ((change.status === GitChangeType.RENAME) && change.previousFileName) {
+			return `Renamed ${change.previousFileName} to ${path.basename(change.fileName)}`;
+		}
 	}
 
 	dispose() {

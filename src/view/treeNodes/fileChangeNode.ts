@@ -6,7 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { IComment, ViewedState } from '../../common/comment';
-import { GitChangeType } from '../../common/file';
+import { GitChangeType, InMemFileChange } from '../../common/file';
 import { FILE_LIST_LAYOUT } from '../../common/settingKeys';
 import { asImageDataURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, Schemes, toResourceUri } from '../../common/uri';
 import { groupBy } from '../../common/utils';
@@ -93,6 +93,10 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		return this.changeModel.sha;
 	}
 
+	get tooltip(): string {
+		return this.resourceUri.fsPath;
+	}
+
 	constructor(
 		public readonly parent: TreeNodeParent,
 		protected readonly pullRequestManager: FolderRepositoryManager,
@@ -114,6 +118,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 			this.pullRequest.number,
 			this.changeModel.fileName,
 			this.changeModel.status,
+			this.changeModel.change instanceof InMemFileChange ? this.changeModel.change.previousFileName : undefined
 		);
 		this.updateViewed(viewed);
 
@@ -222,7 +227,7 @@ export class RemoteFileChangeNode extends FileChangeNode implements vscode.TreeI
 		changeModel: RemoteFileChangeModel
 	) {
 		super(parent, folderRepositoryManager, pullRequest, changeModel);
-		this.fileChangeResourceUri = toResourceUri(vscode.Uri.parse(changeModel.blobUrl), changeModel.pullRequest.number, changeModel.fileName, changeModel.status);
+		this.fileChangeResourceUri = toResourceUri(vscode.Uri.parse(changeModel.blobUrl), changeModel.pullRequest.number, changeModel.fileName, changeModel.status, changeModel.previousFileName);
 		this.command = {
 			command: 'pr.openFileOnGitHub',
 			title: 'Open File on GitHub',
