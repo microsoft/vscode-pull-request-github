@@ -1622,6 +1622,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		this.setFileViewedState(fileName, ViewedState.UNVIEWED, true);
 	}
 
+	async unmarkAllFilesAsViewed(): Promise<void[]> {
+		return Promise.all(Array.from(this.fileChanges.keys()).map(change => this.unmarkFileAsViewed(change)));
+	}
+
 	private setFileViewedState(fileSubpath: string, viewedState: ViewedState, event: boolean) {
 		const filePath = vscode.Uri.joinPath(this.githubRepository.rootUri, fileSubpath).fsPath;
 		switch (viewedState) {

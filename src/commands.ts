@@ -933,6 +933,19 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.resetViewedFiles', async () => {
+			try {
+				return reposManager.folderManagers.map(async (manager) => {
+					await manager.activePullRequest?.unmarkAllFilesAsViewed();
+					manager.activePullRequest?.setFileViewedContext();
+				});
+			} catch (e) {
+				vscode.window.showErrorMessage(`Marked file as not viewed failed: ${e}`);
+			}
+		}),
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.expandAllComments', () => {
 			sessionState.commentsExpandState = true;
 		}));
