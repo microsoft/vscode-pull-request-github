@@ -239,7 +239,7 @@ export class GHPRComment implements vscode.Comment {
 		this.parent.comments = this.parent.comments.map(cmt => {
 			if (cmt instanceof GHPRComment && cmt.commentId === this.commentId) {
 				cmt.mode = vscode.CommentMode.Preview;
-				cmt.body = cmt._rawComment.body;
+				cmt.body = new vscode.MarkdownString(cmt._rawComment.body);
 			}
 
 			return cmt;
