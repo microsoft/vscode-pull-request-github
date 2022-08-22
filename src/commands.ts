@@ -308,7 +308,7 @@ export function registerCommands(
 				return;
 			}
 			const pullRequestModel = ensurePR(folderManager, e);
-			const DELETE_BRANCH_FORCE = 'delete branch (even if not merged)';
+			const DELETE_BRANCH_FORCE = 'Delete Unmerged Branch';
 			let error = null;
 
 			try {
@@ -316,7 +316,7 @@ export function registerCommands(
 			} catch (e) {
 				if (e.gitErrorCode === GitErrorCodes.BranchNotFullyMerged) {
 					const action = await vscode.window.showErrorMessage(
-						`The branch '${pullRequestModel.localBranchName}' is not fully merged, are you sure you want to delete it? `,
+						`The local branch '${pullRequestModel.localBranchName}' is not fully merged. Are you sure you want to delete it? `,
 						DELETE_BRANCH_FORCE,
 					);
 
