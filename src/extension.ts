@@ -282,7 +282,9 @@ function registerPostCommitCommandsProvider(reposManager: RepositoriesManager, g
 			Logger.debug(`Found ${found ? 'a repo' : 'no repos'} when getting post commit commands.`, 'GitPostCommitCommands');
 			return found ? [{
 				command: 'pr.create',
-				title: 'Commit & Create Pull Request'
+				title: '$(git-pull-request-create) Commit',
+				description: '$(git-pull-request-create) Commit & Create Pull Request',
+				tooltip: 'Commit & Create Pull Request'
 			}] : [];
 		}
 	}
