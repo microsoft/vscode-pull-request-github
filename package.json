@@ -653,6 +653,11 @@
 				"icon": "$(go-to-file)"
 			},
 			{
+				"command": "review.openLocalFile",
+				"title": "Open File",
+				"icon": "$(go-to-file)"
+			},
+			{
 				"command": "review.suggestDiff",
 				"title": "Suggest Edit",
 				"category": "GitHub Pull Requests"
@@ -1048,6 +1053,10 @@
 				},
 				{
 					"command": "review.openFile",
+					"when": "false"
+				},
+				{
+					"command": "review.openLocalFile",
 					"when": "false"
 				},
 				{
@@ -1559,7 +1568,12 @@
 				{
 					"command": "review.openFile",
 					"group": "navigation",
-					"when": "resourceScheme =~ /^review$/"
+					"when": "resourceScheme =~ /^review$/ && isInDiffEditor"
+				},
+				{
+					"command": "review.openLocalFile",
+					"group": "navigation",
+					"when": "resourceScheme =~ /^review$/ && !isInDiffEditor"
 				},
 				{
 					"command": "issue.createIssueFromFile",
