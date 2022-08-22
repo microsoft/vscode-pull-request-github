@@ -449,6 +449,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		{ language: 'groovy' },
 		{ language: 'handlebars' },
 		{ language: 'hlsl' },
+		{ language: 'html' },
 		{ language: 'ini' },
 		{ language: 'java' },
 		{ language: 'javascriptreact' },
@@ -463,6 +464,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		{ language: 'objective-c' },
 		{ language: 'perl' },
 		{ language: 'perl6' },
+		{ language: 'typescriptreact' },
+		{ language: 'yml' },
 		'*',
 	];
 	private registerCompletionProviders() {
