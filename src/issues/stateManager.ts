@@ -167,7 +167,7 @@ export class StateManager {
 			) {
 				if (newBranch) {
 					if (state.folderManager) {
-						await that.setCurrentIssueFromBranch(state, newBranch);
+						await that.setCurrentIssueFromBranch(state, newBranch, true);
 					}
 				} else {
 					await that.setCurrentIssue(state, undefined);
