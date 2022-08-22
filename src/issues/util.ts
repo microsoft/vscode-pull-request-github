@@ -16,13 +16,10 @@ import { GithubItemStateEnum, User } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { getEnterpriseUri, getIssueNumberLabelFromParsed, getRepositoryForFile, ParsedIssue } from '../github/utils';
+import { getEnterpriseUri, getIssueNumberLabelFromParsed, getRepositoryForFile, ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
 import { ReviewManager } from '../view/reviewManager';
 import { CODE_PERMALINK, findCodeLinkLocally } from './issueLinkLookup';
 import { StateManager } from './stateManager';
-
-export const ISSUE_EXPRESSION = /(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
-export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
 
 export const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
 
@@ -34,27 +31,6 @@ export const DEFAULT_QUERY_CONFIGURATION = 'default';
 export const BRANCH_NAME_CONFIGURATION = 'issueBranchTitle';
 export const BRANCH_CONFIGURATION = 'useBranchForIssues';
 export const SCM_MESSAGE_CONFIGURATION = 'workingIssueFormatScm';
-
-export function parseIssueExpressionOutput(output: RegExpMatchArray | null): ParsedIssue | undefined {
-	if (!output) {
-		return undefined;
-	}
-	const issue: ParsedIssue = { owner: undefined, name: undefined, issueNumber: 0 };
-	if (output.length === 7) {
-		issue.owner = output[2];
-		issue.name = output[3];
-		issue.issueNumber = parseInt(output[5]);
-		return issue;
-	} else if (output.length === 16) {
-		issue.owner = output[3] || output[11];
-		issue.name = output[4] || output[12];
-		issue.issueNumber = parseInt(output[7] || output[14]);
-		issue.commentNumber = output[9] !== undefined ? parseInt(output[9]) : undefined;
-		return issue;
-	} else {
-		return undefined;
-	}
-}
 
 export async function getIssue(
 	stateManager: StateManager,

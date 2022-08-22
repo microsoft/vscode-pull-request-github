@@ -23,7 +23,7 @@ import { GitHubRepository } from './githubRepository';
 import { RepoAccessAndMergeMethods } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
-import { variableSubstitution } from './utils';
+import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
 
 export class CreatePullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public readonly viewType = 'github:createPullRequest';
@@ -163,6 +163,14 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				description = pullRequestTemplate;
 			} else if (lastCommit?.body && (this._pullRequestDefaults.base !== compareBranch.name)) {
 				description = lastCommit.body;
+			}
+
+			// If the description is empty, check to see if the title of the PR contains something that looks like an issue
+			if (!description) {
+				const match = parseIssueExpressionOutput(title.match(ISSUE_EXPRESSION));
+				if (match?.issueNumber && !match.name && !match.owner) {
+					description = `#${match.issueNumber}`;
+				}
 			}
 		} catch (e) {
 			// Ignore and fall back to commit message
