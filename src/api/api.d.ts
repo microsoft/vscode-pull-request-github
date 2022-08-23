@@ -219,6 +219,7 @@ export interface Repository {
 	log(options?: LogOptions): Promise<Commit[]>;
 
 	commit(message: string, opts?: CommitOptions): Promise<void>;
+	add(paths: string[]): Promise<void>;
 }
 
 /**
