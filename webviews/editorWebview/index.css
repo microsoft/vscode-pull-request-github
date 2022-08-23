@@ -442,6 +442,10 @@ body .overview-title .button-group button:last-child {
 	font-style: italic;
 }
 
+.assign-yourself:hover{
+	cursor: pointer;
+}
+
 .section button {
 	margin-left: auto;
 	padding: 0;
