@@ -567,6 +567,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			throw new Error('Creating review thread failed.');
 		}
 
+		if (!data.addPullRequestReviewThread.thread) {
+			throw new Error('File has been deleted.');
+		}
+
 		if (!suppressDraftModeUpdate) {
 			this.hasPendingReview = true;
 			await this.updateDraftModeContext();
