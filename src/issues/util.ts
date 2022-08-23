@@ -11,6 +11,7 @@ import { gitHubLabelColor } from '../../src/common/utils';
 import { Commit, Ref, Remote, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { Protocol } from '../common/protocol';
+import { fromReviewUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { GithubItemStateEnum, User } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
@@ -495,21 +496,27 @@ export async function createGithubPermalink(
 
 	let commit: Commit | undefined;
 	let commitHash: string | undefined;
-	try {
-		const log = await repository.log({ maxEntries: 1, path: uri.fsPath });
-		if (log.length === 0) {
-			return { permalink: undefined, error: 'No branch on a remote contains the most recent commit for the file.', originalFile: uri };
+	if (uri.scheme === Schemes.Review) {
+		commitHash = fromReviewUri(uri.query).commit;
+	}
+
+	if (!commitHash) {
+		try {
+			const log = await repository.log({ maxEntries: 1, path: uri.fsPath });
+			if (log.length === 0) {
+				return { permalink: undefined, error: 'No branch on a remote contains the most recent commit for the file.', originalFile: uri };
+			}
+			// Now that we know that the file existed at some point in the repo, use the head commit to construct the URI.
+			if (repository.state.HEAD?.commit && (log[0].hash !== repository.state.HEAD?.commit)) {
+				commit = await repository.getCommit(repository.state.HEAD.commit);
+			}
+			if (!commit) {
+				commit = log[0];
+			}
+			commitHash = commit.hash;
+		} catch (e) {
+			commitHash = repository.state.HEAD?.commit;
 		}
-		// Now that we know that the file existed at some point in the repo, use the head commit to construct the URI.
-		if (repository.state.HEAD?.commit && (log[0].hash !== repository.state.HEAD?.commit)) {
-			commit = await repository.getCommit(repository.state.HEAD.commit);
-		}
-		if (!commit) {
-			commit = log[0];
-		}
-		commitHash = commit.hash;
-	} catch (e) {
-		commitHash = repository.state.HEAD?.commit;
 	}
 
 	const rawUpstream = await getBestPossibleUpstream(repository, commit);
