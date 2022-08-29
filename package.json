@@ -818,7 +818,7 @@
 			{
 				"command": "pr.resetViewedFiles",
 				"title": "Reset Viewed Files",
-				"category": "GitHub PUll Requests"
+				"category": "GitHub Pull Requests"
 			},
 			{
 				"command": "issue.createIssueFromSelection",
