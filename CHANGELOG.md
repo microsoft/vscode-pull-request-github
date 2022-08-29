@@ -4,7 +4,14 @@
 
 ### Changes
 
-- Use the `githubPullRequests.notifications` setting to highlight Pull Requests which have unread notifications
+- By setting the `githubPullRequests.notifications` setting to `pullRequests` Pull Requests which have unread notifications will be highlighted.
+
+  ![GitHub Notifications](documentation/changelog/0.50.0/githubNotifications.gif)
+
+- GitHub labels will render with the GitHub colors
+
+  ![GitHub Label Colors](documentation/changelog/0.50.0/labelColors.png)
+
 - Review Comments can now be directly resolved/unresolved in the Pull Request Overview
 
 ### Fixes
