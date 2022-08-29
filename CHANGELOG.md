@@ -1,19 +1,37 @@
 # Changelog
 
+## 0.50.0
+
+### Changes
+
+- By setting the `githubPullRequests.notifications` setting to `pullRequests` Pull Requests which have unread notifications will be highlighted.
+
+  ![GitHub Notifications](documentation/changelog/0.50.0/githubNotifications.gif)
+
+- GitHub labels will render with the GitHub colors
+
+  ![GitHub Label Colors](documentation/changelog/0.50.0/labelColors.png)
+
+- Review Comments can now be directly resolved/unresolved in the Pull Request Overview
+
+### Fixes
+
+- Fails to load Pull Requests on older GitHub Enterprise verisons https://github.com/microsoft/vscode-pull-request-github/issues/3829
+
 ## 0.48.0
 
 ### Changes
 
 - The changes since last review button will appear on PRs to which a commit has been pushed since the viewers review. Pressing it will only show the diffs for the commits since the review.
 
-	![Changes since last review](documentation/changelog/0.48.0/changesSinceReview.gif)
+  ![Changes since last review](documentation/changelog/0.48.0/changesSinceReview.gif)
 
 - Milestones can be created directly from the add milestone dropdown.
 - The setting `githubPullRequests.pullRequestDescription` has been brought back from being deprecated.
 - `githubPullRequests.pullBranch` can be used to configure whether to be prompted to pull changes when a change in a PR is detected.
 - The new **Commit & Create Pull Request** action in the git SCM view let's you commit and go to the "Create PR" view in one click.
 
-	![Commit and Create Pull Request action](documentation/changelog/0.48.0/commit-and-create-pr.png)
+  ![Commit and Create Pull Request action](documentation/changelog/0.48.0/commit-and-create-pr.png)
 
 ### Fixes
 
@@ -33,7 +51,7 @@
 - The "Publish branch?" dialog can be skipped when creating a PR using the setting `"githubPullRequests.pushBranch"`.
 - The auto-merge checkbox is availabe in the "Overview" editor.
 
-	![Auto-merge in the overview](documentation/changelog/0.46.0/automerge-overview.png)
+  ![Auto-merge in the overview](documentation/changelog/0.46.0/automerge-overview.png)
 
 ### Fixes
 
@@ -55,7 +73,7 @@
 
 - Auto-merge support from the "Create" view.
 
-	![Auto-merge from the create view](documentation/changelog/0.44.0/auto-merge-create-view.png)
+  ![Auto-merge from the create view](documentation/changelog/0.44.0/auto-merge-create-view.png)
 
 ### Fixes
 
@@ -144,9 +162,9 @@
 ### Changes
 
 - Pull request loading performance in vscode.dev and github.dev (and to a lesser extension, desktop VS Code) is significantly improved. As part of this:
-	- The "changes in pull request" tree shows faster.
-	- Individual file diffs are not loaded until the diff is opened.
-	- Comments load in with a delay.
+  - The "changes in pull request" tree shows faster.
+  - Individual file diffs are not loaded until the diff is opened.
+  - Comments load in with a delay.
 - There is a new setting that can disable review mode for merged and/or closed pull requests.
 
 ```json
@@ -157,7 +175,7 @@
 ```
 
 - Added a "Don't show again" button to the "Do you want to create a pull request" notification to better surface the associated setting.
-![Notification with don't show again button](documentation/changelog/0.36.0/dont-show-button.png)
+  ![Notification with don't show again button](documentation/changelog/0.36.0/dont-show-button.png)
 - There's a new command "Open All Diffs".
 - Comments now show a timestamp using the new VS Code comment `timestamp` API.
 
@@ -269,7 +287,7 @@
 - Variable in settings for lowercase branch names when working on and issue
 ```json
 {
-  "githubIssues.issueBranchTitle": "${sanitizedLowercaseIssueTitle}"
+	"githubIssues.issueBranchTitle": "${sanitizedLowercaseIssueTitle}"
 }
 ```
 
@@ -415,7 +433,7 @@
 - The `githubPullRequests.focusedMode` setting is enabled by default, causing the "Focused Mode" view for a checked out pull request to be visible in the Pull Request view container.
 
 - Thanks to @TanushN and @rohanshiva, the pull request description page now supports adding and removing assignees and milestones.
-![A button next to the milestone marker is pressed and a list of milestone options is shown. Choosing a milestone updates the page.](documentation/changelog/0.25.0/update_milestone.gif)
+  ![A button next to the milestone marker is pressed and a list of milestone options is shown. Choosing a milestone updates the page.](documentation/changelog/0.25.0/update_milestone.gif)
 
 - The pull request create view now allows selecting both the source and target branch instead of always using the current branch as the source.
 
