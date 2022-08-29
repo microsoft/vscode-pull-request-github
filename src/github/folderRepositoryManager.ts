@@ -1961,11 +1961,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 							if (!this._updateMessageShown) {
 								this._updateMessageShown = true;
 								const pull = 'Pull';
+								const always = 'Always Pull';
 								const never = 'Never Show Again';
 								const result = await vscode.window.showInformationMessage(
 									`There are updates available for pull request ${pr.number}: ${pr.title}.`,
 									{},
 									pull,
+									always,
 									never
 								);
 
@@ -1974,6 +1976,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 									this._updateMessageShown = false;
 								} else if (never) {
 									await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
+								} else if (always) {
+									await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'always', vscode.ConfigurationTarget.Global);
+									await this.pullBranch(branch);
 								}
 							}
 							return;
