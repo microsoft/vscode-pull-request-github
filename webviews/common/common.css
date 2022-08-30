@@ -10,12 +10,13 @@ body a {
 body a:hover {
 	text-decoration: underline;
 }
+
 button,
 input[type='submit'] {
 	background-color: var(--vscode-button-background);
 	color: var(--vscode-button-foreground);
 	font-family: var(--vscode-font-family);
-	border-radius: 0px;
+	border-radius: 2px;
 	border: 1px solid transparent;
 	outline: none;
 	padding: 4px 12px;
@@ -23,6 +24,14 @@ input[type='submit'] {
 	line-height: 18px;
 	white-space: nowrap;
 	user-select: none;
+}
+
+input.select-left {
+	border-radius: 2px 0 0 2px;
+}
+
+button.select-right {
+	border-radius: 0 2px 2px 0;
 }
 
 button:focus,
