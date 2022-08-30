@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { VSCodeButton } from '@vscode/webview-ui-toolkit/react'
 import React, { ChangeEventHandler, Context, useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
 import { groupBy } from '../../src/common/utils';
 import { GithubItemStateEnum, MergeMethod, PullRequestMergeability } from '../../src/github/interface';
@@ -181,9 +182,9 @@ export const ReadyForReview = ({ isSimple }: { isSimple: boolean }) => {
 	return (
 		<div className="ready-for-review-container">
 			<div className="select-control">
-				<button className="ready-for-review-button" disabled={isBusy} onClick={markReadyForReview}>
+				<VSCodeButton className="ready-for-review-button" disabled={isBusy} onClick={markReadyForReview}>
 					Ready for review
-				</button>
+				</VSCodeButton>
 			</div>
 			{isSimple ? '' : <div className="ready-for-review-icon">{alertIcon}</div>}
 			<div className="ready-for-review-heading">This pull request is still a work in progress.</div>

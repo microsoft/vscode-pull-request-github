@@ -3,15 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { VSCodeButton } from '@vscode/webview-ui-toolkit/react'
 import React, { useContext, useState } from 'react';
 import { GithubItemStateEnum } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 
 const ExitButton = ({ repositoryDefaultBranch, isBusy, onClick }: { repositoryDefaultBranch: string, isBusy: boolean, onClick: () => Promise<void> }) => {
-	return (<button title="Switch to a different branch than this pull request branch" disabled={isBusy} onClick={onClick}>
+	return (<VSCodeButton title="Switch to a different branch than this pull request branch" disabled={isBusy} onClick={onClick}>
 		Checkout '{repositoryDefaultBranch}'
-	</button>);
+	</VSCodeButton>);
 };
 
 const ExitLink = ({ repositoryDefaultBranch, onClick }: { repositoryDefaultBranch: string, onClick: () => Promise<void> }) => {

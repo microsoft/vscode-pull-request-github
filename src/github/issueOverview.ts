@@ -380,16 +380,6 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 		const uri = vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview-pr-description.js');
 
-		const toolkitUri = vscode.Uri.joinPath(this._extensionUri, 'node_modules',
-			'@vscode',
-			'webview-ui-toolkit',
-			'dist',
-			'toolkit.min.js', // A toolkit.min.js file is also available
-		);
-
-		const vv = this._webview!.asWebviewUri(toolkitUri);
-
-
 		return `<!DOCTYPE html>
 <html lang="en">
 	<head>
@@ -400,11 +390,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		<title>Pull Request #${number}</title>
 	</head>
 	<body class="${process.platform}">
-	<vscode-button id="howdy">Howdy!</vscode-button>
 		<div id=app>
 		</div>
 		<script nonce="${nonce}" src="${this._webview!.asWebviewUri(uri).toString()}"></script>
-		<script nonce="${nonce}" type="module" src="${vv}"></script>
 	</body>
 </html>`;
 	}

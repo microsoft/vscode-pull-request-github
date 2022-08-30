@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { VSCodeButton } from '@vscode/webview-ui-toolkit/react';
 import React, { useContext, useRef, useState } from 'react';
 
 import { IComment } from '../../src/common/comment';
@@ -185,9 +186,9 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 					)}
 					{!resolved && !revealed ? <span className='unresolvedLabel'>Unresolved</span> : null}
 				</div>
-				<button className="secondary" onClick={() => setRevealed(!revealed)}>
+				<VSCodeButton appearance='secondary' onClick={() => setRevealed(!revealed)}>
 					{revealed ? 'Hide' : 'Show'}
-				</button>
+				</VSCodeButton>
 			</div>
 			{revealed ? (
 				<div>
@@ -197,9 +198,9 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 					))}
 					{resolvePermission ?
 						<div className='comment-container comment review-comment'>
-							<button className="secondary comment-resolve" onClick={() => toggleResolve()}>
+							<VSCodeButton appearance='secondary' className="comment-resolve" onClick={() => toggleResolve()}>
 								{resolved ? 'Unresolve Conversation' : 'Resolve Conversation'}
-							</button>
+							</VSCodeButton>
 						</div>
 						: null}
 				</div>

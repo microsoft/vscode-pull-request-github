@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { VSCodeButton } from '@vscode/webview-ui-toolkit/react'
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { IComment } from '../../src/common/comment';
 import { GithubItemStateEnum } from '../../src/github/interface';
@@ -219,7 +220,7 @@ export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch }: Embodied
 
 	const containsSuggestion = (body || bodyHTML).indexOf('```diff') > -1;
 	const applyPatchButton = (containsSuggestion && canApplyPatch) ? (
-		<button onClick={() => applyPatch(comment)}>Apply Patch</button>
+		<VSCodeButton onClick={() => applyPatch(comment)}>Apply Patch</VSCodeButton>
 	) : (
 		<></>
 	);
@@ -310,18 +311,18 @@ export function AddComment({
 			/>
 			<div className="form-actions">
 				{(hasWritePermission || isAuthor) && !isIssue ? (
-					<button
+					<VSCodeButton
 						id="close"
-						className="secondary"
+						appearance='secondary'
 						disabled={isBusy || state !== GithubItemStateEnum.Open}
 						onClick={onClick}
 						data-command="close"
 					>
 						Close Pull Request
-					</button>
+					</VSCodeButton>
 				) : null}
 				{!isIssue && !isAuthor ? (
-					<button
+					<VSCodeButton
 						id="request-changes"
 						disabled={isBusy || !pendingCommentText}
 						className="secondary"
@@ -329,26 +330,25 @@ export function AddComment({
 						data-command="requestChanges"
 					>
 						{continueOnGitHub ? 'Request changes on github.com' : 'Request Changes'}
-					</button>
+					</VSCodeButton>
 				) : null}
 				{!isIssue && !isAuthor ? (
-					<button
+					<VSCodeButton
 						id="approve"
-						className="secondary"
+						appearance='secondary'
 						disabled={isBusy || currentUserReviewState === 'APPROVED'}
 						onClick={onClick}
 						data-command="approve"
 					>
 						{continueOnGitHub ? 'Approve on github.com' : 'Approve'}
-					</button>
+					</VSCodeButton>
 				) : null}
-				<input
+				<VSCodeButton
 					id="reply"
-					value="Comment"
 					type="submit"
-					className="secondary"
+					appearance='primary'
 					disabled={isBusy || !pendingCommentText}
-				/>
+				>Comment</VSCodeButton>
 			</div>
 		</form>
 	);
