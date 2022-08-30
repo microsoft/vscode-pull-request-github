@@ -19,7 +19,7 @@
 	"version": "0.48.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.70.0"
+		"vscode": "^1.71.0"
 	},
 	"categories": [
 		"Other"
