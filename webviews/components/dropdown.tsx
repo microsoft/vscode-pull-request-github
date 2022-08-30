@@ -87,11 +87,12 @@ export const Dropdown = ({ options, defaultOption, submitAction }) => {
 			<div className="select-control">
 				<Confirm
 					dropdownId={dropdownId}
+					className="select-left"
 					options={options}
 					selected={selectedMethod}
 					submitAction={submitAction}
 				/>
-				<button id={EXPAND_OPTIONS_BUTTON} className={expandButtonClass} onClick={onClick}>
+				<button id={EXPAND_OPTIONS_BUTTON} className={'select-right ' + expandButtonClass} onClick={onClick}>
 					{chevronIcon}
 				</button>
 			</div>
@@ -108,11 +109,13 @@ export const Dropdown = ({ options, defaultOption, submitAction }) => {
 
 function Confirm({
 	dropdownId,
+	className,
 	options,
 	selected,
 	submitAction,
 }: {
 	dropdownId: string;
+	className: string;
 	options: { [key: string]: string };
 	selected: string;
 	submitAction: (selected: string) => Promise<void>;
@@ -132,7 +135,7 @@ function Confirm({
 
 	return (
 		<form onSubmit={onSubmit}>
-			<input disabled={isBusy} type="submit" id={`confirm-button${dropdownId}`} value={options[selected]} />
+			<input disabled={isBusy} type="submit" className={className} id={`confirm-button${dropdownId}`} value={options[selected]} />
 		</form>
 	);
 }
