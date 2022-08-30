@@ -64,7 +64,7 @@ async function openDiffCommand(
 /**
  * File change node whose content is stored in memory and resolved when being revealed.
  */
-export class FileChangeNode extends TreeNode implements vscode.TreeItem {
+export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 	public iconPath?:
 		| string
 		| vscode.Uri
@@ -74,6 +74,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public contextValue: string;
 	public command: vscode.Command;
 	public opts: vscode.TextDocumentShowOptions;
+
+	public checkboxState: vscode.TreeItemCheckboxState;
 
 	public childrenDisposables: vscode.Disposable[] = [];
 
@@ -140,7 +142,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 			}),
 		);
 
-
 		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link' };
 	}
 
@@ -161,6 +162,18 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.changeModel.updateViewed(viewed);
 		this.contextValue = `${Schemes.FileChange}:${GitChangeType[this.changeModel.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
+		this.checkboxState = viewed === ViewedState.VIEWED ?
+			vscode.TreeItemCheckboxState.Checked : vscode.TreeItemCheckboxState.Unchecked;
+	}
+
+	updateCheckbox(newState: vscode.TreeItemCheckboxState) {
+		const viewed = newState === vscode.TreeItemCheckboxState.Checked ? ViewedState.VIEWED : ViewedState.UNVIEWED;
+		this.updateViewed(viewed);
+		vscode.commands.executeCommand(
+			newState === vscode.TreeItemCheckboxState.Checked ? 'pr.markFileAsViewed' : 'pr.unmarkFileAsViewed', this
+		).then(_ => {
+			this.refresh(this);
+		});
 	}
 
 	updateShowOptions() {

@@ -88,6 +88,14 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 				}
 			}),
 		);
+
+		this._disposables.push(this._view.onDidChangeTreeCheckbox(checkboxUpdates => {
+			checkboxUpdates.items.forEach(checkboxUpdate => {
+				const node = checkboxUpdate[0];
+				const newState = checkboxUpdate[1];
+				node.updateCheckbox(newState);
+			});
+		}));
 	}
 
 	async reveal(element: TreeNode, options?: { select?: boolean, focus?: boolean, expand?: boolean }): Promise<void> {
