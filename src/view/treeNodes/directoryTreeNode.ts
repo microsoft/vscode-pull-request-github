@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { ViewedState } from '../../common/comment';
 import { GitFileChangeNode, InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
@@ -23,7 +24,6 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem2 {
 	}
 
 	public finalize(): void {
-		this.checkboxState = this.allChildrenViewed() ? vscode.TreeItemCheckboxState.Checked : vscode.TreeItemCheckboxState.Unchecked;
 		this.trimTree();
 		this.sort();
 	}
@@ -99,6 +99,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem2 {
 		}
 
 		if (paths.length === 1) {
+			file.parent = this;
 			this.children.push(file);
 			return;
 		}
@@ -128,7 +129,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem2 {
 					return false;
 				}
 			}
-			else if (!child.changeModel.viewed) {
+			else if (child.changeModel.viewed != ViewedState.VIEWED) {
 				return false;
 			}
 		}
@@ -146,7 +147,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem2 {
 		}
 
 		this.checkboxState = allChildrenViewed ? vscode.TreeItemCheckboxState.Checked : vscode.TreeItemCheckboxState.Unchecked;
-		if (this.parent instanceof DirectoryTreeNode && this.checkboxState !== this.parent.checkboxState) {
+		if (this.parent instanceof DirectoryTreeNode && this.parent.checkboxState && this.checkboxState !== this.parent.checkboxState) {
 			if (!this.parent.updateParentCheckbox()) {
 				this.refresh(this);
 				return true;
@@ -160,6 +161,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem2 {
 	}
 
 	getTreeItem(): vscode.TreeItem {
+		this.checkboxState = this.allChildrenViewed() ? vscode.TreeItemCheckboxState.Checked : vscode.TreeItemCheckboxState.Unchecked;
 		return this;
 	}
 }

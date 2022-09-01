@@ -14,6 +14,7 @@ import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folder
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { FileChangeModel, GitFileChangeModel, InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { DecorationProvider } from '../treeDecorationProvider';
+import { DirectoryTreeNode } from './directoryTreeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
 export function openFileCommand(uri: vscode.Uri): vscode.Command {
@@ -100,7 +101,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 	}
 
 	constructor(
-		public readonly parent: TreeNodeParent,
+		public parent: TreeNodeParent,
 		protected readonly pullRequestManager: FolderRepositoryManager,
 		public readonly pullRequest: PullRequestModel & IResolvedPullRequestModel,
 		public readonly changeModel: FileChangeModel
@@ -172,7 +173,9 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 		vscode.commands.executeCommand(
 			newState === vscode.TreeItemCheckboxState.Checked ? 'pr.markFileAsViewed' : 'pr.unmarkFileAsViewed', this
 		).then(_ => {
-			this.refresh(this);
+			if (this.parent instanceof DirectoryTreeNode && !this.parent.updateParentCheckbox() || !(this.parent instanceof DirectoryTreeNode)) {
+				this.refresh(this);
+			}
 		});
 	}
 
@@ -234,7 +237,7 @@ export class RemoteFileChangeNode extends FileChangeNode implements vscode.TreeI
 	}
 
 	constructor(
-		parent: TreeNodeParent,
+		public parent: TreeNodeParent,
 		folderRepositoryManager: FolderRepositoryManager,
 		pullRequest: PullRequestModel & IResolvedPullRequestModel,
 		changeModel: RemoteFileChangeModel
@@ -263,7 +266,7 @@ export class RemoteFileChangeNode extends FileChangeNode implements vscode.TreeI
 export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeItem {
 	constructor(
 		private readonly folderRepositoryManager: FolderRepositoryManager,
-		public readonly parent: TreeNodeParent,
+		public parent: TreeNodeParent,
 		public readonly pullRequest: PullRequestModel & IResolvedPullRequestModel,
 		public readonly changeModel: InMemFileChangeModel
 	) {
@@ -294,7 +297,7 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
  */
 export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem {
 	constructor(
-		public readonly parent: TreeNodeParent,
+		public parent: TreeNodeParent,
 		pullRequestManager: FolderRepositoryManager,
 		public readonly pullRequest: PullRequestModel & IResolvedPullRequestModel,
 		public readonly changeModel: GitFileChangeModel,
