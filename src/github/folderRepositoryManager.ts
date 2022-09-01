@@ -1672,9 +1672,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						try {
 							await Promise.all(
 								picks.map(async pick => {
-									await this.repository.deleteBranch(pick.label, true);
-								}),
-							);
+									try {
+										await this.repository.deleteBranch(pick.label, true);
+									} catch (e) {
+										if ((typeof e.stderr === 'string') && (e.stderr as string).includes('not found')) {
+											// TODO: The git extension API doesn't support removing configs
+											// If that support is added we should remove the config as it is no longer useful.
+										} else {
+											throw e;
+										}
+									}
+								}));
 							quickPick.busy = false;
 						} catch (e) {
 							quickPick.hide();
