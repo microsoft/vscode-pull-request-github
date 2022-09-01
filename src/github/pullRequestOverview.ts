@@ -441,7 +441,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			assignees.push({
 				label: suggestedReviewer.login,
 				description: suggestedReviewer.name,
-				assignee: viewer,
+				assignee: suggestedReviewer,
 			});
 			// this user shouldn't be added later from assignable users list
 			skipList.add(suggestedReviewer.login);
@@ -613,8 +613,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			vscode.window.showErrorMessage(formatError(e));
 		}
 	}
-
-	private async
 
 	private async addAssignees(message: IRequestMessage<void>): Promise<void> {
 		try {
