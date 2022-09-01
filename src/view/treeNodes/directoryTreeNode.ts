@@ -24,7 +24,6 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem2 {
 
 	public finalize(): void {
 		this.checkboxState = this.allChildrenViewed() ? vscode.TreeItemCheckboxState.Checked : vscode.TreeItemCheckboxState.Unchecked;
-		this.refresh(this);
 		this.trimTree();
 		this.sort();
 	}
