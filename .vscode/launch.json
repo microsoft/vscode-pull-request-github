@@ -18,7 +18,8 @@
 			"sourceMaps": true,
 			"outFiles": [
 				"${workspaceFolder}/dist/*.js"
-			]
+			],
+			"debugWebviews": true
 		},
 		{
 			"name": "Launch Extension in Webworker",
