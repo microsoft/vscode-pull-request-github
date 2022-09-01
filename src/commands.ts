@@ -21,7 +21,7 @@ import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
 import { PullRequest } from './github/interface';
 import { NotificationProvider } from './github/notifications';
-import { GHPRComment, TemporaryComment } from './github/prComment';
+import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
@@ -732,30 +732,46 @@ export function registerCommands(
 		}),
 	);
 
+	function threadAndText(commentLike: CommentReply | GHPRCommentThread | GHPRComment): { thread: GHPRCommentThread, text: string } {
+		let thread: GHPRCommentThread;
+		let text: string = '';
+		if (commentLike instanceof GHPRComment) {
+			thread = commentLike.parent;
+		} else if (CommentReply.is(commentLike)) {
+			thread = commentLike.thread;
+		} else {
+			thread = commentLike;
+		}
+		return { thread, text };
+	}
+
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.resolveReviewThread', async (reply: CommentReply) => {
+		vscode.commands.registerCommand('pr.resolveReviewThread', async (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => {
 			/* __GDPR__
 			"pr.resolveReviewThread" : {}
 			*/
 			telemetry.sendTelemetryEvent('pr.resolveReviewThread');
-			const handler = resolveCommentHandler(reply.thread);
+			const { thread, text } = threadAndText(commentLike);
+			const handler = resolveCommentHandler(thread);
 
 			if (handler) {
-				await handler.resolveReviewThread(reply.thread, reply.text);
+				await handler.resolveReviewThread(thread, text);
 			}
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.unresolveReviewThread', async (reply: CommentReply) => {
+		vscode.commands.registerCommand('pr.unresolveReviewThread', async (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => {
 			/* __GDPR__
 			"pr.unresolveReviewThread" : {}
 			*/
 			telemetry.sendTelemetryEvent('pr.unresolveReviewThread');
-			const handler = resolveCommentHandler(reply.thread);
+			const { thread, text } = threadAndText(commentLike);
+
+			const handler = resolveCommentHandler(thread);
 
 			if (handler) {
-				await handler.unresolveReviewThread(reply.thread, reply.text);
+				await handler.unresolveReviewThread(thread, text);
 			}
 		}),
 	);
