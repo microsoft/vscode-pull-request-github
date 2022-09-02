@@ -13,6 +13,7 @@ import { registerCommands } from './commands';
 import { commands } from './common/executeCommands';
 import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
+import { parseRepositoryRemotes } from './common/remote';
 import { Resource } from './common/resources';
 import { SessionState } from './common/sessionState';
 import { BRANCH_PUBLISH, FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
@@ -274,12 +275,19 @@ async function doRegisterBuiltinGitProvider(context: vscode.ExtensionContext, cr
 }
 
 function registerPostCommitCommandsProvider(reposManager: RepositoriesManager, git: GitApiImpl) {
+	const componentId = 'GitPostCommitCommands';
 	class Provider implements PostCommitCommandsProvider {
+
 		getCommands(repository: Repository) {
+			Logger.debug(`Looking for remote. Comparing ${repository.state.remotes.length} local repo remotes with ${reposManager.folderManagers.reduce((prev, curr) => prev + curr.gitHubRepositories.length, 0)} GitHub repositories.`, componentId);
+			const repoRemotes = parseRepositoryRemotes(repository);
+
 			const found = reposManager.folderManagers.find(folderManager => folderManager.findRepo(githubRepo => {
-				return !!repository.state.remotes.find(remote => remote.fetchUrl?.toLowerCase() === githubRepo.remote.url.toLowerCase());
+				return !!repoRemotes.find(remote => {
+					return remote.equals(githubRepo.remote);
+				});
 			}));
-			Logger.debug(`Found ${found ? 'a repo' : 'no repos'} when getting post commit commands.`, 'GitPostCommitCommands');
+			Logger.debug(`Found ${found ? 'a repo' : 'no repos'} when getting post commit commands.`, componentId);
 			return found ? [{
 				command: 'pr.create',
 				title: '$(git-pull-request-create) Commit',
@@ -295,7 +303,7 @@ function registerPostCommitCommandsProvider(reposManager: RepositoriesManager, g
 	function tryRegister(): boolean {
 		Logger.debug('Trying to register post commit commands.', 'GitPostCommitCommands');
 		if (hasGitHubRepos()) {
-			Logger.debug('GitHub remote(s) found, registering post commit commands.', 'GitPostCommitCommands');
+			Logger.debug('GitHub remote(s) found, registering post commit commands.', componentId);
 			git.registerPostCommitCommandsProvider(new Provider());
 			return true;
 		}
