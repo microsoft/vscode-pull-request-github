@@ -14,9 +14,10 @@
 		"tokenInformation",
 		"commentsResolvedState",
 		"badges",
-		"contribViewSize"
+		"contribViewSize",
+		"contribCommentPeekContext"
 	],
-	"version": "0.48.0",
+	"version": "0.50.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.71.0"
@@ -1644,6 +1645,30 @@
 					"group": "inline@3",
 					"when": "commentController =~ /^github-review/ && reviewInDraftMode"
 				},
+				{
+					"command": "pr.resolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
+				},
+				{
+					"command": "pr.unresolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+				}
+			],
+			"comments/commentThread/title/context": [
+				{
+					"command": "pr.resolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
+				},
+				{
+					"command": "pr.unresolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+				}
+			],
+			"comments/commentThread/comment/context": [
 				{
 					"command": "pr.resolveReviewThread",
 					"group": "inline@3",

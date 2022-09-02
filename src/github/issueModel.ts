@@ -115,7 +115,9 @@ export class IssueModel<TItem extends Issue = Issue> {
 		this.graphNodeId = issue.graphNodeId;
 		this.number = issue.number;
 		this.title = issue.title;
-		this.bodyHTML = issue.bodyHTML;
+		if (!this.bodyHTML || (issue.body !== this.body)) {
+			this.bodyHTML = issue.bodyHTML;
+		}
 		this.html_url = issue.url;
 		this.author = issue.user;
 		this.milestone = issue.milestone;

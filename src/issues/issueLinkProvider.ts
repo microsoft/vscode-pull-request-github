@@ -5,14 +5,12 @@
 import * as vscode from 'vscode';
 import { ReposManagerState } from '../github/folderRepositoryManager';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { ParsedIssue } from '../github/utils';
+import { ISSUE_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
 import { StateManager } from './stateManager';
 import {
 	getIssue,
 	isComment,
-	ISSUE_EXPRESSION,
 	MAX_LINE_LENGTH,
-	parseIssueExpressionOutput,
 } from './util';
 
 const MAX_LINE_COUNT = 2000;
@@ -28,7 +26,7 @@ class IssueDocumentLink extends vscode.DocumentLink {
 }
 
 export class IssueLinkProvider implements vscode.DocumentLinkProvider {
-	constructor(private manager: RepositoriesManager, private stateManager: StateManager) {}
+	constructor(private manager: RepositoriesManager, private stateManager: StateManager) { }
 
 	async provideDocumentLinks(
 		document: vscode.TextDocument,
