@@ -5,7 +5,6 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { ViewedState } from '../common/comment';
 import { GitChangeType } from '../common/file';
 import { FileChangeNodeUriParams, fromFileChangeNodeUri, fromPRUri, PRUriParams, Schemes, toResourceUri } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -76,17 +75,6 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 			this._registerRepositoriesChangedListeners();
 		}));
 
-	}
-
-	private getViewedState(number: number, fileName: string, uri: vscode.Uri) {
-		const gitHubRepositories = this._repositoriesManager.getManagerForFile(uri)?.gitHubRepositories ?? [];
-		for (const gitHubRepo of gitHubRepositories) {
-			const prModel = gitHubRepo.pullRequestModels.get(number);
-			if (prModel) {
-				return prModel.fileChangeViewedState[fileName] ?? ViewedState.UNVIEWED;
-			}
-		}
-		return ViewedState.UNVIEWED;
 	}
 
 	provideFileDecoration(
