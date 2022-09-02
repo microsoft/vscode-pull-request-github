@@ -14,7 +14,8 @@
 		"tokenInformation",
 		"commentsResolvedState",
 		"badges",
-		"contribViewSize"
+		"contribViewSize",
+		"treeItemCheckbox"
 	],
 	"version": "0.48.0",
 	"publisher": "GitHub",
