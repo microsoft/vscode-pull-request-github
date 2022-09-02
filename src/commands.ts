@@ -16,7 +16,6 @@ import { ITelemetry } from './common/telemetry';
 import { asImageDataURI } from './common/uri';
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
-import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
 import { PullRequest } from './github/interface';
@@ -119,9 +118,7 @@ export function registerCommands(
 	reposManager: RepositoriesManager,
 	reviewManagers: ReviewManager[],
 	telemetry: ITelemetry,
-	credentialStore: CredentialStore,
-	tree: PullRequestsTreeDataProvider,
-	notificationProvider: NotificationProvider
+	tree: PullRequestsTreeDataProvider
 ) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
@@ -592,6 +589,17 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.dismissNotification', node => {
+			if (node instanceof PRNode) {
+				tree.notificationProvider.markPrNotificationsAsRead(node.pullRequestModel).then(
+					() => tree.refresh(node)
+				);
+
+			}
+		}),
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openDescription',
 			async (argument: DescriptionNode | PullRequestModel | undefined) => {
@@ -632,7 +640,7 @@ export function registerCommands(
 					descriptionNode = reviewManager.changesInPrDataProvider.getDescriptionNode(folderManager);
 				}
 
-				await openDescription(context, telemetry, pullRequestModel, descriptionNode, folderManager, notificationProvider);
+				await openDescription(context, telemetry, pullRequestModel, descriptionNode, folderManager, tree.notificationProvider);
 			},
 		),
 	);
