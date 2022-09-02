@@ -11,7 +11,6 @@ import { GitHubManager } from '../authentication/githubServer';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
-import { ISessionState } from '../common/sessionState';
 import { PULL_BRANCH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
@@ -155,7 +154,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		public readonly telemetry: ITelemetry,
 		private _git: GitApiImpl,
 		private _credentialStore: CredentialStore,
-		private readonly _sessionState: ISessionState
 	) {
 		this._subs = [];
 		this._githubRepositories = [];
@@ -2001,7 +1999,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	private createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore) {
-		const repo = new GitHubRepository(remote, this.repository.rootUri, credentialStore, this.telemetry, this._sessionState);
+		const repo = new GitHubRepository(remote, this.repository.rootUri, credentialStore, this.telemetry);
 		this._githubRepositories.push(repo);
 		return repo;
 	}

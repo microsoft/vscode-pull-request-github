@@ -18,7 +18,6 @@ import {
 	ManagedPullRequest,
 } from '../builders/managedPullRequestBuilder';
 import { MockTelemetry } from './mockTelemetry';
-import { MockSessionState } from './mockSessionState';
 import { Uri } from 'vscode';
 const queries = require('../../github/queries.gql');
 
@@ -26,7 +25,7 @@ export class MockGitHubRepository extends GitHubRepository {
 	readonly queryProvider: QueryProvider;
 
 	constructor(remote: Remote, credentialStore: CredentialStore, telemetry: MockTelemetry, sinon: SinonSandbox) {
-		super(remote, Uri.file('C:\\users\\test\\repo'), credentialStore, telemetry, new MockSessionState());
+		super(remote, Uri.file('C:\\users\\test\\repo'), credentialStore, telemetry);
 
 		this.queryProvider = new QueryProvider(sinon);
 

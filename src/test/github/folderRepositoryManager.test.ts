@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { default as assert } from 'assert';
 import { createSandbox, SinonSandbox } from 'sinon';
 
@@ -14,7 +19,6 @@ import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
-import { MockSessionState } from '../mocks/mockSessionState';
 import { Uri } from 'vscode';
 
 describe('PullRequestManager', function () {
@@ -30,7 +34,7 @@ describe('PullRequestManager', function () {
 		const repository = new MockRepository();
 		const context = new MockExtensionContext();
 		const credentialStore = new CredentialStore(telemetry, context);
-		manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore, new MockSessionState());
+		manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore);
 	});
 
 	afterEach(function () {
@@ -48,7 +52,7 @@ describe('PullRequestManager', function () {
 			const protocol = new Protocol(url);
 			const remote = new Remote('origin', url, protocol);
 			const rootUri = Uri.file('C:\\users\\test\\repo');
-			const repository = new GitHubRepository(remote, rootUri, manager.credentialStore, telemetry, new MockSessionState());
+			const repository = new GitHubRepository(remote, rootUri, manager.credentialStore, telemetry);
 			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
 			const pr = new PullRequestModel(telemetry, repository, remote, prItem);
 
