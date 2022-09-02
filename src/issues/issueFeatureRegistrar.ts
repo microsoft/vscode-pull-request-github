@@ -10,7 +10,7 @@ import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { getRepositoryForFile } from '../github/utils';
+import { getRepositoryForFile, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../github/utils';
 import { ReviewManager } from '../view/reviewManager';
 import { CurrentIssue } from './currentIssue';
 import { IssueCompletionProvider } from './issueCompletionProvider';
@@ -35,10 +35,8 @@ import {
 	createGitHubLink,
 	createGithubPermalink,
 	getIssue,
-	ISSUE_OR_URL_EXPRESSION,
 	ISSUES_CONFIGURATION,
 	NewIssue,
-	parseIssueExpressionOutput,
 	PermalinkInfo,
 	pushAndCreatePR,
 	QUERIES_CONFIGURATION,
@@ -449,6 +447,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		{ language: 'groovy' },
 		{ language: 'handlebars' },
 		{ language: 'hlsl' },
+		{ language: 'html' },
 		{ language: 'ini' },
 		{ language: 'java' },
 		{ language: 'javascriptreact' },
@@ -463,6 +462,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		{ language: 'objective-c' },
 		{ language: 'perl' },
 		{ language: 'perl6' },
+		{ language: 'typescriptreact' },
+		{ language: 'yml' },
 		'*',
 	];
 	private registerCompletionProviders() {

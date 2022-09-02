@@ -1276,6 +1276,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						'Commit Changes',
 					);
 					if (shouldCommit === 'Commit Changes') {
+						await this._repository.add(this._repository.state.indexChanges.map(change => change.uri.fsPath));
 						await this.repository.commit(`${params.title}${params.body ? `\n${params.body}` : ''}`);
 						await this._repository.push();
 						return this.createPullRequest(params);
@@ -1671,9 +1672,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						try {
 							await Promise.all(
 								picks.map(async pick => {
-									await this.repository.deleteBranch(pick.label, true);
-								}),
-							);
+									try {
+										await this.repository.deleteBranch(pick.label, true);
+									} catch (e) {
+										if ((typeof e.stderr === 'string') && (e.stderr as string).includes('not found')) {
+											// TODO: The git extension API doesn't support removing configs
+											// If that support is added we should remove the config as it is no longer useful.
+										} else {
+											throw e;
+										}
+									}
+								}));
 							quickPick.busy = false;
 						} catch (e) {
 							quickPick.hide();
@@ -1960,11 +1969,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 							if (!this._updateMessageShown) {
 								this._updateMessageShown = true;
 								const pull = 'Pull';
+								const always = 'Always Pull';
 								const never = 'Never Show Again';
 								const result = await vscode.window.showInformationMessage(
 									`There are updates available for pull request ${pr.number}: ${pr.title}.`,
 									{},
 									pull,
+									always,
 									never
 								);
 
@@ -1973,6 +1984,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 									this._updateMessageShown = false;
 								} else if (never) {
 									await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
+								} else if (always) {
+									await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'always', vscode.ConfigurationTarget.Global);
+									await this.pullBranch(branch);
 								}
 							}
 							return;

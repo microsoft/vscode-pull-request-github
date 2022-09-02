@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { Uri } from 'vscode';
 import { RefType } from '../../api/api1';
 
@@ -20,6 +25,9 @@ type Mutable<T> = {
 };
 
 export class MockRepository implements Repository {
+	add(paths: string[]): Promise<void> {
+		return Promise.reject(new Error(`Unexpected add(${paths.join(', ')})`));
+	}
 	commit(message: string, opts?: CommitOptions): Promise<void> {
 		return Promise.reject(new Error(`Unexpected commit(${message}, ${opts})`));
 	}

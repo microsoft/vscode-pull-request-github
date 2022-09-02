@@ -97,7 +97,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 						None yet{pr.canEdit ? (
 							<>
 								&mdash;
-								<a onClick={async () => {
+								<a className='assign-yourself' onClick={async () => {
 									const currentUser = await addAssigneeYourself();
 									updatePR({ assignees: pr.assignees.concat(currentUser.added) });
 								}}>assign yourself</a>

@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import Logger, { PR_TREE } from '../../common/logger';
+import { Schemes } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { ProgressHelper } from '../progress';
@@ -35,6 +36,14 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 		this._disposables.push(
 			vscode.window.onDidChangeActiveTextEditor(e => {
 				if (vscode.workspace.getConfiguration('explorer').get('autoReveal')) {
+					const tabInput = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+					if (tabInput instanceof vscode.TabInputTextDiff) {
+						if ((tabInput.original.scheme === Schemes.Review)
+							&& (tabInput.modified.scheme !== Schemes.Review)
+							&& (tabInput.original.path.startsWith('/commit'))) {
+							return;
+						}
+					}
 					const activeEditorUri = e?.document.uri.toString();
 					this.revealActiveEditorInTree(activeEditorUri);
 				}

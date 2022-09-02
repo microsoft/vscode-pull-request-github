@@ -14,12 +14,13 @@
 		"tokenInformation",
 		"commentsResolvedState",
 		"badges",
-		"contribViewSize"
+		"contribViewSize",
+		"contribCommentPeekContext"
 	],
-	"version": "0.48.0",
+	"version": "0.50.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.70.0"
+		"vscode": "^1.71.0"
 	},
 	"categories": [
 		"Other"
@@ -164,7 +165,7 @@
 						"pullRequests",
 						"off"
 					],
-					"default": "pullRequests",
+					"default": "off",
 					"description": "If GitHub notifications should be shown to the user."
 				},
 				"githubPullRequests.fileListLayout": {
@@ -282,7 +283,7 @@
 						"Never pull a PR branch when changes are detected in the PR.",
 						"Always pull a PR branch when changes are detected in the PR."
 					],
-					"description": "Pull changes from the remote when a PR branch is checked out locally. Changes are detected with the PR is manually refreshed and during periodic background updates."
+					"description": "Pull changes from the remote when a PR branch is checked out locally. Changes are detected when the PR is manually refreshed and during periodic background updates."
 				},
 				"githubPullRequests.ignoredPullRequestBranches": {
 					"type": "array",
@@ -658,6 +659,11 @@
 				"icon": "$(go-to-file)"
 			},
 			{
+				"command": "review.openLocalFile",
+				"title": "Open File",
+				"icon": "$(go-to-file)"
+			},
+			{
 				"command": "review.suggestDiff",
 				"title": "Suggest Edit",
 				"category": "GitHub Pull Requests"
@@ -818,7 +824,7 @@
 			{
 				"command": "pr.resetViewedFiles",
 				"title": "Reset Viewed Files",
-				"category": "GitHub PUll Requests"
+				"category": "GitHub Pull Requests"
 			},
 			{
 				"command": "issue.createIssueFromSelection",
@@ -1057,6 +1063,10 @@
 				},
 				{
 					"command": "review.openFile",
+					"when": "false"
+				},
+				{
+					"command": "review.openLocalFile",
 					"when": "false"
 				},
 				{
@@ -1573,7 +1583,12 @@
 				{
 					"command": "review.openFile",
 					"group": "navigation",
-					"when": "resourceScheme =~ /^review$/"
+					"when": "resourceScheme =~ /^review$/ && isInDiffEditor"
+				},
+				{
+					"command": "review.openLocalFile",
+					"group": "navigation",
+					"when": "resourceScheme =~ /^review$/ && !isInDiffEditor"
 				},
 				{
 					"command": "issue.createIssueFromFile",
@@ -1644,6 +1659,30 @@
 					"group": "inline@3",
 					"when": "commentController =~ /^github-review/ && reviewInDraftMode"
 				},
+				{
+					"command": "pr.resolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
+				},
+				{
+					"command": "pr.unresolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+				}
+			],
+			"comments/commentThread/title/context": [
+				{
+					"command": "pr.resolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
+				},
+				{
+					"command": "pr.unresolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+				}
+			],
+			"comments/commentThread/comment/context": [
 				{
 					"command": "pr.resolveReviewThread",
 					"group": "inline@3",
