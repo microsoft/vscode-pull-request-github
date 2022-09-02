@@ -99,11 +99,10 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 
 		const fileChangeUriParams = fromFileChangeNodeUri(uri);
 		if (fileChangeUriParams && fileChangeUriParams.status !== undefined) {
-			const viewedState = this.getViewedState(fileChangeUriParams.prNumber, fileChangeUriParams.fileName, uri);
 			return {
 				propagate: false,
-				badge: this.letter(fileChangeUriParams.status, viewedState),
-				color: this.color(fileChangeUriParams.status, viewedState),
+				badge: this.letter(fileChangeUriParams.status),
+				color: this.color(fileChangeUriParams.status),
 				tooltip: this.tooltip(fileChangeUriParams)
 			};
 		}
@@ -156,19 +155,12 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 		}
 	}
 
-	color(status: GitChangeType, viewedState?: ViewedState): vscode.ThemeColor | undefined {
-		if (viewedState === ViewedState.VIEWED) {
-			return undefined;
-		}
-
+	color(status: GitChangeType): vscode.ThemeColor | undefined {
 		let color: string | undefined = vscode.extensions.getExtension('vscode.git') ? this.gitColors(status) : this.remoteReposColors(status);
 		return color ? new vscode.ThemeColor(color) : undefined;
 	}
 
-	letter(status: GitChangeType, viewedState?: ViewedState): string {
-		if (viewedState === ViewedState.VIEWED) {
-			return '✓';
-		}
+	letter(status: GitChangeType): string {
 
 		switch (status) {
 			case GitChangeType.MODIFY:
