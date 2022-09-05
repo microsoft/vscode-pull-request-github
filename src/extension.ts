@@ -20,7 +20,6 @@ import { TemporaryState } from './common/temporaryState';
 import { Schemes, handler as uriHandler } from './common/uri';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
-import { setSyncedKeys } from './extensionState';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from './github/folderRepositoryManager';
 import { RepositoriesManager } from './github/repositoriesManager';
@@ -200,7 +199,7 @@ async function init(
 
 	context.subscriptions.push(new PRNodeDecorationProvider(tree.notificationProvider));
 
-	registerCommands(context, sessionState, reposManager, reviewManagers, telemetry, credentialStore, tree, notificationProvider);
+	registerCommands(context, reposManager, reviewManagers, telemetry, tree);
 
 	const layout = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
