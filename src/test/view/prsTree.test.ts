@@ -92,7 +92,7 @@ describe('GitHub Pull Requests view', function () {
 			credentialStore,
 			telemetry,
 		);
-		provider.initialize(manager, []);
+		provider.initialize(manager, [], credentialStore);
 
 		const rootNodes = await provider.getChildren();
 		assert.strictEqual(rootNodes.length, 1);
@@ -116,7 +116,7 @@ describe('GitHub Pull Requests view', function () {
 
 		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 		await manager.folderManagers[0].updateRepositories();
-		provider.initialize(manager, []);
+		provider.initialize(manager, [], credentialStore);
 
 		const rootNodes = await provider.getChildren();
 
@@ -189,7 +189,7 @@ describe('GitHub Pull Requests view', function () {
 			});
 			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 			await manager.updateRepositories();
-			provider.initialize(reposManager, []);
+			provider.initialize(reposManager, [], credentialStore);
 			manager.activePullRequest = pullRequest1;
 
 			const rootNodes = await provider.getChildren();

@@ -559,6 +559,11 @@
 				"category": "GitHub Pull Requests"
 			},
 			{
+				"command": "pr.dismissNotification",
+				"title": "Dismiss Notification",
+				"category": "GitHub Pull Requests"
+			},
+			{
 				"command": "pr.merge",
 				"title": "Merge Pull Request",
 				"category": "GitHub Pull Requests"
@@ -1043,6 +1048,10 @@
 					"when": "github:inReviewMode"
 				},
 				{
+					"command": "pr.dismissNotification",
+					"when": "false"
+				},
+				{
 					"command": "pr.resetViewedFiles",
 					"when": "github:inReviewMode"
 				},
@@ -1416,6 +1425,11 @@
 					"command": "pr.deleteLocalBranch",
 					"when": "view == pr:github && viewItem =~ /pullrequest:local:nonactive/",
 					"group": "pullrequest@4"
+				},
+				{
+					"command": "pr.dismissNotification",
+					"when": "view == pr:github && viewItem =~ /pullrequest(.*):notification/",
+					"group": "pullrequest@5"
 				},
 				{
 					"command": "pr.openFileOnGitHub",

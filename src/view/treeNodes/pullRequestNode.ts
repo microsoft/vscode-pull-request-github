@@ -11,6 +11,7 @@ import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT } from '../../common/settingKeys';
 import { createPRNodeUri, fromPRUri, Schemes } from '../../common/uri';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
+import { NotificationProvider } from '../../github/notifications';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from '../inMemPRContentProvider';
@@ -47,6 +48,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		private _folderReposManager: FolderRepositoryManager,
 		public pullRequestModel: PullRequestModel,
 		private _isLocal: boolean,
+		private _notificationProvider: NotificationProvider
 	) {
 		super();
 		this.registerSinceReviewChange();
@@ -265,6 +267,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 
 		const { login } = author;
 
+		const hasNotification = this._notificationProvider.hasNotification(this.pullRequestModel);
+
 		const labelPrefix = currentBranchIsForThisPR ? '✓ ' : '';
 		const tooltipPrefix = currentBranchIsForThisPR ? 'Current Branch * ' : '';
 		const formattedPRNumber = number.toString();
@@ -279,7 +283,10 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 			description,
 			collapsibleState: 1,
 			contextValue:
-				'pullrequest' + (this._isLocal ? ':local' : '') + (currentBranchIsForThisPR ? ':active' : ':nonactive'),
+				'pullrequest' +
+				(this._isLocal ? ':local' : '') +
+				(currentBranchIsForThisPR ? ':active' : ':nonactive') +
+				(hasNotification ? ':notification' : ''),
 			iconPath: this.pullRequestModel.userAvatarUri
 				? this.pullRequestModel.userAvatarUri
 				: new vscode.ThemeIcon('github'),

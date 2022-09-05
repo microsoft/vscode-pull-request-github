@@ -20,10 +20,8 @@ import { TemporaryState } from './common/temporaryState';
 import { Schemes, handler as uriHandler } from './common/uri';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
-import { setSyncedKeys } from './extensionState';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from './github/folderRepositoryManager';
-import { NotificationProvider } from './github/notifications';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitProviders/api';
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
@@ -58,9 +56,6 @@ async function init(
 ): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
-
-	const notificationProvider = new NotificationProvider(tree, credentialStore, reposManager);
-	context.subscriptions.push(notificationProvider);
 
 	vscode.authentication.onDidChangeSessions(async e => {
 		if (e.provider.id === 'github') {
@@ -153,7 +148,6 @@ async function init(
 		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree, showPRController, activePrViewCoordinator),
 	);
 	context.subscriptions.push(new FileTypeDecorationProvider(reposManager, reviewManagers));
-	context.subscriptions.push(new PRNodeDecorationProvider(notificationProvider));
 
 	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, credentialStore, git);
 	context.subscriptions.push(reviewsManager);
@@ -186,7 +180,7 @@ async function init(
 			tree.refresh();
 		}
 		addRepo();
-		notificationProvider.refreshOrLaunchPolling();
+		tree.notificationProvider.refreshOrLaunchPolling();
 		const disposable = repo.state.onDidChange(() => {
 			Logger.appendLine(`Repo state for ${repo.rootUri} changed.`);
 			addRepo();
@@ -197,14 +191,15 @@ async function init(
 	git.onDidCloseRepository(repo => {
 		reposManager.removeRepo(repo);
 		reviewsManager.removeReviewManager(repo);
-		notificationProvider.refreshOrLaunchPolling();
+		tree.notificationProvider.refreshOrLaunchPolling();
 		tree.refresh();
 	});
 
-	tree.initialize(reposManager, reviewManagers.map(manager => manager.reviewModel));
+	tree.initialize(reposManager, reviewManagers.map(manager => manager.reviewModel), credentialStore);
 
-	setSyncedKeys(context);
-	registerCommands(context, reposManager, reviewManagers, telemetry, credentialStore, tree, notificationProvider);
+	context.subscriptions.push(new PRNodeDecorationProvider(tree.notificationProvider));
+
+	registerCommands(context, reposManager, reviewManagers, telemetry, tree);
 
 	const layout = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
