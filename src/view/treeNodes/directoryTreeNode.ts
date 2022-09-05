@@ -129,7 +129,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem2 {
 					return false;
 				}
 			}
-			else if (child.changeModel.viewed != ViewedState.VIEWED) {
+			else if (child.checkboxState != vscode.TreeItemCheckboxState.Checked) {
 				return false;
 			}
 		}
