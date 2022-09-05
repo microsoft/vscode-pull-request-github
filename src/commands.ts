@@ -11,7 +11,6 @@ import { GitErrorCodes } from './api/api1';
 import { CommentReply, resolveCommentHandler } from './commentHandlerResolver';
 import { IComment } from './common/comment';
 import Logger from './common/logger';
-import { SessionState } from './common/sessionState';
 import { ITelemetry } from './common/telemetry';
 import { asImageDataURI, fromReviewUri } from './common/uri';
 import { formatError } from './common/utils';
@@ -115,7 +114,6 @@ export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | Pull
 
 export function registerCommands(
 	context: vscode.ExtensionContext,
-	sessionState: SessionState,
 	reposManager: RepositoriesManager,
 	reviewManagers: ReviewManager[],
 	telemetry: ITelemetry,
@@ -971,13 +969,8 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.expandAllComments', () => {
-			sessionState.commentsExpandState = true;
-		}));
-
-	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.collapseAllComments', () => {
-			sessionState.commentsExpandState = false;
+			return vscode.commands.executeCommand('workbench.action.collapseAllComments');
 		}));
 
 	context.subscriptions.push(

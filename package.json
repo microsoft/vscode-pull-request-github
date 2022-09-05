@@ -20,7 +20,7 @@
 	"version": "0.50.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.71.0"
+		"vscode": "^1.72.0"
 	},
 	"categories": [
 		"Other"
@@ -793,15 +793,9 @@
 				"category": "GitHub Pull Requests"
 			},
 			{
-				"command": "pr.expandAllComments",
-				"title": "Expand All Comments",
-				"category": "GitHub Pull Requests",
-				"icon": "$(expand-all)"
-			},
-			{
 				"command": "pr.collapseAllComments",
 				"title": "Collapse All Comments",
-				"category": "GitHub Pull Requests",
+				"category": "Comments",
 				"icon": "$(collapse-all)"
 			},
 			{
@@ -1203,6 +1197,10 @@
 				{
 					"command": "pr.checkoutByNumber",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && github:authenticated"
+				},
+				{
+					"command": "pr.collapseAllComments",
+					"when": "false"
 				},
 				{
 					"command": "issue.openIssue",
