@@ -6,7 +6,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { Repository, UpstreamRef } from '../api/api';
-import { ISessionState } from '../common/sessionState';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
 import { compareIgnoreCase } from '../common/utils';
@@ -84,7 +83,6 @@ export class RepositoriesManager implements vscode.Disposable {
 		private _folderManagers: FolderRepositoryManager[],
 		private _credentialStore: CredentialStore,
 		private _telemetry: ITelemetry,
-		private readonly _sessionState: ISessionState
 	) {
 		this._subs = [];
 		vscode.commands.executeCommand('setContext', ReposManagerStateContext, this._state);

@@ -13,7 +13,6 @@ import { getCommentingRanges } from '../common/commentingRanges';
 import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPositionMapping';
 import { GitChangeType } from '../common/file';
 import Logger from '../common/logger';
-import { ISessionState } from '../common/sessionState';
 import { fromReviewUri, ReviewUriParams, Schemes, toReviewUri } from '../common/uri';
 import { formatError, groupBy, uniqBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -63,7 +62,6 @@ export class ReviewCommentController
 		private _reposManager: FolderRepositoryManager,
 		private _repository: Repository,
 		private _reviewModel: ReviewModel,
-		private readonly _sessionState: ISessionState
 	) {
 		this._commentController = vscode.comments.createCommentController(
 			`github-review-${_reposManager.activePullRequest!.number}`,
@@ -302,11 +300,6 @@ export class ReviewCommentController
 				});
 			}),
 		);
-
-		this._localToDispose.push(
-			this._sessionState.onDidChangeCommentsExpandState(expand => {
-				this.updateCommentExpandState(expand);
-			}));
 	}
 
 	public updateCommentExpandState(expand: boolean) {

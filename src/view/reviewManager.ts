@@ -13,7 +13,6 @@ import { commands } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
-import { ISessionState } from '../common/sessionState';
 import { IGNORE_PR_BRANCHES, POST_CREATE, PR_SETTINGS_NAMESPACE, USE_REVIEW_MODE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, fromReviewUri, PRUriParams, Schemes, toReviewUri } from '../common/uri';
@@ -84,7 +83,6 @@ export class ReviewManager {
 		private _telemetry: ITelemetry,
 		public changesInPrDataProvider: PullRequestChangesTreeDataProvider,
 		private _showPullRequest: ShowPullRequest,
-		private readonly _sessionState: ISessionState,
 		private readonly _activePrViewCoordinator: WebviewViewCoordinator
 	) {
 		this._switchingToReviewMode = false;
@@ -681,7 +679,6 @@ export class ReviewManager {
 			this._folderRepoManager,
 			this._repository,
 			this._reviewModel,
-			this._sessionState
 		);
 
 		await this._reviewCommentController.initialize();
