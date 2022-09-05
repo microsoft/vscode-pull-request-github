@@ -68,9 +68,9 @@ export class TemporaryComment implements vscode.Comment {
 	public parent: GHPRCommentThread;
 
 	/**
-	 * The text of the comment
+	 * The text of the comment as from GitHub
 	 */
-	public body: string | vscode.MarkdownString;
+	public rawBody: string;
 
 	/**
 	 * If the temporary comment is in place for an edit, the original text value of the comment
@@ -112,7 +112,7 @@ export class TemporaryComment implements vscode.Comment {
 		originalComment?: GHPRComment,
 	) {
 		this.parent = parent;
-		this.body = new vscode.MarkdownString(input);
+		this.rawBody = input;
 		this.mode = vscode.CommentMode.Preview;
 		this.author = {
 			name: currentUser.login,
@@ -123,6 +123,16 @@ export class TemporaryComment implements vscode.Comment {
 		this.originalBody = originalComment ? originalComment._rawComment.body : undefined;
 		this.commentReactions = originalComment ? originalComment.reactions : undefined;
 		this.id = TemporaryComment.idPool++;
+	}
+
+	get body(): vscode.MarkdownString | string {
+		// VS Code's markdown rendering is more correct and will not render single line breaks as
+		// line breaks in markdown. To make the comment look more like github.com, we replace single line breaks with double.
+		return (this.mode === vscode.CommentMode.Editing) ? this.rawBody : new vscode.MarkdownString(this.rawBody.replace(/[^\s]\n[^\s]/g, '\n\n'));
+	}
+
+	set body(body: vscode.MarkdownString | string) {
+		this.rawBody = (body instanceof vscode.MarkdownString) ? body.value : body;
 	}
 
 	startEdit() {
@@ -139,7 +149,7 @@ export class TemporaryComment implements vscode.Comment {
 		this.parent.comments = this.parent.comments.map(cmt => {
 			if (cmt instanceof TemporaryComment && cmt.id === this.id) {
 				cmt.mode = vscode.CommentMode.Preview;
-				cmt.body = cmt.originalBody || cmt.body;
+				cmt.rawBody = cmt.originalBody || cmt.rawBody;
 			}
 
 			return cmt;
@@ -163,9 +173,9 @@ export class GHPRComment implements vscode.Comment {
 	public parent: GHPRCommentThread;
 
 	/**
-	 * The text of the comment
+	 * The text of the comment as from GitHub
 	 */
-	public body: string | vscode.MarkdownString;
+	public rawBody: string;
 
 	/**
 	 * Whether the comment is in edit mode or not
@@ -202,7 +212,7 @@ export class GHPRComment implements vscode.Comment {
 	constructor(comment: IComment, parent: GHPRCommentThread) {
 		this._rawComment = comment;
 		this.commentId = comment.id.toString();
-		this.body = new vscode.MarkdownString(comment.body);
+		this.rawBody = comment.body;
 		this.author = {
 			name: comment.user!.login,
 			iconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined,
@@ -225,6 +235,16 @@ export class GHPRComment implements vscode.Comment {
 		this.timestamp = new Date(comment.createdAt);
 	}
 
+	get body(): vscode.MarkdownString | string {
+		// VS Code's markdown rendering is more correct and will not render single line breaks as
+		// line breaks in markdown. To make the comment look more like github.com, we replace single line breaks with double.
+		return (this.mode === vscode.CommentMode.Editing) ? this.rawBody : new vscode.MarkdownString(this.rawBody.replace(/(?<!\s)(\r\n|\n)(?!\s)/g, '\n\n'));
+	}
+
+	set body(body: vscode.MarkdownString | string) {
+		this.rawBody = (body instanceof vscode.MarkdownString) ? body.value : body;
+	}
+
 	startEdit() {
 		this.parent.comments = this.parent.comments.map(cmt => {
 			if (cmt instanceof GHPRComment && cmt.commentId === this.commentId) {
@@ -239,7 +259,7 @@ export class GHPRComment implements vscode.Comment {
 		this.parent.comments = this.parent.comments.map(cmt => {
 			if (cmt instanceof GHPRComment && cmt.commentId === this.commentId) {
 				cmt.mode = vscode.CommentMode.Preview;
-				cmt.body = new vscode.MarkdownString(cmt._rawComment.body);
+				cmt.rawBody = cmt._rawComment.body;
 			}
 
 			return cmt;

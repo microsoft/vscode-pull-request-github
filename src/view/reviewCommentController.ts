@@ -619,7 +619,7 @@ export class ReviewCommentController
 		const currentUser = this._reposManager.getCurrentUser();
 		const temporaryComment = new TemporaryComment(
 			thread,
-			comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
+			comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.rawBody,
 			!!comment.label,
 			currentUser,
 			comment,
@@ -759,7 +759,7 @@ export class ReviewCommentController
 
 				await this._reposManager.activePullRequest.editReviewComment(
 					comment._rawComment,
-					comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
+					comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.rawBody,
 				);
 			} catch (e) {
 				vscode.window.showErrorMessage(formatError(e));
@@ -775,7 +775,7 @@ export class ReviewCommentController
 		} else {
 			this.createOrReplyComment(
 				thread,
-				comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
+				comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.rawBody,
 				false,
 			);
 		}
