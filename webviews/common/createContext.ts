@@ -5,7 +5,7 @@
 
 import { createContext } from 'react';
 import { CreateParams, CreatePullRequest, ScrollPosition } from '../../common/views';
-import { getMessageHandler, MessageHandler } from './message';
+import { getMessageHandler, MessageHandler, vscode } from './message';
 
 const defaultCreateParams: CreateParams = {
 	availableBaseRemotes: [],
@@ -19,7 +19,7 @@ const defaultCreateParams: CreateParams = {
 
 export class CreatePRContext {
 	constructor(
-		public createParams: CreateParams = { ...defaultCreateParams },
+		public createParams: CreateParams = { ...defaultCreateParams, ...vscode.getState() },
 		public onchange: ((ctx: CreateParams) => void) | null = null,
 		private _handler: MessageHandler | null = null,
 	) {
@@ -30,11 +30,13 @@ export class CreatePRContext {
 
 	public cancelCreate = (): Promise<void> => {
 		const args = this.copyParams();
+		vscode.setState(defaultCreateParams);
 		return this.postMessage({ command: 'pr.cancelCreate', args });
 	};
 
 	public updateState = (params: Partial<CreateParams>): void => {
 		this.createParams = { ...this.createParams, ...params };
+		vscode.setState(this.createParams);
 		if (this.onchange) {
 			this.onchange(this.createParams);
 		}
@@ -124,6 +126,7 @@ export class CreatePRContext {
 	public submit = async (): Promise<void> => {
 		try {
 			const args: CreatePullRequest = this.copyParams();
+			vscode.setState(defaultCreateParams);
 			await this.postMessage({
 				command: 'pr.create',
 				args,
