@@ -200,6 +200,10 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	}
 
 	public async initializeParams(reset: boolean = false): Promise<void> {
+		if (reset) {
+			// First clear all state ASAP
+			this._postMessage({ command: 'reset' });
+		}
 		// Do the fast initialization first, then update with the slower initialization.
 		const params = await this.initializeParamsFast(reset);
 		this.initializeParamsSlow(params);
