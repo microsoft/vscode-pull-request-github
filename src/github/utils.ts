@@ -1116,6 +1116,10 @@ export function isInCodespaces(): boolean {
 	return vscode.env.remoteName === 'codespaces' && vscode.env.uiKind === vscode.UIKind.Web;
 }
 
+export async function setEnterpriseUri(host: string) {
+	return vscode.workspace.getConfiguration('github-enterprise').update('uri', host, vscode.ConfigurationTarget.Workspace);
+}
+
 export function getEnterpriseUri(): vscode.Uri | undefined {
 	const config: string = vscode.workspace.getConfiguration('github-enterprise').get<string>('uri', '');
 	if (config) {

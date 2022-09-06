@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import Logger from '../common/logger';
@@ -5,7 +10,12 @@ import { agent } from '../env/node/net';
 import { HostHelper } from './configuration';
 
 export class GitHubManager {
-	private _servers: Map<string, boolean> = new Map().set('github.com', true).set('ssh.github.com', true);
+	private static readonly _githubDotComServers = new Set<string>().add('github.com').add('ssh.github.com');
+	private _servers: Map<string, boolean> = new Map(Array.from(GitHubManager._githubDotComServers.keys()).map(key => [key, true]));
+
+	public static isGithubDotCom(host: vscode.Uri): boolean {
+		return this._githubDotComServers.has(host.authority);
+	}
 
 	public async isGitHub(host: vscode.Uri): Promise<boolean> {
 		if (host === null) {
