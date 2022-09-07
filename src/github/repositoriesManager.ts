@@ -6,15 +6,13 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { Repository, UpstreamRef } from '../api/api';
-import { GitHubManager } from '../authentication/githubServer';
-import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
 import { compareIgnoreCase } from '../common/utils';
 import { AuthProvider, CredentialStore, SCOPES } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
 import { IssueModel } from './issueModel';
-import { hasEnterpriseUri, setEnterpriseUri } from './utils';
+import { findDotComAndEnterpriseRemotes, hasEnterpriseUri, setEnterpriseUri } from './utils';
 
 export interface ItemsResponseResult<T> {
 	items: T[];
@@ -199,24 +197,13 @@ export class RepositoriesManager implements vscode.Disposable {
 	}
 
 	async authenticate(): Promise<boolean> {
-		// Check if we have found any github.com remotes
-		let githubDotComRemotes = false;
-		const possibleEnterpriseRemotes: Remote[] = [];;
-		for (const manager of this.folderManagers) {
-			for (const remote of await manager.computeAllGitHubRemotes()) {
-				const isDotCom = GitHubManager.isGithubDotCom(vscode.Uri.parse(remote.url));
-				githubDotComRemotes = githubDotComRemotes ?? isDotCom;
-				if (!isDotCom) {
-					possibleEnterpriseRemotes.push(remote);
-				}
-			}
-		}
+		const { dotComRemotes, enterpriseRemotes } = await findDotComAndEnterpriseRemotes(this.folderManagers);
 
 		// If we have no github.com remotes, but we do have github remotes, then we likely have github enterprise remotes.
-		if (!hasEnterpriseUri() && !githubDotComRemotes && (possibleEnterpriseRemotes.length > 0)) {
-			const promptResult = await vscode.window.showInformationMessage(`It looks like you might be using GitHub Enterprise. Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server ${possibleEnterpriseRemotes[0].url}?`, { modal: true }, 'Yes', 'No, use GitHub.com');
+		if (!hasEnterpriseUri() && !dotComRemotes && (enterpriseRemotes.length > 0)) {
+			const promptResult = await vscode.window.showInformationMessage(`It looks like you might be using GitHub Enterprise. Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server ${enterpriseRemotes[0].url}?`, { modal: true }, 'Yes', 'No, use GitHub.com');
 			if (promptResult === 'Yes') {
-				await setEnterpriseUri(possibleEnterpriseRemotes[0].url);
+				await setEnterpriseUri(enterpriseRemotes[0].url);
 				await vscode.window.showInformationMessage(`A PAT is needed to sign in with GitHub Enterprise. Sign in to your GitHub Enterprise instance in your browser and create a PAT before continuing. The PAT will need the following scopes: ${SCOPES.join(', ')}.`, { modal: true });
 			} else if (promptResult === undefined) {
 				return false;
@@ -224,7 +211,7 @@ export class RepositoriesManager implements vscode.Disposable {
 		}
 
 		let githubEnterprise;
-		if (hasEnterpriseUri() && (possibleEnterpriseRemotes.length > 0)) {
+		if (hasEnterpriseUri() && (enterpriseRemotes.length > 0)) {
 			githubEnterprise = await this._credentialStore.login(AuthProvider['github-enterprise']);
 		}
 		let github;
