@@ -884,7 +884,8 @@ export function registerCommands(
 		vscode.commands.registerCommand('review.openLocalFile', (value: vscode.Uri) => {
 			const { path, rootPath } = fromReviewUri(value.query);
 			const localUri = vscode.Uri.joinPath(vscode.Uri.file(rootPath), path);
-			const command = openFileCommand(localUri);
+			const editor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === value.toString());
+			const command = openFileCommand(localUri, editor ? { selection: editor.selection } : undefined);
 			vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
 		}),
 	);

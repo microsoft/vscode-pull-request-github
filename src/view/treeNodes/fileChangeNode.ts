@@ -16,11 +16,13 @@ import { FileChangeModel, GitFileChangeModel, InMemFileChangeModel, RemoteFileCh
 import { DecorationProvider } from '../treeDecorationProvider';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
-export function openFileCommand(uri: vscode.Uri): vscode.Command {
+export function openFileCommand(uri: vscode.Uri, inputOpts: vscode.TextDocumentShowOptions = {}): vscode.Command {
 	const activeTextEditor = vscode.window.activeTextEditor;
-	const opts: vscode.TextDocumentShowOptions = {
-		preserveFocus: true,
-		viewColumn: vscode.ViewColumn.Active,
+	const opts = {
+		...inputOpts, ...{
+			preserveFocus: true,
+			viewColumn: vscode.ViewColumn.Active,
+		}
 	};
 
 	// Check if active text editor has same path as other editor. we cannot compare via
