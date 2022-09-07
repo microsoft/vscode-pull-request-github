@@ -22,6 +22,7 @@ export enum PRCategoryActionType {
 	More,
 	TryOtherRemotes,
 	Login,
+	LoginEnterprise,
 	NoRemotes,
 	NoMatchingRemotes,
 	ConfigureRemotes,
@@ -66,6 +67,15 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 					command: 'pr.signinAndRefreshList',
 					arguments: [],
 				};
+				break;
+			case PRCategoryActionType.LoginEnterprise:
+				this.label = 'Sign in with GitHub Enterprise...';
+				this.command = {
+					title: 'Sign in',
+					command: 'pr.signinAndRefreshList',
+					arguments: [],
+				};
+				break;
 				break;
 			case PRCategoryActionType.NoRemotes:
 				this.label = 'No GitHub repositories found.';

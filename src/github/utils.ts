@@ -9,17 +9,19 @@ import * as OctokitTypes from '@octokit/types';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
+import { GitHubManager } from '../authentication/githubServer';
 import { IComment, IReviewThread, Reaction } from '../common/comment';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
+import { Remote } from '../common/remote';
 import { Resource } from '../common/resources';
 import { OVERRIDE_DEFAULT_BRANCH } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { uniqBy } from '../common/utils';
 import { OctokitCommon } from './common';
 import { AuthProvider } from './credentials';
-import { PullRequestDefaults, SETTINGS_NAMESPACE } from './folderRepositoryManager';
+import { FolderRepositoryManager, PullRequestDefaults, SETTINGS_NAMESPACE } from './folderRepositoryManager';
 import { GitHubRepository, ViewerPermission } from './githubRepository';
 import * as GraphQL from './graphql';
 import {
@@ -1212,4 +1214,21 @@ export function getOverrideBranch(): string | undefined {
 		Logger.debug('Using override setting for default branch', GitHubRepository.ID);
 		return overrideSetting;
 	}
+}
+
+export async function findDotComAndEnterpriseRemotes(folderManagers: FolderRepositoryManager[]): Promise<{ dotComRemotes: Remote[], enterpriseRemotes: Remote[] }> {
+	// Check if we have found any github.com remotes
+	const dotComRemotes: Remote[] = [];
+	const enterpriseRemotes: Remote[] = [];;
+	for (const manager of folderManagers) {
+		for (const remote of await manager.computeAllGitHubRemotes()) {
+			const isDotCom = GitHubManager.isGithubDotCom(vscode.Uri.parse(remote.url));
+			if (isDotCom) {
+				dotComRemotes.push(remote);
+			} else {
+				enterpriseRemotes.push(remote);
+			}
+		}
+	}
+	return { dotComRemotes, enterpriseRemotes };
 }
