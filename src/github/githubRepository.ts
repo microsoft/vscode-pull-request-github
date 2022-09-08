@@ -36,6 +36,7 @@ import { PullRequestModel } from './pullRequestModel';
 import defaultSchema from './queries.gql';
 import {
 	convertRESTPullRequestToRawPullRequest,
+	getAvatarWithEnterpriseFallback,
 	getOverrideBranch,
 	getPRFetchQuery,
 	parseGraphQLIssue,
@@ -879,7 +880,7 @@ export class GitHubRepository implements vscode.Disposable {
 					...result.data.repository.mentionableUsers.nodes.map(node => {
 						return {
 							login: node.login,
-							avatarUrl: node.avatarUrl,
+							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
 							name: node.name,
 							url: node.url,
 							email: node.email,
@@ -922,7 +923,7 @@ export class GitHubRepository implements vscode.Disposable {
 					...result.data.repository.assignableUsers.nodes.map(node => {
 						return {
 							login: node.login,
-							avatarUrl: node.avatarUrl,
+							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
 							name: node.name,
 							url: node.url,
 							email: node.email,
@@ -971,7 +972,7 @@ export class GitHubRepository implements vscode.Disposable {
 				...result.data.repository.pullRequest.participants.nodes.map(node => {
 					return {
 						login: node.login,
-						avatarUrl: node.avatarUrl,
+						avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
 						name: node.name,
 						url: node.url,
 						email: node.email,

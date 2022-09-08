@@ -684,13 +684,6 @@ export class ReviewManager {
 		await this._reviewCommentController.initialize();
 
 		this._localToDispose.push(this._reviewCommentController);
-		this._localToDispose.push(
-			this._reviewCommentController.onDidChangeComments(comments => {
-				if (this._folderRepoManager.activePullRequest) {
-					this._folderRepoManager.activePullRequest.comments = comments;
-				}
-			}),
-		);
 	}
 
 	public async switch(pr: PullRequestModel): Promise<void> {

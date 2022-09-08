@@ -207,7 +207,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 			},
 		});
 
-		return parseGraphQlIssueComment(data!.addComment.commentEdge.node);
+		return parseGraphQlIssueComment(data!.addComment.commentEdge.node, this.githubRepository);
 	}
 
 	async editIssueComment(comment: IComment, text: string): Promise<IComment> {
@@ -224,7 +224,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 				},
 			});
 
-			return parseGraphQlIssueComment(data!.updateIssueComment.issueComment);
+			return parseGraphQlIssueComment(data!.updateIssueComment.issueComment, this.githubRepository);
 		} catch (e) {
 			throw new Error(formatError(e));
 		}

@@ -8,7 +8,7 @@ import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
-import { DiffSide, IComment, IReviewThread } from '../common/comment';
+import { DiffSide, IReviewThread } from '../common/comment';
 import { getCommentingRanges } from '../common/commentingRanges';
 import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPositionMapping';
 import { GitChangeType } from '../common/file';
@@ -37,9 +37,6 @@ export class ReviewCommentController
 	implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider, CommentReactionHandler {
 	private static readonly ID = 'ReviewCommentController';
 	private _localToDispose: vscode.Disposable[] = [];
-	private _onDidChangeComments = new vscode.EventEmitter<IComment[]>();
-	public onDidChangeComments = this._onDidChangeComments.event;
-
 	private _commentHandlerId: string;
 
 	private _commentController: vscode.CommentController;
