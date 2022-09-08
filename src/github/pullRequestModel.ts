@@ -492,7 +492,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		return {
 			deletedReviewId: databaseId,
-			deletedReviewComments: comments.nodes.map(comment => parseGraphQLComment(comment, false)),
+			deletedReviewComments: comments.nodes.map(comment => parseGraphQLComment(comment, false, this.githubRepository)),
 		};
 	}
 
@@ -577,7 +577,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		const thread = data.addPullRequestReviewThread.thread;
-		const newThread = parseGraphQLReviewThread(thread);
+		const newThread = parseGraphQLReviewThread(thread, this.githubRepository);
 		this._reviewThreadsCache.push(newThread);
 		this._onDidChangeReviewThreads.fire({ added: [newThread], changed: [], removed: [] });
 		return newThread;
@@ -625,7 +625,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		const { comment } = data.addPullRequestReviewComment;
-		const newComment = parseGraphQLComment(comment, false);
+		const newComment = parseGraphQLComment(comment, false, this.githubRepository);
 
 		if (isSingleComment) {
 			newComment.isDraft = false;
@@ -694,6 +694,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const newComment = parseGraphQLComment(
 			data.updatePullRequestReviewComment.pullRequestReviewComment,
 			!!comment.isResolved,
+			this.githubRepository
 		);
 		if (threadWithComment) {
 			const index = threadWithComment.comments.findIndex(c => c.graphNodeId === comment.graphNodeId);
@@ -835,7 +836,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			});
 
 			const reviewThreads = data.repository.pullRequest.reviewThreads.nodes.map(node => {
-				return parseGraphQLReviewThread(node);
+				return parseGraphQLReviewThread(node, this.githubRepository);
 			});
 
 			const oldReviewThreads = this._reviewThreadsCache;
@@ -864,7 +865,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			});
 
 			const comments = data.repository.pullRequest.reviewThreads.nodes
-				.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved), remote))
+				.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved, this.githubRepository), remote))
 				.reduce((prev, curr) => prev.concat(curr), [])
 				.sort((a: IComment, b: IComment) => {
 					return a.createdAt > b.createdAt ? 1 : -1;
@@ -1477,7 +1478,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
 		if (index > -1) {
-			const thread = parseGraphQLReviewThread(data.resolveReviewThread.thread);
+			const thread = parseGraphQLReviewThread(data.resolveReviewThread.thread, this.githubRepository);
 			this._reviewThreadsCache.splice(index, 1, thread);
 			this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
 		}
@@ -1500,7 +1501,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
 		if (index > -1) {
-			const thread = parseGraphQLReviewThread(data.unresolveReviewThread.thread);
+			const thread = parseGraphQLReviewThread(data.unresolveReviewThread.thread, this.githubRepository);
 			this._reviewThreadsCache.splice(index, 1, thread);
 			this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
 		}

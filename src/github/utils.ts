@@ -420,7 +420,7 @@ export function convertGraphQLEventType(text: string) {
 	}
 }
 
-export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread): IReviewThread {
+export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRepository: GitHubRepository): IReviewThread {
 	return {
 		id: thread.id,
 		prReviewDatabaseId: thread.comments.edges && thread.comments.edges.length ?
@@ -436,11 +436,11 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread): IReviewT
 		originalEndLine: thread.originalLine,
 		diffSide: thread.diffSide,
 		isOutdated: thread.isOutdated,
-		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved)),
+		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, githubRepository)),
 	};
 }
 
-export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean): IComment {
+export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean, githubRepository: GitHubRepository): IComment {
 	const c: IComment = {
 		id: comment.databaseId,
 		url: comment.url,
@@ -455,7 +455,7 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: 
 		commitId: comment.commit.oid,
 		originalPosition: comment.originalPosition,
 		originalCommitId: comment.originalCommit && comment.originalCommit.oid,
-		user: comment.author,
+		user: comment.author ? parseAuthor(comment.author, githubRepository) : undefined,
 		createdAt: comment.createdAt,
 		htmlUrl: comment.url,
 		graphNodeId: comment.id,
@@ -471,7 +471,7 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: 
 	return c;
 }
 
-export function parseGraphQlIssueComment(comment: GraphQL.IssueComment): IComment {
+export function parseGraphQlIssueComment(comment: GraphQL.IssueComment, githubRepository: GitHubRepository): IComment {
 	return {
 		id: comment.databaseId,
 		url: comment.url,
@@ -479,7 +479,7 @@ export function parseGraphQlIssueComment(comment: GraphQL.IssueComment): ICommen
 		bodyHTML: comment.bodyHTML,
 		canEdit: comment.viewerCanDelete,
 		canDelete: comment.viewerCanDelete,
-		user: comment.author,
+		user: parseAuthor(comment.author, githubRepository),
 		createdAt: comment.createdAt,
 		htmlUrl: comment.url,
 		graphNodeId: comment.id,
@@ -727,7 +727,7 @@ export function parseGraphQLReviewEvent(
 ): Common.ReviewEvent {
 	return {
 		event: Common.EventType.Reviewed,
-		comments: review.comments.nodes.map(comment => parseGraphQLComment(comment, false)).filter(c => !c.inReplyToId),
+		comments: review.comments.nodes.map(comment => parseGraphQLComment(comment, false, githubRepository)).filter(c => !c.inReplyToId),
 		submittedAt: review.submittedAt,
 		body: review.body,
 		bodyHTML: review.bodyHTML,
@@ -847,7 +847,7 @@ export function parseGraphQLUser(user: GraphQL.UserResponse, githubRepository: G
 	return {
 		login: user.user.login,
 		name: user.user.name,
-		avatarUrl: user.user.avatarUrl ? getAvatarWithEnterpriseFallback(user.user.avatarUrl, undefined, githubRepository.remote.authProviderId) : undefined,
+		avatarUrl: getAvatarWithEnterpriseFallback(user.user.avatarUrl ?? '', undefined, githubRepository.remote.authProviderId),
 		url: user.user.url,
 		bio: user.user.bio,
 		company: user.user.company,
