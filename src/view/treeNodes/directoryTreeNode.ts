@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ViewedState } from '../../common/comment';
 import { GitFileChangeNode, InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
@@ -129,7 +128,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem2 {
 					return false;
 				}
 			}
-			else if (child.checkboxState != vscode.TreeItemCheckboxState.Checked) {
+			else if (child.checkboxState !== vscode.TreeItemCheckboxState.Checked) {
 				return false;
 			}
 		}
@@ -147,7 +146,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem2 {
 		}
 
 		this.checkboxState = allChildrenViewed ? vscode.TreeItemCheckboxState.Checked : vscode.TreeItemCheckboxState.Unchecked;
-		if (this.parent instanceof DirectoryTreeNode && this.parent.checkboxState && this.checkboxState !== this.parent.checkboxState) {
+		if (this.parent instanceof DirectoryTreeNode && this.parent.checkboxState !== undefined && this.checkboxState !== this.parent.checkboxState) {
 			if (!this.parent.updateParentCheckbox()) {
 				this.refresh(this);
 				return true;

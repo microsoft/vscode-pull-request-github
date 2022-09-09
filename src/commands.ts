@@ -905,11 +905,7 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.markFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri) => {
 			try {
 				if (treeNode instanceof FileChangeNode) {
-					await treeNode.pullRequest.markFileAsViewed(treeNode.fileName);
-					const manager = reposManager.getManagerForFile(treeNode.changeModel.filePath);
-					if (treeNode.pullRequest === manager?.activePullRequest) {
-						treeNode.pullRequest.setFileViewedContext();
-					}
+					await treeNode.markFileAsViewed();
 				} else {
 					const manager = reposManager.getManagerForFile(treeNode);
 					await manager?.activePullRequest?.markFileAsViewed(treeNode.path);
@@ -925,11 +921,7 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.unmarkFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri) => {
 			try {
 				if (treeNode instanceof FileChangeNode) {
-					await treeNode.pullRequest.unmarkFileAsViewed(treeNode.fileName);
-					const manager = reposManager.getManagerForFile(treeNode.changeModel.filePath);
-					if (treeNode.pullRequest === manager?.activePullRequest) {
-						treeNode.pullRequest.setFileViewedContext();
-					}
+					treeNode.unmarkFileAsViewed();
 				} else {
 					const manager = reposManager.getManagerForFile(treeNode);
 					await manager?.activePullRequest?.unmarkFileAsViewed(treeNode.path);
