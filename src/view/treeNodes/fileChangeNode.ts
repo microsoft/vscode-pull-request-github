@@ -14,6 +14,7 @@ import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folder
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { FileChangeModel, GitFileChangeModel, InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { DecorationProvider } from '../treeDecorationProvider';
+import { DirectoryTreeNode } from './directoryTreeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
 export function openFileCommand(uri: vscode.Uri, inputOpts: vscode.TextDocumentShowOptions = {}): vscode.Command {
@@ -66,7 +67,7 @@ async function openDiffCommand(
 /**
  * File change node whose content is stored in memory and resolved when being revealed.
  */
-export class FileChangeNode extends TreeNode implements vscode.TreeItem {
+export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 	public iconPath?:
 		| string
 		| vscode.Uri
@@ -76,6 +77,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public contextValue: string;
 	public command: vscode.Command;
 	public opts: vscode.TextDocumentShowOptions;
+
+	public checkboxState: { state: vscode.TreeItemCheckboxState; tooltip?: string };
 
 	public childrenDisposables: vscode.Disposable[] = [];
 
@@ -100,7 +103,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	constructor(
-		public readonly parent: TreeNodeParent,
+		public parent: TreeNodeParent,
 		protected readonly pullRequestManager: FolderRepositoryManager,
 		public readonly pullRequest: PullRequestModel & IResolvedPullRequestModel,
 		public readonly changeModel: FileChangeModel
@@ -142,7 +145,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 			}),
 		);
 
-
 		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link' };
 	}
 
@@ -163,6 +165,44 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.changeModel.updateViewed(viewed);
 		this.contextValue = `${Schemes.FileChange}:${GitChangeType[this.changeModel.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
+		this.checkboxState = viewed === ViewedState.VIEWED ?
+			{ state: vscode.TreeItemCheckboxState.Checked, tooltip: 'unmark file as viewed' } :
+			{ state: vscode.TreeItemCheckboxState.Unchecked, tooltip: 'mark file as viewed' };
+	}
+
+	public async markFileAsViewed() {
+		await this.pullRequest.markFileAsViewed(this.fileName);
+		if (this.pullRequest === this.pullRequestManager.activePullRequest) {
+			this.pullRequest.setFileViewedContext();
+		}
+	}
+
+	public async unmarkFileAsViewed() {
+		this.pullRequest.unmarkFileAsViewed(this.fileName).then(_ => {
+			if (this.pullRequest === this.pullRequestManager.activePullRequest) {
+				this.pullRequest.setFileViewedContext();
+			}
+		});
+	}
+
+	updateCheckbox(newState: vscode.TreeItemCheckboxState) {
+		const viewed = newState === vscode.TreeItemCheckboxState.Checked ? ViewedState.VIEWED : ViewedState.UNVIEWED;
+		this.updateViewed(viewed);
+
+		async function markFile(node: FileChangeNode) {
+			if (newState === vscode.TreeItemCheckboxState.Checked) {
+				await node.markFileAsViewed();
+			}
+			else {
+				await node.unmarkFileAsViewed();
+			}
+		}
+
+		markFile(this).then(_ => {
+			if (this.parent instanceof DirectoryTreeNode && !this.parent.updateParentCheckbox() || !(this.parent instanceof DirectoryTreeNode)) {
+				this.refresh(this);
+			}
+		});
 	}
 
 	updateShowOptions() {
@@ -223,7 +263,7 @@ export class RemoteFileChangeNode extends FileChangeNode implements vscode.TreeI
 	}
 
 	constructor(
-		parent: TreeNodeParent,
+		public parent: TreeNodeParent,
 		folderRepositoryManager: FolderRepositoryManager,
 		pullRequest: PullRequestModel & IResolvedPullRequestModel,
 		changeModel: RemoteFileChangeModel
@@ -252,7 +292,7 @@ export class RemoteFileChangeNode extends FileChangeNode implements vscode.TreeI
 export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeItem {
 	constructor(
 		private readonly folderRepositoryManager: FolderRepositoryManager,
-		public readonly parent: TreeNodeParent,
+		public parent: TreeNodeParent,
 		public readonly pullRequest: PullRequestModel & IResolvedPullRequestModel,
 		public readonly changeModel: InMemFileChangeModel
 	) {
@@ -283,7 +323,7 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
  */
 export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem {
 	constructor(
-		public readonly parent: TreeNodeParent,
+		public parent: TreeNodeParent,
 		pullRequestManager: FolderRepositoryManager,
 		public readonly pullRequest: PullRequestModel & IResolvedPullRequestModel,
 		public readonly changeModel: GitFileChangeModel,

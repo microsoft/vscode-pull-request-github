@@ -15,6 +15,7 @@
 		"commentsResolvedState",
 		"badges",
 		"contribViewSize",
+		"treeItemCheckbox",
 		"contribCommentPeekContext"
 	],
 	"version": "0.50.0",
@@ -1463,16 +1464,6 @@
 					"command": "pr.openDiffView",
 					"group": "inline@0",
 					"when": "!openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
-				},
-				{
-					"command": "pr.markFileAsViewed",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(.*):unviewed/",
-					"group": "inline@1"
-				},
-				{
-					"command": "pr.unmarkFileAsViewed",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(.*):viewed/",
-					"group": "inline@1"
 				},
 				{
 					"command": "pr.openOriginalFile",

@@ -5,7 +5,6 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { ViewedState } from '../common/comment';
 import { GitChangeType } from '../common/file';
 import { FileChangeNodeUriParams, fromFileChangeNodeUri, fromPRUri, PRUriParams, Schemes, toResourceUri } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -78,17 +77,6 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 
 	}
 
-	private getViewedState(number: number, fileName: string, uri: vscode.Uri) {
-		const gitHubRepositories = this._repositoriesManager.getManagerForFile(uri)?.gitHubRepositories ?? [];
-		for (const gitHubRepo of gitHubRepositories) {
-			const prModel = gitHubRepo.pullRequestModels.get(number);
-			if (prModel) {
-				return prModel.fileChangeViewedState[fileName] ?? ViewedState.UNVIEWED;
-			}
-		}
-		return ViewedState.UNVIEWED;
-	}
-
 	provideFileDecoration(
 		uri: vscode.Uri,
 		_token: vscode.CancellationToken,
@@ -99,11 +87,10 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 
 		const fileChangeUriParams = fromFileChangeNodeUri(uri);
 		if (fileChangeUriParams && fileChangeUriParams.status !== undefined) {
-			const viewedState = this.getViewedState(fileChangeUriParams.prNumber, fileChangeUriParams.fileName, uri);
 			return {
 				propagate: false,
-				badge: this.letter(fileChangeUriParams.status, viewedState),
-				color: this.color(fileChangeUriParams.status, viewedState),
+				badge: this.letter(fileChangeUriParams.status),
+				color: this.color(fileChangeUriParams.status),
 				tooltip: this.tooltip(fileChangeUriParams)
 			};
 		}
@@ -156,19 +143,12 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 		}
 	}
 
-	color(status: GitChangeType, viewedState?: ViewedState): vscode.ThemeColor | undefined {
-		if (viewedState === ViewedState.VIEWED) {
-			return undefined;
-		}
-
+	color(status: GitChangeType): vscode.ThemeColor | undefined {
 		let color: string | undefined = vscode.extensions.getExtension('vscode.git') ? this.gitColors(status) : this.remoteReposColors(status);
 		return color ? new vscode.ThemeColor(color) : undefined;
 	}
 
-	letter(status: GitChangeType, viewedState?: ViewedState): string {
-		if (viewedState === ViewedState.VIEWED) {
-			return '✓';
-		}
+	letter(status: GitChangeType): string {
 
 		switch (status) {
 			case GitChangeType.MODIFY:

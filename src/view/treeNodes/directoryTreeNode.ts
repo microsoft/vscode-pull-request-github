@@ -7,10 +7,11 @@ import * as vscode from 'vscode';
 import { GitFileChangeNode, InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
-export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
+export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem2 {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public children: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode | DirectoryTreeNode)[] = [];
 	private pathToChild: Map<string, DirectoryTreeNode> = new Map();
+	public checkboxState?: { state: vscode.TreeItemCheckboxState, tooltip: string };
 
 	constructor(public parent: TreeNodeParent, public label: string) {
 		super();
@@ -97,6 +98,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (paths.length === 1) {
+			file.parent = this;
 			this.children.push(file);
 			return;
 		}
@@ -114,7 +116,57 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 		node.addPathRecc(tail, file);
 	}
 
+	updateCheckbox(newState: vscode.TreeItemCheckboxState) {
+		this.children.forEach(child => child.updateCheckbox(newState));
+		this.refresh(this);
+	}
+
+	public allChildrenViewed(): boolean {
+		for (const child of this.children) {
+			if (child instanceof DirectoryTreeNode) {
+				if (!child.allChildrenViewed()) {
+					return false;
+				}
+			}
+			else if (child.checkboxState.state !== vscode.TreeItemCheckboxState.Checked) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	public updateParentCheckbox(): boolean {
+		// Returns true if the node has been refreshed and false otherwise
+		const allChildrenViewed = this.allChildrenViewed();
+		if (
+			(allChildrenViewed && this.checkboxState?.state === vscode.TreeItemCheckboxState.Checked) ||
+			(!allChildrenViewed && this.checkboxState?.state === vscode.TreeItemCheckboxState.Unchecked)
+		) {
+			return false;
+		}
+
+		this.setCheckboxState(allChildrenViewed);
+		if (this.parent instanceof DirectoryTreeNode && this.parent.checkboxState !== undefined && this.checkboxState !== this.parent.checkboxState) {
+			if (!this.parent.updateParentCheckbox()) {
+				this.refresh(this);
+				return true;
+			}
+		}
+		else {
+			this.refresh(this);
+			return true;
+		}
+		return false;
+	}
+
+	private setCheckboxState(isChecked: boolean) {
+		this.checkboxState = isChecked ?
+			{ state: vscode.TreeItemCheckboxState.Checked, tooltip: 'unmark all files viewed' } :
+			{ state: vscode.TreeItemCheckboxState.Unchecked, tooltip: 'mark all files viewed' };
+	}
+
 	getTreeItem(): vscode.TreeItem {
+		this.setCheckboxState(this.allChildrenViewed());
 		return this;
 	}
 }
