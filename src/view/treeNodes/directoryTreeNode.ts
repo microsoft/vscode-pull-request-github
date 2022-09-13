@@ -11,7 +11,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem2 {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public children: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode | DirectoryTreeNode)[] = [];
 	private pathToChild: Map<string, DirectoryTreeNode> = new Map();
-	public checkboxState?: { checkbox: vscode.TreeItemCheckboxState, tooltip: string };
+	public checkboxState?: { state: vscode.TreeItemCheckboxState, tooltip: string };
 
 	constructor(public parent: TreeNodeParent, public label: string) {
 		super();
@@ -128,7 +128,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem2 {
 					return false;
 				}
 			}
-			else if (child.checkboxState.checkbox !== vscode.TreeItemCheckboxState.Checked) {
+			else if (child.checkboxState.state !== vscode.TreeItemCheckboxState.Checked) {
 				return false;
 			}
 		}
@@ -139,8 +139,8 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem2 {
 		// Returns true if the node has been refreshed and false otherwise
 		const allChildrenViewed = this.allChildrenViewed();
 		if (
-			(allChildrenViewed && this.checkboxState?.checkbox === vscode.TreeItemCheckboxState.Checked) ||
-			(!allChildrenViewed && this.checkboxState?.checkbox === vscode.TreeItemCheckboxState.Unchecked)
+			(allChildrenViewed && this.checkboxState?.state === vscode.TreeItemCheckboxState.Checked) ||
+			(!allChildrenViewed && this.checkboxState?.state === vscode.TreeItemCheckboxState.Unchecked)
 		) {
 			return false;
 		}
@@ -161,8 +161,8 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem2 {
 
 	private setCheckboxState(isChecked: boolean) {
 		this.checkboxState = isChecked ?
-			{ checkbox: vscode.TreeItemCheckboxState.Checked, tooltip: 'unmark all files viewed' } :
-			{ checkbox: vscode.TreeItemCheckboxState.Unchecked, tooltip: 'mark all files viewed' };
+			{ state: vscode.TreeItemCheckboxState.Checked, tooltip: 'unmark all files viewed' } :
+			{ state: vscode.TreeItemCheckboxState.Unchecked, tooltip: 'mark all files viewed' };
 	}
 
 	getTreeItem(): vscode.TreeItem {

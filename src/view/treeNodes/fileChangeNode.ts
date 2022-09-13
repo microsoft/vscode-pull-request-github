@@ -76,7 +76,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 	public command: vscode.Command;
 	public opts: vscode.TextDocumentShowOptions;
 
-	public checkboxState: { checkbox: vscode.TreeItemCheckboxState; tooltip?: string };
+	public checkboxState: { state: vscode.TreeItemCheckboxState; tooltip?: string };
 
 	public childrenDisposables: vscode.Disposable[] = [];
 
@@ -164,8 +164,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 		this.contextValue = `${Schemes.FileChange}:${GitChangeType[this.changeModel.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
 		this.checkboxState = viewed === ViewedState.VIEWED ?
-			{ checkbox: vscode.TreeItemCheckboxState.Checked, tooltip: 'unmark file as viewed' } :
-			{ checkbox: vscode.TreeItemCheckboxState.Unchecked, tooltip: 'mark file as viewed' };
+			{ state: vscode.TreeItemCheckboxState.Checked, tooltip: 'unmark file as viewed' } :
+			{ state: vscode.TreeItemCheckboxState.Unchecked, tooltip: 'mark file as viewed' };
 	}
 
 	public async markFileAsViewed() {
