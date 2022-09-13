@@ -200,7 +200,7 @@ export class RepositoriesManager implements vscode.Disposable {
 		const { dotComRemotes, enterpriseRemotes } = await findDotComAndEnterpriseRemotes(this.folderManagers);
 
 		// If we have no github.com remotes, but we do have github remotes, then we likely have github enterprise remotes.
-		if (!hasEnterpriseUri() && !dotComRemotes && (enterpriseRemotes.length > 0)) {
+		if (!hasEnterpriseUri() && (dotComRemotes.length === 0) && (enterpriseRemotes.length > 0)) {
 			const promptResult = await vscode.window.showInformationMessage(`It looks like you might be using GitHub Enterprise. Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server ${enterpriseRemotes[0].url}?`, { modal: true }, 'Yes', 'No, use GitHub.com');
 			if (promptResult === 'Yes') {
 				await setEnterpriseUri(enterpriseRemotes[0].url);
