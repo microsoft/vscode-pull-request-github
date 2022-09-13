@@ -132,26 +132,20 @@ export class InMemFileChangeModel extends FileChangeModel {
 		super(pullRequest, folderRepositoryManager, change);
 		const headCommit = pullRequest.head!.sha;
 		const parentFileName = change.status === GitChangeType.RENAME ? change.previousFileName! : change.fileName;
-		const filePath = vscode.Uri.file(resolvePath(folderRepositoryManager.repository.rootUri, change.fileName));
-		const parentPath = vscode.Uri.file(resolvePath(folderRepositoryManager.repository.rootUri, parentFileName));
-		this._filePath = isCurrentPR ? toReviewUri(
-			parentPath,
-			change.status === GitChangeType.DELETE ? undefined : change.fileName,
-			undefined,
-			change.status === GitChangeType.DELETE ? '' : headCommit,
-			false,
-			{ base: false },
-			folderRepositoryManager.repository.rootUri,
-		) : toPRUri(
-			filePath,
-			pullRequest,
-			change.baseCommit,
-			headCommit,
-			change.fileName,
-			false,
-			change.status,
-			change.previousFileName
-		);
+		const filePath = folderRepositoryManager.repository.rootUri.with({ path: resolvePath(folderRepositoryManager.repository.rootUri, change.fileName) });
+		const parentPath = folderRepositoryManager.repository.rootUri.with({ path: resolvePath(folderRepositoryManager.repository.rootUri, parentFileName) });
+		this._filePath = isCurrentPR ? ((change.status === GitChangeType.DELETE)
+			? toReviewUri(filePath, undefined, undefined, '', false, { base: false }, folderRepositoryManager.repository.rootUri)
+			: filePath) : toPRUri(
+				filePath,
+				pullRequest,
+				change.baseCommit,
+				headCommit,
+				change.fileName,
+				false,
+				change.status,
+				change.previousFileName
+			);
 		this._parentFilePath = isCurrentPR ? (toReviewUri(
 			parentPath,
 			change.status === GitChangeType.RENAME ? change.previousFileName : change.fileName,
