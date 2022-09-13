@@ -26,11 +26,11 @@ export class ReviewsManager {
 		private _prsTreeDataProvider: PullRequestsTreeDataProvider,
 		private _prFileChangesProvider: PullRequestChangesTreeDataProvider,
 		private _telemetry: ITelemetry,
-		credentialStore: CredentialStore,
+		private _credentialStore: CredentialStore,
 		private _gitApi: GitApiImpl,
 	) {
 		this._disposables = [];
-		const gitContentProvider = new GitContentFileSystemProvider(_gitApi, credentialStore);
+		const gitContentProvider = new GitContentFileSystemProvider(_gitApi, _credentialStore);
 		gitContentProvider.registerTextDocumentContentFallback(this.provideTextDocumentContent.bind(this));
 		this._disposables.push(vscode.workspace.registerFileSystemProvider(Schemes.Review, gitContentProvider, { isReadonly: true }));
 		this.registerListeners();
@@ -52,7 +52,7 @@ export class ReviewsManager {
 
 					this._prsTreeDataProvider.dispose();
 					this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry);
-					this._prsTreeDataProvider.initialize(this._reposManager, this._reviewManagers.map(manager => manager.reviewModel));
+					this._prsTreeDataProvider.initialize(this._reposManager, this._reviewManagers.map(manager => manager.reviewModel), this._credentialStore);
 					this._disposables.push(this._prsTreeDataProvider);
 				}
 			}),

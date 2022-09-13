@@ -8,12 +8,11 @@ import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
-import { DiffSide, IComment, IReviewThread } from '../common/comment';
+import { DiffSide, IReviewThread } from '../common/comment';
 import { getCommentingRanges } from '../common/commentingRanges';
 import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPositionMapping';
 import { GitChangeType } from '../common/file';
 import Logger from '../common/logger';
-import { ISessionState } from '../common/sessionState';
 import { fromReviewUri, ReviewUriParams, Schemes, toReviewUri } from '../common/uri';
 import { formatError, groupBy, uniqBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -38,9 +37,6 @@ export class ReviewCommentController
 	implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider, CommentReactionHandler {
 	private static readonly ID = 'ReviewCommentController';
 	private _localToDispose: vscode.Disposable[] = [];
-	private _onDidChangeComments = new vscode.EventEmitter<IComment[]>();
-	public onDidChangeComments = this._onDidChangeComments.event;
-
 	private _commentHandlerId: string;
 
 	private _commentController: vscode.CommentController;
@@ -63,7 +59,6 @@ export class ReviewCommentController
 		private _reposManager: FolderRepositoryManager,
 		private _repository: Repository,
 		private _reviewModel: ReviewModel,
-		private readonly _sessionState: ISessionState
 	) {
 		this._commentController = vscode.comments.createCommentController(
 			`github-review-${_reposManager.activePullRequest!.number}`,
@@ -302,11 +297,6 @@ export class ReviewCommentController
 				});
 			}),
 		);
-
-		this._localToDispose.push(
-			this._sessionState.onDidChangeCommentsExpandState(expand => {
-				this.updateCommentExpandState(expand);
-			}));
 	}
 
 	public updateCommentExpandState(expand: boolean) {
@@ -626,7 +616,7 @@ export class ReviewCommentController
 		const currentUser = this._reposManager.getCurrentUser();
 		const temporaryComment = new TemporaryComment(
 			thread,
-			comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
+			comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.rawBody,
 			!!comment.label,
 			currentUser,
 			comment,
@@ -766,7 +756,7 @@ export class ReviewCommentController
 
 				await this._reposManager.activePullRequest.editReviewComment(
 					comment._rawComment,
-					comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
+					comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.rawBody,
 				);
 			} catch (e) {
 				vscode.window.showErrorMessage(formatError(e));
@@ -782,7 +772,7 @@ export class ReviewCommentController
 		} else {
 			this.createOrReplyComment(
 				thread,
-				comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
+				comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.rawBody,
 				false,
 			);
 		}

@@ -7,8 +7,11 @@ import * as vscode from 'vscode';
 import { FILE_LIST_LAYOUT } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EXTENSION_ID } from '../constants';
+import { AuthProvider, CredentialStore } from '../github/credentials';
 import { REMOTES_SETTING, ReposManagerState, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
+import { NotificationProvider } from '../github/notifications';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { findDotComAndEnterpriseRemotes } from '../github/utils';
 import { ReviewModel } from './reviewModel';
 import { DecorationProvider } from './treeDecorationProvider';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
@@ -28,6 +31,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private _view: vscode.TreeView<TreeNode>;
 	private _reposManager: RepositoriesManager | undefined;
 	private _initialized: boolean = false;
+	public notificationProvider: NotificationProvider;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
@@ -102,7 +106,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		return this._view.reveal(element, options);
 	}
 
-	initialize(reposManager: RepositoriesManager, reviewModels: ReviewModel[]) {
+	initialize(reposManager: RepositoriesManager, reviewModels: ReviewModel[], credentialStore: CredentialStore) {
 		if (this._initialized) {
 			throw new Error('Tree has already been initialized!');
 		}
@@ -126,6 +130,9 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 				return model.onDidChangeLocalFileChanges(_ => { this.refresh(); });
 			}),
 		);
+
+		this.notificationProvider = new NotificationProvider(this, credentialStore, this._reposManager);
+		this._disposables.push(this.notificationProvider);
 
 		this.initializeCategories();
 		this.refresh();
@@ -156,20 +163,29 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		return element;
 	}
 
-	private needsRemotes() {
+	private async needsRemotes() {
 		if (this._reposManager?.state === ReposManagerState.NeedsAuthentication) {
-			return Promise.resolve([]);
+			return [];
 		}
 
 		const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
+		let actions: PRCategoryActionNode[];
 		if (remotesSetting) {
-			return Promise.resolve([
+			actions = [
 				new PRCategoryActionNode(this, PRCategoryActionType.NoMatchingRemotes),
 				new PRCategoryActionNode(this, PRCategoryActionType.ConfigureRemotes),
-			]);
+
+			];
+		} else {
+			actions = [new PRCategoryActionNode(this, PRCategoryActionType.NoRemotes)];
 		}
 
-		return Promise.resolve([new PRCategoryActionNode(this, PRCategoryActionType.NoRemotes)]);
+		const { enterpriseRemotes } = this._reposManager ? await findDotComAndEnterpriseRemotes(this._reposManager?.folderManagers) : { enterpriseRemotes: [] };
+		if ((enterpriseRemotes.length > 0) && !this._reposManager?.credentialStore.isAuthenticated(AuthProvider['github-enterprise'])) {
+			actions.push(new PRCategoryActionNode(this, PRCategoryActionType.LoginEnterprise));
+		}
+
+		return actions;
 	}
 
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
@@ -196,6 +212,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 					this._reposManager.folderManagers[0],
 					this._telemetry,
 					this,
+					this.notificationProvider
 				);
 			} else {
 				result = this._reposManager.folderManagers.map(
@@ -205,6 +222,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 							folderManager.repository.rootUri,
 							folderManager,
 							this._telemetry,
+							this.notificationProvider
 						),
 				);
 			}

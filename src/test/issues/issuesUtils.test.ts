@@ -1,5 +1,10 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { default as assert } from 'assert';
-import { parseIssueExpressionOutput, ISSUE_OR_URL_EXPRESSION } from '../../issues/util';
+import { parseIssueExpressionOutput, ISSUE_OR_URL_EXPRESSION } from '../../github/utils';
 
 describe('Issues utilities', function () {
 	it('regular expressions', async function () {

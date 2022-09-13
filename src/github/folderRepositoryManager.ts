@@ -11,7 +11,6 @@ import { GitHubManager } from '../authentication/githubServer';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
-import { ISessionState } from '../common/sessionState';
 import { PULL_BRANCH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
@@ -155,7 +154,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		public readonly telemetry: ITelemetry,
 		private _git: GitApiImpl,
 		private _credentialStore: CredentialStore,
-		private readonly _sessionState: ISessionState
 	) {
 		this._subs = [];
 		this._githubRepositories = [];
@@ -198,7 +196,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return this._githubRepositories;
 	}
 
-	private computeAllGitHubRemotes(): Promise<Remote[]> {
+	public computeAllGitHubRemotes(): Promise<Remote[]> {
 		const remotes = parseRepositoryRemotes(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
 		return Promise.all(
@@ -1672,9 +1670,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						try {
 							await Promise.all(
 								picks.map(async pick => {
-									await this.repository.deleteBranch(pick.label, true);
-								}),
-							);
+									try {
+										await this.repository.deleteBranch(pick.label, true);
+									} catch (e) {
+										if ((typeof e.stderr === 'string') && (e.stderr as string).includes('not found')) {
+											// TODO: The git extension API doesn't support removing configs
+											// If that support is added we should remove the config as it is no longer useful.
+										} else {
+											throw e;
+										}
+									}
+								}));
 							quickPick.busy = false;
 						} catch (e) {
 							quickPick.hide();
@@ -1961,11 +1967,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 							if (!this._updateMessageShown) {
 								this._updateMessageShown = true;
 								const pull = 'Pull';
+								const always = 'Always Pull';
 								const never = 'Never Show Again';
 								const result = await vscode.window.showInformationMessage(
 									`There are updates available for pull request ${pr.number}: ${pr.title}.`,
 									{},
 									pull,
+									always,
 									never
 								);
 
@@ -1974,6 +1982,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 									this._updateMessageShown = false;
 								} else if (never) {
 									await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
+								} else if (always) {
+									await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'always', vscode.ConfigurationTarget.Global);
+									await this.pullBranch(branch);
 								}
 							}
 							return;
@@ -1996,7 +2007,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	private createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore) {
-		const repo = new GitHubRepository(remote, this.repository.rootUri, credentialStore, this.telemetry, this._sessionState);
+		const repo = new GitHubRepository(remote, this.repository.rootUri, credentialStore, this.telemetry);
 		this._githubRepositories.push(repo);
 		return repo;
 	}

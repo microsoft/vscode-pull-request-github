@@ -23,7 +23,7 @@ import { GitHubRepository } from './githubRepository';
 import { RepoAccessAndMergeMethods } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
-import { variableSubstitution } from './utils';
+import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
 
 export class CreatePullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public readonly viewType = 'github:createPullRequest';
@@ -164,6 +164,14 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			} else if (lastCommit?.body && (this._pullRequestDefaults.base !== compareBranch.name)) {
 				description = lastCommit.body;
 			}
+
+			// If the description is empty, check to see if the title of the PR contains something that looks like an issue
+			if (!description) {
+				const match = parseIssueExpressionOutput(title.match(ISSUE_EXPRESSION));
+				if (match?.issueNumber && !match.name && !match.owner) {
+					description = `#${match.issueNumber}`;
+				}
+			}
 		} catch (e) {
 			// Ignore and fall back to commit message
 			Logger.debug(`Error while getting total commits: ${e}`, 'CreatePullRequestViewProvider');
@@ -192,6 +200,10 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	}
 
 	public async initializeParams(reset: boolean = false): Promise<void> {
+		if (reset) {
+			// First clear all state ASAP
+			this._postMessage({ command: 'reset' });
+		}
 		// Do the fast initialization first, then update with the slower initialization.
 		const params = await this.initializeParamsFast(reset);
 		this.initializeParamsSlow(params);

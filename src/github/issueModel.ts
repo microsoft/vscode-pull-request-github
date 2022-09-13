@@ -115,7 +115,9 @@ export class IssueModel<TItem extends Issue = Issue> {
 		this.graphNodeId = issue.graphNodeId;
 		this.number = issue.number;
 		this.title = issue.title;
-		this.bodyHTML = issue.bodyHTML;
+		if (!this.bodyHTML || (issue.body !== this.body)) {
+			this.bodyHTML = issue.bodyHTML;
+		}
 		this.html_url = issue.url;
 		this.author = issue.user;
 		this.milestone = issue.milestone;
@@ -205,7 +207,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 			},
 		});
 
-		return parseGraphQlIssueComment(data!.addComment.commentEdge.node);
+		return parseGraphQlIssueComment(data!.addComment.commentEdge.node, this.githubRepository);
 	}
 
 	async editIssueComment(comment: IComment, text: string): Promise<IComment> {
@@ -222,7 +224,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 				},
 			});
 
-			return parseGraphQlIssueComment(data!.updateIssueComment.issueComment);
+			return parseGraphQlIssueComment(data!.updateIssueComment.issueComment, this.githubRepository);
 		} catch (e) {
 			throw new Error(formatError(e));
 		}

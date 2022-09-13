@@ -140,7 +140,7 @@ export class CreatePRContext {
 		return this._handler?.postMessage(message);
 	};
 
-	handleMessage = async (message: {command: string, params?: CreateParams, scrollPosition?: ScrollPosition}): Promise<void> => {
+	handleMessage = async (message: { command: string, params?: CreateParams, scrollPosition?: ScrollPosition }): Promise<void> => {
 		switch (message.command) {
 			case 'pr.initialize':
 				if (!message.params) {

@@ -28,6 +28,12 @@ export interface CommentReply {
 	text: string;
 }
 
+export namespace CommentReply {
+	export function is(commentReply: any): commentReply is CommentReply {
+		return commentReply && commentReply.thread && (commentReply.text !== undefined);
+	}
+}
+
 const commentHandlers = new Map<string, CommentHandler>();
 
 export function registerCommentHandler(key: string, commentHandler: CommentHandler) {

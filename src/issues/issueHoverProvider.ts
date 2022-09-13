@@ -7,13 +7,11 @@ import * as vscode from 'vscode';
 import { ITelemetry } from '../common/telemetry';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { ParsedIssue } from '../github/utils';
+import { ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
 import { StateManager } from './stateManager';
 import {
 	getIssue,
-	ISSUE_OR_URL_EXPRESSION,
 	issueMarkdown,
-	parseIssueExpressionOutput,
 	shouldShowHover,
 } from './util';
 
@@ -23,7 +21,7 @@ export class IssueHoverProvider implements vscode.HoverProvider {
 		private stateManager: StateManager,
 		private context: vscode.ExtensionContext,
 		private telemetry: ITelemetry,
-	) {}
+	) { }
 
 	async provideHover(
 		document: vscode.TextDocument,

@@ -26,7 +26,7 @@ const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
 
 // If the scopes are changed, make sure to notify all interested parties to make sure this won't cause problems.
 const SCOPES_OLD = ['read:user', 'user:email', 'repo'];
-const SCOPES = ['read:user', 'user:email', 'repo', 'workflow'];
+export const SCOPES = ['read:user', 'user:email', 'repo', 'workflow'];
 
 export enum AuthProvider {
 	github = 'github',
@@ -81,10 +81,6 @@ export class CredentialStore implements vscode.Disposable {
 		}
 		getAuthSessionOptions = { ...getAuthSessionOptions, ...{ createIfNone: false } };
 
-		if (authProviderId === AuthProvider['github-enterprise']) {
-			getAuthSessionOptions = { ...getAuthSessionOptions, ...{ createIfNone: true, silent: false } };
-		}
-
 		let session;
 		try {
 			session = await this.getSession(authProviderId, getAuthSessionOptions);
@@ -122,15 +118,6 @@ export class CredentialStore implements vscode.Disposable {
 				await this.setCurrentUser(github);
 			}
 
-			// The extension behaves unexpectedly when both github and enterprise accounts are found. Warn the user.
-			const showAccountWarning = !this._context.workspaceState.get<boolean>('github.hideTwoAccountWarning', false);
-			if (this.isAuthenticated(AuthProvider.github) && this.isAuthenticated(AuthProvider['github-enterprise']) && showAccountWarning) {
-				vscode.window.showWarningMessage('Both GitHub and GitHub Enterprise accounts were found. Sign out of one account to ensure the extension works.', 'Don\'t show again').then(result => {
-					if (result === 'Don\'t show again') {
-						this._context.workspaceState.update('github.hideTwoAccountWarning', true);
-					}
-				});
-			}
 			this._onDidInitialize.fire();
 		} else {
 			Logger.debug(`No GitHub${getGitHubSuffix(authProviderId)} token found.`, 'Authentication');
@@ -237,7 +224,11 @@ export class CredentialStore implements vscode.Disposable {
 		}
 
 		if (octokit) {
-			this._githubAPI = octokit;
+			if (authProviderId === AuthProvider.github) {
+				this._githubAPI = octokit;
+			} else if (authProviderId === AuthProvider['github-enterprise']) {
+				this._githubEnterpriseAPI = octokit;
+			}
 			await this.setCurrentUser(octokit);
 
 			/* __GDPR__

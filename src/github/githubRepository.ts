@@ -11,7 +11,6 @@ import { AuthenticationError, isSamlError } from '../common/authentication';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { parseRemote, Remote } from '../common/remote';
-import { ISessionState } from '../common/sessionState';
 import { ITelemetry } from '../common/telemetry';
 import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
 import { OctokitCommon } from './common';
@@ -37,6 +36,7 @@ import { PullRequestModel } from './pullRequestModel';
 import defaultSchema from './queries.gql';
 import {
 	convertRESTPullRequestToRawPullRequest,
+	getAvatarWithEnterpriseFallback,
 	getOverrideBranch,
 	getPRFetchQuery,
 	parseGraphQLIssue,
@@ -135,7 +135,7 @@ export class GitHubRepository implements vscode.Disposable {
 				`github-browse-${this.remote.normalizedHost}`,
 				`GitHub Pull Request for ${this.remote.normalizedHost}`,
 			);
-			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController, this._sessionState);
+			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController);
 			this._toDispose.push(this.commentsHandler);
 			this._toDispose.push(this.commentsController);
 		} catch (e) {
@@ -156,7 +156,6 @@ export class GitHubRepository implements vscode.Disposable {
 		public readonly rootUri: vscode.Uri,
 		private readonly _credentialStore: CredentialStore,
 		private readonly _telemetry: ITelemetry,
-		private readonly _sessionState: ISessionState
 	) {
 		this.isGitHubDotCom = remote.host.toLowerCase() === 'github.com';
 	}
@@ -423,7 +422,7 @@ export class GitHubRepository implements vscode.Disposable {
 				parsedIssue.repositoryUrl,
 				new Protocol(parsedIssue.repositoryUrl),
 			);
-			githubRepository = new GitHubRepository(remote, this.rootUri, this._credentialStore, this._telemetry, this._sessionState);
+			githubRepository = new GitHubRepository(remote, this.rootUri, this._credentialStore, this._telemetry);
 		}
 		return githubRepository;
 	}
@@ -881,7 +880,7 @@ export class GitHubRepository implements vscode.Disposable {
 					...result.data.repository.mentionableUsers.nodes.map(node => {
 						return {
 							login: node.login,
-							avatarUrl: node.avatarUrl,
+							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
 							name: node.name,
 							url: node.url,
 							email: node.email,
@@ -924,7 +923,7 @@ export class GitHubRepository implements vscode.Disposable {
 					...result.data.repository.assignableUsers.nodes.map(node => {
 						return {
 							login: node.login,
-							avatarUrl: node.avatarUrl,
+							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
 							name: node.name,
 							url: node.url,
 							email: node.email,
@@ -973,7 +972,7 @@ export class GitHubRepository implements vscode.Disposable {
 				...result.data.repository.pullRequest.participants.nodes.map(node => {
 					return {
 						login: node.login,
-						avatarUrl: node.avatarUrl,
+						avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
 						name: node.name,
 						url: node.url,
 						email: node.email,

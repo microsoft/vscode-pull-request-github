@@ -15,12 +15,13 @@
 		"commentsResolvedState",
 		"badges",
 		"contribViewSize",
-		"treeItemCheckbox"
+		"treeItemCheckbox",
+		"contribCommentPeekContext"
 	],
-	"version": "0.48.0",
+	"version": "0.50.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.70.0"
+		"vscode": "^1.72.0"
 	},
 	"categories": [
 		"Other"
@@ -165,7 +166,7 @@
 						"pullRequests",
 						"off"
 					],
-					"default": "pullRequests",
+					"default": "off",
 					"description": "If GitHub notifications should be shown to the user."
 				},
 				"githubPullRequests.fileListLayout": {
@@ -559,6 +560,11 @@
 				"category": "GitHub Pull Requests"
 			},
 			{
+				"command": "pr.dismissNotification",
+				"title": "Dismiss Notification",
+				"category": "GitHub Pull Requests"
+			},
+			{
 				"command": "pr.merge",
 				"title": "Merge Pull Request",
 				"category": "GitHub Pull Requests"
@@ -793,15 +799,9 @@
 				"category": "GitHub Pull Requests"
 			},
 			{
-				"command": "pr.expandAllComments",
-				"title": "Expand All Comments",
-				"category": "GitHub Pull Requests",
-				"icon": "$(expand-all)"
-			},
-			{
 				"command": "pr.collapseAllComments",
 				"title": "Collapse All Comments",
-				"category": "GitHub Pull Requests",
+				"category": "Comments",
 				"icon": "$(collapse-all)"
 			},
 			{
@@ -819,7 +819,7 @@
 			{
 				"command": "pr.resetViewedFiles",
 				"title": "Reset Viewed Files",
-				"category": "GitHub PUll Requests"
+				"category": "GitHub Pull Requests"
 			},
 			{
 				"command": "issue.createIssueFromSelection",
@@ -1049,6 +1049,10 @@
 					"when": "github:inReviewMode"
 				},
 				{
+					"command": "pr.dismissNotification",
+					"when": "false"
+				},
+				{
 					"command": "pr.resetViewedFiles",
 					"when": "github:inReviewMode"
 				},
@@ -1203,6 +1207,10 @@
 				{
 					"command": "pr.checkoutByNumber",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && github:authenticated"
+				},
+				{
+					"command": "pr.collapseAllComments",
+					"when": "false"
 				},
 				{
 					"command": "issue.openIssue",
@@ -1420,6 +1428,11 @@
 					"group": "pullrequest@4"
 				},
 				{
+					"command": "pr.dismissNotification",
+					"when": "view == pr:github && viewItem =~ /pullrequest(.*):notification/",
+					"group": "pullrequest@5"
+				},
+				{
 					"command": "pr.openFileOnGitHub",
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange/"
 				},
@@ -1635,6 +1648,30 @@
 					"group": "inline@3",
 					"when": "commentController =~ /^github-review/ && reviewInDraftMode"
 				},
+				{
+					"command": "pr.resolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
+				},
+				{
+					"command": "pr.unresolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+				}
+			],
+			"comments/commentThread/title/context": [
+				{
+					"command": "pr.resolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
+				},
+				{
+					"command": "pr.unresolveReviewThread",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+				}
+			],
+			"comments/commentThread/comment/context": [
 				{
 					"command": "pr.resolveReviewThread",
 					"group": "inline@3",

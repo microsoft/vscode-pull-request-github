@@ -5,7 +5,6 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { ISessionState } from '../common/sessionState';
 import { fromPRUri } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GHPRComment } from '../github/prComment';
@@ -14,16 +13,16 @@ import { CommentReactionHandler } from '../github/utils';
 import { PullRequestCommentController } from './pullRequestCommentController';
 
 interface PullRequestCommentHandlerInfo {
-	handler: PullRequestCommentController & CommentReactionHandler ;
+	handler: PullRequestCommentController & CommentReactionHandler;
 	refCount: number;
 	dispose: () => void;
 }
 
 export class PRCommentControllerRegistry implements vscode.CommentingRangeProvider, CommentReactionHandler, vscode.Disposable {
-	private _prCommentHandlers: { [key: number]: PullRequestCommentHandlerInfo } = { };
-	private _prCommentingRangeProviders: { [key: number]: vscode.CommentingRangeProvider } = { };
+	private _prCommentHandlers: { [key: number]: PullRequestCommentHandlerInfo } = {};
+	private _prCommentingRangeProviders: { [key: number]: vscode.CommentingRangeProvider } = {};
 
-	constructor(public commentsController: vscode.CommentController, private readonly _sessionState: ISessionState) {
+	constructor(public commentsController: vscode.CommentController) {
 		this.commentsController.commentingRangeProvider = this;
 		this.commentsController.reactionHandler = this.toggleReaction.bind(this);
 	}
@@ -68,7 +67,7 @@ export class PRCommentControllerRegistry implements vscode.CommentingRangeProvid
 			return this._prCommentHandlers[prNumber];
 		}
 
-		const handler = new PullRequestCommentController(pullRequestModel, folderRepositoryManager, this.commentsController, this._sessionState);
+		const handler = new PullRequestCommentController(pullRequestModel, folderRepositoryManager, this.commentsController);
 		this._prCommentHandlers[prNumber] = {
 			handler,
 			refCount: 1,

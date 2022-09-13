@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.50.0
+
+### Changes
+
+- By setting the `githubPullRequests.notifications` setting to `pullRequests` Pull Requests which have unread notifications will be highlighted.
+
+	![GitHub Notifications](documentation/changelog/0.50.0/githubNotifications.gif)
+
+- GitHub labels will render with the GitHub colors
+
+	![GitHub Label Colors](documentation/changelog/0.50.0/labelColors.png)
+
+- Review Comments can now be directly resolved/unresolved in the Pull Request Overview
+- Creating an issue should never lose data. If the "new issue" editor is closed but the issue is not created, the data will be stored until VS Code is reloaded.
+- When the local branch is out of date, a prompt to pull the branch will show when the "Refresh" button on the PR overview is clicked. The setting `githubPullRequests.pullBranch` also has a new `always` option.
+- Renamed files have a tooltip that makes the rename clearer.
+
+	![Renamed file tooltip](documentation/changelog/0.50.0/renamed-tooltip.png)
+
+- The command "Reset Viewed Files" will reset all files to be unviewed.
+
+### Fixes
+
+- Fails to load Pull Requests on older GitHub Enterprise verisons https://github.com/microsoft/vscode-pull-request-github/issues/3829
+- Copy GitHub Permalink in LHS of a PR diff generates a link to the RHS. https://github.com/microsoft/vscode-pull-request-github/issues/3801
+- User and issue suggestions don't always show for some languages. https://github.com/microsoft/vscode-pull-request-github/issues/3874
+- Comment rendering distorted / missing linebreaks. https://github.com/microsoft/vscode-pull-request-github/issues/3776
+
 ## 0.48.0
 
 ### Changes
