@@ -22,7 +22,7 @@ extends:
   template: azure-pipelines/extension/pre-release.yml@templates
   parameters:
     buildPlatforms:
-      - Windows
+      - macOS
     buildSteps:
       - script: yarn install --frozen-lockfile
         displayName: Install dependencies
