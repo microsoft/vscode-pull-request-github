@@ -14,7 +14,6 @@ import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folder
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { FileChangeModel, GitFileChangeModel, InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { DecorationProvider } from '../treeDecorationProvider';
-import { DirectoryTreeNode } from './directoryTreeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
 export function openFileCommand(uri: vscode.Uri, inputOpts: vscode.TextDocumentShowOptions = {}): vscode.Command {
@@ -199,7 +198,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 		}
 
 		markFile(this).then(_ => {
-			if (this.parent instanceof DirectoryTreeNode && !this.parent.updateParentCheckbox() || !(this.parent instanceof DirectoryTreeNode)) {
+			if (this.parent instanceof TreeNode && !this.parent.updateParentCheckbox()) {
 				this.refresh(this);
 			}
 		});
