@@ -28,6 +28,8 @@ import { RepositoriesManager } from '../../github/repositoriesManager';
 import { GitHubRemote } from '../../github/githubRepository';
 import { GitHubServerType } from '../../authentication/githubServer';
 import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
+import { GitHubRemote } from '../../github/githubRepository';
+import { GitHubServerType } from '../../authentication/githubServer';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
