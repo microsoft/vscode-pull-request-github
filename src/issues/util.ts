@@ -46,7 +46,7 @@ export async function getIssue(
 		let owner: string | undefined = undefined;
 		let name: string | undefined = undefined;
 		let issueNumber: number | undefined = undefined;
-		const remotes = manager.getGitHubRemotes();
+		const remotes = await manager.getGitHubRemotes();
 		for (const remote of remotes) {
 			if (!parsed) {
 				const tryParse = parseIssueExpressionOutput(issueValue.match(ISSUE_OR_URL_EXPRESSION));

@@ -765,7 +765,7 @@ export class ReviewManager {
 			return;
 		}
 
-		const githubRepo = this._folderRepoManager.createGitHubRepository(
+		const githubRepo = await this._folderRepoManager.createGitHubRepository(
 			selectedRemote,
 			this._folderRepoManager.credentialStore,
 		);
@@ -780,7 +780,7 @@ export class ReviewManager {
 			if (!fork) {
 				return;
 			}
-			selectedRemote = this._folderRepoManager.getGitHubRemotes().find(element => element.remoteName === fork);
+			selectedRemote = (await this._folderRepoManager.getGitHubRemotes()).find(element => element.remoteName === fork);
 		}
 
 		if (!selectedRemote) {

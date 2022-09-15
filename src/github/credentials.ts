@@ -208,18 +208,16 @@ export class CredentialStore implements vscode.Disposable {
 		let retry: boolean = true;
 		let octokit: GitHub | undefined = undefined;
 
-
 		while (retry) {
 			try {
-				const token = await this.getSessionOrLogin(authProviderId);
-				octokit = await this.createHub(token, authProviderId);
+				await this.initialize(authProviderId, { createIfNone: true });
 			} catch (e) {
 				Logger.appendLine(`${errorPrefix}: ${e}`);
 				if (e instanceof Error && e.stack) {
 					Logger.appendLine(e.stack);
 				}
 			}
-
+			octokit = this.getHub(authProviderId);
 			if (octokit) {
 				retry = false;
 			} else {
@@ -228,13 +226,6 @@ export class CredentialStore implements vscode.Disposable {
 		}
 
 		if (octokit) {
-			if (authProviderId === AuthProvider.github) {
-				this._githubAPI = octokit;
-			} else if (authProviderId === AuthProvider['github-enterprise']) {
-				this._githubEnterpriseAPI = octokit;
-			}
-			await this.setCurrentUser(octokit);
-
 			/* __GDPR__
 				"auth.success" : {}
 			*/

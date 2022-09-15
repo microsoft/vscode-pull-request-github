@@ -38,7 +38,7 @@ export async function findCodeLinkLocally(
 	let linkFolderManager: FolderRepositoryManager | undefined;
 
 	for (const folderManager of repositoriesManager.folderManagers) {
-		const remotes = folderManager.getGitHubRemotes();
+		const remotes = await folderManager.getGitHubRemotes();
 		for (const remote of remotes) {
 			if (
 				owner.toLowerCase() === remote.owner.toLowerCase() &&

@@ -21,6 +21,8 @@ import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
+import { GitHubRemote } from '../../github/githubRepository';
+import { GitHubServerType } from '../../authentication/githubServer';
 
 const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
 
@@ -28,7 +30,7 @@ describe('PullRequestOverview', function () {
 	let sinon: SinonSandbox;
 	let pullRequestManager: FolderRepositoryManager;
 	let context: MockExtensionContext;
-	let remote: Remote;
+	let remote: GitHubRemote;
 	let repo: MockGitHubRepository;
 	let telemetry: MockTelemetry;
 
@@ -43,7 +45,7 @@ describe('PullRequestOverview', function () {
 		pullRequestManager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore);
 
 		const url = 'https://github.com/aaa/bbb';
-		remote = new Remote('origin', url, new Protocol(url));
+		remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 		repo = new MockGitHubRepository(remote, pullRequestManager.credentialStore, telemetry, sinon);
 	});
 

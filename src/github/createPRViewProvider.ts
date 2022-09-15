@@ -6,9 +6,9 @@
 import * as vscode from 'vscode';
 import { CreateParams, CreatePullRequest, RemoteInfo } from '../../common/views';
 import type { Branch } from '../api/api';
+import { GitHubServerType } from '../authentication/githubServer';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
-import { Remote } from '../common/remote';
 import { ASSIGN_TO, PULL_REQUEST_DESCRIPTION, PUSH_BRANCH } from '../common/settingKeys';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import {
@@ -19,7 +19,7 @@ import {
 	SETTINGS_NAMESPACE,
 	titleAndBodyFrom,
 } from './folderRepositoryManager';
-import { GitHubRepository } from './githubRepository';
+import { GitHubRemote, GitHubRepository } from './githubRepository';
 import { RepoAccessAndMergeMethods } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
@@ -195,7 +195,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	}
 
 	private async getMergeConfiguration(owner: string, name: string, refetch: boolean = false): Promise<RepoAccessAndMergeMethods> {
-		const repo = this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(owner, name);
+		const repo = await this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(owner, name);
 		return repo.getRepoAccessAndMergeMethods(refetch);
 	}
 
@@ -326,7 +326,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		);
 
 		if (!githubRepository) {
-			githubRepository = this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(owner, repositoryName);
+			githubRepository = await this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(owner, repositoryName);
 		}
 		if (!githubRepository) {
 			throw new Error('No matching GitHub repository found.');
@@ -374,13 +374,13 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		}
 	}
 
-	private async pushUpstream(compareOwner: string, compareRepositoryName: string, compareBranchName: string): Promise<{ compareUpstream: Remote, repo: GitHubRepository | undefined } | undefined> {
-		let createdPushRemote: Remote | undefined;
+	private async pushUpstream(compareOwner: string, compareRepositoryName: string, compareBranchName: string): Promise<{ compareUpstream: GitHubRemote, repo: GitHubRepository | undefined } | undefined> {
+		let createdPushRemote: GitHubRemote | undefined;
 		const pushRemote = this._folderRepositoryManager.repository.state.remotes.find(localRemote => {
 			if (!localRemote.pushUrl) {
 				return false;
 			}
-			const testRemote = new Remote(localRemote.name, localRemote.pushUrl, new Protocol(localRemote.pushUrl));
+			const testRemote = new GitHubRemote(localRemote.name, localRemote.pushUrl, new Protocol(localRemote.pushUrl), GitHubServerType.GitHubDotCom);
 			if ((testRemote.owner.toLowerCase() === compareOwner.toLowerCase()) && (testRemote.repositoryName.toLowerCase() === compareRepositoryName.toLowerCase())) {
 				createdPushRemote = testRemote;
 				return true;

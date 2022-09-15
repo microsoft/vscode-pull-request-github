@@ -6,7 +6,7 @@
 import { SinonSandbox } from 'sinon';
 import { QueryOptions, ApolloQueryResult, FetchResult, MutationOptions, NetworkStatus, OperationVariables } from 'apollo-boost';
 
-import { GitHubRepository } from '../../github/githubRepository';
+import { GitHubRemote, GitHubRepository } from '../../github/githubRepository';
 import { QueryProvider } from './queryProvider';
 import { Remote } from '../../common/remote';
 import { CredentialStore } from '../../github/credentials';
@@ -26,7 +26,7 @@ const queries = require('../../github/queries.gql');
 export class MockGitHubRepository extends GitHubRepository {
 	readonly queryProvider: QueryProvider;
 
-	constructor(remote: Remote, credentialStore: CredentialStore, telemetry: MockTelemetry, sinon: SinonSandbox) {
+	constructor(remote: GitHubRemote, credentialStore: CredentialStore, telemetry: MockTelemetry, sinon: SinonSandbox) {
 		super(remote, Uri.file('C:\\users\\test\\repo'), credentialStore, telemetry);
 
 		this.queryProvider = new QueryProvider(sinon);

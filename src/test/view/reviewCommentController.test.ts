@@ -34,10 +34,12 @@ import { Resource } from '../../common/resources';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { GitFileChangeModel } from '../../view/fileChangeModel';
 import { WebviewViewCoordinator } from '../../view/webviewViewCoordinator';
+import { GitHubRemote } from '../../github/githubRepository';
+import { GitHubServerType } from '../../authentication/githubServer';
 const schema = require('../../github/queries.gql');
 
 const protocol = new Protocol('https://github.com/github/test.git');
-const remote = new Remote('test', 'github/test', protocol);
+const remote = new GitHubRemote('test', 'github/test', protocol, GitHubServerType.GitHubDotCom);
 
 class TestReviewCommentController extends ReviewCommentController {
 	public workspaceFileChangeCommentThreads() {
@@ -75,7 +77,7 @@ describe('ReviewCommentController', function () {
 		const tree = new PullRequestChangesTreeDataProvider(context, gitApiImpl, new RepositoriesManager([manager], credentialStore, telemetry));
 		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree, new ShowPullRequest(), activePrViewCoordinator);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
-			return new MockGitHubRepository(r, cStore, telemetry, sinon);
+			return Promise.resolve(new MockGitHubRepository(GitHubRemote.remoteAsGitHub(r, GitHubServerType.GitHubDotCom), cStore, telemetry, sinon));
 		});
 		sinon.stub(credentialStore, 'isAuthenticated').returns(false);
 		await manager.updateRepositories();

@@ -197,7 +197,8 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			return Promise.resolve([new PRCategoryActionNode(this, PRCategoryActionType.Initializing)]);
 		}
 
-		if (this._reposManager.folderManagers.filter(manager => manager.getGitHubRemotes().length > 0).length === 0) {
+		const remotes = await Promise.all(this._reposManager.folderManagers.map(manager => manager.getGitHubRemotes()));
+		if ((this._reposManager.folderManagers.filter((_manager, index) => remotes[index].length > 0).length === 0)) {
 			return this.needsRemotes();
 		}
 

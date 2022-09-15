@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { default as assert } from 'assert';
 
 import { MockRepository } from '../mocks/mockRepository';
@@ -15,6 +20,8 @@ import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { RefType } from '../../api/api1';
 import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
+import { GitHubRemote } from '../../github/githubRepository';
+import { GitHubServerType } from '../../authentication/githubServer';
 
 describe('PullRequestGitHelper', function () {
 	let sinon: SinonSandbox;
@@ -41,7 +48,7 @@ describe('PullRequestGitHelper', function () {
 	describe('checkoutFromFork', function () {
 		it('fetches, checks out, and configures a branch from a fork', async function () {
 			const url = 'git@github.com:owner/name.git';
-			const remote = new Remote('elsewhere', url, new Protocol(url));
+			const remote = new GitHubRemote('elsewhere', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
 
 			const prItem = convertRESTPullRequestToRawPullRequest(

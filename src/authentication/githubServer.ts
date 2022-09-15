@@ -9,35 +9,42 @@ import Logger from '../common/logger';
 import { agent } from '../env/node/net';
 import { HostHelper } from './configuration';
 
+export enum GitHubServerType {
+	None,
+	GitHubDotCom,
+	Enterprise
+}
+
 export class GitHubManager {
 	private static readonly _githubDotComServers = new Set<string>().add('github.com').add('ssh.github.com');
-	private _servers: Map<string, boolean> = new Map(Array.from(GitHubManager._githubDotComServers.keys()).map(key => [key, true]));
+	private _servers: Map<string, GitHubServerType> = new Map(Array.from(GitHubManager._githubDotComServers.keys()).map(key => [key, GitHubServerType.GitHubDotCom]));
 
 	public static isGithubDotCom(host: string): boolean {
 		return this._githubDotComServers.has(host);
 	}
 
-	public async isGitHub(host: vscode.Uri): Promise<boolean> {
+	public async isGitHub(host: vscode.Uri): Promise<GitHubServerType> {
 		if (host === null) {
-			return false;
+			return GitHubServerType.None;
 		}
 
 		// .wiki/.git repos are not supported
 		if (host.path.endsWith('.wiki') || host.authority.match(/gist[.]github[.]com/)) {
-			return false;
+			return GitHubServerType.None;
 		}
 
 		if (this._servers.has(host.authority)) {
-			return !!this._servers.get(host.authority);
+			return this._servers.get(host.authority) ?? GitHubServerType.None;
 		}
 
 		const [uri, options] = await GitHubManager.getOptions(host, 'HEAD', '/rate_limit');
 
-		let isGitHub = false;
+		let isGitHub = GitHubServerType.None;
 		try {
 			const response = await fetch(uri.toString(), options);
 			const gitHubHeader = response.headers.get('x-github-request-id');
-			isGitHub = ((gitHubHeader !== undefined) && (gitHubHeader !== null));
+			const gitHubEnterpriseHeader = response.headers.get('x-github-enterprise-version');
+			isGitHub = ((gitHubHeader !== undefined) && (gitHubHeader !== null)) ? (gitHubEnterpriseHeader ? GitHubServerType.Enterprise : GitHubServerType.GitHubDotCom) : GitHubServerType.None;
 			return isGitHub;
 		} catch (ex) {
 			Logger.appendLine(`No response from host ${host}: ${ex.message}`, 'GitHubServer');
