@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Octokit } from '@octokit/rest';
 import * as OctokitTypes from '@octokit/types';
 import { ApolloQueryResult, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
 import * as vscode from 'vscode';
@@ -32,6 +31,7 @@ import {
 } from './graphql';
 import { IAccount, IMilestone, Issue, PullRequest, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
+import { LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
 import defaultSchema from './queries.gql';
 import {
@@ -147,7 +147,7 @@ export class GitHubRepository implements vscode.Disposable {
 		this._toDispose.forEach(d => d.dispose());
 	}
 
-	public get octokit(): Octokit {
+	public get octokit(): LoggingOctokit {
 		return this.hub && this.hub.octokit;
 	}
 
@@ -172,7 +172,6 @@ export class GitHubRepository implements vscode.Disposable {
 			} as any;
 		}
 
-		Logger.debug(`Request: ${JSON.stringify(query, null, 2)}`, GRAPHQL_COMPONENT_ID);
 		let rsp;
 		try {
 			rsp = await gql.query<T>(query);
@@ -185,7 +184,6 @@ export class GitHubRepository implements vscode.Disposable {
 				throw e;
 			}
 		}
-		Logger.debug(`Response: ${JSON.stringify(rsp, null, 2)}`, GRAPHQL_COMPONENT_ID);
 		return rsp;
 	};
 
@@ -201,9 +199,7 @@ export class GitHubRepository implements vscode.Disposable {
 			} as any;
 		}
 
-		Logger.debug(`Request: ${JSON.stringify(mutation, null, 2)}`, GRAPHQL_COMPONENT_ID);
 		const rsp = await gql.mutate<T>(mutation);
-		Logger.debug(`Response: ${JSON.stringify(rsp, null, 2)}`, GRAPHQL_COMPONENT_ID);
 		return rsp;
 	};
 
@@ -221,7 +217,7 @@ export class GitHubRepository implements vscode.Disposable {
 			return this._metadata;
 		}
 		const { octokit, remote } = await this.ensure();
-		const result = await octokit.repos.get({
+		const result = await octokit.call(octokit.api.repos.get, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 		});
@@ -268,7 +264,7 @@ export class GitHubRepository implements vscode.Disposable {
 		try {
 			Logger.debug(`Fetch default branch - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
-			const { data } = await octokit.repos.get({
+			const { data } = await octokit.call(octokit.api.repos.get, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
 			});
@@ -288,7 +284,7 @@ export class GitHubRepository implements vscode.Disposable {
 			if (!this._repoAccessAndMergeMethods || refetch) {
 				Logger.debug(`Fetch repo permissions and available merge methods - enter`, GitHubRepository.ID);
 				const { octokit, remote } = await this.ensure();
-				const { data } = await octokit.repos.get({
+				const { data } = await octokit.call(octokit.api.repos.get, {
 					owner: remote.owner,
 					repo: remote.repositoryName,
 				});
@@ -326,7 +322,7 @@ export class GitHubRepository implements vscode.Disposable {
 		try {
 			Logger.debug(`Fetch all pull requests - enter`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
-			const result = await octokit.pulls.list({
+			const result = await octokit.call(octokit.api.pulls.list, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				per_page: PULL_REQUEST_PAGE_SIZE,
@@ -615,7 +611,7 @@ export class GitHubRepository implements vscode.Disposable {
 		try {
 			Logger.debug(`Fork repository`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
-			const result = (await octokit.repos.createFork({
+			const result = (await octokit.call(octokit.api.repos.createFork, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
 			})) as any;
@@ -656,8 +652,8 @@ export class GitHubRepository implements vscode.Disposable {
 
 			const user = await this.getAuthenticatedUser();
 			// Search api will not try to resolve repo that redirects, so get full name first
-			const repo = await octokit.repos.get({ owner: this.remote.owner, repo: this.remote.repositoryName });
-			const { data, headers } = await octokit.search.issuesAndPullRequests({
+			const repo = await octokit.call(octokit.api.repos.get, { owner: this.remote.owner, repo: this.remote.repositoryName });
+			const { data, headers } = await octokit.call(octokit.api.search.issuesAndPullRequests, {
 				q: getPRFetchQuery(repo.data.full_name, user, categoryQuery),
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1,
@@ -666,7 +662,7 @@ export class GitHubRepository implements vscode.Disposable {
 			data.items.forEach((item: any /** unluckily Octokit.AnyResponse */) => {
 				promises.push(
 					new Promise(async (resolve, _reject) => {
-						const prData = await octokit.pulls.get({
+						const prData = await octokit.call(octokit.api.pulls.get, {
 							owner: remote.owner,
 							repo: remote.repositoryName,
 							pull_number: item.number,
@@ -845,7 +841,7 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 
 		try {
-			await octokit.git.deleteRef({
+			await octokit.call(octokit.api.git.deleteRef, {
 				owner: pullRequestModel.head.repositoryCloneUrl.owner,
 				repo: pullRequestModel.head.repositoryCloneUrl.repositoryName,
 				ref: `heads/${pullRequestModel.head.ref}`,
@@ -1003,7 +999,7 @@ export class GitHubRepository implements vscode.Disposable {
 	public async compareCommits(base: string, head: string): Promise<OctokitCommon.ReposCompareCommitsResponseData | undefined> {
 		try {
 			const { remote, octokit } = await this.ensure();
-			const { data } = await octokit.repos.compareCommits({
+			const { data } = await octokit.call(octokit.api.repos.compareCommits, {
 				repo: remote.repositoryName,
 				owner: remote.owner,
 				base,

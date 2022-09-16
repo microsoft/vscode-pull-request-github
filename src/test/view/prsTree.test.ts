@@ -25,6 +25,7 @@ import { parseGraphQLPullRequest } from '../../github/utils';
 import { Resource } from '../../common/resources';
 import { GitApiImpl } from '../../api/api1';
 import { RepositoriesManager } from '../../github/repositoriesManager';
+import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -47,12 +48,12 @@ describe('GitHub Pull Requests view', function () {
 		// a dummy GitHub/Octokit object.
 		sinon.stub(credentialStore, 'showSignInNotification').callsFake(async () => {
 			const github: GitHub = {
-				octokit: new Octokit({
+				octokit: new LoggingOctokit(new Octokit({
 					request: {},
 					baseUrl: 'https://github.com',
 					userAgent: 'GitHub VSCode Pull Requests',
 					previews: ['shadow-cat-preview'],
-				}),
+				}), new RateLogger(context)),
 				graphql: null,
 			};
 
