@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Octokit } from '@octokit/rest';
-import { ApolloClient, InMemoryCache, NormalizedCacheObject } from 'apollo-boost';
+import { ApolloClient, InMemoryCache } from 'apollo-boost';
 import { setContext } from 'apollo-link-context';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'cross-fetch';
@@ -14,6 +14,7 @@ import * as PersistentState from '../common/persistentState';
 import { ITelemetry } from '../common/telemetry';
 import { agent } from '../env/node/net';
 import { OctokitCommon } from './common';
+import { LoggingApolloClient, LoggingOctokit, RateLogger } from './loggingOctokit';
 import { getEnterpriseUri, hasEnterpriseUri } from './utils';
 
 const TRY_AGAIN = 'Try again?';
@@ -34,8 +35,8 @@ export enum AuthProvider {
 }
 
 export interface GitHub {
-	octokit: Octokit;
-	graphql: ApolloClient<NormalizedCacheObject> | null;
+	octokit: LoggingOctokit;
+	graphql: LoggingApolloClient | null;
 	currentUser?: OctokitCommon.PullsGetResponseUser;
 }
 
@@ -260,7 +261,7 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	private async setCurrentUser(github: GitHub): Promise<void> {
-		const user = await github.octokit.users.getAuthenticated({});
+		const user = await github.octokit.call(github.octokit.api.users.getAuthenticated, {});
 		github.currentUser = user.data;
 	}
 
@@ -344,9 +345,10 @@ export class CredentialStore implements vscode.Disposable {
 			},
 		});
 
+		const rateLogger = new RateLogger(this._context);
 		const github: GitHub = {
-			octokit,
-			graphql,
+			octokit: new LoggingOctokit(octokit, rateLogger),
+			graphql: new LoggingApolloClient(graphql, rateLogger),
 		};
 		await this.setCurrentUser(github);
 		return github;

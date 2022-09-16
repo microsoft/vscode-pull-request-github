@@ -816,7 +816,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		let results: ILabel[] = [];
 
 		do {
-			const result = await octokit.issues.listLabelsForRepo({
+			const result = await octokit.call(octokit.api.issues.listLabelsForRepo, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				per_page: 100,
@@ -1057,7 +1057,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	async createMilestone(repository: GitHubRepository, milestoneTitle: string): Promise<IMilestone | undefined> {
 		try {
-			const { data } = await repository.octokit.issues.createMilestone({
+			const { data } = await repository.octokit.call(repository.octokit.api.issues.createMilestone, {
 				owner: repository.remote.owner,
 				repo: repository.remote.repositoryName,
 				title: milestoneTitle
@@ -1325,7 +1325,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			await repo.ensure();
 
 			// Create PR
-			const { data } = await repo.octokit.issues.create(params);
+			const { data } = await repo.octokit.call(repo.octokit.api.issues.create, params);
 			const item = convertRESTIssueToRawPullRequest(data, repo);
 			const issueModel = new IssueModel(repo, repo.remote, item);
 
@@ -1367,7 +1367,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				repo: issue.remote.repositoryName,
 				issue_number: issue.number,
 			};
-			await repo.octokit.issues.addAssignees(param);
+			await repo.octokit.call(repo.octokit.api.issues.addAssignees, param);
 
 			/* __GDPR__
 				"issue.assign.success" : {
@@ -1445,19 +1445,18 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 		}
 
-		return await octokit.pulls
-			.merge({
-				commit_message: description,
-				commit_title: title,
-				merge_method:
-					method ||
-					vscode.workspace
-						.getConfiguration('githubPullRequests')
-						.get<'merge' | 'squash' | 'rebase'>('defaultMergeMethod'),
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				pull_number: pullRequest.number,
-			})
+		return await octokit.call(octokit.api.pulls.merge, {
+			commit_message: description,
+			commit_title: title,
+			merge_method:
+				method ||
+				vscode.workspace
+					.getConfiguration('githubPullRequests')
+					.get<'merge' | 'squash' | 'rebase'>('defaultMergeMethod'),
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			pull_number: pullRequest.number,
+		})
 			.then(x => {
 				/* __GDPR__
 					"pr.merge.success" : {}
@@ -1746,7 +1745,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const { octokit, remote } = await githubRepository.ensure();
 
 			if (!pullRequest.base) {
-				const { data } = await octokit.pulls.get({
+				const { data } = await octokit.call(octokit.api.pulls.get, {
 					owner: remote.owner,
 					repo: remote.repositoryName,
 					pull_number: pullRequest.number,
@@ -1755,7 +1754,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 
 			if (!pullRequest.mergeBase) {
-				const { data } = await octokit.repos.compareCommits({
+				const { data } = await octokit.call(octokit.api.repos.compareCommits, {
 					repo: remote.repositoryName,
 					owner: remote.owner,
 					base: `${pullRequest.base.repositoryCloneUrl.owner}:${pullRequest.base.ref}`,

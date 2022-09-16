@@ -322,7 +322,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async close(): Promise<PullRequest> {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		const ret = await octokit.pulls.update({
+		const ret = await octokit.call(octokit.api.pulls.update, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
@@ -345,7 +345,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private async createReview(event: ReviewEvent, message?: string): Promise<CommonReviewEvent> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 
-		const { data } = await octokit.pulls.createReview({
+		const { data } = await octokit.call(octokit.api.pulls.createReview, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
@@ -419,7 +419,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	async updateAssignees(assignees: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.issues.addAssignees({
+		await octokit.call(octokit.api.issues.addAssignees, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
@@ -718,7 +718,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			if (threadIndex === -1) {
 				this.deleteIssueComment(commentId);
 			} else {
-				await octokit.pulls.deleteReviewComment({
+				await octokit.call(octokit.api.pulls.deleteReviewComment, {
 					owner: remote.owner,
 					repo: remote.repositoryName,
 					comment_id: id,
@@ -747,7 +747,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	async getReviewRequests(): Promise<IAccount[]> {
 		const githubRepository = this.githubRepository;
 		const { remote, octokit } = await githubRepository.ensure();
-		const result = await octokit.pulls.listRequestedReviewers({
+		const result = await octokit.call(octokit.api.pulls.listRequestedReviewers, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
@@ -762,7 +762,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async requestReview(reviewers: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.pulls.requestReviewers({
+		await octokit.call(octokit.api.pulls.requestReviewers, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
@@ -776,7 +776,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async deleteReviewRequest(reviewer: string): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.pulls.removeRequestedReviewers({
+		await octokit.call(octokit.api.pulls.removeRequestedReviewers, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
@@ -786,7 +786,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	async deleteAssignees(assignee: string): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.issues.removeAssignees({
+		await octokit.call(octokit.api.issues.removeAssignees, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
@@ -884,7 +884,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		try {
 			Logger.debug(`Fetch commits of PR #${this.number} - enter`, PullRequestModel.ID);
 			const { remote, octokit } = await this.githubRepository.ensure();
-			const commitData = await octokit.pulls.listCommits({
+			const commitData = await octokit.call(octokit.api.pulls.listCommits, {
 				pull_number: this.number,
 				owner: remote.owner,
 				repo: remote.repositoryName,
@@ -911,7 +911,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				PullRequestModel.ID,
 			);
 			const { octokit, remote } = await this.githubRepository.ensure();
-			const fullCommit = await octokit.repos.getCommit({
+			const fullCommit = await octokit.call(octokit.api.repos.getCommit, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				ref: commit.sha,
@@ -935,7 +935,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async getFile(filePath: string, commit: string) {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		const fileContent = await octokit.repos.getContent({
+		const fileContent = await octokit.call(octokit.api.repos.getContent, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			path: filePath,
@@ -1112,7 +1112,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		// Fun info: The checks don't include whether a review is required.
 		// Also, unless you're an admin on the repo, you can't just do octokit.repos.getBranchProtection
 		if (this.item.mergeable === PullRequestMergeability.NotMergeable) {
-			const branch = await octokit.repos.getBranch({ branch: this.base.ref, owner: remote.owner, repo: remote.repositoryName });
+			const branch = await octokit.call(octokit.api.repos.getBranch, { branch: this.base.ref, owner: remote.owner, repo: remote.repositoryName });
 			if (branch.data.protected && branch.data.protection.required_status_checks.enforcement_level !== 'off') {
 				// We need to add the "review required" check manually.
 				checks.statuses.unshift({
@@ -1256,7 +1256,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const { octokit, remote } = await githubRepository.ensure();
 
 		if (!this.base) {
-			const info = await octokit.pulls.get({
+			const info = await octokit.call(octokit.api.pulls.get, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				pull_number: this.number,
@@ -1274,7 +1274,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		if (this.item.merged) {
-			const response = await restPaginate<typeof octokit.pulls.listFiles, IRawFileChange>(octokit.pulls.listFiles, {
+			const response = await restPaginate<typeof octokit.api.pulls.listFiles, IRawFileChange>(octokit.api.pulls.listFiles, {
 				repo: remote.repositoryName,
 				owner: remote.owner,
 				pull_number: this.number,
@@ -1286,7 +1286,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return response;
 		}
 
-		const { data } = await octokit.repos.compareCommits({
+		const { data } = await octokit.call(octokit.api.repos.compareCommits, {
 			repo: remote.repositoryName,
 			owner: remote.owner,
 			base: `${this.base.repositoryCloneUrl.owner}:${compareWithBaseRef}`,
@@ -1305,7 +1305,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				`More than ${MAX_FILE_CHANGES_IN_COMPARE_COMMITS} files changed, fetching all file changes of PR #${this.number}`,
 				PullRequestModel.ID,
 			);
-			files = await restPaginate<typeof octokit.pulls.listFiles, IRawFileChange>(octokit.pulls.listFiles, {
+			files = await restPaginate<typeof octokit.api.pulls.listFiles, IRawFileChange>(octokit.api.pulls.listFiles, {
 				owner: this.base.repositoryCloneUrl.owner,
 				pull_number: this.number,
 				repo: remote.repositoryName,

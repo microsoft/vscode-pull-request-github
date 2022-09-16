@@ -246,12 +246,16 @@ export class NotificationProvider implements vscode.Disposable {
 		const gitHub = this.getGitHub();
 		if (gitHub === undefined)
 			return undefined;
-		const { data, headers } = await gitHub.octokit.activity.listNotificationsForAuthenticatedUser();
+		const { data, headers } = await gitHub.octokit.call(gitHub.octokit.api.activity.listNotificationsForAuthenticatedUser, {});
 		return { data: data, headers: headers };
 	}
 
 	private async markNotificationThreadAsRead(thredId) {
-		await this.getGitHub()?.octokit.activity.markThreadAsRead({
+		const github = this.getGitHub();
+		if (!github) {
+			return;
+		}
+		await github.octokit.call(github.octokit.api.activity.markThreadAsRead, {
 			thread_id: thredId
 		});
 	}
