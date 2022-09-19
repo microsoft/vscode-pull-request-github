@@ -110,21 +110,20 @@ export class NotificationProvider implements vscode.Disposable {
 	}
 
 	private registerAuthProvider(credentialStore: CredentialStore) {
-		if (credentialStore.isAuthenticated(AuthProvider.github)) {
-			this._authProvider = AuthProvider.github;
-		}
-		else if (credentialStore.isAuthenticated(AuthProvider['github-enterprise']) && hasEnterpriseUri()) {
+		if (credentialStore.isAuthenticated(AuthProvider['github-enterprise']) && hasEnterpriseUri()) {
 			this._authProvider = AuthProvider['github-enterprise'];
+		} else if (credentialStore.isAuthenticated(AuthProvider.github)) {
+			this._authProvider = AuthProvider.github;
 		}
 
 		this.disposables.push(
 			vscode.authentication.onDidChangeSessions(_ => {
-				if (credentialStore.isAuthenticated(AuthProvider.github)) {
-					this._authProvider = AuthProvider.github;
-				}
-
 				if (credentialStore.isAuthenticated(AuthProvider['github-enterprise']) && hasEnterpriseUri()) {
 					this._authProvider = AuthProvider['github-enterprise'];
+				}
+
+				if (credentialStore.isAuthenticated(AuthProvider.github)) {
+					this._authProvider = AuthProvider.github;
 				}
 			})
 		);
