@@ -25,8 +25,6 @@ import { parseGraphQLPullRequest } from '../../github/utils';
 import { Resource } from '../../common/resources';
 import { GitApiImpl } from '../../api/api1';
 import { RepositoriesManager } from '../../github/repositoriesManager';
-import { GitHubRemote } from '../../github/githubRepository';
-import { GitHubServerType } from '../../authentication/githubServer';
 import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { GitHubRemote } from '../../github/githubRepository';
 import { GitHubServerType } from '../../authentication/githubServer';
