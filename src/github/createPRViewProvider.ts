@@ -6,9 +6,10 @@
 import * as vscode from 'vscode';
 import { CreateParams, CreatePullRequest, RemoteInfo } from '../../common/views';
 import type { Branch } from '../api/api';
-import { GitHubServerType } from '../authentication/githubServer';
+import { GitHubServerType } from '../common/authentication';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
+import { GitHubRemote } from '../common/remote';
 import { ASSIGN_TO, PULL_REQUEST_DESCRIPTION, PUSH_BRANCH } from '../common/settingKeys';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import {
@@ -19,7 +20,7 @@ import {
 	SETTINGS_NAMESPACE,
 	titleAndBodyFrom,
 } from './folderRepositoryManager';
-import { GitHubRemote, GitHubRepository } from './githubRepository';
+import { GitHubRepository } from './githubRepository';
 import { RepoAccessAndMergeMethods } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';

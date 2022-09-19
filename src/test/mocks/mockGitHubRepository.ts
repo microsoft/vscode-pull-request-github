@@ -6,9 +6,9 @@
 import { SinonSandbox } from 'sinon';
 import { QueryOptions, ApolloQueryResult, FetchResult, MutationOptions, NetworkStatus, OperationVariables } from 'apollo-boost';
 
-import { GitHubRemote, GitHubRepository } from '../../github/githubRepository';
+import { GitHubRepository } from '../../github/githubRepository';
 import { QueryProvider } from './queryProvider';
-import { Remote } from '../../common/remote';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { CredentialStore } from '../../github/credentials';
 import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 import { UserBuilder } from '../builders/rest/userBuilder';

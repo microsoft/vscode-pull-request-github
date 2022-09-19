@@ -13,7 +13,6 @@ import { MockRepository } from '../mocks/mockRepository';
 import { PullRequestOverviewPanel } from '../../github/pullRequestOverview';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
-import { Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
@@ -21,8 +20,8 @@ import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
-import { GitHubRemote } from '../../github/githubRepository';
-import { GitHubServerType } from '../../authentication/githubServer';
+import { GitHubServerType } from '../../common/authentication';
+import { GitHubRemote } from '../../common/remote';
 
 const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
 

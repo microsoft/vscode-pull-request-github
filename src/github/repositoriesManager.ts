@@ -6,10 +6,11 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { Repository, UpstreamRef } from '../api/api';
+import { AuthProvider } from '../common/authentication';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
 import { compareIgnoreCase } from '../common/utils';
-import { AuthProvider, CredentialStore, SCOPES } from './credentials';
+import { CredentialStore, SCOPES } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
 import { IssueModel } from './issueModel';
 import { findDotComAndEnterpriseRemotes, hasEnterpriseUri, setEnterpriseUri } from './utils';

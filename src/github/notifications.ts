@@ -5,6 +5,7 @@
 
 import { OctokitResponse } from '@octokit/types';
 import * as vscode from 'vscode';
+import { AuthProvider } from '../common/authentication';
 import Logger from '../common/logger';
 import { NOTIFICATION_SETTING } from '../common/settingKeys';
 import { createPRNodeUri } from '../common/uri';
@@ -12,7 +13,7 @@ import { PullRequestsTreeDataProvider } from '../view/prsTreeDataProvider';
 import { CategoryTreeNode } from '../view/treeNodes/categoryNode';
 import { PRNode } from '../view/treeNodes/pullRequestNode';
 import { TreeNode } from '../view/treeNodes/treeNode';
-import { AuthProvider, CredentialStore, GitHub } from './credentials';
+import { CredentialStore, GitHub } from './credentials';
 import { SETTINGS_NAMESPACE } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
 import { PullRequestState } from './graphql';

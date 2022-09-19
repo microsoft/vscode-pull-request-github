@@ -8,12 +8,13 @@ import { SinonSandbox, createSandbox } from 'sinon';
 import { CredentialStore } from '../../github/credentials';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockTelemetry } from '../mocks/mockTelemetry';
-import { Remote } from '../../common/remote';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
-import { GitHubRemote, GitHubRepository } from '../../github/githubRepository';
+import { GitHubRepository } from '../../github/githubRepository';
 import { Uri } from 'vscode';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
-import { GitHubManager, GitHubServerType } from '../../authentication/githubServer';
+import { GitHubManager } from '../../authentication/githubServer';
+import { GitHubServerType } from '../../common/authentication';
 
 describe('GitHubRepository', function () {
 	let sinon: SinonSandbox;

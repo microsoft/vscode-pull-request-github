@@ -6,15 +6,14 @@
 import * as OctokitTypes from '@octokit/types';
 import { ApolloQueryResult, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
 import * as vscode from 'vscode';
-import { GitHubServerType } from '../authentication/githubServer';
-import { AuthenticationError, isSamlError } from '../common/authentication';
+import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
-import { parseRemote, Remote } from '../common/remote';
+import { GitHubRemote, parseRemote, Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
 import { OctokitCommon } from './common';
-import { AuthProvider, CredentialStore, GitHub } from './credentials';
+import { CredentialStore, GitHub } from './credentials';
 import {
 	AssignableUsersResponse,
 	CreatePullRequestResponse,
@@ -90,21 +89,6 @@ export interface ForkDetails {
 
 export interface IMetadata extends OctokitCommon.ReposGetResponseData {
 	currentUser: any;
-}
-
-export class GitHubRemote extends Remote {
-	static remoteAsGitHub(remote: Remote, githubServerType: GitHubServerType): GitHubRemote {
-		return new GitHubRemote(remote.remoteName, remote.url, remote.gitProtocol, githubServerType);
-	}
-
-	constructor(
-		remoteName: string,
-		url: string,
-		gitProtocol: Protocol,
-		public readonly githubServerType: GitHubServerType
-	) {
-		super(remoteName, url, gitProtocol);
-	}
 }
 
 export class GitHubRepository implements vscode.Disposable {

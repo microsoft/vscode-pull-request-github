@@ -9,6 +9,7 @@ import { setContext } from 'apollo-link-context';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
+import { AuthProvider } from '../common/authentication';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
 import { ITelemetry } from '../common/telemetry';
@@ -28,11 +29,6 @@ const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
 // If the scopes are changed, make sure to notify all interested parties to make sure this won't cause problems.
 const SCOPES_OLD = ['read:user', 'user:email', 'repo'];
 export const SCOPES = ['read:user', 'user:email', 'repo', 'workflow'];
-
-export enum AuthProvider {
-	github = 'github',
-	'github-enterprise' = 'github-enterprise'
-}
 
 export interface GitHub {
 	octokit: LoggingOctokit;

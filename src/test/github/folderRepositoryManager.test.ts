@@ -11,16 +11,16 @@ import { MockRepository } from '../mocks/mockRepository';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { Remote } from '../../common/remote';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
-import { GitHubRemote, GitHubRepository } from '../../github/githubRepository';
+import { GitHubRepository } from '../../github/githubRepository';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { Uri } from 'vscode';
-import { GitHubServerType } from '../../authentication/githubServer';
+import { GitHubServerType } from '../../common/authentication';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;

@@ -4,10 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { AuthProvider } from '../common/authentication';
 import { FILE_LIST_LAYOUT } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EXTENSION_ID } from '../constants';
-import { AuthProvider, CredentialStore } from '../github/credentials';
+import { CredentialStore } from '../github/credentials';
 import { REMOTES_SETTING, ReposManagerState, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { NotificationProvider } from '../github/notifications';
 import { RepositoriesManager } from '../github/repositoriesManager';

@@ -20,7 +20,7 @@ import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { Protocol } from '../../common/protocol';
-import { Remote } from '../../common/remote';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { GHPRCommentThread } from '../../github/prComment';
 import { DiffLine } from '../../common/diffHunk';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
@@ -34,8 +34,7 @@ import { Resource } from '../../common/resources';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { GitFileChangeModel } from '../../view/fileChangeModel';
 import { WebviewViewCoordinator } from '../../view/webviewViewCoordinator';
-import { GitHubRemote } from '../../github/githubRepository';
-import { GitHubServerType } from '../../authentication/githubServer';
+import { GitHubServerType } from '../../common/authentication';
 const schema = require('../../github/queries.gql');
 
 const protocol = new Protocol('https://github.com/github/test.git');

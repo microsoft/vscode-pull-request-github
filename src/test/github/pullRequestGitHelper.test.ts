@@ -9,7 +9,7 @@ import { MockRepository } from '../mocks/mockRepository';
 import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
-import { Remote } from '../../common/remote';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { CredentialStore } from '../../github/credentials';
 import { MockTelemetry } from '../mocks/mockTelemetry';
@@ -20,8 +20,7 @@ import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { RefType } from '../../api/api1';
 import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
-import { GitHubRemote } from '../../github/githubRepository';
-import { GitHubServerType } from '../../authentication/githubServer';
+import { GitHubServerType } from '../../common/authentication';
 
 describe('PullRequestGitHelper', function () {
 	let sinon: SinonSandbox;

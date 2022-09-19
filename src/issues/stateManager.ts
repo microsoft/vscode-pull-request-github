@@ -7,8 +7,8 @@ import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
+import { AuthProvider } from '../common/authentication';
 import { parseRepositoryRemotes } from '../common/remote';
-import { AuthProvider } from '../github/credentials';
 import {
 	FolderRepositoryManager,
 	NO_MILESTONE,
