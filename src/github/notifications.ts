@@ -283,7 +283,7 @@ export class NotificationProvider implements vscode.Disposable {
 		const { data, headers } = response;
 		const pollTimeSuggested = Number(headers['x-poll-interval']);
 
-		// Adapt polling interval if it has changed
+		// Adapt polling interval if it has changed.
 		if (pollTimeSuggested !== this._pollingDuration) {
 			this._pollingDuration = pollTimeSuggested;
 			if (this._pollingHandler && NotificationProvider.isPRNotificationsOn()) {
