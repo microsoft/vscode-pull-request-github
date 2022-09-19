@@ -820,7 +820,7 @@ export function parseGraphQLTimelineEvents(
 				normalizedEvents.push({
 					id: assignEv.id,
 					event: type,
-					user: assignEv.user,
+					user: parseAuthor(assignEv.user, githubRepository),
 					actor: assignEv.actor,
 				});
 				return;
@@ -830,7 +830,7 @@ export function parseGraphQLTimelineEvents(
 				normalizedEvents.push({
 					id: deletedEv.id,
 					event: type,
-					actor: deletedEv.actor,
+					actor: parseAuthor(deletedEv.actor, githubRepository),
 					createdAt: deletedEv.createdAt,
 					headRef: deletedEv.headRefName,
 				});
