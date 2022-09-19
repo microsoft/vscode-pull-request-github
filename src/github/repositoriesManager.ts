@@ -204,7 +204,6 @@ export class RepositoriesManager implements vscode.Disposable {
 			const promptResult = await vscode.window.showInformationMessage(`It looks like you might be using GitHub Enterprise. Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server ${enterpriseRemotes[0].url}?`, { modal: true }, 'Yes', 'No, use GitHub.com');
 			if (promptResult === 'Yes') {
 				await setEnterpriseUri(enterpriseRemotes[0].url);
-				await vscode.window.showInformationMessage(`A PAT is needed to sign in with GitHub Enterprise. Sign in to your GitHub Enterprise instance in your browser and create a PAT before continuing. The PAT will need the following scopes: ${SCOPES.join(', ')}.`, { modal: true });
 			} else if (promptResult === undefined) {
 				return false;
 			}
