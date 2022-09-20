@@ -1125,7 +1125,11 @@ export async function setEnterpriseUri(host: string) {
 export function getEnterpriseUri(): vscode.Uri | undefined {
 	const config: string = vscode.workspace.getConfiguration('github-enterprise').get<string>('uri', '');
 	if (config) {
-		return vscode.Uri.parse(config, true);
+		let uri = vscode.Uri.parse(config, true);
+		if (uri.scheme === 'http') {
+			uri = uri.with({ scheme: 'https' });
+		}
+		return uri;
 	}
 }
 
