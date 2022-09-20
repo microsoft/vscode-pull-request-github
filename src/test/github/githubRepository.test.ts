@@ -41,7 +41,7 @@ describe('GitHubRepository', function () {
 			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 			const rootUri = Uri.file('C:\\users\\test\\repo');
 			const dotcomRepository = new GitHubRepository(remote, rootUri, credentialStore, telemetry);
-			assert(GitHubManager.isGithubDotCom(remote.url));
+			assert(GitHubManager.isGithubDotCom(Uri.parse(remote.url).authority));
 		});
 
 		it('detects when the remote is pointing somewhere other than github.com', function () {
