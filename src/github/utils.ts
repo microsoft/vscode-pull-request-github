@@ -1222,7 +1222,7 @@ export async function findDotComAndEnterpriseRemotes(folderManagers: FolderRepos
 	const enterpriseRemotes: Remote[] = [];;
 	for (const manager of folderManagers) {
 		for (const remote of await manager.computeAllGitHubRemotes()) {
-			const isDotCom = GitHubManager.isGithubDotCom(vscode.Uri.parse(remote.url));
+			const isDotCom = GitHubManager.isGithubDotCom(remote.host);
 			if (isDotCom) {
 				dotComRemotes.push(remote);
 			} else {

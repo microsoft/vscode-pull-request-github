@@ -13,8 +13,8 @@ export class GitHubManager {
 	private static readonly _githubDotComServers = new Set<string>().add('github.com').add('ssh.github.com');
 	private _servers: Map<string, boolean> = new Map(Array.from(GitHubManager._githubDotComServers.keys()).map(key => [key, true]));
 
-	public static isGithubDotCom(host: vscode.Uri): boolean {
-		return this._githubDotComServers.has(host.authority);
+	public static isGithubDotCom(host: string): boolean {
+		return this._githubDotComServers.has(host);
 	}
 
 	public async isGitHub(host: vscode.Uri): Promise<boolean> {
