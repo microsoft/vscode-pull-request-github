@@ -19,6 +19,7 @@ export enum ProtocolType {
 export class Protocol {
 	public type: ProtocolType = ProtocolType.OTHER;
 	public host: string = '';
+	public port?: number;
 
 	public owner: string = '';
 
@@ -38,7 +39,9 @@ export class Protocol {
 			this.url = vscode.Uri.parse(uriString);
 			this.type = this.getType(this.url.scheme);
 
-			this.host = this.getHostName(this.url.authority);
+			const address = this.getHostName(this.url.authority);
+			this.host = address.host;
+			this.port = address.port;
 			if (this.host) {
 				this.repositoryName = this.getRepositoryName(this.url.path) || '';
 				this.owner = this.getOwnerName(this.url.path) || '';
@@ -80,17 +83,23 @@ export class Protocol {
 		return true;
 	}
 
-	getHostName(authority: string) {
+	getHostName(authority: string): { host: string, port?: number } {
 		// <username>:<password>@<authority>:<port>
-		const matches = /^(?:.*:?@)?([^:]*)(?::.*)?$/.exec(authority);
-
-		if (matches && matches.length >= 2) {
+		const matches = /^(?:.*:?@)?([^:]*)(?::(\d*))?$/.exec(authority);
+		const result: { host: string, port?: number } = {
+			host: '',
+			port: undefined
+		};
+		if (matches && matches.length >= 3) {
 			// normalize to fix #903.
 			// www.github.com will redirect anyways, so this is safe in this specific case, but potentially not in others.
-			return matches[1].toLocaleLowerCase() === 'www.github.com' ? 'github.com' : matches[1];
+			result.host = matches[1].toLocaleLowerCase() === 'www.github.com' ? 'github.com' : matches[1];
+			if (matches[2]) {
+				result.port = Number(matches[2]);
+			}
 		}
 
-		return '';
+		return result;
 	}
 
 	getRepositoryName(path: string) {

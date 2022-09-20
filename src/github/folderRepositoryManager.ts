@@ -200,7 +200,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		const remotes = parseRepositoryRemotes(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
 		return Promise.all(
-			potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
+			potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol)),
 		)
 			.then(results => potentialRemotes.filter((_, index, __) => results[index]))
 			.catch(e => {
