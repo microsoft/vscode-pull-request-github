@@ -8,11 +8,13 @@ import { SinonSandbox, createSandbox } from 'sinon';
 import { CredentialStore } from '../../github/credentials';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockTelemetry } from '../mocks/mockTelemetry';
-import { Remote } from '../../common/remote';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { GitHubRepository } from '../../github/githubRepository';
 import { Uri } from 'vscode';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
+import { GitHubManager } from '../../authentication/githubServer';
+import { GitHubServerType } from '../../common/authentication';
 
 describe('GitHubRepository', function () {
 	let sinon: SinonSandbox;
@@ -36,18 +38,18 @@ describe('GitHubRepository', function () {
 	describe('isGitHubDotCom', function () {
 		it('detects when the remote is pointing to github.com', function () {
 			const url = 'https://github.com/some/repo';
-			const remote = new Remote('origin', url, new Protocol(url));
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 			const rootUri = Uri.file('C:\\users\\test\\repo');
 			const dotcomRepository = new GitHubRepository(remote, rootUri, credentialStore, telemetry);
-			assert(dotcomRepository.isGitHubDotCom);
+			assert(GitHubManager.isGithubDotCom(Uri.parse(remote.url).authority));
 		});
 
 		it('detects when the remote is pointing somewhere other than github.com', function () {
 			const url = 'https://github.enterprise.horse/some/repo';
-			const remote = new Remote('origin', url, new Protocol(url));
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 			const rootUri = Uri.file('C:\\users\\test\\repo');
 			const dotcomRepository = new GitHubRepository(remote, rootUri, credentialStore, telemetry);
-			assert(!dotcomRepository.isGitHubDotCom);
+			// assert(! dotcomRepository.isGitHubDotCom);
 		});
 	});
 });

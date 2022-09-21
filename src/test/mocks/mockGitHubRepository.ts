@@ -8,7 +8,7 @@ import { QueryOptions, ApolloQueryResult, FetchResult, MutationOptions, NetworkS
 
 import { GitHubRepository } from '../../github/githubRepository';
 import { QueryProvider } from './queryProvider';
-import { Remote } from '../../common/remote';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { CredentialStore } from '../../github/credentials';
 import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 import { UserBuilder } from '../builders/rest/userBuilder';
@@ -26,7 +26,7 @@ const queries = require('../../github/queries.gql');
 export class MockGitHubRepository extends GitHubRepository {
 	readonly queryProvider: QueryProvider;
 
-	constructor(remote: Remote, credentialStore: CredentialStore, telemetry: MockTelemetry, sinon: SinonSandbox) {
+	constructor(remote: GitHubRemote, credentialStore: CredentialStore, telemetry: MockTelemetry, sinon: SinonSandbox) {
 		super(remote, Uri.file('C:\\users\\test\\repo'), credentialStore, telemetry);
 
 		this.queryProvider = new QueryProvider(sinon);

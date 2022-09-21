@@ -18,7 +18,7 @@ import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { Remote } from '../../common/remote';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { CredentialStore, GitHub } from '../../github/credentials';
 import { parseGraphQLPullRequest } from '../../github/utils';
@@ -26,6 +26,7 @@ import { Resource } from '../../common/resources';
 import { GitApiImpl } from '../../api/api1';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
+import { GitHubServerType } from '../../common/authentication';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -133,7 +134,7 @@ describe('GitHub Pull Requests view', function () {
 	describe('Local Pull Request Branches', function () {
 		it('creates a node for each local pull request', async function () {
 			const url = 'git@github.com:aaa/bbb';
-			const remote = new Remote('origin', url, new Protocol(url));
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
 			gitHubRepository.buildMetadata(m => {
 				m.clone_url('https://github.com/aaa/bbb');
@@ -186,7 +187,7 @@ describe('GitHub Pull Requests view', function () {
 			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
 				assert.deepStrictEqual(r, remote);
 				assert.strictEqual(cs, credentialStore);
-				return gitHubRepository;
+				return Promise.resolve(gitHubRepository);
 			});
 			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 			await manager.updateRepositories();

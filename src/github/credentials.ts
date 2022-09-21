@@ -9,6 +9,7 @@ import { setContext } from 'apollo-link-context';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
+import { AuthProvider } from '../common/authentication';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
 import { ITelemetry } from '../common/telemetry';
@@ -28,11 +29,6 @@ const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
 // If the scopes are changed, make sure to notify all interested parties to make sure this won't cause problems.
 const SCOPES_OLD = ['read:user', 'user:email', 'repo'];
 export const SCOPES = ['read:user', 'user:email', 'repo', 'workflow'];
-
-export enum AuthProvider {
-	github = 'github',
-	'github-enterprise' = 'github-enterprise'
-}
 
 export interface GitHub {
 	octokit: LoggingOctokit;
@@ -208,18 +204,16 @@ export class CredentialStore implements vscode.Disposable {
 		let retry: boolean = true;
 		let octokit: GitHub | undefined = undefined;
 
-
 		while (retry) {
 			try {
-				const token = await this.getSessionOrLogin(authProviderId);
-				octokit = await this.createHub(token, authProviderId);
+				await this.initialize(authProviderId, { createIfNone: true });
 			} catch (e) {
 				Logger.appendLine(`${errorPrefix}: ${e}`);
 				if (e instanceof Error && e.stack) {
 					Logger.appendLine(e.stack);
 				}
 			}
-
+			octokit = this.getHub(authProviderId);
 			if (octokit) {
 				retry = false;
 			} else {
@@ -228,13 +222,6 @@ export class CredentialStore implements vscode.Disposable {
 		}
 
 		if (octokit) {
-			if (authProviderId === AuthProvider.github) {
-				this._githubAPI = octokit;
-			} else if (authProviderId === AuthProvider['github-enterprise']) {
-				this._githubEnterpriseAPI = octokit;
-			}
-			await this.setCurrentUser(octokit);
-
 			/* __GDPR__
 				"auth.success" : {}
 			*/

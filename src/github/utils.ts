@@ -9,7 +9,7 @@ import * as OctokitTypes from '@octokit/types';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
-import { GitHubManager } from '../authentication/githubServer';
+import { AuthProvider, GitHubServerType } from '../common/authentication';
 import { IComment, IReviewThread, Reaction } from '../common/comment';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
 import { GitHubRef } from '../common/githubRef';
@@ -20,7 +20,6 @@ import { OVERRIDE_DEFAULT_BRANCH } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { uniqBy } from '../common/utils';
 import { OctokitCommon } from './common';
-import { AuthProvider } from './credentials';
 import { FolderRepositoryManager, PullRequestDefaults, SETTINGS_NAMESPACE } from './folderRepositoryManager';
 import { GitHubRepository, ViewerPermission } from './githubRepository';
 import * as GraphQL from './graphql';
@@ -1226,10 +1225,9 @@ export async function findDotComAndEnterpriseRemotes(folderManagers: FolderRepos
 	const enterpriseRemotes: Remote[] = [];;
 	for (const manager of folderManagers) {
 		for (const remote of await manager.computeAllGitHubRemotes()) {
-			const isDotCom = GitHubManager.isGithubDotCom(remote.host);
-			if (isDotCom) {
+			if (remote.githubServerType === GitHubServerType.GitHubDotCom) {
 				dotComRemotes.push(remote);
-			} else {
+			} else if (remote.githubServerType === GitHubServerType.Enterprise) {
 				enterpriseRemotes.push(remote);
 			}
 		}
