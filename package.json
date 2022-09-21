@@ -13,8 +13,7 @@
 	"enabledApiProposals": [
 		"tokenInformation",
 		"commentsResolvedState",
-		"badges",
-		"contribViewSize",
+		"contribShareMenu",
 		"treeItemCheckbox",
 		"contribCommentPeekContext"
 	],
@@ -1714,18 +1713,38 @@
 					"when": "commentController =~ /^github-(browse|review)/"
 				}
 			],
-			"editor/context/copy": [
+			"editor/context/share": [
 				{
 					"command": "issue.copyGithubPermalink",
-					"when": "gitHubOpenRepositoryCount != 0"
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "1_githubPullRequests@0"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
-					"when": "gitHubOpenRepositoryCount != 0"
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "1_githubPullRequests@1"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
-					"when": "gitHubOpenRepositoryCount != 0"
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "1_githubPullRequests@2"
+				}
+			],
+			"file/share": [
+				{
+					"command": "issue.copyGithubPermalink",
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "1_githubPullRequests@0"
+				},
+				{
+					"command": "issue.copyMarkdownGithubPermalink",
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "1_githubPullRequests@1"
+				},
+				{
+					"command": "issue.copyGithubHeadLink",
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "1_githubPullRequests@2"
 				}
 			],
 			"editor/title/context": [
