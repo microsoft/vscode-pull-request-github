@@ -371,7 +371,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		try {
 			await pr.updateAssignees([resolved]);
 		} catch (e) {
-			vscode.window.showErrorMessage(`Unable to assign pull request to user ${resolved}.`);
+			Logger.appendLine(`Unable to assign pull request to user ${resolved}.`);
 		}
 	}
 
