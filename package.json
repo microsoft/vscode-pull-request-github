@@ -278,10 +278,10 @@
 						"always"
 					],
 					"default": "prompt",
-					"enumDescriptions": [
+					"markdownEnumDescriptions": [
 						"Prompt to pull a PR branch when changes are detected in the PR.",
 						"Never pull a PR branch when changes are detected in the PR.",
-						"Always pull a PR branch when changes are detected in the PR."
+						"Always pull a PR branch when changes are detected in the PR. When `\"git.autoStash\": true` this will instead `prompt` to prevent unexpected file changes."
 					],
 					"description": "Pull changes from the remote when a PR branch is checked out locally. Changes are detected when the PR is manually refreshed and during periodic background updates."
 				},
