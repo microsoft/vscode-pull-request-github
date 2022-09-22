@@ -1993,9 +1993,37 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 	}
 
+	private async promptPullBrach(pr: PullRequestModel, branch: Branch, autoStashSetting?: boolean) {
+		if (!this._updateMessageShown || autoStashSetting) {
+			this._updateMessageShown = true;
+			const pull = 'Pull';
+			const always = 'Always Pull';
+			const never = 'Never Show Again';
+			const options = [pull];
+			if (!autoStashSetting) {
+				options.push(always, never);
+			}
+			const result = await vscode.window.showInformationMessage(
+				`There are updates available for pull request ${pr.number}: ${pr.title}.`,
+				{},
+				...options
+			);
+
+			if (result === pull) {
+				await this.pullBranch(branch);
+				this._updateMessageShown = false;
+			} else if (never) {
+				await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
+			} else if (always) {
+				await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'always', vscode.ConfigurationTarget.Global);
+				await this.pullBranch(branch);
+			}
+		}
+	}
+
 	private _updateMessageShown: boolean = false;
 	public async checkBranchUpToDate(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
-		if (this.activePullRequest !== pr) {
+		if (this.activePullRequest?.id !== pr.id) {
 			return;
 		}
 		const branch = this._repository.state.HEAD;
@@ -2007,32 +2035,16 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				const pullBranchConfiguration = await this.pullBranchConfiguration();
 				if (branch.behind !== undefined && branch.behind > 0) {
 					switch (pullBranchConfiguration) {
-						case 'always': return this.pullBranch(branch);
-						case 'prompt': {
-							if (!this._updateMessageShown) {
-								this._updateMessageShown = true;
-								const pull = 'Pull';
-								const always = 'Always Pull';
-								const never = 'Never Show Again';
-								const result = await vscode.window.showInformationMessage(
-									`There are updates available for pull request ${pr.number}: ${pr.title}.`,
-									{},
-									pull,
-									always,
-									never
-								);
-
-								if (result === pull) {
-									await this.pullBranch(branch);
-									this._updateMessageShown = false;
-								} else if (never) {
-									await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
-								} else if (always) {
-									await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'always', vscode.ConfigurationTarget.Global);
-									await this.pullBranch(branch);
-								}
+						case 'always': {
+							const autoStash = vscode.workspace.getConfiguration('git').get<boolean>('autoStash', false);
+							if (autoStash) {
+								return this.promptPullBrach(pr, branch, autoStash);
+							} else {
+								return this.pullBranch(branch);
 							}
-							return;
+						}
+						case 'prompt': {
+							return this.promptPullBrach(pr, branch);
 						}
 						case 'never': return;
 					}
