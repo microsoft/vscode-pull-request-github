@@ -59,6 +59,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem2 {
 			this.label = this.label.substr(1);
 		}
 		this.children = child.children;
+		this.children.forEach(child => { child.parent = this; });
 	}
 
 	private sort(): void {
