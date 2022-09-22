@@ -8,6 +8,7 @@
  */
 
 import { Branch, Repository } from '../api/api';
+import { GitErrorCodes } from '../api/api1';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
@@ -122,16 +123,30 @@ export class PullRequestGitHelper {
 	 * will fail, so fall back to a normal pull.
 	 */
 	static async unshallow(repository: Repository): Promise<void> {
+		let error: Error & { gitErrorCode?: GitErrorCodes };
 		try {
 			await repository.pull(true);
+			return;
 		} catch (e) {
-			Logger.appendLine(`Unshallowing failed: ${e}. Falling back to git pull`);
-			try {
-				await repository.pull(false);
-			} catch (e) {
-				Logger.appendLine(`Pull after failed unshallow still failed: ${e}`);
-				throw e;
+			Logger.appendLine(`Unshallowing failed: ${e}.`);
+			error = e;
+		}
+		try {
+			if (error.gitErrorCode === GitErrorCodes.DirtyWorkTree) {
+				Logger.appendLine(`Getting status and trying unshallow again.`);
+				await repository.status();
+				await repository.pull(true);
+				return;
 			}
+		} catch (e) {
+			Logger.appendLine(`Unshallowing still failed: ${e}.`);
+		}
+		try {
+			Logger.appendLine(`Falling back to git pull.`);
+			await repository.pull(false);
+		} catch (e) {
+			Logger.appendLine(`Pull after failed unshallow still failed: ${e}`);
+			throw e;
 		}
 	}
 
