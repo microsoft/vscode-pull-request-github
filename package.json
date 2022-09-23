@@ -1713,6 +1713,23 @@
 					"when": "commentController =~ /^github-(browse|review)/"
 				}
 			],
+			"editor/context/copy": [
+				{
+					"command": "issue.copyGithubPermalink",
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "3_githubPullRequests@0"
+				},
+				{
+					"command": "issue.copyMarkdownGithubPermalink",
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "3_githubPullRequests@1"
+				},
+				{
+					"command": "issue.copyGithubHeadLink",
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "3_githubPullRequests@2"
+				}
+			],
 			"editor/context/share": [
 				{
 					"command": "issue.copyGithubPermalink",
