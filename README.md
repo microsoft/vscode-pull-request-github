@@ -1,4 +1,4 @@
-[![Build Status](https://rebornix.visualstudio.com/Pull%20Request/_apis/build/status/Pull%20Request%20Build?branchName=main)](https://rebornix.visualstudio.com/Pull%20Request/_build/latest?definitionId=5&branchName=main)
+[![Build Status](https://dev.azure.com/vscode/vscode-pull-request-github/_apis/build/status/vscode-pull-request-github%20%28pr%29?branchName=main)](https://dev.azure.com/vscode/vscode-pull-request-github/_build?definitionId=44&branchName=main)
 
 > Review and manage your GitHub pull requests and issues directly in VS Code
 
