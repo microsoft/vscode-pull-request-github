@@ -297,7 +297,6 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			branchesForCompare: [defaultCompareBranch],
 			defaultTitle: defaultTitleAndDescription.title,
 			defaultDescription: defaultTitleAndDescription.description,
-			isDraft: false,
 			defaultMergeMethod: getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability),
 			allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
 			mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
