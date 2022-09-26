@@ -14,7 +14,6 @@ const defaultCreateParams: CreateParams = {
 	branchesForCompare: [],
 	validate: false,
 	showTitleValidationError: false,
-	isDraft: false,
 };
 
 export class CreatePRContext {
@@ -117,7 +116,7 @@ export class CreatePRContext {
 			compareBranch: this.createParams.compareBranch!,
 			compareOwner: this.createParams.compareRemote!.owner,
 			compareRepo: this.createParams.compareRemote!.repositoryName,
-			draft: this.createParams.isDraft,
+			draft: !!this.createParams.isDraft,
 			autoMerge: !!this.createParams.autoMerge,
 			autoMergeMethod: this.createParams.autoMergeMethod
 		};
@@ -186,6 +185,10 @@ export class CreatePRContext {
 				} else {
 					// Notify the extension of the stored compare branch state
 					await this.changeCompareBranch(this.createParams.compareBranch);
+				}
+
+				if (this.createParams.isDraft === undefined) {
+					message.params.isDraft = false;
 				}
 
 				this.updateState(message.params);
