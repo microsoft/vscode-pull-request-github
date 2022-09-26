@@ -525,7 +525,7 @@
 					"id": "github:activePullRequest",
 					"type": "webview",
 					"name": "Active Pull Request",
-					"when": "github:inReviewMode && github:focusedReview && !github:createPullRequest",
+					"when": "github:inReviewMode && github:focusedReview && !github:createPullRequest && github:activePRCount <= 1",
 					"initialSize": 2
 				},
 				{

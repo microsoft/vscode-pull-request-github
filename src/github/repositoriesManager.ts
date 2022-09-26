@@ -7,9 +7,10 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { Repository, UpstreamRef } from '../api/api';
 import { AuthProvider } from '../common/authentication';
+import { commands, contexts } from '../common/executeCommands';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
-import { compareIgnoreCase } from '../common/utils';
+import { compareIgnoreCase, dispose } from '../common/utils';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
 import { IssueModel } from './issueModel';
@@ -67,7 +68,7 @@ export const NO_MILESTONE: string = 'No Milestone';
 export class RepositoriesManager implements vscode.Disposable {
 	static ID = 'RepositoriesManager';
 
-	private _subs: vscode.Disposable[];
+	private _subs: Map<FolderRepositoryManager, vscode.Disposable[]>;
 
 	private _onDidChangeState = new vscode.EventEmitter<void>();
 	readonly onDidChangeState: vscode.Event<void> = this._onDidChangeState.event;
@@ -85,25 +86,42 @@ export class RepositoriesManager implements vscode.Disposable {
 		private _credentialStore: CredentialStore,
 		private _telemetry: ITelemetry,
 	) {
-		this._subs = [];
+		this._subs = new Map();
 		vscode.commands.executeCommand('setContext', ReposManagerStateContext, this._state);
 
-		this._subs.push(
-			..._folderManagers.map(folderManager => {
-				return folderManager.onDidLoadRepositories(state => {
-					this.state = state;
-					this._onDidLoadAnyRepositories.fire();
-				});
-			}),
-		);
+		this.updateActiveReviewCount();
+		for (const folderManager of this._folderManagers) {
+			this.registerFolderListeners(folderManager);
+		}
+	}
+
+	private updateActiveReviewCount() {
+		let count = 0;
+		for (const folderManager of this._folderManagers) {
+			if (folderManager.activePullRequest) {
+				count++;
+			}
+		}
+		commands.setContext(contexts.ACTIVE_PR_COUNT, count);
 	}
 
 	get folderManagers(): FolderRepositoryManager[] {
 		return this._folderManagers;
 	}
 
+	private registerFolderListeners(folderManager: FolderRepositoryManager) {
+		const disposables = [
+			folderManager.onDidLoadRepositories(state => {
+				this.state = state;
+				this._onDidLoadAnyRepositories.fire();
+			}),
+			folderManager.onDidChangeActivePullRequest(() => this.updateActiveReviewCount())
+		];
+		this._subs.set(folderManager, disposables);
+	}
+
 	insertFolderManager(folderManager: FolderRepositoryManager) {
-		this._subs.push(folderManager.onDidLoadRepositories(state => (this.state = state)));
+		this.registerFolderListeners(folderManager);
 
 		// Try to insert the new repository in workspace folder order
 		const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -116,11 +134,13 @@ export class RepositoriesManager implements vscode.Disposable {
 				this._folderManagers = this._folderManagers.slice(0, index);
 				this._folderManagers.push(folderManager);
 				this._folderManagers.push(...arrayEnd);
+				this.updateActiveReviewCount();
 				this._onDidChangeFolderRepositories.fire();
 				return;
 			}
 		}
 		this._folderManagers.push(folderManager);
+		this.updateActiveReviewCount();
 		this._onDidChangeFolderRepositories.fire();
 	}
 
@@ -130,8 +150,11 @@ export class RepositoriesManager implements vscode.Disposable {
 		);
 		if (existingFolderManagerIndex > -1) {
 			const folderManager = this._folderManagers[existingFolderManagerIndex];
+			dispose(this._subs.get(folderManager)!);
+			this._subs.delete(folderManager);
 			this._folderManagers.splice(existingFolderManagerIndex);
 			folderManager.dispose();
+			this.updateActiveReviewCount();
 			this._onDidChangeFolderRepositories.fire();
 		}
 	}
@@ -222,7 +245,7 @@ export class RepositoriesManager implements vscode.Disposable {
 	}
 
 	dispose() {
-		this._subs.forEach(sub => sub.dispose());
+		this._subs.forEach(sub => dispose(sub));
 	}
 }
 
