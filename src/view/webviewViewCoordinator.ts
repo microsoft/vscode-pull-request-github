@@ -37,6 +37,9 @@ export class WebviewViewCoordinator {
 
 	private updatePullRequest() {
 		const pullRequestModel = Array.from(this._pullRequestModel.keys())[0];
+		if (!pullRequestModel) {
+			return;
+		}
 		const { folderRepositoryManager, reviewManager } = this._pullRequestModel.get(pullRequestModel)!;
 		if (!this._webviewViewProvider) {
 			this.create(pullRequestModel, folderRepositoryManager, reviewManager);

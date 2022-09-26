@@ -6,6 +6,8 @@
 import * as vscode from 'vscode';
 import { commands } from './executeCommands';
 
+export const PULL_REQUEST_OVERVIEW_VIEW_TYPE = 'PullRequestOverview';
+
 export interface IRequestMessage<T> {
 	req: string;
 	command: string;

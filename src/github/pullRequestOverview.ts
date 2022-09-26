@@ -10,7 +10,7 @@ import { IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { dispose, formatError } from '../common/utils';
-import { IRequestMessage } from '../common/webview';
+import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
 	GithubItemStateEnum,
@@ -39,8 +39,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 * Track the currently panel. Only allow a single panel to exist at a time.
 	 */
 	public static currentPanel?: PullRequestOverviewPanel;
-
-	protected static readonly _viewType: string = 'PullRequestOverview';
 
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[] = [];
@@ -98,7 +96,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		title: string,
 		folderRepositoryManager: FolderRepositoryManager,
 	) {
-		super(extensionUri, column, title, folderRepositoryManager, PullRequestOverviewPanel._viewType);
+		super(extensionUri, column, title, folderRepositoryManager, PULL_REQUEST_OVERVIEW_VIEW_TYPE);
 
 		this.registerFolderRepositoryListener();
 
