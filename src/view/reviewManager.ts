@@ -257,7 +257,7 @@ export class ReviewManager {
 		await this._folderRepoManager.updateRepositories(false);
 
 		if (!this._repository.state.HEAD) {
-			this.clear(true);
+			await this.clear(true);
 			return;
 		}
 
@@ -265,7 +265,7 @@ export class ReviewManager {
 		const ignoreBranches = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(IGNORE_PR_BRANCHES);
 		if (ignoreBranches?.find(value => value === branch.name)) {
 			Logger.appendLine(`Branch ${branch.name} is ignored in ${IGNORE_PR_BRANCHES}.`, ReviewManager.ID);
-			this.clear(true);
+			await this.clear(true);
 			return;
 		}
 
@@ -288,14 +288,14 @@ export class ReviewManager {
 			Logger.appendLine(
 				`Review> no matching pull request metadata found on GitHub for current branch ${branch.name}`,
 			);
-			this.clear(true);
+			await this.clear(true);
 			return;
 		}
 
 		const remote = branch.upstream ? branch.upstream.remote : null;
 		if (!remote) {
 			Logger.appendLine(`Review> current branch ${this._repository.state.HEAD.name} hasn't setup remote yet`);
-			this.clear(true);
+			await this.clear(true);
 			return;
 		}
 
@@ -314,7 +314,7 @@ export class ReviewManager {
 			matchingPullRequestMetadata.prNumber,
 		);
 		if (!pr || !pr.isResolved()) {
-			this.clear(true);
+			await this.clear(true);
 			this._prNumber = undefined;
 			Logger.appendLine('Review> This PR is no longer valid');
 			return;
@@ -326,19 +326,19 @@ export class ReviewManager {
 			return;
 		}
 		this._isShowingLastReviewChanges = pr.showChangesSinceReview;
-		this.clear(false);
+		await this.clear(false);
 
 		const useReviewConfiguration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)
 			.get<{ merged: boolean, closed: boolean }>(USE_REVIEW_MODE, { merged: true, closed: false });
 
 		if (pr.isClosed && !useReviewConfiguration.closed) {
-			this.clear(true);
+			await this.clear(true);
 			Logger.appendLine('Review> This PR is closed');
 			return;
 		}
 
 		if (pr.isMerged && !useReviewConfiguration.merged) {
-			this.clear(true);
+			await this.clear(true);
 			Logger.appendLine('Review> This PR is merged');
 			return;
 		}
@@ -967,15 +967,8 @@ export class ReviewManager {
 		}
 	}
 
-	private clear(quitReviewMode: boolean) {
-		this._updateMessageShown = false;
-		this._reviewModel.clear();
-		this._localToDispose.forEach(disposable => disposable.dispose());
-		// Ensure file explorer decorations are removed. When switching to a different PR branch,
-		// comments are recalculated when getting the data and the change decoration fired then,
-		// so comments only needs to be emptied in this case.
-		this._folderRepoManager.activePullRequest?.clear();
-
+	private async clear(quitReviewMode: boolean) {
+		const activePullRequest = this._folderRepoManager.activePullRequest;
 		if (quitReviewMode) {
 			this._prNumber = undefined;
 			this._folderRepoManager.activePullRequest = undefined;
@@ -985,11 +978,21 @@ export class ReviewManager {
 			}
 
 			if (this.changesInPrDataProvider) {
-				this.changesInPrDataProvider.removePrFromView(this._folderRepoManager);
+				await this.changesInPrDataProvider.removePrFromView(this._folderRepoManager);
 			}
+			this._activePrViewCoordinator.removePullRequest(activePullRequest);
 
 			vscode.commands.executeCommand('pr.refreshList');
 		}
+
+		this._updateMessageShown = false;
+		this._reviewModel.clear();
+		this._localToDispose.forEach(disposable => disposable.dispose());
+		// Ensure file explorer decorations are removed. When switching to a different PR branch,
+		// comments are recalculated when getting the data and the change decoration fired then,
+		// so comments only needs to be emptied in this case.
+		activePullRequest?.clear();
+
 	}
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string | undefined> {
