@@ -980,7 +980,9 @@ export class ReviewManager {
 			if (this.changesInPrDataProvider) {
 				await this.changesInPrDataProvider.removePrFromView(this._folderRepoManager);
 			}
-			this._activePrViewCoordinator.removePullRequest(activePullRequest);
+			if (activePullRequest) {
+				this._activePrViewCoordinator.removePullRequest(activePullRequest);
+			}
 
 			vscode.commands.executeCommand('pr.refreshList');
 		}
