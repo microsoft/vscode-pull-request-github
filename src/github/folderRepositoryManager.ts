@@ -17,6 +17,7 @@ import { ITelemetry } from '../common/telemetry';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { fromPRUri, Schemes } from '../common/uri';
 import { compareIgnoreCase, formatError, Predicate } from '../common/utils';
+import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { EXTENSION_ID } from '../constants';
 import { NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
@@ -1963,6 +1964,25 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			} else {
 				await git.checkout();
 			}
+
+			const fileClose: Thenable<boolean>[] = [];
+			// Close the PR description and any open review scheme files.
+			for (const tabGroup of vscode.window.tabGroups.all) {
+				for (const tab of tabGroup.tabs) {
+					let uri: vscode.Uri | string | undefined;
+					if (tab.input instanceof vscode.TabInputText) {
+						uri = tab.input.uri;
+					} else if (tab.input instanceof vscode.TabInputTextDiff) {
+						uri = tab.input.original;
+					} else if (tab.input instanceof vscode.TabInputWebview) {
+						uri = tab.input.viewType;
+					}
+					if ((uri instanceof vscode.Uri && uri.scheme === Schemes.Review) || (typeof uri === 'string' && uri.endsWith(PULL_REQUEST_OVERVIEW_VIEW_TYPE))) {
+						fileClose.push(vscode.window.tabGroups.close(tab));
+					}
+				}
+			}
+			await Promise.all(fileClose);
 		} catch (e) {
 			if (e.gitErrorCode) {
 				// for known git errors, we should provide actions for users to continue.

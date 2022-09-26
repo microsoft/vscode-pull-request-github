@@ -22,7 +22,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	 */
 	public static currentPanel?: IssueOverviewPanel;
 
-	protected static readonly _viewType: string = 'IssueOverview';
+	private static readonly _viewType: string = 'IssueOverview';
 
 	protected readonly _panel: vscode.WebviewPanel;
 	protected _disposables: vscode.Disposable[] = [];
