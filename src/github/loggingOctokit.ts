@@ -50,9 +50,9 @@ export class RateLogger {
 		this.context.globalState.update(RATE_COUNTER_COUNT, this.count);
 		const countMessage = `API call count: ${this.count}${info ? ` (${info})` : ''}`;
 		if (this.count > 4000) {
-			Logger.appendLine(countMessage);
+			Logger.appendLine(countMessage, RateLogger.ID);
 		} else {
-			Logger.debug(`API call count: ${this.count}${info ? ` (${info})` : ''}`, RateLogger.ID);
+			Logger.debug(countMessage, RateLogger.ID);
 		}
 	}
 
