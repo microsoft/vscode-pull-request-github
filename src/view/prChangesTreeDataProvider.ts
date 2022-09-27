@@ -158,7 +158,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		try {
 			await this._view.reveal(element, options);
 		} catch (e) {
-			Logger.appendLine(e, 'PullRequestChangesTreeDataProvider');
+			Logger.error(e, PR_TREE);
 		}
 	}
 

@@ -413,7 +413,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			});
 		} catch (err) {
-			Logger.appendLine(err);
+			Logger.error(err, PullRequestModel.ID);
 		}
 	}
 
@@ -844,7 +844,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this.diffThreads(oldReviewThreads, reviewThreads);
 			return reviewThreads;
 		} catch (e) {
-			Logger.appendLine(`Failed to get pull request review comments: ${e}`);
+			Logger.error(`Failed to get pull request review comments: ${e}`, PullRequestModel.ID);
 			return [];
 		}
 	}
@@ -873,7 +873,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			this.comments = comments;
 		} catch (e) {
-			Logger.appendLine(`Failed to get pull request review comments: ${e}`);
+			Logger.error(`Failed to get pull request review comments: ${e}`, PullRequestModel.ID);
 		}
 	}
 
@@ -1357,7 +1357,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			Logger.debug(`Fetch pull request mergeability ${this.number} - done`, PullRequestModel.ID);
 			return parseMergeability(data.repository.pullRequest.mergeable, data.repository.pullRequest.mergeStateStatus);
 		} catch (e) {
-			Logger.appendLine(`PullRequestModel> Unable to fetch PR Mergeability: ${e}`);
+			Logger.error(`Unable to fetch PR Mergeability: ${e}`, PullRequestModel.ID);
 			return PullRequestMergeability.Unknown;
 		}
 	}

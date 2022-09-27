@@ -42,7 +42,7 @@ export class GitHubManager {
 			isGitHub = ((gitHubHeader !== undefined) && (gitHubHeader !== null)) ? (gitHubEnterpriseHeader ? GitHubServerType.Enterprise : GitHubServerType.GitHubDotCom) : GitHubServerType.None;
 			return isGitHub;
 		} catch (ex) {
-			Logger.appendLine(`No response from host ${host}: ${ex.message}`, 'GitHubServer');
+			Logger.warn(`No response from host ${host}: ${ex.message}`, 'GitHubServer');
 			return isGitHub;
 		} finally {
 			Logger.debug(`Host ${host} is associated with GitHub: ${isGitHub}`, 'GitHubServer');

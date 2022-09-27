@@ -145,7 +145,7 @@ export class PullRequestGitHelper {
 			Logger.appendLine(`Falling back to git pull.`);
 			await repository.pull(false);
 		} catch (e) {
-			Logger.appendLine(`Pull after failed unshallow still failed: ${e}`);
+			Logger.error(`Pull after failed unshallow still failed: ${e}`);
 			throw e;
 		}
 	}

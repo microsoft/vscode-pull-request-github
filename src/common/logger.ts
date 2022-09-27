@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import * as vscode from 'vscode';
 
 const enum LogLevel {
@@ -11,13 +16,13 @@ const LOG_LEVEL_SETTING = 'logLevel';
 export const PR_TREE = 'PullRequestTree';
 
 class Log {
-	private _outputChannel: vscode.OutputChannel;
+	private _outputChannel: vscode.LogOutputChannel;
 	private _logLevel: LogLevel;
 	private _disposable: vscode.Disposable;
 	private _activePerfMarkers: Map<string, number> = new Map();
 
 	constructor() {
-		this._outputChannel = vscode.window.createOutputChannel('GitHub Pull Request');
+		this._outputChannel = vscode.window.createOutputChannel('GitHub Pull Request', { log: true });
 		this._disposable = vscode.workspace.onDidChangeConfiguration(() => {
 			this.getLogLevel();
 		});
@@ -36,27 +41,28 @@ class Log {
 		this._activePerfMarkers.delete(marker);
 	}
 
-	public appendLine(message: string, component?: string) {
-		switch (this._logLevel) {
-			case LogLevel.Off:
-				return;
-			case LogLevel.Debug:
-				const hrtime = new Date().getTime() / 1000;
-				const timeStamp = `${hrtime}s`;
-				const info = component ? `${component}> ${message}` : `${message}`;
-				this._outputChannel.appendLine(`[Debug ${timeStamp}] ${info}`);
-				return;
-			case LogLevel.Info:
-			default:
-				this._outputChannel.appendLine(`[Info] ` + (component ? `${component}> ${message}` : `${message}`));
-				return;
-		}
+	private logString(message: string, component?: string) {
+		return component ? `${component}> ${message}` : message;
+	}
+
+	public trace(message: string, component: string) {
+		this._outputChannel.debug(this.logString(message, component));
 	}
 
 	public debug(message: string, component: string) {
-		if (this._logLevel === LogLevel.Debug) {
-			this.appendLine(message, component);
-		}
+		this._outputChannel.debug(this.logString(message, component));
+	}
+
+	public appendLine(message: string, component?: string) {
+		this._outputChannel.info(this.logString(message, component));
+	}
+
+	public warn(message: string, component?: string) {
+		this._outputChannel.debug(this.logString(message, component));
+	}
+
+	public error(message: string, component?: string) {
+		this._outputChannel.debug(this.logString(message, component));
 	}
 
 	public dispose() {

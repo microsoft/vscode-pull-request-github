@@ -459,7 +459,7 @@ export class ReviewCommentController
 			editor => editor.document.uri.toString() === uri.toString(),
 		);
 		if (!this._reposManager.activePullRequest?.head) {
-			Logger.appendLine('Failed to get content diff. Cannot get content diff without an active pull request head.');
+			Logger.error('Failed to get content diff. Cannot get content diff without an active pull request head.');
 			throw new Error('Cannot get content diff without an active pull request head.');
 		}
 
@@ -479,7 +479,7 @@ export class ReviewCommentController
 				return await this._repository.diffWith(this._reposManager.activePullRequest.head.sha, fileName);
 			}
 		} catch (e) {
-			Logger.appendLine(`Failed to get content diff. ${formatError(e)}`);
+			Logger.error(`Failed to get content diff. ${formatError(e)}`);
 			throw e;
 		}
 	}

@@ -15,7 +15,8 @@
 		"commentsResolvedState",
 		"contribShareMenu",
 		"treeItemCheckbox",
-		"contribCommentPeekContext"
+		"contribCommentPeekContext",
+		"extensionLog"
 	],
 	"version": "0.50.0",
 	"publisher": "GitHub",
