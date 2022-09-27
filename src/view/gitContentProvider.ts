@@ -80,6 +80,7 @@ export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
 				try {
 					await repository.getCommit(commit);
 				} catch (err) {
+					Logger.error(err);
 					vscode.window.showErrorMessage(
 						`We couldn't find commit ${commit} locally. You may want to sync the branch with remote. Sometimes commits can disappear after a force-push`,
 					);

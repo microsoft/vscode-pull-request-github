@@ -164,7 +164,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 				);
 			});
 		} catch (e) {
-			Logger.appendLine(`Comparing changes failed: ${e}`);
+			Logger.error(`Comparing changes failed: ${e}`);
 			return [];
 		}
 	}

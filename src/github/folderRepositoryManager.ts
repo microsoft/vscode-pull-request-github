@@ -225,7 +225,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		const serverTypes = await Promise.all(
 			potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
 		).catch(e => {
-			Logger.appendLine(`Resolving GitHub remotes failed: ${e}`);
+			Logger.error(`Resolving GitHub remotes failed: ${e}`);
 			vscode.window.showErrorMessage(vscode.l10n.t('Resolving GitHub remotes failed: {0}', formatError(e)));
 			return [];
 		});
@@ -244,7 +244,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
 
 		if (!remotesSetting) {
-			Logger.appendLine(`Unable to read remotes setting`);
+			Logger.error(`Unable to read remotes setting`);
 			return Promise.resolve([]);
 		}
 
@@ -253,7 +253,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		});
 
 		if (missingRemotes.length === remotesSetting.length) {
-			Logger.appendLine(`No remotes found. The following remotes are missing: ${missingRemotes.join(', ')}`);
+			Logger.warn(`No remotes found. The following remotes are missing: ${missingRemotes.join(', ')}`);
 		} else {
 			Logger.debug(`Not all remotes found. The following remotes are missing: ${missingRemotes.join(', ')}`, FolderRepositoryManager.ID);
 		}
@@ -842,7 +842,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		const serverTypes = await Promise.all(
 			remotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
 		).catch(e => {
-			Logger.appendLine(`Resolving GitHub remotes failed: ${e}`);
+			Logger.error(`Resolving GitHub remotes failed: ${e}`);
 			vscode.window.showErrorMessage(vscode.l10n.t('Resolving GitHub remotes failed: {0}', formatError(e)));
 			return [];
 		});
@@ -1298,7 +1298,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					return this.createAndAddGitHubRepository(remote, this._credentialStore);
 				}
 
-				Logger.appendLine(`The remote '${upstreamRef.remote}' is not a GitHub repository.`);
+				Logger.error(`The remote '${upstreamRef.remote}' is not a GitHub repository.`);
 
 				// No GitHubRepository? We currently won't try pushing elsewhere,
 				// so fail.
@@ -1403,7 +1403,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				}
 			}
 
-			Logger.appendLine(`GitHubRepository> Creating pull requests failed: ${e}`);
+			Logger.error(`Creating pull requests failed: ${e}`, FolderRepositoryManager.ID);
 
 			/* __GDPR__
 				"pr.create.failure" : {
@@ -1441,7 +1441,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			this.telemetry.sendTelemetryEvent('issue.create.success');
 			return issueModel;
 		} catch (e) {
-			Logger.appendLine(`GitHubRepository> Creating issue failed: ${e}`);
+			Logger.error(` Creating issue failed: ${e}`, FolderRepositoryManager.ID);
 
 			/* __GDPR__
 				"issue.create.failure" : {}
@@ -1480,7 +1480,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			*/
 			this.telemetry.sendTelemetryEvent('issue.assign.success');
 		} catch (e) {
-			Logger.appendLine(`GitHubRepository> Assigning issue failed: ${e}`);
+			Logger.error(`Assigning issue failed: ${e}`, FolderRepositoryManager.ID);
 
 			/* __GDPR__
 				"issue.assign.failure" : {
@@ -1928,7 +1928,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		} catch (e) {
 			// Ignore cases where the user doesn't exist
 			if (!(e.message as (string | undefined))?.startsWith('GraphQL error: Could not resolve to a User with the login of')) {
-				Logger.appendLine(e.message);
+				Logger.warn(e.message);
 			}
 		}
 		return undefined;
@@ -2047,7 +2047,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					return;
 				}
 			}
-			Logger.appendLine(`Exiting failed: ${e}. Target branch ${branch} used to find branch ${branchObj?.name ?? 'unknown'} with upstream ${branchObj?.upstream ?? 'unknown'}.`);
+			Logger.error(`Exiting failed: ${e}. Target branch ${branch} used to find branch ${branchObj?.name ?? 'unknown'} with upstream ${branchObj?.upstream ?? 'unknown'}.`);
 			vscode.window.showErrorMessage(`Exiting failed: ${e}`);
 		}
 	}
