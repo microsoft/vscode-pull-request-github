@@ -89,7 +89,7 @@ export class CurrentIssue {
 			}
 		} catch (e) {
 			// leave repoDefaults undefined
-			vscode.window.showErrorMessage("There is no remote. Can't start working on an issue.");
+			vscode.window.showErrorMessage(vscode.l10n.t('There is no remote. Can\'t start working on an issue.'));
 		}
 		return false;
 	}
@@ -158,7 +158,7 @@ export class CurrentIssue {
 		const VALID_BRANCH_CHARACTERS = /[^ \\@\~\^\?\*\[]+/;
 		const match = branch.match(VALID_BRANCH_CHARACTERS);
 		if (match && match.length > 0 && match[0] !== branch) {
-			return 'Branch name cannot contain a space or the following characters: \\@~^?*[';
+			return vscode.l10n.t('Branch name cannot contain a space or the following characters: \\@~^?*[');
 		}
 		return undefined;
 	}
@@ -180,11 +180,14 @@ export class CurrentIssue {
 		// If so, offer to create a new branch.
 		const pr = await this.manager.getMatchingPullRequestMetadataFromGitHub(branch.upstream?.remote, branch.upstream?.name);
 		if (pr && (pr.model.state !== GithubItemStateEnum.Open)) {
-			const createNew = await vscode.window.showInformationMessage(`The pull request for ${branch.name} has been ${pr.model.state === GithubItemStateEnum.Merged ? 'merged' : 'closed'}. Do you want to create a new branch?`,
+			const mergedMessage = vscode.l10n.t('The pull request for {0} has been merged. Do you want to create a new branch?', branch.name);
+			const closedMessage = vscode.l10n.t('The pull request for {0} has been closed. Do you want to create a new branch?', branch.name);
+			const createBranch = vscode.l10n.t('Create New Branch');
+			const createNew = await vscode.window.showInformationMessage(pr.model.state === GithubItemStateEnum.Merged ? mergedMessage : closedMessage,
 				{
 					modal: true
-				}, 'Create New Branch');
-			if (createNew === 'Create New Branch') {
+				}, createBranch);
+			if (createNew === createBranch) {
 				const number = (branchNameMatch?.length === 4 ? (Number(branchNameMatch[3]) + 1) : 1);
 				return `${branchNameConfig}_${number}`;
 			}
@@ -221,7 +224,7 @@ export class CurrentIssue {
 		if (!this._branchName) {
 			this._branchName = await vscode.window.showInputBox({
 				value: branchNameConfig,
-				prompt: 'Enter the label for the new branch.',
+				prompt: vscode.l10n.t('Enter the label for the new branch.'),
 			});
 		}
 		if (!this._branchName) {

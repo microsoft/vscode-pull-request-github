@@ -18,12 +18,12 @@ import { OctokitCommon } from './common';
 import { LoggingApolloClient, LoggingOctokit, RateLogger } from './loggingOctokit';
 import { getEnterpriseUri, hasEnterpriseUri } from './utils';
 
-const TRY_AGAIN = 'Try again?';
-const CANCEL = 'Cancel';
-const SIGNIN_COMMAND = 'Sign In';
-const IGNORE_COMMAND = "Don't Show Again";
+const TRY_AGAIN = vscode.l10n.t('Try again?');
+const CANCEL = vscode.l10n.t('Cancel');
+const SIGNIN_COMMAND = vscode.l10n.t('Sign In');
+const IGNORE_COMMAND = vscode.l10n.t('Don\'t Show Again');
 
-const PROMPT_FOR_SIGN_IN_SCOPE = 'prompt for sign in';
+const PROMPT_FOR_SIGN_IN_SCOPE = vscode.l10n.t('prompt for sign in');
 const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
 
 // If the scopes are changed, make sure to notify all interested parties to make sure this won't cause problems.
@@ -176,7 +176,7 @@ export class CredentialStore implements vscode.Disposable {
 		}
 
 		const result = await vscode.window.showInformationMessage(
-			`In order to use the Pull Requests functionality, you must sign in to GitHub${getGitHubSuffix(authProviderId)}`,
+			vscode.l10n.t('In order to use the Pull Requests functionality, you must sign in to GitHub{0}', getGitHubSuffix(authProviderId)),
 			SIGNIN_COMMAND,
 			IGNORE_COMMAND,
 		);
@@ -200,7 +200,7 @@ export class CredentialStore implements vscode.Disposable {
 		*/
 		this._telemetry.sendTelemetryEvent('auth.start');
 
-		const errorPrefix = `Error signing in to GitHub${getGitHubSuffix(authProviderId)}`;
+		const errorPrefix = vscode.l10n.t('Error signing in to GitHub{0}', getGitHubSuffix(authProviderId));
 		let retry: boolean = true;
 		let octokit: GitHub | undefined = undefined;
 
@@ -237,7 +237,7 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public async showSamlMessageAndAuth() {
-		return this.recreate('GitHub Pull Requests and Issues requires that you provide SAML access to your organization when you sign in.');
+		return this.recreate(vscode.l10n.t('GitHub Pull Requests and Issues requires that you provide SAML access to your organization when you sign in.'));
 	}
 
 	public isCurrentUser(username: string): boolean {

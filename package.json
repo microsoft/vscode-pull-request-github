@@ -15,7 +15,8 @@
 		"commentsResolvedState",
 		"contribShareMenu",
 		"treeItemCheckbox",
-		"contribCommentPeekContext"
+		"contribCommentPeekContext",
+		"localization"
 	],
 	"version": "0.50.0",
 	"publisher": "GitHub",
@@ -37,6 +38,7 @@
 		"onFileSystem:review"
 	],
 	"browser": "./dist/browser/extension",
+	"l10n": "./dist/browser/extension",
 	"main": "./dist/extension",
 	"capabilities": {
 		"untrustedWorkspaces": {

@@ -204,7 +204,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			item.documentation = await issueMarkdown(item.issue, this.context, this.repositoriesManager);
 			item.command = {
 				command: 'issues.issueCompletion',
-				title: 'Issue Completion Chose,',
+				title: vscode.l10n.t('Issue Completion Choose,'),
 			};
 		}
 		return item;

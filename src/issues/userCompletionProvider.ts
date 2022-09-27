@@ -115,7 +115,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 			item.documentation = userMarkdown(repo, user);
 			item.command = {
 				command: 'issues.userCompletion',
-				title: 'User Completion Chosen',
+				title: vscode.l10n.t('User Completion Chosen'),
 			};
 		}
 		return item;
