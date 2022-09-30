@@ -18,6 +18,10 @@
 - Multi-root workspaces with two projects checked out to branches with open PRs either shows errors or misleading information. https://github.com/microsoft/vscode-pull-request-github/issues/3490
 - Draft PR checkbox reverts to unchecked after typing description. https://github.com/microsoft/vscode-pull-request-github/issues/3977
 
+**_Thank you_**
+
+* [@Thomas1664](https://github.com/Thomas1664): Add button to always pull on incoming changes [PR #3896](https://github.com/microsoft/vscode-pull-request-github/pull/3896)
+
 ## 0.50.0
 
 ### Changes
