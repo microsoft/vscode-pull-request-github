@@ -1,7 +1,7 @@
 {
 	"name": "vscode-pull-request-github",
-	"displayName": "GitHub Pull Requests and Issues",
-	"description": "Pull Request and Issue Provider for GitHub",
+	"displayName": "%displayName%",
+	"description": "%description%",
 	"icon": "resources/icons/github_logo.png",
 	"repository": {
 		"type": "git",
@@ -76,11 +76,11 @@
 						"commit"
 					],
 					"enumDescriptions": [
-						"Use a pull request template and commit description, or just use the commit description if no templates were found",
-						"Use the latest commit message only"
+						"%githubPullRequests.pullRequestDescription.template%",
+						"%githubPullRequests.pullRequestDescription.commit%"
 					],
 					"default": "template",
-					"description": "The description used when creating pull requests."
+					"description": "%githubPullRequests.pullRequestDescription.description%"
 				},
 				"githubPullRequests.logLevel": {
 					"type": "string",
@@ -90,7 +90,7 @@
 						"off"
 					],
 					"default": "info",
-					"description": "Logging for GitHub Pull Request extension. The log is emitted to the output channel named as GitHub Pull Request."
+					"description": "%githubPullRequests.logLevel.description%"
 				},
 				"githubPullRequests.remotes": {
 					"type": "array",
@@ -101,7 +101,7 @@
 					"items": {
 						"type": "string"
 					},
-					"markdownDescription": "List of remotes, by name, to fetch pull requests from."
+					"markdownDescription": "%githubPullRequests.remotes.markdownDescription%"
 				},
 				"githubPullRequests.includeRemotes": {
 					"type": "string",
@@ -120,16 +120,16 @@
 						"properties": {
 							"label": {
 								"type": "string",
-								"description": "The label to display for the query in the Pull Requests tree"
+								"description": "%githubPullRequests.queries.label.description%"
 							},
 							"query": {
 								"type": "string",
-								"description": "The query used for searching pull requests."
+								"description": "%githubPullRequests.queries.query.description%"
 							}
 						}
 					},
 					"scope": "resource",
-					"markdownDescription": "Specifies what queries should be used in the GitHub Pull Requests tree. Each query object has a `label` that will be shown in the tree and a search `query` using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax). The variable `${user}` can be used to specify the logged in user within a search. By default these queries define the categories \"Waiting For My Review\", \"Assigned To Me\" and \"Created By Me\". If you want to preserve these, make sure they are still in the array when you modify the setting.",
+					"markdownDescription": "githubPullRequests.queries.markdownDescription",
 					"default": [
 						{
 							"label": "Waiting For My Review",
@@ -153,7 +153,7 @@
 						"rebase"
 					],
 					"default": "merge",
-					"description": "The method to use when merging pull requests."
+					"description": "%githubPullRequests.defaultMergeMethod.description%"
 				},
 				"githubPullRequests.showInSCM": {
 					"type": "boolean",
@@ -168,7 +168,7 @@
 						"off"
 					],
 					"default": "off",
-					"description": "If GitHub notifications should be shown to the user."
+					"description": "%githubPullRequests.notifications.description%"
 				},
 				"githubPullRequests.fileListLayout": {
 					"type": "string",
@@ -177,17 +177,17 @@
 						"tree"
 					],
 					"default": "tree",
-					"description": "The layout to use when displaying changed files list."
+					"description": "%githubPullRequests.fileListLayout.description%"
 				},
 				"githubPullRequests.defaultDeletionMethod.selectLocalBranch": {
 					"type": "boolean",
 					"default": true,
-					"description": "When true, the option to delete the local branch will be selected by default when deleting a branch from a pull request."
+					"description": "%githubPullRequests.defaultDeletionMethod.selectLocalBranch.description%"
 				},
 				"githubPullRequests.defaultDeletionMethod.selectRemote": {
 					"type": "boolean",
 					"default": true,
-					"description": "When true, the option to delete the remote will be selected by default when deleting a branch from a pull request."
+					"description": "%githubPullRequests.defaultDeletionMethod.selectRemote.description%"
 				},
 				"githubPullRequests.terminalLinksHandler": {
 					"type": "string",
@@ -197,12 +197,12 @@
 						"ask"
 					],
 					"enumDescriptions": [
-						"Create the pull request on GitHub",
-						"Create the pull request in VS Code",
-						"Ask which method to use"
+						"%githubPullRequests.terminalLinksHandler.github%",
+						"%githubPullRequests.terminalLinksHandler.vscode%",
+						"%githubPullRequests.terminalLinksHandler.ask%"
 					],
 					"default": "ask",
-					"description": "Default handler for terminal links."
+					"description": "%githubPullRequests.terminalLinksHandler.description%"
 				},
 				"githubPullRequests.createOnPublishBranch": {
 					"type": "string",
@@ -211,11 +211,11 @@
 						"ask"
 					],
 					"enumDescriptions": [
-						"Never create a pull request when a branch is published.",
-						"Ask if you want to create a pull request when a branch is published."
+						"%githubPullRequests.createOnPublishBranch.never%",
+						"%githubPullRequests.createOnPublishBranch.ask%"
 					],
 					"default": "ask",
-					"description": "Create a pull request when a branch is published."
+					"description": "%githubPullRequests.createOnPublishBranch.description%"
 				},
 				"githubPullRequests.commentExpandState": {
 					"type": "string",
@@ -224,25 +224,25 @@
 						"collapseAll"
 					],
 					"enumDescriptions": [
-						"All unresolved comments will be expanded.",
-						"All comments will be collapsed"
+						"%githubPullRequests.commentExpandState.expandUnresolved%",
+						"%githubPullRequests.commentExpandState.collapseAll%"
 					],
 					"default": "expandUnresolved",
-					"description": "Controls whether comments are expanded when a document with comments is opened."
+					"description": "%githubPullRequests.commentExpandState.description%"
 				},
 				"githubPullRequests.useReviewMode": {
 					"type": "object",
-					"description": "Choose which pull request states will use review mode. \"Open\" pull requests will always use review mode.",
+					"description": "%githubPullRequests.useReviewMode.description%",
 					"additionalProperties": false,
 					"properties": {
 						"merged": {
 							"type": "boolean",
-							"description": "Use review mode for merged pull requests.",
+							"description": "%githubPullRequests.useReviewMode.merged%",
 							"default": true
 						},
 						"closed": {
 							"type": "boolean",
-							"description": "Use review mode for closed pull requests. Merged pull requests are not considered \"closed\".",
+							"description": "%githubPullRequests.useReviewMode.closed%",
 							"default": false
 						}
 					},
@@ -257,7 +257,7 @@
 				},
 				"githubPullRequests.assignCreated": {
 					"type": "string",
-					"description": "All pull requests created with this extension will be assigned to this user. To assign to yourself, use the '${user}' variable."
+					"description": "%githubPullRequests.assignCreated.description%"
 				},
 				"githubPullRequests.pushBranch": {
 					"type": "string",
@@ -267,10 +267,10 @@
 					],
 					"default": "prompt",
 					"enumDescriptions": [
-						"Prompt to push the branch when creating a PR and the \"from\" branch is not available on the remote.",
-						"Always push the branch when creating a PR and the \"from\" branch is not available on the remote."
+						"%githubPullRequests.pushBranch.prompt%",
+						"%githubPullRequests.pushBranch.always%"
 					],
-					"description": "Push the \"from\" branch when creating a PR and the \"from\" branch is not available on the remote."
+					"description": "%githubPullRequests.pushBranch.description%"
 				},
 				"githubPullRequests.pullBranch": {
 					"type": "string",
@@ -281,24 +281,24 @@
 					],
 					"default": "prompt",
 					"markdownEnumDescriptions": [
-						"Prompt to pull a PR branch when changes are detected in the PR.",
-						"Never pull a PR branch when changes are detected in the PR.",
-						"Always pull a PR branch when changes are detected in the PR. When `\"git.autoStash\": true` this will instead `prompt` to prevent unexpected file changes."
+						"%githubPullRequests.pullBranch.prompt%",
+						"%githubPullRequests.pullBranch.never%",
+						"%githubPullRequests.pullBranch.always%"
 					],
-					"description": "Pull changes from the remote when a PR branch is checked out locally. Changes are detected when the PR is manually refreshed and during periodic background updates."
+					"description": "%githubPullRequests.pullBranch.description%"
 				},
 				"githubPullRequests.ignoredPullRequestBranches": {
 					"type": "array",
 					"default": [],
 					"items": {
 						"type": "string",
-						"description": "Branch name"
+						"description": "%githubPullRequests.ignoredPullRequestBranches.items%"
 					},
-					"description": "Prevents branches that are associated with a pull request from being automatically detected. This will prevent review mode from being entered on these branches."
+					"description": "%githubPullRequests.ignoredPullRequestBranches.description%"
 				},
 				"githubPullRequests.overrideDefaultBranch": {
 					"type": "string",
-					"description": "The default branch for a repository is set on github.com. With this setting, you can override that default with another branch."
+					"description": "%githubPullRequests.overrideDefaultBranch.description%"
 				},
 				"githubPullRequests.postCreate": {
 					"type": "string",
@@ -306,23 +306,23 @@
 						"none",
 						"openOverview"
 					],
-					"description": "The action to take after creating a pull request.",
+					"description": "%githubPullRequests.postCreate.description%",
 					"default": "openOverview",
 					"enumDescriptions": [
-						"No action",
-						"Open the overview page of the pull request"
+						"%githubPullRequests.postCreate.none%",
+						"%githubPullRequests.postCreate.openOverview%"
 					]
 				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],
-					"description": "An array of milestones titles to never show issues from."
+					"description": "%githubIssues.ignoreMilestones.description%"
 				},
 				"githubIssues.createIssueTriggers": {
 					"type": "array",
 					"items": {
 						"type": "string",
-						"description": "String that enables the 'Create issue from comment' code action. Should not contain whitespace."
+						"description": "%githubIssues.createIssueTriggers.items%"
 					},
 					"default": [
 						"TODO",
@@ -332,7 +332,7 @@
 						"ISSUE",
 						"HACK"
 					],
-					"description": "Strings that will cause the 'Create issue from comment' code action to show."
+					"description": "%githubIssues.createIssueTriggers.description%"
 				},
 				"githubIssues.createInsertFormat": {
 					"type": "string",
@@ -341,23 +341,23 @@
 						"url"
 					],
 					"default": "number",
-					"description": "Controls whether an issue number (ex. #1234) or a full url (ex. https://github.com/owner/name/issues/1234) is inserted when the Create Issue code action is run."
+					"description": "%githubIssues.createInsertFormat.description%"
 				},
 				"githubIssues.issueCompletions.enabled": {
 					"type": "boolean",
 					"default": true,
-					"description": "Controls whether completion suggestions are shown for issues."
+					"description": "%githubIssues.issueCompletions.enabled.description%"
 				},
 				"githubIssues.userCompletions.enabled": {
 					"type": "boolean",
 					"default": true,
-					"description": "Controls whether completion suggestions are shown for users."
+					"description": "%githubIssues.userCompletions.enabled.description%"
 				},
 				"githubIssues.ignoreCompletionTrigger": {
 					"type": "array",
 					"items": {
 						"type": "string",
-						"description": "Language that issue completions should not trigger on '#'."
+						"description": "%githubIssues.ignoreCompletionTrigger.items%"
 					},
 					"default": [
 						"coffeescript",
@@ -376,23 +376,23 @@
 						"shellscript",
 						"yaml"
 					],
-					"description": "Languages that the '#' character should not be used to trigger issue completion suggestions."
+					"description": "%githubIssues.ignoreCompletionTrigger.description%"
 				},
 				"githubIssues.ignoreUserCompletionTrigger": {
 					"type": "array",
 					"items": {
 						"type": "string",
-						"description": "Language that user completions should not trigger on '@'."
+						"description": "%githubIssues.ignoreUserCompletionTrigger.items%"
 					},
 					"default": [
 						"python"
 					],
-					"description": "Languages that the '@' character should not be used to trigger user completion suggestions."
+					"description": "%githubIssues.ignoreUserCompletionTrigger.description%"
 				},
 				"githubIssues.issueBranchTitle": {
 					"type": "string",
 					"default": "${user}/issue${issueNumber}",
-					"markdownDescription": "Advanced settings for the name of the branch that is created when you start working on an issue. \n- `${user}` will be replace with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${sanitizedIssueTitle}` will be replaced with the issue title, with all spaces and unsupported characters (https://git-scm.com/docs/git-check-ref-format) removed"
+					"markdownDescription": "%githubIssues.issueBranchTitle.markdownDescription%"
 				},
 				"githubIssues.useBranchForIssues": {
 					"type": "string",
@@ -402,22 +402,22 @@
 						"prompt"
 					],
 					"enumDescriptions": [
-						"A branch will always be checked out when you start working on an issue. If the branch doesn't exist, it will be created.",
-						"A branch will not be created when you start working on an issue. If you have worked on an issue before and a branch was created for it, that same branch will be checked out.",
-						"A prompt will show for setting the name of the branch that will be created and checked out."
+						"%githubIssues.useBranchForIssues.on%",
+						"%githubIssues.useBranchForIssues.off%",
+						"%githubIssues.useBranchForIssues.prompt%"
 					],
 					"default": "on",
-					"description": "Determines whether a branch should be checked out when working on an issue. To configure the name of the branch, set `githubIssues.issueBranchTitle`."
+					"description": "%githubIssues.useBranchForIssues.description%"
 				},
 				"githubIssues.issueCompletionFormatScm": {
 					"type": "string",
 					"default": "${issueTitle} ${issueNumberLabel}",
-					"markdownDescription": "Sets the format of issue completions in the SCM inputbox. \n- `${user}` will be replace with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${issueNumberLabel}` will be replaced with a label formatted as #number or owner/repository#number, depending on whether the issue is in the current repository"
+					"markdownDescription": "%githubIssues.issueCompletionFormatScm.markdownDescription%"
 				},
 				"githubIssues.workingIssueFormatScm": {
 					"type": "string",
 					"default": "${issueTitle} \nFixes ${issueNumberLabel}",
-					"markdownDescription": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to `${issueTitle} \nFixes #${issueNumber}`",
+					"markdownDescription": "%githubIssues.workingIssueFormatScm.markdownDescription%",
 					"editPresentation": "multilineText"
 				},
 				"githubIssues.queries": {
