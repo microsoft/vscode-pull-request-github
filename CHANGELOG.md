@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.52.0
+
+### Changes
+
+- Improved support for GitHub Enterprise starting with GitHub Enterprise version 3.1. This includes:
+  - PAT-less authentication courtesy of the VS Code built in GitHub Enterprise authentication provider.
+  - Automatic detection when you open a folder with an Enterprise repo and an on-ramp to get set up.
+  - Fixes for GitHub Enterprise bugs. _Note:_ If you find any issues with GitHub Enterprise please do file an issue!
+- Checkboxes to mark files as viewed. This means you can mark whole folders as viewed now.
+![Checkboxes to mark as viewed](documentation/changelog/0.52.0/tree-item-checkbox-state.png)
+- When you use the "Checkout 'default branch'" button, the pull request overview and all associated diffs will close.
+- Issues referenced by `#` in pull request titles are linked to the pull request.
+
+### Fixes
+
+- Multi-root workspaces with two projects checked out to branches with open PRs either shows errors or misleading information. https://github.com/microsoft/vscode-pull-request-github/issues/3490
+- Draft PR checkbox reverts to unchecked after typing description. https://github.com/microsoft/vscode-pull-request-github/issues/3977
+
 ## 0.50.0
 
 ### Changes
