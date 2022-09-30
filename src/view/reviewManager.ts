@@ -969,6 +969,10 @@ export class ReviewManager {
 
 	private async clear(quitReviewMode: boolean) {
 		const activePullRequest = this._folderRepoManager.activePullRequest;
+		if (activePullRequest) {
+			this._activePrViewCoordinator.removePullRequest(activePullRequest);
+		}
+
 		if (quitReviewMode) {
 			this._prNumber = undefined;
 			this._folderRepoManager.activePullRequest = undefined;
@@ -979,9 +983,6 @@ export class ReviewManager {
 
 			if (this.changesInPrDataProvider) {
 				await this.changesInPrDataProvider.removePrFromView(this._folderRepoManager);
-			}
-			if (activePullRequest) {
-				this._activePrViewCoordinator.removePullRequest(activePullRequest);
 			}
 
 			vscode.commands.executeCommand('pr.refreshList');
