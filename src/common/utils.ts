@@ -8,7 +8,7 @@ import { sep } from 'path';
 import dayjs from 'dayjs';
 import * as relativeTime from 'dayjs/plugin/relativeTime';
 import * as updateLocale from 'dayjs/plugin/updateLocale';
-import { Disposable, Event, Uri } from 'vscode';
+import type { Disposable, Event, Uri } from 'vscode';
 // TODO: localization for webview needed
 
 dayjs.extend(relativeTime.default, {
