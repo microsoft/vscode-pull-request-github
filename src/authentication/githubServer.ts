@@ -37,6 +37,11 @@ export class GitHubManager {
 		let isGitHub = GitHubServerType.None;
 		try {
 			const response = await fetch(uri.toString(), options);
+			const otherGitHubHeaders: string[] = [];
+			response.headers.forEach((_value, header) => {
+				otherGitHubHeaders.push(header);
+			});
+			Logger.debug(`All headers: ${otherGitHubHeaders.join(', ')}`, 'GitHubServer');
 			const gitHubHeader = response.headers.get('x-github-request-id');
 			const gitHubEnterpriseHeader = response.headers.get('x-github-enterprise-version');
 			isGitHub = ((gitHubHeader !== undefined) && (gitHubHeader !== null)) ? (gitHubEnterpriseHeader ? GitHubServerType.Enterprise : GitHubServerType.GitHubDotCom) : GitHubServerType.None;
