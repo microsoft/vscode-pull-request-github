@@ -119,7 +119,10 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem2 {
 
 	updateCheckbox(newState: vscode.TreeItemCheckboxState) {
 		this.children.forEach(child => child.updateCheckbox(newState));
-		this.refresh(this);
+
+		if (this.parent instanceof TreeNode && !this.parent.updateParentCheckbox()) {
+			this.refresh(this);
+		}
 	}
 
 	public allChildrenViewed(): boolean {
