@@ -17,7 +17,7 @@
 		"treeItemCheckbox",
 		"contribCommentPeekContext"
 	],
-	"version": "0.50.0",
+	"version": "0.52.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.72.0"
