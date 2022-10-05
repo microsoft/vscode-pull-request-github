@@ -96,10 +96,10 @@ async function init(
 				return;
 			}
 
-			const create = 'Create Pull Request...';
-			const dontShowAgain = "Don't Show Again";
+			const create = vscode.l10n.t('Create Pull Request...');
+			const dontShowAgain = vscode.l10n.t('Don\'t Show Again');
 			const result = await vscode.window.showInformationMessage(
-				`Would you like to create a Pull Request for branch '${e.branch}'?`,
+				vscode.l10n.t('Would you like to create a Pull Request for branch \'{0}\'?', e.branch),
 				create,
 				dontShowAgain,
 			);
@@ -282,8 +282,8 @@ function registerPostCommitCommandsProvider(reposManager: RepositoriesManager, g
 			Logger.debug(`Found ${found ? 'a repo' : 'no repos'} when getting post commit commands.`, componentId);
 			return found ? [{
 				command: 'pr.create',
-				title: '$(git-pull-request-create) Commit & Create Pull Request',
-				tooltip: 'Commit & Create Pull Request'
+				title: vscode.l10n.t('{0} Commit & Create Pull Request', '$(git-pull-request-create)'),
+				tooltip: vscode.l10n.t('Commit & Create Pull Request')
 			}] : [];
 		}
 	}

@@ -57,7 +57,8 @@ module.exports.copyrightFilter = [
 	'!tsfmt.json',
 	'!**/queries.gql',
 	'!**/*.yml',
-	'!**/*.md'
+	'!**/*.md',
+	'!package.nls.json'
 ];
 
 module.exports.tsFormattingFilter = [

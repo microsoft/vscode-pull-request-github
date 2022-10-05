@@ -261,7 +261,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				vscode.commands.executeCommand('pr.refreshList');
 			},
 			e => {
-				vscode.window.showErrorMessage(`Approving pull request failed. ${formatError(e)}`);
+				vscode.window.showErrorMessage(vscode.l10n.t('Approving pull request failed. {0}', formatError(e)));
 
 				this._throwError(message, `${formatError(e)}`);
 			},
@@ -278,7 +278,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				});
 			},
 			e => {
-				vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
+				vscode.window.showErrorMessage(vscode.l10n.t('Requesting changes failed. {0}', formatError(e)));
 				this._throwError(message, `${formatError(e)}`);
 			},
 		);
@@ -294,7 +294,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				});
 			},
 			e => {
-				vscode.window.showErrorMessage(`Submitting review failed. ${formatError(e)}`);
+				vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
 				this._throwError(message, `${formatError(e)}`);
 			},
 		);
@@ -318,7 +318,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				this._replyMessage(message, { isDraft });
 			})
 			.catch(e => {
-				vscode.window.showErrorMessage(`Unable to set PR ready for review. ${formatError(e)}`);
+				vscode.window.showErrorMessage(vscode.l10n.t('Unable to set PR ready for review. {0}', formatError(e)));
 				this._throwError(message, {});
 			});
 	}
@@ -327,12 +327,13 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		message: IRequestMessage<{ title: string; description: string; method: 'merge' | 'squash' | 'rebase' }>,
 	): Promise<void> {
 		const { title, description, method } = message.args;
+		const yes = vscode.l10n.t('Yes');
 		const confirmation = await vscode.window.showInformationMessage(
-			'Merge this pull request?',
+			vscode.l10n.t('Merge this pull request?'),
 			{ modal: true },
-			'Yes',
+			yes,
 		);
-		if (confirmation !== 'Yes') {
+		if (confirmation !== yes) {
 			this._replyMessage(message, { state: GithubItemStateEnum.Open });
 			return;
 		}
@@ -343,7 +344,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				vscode.commands.executeCommand('pr.refreshList');
 
 				if (!result.merged) {
-					vscode.window.showErrorMessage(`Merging PR failed: ${result.message}`);
+					vscode.window.showErrorMessage(vscode.l10n.t('Merging PR failed: {0}', result.message));
 				}
 
 				this._replyMessage(message, {
@@ -351,7 +352,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				});
 			})
 			.catch(e => {
-				vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
+				vscode.window.showErrorMessage(vscode.l10n.t('Unable to merge pull request. {0}', formatError(e)));
 				this._throwError(message, {});
 			});
 	}

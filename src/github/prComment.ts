@@ -159,7 +159,7 @@ export class TemporaryComment extends CommentBase {
 			name: currentUser.login,
 			iconPath: currentUser.avatarUrl ? vscode.Uri.parse(`${currentUser.avatarUrl}&s=64`) : undefined,
 		};
-		this.label = isDraft ? 'Pending' : undefined;
+		this.label = isDraft ? vscode.l10n.t('Pending') : undefined;
 		this.contextValue = 'canEdit,canDelete';
 		this.originalBody = originalComment ? originalComment._rawComment.body : undefined;
 		this.reactions = originalComment ? originalComment.reactions : undefined;
@@ -195,7 +195,7 @@ export class GHPRComment extends CommentBase {
 		};
 		updateCommentReactions(this, comment.reactions);
 
-		this.label = comment.isDraft ? 'Pending' : undefined;
+		this.label = comment.isDraft ? vscode.l10n.t('Pending') : undefined;
 
 		const contextValues: string[] = [];
 		if (comment.canEdit) {

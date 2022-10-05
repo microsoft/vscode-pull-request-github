@@ -151,8 +151,10 @@ export class NotificationProvider implements vscode.Disposable {
 
 	private updateViewBadge() {
 		const treeView = this._gitHubPrsTree.view;
+		const singularMessage = vscode.l10n.t('1 notification');
+		const pluralMessage = vscode.l10n.t('{0} notifications', this._notifications.size);
 		treeView.badge = this._notifications.size !== 0 ? {
-			tooltip: `${this._notifications.size} ${this._notifications.size === 1 ? 'notification' : 'notifications'}`,
+			tooltip: this._notifications.size === 1 ? singularMessage : pluralMessage,
 			value: this._notifications.size
 		} : undefined;
 	}

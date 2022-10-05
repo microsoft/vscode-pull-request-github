@@ -8,8 +8,8 @@ import { RepositoriesManager } from '../github/repositoriesManager';
 
 export const NEW_ISSUE_SCHEME = 'newIssue';
 export const NEW_ISSUE_FILE = 'NewIssue.md';
-export const ASSIGNEES = 'Assignees:';
-export const LABELS = 'Labels:';
+export const ASSIGNEES = vscode.l10n.t('Assignees:');
+export const LABELS = vscode.l10n.t('Labels:');
 
 const NEW_ISSUE_CACHE = 'newIssue.cache';
 

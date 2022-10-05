@@ -21,7 +21,7 @@ export namespace PullRequestView {
 			const isDefaultBranch = defaultBranch === item.head.ref;
 			if (!isDefaultBranch && !item.isRemoteHeadDeleted) {
 				actions.push({
-					label: `Delete remote branch ${item.remote.remoteName}/${branchHeadRef}`,
+					label: vscode.l10n.t('Delete remote branch {0}', `${item.remote.remoteName}/${branchHeadRef}`),
 					description: `${item.remote.normalizedHost}/${item.remote.owner}/${item.remote.repositoryName}`,
 					type: 'upstream',
 					picked: true,
@@ -34,7 +34,7 @@ export namespace PullRequestView {
 				.getConfiguration('githubPullRequests')
 				.get<boolean>('defaultDeletionMethod.selectLocalBranch');
 			actions.push({
-				label: `Delete local branch ${branchInfo.branch}`,
+				label: vscode.l10n.t('Delete local branch {0}', branchInfo.branch),
 				type: 'local',
 				picked: !!preferredLocalBranchDeletionMethod,
 			});
@@ -45,7 +45,7 @@ export namespace PullRequestView {
 
 			if (branchInfo.remote && branchInfo.createdForPullRequest && !branchInfo.remoteInUse) {
 				actions.push({
-					label: `Delete remote ${branchInfo.remote}, which is no longer used by any other branch`,
+					label: vscode.l10n.t('Delete remote {0}, which is no longer used by any other branch', branchInfo.remote),
 					type: 'remote',
 					picked: !!preferredRemoteDeletionMethod,
 				});
@@ -54,14 +54,14 @@ export namespace PullRequestView {
 
 		if (vscode.env.remoteName === 'codespaces') {
 			actions.push({
-				label: 'Suspend Codespace',
+				label: vscode.l10n.t('Suspend Codespace'),
 				type: 'suspend'
 			});
 		}
 
 		if (!actions.length) {
 			vscode.window.showWarningMessage(
-				`There is no longer an upstream or local branch for Pull Request #${item.number}`,
+				vscode.l10n.t('There is no longer an upstream or local branch for Pull Request #{0}', item.number),
 			);
 			return {
 				isReply: true,
@@ -95,12 +95,13 @@ export namespace PullRequestView {
 					case 'local':
 						if (isBranchActive) {
 							if (folderRepositoryManager.repository.state.workingTreeChanges.length) {
+								const yes = vscode.l10n.t('Yes');
 								const response = await vscode.window.showWarningMessage(
-									`Your local changes will be lost, do you want to continue?`,
+									vscode.l10n.t('Your local changes will be lost, do you want to continue?'),
 									{ modal: true },
-									'Yes',
+									yes,
 								);
-								if (response === 'Yes') {
+								if (response === yes) {
 									await vscode.commands.executeCommand('git.cleanAll');
 								} else {
 									return;

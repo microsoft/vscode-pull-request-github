@@ -262,7 +262,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return true;
 		}
 
-		const reason = `There is no upstream branch for Pull Request #${this.number}. View it on GitHub for more details`;
+		const reason = vscode.l10n.t('There is no upstream branch for Pull Request #{0}. View it on GitHub for more details', this.number);
 
 		if (message) {
 			message += `: ${reason}`;
@@ -270,8 +270,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			message = reason;
 		}
 
-		vscode.window.showWarningMessage(message, 'Open on GitHub').then(action => {
-			if (action && action === 'Open on GitHub') {
+		const openString = vscode.l10n.t('Open on GitHub');
+		vscode.window.showWarningMessage(message, openString).then(action => {
+			if (action && action === openString) {
 				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(this.html_url));
 			}
 		});
@@ -1118,7 +1119,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				checks.statuses.unshift({
 					id: 'unknown',
 					context: 'Branch Protection',
-					description: 'Requirements have not been met.',
+					description: vscode.l10n.t('Requirements have not been met.'),
 					state: 'failure',
 					target_url: this.html_url
 				});
@@ -1527,7 +1528,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this.item.autoMergeMethod = mergeMethod;
 		} catch (e) {
 			if (e.message === 'GraphQL error: ["Pull request Pull request is in clean status"]') {
-				vscode.window.showWarningMessage('Unable to enable auto-merge. Pull request status checks are already green.');
+				vscode.window.showWarningMessage(vscode.l10n.t('Unable to enable auto-merge. Pull request status checks are already green.'));
 			} else {
 				throw e;
 			}
@@ -1552,7 +1553,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this.item.autoMerge = false;
 		} catch (e) {
 			if (e.message === 'GraphQL error: ["Pull request Pull request is in clean status"]') {
-				vscode.window.showWarningMessage('Unable to enable auto-merge. Pull request status checks are already green.');
+				vscode.window.showWarningMessage(vscode.l10n.t('Unable to enable auto-merge. Pull request status checks are already green.'));
 			} else {
 				throw e;
 			}

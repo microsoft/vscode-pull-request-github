@@ -163,7 +163,7 @@ export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IRev
 
 export function updateCommentThreadLabel(thread: GHPRCommentThread) {
 	if (thread.state === vscode.CommentThreadState.Resolved) {
-		thread.label = 'Marked as resolved';
+		thread.label = vscode.l10n.t('Marked as resolved');
 		return;
 	}
 
@@ -171,9 +171,9 @@ export function updateCommentThreadLabel(thread: GHPRCommentThread) {
 		const participantsList = uniqBy(thread.comments as vscode.Comment[], comment => comment.author.name)
 			.map(comment => `@${comment.author.name}`)
 			.join(', ');
-		thread.label = `Participants: ${participantsList}`;
+		thread.label = vscode.l10n.t('Participants: {0}', participantsList);
 	} else {
-		thread.label = 'Start discussion';
+		thread.label = vscode.l10n.t('Start discussion');
 	}
 }
 

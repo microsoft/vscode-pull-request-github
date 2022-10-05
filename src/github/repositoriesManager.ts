@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { Repository, UpstreamRef } from '../api/api';
+import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import { ITelemetry } from '../common/telemetry';
@@ -20,41 +20,6 @@ export interface ItemsResponseResult<T> {
 	items: T[];
 	hasMorePages: boolean;
 	hasUnsearchedRepositories: boolean;
-}
-
-export class NoGitHubReposError extends Error {
-	constructor(public repository: Repository) {
-		super();
-	}
-
-	get message() {
-		return `${this.repository.rootUri.toString()} has no GitHub remotes`;
-	}
-}
-
-export class DetachedHeadError extends Error {
-	constructor(public repository: Repository) {
-		super();
-	}
-
-	get message() {
-		return `${this.repository.rootUri.toString()} has a detached HEAD (create a branch first)`;
-	}
-}
-
-export class BadUpstreamError extends Error {
-	constructor(public branchName: string, public upstreamRef: UpstreamRef, public problem: string) {
-		super();
-	}
-
-	get message() {
-		const {
-			upstreamRef: { remote, name },
-			branchName,
-			problem,
-		} = this;
-		return `The upstream ref ${remote}/${name} for branch ${branchName} ${problem}.`;
-	}
 }
 
 export interface PullRequestDefaults {
@@ -225,8 +190,10 @@ export class RepositoriesManager implements vscode.Disposable {
 
 		// If we have no github.com remotes, but we do have github remotes, then we likely have github enterprise remotes.
 		if (!hasEnterpriseUri() && (dotComRemotes.length === 0) && (enterpriseRemotes.length > 0)) {
-			const promptResult = await vscode.window.showInformationMessage(`It looks like you might be using GitHub Enterprise. Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server ${enterpriseRemotes[0].url}?`, { modal: true }, 'Yes', 'No, use GitHub.com');
-			if (promptResult === 'Yes') {
+			const yes = vscode.l10n.t('Yes');
+			const promptResult = await vscode.window.showInformationMessage(vscode.l10n.t('It looks like you might be using GitHub Enterprise. Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server {0}?', enterpriseRemotes[0].url),
+				{ modal: true }, yes, vscode.l10n.t('No, use GitHub.com'));
+			if (promptResult === yes) {
 				await setEnterpriseUri(enterpriseRemotes[0].url);
 			} else if (promptResult === undefined) {
 				return false;

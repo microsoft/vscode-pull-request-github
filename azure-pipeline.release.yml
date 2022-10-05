@@ -19,6 +19,7 @@ resources:
 extends:
   template: azure-pipelines/extension/stable.yml@templates
   parameters:
+    l10nSourcePaths: ./src
     buildSteps:
       - script: yarn install --frozen-lockfile
         displayName: Install dependencies

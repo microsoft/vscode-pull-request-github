@@ -688,7 +688,7 @@ export class ReviewManager {
 
 	public async switch(pr: PullRequestModel): Promise<void> {
 		Logger.appendLine(`Review> switch to Pull Request #${pr.number} - start`);
-		this.statusBarItem.text = '$(sync~spin) Switching to Review Mode';
+		this.statusBarItem.text = vscode.l10n.t('{0} Switching to Review Mode', '$(sync~spin)');
 		this.statusBarItem.command = undefined;
 		this.statusBarItem.show();
 		this.switchingToReviewMode = true;

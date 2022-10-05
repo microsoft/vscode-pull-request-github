@@ -128,7 +128,7 @@ export class IssuesTreeData
 			|| !this.manager.folderManagers.length) {
 			return [];
 		} else {
-			return [new IssueUriTreeItem(undefined, 'Loading...')];
+			return [new IssueUriTreeItem(undefined, vscode.l10n.t('Loading...'))];
 		}
 	}
 
