@@ -312,7 +312,7 @@ export function registerCommands(
 			} catch (e) {
 				if (e.gitErrorCode === GitErrorCodes.BranchNotFullyMerged) {
 					const action = await vscode.window.showErrorMessage(
-						vscode.l10n.t('The local branch \'{0}\' is not fully merged. Are you sure you want to delete it?', pullRequestModel.localBranchName),
+						vscode.l10n.t('The local branch \'{0}\' is not fully merged. Are you sure you want to delete it?', [pullRequestModel.localBranchName]),
 						DELETE_BRANCH_FORCE,
 					);
 

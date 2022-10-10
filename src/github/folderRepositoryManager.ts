@@ -1462,7 +1462,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (workingDirectorySHA !== mergingPRSHA) {
 				// We are looking at different commit than what will be merged
 				const { ahead } = this.repository.state.HEAD!;
-				const pluralMessage = vscode.l10n.t('You have {0} unpushed commits on this PR branch.\n\nWould you like to proceed anyway?', ahead);
+				const pluralMessage = vscode.l10n.t('You have {0} unpushed commits on this PR branch.\n\nWould you like to proceed anyway?', [ahead]);
 				const singularMessage = vscode.l10n.t('You have 1 unpushed commit on this PR branch.\n\nWould you like to proceed anyway?');
 				if (ahead &&
 					(await vscode.window.showWarningMessage(
@@ -1615,7 +1615,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (result.legacy) {
 				result.picked = true;
 			} else {
-				result.description = vscode.l10n.t('{0} is still Open', result.description);
+				result.description = vscode.l10n.t('{0} is still Open', [result.description]);
 			}
 		});
 
