@@ -146,10 +146,12 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 
 						const originalParams = fromPRUri(tab.input.original);
 						const modifiedParams = fromPRUri(tab.input.modified);
+						const newLocalChangeParams = fromPRUri(localChange.changeModel.filePath);
 						if (
 							originalParams?.prNumber === pullRequest.number &&
 							modifiedParams?.prNumber === pullRequest.number &&
-							localChange.fileName === modifiedParams.fileName
+							localChange.fileName === modifiedParams.fileName &&
+							newLocalChangeParams?.headCommit !== modifiedParams.headCommit
 						) {
 							hasOpenDiff = true;
 							vscode.window.tabGroups.close(tab).then(_ => localChange.openDiff(this._folderReposManager, { preview: tab.isPreview }));
