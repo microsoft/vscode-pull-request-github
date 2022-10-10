@@ -587,8 +587,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				text = text.substring(lines[0].length).trim();
 			}
 		}
-		const body = text;
-		if (!title || !body) {
+		const body = text ?? '';
+		if (!title) {
 			return;
 		}
 		const createSucceeded = await this.doCreateIssue(
