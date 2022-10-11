@@ -98,8 +98,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	) {
 		super(extensionUri, column, title, folderRepositoryManager, PULL_REQUEST_OVERVIEW_VIEW_TYPE);
 
-		this.registerFolderRepositoryListener();
-
+		this.registerPrListeners();
 		onDidUpdatePR(
 			pr => {
 				if (pr) {
@@ -125,7 +124,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		);
 	}
 
-	registerFolderRepositoryListener() {
+	registerPrListeners() {
+		dispose(this._prListeners);
+		this._prListeners = [];
 		this._prListeners.push(this._folderRepositoryManager.onDidChangeActivePullRequest(_ => {
 			if (this._folderRepositoryManager && this._item) {
 				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
@@ -135,12 +136,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				});
 			}
 		}));
-	}
 
-	registerPrListeners() {
-		this._prListeners.push(this._item.onDidChangeComments(() => {
-			this.refreshPanel();
-		}));
+		if (this._item) {
+			this._prListeners.push(this._item.onDidChangeComments(() => {
+				this.refreshPanel();
+			}));
+		}
 	}
 
 	/**
@@ -266,9 +267,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	): Promise<void> {
 		if (this._folderRepositoryManager !== folderRepositoryManager) {
 			this._folderRepositoryManager = folderRepositoryManager;
-			dispose(this._prListeners);
-			this._prListeners = [];
-			this.registerFolderRepositoryListener();
 			this.registerPrListeners();
 		}
 
