@@ -44,7 +44,18 @@ export class GitHubManager {
 			Logger.debug(`All headers: ${otherGitHubHeaders.join(', ')}`, 'GitHubServer');
 			const gitHubHeader = response.headers.get('x-github-request-id');
 			const gitHubEnterpriseHeader = response.headers.get('x-github-enterprise-version');
-			isGitHub = ((gitHubHeader !== undefined) && (gitHubHeader !== null)) ? (gitHubEnterpriseHeader ? GitHubServerType.Enterprise : GitHubServerType.GitHubDotCom) : GitHubServerType.None;
+			if (!gitHubHeader && !gitHubEnterpriseHeader) {
+				const [uriFallBack] = await GitHubManager.getOptions(host, 'HEAD', '/status');
+				const response = await fetch(uriFallBack.toString());
+				const responseText = await response.text();
+				if (responseText.startsWith('GitHub lives!')) {
+					// We've made it this far so it's not github.com
+					// It's very likely enterprise.
+					isGitHub = GitHubServerType.Enterprise;
+				}
+			} else {
+				isGitHub = ((gitHubHeader !== undefined) && (gitHubHeader !== null)) ? (gitHubEnterpriseHeader ? GitHubServerType.Enterprise : GitHubServerType.GitHubDotCom) : GitHubServerType.None;
+			}
 			return isGitHub;
 		} catch (ex) {
 			Logger.appendLine(`No response from host ${host}: ${ex.message}`, 'GitHubServer');
