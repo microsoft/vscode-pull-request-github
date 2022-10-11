@@ -93,7 +93,7 @@ abstract class CommentBase implements vscode.Comment {
 	get body(): vscode.MarkdownString | string {
 		// VS Code's markdown rendering is more correct and will not render single line breaks as
 		// line breaks in markdown. To make the comment look more like github.com, we replace single line breaks with double.
-		return (this.mode === vscode.CommentMode.Editing) ? this.rawBody : new vscode.MarkdownString(this.rawBody.replace(/[^\s]\n[^\s]/g, '\n\n'));
+		return (this.mode === vscode.CommentMode.Editing) ? this.rawBody : new vscode.MarkdownString(this.rawBody.replace(/\n(?!\r?\n)/g, '\n\n'));
 	}
 
 	set body(body: vscode.MarkdownString | string) {
