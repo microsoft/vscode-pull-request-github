@@ -914,7 +914,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		const assigneeLine = `${ASSIGNEES} ${assignees && assignees.length > 0 ? assignees.map(value => '@' + value).join(', ') + ' ' : ''
 			}`;
 		const labelLine = `${LABELS} `;
-		const text = this._newIssueCache.get() ?? `${title ?? vscode.l10n.t('Issue Title')}\n
+		const cached = this._newIssueCache.get();
+		const text = (cached && cached !== '') ? cached : `${title ?? vscode.l10n.t('Issue Title')}\n
 ${assigneeLine}
 ${labelLine}\n
 ${body ?? ''}\n
