@@ -180,8 +180,8 @@ export class CurrentIssue {
 		// If so, offer to create a new branch.
 		const pr = await this.manager.getMatchingPullRequestMetadataFromGitHub(branch.upstream?.remote, branch.upstream?.name);
 		if (pr && (pr.model.state !== GithubItemStateEnum.Open)) {
-			const mergedMessage = vscode.l10n.t('The pull request for {0} has been merged. Do you want to create a new branch?', branch.name);
-			const closedMessage = vscode.l10n.t('The pull request for {0} has been closed. Do you want to create a new branch?', branch.name);
+			const mergedMessage = vscode.l10n.t('The pull request for {0} has been merged. Do you want to create a new branch?', branch.name ?? 'unknown branch');
+			const closedMessage = vscode.l10n.t('The pull request for {0} has been closed. Do you want to create a new branch?', branch.name ?? 'unknown branch');
 			const createBranch = vscode.l10n.t('Create New Branch');
 			const createNew = await vscode.window.showInformationMessage(pr.model.state === GithubItemStateEnum.Merged ? mergedMessage : closedMessage,
 				{
