@@ -36,7 +36,7 @@ export function Header({
 				<span className="author">
 					{!isIssue ? (
 						<div>
-							<AuthorLink for={author} /> {getActionText(state)} into <code> {base} </code> from <code> {head} </code>
+							<AuthorLink for={author} /> {getActionText(state)} into <code className="branch-tag"> {base}</code> from <code className="branch-tag"> {head} </code>
 						</div>
 					) : null}
 				</span>
@@ -90,26 +90,18 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue, re
 				Add an empty selectable div here to block triple click on title from selecting the following buttons. Issue #628.
 				*/}
 				</div>
-				{canEdit && !inEditMode ? (
-					<div className="flex-action-bar comment-actions">
-						{
-							<button title="Edit" onClick={() => setEditMode(true)}>
-								{editIcon}
-							</button>
-						}
-						{
-							<button title="Copy Link" onClick={copyPrLink}>
-								{copyIcon}
-							</button>
-						}
-					</div>
-				) : (
-					<div className="flex-action-bar comment-actions"></div>
-				)}
 			</div>
 			<div className="button-group">
 				<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
 				<button onClick={refresh}>Refresh</button>
+				{canEdit && !inEditMode ? (
+					<>
+						<button title="Edit" onClick={() => setEditMode(true)}>Rename</button>
+						<button title="Copy Link" onClick={copyPrLink}>Copy Link</button>
+					</>
+				) : (
+					<div className="flex-action-bar comment-actions"></div>
+				)}
 			</div>
 		</div>
 	);

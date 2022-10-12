@@ -121,8 +121,8 @@ body .hidden {
 
 body img.avatar,
 body span.avatar-icon svg {
-	width: 24px;
-	height: 24px;
+	width: 20px;
+	height: 20px;
 	border-radius: 50%;
 }
 

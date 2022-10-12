@@ -322,7 +322,7 @@ body .comment-container .comment-body > div > p:last-child,
 body {
 	margin: auto;
 	width: 100%;
-	max-width: 925px;
+	max-width: 1024px;
 	padding: 0 32px;
 	box-sizing: border-box;
 }
@@ -365,7 +365,8 @@ body button .icon {
 }
 
 .overview-title h2 {
-	font-size: 24px;
+	font-size: 26px;
+	font-weight: 600;
 }
 
 .overview-title textarea {
@@ -373,9 +374,8 @@ body button .icon {
 }
 
 .overview-title .button-group {
-	padding-top: 2px;
 	display: flex;
-	align-self: start;
+	gap: 8px;
 }
 
 .overview-title .title-and-edit {
@@ -395,11 +395,18 @@ body button .icon {
 
 .subtitle .avatar,
 .subtitle .avatar-icon svg {
-	margin-right: 8px;
+	margin-right: 6px;
 }
 
 .subtitle .author {
 	margin-right: 8px;
+}
+
+.branch-tag {
+	padding: 2px 4px;
+	background: rgba(0, 143, 255, 0.17);
+	color: #99CFFF;
+	border-radius: 4px;
 }
 
 .subtitle .created-at {
@@ -411,17 +418,13 @@ body .overview-title .button-group button {
 	display: flex;
 }
 
-body .overview-title .button-group button:last-child {
-	margin-left: 10px;
-}
-
 #status {
 	box-sizing: border-box;
 	line-height: 18px;
 	background: var(--vscode-badge-background);
 	color: var(--vscode-badge-foreground);
-	border-radius: 4px;
-	padding: 2px 8px;
+	border-radius: 18px;
+	padding: 4px 8px;
 	margin-right: 10px;
 }
 
@@ -560,6 +563,7 @@ body .overview-title .button-group button:last-child {
 
 .details {
 	display: flex;
+	gap: 4px;
 	flex-direction: column;
 	width: 100%;
 }
