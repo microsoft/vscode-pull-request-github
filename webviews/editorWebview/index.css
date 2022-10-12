@@ -359,6 +359,7 @@ body button .icon {
 
 .overview-title {
 	display: flex;
+	gap: 12px;
 	position: relative;
 	flex-wrap: wrap;
 	justify-content: space-between;
@@ -390,7 +391,6 @@ body button .icon {
 .subtitle {
 	display: flex;
 	align-items: center;
-	margin-top: 8px;
 }
 
 .subtitle .avatar,
@@ -416,6 +416,9 @@ body button .icon {
 
 body .overview-title .button-group button {
 	display: flex;
+	font-size: 11px;
+	font-weight: 600;
+	padding: 0 5px;
 }
 
 #status {
@@ -563,7 +566,6 @@ body .overview-title .button-group button {
 
 .details {
 	display: flex;
-	gap: 4px;
 	flex-direction: column;
 	width: 100%;
 }
