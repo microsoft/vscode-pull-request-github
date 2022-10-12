@@ -52,6 +52,13 @@ export class GitHubManager {
 					// We've made it this far so it's not github.com
 					// It's very likely enterprise.
 					isGitHub = GitHubServerType.Enterprise;
+				} else {
+					// Check if we got an enterprise-looking needs auth response:
+					// { message: 'Must authenticate to access this API.', documentation_url: 'https://docs.github.com/enterprise/3.3/rest'}
+					const parsedResponse = JSON.parse(responseText);
+					if (parsedResponse.documentation_url && (parsedResponse.documentation_url as string).startsWith('https://docs.github.com/enterprise')) {
+						isGitHub = GitHubServerType.Enterprise;
+					}
 				}
 			} else {
 				isGitHub = ((gitHubHeader !== undefined) && (gitHubHeader !== null)) ? (gitHubEnterpriseHeader ? GitHubServerType.Enterprise : GitHubServerType.GitHubDotCom) : GitHubServerType.None;
