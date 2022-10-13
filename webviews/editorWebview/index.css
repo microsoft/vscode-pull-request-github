@@ -41,7 +41,7 @@ textarea:focus,
 	display: flex;
 	align-items: flex-start;
 	margin: 20px 0;
-	padding-bottom: 10px;
+	padding-bottom: 24px;
 	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
 }
 
@@ -170,10 +170,6 @@ body .comment-container .review-comment-header {
 .status-item,
 .form-actions {
 	display: flex;
-}
-
-.form-actions > input[type='submit'] {
-	margin-left: auto;
 }
 
 .status-check-detail-text {
@@ -357,14 +353,6 @@ body button .icon {
 	margin-top: 18px;
 }
 
-.overview-title {
-	display: flex;
-	gap: 12px;
-	position: relative;
-	flex-wrap: wrap;
-	justify-content: space-between;
-}
-
 .overview-title h2 {
 	font-size: 26px;
 	font-weight: 600;
@@ -374,16 +362,6 @@ body button .icon {
 	min-height: 50px;
 }
 
-.overview-title .button-group {
-	display: flex;
-	gap: 8px;
-}
-
-.overview-title .title-and-edit {
-	display: flex;
-	flex-grow: 1;
-}
-
 .title-container {
 	width: 100%;
 }
@@ -391,6 +369,8 @@ body button .icon {
 .subtitle {
 	display: flex;
 	align-items: center;
+	flex-wrap: wrap;
+	row-gap: 12px;
 }
 
 .subtitle .avatar,
@@ -399,13 +379,21 @@ body button .icon {
 }
 
 .subtitle .author {
-	margin-right: 8px;
+	display: flex;
+	align-items: center;
+}
+
+.merge-branches {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	flex-wrap: wrap;
 }
 
 .branch-tag {
 	padding: 2px 4px;
 	background: rgba(0, 143, 255, 0.17);
-	color: #99CFFF;
+	color: #99cfff;
 	border-radius: 4px;
 }
 
@@ -414,7 +402,12 @@ body button .icon {
 	white-space: nowrap;
 }
 
-body .overview-title .button-group button {
+.button-group {
+	display: flex;
+	gap: 8px;
+}
+
+.button-group button {
 	display: flex;
 	font-size: 11px;
 	font-weight: 600;
@@ -448,7 +441,7 @@ body .overview-title .button-group button {
 	font-style: italic;
 }
 
-.assign-yourself:hover{
+.assign-yourself:hover {
 	cursor: pointer;
 }
 
@@ -567,6 +560,7 @@ body .overview-title .button-group button {
 .details {
 	display: flex;
 	flex-direction: column;
+	gap: 12px;
 	width: 100%;
 }
 
@@ -645,8 +639,8 @@ textarea {
 }
 
 .editing-form .form-actions {
-	margin-left: auto;
-	padding: 5px 0;
+	display: flex;
+	gap: 8px;
 }
 
 .comment-form .form-actions > button,
