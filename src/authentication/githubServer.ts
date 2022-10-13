@@ -1,33 +1,68 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
+import { GitHubServerType } from '../common/authentication';
 import Logger from '../common/logger';
 import { agent } from '../env/node/net';
 import { HostHelper } from './configuration';
 
 export class GitHubManager {
-	private _servers: Map<string, boolean> = new Map().set('github.com', true).set('ssh.github.com', true);
+	private static readonly _githubDotComServers = new Set<string>().add('github.com').add('ssh.github.com');
+	private _servers: Map<string, GitHubServerType> = new Map(Array.from(GitHubManager._githubDotComServers.keys()).map(key => [key, GitHubServerType.GitHubDotCom]));
 
-	public async isGitHub(host: vscode.Uri): Promise<boolean> {
+	public static isGithubDotCom(host: string): boolean {
+		return this._githubDotComServers.has(host);
+	}
+
+	public async isGitHub(host: vscode.Uri): Promise<GitHubServerType> {
 		if (host === null) {
-			return false;
+			return GitHubServerType.None;
 		}
 
 		// .wiki/.git repos are not supported
 		if (host.path.endsWith('.wiki') || host.authority.match(/gist[.]github[.]com/)) {
-			return false;
+			return GitHubServerType.None;
 		}
 
 		if (this._servers.has(host.authority)) {
-			return !!this._servers.get(host.authority);
+			return this._servers.get(host.authority) ?? GitHubServerType.None;
 		}
 
 		const [uri, options] = await GitHubManager.getOptions(host, 'HEAD', '/rate_limit');
 
-		let isGitHub = false;
+		let isGitHub = GitHubServerType.None;
 		try {
 			const response = await fetch(uri.toString(), options);
+			const otherGitHubHeaders: string[] = [];
+			response.headers.forEach((_value, header) => {
+				otherGitHubHeaders.push(header);
+			});
+			Logger.debug(`All headers: ${otherGitHubHeaders.join(', ')}`, 'GitHubServer');
 			const gitHubHeader = response.headers.get('x-github-request-id');
-			isGitHub = ((gitHubHeader !== undefined) && (gitHubHeader !== null));
+			const gitHubEnterpriseHeader = response.headers.get('x-github-enterprise-version');
+			if (!gitHubHeader && !gitHubEnterpriseHeader) {
+				const [uriFallBack] = await GitHubManager.getOptions(host, 'HEAD', '/status');
+				const response = await fetch(uriFallBack.toString());
+				const responseText = await response.text();
+				if (responseText.startsWith('GitHub lives!')) {
+					// We've made it this far so it's not github.com
+					// It's very likely enterprise.
+					isGitHub = GitHubServerType.Enterprise;
+				} else {
+					// Check if we got an enterprise-looking needs auth response:
+					// { message: 'Must authenticate to access this API.', documentation_url: 'https://docs.github.com/enterprise/3.3/rest'}
+					const parsedResponse = JSON.parse(responseText);
+					if (parsedResponse.documentation_url && (parsedResponse.documentation_url as string).startsWith('https://docs.github.com/enterprise')) {
+						isGitHub = GitHubServerType.Enterprise;
+					}
+				}
+			} else {
+				isGitHub = ((gitHubHeader !== undefined) && (gitHubHeader !== null)) ? (gitHubEnterpriseHeader ? GitHubServerType.Enterprise : GitHubServerType.GitHubDotCom) : GitHubServerType.None;
+			}
 			return isGitHub;
 		} catch (ex) {
 			Logger.appendLine(`No response from host ${host}: ${ex.message}`, 'GitHubServer');

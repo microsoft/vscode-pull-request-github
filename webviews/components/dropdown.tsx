@@ -13,7 +13,7 @@ const enum KEYCODES {
 	up = 38,
 }
 
-export const Dropdown = ({ options, defaultOption, submitAction }) => {
+export const Dropdown = ({ options, defaultOption, submitAction }: { options: { [key: string]: string }, defaultOption: string, submitAction: (string) => Promise<void> }) => {
 	const [selectedMethod, selectMethod] = useState<string>(defaultOption);
 	const [areOptionsVisible, setOptionsVisible] = useState<boolean>(false);
 
@@ -28,7 +28,7 @@ export const Dropdown = ({ options, defaultOption, submitAction }) => {
 		selectMethod(e.target.value);
 		setOptionsVisible(false);
 		const primaryButton = document.getElementById(`confirm-button${dropdownId}`);
-		primaryButton.focus();
+		primaryButton?.focus();
 	};
 
 	const onKeyDown = e => {
@@ -39,39 +39,39 @@ export const Dropdown = ({ options, defaultOption, submitAction }) => {
 				case KEYCODES.esc:
 					setOptionsVisible(false);
 					const expandOptionsButton = document.getElementById(EXPAND_OPTIONS_BUTTON);
-					expandOptionsButton.focus();
+					expandOptionsButton?.focus();
 					break;
 
 				case KEYCODES.down:
-					if (!currentElement.id || currentElement.id === EXPAND_OPTIONS_BUTTON) {
+					if (!currentElement?.id || currentElement.id === EXPAND_OPTIONS_BUTTON) {
 						const firstOptionButton = document.getElementById(`${dropdownId}option0`);
-						firstOptionButton.focus();
+						firstOptionButton?.focus();
 					} else {
 						const regex = new RegExp(`${dropdownId}option([0-9])`);
 						const result = currentElement.id.match(regex);
-						if (result.length) {
+						if (result?.length) {
 							const index = parseInt(result[1]);
 							if (index < Object.entries(options).length - 1) {
 								const nextOption = document.getElementById(`${dropdownId}option${index + 1}`);
-								nextOption.focus();
+								nextOption?.focus();
 							}
 						}
 					}
 					break;
 
 				case KEYCODES.up:
-					if (!currentElement.id || currentElement.id === EXPAND_OPTIONS_BUTTON) {
+					if (!currentElement?.id || currentElement.id === EXPAND_OPTIONS_BUTTON) {
 						const lastIndex = Object.entries(options).length - 1;
 						const lastOptionButton = document.getElementById(`${dropdownId}option${lastIndex}`);
-						lastOptionButton.focus();
+						lastOptionButton?.focus();
 					} else {
 						const regex = new RegExp(`${dropdownId}option([0-9])`);
 						const result = currentElement.id.match(regex);
-						if (result.length) {
+						if (result?.length) {
 							const index = parseInt(result[1]);
 							if (index > 0) {
 								const nextOption = document.getElementById(`${dropdownId}option${index - 1}`);
-								nextOption.focus();
+								nextOption?.focus();
 							}
 						}
 					}
@@ -87,7 +87,7 @@ export const Dropdown = ({ options, defaultOption, submitAction }) => {
 			<div className="select-control">
 				<Confirm
 					dropdownId={dropdownId}
-					className="select-left"
+					className={Object.keys(options).length > 1 ? 'select-left' : ''}
 					options={options}
 					selected={selectedMethod}
 					submitAction={submitAction}

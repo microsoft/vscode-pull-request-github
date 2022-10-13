@@ -262,7 +262,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return true;
 		}
 
-		const reason = `There is no upstream branch for Pull Request #${this.number}. View it on GitHub for more details`;
+		const reason = vscode.l10n.t('There is no upstream branch for Pull Request #{0}. View it on GitHub for more details', this.number);
 
 		if (message) {
 			message += `: ${reason}`;
@@ -270,8 +270,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			message = reason;
 		}
 
-		vscode.window.showWarningMessage(message, 'Open on GitHub').then(action => {
-			if (action && action === 'Open on GitHub') {
+		const openString = vscode.l10n.t('Open on GitHub');
+		vscode.window.showWarningMessage(message, openString).then(action => {
+			if (action && action === openString) {
 				vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(this.html_url));
 			}
 		});
@@ -322,7 +323,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async close(): Promise<PullRequest> {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		const ret = await octokit.pulls.update({
+		const ret = await octokit.call(octokit.api.pulls.update, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
@@ -345,7 +346,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private async createReview(event: ReviewEvent, message?: string): Promise<CommonReviewEvent> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 
-		const { data } = await octokit.pulls.createReview({
+		const { data } = await octokit.call(octokit.api.pulls.createReview, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
@@ -419,7 +420,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	async updateAssignees(assignees: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.issues.addAssignees({
+		await octokit.call(octokit.api.issues.addAssignees, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
@@ -492,7 +493,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		return {
 			deletedReviewId: databaseId,
-			deletedReviewComments: comments.nodes.map(comment => parseGraphQLComment(comment, false)),
+			deletedReviewComments: comments.nodes.map(comment => parseGraphQLComment(comment, false, this.githubRepository)),
 		};
 	}
 
@@ -577,7 +578,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		const thread = data.addPullRequestReviewThread.thread;
-		const newThread = parseGraphQLReviewThread(thread);
+		const newThread = parseGraphQLReviewThread(thread, this.githubRepository);
 		this._reviewThreadsCache.push(newThread);
 		this._onDidChangeReviewThreads.fire({ added: [newThread], changed: [], removed: [] });
 		return newThread;
@@ -625,7 +626,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		const { comment } = data.addPullRequestReviewComment;
-		const newComment = parseGraphQLComment(comment, false);
+		const newComment = parseGraphQLComment(comment, false, this.githubRepository);
 
 		if (isSingleComment) {
 			newComment.isDraft = false;
@@ -694,6 +695,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const newComment = parseGraphQLComment(
 			data.updatePullRequestReviewComment.pullRequestReviewComment,
 			!!comment.isResolved,
+			this.githubRepository
 		);
 		if (threadWithComment) {
 			const index = threadWithComment.comments.findIndex(c => c.graphNodeId === comment.graphNodeId);
@@ -717,7 +719,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			if (threadIndex === -1) {
 				this.deleteIssueComment(commentId);
 			} else {
-				await octokit.pulls.deleteReviewComment({
+				await octokit.call(octokit.api.pulls.deleteReviewComment, {
 					owner: remote.owner,
 					repo: remote.repositoryName,
 					comment_id: id,
@@ -746,7 +748,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	async getReviewRequests(): Promise<IAccount[]> {
 		const githubRepository = this.githubRepository;
 		const { remote, octokit } = await githubRepository.ensure();
-		const result = await octokit.pulls.listRequestedReviewers({
+		const result = await octokit.call(octokit.api.pulls.listRequestedReviewers, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
@@ -761,7 +763,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async requestReview(reviewers: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.pulls.requestReviewers({
+		await octokit.call(octokit.api.pulls.requestReviewers, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
@@ -775,7 +777,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async deleteReviewRequest(reviewer: string): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.pulls.removeRequestedReviewers({
+		await octokit.call(octokit.api.pulls.removeRequestedReviewers, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
@@ -785,7 +787,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	async deleteAssignees(assignee: string): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.issues.removeAssignees({
+		await octokit.call(octokit.api.issues.removeAssignees, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
@@ -835,7 +837,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			});
 
 			const reviewThreads = data.repository.pullRequest.reviewThreads.nodes.map(node => {
-				return parseGraphQLReviewThread(node);
+				return parseGraphQLReviewThread(node, this.githubRepository);
 			});
 
 			const oldReviewThreads = this._reviewThreadsCache;
@@ -864,7 +866,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			});
 
 			const comments = data.repository.pullRequest.reviewThreads.nodes
-				.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved), remote))
+				.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved, this.githubRepository), remote))
 				.reduce((prev, curr) => prev.concat(curr), [])
 				.sort((a: IComment, b: IComment) => {
 					return a.createdAt > b.createdAt ? 1 : -1;
@@ -883,7 +885,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		try {
 			Logger.debug(`Fetch commits of PR #${this.number} - enter`, PullRequestModel.ID);
 			const { remote, octokit } = await this.githubRepository.ensure();
-			const commitData = await octokit.pulls.listCommits({
+			const commitData = await octokit.call(octokit.api.pulls.listCommits, {
 				pull_number: this.number,
 				owner: remote.owner,
 				repo: remote.repositoryName,
@@ -910,7 +912,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				PullRequestModel.ID,
 			);
 			const { octokit, remote } = await this.githubRepository.ensure();
-			const fullCommit = await octokit.repos.getCommit({
+			const fullCommit = await octokit.call(octokit.api.repos.getCommit, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				ref: commit.sha,
@@ -934,7 +936,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async getFile(filePath: string, commit: string) {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		const fileContent = await octokit.repos.getContent({
+		const fileContent = await octokit.call(octokit.api.repos.getContent, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			path: filePath,
@@ -1111,13 +1113,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		// Fun info: The checks don't include whether a review is required.
 		// Also, unless you're an admin on the repo, you can't just do octokit.repos.getBranchProtection
 		if (this.item.mergeable === PullRequestMergeability.NotMergeable) {
-			const branch = await octokit.repos.getBranch({ branch: this.base.ref, owner: remote.owner, repo: remote.repositoryName });
+			const branch = await octokit.call(octokit.api.repos.getBranch, { branch: this.base.ref, owner: remote.owner, repo: remote.repositoryName });
 			if (branch.data.protected && branch.data.protection.required_status_checks.enforcement_level !== 'off') {
 				// We need to add the "review required" check manually.
 				checks.statuses.unshift({
 					id: 'unknown',
 					context: 'Branch Protection',
-					description: 'Requirements have not been met.',
+					description: vscode.l10n.t('Requirements have not been met.'),
 					state: 'failure',
 					target_url: this.html_url
 				});
@@ -1255,7 +1257,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const { octokit, remote } = await githubRepository.ensure();
 
 		if (!this.base) {
-			const info = await octokit.pulls.get({
+			const info = await octokit.call(octokit.api.pulls.get, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				pull_number: this.number,
@@ -1273,7 +1275,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		if (this.item.merged) {
-			const response = await restPaginate<typeof octokit.pulls.listFiles, IRawFileChange>(octokit.pulls.listFiles, {
+			const response = await restPaginate<typeof octokit.api.pulls.listFiles, IRawFileChange>(octokit.api.pulls.listFiles, {
 				repo: remote.repositoryName,
 				owner: remote.owner,
 				pull_number: this.number,
@@ -1285,7 +1287,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return response;
 		}
 
-		const { data } = await octokit.repos.compareCommits({
+		const { data } = await octokit.call(octokit.api.repos.compareCommits, {
 			repo: remote.repositoryName,
 			owner: remote.owner,
 			base: `${this.base.repositoryCloneUrl.owner}:${compareWithBaseRef}`,
@@ -1304,7 +1306,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				`More than ${MAX_FILE_CHANGES_IN_COMPARE_COMMITS} files changed, fetching all file changes of PR #${this.number}`,
 				PullRequestModel.ID,
 			);
-			files = await restPaginate<typeof octokit.pulls.listFiles, IRawFileChange>(octokit.pulls.listFiles, {
+			files = await restPaginate<typeof octokit.api.pulls.listFiles, IRawFileChange>(octokit.api.pulls.listFiles, {
 				owner: this.base.repositoryCloneUrl.owner,
 				pull_number: this.number,
 				repo: remote.repositoryName,
@@ -1477,7 +1479,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
 		if (index > -1) {
-			const thread = parseGraphQLReviewThread(data.resolveReviewThread.thread);
+			const thread = parseGraphQLReviewThread(data.resolveReviewThread.thread, this.githubRepository);
 			this._reviewThreadsCache.splice(index, 1, thread);
 			this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
 		}
@@ -1500,7 +1502,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
 		if (index > -1) {
-			const thread = parseGraphQLReviewThread(data.unresolveReviewThread.thread);
+			const thread = parseGraphQLReviewThread(data.unresolveReviewThread.thread, this.githubRepository);
 			this._reviewThreadsCache.splice(index, 1, thread);
 			this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
 		}
@@ -1526,7 +1528,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this.item.autoMergeMethod = mergeMethod;
 		} catch (e) {
 			if (e.message === 'GraphQL error: ["Pull request Pull request is in clean status"]') {
-				vscode.window.showWarningMessage('Unable to enable auto-merge. Pull request status checks are already green.');
+				vscode.window.showWarningMessage(vscode.l10n.t('Unable to enable auto-merge. Pull request status checks are already green.'));
 			} else {
 				throw e;
 			}
@@ -1551,7 +1553,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this.item.autoMerge = false;
 		} catch (e) {
 			if (e.message === 'GraphQL error: ["Pull request Pull request is in clean status"]') {
-				vscode.window.showWarningMessage('Unable to enable auto-merge. Pull request status checks are already green.');
+				vscode.window.showWarningMessage(vscode.l10n.t('Unable to enable auto-merge. Pull request status checks are already green.'));
 			} else {
 				throw e;
 			}

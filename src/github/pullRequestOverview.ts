@@ -10,7 +10,7 @@ import { IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { dispose, formatError } from '../common/utils';
-import { IRequestMessage } from '../common/webview';
+import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
 	GithubItemStateEnum,
@@ -39,8 +39,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 * Track the currently panel. Only allow a single panel to exist at a time.
 	 */
 	public static currentPanel?: PullRequestOverviewPanel;
-
-	protected static readonly _viewType: string = 'PullRequestOverview';
 
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[] = [];
@@ -98,10 +96,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		title: string,
 		folderRepositoryManager: FolderRepositoryManager,
 	) {
-		super(extensionUri, column, title, folderRepositoryManager, PullRequestOverviewPanel._viewType);
+		super(extensionUri, column, title, folderRepositoryManager, PULL_REQUEST_OVERVIEW_VIEW_TYPE);
 
-		this.registerFolderRepositoryListener();
-
+		this.registerPrListeners();
 		onDidUpdatePR(
 			pr => {
 				if (pr) {
@@ -127,7 +124,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		);
 	}
 
-	registerFolderRepositoryListener() {
+	registerPrListeners() {
+		dispose(this._prListeners);
+		this._prListeners = [];
 		this._prListeners.push(this._folderRepositoryManager.onDidChangeActivePullRequest(_ => {
 			if (this._folderRepositoryManager && this._item) {
 				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
@@ -137,12 +136,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				});
 			}
 		}));
-	}
 
-	registerPrListeners() {
-		this._prListeners.push(this._item.onDidChangeComments(() => {
-			this.refreshPanel();
-		}));
+		if (this._item) {
+			this._prListeners.push(this._item.onDidChangeComments(() => {
+				this.refreshPanel();
+			}));
+		}
 	}
 
 	/**
@@ -268,9 +267,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	): Promise<void> {
 		if (this._folderRepositoryManager !== folderRepositoryManager) {
 			this._folderRepositoryManager = folderRepositoryManager;
-			dispose(this._prListeners);
-			this._prListeners = [];
-			this.registerFolderRepositoryListener();
 			this.registerPrListeners();
 		}
 
@@ -370,12 +366,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			const suggestionReason: string =
 				isAuthor && isCommenter
-					? 'Recently edited and reviewed changes to these files'
+					? vscode.l10n.t('Recently edited and reviewed changes to these files')
 					: isAuthor
-						? 'Recently edited these files'
+						? vscode.l10n.t('Recently edited these files')
 						: isCommenter
-							? 'Recently reviewed changes to these files'
-							: 'Suggested reviewer';
+							? vscode.l10n.t('Recently reviewed changes to these files')
+							: vscode.l10n.t('Suggested reviewer');
 
 			reviewers.push({
 				label: login,
@@ -401,7 +397,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		if (reviewers.length === 0) {
 			reviewers.push({
-				label: 'No reviewers available for this repository'
+				label: vscode.l10n.t('No reviewers available for this repository')
 			});
 		}
 
@@ -450,13 +446,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		if (assignees.length !== 0) {
 			assignees.unshift({
 				kind: vscode.QuickPickItemKind.Separator,
-				label: 'Suggestions'
+				label: vscode.l10n.t('Suggestions')
 			});
 		}
 
 		assignees.push({
 			kind: vscode.QuickPickItemKind.Separator,
-			label: 'Users'
+			label: vscode.l10n.t('Users')
 		});
 
 		for (const user of assignableUsers) {
@@ -473,7 +469,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		if (assignees.length === 0) {
 			assignees.push({
-				label: 'No assignees available for this repository'
+				label: vscode.l10n.t('No assignees available for this repository')
 			});
 		}
 
@@ -517,7 +513,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				if (!milestones.length) {
 					return [
 						{
-							label: 'No milestones created for this repository.',
+							label: vscode.l10n.t('No milestones created for this repository.'),
 						},
 					];
 				}
@@ -534,7 +530,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const quickPick = vscode.window.createQuickPick();
 			quickPick.busy = true;
 			quickPick.canSelectMany = false;
-			quickPick.title = 'Select a milestone to add';
+			quickPick.title = vscode.l10n.t('Select a milestone to add');
 			quickPick.buttons = [{
 				iconPath: new vscode.ThemeIcon('add'),
 				tooltip: 'Create',
@@ -543,8 +539,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				quickPick.hide();
 
 				const inputBox = vscode.window.createInputBox();
-				inputBox.title = 'Create new milestone';
-				inputBox.placeholder = 'New milestone title';
+				inputBox.title = vscode.l10n.t('Create new milestone');
+				inputBox.placeholder = vscode.l10n.t('New milestone title');
 				if (quickPick.value !== '') {
 					inputBox.value = quickPick.value;
 				}
@@ -555,13 +551,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						return;
 					}
 					if (inputBox.value.length > 255) {
-						vscode.window.showErrorMessage(`Failed to create milestone: The title can contain a maximum of 255 characters`);
+						vscode.window.showErrorMessage(vscode.l10n.t(`Failed to create milestone: The title can contain a maximum of 255 characters`));
 						return;
 					}
 					// Check if milestone already exists (only check open ones)
 					for (const existingMilestone of quickPick.items) {
 						if (existingMilestone.label === inputBox.value) {
-							vscode.window.showErrorMessage(`Failed to create milestone: The milestone '${inputBox.value}' already exists`);
+							vscode.window.showErrorMessage(vscode.l10n.t('Failed to create milestone: The milestone \'{0}\' already exists', inputBox.value));
 							return;
 						}
 					}
@@ -572,7 +568,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						}
 					} catch (e) {
 						if (e.errors && Array.isArray(e.errors) && e.errors.find(error => error.code === 'already_exists') !== undefined) {
-							vscode.window.showErrorMessage(`Failed to create milestone: The milestone already exists and might be closed`);
+							vscode.window.showErrorMessage(vscode.l10n.t('Failed to create milestone: The milestone already exists and might be closed'));
 						}
 						else {
 							vscode.window.showErrorMessage(`Failed to create milestone: ${formatError(e)}`);

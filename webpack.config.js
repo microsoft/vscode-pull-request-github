@@ -162,6 +162,9 @@ async function getExtensionConfig(target, mode, env) {
 	 * @type WebpackConfig['plugins'] | any
 	 */
 	const plugins = [
+		new webpack.optimize.LimitChunkCountPlugin({
+			maxChunks: 1
+		}),
 		new ForkTsCheckerPlugin({
 			async: false,
 			eslint: {

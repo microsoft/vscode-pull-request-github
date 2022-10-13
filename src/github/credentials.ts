@@ -4,38 +4,35 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Octokit } from '@octokit/rest';
-import { ApolloClient, InMemoryCache, NormalizedCacheObject } from 'apollo-boost';
+import { ApolloClient, InMemoryCache } from 'apollo-boost';
 import { setContext } from 'apollo-link-context';
 import { createHttpLink } from 'apollo-link-http';
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
+import { AuthProvider } from '../common/authentication';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
 import { ITelemetry } from '../common/telemetry';
 import { agent } from '../env/node/net';
 import { OctokitCommon } from './common';
+import { LoggingApolloClient, LoggingOctokit, RateLogger } from './loggingOctokit';
 import { getEnterpriseUri, hasEnterpriseUri } from './utils';
 
-const TRY_AGAIN = 'Try again?';
-const CANCEL = 'Cancel';
-const SIGNIN_COMMAND = 'Sign In';
-const IGNORE_COMMAND = "Don't Show Again";
+const TRY_AGAIN = vscode.l10n.t('Try again?');
+const CANCEL = vscode.l10n.t('Cancel');
+const SIGNIN_COMMAND = vscode.l10n.t('Sign In');
+const IGNORE_COMMAND = vscode.l10n.t('Don\'t Show Again');
 
-const PROMPT_FOR_SIGN_IN_SCOPE = 'prompt for sign in';
+const PROMPT_FOR_SIGN_IN_SCOPE = vscode.l10n.t('prompt for sign in');
 const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
 
 // If the scopes are changed, make sure to notify all interested parties to make sure this won't cause problems.
 const SCOPES_OLD = ['read:user', 'user:email', 'repo'];
-const SCOPES = ['read:user', 'user:email', 'repo', 'workflow'];
-
-export enum AuthProvider {
-	github = 'github',
-	'github-enterprise' = 'github-enterprise'
-}
+export const SCOPES = ['read:user', 'user:email', 'repo', 'workflow'];
 
 export interface GitHub {
-	octokit: Octokit;
-	graphql: ApolloClient<NormalizedCacheObject> | null;
+	octokit: LoggingOctokit;
+	graphql: LoggingApolloClient | null;
 	currentUser?: OctokitCommon.PullsGetResponseUser;
 }
 
@@ -72,17 +69,16 @@ export class CredentialStore implements vscode.Disposable {
 		);
 	}
 
-	private async initialize(authProviderId: AuthProvider, getAuthSessionOptions?: vscode.AuthenticationGetSessionOptions): Promise<void> {
+	private async initialize(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions = {}): Promise<void> {
 		if (authProviderId === AuthProvider['github-enterprise']) {
 			if (!hasEnterpriseUri()) {
 				Logger.debug(`GitHub Enterprise provider selected without URI.`, 'Authentication');
 				return;
 			}
 		}
-		getAuthSessionOptions = { ...getAuthSessionOptions, ...{ createIfNone: false } };
 
-		if (authProviderId === AuthProvider['github-enterprise']) {
-			getAuthSessionOptions = { ...getAuthSessionOptions, ...{ createIfNone: true, silent: false } };
+		if (getAuthSessionOptions.createIfNone === undefined) {
+			getAuthSessionOptions.createIfNone = false;
 		}
 
 		let session;
@@ -122,15 +118,6 @@ export class CredentialStore implements vscode.Disposable {
 				await this.setCurrentUser(github);
 			}
 
-			// The extension behaves unexpectedly when both github and enterprise accounts are found. Warn the user.
-			const showAccountWarning = !this._context.workspaceState.get<boolean>('github.hideTwoAccountWarning', false);
-			if (this.isAuthenticated(AuthProvider.github) && this.isAuthenticated(AuthProvider['github-enterprise']) && showAccountWarning) {
-				vscode.window.showWarningMessage('Both GitHub and GitHub Enterprise accounts were found. Sign out of one account to ensure the extension works.', 'Don\'t show again').then(result => {
-					if (result === 'Don\'t show again') {
-						this._context.workspaceState.update('github.hideTwoAccountWarning', true);
-					}
-				});
-			}
 			this._onDidInitialize.fire();
 		} else {
 			Logger.debug(`No GitHub${getGitHubSuffix(authProviderId)} token found.`, 'Authentication');
@@ -189,7 +176,7 @@ export class CredentialStore implements vscode.Disposable {
 		}
 
 		const result = await vscode.window.showInformationMessage(
-			`In order to use the Pull Requests functionality, you must sign in to GitHub${getGitHubSuffix(authProviderId)}`,
+			vscode.l10n.t('In order to use the Pull Requests functionality, you must sign in to GitHub{0}', getGitHubSuffix(authProviderId)),
 			SIGNIN_COMMAND,
 			IGNORE_COMMAND,
 		);
@@ -213,22 +200,20 @@ export class CredentialStore implements vscode.Disposable {
 		*/
 		this._telemetry.sendTelemetryEvent('auth.start');
 
-		const errorPrefix = `Error signing in to GitHub${getGitHubSuffix(authProviderId)}`;
+		const errorPrefix = vscode.l10n.t('Error signing in to GitHub{0}', getGitHubSuffix(authProviderId));
 		let retry: boolean = true;
 		let octokit: GitHub | undefined = undefined;
 
-
 		while (retry) {
 			try {
-				const token = await this.getSessionOrLogin(authProviderId);
-				octokit = await this.createHub(token, authProviderId);
+				await this.initialize(authProviderId, { createIfNone: true });
 			} catch (e) {
 				Logger.appendLine(`${errorPrefix}: ${e}`);
 				if (e instanceof Error && e.stack) {
 					Logger.appendLine(e.stack);
 				}
 			}
-
+			octokit = this.getHub(authProviderId);
 			if (octokit) {
 				retry = false;
 			} else {
@@ -237,9 +222,6 @@ export class CredentialStore implements vscode.Disposable {
 		}
 
 		if (octokit) {
-			this._githubAPI = octokit;
-			await this.setCurrentUser(octokit);
-
 			/* __GDPR__
 				"auth.success" : {}
 			*/
@@ -255,7 +237,7 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public async showSamlMessageAndAuth() {
-		return this.recreate('GitHub Pull Requests and Issues requires that you provide SAML access to your organization when you sign in.');
+		return this.recreate(vscode.l10n.t('GitHub Pull Requests and Issues requires that you provide SAML access to your organization when you sign in.'));
 	}
 
 	public isCurrentUser(username: string): boolean {
@@ -269,7 +251,7 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	private async setCurrentUser(github: GitHub): Promise<void> {
-		const user = await github.octokit.users.getAuthenticated({});
+		const user = await github.octokit.call(github.octokit.api.users.getAuthenticated, {});
 		github.currentUser = user.data;
 	}
 
@@ -353,9 +335,10 @@ export class CredentialStore implements vscode.Disposable {
 			},
 		});
 
+		const rateLogger = new RateLogger(this._context);
 		const github: GitHub = {
-			octokit,
-			graphql,
+			octokit: new LoggingOctokit(octokit, rateLogger),
+			graphql: new LoggingApolloClient(graphql, rateLogger),
 		};
 		await this.setCurrentUser(github);
 		return github;

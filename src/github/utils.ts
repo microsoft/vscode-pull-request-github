@@ -9,17 +9,18 @@ import * as OctokitTypes from '@octokit/types';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
+import { AuthProvider, GitHubServerType } from '../common/authentication';
 import { IComment, IReviewThread, Reaction } from '../common/comment';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
+import { Remote } from '../common/remote';
 import { Resource } from '../common/resources';
 import { OVERRIDE_DEFAULT_BRANCH } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { uniqBy } from '../common/utils';
 import { OctokitCommon } from './common';
-import { AuthProvider } from './credentials';
-import { PullRequestDefaults, SETTINGS_NAMESPACE } from './folderRepositoryManager';
+import { FolderRepositoryManager, PullRequestDefaults, SETTINGS_NAMESPACE } from './folderRepositoryManager';
 import { GitHubRepository, ViewerPermission } from './githubRepository';
 import * as GraphQL from './graphql';
 import {
@@ -162,7 +163,7 @@ export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IRev
 
 export function updateCommentThreadLabel(thread: GHPRCommentThread) {
 	if (thread.state === vscode.CommentThreadState.Resolved) {
-		thread.label = 'Marked as resolved';
+		thread.label = vscode.l10n.t('Marked as resolved');
 		return;
 	}
 
@@ -170,9 +171,9 @@ export function updateCommentThreadLabel(thread: GHPRCommentThread) {
 		const participantsList = uniqBy(thread.comments as vscode.Comment[], comment => comment.author.name)
 			.map(comment => `@${comment.author.name}`)
 			.join(', ');
-		thread.label = `Participants: ${participantsList}`;
+		thread.label = vscode.l10n.t('Participants: {0}', participantsList);
 	} else {
-		thread.label = 'Start discussion';
+		thread.label = vscode.l10n.t('Start discussion');
 	}
 }
 
@@ -418,7 +419,7 @@ export function convertGraphQLEventType(text: string) {
 	}
 }
 
-export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread): IReviewThread {
+export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRepository: GitHubRepository): IReviewThread {
 	return {
 		id: thread.id,
 		prReviewDatabaseId: thread.comments.edges && thread.comments.edges.length ?
@@ -434,11 +435,11 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread): IReviewT
 		originalEndLine: thread.originalLine,
 		diffSide: thread.diffSide,
 		isOutdated: thread.isOutdated,
-		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved)),
+		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, githubRepository)),
 	};
 }
 
-export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean): IComment {
+export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean, githubRepository: GitHubRepository): IComment {
 	const c: IComment = {
 		id: comment.databaseId,
 		url: comment.url,
@@ -453,7 +454,7 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: 
 		commitId: comment.commit.oid,
 		originalPosition: comment.originalPosition,
 		originalCommitId: comment.originalCommit && comment.originalCommit.oid,
-		user: comment.author,
+		user: comment.author ? parseAuthor(comment.author, githubRepository) : undefined,
 		createdAt: comment.createdAt,
 		htmlUrl: comment.url,
 		graphNodeId: comment.id,
@@ -469,7 +470,7 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: 
 	return c;
 }
 
-export function parseGraphQlIssueComment(comment: GraphQL.IssueComment): IComment {
+export function parseGraphQlIssueComment(comment: GraphQL.IssueComment, githubRepository: GitHubRepository): IComment {
 	return {
 		id: comment.databaseId,
 		url: comment.url,
@@ -477,7 +478,7 @@ export function parseGraphQlIssueComment(comment: GraphQL.IssueComment): ICommen
 		bodyHTML: comment.bodyHTML,
 		canEdit: comment.viewerCanDelete,
 		canDelete: comment.viewerCanDelete,
-		user: comment.author,
+		user: parseAuthor(comment.author, githubRepository),
 		createdAt: comment.createdAt,
 		htmlUrl: comment.url,
 		graphNodeId: comment.id,
@@ -725,7 +726,7 @@ export function parseGraphQLReviewEvent(
 ): Common.ReviewEvent {
 	return {
 		event: Common.EventType.Reviewed,
-		comments: review.comments.nodes.map(comment => parseGraphQLComment(comment, false)).filter(c => !c.inReplyToId),
+		comments: review.comments.nodes.map(comment => parseGraphQLComment(comment, false, githubRepository)).filter(c => !c.inReplyToId),
 		submittedAt: review.submittedAt,
 		body: review.body,
 		bodyHTML: review.bodyHTML,
@@ -818,7 +819,7 @@ export function parseGraphQLTimelineEvents(
 				normalizedEvents.push({
 					id: assignEv.id,
 					event: type,
-					user: assignEv.user,
+					user: parseAuthor(assignEv.user, githubRepository),
 					actor: assignEv.actor,
 				});
 				return;
@@ -828,7 +829,7 @@ export function parseGraphQLTimelineEvents(
 				normalizedEvents.push({
 					id: deletedEv.id,
 					event: type,
-					actor: deletedEv.actor,
+					actor: parseAuthor(deletedEv.actor, githubRepository),
 					createdAt: deletedEv.createdAt,
 					headRef: deletedEv.headRefName,
 				});
@@ -845,7 +846,7 @@ export function parseGraphQLUser(user: GraphQL.UserResponse, githubRepository: G
 	return {
 		login: user.user.login,
 		name: user.user.name,
-		avatarUrl: user.user.avatarUrl ? getAvatarWithEnterpriseFallback(user.user.avatarUrl, undefined, githubRepository.remote.authProviderId) : undefined,
+		avatarUrl: getAvatarWithEnterpriseFallback(user.user.avatarUrl ?? '', undefined, githubRepository.remote.authProviderId),
 		url: user.user.url,
 		bio: user.user.bio,
 		company: user.user.company,
@@ -1116,10 +1117,18 @@ export function isInCodespaces(): boolean {
 	return vscode.env.remoteName === 'codespaces' && vscode.env.uiKind === vscode.UIKind.Web;
 }
 
+export async function setEnterpriseUri(host: string) {
+	return vscode.workspace.getConfiguration('github-enterprise').update('uri', host, vscode.ConfigurationTarget.Workspace);
+}
+
 export function getEnterpriseUri(): vscode.Uri | undefined {
 	const config: string = vscode.workspace.getConfiguration('github-enterprise').get<string>('uri', '');
 	if (config) {
-		return vscode.Uri.parse(config, true);
+		let uri = vscode.Uri.parse(config, true);
+		if (uri.scheme === 'http') {
+			uri = uri.with({ scheme: 'https' });
+		}
+		return uri;
 	}
 }
 
@@ -1208,4 +1217,20 @@ export function getOverrideBranch(): string | undefined {
 		Logger.debug('Using override setting for default branch', GitHubRepository.ID);
 		return overrideSetting;
 	}
+}
+
+export async function findDotComAndEnterpriseRemotes(folderManagers: FolderRepositoryManager[]): Promise<{ dotComRemotes: Remote[], enterpriseRemotes: Remote[] }> {
+	// Check if we have found any github.com remotes
+	const dotComRemotes: Remote[] = [];
+	const enterpriseRemotes: Remote[] = [];;
+	for (const manager of folderManagers) {
+		for (const remote of await manager.computeAllGitHubRemotes()) {
+			if (remote.githubServerType === GitHubServerType.GitHubDotCom) {
+				dotComRemotes.push(remote);
+			} else if (remote.githubServerType === GitHubServerType.Enterprise) {
+				enterpriseRemotes.push(remote);
+			}
+		}
+	}
+	return { dotComRemotes, enterpriseRemotes };
 }

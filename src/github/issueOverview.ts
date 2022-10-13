@@ -22,7 +22,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	 */
 	public static currentPanel?: IssueOverviewPanel;
 
-	protected static readonly _viewType: string = 'IssueOverview';
+	private static readonly _viewType: string = 'IssueOverview';
 
 	protected readonly _panel: vscode.WebviewPanel;
 	protected _disposables: vscode.Disposable[] = [];
@@ -319,7 +319,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	private deleteComment(message: IRequestMessage<IComment>) {
 		vscode.window
-			.showWarningMessage('Are you sure you want to delete this comment?', { modal: true }, 'Delete')
+			.showWarningMessage(vscode.l10n.t('Are you sure you want to delete this comment?'), { modal: true }, 'Delete')
 			.then(value => {
 				if (value === 'Delete') {
 					this.deleteCommentPromise(message.args)

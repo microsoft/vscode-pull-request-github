@@ -8,7 +8,7 @@ import { QueryOptions, ApolloQueryResult, FetchResult, MutationOptions, NetworkS
 
 import { GitHubRepository } from '../../github/githubRepository';
 import { QueryProvider } from './queryProvider';
-import { Remote } from '../../common/remote';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { CredentialStore } from '../../github/credentials';
 import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 import { UserBuilder } from '../builders/rest/userBuilder';
@@ -18,20 +18,21 @@ import {
 	ManagedPullRequest,
 } from '../builders/managedPullRequestBuilder';
 import { MockTelemetry } from './mockTelemetry';
-import { MockSessionState } from './mockSessionState';
 import { Uri } from 'vscode';
+import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
+import { MockExtensionContext } from './mockExtensionContext';
 const queries = require('../../github/queries.gql');
 
 export class MockGitHubRepository extends GitHubRepository {
 	readonly queryProvider: QueryProvider;
 
-	constructor(remote: Remote, credentialStore: CredentialStore, telemetry: MockTelemetry, sinon: SinonSandbox) {
-		super(remote, Uri.file('C:\\users\\test\\repo'), credentialStore, telemetry, new MockSessionState());
+	constructor(remote: GitHubRemote, credentialStore: CredentialStore, telemetry: MockTelemetry, sinon: SinonSandbox) {
+		super(remote, Uri.file('C:\\users\\test\\repo'), credentialStore, telemetry);
 
 		this.queryProvider = new QueryProvider(sinon);
 
 		this._hub = {
-			octokit: this.queryProvider.octokit,
+			octokit: new LoggingOctokit(this.queryProvider.octokit, new RateLogger(new MockExtensionContext())),
 			graphql: null,
 		};
 

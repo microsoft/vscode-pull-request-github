@@ -526,7 +526,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	async createIssue() {
 		let uri = vscode.window.activeTextEditor?.document.uri;
 		if (!uri) {
-			uri = (await this.chooseRepo('Select the repo to create the issue in.'))?.repository.rootUri;
+			uri = (await this.chooseRepo(vscode.l10n.t('Select the repo to create the issue in.')))?.repository.rootUri;
 		}
 		if (uri) {
 			return this.makeNewIssueFile(uri);
@@ -587,8 +587,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				text = text.substring(lines[0].length).trim();
 			}
 		}
-		const body = text;
-		if (!title || !body) {
+		const body = text ?? '';
+		if (!title) {
 			return;
 		}
 		const createSucceeded = await this.doCreateIssue(
@@ -674,7 +674,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		let githubRepository = issueModel.githubRepository;
 		let remote = issueModel.remote;
 		if (!repoManager) {
-			repoManager = await this.chooseRepo('Choose which repository you want to work on this isssue in.');
+			repoManager = await this.chooseRepo(vscode.l10n.t('Choose which repository you want to work on this isssue in.'));
 			if (!repoManager) {
 				return;
 			}
@@ -722,7 +722,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	async stopWorking(issueModel: any) {
 		let folderManager = this.manager.getManagerForIssueModel(issueModel);
 		if (!folderManager) {
-			folderManager = await this.chooseRepo('Choose which repository you want to stop working on this issue in.');
+			folderManager = await this.chooseRepo(vscode.l10n.t('Choose which repository you want to stop working on this issue in.'));
 			if (!folderManager) {
 				return;
 			}
@@ -736,21 +736,21 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	private async statusBarActions(currentIssue: CurrentIssue) {
-		const openIssueText: string = `$(globe) Open #${currentIssue.issue.number} ${currentIssue.issue.title}`;
-		const pullRequestText: string = `$(git-pull-request) Create pull request for #${currentIssue.issue.number} (pushes branch)`;
+		const openIssueText: string = vscode.l10n.t('{0} Open #{1} {2}', '$(globe)', currentIssue.issue.number, currentIssue.issue.title);
+		const pullRequestText: string = vscode.l10n.t('{0} Create pull request for #{0} (pushes branch)', '$(git-pull-request)', currentIssue.issue.number);
 		let defaults: PullRequestDefaults | undefined;
 		try {
 			defaults = await currentIssue.manager.getPullRequestDefaults();
 		} catch (e) {
 			// leave defaults undefined
 		}
-		const stopWorkingText: string = `$(primitive-square) Stop working on #${currentIssue.issue.number}`;
+		const stopWorkingText: string = vscode.l10n.t('{0} Stop working on #{}', '$(primitive-square)', currentIssue.issue.number);
 		const choices =
 			currentIssue.branchName && defaults
 				? [openIssueText, pullRequestText, stopWorkingText]
 				: [openIssueText, pullRequestText, stopWorkingText];
 		const response: string | undefined = await vscode.window.showQuickPick(choices, {
-			placeHolder: 'Current issue options',
+			placeHolder: vscode.l10n.t('Current issue options'),
 		});
 		switch (response) {
 			case openIssueText:
@@ -780,7 +780,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			}
 			const choices: IssueChoice[] = currentIssues.map(currentIssue => {
 				return {
-					label: `#${currentIssue.issue.number} from ${currentIssue.issue.githubRepository.remote.owner}/${currentIssue.issue.githubRepository.remote.repositoryName}`,
+					label: vscode.l10n.t('#{0} from {1}', currentIssue.issue.number, `${currentIssue.issue.githubRepository.remote.owner}/${currentIssue.issue.githubRepository.remote.repositoryName}`),
 					currentIssue,
 				};
 			});
@@ -864,12 +864,12 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		const quickInput = vscode.window.createInputBox();
 		quickInput.value = titlePlaceholder ?? '';
 		quickInput.prompt =
-			'Set the issue title. Confirm to create the issue now or use the edit button to edit the issue title and description.';
-		quickInput.title = 'Create Issue';
+			vscode.l10n.t('Set the issue title. Confirm to create the issue now or use the edit button to edit the issue title and description.');
+		quickInput.title = vscode.l10n.t('Create Issue');
 		quickInput.buttons = [
 			{
 				iconPath: new vscode.ThemeIcon('edit'),
-				tooltip: 'Edit Description',
+				tooltip: vscode.l10n.t('Edit Description'),
 			},
 		];
 		quickInput.onDidAccept(async () => {
@@ -914,22 +914,23 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		const assigneeLine = `${ASSIGNEES} ${assignees && assignees.length > 0 ? assignees.map(value => '@' + value).join(', ') + ' ' : ''
 			}`;
 		const labelLine = `${LABELS} `;
-		const text = this._newIssueCache.get() ?? `${title ?? 'Issue Title'}\n
+		const cached = this._newIssueCache.get();
+		const text = (cached && cached !== '') ? cached : `${title ?? vscode.l10n.t('Issue Title')}\n
 ${assigneeLine}
 ${labelLine}\n
 ${body ?? ''}\n
-<!-- Edit the body of your new issue then click the ✓ \"Create Issue\" button in the top right of the editor. The first line will be the issue title. Assignees and Labels follow after a blank line. Leave an empty line before beginning the body of the issue. -->`;
+<!-- ${vscode.l10n.t('Edit the body of your new issue then click the ✓ \"Create Issue\" button in the top right of the editor. The first line will be the issue title. Assignees and Labels follow after a blank line. Leave an empty line before beginning the body of the issue.')} -->`;
 		await vscode.workspace.fs.writeFile(bodyPath, this.stringToUint8Array(text));
 		const assigneesDecoration = vscode.window.createTextEditorDecorationType({
 			after: {
-				contentText: ' Comma-separated usernames, either @username or just username.',
+				contentText: vscode.l10n.t(' Comma-separated usernames, either @username or just username.'),
 				fontStyle: 'italic',
 				color: new vscode.ThemeColor('issues.newIssueDecoration'),
 			},
 		});
 		const labelsDecoration = vscode.window.createTextEditorDecorationType({
 			after: {
-				contentText: ' Comma-separated labels.',
+				contentText: vscode.l10n.t(' Comma-separated labels.'),
 				fontStyle: 'italic',
 				color: new vscode.ThemeColor('issues.newIssueDecoration'),
 			},
@@ -987,12 +988,12 @@ ${body ?? ''}\n
 		});
 
 		if (newLabels.length > 0) {
-			const yes = 'Yes';
-			const no = 'No';
+			const yes = vscode.l10n.t('Yes');
+			const no = vscode.l10n.t('No');
 			const promptResult = await vscode.window.showInformationMessage(
-				`The following labels don't exist in this repository: ${newLabels.join(
+				vscode.l10n.t('The following labels don\'t exist in this repository: {0}. \nDo you want to create these labels?', newLabels.join(
 					', ',
-				)}. \nDo you want to create these labels?`,
+				)),
 				{ modal: true },
 				yes,
 				no,
@@ -1056,7 +1057,7 @@ ${body ?? ''}\n
 			folderManager = this.manager.getManagerForFile(originUri);
 		}
 		if (!folderManager) {
-			folderManager = await this.chooseRepo('Choose where to create the issue.');
+			folderManager = await this.chooseRepo(vscode.l10n.t('Choose where to create the issue.'));
 		}
 
 		if (!folderManager) {
@@ -1066,7 +1067,7 @@ ${body ?? ''}\n
 			origin = await folderManager.getPullRequestDefaults();
 		} catch (e) {
 			// There is no remote
-			vscode.window.showErrorMessage("There is no remote. Can't create an issue.");
+			vscode.window.showErrorMessage(vscode.l10n.t('There is no remote. Can\'t create an issue.'));
 			return false;
 		}
 		const body: string | undefined =
@@ -1096,9 +1097,9 @@ ${body ?? ''}\n
 				edit.insert(document.uri, new vscode.Position(lineNumber, insertIndex), ` ${insertText}`);
 				await vscode.workspace.applyEdit(edit);
 			} else {
-				const copyIssueUrl = 'Copy URL';
-				const openIssue = 'Open Issue';
-				vscode.window.showInformationMessage('Issue created', copyIssueUrl, openIssue).then(async result => {
+				const copyIssueUrl = vscode.l10n.t('Copy URL');
+				const openIssue = vscode.l10n.t('Open Issue');
+				vscode.window.showInformationMessage(vscode.l10n.t('Issue created'), copyIssueUrl, openIssue).then(async result => {
 					switch (result) {
 						case copyIssueUrl:
 							await vscode.env.clipboard.writeText(issue.html_url);
@@ -1118,7 +1119,7 @@ ${body ?? ''}\n
 	private async getPermalinkWithError(repositoriesManager: RepositoriesManager, fileUri?: vscode.Uri): Promise<PermalinkInfo> {
 		const link = await createGithubPermalink(repositoriesManager, this.gitAPI, undefined, fileUri);
 		if (link.error) {
-			vscode.window.showWarningMessage(`Unable to create a GitHub permalink for the selection. ${link.error}`);
+			vscode.window.showWarningMessage(vscode.l10n.t('Unable to create a GitHub permalink for the selection. {0}', link.error));
 		}
 		return link;
 	}
@@ -1126,7 +1127,7 @@ ${body ?? ''}\n
 	private async getHeadLinkWithError(fileUri?: vscode.Uri): Promise<PermalinkInfo> {
 		const link = await createGitHubLink(this.manager, fileUri);
 		if (link.error) {
-			vscode.window.showWarningMessage(`Unable to create a GitHub link for the selection. ${link.error}`);
+			vscode.window.showWarningMessage(vscode.l10n.t('Unable to create a GitHub link for the selection. {0}', link.error));
 		}
 		return link;
 	}

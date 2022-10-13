@@ -56,7 +56,9 @@ module.exports.copyrightFilter = [
 	'!.husky/**/*',
 	'!tsfmt.json',
 	'!**/queries.gql',
-	'!**/*.yml'
+	'!**/*.yml',
+	'!**/*.md',
+	'!package.nls.json'
 ];
 
 module.exports.tsFormattingFilter = [

@@ -21,7 +21,7 @@ export abstract class TreeNode implements vscode.Disposable {
 	accessibilityInformation?: vscode.AccessibilityInformation;
 	id?: string;
 
-	constructor() {}
+	constructor() { }
 	abstract getTreeItem(): vscode.TreeItem;
 	getParent(): TreeNode | undefined {
 		if (this.parent instanceof TreeNode) {
@@ -47,6 +47,10 @@ export abstract class TreeNode implements vscode.Disposable {
 	async getChildren(): Promise<TreeNode[]> {
 		return [];
 	}
+
+	updateCheckbox(_newState: vscode.TreeItemCheckboxState): void { }
+
+	public updateParentCheckbox(): boolean { return false; }
 
 	dispose(): void {
 		if (this.childrenDisposables) {

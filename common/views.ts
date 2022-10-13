@@ -29,7 +29,7 @@ export interface CreateParams {
 	baseBranch?: string;
 	compareRemote?: RemoteInfo;
 	compareBranch?: string;
-	isDraft: boolean;
+	isDraft?: boolean;
 
 	validate?: boolean;
 	showTitleValidationError?: boolean;

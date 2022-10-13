@@ -5,6 +5,7 @@
 
 import { OctokitResponse } from '@octokit/types';
 import * as vscode from 'vscode';
+import { AuthProvider } from '../common/authentication';
 import Logger from '../common/logger';
 import { NOTIFICATION_SETTING } from '../common/settingKeys';
 import { createPRNodeUri } from '../common/uri';
@@ -12,7 +13,7 @@ import { PullRequestsTreeDataProvider } from '../view/prsTreeDataProvider';
 import { CategoryTreeNode } from '../view/treeNodes/categoryNode';
 import { PRNode } from '../view/treeNodes/pullRequestNode';
 import { TreeNode } from '../view/treeNodes/treeNode';
-import { AuthProvider, CredentialStore, GitHub } from './credentials';
+import { CredentialStore, GitHub } from './credentials';
 import { SETTINGS_NAMESPACE } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
 import { PullRequestState } from './graphql';
@@ -110,21 +111,20 @@ export class NotificationProvider implements vscode.Disposable {
 	}
 
 	private registerAuthProvider(credentialStore: CredentialStore) {
-		if (credentialStore.isAuthenticated(AuthProvider.github)) {
-			this._authProvider = AuthProvider.github;
-		}
-		else if (credentialStore.isAuthenticated(AuthProvider['github-enterprise']) && hasEnterpriseUri()) {
+		if (credentialStore.isAuthenticated(AuthProvider['github-enterprise']) && hasEnterpriseUri()) {
 			this._authProvider = AuthProvider['github-enterprise'];
+		} else if (credentialStore.isAuthenticated(AuthProvider.github)) {
+			this._authProvider = AuthProvider.github;
 		}
 
 		this.disposables.push(
 			vscode.authentication.onDidChangeSessions(_ => {
-				if (credentialStore.isAuthenticated(AuthProvider.github)) {
-					this._authProvider = AuthProvider.github;
-				}
-
 				if (credentialStore.isAuthenticated(AuthProvider['github-enterprise']) && hasEnterpriseUri()) {
 					this._authProvider = AuthProvider['github-enterprise'];
+				}
+
+				if (credentialStore.isAuthenticated(AuthProvider.github)) {
+					this._authProvider = AuthProvider.github;
 				}
 			})
 		);
@@ -151,8 +151,10 @@ export class NotificationProvider implements vscode.Disposable {
 
 	private updateViewBadge() {
 		const treeView = this._gitHubPrsTree.view;
+		const singularMessage = vscode.l10n.t('1 notification');
+		const pluralMessage = vscode.l10n.t('{0} notifications', this._notifications.size);
 		treeView.badge = this._notifications.size !== 0 ? {
-			tooltip: `${this._notifications.size} ${this._notifications.size === 1 ? 'notification' : 'notifications'}`,
+			tooltip: this._notifications.size === 1 ? singularMessage : pluralMessage,
 			value: this._notifications.size
 		} : undefined;
 	}
@@ -246,12 +248,16 @@ export class NotificationProvider implements vscode.Disposable {
 		const gitHub = this.getGitHub();
 		if (gitHub === undefined)
 			return undefined;
-		const { data, headers } = await gitHub.octokit.activity.listNotificationsForAuthenticatedUser();
+		const { data, headers } = await gitHub.octokit.call(gitHub.octokit.api.activity.listNotificationsForAuthenticatedUser, {});
 		return { data: data, headers: headers };
 	}
 
 	private async markNotificationThreadAsRead(thredId) {
-		await this.getGitHub()?.octokit.activity.markThreadAsRead({
+		const github = this.getGitHub();
+		if (!github) {
+			return;
+		}
+		await github.octokit.call(github.octokit.api.activity.markThreadAsRead, {
 			thread_id: thredId
 		});
 	}
@@ -279,7 +285,7 @@ export class NotificationProvider implements vscode.Disposable {
 		const { data, headers } = response;
 		const pollTimeSuggested = Number(headers['x-poll-interval']);
 
-		// Adapt polling interval if it has changed
+		// Adapt polling interval if it has changed.
 		if (pollTimeSuggested !== this._pollingDuration) {
 			this._pollingDuration = pollTimeSuggested;
 			if (this._pollingHandler && NotificationProvider.isPRNotificationsOn()) {

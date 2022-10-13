@@ -5,7 +5,7 @@
 
 import { createContext } from 'react';
 import { CreateParams, CreatePullRequest, ScrollPosition } from '../../common/views';
-import { getMessageHandler, MessageHandler } from './message';
+import { getMessageHandler, MessageHandler, vscode } from './message';
 
 const defaultCreateParams: CreateParams = {
 	availableBaseRemotes: [],
@@ -14,12 +14,11 @@ const defaultCreateParams: CreateParams = {
 	branchesForCompare: [],
 	validate: false,
 	showTitleValidationError: false,
-	isDraft: false,
 };
 
 export class CreatePRContext {
 	constructor(
-		public createParams: CreateParams = { ...defaultCreateParams },
+		public createParams: CreateParams = { ...defaultCreateParams, ...vscode.getState() },
 		public onchange: ((ctx: CreateParams) => void) | null = null,
 		private _handler: MessageHandler | null = null,
 	) {
@@ -30,11 +29,13 @@ export class CreatePRContext {
 
 	public cancelCreate = (): Promise<void> => {
 		const args = this.copyParams();
+		vscode.setState(defaultCreateParams);
 		return this.postMessage({ command: 'pr.cancelCreate', args });
 	};
 
 	public updateState = (params: Partial<CreateParams>): void => {
 		this.createParams = { ...this.createParams, ...params };
+		vscode.setState(this.createParams);
 		if (this.onchange) {
 			this.onchange(this.createParams);
 		}
@@ -115,7 +116,7 @@ export class CreatePRContext {
 			compareBranch: this.createParams.compareBranch!,
 			compareOwner: this.createParams.compareRemote!.owner,
 			compareRepo: this.createParams.compareRemote!.repositoryName,
-			draft: this.createParams.isDraft,
+			draft: !!this.createParams.isDraft,
 			autoMerge: !!this.createParams.autoMerge,
 			autoMergeMethod: this.createParams.autoMergeMethod
 		};
@@ -124,6 +125,7 @@ export class CreatePRContext {
 	public submit = async (): Promise<void> => {
 		try {
 			const args: CreatePullRequest = this.copyParams();
+			vscode.setState(defaultCreateParams);
 			await this.postMessage({
 				command: 'pr.create',
 				args,
@@ -183,6 +185,10 @@ export class CreatePRContext {
 				} else {
 					// Notify the extension of the stored compare branch state
 					await this.changeCompareBranch(this.createParams.compareBranch);
+				}
+
+				if (this.createParams.isDraft === undefined) {
+					message.params.isDraft = false;
 				}
 
 				this.updateState(message.params);

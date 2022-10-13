@@ -135,7 +135,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		const { octokit, remote } = await this._gitHubRepository.ensure();
 
 		try {
-			const { data } = await octokit.repos.compareCommits({
+			const { data } = await octokit.call(octokit.api.repos.compareCommits, {
 				repo: remote.repositoryName,
 				owner: remote.owner,
 				base: `${this.baseOwner}:${this.baseBranchName}`,
@@ -190,7 +190,7 @@ class GitHubContentProvider extends ReadonlyFileSystemProvider {
 		}
 
 		const { octokit, remote } = await this.gitHubRepository.ensure();
-		let fileContent: { data: { content: string; encoding: string; sha: string } } = (await octokit.repos.getContent(
+		let fileContent: { data: { content: string; encoding: string; sha: string } } = (await octokit.call(octokit.api.repos.getContent,
 			{
 				owner: remote.owner,
 				repo: remote.repositoryName,
@@ -203,7 +203,7 @@ class GitHubContentProvider extends ReadonlyFileSystemProvider {
 		// Empty contents and 'none' encoding indcates that the file has been truncated and we should get the blob.
 		if (contents === '' && fileContent.data.encoding === 'none') {
 			const fileSha = fileContent.data.sha;
-			fileContent = await octokit.git.getBlob({
+			fileContent = await octokit.call(octokit.api.git.getBlob, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				file_sha: fileSha,

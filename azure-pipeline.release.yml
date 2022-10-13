@@ -19,6 +19,7 @@ resources:
 extends:
   template: azure-pipelines/extension/stable.yml@templates
   parameters:
+    l10nSourcePaths: ./src
     buildSteps:
       - script: yarn install --frozen-lockfile
         displayName: Install dependencies
@@ -37,15 +38,15 @@ extends:
           DISPLAY: ':99.0'
           TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
 
-      - script: yarn run browsertest --browserType=chromium
-        displayName: Run test suite (chromium)
-        env:
-          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-chromium-test-results.xml
+      # - script: yarn run browsertest --browserType=chromium
+      #   displayName: Run test suite (chromium)
+      #   env:
+      #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-chromium-test-results.xml
 
-      - script: yarn run browsertest --browserType=firefox
-        displayName: Run test suite (firefox)
-        env:
-          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
+      # - script: yarn run browsertest --browserType=firefox
+      #   displayName: Run test suite (firefox)
+      #   env:
+      #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
 
       # - script: yarn run browsertest --browserType=webkit
       #   displayName: Run test suite (webkit)

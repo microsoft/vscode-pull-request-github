@@ -11,7 +11,7 @@ import { ReviewManager } from './reviewManager';
 
 export class WebviewViewCoordinator {
 	private _webviewViewProvider?: PullRequestViewProvider;
-	private _pullRequestModel?: PullRequestModel;
+	private _pullRequestModel: Map<PullRequestModel, { folderRepositoryManager: FolderRepositoryManager, reviewManager: ReviewManager }> = new Map();
 
 	constructor(private _context: vscode.ExtensionContext) { }
 
@@ -31,7 +31,16 @@ export class WebviewViewCoordinator {
 	}
 
 	public setPullRequest(pullRequestModel: PullRequestModel, folderRepositoryManager: FolderRepositoryManager, reviewManager: ReviewManager) {
-		this._pullRequestModel = pullRequestModel;
+		this._pullRequestModel.set(pullRequestModel, { folderRepositoryManager, reviewManager });
+		this.updatePullRequest();
+	}
+
+	private updatePullRequest() {
+		const pullRequestModel = Array.from(this._pullRequestModel.keys())[0];
+		if (!pullRequestModel) {
+			return;
+		}
+		const { folderRepositoryManager, reviewManager } = this._pullRequestModel.get(pullRequestModel)!;
 		if (!this._webviewViewProvider) {
 			this.create(pullRequestModel, folderRepositoryManager, reviewManager);
 		} else {
@@ -39,8 +48,17 @@ export class WebviewViewCoordinator {
 		}
 	}
 
+	public removePullRequest(pullReqestModel: PullRequestModel) {
+		const oldHead = Array.from(this._pullRequestModel.keys())[0];
+		this._pullRequestModel.delete(pullReqestModel);
+		const newHead = Array.from(this._pullRequestModel.keys())[0];
+		if (newHead !== oldHead) {
+			this.updatePullRequest();
+		}
+	}
+
 	public show(pullReqestModel: PullRequestModel) {
-		if (this._webviewViewProvider && (this._pullRequestModel === pullReqestModel)) {
+		if (this._webviewViewProvider && (this._pullRequestModel.size > 0) && (Array.from(this._pullRequestModel.keys())[0] === pullReqestModel)) {
 			this._webviewViewProvider.show();
 		}
 	}

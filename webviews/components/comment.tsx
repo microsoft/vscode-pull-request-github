@@ -32,9 +32,10 @@ export function CommentView(comment: Props) {
 	const [showActionBar, setShowActionBar] = useState(false);
 
 	if (inEditMode) {
-		return React.cloneElement(comment.headerInEditMode ? <CommentBox for={comment} /> : <></>, {}, [
+		return React.cloneElement(comment.headerInEditMode ? <CommentBox for={comment}/> : <></>, {}, [
 			<EditComment
 				id={id}
+				key={`editComment${id}`}
 				body={currentDraft || bodyMd}
 				onCancel={() => {
 					if (pr.pendingCommentDrafts) {

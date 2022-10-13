@@ -281,6 +281,12 @@ query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last:
 			}
 		}
 	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
 }
 
 query LatestReviewCommit($owner: String!, $name: String!, $number: Int!) {
@@ -292,6 +298,12 @@ query LatestReviewCommit($owner: String!, $name: String!, $number: Int!) {
 				}
 			}
 		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
 	}
 }
 
@@ -355,6 +367,12 @@ query GetParticipants($owner: String!, $name: String!, $number: Int!, $first: In
 			}
 		}
 	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
 }
 
 query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
@@ -407,6 +425,12 @@ query PullRequestComments($owner: String!, $name: String!, $number: Int!, $first
 			}
 		}
 	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
 }
 
 query PullRequest($owner: String!, $name: String!, $number: Int!) {
@@ -437,6 +461,12 @@ query PullRequestFiles($owner: String!, $name: String!, $number: Int!, $after: S
 				}
 			}
 		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
 	}
 }
 
@@ -471,6 +501,12 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 			id
 			databaseId
 		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
 	}
 }
 
@@ -523,6 +559,12 @@ query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
 			}
 		}
 	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
 }
 
 query GetUser($login: String!) {
@@ -546,6 +588,12 @@ query GetUser($login: String!) {
 			}
 		}
 		url
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
 	}
 }
 
@@ -572,6 +620,12 @@ query PullRequestState($owner: String!, $name: String!, $number: Int!) {
 			state
 		}
 	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
 }
 
 query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!) {
@@ -581,6 +635,12 @@ query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!)
 				...PullRequestFragment
 			}
 		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
 	}
 }
 
@@ -768,6 +828,12 @@ query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String
 			}
 		}
 	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
 }
 
 query IssuesWithoutMilestone($owner: String!, $name: String!, $assignee: String!) {
@@ -828,6 +894,12 @@ query IssuesWithoutMilestone($owner: String!, $name: String!, $assignee: String!
 			}
 		}
 	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
 }
 
 query MaxIssue($owner: String!, $name: String!) {
@@ -842,6 +914,12 @@ query MaxIssue($owner: String!, $name: String!) {
 			}
 		}
 	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
 }
 
 query GetMilestones($owner: String!, $name: String!, $states: [MilestoneState!]!) {
@@ -854,6 +932,12 @@ query GetMilestones($owner: String!, $name: String!, $states: [MilestoneState!]!
 				id
 			}
 		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
 	}
 }
 
@@ -924,6 +1008,12 @@ query GetMilestonesWithIssues($owner: String!, $name: String!, $assignee: String
 			}
 		}
 	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
 }
 
 query Issues($query: String!) {
@@ -988,11 +1078,23 @@ query Issues($query: String!) {
 			}
 		}
 	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
 }
 
 query GetViewerPermission($owner: String!, $name: String!) {
 	repository(owner: $owner, name: $name) {
 		viewerPermission
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
 	}
 }
 
@@ -1005,6 +1107,12 @@ query GetRepositoryForkDetails($owner: String!, $name: String!) {
 				login
 			}
 		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
 	}
 }
 
@@ -1047,6 +1155,12 @@ query GetChecks($owner: String!, $name: String!, $number: Int!) {
 				}
 			}
 		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
 	}
 }
 

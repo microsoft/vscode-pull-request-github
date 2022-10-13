@@ -7,8 +7,8 @@ import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
+import { AuthProvider } from '../common/authentication';
 import { parseRepositoryRemotes } from '../common/remote';
-import { AuthProvider } from '../github/credentials';
 import {
 	FolderRepositoryManager,
 	NO_MILESTONE,
@@ -50,7 +50,7 @@ interface IssuesState {
 	branches: Record<string, { owner: string; repositoryName: string; number: number }>;
 }
 
-const DEFAULT_QUERY_CONFIGURATION_VALUE = [{ label: 'My Issues', query: 'default' }];
+const DEFAULT_QUERY_CONFIGURATION_VALUE = [{ label: vscode.l10n.t('My Issues'), query: 'default' }];
 
 export interface MilestoneItem extends MilestoneModel {
 	uri: vscode.Uri;
@@ -506,12 +506,12 @@ export class StateManager {
 		}
 		if (shouldShowStatusBarItem && !this.statusBarItem) {
 			this.statusBarItem = vscode.window.createStatusBarItem('github.issues.status', vscode.StatusBarAlignment.Left, 0);
-			this.statusBarItem.name = 'GitHub Active Issue';
+			this.statusBarItem.name = vscode.l10n.t('GitHub Active Issue');
 		}
 		const statusBarItem = this.statusBarItem!;
-		statusBarItem.text = `$(issues) Issue ${currentIssues
+		statusBarItem.text = vscode.l10n.t('{0} Issue {1}', '$(issues)', currentIssues
 			.map(issue => getIssueNumberLabel(issue.issue, issue.repoDefaults))
-			.join(', ')}`;
+			.join(', '));
 		statusBarItem.tooltip = currentIssues.map(issue => issue.issue.title).join(', ');
 		statusBarItem.command = 'issue.statusBar';
 		statusBarItem.show();

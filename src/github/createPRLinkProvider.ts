@@ -16,7 +16,7 @@ export class GitHubCreatePullRequestLinkProvider implements vscode.TerminalLinkP
 	constructor(
 		private readonly reviewManager: ReviewManager,
 		private readonly folderRepositoryManager: FolderRepositoryManager,
-	) {}
+	) { }
 
 	private static getSettingsValue() {
 		return vscode.workspace
@@ -64,7 +64,7 @@ export class GitHubCreatePullRequestLinkProvider implements vscode.TerminalLinkP
 					{
 						startIndex,
 						length: context.line.length - startIndex,
-						tooltip: 'Create a Pull Request',
+						tooltip: vscode.l10n.t('Create a Pull Request'),
 						url,
 					},
 				];

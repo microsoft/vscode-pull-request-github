@@ -8,8 +8,6 @@ import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
 import { DiffSide, IComment } from '../common/comment';
-import Logger from '../common/logger';
-import { ISessionState } from '../common/sessionState';
 import { fromPRUri, Schemes } from '../common/uri';
 import { groupBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -42,7 +40,6 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		private pullRequestModel: PullRequestModel,
 		private _folderReposManager: FolderRepositoryManager,
 		private _commentController: vscode.CommentController,
-		private readonly _sessionState: ISessionState
 	) {
 		this._commentHandlerId = uuid();
 		registerCommentHandler(this._commentHandlerId, this);
@@ -83,23 +80,6 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				this.refreshContextKey(e);
 			}),
 		);
-
-		this._disposables.push(
-			this._sessionState.onDidChangeCommentsExpandState(expand => {
-				for (const reviewThread of this.pullRequestModel.reviewThreadsCache) {
-					const key = this.getCommentThreadCacheKey(reviewThread.path, reviewThread.diffSide === DiffSide.LEFT);
-					const cachedThread = this._commentThreadCache[key];
-					if (!cachedThread) {
-						Logger.appendLine(`PullRequestCommentController> Thread with ID ${key} is no longer in cache`);
-						continue;
-					}
-					const index = cachedThread.findIndex(t => t.gitHubThreadId === reviewThread.id);
-					if (index > -1) {
-						const matchingThread = cachedThread[index];
-						updateThread(matchingThread, reviewThread, expand);
-					}
-				}
-			}));
 	}
 
 	private refreshContextKey(editor: vscode.TextEditor | undefined): void {
@@ -393,7 +373,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		const currentUser = this._folderReposManager.getCurrentUser(this.pullRequestModel.githubRepository);
 		const temporaryComment = new TemporaryComment(
 			thread,
-			comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
+			comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.rawBody,
 			!!comment.label,
 			currentUser,
 			comment,
@@ -415,7 +395,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			try {
 				await this.pullRequestModel.editReviewComment(
 					comment._rawComment,
-					comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
+					comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.rawBody,
 				);
 			} catch (e) {
 				vscode.window.showErrorMessage(`Editing comment failed ${e}`);
@@ -431,7 +411,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		} else {
 			this.createOrReplyComment(
 				thread,
-				comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
+				comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.rawBody,
 				false,
 			);
 		}

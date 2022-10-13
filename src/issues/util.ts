@@ -46,7 +46,7 @@ export async function getIssue(
 		let owner: string | undefined = undefined;
 		let name: string | undefined = undefined;
 		let issueNumber: number | undefined = undefined;
-		const remotes = manager.getGitHubRemotes();
+		const remotes = await manager.getGitHubRemotes();
 		for (const remote of remotes) {
 			if (!parsed) {
 				const tryParse = parseIssueExpressionOutput(issueValue.match(ISSUE_OR_URL_EXPRESSION));
@@ -113,13 +113,13 @@ export function userMarkdown(origin: PullRequestDefaults, user: User): vscode.Ma
 		markdown.appendMarkdown('  \r\n\r\n---');
 	}
 	if (user.location) {
-		markdown.appendMarkdown(`  \r\n$(location) ${user.location}`);
+		markdown.appendMarkdown(`  \r\n${vscode.l10n.t('{0} {1}', '$(location)', user.location)}`);
 	}
 	if (date) {
-		markdown.appendMarkdown(`  \r\n$(git-commit) Committed to this repository on ${date}`);
+		markdown.appendMarkdown(`  \r\n${vscode.l10n.t('{0} Committed to this repository on {1}', '$(git-commit)', date)}`);
 	}
 	if (user.company) {
-		markdown.appendMarkdown(`  \r\n$(jersey) Member of ${user.company}`);
+		markdown.appendMarkdown(`  \r\n${vscode.l10n.t('{0} Member of {1}', '$(jersey)', user.company)}`);
 	}
 	return markdown;
 }
@@ -462,12 +462,12 @@ export async function createGithubPermalink(
 ): Promise<PermalinkInfo> {
 	const { uri, range } = getFileAndPosition(fileUri, positionInfo);
 	if (!uri) {
-		return { permalink: undefined, error: 'No active text editor position to create permalink from.', originalFile: undefined };
+		return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined };
 	}
 
 	const repository = getRepositoryForFile(gitAPI, uri);
 	if (!repository) {
-		return { permalink: undefined, error: "The current file isn't part of repository.", originalFile: uri };
+		return { permalink: undefined, error: vscode.l10n.t('The current file isn\'t part of repository.'), originalFile: uri };
 	}
 
 	let commit: Commit | undefined;
@@ -480,7 +480,7 @@ export async function createGithubPermalink(
 		try {
 			const log = await repository.log({ maxEntries: 1, path: uri.fsPath });
 			if (log.length === 0) {
-				return { permalink: undefined, error: 'No branch on a remote contains the most recent commit for the file.', originalFile: uri };
+				return { permalink: undefined, error: vscode.l10n.t('No branch on a remote contains the most recent commit for the file.'), originalFile: uri };
 			}
 			// Now that we know that the file existed at some point in the repo, use the head commit to construct the URI.
 			if (repository.state.HEAD?.commit && (log[0].hash !== repository.state.HEAD?.commit)) {
@@ -497,7 +497,7 @@ export async function createGithubPermalink(
 
 	const rawUpstream = await getBestPossibleUpstream(repository, commit);
 	if (!rawUpstream || !rawUpstream.fetchUrl) {
-		return { permalink: undefined, error: 'The selection may not exist on any remote.', originalFile: uri };
+		return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri };
 	}
 	const upstream: Remote & { fetchUrl: string } = rawUpstream as any;
 
@@ -550,11 +550,11 @@ export async function createGitHubLink(
 ): Promise<PermalinkInfo> {
 	const { uri, range } = getFileAndPosition(fileUri);
 	if (!uri) {
-		return { permalink: undefined, error: 'No active text editor position to create permalink from.', originalFile: undefined };
+		return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined };
 	}
 	const folderManager = managers.getManagerForFile(uri);
 	if (!folderManager) {
-		return { permalink: undefined, error: 'Current file does not belong to an open repository.', originalFile: undefined };
+		return { permalink: undefined, error: vscode.l10n.t('Current file does not belong to an open repository.'), originalFile: undefined };
 	}
 	let branchName = folderManager.repository.state.HEAD?.name;
 	if (!branchName) {
@@ -565,11 +565,12 @@ export async function createGitHubLink(
 	}
 	const upstream = getSimpleUpstream(folderManager.repository);
 	if (!upstream?.fetchUrl) {
-		return { permalink: undefined, error: 'Repository does not have any remotes.', originalFile: undefined };
+		return { permalink: undefined, error: vscode.l10n.t('Repository does not have any remotes.'), originalFile: undefined };
 	}
 	const pathSegment = uri.path.substring(folderManager.repository.rootUri.path.length);
+	const originOfFetchUrl = getUpstreamOrigin(upstream).replace(/\/$/, '');
 	return {
-		permalink: `https://github.com/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${branchName
+		permalink: `${originOfFetchUrl}/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${branchName
 			}${pathSegment}${rangeString(range)}`,
 		error: undefined,
 		originalFile: uri
@@ -583,8 +584,8 @@ async function commitWithDefault(manager: FolderRepositoryManager, stateManager:
 	}
 }
 
-const commitStaged = 'Commit Staged';
-const commitAll = 'Commit All';
+const commitStaged = vscode.l10n.t('Commit Staged');
+const commitAll = vscode.l10n.t('Commit All');
 export async function pushAndCreatePR(
 	manager: FolderRepositoryManager,
 	reviewManager: ReviewManager,
@@ -599,7 +600,7 @@ export async function pushAndCreatePR(
 			responseOptions.push(commitAll);
 		}
 		const changesResponse = await vscode.window.showInformationMessage(
-			'There are uncommitted changes. Do you want to commit them with the default commit message?',
+			vscode.l10n.t('There are uncommitted changes. Do you want to commit them with the default commit message?'),
 			{ modal: true },
 			...responseOptions,
 		);
@@ -628,7 +629,7 @@ export async function pushAndCreatePR(
 		} else if (manager.repository.state.remotes.length > 1) {
 			remote = await vscode.window.showQuickPick(
 				manager.repository.state.remotes.map(value => value.name),
-				{ placeHolder: 'Remote to push to' },
+				{ placeHolder: vscode.l10n.t('Remote to push to') },
 			);
 		}
 		if (remote) {
@@ -637,7 +638,7 @@ export async function pushAndCreatePR(
 			return true;
 		} else {
 			vscode.window.showWarningMessage(
-				'The current repository has no remotes to push to. Please set up a remote and try again.',
+				vscode.l10n.t('The current repository has no remotes to push to. Please set up a remote and try again.'),
 			);
 			return false;
 		}

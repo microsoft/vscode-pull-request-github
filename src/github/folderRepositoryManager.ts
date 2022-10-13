@@ -8,21 +8,22 @@ import * as vscode from 'vscode';
 import type { Branch, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl, GitErrorCodes, RefType } from '../api/api1';
 import { GitHubManager } from '../authentication/githubServer';
+import { AuthProvider, GitHubServerType } from '../common/authentication';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
-import { parseRepositoryRemotes, Remote } from '../common/remote';
-import { ISessionState } from '../common/sessionState';
+import { GitHubRemote, parseRepositoryRemotes, Remote } from '../common/remote';
 import { PULL_BRANCH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { fromPRUri, Schemes } from '../common/uri';
 import { compareIgnoreCase, formatError, Predicate } from '../common/utils';
+import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { EXTENSION_ID } from '../constants';
 import { NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
 import { UserCompletion, userMarkdown } from '../issues/util';
 import { OctokitCommon } from './common';
-import { AuthProvider, CredentialStore } from './credentials';
+import { CredentialStore } from './credentials';
 import { GitHubRepository, ItemsData, PullRequestData, ViewerPermission } from './githubRepository';
 import { PullRequestState, UserResponse } from './graphql';
 import { IAccount, ILabel, IMilestone, IPullRequestsPagingOptions, PRType, RepoAccessAndMergeMethods, User } from './interface';
@@ -58,7 +59,7 @@ export class NoGitHubReposError extends Error {
 	}
 
 	get message() {
-		return `${this.repository.rootUri.toString()} has no GitHub remotes`;
+		return vscode.l10n.t('{0} has no GitHub remotes', this.repository.rootUri.toString());
 	}
 }
 
@@ -68,7 +69,7 @@ export class DetachedHeadError extends Error {
 	}
 
 	get message() {
-		return `${this.repository.rootUri.toString()} has a detached HEAD (create a branch first)`;
+		return vscode.l10n.t('{0} has a detached HEAD (create a branch first', this.repository.rootUri.toString());
 	}
 }
 
@@ -83,7 +84,7 @@ export class BadUpstreamError extends Error {
 			branchName,
 			problem,
 		} = this;
-		return `The upstream ref ${remote}/${name} for branch ${branchName} ${problem}.`;
+		return vscode.l10n.t('The upstream ref {0} for branch {1} {2}.', `${remote}/${name}`, branchName, problem);
 	}
 }
 
@@ -120,7 +121,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	private _activePullRequest?: PullRequestModel;
 	private _activeIssue?: IssueModel;
 	private _githubRepositories: GitHubRepository[];
-	private _allGitHubRemotes: Remote[] = [];
+	private _allGitHubRemotes: GitHubRemote[] = [];
 	private _mentionableUsers?: { [key: string]: IAccount[] };
 	private _fetchMentionableUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
 	private _assignableUsers?: { [key: string]: IAccount[] };
@@ -155,7 +156,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		public readonly telemetry: ITelemetry,
 		private _git: GitApiImpl,
 		private _credentialStore: CredentialStore,
-		private readonly _sessionState: ISessionState
 	) {
 		this._subs = [];
 		this._githubRepositories = [];
@@ -198,21 +198,28 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return this._githubRepositories;
 	}
 
-	private computeAllGitHubRemotes(): Promise<Remote[]> {
+	public async computeAllGitHubRemotes(): Promise<GitHubRemote[]> {
 		const remotes = parseRepositoryRemotes(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);
-		return Promise.all(
+		const serverTypes = await Promise.all(
 			potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
-		)
-			.then(results => potentialRemotes.filter((_, index, __) => results[index]))
-			.catch(e => {
-				Logger.appendLine(`Resolving GitHub remotes failed: ${e}`);
-				vscode.window.showErrorMessage(`Resolving GitHub remotes failed: ${formatError(e)}`);
-				return [];
-			});
+		).catch(e => {
+			Logger.appendLine(`Resolving GitHub remotes failed: ${e}`);
+			vscode.window.showErrorMessage(vscode.l10n.t('Resolving GitHub remotes failed: {0}', formatError(e)));
+			return [];
+		});
+		const githubRemotes: GitHubRemote[] = [];
+		let i = 0;
+		for (const potentialRemote of potentialRemotes) {
+			if (serverTypes[i] !== GitHubServerType.None) {
+				githubRemotes.push(GitHubRemote.remoteAsGitHub(potentialRemote, serverTypes[i]));
+			}
+			i++;
+		}
+		return githubRemotes;
 	}
 
-	public async getActiveGitHubRemotes(allGitHubRemotes: Remote[]): Promise<Remote[]> {
+	public async getActiveGitHubRemotes(allGitHubRemotes: GitHubRemote[]): Promise<GitHubRemote[]> {
 		const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
 
 		if (!remotesSetting) {
@@ -234,7 +241,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		return remotesSetting
 			.map(remote => allGitHubRemotes.find(repo => repo.remoteName === remote))
-			.filter((repo: Remote | undefined): repo is Remote => !!repo);
+			.filter((repo: GitHubRemote | undefined): repo is GitHubRemote => !!repo);
 	}
 
 	public setUpCompletionItemProvider() {
@@ -494,7 +501,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 	}
 
-	private async getActiveRemotes(): Promise<Remote[]> {
+	private async getActiveRemotes(): Promise<GitHubRemote[]> {
 		this._allGitHubRemotes = await this.computeAllGitHubRemotes();
 		const activeRemotes = await this.getActiveGitHubRemotes(this._allGitHubRemotes);
 
@@ -518,6 +525,31 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return this._updatingRepositories;
 	}
 
+	private checkForAuthMatch(activeRemotes: GitHubRemote[]): boolean {
+		// Check that our auth matches the remote.
+		let dotComCount = 0;
+		let enterpriseCount = 0;
+		for (const remote of activeRemotes) {
+			if (remote.githubServerType === GitHubServerType.GitHubDotCom) {
+				dotComCount++;
+			} else if (remote.githubServerType === GitHubServerType.Enterprise) {
+				enterpriseCount++;
+			}
+		}
+
+		let isAuthenticated = this._credentialStore.isAuthenticated(AuthProvider.github) || this._credentialStore.isAuthenticated(AuthProvider['github-enterprise']);
+		if ((dotComCount > 0) && this._credentialStore.isAuthenticated(AuthProvider.github)) {
+			// good
+		} else if ((enterpriseCount > 0) && this._credentialStore.isAuthenticated(AuthProvider['github-enterprise'])) {
+			// also good
+		} else if (isAuthenticated) {
+			// Not good. We have a mismatch between auth type and server type.
+			isAuthenticated = false;
+		}
+		vscode.commands.executeCommand('setContext', 'github:authenticated', isAuthenticated);
+		return isAuthenticated;
+	}
+
 	private async doUpdateRepositories(silent: boolean): Promise<void> {
 		if (this._git.state === 'uninitialized') {
 			Logger.appendLine('Cannot updates repositories as git is uninitialized');
@@ -526,8 +558,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 
 		const activeRemotes = await this.getActiveRemotes();
-		const isAuthenticated = this._credentialStore.isAuthenticated(AuthProvider.github) || this._credentialStore.isAuthenticated(AuthProvider['github-enterprise']);
-		vscode.commands.executeCommand('setContext', 'github:authenticated', isAuthenticated);
+		const isAuthenticated = this.checkForAuthMatch(activeRemotes);
 
 		const repositories: GitHubRepository[] = [];
 		const resolveRemotePromises: Promise<boolean>[] = [];
@@ -535,11 +566,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		this._githubRepositories.forEach(repo => oldRepositories.push(repo));
 
 		const authenticatedRemotes = activeRemotes.filter(remote => this._credentialStore.isAuthenticated(remote.authProviderId));
-		authenticatedRemotes.forEach(remote => {
-			const repository = this.createGitHubRepository(remote, this._credentialStore);
+		for (const remote of authenticatedRemotes) {
+			const repository = await this.createGitHubRepository(remote, this._credentialStore);
 			resolveRemotePromises.push(repository.resolveRemote());
 			repositories.push(repository);
-		});
+		}
 
 		return Promise.all(resolveRemotePromises).then(async (remoteResults: boolean[]) => {
 			if (remoteResults.some(value => !value)) {
@@ -602,7 +633,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						// check the remotes to see what protocol is being used
 						const isSSH = this.gitHubRepositories[0].remote.gitProtocol.type === ProtocolType.SSH;
 						if (isSSH) {
-							await this.repository.addRemote(remoteName, metadata.parent.git_url);
+							await this.repository.addRemote(remoteName, metadata.parent.ssh_url);
 						} else {
 							await this.repository.addRemote(remoteName, metadata.parent.clone_url);
 						}
@@ -744,20 +775,34 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	 * Returns the remotes that are currently active, which is those that are important by convention (origin, upstream),
 	 * or the remotes configured by the setting githubPullRequests.remotes
 	 */
-	getGitHubRemotes(): Remote[] {
+	async getGitHubRemotes(): Promise<GitHubRemote[]> {
 		const githubRepositories = this._githubRepositories;
 
 		if (!githubRepositories || !githubRepositories.length) {
 			return [];
 		}
 
-		return githubRepositories.map(repository => repository.remote);
+		const remotes = githubRepositories.map(repo => repo.remote).flat();
+
+		const serverTypes = await Promise.all(
+			remotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
+		).catch(e => {
+			Logger.appendLine(`Resolving GitHub remotes failed: ${e}`);
+			vscode.window.showErrorMessage(vscode.l10n.t('Resolving GitHub remotes failed: {0}', formatError(e)));
+			return [];
+		});
+
+		const githubRemotes = remotes.map((remote, index) => GitHubRemote.remoteAsGitHub(remote, serverTypes[index]));
+		if (this.checkForAuthMatch(githubRemotes)) {
+			return githubRemotes;
+		}
+		return [];
 	}
 
 	/**
 	 * Returns all remotes from the repository.
 	 */
-	async getAllGitHubRemotes(): Promise<Remote[]> {
+	async getAllGitHubRemotes(): Promise<GitHubRemote[]> {
 		return await this.computeAllGitHubRemotes();
 	}
 
@@ -818,7 +863,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		let results: ILabel[] = [];
 
 		do {
-			const result = await octokit.issues.listLabelsForRepo({
+			const result = await octokit.call(octokit.api.issues.listLabelsForRepo, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				per_page: 100,
@@ -1059,7 +1104,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	async createMilestone(repository: GitHubRepository, milestoneTitle: string): Promise<IMilestone | undefined> {
 		try {
-			const { data } = await repository.octokit.issues.createMilestone({
+			const { data } = await repository.octokit.call(repository.octokit.api.issues.createMilestone, {
 				owner: repository.remote.owner,
 				repo: repository.remote.repositoryName,
 				title: milestoneTitle
@@ -1072,7 +1117,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			};
 		}
 		catch (e) {
-			vscode.window.showErrorMessage(`Failed to create a milestone\n${formatError(e)}`);
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to create a milestone\n{0}', formatError(e)));
 			return undefined;
 		}
 	}
@@ -1255,12 +1300,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				// There are unpushed commits
 				if (this._repository.state.HEAD?.ahead) {
 					// Offer to push changes
+					const pushCommits = vscode.l10n.t('Push Commits');
 					const shouldPush = await vscode.window.showInformationMessage(
-						`There are no commits between '${params.base}' and '${params.head}'.\n\nDo you want to push your local commits and create the pull request?`,
+						vscode.l10n.t('There are no commits between \'{0}\' and \'{1}\'.\n\nDo you want to push your local commits and create the pull request?', params.base, params.head),
 						{ modal: true },
-						'Push Commits',
+						pushCommits,
 					);
-					if (shouldPush === 'Push Commits') {
+					if (shouldPush === pushCommits) {
 						await this._repository.push();
 						return this.createPullRequest(params);
 					} else {
@@ -1270,12 +1316,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 				// There are uncommitted changes
 				if (this._repository.state.workingTreeChanges.length || this._repository.state.indexChanges.length) {
+					const commitChanges = vscode.l10n.t('Commit Changes');
 					const shouldCommit = await vscode.window.showInformationMessage(
-						`There are no commits between '${params.base}' and '${params.head}'.\n\nDo you want to commit your changes and create the pull request?`,
+						vscode.l10n.t('There are no commits between \'{0}\' and \'{1}\'.\n\nDo you want to commit your changes and create the pull request?', params.base, params.head),
 						{ modal: true },
-						'Commit Changes',
+						commitChanges,
 					);
-					if (shouldCommit === 'Commit Changes') {
+					if (shouldCommit === commitChanges) {
 						await this._repository.add(this._repository.state.indexChanges.map(change => change.uri.fsPath));
 						await this.repository.commit(`${params.title}${params.body ? `\n${params.body}` : ''}`);
 						await this._repository.push();
@@ -1287,12 +1334,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 
 			if (!this._repository.state.HEAD?.upstream) {
+				const publishBranch = vscode.l10n.t('Publish Branch');
 				const shouldPushUpstream = await vscode.window.showInformationMessage(
-					`There is no upstream branch for '${params.base}'.\n\nDo you want to publish it and create the pull request?`,
+					vscode.l10n.t('There is no upstream branch for \'{0}\'.\n\nDo you want to publish it and create the pull request?', params.base),
 					{ modal: true },
-					'Publish Branch',
+					publishBranch
 				);
-				if (shouldPushUpstream === 'Publish Branch') {
+				if (shouldPushUpstream === publishBranch) {
 					await this._repository.push(repo.remote.remoteName, params.base, true);
 					return this.createPullRequest(params);
 				} else {
@@ -1327,7 +1375,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			await repo.ensure();
 
 			// Create PR
-			const { data } = await repo.octokit.issues.create(params);
+			const { data } = await repo.octokit.call(repo.octokit.api.issues.create, params);
 			const item = convertRESTIssueToRawPullRequest(data, repo);
 			const issueModel = new IssueModel(repo, repo.remote, item);
 
@@ -1344,7 +1392,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				"issue.create.failure" : {}
 			*/
 			this.telemetry.sendTelemetryErrorEvent('issue.create.failure');
-			vscode.window.showWarningMessage(`Creating issue failed: ${formatError(e)}`);
+			vscode.window.showWarningMessage(vscode.l10n.t('Creating issue failed: {0}', formatError(e)));
 		}
 
 		return undefined;
@@ -1369,7 +1417,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				repo: issue.remote.repositoryName,
 				issue_number: issue.number,
 			};
-			await repo.octokit.issues.addAssignees(param);
+			await repo.octokit.call(repo.octokit.api.issues.addAssignees, param);
 
 			/* __GDPR__
 				"issue.assign.success" : {
@@ -1384,7 +1432,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				}
 			*/
 			this.telemetry.sendTelemetryErrorEvent('issue.assign.failure');
-			vscode.window.showWarningMessage(`Assigning issue failed: ${formatError(e)}`);
+			vscode.window.showWarningMessage(vscode.l10n.t('Assigning issue failed: {0}', formatError(e)));
 		}
 	}
 
@@ -1414,15 +1462,15 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (workingDirectorySHA !== mergingPRSHA) {
 				// We are looking at different commit than what will be merged
 				const { ahead } = this.repository.state.HEAD!;
-				if (
-					ahead &&
+				const pluralMessage = vscode.l10n.t('You have {0} unpushed commits on this PR branch.\n\nWould you like to proceed anyway?', ahead ?? 'unknown');
+				const singularMessage = vscode.l10n.t('You have 1 unpushed commit on this PR branch.\n\nWould you like to proceed anyway?');
+				if (ahead &&
 					(await vscode.window.showWarningMessage(
-						`You have ${ahead} unpushed ${ahead > 1 ? 'commits' : 'commit'
-						} on this PR branch.\n\nWould you like to proceed anyway?`,
+						ahead > 1 ? pluralMessage : singularMessage,
 						{ modal: true },
-						'Yes',
-					)) === undefined
-				) {
+						vscode.l10n.t('Yes'),
+					)) === undefined) {
+
 					return {
 						merged: false,
 						message: 'unpushed changes',
@@ -1434,9 +1482,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				// We have made changes to the PR that are not committed
 				if (
 					(await vscode.window.showWarningMessage(
-						'You have uncommitted changes on this PR branch.\n\n Would you like to proceed anyway?',
+						vscode.l10n.t('You have uncommitted changes on this PR branch.\n\n Would you like to proceed anyway?'),
 						{ modal: true },
-						'Yes',
+						vscode.l10n.t('Yes'),
 					)) === undefined
 				) {
 					return {
@@ -1447,19 +1495,18 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 		}
 
-		return await octokit.pulls
-			.merge({
-				commit_message: description,
-				commit_title: title,
-				merge_method:
-					method ||
-					vscode.workspace
-						.getConfiguration('githubPullRequests')
-						.get<'merge' | 'squash' | 'rebase'>('defaultMergeMethod'),
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				pull_number: pullRequest.number,
-			})
+		return await octokit.call(octokit.api.pulls.merge, {
+			commit_message: description,
+			commit_title: title,
+			merge_method:
+				method ||
+				vscode.workspace
+					.getConfiguration('githubPullRequests')
+					.get<'merge' | 'squash' | 'rebase'>('defaultMergeMethod'),
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			pull_number: pullRequest.number,
+		})
 			.then(x => {
 				/* __GDPR__
 					"pr.merge.success" : {}
@@ -1568,7 +1615,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (result.legacy) {
 				result.picked = true;
 			} else {
-				result.description = `${result.description} is still Open`;
+				result.description = vscode.l10n.t('{0} is still Open', result.description!);
 			}
 		});
 
@@ -1627,9 +1674,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		remoteInfos.forEach((value, key) => {
 			if (value.branches.size === 0) {
-				let description = value.createdForPullRequest ? '' : 'Not created by GitHub Pull Request extension';
+				let description = value.createdForPullRequest ? '' : vscode.l10n.t('Not created by GitHub Pull Request extension');
 				if (value.url) {
-					description = description ? description + ' ' + value.url : value.url;
+					description = description ? `${description} ${value.url}` : value.url;
 				}
 
 				remoteItems.push({
@@ -1649,7 +1696,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const quickPick = vscode.window.createQuickPick();
 			quickPick.canSelectMany = true;
 			quickPick.ignoreFocusOut = true;
-			quickPick.placeholder = 'Choose local branches you want to delete permanently';
+			quickPick.placeholder = vscode.l10n.t('Choose local branches you want to delete permanently');
 			quickPick.show();
 			quickPick.busy = true;
 
@@ -1686,7 +1733,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 							quickPick.busy = false;
 						} catch (e) {
 							quickPick.hide();
-							vscode.window.showErrorMessage(`Deleting branches failed: ${e}`);
+							vscode.window.showErrorMessage(vscode.l10n.t('Deleting branches failed: {0}', e));
 						}
 					}
 
@@ -1696,7 +1743,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					const remoteItems = await this.getRemoteDeletionItems();
 
 					if (remoteItems) {
-						quickPick.placeholder = 'Choose remotes you want to delete permanently';
+						quickPick.placeholder = vscode.l10n.t('Choose remotes you want to delete permanently');
 						quickPick.busy = false;
 						quickPick.items = remoteItems;
 						quickPick.selectedItems = remoteItems.filter(item => item.picked);
@@ -1748,7 +1795,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const { octokit, remote } = await githubRepository.ensure();
 
 			if (!pullRequest.base) {
-				const { data } = await octokit.pulls.get({
+				const { data } = await octokit.call(octokit.api.pulls.get, {
 					owner: remote.owner,
 					repo: remote.repositoryName,
 					pull_number: pullRequest.number,
@@ -1757,7 +1804,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 
 			if (!pullRequest.mergeBase) {
-				const { data } = await octokit.repos.compareCommits({
+				const { data } = await octokit.call(octokit.api.repos.compareCommits, {
 					repo: remote.repositoryName,
 					owner: remote.owner,
 					base: `${pullRequest.base.repositoryCloneUrl.owner}:${pullRequest.base.ref}`,
@@ -1767,7 +1814,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				pullRequest.mergeBase = data.merge_base_commit.sha;
 			}
 		} catch (e) {
-			vscode.window.showErrorMessage(`Fetching Pull Request merge base failed: ${formatError(e)}`);
+			vscode.window.showErrorMessage(vscode.l10n.t('Fetching Pull Request merge base failed: {0}', formatError(e)));
 		}
 		Logger.debug(`Fulfill pull request missing info - done`, FolderRepositoryManager.ID);
 	}
@@ -1784,7 +1831,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		if (!githubRepo) {
 			// try to create the repository
-			githubRepo = this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
+			githubRepo = await this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
 		}
 		return githubRepo;
 	}
@@ -1816,7 +1863,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	async resolveUser(owner: string, repositoryName: string, login: string): Promise<User | undefined> {
 		Logger.debug(`Fetch user ${login}`, FolderRepositoryManager.ID);
-		const githubRepository = this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
+		const githubRepository = await this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
 		const { query, schema } = await githubRepository.ensure();
 
 		try {
@@ -1895,7 +1942,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		if (pullRequest) {
 			return pullRequest;
 		} else {
-			vscode.window.showErrorMessage(`Pull request number ${id} does not exist in ${githubRepo.remote.owner}/${githubRepo.remote.repositoryName}`, { modal: true });
+			vscode.window.showErrorMessage(vscode.l10n.t('Pull request number {0} does not exist in {1}', id, `${githubRepo.remote.owner}/${githubRepo.remote.repositoryName}`), { modal: true });
 		}
 	}
 
@@ -1906,8 +1953,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 			const currentBranch = this.repository.state.HEAD?.name;
 			if (currentBranch === branchObj.name) {
-				const chooseABranch = 'Choose a Branch';
-				vscode.window.showInformationMessage('The default branch is already checked out.', chooseABranch).then(choice => {
+				const chooseABranch = vscode.l10n.t('Choose a Branch');
+				vscode.window.showInformationMessage(vscode.l10n.t('The default branch is already checked out.'), chooseABranch).then(choice => {
 					if (choice === chooseABranch) {
 						return git.checkout();
 					}
@@ -1920,12 +1967,31 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			} else {
 				await git.checkout();
 			}
+
+			const fileClose: Thenable<boolean>[] = [];
+			// Close the PR description and any open review scheme files.
+			for (const tabGroup of vscode.window.tabGroups.all) {
+				for (const tab of tabGroup.tabs) {
+					let uri: vscode.Uri | string | undefined;
+					if (tab.input instanceof vscode.TabInputText) {
+						uri = tab.input.uri;
+					} else if (tab.input instanceof vscode.TabInputTextDiff) {
+						uri = tab.input.original;
+					} else if (tab.input instanceof vscode.TabInputWebview) {
+						uri = tab.input.viewType;
+					}
+					if ((uri instanceof vscode.Uri && uri.scheme === Schemes.Review) || (typeof uri === 'string' && uri.endsWith(PULL_REQUEST_OVERVIEW_VIEW_TYPE))) {
+						fileClose.push(vscode.window.tabGroups.close(tab));
+					}
+				}
+			}
+			await Promise.all(fileClose);
 		} catch (e) {
 			if (e.gitErrorCode) {
 				// for known git errors, we should provide actions for users to continue.
 				if (e.gitErrorCode === GitErrorCodes.DirtyWorkTree) {
 					vscode.window.showErrorMessage(
-						'Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches',
+						vscode.l10n.t('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches'),
 					);
 					return;
 				}
@@ -1950,9 +2016,37 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 	}
 
+	private async promptPullBrach(pr: PullRequestModel, branch: Branch, autoStashSetting?: boolean) {
+		if (!this._updateMessageShown || autoStashSetting) {
+			this._updateMessageShown = true;
+			const pull = vscode.l10n.t('Pull');
+			const always = vscode.l10n.t('Always Pull');
+			const never = vscode.l10n.t('Never Show Again');
+			const options = [pull];
+			if (!autoStashSetting) {
+				options.push(always, never);
+			}
+			const result = await vscode.window.showInformationMessage(
+				vscode.l10n.t('There are updates available for pull request {0}.', `${pr.number}: ${pr.title}`),
+				{},
+				...options
+			);
+
+			if (result === pull) {
+				await this.pullBranch(branch);
+				this._updateMessageShown = false;
+			} else if (never) {
+				await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
+			} else if (always) {
+				await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'always', vscode.ConfigurationTarget.Global);
+				await this.pullBranch(branch);
+			}
+		}
+	}
+
 	private _updateMessageShown: boolean = false;
 	public async checkBranchUpToDate(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
-		if (this.activePullRequest !== pr) {
+		if (this.activePullRequest?.id !== pr.id) {
 			return;
 		}
 		const branch = this._repository.state.HEAD;
@@ -1964,32 +2058,16 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				const pullBranchConfiguration = await this.pullBranchConfiguration();
 				if (branch.behind !== undefined && branch.behind > 0) {
 					switch (pullBranchConfiguration) {
-						case 'always': return this.pullBranch(branch);
-						case 'prompt': {
-							if (!this._updateMessageShown) {
-								this._updateMessageShown = true;
-								const pull = 'Pull';
-								const always = 'Always Pull';
-								const never = 'Never Show Again';
-								const result = await vscode.window.showInformationMessage(
-									`There are updates available for pull request ${pr.number}: ${pr.title}.`,
-									{},
-									pull,
-									always,
-									never
-								);
-
-								if (result === pull) {
-									await this.pullBranch(branch);
-									this._updateMessageShown = false;
-								} else if (never) {
-									await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
-								} else if (always) {
-									await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'always', vscode.ConfigurationTarget.Global);
-									await this.pullBranch(branch);
-								}
+						case 'always': {
+							const autoStash = vscode.workspace.getConfiguration('git').get<boolean>('autoStash', false);
+							if (autoStash) {
+								return this.promptPullBrach(pr, branch, autoStash);
+							} else {
+								return this.pullBranch(branch);
 							}
-							return;
+						}
+						case 'prompt': {
+							return this.promptPullBrach(pr, branch);
 						}
 						case 'never': return;
 					}
@@ -2008,18 +2086,18 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		);
 	}
 
-	private createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore) {
-		const repo = new GitHubRepository(remote, this.repository.rootUri, credentialStore, this.telemetry, this._sessionState);
+	private async createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore) {
+		const repo = new GitHubRepository(GitHubRemote.remoteAsGitHub(remote, await this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)), this.repository.rootUri, credentialStore, this.telemetry);
 		this._githubRepositories.push(repo);
 		return repo;
 	}
 
-	createGitHubRepository(remote: Remote, credentialStore: CredentialStore): GitHubRepository {
+	async createGitHubRepository(remote: Remote, credentialStore: CredentialStore): Promise<GitHubRepository> {
 		return this.findExistingGitHubRepository(remote) ??
 			this.createAndAddGitHubRepository(remote, credentialStore);
 	}
 
-	createGitHubRepositoryFromOwnerName(owner: string, repositoryName: string): GitHubRepository {
+	async createGitHubRepositoryFromOwnerName(owner: string, repositoryName: string): Promise<GitHubRepository> {
 		const existing = this.findExistingGitHubRepository({ owner, repositoryName });
 		if (existing) {
 			return existing;
@@ -2081,19 +2159,19 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		repoString: string,
 		matchingRepo: Repository,
 	): Promise<string | undefined> {
-		progress.report({ message: `Forking ${repoString}...` });
+		progress.report({ message: vscode.l10n.t('Forking {0}...', repoString) });
 		const result = await githubRepository.fork();
 		progress.report({ increment: 50 });
 		if (!result) {
 			vscode.window.showErrorMessage(
-				`Unable to create a fork of ${repoString}. Check that your GitHub credentials are correct.`,
+				vscode.l10n.t('Unable to create a fork of {0}. Check that your GitHub credentials are correct.', repoString),
 			);
 			return;
 		}
 
 		const workingRemoteName: string =
 			matchingRepo.state.remotes.length > 1 ? 'origin' : matchingRepo.state.remotes[0].name;
-		progress.report({ message: 'Adding remotes. This may take a few moments.' });
+		progress.report({ message: vscode.l10n.t('Adding remotes. This may take a few moments.') });
 		await matchingRepo.renameRemote(workingRemoteName, 'upstream');
 		await matchingRepo.addRemote(workingRemoteName, result);
 		// Now the extension is responding to all the git changes.
@@ -2119,7 +2197,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		matchingRepo: Repository,
 	): Promise<string | undefined> {
 		return vscode.window.withProgress<string | undefined>(
-			{ location: vscode.ProgressLocation.Notification, title: 'Creating Fork' },
+			{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Creating Fork') },
 			async progress => {
 				try {
 					return this.forkWithProgress(progress, githubRepository, repoString, matchingRepo);
@@ -2134,10 +2212,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	async tryOfferToFork(githubRepository: GitHubRepository): Promise<string | false | undefined> {
 		const repoString = `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`;
 
-		const fork = 'Fork';
-		const dontFork = "Don't Fork";
+		const fork = vscode.l10n.t('Fork');
+		const dontFork = vscode.l10n.t('Don\'t Fork');
 		const response = await vscode.window.showInformationMessage(
-			`You don't have permission to push to ${repoString}. Do you want to fork ${repoString}? This will modify your git remotes to set \`origin\` to the fork, and \`upstream\` to ${repoString}.`,
+			vscode.l10n.t('You don\'t have permission to push to {0}. Do you want to fork {0}? This will modify your git remotes to set \`origin\` to the fork, and \`upstream\` to {0}.', repoString),
 			{ modal: true },
 			fork,
 			dontFork,

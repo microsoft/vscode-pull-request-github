@@ -1,7 +1,7 @@
 {
 	"name": "vscode-pull-request-github",
-	"displayName": "GitHub Pull Requests and Issues",
-	"description": "Pull Request and Issue Provider for GitHub",
+	"displayName": "%displayName%",
+	"description": "%description%",
 	"icon": "resources/icons/github_logo.png",
 	"repository": {
 		"type": "git",
@@ -13,14 +13,15 @@
 	"enabledApiProposals": [
 		"tokenInformation",
 		"commentsResolvedState",
-		"badges",
-		"contribViewSize",
-		"contribCommentPeekContext"
+		"contribShareMenu",
+		"treeItemCheckbox",
+		"contribCommentPeekContext",
+		"localization"
 	],
-	"version": "0.50.0",
+	"version": "0.52.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.71.0"
+		"vscode": "^1.72.0"
 	},
 	"categories": [
 		"Other"
@@ -37,6 +38,7 @@
 		"onFileSystem:review"
 	],
 	"browser": "./dist/browser/extension",
+	"l10n": "./dist/browser/extension",
 	"main": "./dist/extension",
 	"capabilities": {
 		"untrustedWorkspaces": {
@@ -74,11 +76,11 @@
 						"commit"
 					],
 					"enumDescriptions": [
-						"Use a pull request template and commit description, or just use the commit description if no templates were found",
-						"Use the latest commit message only"
+						"%githubPullRequests.pullRequestDescription.template%",
+						"%githubPullRequests.pullRequestDescription.commit%"
 					],
 					"default": "template",
-					"description": "The description used when creating pull requests."
+					"description": "%githubPullRequests.pullRequestDescription.description%"
 				},
 				"githubPullRequests.logLevel": {
 					"type": "string",
@@ -88,7 +90,7 @@
 						"off"
 					],
 					"default": "info",
-					"description": "Logging for GitHub Pull Request extension. The log is emitted to the output channel named as GitHub Pull Request."
+					"description": "%githubPullRequests.logLevel.description%"
 				},
 				"githubPullRequests.remotes": {
 					"type": "array",
@@ -99,7 +101,7 @@
 					"items": {
 						"type": "string"
 					},
-					"markdownDescription": "List of remotes, by name, to fetch pull requests from."
+					"markdownDescription": "%githubPullRequests.remotes.markdownDescription%"
 				},
 				"githubPullRequests.includeRemotes": {
 					"type": "string",
@@ -118,16 +120,16 @@
 						"properties": {
 							"label": {
 								"type": "string",
-								"description": "The label to display for the query in the Pull Requests tree"
+								"description": "%githubPullRequests.queries.label.description%"
 							},
 							"query": {
 								"type": "string",
-								"description": "The query used for searching pull requests."
+								"description": "%githubPullRequests.queries.query.description%"
 							}
 						}
 					},
 					"scope": "resource",
-					"markdownDescription": "Specifies what queries should be used in the GitHub Pull Requests tree. Each query object has a `label` that will be shown in the tree and a search `query` using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax). The variable `${user}` can be used to specify the logged in user within a search. By default these queries define the categories \"Waiting For My Review\", \"Assigned To Me\" and \"Created By Me\". If you want to preserve these, make sure they are still in the array when you modify the setting.",
+					"markdownDescription": "githubPullRequests.queries.markdownDescription",
 					"default": [
 						{
 							"label": "Waiting For My Review",
@@ -151,7 +153,7 @@
 						"rebase"
 					],
 					"default": "merge",
-					"description": "The method to use when merging pull requests."
+					"description": "%githubPullRequests.defaultMergeMethod.description%"
 				},
 				"githubPullRequests.showInSCM": {
 					"type": "boolean",
@@ -166,7 +168,7 @@
 						"off"
 					],
 					"default": "off",
-					"description": "If GitHub notifications should be shown to the user."
+					"description": "%githubPullRequests.notifications.description%"
 				},
 				"githubPullRequests.fileListLayout": {
 					"type": "string",
@@ -175,17 +177,17 @@
 						"tree"
 					],
 					"default": "tree",
-					"description": "The layout to use when displaying changed files list."
+					"description": "%githubPullRequests.fileListLayout.description%"
 				},
 				"githubPullRequests.defaultDeletionMethod.selectLocalBranch": {
 					"type": "boolean",
 					"default": true,
-					"description": "When true, the option to delete the local branch will be selected by default when deleting a branch from a pull request."
+					"description": "%githubPullRequests.defaultDeletionMethod.selectLocalBranch.description%"
 				},
 				"githubPullRequests.defaultDeletionMethod.selectRemote": {
 					"type": "boolean",
 					"default": true,
-					"description": "When true, the option to delete the remote will be selected by default when deleting a branch from a pull request."
+					"description": "%githubPullRequests.defaultDeletionMethod.selectRemote.description%"
 				},
 				"githubPullRequests.terminalLinksHandler": {
 					"type": "string",
@@ -195,12 +197,12 @@
 						"ask"
 					],
 					"enumDescriptions": [
-						"Create the pull request on GitHub",
-						"Create the pull request in VS Code",
-						"Ask which method to use"
+						"%githubPullRequests.terminalLinksHandler.github%",
+						"%githubPullRequests.terminalLinksHandler.vscode%",
+						"%githubPullRequests.terminalLinksHandler.ask%"
 					],
 					"default": "ask",
-					"description": "Default handler for terminal links."
+					"description": "%githubPullRequests.terminalLinksHandler.description%"
 				},
 				"githubPullRequests.createOnPublishBranch": {
 					"type": "string",
@@ -209,11 +211,11 @@
 						"ask"
 					],
 					"enumDescriptions": [
-						"Never create a pull request when a branch is published.",
-						"Ask if you want to create a pull request when a branch is published."
+						"%githubPullRequests.createOnPublishBranch.never%",
+						"%githubPullRequests.createOnPublishBranch.ask%"
 					],
 					"default": "ask",
-					"description": "Create a pull request when a branch is published."
+					"description": "%githubPullRequests.createOnPublishBranch.description%"
 				},
 				"githubPullRequests.commentExpandState": {
 					"type": "string",
@@ -222,25 +224,25 @@
 						"collapseAll"
 					],
 					"enumDescriptions": [
-						"All unresolved comments will be expanded.",
-						"All comments will be collapsed"
+						"%githubPullRequests.commentExpandState.expandUnresolved%",
+						"%githubPullRequests.commentExpandState.collapseAll%"
 					],
 					"default": "expandUnresolved",
-					"description": "Controls whether comments are expanded when a document with comments is opened."
+					"description": "%githubPullRequests.commentExpandState.description%"
 				},
 				"githubPullRequests.useReviewMode": {
 					"type": "object",
-					"description": "Choose which pull request states will use review mode. \"Open\" pull requests will always use review mode.",
+					"description": "%githubPullRequests.useReviewMode.description%",
 					"additionalProperties": false,
 					"properties": {
 						"merged": {
 							"type": "boolean",
-							"description": "Use review mode for merged pull requests.",
+							"description": "%githubPullRequests.useReviewMode.merged%",
 							"default": true
 						},
 						"closed": {
 							"type": "boolean",
-							"description": "Use review mode for closed pull requests. Merged pull requests are not considered \"closed\".",
+							"description": "%githubPullRequests.useReviewMode.closed%",
 							"default": false
 						}
 					},
@@ -255,7 +257,7 @@
 				},
 				"githubPullRequests.assignCreated": {
 					"type": "string",
-					"description": "All pull requests created with this extension will be assigned to this user. To assign to yourself, use the '${user}' variable."
+					"description": "%githubPullRequests.assignCreated.description%"
 				},
 				"githubPullRequests.pushBranch": {
 					"type": "string",
@@ -265,10 +267,10 @@
 					],
 					"default": "prompt",
 					"enumDescriptions": [
-						"Prompt to push the branch when creating a PR and the \"from\" branch is not available on the remote.",
-						"Always push the branch when creating a PR and the \"from\" branch is not available on the remote."
+						"%githubPullRequests.pushBranch.prompt%",
+						"%githubPullRequests.pushBranch.always%"
 					],
-					"description": "Push the \"from\" branch when creating a PR and the \"from\" branch is not available on the remote."
+					"description": "%githubPullRequests.pushBranch.description%"
 				},
 				"githubPullRequests.pullBranch": {
 					"type": "string",
@@ -278,25 +280,25 @@
 						"always"
 					],
 					"default": "prompt",
-					"enumDescriptions": [
-						"Prompt to pull a PR branch when changes are detected in the PR.",
-						"Never pull a PR branch when changes are detected in the PR.",
-						"Always pull a PR branch when changes are detected in the PR."
+					"markdownEnumDescriptions": [
+						"%githubPullRequests.pullBranch.prompt%",
+						"%githubPullRequests.pullBranch.never%",
+						"%githubPullRequests.pullBranch.always%"
 					],
-					"description": "Pull changes from the remote when a PR branch is checked out locally. Changes are detected when the PR is manually refreshed and during periodic background updates."
+					"description": "%githubPullRequests.pullBranch.description%"
 				},
 				"githubPullRequests.ignoredPullRequestBranches": {
 					"type": "array",
 					"default": [],
 					"items": {
 						"type": "string",
-						"description": "Branch name"
+						"description": "%githubPullRequests.ignoredPullRequestBranches.items%"
 					},
-					"description": "Prevents branches that are associated with a pull request from being automatically detected. This will prevent review mode from being entered on these branches."
+					"description": "%githubPullRequests.ignoredPullRequestBranches.description%"
 				},
 				"githubPullRequests.overrideDefaultBranch": {
 					"type": "string",
-					"description": "The default branch for a repository is set on github.com. With this setting, you can override that default with another branch."
+					"description": "%githubPullRequests.overrideDefaultBranch.description%"
 				},
 				"githubPullRequests.postCreate": {
 					"type": "string",
@@ -304,23 +306,23 @@
 						"none",
 						"openOverview"
 					],
-					"description": "The action to take after creating a pull request.",
+					"description": "%githubPullRequests.postCreate.description%",
 					"default": "openOverview",
 					"enumDescriptions": [
-						"No action",
-						"Open the overview page of the pull request"
+						"%githubPullRequests.postCreate.none%",
+						"%githubPullRequests.postCreate.openOverview%"
 					]
 				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],
-					"description": "An array of milestones titles to never show issues from."
+					"description": "%githubIssues.ignoreMilestones.description%"
 				},
 				"githubIssues.createIssueTriggers": {
 					"type": "array",
 					"items": {
 						"type": "string",
-						"description": "String that enables the 'Create issue from comment' code action. Should not contain whitespace."
+						"description": "%githubIssues.createIssueTriggers.items%"
 					},
 					"default": [
 						"TODO",
@@ -330,7 +332,7 @@
 						"ISSUE",
 						"HACK"
 					],
-					"description": "Strings that will cause the 'Create issue from comment' code action to show."
+					"description": "%githubIssues.createIssueTriggers.description%"
 				},
 				"githubIssues.createInsertFormat": {
 					"type": "string",
@@ -339,23 +341,23 @@
 						"url"
 					],
 					"default": "number",
-					"description": "Controls whether an issue number (ex. #1234) or a full url (ex. https://github.com/owner/name/issues/1234) is inserted when the Create Issue code action is run."
+					"description": "%githubIssues.createInsertFormat.description%"
 				},
 				"githubIssues.issueCompletions.enabled": {
 					"type": "boolean",
 					"default": true,
-					"description": "Controls whether completion suggestions are shown for issues."
+					"description": "%githubIssues.issueCompletions.enabled.description%"
 				},
 				"githubIssues.userCompletions.enabled": {
 					"type": "boolean",
 					"default": true,
-					"description": "Controls whether completion suggestions are shown for users."
+					"description": "%githubIssues.userCompletions.enabled.description%"
 				},
 				"githubIssues.ignoreCompletionTrigger": {
 					"type": "array",
 					"items": {
 						"type": "string",
-						"description": "Language that issue completions should not trigger on '#'."
+						"description": "%githubIssues.ignoreCompletionTrigger.items%"
 					},
 					"default": [
 						"coffeescript",
@@ -374,23 +376,23 @@
 						"shellscript",
 						"yaml"
 					],
-					"description": "Languages that the '#' character should not be used to trigger issue completion suggestions."
+					"description": "%githubIssues.ignoreCompletionTrigger.description%"
 				},
 				"githubIssues.ignoreUserCompletionTrigger": {
 					"type": "array",
 					"items": {
 						"type": "string",
-						"description": "Language that user completions should not trigger on '@'."
+						"description": "%githubIssues.ignoreUserCompletionTrigger.items%"
 					},
 					"default": [
 						"python"
 					],
-					"description": "Languages that the '@' character should not be used to trigger user completion suggestions."
+					"description": "%githubIssues.ignoreUserCompletionTrigger.description%"
 				},
 				"githubIssues.issueBranchTitle": {
 					"type": "string",
 					"default": "${user}/issue${issueNumber}",
-					"markdownDescription": "Advanced settings for the name of the branch that is created when you start working on an issue. \n- `${user}` will be replace with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${sanitizedIssueTitle}` will be replaced with the issue title, with all spaces and unsupported characters (https://git-scm.com/docs/git-check-ref-format) removed"
+					"markdownDescription": "%githubIssues.issueBranchTitle.markdownDescription%"
 				},
 				"githubIssues.useBranchForIssues": {
 					"type": "string",
@@ -400,22 +402,22 @@
 						"prompt"
 					],
 					"enumDescriptions": [
-						"A branch will always be checked out when you start working on an issue. If the branch doesn't exist, it will be created.",
-						"A branch will not be created when you start working on an issue. If you have worked on an issue before and a branch was created for it, that same branch will be checked out.",
-						"A prompt will show for setting the name of the branch that will be created and checked out."
+						"%githubIssues.useBranchForIssues.on%",
+						"%githubIssues.useBranchForIssues.off%",
+						"%githubIssues.useBranchForIssues.prompt%"
 					],
 					"default": "on",
-					"description": "Determines whether a branch should be checked out when working on an issue. To configure the name of the branch, set `githubIssues.issueBranchTitle`."
+					"description": "%githubIssues.useBranchForIssues.description%"
 				},
 				"githubIssues.issueCompletionFormatScm": {
 					"type": "string",
 					"default": "${issueTitle} ${issueNumberLabel}",
-					"markdownDescription": "Sets the format of issue completions in the SCM inputbox. \n- `${user}` will be replace with the currently logged in username \n- `${issueNumber}` will be replaced with the current issue number \n- `${issueNumberLabel}` will be replaced with a label formatted as #number or owner/repository#number, depending on whether the issue is in the current repository"
+					"markdownDescription": "%githubIssues.issueCompletionFormatScm.markdownDescription%"
 				},
 				"githubIssues.workingIssueFormatScm": {
 					"type": "string",
 					"default": "${issueTitle} \nFixes ${issueNumberLabel}",
-					"markdownDescription": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to `${issueTitle} \nFixes #${issueNumber}`",
+					"markdownDescription": "%githubIssues.workingIssueFormatScm.markdownDescription%",
 					"editPresentation": "multilineText"
 				},
 				"githubIssues.queries": {
@@ -425,16 +427,16 @@
 						"properties": {
 							"label": {
 								"type": "string",
-								"description": "The label to display for the query in the Issues tree."
+								"description": "%githubIssues.queries.label%"
 							},
 							"query": {
 								"type": "string",
-								"markdownDescription": "The search query using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax) with variables. The variable `${user}` can be used to specify the logged in user within a search. `${owner}` and `${repository}` can be used to specify the repository by using `repo:${owner}/${repository}`."
+								"markdownDescription": "%githubIssues.queries.query%"
 							}
 						}
 					},
 					"scope": "resource",
-					"markdownDescription": "Specifies what queries should be used in the GitHub issues tree using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax) with variables. The first query listed will be expanded in the Issues view. The \"default\" query includes issues assigned to you by Milestone. If you want to preserve these, make sure they are still in the array when you modify the setting.",
+					"markdownDescription": "%githubIssues.queries.markdownDescription%",
 					"default": [
 						{
 							"label": "My Issues",
@@ -453,11 +455,11 @@
 				"githubIssues.assignWhenWorking": {
 					"type": "boolean",
 					"default": true,
-					"description": "Assigns the issue you're working on to you. Only applies when the issue you're working on is in a repo you currently have open."
+					"description": "%githubIssues.assignWhenWorking.description%"
 				},
 				"githubPullRequests.focusedMode": {
 					"type": "boolean",
-					"description": "Whether to enter focused mode when a pull request is checked out. This hides the issues and pull requests tree views.",
+					"description": "%githubPullRequests.focusedMode.description%",
 					"default": true
 				}
 			}
@@ -471,7 +473,7 @@
 				},
 				{
 					"id": "github-pull-request",
-					"title": "GitHub Pull Request",
+					"title": "%view.github.pull.request.name%",
 					"icon": "$(git-pull-request)"
 				}
 			]
@@ -480,19 +482,19 @@
 			"github-pull-requests": [
 				{
 					"id": "github:login",
-					"name": "Login",
+					"name": "%view.github.login.name%",
 					"when": "ReposManagerStateContext == NeedsAuthentication",
 					"icon": "$(git-pull-request)"
 				},
 				{
 					"id": "pr:github",
-					"name": "Pull Requests",
+					"name": "%view.pr.github.name%",
 					"when": "ReposManagerStateContext != NeedsAuthentication",
 					"icon": "$(git-pull-request)"
 				},
 				{
 					"id": "issues:github",
-					"name": "Issues",
+					"name": "%view.issues.github.name%",
 					"when": "ReposManagerStateContext != NeedsAuthentication",
 					"icon": "$(issues)"
 				}
@@ -501,21 +503,21 @@
 				{
 					"id": "github:createPullRequest",
 					"type": "webview",
-					"name": "Create Pull Request",
+					"name": "%view.github.create.pull.request.name%",
 					"when": "github:createPullRequest",
 					"visibility": "visible",
 					"initialSize": 2
 				},
 				{
 					"id": "github:compareChanges",
-					"name": "Compare Changes",
+					"name": "%view.github.compare.changes.name%",
 					"when": "github:createPullRequest",
 					"visibility": "visible",
 					"initialSize": 1
 				},
 				{
 					"id": "prStatus:github",
-					"name": "Changes In Pull Request",
+					"name": "%view.pr.status.github.name%",
 					"when": "github:inReviewMode && !github:createPullRequest",
 					"icon": "$(git-pull-request)",
 					"visibility": "visible",
@@ -524,13 +526,13 @@
 				{
 					"id": "github:activePullRequest",
 					"type": "webview",
-					"name": "Active Pull Request",
-					"when": "github:inReviewMode && github:focusedReview && !github:createPullRequest",
+					"name": "%view.github.active.pull.request.name%",
+					"when": "github:inReviewMode && github:focusedReview && !github:createPullRequest && github:activePRCount <= 1",
 					"initialSize": 2
 				},
 				{
 					"id": "github:activePullRequest:welcome",
-					"name": "Active Pull Request",
+					"name": "%view.github.active.pull.request.welcome.name%",
 					"when": "!github:stateValidated && github:focusedReview"
 				}
 			]
@@ -539,430 +541,429 @@
 			{
 				"command": "github.api.preloadPullRequest",
 				"title": "Preload Pull Request",
-				"category": "GitHub Pull Requests"
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.create",
-				"title": "Create Pull Request",
+				"title": "%command.pr.create.title%",
 				"icon": "$(git-pull-request-create)",
-				"category": "GitHub Pull Requests"
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.pick",
-				"title": "Checkout Pull Request",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.pick.title%",
+				"category": "%command.pull.request.category%",
 				"icon": "$(arrow-right)"
 			},
 			{
 				"command": "pr.exit",
-				"title": "Checkout Default Branch",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.exit.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.dismissNotification",
+				"title": "%command.pr.dismissNotification.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.merge",
-				"title": "Merge Pull Request",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.merge.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.readyForReview",
-				"title": "Mark Pull Request Ready For Review",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.readyForReview.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.close",
-				"title": "Close Pull Request",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.close.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.openPullRequestOnGitHub",
-				"title": "Open Pull Request on GitHub",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.openPullRequestOnGitHub.title%",
+				"category": "%command.pull.request.category%",
 				"icon": "$(globe)"
 			},
 			{
 				"command": "pr.openAllDiffs",
-				"title": "Open All Diffs",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.openAllDiffs.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.refreshPullRequest",
-				"title": "Refresh Pull Request",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.refreshPullRequest.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.openFileOnGitHub",
-				"title": "Open File on GitHub",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.openFileOnGitHub.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.copyCommitHash",
-				"title": "Copy Commit Hash",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.copyCommitHash.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.openOriginalFile",
-				"title": "Open Original File",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.openOriginalFile.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.openModifiedFile",
-				"title": "Open Modified File",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.openModifiedFile.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.openDiffView",
-				"title": "Open Diff View",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.openDiffView.title%",
+				"category": "%command.pull.request.category%",
 				"icon": "$(compare-changes)"
 			},
 			{
 				"command": "pr.openDescription",
-				"title": "View Pull Request Description",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.openDescription.title%",
+				"category": "%command.pull.request.category%",
 				"when": "github:inReviewMode",
 				"icon": "$(note)"
 			},
 			{
 				"command": "pr.openDescriptionToTheSide",
-				"title": "Open Pull Request Description to the Side",
+				"title": "%command.pr.openDescriptionToTheSide.title%",
 				"icon": "$(split-horizontal)"
 			},
 			{
 				"command": "pr.refreshDescription",
-				"title": "Refresh Pull Request Description",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.refreshDescription.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.showDiffSinceLastReview",
-				"title": "Show Changes Since Last Review",
+				"title": "%command.pr.showDiffSinceLastReview.title%",
 				"icon": "$(git-pull-request-new-changes)"
 			},
 			{
 				"command": "pr.showDiffAll",
-				"title": "Show All Changes",
+				"title": "%command.pr.showDiffAll.title%",
 				"icon": "$(git-pull-request-go-to-changes)"
 			},
 			{
 				"command": "pr.checkoutByNumber",
-				"title": "Checkout Pull Request by Number",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.checkoutByNumber.title%",
+				"category": "%command.pull.request.category%",
 				"icon": "$(symbol-numeric)"
 			},
 			{
 				"command": "review.openFile",
-				"title": "Open File",
+				"title": "%command.review.openFile.title%",
 				"icon": "$(go-to-file)"
 			},
 			{
 				"command": "review.openLocalFile",
-				"title": "Open File",
+				"title": "%command.review.openLocalFile.title%",
 				"icon": "$(go-to-file)"
 			},
 			{
 				"command": "review.suggestDiff",
-				"title": "Suggest Edit",
-				"category": "GitHub Pull Requests"
+				"title": "%command.review.suggestDiff.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.refreshList",
-				"title": "Refresh Pull Requests List",
+				"title": "%command.pr.refreshList.title%",
 				"icon": "$(refresh)",
-				"category": "GitHub Pull Requests"
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.setFileListLayoutAsTree",
-				"title": "Toggle View Mode",
+				"title": "%command.pr.setFileListLayoutAsTree.title%",
 				"icon": "$(list-tree)",
-				"category": "GitHub Pull Requests"
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.setFileListLayoutAsFlat",
-				"title": "Toggle View Mode",
+				"title": "%command.pr.setFileListLayoutAsFlat.title%",
 				"icon": "$(list-flat)",
-				"category": "GitHub Pull Requests"
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.refreshChanges",
-				"title": "Refresh",
+				"title": "%command.pr.refreshChanges.title%",
 				"icon": "$(refresh)",
-				"category": "GitHub Pull Requests"
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.configurePRViewlet",
-				"title": "Configure...",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.configurePRViewlet.title%",
+				"category": "%command.pull.request.category%",
 				"icon": "$(gear)"
 			},
 			{
 				"command": "pr.deleteLocalBranch",
-				"title": "Delete Local Branch",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.deleteLocalBranch.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.signin",
-				"title": "Sign in to GitHub",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.signin.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.deleteLocalBranchesNRemotes",
-				"title": "Delete local branches and remotes",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.deleteLocalBranchesNRemotes.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.createComment",
-				"title": "Add Comment",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.createComment.title%",
+				"category": "%command.pull.request.category%",
 				"enablement": "!commentIsEmpty"
 			},
 			{
 				"command": "pr.createSingleComment",
-				"title": "Add Comment",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.createSingleComment.title%",
+				"category": "%command.pull.request.category%",
 				"enablement": "!commentIsEmpty"
 			},
 			{
 				"command": "pr.startReview",
-				"title": "Start Review",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.startReview.title%",
+				"category": "%command.pull.request.category%",
 				"enablement": "!commentIsEmpty"
 			},
 			{
 				"command": "pr.editComment",
-				"title": "Edit Comment",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.editComment.title%",
+				"category": "%command.pull.request.category%",
 				"icon": "$(edit)"
 			},
 			{
 				"command": "pr.cancelEditComment",
-				"title": "Cancel",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.cancelEditComment.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.saveComment",
-				"title": "Save",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.saveComment.title%",
+				"category": "%command.pull.request.category%",
 				"enablement": "!commentIsEmpty"
 			},
 			{
 				"command": "pr.deleteComment",
-				"title": "Delete Comment",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.deleteComment.title%",
+				"category": "%command.pull.request.category%",
 				"icon": "$(trash)"
 			},
 			{
 				"command": "pr.resolveReviewThread",
-				"title": "Resolve Conversation",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.resolveReviewThread.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.unresolveReviewThread",
-				"title": "Unresolve Conversation",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.unresolveReviewThread.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.signinAndRefreshList",
-				"title": "Sign in and Refresh",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.signinAndRefreshList.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.configureRemotes",
-				"title": "Configure Remotes...",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.configureRemotes.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.refreshActivePullRequest",
-				"title": "Refresh",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.refreshActivePullRequest.title%",
+				"category": "%command.pull.request.category%",
 				"icon": "$(refresh)"
 			},
 			{
 				"command": "pr.markFileAsViewed",
-				"title": "Mark File As Viewed",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.markFileAsViewed.title%",
+				"category": "%command.pull.request.category%",
 				"icon": "$(pass)"
 			},
 			{
 				"command": "pr.unmarkFileAsViewed",
-				"title": "Mark File As Not Viewed",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.unmarkFileAsViewed.title%",
+				"category": "%command.pull.request.category%",
 				"icon": "$(pass-filled)"
 			},
 			{
 				"command": "pr.openReview",
-				"title": "Go to Review",
-				"category": "GitHub Pull Requests"
-			},
-			{
-				"command": "pr.expandAllComments",
-				"title": "Expand All Comments",
-				"category": "GitHub Pull Requests",
-				"icon": "$(expand-all)"
+				"title": "%command.pr.openReview.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "pr.collapseAllComments",
-				"title": "Collapse All Comments",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.collapseAllComments.title%",
+				"category": "%command.comments.category%",
 				"icon": "$(collapse-all)"
 			},
 			{
 				"command": "pr.editQuery",
-				"title": "Edit Query",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.editQuery.title%",
+				"category": "%command.pull.request.category%",
 				"icon": "$(edit)"
 			},
 			{
 				"command": "pr.openPullsWebsite",
-				"title": "Open on GitHub",
-				"category": "GitHub Pull Requests",
+				"title": "%command.pr.openPullsWebsite.title%",
+				"category": "%command.pull.request.category%",
 				"icon": "$(globe)"
 			},
 			{
 				"command": "pr.resetViewedFiles",
-				"title": "Reset Viewed Files",
-				"category": "GitHub Pull Requests"
+				"title": "%command.pr.resetViewedFiles.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "issue.createIssueFromSelection",
-				"title": "Create Issue From Selection",
-				"category": "GitHub Issues"
+				"title": "%command.issue.createIssueFromSelection.title%",
+				"category": "%command.issues.category%"
 			},
 			{
 				"command": "issue.createIssueFromClipboard",
-				"title": "Create Issue From Clipboard",
-				"category": "GitHub Issues"
+				"title": "%command.issue.createIssueFromClipboard.title%",
+				"category": "%command.issues.category%"
 			},
 			{
 				"command": "issue.copyGithubPermalink",
-				"title": "Copy GitHub Permalink",
-				"category": "GitHub Issues"
+				"title": "%command.issue.copyGithubPermalink.title%",
+				"category": "%command.issues.category%"
 			},
 			{
 				"command": "issue.copyGithubHeadLink",
-				"title": "Copy GitHub Head Link",
-				"category": "GitHub Issues"
+				"title": "%command.issue.copyGithubHeadLink.title%",
+				"category": "%command.issues.category%"
 			},
 			{
 				"command": "issue.copyMarkdownGithubPermalink",
-				"title": "Copy GitHub Permalink as Markdown",
-				"category": "GitHub Issues"
+				"title": "%command.issue.copyMarkdownGithubPermalink.title%",
+				"category": "%command.issues.category%"
 			},
 			{
 				"command": "issue.openGithubPermalink",
-				"title": "Open Permalink on GitHub",
-				"category": "GitHub Issues"
+				"title": "%command.issue.openGithubPermalink.title%",
+				"category": "%command.issues.category%"
 			},
 			{
 				"command": "issue.openIssue",
-				"title": "Open Issue on GitHub",
-				"category": "GitHub Issues",
+				"title": "%command.issue.openIssue.title%",
+				"category": "%command.issues.category%",
 				"icon": "$(globe)"
 			},
 			{
 				"command": "issue.copyIssueNumber",
-				"title": "Copy Number",
-				"category": "GitHub Issues"
+				"title": "%command.issue.copyIssueNumber.title%",
+				"category": "%command.issues.category%"
 			},
 			{
 				"command": "issue.copyIssueUrl",
-				"title": "Copy Url",
-				"category": "GitHub Issues"
+				"title": "%command.issue.copyIssueUrl.title%",
+				"category": "%command.issues.category%"
 			},
 			{
 				"command": "issue.refresh",
-				"title": "Refresh",
-				"category": "GitHub Issues",
+				"title": "%command.issue.refresh.title%",
+				"category": "%command.issues.category%",
 				"icon": "$(refresh)"
 			},
 			{
 				"command": "issue.suggestRefresh",
-				"title": "Refresh Suggestions",
-				"category": "GitHub Issues"
+				"title": "%command.issue.suggestRefresh.title%",
+				"category": "%command.issues.category%"
 			},
 			{
 				"command": "issue.startWorking",
-				"title": "Start Working on Issue",
-				"category": "GitHub Issues",
+				"title": "%command.issue.startWorking.title%",
+				"category": "%command.issues.category%",
 				"icon": "$(arrow-right)"
 			},
 			{
 				"command": "issue.startWorkingBranchDescriptiveTitle",
-				"title": "Start Working on Issue and Checkout Topic Branch",
-				"category": "GitHub Issues",
+				"title": "%command.issue.startWorkingBranchDescriptiveTitle.title%",
+				"category": "%command.issues.category%",
 				"icon": "$(arrow-right)"
 			},
 			{
 				"command": "issue.continueWorking",
-				"title": "Continue Working on Issue",
-				"category": "GitHub Issues",
+				"title": "%command.issue.continueWorking.title%",
+				"category": "%command.issues.category%",
 				"icon": "$(arrow-right)"
 			},
 			{
 				"command": "issue.startWorkingBranchPrompt",
-				"title": "Start Working and Set Branch...",
-				"category": "GitHub Issues"
+				"title": "%command.issue.startWorkingBranchPrompt.title%",
+				"category": "%command.issues.category%"
 			},
 			{
 				"command": "issue.stopWorking",
-				"title": "Stop Working on Issue",
-				"category": "GitHub Issues",
+				"title": "%command.issue.stopWorking.title%",
+				"category": "%command.issues.category%",
 				"icon": "$(primitive-square)"
 			},
 			{
 				"command": "issue.stopWorkingBranchDescriptiveTitle",
-				"title": "Stop Working on Issue and Leave Topic Branch",
-				"category": "GitHub Issues",
+				"title": "%command.issue.stopWorkingBranchDescriptiveTitle.title%",
+				"category": "%command.issues.category%",
 				"icon": "$(primitive-square)"
 			},
 			{
 				"command": "issue.statusBar",
-				"title": "Current Issue Options",
-				"category": "GitHub Issues"
+				"title": "%command.issue.statusBar.title%",
+				"category": "%command.issues.category%"
 			},
 			{
 				"command": "issue.getCurrent",
-				"title": "Get current issue",
-				"category": "GitHub Issues"
+				"title": "%command.issue.getCurrent.title%",
+				"category": "%command.issues.category%"
 			},
 			{
 				"command": "issue.editQuery",
-				"title": "Edit Query",
-				"category": "GitHub Issues",
+				"title": "%command.issue.editQuery.title%",
+				"category": "%command.issues.category%",
 				"icon": "$(edit)"
 			},
 			{
 				"command": "issue.createIssue",
-				"title": "Create an Issue",
-				"category": "GitHub Issues",
+				"title": "%command.issue.createIssue.title%",
+				"category": "%command.issues.category%",
 				"icon": "$(plus)"
 			},
 			{
 				"command": "issue.createIssueFromFile",
-				"title": "Create Issue",
+				"title": "%command.issue.createIssueFromFile.title%",
 				"icon": "$(check)",
 				"enablement": "!issues.creatingFromFile"
 			},
 			{
 				"command": "issue.issueCompletion",
-				"title": "Issue Completion Chosen"
+				"title": "%command.issue.issueCompletion.title%"
 			},
 			{
 				"command": "issue.userCompletion",
-				"title": "User Completion Chosen"
+				"title": "%command.issue.userCompletion.title%"
 			},
 			{
 				"command": "issue.signinAndRefreshList",
-				"title": "Sign in and Refresh",
-				"category": "GitHub Issues"
+				"title": "%command.issue.signinAndRefreshList.title%",
+				"category": "%command.issues.category%"
 			},
 			{
 				"command": "issue.goToLinkedCode",
-				"title": "Go to Linked Code",
-				"category": "GitHub Issues"
+				"title": "%command.issue.goToLinkedCode.title%",
+				"category": "%command.issues.category%"
 			},
 			{
 				"command": "issues.openIssuesWebsite",
-				"title": "Open on GitHub",
-				"category": "GitHub Pull Requests",
+				"title": "%command.issues.openIssuesWebsite.title%",
+				"category": "%command.pull.request.category%",
 				"icon": "$(globe)"
 			}
 		],
@@ -970,47 +971,47 @@
 			{
 				"view": "github:login",
 				"when": "ReposManagerStateContext == NeedsAuthentication",
-				"contents": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)"
+				"contents": "%welcome.github.login.contents%"
 			},
 			{
 				"view": "github:compareChanges",
 				"when": "github:noUpstream",
-				"contents": "The comparing branch has no upstream remote\n[Publish branch](command:git.publish)"
+				"contents": "%welcome.github.compareChanges.contents%"
 			},
 			{
 				"view": "pr:github",
 				"when": "git.state != initialized && !github:initialized && workspaceFolderCount > 0",
-				"contents": "Loading..."
+				"contents": "%welcome.pr.github.uninitialized.contents%"
 			},
 			{
 				"view": "pr:github",
 				"when": "!github:initialized && workspaceFolderCount == 0",
-				"contents": "You have not yet opened a folder."
+				"contents": "%welcome.pr.github.noFolder.contents%"
 			},
 			{
 				"view": "pr:github",
 				"when": "git.state == initialized && gitOpenRepositoryCount == 0",
-				"contents": "No git repositories found"
+				"contents": "%welcome.pr.github.noRepo.contents%"
 			},
 			{
 				"view": "issues:github",
 				"when": "git.state != initialized && !github:initialized && workspaceFolderCount > 0",
-				"contents": "Loading..."
+				"contents": "%welcome.issues.github.uninitialized.contents%"
 			},
 			{
 				"view": "issues:github",
 				"when": "!github:initialized && workspaceFolderCount == 0",
-				"contents": "You have not yet opened a folder."
+				"contents": "%welcome.issues.github.noFolder.contents%"
 			},
 			{
 				"view": "issues:github",
 				"when": "git.state == initialized && gitOpenRepositoryCount == 0",
-				"contents": "No git repositories found"
+				"contents": "%welcome.issues.github.noRepo.contents%"
 			},
 			{
 				"view": "github:activePullRequest:welcome",
 				"when": "!github:stateValidated",
-				"contents": "Loading..."
+				"contents": "%github.activePullRequest.contents%"
 			}
 		],
 		"keybindings": [
@@ -1047,6 +1048,10 @@
 				{
 					"command": "pr.exit",
 					"when": "github:inReviewMode"
+				},
+				{
+					"command": "pr.dismissNotification",
+					"when": "false"
 				},
 				{
 					"command": "pr.resetViewedFiles",
@@ -1203,6 +1208,10 @@
 				{
 					"command": "pr.checkoutByNumber",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && github:authenticated"
+				},
+				{
+					"command": "pr.collapseAllComments",
+					"when": "false"
 				},
 				{
 					"command": "issue.openIssue",
@@ -1420,6 +1429,11 @@
 					"group": "pullrequest@4"
 				},
 				{
+					"command": "pr.dismissNotification",
+					"when": "view == pr:github && viewItem =~ /pullrequest(.*):notification/",
+					"group": "pullrequest@5"
+				},
+				{
 					"command": "pr.openFileOnGitHub",
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange/"
 				},
@@ -1451,16 +1465,6 @@
 					"command": "pr.openDiffView",
 					"group": "inline@0",
 					"when": "!openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
-				},
-				{
-					"command": "pr.markFileAsViewed",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(.*):unviewed/",
-					"group": "inline@1"
-				},
-				{
-					"command": "pr.unmarkFileAsViewed",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange(.*):viewed/",
-					"group": "inline@1"
 				},
 				{
 					"command": "pr.openOriginalFile",
@@ -1714,15 +1718,52 @@
 			"editor/context/copy": [
 				{
 					"command": "issue.copyGithubPermalink",
-					"when": "gitHubOpenRepositoryCount != 0"
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "3_githubPullRequests@0"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
-					"when": "gitHubOpenRepositoryCount != 0"
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "3_githubPullRequests@1"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
-					"when": "gitHubOpenRepositoryCount != 0"
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "3_githubPullRequests@2"
+				}
+			],
+			"editor/context/share": [
+				{
+					"command": "issue.copyGithubPermalink",
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "1_githubPullRequests@0"
+				},
+				{
+					"command": "issue.copyMarkdownGithubPermalink",
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "1_githubPullRequests@1"
+				},
+				{
+					"command": "issue.copyGithubHeadLink",
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "1_githubPullRequests@2"
+				}
+			],
+			"file/share": [
+				{
+					"command": "issue.copyGithubPermalink",
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "1_githubPullRequests@0"
+				},
+				{
+					"command": "issue.copyMarkdownGithubPermalink",
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "1_githubPullRequests@1"
+				},
+				{
+					"command": "issue.copyGithubHeadLink",
+					"when": "gitHubOpenRepositoryCount != 0",
+					"group": "1_githubPullRequests@2"
 				}
 			],
 			"editor/title/context": [

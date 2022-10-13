@@ -10,6 +10,7 @@ import { ITelemetry } from '../../common/telemetry';
 import { formatError } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
+import { NotificationProvider } from '../../github/notifications';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { PRNode } from './pullRequestNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
@@ -21,6 +22,7 @@ export enum PRCategoryActionType {
 	More,
 	TryOtherRemotes,
 	Login,
+	LoginEnterprise,
 	NoRemotes,
 	NoMatchingRemotes,
 	ConfigureRemotes,
@@ -65,6 +67,15 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 					command: 'pr.signinAndRefreshList',
 					arguments: [],
 				};
+				break;
+			case PRCategoryActionType.LoginEnterprise:
+				this.label = 'Sign in with GitHub Enterprise...';
+				this.command = {
+					title: 'Sign in',
+					command: 'pr.signinAndRefreshList',
+					arguments: [],
+				};
+				break;
 				break;
 			case PRCategoryActionType.NoRemotes:
 				this.label = 'No GitHub repositories found.';
@@ -111,6 +122,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		private _folderRepoManager: FolderRepositoryManager,
 		private _telemetry: ITelemetry,
 		private _type: PRType,
+		private _notificationProvider: NotificationProvider,
 		_categoryLabel?: string,
 		private _categoryQuery?: string,
 	) {
@@ -241,7 +253,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		if (this.prs && this.prs.length) {
 			const nodes: TreeNode[] = this.prs.map(
-				prItem => new PRNode(this, this._folderRepoManager, prItem, this._type === PRType.LocalPullRequest),
+				prItem => new PRNode(this, this._folderRepoManager, prItem, this._type === PRType.LocalPullRequest, this._notificationProvider),
 			);
 			if (hasMorePages) {
 				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.More, this));

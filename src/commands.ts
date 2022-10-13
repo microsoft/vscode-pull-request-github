@@ -11,12 +11,10 @@ import { GitErrorCodes } from './api/api1';
 import { CommentReply, resolveCommentHandler } from './commentHandlerResolver';
 import { IComment } from './common/comment';
 import Logger from './common/logger';
-import { SessionState } from './common/sessionState';
 import { ITelemetry } from './common/telemetry';
 import { asImageDataURI, fromReviewUri } from './common/uri';
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
-import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
 import { PullRequest } from './github/interface';
@@ -47,7 +45,7 @@ function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode | Pull
 	// If the command is called from the command palette, no arguments are passed.
 	if (!pr) {
 		if (!folderRepoManager.activePullRequest) {
-			vscode.window.showErrorMessage('Unable to find current pull request.');
+			vscode.window.showErrorMessage(vscode.l10n.t('Unable to find current pull request.'));
 			throw new Error('Unable to find current pull request.');
 		}
 
@@ -115,13 +113,10 @@ export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | Pull
 
 export function registerCommands(
 	context: vscode.ExtensionContext,
-	sessionState: SessionState,
 	reposManager: RepositoriesManager,
 	reviewManagers: ReviewManager[],
 	telemetry: ITelemetry,
-	credentialStore: CredentialStore,
-	tree: PullRequestsTreeDataProvider,
-	notificationProvider: NotificationProvider
+	tree: PullRequestsTreeDataProvider
 ) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
@@ -199,25 +194,26 @@ export function registerCommands(
 
 				if (!indexChanges.length) {
 					if (workingTreeChanges.length) {
+						const yes = vscode.l10n.t('Yes');
 						const stageAll = await vscode.window.showWarningMessage(
-							'There are no staged changes to suggest.\n\nWould you like to automatically stage all your of changes and suggest them?',
+							vscode.l10n.t('There are no staged changes to suggest.\n\nWould you like to automatically stage all your of changes and suggest them?'),
 							{ modal: true },
-							'Yes',
+							yes,
 						);
-						if (stageAll === 'Yes') {
+						if (stageAll === yes) {
 							await vscode.commands.executeCommand('git.stageAll');
 						} else {
 							return;
 						}
 					} else {
-						vscode.window.showInformationMessage('There are no changes to suggest.');
+						vscode.window.showInformationMessage(vscode.l10n.t('There are no changes to suggest.'));
 						return;
 					}
 				}
 
 				const diff = await folderManager.repository.diff(true);
 
-				let suggestEditMessage = 'Suggested edit:\n';
+				let suggestEditMessage = vscode.l10n.t('Suggested edit:\n');
 				if (e && e.inputBox && e.inputBox.value) {
 					suggestEditMessage = `${e.inputBox.value}\n`;
 					e.inputBox.value = '';
@@ -243,7 +239,7 @@ export function registerCommands(
 			} catch (err) {
 				const moreError = `${err}${err.stderr ? `\n${err.stderr}` : ''}`;
 				Logger.appendLine(`Applying patch failed: ${moreError}`);
-				vscode.window.showErrorMessage(`Applying patch failed: ${formatError(err)}`);
+				vscode.window.showErrorMessage(vscode.l10n.t('Applying patch failed: {0}', formatError(err)));
 			}
 		}),
 	);
@@ -252,8 +248,8 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.openFileOnGitHub', async (e: GitFileChangeNode | RemoteFileChangeNode) => {
 			if (e instanceof RemoteFileChangeNode) {
 				const choice = await vscode.window.showInformationMessage(
-					`${e.changeModel.fileName} can't be opened locally. Do you want to open it on GitHub?`,
-					'Open',
+					vscode.l10n.t('{0} can\'t be opened locally. Do you want to open it on GitHub?', e.changeModel.fileName),
+					vscode.l10n.t('Open'),
 				);
 				if (!choice) {
 					return;
@@ -316,7 +312,7 @@ export function registerCommands(
 			} catch (e) {
 				if (e.gitErrorCode === GitErrorCodes.BranchNotFullyMerged) {
 					const action = await vscode.window.showErrorMessage(
-						`The local branch '${pullRequestModel.localBranchName}' is not fully merged. Are you sure you want to delete it? `,
+						vscode.l10n.t('The local branch \'{0}\' is not fully merged. Are you sure you want to delete it?', pullRequestModel.localBranchName ?? 'unknown branch'),
 						DELETE_BRANCH_FORCE,
 					);
 
@@ -363,7 +359,7 @@ export function registerCommands(
 		return chooseItem<ReviewManager>(
 			reviewManagers,
 			itemValue => pathLib.basename(itemValue.repository.rootUri.fsPath),
-			{ placeHolder: 'Choose a repository to create a pull request in', ignoreFocusOut: true },
+			{ placeHolder: vscode.l10n.t('Choose a repository to create a pull request in'), ignoreFocusOut: true },
 		);
 	}
 
@@ -390,7 +386,7 @@ export function registerCommands(
 			if (pr === undefined) {
 				// This is unexpected, but has happened a few times.
 				Logger.appendLine('Unexpectedly received undefined when picking a PR.');
-				return vscode.window.showErrorMessage('No pull request was selected to checkout, please try again.');
+				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
 			}
 
 			let pullRequestModel: PullRequestModel;
@@ -414,7 +410,7 @@ export function registerCommands(
 			return vscode.window.withProgress(
 				{
 					location: vscode.ProgressLocation.SourceControl,
-					title: `Switching to Pull Request #${pullRequestModel.number}`,
+					title: vscode.l10n.t('Switching to Pull Request #{0}', pullRequestModel.number),
 				},
 				async () => {
 					await ReviewManager.getReviewManagerForRepository(
@@ -438,7 +434,7 @@ export function registerCommands(
 					.map(folderManager => folderManager.activePullRequest!)
 					.filter(activePR => !!activePR),
 					itemValue => `${itemValue.number}: ${itemValue.title}`,
-					{ placeHolder: 'Choose the pull request to exit' });
+					{ placeHolder: vscode.l10n.t('Choose the pull request to exit') });
 			} else {
 				pullRequestModel = pr;
 			}
@@ -458,7 +454,7 @@ export function registerCommands(
 			return vscode.window.withProgress(
 				{
 					location: vscode.ProgressLocation.SourceControl,
-					title: `Exiting Pull Request`,
+					title: vscode.l10n.t('Exiting Pull Request'),
 				},
 				async () => {
 					const branch = await pullRequestModel!.githubRepository.getDefaultBranch();
@@ -490,15 +486,16 @@ export function registerCommands(
 				return openPullRequestOnGitHub(pullRequest, telemetry);
 			}
 
+			const yes = vscode.l10n.t('Yes');
 			return vscode.window
 				.showWarningMessage(
-					`Are you sure you want to merge this pull request on GitHub?`,
+					vscode.l10n.t('Are you sure you want to merge this pull request on GitHub?'),
 					{ modal: true },
-					'Yes',
+					yes,
 				)
 				.then(async value => {
 					let newPR;
-					if (value === 'Yes') {
+					if (value === yes) {
 						try {
 							newPR = await folderManager.mergePullRequest(pullRequest);
 							return newPR;
@@ -518,15 +515,16 @@ export function registerCommands(
 				return;
 			}
 			const pullRequest = ensurePR(folderManager, pr);
+			const yes = vscode.l10n.t('Yes');
 			return vscode.window
 				.showWarningMessage(
-					`Are you sure you want to mark this pull request as ready to review on GitHub?`,
+					vscode.l10n.t('Are you sure you want to mark this pull request as ready to review on GitHub?'),
 					{ modal: true },
-					'Yes',
+					yes,
 				)
 				.then(async value => {
 					let isDraft;
-					if (value === 'Yes') {
+					if (value === yes) {
 						try {
 							isDraft = await pullRequest.setReadyForReview();
 							vscode.commands.executeCommand('pr.refreshList');
@@ -554,22 +552,23 @@ export function registerCommands(
 				pullRequestModel = await chooseItem<PullRequestModel>(
 					activePullRequests,
 					itemValue => `${itemValue.number}: ${itemValue.title}`,
-					{ placeHolder: 'Pull request to close' },
+					{ placeHolder: vscode.l10n.t('Pull request to close') },
 				);
 			}
 			if (!pullRequestModel) {
 				return;
 			}
 			const pullRequest: PullRequestModel = pullRequestModel;
+			const yes = vscode.l10n.t('Yes');
 			return vscode.window
 				.showWarningMessage(
-					`Are you sure you want to close this pull request on GitHub? This will close the pull request without merging.`,
+					vscode.l10n.t('Are you sure you want to close this pull request on GitHub? This will close the pull request without merging.'),
 					{ modal: true },
-					'Yes',
-					'No',
+					yes,
+					vscode.l10n.t('No'),
 				)
 				.then(async value => {
-					if (value === 'Yes') {
+					if (value === yes) {
 						try {
 							let newComment: IComment | undefined = undefined;
 							if (message) {
@@ -588,6 +587,17 @@ export function registerCommands(
 
 					_onDidUpdatePR.fire();
 				});
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.dismissNotification', node => {
+			if (node instanceof PRNode) {
+				tree.notificationProvider.markPrNotificationsAsRead(node.pullRequestModel).then(
+					() => tree.refresh(node)
+				);
+
+			}
 		}),
 	);
 
@@ -632,7 +642,7 @@ export function registerCommands(
 					descriptionNode = reviewManager.changesInPrDataProvider.getDescriptionNode(folderManager);
 				}
 
-				await openDescription(context, telemetry, pullRequestModel, descriptionNode, folderManager, notificationProvider);
+				await openDescription(context, telemetry, pullRequestModel, descriptionNode, folderManager, tree.notificationProvider);
 			},
 		),
 	);
@@ -854,10 +864,10 @@ export function registerCommands(
 			"pr.deleteComment" : {}
 		*/
 			telemetry.sendTelemetryEvent('pr.deleteComment');
+			const deleteOption = vscode.l10n.t('Delete');
+			const shouldDelete = await vscode.window.showWarningMessage(vscode.l10n.t('Delete comment?'), { modal: true }, deleteOption);
 
-			const shouldDelete = await vscode.window.showWarningMessage('Delete comment?', { modal: true }, 'Delete');
-
-			if (shouldDelete === 'Delete') {
+			if (shouldDelete === deleteOption) {
 				const handler = resolveCommentHandler(comment.parent);
 
 				if (handler) {
@@ -878,7 +888,8 @@ export function registerCommands(
 		vscode.commands.registerCommand('review.openLocalFile', (value: vscode.Uri) => {
 			const { path, rootPath } = fromReviewUri(value.query);
 			const localUri = vscode.Uri.joinPath(vscode.Uri.file(rootPath), path);
-			const command = openFileCommand(localUri);
+			const editor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === value.toString());
+			const command = openFileCommand(localUri, editor ? { selection: editor.selection } : undefined);
 			vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
 		}),
 	);
@@ -921,11 +932,7 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.markFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri) => {
 			try {
 				if (treeNode instanceof FileChangeNode) {
-					await treeNode.pullRequest.markFileAsViewed(treeNode.fileName);
-					const manager = reposManager.getManagerForFile(treeNode.changeModel.filePath);
-					if (treeNode.pullRequest === manager?.activePullRequest) {
-						treeNode.pullRequest.setFileViewedContext();
-					}
+					await treeNode.markFileAsViewed();
 				} else {
 					const manager = reposManager.getManagerForFile(treeNode);
 					await manager?.activePullRequest?.markFileAsViewed(treeNode.path);
@@ -941,11 +948,7 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.unmarkFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri) => {
 			try {
 				if (treeNode instanceof FileChangeNode) {
-					await treeNode.pullRequest.unmarkFileAsViewed(treeNode.fileName);
-					const manager = reposManager.getManagerForFile(treeNode.changeModel.filePath);
-					if (treeNode.pullRequest === manager?.activePullRequest) {
-						treeNode.pullRequest.setFileViewedContext();
-					}
+					treeNode.unmarkFileAsViewed();
 				} else {
 					const manager = reposManager.getManagerForFile(treeNode);
 					await manager?.activePullRequest?.unmarkFileAsViewed(treeNode.path);
@@ -971,13 +974,8 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.expandAllComments', () => {
-			sessionState.commentsExpandState = true;
-		}));
-
-	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.collapseAllComments', () => {
-			sessionState.commentsExpandState = false;
+			return vscode.commands.executeCommand('workbench.action.collapseAllComments');
 		}));
 
 	context.subscriptions.push(
@@ -990,18 +988,18 @@ export function registerCommands(
 			const githubRepo = await chooseItem<{ manager: FolderRepositoryManager, repo: GitHubRepository }>(
 				githubRepositories,
 				itemValue => `${itemValue.repo.remote.owner}/${itemValue.repo.remote.repositoryName}`,
-				{ placeHolder: 'Which GitHub repository do you want to checkout the pull request from?' }
+				{ placeHolder: vscode.l10n.t('Which GitHub repository do you want to checkout the pull request from?') }
 			);
 			if (!githubRepo) {
 				return;
 			}
 			const prNumberMatcher = /^#?(\d*)$/;
 			const prNumber = await vscode.window.showInputBox({
-				ignoreFocusOut: true, prompt: 'Enter the pull request number',
+				ignoreFocusOut: true, prompt: vscode.l10n.t('Enter the pull request number'),
 				validateInput: (input: string) => {
 					const matches = input.match(prNumberMatcher);
 					if (!matches || (matches.length !== 2) || Number.isNaN(Number(matches[1]))) {
-						return 'Value must be a number';
+						return vscode.l10n.t('Value must be a number');
 					}
 					return undefined;
 				}
@@ -1023,7 +1021,7 @@ export function registerCommands(
 		return chooseItem<GitHubRepository>(
 			githubRepositories,
 			itemValue => `${itemValue.remote.owner}/${itemValue.remote.repositoryName}`,
-			{ placeHolder: 'Which GitHub repository do you want to open?' }
+			{ placeHolder: vscode.l10n.t('Which GitHub repository do you want to open?') }
 		);
 	}
 	context.subscriptions.push(

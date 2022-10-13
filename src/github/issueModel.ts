@@ -184,7 +184,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 		Logger.debug(`Fetch issue comments of PR #${this.number} - enter`, IssueModel.ID);
 		const { octokit, remote } = await this.githubRepository.ensure();
 
-		const promise = await octokit.issues.listComments({
+		const promise = await octokit.call(octokit.api.issues.listComments, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
@@ -207,7 +207,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 			},
 		});
 
-		return parseGraphQlIssueComment(data!.addComment.commentEdge.node);
+		return parseGraphQlIssueComment(data!.addComment.commentEdge.node, this.githubRepository);
 	}
 
 	async editIssueComment(comment: IComment, text: string): Promise<IComment> {
@@ -224,7 +224,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 				},
 			});
 
-			return parseGraphQlIssueComment(data!.updateIssueComment.issueComment);
+			return parseGraphQlIssueComment(data!.updateIssueComment.issueComment, this.githubRepository);
 		} catch (e) {
 			throw new Error(formatError(e));
 		}
@@ -234,7 +234,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 		try {
 			const { octokit, remote } = await this.githubRepository.ensure();
 
-			await octokit.issues.deleteComment({
+			await octokit.call(octokit.api.issues.deleteComment, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				comment_id: Number(commentId),
@@ -246,7 +246,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 
 	async addLabels(labels: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.issues.addLabels({
+		await octokit.call(octokit.api.issues.addLabels, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
@@ -256,7 +256,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 
 	async removeLabel(label: string): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.issues.removeLabel({
+		await octokit.call(octokit.api.issues.removeLabel, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,

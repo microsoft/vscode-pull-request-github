@@ -1,10 +1,15 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { default as assert } from 'assert';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { CredentialStore } from '../../github/credentials';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { GithubItemStateEnum } from '../../github/interface';
 import { Protocol } from '../../common/protocol';
-import { Remote } from '../../common/remote';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { SinonSandbox, createSandbox } from 'sinon';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
@@ -13,11 +18,12 @@ import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { NetworkStatus } from 'apollo-client';
 import { Resource } from '../../common/resources';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
+import { GitHubServerType } from '../../common/authentication';
 const queries = require('../../github/queries.gql');
 
 const telemetry = new MockTelemetry();
 const protocol = new Protocol('https://github.com/github/test.git');
-const remote = new Remote('test', 'github/test', protocol);
+const remote = new GitHubRemote('test', 'github/test', protocol, GitHubServerType.GitHubDotCom);
 
 const reviewThreadResponse = {
 	id: '1',

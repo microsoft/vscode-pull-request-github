@@ -6,9 +6,10 @@
 import * as vscode from 'vscode';
 import { CreateParams, CreatePullRequest, RemoteInfo } from '../../common/views';
 import type { Branch } from '../api/api';
+import { GitHubServerType } from '../common/authentication';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
-import { Remote } from '../common/remote';
+import { GitHubRemote } from '../common/remote';
 import { ASSIGN_TO, PULL_REQUEST_DESCRIPTION, PUSH_BRANCH } from '../common/settingKeys';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import {
@@ -195,11 +196,15 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	}
 
 	private async getMergeConfiguration(owner: string, name: string, refetch: boolean = false): Promise<RepoAccessAndMergeMethods> {
-		const repo = this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(owner, name);
+		const repo = await this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(owner, name);
 		return repo.getRepoAccessAndMergeMethods(refetch);
 	}
 
 	public async initializeParams(reset: boolean = false): Promise<void> {
+		if (reset) {
+			// First clear all state ASAP
+			this._postMessage({ command: 'reset' });
+		}
 		// Do the fast initialization first, then update with the slower initialization.
 		const params = await this.initializeParamsFast(reset);
 		this.initializeParamsSlow(params);
@@ -292,7 +297,6 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			branchesForCompare: [defaultCompareBranch],
 			defaultTitle: defaultTitleAndDescription.title,
 			defaultDescription: defaultTitleAndDescription.description,
-			isDraft: false,
 			defaultMergeMethod: getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability),
 			allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
 			mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
@@ -322,7 +326,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		);
 
 		if (!githubRepository) {
-			githubRepository = this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(owner, repositoryName);
+			githubRepository = await this._folderRepositoryManager.createGitHubRepositoryFromOwnerName(owner, repositoryName);
 		}
 		if (!githubRepository) {
 			throw new Error('No matching GitHub repository found.');
@@ -366,17 +370,17 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		try {
 			await pr.updateAssignees([resolved]);
 		} catch (e) {
-			vscode.window.showErrorMessage(`Unable to assign pull request to user ${resolved}.`);
+			Logger.appendLine(`Unable to assign pull request to user ${resolved}.`);
 		}
 	}
 
-	private async pushUpstream(compareOwner: string, compareRepositoryName: string, compareBranchName: string): Promise<{ compareUpstream: Remote, repo: GitHubRepository | undefined } | undefined> {
-		let createdPushRemote: Remote | undefined;
+	private async pushUpstream(compareOwner: string, compareRepositoryName: string, compareBranchName: string): Promise<{ compareUpstream: GitHubRemote, repo: GitHubRepository | undefined } | undefined> {
+		let createdPushRemote: GitHubRemote | undefined;
 		const pushRemote = this._folderRepositoryManager.repository.state.remotes.find(localRemote => {
 			if (!localRemote.pushUrl) {
 				return false;
 			}
-			const testRemote = new Remote(localRemote.name, localRemote.pushUrl, new Protocol(localRemote.pushUrl));
+			const testRemote = new GitHubRemote(localRemote.name, localRemote.pushUrl, new Protocol(localRemote.pushUrl), GitHubServerType.GitHubDotCom);
 			if ((testRemote.owner.toLowerCase() === compareOwner.toLowerCase()) && (testRemote.repositoryName.toLowerCase() === compareRepositoryName.toLowerCase())) {
 				createdPushRemote = testRemote;
 				return true;
@@ -395,7 +399,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		vscode.window.withProgress({ location: { viewId: 'github:createPullRequest' } }, () => {
 			return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async progress => {
 				let totalIncrement = 0;
-				progress.report({ message: 'Checking for upstream branch', increment: totalIncrement });
+				progress.report({ message: vscode.l10n.t('Checking for upstream branch'), increment: totalIncrement });
 				try {
 					const compareOwner = message.args.compareOwner;
 					const compareRepositoryName = message.args.compareRepo;
@@ -412,18 +416,20 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 						|| (existingCompareUpstream.repositoryName !== compareRepositoryName)) {
 
 						// We assume this happens only when the compare branch is based on the current branch.
+						const alwaysPublish = vscode.l10n.t('Always Publish Branch');
+						const publish = vscode.l10n.t('Publish Branch');
 						const pushBranchSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get(PUSH_BRANCH) === 'always';
 						const messageResult = !pushBranchSetting ? await vscode.window.showInformationMessage(
-							`There is no upstream branch for '${compareBranchName}'.\n\nDo you want to publish it and then create the pull request?`,
+							vscode.l10n.t('There is no upstream branch for \'{0}\'.\n\nDo you want to publish it and then create the pull request?', compareBranchName),
 							{ modal: true },
-							'Publish Branch',
-							'Always Publish Branch')
-							: 'Publish Branch';
-						if (messageResult === 'Always Publish Branch') {
+							publish,
+							alwaysPublish)
+							: publish;
+						if (messageResult === alwaysPublish) {
 							await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PUSH_BRANCH, 'always', vscode.ConfigurationTarget.Global);
 						}
-						if ((messageResult === 'Always Publish Branch') || (messageResult === 'Publish Branch')) {
-							progress.report({ message: 'Pushing branch', increment: 10 });
+						if ((messageResult === alwaysPublish) || (messageResult === publish)) {
+							progress.report({ message: vscode.l10n.t('Pushing branch'), increment: 10 });
 							totalIncrement += 10;
 
 							const pushResult = await this.pushUpstream(compareOwner, compareRepositoryName, compareBranchName);
@@ -431,28 +437,28 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 								existingCompareUpstream = pushResult.compareUpstream;
 								headRepo = pushResult.repo;
 							} else {
-								this._throwError(message, `The current repository does not have a push remote for ${compareGithubRemoteName}`);
+								this._throwError(message, vscode.l10n.t('The current repository does not have a push remote for {0}', compareGithubRemoteName));
 							}
 						}
 					}
 					if (!existingCompareUpstream) {
-						this._throwError(message, 'No upstream for the compare branch.');
-						progress.report({ message: 'Pull request cancelled', increment: 100 - totalIncrement });
+						this._throwError(message, vscode.l10n.t('No upstream for the compare branch.'));
+						progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
 						return;
 					}
 
 					if (!headRepo) {
-						throw new Error(`Unable to find GitHub repository matching '${existingCompareUpstream.remoteName}'. You can add '${existingCompareUpstream.remoteName}' to the setting "githubPullRequests.remotes" to ensure '${existingCompareUpstream.remoteName}' is found.`);
+						throw new Error(vscode.l10n.t('Unable to find GitHub repository matching \'{0}\'. You can add \'{0}\' to the setting "githubPullRequests.remotes" to ensure \'{0}\' is found.', existingCompareUpstream.remoteName));
 					}
 
-					progress.report({ message: 'Creating pull request', increment: 70 - totalIncrement });
+					progress.report({ message: vscode.l10n.t('Creating pull request'), increment: 70 - totalIncrement });
 					totalIncrement += 70 - totalIncrement;
 					const head = `${headRepo.remote.owner}:${compareBranchName}`;
 					const createdPR = await this._folderRepositoryManager.createPullRequest({ ...message.args, head });
 
 					// Create was cancelled
 					if (!createdPR) {
-						this._throwError(message, 'There must be a difference in commits to create a pull request.');
+						this._throwError(message, vscode.l10n.t('There must be a difference in commits to create a pull request.'));
 					} else {
 						if (message.args.autoMerge && message.args.autoMergeMethod) {
 							await createdPR.enableAutoMerge(message.args.autoMergeMethod);
@@ -464,7 +470,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				} catch (e) {
 					this._throwError(message, e.message);
 				} finally {
-					progress.report({ message: 'Pull request created', increment: 100 - totalIncrement });
+					progress.report({ message: vscode.l10n.t('Pull request created'), increment: 100 - totalIncrement });
 				}
 			});
 		});
@@ -481,7 +487,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				compareBranch = await this._folderRepositoryManager.repository.getBranch(newBranch);
 				this._onDidChangeCompareBranch.fire(compareBranch.name!);
 			} catch (e) {
-				vscode.window.showErrorMessage('Branch does not exist locally.');
+				vscode.window.showErrorMessage(vscode.l10n.t('Branch does not exist locally.'));
 			}
 		}
 

@@ -37,19 +37,19 @@ export const Timeline = ({ events }: { events: TimelineEvent[] }) => (
 		{events.map(event =>
 			// TODO: Maybe make TimelineEvent a tagged union type?
 			isCommitEvent(event) ? (
-				<CommitEventView key={event.id} {...event} />
+				<CommitEventView key={`commit${event.id}`} {...event} />
 			) : isReviewEvent(event) ? (
-				<ReviewEventView key={event.id} {...event} />
+				<ReviewEventView key={`review${event.id}`} {...event} />
 			) : isCommentEvent(event) ? (
-				<CommentEventView key={event.id} {...event} />
+				<CommentEventView key={`comment${event.id}`} {...event} />
 			) : isMergedEvent(event) ? (
-				<MergedEventView key={event.id} {...event} />
+				<MergedEventView key={`merged${event.id}`} {...event} />
 			) : isAssignEvent(event) ? (
-				<AssignEventView key={event.id} {...event} />
+				<AssignEventView key={`assign${event.id}`} {...event} />
 			) : isHeadDeleteEvent(event) ? (
-				<HeadDeleteEventView key={event.id} {...event} />
+				<HeadDeleteEventView key={`head${event.id}`} {...event} />
 			) : isNewCommitsSinceReviewEvent(event) ? (
-				<NewCommitsSinceReviewEventView key={event.id} />
+				<NewCommitsSinceReviewEventView key={`newCommits${event.id}`} />
 			) : null,
 		)}
 	</>

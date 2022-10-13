@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import * as vscode from 'vscode';
 
 export interface IHostConfiguration {
@@ -15,12 +20,13 @@ export const HostHelper = class {
 				return vscode.Uri.parse(testEnv);
 			}
 
+			const yes = vscode.l10n.t('Yes');
 			const result = await vscode.window.showInformationMessage(
-				`The 'GITHUB_TEST_SERVER' environment variable is set to '${testEnv}'. Use this as the GitHub API endpoint?`,
+				vscode.l10n.t('The \'GITHUB_TEST_SERVER\' environment variable is set to \'{0}\'. Use this as the GitHub API endpoint?', testEnv),
 				{ modal: true },
-				'Yes',
+				yes,
 			);
-			if (result === 'Yes') {
+			if (result === yes) {
 				USE_TEST_SERVER = true;
 				return vscode.Uri.parse(testEnv);
 			}
