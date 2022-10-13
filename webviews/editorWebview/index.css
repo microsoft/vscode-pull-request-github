@@ -392,8 +392,8 @@ body button .icon {
 
 .branch-tag {
 	padding: 2px 4px;
-	background: rgba(0, 143, 255, 0.17);
-	color: #99cfff;
+	background: var(--vscode-editorInlayHint-background);
+	color: var(--vscode-editorInlayHint-foreground);
 	border-radius: 4px;
 }
 
