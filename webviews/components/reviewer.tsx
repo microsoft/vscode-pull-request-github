@@ -6,7 +6,6 @@ import React, { cloneElement, useContext, useState } from 'react';
 import { ReviewState } from '../../src/github/interface';
 import { default as PullRequestContext } from '../common/context';
 import { checkIcon, commentIcon, deleteIcon, diffIcon, pendingIcon } from './icon';
-import { nbsp } from './space';
 import { AuthorLink, Avatar } from './user';
 
 export function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
@@ -19,15 +18,14 @@ export function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
 			onMouseEnter={state === 'REQUESTED' ? () => setShowDelete(true) : null}
 			onMouseLeave={state === 'REQUESTED' ? () => setShowDelete(false) : null}
 		>
-			<Avatar for={reviewer} />
-			<AuthorLink for={reviewer} />
+			<div className="avatar-with-author">
+				<Avatar for={reviewer} />
+				<AuthorLink for={reviewer} />
+			</div>
 			{canDelete && showDelete ? (
-				<>
-					{nbsp}
-					<button className="remove-item" onClick={() => removeReviewer(reviewState.reviewer.login)}>
-						{deleteIcon}️
-					</button>
-				</>
+				<button className="remove-item" onClick={() => removeReviewer(reviewState.reviewer.login)}>
+					{deleteIcon}️
+				</button>
 			) : null}
 			{REVIEW_STATE[state]}
 		</div>

@@ -9,7 +9,7 @@ import { ILabel, IMilestone } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { AuthorLink, Avatar } from '../components/user';
-import { deleteIcon, plusIcon } from './icon';
+import { deleteIcon, settingsIcon } from './icon';
 import { Reviewer } from './reviewer';
 import { nbsp } from './space';
 
@@ -33,13 +33,14 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 						<div className="section-title">Reviewers</div>
 						{hasWritePermission ? (
 							<button
+								className="icon-button"
 								title="Add Reviewers"
 								onClick={async () => {
 									const newReviewers = await addReviewers();
 									updatePR({ reviewers: pr.reviewers.concat(newReviewers.added) });
 								}}
 							>
-								{plusIcon}
+								{settingsIcon}
 							</button>
 						) : null}
 					</div>
@@ -59,13 +60,14 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					<div className="section-title">Assignees</div>
 					{hasWritePermission ? (
 						<button
+							className="icon-button"
 							title="Add Assignees"
 							onClick={async () => {
 								const newAssignees = await addAssignees();
 								updatePR({ assignees: pr.assignees.concat(newAssignees.added) });
 							}}
 						>
-							{plusIcon}
+							{settingsIcon}
 						</button>
 					) : null}
 				</div>
@@ -73,36 +75,40 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					assignees.map((x, i) => {
 						return (
 							<div key={i} className="section-item reviewer">
-								<Avatar for={x} />
-								<AuthorLink for={x} />
+								<div className="avatar-with-author">
+									<Avatar for={x} />
+									<AuthorLink for={x} />
+								</div>
 								{hasWritePermission ? (
-									<>
-										{nbsp}
-										<button
-											className="push-right remove-item"
-											onClick={async () => {
-												await removeAssignee(x.login);
-											}}
-										>
-											{deleteIcon}️
-										</button>
-										{nbsp}
-									</>
+									<button
+										className="icon-button"
+										onClick={async () => {
+											await removeAssignee(x.login);
+										}}
+									>
+										{deleteIcon}️
+									</button>
 								) : null}
 							</div>
 						);
 					})
 				) : (
 					<div className="section-placeholder">
-						None yet{pr.canEdit ? (
+						None yet
+						{pr.canEdit ? (
 							<>
 								&mdash;
-								<a className='assign-yourself' onClick={async () => {
-									const currentUser = await addAssigneeYourself();
-									updatePR({ assignees: pr.assignees.concat(currentUser.added) });
-								}}>assign yourself</a>
-							</>)
-							: null}
+								<a
+									className="assign-yourself"
+									onClick={async () => {
+										const currentUser = await addAssigneeYourself();
+										updatePR({ assignees: pr.assignees.concat(currentUser.added) });
+									}}
+								>
+									assign yourself
+								</a>
+							</>
+						) : null}
 					</div>
 				)}
 			</div>
@@ -112,18 +118,24 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					<div className="section-title">Labels</div>
 					{hasWritePermission ? (
 						<button
+							className="icon-button"
 							title="Add Labels"
 							onClick={async () => {
 								const newLabels = await addLabels();
 								updatePR({ labels: pr.labels.concat(newLabels.added) });
 							}}
 						>
-							{plusIcon}
+							{settingsIcon}
 						</button>
 					) : null}
 				</div>
+
 				{labels.length ? (
-					labels.map(label => <Label key={label.name} {...label} canDelete={hasWritePermission} />)
+					<div className="labels-list">
+						{labels.map(label => (
+							<Label key={label.name} {...label} canDelete={hasWritePermission} />
+						))}
+					</div>
 				) : (
 					<div className="section-placeholder">None yet</div>
 				)}
@@ -133,13 +145,14 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					<div className="section-title">Milestone</div>
 					{hasWritePermission ? (
 						<button
+							className="icon-button"
 							title="Add Milestone"
 							onClick={async () => {
 								const newMilestone = await addMilestone();
 								updatePR({ milestone: newMilestone.added });
 							}}
 						>
-							{plusIcon}
+							{settingsIcon}
 						</button>
 					) : null}
 				</div>
@@ -149,7 +162,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					<div className="section-placeholder">No milestone</div>
 				)}
 			</div>
-		</div >
+		</div>
 	);
 }
 
@@ -163,21 +176,14 @@ function Label(label: ILabel & { canDelete: boolean }) {
 			style={{
 				backgroundColor: labelColor.backgroundColor,
 				color: labelColor.textColor,
-				borderColor: `${labelColor.borderColor}`
+				borderColor: `${labelColor.borderColor}`,
 			}}
 		>
 			{name}
 			{canDelete ? (
-				<>
-					{nbsp}
-					<button className="push-right remove-item"
-						onClick={() => removeLabel(name)}
-						style={{ stroke: labelColor.textColor }}
-					>
-						{deleteIcon}️
-					</button>
-					{nbsp}
-				</>
+				<button className="icon-button" onClick={() => removeLabel(name)}>
+					{deleteIcon}️
+				</button>
 			) : null}
 		</div>
 	);
@@ -185,35 +191,34 @@ function Label(label: ILabel & { canDelete: boolean }) {
 
 function Milestone(milestone: IMilestone & { canDelete: boolean }) {
 	const { removeMilestone, updatePR, pr } = useContext(PullRequestContext);
-	const backgroundBadgeColor = getComputedStyle(document.documentElement).getPropertyValue('--vscode-badge-foreground');
+	const backgroundBadgeColor = getComputedStyle(document.documentElement).getPropertyValue(
+		'--vscode-badge-foreground',
+	);
 	const labelColor = gitHubLabelColor(backgroundBadgeColor, pr.isDarkTheme, false);
 	const { canDelete, title } = milestone;
 	return (
-		<div
-			className="section-item label"
-			style={{
-				backgroundColor: labelColor.backgroundColor,
-				color: labelColor.textColor,
-				borderColor: `${labelColor.borderColor}`
-			}}
-		>
-			{title}
-			{canDelete ? (
-				<>
-					{nbsp}
+		<div className="labels-list">
+			<div
+				className="section-item label"
+				style={{
+					backgroundColor: labelColor.backgroundColor,
+					color: labelColor.textColor,
+					borderColor: `${labelColor.borderColor}`,
+				}}
+			>
+				{title}
+				{canDelete ? (
 					<button
-						className="push-right remove-item"
+						className="icon-button"
 						onClick={async () => {
 							await removeMilestone();
 							updatePR({ milestone: null });
 						}}
-						style={{ stroke: labelColor.textColor }}
 					>
 						{deleteIcon}️
 					</button>
-					{nbsp}
-				</>
-			) : null}
+				) : null}
+			</div>
 		</div>
 	);
 }

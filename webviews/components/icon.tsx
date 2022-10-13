@@ -27,3 +27,4 @@ export const pendingIcon = <Icon src={require('../../resources/icons/dot.svg')} 
 export const diffIcon = <Icon src={require('../../resources/icons/diff.svg')} />;
 export const repoIcon = <Icon src={require('../../resources/icons/repo.svg')} />;
 export const gitCompareIcon = <Icon src={require('../../resources/icons/git_compare.svg')} />;
+export const settingsIcon = <Icon src={require('../../resources/icons/settings.svg')} />;
