@@ -9,7 +9,6 @@ import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
 import { checkIcon } from './icon';
-import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
 
 export function Header({
@@ -20,6 +19,7 @@ export function Header({
 	title,
 	number,
 	url,
+	createdAt,
 	author,
 	isCurrentlyCheckedOut,
 	isDraft,
@@ -32,6 +32,7 @@ export function Header({
 				title,
 				number,
 				url,
+				createdAt,
 				canEdit,
 				isCurrentlyCheckedOut,
 				isIssue,
@@ -43,23 +44,6 @@ export function Header({
 				isDraft,
 			}}
 		/>
-	);
-}
-
-function Subtitle({ state, isDraft, isIssue, author, base, head }) {
-	return (
-		<div className="subtitle">
-			<div id="status">{getStatus(state, isDraft)}</div>
-			{!isIssue ? <Avatar for={author} /> : null}
-			<span className="author">
-				{!isIssue ? (
-					<div>
-						<AuthorLink for={author} /> {getActionText(state)} into{' '}
-						<code className="branch-tag"> {base}</code> from <code className="branch-tag"> {head} </code>
-					</div>
-				) : null}
-			</span>
-		</div>
 	);
 }
 
@@ -76,7 +60,7 @@ function Title({
 	base,
 	author,
 	isDraft,
-}: PullRequest) {
+}: Partial<PullRequest>) {
 	const [inEditMode, setEditMode] = useState(false);
 	const [currentTitle, setCurrentTitle] = useStateProp(title);
 	const { setTitle, refresh, copyPrLink } = useContext(PullRequestContext);
@@ -123,24 +107,65 @@ function Title({
 				</div>
 			</div>
 			<Subtitle state={state} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} />
-			<div className="button-group">
-				<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
-				<button onClick={refresh} className="secondary">
-					Refresh
-				</button>
-				{canEdit && !inEditMode ? (
-					<>
-						<button title="Edit" onClick={() => setEditMode(true)} className="secondary">
-							Rename
-						</button>
-						<button title="Copy Link" onClick={copyPrLink} className="secondary">
-							Copy Link
-						</button>
-					</>
-				) : (
-					<div className="flex-action-bar comment-actions"></div>
-				)}
-			</div>
+			<ButtonGroup
+				isCurrentlyCheckedOut={isCurrentlyCheckedOut}
+				isIssue={isIssue}
+				canEdit={canEdit}
+				refresh={refresh}
+				inEditMode={inEditMode}
+				setEditMode={setEditMode}
+				repositoryDefaultBranch={repositoryDefaultBranch}
+				copyPrLink={copyPrLink}
+			/>
+		</div>
+	);
+}
+
+function ButtonGroup({
+	isCurrentlyCheckedOut,
+	canEdit,
+	refresh,
+	inEditMode,
+	setEditMode,
+	isIssue,
+	repositoryDefaultBranch,
+	copyPrLink,
+}) {
+	return (
+		<div className="button-group">
+			<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
+			<button onClick={refresh} className="secondary">
+				Refresh
+			</button>
+			{canEdit && !inEditMode ? (
+				<>
+					<button title="Rename" onClick={() => setEditMode(true)} className="secondary">
+						Rename
+					</button>
+					<button title="Copy Link" onClick={copyPrLink} className="secondary">
+						Copy Link
+					</button>
+				</>
+			) : (
+				<div className="flex-action-bar comment-actions"></div>
+			)}
+		</div>
+	);
+}
+
+function Subtitle({ state, isDraft, isIssue, author, base, head }) {
+	return (
+		<div className="subtitle">
+			<div id="status">{getStatus(state, isDraft)}</div>
+			{!isIssue ? <Avatar for={author} /> : null}
+			<span className="author">
+				{!isIssue ? (
+					<div>
+						<AuthorLink for={author} /> {getActionText(state)} into{' '}
+						<code className="branch-tag"> {base}</code> from <code className="branch-tag"> {head} </code>
+					</div>
+				) : null}
+			</span>
 		</div>
 	);
 }
