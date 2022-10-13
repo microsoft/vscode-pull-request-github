@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { VSCodeButton } from '@vscode/webview-ui-toolkit/react';
 import React, { useContext, useState } from 'react';
 import { GithubItemStateEnum } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
@@ -67,11 +68,11 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue, re
 			}}
 		>
 			<textarea name="text" style={{ width: '100%' }} defaultValue={currentTitle}></textarea>
-			<div className="form-actions">
-				<button className="secondary" onClick={() => setEditMode(false)}>
+			<div className="form-actions button-group">
+				<VSCodeButton appearance='secondary' onClick={() => setEditMode(false)}>
 					Cancel
-				</button>
-				<input type="submit" value="Update" />
+				</VSCodeButton>
+				<VSCodeButton type="submit">Update</VSCodeButton>
 			</div>
 		</form>
 	) : (
@@ -91,16 +92,16 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue, re
 				*/}
 				</div>
 				{canEdit && !inEditMode ? (
-					<div className="flex-action-bar comment-actions">
+					<div className="flex-action-bar comment-actions button-group">
 						{
-							<button title="Edit" onClick={() => setEditMode(true)}>
+							<VSCodeButton appearance='icon' title="Edit" onClick={() => setEditMode(true)}>
 								{editIcon}
-							</button>
+							</VSCodeButton>
 						}
 						{
-							<button title="Copy Link" onClick={copyPrLink}>
+							<VSCodeButton appearance='icon' title="Copy Link" onClick={copyPrLink}>
 								{copyIcon}
-							</button>
+							</VSCodeButton>
 						}
 					</div>
 				) : (
@@ -109,7 +110,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue, re
 			</div>
 			<div className="button-group">
 				<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
-				<button onClick={refresh}>Refresh</button>
+				<VSCodeButton onClick={refresh}>Refresh</VSCodeButton>
 			</div>
 		</div>
 	);
@@ -144,9 +145,9 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBran
 				<button aria-live="polite" className="checkedOut" disabled>
 					{checkIcon} Checked Out
 				</button>
-				<button aria-live="polite" title="Switch to a different branch than this pull request branch"disabled={isBusy} onClick={() => onClick('exitReviewMode')}>
+				<VSCodeButton aria-live="polite" title="Switch to a different branch than this pull request branch"disabled={isBusy} onClick={() => onClick('exitReviewMode')}>
 					Checkout '{repositoryDefaultBranch}'
-				</button>
+				</VSCodeButton>
 			</>
 		);
 	} else if (!isIssue) {

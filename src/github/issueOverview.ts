@@ -390,7 +390,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		<title>Pull Request #${number}</title>
 	</head>
 	<body class="${process.platform}">
-		<div id=app></div>
+		<div id=app>
+		</div>
 		<script nonce="${nonce}" src="${this._webview!.asWebviewUri(uri).toString()}"></script>
 	</body>
 </html>`;

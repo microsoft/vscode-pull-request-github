@@ -407,11 +407,11 @@ body button .icon {
 	white-space: nowrap;
 }
 
-body .overview-title .button-group button {
+body .overview-title .button-group button, body .overview-title .button-group vscode-button {
 	display: flex;
 }
 
-body .overview-title .button-group button:last-child {
+body .overview-title .button-group button:last-child, body .overview-title .button-group vscode-button:last-child {
 	margin-left: 10px;
 }
 
