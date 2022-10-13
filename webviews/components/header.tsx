@@ -68,7 +68,7 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue, re
 			}}
 		>
 			<textarea name="text" style={{ width: '100%' }} defaultValue={currentTitle}></textarea>
-			<div className="form-actions">
+			<div className="form-actions button-group">
 				<VSCodeButton appearance='secondary' onClick={() => setEditMode(false)}>
 					Cancel
 				</VSCodeButton>
@@ -92,16 +92,16 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue, re
 				*/}
 				</div>
 				{canEdit && !inEditMode ? (
-					<div className="flex-action-bar comment-actions">
+					<div className="flex-action-bar comment-actions button-group">
 						{
-							<button title="Edit" onClick={() => setEditMode(true)}>
+							<VSCodeButton appearance='icon' title="Edit" onClick={() => setEditMode(true)}>
 								{editIcon}
-							</button>
+							</VSCodeButton>
 						}
 						{
-							<button title="Copy Link" onClick={copyPrLink}>
+							<VSCodeButton appearance='icon' title="Copy Link" onClick={copyPrLink}>
 								{copyIcon}
-							</button>
+							</VSCodeButton>
 						}
 					</div>
 				) : (
