@@ -124,7 +124,7 @@ function Subtitle({ state, isDraft, isIssue, author, base, head }) {
 				{!isIssue ? (
 					<div className="merge-branches">
 						<AuthorLink for={author} /> {getActionText(state)} into{' '}
-						<code className="branch-tag"> {base}</code> from <code className="branch-tag"> {head} </code>
+						<code className="branch-tag">{base}</code> from <code className="branch-tag">{head}</code>
 					</div>
 				) : null}
 			</div>
