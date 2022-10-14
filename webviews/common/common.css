@@ -40,6 +40,12 @@ input[type='submit']:focus {
 	outline-offset: 2px;
 }
 
+button:focus-within,
+input[type='submit']:focus-within {
+	border: 1px solid transparent;
+	outline: 1px solid transparent;
+}
+
 button:hover:enabled,
 button:focus:enabled,
 input[type='submit']:focus:enabled,
@@ -134,6 +140,12 @@ body img.avatar {
 	flex-shrink: 0;
 }
 
+.section-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
 .section-item .avatar-link {
 	margin-right: 8px;
 }
@@ -147,47 +159,54 @@ body img.avatar {
 	flex-shrink: 0;
 }
 
-.section-item {
-	margin-bottom: 8px;
-	display: flex;
-	align-items: center;
+.section-item img.avatar {
+	width: 20px;
+	height: 20px;
 }
 
-.section-item img.avatar {
-	width: 18px;
-	height: 18px;
+.section-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 3px;
+}
+
+.reviewer-icons {
+	display: flex;
+	gap: 4px;
 }
 
 .push-right {
 	margin-left: auto;
 }
 
-.author-link {
-	font-weight: bolder;
-	color: var(--vscode-editor-foreground);
+.avatar-with-author {
+	display: flex;
+	align-items: center;
 }
 
-.section-item {
-	margin-right: 8px;
+.author-link {
+	font-weight: 600;
+	color: var(--vscode-editor-foreground);
 }
 
 .automerge-section {
 	display: flex;
+	padding: 16px;
+	background: var(--vscode-editorHoverWidget-background);
+	border-bottom-left-radius: 3px;
+	border-bottom-right-radius: 3px;
 }
 
-.automerge-section .merge-select-container{
-	padding-top: 4px;
-	padding-left: 4px;
+.automerge-section .merge-select-container {
+	margin-left: 8px;
 }
 
 .automerge-checkbox-wrapper,
 .automerge-checkbox-label {
 	display: flex;
 	align-items: center;
-}
-
-body button.comment-resolve {
-	margin: 10px;
+	margin-right: 4px;
 }
 
 /** Theming */
