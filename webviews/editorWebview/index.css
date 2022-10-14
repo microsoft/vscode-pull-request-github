@@ -17,6 +17,9 @@
 #main {
 	grid-column: 1;
 	grid-row: 2;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
 }
 
 #sidebar {
@@ -121,12 +124,13 @@ body .comment-container .review-comment-header {
 	display: flex;
 	width: 100%;
 	box-sizing: border-box;
-	padding: 6px;
-	font-size: 12px;
+	padding: 8px 16px;
 	color: var(--vscode-foreground);
 	align-items: center;
-	background: var(--vscode-list-inactiveSelectionBackground);
-	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	background: var(--vscode-editorWidget-background);
+	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
+	border-top-left-radius: 3px;
+	border-top-right-radius: 3px;
 }
 
 .description-header {
@@ -159,25 +163,44 @@ body .comment-container .review-comment-header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	margin-top: 5px;
-	margin-left: 15px;
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
+}
+
+.status-check-details {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }
 
 #merge-on-github {
 	margin-top: 10px;
 }
 
+.status-item {
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
+}
+
+.status-item:first-of-type {
+	background: var(--vscode-editorWidget-background);
+	border-top-left-radius: 3px;
+	border-top-right-radius: 3px;
+}
+
 .status-item,
 .form-actions {
 	display: flex;
+	gap: 8px;
+}
+
+.status-item-detail-text {
+	display: flex;
+	gap: 8px;
 }
 
 .form-actions > input[type='submit'] {
 	margin-left: auto;
-}
-
-.status-check-detail-text {
-	margin-left: 0.7em;
 }
 
 .ready-for-review-container {
@@ -206,33 +229,18 @@ body .comment-container .review-comment-header {
 	margin-left: auto;
 }
 
-.status-section {
-	padding-bottom: 16px;
-}
-
-.status-section:last-of-type {
-	padding-bottom: 0px;
+#status-checks {
+	border: 1px solid var(--vscode-editorHoverWidget-border);
+	border-radius: 4px;
 }
 
 #status-checks a {
-	margin-left: 10px;
 	cursor: pointer;
-}
-
-#status-checks {
-	padding: 10px;
-	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
-	margin-top: 20px;
 }
 
 #status-checks summary {
 	display: flex;
 	align-items: center;
-}
-
-#status-checks svg {
-	margin-right: 6px;
-	width: 16px;
 }
 
 #status-checks .avatar-link svg {
@@ -296,14 +304,12 @@ body .diff .diffPath {
 
 body .comment-container .comment-body,
 .review-body {
-	padding: 10px;
-	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	padding: 16px;
 	border-top: none;
 }
 
 body .comment-container .review-comment-container .review-comment-body {
-	padding: 0;
-	margin: 0 0 0 36px;
+	padding: 16px;
 	border: none;
 }
 
@@ -347,7 +353,6 @@ body button.checkedOut {
 body button .icon {
 	width: 1em;
 	height: 1em;
-	margin-right: 6px;
 }
 
 .prIcon {
@@ -442,7 +447,7 @@ body .overview-title .button-group button:last-child {
 	font-style: italic;
 }
 
-.assign-yourself:hover{
+.assign-yourself:hover {
 	cursor: pointer;
 }
 
@@ -487,9 +492,13 @@ body .overview-title .button-group button:last-child {
 	flex-shrink: 0;
 }
 
+.comment-container.commit {
+	border: none;
+	padding: 4px 16px;
+}
+
 .comment-container.commit,
 .comment-container.merged {
-	padding: 16px 0 0 12px;
 	box-sizing: border-box;
 }
 
@@ -570,19 +579,20 @@ body .overview-title .button-group button:last-child {
 
 .comment-container {
 	position: relative;
-	padding-top: 20px;
 	width: 100%;
 	display: flex;
 	margin: 0;
 	align-items: center;
+	border-radius: 4px;
+	border: 1px solid var(--vscode-editorHoverWidget-border);
 }
 
 .comment-container[data-type='commit'] {
 	padding: 8px 0;
+	border: none;
 }
 
-.comment-container[data-type='commit'] + .comment-container[data-type='commit'],
-.comment-container:first-of-type {
+.comment-container[data-type='commit'] + .comment-container[data-type='commit'] {
 	border-top: none;
 }
 
@@ -835,8 +845,8 @@ code {
 }
 
 .review-comment-body .diff-container {
-	margin-top: 10px;
-	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	border-radius: 4px;
+	border: 1px solid var(--vscode-editorHoverWidget-border);
 }
 
 .review-comment-body .diff-container .review-comment-container .comment-container {
@@ -857,8 +867,10 @@ code {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	background: var(--vscode-editorGroupHeader-tabsBackground);
-	line-height: 1.5;
+	background: var(--vscode-editorWidget-background);
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
+	border-top-left-radius: 3px;
+	border-top-right-radius: 3px;
 }
 
 .resolved-container .diffPath:hover {
@@ -993,7 +1005,6 @@ code {
 	width: 1em;
 	height: 1em;
 	font-size: 16px;
-	margin-right: 6px;
 }
 
 .action-bar {

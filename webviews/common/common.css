@@ -163,7 +163,7 @@ body img.avatar {
 }
 
 .author-link {
-	font-weight: bolder;
+	font-weight: 600;
 	color: var(--vscode-editor-foreground);
 }
 
@@ -173,17 +173,21 @@ body img.avatar {
 
 .automerge-section {
 	display: flex;
+	padding: 12px 16px;
+	background: var(--vscode-editorHoverWidget-background);
+	border-bottom-left-radius: 3px;
+	border-bottom-right-radius: 3px;
 }
 
-.automerge-section .merge-select-container{
-	padding-top: 4px;
-	padding-left: 4px;
+.automerge-section .merge-select-container {
+	margin-left: 8px;
 }
 
 .automerge-checkbox-wrapper,
 .automerge-checkbox-label {
 	display: flex;
 	align-items: center;
+	margin-right: 4px;
 }
 
 body button.comment-resolve {
