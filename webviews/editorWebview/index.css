@@ -194,15 +194,6 @@ body .comment-container .review-comment-header {
 	gap: 8px;
 }
 
-.status-check:last-of-type {
-	margin-bottom: 5px;
-}
-
-.status-check-inner {
-	display: flex;
-	align-items: center;
-}
-
 #merge-on-github {
 	margin-top: 10px;
 }
@@ -227,6 +218,10 @@ body .comment-container .review-comment-header {
 .status-item-detail-text {
 	display: flex;
 	gap: 8px;
+}
+
+.status-check-detail-text {
+	margin-right: 8px;
 }
 
 .form-actions > input[type='submit'] {
