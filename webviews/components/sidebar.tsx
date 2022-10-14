@@ -9,7 +9,7 @@ import { ILabel, IMilestone } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { AuthorLink, Avatar } from '../components/user';
-import { deleteIcon, plusIcon } from './icon';
+import { closeIcon, plusIcon } from './icon';
 import { Reviewer } from './reviewer';
 import { nbsp } from './space';
 
@@ -84,7 +84,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 												await removeAssignee(x.login);
 											}}
 										>
-											{deleteIcon}️
+											{closeIcon}️
 										</button>
 										{nbsp}
 									</>
@@ -174,7 +174,7 @@ function Label(label: ILabel & { canDelete: boolean }) {
 						onClick={() => removeLabel(name)}
 						style={{ stroke: labelColor.textColor }}
 					>
-						{deleteIcon}️
+						{closeIcon}️
 					</button>
 					{nbsp}
 				</>
@@ -209,7 +209,7 @@ function Milestone(milestone: IMilestone & { canDelete: boolean }) {
 						}}
 						style={{ stroke: labelColor.textColor }}
 					>
-						{deleteIcon}️
+						{closeIcon}️
 					</button>
 					{nbsp}
 				</>

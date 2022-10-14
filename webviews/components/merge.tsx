@@ -11,7 +11,7 @@ import PullRequestContext, { PRContext } from '../common/context';
 import { Reviewer } from '../components/reviewer';
 import { AutoMerge } from './automergeSelect';
 import { Dropdown } from './dropdown';
-import { alertIcon, checkIcon, deleteIcon, mergeIcon, pendingIcon, skipIcon } from './icon';
+import { alertIcon, checkIcon, closeIcon, mergeIcon, pendingIcon, skipIcon } from './icon';
 import { nbsp } from './space';
 import { Avatar } from './user';
 
@@ -149,7 +149,7 @@ export const MergeStatus = ({ mergeable, isSimple }: { mergeable: PullRequestMer
 				: mergeable === PullRequestMergeability.Mergeable
 					? checkIcon
 					: (mergeable === PullRequestMergeability.NotMergeable || mergeable === PullRequestMergeability.Conflict)
-						? deleteIcon
+						? closeIcon
 						: pendingIcon}
 			<div>
 				{(mergeable) === PullRequestMergeability.Mergeable
@@ -420,7 +420,7 @@ function StateIcon({ state }: { state: string }) {
 		case 'success':
 			return checkIcon;
 		case 'failure':
-			return deleteIcon;
+			return closeIcon;
 	}
 	return pendingIcon;
 }
