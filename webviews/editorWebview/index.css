@@ -163,6 +163,15 @@ body .comment-container .review-comment-header {
 	margin-left: 15px;
 }
 
+.status-check:last-of-type {
+	margin-bottom: 5px;
+}
+
+.status-check-inner {
+	display: flex;
+	align-items: center;
+}
+
 #merge-on-github {
 	margin-top: 10px;
 }

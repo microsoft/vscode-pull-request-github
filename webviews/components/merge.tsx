@@ -370,7 +370,7 @@ const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) => (
 	<div>
 		{statuses.map(s => (
 			<div key={s.id} className="status-check">
-				<div>
+				<div className='status-check-inner'>
 					<StateIcon state={s.state} />
 					<Avatar for={{ avatarUrl: s.avatar_url, url: s.url }} />
 					<span className="status-check-detail-text">
