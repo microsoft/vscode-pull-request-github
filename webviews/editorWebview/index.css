@@ -172,10 +172,6 @@ body .comment-container .review-comment-header {
 	display: flex;
 }
 
-.form-actions > input[type='submit'] {
-	margin-left: auto;
-}
-
 .status-check-detail-text {
 	margin-left: 0.7em;
 }
@@ -649,17 +645,9 @@ textarea {
 	margin-left: 0;
 }
 
-.comment-form .form-actions > .push-right {
-	margin-left: auto;
-}
-
-.comment-form .form-actions > #close {
-	margin-left: 0;
-	margin-right: auto;
-}
-
 .form-actions {
 	display: flex;
+	justify-content: flex-end;
 	padding-top: 10px;
 }
 
