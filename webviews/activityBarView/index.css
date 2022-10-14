@@ -10,6 +10,7 @@ body {
 textarea {
 	min-height: 80px;
 	max-height: 500px;
+	border-radius: 2px;
 }
 
 .form-actions {

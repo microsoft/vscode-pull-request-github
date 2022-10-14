@@ -5,7 +5,7 @@
 
 #app {
 	display: grid;
-	grid-template-columns: 670px auto;
+	grid-template-columns: 1fr minmax(200px, 300px);
 	column-gap: 32px;
 }
 
@@ -47,7 +47,7 @@ textarea:focus,
 	display: flex;
 	align-items: flex-start;
 	margin: 20px 0;
-	padding-bottom: 10px;
+	padding-bottom: 24px;
 	border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
 }
 
@@ -310,7 +310,6 @@ body .comment-container .review-comment-header > a,
 body .commit .commit-message > a,
 body .merged .merged-message > a {
 	margin-right: 6px;
-	white-space: nowrap;
 }
 
 body .comment-container .review-comment-container .pending-label,
@@ -362,7 +361,7 @@ body .comment-container .comment-body > div > p:last-child,
 body {
 	margin: auto;
 	width: 100%;
-	max-width: 925px;
+	max-width: 1280px;
 	padding: 0 32px;
 	box-sizing: border-box;
 }
@@ -396,30 +395,12 @@ body button .icon {
 	margin-top: 18px;
 }
 
-.overview-title {
-	display: flex;
-	position: relative;
-	flex-wrap: wrap;
-	justify-content: space-between;
-}
-
 .overview-title h2 {
-	font-size: 24px;
+	font-size: 32px;
 }
 
 .overview-title textarea {
 	min-height: 50px;
-}
-
-.overview-title .button-group {
-	padding-top: 2px;
-	display: flex;
-	align-self: start;
-}
-
-.overview-title .title-and-edit {
-	display: flex;
-	flex-grow: 1;
 }
 
 .title-container {
@@ -429,16 +410,32 @@ body button .icon {
 .subtitle {
 	display: flex;
 	align-items: center;
-	margin-top: 8px;
+	flex-wrap: wrap;
+	row-gap: 12px;
 }
 
 .subtitle .avatar,
 .subtitle .avatar-icon svg {
-	margin-right: 8px;
+	margin-right: 6px;
 }
 
 .subtitle .author {
-	margin-right: 8px;
+	display: flex;
+	align-items: center;
+}
+
+.merge-branches {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	flex-wrap: wrap;
+}
+
+.branch-tag {
+	padding: 2px 4px;
+	background: var(--vscode-editorInlayHint-background);
+	color: var(--vscode-editorInlayHint-foreground);
+	border-radius: 4px;
 }
 
 .subtitle .created-at {
@@ -446,12 +443,16 @@ body button .icon {
 	white-space: nowrap;
 }
 
-body .overview-title .button-group button {
+.button-group {
 	display: flex;
+	gap: 8px;
 }
 
-body .overview-title .button-group button:last-child {
-	margin-left: 10px;
+.button-group button {
+	display: flex;
+	font-size: 11px;
+	font-weight: 600;
+	padding: 0 5px;
 }
 
 #status {
@@ -459,8 +460,8 @@ body .overview-title .button-group button:last-child {
 	line-height: 18px;
 	background: var(--vscode-badge-background);
 	color: var(--vscode-badge-foreground);
-	border-radius: 4px;
-	padding: 2px 8px;
+	border-radius: 18px;
+	padding: 4px 8px;
 	margin-right: 10px;
 }
 
@@ -582,9 +583,13 @@ body .overview-title .button-group button:last-child {
 	height: 18px;
 }
 
+.message-container {
+	display: inline-grid;
+}
+
 .commit .commit-message .message,
 .merged .merged-message .message {
-	overflow: inherit;
+	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
@@ -616,6 +621,7 @@ body .overview-title .button-group button:last-child {
 .details {
 	display: flex;
 	flex-direction: column;
+	gap: 12px;
 	width: 100%;
 }
 
@@ -709,8 +715,8 @@ textarea {
 }
 
 .editing-form .form-actions {
-	margin-left: auto;
-	padding: 5px 0;
+	display: flex;
+	gap: 8px;
 }
 
 .comment-form .form-actions > button,
