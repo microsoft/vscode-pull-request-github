@@ -65,15 +65,18 @@ const CommitEventView = (event: CommitEvent) => (
 				<Avatar for={event.author} />
 			</div>
 			<AuthorLink for={event.author} />
-			<a className="message" href={event.htmlUrl} title={event.htmlUrl}>
-				{event.message}
-			</a>
+			<div className="message-container">
+				<a className="message" href={event.htmlUrl} title={event.htmlUrl}>
+					{event.message}
+				</a>
+			</div>
 		</div>
-		<a className="sha" href={event.htmlUrl} title={event.htmlUrl}>
-			{event.sha.slice(0, 7)}
-		</a>
-		{nbsp}
-		<Timestamp date={event.authoredDate} />
+		<div className="sha-with-timestamp">
+			<a className="sha" href={event.htmlUrl} title={event.htmlUrl}>
+				{event.sha.slice(0, 7)}
+			</a>
+			<Timestamp date={event.authoredDate} />
+		</div>
 	</div>
 );
 
@@ -86,7 +89,11 @@ const NewCommitsSinceReviewEventView = () => {
 				{nbsp}
 				<span style={{ fontWeight: 'bold' }}>New changes since your last Review</span>
 			</div>
-			<button aria-live="polite" title="View the changes since your last review" onClick={() => gotoChangesSinceReview()}>
+			<button
+				aria-live="polite"
+				title="View the changes since your last review"
+				onClick={() => gotoChangesSinceReview()}
+			>
 				View Changes
 			</button>
 		</div>
@@ -97,8 +104,8 @@ const association = ({ authorAssociation }: ReviewEvent, format = (assoc: string
 	authorAssociation.toLowerCase() === 'user'
 		? format('you')
 		: authorAssociation && authorAssociation !== 'NONE'
-			? format(authorAssociation)
-			: null;
+		? format(authorAssociation)
+		: null;
 
 const positionKey = (comment: IComment) =>
 	comment.position !== null ? `pos:${comment.position}` : `ori:${comment.originalPosition}`;
@@ -140,11 +147,16 @@ const ReviewEventView = (event: ReviewEvent) => {
 				{event.state !== 'PENDING' && event.body ? (
 					<CommentBody body={event.body} bodyHTML={event.bodyHTML} canApplyPatch={false} />
 				) : null}
-				<div className="comment-body review-comment-body">
-					{Object.entries(comments).map(([key, thread]) => {
-						return <CommentThread key={key} thread={thread} event={event} />;
-					})}
-				</div>
+
+				{/* Don't show the empty comment body unless a comment has been written. Shows diffs and suggested changes. */}
+				{event.comments.length ? (
+					<div className="comment-body review-comment-body">
+						{Object.entries(comments).map(([key, thread]) => {
+							return <CommentThread key={key} thread={thread} event={event} />;
+						})}
+					</div>
+				) : null}
+
 				{reviewIsPending ? <AddReviewSummaryComment /> : null}
 			</div>
 		</div>
@@ -156,7 +168,8 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 	const [revealed, setRevealed] = useState(!comment.isResolved);
 	const [resolved, setResolved] = useState(!!comment.isResolved);
 	const { openDiff, toggleResolveComment } = useContext(PullRequestContext);
-	const resolvePermission = event.reviewThread &&
+	const resolvePermission =
+		event.reviewThread &&
 		((event.reviewThread.canResolve && !event.reviewThread.isResolved) ||
 			(event.reviewThread.canUnresolve && event.reviewThread.isResolved));
 
@@ -183,7 +196,7 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 							{comment.path}
 						</a>
 					)}
-					{!resolved && !revealed ? <span className='unresolvedLabel'>Unresolved</span> : null}
+					{!resolved && !revealed ? <span className="unresolvedLabel">Unresolved</span> : null}
 				</div>
 				<button className="secondary" onClick={() => setRevealed(!revealed)}>
 					{revealed ? 'Hide' : 'Show'}
@@ -195,13 +208,13 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 					{thread.map(c => (
 						<CommentView key={c.id} {...c} pullRequestReviewId={event.id} />
 					))}
-					{resolvePermission ?
-						<div className='comment-container comment review-comment'>
+					{resolvePermission ? (
+						<div className="resolve-comment-row">
 							<button className="secondary comment-resolve" onClick={() => toggleResolve()}>
 								{resolved ? 'Unresolve Conversation' : 'Resolve Conversation'}
 							</button>
 						</div>
-						: null}
+					) : null}
 				</div>
 			) : null}
 		</div>
@@ -217,7 +230,11 @@ function AddReviewSummaryComment() {
 			<textarea ref={comment} placeholder="Leave a review summary comment"></textarea>
 			<div className="form-actions">
 				{isAuthor ? null : (
-					<button id="request-changes" className="push-right" onClick={() => requestChanges(comment.current.value)}>
+					<button
+						id="request-changes"
+						className="push-right"
+						onClick={() => requestChanges(comment.current.value)}
+					>
 						Request Changes
 					</button>
 				)}
@@ -226,7 +243,11 @@ function AddReviewSummaryComment() {
 						Approve
 					</button>
 				)}
-				<button id="submit" className={isAuthor ? 'push-right' : ''} onClick={() => submit(comment.current.value)}>
+				<button
+					id="submit"
+					className={isAuthor ? 'push-right' : ''}
+					onClick={() => submit(comment.current.value)}
+				>
 					Submit Review
 				</button>
 			</div>

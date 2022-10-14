@@ -90,7 +90,7 @@ body {
 	display: flex;
 }
 
-.automerge-section .merge-select-container{
+.automerge-section .merge-select-container {
 	padding-top: 4px;
 	padding-left: 4px;
 }
@@ -98,5 +98,5 @@ body {
 .automerge-checkbox-wrapper,
 .automerge-checkbox-label {
 	display: flex;
-    align-items: center;
+	align-items: center;
 }
