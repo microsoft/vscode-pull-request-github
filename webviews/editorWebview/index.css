@@ -6,6 +6,7 @@
 #app {
 	display: grid;
 	grid-template-columns: 670px auto;
+	column-gap: 32px;
 }
 
 #title {
@@ -23,9 +24,11 @@
 }
 
 #sidebar {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
 	grid-column: 2;
 	grid-row: 2;
-	padding-left: 20px;
 }
 
 a:focus,
@@ -110,6 +113,24 @@ body a.avatar-link:focus {
 body .comment-container.comment,
 body .comment-container.review {
 	background-color: var(--vscode-editor-background);
+}
+
+.section .icon-button {
+	display: flex;
+	padding: 2px;
+	background: transparent;
+	border-radius: 4px;
+	line-height: 0;
+}
+
+.section .icon-button:hover,
+.section .icon-button:focus {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.section .icon-button:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: unset;
 }
 
 .review-comment-container {
@@ -360,8 +381,8 @@ body button.checkedOut {
 }
 
 body button .icon {
-	width: 1em;
-	height: 1em;
+	width: 16px;
+	height: 16px;
 }
 
 .prIcon {
@@ -440,40 +461,34 @@ body .overview-title .button-group button:last-child {
 }
 
 .section {
-	padding-bottom: 20px;
+	padding-bottom: 24px;
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.section:last-of-type {
+	padding-bottom: 0px;
+	border-bottom: none;
 }
 
 .section-header {
-	padding-bottom: 8px;
 	display: flex;
+	justify-content: space-between;
+	align-items: center;
 }
 
 .section-header .section-title {
-	font-weight: bold;
+	font-weight: 600;
 }
 
 .section-placeholder {
-	font-style: italic;
+	color: var(--vscode-descriptionForeground);
 }
 
 .assign-yourself:hover {
 	cursor: pointer;
-}
-
-.section button {
-	margin-left: auto;
-	padding: 0;
-	background: transparent;
-	display: flex;
-}
-
-.section .icon {
-	margin-right: 0;
-}
-
-.section button:hover,
-.section button:focus {
-	background: transparent;
 }
 
 .section svg {
@@ -483,15 +498,29 @@ body .overview-title .button-group button:last-child {
 	margin-right: 0;
 }
 
+.labels-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
 .label {
-	padding: 2px 0 2px 6px;
-	height: 16px;
+	display: flex;
+	justify-content: normal;
+	padding: 0 2px 0 8px;
+	border-radius: 20px;
 	border-style: solid;
-	border-radius: 2px;
 	border-width: 1px;
 	background: var(--vscode-badge-background);
 	color: var(--vscode-badge-foreground);
-	white-space: nowrap;
+	font-size: 11px;
+	line-height: 18px;
+	font-weight: 600;
+}
+
+.label .icon-button:hover,
+.label .icon-button:focus {
+	background-color: transparent;
 }
 
 .commit svg {
@@ -1008,7 +1037,7 @@ code {
 	}
 
 	.section-item {
-		margin-right: 8px;
+		display: flex;
 	}
 
 	body .hidden-focusable {
@@ -1021,20 +1050,20 @@ code {
 		display: flex;
 	}
 
-	.section-item.reviewer {
-		border-radius: 3px;
-		padding: 2px 6px;
-	}
-
 	.section-item .login {
 		width: auto;
 		margin-right: 4px;
 	}
+
+	/* Hides bottom borders on bottom two sections */
+	.section:nth-last-child(-n + 2) {
+		border-bottom: none;
+	}
 }
 
 .icon {
-	width: 1em;
-	height: 1em;
+	width: 16px;
+	height: 16px;
 	font-size: 16px;
 }
 
@@ -1060,11 +1089,6 @@ code {
 .flex-action-bar > button {
 	margin-left: 4px;
 	margin-right: 4px;
-}
-
-.remove-item {
-	height: 16px;
-	cursor: pointer;
 }
 
 .title-editing-form {

@@ -40,6 +40,12 @@ input[type='submit']:focus {
 	outline-offset: 2px;
 }
 
+button:focus-within,
+input[type='submit']:focus-within {
+	border: 1px solid transparent;
+	outline: 1px solid transparent;
+}
+
 button:hover:enabled,
 button:focus:enabled,
 input[type='submit']:focus:enabled,
@@ -134,6 +140,12 @@ body img.avatar {
 	flex-shrink: 0;
 }
 
+.section-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
 .section-item .avatar-link {
 	margin-right: 8px;
 }
@@ -147,28 +159,35 @@ body img.avatar {
 	flex-shrink: 0;
 }
 
-.section-item {
-	margin-bottom: 8px;
-	display: flex;
-	align-items: center;
+.section-item img.avatar {
+	width: 20px;
+	height: 20px;
 }
 
-.section-item img.avatar {
-	width: 18px;
-	height: 18px;
+.section-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 3px;
+}
+
+.reviewer-icons {
+	display: flex;
+	gap: 4px;
 }
 
 .push-right {
 	margin-left: auto;
 }
 
+.avatar-with-author {
+	display: flex;
+	align-items: center;
+}
+
 .author-link {
 	font-weight: 600;
 	color: var(--vscode-editor-foreground);
-}
-
-.section-item {
-	margin-right: 8px;
 }
 
 .automerge-section {
