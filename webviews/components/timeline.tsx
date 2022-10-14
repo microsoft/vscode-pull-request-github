@@ -145,11 +145,16 @@ const ReviewEventView = (event: ReviewEvent) => {
 				{event.state !== 'PENDING' && event.body ? (
 					<CommentBody body={event.body} bodyHTML={event.bodyHTML} canApplyPatch={false} />
 				) : null}
-				<div className="comment-body review-comment-body">
-					{Object.entries(comments).map(([key, thread]) => {
-						return <CommentThread key={key} thread={thread} event={event} />;
-					})}
-				</div>
+
+				{/* Don't show the empty comment body unless a comment has been written. Shows diffs and suggested changes. */}
+				{event.comments.length ? (
+					<div className="comment-body review-comment-body">
+						{Object.entries(comments).map(([key, thread]) => {
+							return <CommentThread key={key} thread={thread} event={event} />;
+						})}
+					</div>
+				) : null}
+
 				{reviewIsPending ? <AddReviewSummaryComment /> : null}
 			</div>
 		</div>
@@ -202,7 +207,7 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 						<CommentView key={c.id} {...c} pullRequestReviewId={event.id} />
 					))}
 					{resolvePermission ? (
-						<div>
+						<div className="resolve-comment-row">
 							<button className="secondary comment-resolve" onClick={() => toggleResolve()}>
 								{resolved ? 'Unresolve Conversation' : 'Resolve Conversation'}
 							</button>

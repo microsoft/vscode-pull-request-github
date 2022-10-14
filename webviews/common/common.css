@@ -173,7 +173,7 @@ body img.avatar {
 
 .automerge-section {
 	display: flex;
-	padding: 12px 16px;
+	padding: 16px;
 	background: var(--vscode-editorHoverWidget-background);
 	border-bottom-left-radius: 3px;
 	border-bottom-right-radius: 3px;
@@ -188,10 +188,6 @@ body img.avatar {
 	display: flex;
 	align-items: center;
 	margin-right: 4px;
-}
-
-body button.comment-resolve {
-	margin: 10px;
 }
 
 /** Theming */

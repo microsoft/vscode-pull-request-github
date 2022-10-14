@@ -109,6 +109,7 @@ body a.avatar-link:focus {
 
 body .comment-container.comment,
 body .comment-container.review {
+	/* border: 1px solid var(--vscode-editorHoverWidget-border); */
 	background-color: var(--vscode-editor-background);
 }
 
@@ -205,6 +206,9 @@ body .comment-container .review-comment-header {
 
 .ready-for-review-container {
 	padding: 16px;
+	background-color: var(--vscode-editorWidget-background);
+	border-bottom-left-radius: 3px;
+	border-bottom-right-radius: 3px;
 }
 
 .ready-for-review-button {
@@ -254,6 +258,9 @@ body .comment-container .review-comment-header {
 #status-checks .merge-select-container {
 	display: flex;
 	align-items: center;
+	background-color: var(--vscode-editorWidget-background);
+	border-bottom-left-radius: 3px;
+	border-bottom-right-radius: 3px;
 }
 
 #status-checks .merge-select-container > * {
@@ -271,23 +278,26 @@ body .comment-container .review-comment-header {
 #status-checks .branch-status-message {
 	display: inline-block;
 	line-height: 100%;
-	padding: 0 10px;
+	padding: 16px;
 }
 
 body .comment-container .review-comment-header > span,
 body .comment-container .review-comment-header > a,
 body .commit .commit-message > a,
 body .merged .merged-message > a {
-	margin-right: 4px;
+	margin-right: 6px;
 	white-space: nowrap;
 }
 
 body .comment-container .review-comment-container .pending-label,
 body .resolved-container .outdatedLabel {
-	border: 1px solid;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	font-size: 11px;
+	font-weight: 600;
 	border-radius: 20px;
-	padding: 2px 8px;
-	margin-left: 5px;
+	padding: 4px 8px;
+	margin-left: 6px;
 }
 
 body .resolved-container .unresolvedLabel {
@@ -306,7 +316,9 @@ body .comment-container .comment-body,
 }
 
 body .comment-container .review-comment-container .review-comment-body {
-	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
 	border: none;
 }
 
@@ -314,6 +326,7 @@ body .comment-container .comment-body > p,
 body .comment-container .comment-body > div > p,
 .comment-container .review-body > p {
 	margin-top: 0;
+	line-height: 1.5em;
 }
 
 body .comment-container .comment-body > p:last-child,
@@ -505,7 +518,6 @@ body .overview-title .button-group button:last-child {
 	display: flex;
 	width: 100%;
 	border: none;
-	font-size: 12px;
 	color: var(--vscode-foreground);
 }
 
@@ -518,7 +530,6 @@ body .overview-title .button-group button:last-child {
 .merged .merged-message {
 	display: flex;
 	align-items: center;
-	line-height: 18px;
 	overflow: hidden;
 	flex-grow: 1;
 }
@@ -600,19 +611,31 @@ body .overview-title .button-group button:last-child {
 }
 
 .comment-body .review-comment {
-	padding: 3px;
 	box-sizing: border-box;
-	border-top: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	border-top: 1px solid var(--vscode-editorHoverWidget-border);
+}
+
+.resolve-comment-row {
+	display: flex;
+	align-items: center;
+	padding: 16px;
+	background-color: var(--vscode-editorHoverWidget-background);
+	border-top: 1px solid var(--vscode-editorHoverWidget-border);
 }
 
 .review-comment-container .review-comment .review-comment-header {
+	padding: 16px 16px 8px 16px;
 	border: none;
 	background: none;
 }
 
 .review-comment-container .review-comment .comment-body {
 	border: none;
-	padding: 4px 12px 8px 12px;
+	padding: 0px 16px 8px 16px;
+}
+
+.review-comment-container .review-comment .comment-body:last-of-type {
+	padding: 0px 16px 16px 16px;
 }
 
 .comment-body .line {
@@ -854,6 +877,10 @@ code {
 
 .review-comment-body .diff-container .review-comment-container .comment-container {
 	padding-top: 0;
+}
+
+.review-comment-body .diff-container .comment-container {
+	border: none;
 }
 
 .review-comment-body .diff-container .review-comment-container .review-comment-header .avatar-container {
