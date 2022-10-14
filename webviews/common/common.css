@@ -192,6 +192,7 @@ body img.avatar {
 
 .automerge-section {
 	display: flex;
+	align-items: center;
 	padding: 16px;
 	background: var(--vscode-editorHoverWidget-background);
 	border-bottom-left-radius: 3px;

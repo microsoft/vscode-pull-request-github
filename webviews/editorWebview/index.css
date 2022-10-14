@@ -5,7 +5,7 @@
 
 #app {
 	display: grid;
-	grid-template-columns: 670px auto;
+	grid-template-columns: 1fr minmax(200px, 300px);
 	column-gap: 32px;
 }
 
@@ -306,7 +306,6 @@ body .comment-container .review-comment-header > a,
 body .commit .commit-message > a,
 body .merged .merged-message > a {
 	margin-right: 6px;
-	white-space: nowrap;
 }
 
 body .comment-container .review-comment-container .pending-label,
@@ -358,7 +357,7 @@ body .comment-container .comment-body > div > p:last-child,
 body {
 	margin: auto;
 	width: 100%;
-	max-width: 1024px;
+	max-width: 1280px;
 	padding: 0 32px;
 	box-sizing: border-box;
 }
@@ -580,9 +579,13 @@ body button .icon {
 	height: 18px;
 }
 
+.message-container {
+	display: inline-grid;
+}
+
 .commit .commit-message .message,
 .merged .merged-message .message {
-	overflow: inherit;
+	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
