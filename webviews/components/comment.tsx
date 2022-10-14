@@ -63,6 +63,7 @@ export function CommentView(comment: Props) {
 			for={comment}
 			onMouseEnter={() => setShowActionBar(true)}
 			onMouseLeave={() => setShowActionBar(false)}
+			onFocus={() => setShowActionBar(true)}
 		>
 			<div className="action-bar comment-actions" style={{ display: showActionBar ? 'block' : 'none' }}>
 				<button title="Quote reply" onClick={() => emitter.emit('quoteReply', bodyMd)}>
@@ -87,15 +88,16 @@ export function CommentView(comment: Props) {
 type CommentBoxProps = {
 	for: Partial<IComment & PullRequest>;
 	header?: React.ReactChild;
+	onFocus?: any;
 	onMouseEnter?: any;
 	onMouseLeave?: any;
 	children?: any;
 };
 
-function CommentBox({ for: comment, onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
+function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
 	const { user, author, createdAt, htmlUrl, isDraft } = comment;
 	return (
-		<div className="comment-container comment review-comment" {...{ onMouseEnter, onMouseLeave }}>
+		<div className="comment-container comment review-comment" {...{ onFocus, onMouseEnter, onMouseLeave }}>
 			<div className="review-comment-container">
 				<div className="review-comment-header">
 					<Spaced>
