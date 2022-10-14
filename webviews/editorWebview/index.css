@@ -465,7 +465,7 @@ body .overview-title .button-group button:last-child {
 }
 
 .section-header .section-title {
-	font-weight: 500;
+	font-weight: 600;
 }
 
 .section-placeholder {
@@ -1006,11 +1006,6 @@ code {
 		display: flex;
 	}
 
-	.section-item.reviewer {
-		border-radius: 3px;
-		padding: 2px 6px;
-	}
-
 	.section-item .login {
 		width: auto;
 		margin-right: 4px;
@@ -1018,8 +1013,8 @@ code {
 }
 
 .icon {
-	width: 1em;
-	height: 1em;
+	width: 16px;
+	height: 16px;
 	font-size: 16px;
 }
 

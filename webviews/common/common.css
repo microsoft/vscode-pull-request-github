@@ -164,6 +164,18 @@ body img.avatar {
 	height: 20px;
 }
 
+.section-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 3px;
+}
+
+.reviewer-icons {
+	display: flex;
+	gap: 4px;
+}
+
 .push-right {
 	margin-left: auto;
 }
