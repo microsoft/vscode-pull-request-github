@@ -294,7 +294,6 @@ body .comment-container .review-comment-header > a,
 body .commit .commit-message > a,
 body .merged .merged-message > a {
 	margin-right: 4px;
-	white-space: nowrap;
 }
 
 body .comment-container .review-comment-container .pending-label,
@@ -559,13 +558,6 @@ body .overview-title .button-group button:last-child {
 .merged .avatar-container .avatar-icon svg {
 	width: 18px;
 	height: 18px;
-}
-
-.commit .commit-message .message,
-.merged .merged-message .message {
-	overflow: inherit;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .commit .sha {
