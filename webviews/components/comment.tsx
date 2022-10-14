@@ -64,23 +64,21 @@ export function CommentView(comment: Props) {
 			onMouseEnter={() => setShowActionBar(true)}
 			onMouseLeave={() => setShowActionBar(false)}
 		>
-			{showActionBar ? (
-				<div className="action-bar comment-actions">
-					<button title="Quote reply" onClick={() => emitter.emit('quoteReply', bodyMd)}>
-						{commentIcon}
+			<div className="action-bar comment-actions" style={{ display: showActionBar ? 'block' : 'none' }}>
+				<button title="Quote reply" onClick={() => emitter.emit('quoteReply', bodyMd)}>
+					{commentIcon}
+				</button>
+				{canEdit ? (
+					<button title="Edit comment" onClick={() => setEditMode(true)}>
+						{editIcon}
 					</button>
-					{canEdit ? (
-						<button title="Edit comment" onClick={() => setEditMode(true)}>
-							{editIcon}
-						</button>
-					) : null}
-					{canDelete ? (
-						<button title="Delete comment" onClick={() => deleteComment({ id, pullRequestReviewId })}>
-							{deleteIcon}
-						</button>
-					) : null}
-				</div>
-			) : null}
+				) : null}
+				{canDelete ? (
+					<button title="Delete comment" onClick={() => deleteComment({ id, pullRequestReviewId })}>
+						{deleteIcon}
+					</button>
+				) : null}
+			</div>
 			<CommentBody comment={comment as IComment} bodyHTML={bodyHTMLState} body={bodyMd} canApplyPatch={pr.isCurrentlyCheckedOut} />
 		</CommentBox>
 	);
