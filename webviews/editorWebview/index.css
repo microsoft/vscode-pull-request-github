@@ -342,7 +342,7 @@ body .comment-container .comment-body > div > p:last-child,
 body {
 	margin: auto;
 	width: 100%;
-	max-width: 1280px;
+	max-width: 925px;
 	padding: 0 32px;
 	box-sizing: border-box;
 }
