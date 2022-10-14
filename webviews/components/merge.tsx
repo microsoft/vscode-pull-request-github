@@ -214,7 +214,7 @@ export const Merge = (pr: PullRequest) => {
 	}
 
 	return (
-		<div className="merge-select-container">
+		<div className="automerge-section">
 			<button onClick={() => selectMethod(select.current.value as MergeMethod)}>Merge Pull Request</button>
 			{nbsp}using method{nbsp}
 			<MergeSelect ref={select} {...pr} />
