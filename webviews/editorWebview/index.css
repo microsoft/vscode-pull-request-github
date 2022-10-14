@@ -1002,6 +1002,11 @@ code {
 		width: auto;
 		margin-right: 4px;
 	}
+
+	/* Hides bottom borders on bottom two sections */
+	.section:nth-last-child(-n + 2) {
+		border-bottom: none;
+	}
 }
 
 .icon {
