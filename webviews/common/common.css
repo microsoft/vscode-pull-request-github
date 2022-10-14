@@ -75,6 +75,7 @@ input[type='text'] {
 	background-color: var(--vscode-input-background);
 	color: var(--vscode-input-foreground);
 	font-family: var(--vscode-font-family);
+	border-radius: 2px;
 }
 
 textarea::placeholder,
@@ -86,7 +87,7 @@ select {
 	display: block;
 	box-sizing: border-box;
 	padding: 4px 8px;
-	border-radius: 0;
+	border-radius: 2px;
 	font-size: 13px;
 	border: 1px solid var(--vscode-dropdown-border);
 	background-color: var(--vscode-dropdown-background);
