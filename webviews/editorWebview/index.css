@@ -6,6 +6,7 @@
 #app {
 	display: grid;
 	grid-template-columns: 670px auto;
+	column-gap: 32px;
 }
 
 #title {
@@ -17,12 +18,17 @@
 #main {
 	grid-column: 1;
 	grid-row: 2;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
 }
 
 #sidebar {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
 	grid-column: 2;
 	grid-row: 2;
-	padding-left: 20px;
 }
 
 a:focus,
@@ -109,6 +115,24 @@ body .comment-container.review {
 	background-color: var(--vscode-editor-background);
 }
 
+.section .icon-button {
+	display: flex;
+	padding: 2px;
+	background: transparent;
+	border-radius: 4px;
+	line-height: 0;
+}
+
+.section .icon-button:hover,
+.section .icon-button:focus {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.section .icon-button:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: unset;
+}
+
 .review-comment-container {
 	width: 100%;
 	display: flex;
@@ -121,12 +145,13 @@ body .comment-container .review-comment-header {
 	display: flex;
 	width: 100%;
 	box-sizing: border-box;
-	padding: 6px;
-	font-size: 12px;
+	padding: 8px 16px;
 	color: var(--vscode-foreground);
 	align-items: center;
-	background: var(--vscode-list-inactiveSelectionBackground);
-	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	background: var(--vscode-editorWidget-background);
+	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
+	border-top-left-radius: 3px;
+	border-top-right-radius: 3px;
 }
 
 .description-header {
@@ -159,8 +184,14 @@ body .comment-container .review-comment-header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	margin-top: 5px;
-	margin-left: 15px;
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
+}
+
+.status-check-details {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }
 
 .status-check:last-of-type {
@@ -176,22 +207,37 @@ body .comment-container .review-comment-header {
 	margin-top: 10px;
 }
 
+.status-item {
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
+}
+
+.status-item:first-of-type {
+	background: var(--vscode-editorWidget-background);
+	border-top-left-radius: 3px;
+	border-top-right-radius: 3px;
+}
+
 .status-item,
 .form-actions {
 	display: flex;
+	gap: 8px;
+}
+
+.status-item-detail-text {
+	display: flex;
+	gap: 8px;
 }
 
 .form-actions > input[type='submit'] {
 	margin-left: auto;
 }
 
-.status-check-detail-text {
-	margin-left: 0.7em;
-}
-
 .ready-for-review-container {
-	border-top: 1px solid;
-	padding-top: 10px;
+	padding: 16px;
+	background-color: var(--vscode-editorWidget-background);
+	border-bottom-left-radius: 3px;
+	border-bottom-right-radius: 3px;
 }
 
 .ready-for-review-button {
@@ -203,8 +249,7 @@ body .comment-container .review-comment-header {
 }
 
 .ready-for-review-heading {
-	font-size: 1.2;
-	font-weight: bold;
+	font-weight: 600;
 }
 
 .ready-for-review-meta {
@@ -215,33 +260,18 @@ body .comment-container .review-comment-header {
 	margin-left: auto;
 }
 
-.status-section {
-	padding-bottom: 16px;
-}
-
-.status-section:last-of-type {
-	padding-bottom: 0px;
+#status-checks {
+	border: 1px solid var(--vscode-editorHoverWidget-border);
+	border-radius: 4px;
 }
 
 #status-checks a {
-	margin-left: 10px;
 	cursor: pointer;
-}
-
-#status-checks {
-	padding: 10px;
-	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
-	margin-top: 20px;
 }
 
 #status-checks summary {
 	display: flex;
 	align-items: center;
-}
-
-#status-checks svg {
-	margin-right: 6px;
-	width: 16px;
 }
 
 #status-checks .avatar-link svg {
@@ -257,6 +287,9 @@ body .comment-container .review-comment-header {
 #status-checks .merge-select-container {
 	display: flex;
 	align-items: center;
+	background-color: var(--vscode-editorWidget-background);
+	border-bottom-left-radius: 3px;
+	border-bottom-right-radius: 3px;
 }
 
 #status-checks .merge-select-container > * {
@@ -274,24 +307,26 @@ body .comment-container .review-comment-header {
 #status-checks .branch-status-message {
 	display: inline-block;
 	line-height: 100%;
-	padding: 0 10px;
+	padding: 16px;
 }
 
 body .comment-container .review-comment-header > span,
 body .comment-container .review-comment-header > a,
 body .commit .commit-message > a,
 body .merged .merged-message > a {
-	margin-right: 4px;
+	margin-right: 6px;
 	white-space: nowrap;
 }
 
 body .comment-container .review-comment-container .pending-label,
 body .resolved-container .outdatedLabel {
-	border: 1px solid;
-	border-radius: 2px 2px 2px 2px;
-	padding: 0.1rem 0.3rem;
-	font-style: italic;
-	margin-left: 5px;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	font-size: 11px;
+	font-weight: 600;
+	border-radius: 20px;
+	padding: 4px 8px;
+	margin-left: 6px;
 }
 
 body .resolved-container .unresolvedLabel {
@@ -305,14 +340,14 @@ body .diff .diffPath {
 
 body .comment-container .comment-body,
 .review-body {
-	padding: 10px;
-	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	padding: 16px;
 	border-top: none;
 }
 
 body .comment-container .review-comment-container .review-comment-body {
-	padding: 0;
-	margin: 0 0 0 36px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
 	border: none;
 }
 
@@ -320,6 +355,7 @@ body .comment-container .comment-body > p,
 body .comment-container .comment-body > div > p,
 .comment-container .review-body > p {
 	margin-top: 0;
+	line-height: 1.5em;
 }
 
 body .comment-container .comment-body > p:last-child,
@@ -354,9 +390,8 @@ body button.checkedOut {
 }
 
 body button .icon {
-	width: 1em;
-	height: 1em;
-	margin-right: 6px;
+	width: 16px;
+	height: 16px;
 }
 
 .prIcon {
@@ -435,40 +470,34 @@ body .overview-title .button-group button:last-child {
 }
 
 .section {
-	padding-bottom: 20px;
+	padding-bottom: 24px;
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.section:last-of-type {
+	padding-bottom: 0px;
+	border-bottom: none;
 }
 
 .section-header {
-	padding-bottom: 8px;
 	display: flex;
+	justify-content: space-between;
+	align-items: center;
 }
 
 .section-header .section-title {
-	font-weight: bold;
+	font-weight: 600;
 }
 
 .section-placeholder {
-	font-style: italic;
+	color: var(--vscode-descriptionForeground);
 }
 
-.assign-yourself:hover{
+.assign-yourself:hover {
 	cursor: pointer;
-}
-
-.section button {
-	margin-left: auto;
-	padding: 0;
-	background: transparent;
-	display: flex;
-}
-
-.section .icon {
-	margin-right: 0;
-}
-
-.section button:hover,
-.section button:focus {
-	background: transparent;
 }
 
 .section svg {
@@ -478,15 +507,29 @@ body .overview-title .button-group button:last-child {
 	margin-right: 0;
 }
 
+.labels-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
 .label {
-	padding: 2px 0 2px 6px;
-	height: 16px;
+	display: flex;
+	justify-content: normal;
+	padding: 0 2px 0 8px;
+	border-radius: 20px;
 	border-style: solid;
-	border-radius: 2px;
 	border-width: 1px;
 	background: var(--vscode-badge-background);
 	color: var(--vscode-badge-foreground);
-	white-space: nowrap;
+	font-size: 11px;
+	line-height: 18px;
+	font-weight: 600;
+}
+
+.label .icon-button:hover,
+.label .icon-button:focus {
+	background-color: transparent;
 }
 
 .commit svg {
@@ -496,9 +539,13 @@ body .overview-title .button-group button:last-child {
 	flex-shrink: 0;
 }
 
+.comment-container.commit {
+	border: none;
+	padding: 4px 16px;
+}
+
 .comment-container.commit,
 .comment-container.merged {
-	padding: 16px 0 0 12px;
 	box-sizing: border-box;
 }
 
@@ -508,7 +555,6 @@ body .overview-title .button-group button:last-child {
 	display: flex;
 	width: 100%;
 	border: none;
-	font-size: 12px;
 	color: var(--vscode-foreground);
 }
 
@@ -521,7 +567,6 @@ body .overview-title .button-group button:last-child {
 .merged .merged-message {
 	display: flex;
 	align-items: center;
-	line-height: 18px;
 	overflow: hidden;
 	flex-grow: 1;
 }
@@ -547,6 +592,12 @@ body .overview-title .button-group button:last-child {
 	overflow: inherit;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.sha-with-timestamp {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }
 
 .commit .sha {
@@ -579,36 +630,51 @@ body .overview-title .button-group button:last-child {
 
 .comment-container {
 	position: relative;
-	padding-top: 20px;
 	width: 100%;
 	display: flex;
 	margin: 0;
 	align-items: center;
+	border-radius: 4px;
+	border: 1px solid var(--vscode-editorHoverWidget-border);
 }
 
 .comment-container[data-type='commit'] {
 	padding: 8px 0;
+	border: none;
 }
 
-.comment-container[data-type='commit'] + .comment-container[data-type='commit'],
-.comment-container:first-of-type {
+.comment-container[data-type='commit'] + .comment-container[data-type='commit'] {
 	border-top: none;
 }
 
 .comment-body .review-comment {
-	padding: 3px;
 	box-sizing: border-box;
-	border-top: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	border-top: 1px solid var(--vscode-editorHoverWidget-border);
+}
+
+.resolve-comment-row {
+	display: flex;
+	align-items: center;
+	padding: 16px;
+	background-color: var(--vscode-editorHoverWidget-background);
+	border-top: 1px solid var(--vscode-editorHoverWidget-border);
+	border-bottom-left-radius: 3px;
+	border-bottom-right-radius: 3px;
 }
 
 .review-comment-container .review-comment .review-comment-header {
+	padding: 16px 16px 8px 16px;
 	border: none;
 	background: none;
 }
 
 .review-comment-container .review-comment .comment-body {
 	border: none;
-	padding: 4px 12px 8px 12px;
+	padding: 0px 16px 8px 16px;
+}
+
+.review-comment-container .review-comment .comment-body:last-of-type {
+	padding: 0px 16px 16px 16px;
 }
 
 .comment-body .line {
@@ -844,12 +910,16 @@ code {
 }
 
 .review-comment-body .diff-container {
-	margin-top: 10px;
-	border: 1px solid var(--vscode-list-inactiveSelectionBackground);
+	border-radius: 4px;
+	border: 1px solid var(--vscode-editorHoverWidget-border);
 }
 
 .review-comment-body .diff-container .review-comment-container .comment-container {
 	padding-top: 0;
+}
+
+.review-comment-body .diff-container .comment-container {
+	border: none;
 }
 
 .review-comment-body .diff-container .review-comment-container .review-comment-header .avatar-container {
@@ -866,8 +936,10 @@ code {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	background: var(--vscode-editorGroupHeader-tabsBackground);
-	line-height: 1.5;
+	background: var(--vscode-editorWidget-background);
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
+	border-top-left-radius: 3px;
+	border-top-right-radius: 3px;
 }
 
 .resolved-container .diffPath:hover {
@@ -974,7 +1046,7 @@ code {
 	}
 
 	.section-item {
-		margin-right: 8px;
+		display: flex;
 	}
 
 	body .hidden-focusable {
@@ -987,22 +1059,21 @@ code {
 		display: flex;
 	}
 
-	.section-item.reviewer {
-		border-radius: 3px;
-		padding: 2px 6px;
-	}
-
 	.section-item .login {
 		width: auto;
 		margin-right: 4px;
 	}
+
+	/* Hides bottom borders on bottom two sections */
+	.section:nth-last-child(-n + 2) {
+		border-bottom: none;
+	}
 }
 
 .icon {
-	width: 1em;
-	height: 1em;
+	width: 16px;
+	height: 16px;
 	font-size: 16px;
-	margin-right: 6px;
 }
 
 .action-bar {
@@ -1027,11 +1098,6 @@ code {
 .flex-action-bar > button {
 	margin-left: 4px;
 	margin-right: 4px;
-}
-
-.remove-item {
-	height: 16px;
-	cursor: pointer;
 }
 
 .title-editing-form {
