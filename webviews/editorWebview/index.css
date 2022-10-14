@@ -204,8 +204,7 @@ body .comment-container .review-comment-header {
 }
 
 .ready-for-review-container {
-	border-top: 1px solid;
-	padding-top: 10px;
+	padding: 16px;
 }
 
 .ready-for-review-button {
@@ -217,8 +216,7 @@ body .comment-container .review-comment-header {
 }
 
 .ready-for-review-heading {
-	font-size: 1.2;
-	font-weight: bold;
+	font-weight: 600;
 }
 
 .ready-for-review-meta {
@@ -287,9 +285,8 @@ body .merged .merged-message > a {
 body .comment-container .review-comment-container .pending-label,
 body .resolved-container .outdatedLabel {
 	border: 1px solid;
-	border-radius: 2px 2px 2px 2px;
-	padding: 0.1rem 0.3rem;
-	font-style: italic;
+	border-radius: 20px;
+	padding: 2px 8px;
 	margin-left: 5px;
 }
 
@@ -547,6 +544,12 @@ body .overview-title .button-group button:last-child {
 	overflow: inherit;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.sha-with-timestamp {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }
 
 .commit .sha {

@@ -69,11 +69,12 @@ const CommitEventView = (event: CommitEvent) => (
 				{event.message}
 			</a>
 		</div>
-		<a className="sha" href={event.htmlUrl} title={event.htmlUrl}>
-			{event.sha.slice(0, 7)}
-		</a>
-		{nbsp}
-		<Timestamp date={event.authoredDate} />
+		<div className="sha-with-timestamp">
+			<a className="sha" href={event.htmlUrl} title={event.htmlUrl}>
+				{event.sha.slice(0, 7)}
+			</a>
+			<Timestamp date={event.authoredDate} />
+		</div>
 	</div>
 );
 
