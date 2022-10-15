@@ -5,7 +5,7 @@
 import React, { cloneElement, useContext } from 'react';
 import { ReviewState } from '../../src/github/interface';
 import { default as PullRequestContext } from '../common/context';
-import { checkIcon, commentIcon, deleteIcon, diffIcon, pendingIcon } from './icon';
+import { checkIcon, closeIcon, commentIcon, diffIcon, pendingIcon } from './icon';
 import { AuthorLink, Avatar } from './user';
 
 export function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
@@ -20,7 +20,7 @@ export function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
 			<div className="reviewer-icons">
 				{canDelete && (
 					<button className="icon-button" onClick={() => removeReviewer(reviewState.reviewer.login)}>
-						{deleteIcon}️
+						{closeIcon}️
 					</button>
 				)}
 				{REVIEW_STATE[state]}
