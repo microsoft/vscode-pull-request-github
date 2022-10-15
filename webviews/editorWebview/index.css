@@ -269,6 +269,10 @@ body .comment-container .review-comment-header {
 	align-items: center;
 }
 
+#status-checks-display-button {
+	margin-left: auto;
+}
+
 #status-checks .avatar-link svg {
 	width: 24px;
 	margin-right: 0px;
