@@ -66,7 +66,7 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 					<div className="status-item-detail-text">
 						<span>{getSummaryLabel(status.statuses)}</span>
 					</div>
-					<button className='secondary' onClick={toggleDetails} style={{ padding: '0 5px', marginLeft: 'auto' }}>
+					<button className='secondary small-button' onClick={toggleDetails} style={{ marginLeft: 'auto' }}>
 						{showDetails ? 'Hide' : 'Show'}
 					</button>
 				</div>
