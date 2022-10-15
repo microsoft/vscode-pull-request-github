@@ -115,7 +115,7 @@ body .comment-container.review {
 	background-color: var(--vscode-editor-background);
 }
 
-.section .icon-button {
+.icon-button {
 	display: flex;
 	padding: 2px;
 	background: transparent;
@@ -123,11 +123,13 @@ body .comment-container.review {
 	line-height: 0;
 }
 
+.icon-button:hover,
 .section .icon-button:hover,
 .section .icon-button:focus {
 	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
+.icon-button:focus,
 .section .icon-button:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: unset;
