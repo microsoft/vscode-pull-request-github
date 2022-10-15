@@ -415,11 +415,6 @@ body button .icon {
 	margin-right: 6px;
 }
 
-.review-comment-header .avatar {
-	/* Adds up to 8px together with margin from `.review-comment-header > a` */
-	margin-right: 4px;
-}
-
 .subtitle .author {
 	display: flex;
 	align-items: center;
