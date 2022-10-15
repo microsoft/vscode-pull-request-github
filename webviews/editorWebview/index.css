@@ -220,10 +220,6 @@ body .comment-container .review-comment-header {
 	gap: 8px;
 }
 
-.status-check-detail-text {
-	margin-left: 0.7em;
-}
-
 .ready-for-review-container {
 	padding: 16px;
 	background-color: var(--vscode-editorWidget-background);
