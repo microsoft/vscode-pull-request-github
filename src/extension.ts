@@ -281,7 +281,7 @@ function registerPostCommitCommandsProvider(reposManager: RepositoriesManager, g
 			}));
 			Logger.debug(`Found ${found ? 'a repo' : 'no repos'} when getting post commit commands.`, componentId);
 			return found ? [{
-				command: 'pr.create',
+				command: 'pr.pushAndCreate',
 				title: vscode.l10n.t('{0} Commit & Create Pull Request', '$(git-pull-request-create)'),
 				tooltip: vscode.l10n.t('Commit & Create Pull Request')
 			}] : [];

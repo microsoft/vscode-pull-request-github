@@ -550,6 +550,12 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.pushAndCreate",
+				"title": "%command.pr.create.title%",
+				"icon": "$(git-pull-request-create)",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.pick",
 				"title": "%command.pr.pick.title%",
 				"category": "%command.pull.request.category%",
@@ -1072,6 +1078,10 @@
 				{
 					"command": "pr.create",
 					"when": "gitHubOpenRepositoryCount != 0 && github:authenticated"
+				},
+				{
+					"command": "pr.pushAndCreate",
+					"when": "false"
 				},
 				{
 					"command": "pr.merge",

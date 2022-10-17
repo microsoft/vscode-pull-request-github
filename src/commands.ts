@@ -363,19 +363,36 @@ export function registerCommands(
 		);
 	}
 
-	function isSourceControl(x: any): x is { rootUri: vscode.Uri } {
+	function isSourceControl(x: any): x is Repository {
 		return !!x?.rootUri;
 	}
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.create',
-			async (args?: { repoPath: string; compareBranch: string } | { rootUri: vscode.Uri }) => {
+			async (args?: { repoPath: string; compareBranch: string } | Repository) => {
 				// The arguments this is called with are either from the SCM view, or manually passed.
 				if (isSourceControl(args)) {
 					(await chooseReviewManager(args.rootUri.fsPath))?.createPullRequest();
 				} else {
 					(await chooseReviewManager(args?.repoPath))?.createPullRequest(args?.compareBranch);
+				}
+			},
+		),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'pr.pushAndCreate',
+			async (args?: any | Repository) => {
+				if (isSourceControl(args)) {
+					const reviewManager = await chooseReviewManager(args.rootUri.fsPath);
+					if (reviewManager) {
+						if (args.state.HEAD?.upstream) {
+							await args.push();
+						}
+						reviewManager.createPullRequest();
+					}
 				}
 			},
 		),
