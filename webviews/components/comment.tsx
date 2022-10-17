@@ -65,7 +65,7 @@ export function CommentView(comment: Props) {
 			onMouseLeave={() => setShowActionBar(false)}
 			onFocus={() => setShowActionBar(true)}
 		>
-				<div className="action-bar comment-actions"  style={{ display: showActionBar ? 'block' : 'none' }}>
+				<div className="action-bar comment-actions"  style={{ display: showActionBar ? 'flex' : 'none' }}>
 					<button
 						title="Quote reply"
 						className="icon-button"

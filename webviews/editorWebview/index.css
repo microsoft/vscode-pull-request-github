@@ -226,10 +226,6 @@ body .comment-container .review-comment-header {
 	margin-right: 8px;
 }
 
-.form-actions > input[type='submit'] {
-	margin-left: auto;
-}
-
 .ready-for-review-container {
 	padding: 16px;
 	background-color: var(--vscode-editorWidget-background);
