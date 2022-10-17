@@ -731,6 +731,11 @@ textarea {
 	display: flex;
 	justify-content: flex-end;
 	padding-top: 10px;
+	padding-bottom: 10px;
+}
+
+.review-comment-body .form-actions {
+	padding-right: 10px;
 }
 
 .main-comment-form > .form-actions {
@@ -911,6 +916,10 @@ code {
 
 .review-comment-body .diff-container .comment-container {
 	border: none;
+}
+
+.review-comment-body .diff-container form {
+	margin-top: 10px;
 }
 
 .review-comment-body .diff-container .review-comment-container .review-comment-header .avatar-container {
