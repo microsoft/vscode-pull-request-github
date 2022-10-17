@@ -55,6 +55,7 @@ export class GitHubManager {
 				} else {
 					// Check if we got an enterprise-looking needs auth response:
 					// { message: 'Must authenticate to access this API.', documentation_url: 'https://docs.github.com/enterprise/3.3/rest'}
+					Logger.appendLine(`Received fallback response from the server: ${responseText}`, 'GitHubServer');
 					const parsedResponse = JSON.parse(responseText);
 					if (parsedResponse.documentation_url && (parsedResponse.documentation_url as string).startsWith('https://docs.github.com/enterprise')) {
 						isGitHub = GitHubServerType.Enterprise;
