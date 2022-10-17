@@ -598,7 +598,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 
 			if (this.activePullRequest) {
-				this.getMentionableUsers(repositoriesChanged, true);
+				this.getMentionableUsers(repositoriesChanged);
 			}
 
 			this.getAssignableUsers(repositoriesChanged);
@@ -661,24 +661,40 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return undefined;
 	}
 
-	private getMentionableUsersFromGlobalState(): { [key: string]: IAccount[] } | undefined {
+	private async getMentionableUsersFromGlobalState(): Promise<{ [key: string]: IAccount[] } | undefined> {
 		Logger.appendLine('Trying to use globalState for mentionable users.');
-		const reposState = this.context.globalState.get<ReposState>(REPO_KEYS);
-		if (reposState) {
-			const cache: { [key: string]: IAccount[] } = {};
-			const hasAllRepos = this._githubRepositories.every(repo => {
-				const key = `${repo.remote.owner}/${repo.remote.repositoryName}`;
-				if (!reposState.repos[key]) {
-					return false;
-				}
-				cache[repo.remote.repositoryName] = reposState.repos[key].mentionableUsers ?? [];
-				return true;
-			});
-			if (hasAllRepos) {
-				Logger.appendLine(`Using globalState mentionable users for ${Object.keys(cache).length}.`);
-				return cache;
-			}
+
+		const mentionableUsersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, 'mentionableUsers');
+		let mentionableUsersCacheExists;
+		try {
+			mentionableUsersCacheExists = await vscode.workspace.fs.stat(mentionableUsersCacheLocation);
+		} catch (e) {
+			// file doesn't exit
 		}
+		if (!mentionableUsersCacheExists) {
+			return undefined;
+		}
+
+		const cache: { [key: string]: IAccount[] } = {};
+		const hasAllRepos = (await Promise.all(this._githubRepositories.map(async (repo) => {
+			const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
+			const repoSpecificFile = vscode.Uri.joinPath(mentionableUsersCacheLocation, key);
+			let repoSpecificCache;
+			try {
+				repoSpecificCache = await vscode.workspace.fs.readFile(repoSpecificFile);
+			} catch (e) {
+				// file doesn't exist
+			}
+			if (repoSpecificCache) {
+				cache[repo.remote.repositoryName] = JSON.parse(repoSpecificCache.toString()) ?? [];
+				return true;
+			}
+		}))).every(value => value);
+		if (hasAllRepos) {
+			Logger.appendLine(`Using globalState mentionable users for ${Object.keys(cache).length}.`);
+			return cache;
+		}
+
 		Logger.appendLine(`No globalState for mentionable users.`);
 		return undefined;
 	}
@@ -695,22 +711,18 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			Promise.all(promises).then(() => {
 				this._mentionableUsers = cache;
 				this._fetchMentionableUsersPromise = undefined;
-				const globalReposState = this.context.globalState.get<ReposState>(REPO_KEYS, { repos: {} });
-				this._githubRepositories.forEach(repo => {
-					const key = `${repo.remote.owner}/${repo.remote.repositoryName}`;
-					if (!globalReposState.repos[key]) {
-						globalReposState.repos[key] = {};
-					}
-					globalReposState.repos[key].mentionableUsers = cache[repo.remote.remoteName];
-					globalReposState.repos[key].stateModifiedTime = new Date().valueOf();
-				});
-				this.context.globalState.update(REPO_KEYS, globalReposState);
-				resolve(cache);
+				const mentionableUsersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, 'mentionableUsers');
+				Promise.all(this._githubRepositories.map(async (repo) => {
+					const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
+					const repoSpecificFile = vscode.Uri.joinPath(mentionableUsersCacheLocation, key);
+					await vscode.workspace.fs.writeFile(repoSpecificFile, new TextEncoder().encode(JSON.stringify(cache[repo.remote.remoteName])));
+				}))
+					.then(() => resolve(cache));
 			});
 		});
 	}
 
-	async getMentionableUsers(clearCache?: boolean, useGlobalState?: boolean): Promise<{ [key: string]: IAccount[] }> {
+	async getMentionableUsers(clearCache?: boolean): Promise<{ [key: string]: IAccount[] }> {
 		if (clearCache) {
 			delete this._mentionableUsers;
 		}
@@ -719,10 +731,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return this._mentionableUsers;
 		}
 
-		let globalStateMentionableUsers = this.getMentionableUsersFromGlobalState();
-		if (useGlobalState && !this._fetchMentionableUsersPromise && globalStateMentionableUsers) {
-			return globalStateMentionableUsers;
-		}
+		const globalStateMentionableUsers = await this.getMentionableUsersFromGlobalState();
 
 		if (!this._fetchMentionableUsersPromise) {
 			this._fetchMentionableUsersPromise = this.createFetchMentionableUsersPromise();
