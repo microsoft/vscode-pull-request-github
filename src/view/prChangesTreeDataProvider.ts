@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
 import { commands, contexts } from '../common/executeCommands';
 import Logger, { PR_TREE } from '../common/logger';
-import { FILE_LIST_LAYOUT } from '../common/settingKeys';
+import { FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK } from '../common/settingKeys';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
@@ -46,7 +46,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 						.getConfiguration(`${SETTINGS_NAMESPACE}`)
 						.get<string>(FILE_LIST_LAYOUT);
 					await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
-				} else if (e.affectsConfiguration('git.openDiffOnClick')) {
+				} else if (e.affectsConfiguration(`${GIT}.${OPEN_DIFF_ON_CLICK}`)) {
 					this._onDidChangeTreeData.fire();
 				}
 			}),
