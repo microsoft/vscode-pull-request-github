@@ -7,7 +7,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { IComment, ViewedState } from '../../common/comment';
 import { GitChangeType, InMemFileChange } from '../../common/file';
-import { FILE_LIST_LAYOUT } from '../../common/settingKeys';
+import { FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK } from '../../common/settingKeys';
 import { asImageDataURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, Schemes, toResourceUri } from '../../common/uri';
 import { groupBy } from '../../common/utils';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
@@ -420,7 +420,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		if (this._useViewChangesCommand) {
 			this.command = await this.alternateCommand();
 		} else {
-			const openDiff = vscode.workspace.getConfiguration().get('git.openDiffOnClick', true);
+			const openDiff = vscode.workspace.getConfiguration(GIT, this.pullRequestManager.repository.rootUri).get(OPEN_DIFF_ON_CLICK, true);
 			if (openDiff) {
 				this.command = await openDiffCommand(
 					this.pullRequestManager,

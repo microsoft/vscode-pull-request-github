@@ -31,7 +31,7 @@ export function CommentView(comment: Props) {
 	const [showActionBar, setShowActionBar] = useState(false);
 
 	if (inEditMode) {
-		return React.cloneElement(comment.headerInEditMode ? <CommentBox for={comment}/> : <></>, {}, [
+		return React.cloneElement(comment.headerInEditMode ? <CommentBox for={comment} /> : <></>, {}, [
 			<EditComment
 				id={id}
 				key={`editComment${id}`}
@@ -65,21 +65,25 @@ export function CommentView(comment: Props) {
 			onMouseLeave={() => setShowActionBar(false)}
 			onFocus={() => setShowActionBar(true)}
 		>
-			<div className="action-bar comment-actions" style={{ display: showActionBar ? 'block' : 'none' }}>
-				<button title="Quote reply" onClick={() => emitter.emit('quoteReply', bodyMd)}>
-					{commentIcon}
-				</button>
-				{canEdit ? (
-					<button title="Edit comment" onClick={() => setEditMode(true)}>
-						{editIcon}
+				<div className="action-bar comment-actions"  style={{ display: showActionBar ? 'block' : 'none' }}>
+					<button
+						title="Quote reply"
+						className="icon-button"
+						onClick={() => emitter.emit('quoteReply', bodyMd)}
+					>
+						{commentIcon}
 					</button>
-				) : null}
-				{canDelete ? (
-					<button title="Delete comment" onClick={() => deleteComment({ id, pullRequestReviewId })}>
-						{deleteIcon}
-					</button>
-				) : null}
-			</div>
+					{canEdit ? (
+						<button title="Edit comment" className="icon-button" onClick={() => setEditMode(true)}>
+							{editIcon}
+						</button>
+					) : null}
+					{canDelete ? (
+						<button title="Delete comment" className="icon-button" onClick={() => deleteComment({ id, pullRequestReviewId })}>
+							{deleteIcon}
+						</button>
+					) : null}
+				</div>
 			<CommentBody comment={comment as IComment} bodyHTML={bodyHTMLState} body={bodyMd} canApplyPatch={pr.isCurrentlyCheckedOut} />
 		</CommentBox>
 	);
@@ -203,7 +207,7 @@ export interface Embodied {
 	comment?: IComment;
 	bodyHTML?: string;
 	body?: string;
-	canApplyPatch: boolean
+	canApplyPatch: boolean;
 }
 
 export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch }: Embodied) => {
@@ -219,11 +223,8 @@ export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch }: Embodied
 	const renderedBody = <div dangerouslySetInnerHTML={{ __html: bodyHTML }} />;
 
 	const containsSuggestion = (body || bodyHTML).indexOf('```diff') > -1;
-	const applyPatchButton = (containsSuggestion && canApplyPatch) ? (
-		<button onClick={() => applyPatch(comment)}>Apply Patch</button>
-	) : (
-		<></>
-	);
+	const applyPatchButton =
+		containsSuggestion && canApplyPatch ? <button onClick={() => applyPatch(comment)}>Apply Patch</button> : <></>;
 
 	return (
 		<div className="comment-body">
@@ -240,7 +241,7 @@ export function AddComment({
 	isIssue,
 	isAuthor,
 	continueOnGitHub,
-	currentUserReviewState
+	currentUserReviewState,
 }: PullRequest) {
 	const { updatePR, comment, requestChanges, approve, close, openOnGitHub } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
@@ -392,7 +393,11 @@ export const AddCommentSimple = (pr: PullRequest) => {
 	const availableActions = pr.isAuthor
 		? { comment: 'Comment and Submit' }
 		: pr.continueOnGitHub
-		? { comment: 'Comment and Submit', approve: 'Approve on github.com', requestChanges: 'Request changes on github.com' }
+		? {
+				comment: 'Comment and Submit',
+				approve: 'Approve on github.com',
+				requestChanges: 'Request changes on github.com',
+		  }
 		: COMMENT_METHODS;
 
 	return (

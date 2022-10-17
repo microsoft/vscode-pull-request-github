@@ -115,7 +115,7 @@ body .comment-container.review {
 	background-color: var(--vscode-editor-background);
 }
 
-.section .icon-button {
+.icon-button {
 	display: flex;
 	padding: 2px;
 	background: transparent;
@@ -123,11 +123,13 @@ body .comment-container.review {
 	line-height: 0;
 }
 
+.icon-button:hover,
 .section .icon-button:hover,
 .section .icon-button:focus {
 	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
+.icon-button:focus,
 .section .icon-button:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: unset;
@@ -220,6 +222,14 @@ body .comment-container .review-comment-header {
 	gap: 8px;
 }
 
+.status-check-detail-text {
+	margin-right: 8px;
+}
+
+.form-actions > input[type='submit'] {
+	margin-left: auto;
+}
+
 .ready-for-review-container {
 	padding: 16px;
 	background-color: var(--vscode-editorWidget-background);
@@ -259,6 +269,10 @@ body .comment-container .review-comment-header {
 #status-checks summary {
 	display: flex;
 	align-items: center;
+}
+
+#status-checks-display-button {
+	margin-left: auto;
 }
 
 #status-checks .avatar-link svg {
@@ -440,7 +454,7 @@ body button .icon {
 	gap: 8px;
 }
 
-.button-group button {
+.small-button {
 	display: flex;
 	font-size: 11px;
 	font-weight: 600;
