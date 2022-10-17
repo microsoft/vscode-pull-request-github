@@ -65,10 +65,10 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 					<StateIcon state={status.state} />
 					<div className="status-item-detail-text">
 						<span>{getSummaryLabel(status.statuses)}</span>
-						<a href="javascript:void(0)" aria-role="button" onClick={toggleDetails}>
-							{showDetails ? 'Hide' : 'Show'}
-						</a>
 					</div>
+					<button id='status-checks-display-button' className='secondary small-button' onClick={toggleDetails}>
+						{showDetails ? 'Hide' : 'Show'}
+					</button>
 				</div>
 				{showDetails ? <StatusCheckDetails statuses={status.statuses} /> : null}
 			</div>
@@ -160,18 +160,18 @@ export const MergeStatus = ({ mergeable, isSimple }: { mergeable: PullRequestMer
 			{isSimple
 				? null
 				: mergeable === PullRequestMergeability.Mergeable
-				? checkIcon
-				: mergeable === PullRequestMergeability.NotMergeable || mergeable === PullRequestMergeability.Conflict
-				? deleteIcon
-				: pendingIcon}
+					? checkIcon
+					: mergeable === PullRequestMergeability.NotMergeable || mergeable === PullRequestMergeability.Conflict
+						? deleteIcon
+						: pendingIcon}
 			<div>
 				{mergeable === PullRequestMergeability.Mergeable
 					? 'This branch has no conflicts with the base branch.'
 					: mergeable === PullRequestMergeability.Conflict
-					? 'This branch has conflicts that must be resolved.'
-					: mergeable === PullRequestMergeability.NotMergeable
-					? 'Branch protection policy must be fulfilled before merging.'
-					: 'Checking if this branch can be merged...'}
+						? 'This branch has conflicts that must be resolved.'
+						: mergeable === PullRequestMergeability.NotMergeable
+							? 'Branch protection policy must be fulfilled before merging.'
+							: 'Checking if this branch can be merged...'}
 			</div>
 		</div>
 	);

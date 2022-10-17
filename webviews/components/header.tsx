@@ -98,15 +98,15 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 	return (
 		<div className="button-group">
 			<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
-			<button onClick={refresh} className="secondary">
+			<button onClick={refresh} className="secondary small-button">
 				Refresh
 			</button>
 			{canEdit && (
 				<>
-					<button title="Rename" onClick={setEditMode} className="secondary">
+					<button title="Rename" onClick={setEditMode} className="secondary small-button">
 						Rename
 					</button>
-					<button title="Copy Link" onClick={copyPrLink} className="secondary">
+					<button title="Copy Link" onClick={copyPrLink} className="secondary small-button">
 						Copy Link
 					</button>
 				</>
@@ -158,13 +158,14 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBran
 	if (isCurrentlyCheckedOut) {
 		return (
 			<>
-				<button aria-live="polite" className="checkedOut" disabled>
+				<button aria-live="polite" className="checkedOut small-button" disabled>
 					{checkIcon} Checked Out
 				</button>
 				<button
 					aria-live="polite"
 					title="Switch to a different branch than this pull request branch"
 					disabled={isBusy}
+					className='small-button'
 					onClick={() => onClick('exitReviewMode')}
 				>
 					Checkout '{repositoryDefaultBranch}'
@@ -177,6 +178,7 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBran
 				aria-live="polite"
 				title="Checkout a local copy of this pull request branch to verify or edit changes"
 				disabled={isBusy}
+				className='small-button'
 				onClick={() => onClick('checkout')}
 			>
 				Checkout

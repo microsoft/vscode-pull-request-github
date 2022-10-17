@@ -222,6 +222,10 @@ body .comment-container .review-comment-header {
 	gap: 8px;
 }
 
+.status-check-detail-text {
+	margin-right: 8px;
+}
+
 .form-actions > input[type='submit'] {
 	margin-left: auto;
 }
@@ -265,6 +269,10 @@ body .comment-container .review-comment-header {
 #status-checks summary {
 	display: flex;
 	align-items: center;
+}
+
+#status-checks-display-button {
+	margin-left: auto;
 }
 
 #status-checks .avatar-link svg {
@@ -446,7 +454,7 @@ body button .icon {
 	gap: 8px;
 }
 
-.button-group button {
+.small-button {
 	display: flex;
 	font-size: 11px;
 	font-weight: 600;
