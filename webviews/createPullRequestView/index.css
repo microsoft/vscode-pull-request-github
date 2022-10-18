@@ -90,6 +90,7 @@ body {
 
 .automerge-section {
 	display: flex;
+	align-items: center;
 }
 
 .automerge-section .merge-select-container {

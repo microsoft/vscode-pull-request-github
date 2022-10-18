@@ -63,9 +63,7 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 			<div className="status-section">
 				<div className="status-item">
 					<StateIcon state={status.state} />
-					<div className="status-item-detail-text">
-						<span>{getSummaryLabel(status.statuses)}</span>
-					</div>
+					<p className="status-item-detail-text">{getSummaryLabel(status.statuses)}</p>
 					<button
 						id="status-checks-display-button"
 						className="secondary small-button"
@@ -203,8 +201,8 @@ export const ReadyForReview = ({ isSimple }: { isSimple: boolean }) => {
 				</button>
 			</div>
 			{isSimple ? '' : <div className="ready-for-review-icon">{alertIcon}</div>}
-			<div className="ready-for-review-heading">This pull request is still a work in progress.</div>
-			<span className="ready-for-review-meta">Draft pull requests cannot be merged.</span>
+			<p className="ready-for-review-heading">This pull request is still a work in progress.</p>
+			<p className="ready-for-review-meta">Draft pull requests cannot be merged.</p>
 		</div>
 	);
 };
@@ -218,7 +216,7 @@ export const Merge = (pr: PullRequest) => {
 	}
 
 	return (
-		<div className="automerge-section">
+		<div className="automerge-section wrapper">
 			<button onClick={() => selectMethod(select.current.value as MergeMethod)}>Merge Pull Request</button>
 			{nbsp}using method{nbsp}
 			<MergeSelect ref={select} {...pr} />
