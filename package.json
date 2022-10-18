@@ -15,13 +15,12 @@
 		"commentsResolvedState",
 		"contribShareMenu",
 		"treeItemCheckbox",
-		"contribCommentPeekContext",
-		"localization"
+		"contribCommentPeekContext"
 	],
 	"version": "0.52.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.72.0"
+		"vscode": "^1.73.0"
 	},
 	"categories": [
 		"Other"
