@@ -1721,10 +1721,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 			let firstStep = true;
 			quickPick.onDidAccept(async () => {
+				quickPick.busy = true;
+
 				if (firstStep) {
 					const picks = quickPick.selectedItems;
 					if (picks.length) {
-						quickPick.busy = true;
 						try {
 							await Promise.all(
 								picks.map(async pick => {
@@ -1739,7 +1740,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 										}
 									}
 								}));
-							quickPick.busy = false;
 						} catch (e) {
 							quickPick.hide();
 							vscode.window.showErrorMessage(vscode.l10n.t('Deleting branches failed: {0}', e));
@@ -1747,13 +1747,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					}
 
 					firstStep = false;
-					quickPick.busy = true;
-
 					const remoteItems = await this.getRemoteDeletionItems();
 
-					if (remoteItems) {
+					if (remoteItems && remoteItems.length) {
 						quickPick.placeholder = vscode.l10n.t('Choose remotes you want to delete permanently');
-						quickPick.busy = false;
 						quickPick.items = remoteItems;
 						quickPick.selectedItems = remoteItems.filter(item => item.picked);
 					} else {
@@ -1763,16 +1760,15 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					// delete remotes
 					const picks = quickPick.selectedItems;
 					if (picks.length) {
-						quickPick.busy = true;
 						await Promise.all(
 							picks.map(async pick => {
 								await this.repository.removeRemote(pick.label);
 							}),
 						);
-						quickPick.busy = false;
 					}
 					quickPick.hide();
 				}
+				quickPick.busy = false;
 			});
 
 			quickPick.onDidHide(() => {
