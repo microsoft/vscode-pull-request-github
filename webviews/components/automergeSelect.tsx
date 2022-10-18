@@ -17,15 +17,17 @@ export const AutoMerge = ({ updateState, allowAutoMerge, defaultMergeMethod, mer
 	const select = React.useRef<HTMLSelectElement>();
 
 	return <div className="automerge-section">
-		<div className="automerge-checkbox-wrapper">
-			<input
-				id="automerge-checkbox"
-				type="checkbox"
-				name="automerge"
-				checked={autoMerge}
-				disabled={!allowAutoMerge || isDraft}
-				onChange={() => updateState({ autoMerge: !autoMerge, autoMergeMethod: select.current?.value as MergeMethod })}
-			></input>
+		<div>
+			<div className="automerge-checkbox-wrapper">
+				<input
+					id="automerge-checkbox"
+					type="checkbox"
+					name="automerge"
+					checked={autoMerge}
+					disabled={!allowAutoMerge || isDraft}
+					onChange={() => updateState({ autoMerge: !autoMerge, autoMergeMethod: select.current?.value as MergeMethod })}
+				></input>
+			</div>
 		</div>
 		<label htmlFor="automerge-checkbox" className="automerge-checkbox-label">Auto-merge</label>
 		<div className="merge-select-container">

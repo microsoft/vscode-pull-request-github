@@ -66,7 +66,11 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 					<div className="status-item-detail-text">
 						<span>{getSummaryLabel(status.statuses)}</span>
 					</div>
-					<button id='status-checks-display-button' className='secondary small-button' onClick={toggleDetails}>
+					<button
+						id="status-checks-display-button"
+						className="secondary small-button"
+						onClick={toggleDetails}
+					>
 						{showDetails ? 'Hide' : 'Show'}
 					</button>
 				</div>
@@ -160,19 +164,19 @@ export const MergeStatus = ({ mergeable, isSimple }: { mergeable: PullRequestMer
 			{isSimple
 				? null
 				: mergeable === PullRequestMergeability.Mergeable
-					? checkIcon
-					: mergeable === PullRequestMergeability.NotMergeable || mergeable === PullRequestMergeability.Conflict
-						? deleteIcon
-						: pendingIcon}
-			<div>
+				? checkIcon
+				: mergeable === PullRequestMergeability.NotMergeable || mergeable === PullRequestMergeability.Conflict
+				? deleteIcon
+				: pendingIcon}
+			<p>
 				{mergeable === PullRequestMergeability.Mergeable
 					? 'This branch has no conflicts with the base branch.'
 					: mergeable === PullRequestMergeability.Conflict
-						? 'This branch has conflicts that must be resolved.'
-						: mergeable === PullRequestMergeability.NotMergeable
-							? 'Branch protection policy must be fulfilled before merging.'
-							: 'Checking if this branch can be merged...'}
-			</div>
+					? 'This branch has conflicts that must be resolved.'
+					: mergeable === PullRequestMergeability.NotMergeable
+					? 'Branch protection policy must be fulfilled before merging.'
+					: 'Checking if this branch can be merged...'}
+			</p>
 		</div>
 	);
 };
