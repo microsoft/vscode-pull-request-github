@@ -76,7 +76,6 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 					arguments: [],
 				};
 				break;
-				break;
 			case PRCategoryActionType.NoRemotes:
 				this.label = 'No GitHub repositories found.';
 				break;
