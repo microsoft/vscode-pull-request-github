@@ -63,10 +63,12 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 			<div className="status-section">
 				<div className="status-item">
 					<StateIcon state={status.state} />
-					<div className="status-item-detail-text">
-						<span>{getSummaryLabel(status.statuses)}</span>
-					</div>
-					<button id='status-checks-display-button' className='secondary small-button' onClick={toggleDetails}>
+					<p className="status-item-detail-text">{getSummaryLabel(status.statuses)}</p>
+					<button
+						id="status-checks-display-button"
+						className="secondary small-button"
+						onClick={toggleDetails}
+					>
 						{showDetails ? 'Hide' : 'Show'}
 					</button>
 				</div>
@@ -160,19 +162,19 @@ export const MergeStatus = ({ mergeable, isSimple }: { mergeable: PullRequestMer
 			{isSimple
 				? null
 				: mergeable === PullRequestMergeability.Mergeable
-					? checkIcon
-					: mergeable === PullRequestMergeability.NotMergeable || mergeable === PullRequestMergeability.Conflict
-						? deleteIcon
-						: pendingIcon}
-			<div>
+				? checkIcon
+				: mergeable === PullRequestMergeability.NotMergeable || mergeable === PullRequestMergeability.Conflict
+				? deleteIcon
+				: pendingIcon}
+			<p>
 				{mergeable === PullRequestMergeability.Mergeable
 					? 'This branch has no conflicts with the base branch.'
 					: mergeable === PullRequestMergeability.Conflict
-						? 'This branch has conflicts that must be resolved.'
-						: mergeable === PullRequestMergeability.NotMergeable
-							? 'Branch protection policy must be fulfilled before merging.'
-							: 'Checking if this branch can be merged...'}
-			</div>
+					? 'This branch has conflicts that must be resolved.'
+					: mergeable === PullRequestMergeability.NotMergeable
+					? 'Branch protection policy must be fulfilled before merging.'
+					: 'Checking if this branch can be merged...'}
+			</p>
 		</div>
 	);
 };
@@ -199,8 +201,8 @@ export const ReadyForReview = ({ isSimple }: { isSimple: boolean }) => {
 				</button>
 			</div>
 			{isSimple ? '' : <div className="ready-for-review-icon">{alertIcon}</div>}
-			<div className="ready-for-review-heading">This pull request is still a work in progress.</div>
-			<span className="ready-for-review-meta">Draft pull requests cannot be merged.</span>
+			<p className="ready-for-review-heading">This pull request is still a work in progress.</p>
+			<p className="ready-for-review-meta">Draft pull requests cannot be merged.</p>
 		</div>
 	);
 };
@@ -214,7 +216,7 @@ export const Merge = (pr: PullRequest) => {
 	}
 
 	return (
-		<div className="automerge-section">
+		<div className="automerge-section wrapper">
 			<button onClick={() => selectMethod(select.current.value as MergeMethod)}>Merge Pull Request</button>
 			{nbsp}using method{nbsp}
 			<MergeSelect ref={select} {...pr} />
