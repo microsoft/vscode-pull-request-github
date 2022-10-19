@@ -13,7 +13,7 @@ import { commands } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
-import { IGNORE_PR_BRANCHES, POST_CREATE, PR_SETTINGS_NAMESPACE, USE_REVIEW_MODE } from '../common/settingKeys';
+import { FOCUSED_MODE, IGNORE_PR_BRANCHES, POST_CREATE, PR_SETTINGS_NAMESPACE, USE_REVIEW_MODE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, fromReviewUri, PRUriParams, Schemes, toReviewUri } from '../common/uri';
 import { formatError, groupBy, onceEvent } from '../common/utils';
@@ -194,26 +194,26 @@ export class ReviewManager {
 		}, 1000 * 60 * 5);
 	}
 
-	public async updateState(silent: boolean = false, openDiff: boolean = true) {
+	public async updateState(silent: boolean = false, updateLayout: boolean = true) {
 		if (this.switchingToReviewMode) {
 			return;
 		}
 		if (!this._validateStatusInProgress) {
 			Logger.appendLine('Review> Validate state in progress');
-			this._validateStatusInProgress = this.validateStatueAndSetContext(silent, openDiff);
+			this._validateStatusInProgress = this.validateStatueAndSetContext(silent, updateLayout);
 			return this._validateStatusInProgress;
 		} else {
 			Logger.appendLine('Review> Queuing additional validate state');
 			this._validateStatusInProgress = this._validateStatusInProgress.then(async _ => {
-				return await this.validateStatueAndSetContext(silent, openDiff);
+				return await this.validateStatueAndSetContext(silent, updateLayout);
 			});
 
 			return this._validateStatusInProgress;
 		}
 	}
 
-	private async validateStatueAndSetContext(silent: boolean, openDiff: boolean) {
-		await this.validateState(silent, openDiff);
+	private async validateStatueAndSetContext(silent: boolean, updateLayout: boolean) {
+		await this.validateState(silent, updateLayout);
 		await vscode.commands.executeCommand('setContext', 'github:stateValidated', true);
 	}
 
@@ -250,7 +250,7 @@ export class ReviewManager {
 		return false;
 	}
 
-	private async validateState(silent: boolean, openDiff: boolean) {
+	private async validateState(silent: boolean, updateLayout: boolean) {
 		Logger.appendLine('Review> Validating state...');
 		const oldLastCommitSha = this._lastCommitSha;
 		this._lastCommitSha = undefined;
@@ -373,7 +373,6 @@ export class ReviewManager {
 
 		Logger.appendLine(`Review> register comments provider`);
 		await this.registerCommentController();
-		const isFocusMode = this._context.workspaceState.get(FOCUS_REVIEW_MODE);
 
 		this._activePrViewCoordinator.setPullRequest(pr, this._folderRepoManager, this);
 		this._localToDispose.push(
@@ -396,23 +395,30 @@ export class ReviewManager {
 		this.statusBarItem.show();
 		vscode.commands.executeCommand('pr.refreshList');
 
+		this.layout(pr, updateLayout, silent);
+
+		this._validateStatusInProgress = undefined;
+	}
+
+	private layout(pr: PullRequestModel, updateLayout: boolean, silent: boolean) {
+		const isFocusMode = this._context.workspaceState.get(FOCUS_REVIEW_MODE);
+
 		Logger.appendLine(`Review> using focus mode = ${isFocusMode}.`);
 		Logger.appendLine(`Review> state validation silent = ${silent}.`);
 		Logger.appendLine(`Review> PR show should show = ${this._showPullRequest.shouldShow}.`);
+
 		if ((!silent || this._showPullRequest.shouldShow) && isFocusMode) {
-			this._doFocusShow(pr, openDiff);
+			this._doFocusShow(pr, updateLayout);
 		} else if (!this._showPullRequest.shouldShow && isFocusMode) {
 			const showPRChangedDisposable = this._showPullRequest.onChangedShowValue(shouldShow => {
 				Logger.appendLine(`Review> PR show value changed = ${shouldShow}.`);
 				if (shouldShow) {
-					this._doFocusShow(pr, openDiff);
+					this._doFocusShow(pr, updateLayout);
 				}
 				showPRChangedDisposable.dispose();
 			});
 			this._localToDispose.push(showPRChangedDisposable);
 		}
-
-		this._validateStatusInProgress = undefined;
 	}
 
 	private async reopenNewReviewDiffs() {
@@ -457,21 +463,26 @@ export class ReviewManager {
 		}
 	}
 
-	private _doFocusShow(pr: PullRequestModel, openDiff: boolean) {
+	private _doFocusShow(pr: PullRequestModel, updateLayout: boolean) {
 		// Respect the setting 'comments.openView' when it's 'never'.
 		const shouldShowCommentsView = vscode.workspace.getConfiguration('comments').get<'never' | string>('openView');
 		if (shouldShowCommentsView !== 'never') {
 			commands.executeCommand('workbench.action.focusCommentsPanel');
 		}
 		this._activePrViewCoordinator.show(pr);
-		if (openDiff) {
-			if (this._reviewModel.localFileChanges.length) {
-				this.openDiff();
-			} else {
-				const localFileChangesDisposable = this._reviewModel.onDidChangeLocalFileChanges(() => {
-					localFileChangesDisposable.dispose();
+		if (updateLayout) {
+			const focusedMode = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<'firstDiff' | 'overview' | false>(FOCUSED_MODE);
+			if (focusedMode === 'firstDiff') {
+				if (this._reviewModel.localFileChanges.length) {
 					this.openDiff();
-				});
+				} else {
+					const localFileChangesDisposable = this._reviewModel.onDidChangeLocalFileChanges(() => {
+						localFileChangesDisposable.dispose();
+						this.openDiff();
+					});
+				}
+			} else if (focusedMode === 'overview') {
+				return this.openDescription();
 			}
 		}
 	}
@@ -957,7 +968,7 @@ export class ReviewManager {
 	}
 
 	private async updateFocusedViewMode(): Promise<void> {
-		const focusedSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get('focusedMode');
+		const focusedSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get(FOCUSED_MODE);
 		if (focusedSetting) {
 			vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, true);
 			await this._context.workspaceState.update(FOCUS_REVIEW_MODE, true);

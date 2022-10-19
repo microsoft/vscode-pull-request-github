@@ -16,6 +16,7 @@ export const PULL_BRANCH = 'pullBranch';
 export const PULL_REQUEST_DESCRIPTION = 'pullRequestDescription';
 export const NOTIFICATION_SETTING = 'notifications';
 export const POST_CREATE = 'postCreate';
+export const FOCUSED_MODE = 'focusedMode';
 
 // git
 export const GIT = 'git';

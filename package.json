@@ -457,9 +457,23 @@
 					"description": "%githubIssues.assignWhenWorking.description%"
 				},
 				"githubPullRequests.focusedMode": {
-					"type": "boolean",
-					"description": "%githubPullRequests.focusedMode.description%",
-					"default": true
+					"properties": {
+						"oneOf": [
+							{
+								"type": "boolean"
+							},
+							{
+								"type": "string"
+							}
+						]
+					},
+					"enum": [
+						"firstDiff",
+						"overview",
+						false
+					],
+					"default": "firstDiff",
+					"description": "%githubPullRequests.focusedMode.description%"
 				}
 			}
 		},
