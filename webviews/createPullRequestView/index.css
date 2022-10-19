@@ -20,9 +20,10 @@ textarea {
 }
 
 .actions {
-	margin-top: 10px;
 	display: flex;
-	justify-content: space-between;
+	justify-content: end;
+	gap: 8px;
+	margin-top: 10px;
 }
 
 svg,
@@ -46,7 +47,7 @@ svg path {
 
 .wrapper span {
 	display: flex;
-	padding: 5px;
+	margin-right: 8px;
 }
 
 body {
@@ -73,8 +74,9 @@ body {
 }
 
 .selector-group {
-	padding: 5px;
+	padding: 8px;
 	border: 1px solid var(--vscode-panel-border);
+	border-radius: 4px;
 	margin-bottom: 10px;
 }
 
@@ -88,6 +90,7 @@ body {
 
 .automerge-section {
 	display: flex;
+	align-items: center;
 }
 
 .automerge-section .merge-select-container {

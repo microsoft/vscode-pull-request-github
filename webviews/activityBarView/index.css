@@ -24,13 +24,15 @@ textarea {
 }
 
 #status-checks {
-	padding-top: 20px;
-	padding-bottom: 10px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 16px 0;
 }
 
-.status-section {
-	display: flex;
-	padding: 10px 0;
+.status-section p {
+	line-height: 1.5em;
+	margin: 0;
 }
 
 .select-container {
