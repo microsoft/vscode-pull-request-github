@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { AuthenticationError } from '../../common/authentication';
-import { PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
+import { PR_SETTINGS_NAMESPACE, QUERIES } from '../../common/settingKeys';
 import { ITelemetry } from '../../common/telemetry';
 import { formatError } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
@@ -14,8 +14,6 @@ import { NotificationProvider } from '../../github/notifications';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { PRNode } from './pullRequestNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
-
-const QUERIES_CONFIGURATION: string = 'queries';
 
 export enum PRCategoryActionType {
 	Empty,
@@ -158,14 +156,14 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 	async editQuery() {
 		const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
-		const inspect = config.inspect<{ label: string; query: string }[]>(QUERIES_CONFIGURATION);
+		const inspect = config.inspect<{ label: string; query: string }[]>(QUERIES);
 		let command: string;
 		if (inspect?.workspaceValue) {
 			command = 'workbench.action.openWorkspaceSettingsFile';
 		} else {
-			const value = config.get<{ label: string; query: string }[]>(QUERIES_CONFIGURATION);
+			const value = config.get<{ label: string; query: string }[]>(QUERIES);
 			if (inspect?.defaultValue && JSON.stringify(inspect?.defaultValue) === JSON.stringify(value)) {
-				config.update(QUERIES_CONFIGURATION, inspect.defaultValue, vscode.ConfigurationTarget.Global);
+				config.update(QUERIES, inspect.defaultValue, vscode.ConfigurationTarget.Global);
 			}
 			command = 'workbench.action.openSettingsJson';
 		}

@@ -205,7 +205,7 @@ export class StateManager {
 	private async doInitialize() {
 		this.cleanIssueState();
 		this._queries = vscode.workspace
-			.getConfiguration(ISSUES_CONFIGURATION)
+			.getConfiguration(ISSUES_CONFIGURATION, null)
 			.get(QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION_VALUE);
 		if (this._queries.length === 0) {
 			this._queries = DEFAULT_QUERY_CONFIGURATION_VALUE;
@@ -214,7 +214,7 @@ export class StateManager {
 			vscode.workspace.onDidChangeConfiguration(change => {
 				if (change.affectsConfiguration(`${ISSUES_CONFIGURATION}.${QUERIES_CONFIGURATION}`)) {
 					this._queries = vscode.workspace
-						.getConfiguration(ISSUES_CONFIGURATION)
+						.getConfiguration(ISSUES_CONFIGURATION, null)
 						.get(QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION_VALUE);
 					this._onRefreshCacheNeeded.fire();
 				} else if (change.affectsConfiguration(`${ISSUES_CONFIGURATION}.${IGNORE_MILESTONES_CONFIGURATION}`)) {

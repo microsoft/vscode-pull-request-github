@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
-import { FILE_LIST_LAYOUT } from '../common/settingKeys';
+import { FILE_LIST_LAYOUT, QUERIES } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EXTENSION_ID } from '../constants';
 import { CredentialStore } from '../github/credentials';
@@ -18,7 +18,7 @@ import { DecorationProvider } from './treeDecorationProvider';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
-import { QUERIES_SETTING, WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
+import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
@@ -142,7 +142,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private async initializeCategories() {
 		this._disposables.push(
 			vscode.workspace.onDidChangeConfiguration(async e => {
-				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${QUERIES_SETTING}`)) {
+				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${QUERIES}`)) {
 					this.refresh();
 				}
 			}),

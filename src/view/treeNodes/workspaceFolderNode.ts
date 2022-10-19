@@ -5,6 +5,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { QUERIES } from '../../common/settingKeys';
 import { ITelemetry } from '../../common/telemetry';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
@@ -16,8 +17,6 @@ export interface IQueryInfo {
 	label: string;
 	query: string;
 }
-
-export const QUERIES_SETTING = 'queries';
 
 export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
@@ -40,7 +39,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		return (
 			vscode.workspace
 				.getConfiguration(SETTINGS_NAMESPACE, folderManager.repository.rootUri)
-				.get<IQueryInfo[]>(QUERIES_SETTING) || []
+				.get<IQueryInfo[]>(QUERIES) || []
 		);
 	}
 

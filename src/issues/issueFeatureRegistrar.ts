@@ -610,7 +610,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	async editQuery(query: IssueUriTreeItem) {
-		const config = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION);
+		const config = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION, null);
 		const inspect = config.inspect<{ label: string; query: string }[]>(QUERIES_CONFIGURATION);
 		let command: string;
 		if (inspect?.workspaceValue) {
