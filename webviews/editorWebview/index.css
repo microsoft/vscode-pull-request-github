@@ -69,7 +69,7 @@ textarea:focus,
 .comment-body code,
 .comment-body a,
 span.lineContent {
-	overflow-wrap: break-word;
+	overflow-wrap: anywhere;
 }
 
 #title:empty {
@@ -224,6 +224,10 @@ body .comment-container .review-comment-header {
 
 .status-check-detail-text {
 	margin-right: 8px;
+}
+
+.status-section p {
+	margin: 0;
 }
 
 .form-actions > input[type='submit'] {
@@ -836,6 +840,10 @@ h3 {
 
 code {
 	font-family: Menlo, Monaco, Consolas, 'Droid Sans Mono', 'Courier New', monospace, 'Droid Sans Fallback';
+}
+
+.comment-body .snippet-clipboard-content {
+	display: grid;
 }
 
 .comment-body video {
