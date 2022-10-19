@@ -1030,7 +1030,7 @@
 			{
 				"view": "github:activePullRequest:welcome",
 				"when": "!github:stateValidated",
-				"contents": "%github.activePullRequest.contents%"
+				"contents": "%welcome.github.activePullRequest.contents%"
 			}
 		],
 		"keybindings": [
