@@ -946,11 +946,30 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.markFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri) => {
+		vscode.commands.registerCommand('pr.markFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri | undefined) => {
 			try {
+				if (treeNode === undefined) {
+					// Use the active editor to enable keybindings
+					treeNode = vscode.window.activeTextEditor?.document.uri;
+				}
+
 				if (treeNode instanceof FileChangeNode) {
 					await treeNode.markFileAsViewed();
-				} else {
+				} else if (treeNode) {
+					// When the argument is a uri it came from the editor menu and we should also close the file
+					// Do the close first to improve perceived performance of marking as viewed.
+					const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+					if (tab) {
+						let compareUri: vscode.Uri | undefined = undefined;
+						if (tab.input instanceof vscode.TabInputTextDiff) {
+							compareUri = tab.input.modified;
+						} else if (tab.input instanceof vscode.TabInputText) {
+							compareUri = tab.input.uri;
+						}
+						if (compareUri && treeNode.toString() === compareUri.toString()) {
+							vscode.window.tabGroups.close(tab);
+						}
+					}
 					const manager = reposManager.getManagerForFile(treeNode);
 					await manager?.activePullRequest?.markFileAsViewed(treeNode.path);
 					manager?.activePullRequest?.setFileViewedContext();
@@ -962,11 +981,16 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.unmarkFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri) => {
+		vscode.commands.registerCommand('pr.unmarkFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri | undefined) => {
 			try {
+				if (treeNode === undefined) {
+					// Use the active editor to enable keybindings
+					treeNode = vscode.window.activeTextEditor?.document.uri;
+				}
+
 				if (treeNode instanceof FileChangeNode) {
 					treeNode.unmarkFileAsViewed();
-				} else {
+				} else if (treeNode) {
 					const manager = reposManager.getManagerForFile(treeNode);
 					await manager?.activePullRequest?.unmarkFileAsViewed(treeNode.path);
 					manager?.activePullRequest?.setFileViewedContext();

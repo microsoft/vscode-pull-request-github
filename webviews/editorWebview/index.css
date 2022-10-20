@@ -838,6 +838,24 @@ code {
 	font-family: Menlo, Monaco, Consolas, 'Droid Sans Mono', 'Courier New', monospace, 'Droid Sans Fallback';
 }
 
+.comment-body video {
+	width: 100%;
+	border: 1px solid var(--vscode-editorWidget-border);
+	border-radius: 4px;
+}
+
+.comment-body summary {
+	margin-bottom: 8px;
+}
+
+.comment-body details summary::marker {
+	display: flex;
+}
+
+.comment-body details summary svg {
+	margin-left: 8px;
+}
+
 .comment-body body.wordWrap pre {
 	white-space: pre-wrap;
 }

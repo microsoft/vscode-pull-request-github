@@ -457,9 +457,23 @@
 					"description": "%githubIssues.assignWhenWorking.description%"
 				},
 				"githubPullRequests.focusedMode": {
-					"type": "boolean",
-					"description": "%githubPullRequests.focusedMode.description%",
-					"default": true
+					"properties": {
+						"oneOf": [
+							{
+								"type": "boolean"
+							},
+							{
+								"type": "string"
+							}
+						]
+					},
+					"enum": [
+						"firstDiff",
+						"overview",
+						false
+					],
+					"default": "firstDiff",
+					"description": "%githubPullRequests.focusedMode.description%"
 				}
 			}
 		},
@@ -1016,7 +1030,7 @@
 			{
 				"view": "github:activePullRequest:welcome",
 				"when": "!github:stateValidated",
-				"contents": "%github.activePullRequest.contents%"
+				"contents": "%welcome.github.activePullRequest.contents%"
 			}
 		],
 		"keybindings": [

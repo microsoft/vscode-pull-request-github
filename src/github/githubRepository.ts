@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as OctokitTypes from '@octokit/types';
 import { ApolloQueryResult, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
 import * as vscode from 'vscode';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
@@ -276,11 +275,7 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 		try {
 			Logger.debug(`Fetch default branch - enter`, GitHubRepository.ID);
-			const { octokit, remote } = await this.ensure();
-			const { data } = await octokit.call(octokit.api.repos.get, {
-				owner: remote.owner,
-				repo: remote.repositoryName,
-			});
+			const data = await this.getMetadata();
 			Logger.debug(`Fetch default branch - done`, GitHubRepository.ID);
 
 			return data.default_branch;
@@ -296,11 +291,8 @@ export class GitHubRepository implements vscode.Disposable {
 		try {
 			if (!this._repoAccessAndMergeMethods || refetch) {
 				Logger.debug(`Fetch repo permissions and available merge methods - enter`, GitHubRepository.ID);
-				const { octokit, remote } = await this.ensure();
-				const { data } = await octokit.call(octokit.api.repos.get, {
-					owner: remote.owner,
-					repo: remote.repositoryName,
-				});
+				const data = await this.getMetadata();
+
 				Logger.debug(`Fetch repo permissions and available merge methods - done`, GitHubRepository.ID);
 				const hasWritePermission = data.permissions?.push ?? false;
 				this._repoAccessAndMergeMethods = {
@@ -661,28 +653,27 @@ export class GitHubRepository implements vscode.Disposable {
 	async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, GitHubRepository.ID);
-			const { octokit, remote } = await this.ensure();
+			const { octokit, remote, query, schema } = await this.ensure();
 
 			const user = await this.getAuthenticatedUser();
 			// Search api will not try to resolve repo that redirects, so get full name first
-			const repo = await octokit.call(octokit.api.repos.get, { owner: this.remote.owner, repo: this.remote.repositoryName });
+			const repo = await this.getMetadata();
 			const { data, headers } = await octokit.call(octokit.api.search.issuesAndPullRequests, {
-				q: getPRFetchQuery(repo.data.full_name, user, categoryQuery),
+				q: getPRFetchQuery(repo.full_name, user, categoryQuery),
 				per_page: PULL_REQUEST_PAGE_SIZE,
 				page: page || 1,
 			});
-			const promises: Promise<OctokitTypes.OctokitResponse<OctokitCommon.PullsGetResponseData>>[] = [];
-			data.items.forEach((item: any /** unluckily Octokit.AnyResponse */) => {
-				promises.push(
-					new Promise(async (resolve, _reject) => {
-						const prData = await octokit.call(octokit.api.pulls.get, {
-							owner: remote.owner,
-							repo: remote.repositoryName,
-							pull_number: item.number,
-						});
-						resolve(prData);
-					}),
-				);
+
+			const promises: Promise<PullRequestResponse>[] = data.items.map(async (item: any /** unluckily Octokit.AnyResponse */) => {
+				const { data } = await query<PullRequestResponse>({
+					query: schema.PullRequest,
+					variables: {
+						owner: remote.owner,
+						name: remote.repositoryName,
+						number: item.number
+					}
+				});
+				return data;
 			});
 
 			const hasMorePages = !!headers.link && headers.link.indexOf('rel="next"') > -1;
@@ -690,13 +681,13 @@ export class GitHubRepository implements vscode.Disposable {
 
 			const pullRequests = pullRequestResponses
 				.map(response => {
-					if (!response.data.head.repo) {
+					if (!response.repository.pullRequest.headRef) {
 						Logger.appendLine('GitHubRepository> The remote branch for this PR was already deleted.');
 						return null;
 					}
 
 					return this.createOrUpdatePullRequestModel(
-						convertRESTPullRequestToRawPullRequest(response.data, this),
+						parseGraphQLPullRequest(response.repository.pullRequest, this),
 					);
 				})
 				.filter(item => item !== null) as PullRequestModel[];
