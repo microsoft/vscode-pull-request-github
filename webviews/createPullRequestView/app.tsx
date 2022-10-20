@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
 import { CreateParams, RemoteInfo } from '../../common/views';
 import PullRequestContext from '../common/createContext';
@@ -94,6 +94,16 @@ export function main() {
 					setBusy(false);
 				}
 
+				const onKeyDown = useCallback(
+					e => {
+						if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+							e.preventDefault();
+							create();
+						}
+					},
+					[create],
+				);
+
 				return <div>
 					<div className='selector-group'>
 						<span className='input-label'>Merge changes from</span>
@@ -126,14 +136,22 @@ export function main() {
 							placeholder='Pull Request Title'
 							value={params.pendingTitle}
 							required
-							onChange={(e) => updateTitle(e.currentTarget.value)}>
+							onChange={(e) => updateTitle(e.currentTarget.value)}
+							onKeyDown={onKeyDown}>
 						</input>
 						<div id='title-error' className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required.</div>
 					</div>
 
 					<div className='wrapper'>
 						<label className='input-label' htmlFor='description'>Description</label>
-						<textarea id='description' name='description' placeholder='Pull Request Description' value={params.pendingDescription} required onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}></textarea>
+						<textarea
+							id='description'
+							name='description'
+							placeholder='Pull Request Description'
+							value={params.pendingDescription}
+							required
+							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
+							onKeyDown={onKeyDown}></textarea>
 					</div>
 
 					<div className={params.validate && !!params.createError ? 'wrapper validation-error' : 'hidden'} aria-live='assertive'>
