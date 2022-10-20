@@ -38,7 +38,7 @@ export class ReviewCommentController
 	private static readonly ID = 'ReviewCommentController';
 	private _localToDispose: vscode.Disposable[] = [];
 	private _commentHandlerId: string;
-
+	private _decorationType: vscode.TextEditorDecorationType;
 	private _commentController: vscode.CommentController;
 
 	public get commentController(): vscode.CommentController | undefined {
@@ -68,7 +68,23 @@ export class ReviewCommentController
 		this._commentController.reactionHandler = this.toggleReaction.bind(this);
 		this._localToDispose.push(this._commentController);
 		this._commentHandlerId = uuid();
+		this._decorationType = vscode.window.createTextEditorDecorationType({ borderColor: 'blue', borderStyle: 'solid', borderWidth: '0px 0px 0px 2px' });
+		vscode.window.onDidChangeActiveTextEditor(async (editor) => {
+			this.setDecorations(editor);
+		});
+		this.setDecorations(vscode.window.activeTextEditor);
 		registerCommentHandler(this._commentHandlerId, this);
+	}
+
+	private async setDecorations(editor: vscode.TextEditor | undefined) {
+		if (!editor) {
+			return;
+		}
+		if (!this.decorations.has(editor.document.uri.toString())) {
+			await this.provideCommentingRanges(editor.document, new vscode.CancellationTokenSource().token);
+		}
+		const decorations = (await this.decorations.get(editor.document.uri.toString())!)!;
+		editor.setDecorations(this._decorationType, decorations.map(range => ({ range })));
 	}
 
 	// #region initialize
@@ -78,7 +94,7 @@ export class ReviewCommentController
 		);
 		await this._reposManager.activePullRequest!.validateDraftMode();
 		await this.initializeCommentThreads();
-		await this.registerListeners();
+		await this.registerLocalListeners();
 	}
 
 	/**
@@ -198,7 +214,7 @@ export class ReviewCommentController
 		return this.doInitializeCommentThreads(activePullRequest.reviewThreadsCache);
 	}
 
-	private async registerListeners(): Promise<void> {
+	private async registerLocalListeners(): Promise<void> {
 		this._localToDispose.push(
 			this._reposManager.activePullRequest!.onDidChangePendingReviewState(newDraftMode => {
 				[
@@ -387,6 +403,18 @@ export class ReviewCommentController
 		document: vscode.TextDocument,
 		_token: vscode.CancellationToken,
 	): Promise<vscode.Range[] | undefined> {
+		const findCommentingRanges = this.findCommentingRanges(document);
+		this.decorations.set(document.uri.toString(), findCommentingRanges);
+		return findCommentingRanges;
+	}
+
+	// #endregion
+
+	private decorations: Map<string, Promise<vscode.Range[] | undefined>> = new Map();
+
+	private async findCommentingRanges(
+		document: vscode.TextDocument
+	): Promise<vscode.Range[] | undefined> {
 		let query: ReviewUriParams | undefined =
 			(document.uri.query && document.uri.query !== '') ? fromReviewUri(document.uri.query) : undefined;
 
@@ -451,8 +479,6 @@ export class ReviewCommentController
 
 		return;
 	}
-
-	// #endregion
 
 	private async getContentDiff(uri: vscode.Uri, fileName: string): Promise<string> {
 		const matchedEditor = vscode.window.visibleTextEditors.find(
