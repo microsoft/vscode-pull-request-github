@@ -29,7 +29,7 @@
 		"vscode.github-authentication"
 	],
 	"activationEvents": [
-		"*",
+		"onStartupFinished",
 		"onCommand:github.api.preloadPullRequest",
 		"onFileSystem:newIssue",
 		"onFileSystem:pr",
