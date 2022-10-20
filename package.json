@@ -611,6 +611,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.openAllFiles",
+				"title": "%command.pr.openAllFiles.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.refreshPullRequest",
 				"title": "%command.pr.refreshPullRequest.title%",
 				"category": "%command.pull.request.category%"
@@ -1110,6 +1115,10 @@
 				},
 				{
 					"command": "pr.openAllDiffs",
+					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
+				},
+				{
+					"command": "pr.openAllFiles",
 					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
 				},
 				{

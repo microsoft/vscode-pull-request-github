@@ -180,6 +180,42 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'pr.openAllFiles',
+			async () => {
+				const activePullRequestsWithFolderManager = reposManager.folderManagers
+					.filter(folderManager => folderManager.activePullRequest)
+					.map(folderManager => {
+						return (({ activePr: folderManager.activePullRequest!, folderManager }));
+					});
+
+				const activePullRequestAndFolderManager = activePullRequestsWithFolderManager.length >= 1
+					? (
+						await chooseItem(
+							activePullRequestsWithFolderManager,
+							itemValue => itemValue.activePr.html_url,
+						)
+					)
+					: activePullRequestsWithFolderManager[0];
+
+				if (!activePullRequestAndFolderManager) {
+					return;
+				}
+
+				const { folderManager } = activePullRequestAndFolderManager;
+				const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
+
+				if (!reviewManager) {
+					return;
+				}
+
+				reviewManager.reviewModel.localFileChanges
+					.forEach(localFileChange => localFileChange.openDiff(folderManager, { preview: false }));
+			}
+		),
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('review.suggestDiff', async e => {
 			try {
 				const folderManager = await chooseItem<FolderRepositoryManager>(
