@@ -838,6 +838,10 @@ code {
 	font-family: Menlo, Monaco, Consolas, 'Droid Sans Mono', 'Courier New', monospace, 'Droid Sans Fallback';
 }
 
+.comment-body .snippet-clipboard-content {
+	display: grid;
+}
+
 .comment-body video {
 	width: 100%;
 	border: 1px solid var(--vscode-editorWidget-border);
