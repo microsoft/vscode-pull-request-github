@@ -30,7 +30,7 @@ export class ReviewsManager {
 		private _gitApi: GitApiImpl,
 	) {
 		this._disposables = [];
-		const gitContentProvider = new GitContentFileSystemProvider(_gitApi, _credentialStore);
+		const gitContentProvider = new GitContentFileSystemProvider(_gitApi, _credentialStore, _reviewManagers);
 		gitContentProvider.registerTextDocumentContentFallback(this.provideTextDocumentContent.bind(this));
 		this._disposables.push(vscode.workspace.registerFileSystemProvider(Schemes.Review, gitContentProvider, { isReadonly: true }));
 		this.registerListeners();

@@ -78,11 +78,23 @@ export class GitFileChangeModel extends FileChangeModel {
 		change: SimpleFileChange,
 		filePath: vscode.Uri,
 		parentFilePath: vscode.Uri,
-		sha?: string
+		public readonly sha: string,
+		preload?: boolean
 	) {
 		super(pullRequest, folderRepositoryManager, change, sha);
 		this._filePath = filePath;
 		this._parentFilePath = parentFilePath;
+		if (preload) {
+			this.show();
+		}
+	}
+
+	private _show: Promise<string>
+	async show(): Promise<string> {
+		if (!this._show) {
+			this._show = this.folderRepoManager.repository.show(this.sha, this.fileName);
+		}
+		return this._show;
 	}
 }
 

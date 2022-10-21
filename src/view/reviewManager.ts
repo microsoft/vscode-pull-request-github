@@ -591,7 +591,7 @@ export class ReviewManager {
 				this._repository.rootUri,
 			);
 
-			const changeModel = new GitFileChangeModel(this._folderRepoManager, pr, change, modifiedFileUri, originalFileUri, headSha);
+			const changeModel = new GitFileChangeModel(this._folderRepoManager, pr, change, modifiedFileUri, originalFileUri, headSha, contentChanges.length < 20);
 			const changedItem = new GitFileChangeNode(
 				this.changesInPrDataProvider,
 				this._folderRepoManager,

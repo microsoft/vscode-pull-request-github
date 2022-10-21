@@ -13,15 +13,26 @@ import { fromReviewUri } from '../common/uri';
 import { CredentialStore } from '../github/credentials';
 import { getRepositoryForFile } from '../github/utils';
 import { RepositoryFileSystemProvider } from './repositoryFileSystemProvider';
+import { ReviewManager } from './reviewManager';
 
 export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
 	private _fallback?: (uri: vscode.Uri) => Promise<string>;
 
-	constructor(gitAPI: GitApiImpl, credentialStore: CredentialStore) {
+	constructor(gitAPI: GitApiImpl, credentialStore: CredentialStore, private readonly reviewManagers: ReviewManager[]) {
 		super(gitAPI, credentialStore);
 	}
 
-	protected async getRepositoryForFile(file: vscode.Uri): Promise<Repository | undefined> {
+	private getChangeModelForFile(file: vscode.Uri) {
+		for (const manager of this.reviewManagers) {
+			for (const change of manager.reviewModel.localFileChanges) {
+				if ((change.changeModel.filePath.authority === file.authority) && (change.changeModel.filePath.path === file.path)) {
+					return change.changeModel;
+				}
+			}
+		}
+	}
+
+	private async getRepositoryForFile(file: vscode.Uri): Promise<Repository | undefined> {
 		await this.waitForAuth();
 		if ((this.gitAPI.state !== 'initialized') || (this.gitAPI.repositories.length === 0)) {
 			await this.waitForRepos(4000);
@@ -48,8 +59,11 @@ export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
 		}
 
 		const absolutePath = pathLib.join(repository.rootUri.fsPath, path).replace(/\\/g, '/');
-		let content: string;
+		let content: string | undefined;
 		try {
+			Logger.appendLine(`Getting change model (${repository.rootUri}) content for commit ${commit} and path ${absolutePath}`, 'GitContentFileSystemProvider');
+			content = await this.getChangeModelForFile(uri)?.show();
+
 			Logger.appendLine(`Getting repository (${repository.rootUri}) content for commit ${commit} and path ${absolutePath}`, 'GitContentFileSystemProvider');
 			content = await repository.show(commit, absolutePath);
 			if (!content) {
