@@ -198,6 +198,27 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return this._githubRepositories;
 	}
 
+	public async computeAllUnknownRemotes(): Promise<Remote[]> {
+		const remotes = parseRepositoryRemotes(this.repository);
+		const potentialRemotes = remotes.filter(remote => remote.host);
+		const serverTypes = await Promise.all(
+			potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
+		).catch(e => {
+			Logger.appendLine(`Resolving GitHub remotes failed: ${e}`);
+			vscode.window.showErrorMessage(vscode.l10n.t('Resolving GitHub remotes failed: {0}', formatError(e)));
+			return [];
+		});
+		const unknownRemotes: Remote[] = [];
+		let i = 0;
+		for (const potentialRemote of potentialRemotes) {
+			if (serverTypes[i] === GitHubServerType.None) {
+				unknownRemotes.push(potentialRemote);
+			}
+			i++;
+		}
+		return unknownRemotes;
+	}
+
 	public async computeAllGitHubRemotes(): Promise<GitHubRemote[]> {
 		const remotes = parseRepositoryRemotes(this.repository);
 		const potentialRemotes = remotes.filter(remote => remote.host);

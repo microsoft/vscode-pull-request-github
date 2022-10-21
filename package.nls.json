@@ -132,6 +132,7 @@
 	"command.pr.configurePRViewlet.title": "Configure...",
 	"command.pr.deleteLocalBranch.title": "Delete Local Branch",
 	"command.pr.signin.title": "Sign in to GitHub",
+	"command.pr.signinenterprise.title": "Sign in to GitHub Enterprise",
 	"command.pr.deleteLocalBranchesNRemotes.title": "Delete local branches and remotes",
 	"command.pr.createComment.title": "Add Comment",
 	"command.pr.createSingleComment.title": "Add Comment",
@@ -186,6 +187,13 @@
 		"comment" : [
 			"Do not translate what's inside of (...). It is link syntax.",
 			"{Locked='](command:pr.signin)'}"
+		]
+	},
+	"welcome.github.loginWithEnterprise.contents": {
+		"message": "[Sign in with GitHub Enterprise](command:pr.signinenterprise)",
+		"comment": [
+			"Do not translate what's inside of (...). It is link syntax.",
+			"{Locked='](command:pr.signinenterprise)'}"
 		]
 	},
 	"welcome.github.compareChanges.contents": {
