@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { GitHubServerType } from '../common/authentication';
 import Logger from '../common/logger';
 import { agent } from '../env/node/net';
+import { getEnterpriseUri } from '../github/utils';
 import { HostHelper } from './configuration';
 
 export class GitHubManager {
@@ -26,6 +27,11 @@ export class GitHubManager {
 		// .wiki/.git repos are not supported
 		if (host.path.endsWith('.wiki') || host.authority.match(/gist[.]github[.]com/)) {
 			return GitHubServerType.None;
+		}
+
+		const knownEnterprise = getEnterpriseUri();
+		if ((host.authority.toLowerCase() === knownEnterprise?.authority.toLowerCase()) && (!this._servers.has(host.authority) || (this._servers.get(host.authority) === GitHubServerType.None))) {
+			return GitHubServerType.Enterprise;
 		}
 
 		if (this._servers.has(host.authority)) {

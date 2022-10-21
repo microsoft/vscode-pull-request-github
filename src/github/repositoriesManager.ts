@@ -185,12 +185,24 @@ export class RepositoriesManager implements vscode.Disposable {
 		this.state = ReposManagerState.Initializing;
 	}
 
-	async authenticate(): Promise<boolean> {
-		const { dotComRemotes, enterpriseRemotes } = await findDotComAndEnterpriseRemotes(this.folderManagers);
+	async authenticate(enterprise: boolean = false): Promise<boolean> {
+		const { dotComRemotes, enterpriseRemotes, unknownRemotes } = await findDotComAndEnterpriseRemotes(this.folderManagers);
+		const yes = vscode.l10n.t('Yes');
 
+		if (enterprise) {
+			const remoteToUse = enterpriseRemotes.length ? enterpriseRemotes[0] : (unknownRemotes.length ? unknownRemotes[0] : undefined);
+			if (remoteToUse) {
+				const promptResult = await vscode.window.showInformationMessage(vscode.l10n.t('Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server {0}?', remoteToUse.url),
+					{ modal: true }, yes, vscode.l10n.t('No, manually set {0}', 'github-enterprise.uri'));
+				if (promptResult === yes) {
+					await setEnterpriseUri(remoteToUse.url);
+				} else {
+					return false;
+				}
+			}
+		}
 		// If we have no github.com remotes, but we do have github remotes, then we likely have github enterprise remotes.
-		if (!hasEnterpriseUri() && (dotComRemotes.length === 0) && (enterpriseRemotes.length > 0)) {
-			const yes = vscode.l10n.t('Yes');
+		else if (!hasEnterpriseUri() && (dotComRemotes.length === 0) && (enterpriseRemotes.length > 0)) {
 			const promptResult = await vscode.window.showInformationMessage(vscode.l10n.t('It looks like you might be using GitHub Enterprise. Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server {0}?', enterpriseRemotes[0].url),
 				{ modal: true }, yes, vscode.l10n.t('No, use GitHub.com'));
 			if (promptResult === yes) {
@@ -201,7 +213,8 @@ export class RepositoriesManager implements vscode.Disposable {
 		}
 
 		let githubEnterprise;
-		if ((hasEnterpriseUri() || (dotComRemotes.length === 0)) && (enterpriseRemotes.length > 0)) {
+		const hasNonDotComRemote = (enterpriseRemotes.length > 0) || (unknownRemotes.length > 0);
+		if ((hasEnterpriseUri() || (dotComRemotes.length === 0)) && hasNonDotComRemote) {
 			githubEnterprise = await this._credentialStore.login(AuthProvider['github-enterprise']);
 		}
 		let github;

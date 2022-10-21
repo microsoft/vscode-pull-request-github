@@ -1219,10 +1219,11 @@ export function getOverrideBranch(): string | undefined {
 	}
 }
 
-export async function findDotComAndEnterpriseRemotes(folderManagers: FolderRepositoryManager[]): Promise<{ dotComRemotes: Remote[], enterpriseRemotes: Remote[] }> {
+export async function findDotComAndEnterpriseRemotes(folderManagers: FolderRepositoryManager[]): Promise<{ dotComRemotes: Remote[], enterpriseRemotes: Remote[], unknownRemotes: Remote[] }> {
 	// Check if we have found any github.com remotes
 	const dotComRemotes: Remote[] = [];
-	const enterpriseRemotes: Remote[] = [];;
+	const enterpriseRemotes: Remote[] = [];
+	const unknownRemotes: Remote[] = [];
 	for (const manager of folderManagers) {
 		for (const remote of await manager.computeAllGitHubRemotes()) {
 			if (remote.githubServerType === GitHubServerType.GitHubDotCom) {
@@ -1231,6 +1232,7 @@ export async function findDotComAndEnterpriseRemotes(folderManagers: FolderRepos
 				enterpriseRemotes.push(remote);
 			}
 		}
+		unknownRemotes.push(...await manager.computeAllUnknownRemotes());
 	}
-	return { dotComRemotes, enterpriseRemotes };
+	return { dotComRemotes, enterpriseRemotes, unknownRemotes };
 }

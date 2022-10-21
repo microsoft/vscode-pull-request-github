@@ -710,6 +710,12 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.signinenterprise', async () => {
+			await reposManager.authenticate(true);
+		}),
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.deleteLocalBranchesNRemotes', async () => {
 			for (const folderManager of reposManager.folderManagers) {
 				await folderManager.deleteLocalBranchesNRemotes();

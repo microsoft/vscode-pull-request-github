@@ -730,6 +730,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.signinenterprise",
+				"title": "%command.pr.signinenterprise.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.deleteLocalBranchesNRemotes",
 				"title": "%command.pr.deleteLocalBranchesNRemotes.title%",
 				"category": "%command.pull.request.category%"
@@ -993,6 +998,11 @@
 				"contents": "%welcome.github.login.contents%"
 			},
 			{
+				"view": "github:login",
+				"when": "ReposManagerStateContext == NeedsAuthentication && !github:hasGitHubRemotes && gitOpenRepositoryCount",
+				"contents": "%welcome.github.loginWithEnterprise.contents%"
+			},
+			{
 				"view": "github:compareChanges",
 				"when": "github:noUpstream",
 				"contents": "%welcome.github.compareChanges.contents%"
@@ -1174,6 +1184,10 @@
 				},
 				{
 					"command": "pr.signin",
+					"when": "gitHubOpenRepositoryCount != 0 && github:hasGitHubRemotes"
+				},
+				{
+					"command": "pr.signinenterprise",
 					"when": "gitHubOpenRepositoryCount != 0 && github:hasGitHubRemotes"
 				},
 				{
