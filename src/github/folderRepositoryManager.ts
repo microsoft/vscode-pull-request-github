@@ -595,7 +595,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		return Promise.all(resolveRemotePromises).then(async (remoteResults: boolean[]) => {
 			if (remoteResults.some(value => !value)) {
-				return this._credentialStore.showSamlMessageAndAuth();
+				this._credentialStore.showSamlMessageAndAuth();
 			}
 
 			this._githubRepositories = repositories;

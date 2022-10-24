@@ -81,9 +81,12 @@ export class CredentialStore implements vscode.Disposable {
 			getAuthSessionOptions.createIfNone = false;
 		}
 
-		let session;
+		let session: vscode.AuthenticationSession | undefined = undefined;
+		let isNew: boolean = false;
 		try {
-			session = await this.getSession(authProviderId, getAuthSessionOptions);
+			const result = await this.getSession(authProviderId, getAuthSessionOptions);
+			session = result.session;
+			isNew = result.isNew;
 		} catch (e) {
 			if (getAuthSessionOptions.forceNewSession && (e.message === 'User did not consent to login.')) {
 				// There are cases where a forced login may not be 100% needed, so just continue as usual if
@@ -118,7 +121,9 @@ export class CredentialStore implements vscode.Disposable {
 				await this.setCurrentUser(github);
 			}
 
-			this._onDidInitialize.fire();
+			if (!(getAuthSessionOptions.createIfNone || getAuthSessionOptions.forceNewSession) || isNew) {
+				this._onDidInitialize.fire();
+			}
 		} else {
 			Logger.debug(`No GitHub${getGitHubSuffix(authProviderId)} token found.`, 'Authentication');
 		}
@@ -255,10 +260,10 @@ export class CredentialStore implements vscode.Disposable {
 		github.currentUser = user.data;
 	}
 
-	private async getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions) {
+	private async getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions): Promise<{ session: vscode.AuthenticationSession | undefined, isNew: boolean }> {
 		let session: vscode.AuthenticationSession | undefined = await vscode.authentication.getSession(authProviderId, SCOPES, { silent: true });
 		if (session) {
-			return session;
+			return { session, isNew: false };
 		}
 
 		if (getAuthSessionOptions.createIfNone) {
@@ -275,11 +280,11 @@ export class CredentialStore implements vscode.Disposable {
 			session = await vscode.authentication.getSession(authProviderId, SCOPES_OLD, getAuthSessionOptions);
 		}
 
-		return session;
+		return { session, isNew: !!session };
 	}
 
 	private async getSessionOrLogin(authProviderId: AuthProvider): Promise<string> {
-		const session = (await this.getSession(authProviderId, { createIfNone: true }))!;
+		const session = (await this.getSession(authProviderId, { createIfNone: true })).session!;
 		if (authProviderId === AuthProvider.github) {
 			this._sessionId = session.id;
 		} else {
