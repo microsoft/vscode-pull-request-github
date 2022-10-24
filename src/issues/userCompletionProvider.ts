@@ -23,13 +23,24 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		token: vscode.CancellationToken,
 		context: vscode.CompletionContext,
 	): Promise<vscode.CompletionItem[]> {
+		let wordRange = document.getWordRangeAtPosition(position);
+		let wordAtPos = wordRange ? document.getText(wordRange) : undefined;
+		if (!wordRange || wordAtPos?.charAt(0) !== '@') {
+			const start = wordRange?.start ?? position;
+			const testWordRange = new vscode.Range(start.translate(undefined, -1), position);
+			const testWord = document.getText(testWordRange);
+			if (testWord.charAt(0) === '@') {
+				wordRange = testWordRange;
+				wordAtPos = testWord;
+			}
+		}
 		// If the suggest was not triggered by the trigger character, require that the previous character be the trigger character
 		if (
 			document.languageId !== 'scminput' &&
 			document.uri.scheme !== NEW_ISSUE_SCHEME &&
 			position.character > 0 &&
 			context.triggerKind === vscode.CompletionTriggerKind.Invoke &&
-			document.getText(new vscode.Range(position.with(undefined, position.character - 1), position)) !== '@'
+			wordAtPos?.charAt(0) !== '@'
 		) {
 			return [];
 		}
@@ -59,9 +70,8 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 
 		let range: vscode.Range = new vscode.Range(position, position);
 		if (position.character - 1 >= 0) {
-			const wordAtPos = document.getText(new vscode.Range(position.translate(0, -1), position));
-			if (wordAtPos === '@') {
-				range = new vscode.Range(position.translate(0, -1), position);
+			if (wordRange && wordAtPos?.charAt(0) === '@') {
+				range = wordRange;
 			}
 		}
 		const uri =
