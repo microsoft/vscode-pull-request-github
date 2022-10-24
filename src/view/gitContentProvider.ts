@@ -62,10 +62,11 @@ export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
 		let content: string | undefined;
 		try {
 			Logger.appendLine(`Getting change model (${repository.rootUri}) content for commit ${commit} and path ${absolutePath}`, 'GitContentFileSystemProvider');
-			content = await this.getChangeModelForFile(uri)?.show();
-
-			Logger.appendLine(`Getting repository (${repository.rootUri}) content for commit ${commit} and path ${absolutePath}`, 'GitContentFileSystemProvider');
-			content = await repository.show(commit, absolutePath);
+			content = await this.getChangeModelForFile(uri)?.showBase();
+			if (!content) {
+				Logger.appendLine(`Getting repository (${repository.rootUri}) content for commit ${commit} and path ${absolutePath}`, 'GitContentFileSystemProvider');
+				content = await repository.show(commit, absolutePath);
+			}
 			if (!content) {
 				throw new Error();
 			}

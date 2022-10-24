@@ -85,14 +85,16 @@ export class GitFileChangeModel extends FileChangeModel {
 		this._filePath = filePath;
 		this._parentFilePath = parentFilePath;
 		if (preload) {
-			this.show();
+			this.showBase();
 		}
 	}
 
 	private _show: Promise<string>
-	async show(): Promise<string> {
+	async showBase(): Promise<string> {
 		if (!this._show) {
-			this._show = this.folderRepoManager.repository.show(this.sha, this.fileName);
+			const commit = ((this.change instanceof InMemFileChange || this.change instanceof SlimFileChange) ? this.change.baseCommit : this.sha);
+			const absolutePath = vscode.Uri.joinPath(this.folderRepoManager.repository.rootUri, this.fileName).fsPath;
+			this._show = this.folderRepoManager.repository.show(commit, absolutePath);
 		}
 		return this._show;
 	}
