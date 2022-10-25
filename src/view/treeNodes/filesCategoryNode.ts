@@ -11,7 +11,7 @@ import { DirectoryTreeNode } from './directoryTreeNode';
 import { LabelOnlyNode, TreeNode, TreeNodeParent } from './treeNode';
 
 export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
-	public label: string = 'Files';
+	public label: string = vscode.l10n.t('Files');
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	private directories: TreeNode[] = [];
 
@@ -54,7 +54,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (this._reviewModel.localFileChanges.length === 0) {
-			return [new LabelOnlyNode('No changed files')];
+			return [new LabelOnlyNode(vscode.l10n.t('No changed files'))];
 		}
 
 		let nodes: TreeNode[];

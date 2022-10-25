@@ -75,8 +75,8 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		}
 
 		this._view.title = pullRequestNumber
-			? `Changes in Pull Request #${pullRequestNumber}`
-			: (this._pullRequestManagerMap.size > 1 ? 'Changes in Pull Requests' : 'Changes in Pull Request');
+			? vscode.l10n.t('Changes in Pull Request #{0}', pullRequestNumber)
+			: (this._pullRequestManagerMap.size > 1 ? vscode.l10n.t('Changes in Pull Requests') : vscode.l10n.t('Changes in Pull Request'));
 	}
 
 	async addPrToView(

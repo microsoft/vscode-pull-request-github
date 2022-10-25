@@ -171,7 +171,7 @@ export class ReviewManager {
 	get statusBarItem() {
 		if (!this._statusBarItem) {
 			this._statusBarItem = vscode.window.createStatusBarItem('github.pullrequest.status', vscode.StatusBarAlignment.Left);
-			this._statusBarItem.name = 'GitHub Active Pull Request';
+			this._statusBarItem.name = vscode.l10n.t('GitHub Active Pull Request');
 		}
 
 		return this._statusBarItem;
@@ -235,15 +235,20 @@ export class ReviewManager {
 			return false;
 		}
 		await this._context.workspaceState.update(lastOfferTimeKey, currentTime);
-		const offerResult = await vscode.window.showInformationMessage(`There\'s a pull request associated with the default branch '${currentBranchName}'. Do you want to ignore this Pull Request?`, 'Ignore Pull Request', 'Don\'t Show Again');
-		if (offerResult === 'Ignore Pull Request') {
+		const ignore = vscode.l10n.t('Ignore Pull Request');
+		const dontShow = vscode.l10n.t('Don\'t Show Again');
+		const offerResult = await vscode.window.showInformationMessage(
+			vscode.l10n.t(`There\'s a pull request associated with the default branch '{0}'. Do you want to ignore this Pull Request?`, currentBranchName),
+			ignore,
+			dontShow);
+		if (offerResult === ignore) {
 			Logger.appendLine(`Branch ${currentBranchName} will now be ignored in ${IGNORE_PR_BRANCHES}.`, ReviewManager.ID);
 			const settingNamespace = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
 			const setting = settingNamespace.get<string[]>(IGNORE_PR_BRANCHES, []);
 			setting.push(currentBranchName);
 			await settingNamespace.update(IGNORE_PR_BRANCHES, setting);
 			return true;
-		} else if (offerResult === 'Don\'t Show Again') {
+		} else if (offerResult === dontShow) {
 			await this._context.workspaceState.update(ignoreBranchStateKey, false);
 			return false;
 		}
@@ -385,10 +390,10 @@ export class ReviewManager {
 			})
 		);
 
-		this.statusBarItem.text = `$(git-pull-request) Pull Request #${this._prNumber}`;
+		this.statusBarItem.text = '$(git-pull-request) ' + vscode.l10n.t('Pull Request #{0}', this._prNumber);
 		this.statusBarItem.command = {
 			command: 'pr.openDescription',
-			title: 'View Pull Request Description',
+			title: vscode.l10n.t('View Pull Request Description'),
 			arguments: [pr],
 		};
 		Logger.appendLine(`Review> display pull request status bar indicator and refresh pull request tree view.`);
@@ -721,11 +726,13 @@ export class ReviewManager {
 				e.gitErrorCode === GitErrorCodes.DirtyWorkTree
 			)) {
 				// for known git errors, we should provide actions for users to continue.
-				vscode.window.showErrorMessage(
-					'Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches',
-				);
+				vscode.window.showErrorMessage(vscode.l10n.t(
+					'Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches'
+				));
 			} else if ((e.stderr as string)?.startsWith('fatal: couldn\'t find remote ref')) {
-				vscode.window.showErrorMessage('The remote branch for this pull request has been deleted. The pull request cannot be checked out.');
+				vscode.window.showErrorMessage(vscode.l10n.t(
+					'The remote branch for this pull request has been deleted. The pull request cannot be checked out.'
+				));
 			} else {
 				vscode.window.showErrorMessage(formatError(e));
 			}
@@ -740,7 +747,7 @@ export class ReviewManager {
 		}
 
 		try {
-			this.statusBarItem.text = `$(sync~spin) Fetching additional data: pr/${pr.number}`;
+			this.statusBarItem.text = '$(sync~spin) ' + vscode.l10n.t('Fetching additional data: {0}', `pr/${pr.number}`);
 			this.statusBarItem.command = undefined;
 			this.statusBarItem.show();
 
@@ -760,7 +767,7 @@ export class ReviewManager {
 	private setStatusForPr(pr: PullRequestModel) {
 		this.switchingToReviewMode = false;
 		this.justSwitchedToReviewMode = true;
-		this.statusBarItem.text = `Pull Request #${pr.number}`;
+		this.statusBarItem.text = vscode.l10n.t('Pull Request #{0}', pr.number);
 		this.statusBarItem.command = undefined;
 		this.statusBarItem.show();
 	}
@@ -769,7 +776,7 @@ export class ReviewManager {
 		const potentialTargetRemotes = await this._folderRepoManager.getAllGitHubRemotes();
 		let selectedRemote = (await this.getRemote(
 			potentialTargetRemotes,
-			`Pick a remote to publish the branch '${branch.name}' to:`,
+			vscode.l10n.t(`Pick a remote to publish the branch '{0}' to:`, branch.name!),
 		))!.remote;
 
 		if (!selectedRemote || branch.name === undefined) {
@@ -805,14 +812,14 @@ export class ReviewManager {
 			inputBox.ignoreFocusOut = true;
 			inputBox.prompt =
 				potentialTargetRemotes.length === 1
-					? `The branch '${branch.name}' is not published yet, pick a name for the upstream branch`
-					: 'Pick a name for the upstream branch';
+					? vscode.l10n.t(`The branch '{0}' is not published yet, pick a name for the upstream branch`, branch.name!)
+					: vscode.l10n.t('Pick a name for the upstream branch');
 			const validate = async function (value: string) {
 				try {
 					inputBox.busy = true;
 					const remoteBranch = await this._reposManager.getBranch(remote, value);
 					if (remoteBranch) {
-						inputBox.validationMessage = `Branch ${value} already exists in ${remote.owner}/${remote.repositoryName}`;
+						inputBox.validationMessage = vscode.l10n.t(`Branch '{0}' already exists in {1}`, value, `${remote.owner}/${remote.repositoryName}`);
 					} else {
 						inputBox.validationMessage = undefined;
 					}
@@ -834,7 +841,7 @@ export class ReviewManager {
 				} catch (err) {
 					if (err.gitErrorCode === GitErrorCodes.PushRejected) {
 						vscode.window.showWarningMessage(
-							`Can't push refs to remote, try running 'git pull' first to integrate with your change`,
+							vscode.l10n.t(`Can't push refs to remote, try running 'git pull' first to integrate with your change`),
 							{
 								modal: true,
 							},
@@ -845,7 +852,7 @@ export class ReviewManager {
 
 					if (err.gitErrorCode === GitErrorCodes.RemoteConnectionError) {
 						vscode.window.showWarningMessage(
-							`Could not read from remote repository '${remote.remoteName}'. Please make sure you have the correct access rights and the repository exists.`,
+							vscode.l10n.t(`Could not read from remote repository '{0}'. Please make sure you have the correct access rights and the repository exists.`, remote.remoteName),
 							{
 								modal: true,
 							},
@@ -877,7 +884,7 @@ export class ReviewManager {
 		defaultUpstream?: RemoteQuickPickItem,
 	): Promise<RemoteQuickPickItem | undefined> {
 		if (!potentialTargetRemotes.length) {
-			vscode.window.showWarningMessage(`No GitHub remotes found. Add a remote and try again.`);
+			vscode.window.showWarningMessage(vscode.l10n.t(`No GitHub remotes found. Add a remote and try again.`));
 			return;
 		}
 

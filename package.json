@@ -128,18 +128,18 @@
 						}
 					},
 					"scope": "resource",
-					"markdownDescription": "githubPullRequests.queries.markdownDescription",
+					"markdownDescription": "%githubPullRequests.queries.markdownDescription%",
 					"default": [
 						{
-							"label": "Waiting For My Review",
+							"label": "%githubPullRequests.queries.waitingForMyReview%",
 							"query": "is:open review-requested:${user}"
 						},
 						{
-							"label": "Assigned To Me",
+							"label": "%githubPullRequests.queries.assignedToMe%",
 							"query": "is:open assignee:${user}"
 						},
 						{
-							"label": "Created By Me",
+							"label": "%githubPullRequests.queries.createdByMe%",
 							"query": "is:open author:${user}"
 						}
 					]
@@ -438,15 +438,15 @@
 					"markdownDescription": "%githubIssues.queries.markdownDescription%",
 					"default": [
 						{
-							"label": "My Issues",
+							"label": "%githubIssues.queries.default.myIssues%",
 							"query": "default"
 						},
 						{
-							"label": "Created Issues",
+							"label": "%githubIssues.queries.default.createdIssues%",
 							"query": "author:${user} state:open repo:${owner}/${repository} sort:created-desc"
 						},
 						{
-							"label": "Recent Issues",
+							"label": "%githubIssues.queries.default.recentIssues%",
 							"query": "state:open repo:${owner}/${repository} sort:updated-desc"
 						}
 					]

@@ -40,34 +40,34 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 		this.collapsibleState = vscode.TreeItemCollapsibleState.None;
 		switch (type) {
 			case PRCategoryActionType.Empty:
-				this.label = '0 pull requests in this category';
+				this.label = vscode.l10n.t('0 pull requests in this category');
 				break;
 			case PRCategoryActionType.More:
-				this.label = 'Load more';
+				this.label = vscode.l10n.t('Load more');
 				this.command = {
-					title: 'Load more',
+					title: vscode.l10n.t('Load more'),
 					command: 'pr.loadMore',
 					arguments: [node],
 				};
 				break;
 			case PRCategoryActionType.TryOtherRemotes:
-				this.label = 'Continue fetching from other remotes';
+				this.label = vscode.l10n.t('Continue fetching from other remotes');
 				this.command = {
-					title: 'Load more',
+					title: vscode.l10n.t('Load more'),
 					command: 'pr.loadMore',
 					arguments: [node],
 				};
 				break;
 			case PRCategoryActionType.Login:
-				this.label = 'Sign in';
+				this.label = vscode.l10n.t('Sign in');
 				this.command = {
-					title: 'Sign in',
+					title: vscode.l10n.t('Sign in'),
 					command: 'pr.signinAndRefreshList',
 					arguments: [],
 				};
 				break;
 			case PRCategoryActionType.LoginEnterprise:
-				this.label = 'Sign in with GitHub Enterprise...';
+				this.label = vscode.l10n.t('Sign in with GitHub Enterprise...');
 				this.command = {
 					title: 'Sign in',
 					command: 'pr.signinAndRefreshList',
@@ -75,21 +75,21 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				};
 				break;
 			case PRCategoryActionType.NoRemotes:
-				this.label = 'No GitHub repositories found.';
+				this.label = vscode.l10n.t('No GitHub repositories found.');
 				break;
 			case PRCategoryActionType.NoMatchingRemotes:
-				this.label = 'No remotes match the current setting.';
+				this.label = vscode.l10n.t('No remotes match the current setting.');
 				break;
 			case PRCategoryActionType.ConfigureRemotes:
-				this.label = 'Configure remotes...';
+				this.label = vscode.l10n.t('Configure remotes...');
 				this.command = {
-					title: 'Configure remotes',
+					title: vscode.l10n.t('Configure remotes'),
 					command: 'pr.configureRemotes',
 					arguments: [],
 				};
 				break;
 			case PRCategoryActionType.Initializing:
-				this.label = 'Loading...';
+				this.label = vscode.l10n.t('Loading...');
 				break;
 			default:
 				break;
@@ -133,13 +133,13 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		switch (_type) {
 			case PRType.All:
-				this.label = 'All Open';
+				this.label = vscode.l10n.t('All Open');
 				break;
 			case PRType.Query:
 				this.label = _categoryLabel!;
 				break;
 			case PRType.LocalPullRequest:
-				this.label = 'Local Pull Request Branches';
+				this.label = vscode.l10n.t('Local Pull Request Branches');
 				break;
 			default:
 				this.label = '';
@@ -196,7 +196,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				*/
 				this._telemetry.sendTelemetryEvent('pr.expand.local');
 			} catch (e) {
-				vscode.window.showErrorMessage(`Fetching local pull requests failed: ${formatError(e)}`);
+				vscode.window.showErrorMessage(vscode.l10n.t('Fetching local pull requests failed: {0}', formatError(e)));
 				needLogin = e instanceof AuthenticationError;
 			}
 		} else {
@@ -226,7 +226,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 							break;
 					}
 				} catch (e) {
-					vscode.window.showErrorMessage(`Fetching pull requests failed: ${formatError(e)}`);
+					vscode.window.showErrorMessage(vscode.l10n.t('Fetching pull requests failed: {0}', formatError(e)));
 					needLogin = e instanceof AuthenticationError;
 				}
 			} else {
@@ -240,7 +240,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 					hasMorePages = response.hasMorePages;
 					hasUnsearchedRepositories = response.hasUnsearchedRepositories;
 				} catch (e) {
-					vscode.window.showErrorMessage(`Fetching pull requests failed: ${formatError(e)}`);
+					vscode.window.showErrorMessage(vscode.l10n.t('Fetching pull requests failed: {0}', formatError(e)));
 					needLogin = e instanceof AuthenticationError;
 				}
 
