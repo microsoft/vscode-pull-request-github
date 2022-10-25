@@ -27,13 +27,13 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 		super();
 
 		this.command = {
-			title: 'View Pull Request Description',
+			title: vscode.l10n.t('View Pull Request Description'),
 			command: 'pr.openDescription',
 			arguments: [this],
 		};
 
-		this.tooltip = `Description of pull request #${pullRequestModel.number}`;
-		this.accessibilityInformation = { label: `Pull request page of pull request number ${pullRequestModel.number}`, role: 'button' };
+		this.tooltip =vscode.l10n.t('Description of pull request #{0}', pullRequestModel.number);
+		this.accessibilityInformation = { label: vscode.l10n.t('Pull request page of pull request number {0}', pullRequestModel.number), role: 'button' };
 	}
 
 	getTreeItem(): vscode.TreeItem {

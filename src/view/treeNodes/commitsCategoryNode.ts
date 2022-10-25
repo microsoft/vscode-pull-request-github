@@ -11,7 +11,7 @@ import { CommitNode } from './commitNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
 export class CommitsNode extends TreeNode implements vscode.TreeItem {
-	public label: string = 'Commits';
+	public label: string = vscode.l10n.t('Commits');
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	private _folderRepoManager: FolderRepositoryManager;
 	private _pr: PullRequestModel;
