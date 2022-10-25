@@ -985,15 +985,15 @@ export class ReviewManager {
 		}
 
 		if (quitReviewMode) {
+			if (this.changesInPrDataProvider) {
+				await this.changesInPrDataProvider.removePrFromView(this._folderRepoManager);
+			}
+
 			this._prNumber = undefined;
 			this._folderRepoManager.activePullRequest = undefined;
 
 			if (this._statusBarItem) {
 				this._statusBarItem.hide();
-			}
-
-			if (this.changesInPrDataProvider) {
-				await this.changesInPrDataProvider.removePrFromView(this._folderRepoManager);
 			}
 
 			vscode.commands.executeCommand('pr.refreshList');
