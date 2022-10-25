@@ -776,7 +776,7 @@ export class ReviewManager {
 		const potentialTargetRemotes = await this._folderRepoManager.getAllGitHubRemotes();
 		let selectedRemote = (await this.getRemote(
 			potentialTargetRemotes,
-			vscode.l10n.t(`Pick a remote to publish the branch '{0}' to:`, branch.name),
+			vscode.l10n.t(`Pick a remote to publish the branch '{0}' to:`, branch.name!),
 		))!.remote;
 
 		if (!selectedRemote || branch.name === undefined) {
@@ -812,7 +812,7 @@ export class ReviewManager {
 			inputBox.ignoreFocusOut = true;
 			inputBox.prompt =
 				potentialTargetRemotes.length === 1
-					? vscode.l10n.t(`The branch '{0}' is not published yet, pick a name for the upstream branch`, branch.name)
+					? vscode.l10n.t(`The branch '{0}' is not published yet, pick a name for the upstream branch`, branch.name!)
 					: vscode.l10n.t('Pick a name for the upstream branch');
 			const validate = async function (value: string) {
 				try {
