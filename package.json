@@ -128,7 +128,7 @@
 						}
 					},
 					"scope": "resource",
-					"markdownDescription": "githubPullRequests.queries.markdownDescription",
+					"markdownDescription": "%githubPullRequests.queries.markdownDescription%",
 					"default": [
 						{
 							"label": "%githubPullRequests.queries.waitingForMyReview%",
