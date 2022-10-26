@@ -1763,7 +1763,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 								}));
 						} catch (e) {
 							quickPick.hide();
-							vscode.window.showErrorMessage(vscode.l10n.t('Deleting branches failed: {0}', e));
+							vscode.window.showErrorMessage(vscode.l10n.t('Deleting branches failed: {0} {1}', e.message, e.stderr));
 						}
 					}
 
