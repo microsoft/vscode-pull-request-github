@@ -1343,35 +1343,6 @@
 					"when": "github:hasGitHubRemotes"
 				}
 			],
-			"github.pullRequests.overflow": [
-				{
-					"command": "pr.openPullsWebsite",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized",
-					"group": "navigation@1"
-				},
-				{
-					"command": "pr.checkoutByNumber",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized",
-					"group": "navigation@2"
-				},
-				{
-					"command": "pr.configurePRViewlet",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized",
-					"group": "navigation@3"
-				}
-			],
-			"github.issues.overflow": [
-				{
-					"command": "issues.openIssuesWebsite",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized",
-					"group": "navigation@1"
-				},
-				{
-					"command": "pr.configurePRViewlet",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized",
-					"group": "navigation@2"
-				}
-			],
 			"view/title": [
 				{
 					"command": "pr.create",
@@ -1384,9 +1355,19 @@
 					"group": "navigation@2"
 				},
 				{
-					"submenu": "github.pullRequests.overflow",
+					"command": "pr.openPullsWebsite",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
-					"group": "navigation@3"
+					"group": "overflow@1"
+				},
+				{
+					"command": "pr.checkoutByNumber",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
+					"group": "overflow@2"
+				},
+				{
+					"command": "pr.configurePRViewlet",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
+					"group": "overflow@3"
 				},
 				{
 					"command": "pr.refreshChanges",
@@ -1414,9 +1395,14 @@
 					"group": "navigation@2"
 				},
 				{
-					"submenu": "github.issues.overflow",
+					"command": "issues.openIssuesWebsite",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == issues:github",
-					"group": "navigation@3"
+					"group": "overflow@1"
+				},
+				{
+					"command": "pr.configurePRViewlet",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == issues:github",
+					"group": "overflow@2"
 				},
 				{
 					"command": "pr.refreshActivePullRequest",
@@ -1845,18 +1831,6 @@
 				}
 			]
 		},
-		"submenus": [
-			{
-				"id": "github.pullRequests.overflow",
-				"label": "More actions...",
-				"icon": "$(ellipsis)"
-			},
-			{
-				"id": "github.issues.overflow",
-				"label": "More actions...",
-				"icon": "$(ellipsis)"
-			}
-		],
 		"colors": [
 			{
 				"id": "issues.newIssueDecoration",
