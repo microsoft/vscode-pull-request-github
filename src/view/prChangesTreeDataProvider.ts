@@ -133,8 +133,9 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 	async removePrFromView(pullRequestManager: FolderRepositoryManager) {
 		const oldPR = this._pullRequestManagerMap.has(pullRequestManager) ? this._pullRequestManagerMap.get(pullRequestManager) : undefined;
-		Logger.appendLine(`Removing PR #${oldPR?.pullRequestModel.number} from tree`, PR_TREE);
-
+		if (oldPR) {
+			Logger.appendLine(`Removing PR #${oldPR.pullRequestModel.number} from tree`, PR_TREE);
+		}
 		oldPR?.dispose();
 		this._pullRequestManagerMap.delete(pullRequestManager);
 		this.updateViewTitle();
