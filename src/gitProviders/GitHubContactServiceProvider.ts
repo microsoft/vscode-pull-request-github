@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import * as vscode from 'vscode';
 import { IAccount } from '../github/interface';
 import { RepositoriesManager } from '../github/repositoriesManager';
@@ -120,7 +125,7 @@ export class GitHubContactServiceProvider implements ContactServiceProvider {
 		}
 		const origin = await this.pullRequestManager.folderManagers[0]?.getOrigin();
 		if (origin) {
-			const currentUser = origin.hub.currentUser;
+			const currentUser = origin.hub.currentUser ? await origin.hub.currentUser : undefined;
 			if (currentUser) {
 				return currentUser.login;
 			}

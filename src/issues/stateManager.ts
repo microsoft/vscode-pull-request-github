@@ -283,7 +283,7 @@ export class StateManager {
 	}
 
 	private async getCurrentUser(authProviderId: AuthProvider): Promise<string | undefined> {
-		return this.manager.credentialStore.getCurrentUser(authProviderId)?.login;
+		return (await this.manager.credentialStore.getCurrentUser(authProviderId))?.login;
 	}
 
 	private async setAllIssueData() {

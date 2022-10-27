@@ -471,7 +471,7 @@ export class GitHubRepository implements vscode.Disposable {
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
-					assignee: this._credentialStore.getCurrentUser(remote.authProviderId)?.login,
+					assignee: (await this._credentialStore.getCurrentUser(remote.authProviderId))?.login,
 				},
 			});
 			Logger.debug(`Fetch all issues - done`, GitHubRepository.ID);
@@ -511,7 +511,7 @@ export class GitHubRepository implements vscode.Disposable {
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
-					assignee: this._credentialStore.getCurrentUser(remote.authProviderId)?.login,
+					assignee: (await this._credentialStore.getCurrentUser(remote.authProviderId))?.login,
 				},
 			});
 			Logger.debug(`Fetch issues without milestone - done`, GitHubRepository.ID);
@@ -647,7 +647,7 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	async getAuthenticatedUser(): Promise<string> {
-		return this._credentialStore.getCurrentUser(this.remote.authProviderId).login;
+		return (await this._credentialStore.getCurrentUser(this.remote.authProviderId)).login;
 	}
 
 	async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
@@ -1016,7 +1016,7 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
-	isCurrentUser(login: string): boolean {
+	isCurrentUser(login: string): Promise<boolean> {
 		return this._credentialStore.isCurrentUser(login);
 	}
 }

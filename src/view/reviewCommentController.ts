@@ -87,7 +87,7 @@ export class ReviewCommentController
 	 * @param thread The comment thread information from GitHub.
 	 * @returns A GHPRCommentThread that has been created on an editor.
 	 */
-	private createOutdatedCommentThread(path: string, thread: IReviewThread): GHPRCommentThread {
+	private async createOutdatedCommentThread(path: string, thread: IReviewThread): Promise<GHPRCommentThread> {
 		const commit = thread.comments[0].originalCommitId!;
 		const uri = vscode.Uri.file(nodePath.join(`commit~${commit.substr(0, 8)}`, path));
 		const reviewUri = toReviewUri(
@@ -101,7 +101,7 @@ export class ReviewCommentController
 		);
 
 		const range = threadRange(thread.originalStartLine - 1, thread.originalEndLine - 1);
-		return createVSCodeCommentThreadForReviewThread(reviewUri, range, thread, this._commentController, this._reposManager.getCurrentUser().login);
+		return createVSCodeCommentThreadForReviewThread(reviewUri, range, thread, this._commentController, (await this._reposManager.getCurrentUser()).login);
 	}
 
 	/**
@@ -126,7 +126,7 @@ export class ReviewCommentController
 		}
 
 		const range = threadRange(startLine - 1, endLine - 1);
-		return createVSCodeCommentThreadForReviewThread(uri, range, thread, this._commentController, this._reposManager.getCurrentUser().login);
+		return createVSCodeCommentThreadForReviewThread(uri, range, thread, this._commentController, (await this._reposManager.getCurrentUser()).login);
 	}
 
 	/**
@@ -137,7 +137,7 @@ export class ReviewCommentController
 	 * @param thread The comment thread information from GitHub.
 	 * @returns A GHPRCommentThread that has been created on an editor.
 	 */
-	private createReviewCommentThread(uri: vscode.Uri, path: string, thread: IReviewThread): GHPRCommentThread {
+	private async createReviewCommentThread(uri: vscode.Uri, path: string, thread: IReviewThread): Promise<GHPRCommentThread> {
 		if (!this._reposManager.activePullRequest?.mergeBase) {
 			throw new Error('Cannot create review comment thread without an active pull request base.');
 		}
@@ -152,7 +152,7 @@ export class ReviewCommentController
 		);
 
 		const range = threadRange(thread.startLine - 1, thread.endLine - 1);
-		return createVSCodeCommentThreadForReviewThread(reviewUri, range, thread, this._commentController, this._reposManager.getCurrentUser().login);
+		return createVSCodeCommentThreadForReviewThread(reviewUri, range, thread, this._commentController, (await this._reposManager.getCurrentUser()).login);
 	}
 
 	private async doInitializeCommentThreads(reviewThreads: IReviewThread[]): Promise<void> {
@@ -171,12 +171,12 @@ export class ReviewCommentController
 
 				const threadPromises = threads.map(async thread => {
 					if (thread.isOutdated) {
-						outdatedCommentThreads.push(this.createOutdatedCommentThread(path, thread));
+						outdatedCommentThreads.push(await this.createOutdatedCommentThread(path, thread));
 					} else {
 						if (thread.diffSide === DiffSide.RIGHT) {
 							rightSideCommentThreads.push(await this.createWorkspaceCommentThread(uri, path, thread));
 						} else {
-							leftSideThreads.push(this.createReviewCommentThread(uri, path, thread));
+							leftSideThreads.push(await this.createReviewCommentThread(uri, path, thread));
 						}
 					}
 				});
@@ -244,12 +244,12 @@ export class ReviewCommentController
 						const fullPath = nodePath.join(this._repository.rootUri.path, path).replace(/\\/g, '/');
 						const uri = this._repository.rootUri.with({ path: fullPath });
 						if (thread.isOutdated) {
-							newThread = this.createOutdatedCommentThread(path, thread);
+							newThread = await this.createOutdatedCommentThread(path, thread);
 						} else {
 							if (thread.diffSide === DiffSide.RIGHT) {
 								newThread = await this.createWorkspaceCommentThread(uri, path, thread);
 							} else {
-								newThread = this.createReviewCommentThread(uri, path, thread);
+								newThread = await this.createReviewCommentThread(uri, path, thread);
 							}
 						}
 					}
@@ -547,7 +547,7 @@ export class ReviewCommentController
 
 	public async startReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		const hasExistingComments = thread.comments.length;
-		const temporaryCommentId = this.optimisticallyAddComment(thread, input, true);
+		const temporaryCommentId = await this.optimisticallyAddComment(thread, input, true);
 
 		try {
 			if (!hasExistingComments) {
@@ -600,8 +600,8 @@ export class ReviewCommentController
 	}
 
 	// #endregion
-	private optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): number {
-		const currentUser = this._reposManager.getCurrentUser();
+	private async optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): Promise<number> {
+		const currentUser = await this._reposManager.getCurrentUser();
 		const comment = new TemporaryComment(thread, input, inDraft, currentUser);
 		this.updateCommentThreadComments(thread, [...thread.comments, comment]);
 		return comment.id;
@@ -612,8 +612,8 @@ export class ReviewCommentController
 		updateCommentThreadLabel(thread);
 	}
 
-	private optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): number {
-		const currentUser = this._reposManager.getCurrentUser();
+	private async optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): Promise<number> {
+		const currentUser = await this._reposManager.getCurrentUser();
 		const temporaryComment = new TemporaryComment(
 			thread,
 			comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.rawBody,
@@ -649,7 +649,7 @@ export class ReviewCommentController
 			: inDraft !== undefined
 				? inDraft
 				: this._reposManager.activePullRequest.hasPendingReview;
-		const temporaryCommentId = this.optimisticallyAddComment(thread, input, isDraft);
+		const temporaryCommentId = await this.optimisticallyAddComment(thread, input, isDraft);
 
 		try {
 			if (!hasExistingComments) {
@@ -748,7 +748,7 @@ export class ReviewCommentController
 
 	async editComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void> {
 		if (comment instanceof GHPRComment) {
-			const temporaryCommentId = this.optimisticallyEditComment(thread, comment);
+			const temporaryCommentId = await this.optimisticallyEditComment(thread, comment);
 			try {
 				if (!this._reposManager.activePullRequest) {
 					throw new Error('Unable to find active pull request');

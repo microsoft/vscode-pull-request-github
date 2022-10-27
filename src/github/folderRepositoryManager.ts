@@ -796,7 +796,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	async getPullRequestParticipants(githubRepository: GitHubRepository, pullRequestNumber: number): Promise<{ participants: IAccount[], viewer: IAccount }> {
 		return {
 			participants: await githubRepository.getPullRequestParticipants(pullRequestNumber),
-			viewer: this.getCurrentUser(githubRepository)
+			viewer: await this.getCurrentUser(githubRepository)
 		};
 	}
 
@@ -1465,7 +1465,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 	}
 
-	getCurrentUser(githubRepository?: GitHubRepository): IAccount {
+	getCurrentUser(githubRepository?: GitHubRepository): Promise<IAccount> {
 		if (!githubRepository) {
 			githubRepository = this.gitHubRepositories[0];
 		}

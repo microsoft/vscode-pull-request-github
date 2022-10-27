@@ -45,12 +45,13 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		registerCommentHandler(this._commentHandlerId, this);
 
 		if (this.pullRequestModel.reviewThreadsCacheReady) {
-			this.initializeThreadsInOpenEditors();
-			this.registerListeners();
+			this.initializeThreadsInOpenEditors().then(() => {
+				this.registerListeners();
+			});
 		} else {
-			const reviewThreadsDisposable = this.pullRequestModel.onDidChangeReviewThreads(() => {
+			const reviewThreadsDisposable = this.pullRequestModel.onDidChangeReviewThreads(async () => {
 				reviewThreadsDisposable.dispose();
-				this.initializeThreadsInOpenEditors();
+				await this.initializeThreadsInOpenEditors();
 				this.registerListeners();
 			});
 		}
@@ -61,7 +62,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 		this._disposables.push(
 			vscode.window.onDidChangeVisibleTextEditors(async e => {
-				this.onDidChangeOpenEditors(e);
+				return this.onDidChangeOpenEditors(e);
 			}),
 		);
 
@@ -136,10 +137,11 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		return uncachedEditors;
 	}
 
-	private addThreadsForEditors(newEditors: vscode.TextEditor[]): void {
+	private async addThreadsForEditors(newEditors: vscode.TextEditor[]): Promise<void> {
 		const editors = this.tryUsedCachedEditor(newEditors);
 		const reviewThreads = this.pullRequestModel.reviewThreadsCache;
 		const threadsByPath = groupBy(reviewThreads, thread => thread.path);
+		const currentUser = await this._folderReposManager.getCurrentUser();
 		editors.forEach(editor => {
 			const { fileName, isBase } = fromPRUri(editor.document.uri)!;
 			if (threadsByPath[fileName]) {
@@ -159,17 +161,17 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 							range,
 							thread,
 							this._commentController,
-							this._folderReposManager.getCurrentUser().login
+							currentUser.login
 						);
 					});
 			}
 		});
 	}
 
-	private initializeThreadsInOpenEditors(): void {
+	private async initializeThreadsInOpenEditors(): Promise<void> {
 		const prEditors = this.getPREditors(vscode.window.visibleTextEditors);
 		this._openPREditors = prEditors;
-		this.addThreadsForEditors(prEditors);
+		return this.addThreadsForEditors(prEditors);
 	}
 
 	private cleanCachedEditors() {
@@ -202,7 +204,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		});
 	}
 
-	private onDidChangeOpenEditors(editors: readonly vscode.TextEditor[]): void {
+	private async onDidChangeOpenEditors(editors: readonly vscode.TextEditor[]): Promise<void> {
 		const prEditors = this.getPREditors(editors);
 		const removed = this._openPREditors.filter(x => !prEditors.includes(x));
 		this.addCachedEditors(removed);
@@ -211,12 +213,12 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		const added = prEditors.filter(x => !this._openPREditors.includes(x));
 		this._openPREditors = prEditors;
 		if (added.length) {
-			this.addThreadsForEditors(added);
+			await this.addThreadsForEditors(added);
 		}
 	}
 
 	private onDidChangeReviewThreads(e: ReviewThreadChangeEvent): void {
-		e.added.forEach(thread => {
+		e.added.forEach(async (thread) => {
 			const fileName = thread.path;
 			const index = this._pendingCommentThreadAdds.findIndex(t => {
 				const samePath = this.gitRelativeRootPath(t.uri.path) === thread.path;
@@ -250,7 +252,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 						range,
 						thread,
 						this._commentController,
-						this._folderReposManager.getCurrentUser().login
+						(await this._folderReposManager.getCurrentUser()).login
 					);
 				}
 			}
@@ -317,7 +319,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			: inDraft !== undefined
 				? inDraft
 				: this.pullRequestModel.hasPendingReview;
-		const temporaryCommentId = this.optimisticallyAddComment(thread, input, isDraft);
+		const temporaryCommentId = await this.optimisticallyAddComment(thread, input, isDraft);
 
 		try {
 			if (hasExistingComments) {
@@ -369,8 +371,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		}
 	}
 
-	private optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): number {
-		const currentUser = this._folderReposManager.getCurrentUser(this.pullRequestModel.githubRepository);
+	private async optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): Promise<number> {
+		const currentUser = await this._folderReposManager.getCurrentUser(this.pullRequestModel.githubRepository);
 		const temporaryComment = new TemporaryComment(
 			thread,
 			comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.rawBody,
@@ -391,7 +393,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 	public async editComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void> {
 		if (comment instanceof GHPRComment) {
-			const temporaryCommentId = this.optimisticallyEditComment(thread, comment);
+			const temporaryCommentId = await this.optimisticallyEditComment(thread, comment);
 			try {
 				await this.pullRequestModel.editReviewComment(
 					comment._rawComment,
@@ -436,7 +438,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	// #region Review
 	public async startReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		const hasExistingComments = thread.comments.length;
-		const temporaryCommentId = this.optimisticallyAddComment(thread, input, true);
+		const temporaryCommentId = await this.optimisticallyAddComment(thread, input, true);
 
 		try {
 			if (!hasExistingComments) {
@@ -473,8 +475,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		this._folderReposManager.telemetry.sendTelemetryEvent('pr.openDescription');
 	}
 
-	private optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): number {
-		const currentUser = this._folderReposManager.getCurrentUser(this.pullRequestModel.githubRepository);
+	private async optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): Promise<number> {
+		const currentUser = await this._folderReposManager.getCurrentUser(this.pullRequestModel.githubRepository);
 		const comment = new TemporaryComment(thread, input, inDraft, currentUser);
 		this.updateCommentThreadComments(thread, [...thread.comments, comment]);
 		return comment.id;

@@ -34,7 +34,7 @@ export const SCOPES = ['read:user', 'user:email', 'repo', 'workflow'];
 export interface GitHub {
 	octokit: LoggingOctokit;
 	graphql: LoggingApolloClient;
-	currentUser?: IAccount;
+	currentUser?: Promise<IAccount>;
 }
 
 export class CredentialStore implements vscode.Disposable {
@@ -243,19 +243,22 @@ export class CredentialStore implements vscode.Disposable {
 		return this.recreate(vscode.l10n.t('GitHub Pull Requests and Issues requires that you provide SAML access to your organization when you sign in.'));
 	}
 
-	public isCurrentUser(username: string): boolean {
-		return this._githubAPI?.currentUser?.login === username || this._githubEnterpriseAPI?.currentUser?.login == username;
+	public async isCurrentUser(username: string): Promise<boolean> {
+		return (await this._githubAPI?.currentUser)?.login === username || (await this._githubEnterpriseAPI?.currentUser)?.login == username;
 	}
 
-	public getCurrentUser(authProviderId: AuthProvider): IAccount {
+	public getCurrentUser(authProviderId: AuthProvider): Promise<IAccount> {
 		const github = this.getHub(authProviderId);
 		const octokit = github?.octokit;
 		return (octokit && github?.currentUser)!;
 	}
 
-	private async setCurrentUser(github: GitHub): Promise<void> {
-		const user = await github.graphql.query({ query: (defaultSchema as any).Viewer });
-		github.currentUser = user.data.viewer;
+	private setCurrentUser(github: GitHub): void {
+		github.currentUser = new Promise(resolve => {
+			github.graphql.query({ query: (defaultSchema as any).Viewer }).then(result => {
+				resolve(result.data.viewer);
+			});
+		});
 	}
 
 	private async getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions): Promise<{ session: vscode.AuthenticationSession | undefined, isNew: boolean }> {
@@ -343,7 +346,7 @@ export class CredentialStore implements vscode.Disposable {
 			octokit: new LoggingOctokit(octokit, rateLogger),
 			graphql: new LoggingApolloClient(graphql, rateLogger),
 		};
-		await this.setCurrentUser(github);
+		this.setCurrentUser(github);
 		return github;
 	}
 
