@@ -34,7 +34,6 @@ import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel'
 import {
 	convertRESTIssueToRawPullRequest,
 	convertRESTPullRequestToRawPullRequest,
-	convertRESTUserToAccount,
 	getOverrideBranch,
 	getRelatedUsersFromTimelineEvents,
 	loginComparator,
@@ -1470,7 +1469,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		if (!githubRepository) {
 			githubRepository = this.gitHubRepositories[0];
 		}
-		return convertRESTUserToAccount(this._credentialStore.getCurrentUser(githubRepository.remote.authProviderId), githubRepository);
+		return this._credentialStore.getCurrentUser(githubRepository.remote.authProviderId);
 	}
 
 	async mergePullRequest(

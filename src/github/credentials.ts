@@ -14,8 +14,9 @@ import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
 import { ITelemetry } from '../common/telemetry';
 import { agent } from '../env/node/net';
-import { OctokitCommon } from './common';
+import { IAccount } from './interface';
 import { LoggingApolloClient, LoggingOctokit, RateLogger } from './loggingOctokit';
+import defaultSchema from './queries.gql';
 import { getEnterpriseUri, hasEnterpriseUri } from './utils';
 
 const TRY_AGAIN = vscode.l10n.t('Try again?');
@@ -32,8 +33,8 @@ export const SCOPES = ['read:user', 'user:email', 'repo', 'workflow'];
 
 export interface GitHub {
 	octokit: LoggingOctokit;
-	graphql: LoggingApolloClient | null;
-	currentUser?: OctokitCommon.PullsGetResponseUser;
+	graphql: LoggingApolloClient;
+	currentUser?: IAccount;
 }
 
 export class CredentialStore implements vscode.Disposable {
@@ -116,9 +117,6 @@ export class CredentialStore implements vscode.Disposable {
 				this._githubAPI = github;
 			} else {
 				this._githubEnterpriseAPI = github;
-			}
-			if (github) {
-				await this.setCurrentUser(github);
 			}
 
 			if (!(getAuthSessionOptions.createIfNone || getAuthSessionOptions.forceNewSession) || isNew) {
@@ -249,15 +247,15 @@ export class CredentialStore implements vscode.Disposable {
 		return this._githubAPI?.currentUser?.login === username || this._githubEnterpriseAPI?.currentUser?.login == username;
 	}
 
-	public getCurrentUser(authProviderId: AuthProvider): OctokitCommon.PullsGetResponseUser {
+	public getCurrentUser(authProviderId: AuthProvider): IAccount {
 		const github = this.getHub(authProviderId);
 		const octokit = github?.octokit;
 		return (octokit && github?.currentUser)!;
 	}
 
 	private async setCurrentUser(github: GitHub): Promise<void> {
-		const user = await github.octokit.call(github.octokit.api.users.getAuthenticated, {});
-		github.currentUser = user.data;
+		const user = await github.graphql.query({ query: (defaultSchema as any).Viewer });
+		github.currentUser = user.data.viewer;
 	}
 
 	private async getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions): Promise<{ session: vscode.AuthenticationSession | undefined, isNew: boolean }> {
