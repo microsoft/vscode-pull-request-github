@@ -59,7 +59,7 @@ function Title({ title, number, url, inEditMode, setEditMode, setCurrentTitle })
 			onSubmit={async evt => {
 				evt.preventDefault();
 				try {
-					const txt = (evt.target as any).text.value;
+					const txt = (evt.target as any)[0].value;
 					await setTitle(txt);
 					setCurrentTitle(txt);
 				} finally {
