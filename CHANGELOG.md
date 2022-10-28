@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.54.0
+
+### Changes
+
+- Pull Requests can be submitted from the "Create" view by doing `ctrl/cmd+enter` while your cursor is in the description input box.
+- Keybindings are supported for "Mark File as Viewed" (`pr.markFileAsViewed`). When "Mark File as Viewed" is run from a command or from the editor toolbar the file will also be closed. Tip: Use with "Open All Diffs" for quickly going through a PR review.
+- Checked-out pull requests with less than 20 files will have all the diffs pre-fetched for faster diff-opening times.
+- String in VS Code UI have been configured for localization. Strings in webviews (such as the "Create" view and the PR description/overview) are still not localized.
+
+### Fixes
+
+- User completion in commit box is wrong when manually triggered. https://github.com/microsoft/vscode-pull-request-github/issues/4026
+- Extension periodically refreshes the file under review, resetting the view position. https://github.com/microsoft/vscode-pull-request-github/issues/4031
+- Does the GHPRI extension need to be * activated? https://github.com/microsoft/vscode-pull-request-github/issues/4046
+- "viewed" checkboxes don't always propagate. https://github.com/microsoft/vscode-pull-request-github/issues/3959
+- Block comments not rendering correctly. https://github.com/microsoft/vscode-pull-request-github/issues/4013
+- Can't Create an Issue without body. https://github.com/microsoft/vscode-pull-request-github/issues/4027
+
+**_Thank You_**
+
+* [@hoontae24](https://github.com/hoontae24): feat: Add origin of upstream for github enterprise on copy head link [PR #4028](https://github.com/microsoft/vscode-pull-request-github/pull/4028)
+* [@Thomas1664](https://github.com/Thomas1664): UI fixes for checks section [PR #4059](https://github.com/microsoft/vscode-pull-request-github/pull/4059)
+* [@yin1999 (A1lo)](https://github.com/yin1999): fix: use ssh url for ssh protocol upstream [PR #3853](https://github.com/microsoft/vscode-pull-request-github/pull/3853)
+
 ## 0.52.0
 
 ### Changes
