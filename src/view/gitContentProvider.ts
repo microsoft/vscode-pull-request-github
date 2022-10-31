@@ -71,6 +71,7 @@ export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
 				throw new Error();
 			}
 		} catch (_) {
+			Logger.appendLine('Using fallback content provider.', 'GitContentFileSystemProvider');
 			content = await this._fallback(uri);
 			if (!content) {
 				// Content does not exist for the base or modified file for a file deletion or addition.
