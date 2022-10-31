@@ -29,6 +29,10 @@ export class GitHubManager {
 			return GitHubServerType.None;
 		}
 
+		if (GitHubManager.isGithubDotCom(host.authority)) {
+			return GitHubServerType.GitHubDotCom;
+		}
+
 		const knownEnterprise = getEnterpriseUri();
 		if ((host.authority.toLowerCase() === knownEnterprise?.authority.toLowerCase()) && (!this._servers.has(host.authority) || (this._servers.get(host.authority) === GitHubServerType.None))) {
 			return GitHubServerType.Enterprise;
