@@ -192,10 +192,10 @@ export class RepositoriesManager implements vscode.Disposable {
 		if (enterprise) {
 			const remoteToUse = enterpriseRemotes.length ? enterpriseRemotes[0] : (unknownRemotes.length ? unknownRemotes[0] : undefined);
 			if (remoteToUse) {
-				const promptResult = await vscode.window.showInformationMessage(vscode.l10n.t('Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server {0}?', remoteToUse.url),
+				const promptResult = await vscode.window.showInformationMessage(vscode.l10n.t('Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server {0}?', remoteToUse.normalizedHost),
 					{ modal: true }, yes, vscode.l10n.t('No, manually set {0}', 'github-enterprise.uri'));
 				if (promptResult === yes) {
-					await setEnterpriseUri(remoteToUse.url);
+					await setEnterpriseUri(remoteToUse.normalizedHost);
 				} else {
 					return false;
 				}
@@ -203,10 +203,10 @@ export class RepositoriesManager implements vscode.Disposable {
 		}
 		// If we have no github.com remotes, but we do have github remotes, then we likely have github enterprise remotes.
 		else if (!hasEnterpriseUri() && (dotComRemotes.length === 0) && (enterpriseRemotes.length > 0)) {
-			const promptResult = await vscode.window.showInformationMessage(vscode.l10n.t('It looks like you might be using GitHub Enterprise. Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server {0}?', enterpriseRemotes[0].url),
+			const promptResult = await vscode.window.showInformationMessage(vscode.l10n.t('It looks like you might be using GitHub Enterprise. Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server {0}?', enterpriseRemotes[0].normalizedHost),
 				{ modal: true }, yes, vscode.l10n.t('No, use GitHub.com'));
 			if (promptResult === yes) {
-				await setEnterpriseUri(enterpriseRemotes[0].url);
+				await setEnterpriseUri(enterpriseRemotes[0].normalizedHost);
 			} else if (promptResult === undefined) {
 				return false;
 			}
