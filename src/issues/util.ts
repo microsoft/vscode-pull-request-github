@@ -318,7 +318,7 @@ const REMOTE_CONVENTIONS = new Map([
 	['origin', ORIGIN],
 ]);
 
-async function getUpstream(repository: Repository, commit: Commit): Promise<Remote | undefined> {
+async function getUpstream(repositoriesManager: RepositoriesManager, repository: Repository, commit: Commit): Promise<Remote | undefined> {
 	const currentRemoteName: string | undefined =
 		repository.state.HEAD?.upstream && !REMOTE_CONVENTIONS.has(repository.state.HEAD.upstream.remote)
 			? repository.state.HEAD.upstream.remote
@@ -354,6 +354,10 @@ async function getUpstream(repository: Repository, commit: Commit): Promise<Remo
 	const branchNames = [HEAD];
 	if (repository.state.HEAD?.name && repository.state.HEAD.name !== HEAD) {
 		branchNames.unshift(repository.state.HEAD?.name);
+	}
+	const defaultBranch = await repositoriesManager.getManagerForFile(repository.rootUri)?.getPullRequestDefaults();
+	if (defaultBranch) {
+		branchNames.push(defaultBranch.base);
 	}
 	let bestRef: Ref | undefined;
 	let bestRemote: Remote | undefined;
@@ -417,13 +421,13 @@ function getSimpleUpstream(repository: Repository) {
 	}
 }
 
-async function getBestPossibleUpstream(repository: Repository, commit: Commit | undefined): Promise<Remote | undefined> {
+async function getBestPossibleUpstream(repositoriesManager: RepositoriesManager, repository: Repository, commit: Commit | undefined): Promise<Remote | undefined> {
 	const fallbackUpstream = new Promise<Remote | undefined>(resolve => {
 		resolve(getSimpleUpstream(repository));
 	});
 
 	let upstream: Remote | undefined = commit ? await Promise.race([
-		getUpstream(repository, commit),
+		getUpstream(repositoriesManager, repository, commit),
 		new Promise<Remote | undefined>(resolve => {
 			setTimeout(() => {
 				resolve(fallbackUpstream);
@@ -495,7 +499,7 @@ export async function createGithubPermalink(
 		}
 	}
 
-	const rawUpstream = await getBestPossibleUpstream(repository, commit);
+	const rawUpstream = await getBestPossibleUpstream(repositoriesManager, repository, commit);
 	if (!rawUpstream || !rawUpstream.fetchUrl) {
 		return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri };
 	}
