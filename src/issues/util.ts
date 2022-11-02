@@ -381,9 +381,9 @@ async function getUpstream(repository: Repository, commit: Commit): Promise<Remo
 	return bestRemote;
 }
 
-function getFileAndPosition(fileUri?: vscode.Uri, positionInfo?: NewIssue): { uri: vscode.Uri | undefined, range: vscode.Range | undefined } {
+function getFileAndPosition(fileUri?: vscode.Uri, positionInfo?: NewIssue): { uri: vscode.Uri | undefined, range: vscode.Range | vscode.NotebookRange | undefined } {
 	let uri: vscode.Uri;
-	let range: vscode.Range | undefined;
+	let range: vscode.Range | vscode.NotebookRange | undefined;
 	if (fileUri) {
 		uri = fileUri;
 		if (vscode.window.activeTextEditor?.document.uri.fsPath === uri.fsPath) {
@@ -392,6 +392,9 @@ function getFileAndPosition(fileUri?: vscode.Uri, positionInfo?: NewIssue): { ur
 	} else if (!positionInfo && vscode.window.activeTextEditor) {
 		uri = vscode.window.activeTextEditor.document.uri;
 		range = vscode.window.activeTextEditor.selection;
+	} else if (!positionInfo && vscode.window.activeNotebookEditor) {
+		uri = vscode.window.activeNotebookEditor.notebook.uri;
+		range = vscode.window.activeNotebookEditor.selection;
 	} else if (positionInfo) {
 		uri = positionInfo.document.uri;
 		range = positionInfo.range;
@@ -533,8 +536,8 @@ function getUpstreamOrigin(upstream: Remote) {
 	return `https://${resultHost}`;
 }
 
-function rangeString(range: vscode.Range | undefined) {
-	if (!range) {
+function rangeString(range: vscode.Range | vscode.NotebookRange | undefined) {
+	if (!range || (range instanceof vscode.NotebookRange)) {
 		return '';
 	}
 	let hash = `#L${range.start.line + 1}`;
