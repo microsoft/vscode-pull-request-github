@@ -91,6 +91,7 @@ input[type='submit']:focus {
 }
 
 .select-control button,
+.branch-status-container button,
 input[type='submit'] {
 	min-height: 31px;
 	white-space: normal;

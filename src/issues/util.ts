@@ -318,7 +318,7 @@ const REMOTE_CONVENTIONS = new Map([
 	['origin', ORIGIN],
 ]);
 
-async function getUpstream(repository: Repository, commit: Commit): Promise<Remote | undefined> {
+async function getUpstream(repositoriesManager: RepositoriesManager, repository: Repository, commit: Commit): Promise<Remote | undefined> {
 	const currentRemoteName: string | undefined =
 		repository.state.HEAD?.upstream && !REMOTE_CONVENTIONS.has(repository.state.HEAD.upstream.remote)
 			? repository.state.HEAD.upstream.remote
@@ -355,6 +355,10 @@ async function getUpstream(repository: Repository, commit: Commit): Promise<Remo
 	if (repository.state.HEAD?.name && repository.state.HEAD.name !== HEAD) {
 		branchNames.unshift(repository.state.HEAD?.name);
 	}
+	const defaultBranch = await repositoriesManager.getManagerForFile(repository.rootUri)?.getPullRequestDefaults();
+	if (defaultBranch) {
+		branchNames.push(defaultBranch.base);
+	}
 	let bestRef: Ref | undefined;
 	let bestRemote: Remote | undefined;
 	for (let branchIndex = 0; branchIndex < branchNames.length && !bestRef; branchIndex++) {
@@ -381,9 +385,9 @@ async function getUpstream(repository: Repository, commit: Commit): Promise<Remo
 	return bestRemote;
 }
 
-function getFileAndPosition(fileUri?: vscode.Uri, positionInfo?: NewIssue): { uri: vscode.Uri | undefined, range: vscode.Range | undefined } {
+function getFileAndPosition(fileUri?: vscode.Uri, positionInfo?: NewIssue): { uri: vscode.Uri | undefined, range: vscode.Range | vscode.NotebookRange | undefined } {
 	let uri: vscode.Uri;
-	let range: vscode.Range | undefined;
+	let range: vscode.Range | vscode.NotebookRange | undefined;
 	if (fileUri) {
 		uri = fileUri;
 		if (vscode.window.activeTextEditor?.document.uri.fsPath === uri.fsPath) {
@@ -392,6 +396,9 @@ function getFileAndPosition(fileUri?: vscode.Uri, positionInfo?: NewIssue): { ur
 	} else if (!positionInfo && vscode.window.activeTextEditor) {
 		uri = vscode.window.activeTextEditor.document.uri;
 		range = vscode.window.activeTextEditor.selection;
+	} else if (!positionInfo && vscode.window.activeNotebookEditor) {
+		uri = vscode.window.activeNotebookEditor.notebook.uri;
+		range = vscode.window.activeNotebookEditor.selection;
 	} else if (positionInfo) {
 		uri = positionInfo.document.uri;
 		range = positionInfo.range;
@@ -417,13 +424,13 @@ function getSimpleUpstream(repository: Repository) {
 	}
 }
 
-async function getBestPossibleUpstream(repository: Repository, commit: Commit | undefined): Promise<Remote | undefined> {
+async function getBestPossibleUpstream(repositoriesManager: RepositoriesManager, repository: Repository, commit: Commit | undefined): Promise<Remote | undefined> {
 	const fallbackUpstream = new Promise<Remote | undefined>(resolve => {
 		resolve(getSimpleUpstream(repository));
 	});
 
 	let upstream: Remote | undefined = commit ? await Promise.race([
-		getUpstream(repository, commit),
+		getUpstream(repositoriesManager, repository, commit),
 		new Promise<Remote | undefined>(resolve => {
 			setTimeout(() => {
 				resolve(fallbackUpstream);
@@ -495,7 +502,7 @@ export async function createGithubPermalink(
 		}
 	}
 
-	const rawUpstream = await getBestPossibleUpstream(repository, commit);
+	const rawUpstream = await getBestPossibleUpstream(repositoriesManager, repository, commit);
 	if (!rawUpstream || !rawUpstream.fetchUrl) {
 		return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri };
 	}
@@ -533,8 +540,8 @@ function getUpstreamOrigin(upstream: Remote) {
 	return `https://${resultHost}`;
 }
 
-function rangeString(range: vscode.Range | undefined) {
-	if (!range) {
+function rangeString(range: vscode.Range | vscode.NotebookRange | undefined) {
+	if (!range || (range instanceof vscode.NotebookRange)) {
 		return '';
 	}
 	let hash = `#L${range.start.line + 1}`;
