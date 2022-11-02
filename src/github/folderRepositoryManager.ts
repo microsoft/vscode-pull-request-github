@@ -579,7 +579,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		const activeRemotes = await this.getActiveRemotes();
 		const isAuthenticated = this.checkForAuthMatch(activeRemotes);
-
+		if (this.credentialStore.isAnyAuthenticated() && (activeRemotes.length === 0)) {
+			const areAllNeverGitHub = (await this.computeAllUnknownRemotes()).every(remote => GitHubManager.isNeverGitHub(vscode.Uri.parse(remote.normalizedHost).authority));
+			if (areAllNeverGitHub) {
+				this._onDidLoadRepositories.fire(ReposManagerState.RepositoriesLoaded);
+				return;
+			}
+		}
 		const repositories: GitHubRepository[] = [];
 		const resolveRemotePromises: Promise<boolean>[] = [];
 		const oldRepositories: GitHubRepository[] = [];
