@@ -129,10 +129,12 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			pullRequestModel.getTimelineEvents(),
 			pullRequestModel.getReviewRequests(),
 			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
-			this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel)
+			this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
+			this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
+			pullRequestModel.canEdit()
 		])
 			.then(result => {
-				const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch] = result;
+				const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit] = result;
 				if (!pullRequest) {
 					throw new Error(
 						`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`,
@@ -150,9 +152,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
 				const hasWritePermission = repositoryAccess!.hasWritePermission;
 				const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
-				const canEdit = hasWritePermission || this._item.canEdit();
+				const canEdit = hasWritePermission || viewerCanEdit;
 				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
-				const currentUser = this._folderRepositoryManager.getCurrentUser(this._item.githubRepository);
 				this._existingReviewers = parseReviewers(
 					requestedReviewers ?? [],
 					timelineEvents ?? [],

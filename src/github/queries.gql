@@ -433,6 +433,22 @@ query PullRequestComments($owner: String!, $name: String!, $number: Int!, $first
 	}
 }
 
+query Viewer {
+	viewer {
+		login
+		avatarUrl
+		name
+		url
+		email
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
+}
+
 query PullRequest($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {

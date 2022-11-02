@@ -195,10 +195,10 @@ describe('ReviewCommentController', function () {
 			]),
 		);
 
-		sinon.stub(manager, 'getCurrentUser').returns({
+		sinon.stub(manager, 'getCurrentUser').returns(Promise.resolve({
 			login: 'rmacfarlane',
 			url: 'https://github.com/rmacfarlane',
-		});
+		}));
 
 		sinon.stub(vscode.workspace, 'getWorkspaceFolder').returns({
 			uri: repository.rootUri,
@@ -233,10 +233,10 @@ describe('ReviewCommentController', function () {
 			sinon.stub(activePullRequest, 'getReviewThreads').returns(Promise.resolve([]));
 			sinon.stub(activePullRequest, 'getPendingReviewId').returns(Promise.resolve(undefined));
 
-			sinon.stub(manager, 'getCurrentUser').returns({
+			sinon.stub(manager, 'getCurrentUser').returns(Promise.resolve({
 				login: 'rmacfarlane',
 				url: 'https://github.com/rmacfarlane',
-			});
+			}));
 
 			sinon.stub(vscode.workspace, 'getWorkspaceFolder').returns({
 				uri: repository.rootUri,
