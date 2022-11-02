@@ -119,7 +119,7 @@ export function userMarkdown(origin: PullRequestDefaults, user: User): vscode.Ma
 		markdown.appendMarkdown(`  \r\n${vscode.l10n.t('{0} Committed to this repository on {1}', '$(git-commit)', date)}`);
 	}
 	if (user.company) {
-		markdown.appendMarkdown(`  \r\n${vscode.l10n.t('{0} Member of {1}', '$(jersey)', user.company)}`);
+		markdown.appendMarkdown(`  \r\n${vscode.l10n.t({ message: '{0} Member of {1}', args: ['$(jersey)', user.company], comment: ['An organization that the user is a member of.', 'The first placeholder is an icon and shouldn\'t be localized.', 'The second placeholder is the name of the organization.'] })}`);
 	}
 	return markdown;
 }

@@ -363,7 +363,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		if (!configuration) {
 			return;
 		}
-		const resolved = await variableSubstitution(configuration, pr, undefined, this._folderRepositoryManager.getCurrentUser(pr.githubRepository)?.login);
+		const resolved = await variableSubstitution(configuration, pr, undefined, (await this._folderRepositoryManager.getCurrentUser(pr.githubRepository))?.login);
 		if (!resolved) {
 			return;
 		}

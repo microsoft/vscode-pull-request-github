@@ -737,7 +737,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 
 	private async statusBarActions(currentIssue: CurrentIssue) {
 		const openIssueText: string = vscode.l10n.t('{0} Open #{1} {2}', '$(globe)', currentIssue.issue.number, currentIssue.issue.title);
-		const pullRequestText: string = vscode.l10n.t('{0} Create pull request for #{0} (pushes branch)', '$(git-pull-request)', currentIssue.issue.number);
+		const pullRequestText: string = vscode.l10n.t({ message: '{0} Create pull request for #{1} (pushes branch)', args: ['$(git-pull-request)', currentIssue.issue.number], comment: ['The first placeholder is an icon and shouldn\'t be localized', 'The second placeholder is the ID number of a GitHub Issue.'] });
 		let defaults: PullRequestDefaults | undefined;
 		try {
 			defaults = await currentIssue.manager.getPullRequestDefaults();
@@ -1098,7 +1098,7 @@ ${body ?? ''}\n
 				await vscode.workspace.applyEdit(edit);
 			} else {
 				const copyIssueUrl = vscode.l10n.t('Copy URL');
-				const openIssue = vscode.l10n.t('Open Issue');
+				const openIssue = vscode.l10n.t({ message: 'Open Issue', comment: 'Open the issue description in the browser to see it\'s full contents.' });
 				vscode.window.showInformationMessage(vscode.l10n.t('Issue created'), copyIssueUrl, openIssue).then(async result => {
 					switch (result) {
 						case copyIssueUrl:

@@ -175,7 +175,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 		}
 	}
 
-	canEdit(): boolean {
+	canEdit(): Promise<boolean> {
 		const username = this.author && this.author.login;
 		return this.githubRepository.isCurrentUser(username);
 	}

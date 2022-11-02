@@ -168,6 +168,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			pullRequestModel.getReviewRequests(),
 			this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
 			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
+			this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
+			pullRequestModel.canEdit()
 		])
 			.then(result => {
 				const [
@@ -178,6 +180,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					requestedReviewers,
 					repositoryAccess,
 					branchInfo,
+					currentUser,
+					viewerCanEdit
 				] = result;
 				if (!pullRequest) {
 					throw new Error(
@@ -193,11 +197,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
 				const hasWritePermission = repositoryAccess!.hasWritePermission;
 				const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
-				const canEdit = hasWritePermission || this._item.canEdit();
+				const canEdit = hasWritePermission || viewerCanEdit;
 
 				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
 				this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
-				const currentUser = this._folderRepositoryManager.getCurrentUser(this._item.githubRepository);
 
 				const isCrossRepository =
 					pullRequest.base &&
@@ -637,7 +640,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async addAssigneeYourself(message: IRequestMessage<void>): Promise<void> {
 		try {
-			const currentUser = this._folderRepositoryManager.getCurrentUser();
+			const currentUser = await this._folderRepositoryManager.getCurrentUser();
 
 			this._item.assignees = this._item.assignees?.concat(currentUser);
 
