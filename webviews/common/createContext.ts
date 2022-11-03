@@ -17,14 +17,29 @@ const defaultCreateParams: CreateParams = {
 };
 
 export class CreatePRContext {
+	public createParams: CreateParams;
+
 	constructor(
-		public createParams: CreateParams = { ...defaultCreateParams, ...vscode.getState() },
 		public onchange: ((ctx: CreateParams) => void) | null = null,
 		private _handler: MessageHandler | null = null,
 	) {
+		this.createParams = vscode.getState();
 		if (!_handler) {
 			this._handler = getMessageHandler(this.handleMessage);
 		}
+	}
+
+	get initialized(): boolean {
+		if (this.createParams.availableBaseRemotes.length !== 0
+			|| this.createParams.availableCompareRemotes.length !== 0
+			|| this.createParams.branchesForRemote.length !== 0
+			|| this.createParams.branchesForCompare.length !== 0
+			|| this.createParams.validate
+			|| this.createParams.showTitleValidationError) {
+			return true;
+		}
+
+		return false;
 	}
 
 	public cancelCreate = (): Promise<void> => {
