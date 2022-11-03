@@ -103,6 +103,10 @@ export function main() {
 					},
 					[create],
 				);
+				
+				if (!ctx.initialized) {
+					return <div className="loading-indicator">Loading...</div>;
+				}
 
 				return <div>
 					<div className='selector-group'>
@@ -195,5 +199,5 @@ export function Root({ children }) {
 		setPR(ctx.createParams);
 	}, []);
 	ctx.postMessage({ command: 'ready' });
-	return pr ? children(pr) : <div className="loading-indicator">Loading...</div>;
+	return children(pr);
 }
