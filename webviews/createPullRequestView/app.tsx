@@ -61,6 +61,9 @@ export function main() {
 		<Root>
 			{(params: CreateParams) => {
 				const ctx = useContext(PullRequestContext);
+				if (!ctx.initialized) {
+					return <div className="loading-indicator">Loading...</div>;
+				}
 				const [isBusy, setBusy] = useState(false);
 
 				const titleInput = useRef<HTMLInputElement>();
@@ -195,5 +198,5 @@ export function Root({ children }) {
 		setPR(ctx.createParams);
 	}, []);
 	ctx.postMessage({ command: 'ready' });
-	return pr ? children(pr) : <div className="loading-indicator">Loading...</div>;
+	return children(pr);
 }
