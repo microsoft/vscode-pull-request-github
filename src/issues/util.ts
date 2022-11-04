@@ -3,9 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { URL, URLSearchParams } from 'url';
+import { URL } from 'url';
 import LRUCache from 'lru-cache';
 import * as marked from 'marked';
+import 'url-search-params-polyfill';
 import * as vscode from 'vscode';
 import { gitHubLabelColor } from '../../src/common/utils';
 import { Commit, Ref, Remote, Repository, UpstreamRef } from '../api/api';
