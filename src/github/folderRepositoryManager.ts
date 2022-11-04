@@ -2085,7 +2085,14 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const remote = branch.upstream ? branch.upstream.remote : null;
 			const remoteBranch = branch.upstream ? branch.upstream.name : branch.name;
 			if (remote) {
-				await this._repository.fetch(remote, remoteBranch);
+				try {
+					await this._repository.fetch(remote, remoteBranch);
+				} catch (e) {
+					if (e.stderr) {
+						vscode.window.showErrorMessage(vscode.l10n.t('An error occurred when fetching the repository: {0}', e.stderr));
+					}
+					Logger.appendLine(`Error when fetching: ${e.stderr ?? e}`, FolderRepositoryManager.ID);
+				}
 				const pullBranchConfiguration = await this.pullBranchConfiguration();
 				if (branch.behind !== undefined && branch.behind > 0) {
 					switch (pullBranchConfiguration) {
