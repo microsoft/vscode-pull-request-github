@@ -653,7 +653,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, GitHubRepository.ID);
-			const { octokit, remote, query, schema } = await this.ensure();
+			const { octokit, query, schema } = await this.ensure();
 
 			const user = await this.getAuthenticatedUser();
 			// Search api will not try to resolve repo that redirects, so get full name first
@@ -664,12 +664,13 @@ export class GitHubRepository implements vscode.Disposable {
 				page: page || 1,
 			});
 
-			const promises: Promise<PullRequestResponse>[] = data.items.map(async (item: any /** unluckily Octokit.AnyResponse */) => {
+			const promises: Promise<PullRequestResponse>[] = data.items.map(async (item) => {
+				const prRepo = new Protocol(item.repository_url);
 				const { data } = await query<PullRequestResponse>({
 					query: schema.PullRequest,
 					variables: {
-						owner: remote.owner,
-						name: remote.repositoryName,
+						owner: prRepo.owner,
+						name: prRepo.repositoryName,
 						number: item.number
 					}
 				});
