@@ -25,6 +25,7 @@ import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
 import { IResolvedPullRequestModel, PullRequestModel } from '../github/pullRequestModel';
 import { CreatePullRequestHelper } from './createPullRequestHelper';
 import { GitFileChangeModel } from './fileChangeModel';
+import { getGitHubFileContent } from './gitHubContentProvider';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { ProgressHelper } from './progress';
 import { RemoteQuickPickItem } from './quickpick';
@@ -1017,7 +1018,7 @@ export class ReviewManager {
 	}
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string | undefined> {
-		const { path, commit } = fromReviewUri(uri.query);
+		const { path, commit, base } = fromReviewUri(uri.query);
 		let changedItems = gitFileChangeNodeFilter(this._reviewModel.localFileChanges)
 			.filter(change => change.fileName === path)
 			.filter(
@@ -1068,6 +1069,10 @@ export class ReviewManager {
 			}
 
 			return ret.join('\n');
+		} else if (base && commit && this._folderRepoManager.activePullRequest) {
+			// We can't get the content from git. Try to get it from github.
+			const content = await getGitHubFileContent(this._folderRepoManager.activePullRequest.githubRepository, path, commit);
+			return content.toString();
 		}
 	}
 
