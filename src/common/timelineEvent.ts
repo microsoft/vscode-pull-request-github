@@ -29,11 +29,12 @@ export interface Committer {
 
 export interface CommentEvent {
 	id: number;
+	graphNodeId: string;
 	htmlUrl: string;
 	body: string;
 	bodyHTML?: string;
 	user: IAccount;
-	event: EventType;
+	event: EventType.Commented;
 	canEdit?: boolean;
 	canDelete?: boolean;
 	createdAt: string;
@@ -49,7 +50,7 @@ export interface ReviewResolveInfo {
 export interface ReviewEvent {
 	id: number;
 	reviewThread?: ReviewResolveInfo
-	event: EventType;
+	event: EventType.Reviewed;
 	comments: IComment[];
 	submittedAt: string;
 	body: string;
@@ -63,7 +64,7 @@ export interface ReviewEvent {
 export interface CommitEvent {
 	id: string;
 	author: IAccount;
-	event: EventType;
+	event: EventType.Committed;
 	sha: string;
 	htmlUrl: string;
 	message: string;
@@ -73,7 +74,7 @@ export interface CommitEvent {
 
 export interface NewCommitsSinceReviewEvent {
 	id: string;
-	event: EventType;
+	event: EventType.NewCommitsSinceReview;
 }
 
 export interface MergedEvent {
@@ -84,20 +85,20 @@ export interface MergedEvent {
 	mergeRef: string;
 	sha: string;
 	commitUrl: string;
-	event: EventType;
+	event: EventType.Merged;
 	url: string;
 }
 
 export interface AssignEvent {
 	id: number;
-	event: EventType;
+	event: EventType.Assigned;
 	user: IAccount;
 	actor: IAccount;
 }
 
 export interface HeadRefDeleteEvent {
 	id: string;
-	event: EventType;
+	event: EventType.HeadRefDeleted;
 	actor: IAccount;
 	createdAt: string;
 	headRef: string;
