@@ -105,31 +105,3 @@ export interface HeadRefDeleteEvent {
 }
 
 export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent;
-
-export function isReviewEvent(event: TimelineEvent): event is ReviewEvent {
-	return event.event === EventType.Reviewed;
-}
-
-export function isCommitEvent(event: TimelineEvent): event is CommitEvent {
-	return event.event === EventType.Committed;
-}
-
-export function isNewCommitsSinceReviewEvent(event: TimelineEvent): event is NewCommitsSinceReviewEvent {
-	return event.event === EventType.NewCommitsSinceReview;
-}
-
-export function isCommentEvent(event: TimelineEvent): event is CommentEvent {
-	return event.event === EventType.Commented;
-}
-
-export function isMergedEvent(event: TimelineEvent): event is MergedEvent {
-	return event.event === EventType.Merged;
-}
-
-export function isAssignEvent(event: TimelineEvent): event is AssignEvent {
-	return event.event === EventType.Assigned;
-}
-
-export function isHeadDeleteEvent(event: TimelineEvent): event is HeadRefDeleteEvent {
-	return event.event === EventType.HeadRefDeleted;
-}

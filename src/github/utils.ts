@@ -956,21 +956,21 @@ export function getRelatedUsersFromTimelineEvents(
 	const ret: { login: string; name: string }[] = [];
 
 	timelineEvents.forEach(event => {
-		if (Common.isCommitEvent(event)) {
+		if (event.event === Common.EventType.Committed) {
 			ret.push({
 				login: event.author.login,
 				name: event.author.name || '',
 			});
 		}
 
-		if (Common.isReviewEvent(event)) {
+		if (event.event === Common.EventType.Reviewed) {
 			ret.push({
 				login: event.user.login,
 				name: event.user.name ?? event.user.login,
 			});
 		}
 
-		if (Common.isCommentEvent(event)) {
+		if (event.event === Common.EventType.Commented) {
 			ret.push({
 				login: event.user.login,
 				name: event.user.name ?? event.user.login,
@@ -1023,7 +1023,7 @@ export function parseReviewers(
 	timelineEvents: Common.TimelineEvent[],
 	author: IAccount,
 ): ReviewState[] {
-	const reviewEvents = timelineEvents.filter(Common.isReviewEvent).filter(event => event.state !== 'PENDING');
+	const reviewEvents = timelineEvents.filter((e): e is Common.ReviewEvent => e.event === Common.EventType.Reviewed).filter(event => event.state !== 'PENDING');
 	let reviewers: ReviewState[] = [];
 	const seen = new Map<string, boolean>();
 

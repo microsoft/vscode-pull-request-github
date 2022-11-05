@@ -5,7 +5,7 @@
 
 import { createContext } from 'react';
 import { IComment } from '../../src/common/comment';
-import { EventType, isReviewEvent, ReviewEvent, TimelineEvent } from '../../src/common/timelineEvent';
+import { EventType, ReviewEvent, TimelineEvent } from '../../src/common/timelineEvent';
 import { MergeMethod, ReviewState } from '../../src/github/interface';
 import { getState, PullRequest, setState, updateState } from './cache';
 import { getMessageHandler, MessageHandler } from './message';
@@ -154,14 +154,14 @@ export class PRContext {
 
 	private appendReview({ review, reviewers }: { review: ReviewEvent, reviewers: ReviewState[] }) {
 		const state = this.pr;
-		const events = state.events.filter(e => !isReviewEvent(e) || e.state.toLowerCase() !== 'pending');
+		const events = state.events.filter(e => e.event !== EventType.Reviewed || e.state.toLowerCase() !== 'pending');
 		events.forEach(event => {
-			if (isReviewEvent(event)) {
+			if (event.event === EventType.Reviewed) {
 				event.comments.forEach(c => (c.isDraft = false));
 			}
 		});
 		state.reviewers = reviewers;
-		state.events = [...state.events.filter(e => (isReviewEvent(e) ? e.state !== 'PENDING' : e)), review];
+		state.events = [...state.events.filter(e => (e.event === EventType.Reviewed ? e.state !== 'PENDING' : e)), review];
 		state.currentUserReviewState = review.state;
 		this.updatePR(state);
 	}
