@@ -15,7 +15,7 @@ import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
-import { ReviewEvent as CommonReviewEvent, isReviewEvent, TimelineEvent } from '../common/timelineEvent';
+import { ReviewEvent as CommonReviewEvent, EventType, TimelineEvent } from '../common/timelineEvent';
 import { resolvePath, toPRUri, toReviewUri } from '../common/uri';
 import { formatError } from '../common/utils';
 import { OctokitCommon } from './common';
@@ -992,7 +992,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			childComments?: CommentNode[];
 		}
 
-		const reviewEvents = events.filter(isReviewEvent);
+		const reviewEvents = events.filter((e): e is CommonReviewEvent => e.event === EventType.Reviewed);
 		const reviewComments = reviewThreads.reduce((previous, current) => (previous as IComment[]).concat(current.comments), []);
 
 		const reviewEventsById = reviewEvents.reduce((index, evt) => {

@@ -10,19 +10,13 @@ import {
 	AssignEvent,
 	CommentEvent,
 	CommitEvent,
+	EventType,
 	HeadRefDeleteEvent,
-	isAssignEvent,
-	isCommentEvent,
-	isCommitEvent,
-	isHeadDeleteEvent,
-	isMergedEvent,
-	isNewCommitsSinceReviewEvent,
-	isReviewEvent,
 	MergedEvent,
 	ReviewEvent,
 	TimelineEvent,
 } from '../../src/common/timelineEvent';
-import { groupBy } from '../../src/common/utils';
+import { groupBy, UnreachableCaseError } from '../../src/common/utils';
 import PullRequestContext from '../common/context';
 import { CommentBody, CommentView } from './comment';
 import Diff from './diff';
@@ -33,24 +27,26 @@ import { AuthorLink, Avatar } from './user';
 
 export const Timeline = ({ events }: { events: TimelineEvent[] }) => (
 	<>
-		{events.map(event =>
-			// TODO: Maybe make TimelineEvent a tagged union type?
-			isCommitEvent(event) ? (
-				<CommitEventView key={`commit${event.id}`} {...event} />
-			) : isReviewEvent(event) ? (
-				<ReviewEventView key={`review${event.id}`} {...event} />
-			) : isCommentEvent(event) ? (
-				<CommentEventView key={`comment${event.id}`} {...event} />
-			) : isMergedEvent(event) ? (
-				<MergedEventView key={`merged${event.id}`} {...event} />
-			) : isAssignEvent(event) ? (
-				<AssignEventView key={`assign${event.id}`} {...event} />
-			) : isHeadDeleteEvent(event) ? (
-				<HeadDeleteEventView key={`head${event.id}`} {...event} />
-			) : isNewCommitsSinceReviewEvent(event) ? (
-				<NewCommitsSinceReviewEventView key={`newCommits${event.id}`} />
-			) : null,
-		)}
+	{events.map(event => {
+		switch (event.event) {
+			case EventType.Committed:
+				return <CommitEventView key={`commit${event.id}`} {...event} />;
+			case EventType.Reviewed:
+				return <ReviewEventView key={`review${event.id}`} {...event} />;
+			case EventType.Commented:
+				return <CommentEventView key={`comment${event.id}`} {...event} />;
+			case EventType.Merged:
+				return <MergedEventView key={`merged${event.id}`} {...event} />;
+			case EventType.Assigned:
+				return <AssignEventView key={`assign${event.id}`} {...event} />;
+			case EventType.HeadRefDeleted:
+				return <HeadDeleteEventView key={`head${event.id}`} {...event} />;
+			case EventType.NewCommitsSinceReview:
+				return <NewCommitsSinceReviewEventView key={`newCommits${event.id}`} />;
+			default:
+				throw new UnreachableCaseError(event);
+		}
+	})}
 	</>
 );
 

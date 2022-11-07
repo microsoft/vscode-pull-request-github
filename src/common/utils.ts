@@ -140,6 +140,12 @@ export function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[
 	}, Object.create(null));
 }
 
+export class UnreachableCaseError extends Error {
+	constructor(val: never) {
+		super(`Unreachable case: ${val}`);
+	}
+}
+
 interface HookError extends Error {
 	errors: any;
 }
