@@ -57,7 +57,7 @@ abstract class CommentBase implements vscode.Comment {
 	/**
 	 * The text of the comment as from GitHub
 	 */
-	public rawBody: string;
+	public body: string | vscode.MarkdownString;
 
 	/**
 	 * Whether the comment is in edit mode or not
@@ -90,16 +90,6 @@ abstract class CommentBase implements vscode.Comment {
 		this.parent = parent;
 	}
 
-	get body(): vscode.MarkdownString | string {
-		// VS Code's markdown rendering is more correct and will not render single line breaks as
-		// line breaks in markdown. To make the comment look more like github.com, we replace single line breaks with double.
-		return (this.mode === vscode.CommentMode.Editing) ? this.rawBody : new vscode.MarkdownString(this.rawBody.replace(/\n(?!\r?\n)/g, '\n\n'));
-	}
-
-	set body(body: vscode.MarkdownString | string) {
-		this.rawBody = (body instanceof vscode.MarkdownString) ? body.value : body;
-	}
-
 	public abstract commentEditId(): number | string;
 
 	startEdit() {
@@ -112,13 +102,13 @@ abstract class CommentBase implements vscode.Comment {
 		});
 	}
 
-	protected abstract getCancelEditBody(): string;
+	protected abstract getCancelEditBody(): string | vscode.MarkdownString;
 
 	cancelEdit() {
 		this.parent.comments = this.parent.comments.map(cmt => {
 			if (cmt instanceof CommentBase && cmt.commentEditId() === this.commentEditId()) {
 				cmt.mode = vscode.CommentMode.Preview;
-				cmt.rawBody = this.getCancelEditBody();
+				cmt.body = this.getCancelEditBody();
 			}
 
 			return cmt;
@@ -153,7 +143,7 @@ export class TemporaryComment extends CommentBase {
 		originalComment?: GHPRComment,
 	) {
 		super(parent);
-		this.rawBody = input;
+		this.body = input;
 		this.mode = vscode.CommentMode.Preview;
 		this.author = {
 			name: currentUser.login,
@@ -171,7 +161,7 @@ export class TemporaryComment extends CommentBase {
 	}
 
 	protected getCancelEditBody() {
-		return this.originalBody || this.rawBody;
+		return this.originalBody || this.body;
 	}
 }
 
@@ -188,7 +178,7 @@ export class GHPRComment extends CommentBase {
 		super(parent);
 		this._rawComment = comment;
 		this.commentId = comment.id.toString();
-		this.rawBody = comment.body;
+		this.body = comment.body;
 		this.author = {
 			name: comment.user!.login,
 			iconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined,
