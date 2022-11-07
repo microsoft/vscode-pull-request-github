@@ -375,7 +375,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		const currentUser = await this._folderReposManager.getCurrentUser(this.pullRequestModel.githubRepository);
 		const temporaryComment = new TemporaryComment(
 			thread,
-			comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.rawBody,
+			comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
 			!!comment.label,
 			currentUser,
 			comment,
@@ -397,7 +397,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			try {
 				await this.pullRequestModel.editReviewComment(
 					comment._rawComment,
-					comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.rawBody,
+					comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
 				);
 			} catch (e) {
 				vscode.window.showErrorMessage(`Editing comment failed ${e}`);
@@ -413,7 +413,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		} else {
 			this.createOrReplyComment(
 				thread,
-				comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.rawBody,
+				comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
 				false,
 			);
 		}
