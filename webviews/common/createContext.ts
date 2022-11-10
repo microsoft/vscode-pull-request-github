@@ -23,7 +23,7 @@ export class CreatePRContext {
 		public onchange: ((ctx: CreateParams) => void) | null = null,
 		private _handler: MessageHandler | null = null,
 	) {
-		this.createParams = vscode.getState();
+		this.createParams = vscode.getState() ?? defaultCreateParams;
 		if (!_handler) {
 			this._handler = getMessageHandler(this.handleMessage);
 		}
