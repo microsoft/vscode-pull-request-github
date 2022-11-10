@@ -4,26 +4,35 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { dispose } from '../common/utils';
 import { PullRequestViewProvider } from '../github/activityBarViewProvider';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { ReviewManager } from './reviewManager';
 
-export class WebviewViewCoordinator {
+export class WebviewViewCoordinator implements vscode.Disposable {
 	private _webviewViewProvider?: PullRequestViewProvider;
 	private _pullRequestModel: Map<PullRequestModel, { folderRepositoryManager: FolderRepositoryManager, reviewManager: ReviewManager }> = new Map();
+	private _disposables: vscode.Disposable[] = [];
 
 	constructor(private _context: vscode.ExtensionContext) { }
 
+	dispose() {
+		dispose(this._disposables);
+		this._disposables = [];
+		this._webviewViewProvider?.dispose();
+		this._webviewViewProvider = undefined;
+	}
+
 	private create(pullRequestModel: PullRequestModel, folderRepositoryManager: FolderRepositoryManager, reviewManager: ReviewManager) {
 		this._webviewViewProvider = new PullRequestViewProvider(this._context.extensionUri, folderRepositoryManager, reviewManager, pullRequestModel);
-		this._context.subscriptions.push(
+		this._disposables.push(
 			vscode.window.registerWebviewViewProvider(
 				this._webviewViewProvider.viewType,
 				this._webviewViewProvider,
 			),
 		);
-		this._context.subscriptions.push(
+		this._disposables.push(
 			vscode.commands.registerCommand('pr.refreshActivePullRequest', _ => {
 				this._webviewViewProvider?.refresh();
 			}),
@@ -38,6 +47,10 @@ export class WebviewViewCoordinator {
 	private updatePullRequest() {
 		const pullRequestModel = Array.from(this._pullRequestModel.keys())[0];
 		if (!pullRequestModel) {
+			this._webviewViewProvider?.dispose();
+			this._webviewViewProvider = undefined;
+			dispose(this._disposables);
+			this._disposables = [];
 			return;
 		}
 		const { folderRepositoryManager, reviewManager } = this._pullRequestModel.get(pullRequestModel)!;
