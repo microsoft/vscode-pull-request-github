@@ -10,6 +10,7 @@ import { Repository } from '../api/api';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
 import { DiffSide, IReviewThread } from '../common/comment';
 import { getCommentingRanges } from '../common/commentingRanges';
+import { DiffChangeType } from '../common/diffHunk';
 import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPositionMapping';
 import { GitChangeType } from '../common/file';
 import Logger from '../common/logger';
@@ -68,7 +69,7 @@ export class ReviewCommentController
 		this._commentController.reactionHandler = this.toggleReaction.bind(this);
 		this._localToDispose.push(this._commentController);
 		this._commentHandlerId = uuid();
-		this._decorationType = vscode.window.createTextEditorDecorationType({ borderColor: 'blue', borderStyle: 'solid', borderWidth: '0px 0px 0px 2px' });
+		this._decorationType = vscode.window.createTextEditorDecorationType({ overviewRulerLane: vscode.OverviewRulerLane.Right, overviewRulerColor: new vscode.ThemeColor('editorGutter.addedBackground'), borderColor: new vscode.ThemeColor('editorGutter.addedBackground'), borderStyle: 'solid', borderWidth: '0px 0px 0px 2px' });
 		vscode.window.onDidChangeActiveTextEditor(async (editor) => {
 			this.setDecorations(editor);
 		});
@@ -84,7 +85,7 @@ export class ReviewCommentController
 			await this.provideCommentingRanges(editor.document, new vscode.CancellationTokenSource().token);
 		}
 		const decorations = (await this.decorations.get(editor.document.uri.toString())!)!;
-		editor.setDecorations(this._decorationType, decorations.map(range => ({ range })));
+		editor.setDecorations(this._decorationType, decorations.difLineRanges.map(range => ({ range })));
 	}
 
 	// #region initialize
@@ -405,16 +406,16 @@ export class ReviewCommentController
 	): Promise<vscode.Range[] | undefined> {
 		const findCommentingRanges = this.findCommentingRanges(document);
 		this.decorations.set(document.uri.toString(), findCommentingRanges);
-		return findCommentingRanges;
+		return (await findCommentingRanges)?.commentRanges;
 	}
 
 	// #endregion
 
-	private decorations: Map<string, Promise<vscode.Range[] | undefined>> = new Map();
+	private decorations: Map<string, Promise<{ commentRanges: vscode.Range[], difLineRanges: vscode.Range[] } | undefined>> = new Map();
 
 	private async findCommentingRanges(
 		document: vscode.TextDocument
-	): Promise<vscode.Range[] | undefined> {
+	): Promise<{ commentRanges: vscode.Range[], difLineRanges: vscode.Range[] } | undefined> {
 		let query: ReviewUriParams | undefined =
 			(document.uri.query && document.uri.query !== '') ? fromReviewUri(document.uri.query) : undefined;
 
@@ -423,7 +424,7 @@ export class ReviewCommentController
 
 			if (matchedFile) {
 				Logger.debug('Found matched file for commenting ranges.', ReviewCommentController.ID);
-				return getCommentingRanges(await matchedFile.changeModel.diffHunks(), query.base, ReviewCommentController.ID);
+				return { commentRanges: getCommentingRanges(await matchedFile.changeModel.diffHunks(), query.base, ReviewCommentController.ID), difLineRanges: [] };
 			}
 		}
 
@@ -445,12 +446,12 @@ export class ReviewCommentController
 				fileChange => fileChange.fileName === fileName,
 			);
 			const ranges: vscode.Range[] = [];
-
+			const diffRanges: vscode.Range[] = [];
 			if (matchedFile) {
 				const diffHunks = await matchedFile.changeModel.diffHunks();
 				if ((matchedFile.status === GitChangeType.RENAME) && (diffHunks.length === 0)) {
 					Logger.debug('No commenting ranges: File was renamed with no diffs.', ReviewCommentController.ID);
-					return [];
+					return { commentRanges: [], difLineRanges: [] };
 				}
 
 				const contentDiff = await this.getContentDiff(document.uri, matchedFile.fileName);
@@ -461,6 +462,12 @@ export class ReviewCommentController
 					const end = mapOldPositionToNew(contentDiff, diffHunk.newLineNumber + diffHunk.newLength - 1);
 					if (start > 0 && end > 0) {
 						ranges.push(new vscode.Range(start - 1, 0, end - 1, 0));
+						for (let j = 0; j < diffHunk.diffLines.length; j++) {
+							const diffLine = diffHunk.diffLines[j];
+							if (diffLine.type === DiffChangeType.Add) {
+								diffRanges.push(new vscode.Range(diffLine.newLineNumber - 1, 0, diffLine.newLineNumber - 1, 0));
+							}
+						}
 					}
 				}
 
@@ -472,7 +479,7 @@ export class ReviewCommentController
 			}
 
 			Logger.debug(`Providing ${ranges.length} commenting ranges for ${nodePath.basename(document.uri.fsPath)}.`, ReviewCommentController.ID);
-			return ranges;
+			return { commentRanges: ranges, difLineRanges: diffRanges };
 		} else {
 			Logger.debug('No commenting ranges: File scheme differs from repository scheme.', ReviewCommentController.ID);
 		}

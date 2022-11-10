@@ -80,7 +80,7 @@ export class ReviewManager {
 	constructor(
 		private _context: vscode.ExtensionContext,
 		private readonly _repository: Repository,
-		public readonly _folderRepoManager: FolderRepositoryManager,
+		private readonly _folderRepoManager: FolderRepositoryManager,
 		private _telemetry: ITelemetry,
 		public changesInPrDataProvider: PullRequestChangesTreeDataProvider,
 		private _showPullRequest: ShowPullRequest,
