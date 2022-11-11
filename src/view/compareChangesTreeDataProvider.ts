@@ -123,12 +123,16 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		}
 
 		if (!this._contentProvider) {
-			this._contentProvider = new GitHubContentProvider(this._gitHubRepository);
-			this._disposables.push(
-				vscode.workspace.registerFileSystemProvider(Schemes.GithubPr, this._contentProvider, {
-					isReadonly: true,
-				}),
-			);
+			try {
+				this._contentProvider = new GitHubContentProvider(this._gitHubRepository);
+				this._disposables.push(
+					vscode.workspace.registerFileSystemProvider(Schemes.GithubPr, this._contentProvider, {
+						isReadonly: true,
+					}),
+				);
+			} catch (e) {
+				// already registered
+			}
 		}
 
 		const { octokit, remote } = await this._gitHubRepository.ensure();
@@ -170,6 +174,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		this._isDisposed = true;
 		this._disposables.forEach(d => d.dispose());
 		this._contentProvider = undefined;
+		this._view.dispose();
 	}
 }
 
