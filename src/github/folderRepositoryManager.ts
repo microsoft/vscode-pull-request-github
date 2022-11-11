@@ -2089,7 +2089,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					await this._repository.fetch(remote, remoteBranch);
 				} catch (e) {
 					if (e.stderr) {
-						vscode.window.showErrorMessage(vscode.l10n.t('An error occurred when fetching the repository: {0}', e.stderr));
+						if ((e.stderr as string).startsWith('fatal: couldn\'t find remote ref')) {
+							// We've managed to check out the PR, but the remote has been deleted. This is fine, but we can't fetch now.
+						} else {
+							vscode.window.showErrorMessage(vscode.l10n.t('An error occurred when fetching the repository: {0}', e.stderr));
+						}
 					}
 					Logger.appendLine(`Error when fetching: ${e.stderr ?? e}`, FolderRepositoryManager.ID);
 				}

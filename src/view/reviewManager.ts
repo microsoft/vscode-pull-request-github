@@ -730,10 +730,9 @@ export class ReviewManager {
 				vscode.window.showErrorMessage(vscode.l10n.t(
 					'Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches'
 				));
-			} else if ((e.stderr as string)?.startsWith('fatal: couldn\'t find remote ref')) {
-				vscode.window.showErrorMessage(vscode.l10n.t(
-					'The remote branch for this pull request has been deleted. The pull request cannot be checked out.'
-				));
+			} else if ((e.stderr as string)?.startsWith('fatal: couldn\'t find remote ref') && e.gitCommand === 'fetch') {
+				// The pull request was checked out, but the upstream branch was deleted
+				vscode.window.showInformationMessage('The remote branch for this pull request has been deleted. The file contents may not match the remote.');
 			} else {
 				vscode.window.showErrorMessage(formatError(e));
 			}
