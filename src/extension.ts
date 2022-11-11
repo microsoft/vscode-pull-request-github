@@ -52,7 +52,6 @@ async function init(
 	liveshareApiPromise: Promise<LiveShare | undefined>,
 	showPRController: ShowPullRequest,
 	reposManager: RepositoriesManager,
-	folderManagers: FolderRepositoryManager[],
 ): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
@@ -84,7 +83,7 @@ async function init(
 				return;
 			}
 
-			const folderManager = folderManagers.find(
+			const folderManager = reposManager.folderManagers.find(
 				manager => manager.repository.rootUri.toString() === e.repository.rootUri.toString());
 
 			if (!folderManager || folderManager.gitHubRepositories.length === 0) {
@@ -145,7 +144,7 @@ async function init(
 
 	const activePrViewCoordinator = new WebviewViewCoordinator(context);
 	context.subscriptions.push(activePrViewCoordinator);
-	const reviewManagers = folderManagers.map(
+	const reviewManagers = reposManager.folderManagers.map(
 		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree, showPRController, activePrViewCoordinator),
 	);
 	context.subscriptions.push(new FileTypeDecorationProvider(reposManager, reviewManagers));
@@ -363,7 +362,7 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	const inMemPRFileSystemProvider = getInMemPRFileSystemProvider({ reposManager, gitAPI: apiImpl, credentialStore })!;
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.Pr, inMemPRFileSystemProvider, { isReadonly: true }));
 
-	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, folderManagers);
+	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager);
 }
 
 export async function deactivate() {
