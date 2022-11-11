@@ -27,7 +27,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		let wordAtPos = wordRange ? document.getText(wordRange) : undefined;
 		if (!wordRange || wordAtPos?.charAt(0) !== '@') {
 			const start = wordRange?.start ?? position;
-			const testWordRange = new vscode.Range(start.translate(undefined, -1), position);
+			const testWordRange = new vscode.Range(start.translate(undefined, start.character ? -1 : 0), position);
 			const testWord = document.getText(testWordRange);
 			if (testWord.charAt(0) === '@') {
 				wordRange = testWordRange;
