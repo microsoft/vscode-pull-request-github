@@ -161,13 +161,20 @@ export interface User extends IAccount {
 	}[];
 }
 
+export enum CheckState {
+	Success = 'success',
+	Failure = 'failure',
+	Neutral = 'neutral',
+	Pending = 'pending'
+}
+
 export interface PullRequestChecks {
-	state: string;
+	state: CheckState;
 	statuses: {
 		id: string;
 		url?: string;
 		avatar_url?: string;
-		state?: string;
+		state?: CheckState;
 		description?: string;
 		target_url?: string;
 		context: string;

@@ -8,10 +8,11 @@ import { AuthenticationError } from '../../common/authentication';
 import { PR_SETTINGS_NAMESPACE, QUERIES } from '../../common/settingKeys';
 import { ITelemetry } from '../../common/telemetry';
 import { formatError } from '../../common/utils';
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager, ItemsResponseResult } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
 import { NotificationProvider } from '../../github/notifications';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { PrsTreeModel } from '../prsTreeModel';
 import { PRNode } from './pullRequestNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
@@ -120,6 +121,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		private _telemetry: ITelemetry,
 		private _type: PRType,
 		private _notificationProvider: NotificationProvider,
+		private _prsTreeModel: PrsTreeModel,
 		_categoryLabel?: string,
 		private _categoryQuery?: string,
 	) {
@@ -190,60 +192,33 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		let needLogin = false;
 		if (this._type === PRType.LocalPullRequest) {
 			try {
-				this.prs = await this._folderRepoManager.getLocalPullRequests();
-				/* __GDPR__
-					"pr.expand.local" : {}
-				*/
-				this._telemetry.sendTelemetryEvent('pr.expand.local');
+				this.prs = await this._prsTreeModel.getLocalPullRequests(this._folderRepoManager);
 			} catch (e) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Fetching local pull requests failed: {0}', formatError(e)));
 				needLogin = e instanceof AuthenticationError;
 			}
 		} else {
-			if (!this.fetchNextPage) {
-				try {
-					const response = await this._folderRepoManager.getPullRequests(
-						this._type,
-						{ fetchNextPage: false },
-						this._categoryQuery,
-					);
+			try {
+				let response: ItemsResponseResult<PullRequestModel>;
+				switch (this._type) {
+					case PRType.All:
+						response = await this._prsTreeModel.getAllPullRequests(this._folderRepoManager, this.fetchNextPage);
+						break;
+					case PRType.Query:
+						response = await this._prsTreeModel.getPullRequestsForQuery(this._folderRepoManager, this.fetchNextPage, this._categoryQuery!);
+						break;
+				}
+				if (this.fetchNextPage) {
 					this.prs = response.items;
-					hasMorePages = response.hasMorePages;
-					hasUnsearchedRepositories = response.hasUnsearchedRepositories;
-
-					switch (this._type) {
-						case PRType.All:
-							/* __GDPR__
-								"pr.expand.all" : {}
-							*/
-							this._telemetry.sendTelemetryEvent('pr.expand.all');
-							break;
-						case PRType.Query:
-							/* __GDPR__
-								"pr.expand.query" : {}
-							*/
-							this._telemetry.sendTelemetryEvent('pr.expand.query');
-							break;
-					}
-				} catch (e) {
-					vscode.window.showErrorMessage(vscode.l10n.t('Fetching pull requests failed: {0}', formatError(e)));
-					needLogin = e instanceof AuthenticationError;
-				}
-			} else {
-				try {
-					const response = await this._folderRepoManager.getPullRequests(
-						this._type,
-						{ fetchNextPage: true },
-						this._categoryQuery,
-					);
+				} else {
 					this.prs = this.prs.concat(response.items);
-					hasMorePages = response.hasMorePages;
-					hasUnsearchedRepositories = response.hasUnsearchedRepositories;
-				} catch (e) {
-					vscode.window.showErrorMessage(vscode.l10n.t('Fetching pull requests failed: {0}', formatError(e)));
-					needLogin = e instanceof AuthenticationError;
 				}
-
+				hasMorePages = response.hasMorePages;
+				hasUnsearchedRepositories = response.hasUnsearchedRepositories;
+			} catch (e) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Fetching pull requests failed: {0}', formatError(e)));
+				needLogin = e instanceof AuthenticationError;
+			} finally {
 				this.fetchNextPage = false;
 			}
 		}

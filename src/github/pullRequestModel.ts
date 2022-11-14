@@ -45,6 +45,7 @@ import {
 	UpdatePullRequestResponse,
 } from './graphql';
 import {
+	CheckState,
 	GithubItemStateEnum,
 	IAccount,
 	IRawFileChange,
@@ -91,6 +92,8 @@ export interface FileViewedStateChangeEvent {
 		viewed: ViewedState;
 	}[];
 }
+
+export const REVIEW_REQUIRED_CHECK_ID = 'reviewRequired';
 
 export type FileViewedState = { [key: string]: ViewedState };
 
@@ -1067,7 +1070,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				// There seems to be an issue with fetching status checks if you haven't SAML'd with every org you have
 				// Ignore SAML errors here.
 				return {
-					state: 'pending',
+					state: CheckState.Pending,
 					statuses: [],
 				};
 			}
@@ -1078,7 +1081,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		if (!statusCheckRollup) {
 			return {
-				state: 'pending',
+				state: CheckState.Pending,
 				statuses: [],
 			};
 		}
@@ -1091,7 +1094,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 						id: context.id,
 						url: context.checkSuite.app?.url,
 						avatar_url: context.checkSuite.app?.logoUrl,
-						state: context.conclusion?.toLowerCase() || 'pending',
+						state: context.conclusion?.toLowerCase() || CheckState.Pending,
 						description: context.title,
 						context: context.name,
 						target_url: context.detailsUrl,
@@ -1117,13 +1120,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			if (branch.data.protected && branch.data.protection.required_status_checks.enforcement_level !== 'off') {
 				// We need to add the "review required" check manually.
 				checks.statuses.unshift({
-					id: 'unknown',
+					id: REVIEW_REQUIRED_CHECK_ID,
 					context: 'Branch Protection',
 					description: vscode.l10n.t('Requirements have not been met.'),
-					state: 'failure',
+					state: CheckState.Failure,
 					target_url: this.html_url
 				});
-				checks.state = 'failure';
+				checks.state = CheckState.Failure;
 			}
 		}
 

@@ -413,7 +413,7 @@ const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) => (
 
 function getSummaryLabel(statuses: any[]) {
 	const statusTypes = groupBy(statuses, (status: any) => status.state);
-	const statusPhrases = [];
+	const statusPhrases: string[] = [];
 	for (const statusType of Object.keys(statusTypes)) {
 		const numOfType = statusTypes[statusType].length;
 		let statusAdjective = '';

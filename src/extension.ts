@@ -30,7 +30,7 @@ import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { getInMemPRFileSystemProvider } from './view/inMemPRContentProvider';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
-import { PRNodeDecorationProvider } from './view/prNodeDecorationProvider';
+import { PRNotificationDecorationProvider } from './view/prNotificationDecorationProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager, ShowPullRequest } from './view/reviewManager';
 import { ReviewsManager } from './view/reviewsManager';
@@ -197,7 +197,7 @@ async function init(
 
 	tree.initialize(reposManager, reviewManagers.map(manager => manager.reviewModel), credentialStore);
 
-	context.subscriptions.push(new PRNodeDecorationProvider(tree.notificationProvider));
+	context.subscriptions.push(new PRNotificationDecorationProvider(tree.notificationProvider));
 
 	registerCommands(context, reposManager, reviewManagers, telemetry, tree);
 
