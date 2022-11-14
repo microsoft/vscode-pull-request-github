@@ -49,6 +49,9 @@ export class PrsTreeModel implements vscode.Disposable {
 			const pullRequest = pullRequests[i];
 			const check = checks[i];
 			let newStatus: UnsatisfiedChecks = UnsatisfiedChecks.None;
+			if (check.state === CheckState.Unknown) {
+				continue;
+			}
 			if (check.state !== CheckState.Success) {
 				for (const status of check.statuses) {
 					// We add the review required check in first if it exists.

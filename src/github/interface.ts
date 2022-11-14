@@ -165,7 +165,8 @@ export enum CheckState {
 	Success = 'success',
 	Failure = 'failure',
 	Neutral = 'neutral',
-	Pending = 'pending'
+	Pending = 'pending',
+	Unknown = 'unknown'
 }
 
 export interface PullRequestChecks {

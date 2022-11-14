@@ -57,6 +57,7 @@ import {
 	ReviewEvent,
 } from './interface';
 import { IssueModel } from './issueModel';
+import { LoggingOctokit } from './loggingOctokit';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
@@ -1050,11 +1051,28 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
+	private async _getReviewRequiredCheck() {
+		const { remote, octokit } = await this.githubRepository.ensure();
+
+		const branch = await octokit.call(octokit.api.repos.getBranch, { branch: this.base.ref, owner: remote.owner, repo: remote.repositoryName });
+		if (branch.data.protected && branch.data.protection.required_status_checks.enforcement_level !== 'off') {
+			// We need to add the "review required" check manually.
+			return {
+				id: REVIEW_REQUIRED_CHECK_ID,
+				context: 'Branch Protection',
+				description: vscode.l10n.t('Requirements have not been met.'),
+				state: CheckState.Failure,
+				target_url: this.html_url
+			};
+		}
+		return undefined;
+	}
+
 	/**
 	 * Get the status checks of the pull request, those for the last commit.
 	 */
 	async getStatusChecks(): Promise<PullRequestChecks> {
-		const { query, remote, schema, octokit } = await this.githubRepository.ensure();
+		const { query, remote, schema } = await this.githubRepository.ensure();
 		let result;
 		try {
 			result = await query<GetChecksResponse>({
@@ -1068,11 +1086,17 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		} catch (e) {
 			if (e.message?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
 				// There seems to be an issue with fetching status checks if you haven't SAML'd with every org you have
-				// Ignore SAML errors here.
-				return {
-					state: CheckState.Pending,
-					statuses: [],
+				// Ignore SAML errors here, and at least try to get the review required check
+				const checks = {
+					state: CheckState.Unknown,
+					statuses: [] as any[],
 				};
+				const reviewRequiredCheck = await this._getReviewRequiredCheck();
+				if (reviewRequiredCheck) {
+					checks.statuses.unshift(reviewRequiredCheck);
+					checks.state = CheckState.Failure;
+				}
+				return checks;
 			}
 		}
 
@@ -1116,16 +1140,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		// Fun info: The checks don't include whether a review is required.
 		// Also, unless you're an admin on the repo, you can't just do octokit.repos.getBranchProtection
 		if (this.item.mergeable === PullRequestMergeability.NotMergeable) {
-			const branch = await octokit.call(octokit.api.repos.getBranch, { branch: this.base.ref, owner: remote.owner, repo: remote.repositoryName });
-			if (branch.data.protected && branch.data.protection.required_status_checks.enforcement_level !== 'off') {
-				// We need to add the "review required" check manually.
-				checks.statuses.unshift({
-					id: REVIEW_REQUIRED_CHECK_ID,
-					context: 'Branch Protection',
-					description: vscode.l10n.t('Requirements have not been met.'),
-					state: CheckState.Failure,
-					target_url: this.html_url
-				});
+			const reviewRequiredCheck = await this._getReviewRequiredCheck();
+			if (reviewRequiredCheck) {
+				checks.statuses.unshift(reviewRequiredCheck);
 				checks.state = CheckState.Failure;
 			}
 		}
