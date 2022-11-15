@@ -15,7 +15,8 @@
 		"commentsResolvedState",
 		"contribShareMenu",
 		"treeItemCheckbox",
-		"contribCommentPeekContext"
+		"contribCommentPeekContext",
+		"codiconDecoration"
 	],
 	"version": "0.54.0",
 	"publisher": "GitHub",

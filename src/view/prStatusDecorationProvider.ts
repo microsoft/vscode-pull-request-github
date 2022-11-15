@@ -41,44 +41,44 @@ export class PRStatusDecorationProvider implements vscode.FileDecorationProvider
 			return;
 		}
 
-		return this._getDecoration(status.status);
+		return this._getDecoration(status.status) as vscode.FileDecoration;
 	}
 
-	private _getDecoration(status: UnsatisfiedChecks): vscode.FileDecoration | undefined {
+	private _getDecoration(status: UnsatisfiedChecks): vscode.FileDecoration1 | undefined {
 		if ((status & UnsatisfiedChecks.CIFailed) && (status & UnsatisfiedChecks.ReviewRequired)) {
 			return {
 				propagate: false,
-				badge: '\u2716',
+				badge: new vscode.ThemeIcon('close', new vscode.ThemeColor('list.errorForeground')),
 				tooltip: 'Review required and some checks have failed'
 			};
 		} else if (status & UnsatisfiedChecks.CIFailed) {
 			return {
 				propagate: false,
-				badge: '\u2716',
+				badge: new vscode.ThemeIcon('close', new vscode.ThemeColor('list.errorForeground')),
 				tooltip: 'Some checks have failed'
 			};
 		} else if (status & UnsatisfiedChecks.ChangesRequested) {
 			return {
 				propagate: false,
-				badge: '\u21BB',
+				badge: new vscode.ThemeIcon('sync', new vscode.ThemeColor('list.errorForeground')),
 				tooltip: 'Changes requested'
 			};
 		} else if (status & UnsatisfiedChecks.ReviewRequired) {
 			return {
 				propagate: false,
-				badge: '\u25A8',
+				badge: new vscode.ThemeIcon('circle'),
 				tooltip: 'Review required'
 			};
 		} else if (status & UnsatisfiedChecks.CIPending) {
 			return {
 				propagate: false,
-				badge: '\u25EF',
+				badge: new vscode.ThemeIcon('history', new vscode.ThemeColor('list.warningForeground')),
 				tooltip: 'Checks pending'
 			};
 		} else if (status === UnsatisfiedChecks.None) {
 			return {
 				propagate: false,
-				badge: '\u2714',
+				badge: new vscode.ThemeIcon('check-all', new vscode.ThemeColor('issues.open')),
 				tooltip: 'All checks passed'
 			};
 		}
