@@ -31,6 +31,7 @@ import {
 	GetChecksResponse,
 	isCheckRun,
 	LatestReviewCommitResponse,
+	LatestReviewsResponse,
 	MarkPullRequestReadyForReviewResponse,
 	PendingReviewIdResponse,
 	PullRequestCommentsResponse,
@@ -57,7 +58,6 @@ import {
 	ReviewEvent,
 } from './interface';
 import { IssueModel } from './issueModel';
-import { LoggingOctokit } from './loggingOctokit';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
@@ -1052,16 +1052,26 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	private async _getReviewRequiredCheck() {
-		const { remote, octokit } = await this.githubRepository.ensure();
+		const { query, remote, octokit, schema } = await this.githubRepository.ensure();
 
-		const branch = await octokit.call(octokit.api.repos.getBranch, { branch: this.base.ref, owner: remote.owner, repo: remote.repositoryName });
+		const [branch, reviewStates] = await Promise.all([
+			octokit.call(octokit.api.repos.getBranch, { branch: this.base.ref, owner: remote.owner, repo: remote.repositoryName }),
+			query<LatestReviewsResponse>({
+				query: schema.LatestReviews,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: this.number,
+				}
+			})
+		]);
 		if (branch.data.protected && branch.data.protection.required_status_checks.enforcement_level !== 'off') {
 			// We need to add the "review required" check manually.
 			return {
 				id: REVIEW_REQUIRED_CHECK_ID,
 				context: 'Branch Protection',
 				description: vscode.l10n.t('Requirements have not been met.'),
-				state: CheckState.Failure,
+				state: (reviewStates.data as LatestReviewsResponse).repository.pullRequest.latestReviews.nodes.every(node => node.state !== 'CHANGES_REQUESTED') ? CheckState.Neutral : CheckState.Failure,
 				target_url: this.html_url
 			};
 		}

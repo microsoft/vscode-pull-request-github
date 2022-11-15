@@ -57,6 +57,12 @@ export class PRStatusDecorationProvider implements vscode.FileDecorationProvider
 				badge: '\u2716',
 				tooltip: 'Some checks have failed'
 			};
+		} else if (status & UnsatisfiedChecks.ChangesRequested) {
+			return {
+				propagate: false,
+				badge: '\u21BB',
+				tooltip: 'Changes requested'
+			};
 		} else if (status & UnsatisfiedChecks.ReviewRequired) {
 			return {
 				propagate: false,

@@ -682,6 +682,18 @@ export interface GetChecksResponse {
 	};
 }
 
+export interface LatestReviewsResponse {
+	repository: {
+		pullRequest: {
+			latestReviews: {
+				nodes: {
+					state: 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING';
+				}[]
+			}
+		}
+	}
+}
+
 export interface ResolveReviewThreadResponse {
 	resolveReviewThread: {
 		thread: ReviewThread;

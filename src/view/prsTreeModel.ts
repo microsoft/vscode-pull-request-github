@@ -14,8 +14,9 @@ import { PullRequestModel, REVIEW_REQUIRED_CHECK_ID } from '../github/pullReques
 export enum UnsatisfiedChecks {
 	None = 0,
 	ReviewRequired = 1 << 0,
-	CIFailed = 1 << 1,
-	CIPending = 1 << 2
+	ChangesRequested = 1 << 1,
+	CIFailed = 1 << 2,
+	CIPending = 1 << 3
 }
 
 interface PRStatusChange {
@@ -56,6 +57,9 @@ export class PrsTreeModel implements vscode.Disposable {
 				for (const status of check.statuses) {
 					// We add the review required check in first if it exists.
 					if (status.id === REVIEW_REQUIRED_CHECK_ID) {
+						if (status.state === CheckState.Failure) {
+							newStatus |= UnsatisfiedChecks.ChangesRequested;
+						}
 						newStatus |= UnsatisfiedChecks.ReviewRequired;
 					} else if (status.state === CheckState.Failure) {
 						newStatus |= UnsatisfiedChecks.CIFailed;
