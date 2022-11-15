@@ -68,7 +68,7 @@ describe('ReviewCommentController', function () {
 		repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		provider = new PullRequestsTreeDataProvider(telemetry);
+		provider = new PullRequestsTreeDataProvider(telemetry, context);
 		const activePrViewCoordinator = new WebviewViewCoordinator(context);
 		Resource.initialize(context);
 		const gitApiImpl = new GitApiImpl();
