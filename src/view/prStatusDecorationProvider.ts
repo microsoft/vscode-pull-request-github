@@ -44,7 +44,7 @@ export class PRStatusDecorationProvider implements vscode.FileDecorationProvider
 		return this._getDecoration(status.status) as vscode.FileDecoration;
 	}
 
-	private _getDecoration(status: UnsatisfiedChecks): vscode.FileDecoration1 | undefined {
+	private _getDecoration(status: UnsatisfiedChecks): vscode.FileDecoration2 | undefined {
 		if ((status & UnsatisfiedChecks.CIFailed) && (status & UnsatisfiedChecks.ReviewRequired)) {
 			return {
 				propagate: false,
