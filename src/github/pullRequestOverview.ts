@@ -25,7 +25,7 @@ import {
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
-import { isInCodespaces, parseReviewers } from './utils';
+import { isInCodespaces, parseReviewers, vscodeDevPrLink } from './utils';
 
 type MilestoneQuickPickItem = vscode.QuickPickItem & { id: string; milestone: IMilestone };
 
@@ -329,6 +329,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.removeAssignee(message);
 			case 'pr.copy-prlink':
 				return this.copyPrLink();
+			case 'pr.copy-vscodedevlink':
+				return this.copyVscodeDevLink();
 			case 'pr.openOnGitHub':
 				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 			case 'pr.update-automerge':
@@ -862,8 +864,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async copyPrLink(): Promise<void> {
-		await vscode.env.clipboard.writeText(this._item.html_url);
-		vscode.window.showInformationMessage(`Copied link to PR "${this._item.title}"!`);
+		return vscode.env.clipboard.writeText(this._item.html_url);
+	}
+
+	private async copyVscodeDevLink(): Promise<void> {
+		return vscode.env.clipboard.writeText(vscodeDevPrLink(this._item));
 	}
 
 	private async updateAutoMerge(message: IRequestMessage<{ autoMerge?: boolean, autoMergeMethod: MergeMethod }>): Promise<void> {

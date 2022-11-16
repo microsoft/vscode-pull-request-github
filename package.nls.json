@@ -163,6 +163,7 @@
 	"command.issues.category": "GitHub Issues",
 	"command.issue.createIssueFromSelection.title": "Create Issue From Selection",
 	"command.issue.createIssueFromClipboard.title": "Create Issue From Clipboard",
+	"command.pr.copyVscodeDevPrLink.title": "Copy vscode.dev Pull Request Link",
 	"command.issue.copyGithubPermalink.title": "Copy GitHub Permalink",
 	"command.issue.copyGithubHeadLink.title": "Copy GitHub Head Link",
 	"command.issue.copyMarkdownGithubPermalink.title": "Copy GitHub Permalink as Markdown",
