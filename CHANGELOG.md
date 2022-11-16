@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.54.1
+
+### Fixes
+
+- No Longer Prompted To Create PR after Pushing Feature Branch. https://github.com/microsoft/vscode-pull-request-github/issues/4171
+
 ## 0.54.0
 
 ### Changes
