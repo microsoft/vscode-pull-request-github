@@ -93,7 +93,7 @@ function Title({ title, number, url, inEditMode, setEditMode, setCurrentTitle })
 }
 
 function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaultBranch, setEditMode }) {
-	const { refresh, copyPrLink } = useContext(PullRequestContext);
+	const { refresh, copyPrLink, copyVscodeDevLink } = useContext(PullRequestContext);
 
 	return (
 		<div className="button-group">
@@ -108,6 +108,9 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 					</button>
 					<button title="Copy Link" onClick={copyPrLink} className="secondary small-button">
 						Copy Link
+					</button>
+					<button title="vscode.dev Link" onClick={copyVscodeDevLink} className="secondary small-button">
+						vscode.dev
 					</button>
 				</>
 			)}
