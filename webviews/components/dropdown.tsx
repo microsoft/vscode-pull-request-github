@@ -92,7 +92,7 @@ export const Dropdown = ({ options, defaultOption, submitAction }: { options: { 
 					selected={selectedMethod}
 					submitAction={submitAction}
 				/>
-				<button id={EXPAND_OPTIONS_BUTTON} className={'select-right ' + expandButtonClass} onClick={onClick}>
+				<button id={EXPAND_OPTIONS_BUTTON} className={'select-right ' + expandButtonClass} ari-label='Expand button options' onClick={onClick}>
 					{chevronIcon}
 				</button>
 			</div>
