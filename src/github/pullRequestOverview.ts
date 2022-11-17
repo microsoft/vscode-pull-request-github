@@ -256,7 +256,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					},
 				});
 				if (pullRequest.isResolved()) {
-					this._folderRepositoryManager.checkBranchUpToDate(pullRequest);
+					this._folderRepositoryManager.checkBranchUpToDate(pullRequest, true);
 				}
 			})
 			.catch(e => {
