@@ -858,6 +858,11 @@
 				"category": "%command.issues.category%"
 			},
 			{
+				"command": "pr.copyVscodeDevPrLink",
+				"title": "%command.pr.copyVscodeDevPrLink.title%",
+				"category": "%command.issues.category%"
+			},
+			{
 				"command": "issue.copyGithubPermalink",
 				"title": "%command.issue.copyGithubPermalink.title%",
 				"category": "%command.issues.category%"
@@ -1250,6 +1255,10 @@
 				{
 					"command": "pr.collapseAllComments",
 					"when": "false"
+				},
+				{
+					"command": "pr.copyVscodeDevPrLink",
+					"when": "github:inReviewMode"
 				},
 				{
 					"command": "issue.openIssue",
@@ -1782,14 +1791,19 @@
 					"group": "1_githubPullRequests@0"
 				},
 				{
+					"command": "pr.copyVscodeDevPrLink",
+					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode",
+					"group": "1_githubPullRequests@1"
+				},
+				{
 					"command": "issue.copyMarkdownGithubPermalink",
 					"when": "gitHubOpenRepositoryCount != 0",
-					"group": "1_githubPullRequests@1"
+					"group": "1_githubPullRequests@2"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
 					"when": "gitHubOpenRepositoryCount != 0",
-					"group": "1_githubPullRequests@2"
+					"group": "1_githubPullRequests@3"
 				}
 			],
 			"editor/title/context": [

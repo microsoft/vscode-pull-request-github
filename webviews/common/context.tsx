@@ -30,6 +30,8 @@ export class PRContext {
 
 	public copyPrLink = () => this.postMessage({ command: 'pr.copy-prlink' });
 
+	public copyVscodeDevLink = () => this.postMessage({ command: 'pr.copy-vscodedevlink' });
+
 	public exitReviewMode = async () => {
 		if (!this.pr) {
 			return;
