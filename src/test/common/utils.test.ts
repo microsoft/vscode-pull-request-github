@@ -53,8 +53,6 @@ describe('utils', () => {
 	});
 
 	describe('promiseFromEvent', () => {
-		const hasListeners = (emitter: any) => !emitter._listeners!.isEmpty();
-
 		describe('without arguments', () => {
 			it('should return a promise for the next event', async () => {
 				const emitter = new EventEmitter<string>();
@@ -63,15 +61,6 @@ describe('utils', () => {
 				emitter.fire('world');
 				const value = await promise;
 				assert.strictEqual(value, 'hello');
-			});
-
-			it('should unsubscribe after the promise resolves', async () => {
-				const emitter = new EventEmitter<string>();
-				const promise = utils.promiseFromEvent(emitter.event);
-				assert(hasListeners(emitter), 'should subscribe');
-				emitter.fire('hello');
-				await promise;
-				assert(!hasListeners(emitter), 'should unsubscribe');
 			});
 		});
 
@@ -82,17 +71,14 @@ describe('utils', () => {
 			it("should return a promise that uses the adapter's value", async () => {
 				const emitter = new EventEmitter<string>();
 				const promise = utils.promiseFromEvent(emitter.event, count);
-				assert(hasListeners(emitter), 'should subscribe');
 				emitter.fire('hell');
 				const value = await promise;
-				assert(!hasListeners(emitter), 'should unsubscribe');
 				assert.strictEqual(value, 'hell'.length);
 			});
 
 			it('should return a promise that rejects if the adapter does', async () => {
 				const emitter = new EventEmitter<string>();
 				const promise = utils.promiseFromEvent(emitter.event, count);
-				assert(hasListeners(emitter), 'should subscribe');
 				emitter.fire('hello');
 				await promise.then(
 					() => {
@@ -100,7 +86,6 @@ describe('utils', () => {
 					},
 					e => assert.strictEqual(e.message, 'the string is too damn long'),
 				);
-				assert(!hasListeners(emitter), 'should unsubscribe');
 			});
 
 			it('should return a promise that rejects if the adapter throws', async () => {
@@ -108,7 +93,6 @@ describe('utils', () => {
 				const promise = utils.promiseFromEvent(emitter.event, () => {
 					throw new Error('kaboom');
 				});
-				assert(hasListeners(emitter), 'should subscribe');
 				emitter.fire('hello');
 				await promise.then(
 					() => {
@@ -116,7 +100,6 @@ describe('utils', () => {
 					},
 					e => assert.strictEqual(e.message, 'kaboom'),
 				);
-				assert(!hasListeners(emitter), 'should unsubscribe');
 			});
 
 			it('should return a promise that rejects if the adapter returns a rejecting Promise', async () => {
@@ -124,7 +107,6 @@ describe('utils', () => {
 				const promise = utils.promiseFromEvent(emitter.event, async () => {
 					throw new Error('kaboom');
 				});
-				assert(hasListeners(emitter), 'should subscribe');
 				emitter.fire('hello');
 				await promise.then(
 					() => {
@@ -132,7 +114,6 @@ describe('utils', () => {
 					},
 					e => assert.strictEqual(e.message, 'kaboom'),
 				);
-				assert(!hasListeners(emitter), 'should unsubscribe');
 			});
 
 			const door: utils.PromiseAdapter<string, boolean> = (password, resolve, reject) =>
@@ -154,11 +135,9 @@ describe('utils', () => {
 				emitter.fire('12345');
 				await tick();
 				assert.strictEqual(hasResolved, false, "shouldn't have resolved yet");
-				assert(hasListeners(emitter), 'should still be listening');
 				emitter.fire('sesame');
 				await tick();
 				assert.strictEqual(hasResolved, true, 'should have resolved');
-				assert(!hasListeners(emitter), 'should have unsubscribed');
 			});
 
 			it('should stay subscribed until the adapter rejects', async () => {
@@ -175,12 +154,10 @@ describe('utils', () => {
 				await tick();
 				assert.strictEqual(hasResolved, false, "shouldn't resolve");
 				assert.strictEqual(hasRejected, false, "shouldn't have rejected yet");
-				assert(hasListeners(emitter), 'should still be listening');
 				emitter.fire('mellon');
 				await tick();
 				assert.strictEqual(hasResolved, false, "shouldn't resolve");
 				assert.strictEqual(hasRejected, true, 'should have rejected');
-				assert(!hasListeners(emitter), 'should have unsubscribed');
 			});
 		});
 	});
