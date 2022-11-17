@@ -23,7 +23,7 @@
 		},
 		{
 			"name": "Launch Extension in Webworker",
-			"type": "pwa-extensionHost",
+			"type": "extensionHost",
 			"request": "launch",
 			"debugWebWorkerHost": true,
 			"runtimeExecutable": "${execPath}",
@@ -63,7 +63,7 @@
 		},
 		{
 			"name": "Watch & Launch Extension in Webworker",
-			"type": "pwa-extensionHost",
+			"type": "extensionHost",
 			"request": "launch",
 			"debugWebWorkerHost": true,
 			"runtimeExecutable": "${execPath}",
@@ -84,14 +84,13 @@
 		},
 		{
 			"name": "Extension Tests",
-			"type": "pwa-extensionHost",
+			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--extensionTestsPath=${workspaceFolder}/out/src/test",
-				"--disable-extension=GitHub.vscode-pull-request-github-insiders",
-				"--disable-extensions"
+				"--disable-extensions",
 			],
 			"preLaunchTask": "npm: test:preprocess",
 			"smartStep": true,
@@ -101,7 +100,7 @@
 			]
 		},
 		{
-			"type": "pwa-node",
+			"type": "node",
 			"request": "launch",
 			"name": "Attach Web Test",
 			"program": "${workspaceFolder}/node_modules/vscode-test-web/out/index.js",
@@ -119,7 +118,7 @@
 			}
 		},
 		{
-			"type": "pwa-chrome",
+			"type": "chrome",
 			"request": "launch",
 			"name": "Launch Web Test",
 			"skipFiles": [
