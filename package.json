@@ -15,7 +15,8 @@
 		"commentsResolvedState",
 		"contribShareMenu",
 		"treeItemCheckbox",
-		"contribCommentPeekContext"
+		"contribCommentPeekContext",
+		"contribCommentThreadAdditionalMenu"
 	],
 	"version": "0.54.0",
 	"publisher": "GitHub",
@@ -1671,7 +1672,9 @@
 					"command": "pr.openReview",
 					"group": "inline@3",
 					"when": "commentController =~ /^github-review/ && reviewInDraftMode"
-				},
+				}
+			],
+			"comments/commentThread/additionalActions": [
 				{
 					"command": "pr.resolveReviewThread",
 					"group": "inline@3",

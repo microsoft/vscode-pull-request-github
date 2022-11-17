@@ -765,12 +765,14 @@ export function registerCommands(
 		}),
 	);
 
-	function threadAndText(commentLike: CommentReply | GHPRCommentThread | GHPRComment): { thread: GHPRCommentThread, text: string } {
+	function threadAndText(commentLike: CommentReply | GHPRCommentThread | GHPRComment | any): { thread: GHPRCommentThread, text: string } {
 		let thread: GHPRCommentThread;
 		let text: string = '';
 		if (commentLike instanceof GHPRComment) {
 			thread = commentLike.parent;
 		} else if (CommentReply.is(commentLike)) {
+			thread = commentLike.thread;
+		} else if (GHPRCommentThread.is(commentLike?.thread)) {
 			thread = commentLike.thread;
 		} else {
 			thread = commentLike;
