@@ -1846,8 +1846,8 @@
 			{
 				"id": "issues.open",
 				"defaults": {
-					"dark": "#22863a",
-					"light": "#22863a",
+					"dark": "#3FB950",
+					"light": "#3FB950",
 					"highContrast": "editor.foreground",
 					"highContrastLight": "editor.foreground"
 				},

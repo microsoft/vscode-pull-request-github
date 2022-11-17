@@ -60,7 +60,7 @@ export class PRStatusDecorationProvider implements vscode.FileDecorationProvider
 		} else if (status & UnsatisfiedChecks.ChangesRequested) {
 			return {
 				propagate: false,
-				badge: new vscode.ThemeIcon('sync', new vscode.ThemeColor('list.errorForeground')),
+				badge: new vscode.ThemeIcon('git-pull-request-new-changes', new vscode.ThemeColor('list.errorForeground')),
 				tooltip: 'Changes requested'
 			};
 		} else if (status & UnsatisfiedChecks.ReviewRequired) {
@@ -72,7 +72,7 @@ export class PRStatusDecorationProvider implements vscode.FileDecorationProvider
 		} else if (status & UnsatisfiedChecks.CIPending) {
 			return {
 				propagate: false,
-				badge: new vscode.ThemeIcon('history', new vscode.ThemeColor('list.warningForeground')),
+				badge: new vscode.ThemeIcon('sync', new vscode.ThemeColor('list.warningForeground')),
 				tooltip: 'Checks pending'
 			};
 		} else if (status === UnsatisfiedChecks.None) {
