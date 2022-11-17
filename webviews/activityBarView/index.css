@@ -27,9 +27,22 @@ textarea {
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
-	padding: 16px 0;
+	padding: 16px 0 0 0;
 }
 
+.comment-form {
+	padding-bottom: 16px;
+}
+
+.status-section {
+	padding-bottom: 16px;
+}
+
+.ready-for-review-container .select-control {
+	padding-bottom: 16px;
+}
+
+.ready-for-review-container p,
 .status-section p {
 	line-height: 1.5em;
 	margin: 0;
@@ -45,9 +58,8 @@ textarea {
 	width: 100%;
 }
 
-.ready-for-review-container,
-.select-control {
-	padding-bottom: 10px;
+.ready-for-review-container {
+	padding-bottom: 16px;
 }
 
 .select-control,
