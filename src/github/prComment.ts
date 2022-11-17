@@ -46,6 +46,12 @@ export interface GHPRCommentThread extends vscode.CommentThread {
 	dispose: () => void;
 }
 
+export namespace GHPRCommentThread {
+	export function is(value: any): value is GHPRCommentThread {
+		return (value && (typeof (value as GHPRCommentThread).gitHubThreadId) === 'string');
+	}
+}
+
 abstract class CommentBase implements vscode.Comment {
 	public abstract commentId: undefined | string;
 
