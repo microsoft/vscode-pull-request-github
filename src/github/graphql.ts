@@ -651,7 +651,7 @@ export interface CheckRun {
 	name: string;
 	title?: string;
 	detailsUrl?: string;
-	checkSuite: {
+	checkSuite?: {
 		app?: {
 			logoUrl: string;
 			url: string;
