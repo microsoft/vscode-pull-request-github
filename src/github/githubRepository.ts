@@ -17,6 +17,8 @@ import {
 	AssignableUsersResponse,
 	CreatePullRequestResponse,
 	ForkDetailsResponse,
+	GetChecksResponse,
+	isCheckRun,
 	IssuesResponse,
 	IssuesSearchResponse,
 	ListBranchesResponse,
@@ -28,7 +30,7 @@ import {
 	PullRequestsResponse,
 	ViewerPermissionResponse,
 } from './graphql';
-import { IAccount, IMilestone, Issue, PullRequest, RepoAccessAndMergeMethods } from './interface';
+import { CheckState, IAccount, IMilestone, Issue, PullRequest, PullRequestChecks, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
 import { LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
@@ -1019,5 +1021,76 @@ export class GitHubRepository implements vscode.Disposable {
 
 	isCurrentUser(login: string): Promise<boolean> {
 		return this._credentialStore.isCurrentUser(login);
+	}
+
+	/**
+	 * Get the status checks of the pull request, those for the last commit.
+	 *
+	 * This method should go in PullRequestModel, but because of the status checks bug we want to track `_useFallbackChecks` at a repo leve.
+	 */
+	private _useFallbackChecks: boolean = false;
+	async getStatusChecks(number: number): Promise<PullRequestChecks> {
+		const { query, remote, schema } = await this.ensure();
+		let result;
+		try {
+			result = await query<GetChecksResponse>({
+				query: this._useFallbackChecks ? schema.GetChecksWithoutSuite : schema.GetChecks,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: number,
+				},
+			}, true); // There's an issue with the GetChecks that can result in SAML errors.
+		} catch (e) {
+			if (e.message?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
+				// There seems to be an issue with fetching status checks if you haven't SAML'd with every org you have
+				// The issue is specifically with the CheckSuite property. Make the query again, but without that property
+				if (!this._useFallbackChecks) {
+					this._useFallbackChecks = true;
+					return this.getStatusChecks(number);
+				}
+			}
+			throw e;
+		}
+
+		// We always fetch the status checks for only the last commit, so there should only be one node present
+		const statusCheckRollup = result.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup;
+
+		if (!statusCheckRollup) {
+			return {
+				state: CheckState.Pending,
+				statuses: [],
+			};
+		}
+
+		const checks: PullRequestChecks = {
+			state: statusCheckRollup.state.toLowerCase(),
+			statuses: statusCheckRollup.contexts.nodes.map(context => {
+				if (isCheckRun(context)) {
+					return {
+						id: context.id,
+						url: context.checkSuite?.app?.url,
+						avatar_url: context.checkSuite?.app?.logoUrl,
+						state: context.conclusion?.toLowerCase() || CheckState.Pending,
+						description: context.title,
+						context: context.name,
+						target_url: context.detailsUrl,
+					};
+				} else {
+					return {
+						id: context.id,
+						url: context.targetUrl,
+						avatar_url: context.avatarUrl,
+						state: context.state?.toLowerCase(),
+						description: context.description,
+						context: context.context,
+						target_url: context.targetUrl,
+					};
+				}
+			}),
+		};
+
+
+		return checks;
 	}
 }

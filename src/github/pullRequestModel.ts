@@ -28,8 +28,6 @@ import {
 	DeleteReactionResponse,
 	DeleteReviewResponse,
 	EditCommentResponse,
-	GetChecksResponse,
-	isCheckRun,
 	LatestReviewCommitResponse,
 	LatestReviewsResponse,
 	MarkPullRequestReadyForReviewResponse,
@@ -1082,70 +1080,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Get the status checks of the pull request, those for the last commit.
 	 */
 	async getStatusChecks(): Promise<PullRequestChecks> {
-		const { query, remote, schema } = await this.githubRepository.ensure();
-		let result;
-		try {
-			result = await query<GetChecksResponse>({
-				query: schema.GetChecks,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					number: this.number,
-				},
-			}, true); // There's an issue with the GetChecks that can result in SAML errors.
-		} catch (e) {
-			if (e.message?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
-				// There seems to be an issue with fetching status checks if you haven't SAML'd with every org you have
-				// Ignore SAML errors here, and at least try to get the review required check
-				const checks = {
-					state: CheckState.Unknown,
-					statuses: [] as any[],
-				};
-				const reviewRequiredCheck = await this._getReviewRequiredCheck();
-				if (reviewRequiredCheck) {
-					checks.statuses.unshift(reviewRequiredCheck);
-					checks.state = CheckState.Failure;
-				}
-				return checks;
-			}
-		}
-
-		// We always fetch the status checks for only the last commit, so there should only be one node present
-		const statusCheckRollup = result.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup;
-
-		if (!statusCheckRollup) {
-			return {
-				state: CheckState.Pending,
-				statuses: [],
-			};
-		}
-
-		const checks: PullRequestChecks = {
-			state: statusCheckRollup.state.toLowerCase(),
-			statuses: statusCheckRollup.contexts.nodes.map(context => {
-				if (isCheckRun(context)) {
-					return {
-						id: context.id,
-						url: context.checkSuite.app?.url,
-						avatar_url: context.checkSuite.app?.logoUrl,
-						state: context.conclusion?.toLowerCase() || CheckState.Pending,
-						description: context.title,
-						context: context.name,
-						target_url: context.detailsUrl,
-					};
-				} else {
-					return {
-						id: context.id,
-						url: context.targetUrl,
-						avatar_url: context.avatarUrl,
-						state: context.state?.toLowerCase(),
-						description: context.description,
-						context: context.context,
-						target_url: context.targetUrl,
-					};
-				}
-			}),
-		};
+		const checks = await this.githubRepository.getStatusChecks(this.number);
 
 		// Fun info: The checks don't include whether a review is required.
 		// Also, unless you're an admin on the repo, you can't just do octokit.repos.getBranchProtection
@@ -1386,7 +1321,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			});
 			Logger.debug(`Fetch pull request mergeability ${this.number} - done`, PullRequestModel.ID);
-			return parseMergeability(data.repository.pullRequest.mergeable, data.repository.pullRequest.mergeStateStatus);
+			const mergeability = parseMergeability(data.repository.pullRequest.mergeable, data.repository.pullRequest.mergeStateStatus);
+			this.item.mergeable = mergeability;
+			return mergeability;
 		} catch (e) {
 			Logger.appendLine(`PullRequestModel> Unable to fetch PR Mergeability: ${e}`);
 			return PullRequestMergeability.Unknown;
