@@ -346,7 +346,7 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	context.subscriptions.push(apiImpl);
 
 	Logger.debug('Creating tree view.', 'Activation');
-	const prTree = new PullRequestsTreeDataProvider(telemetry);
+	const prTree = new PullRequestsTreeDataProvider(telemetry, context);
 	context.subscriptions.push(prTree);
 	Logger.appendLine('Looking for git repository');
 	const repositories = apiImpl.repositories;

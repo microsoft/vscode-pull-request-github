@@ -19,7 +19,7 @@ import { ReviewModel } from './reviewModel';
 import { DecorationProvider } from './treeDecorationProvider';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
-import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
+import { BaseTreeNode, EXPANDED_QUERIES_STATE, TreeNode } from './treeNodes/treeNode';
 import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode, vscode.Disposable {
@@ -41,7 +41,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		return this._view;
 	}
 
-	constructor(private _telemetry: ITelemetry) {
+	constructor(private _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext) {
 		this._disposables = [];
 		this._prsTreeModel = new PrsTreeModel(this._telemetry);
 		this._disposables.push(new PRStatusDecorationProvider(this._prsTreeModel));
@@ -106,6 +106,25 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 				node.updateCheckbox(newState);
 			});
 		}));
+
+		this._disposables.push(this._view.onDidExpandElement(expanded => {
+			this._updateExpandedQueries(expanded.element, true);
+		}));
+		this._disposables.push(this._view.onDidCollapseElement(collapsed => {
+			this._updateExpandedQueries(collapsed.element, false);
+		}));
+	}
+
+	private _updateExpandedQueries(element: TreeNode, isExpanded: boolean) {
+		if (element instanceof CategoryTreeNode) {
+			const expandedQueries = new Set<string>(this._context.workspaceState.get(EXPANDED_QUERIES_STATE, []) as string[]);
+			if (isExpanded) {
+				expandedQueries.add(element.id);
+			} else {
+				expandedQueries.delete(element.id);
+			}
+			this._context.workspaceState.update(EXPANDED_QUERIES_STATE, Array.from(expandedQueries.keys()));
+		}
 	}
 
 	async reveal(element: TreeNode, options?: { select?: boolean, focus?: boolean, expand?: boolean }): Promise<void> {
@@ -220,6 +239,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 					this._telemetry,
 					this,
 					this.notificationProvider,
+					this._context,
 					this._prsTreeModel
 				);
 			} else {
@@ -231,6 +251,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 							folderManager,
 							this._telemetry,
 							this.notificationProvider,
+							this._context,
 							this._prsTreeModel
 						),
 				);

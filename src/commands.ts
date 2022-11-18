@@ -23,7 +23,7 @@ import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prCom
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
-import { getIssuesUrl, getPullsUrl, isInCodespaces } from './github/utils';
+import { getIssuesUrl, getPullsUrl, isInCodespaces, vscodeDevPrLink } from './github/utils';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager } from './view/reviewManager';
 import { CategoryTreeNode } from './view/treeNodes/categoryNode';
@@ -765,12 +765,14 @@ export function registerCommands(
 		}),
 	);
 
-	function threadAndText(commentLike: CommentReply | GHPRCommentThread | GHPRComment): { thread: GHPRCommentThread, text: string } {
+	function threadAndText(commentLike: CommentReply | GHPRCommentThread | GHPRComment | any): { thread: GHPRCommentThread, text: string } {
 		let thread: GHPRCommentThread;
 		let text: string = '';
 		if (commentLike instanceof GHPRComment) {
 			thread = commentLike.parent;
 		} else if (CommentReply.is(commentLike)) {
+			thread = commentLike.thread;
+		} else if (GHPRCommentThread.is(commentLike?.thread)) {
 			thread = commentLike.thread;
 		} else {
 			thread = commentLike;
@@ -1023,6 +1025,21 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.collapseAllComments', () => {
 			return vscode.commands.executeCommand('workbench.action.collapseAllComments');
+		}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.copyVscodeDevPrLink', async () => {
+			const activePullRequests: PullRequestModel[] = reposManager.folderManagers
+				.map(folderManager => folderManager.activePullRequest!)
+				.filter(activePR => !!activePR);
+			const pr = await chooseItem<PullRequestModel>(
+				activePullRequests,
+				itemValue => `${itemValue.number}: ${itemValue.title}`,
+				{ placeHolder: vscode.l10n.t('Pull request to create a link for') },
+			);
+			if (pr) {
+				return vscode.env.clipboard.writeText(vscodeDevPrLink(pr));
+			}
 		}));
 
 	context.subscriptions.push(

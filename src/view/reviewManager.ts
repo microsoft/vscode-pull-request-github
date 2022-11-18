@@ -357,7 +357,7 @@ export class ReviewManager {
 
 		if (this._isFirstLoad) {
 			this._isFirstLoad = false;
-			this._folderRepoManager.checkBranchUpToDate(pr);
+			this._folderRepoManager.checkBranchUpToDate(pr, true);
 		}
 
 		Logger.appendLine('Review> Fetching pull request data');
@@ -561,7 +561,7 @@ export class ReviewManager {
 			return;
 		}
 
-		await this._folderRepoManager.checkBranchUpToDate(pr);
+		await this._folderRepoManager.checkBranchUpToDate(pr, false);
 
 		await this.initializePullRequestData(pr);
 		await this._reviewCommentController.update();

@@ -12,7 +12,7 @@ import { PRType } from '../../github/interface';
 import { NotificationProvider } from '../../github/notifications';
 import { PrsTreeModel } from '../prsTreeModel';
 import { CategoryTreeNode } from './categoryNode';
-import { TreeNode, TreeNodeParent } from './treeNode';
+import { EXPANDED_QUERIES_STATE, TreeNode, TreeNodeParent } from './treeNode';
 
 export interface IQueryInfo {
 	label: string;
@@ -29,6 +29,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		private folderManager: FolderRepositoryManager,
 		private telemetry: ITelemetry,
 		private notificationProvider: NotificationProvider,
+		private context: vscode.ExtensionContext,
 		private readonly _prsTreeModel: PrsTreeModel
 	) {
 		super();
@@ -50,7 +51,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
-		return WorkspaceFolderNode.getCategoryTreeNodes(this.folderManager, this.telemetry, this, this.notificationProvider, this._prsTreeModel);
+		return WorkspaceFolderNode.getCategoryTreeNodes(this.folderManager, this.telemetry, this, this.notificationProvider, this.context, this._prsTreeModel);
 	}
 
 	public static getCategoryTreeNodes(
@@ -58,16 +59,19 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		telemetry: ITelemetry,
 		parent: TreeNodeParent,
 		notificationProvider: NotificationProvider,
+		context: vscode.ExtensionContext,
 		prsTreeModel: PrsTreeModel
 	) {
+		const expandedQueries = new Set<string>(context.workspaceState.get(EXPANDED_QUERIES_STATE, [] as string[]));
+
 		const queryCategories = WorkspaceFolderNode.getQueries(folderManager).map(
 			queryInfo =>
-				new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, notificationProvider, prsTreeModel, queryInfo.label, queryInfo.query),
+				new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, notificationProvider, expandedQueries, prsTreeModel, queryInfo.label, queryInfo.query),
 		);
 		return [
-			new CategoryTreeNode(parent, folderManager, telemetry, PRType.LocalPullRequest, notificationProvider, prsTreeModel),
+			new CategoryTreeNode(parent, folderManager, telemetry, PRType.LocalPullRequest, notificationProvider, expandedQueries, prsTreeModel),
 			...queryCategories,
-			new CategoryTreeNode(parent, folderManager, telemetry, PRType.All, notificationProvider, prsTreeModel),
+			new CategoryTreeNode(parent, folderManager, telemetry, PRType.All, notificationProvider, expandedQueries, prsTreeModel),
 		];
 	}
 }

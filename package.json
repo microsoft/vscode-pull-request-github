@@ -16,12 +16,13 @@
 		"contribShareMenu",
 		"treeItemCheckbox",
 		"contribCommentPeekContext",
+		"contribCommentThreadAdditionalMenu",
 		"codiconDecoration"
 	],
 	"version": "0.54.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.73.0"
+		"vscode": "^1.74.0"
 	},
 	"categories": [
 		"Other"
@@ -858,6 +859,11 @@
 				"category": "%command.issues.category%"
 			},
 			{
+				"command": "pr.copyVscodeDevPrLink",
+				"title": "%command.pr.copyVscodeDevPrLink.title%",
+				"category": "%command.issues.category%"
+			},
+			{
 				"command": "issue.copyGithubPermalink",
 				"title": "%command.issue.copyGithubPermalink.title%",
 				"category": "%command.issues.category%"
@@ -1250,6 +1256,10 @@
 				{
 					"command": "pr.collapseAllComments",
 					"when": "false"
+				},
+				{
+					"command": "pr.copyVscodeDevPrLink",
+					"when": "github:inReviewMode"
 				},
 				{
 					"command": "issue.openIssue",
@@ -1672,7 +1682,9 @@
 					"command": "pr.openReview",
 					"group": "inline@3",
 					"when": "commentController =~ /^github-review/ && reviewInDraftMode"
-				},
+				}
+			],
+			"comments/commentThread/additionalActions": [
 				{
 					"command": "pr.resolveReviewThread",
 					"group": "inline@3",
@@ -1780,14 +1792,19 @@
 					"group": "1_githubPullRequests@0"
 				},
 				{
+					"command": "pr.copyVscodeDevPrLink",
+					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode",
+					"group": "1_githubPullRequests@1"
+				},
+				{
 					"command": "issue.copyMarkdownGithubPermalink",
 					"when": "gitHubOpenRepositoryCount != 0",
-					"group": "1_githubPullRequests@1"
+					"group": "1_githubPullRequests@2"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
 					"when": "gitHubOpenRepositoryCount != 0",
-					"group": "1_githubPullRequests@2"
+					"group": "1_githubPullRequests@3"
 				}
 			],
 			"editor/title/context": [

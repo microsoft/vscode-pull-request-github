@@ -121,6 +121,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		private _telemetry: ITelemetry,
 		private _type: PRType,
 		private _notificationProvider: NotificationProvider,
+		expandedQueries: Set<string>,
 		private _prsTreeModel: PrsTreeModel,
 		_categoryLabel?: string,
 		private _categoryQuery?: string,
@@ -128,10 +129,6 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		super();
 
 		this.prs = [];
-		this.collapsibleState =
-			this._type === PRType.All
-				? vscode.TreeItemCollapsibleState.Expanded
-				: vscode.TreeItemCollapsibleState.Collapsed;
 
 		switch (_type) {
 			case PRType.All:
@@ -149,6 +146,15 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		this.id = parent instanceof TreeNode ? `${parent.label}/${this.label}` : this.label;
+
+		if ((expandedQueries.size === 0) && (_type === PRType.All)) {
+			this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+		} else {
+			this.collapsibleState =
+				expandedQueries.has(this.id)
+					? vscode.TreeItemCollapsibleState.Expanded
+					: vscode.TreeItemCollapsibleState.Collapsed;
+		}
 
 		if (this._categoryQuery) {
 			this.contextValue = 'query';

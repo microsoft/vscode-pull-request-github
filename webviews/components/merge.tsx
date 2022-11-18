@@ -378,7 +378,7 @@ type MergeSelectProps = Pick<PullRequest, 'mergeMethodsAvailability'> &
 
 export const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>(
 	({ defaultMergeMethod, mergeMethodsAvailability: avail, onChange }: MergeSelectProps, ref) => (
-		<select ref={ref} defaultValue={defaultMergeMethod} onChange={onChange}>
+		<select ref={ref} defaultValue={defaultMergeMethod} onChange={onChange} aria-label='Select merge method'>
 			{Object.entries(MERGE_METHODS).map(([method, text]) => (
 				<option key={method} value={method} disabled={!avail[method]}>
 					{text}

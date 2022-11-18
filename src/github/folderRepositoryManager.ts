@@ -2076,7 +2076,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	private _updateMessageShown: boolean = false;
-	public async checkBranchUpToDate(pr: PullRequestModel & IResolvedPullRequestModel): Promise<void> {
+	public async checkBranchUpToDate(pr: PullRequestModel & IResolvedPullRequestModel, shouldFetch: boolean): Promise<void> {
 		if (this.activePullRequest?.id !== pr.id) {
 			return;
 		}
@@ -2086,7 +2086,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const remoteBranch = branch.upstream ? branch.upstream.name : branch.name;
 			if (remote) {
 				try {
-					await this._repository.fetch(remote, remoteBranch);
+					if (shouldFetch) {
+						await this._repository.fetch(remote, remoteBranch);
+					}
 				} catch (e) {
 					if (e.stderr) {
 						if ((e.stderr as string).startsWith('fatal: couldn\'t find remote ref')) {
