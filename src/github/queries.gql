@@ -307,6 +307,24 @@ query LatestReviewCommit($owner: String!, $name: String!, $number: Int!) {
 	}
 }
 
+query LatestReviews($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			latestReviews (first: 10) {
+				nodes {
+					state
+				}
+			}
+		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
+}
+
 fragment ReviewComment on PullRequestReviewComment {
 	id
 	databaseId

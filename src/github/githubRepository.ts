@@ -30,7 +30,7 @@ import {
 	PullRequestsResponse,
 	ViewerPermissionResponse,
 } from './graphql';
-import { IAccount, IMilestone, Issue, PullRequest, PullRequestChecks, RepoAccessAndMergeMethods } from './interface';
+import { CheckState, IAccount, IMilestone, Issue, PullRequest, PullRequestChecks, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
 import { LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
@@ -1058,7 +1058,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 		if (!statusCheckRollup) {
 			return {
-				state: 'pending',
+				state: CheckState.Pending,
 				statuses: [],
 			};
 		}
@@ -1071,7 +1071,7 @@ export class GitHubRepository implements vscode.Disposable {
 						id: context.id,
 						url: context.checkSuite?.app?.url,
 						avatar_url: context.checkSuite?.app?.logoUrl,
-						state: context.conclusion?.toLowerCase(),
+						state: context.conclusion?.toLowerCase() || CheckState.Pending,
 						description: context.title,
 						context: context.name,
 						target_url: context.detailsUrl,

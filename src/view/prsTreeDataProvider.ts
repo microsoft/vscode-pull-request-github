@@ -13,6 +13,8 @@ import { REMOTES_SETTING, ReposManagerState, SETTINGS_NAMESPACE } from '../githu
 import { NotificationProvider } from '../github/notifications';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { findDotComAndEnterpriseRemotes } from '../github/utils';
+import { PRStatusDecorationProvider } from './prStatusDecorationProvider';
+import { PrsTreeModel } from './prsTreeModel';
 import { ReviewModel } from './reviewModel';
 import { DecorationProvider } from './treeDecorationProvider';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
@@ -33,6 +35,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private _reposManager: RepositoriesManager | undefined;
 	private _initialized: boolean = false;
 	public notificationProvider: NotificationProvider;
+	private _prsTreeModel: PrsTreeModel;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
@@ -40,6 +43,8 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 	constructor(private _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext) {
 		this._disposables = [];
+		this._prsTreeModel = new PrsTreeModel(this._telemetry);
+		this._disposables.push(new PRStatusDecorationProvider(this._prsTreeModel));
 		this._disposables.push(vscode.window.registerFileDecorationProvider(DecorationProvider));
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.refreshList', _ => {
@@ -234,7 +239,8 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 					this._telemetry,
 					this,
 					this.notificationProvider,
-					this._context
+					this._context,
+					this._prsTreeModel
 				);
 			} else {
 				result = this._reposManager.folderManagers.map(
@@ -245,7 +251,8 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 							folderManager,
 							this._telemetry,
 							this.notificationProvider,
-							this._context
+							this._context,
+							this._prsTreeModel
 						),
 				);
 			}

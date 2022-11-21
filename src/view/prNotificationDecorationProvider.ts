@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { fromPRNodeUri } from '../common/uri';
 import { NotificationProvider } from '../github/notifications';
 
-export class PRNodeDecorationProvider implements vscode.FileDecorationProvider {
+export class PRNotificationDecorationProvider implements vscode.FileDecorationProvider {
 	private _disposables: vscode.Disposable[] = [];
 
 	private _onDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<

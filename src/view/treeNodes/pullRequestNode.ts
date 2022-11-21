@@ -274,7 +274,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		const labelPrefix = currentBranchIsForThisPR ? '✓ ' : '';
 		const tooltipPrefix = currentBranchIsForThisPR ? 'Current Branch * ' : '';
 		const formattedPRNumber = number.toString();
-		const label = `${labelPrefix}#${formattedPRNumber}: ${isDraft ? '[DRAFT] ' : ''}${title}`;
+		const label = `${labelPrefix}${isDraft ? '[DRAFT] ' : ''}${title}`;
 		const tooltip = `${tooltipPrefix}${title} by @${login}`;
 		const description = `by @${login}`;
 

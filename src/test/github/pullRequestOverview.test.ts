@@ -22,6 +22,7 @@ import { GitApiImpl } from '../../api/api1';
 import { CredentialStore } from '../../github/credentials';
 import { GitHubServerType } from '../../common/authentication';
 import { GitHubRemote } from '../../common/remote';
+import { CheckState } from '../../github/interface';
 
 const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
 
@@ -109,7 +110,7 @@ describe('PullRequestOverview', function () {
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
 			sinon.stub(prModel0, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
-			sinon.stub(prModel0, 'getStatusChecks').resolves({ state: 'pending', statuses: [] });
+			sinon.stub(prModel0, 'getStatusChecks').resolves({ state: CheckState.Pending, statuses: [] });
 			await PullRequestOverviewPanel.createOrShow(EXTENSION_URI, pullRequestManager, prModel0);
 
 			const panel0 = PullRequestOverviewPanel.currentPanel;
@@ -122,7 +123,7 @@ describe('PullRequestOverview', function () {
 			resolveStub.resolves(prModel1);
 			sinon.stub(prModel1, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel1, 'getTimelineEvents').resolves([]);
-			sinon.stub(prModel1, 'getStatusChecks').resolves({ state: 'pending', statuses: [] });
+			sinon.stub(prModel1, 'getStatusChecks').resolves({ state: CheckState.Pending, statuses: [] });
 			await PullRequestOverviewPanel.createOrShow(EXTENSION_URI, pullRequestManager, prModel1);
 
 			assert.strictEqual(panel0, PullRequestOverviewPanel.currentPanel);

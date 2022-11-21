@@ -240,20 +240,22 @@ export function toPRUri(
 	});
 }
 
-export function createPRNodeUri(
-	pullRequest: PullRequestModel | { remote: string, prNumber: number } | string
-): vscode.Uri {
+export function createPRNodeIdentifier(pullRequest: PullRequestModel | { remote: string, prNumber: number } | string) {
 	let identifier: string;
 	if (pullRequest instanceof PullRequestModel) {
 		identifier = `${pullRequest.remote.url}:${pullRequest.number}`;
-	}
-	else if (typeof pullRequest === 'string') {
+	} else if (typeof pullRequest === 'string') {
 		identifier = pullRequest;
-	}
-	else {
+	} else {
 		identifier = `${pullRequest.remote}:${pullRequest.prNumber}`;
 	}
+	return identifier;
+}
 
+export function createPRNodeUri(
+	pullRequest: PullRequestModel | { remote: string, prNumber: number } | string
+): vscode.Uri {
+	const identifier = createPRNodeIdentifier(pullRequest);
 	const params: PRNodeUriParams = {
 		prIdentifier: identifier,
 	};
