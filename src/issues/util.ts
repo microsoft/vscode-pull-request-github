@@ -13,7 +13,7 @@ import { Commit, Ref, Remote, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { Protocol } from '../common/protocol';
 import { fromReviewUri, Schemes } from '../common/uri';
-import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
+import { FolderRepositoryManager, NoGitHubReposError, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { GithubItemStateEnum, User } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -356,7 +356,14 @@ async function getUpstream(repositoriesManager: RepositoriesManager, repository:
 	if (repository.state.HEAD?.name && repository.state.HEAD.name !== HEAD) {
 		branchNames.unshift(repository.state.HEAD?.name);
 	}
-	const defaultBranch = await repositoriesManager.getManagerForFile(repository.rootUri)?.getPullRequestDefaults();
+	let defaultBranch: PullRequestDefaults | undefined;
+	try {
+		defaultBranch = await repositoriesManager.getManagerForFile(repository.rootUri)?.getPullRequestDefaults();
+	} catch (e) {
+		if (!(e instanceof NoGitHubReposError)) {
+			throw e;
+		}
+	}
 	if (defaultBranch) {
 		branchNames.push(defaultBranch.base);
 	}
