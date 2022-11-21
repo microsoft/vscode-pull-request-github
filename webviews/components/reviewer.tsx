@@ -2,15 +2,13 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-import React, { cloneElement, useContext } from 'react';
+import React, { cloneElement } from 'react';
 import { ReviewState } from '../../src/github/interface';
-import { default as PullRequestContext } from '../common/context';
-import { checkIcon, commentIcon, deleteIcon, diffIcon, pendingIcon } from './icon';
+import { checkIcon, commentIcon, diffIcon, pendingIcon } from './icon';
 import { AuthorLink, Avatar } from './user';
 
 export function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
-	const { reviewer, state, canDelete } = reviewState;
-	const { removeReviewer } = useContext(PullRequestContext);
+	const { reviewer, state } = reviewState;
 	return (
 		<div className="section-item reviewer">
 			<div className="avatar-with-author">
@@ -18,11 +16,6 @@ export function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
 				<AuthorLink for={reviewer} />
 			</div>
 			<div className="reviewer-icons">
-				{canDelete && (
-					<button className="icon-button" onClick={() => removeReviewer(reviewState.reviewer.login)}>
-						{deleteIcon}️
-					</button>
-				)}
 				{REVIEW_STATE[state]}
 			</div>
 		</div>

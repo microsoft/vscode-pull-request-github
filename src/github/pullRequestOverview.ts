@@ -313,20 +313,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.resolveComentThread(message);
 			case 'pr.checkMergeability':
 				return this._replyMessage(message, await this._item.getMergeability());
-			case 'pr.add-reviewers':
-				return this.addReviewers(message);
+			case 'pr.change-reviewers':
+				return this.changeReviewers(message);
 			case 'pr.remove-milestone':
 				return this.removeMilestone(message);
 			case 'pr.add-milestone':
 				return this.addMilestone(message);
-			case 'pr.add-assignees':
-				return this.addAssignees(message);
+			case 'pr.change-assignees':
+				return this.changeAssignees(message);
 			case 'pr.add-assignee-yourself':
 				return this.addAssigneeYourself(message);
-			case 'pr.remove-reviewer':
-				return this.removeReviewer(message);
-			case 'pr.remove-assignee':
-				return this.removeAssignee(message);
 			case 'pr.copy-prlink':
 				return this.copyPrLink();
 			case 'pr.copy-vscodedevlink':
@@ -363,6 +359,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		]);
 
 		const reviewers: (vscode.QuickPickItem & { reviewer?: IAccount })[] = [];
+
+		// Start will all existing reviewers so they show at the top
+		for (const reviewer of this._existingReviewers) {
+			reviewers.push({
+				label: reviewer.reviewer.login,
+				description: reviewer.reviewer.name,
+				reviewer: reviewer.reviewer,
+				picked: true
+			});
+		}
+
 		for (const user of suggestedReviewers) {
 			const { login, name, isAuthor, isCommenter } = user;
 			if (skipList.has(login)) {
@@ -424,8 +431,18 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		const skipList: Set<string> = new Set([...(this._item.assignees?.map(assignee => assignee.login) ?? [])]);
 
 		const assignees: (vscode.QuickPickItem & { assignee?: IAccount })[] = [];
+		// Start will all currently assigned so they show at the top
+		for (const current of (this._item.assignees ?? [])) {
+			assignees.push({
+				label: current.login,
+				description: current.name,
+				assignee: current,
+				picked: true
+			});
+		}
+
 		// Check if the viewer is allowed to be assigned to the PR
-		if (assignableUsers.findIndex((assignableUser: IAccount) => assignableUser.login === viewer.login) !== -1) {
+		if (!skipList.has(viewer.login) && (assignableUsers.findIndex((assignableUser: IAccount) => assignableUser.login === viewer.login) !== -1)) {
 			assignees.push({
 				label: viewer.login,
 				description: viewer.name,
@@ -481,9 +498,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return assignees;
 	}
 
-	private async addReviewers(message: IRequestMessage<void>): Promise<void> {
+	private async changeReviewers(message: IRequestMessage<void>): Promise<void> {
 		try {
-			const reviewersToAdd: (vscode.QuickPickItem & { reviewer: IAccount })[] | undefined = (await vscode.window.showQuickPick(
+			const allReviewers: (vscode.QuickPickItem & { reviewer: IAccount })[] | undefined = (await vscode.window.showQuickPick(
 				this.getReviewersQuickPickItems(this._item.suggestedReviewers),
 				{
 					canPickMany: true,
@@ -491,18 +508,23 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				},
 			))?.filter(item => item.reviewer) as (vscode.QuickPickItem & { reviewer: IAccount })[] | undefined;
 
-			if (reviewersToAdd) {
-				await this._item.requestReview(reviewersToAdd.map(r => r.label));
-				const addedReviewers: ReviewState[] = reviewersToAdd.map(selected => {
+			if (allReviewers) {
+				const newReviewers = allReviewers.map(r => r.label);
+				const removedReviewers = this._existingReviewers.filter(existing => !newReviewers.find(newReviewer => newReviewer === existing.reviewer.login));
+
+				await this._item.requestReview(newReviewers);
+				await this._item.deleteReviewRequest(removedReviewers.map(reviewer => reviewer.reviewer.login));
+
+				const addedReviewers: ReviewState[] = allReviewers.map(selected => {
 					return {
 						reviewer: selected.reviewer,
 						state: 'REQUESTED',
 					};
 				});
 
-				this._existingReviewers = this._existingReviewers.concat(addedReviewers);
+				this._existingReviewers = addedReviewers;
 				this._replyMessage(message, {
-					added: addedReviewers,
+					reviewers: addedReviewers,
 				});
 			}
 		} catch (e) {
@@ -615,9 +637,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async addAssignees(message: IRequestMessage<void>): Promise<void> {
+	private async changeAssignees(message: IRequestMessage<void>): Promise<void> {
 		try {
-			const assigneesToAdd = (await vscode.window.showQuickPick(
+			const allAssignees = (await vscode.window.showQuickPick<vscode.QuickPickItem & { assignee?: IAccount }>(
 				this.getAssigneesQuickPickItems(),
 				{
 					canPickMany: true,
@@ -625,14 +647,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				},
 			))?.filter(item => item.assignee) as (vscode.QuickPickItem & { assignee: IAccount })[] | undefined;;
 
-			if (assigneesToAdd) {
-				const addedAssignees: IAccount[] = assigneesToAdd.map(item => item.assignee);
-				this._item.assignees = this._item.assignees?.concat(addedAssignees);
+			if (allAssignees) {
+				const newAssignees: IAccount[] = allAssignees.map(item => item.assignee);
+				const removeAssignees: IAccount[] = this._item.assignees?.filter(currentAssignee => !newAssignees.find(newAssignee => newAssignee.login === currentAssignee.login)) ?? [];
+				this._item.assignees = newAssignees;
 
-				await this._item.updateAssignees(addedAssignees.map(assignee => assignee.login));
-
+				await this._item.addAssignees(newAssignees.map(assignee => assignee.login));
+				await this._item.deleteAssignees(removeAssignees.map(assignee => assignee.login));
 				this._replyMessage(message, {
-					added: addedAssignees,
+					assignees: newAssignees,
 				});
 			}
 		} catch (e) {
@@ -646,37 +669,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			this._item.assignees = this._item.assignees?.concat(currentUser);
 
-			await this._item.updateAssignees([currentUser.login]);
+			await this._item.addAssignees([currentUser.login]);
 
 			this._replyMessage(message, {
-				added: [currentUser],
+				assignees: this._item.assignees,
 			});
-		} catch (e) {
-			vscode.window.showErrorMessage(formatError(e));
-		}
-	}
-
-	private async removeReviewer(message: IRequestMessage<string>): Promise<void> {
-		try {
-			await this._item.deleteReviewRequest(message.args);
-
-			const index = this._existingReviewers.findIndex(reviewer => reviewer.reviewer.login === message.args);
-			this._existingReviewers.splice(index, 1);
-
-			this._replyMessage(message, {});
-		} catch (e) {
-			vscode.window.showErrorMessage(formatError(e));
-		}
-	}
-
-	private async removeAssignee(message: IRequestMessage<string>): Promise<void> {
-		try {
-			await this._item.deleteAssignees(message.args);
-
-			const index = this._item.assignees?.findIndex(assignee => assignee.login === message.args) ?? -1;
-			this._item.assignees?.splice(index, 1);
-
-			this._replyMessage(message, {});
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}
