@@ -27,7 +27,7 @@ textarea {
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
-	padding: 16px 0 0 0;
+	padding: 16px 0;
 }
 
 .comment-form {
