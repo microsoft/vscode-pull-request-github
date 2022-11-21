@@ -67,10 +67,10 @@ export class PRContext {
 		});
 	};
 
-	public addReviewers = () => this.postMessage({ command: 'pr.add-reviewers' });
+	public addReviewers = () => this.postMessage({ command: 'pr.change-reviewers' });
 	public addMilestone = () => this.postMessage({ command: 'pr.add-milestone' });
 	public removeMilestone = () => this.postMessage({ command: 'pr.remove-milestone' });
-	public addAssignees = () => this.postMessage({ command: 'pr.add-assignees' });
+	public addAssignees = () => this.postMessage({ command: 'pr.change-assignees' });
 	public addAssigneeYourself = () => this.postMessage({ command: 'pr.add-assignee-yourself' });
 	public addLabels = () => this.postMessage({ command: 'pr.add-labels' });
 	public create = () => this.postMessage({ command: 'pr.open-create' });
@@ -130,18 +130,6 @@ export class PRContext {
 		} catch (_) {
 			// Ignore
 		}
-	};
-
-	public removeReviewer = async (login: string) => {
-		await this.postMessage({ command: 'pr.remove-reviewer', args: login });
-		const reviewers = this.pr.reviewers.filter(r => r.reviewer.login !== login);
-		this.updatePR({ reviewers });
-	};
-
-	public removeAssignee = async (login: string) => {
-		await this.postMessage({ command: 'pr.remove-assignee', args: login });
-		const assignees = this.pr.assignees.filter(a => a.login !== login);
-		this.updatePR({ assignees });
 	};
 
 	public removeLabel = async (label: string) => {

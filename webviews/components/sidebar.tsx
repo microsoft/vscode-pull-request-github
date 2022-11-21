@@ -21,7 +21,6 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 		addLabels,
 		addMilestone,
 		updatePR,
-		removeAssignee,
 		pr,
 	} = useContext(PullRequestContext);
 
@@ -37,7 +36,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 								title="Add Reviewers"
 								onClick={async () => {
 									const newReviewers = await addReviewers();
-									updatePR({ reviewers: pr.reviewers.concat(newReviewers.added) });
+									updatePR({ reviewers: newReviewers.reviewers });
 								}}
 							>
 								{settingsIcon}
@@ -64,7 +63,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 							title="Add Assignees"
 							onClick={async () => {
 								const newAssignees = await addAssignees();
-								updatePR({ assignees: pr.assignees.concat(newAssignees.added) });
+								updatePR({ assignees: newAssignees.assignees });
 							}}
 						>
 							{settingsIcon}
@@ -79,16 +78,6 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 									<Avatar for={x} />
 									<AuthorLink for={x} />
 								</div>
-								{hasWritePermission ? (
-									<button
-										className="icon-button"
-										onClick={async () => {
-											await removeAssignee(x.login);
-										}}
-									>
-										{deleteIcon}️
-									</button>
-								) : null}
 							</div>
 						);
 					})
@@ -101,8 +90,8 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 								<a
 									className="assign-yourself"
 									onClick={async () => {
-										const currentUser = await addAssigneeYourself();
-										updatePR({ assignees: pr.assignees.concat(currentUser.added) });
+										const newAssignees = await addAssigneeYourself();
+										updatePR({ assignees: newAssignees.assignees });
 									}}
 								>
 									assign yourself

@@ -416,7 +416,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	async updateAssignees(assignees: string[]): Promise<void> {
+	async addAssignees(assignees: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		await octokit.call(octokit.api.issues.addAssignees, {
 			owner: remote.owner,
@@ -773,23 +773,23 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Remove a review request that has not yet been completed
 	 * @param reviewer A GitHub Login
 	 */
-	async deleteReviewRequest(reviewer: string): Promise<void> {
+	async deleteReviewRequest(reviewers: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		await octokit.call(octokit.api.pulls.removeRequestedReviewers, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
-			reviewers: [reviewer],
+			reviewers,
 		});
 	}
 
-	async deleteAssignees(assignee: string): Promise<void> {
+	async deleteAssignees(assignees: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		await octokit.call(octokit.api.issues.removeAssignees, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
-			assignees: [assignee],
+			assignees,
 		});
 	}
 
