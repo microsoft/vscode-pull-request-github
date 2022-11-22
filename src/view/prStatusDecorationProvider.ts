@@ -60,7 +60,7 @@ export class PRStatusDecorationProvider implements vscode.FileDecorationProvider
 		} else if (status & UnsatisfiedChecks.ChangesRequested) {
 			return {
 				propagate: false,
-				badge: new vscode.ThemeIcon('git-pull-request-new-changes', new vscode.ThemeColor('list.errorForeground')),
+				badge: new vscode.ThemeIcon('request-changes', new vscode.ThemeColor('list.errorForeground')),
 				tooltip: 'Changes requested'
 			};
 		} else if (status & UnsatisfiedChecks.ReviewRequired) {
