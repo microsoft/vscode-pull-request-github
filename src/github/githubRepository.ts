@@ -1026,15 +1026,16 @@ export class GitHubRepository implements vscode.Disposable {
 	/**
 	 * Get the status checks of the pull request, those for the last commit.
 	 *
-	 * This method should go in PullRequestModel, but because of the status checks bug we want to track `_useFallbackChecks` at a repo leve.
+	 * This method should go in PullRequestModel, but because of the status checks bug we want to track `_useFallbackChecks` at a repo level.
 	 */
 	private _useFallbackChecks: boolean = false;
 	async getStatusChecks(number: number): Promise<PullRequestChecks> {
 		const { query, remote, schema } = await this.ensure();
+		const captureUseFallbackChecks = this._useFallbackChecks;
 		let result;
 		try {
 			result = await query<GetChecksResponse>({
-				query: this._useFallbackChecks ? schema.GetChecksWithoutSuite : schema.GetChecks,
+				query: captureUseFallbackChecks ? schema.GetChecksWithoutSuite : schema.GetChecks,
 				variables: {
 					owner: remote.owner,
 					name: remote.repositoryName,
@@ -1044,8 +1045,8 @@ export class GitHubRepository implements vscode.Disposable {
 		} catch (e) {
 			if (e.message?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
 				// There seems to be an issue with fetching status checks if you haven't SAML'd with every org you have
-				// The issue is specifically with the CheckSuite property. Make the query again, but without that property
-				if (!this._useFallbackChecks) {
+				// The issue is specifically with the CheckSuite property. Make the query again, but without that property.
+				if (!captureUseFallbackChecks) {
 					this._useFallbackChecks = true;
 					return this.getStatusChecks(number);
 				}
