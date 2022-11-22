@@ -214,7 +214,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 						response = await this._prsTreeModel.getPullRequestsForQuery(this._folderRepoManager, this.fetchNextPage, this._categoryQuery!);
 						break;
 				}
-				if (this.fetchNextPage) {
+				if (!this.fetchNextPage) {
 					this.prs = response.items;
 				} else {
 					this.prs = this.prs.concat(response.items);
