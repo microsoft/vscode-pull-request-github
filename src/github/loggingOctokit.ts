@@ -57,7 +57,13 @@ export class RateLogger {
 	}
 
 	public async logGraphqlRateLimit(result: Promise<{ data: { rateLimit: RateLimit | undefined } | undefined } | undefined>) {
-		const rateLimitInfo = (await result)?.data?.rateLimit;
+		let rateLimitInfo;
+		try {
+			rateLimitInfo = (await result)?.data?.rateLimit;
+		} catch (e) {
+			// Ignore errors here since we're just trying to log the rate limit.
+			return;
+		}
 		if ((rateLimitInfo?.limit ?? 5000) < 5000) {
 			Logger.appendLine(`Unexpectedly low rate limit: ${rateLimitInfo?.limit}`, RateLogger.ID);
 		}
@@ -70,7 +76,13 @@ export class RateLogger {
 	}
 
 	public async logRestRateLimit(restResponse: Promise<RestResponse>) {
-		const result = await restResponse;
+		let result;
+		try {
+			result = await restResponse;
+		} catch (e) {
+			// Ignore errors here since we're just trying to log the rate limit.
+			return;
+		}
 		const rateLimit: RateLimit = {
 			cost: -1,
 			limit: Number(result.headers['x-ratelimit-limit']),
