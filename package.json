@@ -17,7 +17,8 @@
 		"treeItemCheckbox",
 		"contribCommentPeekContext",
 		"contribCommentThreadAdditionalMenu",
-		"codiconDecoration"
+		"codiconDecoration",
+		"diffCommand"
 	],
 	"version": "0.54.0",
 	"publisher": "GitHub",
@@ -849,6 +850,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.goToNextDiffInPr",
+				"title": "%command.pr.goToNextDiffInPr.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "%command.issue.createIssueFromSelection.title%",
 				"category": "%command.issues.category%"
@@ -1260,6 +1266,14 @@
 				{
 					"command": "pr.copyVscodeDevPrLink",
 					"when": "github:inReviewMode"
+				},
+				{
+					"command": "pr.goToNextDiffInPr",
+					"when": "activeEditor == workbench.editors.textDiffEditor && resourcePath in github:unviewedFiles"
+				},
+				{
+					"command": "pr.goToNextDiffInPr",
+					"when": "activeEditor == workbench.editors.textDiffEditor && resourcePath in github:viewedFiles"
 				},
 				{
 					"command": "issue.openIssue",

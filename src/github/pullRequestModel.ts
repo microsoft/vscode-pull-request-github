@@ -133,6 +133,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return this._isActive;
 	}
 	public set isActive(isActive: boolean) {
+		if (this._isActive === isActive) {
+			return;
+		}
+
 		this._isActive = isActive;
 		if (!this._isActive) {
 			this.clearFileViewedContext();

@@ -12,7 +12,7 @@ import { CommentReply, resolveCommentHandler } from './commentHandlerResolver';
 import { IComment } from './common/comment';
 import Logger from './common/logger';
 import { ITelemetry } from './common/telemetry';
-import { asImageDataURI, fromReviewUri } from './common/uri';
+import { asImageDataURI, fromReviewUri, Schemes } from './common/uri';
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
@@ -1101,5 +1101,55 @@ export function registerCommands(
 			if (githubRepo) {
 				vscode.env.openExternal(getIssuesUrl(githubRepo));
 			}
+		}));
+
+	context.subscriptions.push(
+		vscode.commands.registerDiffInformationCommand('pr.goToNextDiffInPr', async (diffs: vscode.LineChange[]) => {
+			const editor = vscode.window.activeTextEditor!;
+			// Find the next diff in the current file to scroll to
+			const visibleRange = editor.visibleRanges[0];
+			for (const diff of diffs) {
+				const diffRange = new vscode.Range(diff.modifiedStartLineNumber, 0, ((diff.modifiedEndLineNumber > diff.modifiedStartLineNumber) ? diff.modifiedEndLineNumber : diff.modifiedStartLineNumber as number + 1), 0);
+				if ((visibleRange.end.line < diff.modifiedEndLineNumber) && visibleRange.end.line !== (editor.document.lineCount - 1)) {
+					editor.revealRange(diffRange);
+					return;
+				}
+			}
+			// There is no new range to reveal, time to go to the next file.
+			const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+			const input = tab?.input;
+			if (!(input instanceof vscode.TabInputTextDiff)) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('Current editor isn\'t a diff editor.'));
+			}
+
+			const editorUri = editor.document.uri;
+			if (input.original.scheme !== Schemes.Review) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('Current file isn\'t a pull request diff.'));
+			}
+
+			const folderManager = reposManager.getManagerForFile(editorUri);
+			if (!folderManager) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find a repository for pull request.'));
+			}
+
+			const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
+			if (!reviewManager) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('Cannot find active pull request.'));
+			}
+
+			if (!reviewManager.reviewModel.hasLocalFileChanges) {
+				return vscode.window.showWarningMessage(vscode.l10n.t('Pull request data is not yet complete, please try again in a moment.'));
+			}
+
+			for (let i = 0; i < reviewManager.reviewModel.localFileChanges.length; i++) {
+				const localFileChange = reviewManager.reviewModel.localFileChanges[i];
+				if (localFileChange.changeModel.filePath.toString() === editorUri.toString()) {
+					if (reviewManager.reviewModel.localFileChanges.length > i + 1) {
+						return reviewManager.reviewModel.localFileChanges[i + 1].openDiff(folderManager);
+					}
+				}
+			}
+			// No further files in PR.
+			return vscode.window.showInformationMessage(vscode.l10n.t('Last diff has been viewed'));
 		}));
 }
