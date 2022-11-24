@@ -149,7 +149,7 @@ export class TemporaryComment extends CommentBase {
 		originalComment?: GHPRComment,
 	) {
 		super(parent);
-		this.body = input;
+		this.body = new vscode.MarkdownString(input);
 		this.mode = vscode.CommentMode.Preview;
 		this.author = {
 			name: currentUser.login,
@@ -184,7 +184,7 @@ export class GHPRComment extends CommentBase {
 		super(parent);
 		this._rawComment = comment;
 		this.commentId = comment.id.toString();
-		this.body = comment.body;
+		this.body = new vscode.MarkdownString(comment.body);
 		this.author = {
 			name: comment.user!.login,
 			iconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined,
@@ -211,6 +211,6 @@ export class GHPRComment extends CommentBase {
 	}
 
 	protected getCancelEditBody() {
-		return this._rawComment.body;
+		return new vscode.MarkdownString(this._rawComment.body);
 	}
 }
