@@ -980,7 +980,7 @@ export function registerCommands(
 					}
 					const manager = reposManager.getManagerForFile(treeNode);
 					await manager?.activePullRequest?.markFileAsViewed(treeNode.path);
-					manager?.activePullRequest?.setFileViewedContext();
+					manager?.setFileViewedContext();
 				}
 			} catch (e) {
 				vscode.window.showErrorMessage(`Marked file as viewed failed: ${e}`);
@@ -1001,7 +1001,7 @@ export function registerCommands(
 				} else if (treeNode) {
 					const manager = reposManager.getManagerForFile(treeNode);
 					await manager?.activePullRequest?.unmarkFileAsViewed(treeNode.path);
-					manager?.activePullRequest?.setFileViewedContext();
+					manager?.setFileViewedContext();
 				}
 			} catch (e) {
 				vscode.window.showErrorMessage(`Marked file as not viewed failed: ${e}`);
@@ -1014,7 +1014,7 @@ export function registerCommands(
 			try {
 				return reposManager.folderManagers.map(async (manager) => {
 					await manager.activePullRequest?.unmarkAllFilesAsViewed();
-					manager.activePullRequest?.setFileViewedContext();
+					manager.setFileViewedContext();
 				});
 			} catch (e) {
 				vscode.window.showErrorMessage(`Marked file as not viewed failed: ${e}`);
@@ -1150,6 +1150,11 @@ export function registerCommands(
 				}
 			}
 			// No further files in PR.
-			return vscode.window.showInformationMessage(vscode.l10n.t('Last diff has been viewed'));
+			const goToFirst = vscode.l10n.t('Go to first diff');
+			return vscode.window.showInformationMessage(vscode.l10n.t('There are no more diffs in this pull request.'), goToFirst).then(result => {
+				if (result === goToFirst) {
+					return reviewManager.reviewModel.localFileChanges[0].openDiff(folderManager);
+				}
+			});
 		}));
 }

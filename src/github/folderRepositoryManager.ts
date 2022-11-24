@@ -9,6 +9,7 @@ import type { Branch, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl, GitErrorCodes, RefType } from '../api/api1';
 import { GitHubManager } from '../authentication/githubServer';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
+import { commands, contexts } from '../common/executeCommands';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
 import { GitHubRemote, parseRepositoryRemotes, Remote } from '../common/remote';
@@ -506,6 +507,25 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	get credentialStore(): CredentialStore {
 		return this._credentialStore;
+	}
+
+	/**
+	 * Using these contexts is fragile in a multi-root workspace where multiple PRs are checked out.
+	 * If you have two active PRs that have the same file path relative to their rootdir, then these context can get confused.
+	 */
+	public setFileViewedContext() {
+		const states = this.activePullRequest?.getViewedFileStates();
+		if (states) {
+			commands.setContext(contexts.VIEWED_FILES, Array.from(states.viewed));
+			commands.setContext(contexts.UNVIEWED_FILES, Array.from(states.unviewed));
+		} else {
+			this.clearFileViewedContext();
+		}
+	}
+
+	private clearFileViewedContext() {
+		commands.setContext(contexts.VIEWED_FILES, []);
+		commands.setContext(contexts.UNVIEWED_FILES, []);
 	}
 
 	public async loginAndUpdate() {
