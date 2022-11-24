@@ -1029,7 +1029,7 @@ export class GitHubRepository implements vscode.Disposable {
 	 * This method should go in PullRequestModel, but because of the status checks bug we want to track `_useFallbackChecks` at a repo level.
 	 */
 	private _useFallbackChecks: boolean = false;
-	async getStatusChecks(number: number): Promise<PullRequestChecks> {
+	async getStatusChecks(number: number): Promise<PullRequestChecks | undefined> {
 		const { query, remote, schema } = await this.ensure();
 		const captureUseFallbackChecks = this._useFallbackChecks;
 		let result;
@@ -1058,10 +1058,7 @@ export class GitHubRepository implements vscode.Disposable {
 		const statusCheckRollup = result.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup;
 
 		if (!statusCheckRollup) {
-			return {
-				state: CheckState.Pending,
-				statuses: [],
-			};
+			return undefined;
 		}
 
 		const checks: PullRequestChecks = {

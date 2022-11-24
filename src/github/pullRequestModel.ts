@@ -1075,14 +1075,20 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * Get the status checks of the pull request, those for the last commit.
 	 */
-	async getStatusChecks(): Promise<PullRequestChecks> {
-		const checks = await this.githubRepository.getStatusChecks(this.number);
+	async getStatusChecks(): Promise<PullRequestChecks | undefined> {
+		let checks = await this.githubRepository.getStatusChecks(this.number);
 
 		// Fun info: The checks don't include whether a review is required.
 		// Also, unless you're an admin on the repo, you can't just do octokit.repos.getBranchProtection
 		if (this.item.mergeable === PullRequestMergeability.NotMergeable) {
 			const reviewRequiredCheck = await this._getReviewRequiredCheck();
 			if (reviewRequiredCheck) {
+				if (!checks) {
+					checks = {
+						state: CheckState.Failure,
+						statuses: []
+					};
+				}
 				checks.statuses.unshift(reviewRequiredCheck);
 				checks.state = CheckState.Failure;
 			}
