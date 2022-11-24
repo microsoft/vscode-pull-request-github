@@ -9,7 +9,6 @@ import equals from 'fast-deep-equal';
 import * as vscode from 'vscode';
 import { DiffSide, IComment, IReviewThread, ViewedState } from '../common/comment';
 import { parseDiff } from '../common/diffHunk';
-import { commands, contexts } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
@@ -134,9 +133,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 	public set isActive(isActive: boolean) {
 		this._isActive = isActive;
-		if (!this._isActive) {
-			this.clearFileViewedContext();
-		}
 	}
 
 	_telemetry: ITelemetry;
@@ -1625,17 +1621,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	/**
-	 * Using these contexts is fragile in a multi-root workspace where multiple PRs are checked out.
-	 * If you have two active PRs that have the same file path relative to their rootdir, then these context can get confused.
-	 */
-	public setFileViewedContext() {
-		commands.setContext(contexts.VIEWED_FILES, Array.from(this._viewedFiles));
-		commands.setContext(contexts.UNVIEWED_FILES, Array.from(this._unviewedFiles));
-	}
-
-	private clearFileViewedContext() {
-		commands.setContext(contexts.VIEWED_FILES, []);
-		commands.setContext(contexts.UNVIEWED_FILES, []);
+	public getViewedFileStates() {
+		return {
+			viewed: this._viewedFiles,
+			unviewed: this._unviewedFiles
+		};
 	}
 }

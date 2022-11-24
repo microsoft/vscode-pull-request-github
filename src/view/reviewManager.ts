@@ -615,7 +615,7 @@ export class ReviewManager {
 			const contentChanges = await pr.getFileChangesInfo();
 			this._reviewModel.localFileChanges = await this.getLocalChangeNodes(pr, contentChanges);
 			await Promise.all([pr.initializeReviewComments(), pr.initializeReviewThreadCache(), pr.initializePullRequestFileViewState()]);
-			pr.setFileViewedContext();
+			this._folderRepoManager.setFileViewedContext();
 			const outdatedComments = pr.comments.filter(comment => !comment.position);
 
 			const commitsGroup = groupBy(outdatedComments, comment => comment.originalCommitId!);
