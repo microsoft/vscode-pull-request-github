@@ -731,7 +731,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			} catch (e) {
 				// file doesn't exist
 			}
-			if (repoSpecificCache) {
+			if (repoSpecificCache && repoSpecificCache.toString()) {
 				cache[repo.remote.repositoryName] = JSON.parse(repoSpecificCache.toString()) ?? [];
 				return true;
 			}
