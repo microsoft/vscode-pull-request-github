@@ -129,6 +129,10 @@ export class PullRequestGitHelper {
 			return;
 		} catch (e) {
 			Logger.appendLine(`Unshallowing failed: ${e}.`);
+			if (e.stderr && (e.stderr as string).includes('would clobber existing tag')) {
+				// ignore this error
+				return;
+			}
 			error = e;
 		}
 		try {
