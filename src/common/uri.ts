@@ -275,7 +275,8 @@ export enum Schemes {
 	PRNode = 'prnode',
 	FileChange = 'filechange',
 	GithubPr = 'githubpr',
-	VscodeVfs = 'vscode-vfs' // Remote Repository
+	VscodeVfs = 'vscode-vfs', // Remote Repository
+	Comment = 'comment' // Comments from the VS Code comment widget
 }
 
 export function resolvePath(from: vscode.Uri, to: string) {

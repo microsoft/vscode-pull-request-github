@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Schemes } from '../common/uri';
 import { User } from '../github/interface';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { ASSIGNEES, extractIssueOriginFromQuery, NEW_ISSUE_SCHEME } from './issueFile';
@@ -74,12 +75,16 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 				range = wordRange;
 			}
 		}
-		const uri =
-			document.uri.scheme === NEW_ISSUE_SCHEME
-				? extractIssueOriginFromQuery(document.uri) ?? document.uri
-				: document.languageId === 'scminput'
-					? getRootUriFromScmInputUri(document.uri)
-					: document.uri;
+
+		let uri: vscode.Uri | undefined = document.uri;
+		if (document.uri.scheme === NEW_ISSUE_SCHEME) {
+			uri = extractIssueOriginFromQuery(document.uri) ?? document.uri;
+		} else if (document.languageId === 'scminput') {
+			uri = getRootUriFromScmInputUri(document.uri);
+		} else if (document.uri.scheme === Schemes.Comment) {
+			uri = vscode.window.activeTextEditor?.document.uri;
+		}
+
 		if (!uri) {
 			return [];
 		}
