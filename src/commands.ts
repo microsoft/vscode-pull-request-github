@@ -25,6 +25,7 @@ import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, vscodeDevPrLink } from './github/utils';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
+import { ReviewCommentController } from './view/reviewCommentController';
 import { ReviewManager } from './view/reviewManager';
 import { CategoryTreeNode } from './view/treeNodes/categoryNode';
 import { CommitNode } from './view/treeNodes/commitNode';
@@ -1133,6 +1134,20 @@ export function registerCommands(
 			const githubRepo = await chooseRepoToOpen();
 			if (githubRepo) {
 				vscode.env.openExternal(getIssuesUrl(githubRepo));
+			}
+		}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.applySuggestion', async (comment: GHPRComment) => {
+			/* __GDPR__
+				"pr.applySuggestion" : {}
+			*/
+			telemetry.sendTelemetryEvent('pr.applySuggestion');
+
+			const handler = resolveCommentHandler(comment.parent);
+
+			if (handler instanceof ReviewCommentController) {
+				handler.applySuggestion(comment);
 			}
 		}));
 
