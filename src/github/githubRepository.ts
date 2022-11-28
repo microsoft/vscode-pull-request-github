@@ -396,7 +396,9 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug(`Fetch pull requests for branch - done`, GitHubRepository.ID);
 
 			if (data?.repository.pullRequests.nodes.length > 0) {
-				return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data.repository.pullRequests.nodes[0], this));
+				const prs = data.repository.pullRequests.nodes.map(node => parseGraphQLPullRequest(node, this));
+				const mostRecentOrOpenPr = prs.find(pr => pr.state.toLowerCase() === 'open') ?? prs[0];
+				return this.createOrUpdatePullRequestModel(mostRecentOrOpenPr);
 			}
 		} catch (e) {
 			Logger.appendLine(`Fetching pull requests for branch failed: ${e}`, GitHubRepository.ID);
