@@ -21,7 +21,8 @@ import { FOCUS_REVIEW_MODE } from '../constants';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
 import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
-import { PullRequestGitHelper } from '../github/pullRequestGitHelper';
+import { GithubItemStateEnum } from '../github/interface';
+import { PullRequestGitHelper, PullRequestMetadata } from '../github/pullRequestGitHelper';
 import { IResolvedPullRequestModel, PullRequestModel } from '../github/pullRequestModel';
 import { CreatePullRequestHelper } from './createPullRequestHelper';
 import { GitFileChangeModel } from './fileChangeModel';
@@ -256,6 +257,35 @@ export class ReviewManager {
 		return false;
 	}
 
+	private async checkGitHubForPrBranch(branchName: string): Promise<(PullRequestMetadata & { model: PullRequestModel }) | undefined> {
+		Logger.appendLine(`Review> no matching pull request metadata found for current branch ${branchName}`);
+		const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub(this.repository.state.HEAD?.upstream?.remote, this._repository.state.HEAD?.upstream?.name);
+		if (metadataFromGithub) {
+			await PullRequestGitHelper.associateBranchWithPullRequest(
+				this._repository,
+				metadataFromGithub.model,
+				branchName,
+			);
+			return metadataFromGithub;
+		}
+	}
+
+	private async resolvePullRequest(metadata: PullRequestMetadata): Promise<(PullRequestModel & IResolvedPullRequestModel) | undefined> {
+		this._prNumber = metadata.prNumber;
+
+		const { owner, repositoryName } = metadata;
+		Logger.appendLine('Review> Resolving pull request');
+		const pr = await this._folderRepoManager.resolvePullRequest(owner, repositoryName, metadata.prNumber);
+
+		if (!pr || !pr.isResolved()) {
+			await this.clear(true);
+			this._prNumber = undefined;
+			Logger.appendLine('Review> This PR is no longer valid');
+			return;
+		}
+		return pr;
+	}
+
 	private async validateState(silent: boolean, updateLayout: boolean) {
 		Logger.appendLine('Review> Validating state...');
 		const oldLastCommitSha = this._lastCommitSha;
@@ -278,16 +308,7 @@ export class ReviewManager {
 		let matchingPullRequestMetadata = await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
 
 		if (!matchingPullRequestMetadata) {
-			Logger.appendLine(`Review> no matching pull request metadata found for current branch ${branch.name}`);
-			const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub(this.repository.state.HEAD?.upstream?.remote, this._repository.state.HEAD?.upstream?.name);
-			if (metadataFromGithub) {
-				await PullRequestGitHelper.associateBranchWithPullRequest(
-					this._repository,
-					metadataFromGithub.model,
-					branch.name!,
-				);
-				matchingPullRequestMetadata = metadataFromGithub;
-			}
+			matchingPullRequestMetadata = await this.checkGitHubForPrBranch(branch.name!);
 		}
 
 		if (!matchingPullRequestMetadata) {
@@ -310,20 +331,20 @@ export class ReviewManager {
 			`Review> current branch ${this._repository.state.HEAD.name} is associated with pull request #${matchingPullRequestMetadata.prNumber}`,
 		);
 		const previousPrNumber = this._prNumber;
-		this._prNumber = matchingPullRequestMetadata.prNumber;
-
-		const { owner, repositoryName } = matchingPullRequestMetadata;
-		Logger.appendLine('Review> Resolving pull request');
-		const pr = await this._folderRepoManager.resolvePullRequest(
-			owner,
-			repositoryName,
-			matchingPullRequestMetadata.prNumber,
-		);
-		if (!pr || !pr.isResolved()) {
-			await this.clear(true);
-			this._prNumber = undefined;
-			Logger.appendLine('Review> This PR is no longer valid');
+		let pr = await this.resolvePullRequest(matchingPullRequestMetadata);
+		if (!pr) {
 			return;
+		}
+
+		// Check if the PR is open, if not, check if there's another PR from the same branch on GitHub
+		if (pr.state !== GithubItemStateEnum.Open) {
+			const metadataFromGithub = await this.checkGitHubForPrBranch(branch.name!);
+			if (metadataFromGithub && metadataFromGithub?.prNumber !== pr.number) {
+				const prFromGitHub = await this.resolvePullRequest(metadataFromGithub);
+				if (prFromGitHub) {
+					pr = prFromGitHub;
+				}
+			}
 		}
 
 		const hasPushedChanges = branch.commit !== oldLastCommitSha && branch.ahead === 0 && branch.behind === 0;
@@ -363,7 +384,9 @@ export class ReviewManager {
 		Logger.appendLine('Review> Fetching pull request data');
 		if (!silent) {
 			onceEvent(this._reviewModel.onDidChangeLocalFileChanges)(() => {
-				this._upgradePullRequestEditors(pr);
+				if (pr) {
+					this._upgradePullRequestEditors(pr);
+				}
 			});
 		}
 		// Don't await. Events will be fired as part of the initialization.
@@ -391,7 +414,7 @@ export class ReviewManager {
 			})
 		);
 
-		this.statusBarItem.text = '$(git-pull-request) ' + vscode.l10n.t('Pull Request #{0}', this._prNumber);
+		this.statusBarItem.text = '$(git-pull-request) ' + vscode.l10n.t('Pull Request #{0}', pr.number);
 		this.statusBarItem.command = {
 			command: 'pr.openDescription',
 			title: vscode.l10n.t('View Pull Request Description'),
