@@ -538,7 +538,8 @@ function getUpstreamOrigin(upstream: Remote) {
 			}
 		}
 		// upstream's origin by ssh
-		if (upstream.fetchUrl.startsWith('git@') && !upstream.fetchUrl.startsWith('git@github.com')) {
+		if ((upstream.fetchUrl.startsWith('git@') && !upstream.fetchUrl.startsWith('git@github.com'))
+			|| (upstream.fetchUrl.startsWith('ssh@') && !upstream.fetchUrl.startsWith('ssh@github.com'))) {
 			const host = upstream.fetchUrl.split('@')[1]?.split(':')[0];
 			if (host === enterpriseUri.authority) {
 				resultHost = host;
