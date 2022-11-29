@@ -1105,7 +1105,22 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerDiffInformationCommand('pr.goToNextDiffInPr', async (diffs: vscode.LineChange[]) => {
-			const editor = vscode.window.activeTextEditor!;
+			const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+			const input = tab?.input;
+			if (!(input instanceof vscode.TabInputTextDiff)) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('Current editor isn\'t a diff editor.'));
+			}
+
+			const editor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === input.modified.toString());
+			if (!editor) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('Unexpectedly unable to find the current modified editor.'));
+			}
+
+			const editorUri = editor.document.uri;
+			if (input.original.scheme !== Schemes.Review) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('Current file isn\'t a pull request diff.'));
+			}
+
 			// Find the next diff in the current file to scroll to
 			const visibleRange = editor.visibleRanges[0];
 			for (const diff of diffs) {
@@ -1116,18 +1131,8 @@ export function registerCommands(
 					return;
 				}
 			}
+
 			// There is no new range to reveal, time to go to the next file.
-			const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
-			const input = tab?.input;
-			if (!(input instanceof vscode.TabInputTextDiff)) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('Current editor isn\'t a diff editor.'));
-			}
-
-			const editorUri = editor.document.uri;
-			if (input.original.scheme !== Schemes.Review) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('Current file isn\'t a pull request diff.'));
-			}
-
 			const folderManager = reposManager.getManagerForFile(editorUri);
 			if (!folderManager) {
 				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find a repository for pull request.'));
