@@ -4,28 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 
-const enum LogLevel {
-	Info,
-	Debug,
-	Off,
-}
-
-const SETTINGS_NAMESPACE = 'githubPullRequests';
-const LOG_LEVEL_SETTING = 'logLevel';
 export const PR_TREE = 'PullRequestTree';
 
 class Log {
 	private _outputChannel: vscode.LogOutputChannel;
-	private _logLevel: LogLevel;
 	private _disposable: vscode.Disposable;
 	private _activePerfMarkers: Map<string, number> = new Map();
 
 	constructor() {
 		this._outputChannel = vscode.window.createOutputChannel('GitHub Pull Request', { log: true });
-		this._disposable = vscode.workspace.onDidChangeConfiguration(() => {
-			this.getLogLevel();
-		});
-		this.getLogLevel();
 	}
 
 	public startPerfMarker(marker: string) {
@@ -67,22 +54,6 @@ class Log {
 	public dispose() {
 		if (this._disposable) {
 			this._disposable.dispose();
-		}
-	}
-
-	private getLogLevel() {
-		const logLevel = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(LOG_LEVEL_SETTING);
-		switch (logLevel) {
-			case 'debug':
-				this._logLevel = LogLevel.Debug;
-				break;
-			case 'off':
-				this._logLevel = LogLevel.Off;
-				break;
-			case 'info':
-			default:
-				this._logLevel = LogLevel.Info;
-				break;
 		}
 	}
 }
