@@ -1109,8 +1109,9 @@ export function registerCommands(
 			// Find the next diff in the current file to scroll to
 			const visibleRange = editor.visibleRanges[0];
 			for (const diff of diffs) {
-				const diffRange = new vscode.Range(diff.modifiedStartLineNumber, 0, ((diff.modifiedEndLineNumber > diff.modifiedStartLineNumber) ? diff.modifiedEndLineNumber : diff.modifiedStartLineNumber as number + 1), 0);
-				if ((visibleRange.end.line < diff.modifiedEndLineNumber) && visibleRange.end.line !== (editor.document.lineCount - 1)) {
+				const practicalModifiedEndLineNumber = (diff.modifiedEndLineNumber > diff.modifiedStartLineNumber) ? diff.modifiedEndLineNumber : diff.modifiedStartLineNumber as number + 1;
+				const diffRange = new vscode.Range(diff.modifiedStartLineNumber, 0, practicalModifiedEndLineNumber, 0);
+				if ((visibleRange.end.line < practicalModifiedEndLineNumber) && visibleRange.end.line !== (editor.document.lineCount - 1)) {
 					editor.revealRange(diffRange);
 					return;
 				}
@@ -1137,7 +1138,7 @@ export function registerCommands(
 				return vscode.window.showErrorMessage(vscode.l10n.t('Cannot find active pull request.'));
 			}
 
-			if (!reviewManager.reviewModel.hasLocalFileChanges) {
+			if (!reviewManager.reviewModel.hasLocalFileChanges || (reviewManager.reviewModel.localFileChanges.length === 0)) {
 				return vscode.window.showWarningMessage(vscode.l10n.t('Pull request data is not yet complete, please try again in a moment.'));
 			}
 
