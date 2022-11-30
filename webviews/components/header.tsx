@@ -110,7 +110,7 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 						Copy Link
 					</button>
 					<button title="Copy vscode.dev link for viewing this pull request in VS Code for the Web" onClick={copyVscodeDevLink} className="secondary small-button">
-						vscode.dev Link
+						Copy vscode.dev Link
 					</button>
 				</>
 			)}
