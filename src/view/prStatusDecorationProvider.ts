@@ -66,7 +66,7 @@ export class PRStatusDecorationProvider implements vscode.FileDecorationProvider
 		} else if (status & UnsatisfiedChecks.ReviewRequired) {
 			return {
 				propagate: false,
-				badge: new vscode.ThemeIcon('circle'),
+				badge: new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('list.warningForeground')),
 				tooltip: 'Review required'
 			};
 		} else if (status & UnsatisfiedChecks.CIPending) {
