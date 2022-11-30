@@ -98,7 +98,7 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 	return (
 		<div className="button-group">
 			<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
-			<button title="Refresh" onClick={refresh} className="secondary small-button">
+			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary small-button">
 				Refresh
 			</button>
 			{canEdit && (
@@ -106,10 +106,10 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 					<button title="Rename" onClick={setEditMode} className="secondary small-button">
 						Rename
 					</button>
-					<button title="Copy Link" onClick={copyPrLink} className="secondary small-button">
+					<button title="Copy GitHub pull request link" onClick={copyPrLink} className="secondary small-button">
 						Copy Link
 					</button>
-					<button title="vscode.dev Link" onClick={copyVscodeDevLink} className="secondary small-button">
+					<button title="Copy vscode.dev link for viewing this pull request in VS Code for the Web" onClick={copyVscodeDevLink} className="secondary small-button">
 						vscode.dev Link
 					</button>
 				</>
