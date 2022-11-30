@@ -225,6 +225,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		const rawChanges: (SlimFileChange | InMemFileChange)[] = [];
 		const isCurrentPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
 		if (isCurrentPR && this._folderReposManager.activePullRequest !== undefined) {
+			this.pullRequestModel = this._folderReposManager.activePullRequest;
 			rawChanges.push(...this._folderReposManager.activePullRequest.fileChanges.values());
 		}
 		else {
