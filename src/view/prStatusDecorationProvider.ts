@@ -63,17 +63,17 @@ export class PRStatusDecorationProvider implements vscode.FileDecorationProvider
 				badge: new vscode.ThemeIcon('request-changes', new vscode.ThemeColor('list.errorForeground')),
 				tooltip: 'Changes requested'
 			};
-		} else if (status & UnsatisfiedChecks.ReviewRequired) {
-			return {
-				propagate: false,
-				badge: new vscode.ThemeIcon('circle'),
-				tooltip: 'Review required'
-			};
 		} else if (status & UnsatisfiedChecks.CIPending) {
 			return {
 				propagate: false,
 				badge: new vscode.ThemeIcon('sync', new vscode.ThemeColor('list.warningForeground')),
 				tooltip: 'Checks pending'
+			};
+		} else if (status & UnsatisfiedChecks.ReviewRequired) {
+			return {
+				propagate: false,
+				badge: new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('list.warningForeground')),
+				tooltip: 'Review required'
 			};
 		} else if (status === UnsatisfiedChecks.None) {
 			return {
