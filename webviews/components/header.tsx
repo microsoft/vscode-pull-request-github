@@ -98,7 +98,7 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 	return (
 		<div className="button-group">
 			<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
-			<button onClick={refresh} className="secondary small-button">
+			<button title="Refresh" onClick={refresh} className="secondary small-button">
 				Refresh
 			</button>
 			{canEdit && (
