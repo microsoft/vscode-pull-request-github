@@ -1895,6 +1895,46 @@
 				"description": "The color used for indicating that an issue is closed."
 			},
 			{
+				"id": "pullRequests.merged",
+				"defaults": {
+					"dark": "#8957e5",
+					"light": "#8957e5",
+					"highContrast": "editor.background",
+					"highContrastLight": "editor.background"
+				},
+				"description": "The color used for indicating that a pull request is merged."
+			},
+			{
+				"id": "pullRequests.draft",
+				"defaults": {
+					"dark": "#6e7681",
+					"light": "#6e7681",
+					"highContrast": "editor.background",
+					"highContrastLight": "editor.background"
+				},
+				"description": "The color used for indicating that a pull request is a draft."
+			},
+			{
+				"id": "pullRequests.open",
+				"defaults": {
+					"dark": "#238636",
+					"light": "#238636",
+					"highContrast": "editor.background",
+					"highContrastLight": "editor.background"
+				},
+				"description": "The color used for indicating that a pull request is open."
+			},
+			{
+				"id": "pullRequests.closed",
+				"defaults": {
+					"dark": "#da3633",
+					"light": "#da3633",
+					"highContrast": "editor.background",
+					"highContrastLight": "editor.background"
+				},
+				"description": "The color used for indicating that a pull request is closed."
+			},
+			{
 				"id": "pullRequests.notification",
 				"defaults": {
 					"dark": "notificationsInfoIcon.foreground",

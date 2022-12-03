@@ -468,13 +468,29 @@ body button .icon {
 #status {
 	box-sizing: border-box;
 	line-height: 18px;
-	color: #ffffff;
+	color: var(--vscode-foreground);
 	border-radius: 18px;
 	padding: 4px 8px;
 	margin-right: 10px;
 	font-weight: 600;
 	display: flex;
 	gap: 4px;
+}
+
+.status-badge-merged {
+	background-color: var(--vscode-pullRequests-merged);
+}
+
+.status-badge-open {
+	background-color: var(--vscode-pullRequests-open);
+}
+
+.status-badge-closed {
+	background-color: var(--vscode-pullRequests-closed);
+}
+
+.status-badge-draft {
+	background-color: var(--vscode-pullRequests-draft);
 }
 
 .section {

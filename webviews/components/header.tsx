@@ -123,7 +123,7 @@ function Subtitle({ state, isDraft, isIssue, author, base, head }) {
 
 	return (
 		<div className="subtitle">
-			<div id="status" style={{ backgroundColor: color }}>
+			<div id="status" className={`status-badge-${color}`}>
 				<span className='icon'>{isIssue ? null : icon}</span>
 				<span>{text}</span>
 			</div>
@@ -199,11 +199,11 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBran
 
 export function getStatus(state: GithubItemStateEnum, isDraft: boolean) {
 	if (state === GithubItemStateEnum.Merged) {
-		return { text: 'Merged', color: '#8957e5', icon: mergeIcon };
+		return { text: 'Merged', color: 'merged', icon: mergeIcon };
 	} else if (state === GithubItemStateEnum.Open) {
-		return isDraft ? { text: 'Draft', color: '#6e7681', icon: prDraftIcon } : { text: 'Open', color: '#238636', icon: prOpenIcon };
+		return isDraft ? { text: 'Draft', color: 'draft', icon: prDraftIcon } : { text: 'Open', color: 'open', icon: prOpenIcon };
 	} else {
-		return { text: 'Closed', color: '#da3633', icon: prClosedIcon };
+		return { text: 'Closed', color: 'closed', icon: prClosedIcon };
 	}
 }
 
