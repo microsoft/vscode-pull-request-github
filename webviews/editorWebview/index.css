@@ -230,10 +230,6 @@ body .comment-container .review-comment-header {
 	margin: 0;
 }
 
-.form-actions > input[type='submit'] {
-	margin-left: auto;
-}
-
 .ready-for-review-container {
 	padding: 16px;
 	background-color: var(--vscode-editorWidget-background);
@@ -340,6 +336,10 @@ body .resolved-container .unresolvedLabel {
 
 body .diff .diffPath {
 	margin-right: 4px;
+}
+
+.comment-container form {
+	padding: 16px;
 }
 
 body .comment-container .comment-body,
@@ -727,6 +727,7 @@ textarea {
 .editing-form .form-actions {
 	display: flex;
 	gap: 8px;
+	justify-content: flex-end;
 }
 
 .comment-form .form-actions > button,
@@ -735,17 +736,9 @@ textarea {
 	margin-left: 0;
 }
 
-.comment-form .form-actions > .push-right {
-	margin-left: auto;
-}
-
-.comment-form .form-actions > #close {
-	margin-left: 0;
-	margin-right: auto;
-}
-
 .form-actions {
 	display: flex;
+	justify-content: flex-end;
 	padding-top: 10px;
 }
 
