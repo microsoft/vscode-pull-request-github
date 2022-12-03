@@ -402,12 +402,12 @@ export const AddCommentSimple = (pr: PullRequest) => {
 	const availableActions = pr.isAuthor
 		? { comment: 'Comment and Submit' }
 		: pr.continueOnGitHub
-		? {
+			? {
 				comment: 'Comment and Submit',
 				approve: 'Approve on github.com',
 				requestChanges: 'Request changes on github.com',
-		  }
-		: COMMENT_METHODS;
+			}
+			: COMMENT_METHODS;
 
 	return (
 		<span className="comment-form">
