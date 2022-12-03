@@ -28,3 +28,4 @@ export const diffIcon = <Icon src={require('../../resources/icons/diff.svg')} />
 export const repoIcon = <Icon src={require('../../resources/icons/repo.svg')} />;
 export const gitCompareIcon = <Icon src={require('../../resources/icons/git_compare.svg')} />;
 export const settingsIcon = <Icon src={require('../../resources/icons/settings.svg')} />;
+export const closeIcon = <Icon src={require('../../resources/icons/close.svg')} />;
