@@ -468,11 +468,13 @@ body button .icon {
 #status {
 	box-sizing: border-box;
 	line-height: 18px;
-	background: var(--vscode-badge-background);
-	color: var(--vscode-badge-foreground);
+	color: #ffffff;
 	border-radius: 18px;
 	padding: 4px 8px;
 	margin-right: 10px;
+	font-weight: 600;
+	display: flex;
+	gap: 4px;
 }
 
 .section {
