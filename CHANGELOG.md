@@ -7,12 +7,17 @@
 - Most recent PR is selected when a branch has multiple PRs.
 - Notebooks support for the permalink commands.
 - Review status is shown in the PRs view.
-![Pull Requests view with status]()
+
+![Pull Requests view with status](documentation/changelog/0.56.0/pr-status-in-list.png)
+
 - PR links to vscode.dev can be copied from the Pull Request description page.
-![Copy vscode.dev link button]()
+
+![Copy vscode.dev link button](documentation/changelog/0.56.0/copy-vscode-dev-link.png)
+
 - The new "Go To Next Diff in Pull Request" command will navigate to the next diff in the pull request across files.
 - The "Resolve" and "Unresolve" buttons are now always visible on comments, instead of only showing when the reply is expanded.
-![Always visible resolve button]()
+
+![Always visible resolve button](documentation/changelog/0.56.0/visible-resolve-button.png)
 
 ### Fixes
 
