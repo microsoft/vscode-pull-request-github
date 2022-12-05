@@ -470,7 +470,7 @@ body button .icon {
 	line-height: 18px;
 	color: var(--vscode-foreground);
 	border-radius: 18px;
-	padding: 4px 8px;
+	padding: 4px 12px;
 	margin-right: 10px;
 	font-weight: 600;
 	display: flex;
@@ -481,9 +481,11 @@ body button .icon {
 	border: 1px solid var(--vscode-contrastBorder);
 }
 
-.vscode-light #status,
-.vscode-light #status path {
+.vscode-light #status {
 	color: var(--vscode-button-foreground);
+}
+
+.vscode-light #status path {
 	fill: var(--vscode-button-foreground);
 }
 
