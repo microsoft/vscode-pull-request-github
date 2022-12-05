@@ -19,6 +19,10 @@
 
 ![Always visible resolve button](documentation/changelog/0.56.0/visible-resolve-button.png)
 
+**_Thank You_**
+
+* [@joshuaobrien (Joshua O'Brien)](https://github.com/joshuaobrien): Narrow types in TimelineEvent so that it may be treated as a tagged union [PR #4160](https://github.com/microsoft/vscode-pull-request-github/pull/4160)
+
 ### Fixes
 
 - Still getting auto-fetching behavior when setting is off. https://github.com/microsoft/vscode-pull-request-github/issues/4202
