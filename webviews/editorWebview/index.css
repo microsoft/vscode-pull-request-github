@@ -477,6 +477,16 @@ body button .icon {
 	gap: 4px;
 }
 
+.vscode-high-contrast #status {
+	border: 1px solid var(--vscode-contrastBorder);
+}
+
+.vscode-light #status,
+.vscode-light #status path {
+	color: var(--vscode-button-foreground);
+	fill: var(--vscode-button-foreground);
+}
+
 .status-badge-merged {
 	background-color: var(--vscode-pullRequests-merged);
 }
