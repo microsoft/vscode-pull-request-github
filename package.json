@@ -20,7 +20,7 @@
 		"codiconDecoration",
 		"diffCommand"
 	],
-	"version": "0.54.0",
+	"version": "0.56.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.74.0"
