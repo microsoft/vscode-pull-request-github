@@ -1235,7 +1235,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		let compareWithBaseRef = this.base.sha;
 		const latestReview = await this.getViewerLatestReviewCommit();
 		const oldHasChangesSinceReview = this.hasChangesSinceLastReview;
-		this.hasChangesSinceLastReview = latestReview !== undefined && compareWithBaseRef !== latestReview.sha;
+		this.hasChangesSinceLastReview = latestReview !== undefined && this.head?.sha !== latestReview.sha;
 
 		if (this._showChangesSinceReview && this.hasChangesSinceLastReview && latestReview != undefined) {
 			compareWithBaseRef = latestReview.sha;
@@ -1283,7 +1283,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			files = data.files as IRawFileChange[];
 		}
 
-		if (oldHasChangesSinceReview !== undefined && oldHasChangesSinceReview !== this.hasChangesSinceLastReview) {
+		if (oldHasChangesSinceReview !== undefined && oldHasChangesSinceReview !== this.hasChangesSinceLastReview && this.hasChangesSinceLastReview && this._showChangesSinceReview) {
 			this._onDidChangeChangesSinceReview.fire();
 		}
 
