@@ -1355,7 +1355,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				// There are unpushed commits
 				if (this._repository.state.HEAD?.ahead) {
 					// Offer to push changes
-					const pushCommits = vscode.l10n.t('Push Commits');
+					const pushCommits = vscode.l10n.t({ message: 'Push Commits', comment: 'Pushes the local commits to the remote.' });
 					const shouldPush = await vscode.window.showInformationMessage(
 						vscode.l10n.t('There are no commits between \'{0}\' and \'{1}\'.\n\nDo you want to push your local commits and create the pull request?', params.base, params.head),
 						{ modal: true },
