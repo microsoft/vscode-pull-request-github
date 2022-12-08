@@ -279,20 +279,42 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openModifiedFile', (e: GitFileChangeNode) => {
-			vscode.commands.executeCommand('vscode.open', e.changeModel.filePath);
+		vscode.commands.registerCommand('pr.openModifiedFile', (e: GitFileChangeNode | undefined) => {
+			let uri: vscode.Uri | undefined;
+			if (e) {
+				uri = e.changeModel.filePath;
+			} else {
+				uri = vscode.window.activeTextEditor?.document.uri;
+			}
+			if (uri) {
+				vscode.commands.executeCommand('vscode.open', uri);
+			}
 		}),
 	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openDiffView',
-			(fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
-				const folderManager = reposManager.getManagerForIssueModel(fileChangeNode.pullRequest);
-				if (!folderManager) {
-					return;
+			(fileChangeNode: GitFileChangeNode | InMemFileChangeNode | undefined) => {
+				if (fileChangeNode) {
+					const folderManager = reposManager.getManagerForIssueModel(fileChangeNode.pullRequest);
+					if (!folderManager) {
+						return;
+					}
+					fileChangeNode.openDiff(folderManager);
+				} else if (vscode.window.activeTextEditor) {
+					const activeTextEditor = vscode.window.activeTextEditor;
+					const folderManager = reposManager.getManagerForFile(activeTextEditor.document.uri);
+					if (!folderManager?.activePullRequest) {
+						return;
+					}
+					const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
+					if (!reviewManager) {
+						return;
+					}
+					const change = reviewManager.reviewModel.localFileChanges.find(change => change.resourceUri.with({ query: '' }).toString() === activeTextEditor.document.uri.toString());
+					change?.openDiff(folderManager);
 				}
-				fileChangeNode.openDiff(folderManager);
 			},
 		),
 	);
