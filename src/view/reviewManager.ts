@@ -350,6 +350,7 @@ export class ReviewManager {
 		const hasPushedChanges = branch.commit !== oldLastCommitSha && branch.ahead === 0 && branch.behind === 0;
 		if (previousPrNumber === pr.number && !hasPushedChanges && (this._isShowingLastReviewChanges === pr.showChangesSinceReview)) {
 			vscode.commands.executeCommand('pr.refreshList');
+			this._validateStatusInProgress = undefined;
 			return;
 		}
 		this._isShowingLastReviewChanges = pr.showChangesSinceReview;
@@ -1036,7 +1037,7 @@ export class ReviewManager {
 		// comments are recalculated when getting the data and the change decoration fired then,
 		// so comments only needs to be emptied in this case.
 		activePullRequest?.clear();
-
+		this._validateStatusInProgress = undefined;
 	}
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string | undefined> {
