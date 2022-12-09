@@ -84,6 +84,11 @@
 					"default": "template",
 					"description": "%githubPullRequests.pullRequestDescription.description%"
 				},
+				"githubPullRequests.createDraft": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubPullRequests.createDraft%"
+				},
 				"githubPullRequests.logLevel": {
 					"type": "string",
 					"enum": [
