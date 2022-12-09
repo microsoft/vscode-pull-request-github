@@ -10,7 +10,7 @@ import { GitHubServerType } from '../common/authentication';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { GitHubRemote } from '../common/remote';
-import { ASSIGN_TO, PULL_REQUEST_DESCRIPTION, PUSH_BRANCH } from '../common/settingKeys';
+import { ASSIGN_TO, CREATE_DRAFT, PULL_REQUEST_DESCRIPTION, PUSH_BRANCH } from '../common/settingKeys';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import {
 	byRemoteName,
@@ -309,7 +309,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			defaultMergeMethod: getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability),
 			allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
 			mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
-			createError: ''
+			createError: '',
+			isDraft: vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get(CREATE_DRAFT, false)
 		};
 
 		Logger.appendLine(`Initializing "create" view: ${JSON.stringify(params)}`, 'CreatePullRequestViewProvider');
