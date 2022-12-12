@@ -213,7 +213,7 @@
 		]
 	},
 	"welcome.pr.github.uninitialized.contents": "Loading...",
-	"welcome.pr.github.noFolder.contents": "You have not yet opened a folder.",
+	"welcome.pr.github.noFolder.contents": "You have not yet opened a folder.\n[Open Folder](command:workbench.action.files.openFolder)",
 	"welcome.pr.github.noRepo.contents": "No git repositories found",
 	"welcome.issues.github.uninitialized.contents": "Loading...",
 	"welcome.issues.github.noFolder.contents": "You have not yet opened a folder.",
