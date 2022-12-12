@@ -843,12 +843,7 @@ export class ReviewCommentController
 
 	// #endregion
 	public dispose() {
-		if (this._commentController) {
-			this._commentController.dispose();
-		}
-
 		unregisterCommentHandler(this._commentHandlerId);
-
 		this._localToDispose.forEach(d => d.dispose());
 	}
 }

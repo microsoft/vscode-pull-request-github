@@ -44,7 +44,7 @@ export class ReviewManager {
 	private _lastCommitSha?: string;
 	private _updateMessageShown: boolean = false;
 	private _validateStatusInProgress?: Promise<void>;
-	private _reviewCommentController: ReviewCommentController;
+	private _reviewCommentController: ReviewCommentController | undefined;
 
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber?: number;
@@ -588,7 +588,7 @@ export class ReviewManager {
 		await this._folderRepoManager.checkBranchUpToDate(pr, false);
 
 		await this.initializePullRequestData(pr);
-		await this._reviewCommentController.update();
+		await this._reviewCommentController?.update();
 
 		return Promise.resolve(void 0);
 	}
@@ -1033,6 +1033,7 @@ export class ReviewManager {
 		this._updateMessageShown = false;
 		this._reviewModel.clear();
 		this._localToDispose.forEach(disposable => disposable.dispose());
+		this._reviewCommentController = undefined;
 		// Ensure file explorer decorations are removed. When switching to a different PR branch,
 		// comments are recalculated when getting the data and the change decoration fired then,
 		// so comments only needs to be emptied in this case.
