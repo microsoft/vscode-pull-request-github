@@ -145,6 +145,9 @@ export class GitHubRepository implements vscode.Disposable {
 
 	dispose() {
 		this._toDispose.forEach(d => d.dispose());
+		this._toDispose = [];
+		this.commentsController = undefined;
+		this.commentsHandler = undefined;
 	}
 
 	public get octokit(): LoggingOctokit {
