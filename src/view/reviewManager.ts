@@ -15,7 +15,7 @@ import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { FOCUSED_MODE, IGNORE_PR_BRANCHES, POST_CREATE, PR_SETTINGS_NAMESPACE, USE_REVIEW_MODE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { fromPRUri, fromReviewUri, PRUriParams, Schemes, toReviewUri } from '../common/uri';
+import { fromPRUri, fromReviewUri, KnownMediaExtensions, PRUriParams, Schemes, toReviewUri } from '../common/uri';
 import { formatError, groupBy, onceEvent } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
@@ -481,15 +481,19 @@ export class ReviewManager {
 
 	private openDiff() {
 		if (this._reviewModel.localFileChanges.length) {
-			let fileChangeToShow: GitFileChangeNode | undefined;
+			let fileChangeToShow: GitFileChangeNode[] = [];
 			for (const fileChange of this._reviewModel.localFileChanges) {
 				if (fileChange.status === GitChangeType.MODIFY) {
-					fileChangeToShow = fileChange;
-					break;
+					if (KnownMediaExtensions.includes(nodePath.extname(fileChange.fileName))) {
+						fileChangeToShow.push(fileChange);
+					} else {
+						fileChangeToShow.unshift(fileChange);
+						break;
+					}
 				}
 			}
-			fileChangeToShow = fileChangeToShow ?? this._reviewModel.localFileChanges[0];
-			fileChangeToShow.openDiff(this._folderRepoManager);
+			const change = fileChangeToShow.length ? fileChangeToShow[0] : this._reviewModel.localFileChanges[0];
+			change.openDiff(this._folderRepoManager);
 		}
 	}
 
