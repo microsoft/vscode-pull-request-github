@@ -407,6 +407,8 @@ function getFileAndPosition(fileUri?: vscode.Uri, positionInfo?: NewIssue): { ur
 	} else if (!positionInfo && vscode.window.activeNotebookEditor) {
 		uri = vscode.window.activeNotebookEditor.notebook.uri;
 		range = vscode.window.activeNotebookEditor.selection;
+	} else if (!positionInfo && vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputCustom) {
+		uri = vscode.window.tabGroups.activeTabGroup.activeTab.input.uri;
 	} else if (positionInfo) {
 		uri = positionInfo.document.uri;
 		range = positionInfo.range;
