@@ -44,7 +44,7 @@ export class ReviewManager {
 	private _lastCommitSha?: string;
 	private _updateMessageShown: boolean = false;
 	private _validateStatusInProgress?: Promise<void>;
-	private _reviewCommentController: ReviewCommentController;
+	private _reviewCommentController: ReviewCommentController | undefined;
 
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber?: number;
@@ -354,7 +354,6 @@ export class ReviewManager {
 			return;
 		}
 		this._isShowingLastReviewChanges = pr.showChangesSinceReview;
-		await this.clear(false);
 
 		const useReviewConfiguration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)
 			.get<{ merged: boolean, closed: boolean }>(USE_REVIEW_MODE, { merged: true, closed: false });
@@ -588,7 +587,7 @@ export class ReviewManager {
 		await this._folderRepoManager.checkBranchUpToDate(pr, false);
 
 		await this.initializePullRequestData(pr);
-		await this._reviewCommentController.update();
+		await this._reviewCommentController?.update();
 
 		return Promise.resolve(void 0);
 	}
@@ -715,16 +714,16 @@ export class ReviewManager {
 	}
 
 	private async doRegisterCommentController() {
-		this._reviewCommentController = new ReviewCommentController(
-			this,
-			this._folderRepoManager,
-			this._repository,
-			this._reviewModel,
-		);
+		if (!this._reviewCommentController) {
+			this._reviewCommentController = new ReviewCommentController(
+				this,
+				this._folderRepoManager,
+				this._repository,
+				this._reviewModel,
+			);
 
-		await this._reviewCommentController.initialize();
-
-		this._localToDispose.push(this._reviewCommentController);
+			await this._reviewCommentController.initialize();
+		}
 	}
 
 	public async switch(pr: PullRequestModel): Promise<void> {
@@ -1032,6 +1031,8 @@ export class ReviewManager {
 
 		this._updateMessageShown = false;
 		this._reviewModel.clear();
+		this._reviewCommentController?.dispose();
+		this._reviewCommentController = undefined;
 		this._localToDispose.forEach(disposable => disposable.dispose());
 		// Ensure file explorer decorations are removed. When switching to a different PR branch,
 		// comments are recalculated when getting the data and the change decoration fired then,

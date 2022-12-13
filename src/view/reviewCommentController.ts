@@ -14,7 +14,7 @@ import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPosition
 import { GitChangeType } from '../common/file';
 import Logger from '../common/logger';
 import { fromReviewUri, ReviewUriParams, Schemes, toReviewUri } from '../common/uri';
-import { formatError, groupBy, uniqBy } from '../common/utils';
+import { dispose, formatError, groupBy, uniqBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
@@ -156,6 +156,20 @@ export class ReviewCommentController
 	}
 
 	private async doInitializeCommentThreads(reviewThreads: IReviewThread[]): Promise<void> {
+		// First clean up all the old comments.
+		for (const key in this._workspaceFileChangeCommentThreads) {
+			dispose(this._workspaceFileChangeCommentThreads[key]);
+		}
+		this._workspaceFileChangeCommentThreads = {};
+		for (const key in this._reviewSchemeFileChangeCommentThreads) {
+			dispose(this._reviewSchemeFileChangeCommentThreads[key]);
+		}
+		this._reviewSchemeFileChangeCommentThreads = {};
+		for (const key in this._obsoleteFileChangeCommentThreads) {
+			dispose(this._obsoleteFileChangeCommentThreads[key]);
+		}
+		this._obsoleteFileChangeCommentThreads = {};
+
 		const threadsByPath = groupBy(reviewThreads, thread => thread.path);
 
 		Object.keys(threadsByPath).forEach(path => {
