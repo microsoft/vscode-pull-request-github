@@ -18,6 +18,7 @@ export function Header({
 	head,
 	base,
 	title,
+	titleHTML,
 	number,
 	url,
 	author,
@@ -33,6 +34,7 @@ export function Header({
 		<>
 			<Title
 				title={currentTitle}
+				titleHTML={titleHTML}
 				number={number}
 				url={url}
 				inEditMode={inEditMode}
@@ -51,7 +53,7 @@ export function Header({
 	);
 }
 
-function Title({ title, number, url, inEditMode, setEditMode, setCurrentTitle }) {
+function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle }) {
 	const { setTitle } = useContext(PullRequestContext);
 
 	const titleForm = (
@@ -81,7 +83,8 @@ function Title({ title, number, url, inEditMode, setEditMode, setCurrentTitle })
 	const displayTitle = (
 		<div className="overview-title">
 			<h2>
-				{title}{' '}
+				<div dangerouslySetInnerHTML={{ __html: titleHTML }} />
+				{' '}
 				<a href={url} title={url}>
 					#{number}
 				</a>
