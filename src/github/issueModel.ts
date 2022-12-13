@@ -26,6 +26,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 	public graphNodeId: string;
 	public number: number;
 	public title: string;
+	public titleHTML: string;
 	public html_url: string;
 	public state: GithubItemStateEnum = GithubItemStateEnum.Open;
 	public author: IAccount;
@@ -115,6 +116,9 @@ export class IssueModel<TItem extends Issue = Issue> {
 		this.graphNodeId = issue.graphNodeId;
 		this.number = issue.number;
 		this.title = issue.title;
+		if (issue.titleHTML) {
+			this.titleHTML = issue.titleHTML;
+		}
 		if (!this.bodyHTML || (issue.body !== this.body)) {
 			this.bodyHTML = issue.bodyHTML;
 		}
@@ -149,7 +153,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 		return true;
 	}
 
-	async edit(toEdit: IPullRequestEditData): Promise<{ body: string; bodyHTML: string; title: string }> {
+	async edit(toEdit: IPullRequestEditData): Promise<{ body: string; bodyHTML: string; title: string; titleHTML: string }> {
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
@@ -167,6 +171,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 				this.item.body = data.updatePullRequest.pullRequest.body;
 				this.bodyHTML = data.updatePullRequest.pullRequest.bodyHTML;
 				this.title = data.updatePullRequest.pullRequest.title;
+				this.titleHTML = data.updatePullRequest.pullRequest.titleHTML;
 				this.invalidate();
 			}
 			return data!.updatePullRequest.pullRequest;

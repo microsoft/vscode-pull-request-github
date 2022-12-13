@@ -284,10 +284,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			});
 	}
 	private editTitle(message: IRequestMessage<{ text: string }>) {
-		this._item
+		return this._item
 			.edit({ title: message.args.text })
 			.then(result => {
-				this._replyMessage(message, { text: result.title });
+				return this._replyMessage(message, { titleHTML: result.titleHTML });
 			})
 			.catch(e => {
 				this._throwError(message, e);

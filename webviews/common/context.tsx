@@ -21,7 +21,10 @@ export class PRContext {
 		}
 	}
 
-	public setTitle = (title: string) => this.postMessage({ command: 'pr.edit-title', args: { text: title } });
+	public setTitle = async (title: string) => {
+		const result = await this.postMessage({ command: 'pr.edit-title', args: { text: title } });
+		this.updatePR({ titleHTML: result.titleHTML });
+	};
 
 	public setDescription = (description: string) =>
 		this.postMessage({ command: 'pr.edit-description', args: { text: description } });

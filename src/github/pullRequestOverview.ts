@@ -215,6 +215,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					pullrequest: {
 						number: pullRequest.number,
 						title: pullRequest.title,
+						titleHTML: pullRequest.titleHTML,
 						url: pullRequest.html_url,
 						createdAt: pullRequest.createdAt,
 						body: pullRequest.body,
