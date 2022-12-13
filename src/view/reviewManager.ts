@@ -354,7 +354,6 @@ export class ReviewManager {
 			return;
 		}
 		this._isShowingLastReviewChanges = pr.showChangesSinceReview;
-		await this.clear(false);
 
 		const useReviewConfiguration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)
 			.get<{ merged: boolean, closed: boolean }>(USE_REVIEW_MODE, { merged: true, closed: false });
@@ -719,16 +718,16 @@ export class ReviewManager {
 	}
 
 	private async doRegisterCommentController() {
-		this._reviewCommentController = new ReviewCommentController(
-			this,
-			this._folderRepoManager,
-			this._repository,
-			this._reviewModel,
-		);
+		if (!this._reviewCommentController) {
+			this._reviewCommentController = new ReviewCommentController(
+				this,
+				this._folderRepoManager,
+				this._repository,
+				this._reviewModel,
+			);
 
-		await this._reviewCommentController.initialize();
-
-		this._localToDispose.push(this._reviewCommentController);
+			await this._reviewCommentController.initialize();
+		}
 	}
 
 	public async switch(pr: PullRequestModel): Promise<void> {
@@ -1036,6 +1035,8 @@ export class ReviewManager {
 
 		this._updateMessageShown = false;
 		this._reviewModel.clear();
+		this._reviewCommentController?.dispose();
+		this._reviewCommentController = undefined;
 		this._localToDispose.forEach(disposable => disposable.dispose());
 		this._reviewCommentController = undefined;
 		// Ensure file explorer decorations are removed. When switching to a different PR branch,
