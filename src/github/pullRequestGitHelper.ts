@@ -374,7 +374,7 @@ export class PullRequestGitHelper {
 		pullRequest: PullRequestModel & IResolvedPullRequestModel,
 	): Remote | undefined {
 		return remotes.find(
-			remote => remote.gitProtocol && remote.gitProtocol.equals(pullRequest.head.repositoryCloneUrl),
+			remote => remote.gitProtocol && (remote.gitProtocol.owner.toLowerCase() === pullRequest.head.repositoryCloneUrl.owner.toLowerCase()) && (remote.gitProtocol.repositoryName.toLowerCase() === pullRequest.head.repositoryCloneUrl.repositoryName.toLowerCase())
 		);
 	}
 
