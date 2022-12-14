@@ -588,7 +588,7 @@ export class ReviewCommentController
 				if (comment instanceof GHPRComment) {
 					await this._reposManager.activePullRequest!.createCommentReply(
 						input,
-						comment._rawComment.graphNodeId,
+						comment.rawComment.graphNodeId,
 						false,
 					);
 				} else {
@@ -696,7 +696,7 @@ export class ReviewCommentController
 				if (comment instanceof GHPRComment) {
 					await this._reposManager.activePullRequest.createCommentReply(
 						input,
-						comment._rawComment.graphNodeId,
+						comment.rawComment.graphNodeId,
 						isSingleComment,
 					);
 				} else {
@@ -769,7 +769,7 @@ export class ReviewCommentController
 				}
 
 				await this._reposManager.activePullRequest.editReviewComment(
-					comment._rawComment,
+					comment.rawComment,
 					comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
 				);
 			} catch (e) {
@@ -777,7 +777,7 @@ export class ReviewCommentController
 
 				thread.comments = thread.comments.map(c => {
 					if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-						return new GHPRComment(comment._rawComment, thread);
+						return new GHPRComment(comment.rawComment, thread);
 					}
 
 					return c;
@@ -841,12 +841,12 @@ export class ReviewCommentController
 				!comment.reactions.find(ret => ret.label === reaction.label && !!ret.authorHasReacted)
 			) {
 				await this._reposManager.activePullRequest.addCommentReaction(
-					comment._rawComment.graphNodeId,
+					comment.rawComment.graphNodeId,
 					reaction,
 				);
 			} else {
 				await this._reposManager.activePullRequest.deleteCommentReaction(
-					comment._rawComment.graphNodeId,
+					comment.rawComment.graphNodeId,
 					reaction,
 				);
 			}

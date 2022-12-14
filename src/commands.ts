@@ -1050,6 +1050,13 @@ export function registerCommands(
 		}));
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.copyCommentLink', (comment) => {
+			if (comment instanceof GHPRComment) {
+				return vscode.env.clipboard.writeText(comment.rawComment.htmlUrl);
+			}
+		}));
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.copyVscodeDevPrLink', async () => {
 			const activePullRequests: PullRequestModel[] = reposManager.folderManagers
 				.map(folderManager => folderManager.activePullRequest!)
