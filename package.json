@@ -860,6 +860,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.goToPreviousDiffInPr",
+				"title": "%command.pr.goToPreviousDiffInPr.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "%command.issue.createIssueFromSelection.title%",
 				"category": "%command.issues.category%"
@@ -1278,6 +1283,14 @@
 				},
 				{
 					"command": "pr.goToNextDiffInPr",
+					"when": "activeEditor == workbench.editors.textDiffEditor && resourcePath in github:viewedFiles"
+				},
+				{
+					"command": "pr.goToPreviousDiffInPr",
+					"when": "activeEditor == workbench.editors.textDiffEditor && resourcePath in github:unviewedFiles"
+				},
+				{
+					"command": "pr.goToPreviousDiffInPr",
 					"when": "activeEditor == workbench.editors.textDiffEditor && resourcePath in github:viewedFiles"
 				},
 				{
