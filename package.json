@@ -1714,28 +1714,28 @@
 					"command": "pr.startReview",
 					"group": "inline@2",
 					"when": "commentController =~ /^github-review/ && !reviewInDraftMode"
-				},
-				{
-					"command": "pr.openReview",
-					"group": "inline@3",
-					"when": "commentController =~ /^github-browse/ && prInDraft"
-				},
-				{
-					"command": "pr.openReview",
-					"group": "inline@3",
-					"when": "commentController =~ /^github-review/ && reviewInDraftMode"
 				}
 			],
 			"comments/commentThread/additionalActions": [
 				{
 					"command": "pr.resolveReviewThread",
-					"group": "inline@3",
+					"group": "inline@1",
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
 				},
 				{
 					"command": "pr.unresolveReviewThread",
-					"group": "inline@3",
+					"group": "inline@1",
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+				},
+				{
+					"command": "pr.openReview",
+					"group": "inline@2",
+					"when": "commentController =~ /^github-browse/ && prInDraft"
+				},
+				{
+					"command": "pr.openReview",
+					"group": "inline@2",
+					"when": "commentController =~ /^github-review/ && reviewInDraftMode"
 				}
 			],
 			"comments/commentThread/title/context": [
