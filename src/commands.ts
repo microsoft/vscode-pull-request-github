@@ -774,15 +774,15 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openReview', async (reply: CommentReply) => {
+		vscode.commands.registerCommand('pr.openReview', async (thread: GHPRCommentThread) => {
 			/* __GDPR__
 				"pr.openReview" : {}
 			*/
 			telemetry.sendTelemetryEvent('pr.openReview');
-			const handler = resolveCommentHandler(reply.thread);
+			const handler = resolveCommentHandler(thread);
 
 			if (handler) {
-				await handler.openReview(reply.thread);
+				await handler.openReview(thread);
 			}
 		}),
 	);
