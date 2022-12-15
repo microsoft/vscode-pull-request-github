@@ -6,7 +6,7 @@
 /*
  * Inspired by and includes code from GitHub/VisualStudio project, obtained from https://github.com/github/VisualStudio/blob/165a97bdcab7559e0c4393a571b9ff2aed4ba8a7/src/GitHub.App/Services/PullRequestService.cs
  */
-
+import * as vscode from 'vscode';
 import { Branch, Repository } from '../api/api';
 import { GitErrorCodes } from '../api/api1';
 import Logger from '../common/logger';
@@ -31,6 +31,7 @@ export class PullRequestGitHelper {
 		repository: Repository,
 		pullRequest: PullRequestModel & IResolvedPullRequestModel,
 		remoteName: string | undefined,
+		progress: vscode.Progress<{ message?: string; increment?: number }>
 	) {
 		// the branch is from a fork
 		const localBranchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
@@ -41,6 +42,7 @@ export class PullRequestGitHelper {
 				`Branch ${localBranchName} is from a fork. Create a remote first.`,
 				PullRequestGitHelper.ID,
 			);
+			progress.report({ message: vscode.l10n.t('Creating git remote for {0}', `${pullRequest.remote.owner}/${pullRequest.remote.repositoryName}`) });
 			remoteName = await PullRequestGitHelper.createRemote(
 				repository,
 				pullRequest.remote,
@@ -51,8 +53,10 @@ export class PullRequestGitHelper {
 		// fetch the branch
 		const ref = `${pullRequest.head.ref}:${localBranchName}`;
 		Logger.debug(`Fetch ${remoteName}/${pullRequest.head.ref}:${localBranchName} - start`, PullRequestGitHelper.ID);
+		progress.report({ message: vscode.l10n.t('Fetching branch {0}', ref) });
 		await repository.fetch(remoteName, ref, 1);
 		Logger.debug(`Fetch ${remoteName}/${pullRequest.head.ref}:${localBranchName} - done`, PullRequestGitHelper.ID);
+		progress.report({ message: vscode.l10n.t('Checking out {0}', ref) });
 		await repository.checkout(localBranchName);
 		// set remote tracking branch for the local branch
 		await repository.setBranchUpstream(localBranchName, `refs/remotes/${remoteName}/${pullRequest.head.ref}`);
@@ -65,6 +69,7 @@ export class PullRequestGitHelper {
 		repository: Repository,
 		remotes: Remote[],
 		pullRequest: PullRequestModel,
+		progress: vscode.Progress<{ message?: string; increment?: number }>
 	): Promise<void> {
 		if (!pullRequest.validatePullRequestModel('Checkout pull request failed')) {
 			return;
@@ -73,7 +78,7 @@ export class PullRequestGitHelper {
 		const remote = PullRequestGitHelper.getHeadRemoteForPullRequest(remotes, pullRequest);
 		const isFork = pullRequest.head.repositoryCloneUrl.owner !== pullRequest.base.repositoryCloneUrl.owner;
 		if (!remote || isFork) {
-			return PullRequestGitHelper.checkoutFromFork(repository, pullRequest, remote && remote.remoteName);
+			return PullRequestGitHelper.checkoutFromFork(repository, pullRequest, remote && remote.remoteName, progress);
 		}
 
 		const branchName = pullRequest.head.ref;
@@ -88,6 +93,7 @@ export class PullRequestGitHelper {
 				return;
 			}
 			Logger.debug(`Checkout ${branchName}`, PullRequestGitHelper.ID);
+			progress.report({ message: vscode.l10n.t('Checking out {0}', branchName) });
 			await repository.checkout(branchName);
 
 			if (!branch.upstream) {
@@ -98,6 +104,7 @@ export class PullRequestGitHelper {
 
 			if (branch.behind !== undefined && branch.behind > 0 && branch.ahead === 0) {
 				Logger.debug(`Pull from upstream`, PullRequestGitHelper.ID);
+				progress.report({ message: vscode.l10n.t('Pulling {0}', branchName) });
 				await repository.pull();
 			}
 		} catch (err) {
@@ -108,9 +115,11 @@ export class PullRequestGitHelper {
 			);
 			const trackedBranchName = `refs/remotes/${remoteName}/${branchName}`;
 			Logger.appendLine(`Fetch tracked branch ${trackedBranchName}`, PullRequestGitHelper.ID);
+			progress.report({ message: vscode.l10n.t('Fetching branch {0}', branchName) });
 			await repository.fetch(remoteName, branchName, 1);
 			const trackedBranch = await repository.getBranch(trackedBranchName);
 			// create branch
+			progress.report({ message: vscode.l10n.t('Creating and checking out branch {0}', branchName) });
 			await repository.createBranch(branchName, true, trackedBranch.commit);
 			await repository.setBranchUpstream(branchName, trackedBranchName);
 
@@ -157,7 +166,7 @@ export class PullRequestGitHelper {
 		}
 	}
 
-	static async checkoutExistingPullRequestBranch(repository: Repository, pullRequest: PullRequestModel) {
+	static async checkoutExistingPullRequestBranch(repository: Repository, pullRequest: PullRequestModel, progress: vscode.Progress<{ message?: string; increment?: number }>) {
 		const key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
 		const configs = await repository.getConfigs();
 
@@ -177,13 +186,16 @@ export class PullRequestGitHelper {
 		if (branchInfos && branchInfos.length) {
 			// let's immediately checkout to branchInfos[0].branch
 			const branchName = branchInfos[0].branch!;
+			progress.report({ message: vscode.l10n.t('Checking out branch {0}', branchName) });
 			await repository.checkout(branchName);
 			const remote = readConfig(`branch.${branchName}.remote`);
 			const ref = readConfig(`branch.${branchName}.merge`);
+			progress.report({ message: vscode.l10n.t('Fetching branch {0}', branchName) });
 			await repository.fetch(remote, ref);
 			const branchStatus = await repository.getBranch(branchInfos[0].branch!);
 			if (branchStatus.behind !== undefined && branchStatus.behind > 0 && branchStatus.ahead === 0) {
 				Logger.debug(`Pull from upstream`, PullRequestGitHelper.ID);
+				progress.report({ message: vscode.l10n.t('Pulling branch {0}', branchName) });
 				await repository.pull();
 			}
 

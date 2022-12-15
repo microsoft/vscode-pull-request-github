@@ -1976,16 +1976,16 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return null;
 	}
 
-	async checkoutExistingPullRequestBranch(pullRequest: PullRequestModel): Promise<boolean> {
-		return await PullRequestGitHelper.checkoutExistingPullRequestBranch(this.repository, pullRequest);
+	async checkoutExistingPullRequestBranch(pullRequest: PullRequestModel, progress: vscode.Progress<{ message?: string; increment?: number }>): Promise<boolean> {
+		return await PullRequestGitHelper.checkoutExistingPullRequestBranch(this.repository, pullRequest, progress);
 	}
 
 	async getBranchNameForPullRequest(pullRequest: PullRequestModel) {
 		return await PullRequestGitHelper.getBranchNRemoteForPullRequest(this.repository, pullRequest);
 	}
 
-	async fetchAndCheckout(pullRequest: PullRequestModel): Promise<void> {
-		await PullRequestGitHelper.fetchAndCheckout(this.repository, this._allGitHubRemotes, pullRequest);
+	async fetchAndCheckout(pullRequest: PullRequestModel, progress: vscode.Progress<{ message?: string; increment?: number }>): Promise<void> {
+		await PullRequestGitHelper.fetchAndCheckout(this.repository, this._allGitHubRemotes, pullRequest, progress);
 	}
 
 	async checkout(branchName: string): Promise<void> {
