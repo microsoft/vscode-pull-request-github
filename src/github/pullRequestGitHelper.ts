@@ -112,7 +112,10 @@ export class PullRequestGitHelper {
 			// create branch
 			await repository.createBranch(branchName, true, trackedBranch.commit);
 			await repository.setBranchUpstream(branchName, trackedBranchName);
-			await this.unshallow(repository);
+
+			// Don't await unshallow as the whole point of unshallowing only fetching to depth 1 above is so that we can unshallow without slowwing down checkout later.
+			this.unshallow(repository);
+
 		}
 
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, branchName);
