@@ -86,14 +86,16 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	}
 
 	set defaultCompareBranch(compareBranch: Branch | undefined) {
-		if (
-			compareBranch &&
-			(compareBranch?.name !== this._defaultCompareBranch.name ||
-				compareBranch?.upstream?.remote !== this._defaultCompareBranch.upstream?.remote)
-		) {
-			this._defaultCompareBranch = compareBranch;
+		const branchChanged = compareBranch && (compareBranch.name !== this._defaultCompareBranch.name ||
+			compareBranch.upstream?.remote !== this._defaultCompareBranch.upstream?.remote);
+		const commitChanged = compareBranch && (compareBranch.commit !== this._defaultCompareBranch.commit);
+		if (branchChanged || commitChanged) {
+			this._defaultCompareBranch = compareBranch!;
 			void this.initializeParams();
-			this._onDidChangeCompareBranch.fire(this._defaultCompareBranch.name!);
+
+			if (branchChanged) {
+				this._onDidChangeCompareBranch.fire(this._defaultCompareBranch.name!);
+			}
 		}
 	}
 
@@ -209,7 +211,17 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		return repo.getRepoAccessAndMergeMethods(refetch);
 	}
 
+	private initializeWhenVisibleDisposable: vscode.Disposable | undefined;
 	public async initializeParams(reset: boolean = false): Promise<void> {
+		if (this._view?.visible === false && this.initializeWhenVisibleDisposable === undefined) {
+			this.initializeWhenVisibleDisposable = this._view?.onDidChangeVisibility(() => {
+				this.initializeWhenVisibleDisposable?.dispose();
+				this.initializeWhenVisibleDisposable = undefined;
+				void this.initializeParams();
+			});
+			return;
+		}
+
 		if (reset) {
 			// First clear all state ASAP
 			this._postMessage({ command: 'reset' });
