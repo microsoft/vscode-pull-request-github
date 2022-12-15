@@ -2,19 +2,84 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
+			"name": "Launch Extension",
 			"type": "extensionHost",
 			"request": "launch",
-			"name": "Launch Extension",
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
 			],
-			"skipFiles": ["<node_internals>/**/*.js", "**/node_modules/**/*.js"],
+			"skipFiles": [
+				"<node_internals>/**/*.js",
+				"**/node_modules/**/*.js"
+			],
 			"smartStep": true,
 			"sourceMaps": true,
 			"outFiles": [
-				"${workspaceFolder}/media/*.js"
+				"${workspaceFolder}/dist/*.js"
+			],
+			"debugWebviews": true
+		},
+		{
+			"name": "Launch Extension in Webworker",
+			"type": "extensionHost",
+			"request": "launch",
+			"debugWebWorkerHost": true,
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
+			],
+			"skipFiles": [
+				"<node_internals>/**/*.js",
+				"**/node_modules/**/*.js"
+			],
+			"smartStep": true,
+			"sourceMaps": true,
+			"outFiles": [
+				"${workspaceFolder}/dist/browser/*.js"
+			]
+		},
+		{
+			"name": "Watch & Launch Extension",
+			"type": "extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
+			],
+			"skipFiles": [
+				"<node_internals>/**/*.js",
+				"**/node_modules/**/*.js"
+			],
+			"preLaunchTask": "npm: watch",
+			"smartStep": true,
+			"sourceMaps": true,
+			"outFiles": [
+				"${workspaceFolder}/dist/*.js"
+			]
+		},
+		{
+			"name": "Watch & Launch Extension in Webworker",
+			"type": "extensionHost",
+			"request": "launch",
+			"debugWebWorkerHost": true,
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
+			],
+			"skipFiles": [
+				"<node_internals>/**/*.js",
+				"**/node_modules/**/*.js"
+			],
+			"preLaunchTask": "npm: watch",
+			"smartStep": true,
+			"sourceMaps": true,
+			"outFiles": [
+				"${workspaceFolder}/dist/browser/*.js"
 			]
 		},
 		{
@@ -23,12 +88,58 @@
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": [
-				"${workspaceFolder}/out/test",
 				"--extensionDevelopmentPath=${workspaceFolder}",
-				"--extensionTestsPath=${workspaceFolder}/out/test"
+				"--extensionTestsPath=${workspaceFolder}/out/src/test",
+				"--disable-extensions",
 			],
+			"preLaunchTask": "npm: test:preprocess",
+			"smartStep": true,
+			"sourceMaps": true,
 			"outFiles": [
-				"${workspaceFolder}/out/test/**/*.js"
+				"${workspaceFolder}/dist/test/*.js"
+			]
+		},
+		{
+			"type": "node",
+			"request": "launch",
+			"name": "Attach Web Test",
+			"program": "${workspaceFolder}/node_modules/vscode-test-web/out/index.js",
+			"args": [
+				"--extensionTestsPath=dist/browser/test/index.js",
+				"--extensionDevelopmentPath=.",
+				"--browserType=chromium",
+				"--attach=9229"
+			],
+			"cascadeTerminateToConfigurations": [
+				"Launch Web Test"
+			],
+			"presentation": {
+				"hidden": true,
+			}
+		},
+		{
+			"type": "chrome",
+			"request": "launch",
+			"name": "Launch Web Test",
+			"skipFiles": [
+				"<node_internals>/**"
+			],
+			"port": 9229,
+			"resolveSourceMapLocations": [
+				"!**/vs/**", // exclude core vscode sources
+				"!**/static/build/extensions/**", // exclude built-in extensions
+			],
+			"presentation": {
+				"hidden": true,
+			}
+		},
+	],
+	"compounds": [
+		{
+			"name": "Debug Web Test",
+			"configurations": [
+				"Attach Web Test",
+				"Launch Web Test"
 			]
 		}
 	]

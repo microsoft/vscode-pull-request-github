@@ -1,75 +1,100 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
-import { IHostConfiguration, HostHelper } from './configuration';
-import * as https from 'https';
-import { Base64 } from 'js-base64';
-import { parse } from 'query-string';
+import { GitHubServerType } from '../common/authentication';
 import Logger from '../common/logger';
-import { handler as uriHandler } from '../common/uri';
-import { PromiseAdapter, promiseFromEvent } from '../common/utils';
-import { agent } from '../common/net';
-import { EXTENSION_ID } from '../constants';
-import { onDidChange as onKeychainDidChange, toCanonical, listHosts } from './keychain';
-
-const SCOPES: string = 'read:user user:email repo write:discussion';
-const GHE_OPTIONAL_SCOPES: { [key: string]: boolean } = {'write:discussion': true};
-
-const AUTH_RELAY_SERVER = 'https://vscode-auth.github.com';
-const CALLBACK_PATH = '/did-authenticate';
-const CALLBACK_URI = `${vscode.env.uriScheme}://${EXTENSION_ID}${CALLBACK_PATH}`;
-const MAX_TOKEN_RESPONSE_AGE = 5 * (1000 * 60 /* minutes in ms */);
+import { agent } from '../env/node/net';
+import { getEnterpriseUri } from '../github/utils';
+import { HostHelper } from './configuration';
 
 export class GitHubManager {
-	private _servers: Map<string, boolean> = new Map().set('github.com', true);
+	private static readonly _githubDotComServers = new Set<string>().add('github.com').add('ssh.github.com');
+	private static readonly _neverGitHubServers = new Set<string>().add('bitbucket.org').add('gitlab.com');
+	private _servers: Map<string, GitHubServerType> = new Map(Array.from(GitHubManager._githubDotComServers.keys()).map(key => [key, GitHubServerType.GitHubDotCom]));
 
-	private static GitHubScopesTable: { [key: string]: string[] } = {
-		repo: ['repo:status', 'repo_deployment', 'public_repo', 'repo:invite'],
-		'admin:org': ['write:org', 'read:org'],
-		'admin:public_key': ['write:public_key', 'read:public_key'],
-		'admin:org_hook': [],
-		gist: [],
-		notifications: [],
-		user: ['read:user', 'user:email', 'user:follow'],
-		delete_repo: [],
-		'write:discussion': ['read:discussion'],
-		'admin:gpg_key': ['write:gpg_key', 'read:gpg_key']
-	};
+	public static isGithubDotCom(host: string): boolean {
+		return this._githubDotComServers.has(host);
+	}
 
-	public static AppScopes: string[] = SCOPES.split(' ');
+	public static isNeverGitHub(host: string): boolean {
+		return this._neverGitHubServers.has(host);
+	}
 
-	public async isGitHub(host: vscode.Uri): Promise<boolean> {
+	public async isGitHub(host: vscode.Uri): Promise<GitHubServerType> {
 		if (host === null) {
-			return false;
+			return GitHubServerType.None;
+		}
+
+		// .wiki/.git repos are not supported
+		if (host.path.endsWith('.wiki') || host.authority.match(/gist[.]github[.]com/)) {
+			return GitHubServerType.None;
+		}
+
+		if (GitHubManager.isGithubDotCom(host.authority)) {
+			return GitHubServerType.GitHubDotCom;
+		}
+
+		const knownEnterprise = getEnterpriseUri();
+		if ((host.authority.toLowerCase() === knownEnterprise?.authority.toLowerCase()) && (!this._servers.has(host.authority) || (this._servers.get(host.authority) === GitHubServerType.None))) {
+			return GitHubServerType.Enterprise;
 		}
 
 		if (this._servers.has(host.authority)) {
-			return !!this._servers.get(host.authority);
+			return this._servers.get(host.authority) ?? GitHubServerType.None;
 		}
 
-		const keychainHosts = await listHosts();
-		if (keychainHosts.indexOf(toCanonical(host.authority)) !== -1) {
-			return true;
-		}
+		const [uri, options] = await GitHubManager.getOptions(host, 'HEAD', '/rate_limit');
 
-		const options = GitHubManager.getOptions(host, 'HEAD', '/rate_limit');
-		return new Promise<boolean>((resolve, _) => {
-			const get = https.request(options, res => {
-				const ret = res.headers['x-github-request-id'];
-				resolve(ret !== undefined);
+		let isGitHub = GitHubServerType.None;
+		try {
+			const response = await fetch(uri.toString(), options);
+			const otherGitHubHeaders: string[] = [];
+			response.headers.forEach((_value, header) => {
+				otherGitHubHeaders.push(header);
 			});
-
-			get.end();
-			get.on('error', err => {
-				Logger.appendLine(`No response from host ${host}: ${err.message}`, 'GitHubServer');
-				resolve(false);
-			});
-		}).then(isGitHub => {
+			Logger.debug(`All headers: ${otherGitHubHeaders.join(', ')}`, 'GitHubServer');
+			const gitHubHeader = response.headers.get('x-github-request-id');
+			const gitHubEnterpriseHeader = response.headers.get('x-github-enterprise-version');
+			if (!gitHubHeader && !gitHubEnterpriseHeader) {
+				const [uriFallBack] = await GitHubManager.getOptions(host, 'HEAD', '/status');
+				const response = await fetch(uriFallBack.toString());
+				const responseText = await response.text();
+				if (responseText.startsWith('GitHub lives!')) {
+					// We've made it this far so it's not github.com
+					// It's very likely enterprise.
+					isGitHub = GitHubServerType.Enterprise;
+				} else {
+					// Check if we got an enterprise-looking needs auth response:
+					// { message: 'Must authenticate to access this API.', documentation_url: 'https://docs.github.com/enterprise/3.3/rest'}
+					Logger.appendLine(`Received fallback response from the server: ${responseText}`, 'GitHubServer');
+					const parsedResponse = JSON.parse(responseText);
+					if (parsedResponse.documentation_url && (parsedResponse.documentation_url as string).startsWith('https://docs.github.com/enterprise')) {
+						isGitHub = GitHubServerType.Enterprise;
+					}
+				}
+			} else {
+				isGitHub = ((gitHubHeader !== undefined) && (gitHubHeader !== null)) ? (gitHubEnterpriseHeader ? GitHubServerType.Enterprise : GitHubServerType.GitHubDotCom) : GitHubServerType.None;
+			}
+			return isGitHub;
+		} catch (ex) {
+			Logger.appendLine(`No response from host ${host}: ${ex.message}`, 'GitHubServer');
+			return isGitHub;
+		} finally {
 			Logger.debug(`Host ${host} is associated with GitHub: ${isGitHub}`, 'GitHubServer');
 			this._servers.set(host.authority, isGitHub);
-			return isGitHub;
-		});
+		}
 	}
 
-	public static getOptions(hostUri: vscode.Uri, method: string = 'GET', path: string, token?: string) {
+	public static async getOptions(
+		hostUri: vscode.Uri,
+		method: string = 'GET',
+		path: string,
+		token?: string,
+	): Promise<[vscode.Uri, RequestInit]> {
 		const headers: {
 			'user-agent': string;
 			authorization?: string;
@@ -80,134 +105,18 @@ export class GitHubManager {
 			headers.authorization = `token ${token}`;
 		}
 
-		return {
-			host: HostHelper.getApiHost(hostUri).authority,
+		const uri = vscode.Uri.joinPath(await HostHelper.getApiHost(hostUri), HostHelper.getApiPath(hostUri, path));
+		const requestInit = {
+			hostname: uri.authority,
 			port: 443,
 			method,
-			path: HostHelper.getApiPath(hostUri, path),
 			headers,
-			agent,
+			agent
 		};
-	}
 
-	public static validateScopes(host: vscode.Uri, scopes: string): boolean {
-		if (!scopes) {
-			Logger.appendLine(`[SKIP] validateScopes(${host.toString()}): No scopes available.`);
-			return true;
-		}
-		const tokenScopes = scopes.split(', ');
-		const scopesNotFound = this.AppScopes.filter(x => !(
-			tokenScopes.indexOf(x) >= 0 ||
-			tokenScopes.indexOf(this.getScopeSuperset(x)) >= 0 ||
-			// some scopes don't exist on older versions of GHE, treat them as optional
-			(this.isDotCom(host) || GHE_OPTIONAL_SCOPES[x])
-		));
-		if (scopesNotFound.length) {
-			Logger.appendLine(`[FAIL] validateScopes(${host.toString()}): ${scopesNotFound.length} scopes missing`);
-			scopesNotFound.forEach(scope => Logger.appendLine(`   - ${scope}`));
-			return false;
-		}
-		return true;
-	}
-
-	private static getScopeSuperset(scope: string): string {
-		for (let key in this.GitHubScopesTable) {
-			if (this.GitHubScopesTable[key].indexOf(scope) >= 0) {
-				return key;
-			}
-		}
-		return scope;
-	}
-
-	private static isDotCom(host: vscode.Uri): boolean {
-		return host && host.authority.toLowerCase() === 'github.com';
-	}
-}
-
-class ResponseExpired extends Error {
-	get message() { return 'Token response expired'; }
-}
-
-const SEPARATOR = '/', SEPARATOR_LEN = SEPARATOR.length;
-
-/**
- * Hydrate and verify the signature of a message produced with `encode`
- *
- * Returns an object
- *
- * @param {string} signedMessage signed message produced by encode
- * @returns {any} decoded JSON data
- * @throws {SyntaxError} if the message was null or could not be parsed as JSON
- */
-const decode = (signedMessage?: string): any => {
-	if (!signedMessage) { throw new SyntaxError('Invalid encoding'); }
-	const separatorIndex = signedMessage.indexOf(SEPARATOR);
-	const message = signedMessage.substr(separatorIndex + SEPARATOR_LEN);
-	return JSON.parse(Base64.decode(message));
-};
-
-const verifyToken: (host: string) => PromiseAdapter<vscode.Uri, IHostConfiguration> =
-	host => async (uri, resolve, reject) => {
-		if (uri.path !== CALLBACK_PATH) { return; }
-		const query = parse(uri.query);
-		const state = decode(query.state as string);
-		const { ts, access_token: token } = state.token;
-		if (Date.now() - ts > MAX_TOKEN_RESPONSE_AGE) {
-			return reject(new ResponseExpired);
-		}
-		resolve({ host, token });
-	};
-
-const manuallyEnteredToken: (host: string) => PromiseAdapter<IHostConfiguration, IHostConfiguration> =
-	host => (config: IHostConfiguration, resolve) =>
-		config.host === toCanonical(host) && resolve(config);
-
-export class GitHubServer {
-	public hostConfiguration: IHostConfiguration;
-	private hostUri: vscode.Uri;
-
-	public constructor(host: string) {
-		host = host.toLocaleLowerCase();
-		this.hostConfiguration = { host, token: undefined };
-		this.hostUri = vscode.Uri.parse(host);
-	}
-
-	public login(): Promise<IHostConfiguration> {
-		const host = this.hostUri.toString();
-		const uri = vscode.Uri.parse(
-			`${AUTH_RELAY_SERVER}/authorize?authServer=${host}&callbackUri=${CALLBACK_URI}&scope=${SCOPES}`
-		);
-		vscode.commands.executeCommand('vscode.open', uri);
-		return Promise.race([
-			promiseFromEvent(uriHandler.event, verifyToken(host)),
-			promiseFromEvent(onKeychainDidChange, manuallyEnteredToken(host))
-		]);
-	}
-
-	public async validate(token?: string): Promise<IHostConfiguration> {
-		if (!token) {
-			token = this.hostConfiguration.token;
-		}
-
-		const options = GitHubManager.getOptions(this.hostUri, 'GET', '/user', token);
-
-		return new Promise<IHostConfiguration>((resolve, _) => {
-			const get = https.request(options, res => {
-				try {
-					if (res.statusCode === 200) {
-						const scopes = res.headers['x-oauth-scopes'] as string;
-						GitHubManager.validateScopes(this.hostUri, scopes);
-						resolve(this.hostConfiguration);
-					}
-				} catch (e) {
-					Logger.appendLine(`validate() error ${e}`);
-				}
-			});
-
-			get.end();
-			get.on('error', err => {
-				resolve(undefined);
-			});
-		});
+		return [
+			uri,
+			requestInit as RequestInit,
+		];
 	}
 }

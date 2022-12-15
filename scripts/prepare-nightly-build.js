@@ -2,47 +2,32 @@ const fs = require('fs');
 const argv = require('minimist')(process.argv.slice(2));
 
 const json = JSON.parse(fs.readFileSync('./package.json').toString());
+const stableVersion = json.version.match(/(\d+)\.(\d+)\.(\d+)/);
+const major = stableVersion[1];
+const minor = stableVersion[2];
+
+function prependZero(number) {
+	if (number > 99) {
+		throw 'Unexpected value to prepend with zero';
+	}
+	return `${number < 10 ? '0' : ''}${number}`;
+}
 
 // update name, publisher and description
 // calculate version
-let version = argv['v'];
-if (typeof(version) !== 'string') {
+let patch = argv['v'];
+if (typeof patch !== 'string') {
 	const date = new Date();
-	const monthMinutes = (date.getDate() - 1) * 24 * 60 + date.getHours() * 60 + date.getMinutes();
-	version = `${date.getFullYear()}.${date.getMonth() + 1}.${monthMinutes}`;
+	const month = date.getMonth() + 1;
+	const day = date.getDate();
+	const hours = date.getHours();
+	patch = `${date.getFullYear()}${prependZero(month)}${prependZero(day)}${prependZero(hours)}`;
 }
 
-const id = argv['i'];
-const displayName = argv['n'];
-const description = argv['d'];
-const publisher = argv['p'];
-if (!id || !displayName || !description || !publisher) {
-	return;
-}
-
+// The stable version should always be <major>.<minor_even_number>.patch
+// For the nightly build, we keep the major, make the minor an odd number with +1, and add the timestamp as a patch.
 const insiderPackageJson = Object.assign(json, {
-	name: id,
-	version: version,
-	displayName: displayName,
-	description: description,
-	publisher: publisher
+	version: `${major}.${Number(minor)+1}.${patch}`
 });
 
 fs.writeFileSync('./package.insiders.json', JSON.stringify(insiderPackageJson));
-
-const readme = fs.readFileSync('./README.md');
-const previewReadme = `
-# GitHub Pull Request Nightly Build
-
-This is the nightly build of [GitHub Pull Request extension](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github) for early feedback and testing.
-
-The extension can be installed side-by-side with the current GitHub Pull Request extension, use the Extensions Viewlet to disable this version of the extension you do not want to use.
-
-${readme}
-`;
-
-fs.writeFileSync('./README.insiders.md', previewReadme);
-
-const constants = fs.readFileSync('./src/constants.ts').toString();
-const insiderConstants = constants.replace(`export const EXTENSION_ID = 'GitHub.vscode-pull-request-github';`, `export const EXTENSION_ID = 'GitHub.vscode-pull-request-github-insiders';`);
-fs.writeFileSync('./src/constants.insiders.ts', insiderConstants);

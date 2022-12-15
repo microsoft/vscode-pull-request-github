@@ -1,5 +1,4 @@
-import installJsDomGlobal = require('jsdom-global');
-import { isEqual } from 'lodash';
+import installJsDomGlobal from 'jsdom-global';
 import { Suite } from 'mocha';
 
 interface WebviewEnvironmentSetters {
@@ -32,32 +31,27 @@ class MockWebviewEnvironment {
 
 	constructor() {
 		this._api = new WebviewVsCodeApi({
-			stateSetter: (nState) => {
+			stateSetter: nState => {
 				this._persistedState = nState;
 			},
 			stateGetter: () => this._persistedState,
-			messageAdder: (newMessage) => {
+			messageAdder: newMessage => {
 				this._messages.push(newMessage);
-			}
+			},
 		});
 
-		this._uninstall = () => {};
+		this._uninstall = () => { };
 	}
 
 	install(host: any) {
 		const previous = host.acquireVsCodeApi;
 		host.acquireVsCodeApi = () => this._api;
-		const cleanup = installJsDomGlobal('', {
-			runScripts: 'outside-only',
-		});
-
 		this._uninstall = () => {
 			if (previous) {
 				host.acquireVsCodeApi = previous;
 			} else {
 				delete host.acquireVsCodeApi;
 			}
-			cleanup();
 		};
 	}
 
@@ -80,16 +74,6 @@ class MockWebviewEnvironment {
 	use(suite: Suite) {
 		suite.beforeAll(() => this.install(global));
 		suite.afterAll(() => this.uninstall());
-	}
-
-	/**
-	 * Determine if an expected message was sent by the Webview, recognizing it by deep object comparison.
-	 *
-	 * @param expected Any JSON-serializable object.
-	 * @returns true if a message exactly matching this object has been sent with postMessage, false if it has not.
-	 */
-	messageWasPosted(expected: any) {
-		return this._messages.some(m => isEqual(m, expected));
 	}
 
 	/**

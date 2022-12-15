@@ -331,15 +331,22 @@ ASALocalRun/
 
 
 out
-preview-src/dist
 node_modules
+dist
+./test/
 media
 .vscode-test
+.vscode-test-web
 .DS_Store
 *.vsix
 package-lock.json
+src/@types/vscode.d.ts
+src/@types/vscode.proposed.d.ts
 
 # CI
 package.insiders.json
 README.insiders.md
 src/constants.insiders.ts
+
+.eslintcache
+*.tsbuildinfo

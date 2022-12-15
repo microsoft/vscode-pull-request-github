@@ -1,0 +1,54 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)
+
+trigger:
+  branches:
+    include:
+      - main
+  tags:
+    include: ['*']
+pr: none
+
+resources:
+  repositories:
+    - repository: templates
+      type: github
+      name: microsoft/vscode-engineering
+      ref: main
+      endpoint: Monaco
+
+extends:
+  template: azure-pipelines/extension/stable.yml@templates
+  parameters:
+    l10nSourcePaths: ./src
+    buildSteps:
+      - script: yarn install --frozen-lockfile
+        displayName: Install dependencies
+
+      - script: yarn run bundle
+        displayName: Compile
+
+      - bash: |
+          /usr/bin/Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+          echo ">>> Started xvfb"
+        displayName: Start xvfb
+
+      - script: yarn run test
+        displayName: Run test suite
+        env:
+          DISPLAY: ':99.0'
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
+
+      # - script: yarn run browsertest --browserType=chromium
+      #   displayName: Run test suite (chromium)
+      #   env:
+      #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-chromium-test-results.xml
+
+      # - script: yarn run browsertest --browserType=firefox
+      #   displayName: Run test suite (firefox)
+      #   env:
+      #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
+
+      # - script: yarn run browsertest --browserType=webkit
+      #   displayName: Run test suite (webkit)
+      #   env:
+      #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml

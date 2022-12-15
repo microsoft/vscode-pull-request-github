@@ -7,15 +7,14 @@
  * Inspired by and includes code from GitHub/VisualStudio project, obtained from  https://github.com/github/VisualStudio/blob/master/src/GitHub.Exports/Models/DiffLine.cs
  */
 
-import { GitChangeType, SlimFileChange, InMemFileChange } from './file';
-import { Repository } from '../api/api';
 import { IRawFileChange } from '../github/interface';
+import { GitChangeType, InMemFileChange, SlimFileChange } from './file';
 
 export enum DiffChangeType {
 	Context,
 	Add,
 	Delete,
-	Control
+	Control,
 }
 
 export class DiffLine {
@@ -29,21 +28,25 @@ export class DiffLine {
 
 	constructor(
 		public type: DiffChangeType,
-		public oldLineNumber: number, /* 1 based */
-		public newLineNumber: number, /* 1 based */
+		public oldLineNumber: number /* 1 based */,
+		public newLineNumber: number /* 1 based */,
 		public positionInHunk: number,
 		private _raw: string,
-		public endwithLineBreak: boolean = true
+		public endwithLineBreak: boolean = true,
 	) { }
 }
 
 export function getDiffChangeType(text: string) {
-	let c = text[0];
+	const c = text[0];
 	switch (c) {
-		case ' ': return DiffChangeType.Context;
-		case '+': return DiffChangeType.Add;
-		case '-': return DiffChangeType.Delete;
-		default: return DiffChangeType.Control;
+		case ' ':
+			return DiffChangeType.Context;
+		case '+':
+			return DiffChangeType.Add;
+		case '-':
+			return DiffChangeType.Delete;
+		default:
+			return DiffChangeType.Control;
 	}
 }
 
@@ -55,11 +58,11 @@ export class DiffHunk {
 		public oldLength: number,
 		public newLineNumber: number,
 		public newLength: number,
-		public positionInHunk: number
+		public positionInHunk: number,
 	) { }
 }
 
-export const DIFF_HUNK_HEADER = /@@ \-(\d+)(,(\d+))?( \+(\d+)(,(\d+)?)?)? @@/;
+export const DIFF_HUNK_HEADER = /^@@ \-(\d+)(,(\d+))?( \+(\d+)(,(\d+)?)?)? @@/;
 
 export function countCarriageReturns(text: string): number {
 	let count = 0;
@@ -76,9 +79,9 @@ export function* LineReader(text: string): IterableIterator<string> {
 	let index = 0;
 
 	while (index !== -1 && index < text.length) {
-		let startIndex = index;
+		const startIndex = index;
 		index = text.indexOf('\n', index);
-		let endIndex = index !== -1 ? index : text.length;
+		const endIndex = index !== -1 ? index : text.length;
 		let length = endIndex - startIndex;
 
 		if (index !== -1) {
@@ -94,7 +97,7 @@ export function* LineReader(text: string): IterableIterator<string> {
 }
 
 export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk> {
-	let lineReader = LineReader(diffHunkPatch);
+	const lineReader = LineReader(diffHunkPatch);
 
 	let itr = lineReader.next();
 	let diffHunk: DiffHunk | undefined = undefined;
@@ -115,31 +118,35 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 			}
 
 			const matches = DIFF_HUNK_HEADER.exec(line);
-			const oriStartLine = oldLine = Number(matches![1]);
+			const oriStartLine = (oldLine = Number(matches![1]));
 			// http://www.gnu.org/software/diffutils/manual/diffutils.html#Detailed-Unified
 			// `count` is added when the changes have more than 1 line.
 			const oriLen = Number(matches![3]) || 1;
-			const newStartLine = newLine = Number(matches![5]);
+			const newStartLine = (newLine = Number(matches![5]));
 			const newLen = Number(matches![7]) || 1;
 
 			diffHunk = new DiffHunk(oriStartLine, oriLen, newStartLine, newLen, positionInHunk);
 			// @rebornix todo, once we have enough tests, this should be removed.
 			diffHunk.diffLines.push(new DiffLine(DiffChangeType.Control, -1, -1, positionInHunk, line));
 		} else if (diffHunk) {
-			let type = getDiffChangeType(line);
+			const type = getDiffChangeType(line);
 
 			if (type === DiffChangeType.Control) {
 				if (diffHunk.diffLines && diffHunk.diffLines.length) {
 					diffHunk.diffLines[diffHunk.diffLines.length - 1].endwithLineBreak = false;
 				}
 			} else {
-				diffHunk.diffLines.push(new DiffLine(type, type !== DiffChangeType.Add ? oldLine : -1,
-					type !== DiffChangeType.Delete ? newLine : -1,
-					positionInHunk,
-					line
-				));
+				diffHunk.diffLines.push(
+					new DiffLine(
+						type,
+						type !== DiffChangeType.Add ? oldLine : -1,
+						type !== DiffChangeType.Delete ? newLine : -1,
+						positionInHunk,
+						line,
+					),
+				);
 
-				let lineCount = 1 + countCarriageReturns(line);
+				const lineCount = 1 + countCarriageReturns(line);
 
 				switch (type) {
 					case DiffChangeType.Context:
@@ -168,22 +175,22 @@ export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk
 }
 
 export function parsePatch(patch: string): DiffHunk[] {
-	let diffHunkReader = parseDiffHunk(patch);
+	const diffHunkReader = parseDiffHunk(patch);
 	let diffHunkIter = diffHunkReader.next();
-	let diffHunks = [];
+	const diffHunks: DiffHunk[] = [];
 
-	let right = [];
+	const right: string[] = [];
 	while (!diffHunkIter.done) {
-		let diffHunk = diffHunkIter.value;
+		const diffHunk = diffHunkIter.value;
 		diffHunks.push(diffHunk);
 
 		for (let j = 0; j < diffHunk.diffLines.length; j++) {
-			let diffLine = diffHunk.diffLines[j];
+			const diffLine = diffHunk.diffLines[j];
 			if (diffLine.type === DiffChangeType.Delete || diffLine.type === DiffChangeType.Control) {
 			} else if (diffLine.type === DiffChangeType.Add) {
 				right.push(diffLine.text);
 			} else {
-				let codeInFirstLine = diffLine.text;
+				const codeInFirstLine = diffLine.text;
 				right.push(codeInFirstLine);
 			}
 		}
@@ -195,18 +202,18 @@ export function parsePatch(patch: string): DiffHunk[] {
 }
 
 export function getModifiedContentFromDiffHunk(originalContent: string, patch: string) {
-	let left = originalContent.split(/\r?\n/);
-	let diffHunkReader = parseDiffHunk(patch);
+	const left = originalContent.split(/\r?\n/);
+	const diffHunkReader = parseDiffHunk(patch);
 	let diffHunkIter = diffHunkReader.next();
-	let diffHunks = [];
+	const diffHunks: DiffHunk[] = [];
 
-	let right = [];
+	const right: string[] = [];
 	let lastCommonLine = 0;
 	while (!diffHunkIter.done) {
-		let diffHunk = diffHunkIter.value;
+		const diffHunk: DiffHunk = diffHunkIter.value;
 		diffHunks.push(diffHunk);
 
-		let oriStartLine = diffHunk.oldLineNumber;
+		const oriStartLine = diffHunk.oldLineNumber;
 
 		for (let j = lastCommonLine + 1; j < oriStartLine; j++) {
 			right.push(left[j - 1]);
@@ -215,12 +222,12 @@ export function getModifiedContentFromDiffHunk(originalContent: string, patch: s
 		lastCommonLine = oriStartLine + diffHunk.oldLength - 1;
 
 		for (let j = 0; j < diffHunk.diffLines.length; j++) {
-			let diffLine = diffHunk.diffLines[j];
+			const diffLine = diffHunk.diffLines[j];
 			if (diffLine.type === DiffChangeType.Delete || diffLine.type === DiffChangeType.Control) {
 			} else if (diffLine.type === DiffChangeType.Add) {
 				right.push(diffLine.text);
 			} else {
-				let codeInFirstLine = diffLine.text;
+				const codeInFirstLine = diffLine.text;
 				right.push(codeInFirstLine);
 			}
 		}
@@ -252,39 +259,43 @@ export function getGitChangeType(status: string): GitChangeType {
 	}
 }
 
-export async function parseDiff(reviews: IRawFileChange[], repository: Repository, parentCommit: string): Promise<(InMemFileChange | SlimFileChange)[]> {
-	let fileChanges: (InMemFileChange | SlimFileChange)[] = [];
+export async function parseDiff(
+	reviews: IRawFileChange[],
+	parentCommit: string,
+): Promise<(InMemFileChange | SlimFileChange)[]> {
+	const fileChanges: (InMemFileChange | SlimFileChange)[] = [];
 
 	for (let i = 0; i < reviews.length; i++) {
-		let review = reviews[i];
+		const review = reviews[i];
 		const gitChangeType = getGitChangeType(review.status);
 
-		if (!review.patch) {
-			fileChanges.push(new SlimFileChange(review.blob_url, gitChangeType, review.filename));
+		if (!review.patch &&
+			// We don't need to make a SlimFileChange for empty file adds.
+			!((gitChangeType === GitChangeType.ADD) && (review.additions === 0))) {
+			fileChanges.push(
+				new SlimFileChange(
+					parentCommit,
+					review.blob_url,
+					gitChangeType,
+					review.filename,
+					review.previous_filename,
+				),
+			);
 			continue;
 		}
 
-		let originalFileExist = false;
-
-		switch (gitChangeType) {
-			case GitChangeType.DELETE:
-			case GitChangeType.MODIFY:
-				try {
-					await repository.getObjectDetails(parentCommit, review.filename);
-					originalFileExist = true;
-				} catch (err) { /* noop */ }
-				break;
-			case GitChangeType.RENAME:
-				try {
-					await repository.getObjectDetails(parentCommit, review.previous_filename!);
-					originalFileExist = true;
-				} catch (err) { /* noop */ }
-				break;
-		}
-
-		let diffHunks = parsePatch(review.patch);
-		let isPartial = !originalFileExist && gitChangeType !== GitChangeType.ADD;
-		fileChanges.push(new InMemFileChange(parentCommit, gitChangeType, review.filename, review.previous_filename, review.patch, diffHunks, isPartial, review.blob_url));
+		const diffHunks = review.patch ? parsePatch(review.patch) : [];
+		fileChanges.push(
+			new InMemFileChange(
+				parentCommit,
+				gitChangeType,
+				review.filename,
+				review.previous_filename,
+				review.patch,
+				diffHunks,
+				review.blob_url,
+			),
+		);
 	}
 
 	return fileChanges;

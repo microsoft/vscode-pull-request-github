@@ -1,18 +1,24 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 
 const enum LogLevel {
 	Info,
 	Debug,
-	Off
+	Off,
 }
 
 const SETTINGS_NAMESPACE = 'githubPullRequests';
 const LOG_LEVEL_SETTING = 'logLevel';
+export const PR_TREE = 'PullRequestTree';
 
 class Log {
 	private _outputChannel: vscode.OutputChannel;
 	private _logLevel: LogLevel;
 	private _disposable: vscode.Disposable;
+	private _activePerfMarkers: Map<string, number> = new Map();
 
 	constructor() {
 		this._outputChannel = vscode.window.createOutputChannel('GitHub Pull Request');
@@ -22,19 +28,31 @@ class Log {
 		this.getLogLevel();
 	}
 
+	public startPerfMarker(marker: string) {
+		const startTime = performance.now();
+		this._outputChannel.appendLine(`PERF_MARKER> Start ${marker}`);
+		this._activePerfMarkers.set(marker, startTime);
+	}
+
+	public endPerfMarker(marker: string) {
+		const endTime = performance.now();
+		this._outputChannel.appendLine(`PERF_MARKER> End ${marker}: ${endTime - this._activePerfMarkers.get(marker)!} ms`);
+		this._activePerfMarkers.delete(marker);
+	}
+
 	public appendLine(message: string, component?: string) {
 		switch (this._logLevel) {
 			case LogLevel.Off:
 				return;
 			case LogLevel.Debug:
-				const hrtime = process.hrtime();
-				const timeStamp = `${hrtime[0]}s ${Math.floor(hrtime[1]/1000000)}ms`;
-				const info = component ? `${component}> ${message}`: `${message}`;
+				const hrtime = new Date().getTime() / 1000;
+				const timeStamp = `${hrtime}s`;
+				const info = component ? `${component}> ${message}` : `${message}`;
 				this._outputChannel.appendLine(`[Debug ${timeStamp}] ${info}`);
 				return;
 			case LogLevel.Info:
 			default:
-				this._outputChannel.appendLine(`[Info] ` + (component ? `${component}> ${message}`: `${message}`));
+				this._outputChannel.appendLine(`[Info] ` + (component ? `${component}> ${message}` : `${message}`));
 				return;
 		}
 	}
@@ -52,7 +70,7 @@ class Log {
 	}
 
 	private getLogLevel() {
-		let logLevel = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(LOG_LEVEL_SETTING);
+		const logLevel = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(LOG_LEVEL_SETTING);
 		switch (logLevel) {
 			case 'debug':
 				this._logLevel = LogLevel.Debug;

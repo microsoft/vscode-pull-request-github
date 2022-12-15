@@ -4,16 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { resolve } from '../env/node/ssh';
 import Logger from './logger';
 
-import { resolve } from './ssh';
 
 export enum ProtocolType {
 	Local,
 	HTTP,
 	SSH,
 	GIT,
-	OTHER
+	OTHER,
 }
 
 export class Protocol {
@@ -29,9 +29,7 @@ export class Protocol {
 	}
 
 	public readonly url: vscode.Uri;
-	constructor(
-		uriString: string,
-	) {
+	constructor(uriString: string) {
 		if (this.parseSshProtocol(uriString)) {
 			return;
 		}
@@ -47,7 +45,9 @@ export class Protocol {
 			}
 		} catch (e) {
 			Logger.appendLine(`Failed to parse '${uriString}'`);
-			vscode.window.showWarningMessage(`Unable to parse remote '${uriString}'. Please check that it is correctly formatted.`);
+			vscode.window.showWarningMessage(
+				vscode.l10n.t('Unable to parse remote \'{0}\'. Please check that it is correctly formatted.', uriString)
+			);
 		}
 	}
 
@@ -69,9 +69,11 @@ export class Protocol {
 
 	private parseSshProtocol(uriString: string): boolean {
 		const sshConfig = resolve(uriString);
-		if (!sshConfig) { return false; }
-		const { HostName, path } = sshConfig;
-		this.host = HostName;
+		if (!sshConfig) {
+			return false;
+		}
+		const { Hostname, HostName, path } = sshConfig;
+		this.host = HostName || Hostname;
 		this.owner = this.getOwnerName(path) || '';
 		this.repositoryName = this.getRepositoryName(path) || '';
 		this.type = ProtocolType.SSH;
@@ -80,10 +82,12 @@ export class Protocol {
 
 	getHostName(authority: string) {
 		// <username>:<password>@<authority>:<port>
-		let matches = /^(?:.*:?@)?([^:]*)(?::.*)?$/.exec(authority);
+		const matches = /^(?:.*:?@)?([^:]*)(?::.*)?$/.exec(authority);
 
 		if (matches && matches.length >= 2) {
-			return matches[1];
+			// normalize to fix #903.
+			// www.github.com will redirect anyways, so this is safe in this specific case, but potentially not in others.
+			return matches[1].toLocaleLowerCase() === 'www.github.com' ? 'github.com' : matches[1];
 		}
 
 		return '';
@@ -94,8 +98,8 @@ export class Protocol {
 		if (normalized.endsWith('/')) {
 			normalized = normalized.substr(0, normalized.length - 1);
 		}
-		let lastIndex = normalized.lastIndexOf('/');
-		let lastSegment = normalized.substr(lastIndex + 1);
+		const lastIndex = normalized.lastIndexOf('/');
+		const lastSegment = normalized.substr(lastIndex + 1);
 		if (lastSegment === '' || lastSegment === '/') {
 			return;
 		}
@@ -109,7 +113,7 @@ export class Protocol {
 			normalized = normalized.substr(0, normalized.length - 1);
 		}
 
-		let fragments = normalized.split('/');
+		const fragments = normalized.split('/');
 		if (fragments.length > 1) {
 			return fragments[fragments.length - 2];
 		}
@@ -132,7 +136,9 @@ export class Protocol {
 		}
 
 		try {
-			return vscode.Uri.parse(`${scheme}://${this.host.toLocaleLowerCase()}/${this.nameWithOwner.toLocaleLowerCase()}`);
+			return vscode.Uri.parse(
+				`${scheme}://${this.host.toLocaleLowerCase()}/${this.nameWithOwner.toLocaleLowerCase()}`,
+			);
 		} catch (e) {
 			return;
 		}
@@ -158,7 +164,7 @@ export class Protocol {
 			return `git://git@${this.host}:${this.owner}/${this.repositoryName}`;
 		}
 
-		let normalizedUri = this.normalizeUri();
+		const normalizedUri = this.normalizeUri();
 		if (normalizedUri) {
 			return normalizedUri.toString();
 		}
@@ -166,7 +172,7 @@ export class Protocol {
 		return;
 	}
 
-	update(change: { type?: ProtocolType; host?: string; owner?: string; repositoryName?: string; }): Protocol {
+	update(change: { type?: ProtocolType; host?: string; owner?: string; repositoryName?: string }): Protocol {
 		if (change.type) {
 			this.type = change.type;
 		}
@@ -187,12 +193,12 @@ export class Protocol {
 	}
 
 	equals(other: Protocol) {
-		let normalizeUri = this.normalizeUri();
+		const normalizeUri = this.normalizeUri();
 		if (!normalizeUri) {
 			return false;
 		}
 
-		let otherNormalizeUri = other.normalizeUri();
+		const otherNormalizeUri = other.normalizeUri();
 		if (!otherNormalizeUri) {
 			return false;
 		}

@@ -29,7 +29,7 @@ interface PullRequest {
 	author: User;
 	head: Repository; // Yeah, these are Refs in the real schema.
 	base: Repository;
-};
+}
 ```
 
 Say the builders for these types already existing in `src/test/builders/example/{user,repository,pullRequest}Builder.ts` modules. We may construct mocked responses for tests using the builders like so:
@@ -37,15 +37,12 @@ Say the builders for these types already existing in `src/test/builders/example/
 ```ts
 import { PullRequestBuilder } from '../builders/example/pullRequestBuilder';
 
-describe('Some model that uses PullRequest responses', function() {
-	it('does something based on the PR number and title', function() {
+describe('Some model that uses PullRequest responses', function () {
+	it('does something based on the PR number and title', function () {
 		// PullRequestBuilder has a fluent interface with a setter method corresponding to each
 		// property of the PullRequest interface. Its .build() method returns a fully-constructed
 		// PullRequest object.
-		const pr = new PullRequestBuilder()
-			.number(1234)
-			.title('This is the title')
-			.build();
+		const pr = new PullRequestBuilder().number(1234).title('This is the title').build();
 
 		// The fields we populated directly will be set to the values we gave them.
 		assert.strictEqual(pr.number, 1234);
@@ -60,7 +57,7 @@ describe('Some model that uses PullRequest responses', function() {
 		assert(pr.author.login instanceof string);
 	});
 
-	it('needs to specify some deep property, like the owner of the base repository', function() {
+	it('needs to specify some deep property, like the owner of the base repository', function () {
 		// Setter methods that construct other objects that have builders work a little differently.
 		//
 		// The "setter" for each instead accepts a function that will be called with an instance of
@@ -71,7 +68,7 @@ describe('Some model that uses PullRequest responses', function() {
 		// The type of the builder argument can be inferred from the setter function's signature,
 		// which saves you from needing to import a builder for every nested type.
 		const pr = new PullRequestBuilder()
-			.base((b) => {
+			.base(b => {
 				b.owner(o => o.login('someone'));
 			})
 			.build();
@@ -108,8 +105,8 @@ import { User } from '../../../../src/common/interfaces';
 // The odd double-function-call usage here is done so that the type of the template object may be
 // inferred while explicitly specifying the <User> type parameter.
 export const UserBuilder = createBuilderClass<User>()({
-	login: {default: 'me'},
-	avatarUrl: {default: 'https://avatars-r-us.com/me.jpg'},
+	login: { default: 'me' },
+	avatarUrl: { default: 'https://avatars-r-us.com/me.jpg' },
 });
 
 // Exporting the instance type is useful in cases when you wish to create custom builders that reference
@@ -132,10 +129,10 @@ export const RepositoryBuilder = createBuilderClass<Repository>()({
 	// The type constructed by UserBuilder is checked against the type of the "owner" field on Repository
 	// at compile time. The template used to define UserBuilder in user.ts is used to construct a default
 	// value for this field if unspecified.
-	owner: {linked: UserBuilder},
+	owner: { linked: UserBuilder },
 
-	name: {default: 'some-default'},
-	viewerCanAdmin: {default: false},
+	name: { default: 'some-default' },
+	viewerCanAdmin: { default: false },
 });
 
 export type RepositoryBuilder = InstanceType<typeof RepositoryBuilder>;
@@ -151,12 +148,12 @@ import { UserBuilder } from './userBuilder';
 import { RepositoryBuilder } from './repositoryBuilder';
 
 export const PullRequestBuilder = createBuilderClass<PullRequest>()({
-	number: {default: 100},
-	title: {default: 'default title'},
-	description: {default: 'default description'},
-	author: {linked: UserBuilder},
-	head: {linked: RepositoryBuilder},
-	base: {linked: RepositoryBuilder},
+	number: { default: 100 },
+	title: { default: 'default title' },
+	description: { default: 'default description' },
+	author: { linked: UserBuilder },
+	head: { linked: RepositoryBuilder },
+	base: { linked: RepositoryBuilder },
 });
 
 export type PullRequestBuilder = InstanceType<typeof PullRequestBuilder>;

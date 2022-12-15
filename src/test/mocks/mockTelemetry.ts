@@ -1,8 +1,9 @@
-
 import { ITelemetry } from '../../common/telemetry';
 
 export class MockTelemetry implements ITelemetry {
-	sendTelemetryEvent() { }
-	sendTelemetryException() { }
-	dispose() { return Promise.resolve(); }
+	sendTelemetryEvent() {}
+	sendTelemetryErrorEvent() {}
+	dispose() {
+		return Promise.resolve();
+	}
 }

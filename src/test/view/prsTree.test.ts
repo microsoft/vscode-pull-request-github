@@ -1,30 +1,36 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import * as vscode from 'vscode';
 import { SinonSandbox, createSandbox } from 'sinon';
-import assert = require('assert');
-import Octokit = require('@octokit/rest');
+import { default as assert } from 'assert';
+import { Octokit } from '@octokit/rest';
 
 import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
-import { PullRequestManager } from '../../github/pullRequestManager';
-import { init as initKeytar } from '../../authentication/keychain';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
-import { MockKeytar } from '../mocks/mockKeytar';
 import { MockRepository } from '../mocks/mockRepository';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { Remote } from '../../common/remote';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { CredentialStore, GitHub } from '../../github/credentials';
 import { parseGraphQLPullRequest } from '../../github/utils';
 import { Resource } from '../../common/resources';
+import { GitApiImpl } from '../../api/api1';
+import { RepositoriesManager } from '../../github/repositoriesManager';
+import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
+import { GitHubServerType } from '../../common/authentication';
 
-describe('GitHub Pull Requests view', function() {
+describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
 	let context: MockExtensionContext;
-	let keytar: MockKeytar;
 	let telemetry: MockTelemetry;
 	let provider: PullRequestsTreeDataProvider;
 	let credentialStore: CredentialStore;
@@ -34,24 +40,22 @@ describe('GitHub Pull Requests view', function() {
 		MockCommandRegistry.install(sinon);
 
 		context = new MockExtensionContext();
-		keytar = new MockKeytar();
-		initKeytar(context, keytar);
 
 		telemetry = new MockTelemetry();
-		provider = new PullRequestsTreeDataProvider(telemetry);
-		credentialStore = new CredentialStore(telemetry);
+		provider = new PullRequestsTreeDataProvider(telemetry, context);
+		credentialStore = new CredentialStore(telemetry, context);
 
-		// For tree view unit tests, we don't test the authentication flow, so `loginWithConfirmation` returns
+		// For tree view unit tests, we don't test the authentication flow, so `showSignInNotification` returns
 		// a dummy GitHub/Octokit object.
-		sinon.stub(credentialStore, 'loginWithConfirmation').callsFake(async (remote) => {
-			let github: GitHub = {
-				octokit: new Octokit({
+		sinon.stub(credentialStore, 'showSignInNotification').callsFake(async () => {
+			const github: GitHub = {
+				octokit: new LoggingOctokit(new Octokit({
 					request: {},
 					baseUrl: 'https://github.com',
 					userAgent: 'GitHub VSCode Pull Requests',
-					previews: ['shadow-cat-preview']
-				}),
-				graphql: null
+					previews: ['shadow-cat-preview'],
+				}), new RateLogger(context)),
+				graphql: null,
 			};
 
 			return github;
@@ -66,40 +70,31 @@ describe('GitHub Pull Requests view', function() {
 		sinon.restore();
 	});
 
-	it('displays a message when no workspace folders are open', async function() {
+	it('has no children when no workspace folders are open', async function () {
 		sinon.stub(vscode.workspace, 'workspaceFolders').value(undefined);
 
 		const rootNodes = await provider.getChildren();
-		assert.strictEqual(rootNodes.length, 1);
-
-		const [onlyNode] = rootNodes;
-		const onlyItem = onlyNode.getTreeItem();
-		assert.strictEqual(onlyItem.collapsibleState, vscode.TreeItemCollapsibleState.None);
-		assert.strictEqual(onlyItem.label, 'You have not yet opened a folder.');
-		assert.strictEqual(onlyItem.command, undefined);
+		assert.strictEqual(rootNodes.length, 0);
 	});
 
-	it('displays a message when no GitHub remotes are available', async function() {
-		sinon.stub(vscode.workspace, 'workspaceFolders').value([
-			{index: 0, name: __dirname, uri: vscode.Uri.file(__dirname)},
-		]);
+	it('has no children when no GitHub remotes are available', async function () {
+		sinon
+			.stub(vscode.workspace, 'workspaceFolders')
+			.value([{ index: 0, name: __dirname, uri: vscode.Uri.file(__dirname) }]);
 
 		const rootNodes = await provider.getChildren();
-		assert.strictEqual(rootNodes.length, 1);
-
-		const [onlyNode] = rootNodes;
-		const onlyItem = onlyNode.getTreeItem();
-		assert.strictEqual(onlyItem.collapsibleState, vscode.TreeItemCollapsibleState.None);
-		assert.strictEqual(onlyItem.label, 'No git repositories found.');
-		assert.strictEqual(onlyItem.command, undefined);
+		assert.strictEqual(rootNodes.length, 0);
 	});
 
-	it('displays a message when repositories have not yet been initialized', async function() {
+	it('displays a message when repositories have not yet been initialized', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
-
-		const manager = new PullRequestManager(repository, telemetry, credentialStore);
-		provider.initialize(manager);
+		const manager = new RepositoriesManager(
+			[new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore)],
+			credentialStore,
+			telemetry,
+		);
+		provider.initialize(manager, [], credentialStore);
 
 		const rootNodes = await provider.getChildren();
 		assert.strictEqual(rootNodes.length, 1);
@@ -111,87 +106,71 @@ describe('GitHub Pull Requests view', function() {
 		assert.strictEqual(onlyItem.command, undefined);
 	});
 
-	it('displays a message when the user has not signed in', async function() {
+	it('opens the viewlet and displays the default categories', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		const manager = new PullRequestManager(repository, telemetry, credentialStore);
-		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
-			return new MockGitHubRepository(remote, cStore, sinon);
-		});
-		sinon.stub(credentialStore, 'hasOctokit').returns(Promise.resolve(false));
-		await manager.updateRepositories();
-		provider.initialize(manager);
+		const manager = new RepositoriesManager(
+			[new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore)],
+			credentialStore,
+			telemetry,
+		);
 
-		const rootNodes = await provider.getChildren();
-		assert.strictEqual(rootNodes.length, 1);
-
-		const [onlyNode] = rootNodes;
-		const onlyItem = onlyNode.getTreeItem();
-		assert.strictEqual(onlyItem.collapsibleState, vscode.TreeItemCollapsibleState.None);
-		assert.strictEqual(onlyItem.label, 'Sign in');
-		assert.strictEqual(!!onlyItem.command, true);
-		assert.strictEqual(onlyItem.command!.command, 'pr.signinAndRefreshList');
-	});
-
-	it('opens the viewlet and displays the default categories', async function() {
-		const repository = new MockRepository();
-		repository.addRemote('origin', 'git@github.com:aaa/bbb');
-
-		const manager = new PullRequestManager(repository, telemetry, credentialStore);
-		sinon.stub(manager, 'createGitHubRepository').callsFake((remote, cStore) => {
-			return new MockGitHubRepository(remote, cStore, sinon);
-		});
-		sinon.stub(credentialStore, 'hasOctokit').returns(Promise.resolve(true));
-		await manager.updateRepositories();
-		provider.initialize(manager);
+		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+		await manager.folderManagers[0].updateRepositories();
+		provider.initialize(manager, [], credentialStore);
 
 		const rootNodes = await provider.getChildren();
 
-		assert(rootNodes.every(n => n.getTreeItem().collapsibleState === vscode.TreeItemCollapsibleState.Collapsed));
-		assert.deepEqual(rootNodes.map(n => n.getTreeItem().label), [
-			'Local Pull Request Branches',
-			'Waiting For My Review',
-			'Assigned To Me',
-			'Created By Me',
-			'All',
-		]);
+		// All but the last category are expected to be collapsed
+		assert(rootNodes.slice(0, rootNodes.length - 1).every(n => n.getTreeItem().collapsibleState === vscode.TreeItemCollapsibleState.Collapsed));
+		assert(rootNodes[rootNodes.length - 1].getTreeItem().collapsibleState === vscode.TreeItemCollapsibleState.Expanded);
+		assert.deepStrictEqual(
+			rootNodes.map(n => n.getTreeItem().label),
+			['Local Pull Request Branches', 'Waiting For My Review', 'Assigned To Me', 'Created By Me', 'All Open'],
+		);
 	});
 
-	describe('Local Pull Request Branches', function() {
-		it('creates a node for each local pull request', async function() {
+	describe('Local Pull Request Branches', function () {
+		it('creates a node for each local pull request', async function () {
 			const url = 'git@github.com:aaa/bbb';
-			const remote = new Remote('origin', url, new Protocol(url));
-			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, sinon);
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
 			gitHubRepository.buildMetadata(m => {
 				m.clone_url('https://github.com/aaa/bbb');
 			});
 
-			const pr0 = gitHubRepository.addGraphQLPullRequest((builder) => {
+			const pr0 = gitHubRepository.addGraphQLPullRequest(builder => {
 				builder.pullRequest(pr => {
-					pr.repository(r => r.pullRequest(p => {
-						p.number(1111);
-						p.title('zero');
-						p.author(a => a.login('me').avatarUrl('https://avatars.com/me.jpg'));
-						p.baseRef!(b => b.repository(br => br.url('https://github.com/aaa/bbb')));
-					}));
+					pr.repository(r =>
+						r.pullRequest(p => {
+							p.number(1111);
+							p.title('zero');
+							p.author(a => a.login('me').avatarUrl('https://avatars.com/me.jpg').url('https://github.com/me'));
+							p.baseRef!(b => b.repository(br => br.url('https://github.com/aaa/bbb')));
+							p.baseRepository(r => r.url('https://github.com/aaa/bbb'));
+						}),
+					);
 				});
 			}).pullRequest;
-			const prItem0 = parseGraphQLPullRequest(pr0, gitHubRepository);
-			const pullRequest0 = new PullRequestModel(gitHubRepository, remote, prItem0);
+			const prItem0 = parseGraphQLPullRequest(pr0.repository.pullRequest, gitHubRepository);
+			const pullRequest0 = new PullRequestModel(telemetry, gitHubRepository, remote, prItem0);
 
-			const pr1 = gitHubRepository.addGraphQLPullRequest((builder) => {
+			const pr1 = gitHubRepository.addGraphQLPullRequest(builder => {
 				builder.pullRequest(pr => {
-					pr.repository(r => r.pullRequest(p => {
-						p.number(2222);
-						p.title('one');
-						p.author(a => a.login('you').avatarUrl('https://avatars.com/you.jpg'));
-						p.baseRef!(b => b.repository(br => br.url('https://github.com/aaa/bbb')));
-					}));
+					pr.repository(r =>
+						r.pullRequest(p => {
+							p.number(2222);
+							p.title('one');
+							p.author(a => a.login('you').avatarUrl('https://avatars.com/you.jpg'));
+							p.baseRef!(b => b.repository(br => br.url('https://github.com/aaa/bbb')));
+							p.baseRepository(r => r.url('https://github.com/aaa/bbb'));
+						}),
+					);
 				});
 			}).pullRequest;
-			const prItem1 = parseGraphQLPullRequest(pr1, gitHubRepository);
-			const pullRequest1 = new PullRequestModel(gitHubRepository, remote, prItem1);
+			const prItem1 = parseGraphQLPullRequest(pr1.repository.pullRequest, gitHubRepository);
+			const pullRequest1 = new PullRequestModel(telemetry, gitHubRepository, remote, prItem1);
 
 			const repository = new MockRepository();
 			await repository.addRemote(remote.remoteName, remote.url);
@@ -203,15 +182,16 @@ describe('GitHub Pull Requests view', function() {
 
 			await repository.createBranch('non-pr-branch', false);
 
-			const manager = new PullRequestManager(repository, telemetry, credentialStore);
+			const manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore);
+			const reposManager = new RepositoriesManager([manager], credentialStore, telemetry);
 			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
-				assert.deepEqual(r, remote);
+				assert.deepStrictEqual(r, remote);
 				assert.strictEqual(cs, credentialStore);
-				return gitHubRepository;
+				return Promise.resolve(gitHubRepository);
 			});
-			sinon.stub(credentialStore, 'hasOctokit').returns(Promise.resolve(true));
+			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 			await manager.updateRepositories();
-			provider.initialize(manager);
+			provider.initialize(reposManager, [], credentialStore);
 			manager.activePullRequest = pullRequest1;
 
 			const rootNodes = await provider.getChildren();
@@ -223,18 +203,18 @@ describe('GitHub Pull Requests view', function() {
 			const [localItem0, localItem1] = localChildren.map(node => node.getTreeItem());
 
 			assert.strictEqual(localItem0.label, 'zero');
-			assert.strictEqual(localItem0.tooltip, 'zero (#1111) by @me');
-			assert.strictEqual(localItem0.description, '#1111 by @me');
+			assert.strictEqual(localItem0.tooltip, 'zero by @me');
+			assert.strictEqual(localItem0.description, 'by @me');
 			assert.strictEqual(localItem0.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem0.contextValue, 'pullrequest:local:nonactive');
-			assert.deepEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg&s=64');
+			assert.deepStrictEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg&s=64');
 
 			assert.strictEqual(localItem1.label, '✓ one');
-			assert.strictEqual(localItem1.tooltip, 'Current Branch * one (#2222) by @you');
-			assert.strictEqual(localItem1.description, '#2222 by @you');
+			assert.strictEqual(localItem1.tooltip, 'Current Branch * one by @you');
+			assert.strictEqual(localItem1.description, 'by @you');
 			assert.strictEqual(localItem1.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem1.contextValue, 'pullrequest:local:active');
-			assert.deepEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg&s=64');
+			assert.deepStrictEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg&s=64');
 		});
 	});
 });

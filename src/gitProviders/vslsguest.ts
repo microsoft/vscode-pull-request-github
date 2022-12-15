@@ -5,9 +5,14 @@
 
 import * as vscode from 'vscode';
 import { LiveShare, SharedServiceProxy } from 'vsls/vscode.js';
-import { VSLS_GIT_PR_SESSION_NAME, VSLS_REQUEST_NAME, VSLS_REPOSITORY_INITIALIZATION_NAME, VSLS_STATE_CHANGE_NOFITY_NAME } from '../constants';
-import { RepositoryState, Commit, Branch, Ref, Remote, Submodule, Change } from '../typings/git';
-import { Repository, IGit } from '../api/api';
+import { Branch, Change, Commit, Ref, Remote, RepositoryState, Submodule } from '../@types/git';
+import { IGit, Repository } from '../api/api';
+import {
+	VSLS_GIT_PR_SESSION_NAME,
+	VSLS_REPOSITORY_INITIALIZATION_NAME,
+	VSLS_REQUEST_NAME,
+	VSLS_STATE_CHANGE_NOTIFY_NAME,
+} from '../constants';
 
 export class VSLSGuest implements IGit, vscode.Disposable {
 	private _onDidOpenRepository = new vscode.EventEmitter<Repository>();
@@ -26,7 +31,7 @@ export class VSLSGuest implements IGit, vscode.Disposable {
 	}
 
 	public async initialize() {
-		this._sharedServiceProxy = await this._liveShareAPI.getSharedService(VSLS_GIT_PR_SESSION_NAME) || undefined;
+		this._sharedServiceProxy = (await this._liveShareAPI.getSharedService(VSLS_GIT_PR_SESSION_NAME)) || undefined;
 
 		if (!this._sharedServiceProxy) {
 			return;
@@ -35,21 +40,33 @@ export class VSLSGuest implements IGit, vscode.Disposable {
 		if (this._sharedServiceProxy.isServiceAvailable) {
 			await this._refreshWorkspaces(true);
 		}
-		this._disposables.push(this._sharedServiceProxy.onDidChangeIsServiceAvailable(async e => {
-			await this._refreshWorkspaces(e);
-		}));
-		this._disposables.push(vscode.workspace.onDidChangeWorkspaceFolders(this._onDidChangeWorkspaceFolders.bind(this)));
+		this._disposables.push(
+			this._sharedServiceProxy.onDidChangeIsServiceAvailable(async e => {
+				await this._refreshWorkspaces(e);
+			}),
+		);
+		this._disposables.push(
+			vscode.workspace.onDidChangeWorkspaceFolders(this._onDidChangeWorkspaceFolders.bind(this)),
+		);
 	}
 
 	private async _onDidChangeWorkspaceFolders(e: vscode.WorkspaceFoldersChangeEvent) {
 		e.added.forEach(async folder => {
-			if (folder.uri.scheme === 'vsls' && this._sharedServiceProxy && this._sharedServiceProxy.isServiceAvailable) {
+			if (
+				folder.uri.scheme === 'vsls' &&
+				this._sharedServiceProxy &&
+				this._sharedServiceProxy.isServiceAvailable
+			) {
 				await this.openVSLSRepository(folder);
 			}
 		});
 
 		e.removed.forEach(async folder => {
-			if (folder.uri.scheme === 'vsls' && this._sharedServiceProxy && this._sharedServiceProxy.isServiceAvailable) {
+			if (
+				folder.uri.scheme === 'vsls' &&
+				this._sharedServiceProxy &&
+				this._sharedServiceProxy.isServiceAvailable
+			) {
 				await this.closeVSLSRepository(folder);
 			}
 		});
@@ -57,7 +74,7 @@ export class VSLSGuest implements IGit, vscode.Disposable {
 
 	private async _refreshWorkspaces(available: boolean) {
 		if (vscode.workspace.workspaceFolders) {
-			vscode.workspace.workspaceFolders.forEach(async (folder) => {
+			vscode.workspace.workspaceFolders.forEach(async folder => {
 				if (folder.uri.scheme === 'vsls') {
 					if (available) {
 						await this.openVSLSRepository(folder);
@@ -70,7 +87,7 @@ export class VSLSGuest implements IGit, vscode.Disposable {
 	}
 
 	public async openVSLSRepository(folder: vscode.WorkspaceFolder): Promise<void> {
-		let existingRepository = this.getRepository(folder);
+		const existingRepository = this.getRepository(folder);
 		if (existingRepository) {
 			return;
 		}
@@ -82,7 +99,7 @@ export class VSLSGuest implements IGit, vscode.Disposable {
 	}
 
 	public async closeVSLSRepository(folder: vscode.WorkspaceFolder): Promise<void> {
-		let existingRepository = this.getRepository(folder);
+		const existingRepository = this.getRepository(folder);
 		if (!existingRepository) {
 			return;
 		}
@@ -112,15 +129,15 @@ export class VSLSGuest implements IGit, vscode.Disposable {
 }
 
 class LiveShareRepositoryProxyHandler {
-	constructor() { }
+	constructor() {}
 
-	get (obj: any, prop: any) {
+	get(obj: any, prop: any) {
 		if (prop in obj) {
 			return obj[prop];
 		}
 
-		return function () {
-			return obj.proxy.request(VSLS_REQUEST_NAME, [prop, obj.workspaceFolder.uri.toString(), ...arguments]);
+		return function (...args: any[]) {
+			return obj.proxy.request(VSLS_REQUEST_NAME, [prop, obj.workspaceFolder.uri.toString(), ...args]);
 		};
 	}
 }
@@ -129,11 +146,11 @@ class LiveShareRepositoryState implements RepositoryState {
 	HEAD: Branch | undefined;
 	refs: Ref[];
 	remotes: Remote[];
-	submodules: Submodule[];
-	rebaseCommit: Commit;
-	mergeChanges: Change[];
-	indexChanges: Change[];
-	workingTreeChanges: Change[];
+	submodules: Submodule[] = [];
+	rebaseCommit: Commit | undefined;
+	mergeChanges: Change[] = [];
+	indexChanges: Change[] = [];
+	workingTreeChanges: Change[] = [];
 	_onDidChange = new vscode.EventEmitter<void>();
 	onDidChange = this._onDidChange.event;
 
@@ -153,22 +170,22 @@ class LiveShareRepositoryState implements RepositoryState {
 }
 
 class LiveShareRepository {
-	rootUri: vscode.Uri;
-	state: LiveShareRepositoryState;
+	rootUri: vscode.Uri | undefined;
+	state: LiveShareRepositoryState | undefined;
 
-	constructor(
-		public workspaceFolder: vscode.WorkspaceFolder,
-		public proxy: SharedServiceProxy
-	) { }
+	constructor(public workspaceFolder: vscode.WorkspaceFolder, public proxy: SharedServiceProxy) {}
 
 	public async initialize() {
-		let result = await this.proxy.request(VSLS_REQUEST_NAME, [VSLS_REPOSITORY_INITIALIZATION_NAME, this.workspaceFolder.uri.toString()]);
+		const result = await this.proxy.request(VSLS_REQUEST_NAME, [
+			VSLS_REPOSITORY_INITIALIZATION_NAME,
+			this.workspaceFolder.uri.toString(),
+		]);
 		this.state = new LiveShareRepositoryState(result);
 		this.rootUri = vscode.Uri.parse(result.rootUri);
-		this.proxy.onNotify(VSLS_STATE_CHANGE_NOFITY_NAME, this._notifyHandler.bind(this));
+		this.proxy.onNotify(VSLS_STATE_CHANGE_NOTIFY_NAME, this._notifyHandler.bind(this));
 	}
 
 	private _notifyHandler(args: any) {
-		this.state.update(args);
+		this.state?.update(args);
 	}
 }

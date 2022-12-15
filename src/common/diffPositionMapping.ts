@@ -3,8 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DiffLine, DiffHunk, parseDiffHunk, DiffChangeType } from './diffHunk';
-import { IComment } from './comment';
+import { DiffHunk, DiffLine, parseDiffHunk } from './diffHunk';
 
 /**
  * Line position in a git diff is 1 based, except for the case when the original or changed file have
@@ -19,77 +18,9 @@ export function getZeroBased(line: number): number {
 	return line - 1;
 }
 
-/**
- * Returns the absolute position of a comment in a file. If the comment is outdated, returns -1.
- *
- * For the base file, only comments that are on deleted lines should be displayed. For the modified file,
- * all other comments should be shown. Check the line type to avoid duplicating comments across these files.
- * @param comment The comment
- * @param fileDiffHunks The diff hunks of the file
- * @param isBase Whether the file, if a diff, is the base or modified
- */
-export function getAbsolutePosition(comment: IComment, fileDiffHunks: DiffHunk[], isBase: boolean): number {
-	let commentAbsolutePosition = -1;
-	// Ignore outdated comments
-	if (comment.position !== null) {
-		let diffLine = getDiffLineByPosition(fileDiffHunks, comment.position!);
-
-		if (diffLine) {
-			if (isBase && diffLine.type === DiffChangeType.Delete) {
-				commentAbsolutePosition = diffLine.oldLineNumber;
-			}
-
-			if (!isBase && diffLine.type !== DiffChangeType.Delete) {
-				commentAbsolutePosition = diffLine.newLineNumber;
-			}
-		}
-	}
-
-	return commentAbsolutePosition;
-}
-
-/**
- * Returns the position of the comment within the diff. This is simply the comment.position property,
- * but the method ensures that the comment will be shown on the correct side of the diff by
- * returning -1 when the comment's line is an addition and the document is the base and vice versa.
- * @param comment The comment
- * @param fileDiffHunks The diff hunks of the file
- * @param isBase Whether the file, if a diff, is the base or modified
- */
-export function getPositionInDiff(comment: IComment, fileDiffHunks: DiffHunk[], isBase: boolean): number {
-	let commentAbsolutePosition = -1;
-	// Ignore outdated comments
-	if (comment.position !== null) {
-		let diffLine = getDiffLineByPosition(fileDiffHunks, comment.position!);
-
-		if (diffLine) {
-			if ((diffLine.type === DiffChangeType.Add && !isBase) || (diffLine.type === DiffChangeType.Delete && isBase)) {
-				commentAbsolutePosition = comment.position!;
-			}
-		}
-	}
-
-	return commentAbsolutePosition;
-}
-
-export function getLastDiffLine(prPatch: string): DiffLine | undefined {
-	let lastDiffLine = undefined;
-	let prDiffReader = parseDiffHunk(prPatch);
-	let prDiffIter = prDiffReader.next();
-
-	while (!prDiffIter.done) {
-		let diffHunk = prDiffIter.value;
-		lastDiffLine = diffHunk.diffLines[diffHunk.diffLines.length - 1];
-
-		prDiffIter = prDiffReader.next();
-	}
-
-	return lastDiffLine;
-}
-
 export function getDiffLineByPosition(diffHunks: DiffHunk[], diffLineNumber: number): DiffLine | undefined {
 	for (let i = 0; i < diffHunks.length; i++) {
-		let diffHunk = diffHunks[i];
+		const diffHunk = diffHunks[i];
 		for (let j = 0; j < diffHunk.diffLines.length; j++) {
 			if (diffHunk.diffLines[j].positionInHunk === diffLineNumber) {
 				return diffHunk.diffLines[j];
@@ -100,50 +31,13 @@ export function getDiffLineByPosition(diffHunks: DiffHunk[], diffLineNumber: num
 	return undefined;
 }
 
-export function mapHeadLineToDiffHunkPosition(diffHunks: DiffHunk[], localDiff: string, line: number, isBase: boolean = false): number {
-	let localDiffReader = parseDiffHunk(localDiff);
-	let localDiffIter = localDiffReader.next();
-	let lineInPRDiff = line;
-
-	while (!localDiffIter.done) {
-		let diffHunk = localDiffIter.value;
-		if (diffHunk.oldLineNumber > line) {
-			break;
-		} else {
-			lineInPRDiff += diffHunk.oldLength - diffHunk.newLength;
-		}
-
-		localDiffIter = localDiffReader.next();
-	}
-
-	let positionInDiffHunk = -1;
-
-	for (let i = 0; i < diffHunks.length; i++) {
-		let diffHunk = diffHunks[i];
-
-		for (let j = 0; j < diffHunk.diffLines.length; j++) {
-			if (isBase) {
-				if (diffHunk.diffLines[j].oldLineNumber === lineInPRDiff) {
-					return diffHunk.diffLines[j].positionInHunk;
-				}
-			} else {
-				if (diffHunk.diffLines[j].newLineNumber === lineInPRDiff) {
-					return diffHunk.diffLines[j].positionInHunk;
-				}
-			}
-		}
-	}
-
-	return positionInDiffHunk;
-}
-
 export function mapOldPositionToNew(patch: string, line: number): number {
-	let diffReader = parseDiffHunk(patch);
+	const diffReader = parseDiffHunk(patch);
 	let diffIter = diffReader.next();
 
 	let delta = 0;
 	while (!diffIter.done) {
-		let diffHunk = diffIter.value;
+		const diffHunk: DiffHunk = diffIter.value;
 
 		if (diffHunk.oldLineNumber > line) {
 			// No-op
@@ -160,27 +54,25 @@ export function mapOldPositionToNew(patch: string, line: number): number {
 	return line + delta;
 }
 
-export function mapCommentsToHead(diffHunks: DiffHunk[], localDiff: string, comments: IComment[]) {
-	for (let i = 0; i < comments.length; i++) {
-		const comment = comments[i];
+export function mapNewPositionToOld(patch: string, line: number): number {
+	const diffReader = parseDiffHunk(patch);
+	let diffIter = diffReader.next();
 
-		// Ignore outdated comments
-		if (comment.position === null || comment.position === undefined) {
-			continue;
+	let delta = 0;
+	while (!diffIter.done) {
+		const diffHunk: DiffHunk = diffIter.value;
+
+		if (diffHunk.newLineNumber > line) {
+			// No-op
+		} else if (diffHunk.newLineNumber + diffHunk.newLength - 1 < line) {
+			delta += diffHunk.oldLength - diffHunk.newLength;
+		} else {
+			delta += diffHunk.oldLength - diffHunk.newLength;
+			return line + delta;
 		}
 
-		// Diff line is null when the original line the comment was on has been removed
-		const diffLine = getDiffLineByPosition(diffHunks, comment.position);
-		if (diffLine) {
-			// Ignore comments which are on deletions
-			if (diffLine.type === DiffChangeType.Delete) {
-				continue;
-			}
-
-			const newPosition = mapOldPositionToNew(localDiff, diffLine.newLineNumber);
-			comment.absolutePosition = newPosition;
-		}
+		diffIter = diffReader.next();
 	}
 
-	return comments;
+	return line + delta;
 }

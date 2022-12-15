@@ -9,8 +9,8 @@ const original = {
 
 beforeEach(function () {
 	const currentTest = this.currentTest as {
-		consoleOutputs?: string[],
-		consoleErrors?: string[],
+		consoleOutputs?: string[];
+		consoleErrors?: string[];
 	};
 	console.log = function captureLog() {
 		original.log.apply(console, arguments);

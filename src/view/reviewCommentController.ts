@@ -4,82 +4,42 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as nodePath from 'path';
+import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
-import { IComment } from '../common/comment';
-import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
-import { getAbsolutePosition, getLastDiffLine, mapCommentsToHead, mapOldPositionToNew, getDiffLineByPosition, getZeroBased, mapHeadLineToDiffHunkPosition } from '../common/diffPositionMapping';
-import { fromPRUri, fromReviewUri, ReviewUriParams } from '../common/uri';
-import { formatError, groupBy } from '../common/utils';
 import { Repository } from '../api/api';
-import { PullRequestManager } from '../github/pullRequestManager';
-import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
-import { getDocumentThreadDatas, ThreadData } from './treeNodes/pullRequestNode';
-import { parseGraphQLReaction, createVSCodeCommentThread, updateCommentThreadLabel , updateCommentReviewState, CommentReactionHandler, generateCommentReactions } from '../github/utils';
-import { ReactionGroup } from '../github/graphql';
-import { DiffHunk, DiffChangeType } from '../common/diffHunk';
-import { CommentHandler, registerCommentHandler } from '../commentHandlerResolver';
-import { CommentThreadCache } from './commentThreadCache';
+import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
+import { DiffSide, IReviewThread } from '../common/comment';
 import { getCommentingRanges } from '../common/commentingRanges';
+import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPositionMapping';
+import { GitChangeType } from '../common/file';
+import Logger from '../common/logger';
+import { fromReviewUri, ReviewUriParams, Schemes, toReviewUri } from '../common/uri';
+import { dispose, formatError, groupBy, uniqBy } from '../common/utils';
+import { FolderRepositoryManager } from '../github/folderRepositoryManager';
+import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
+import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
+import {
+	CommentReactionHandler,
+	createVSCodeCommentThreadForReviewThread,
+	isFileInRepo,
+	threadRange,
+	updateCommentReviewState,
+	updateCommentThreadLabel,
+	updateThread,
+	updateThreadWithRange,
+} from '../github/utils';
+import { RemoteFileChangeModel } from './fileChangeModel';
+import { ReviewManager } from './reviewManager';
+import { ReviewModel } from './reviewModel';
+import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 
-function workspaceLocalCommentsToCommentThreads(repository: Repository, fileChange: GitFileChangeNode, fileComments: IComment[], collapsibleState: vscode.CommentThreadCollapsibleState): ThreadData[] {
-	if (!fileChange) {
-		return [];
-	}
-
-	if (!fileComments || !fileComments.length) {
-		return [];
-	}
-
-	const ret: ThreadData[] = [];
-	const sections = groupBy(fileComments, comment => String(comment.position));
-
-	for (let i in sections) {
-		const comments = sections[i];
-
-		const firstComment = comments[0];
-		const pos = new vscode.Position(getZeroBased(firstComment.absolutePosition || 0), 0);
-		const range = new vscode.Range(pos, pos);
-
-		const newPath = nodePath.join(repository.rootUri.path, firstComment.path!).replace(/\\/g, '/');
-		const newUri = repository.rootUri.with({ path: newPath });
-		ret.push({
-			threadId: firstComment.id.toString(),
-			uri: newUri,
-			range,
-			comments,
-			collapsibleState
-		});
-	}
-
-	return ret;
-}
-
-function mapCommentThreadsToHead(diffHunks: DiffHunk[], localDiff: string, commentThreads: GHPRCommentThread[]) {
-	commentThreads.forEach(thread => {
-		if (thread.comments && thread.comments.length) {
-			let comment = thread.comments[0];
-
-			if (comment instanceof GHPRComment) {
-				const diffLine = getDiffLineByPosition(diffHunks, comment._rawComment.position || comment._rawComment.originalPosition!);
-				if (diffLine) {
-					const positionInPr = diffLine.type === DiffChangeType.Delete ? diffLine.oldLineNumber : diffLine.newLineNumber;
-					const newPosition = getZeroBased(mapOldPositionToNew(localDiff, positionInPr));
-					const range = new vscode.Range(newPosition, 0, newPosition, 0);
-
-					thread.range = range;
-				}
-			}
-		}
-	});
-}
-
-export class ReviewCommentController implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider, CommentReactionHandler {
-
+export class ReviewCommentController
+	implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider, CommentReactionHandler {
+	private static readonly ID = 'ReviewCommentController';
 	private _localToDispose: vscode.Disposable[] = [];
-	private _onDidChangeComments = new vscode.EventEmitter<IComment[]>();
-	public onDidChangeComments = this._onDidChangeComments.event;
+	private _commentHandlerId: string;
 
-	private _commentController?: vscode.CommentController;
+	private _commentController: vscode.CommentController;
 
 	public get commentController(): vscode.CommentController | undefined {
 		return this._commentController;
@@ -87,337 +47,420 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	// Note: marked as protected so that tests can verify caches have been updated correctly without breaking type safety
 	protected _workspaceFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
+	protected _reviewSchemeFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
 	protected _obsoleteFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
 
-	// In most cases, the right side/modified document is of type 'file' scheme, so comments
-	// for that side are from _workspaceFileChangeCommentThreads. If the document has been
-	// deleted, the right hand side will be 'review' scheme.
-	protected _reviewDocumentCommentThreads: CommentThreadCache = new CommentThreadCache();
+	protected _visibleNormalTextEditors: vscode.TextEditor[] = [];
 
-	protected _prDocumentCommentThreads: CommentThreadCache = new CommentThreadCache();
+	private _pendingCommentThreadAdds: GHPRCommentThread[] = [];
 
 	constructor(
-		private _prManager: PullRequestManager,
+		private _reviewManager: ReviewManager,
+		private _reposManager: FolderRepositoryManager,
 		private _repository: Repository,
-		private _localFileChanges: GitFileChangeNode[],
-		private _obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
-		private _comments: IComment[]) {
-		this._commentController = vscode.comments.createCommentController(`review-${_prManager.activePullRequest!.prNumber}`, _prManager.activePullRequest!.title);
+		private _reviewModel: ReviewModel,
+	) {
+		this._commentController = vscode.comments.createCommentController(
+			`github-review-${_reposManager.activePullRequest!.number}`,
+			_reposManager.activePullRequest!.title,
+		);
 		this._commentController.commentingRangeProvider = this;
 		this._commentController.reactionHandler = this.toggleReaction.bind(this);
 		this._localToDispose.push(this._commentController);
-		registerCommentHandler(this);
+		this._commentHandlerId = uuid();
+		registerCommentHandler(this._commentHandlerId, this);
 	}
 
 	// #region initialize
 	async initialize(): Promise<void> {
-		await this.initializeWorkspaceCommentThreads();
-		await this.initializeDocumentCommentThreadsAndListeners();
+		this._visibleNormalTextEditors = vscode.window.visibleTextEditors.filter(
+			ed => ed.document.uri.scheme !== 'comment',
+		);
+		await this._reposManager.activePullRequest!.validateDraftMode();
+		await this.initializeCommentThreads();
+		await this.registerListeners();
 	}
 
-	async initializeWorkspaceCommentThreads(): Promise<void[]> {
-		await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
-		const localFileChangePromises = this._localFileChanges.map(async matchedFile => {
-			const threadData = await this.getWorkspaceFileThreadDatas(matchedFile);
-			this._workspaceFileChangeCommentThreads[matchedFile.fileName] = threadData.map(thread => createVSCodeCommentThread(thread, this._commentController!));
-			return;
-		});
+	/**
+	 * Creates a comment thread for a thread that is not on the latest changes.
+	 * @param path The path to the file the comment thread is on.
+	 * @param thread The comment thread information from GitHub.
+	 * @returns A GHPRCommentThread that has been created on an editor.
+	 */
+	private async createOutdatedCommentThread(path: string, thread: IReviewThread): Promise<GHPRCommentThread> {
+		const commit = thread.comments[0].originalCommitId!;
+		const uri = vscode.Uri.file(nodePath.join(`commit~${commit.substr(0, 8)}`, path));
+		const reviewUri = toReviewUri(
+			uri,
+			path,
+			undefined,
+			commit,
+			true,
+			{ base: thread.diffSide === DiffSide.LEFT },
+			this._repository.rootUri,
+		);
 
-		const outdatedFileChangePromises = gitFileChangeNodeFilter(this._obsoleteFileChanges).map(fileChange => {
-			let threads = this.outdatedCommentsToCommentThreads(fileChange, fileChange.comments, vscode.CommentThreadCollapsibleState.Expanded).map(thread => createVSCodeCommentThread(thread, this._commentController!));
-			this._obsoleteFileChangeCommentThreads[fileChange.fileName] = threads;
-			return;
-		});
-
-		return Promise.all([...localFileChangePromises, ...outdatedFileChangePromises]);
+		const range = threadRange(thread.originalStartLine - 1, thread.originalEndLine - 1);
+		return createVSCodeCommentThreadForReviewThread(reviewUri, range, thread, this._commentController, (await this._reposManager.getCurrentUser()).login);
 	}
 
-	private async getWorkspaceFileThreadDatas(matchedFile: GitFileChangeNode): Promise<ThreadData[]> {
-		const headCommitSha = this._prManager.activePullRequest!.head.sha;
-		const contentDiff = await this._repository.diffWith(headCommitSha, matchedFile.fileName);
-		const fileComments = mapCommentsToHead(matchedFile.diffHunks, contentDiff, matchedFile.comments)
-			.filter(comment => comment.absolutePosition !== undefined);
+	/**
+	 * Creates a comment thread for a thread that appears on the right-hand side, which is a
+	 * document that has a scheme matching the workspace uri scheme, typically 'file'.
+	 * @param uri The uri to the file the comment thread is on.
+	 * @param path The path to the file the comment thread is on.
+	 * @param thread The comment thread information from GitHub.
+	 * @returns A GHPRCommentThread that has been created on an editor.
+	 */
+	private async createWorkspaceCommentThread(
+		uri: vscode.Uri,
+		path: string,
+		thread: IReviewThread,
+	): Promise<GHPRCommentThread> {
+		let startLine = thread.startLine;
+		let endLine = thread.endLine;
+		const localDiff = await this._repository.diffWithHEAD(path);
+		if (localDiff) {
+			startLine = mapOldPositionToNew(localDiff, startLine);
+			endLine = mapOldPositionToNew(localDiff, endLine);
+		}
 
-		return workspaceLocalCommentsToCommentThreads(this._repository, matchedFile, fileComments, vscode.CommentThreadCollapsibleState.Collapsed);
+		const range = threadRange(startLine - 1, endLine - 1);
+		return createVSCodeCommentThreadForReviewThread(uri, range, thread, this._commentController, (await this._reposManager.getCurrentUser()).login);
 	}
 
-	async initializeDocumentCommentThreadsAndListeners(): Promise<void> {
-		this._localToDispose.push(vscode.window.onDidChangeVisibleTextEditors(async visibleTextEditors => {
-			// remove comment threads in `pr/reivew` documents if there are no longer visible
-			let prEditors = visibleTextEditors.filter(editor => {
-				if (editor.document.uri.scheme !== 'pr') {
-					return false;
-				}
+	/**
+	 * Creates a comment thread for a thread that appears on the left-hand side, which is a
+	 * document that has a 'review' scheme whose content is created by the extension.
+	 * @param uri The uri to the file the comment thread is on.
+	 * @param path The path to the file the comment thread is on.
+	 * @param thread The comment thread information from GitHub.
+	 * @returns A GHPRCommentThread that has been created on an editor.
+	 */
+	private async createReviewCommentThread(uri: vscode.Uri, path: string, thread: IReviewThread): Promise<GHPRCommentThread> {
+		if (!this._reposManager.activePullRequest?.mergeBase) {
+			throw new Error('Cannot create review comment thread without an active pull request base.');
+		}
+		const reviewUri = toReviewUri(
+			uri,
+			path,
+			undefined,
+			this._reposManager.activePullRequest.mergeBase,
+			false,
+			{ base: true },
+			this._repository.rootUri,
+		);
 
-				const params = fromPRUri(editor.document.uri);
-				return !!params && params.prNumber === this._prManager.activePullRequest!.prNumber;
-			});
+		const range = threadRange(thread.startLine - 1, thread.endLine - 1);
+		return createVSCodeCommentThreadForReviewThread(reviewUri, range, thread, this._commentController, (await this._reposManager.getCurrentUser()).login);
+	}
 
-			this._prDocumentCommentThreads.maybeDisposeThreads(prEditors, (editor: vscode.TextEditor, fileName: string, isBase: boolean) => {
-				const params = fromPRUri(editor.document.uri);
-				return !!params && params.fileName === fileName && params.isBase === isBase;
-			});
+	private async doInitializeCommentThreads(reviewThreads: IReviewThread[]): Promise<void> {
+		// First clean up all the old comments.
+		for (const key in this._workspaceFileChangeCommentThreads) {
+			dispose(this._workspaceFileChangeCommentThreads[key]);
+		}
+		this._workspaceFileChangeCommentThreads = {};
+		for (const key in this._reviewSchemeFileChangeCommentThreads) {
+			dispose(this._reviewSchemeFileChangeCommentThreads[key]);
+		}
+		this._reviewSchemeFileChangeCommentThreads = {};
+		for (const key in this._obsoleteFileChangeCommentThreads) {
+			dispose(this._obsoleteFileChangeCommentThreads[key]);
+		}
+		this._obsoleteFileChangeCommentThreads = {};
 
-			this._reviewDocumentCommentThreads.maybeDisposeThreads(visibleTextEditors, (editor: vscode.TextEditor, fileName: string, isBase: boolean) => {
-				const editorFileName = vscode.workspace.asRelativePath(editor.document.uri.path);
-				if (editor.document.uri.scheme !== 'review' && editor.document.uri.scheme === this._repository.rootUri.scheme && editor.document.uri.query) {
-					const params = fromReviewUri(editor.document.uri);
-					if (fileName === editorFileName && params.base === isBase) {
-						return true;
+		const threadsByPath = groupBy(reviewThreads, thread => thread.path);
+
+		Object.keys(threadsByPath).forEach(path => {
+			const threads = threadsByPath[path];
+			const firstThread = threads[0];
+			if (firstThread) {
+				const fullPath = nodePath.join(this._repository.rootUri.path, firstThread.path).replace(/\\/g, '/');
+				const uri = this._repository.rootUri.with({ path: fullPath });
+
+				let rightSideCommentThreads: GHPRCommentThread[] = [];
+				let leftSideThreads: GHPRCommentThread[] = [];
+				let outdatedCommentThreads: GHPRCommentThread[] = [];
+
+				const threadPromises = threads.map(async thread => {
+					if (thread.isOutdated) {
+						outdatedCommentThreads.push(await this.createOutdatedCommentThread(path, thread));
+					} else {
+						if (thread.diffSide === DiffSide.RIGHT) {
+							rightSideCommentThreads.push(await this.createWorkspaceCommentThread(uri, path, thread));
+						} else {
+							leftSideThreads.push(await this.createReviewCommentThread(uri, path, thread));
+						}
 					}
-				}
+				});
 
-				if (editor.document.uri.scheme !== 'review') {
-					return false;
-				}
+				Promise.all(threadPromises);
 
-				try {
-					const params = fromReviewUri(editor.document.uri);
-					if (fileName === editorFileName && params.base === isBase) {
-						return true;
+				this._workspaceFileChangeCommentThreads[path] = rightSideCommentThreads;
+				this._reviewSchemeFileChangeCommentThreads[path] = leftSideThreads;
+				this._obsoleteFileChangeCommentThreads[path] = outdatedCommentThreads;
+			}
+		});
+	}
+
+	private async initializeCommentThreads(): Promise<void> {
+		const activePullRequest = this._reposManager.activePullRequest;
+		if (!activePullRequest || !activePullRequest.isResolved()) {
+			return;
+		}
+		return this.doInitializeCommentThreads(activePullRequest.reviewThreadsCache);
+	}
+
+	private async registerListeners(): Promise<void> {
+		this._localToDispose.push(
+			this._reposManager.activePullRequest!.onDidChangePendingReviewState(newDraftMode => {
+				[
+					this._workspaceFileChangeCommentThreads,
+					this._obsoleteFileChangeCommentThreads,
+					this._reviewSchemeFileChangeCommentThreads,
+				].forEach(commentThreadMap => {
+					for (const fileName in commentThreadMap) {
+						commentThreadMap[fileName].forEach(thread => {
+							updateCommentReviewState(thread, newDraftMode);
+							updateCommentThreadLabel(thread);
+						});
 					}
-				} catch {
-					return false;
-				}
+				});
+			}),
+		);
 
+		this._localToDispose.push(
+			this._reposManager.activePullRequest!.onDidChangeReviewThreads(e => {
+				e.added.forEach(async thread => {
+					const { path } = thread;
+
+					const index = this._pendingCommentThreadAdds.findIndex(async t => {
+						const fileName = this.gitRelativeRootPath(t.uri.path);
+						if (fileName !== thread.path) {
+							return false;
+						}
+
+						const diff = await this.getContentDiff(t.uri, fileName);
+						const line = mapNewPositionToOld(diff, t.range.end.line);
+						const sameLine = line + 1 === thread.endLine;
+						return sameLine;
+					});
+
+					let newThread: GHPRCommentThread;
+					if (index > -1) {
+						newThread = this._pendingCommentThreadAdds[index];
+						newThread.gitHubThreadId = thread.id;
+						newThread.comments = thread.comments.map(c => new GHPRComment(c, newThread));
+						updateThreadWithRange(newThread, thread);
+						this._pendingCommentThreadAdds.splice(index, 1);
+					} else {
+						const fullPath = nodePath.join(this._repository.rootUri.path, path).replace(/\\/g, '/');
+						const uri = this._repository.rootUri.with({ path: fullPath });
+						if (thread.isOutdated) {
+							newThread = await this.createOutdatedCommentThread(path, thread);
+						} else {
+							if (thread.diffSide === DiffSide.RIGHT) {
+								newThread = await this.createWorkspaceCommentThread(uri, path, thread);
+							} else {
+								newThread = await this.createReviewCommentThread(uri, path, thread);
+							}
+						}
+					}
+
+					const threadMap = thread.isOutdated
+						? this._obsoleteFileChangeCommentThreads
+						: thread.diffSide === DiffSide.RIGHT
+							? this._workspaceFileChangeCommentThreads
+							: this._reviewSchemeFileChangeCommentThreads;
+
+					if (threadMap[path]) {
+						threadMap[path].push(newThread);
+					} else {
+						threadMap[path] = [newThread];
+					}
+				});
+
+				e.changed.forEach(thread => {
+					const threadMap = thread.isOutdated
+						? this._obsoleteFileChangeCommentThreads
+						: thread.diffSide === DiffSide.RIGHT
+							? this._workspaceFileChangeCommentThreads
+							: this._reviewSchemeFileChangeCommentThreads;
+
+					const index = threadMap[thread.path].findIndex(t => t.gitHubThreadId === thread.id);
+					if (index > -1) {
+						const matchingThread = threadMap[thread.path][index];
+						updateThread(matchingThread, thread);
+					}
+				});
+
+				e.removed.forEach(thread => {
+					const threadMap = thread.isOutdated
+						? this._obsoleteFileChangeCommentThreads
+						: thread.diffSide === DiffSide.RIGHT
+							? this._workspaceFileChangeCommentThreads
+							: this._reviewSchemeFileChangeCommentThreads;
+
+					const index = threadMap[thread.path].findIndex(t => t.gitHubThreadId === thread.id);
+					if (index > -1) {
+						const matchingThread = threadMap[thread.path][index];
+						threadMap[thread.path].splice(index, 1);
+						matchingThread.dispose();
+					}
+				});
+			}),
+		);
+	}
+
+	public updateCommentExpandState(expand: boolean) {
+		if (!this._reposManager.activePullRequest) {
+			return undefined;
+		}
+
+		function updateThreads(threads: { [key: string]: GHPRCommentThread[] }, reviewThreads: Map<string, Map<string, IReviewThread>>) {
+			if (reviewThreads.size === 0) {
+				return;
+			}
+			for (const path of reviewThreads.keys()) {
+				const reviewThreadsForPath = reviewThreads.get(path)!;
+				const commentThreads = threads[path];
+				for (const commentThread of commentThreads) {
+					const reviewThread = reviewThreadsForPath.get(commentThread.gitHubThreadId)!;
+					updateThread(commentThread, reviewThread, expand);
+				}
+			}
+		}
+
+		const obsoleteReviewThreads: Map<string, Map<string, IReviewThread>> = new Map();
+		const reviewSchemeReviewThreads: Map<string, Map<string, IReviewThread>> = new Map();
+		const workspaceFileReviewThreads: Map<string, Map<string, IReviewThread>> = new Map();
+		for (const reviewThread of this._reposManager.activePullRequest.reviewThreadsCache) {
+			let mapToUse: Map<string, Map<string, IReviewThread>>;
+			if (reviewThread.isOutdated) {
+				mapToUse = obsoleteReviewThreads;
+			} else {
+				if (reviewThread.diffSide === DiffSide.RIGHT) {
+					mapToUse = workspaceFileReviewThreads;
+				} else {
+					mapToUse = reviewSchemeReviewThreads;
+				}
+			}
+			if (!mapToUse.has(reviewThread.path)) {
+				mapToUse.set(reviewThread.path, new Map());
+			}
+			mapToUse.get(reviewThread.path)!.set(reviewThread.id, reviewThread);
+		}
+		updateThreads(this._obsoleteFileChangeCommentThreads, obsoleteReviewThreads);
+		updateThreads(this._reviewSchemeFileChangeCommentThreads, reviewSchemeReviewThreads);
+		updateThreads(this._workspaceFileChangeCommentThreads, workspaceFileReviewThreads);
+	}
+
+	private visibleEditorsEqual(a: vscode.TextEditor[], b: vscode.TextEditor[]): boolean {
+		a = a.filter(ed => ed.document.uri.scheme !== 'comment');
+		b = b.filter(ed => ed.document.uri.scheme !== 'comment');
+
+		a = uniqBy(a, editor => editor.document.uri.toString());
+		b = uniqBy(b, editor => editor.document.uri.toString());
+
+		if (a.length !== b.length) {
+			return false;
+		}
+
+		for (let i = 0; i < a.length; i++) {
+			const findRet = b.find(editor => editor.document.uri.toString() === a[i].document.uri.toString());
+
+			if (!findRet) {
 				return false;
-			});
-
-			const workspaceDocuments = visibleTextEditors.filter(editor => editor.document.uri.scheme === this._repository.rootUri.scheme);
-			workspaceDocuments.forEach(editor => {
-				const fileName = vscode.workspace.asRelativePath(editor.document.uri.path);
-				const threadsForEditor = this._workspaceFileChangeCommentThreads[fileName] || [];
-				// If the editor has no view column, assume it is part of a diff editor and expand the comments. Otherwise, collapse them.
-				const isEmbedded = !editor.viewColumn;
-				this._workspaceFileChangeCommentThreads[fileName] = threadsForEditor.map(thread => {
-					thread.collapsibleState = isEmbedded
-						? vscode.CommentThreadCollapsibleState.Expanded
-						: vscode.CommentThreadCollapsibleState.Collapsed;
-
-					return thread;
-				});
-			});
-
-			for (let editor of visibleTextEditors.filter(ed => ed.document.uri.scheme !== 'comment')) {
-				await this.updateCommentThreadsForEditor(editor);
 			}
-		}));
-
-		this._localToDispose.push(this._prManager.activePullRequest!.onDidChangeDraftMode(newDraftMode => {
-			[this._workspaceFileChangeCommentThreads, this._obsoleteFileChangeCommentThreads].forEach(commentThreadMap => {
-				for (let fileName in commentThreadMap) {
-					commentThreadMap[fileName].forEach(thread => {
-						updateCommentReviewState(thread, newDraftMode);
-						updateCommentThreadLabel(thread);
-					});
-				}
-			});
-
-			this._reviewDocumentCommentThreads.getDocuments().forEach(fileName => {
-				this._reviewDocumentCommentThreads.getAllThreadsForDocument(fileName)!.forEach(thread => {
-					updateCommentReviewState(thread, newDraftMode);
-					updateCommentThreadLabel(thread);
-				});
-			});
-
-			this._prDocumentCommentThreads.getDocuments().forEach(fileName => {
-				this._prDocumentCommentThreads.getAllThreadsForDocument(fileName)!.forEach(thread => {
-					thread.comments = thread.comments.map(comment => {
-						comment.label = newDraftMode ? 'Pending' : undefined;
-						return comment;
-					});
-					updateCommentThreadLabel(thread);
-				});
-			});
-		}));
-	}
-
-	async updateCommentThreadsForEditor(editor: vscode.TextEditor): Promise<void> {
-		if (editor.document.uri.scheme === 'pr') {
-			const params = fromPRUri(editor.document.uri);
-
-			if (params && params.prNumber === this._prManager.activePullRequest!.prNumber) {
-				const existingPRThreads = this._prDocumentCommentThreads.getThreadsForDocument(params.fileName, params.isBase);
-				if (existingPRThreads) {
-					return;
-				}
-
-				this._prDocumentCommentThreads.setDocumentThreads(params.fileName, params.isBase, []);
-
-				let matchedFileChanges = this._localFileChanges.filter(localFileChange => localFileChange.fileName === params.fileName);
-
-				if (matchedFileChanges.length) {
-					await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
-
-					const documentComments = getDocumentThreadDatas(editor.document.uri, params.isBase, matchedFileChanges[0], matchedFileChanges[0].comments);
-					const newThreads: GHPRCommentThread[] = documentComments.map(thread => createVSCodeCommentThread(thread, this._commentController!));
-
-					this._prDocumentCommentThreads.setDocumentThreads(params.fileName, params.isBase, newThreads);
-				}
-			}
-
-			return;
 		}
 
-		const fileName = vscode.workspace.asRelativePath(editor.document.uri.path);
-		if (editor.document.uri.scheme === this._repository.rootUri.scheme && editor.viewColumn !== undefined) {
-			// local files
-			let matchedFiles = this._localFileChanges.filter(fileChange => fileChange.fileName === fileName);
-
-			if (matchedFiles && !matchedFiles.length) {
-				return;
-			}
-
-			let commentThreads = this._workspaceFileChangeCommentThreads[fileName];
-
-			const headCommitSha = this._prManager.activePullRequest!.head.sha;
-			let contentDiff = await this.getContentDiff(editor.document, headCommitSha, fileName);
-			mapCommentThreadsToHead(matchedFiles[0].diffHunks, contentDiff, commentThreads);
-			return;
-		}
-
-		let query: ReviewUriParams | undefined;
-
-		try {
-			query = fromReviewUri(editor.document.uri);
-		} catch (e) { }
-
-		if (query) {
-			const existingThreadsForDocument = this._reviewDocumentCommentThreads.getThreadsForDocument(fileName, query.base);
-			if (existingThreadsForDocument) {
-				return;
-			}
-
-			this._reviewDocumentCommentThreads.setDocumentThreads(fileName, query.base, []);
-
-			await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
-
-			const threadData = this.provideCommentsForReviewUri(editor.document, query);
-			const newThreads = threadData.map(thread => createVSCodeCommentThread(thread, this._commentController!));
-			this._reviewDocumentCommentThreads.setDocumentThreads(fileName, query.base, newThreads);
-		}
+		return true;
 	}
 
 	// #endregion
 
 	hasCommentThread(thread: vscode.CommentThread): boolean {
-		if (thread.uri.scheme === 'review') {
+		if (thread.uri.scheme === Schemes.Review) {
 			return true;
 		}
 
-		if (thread.uri.scheme === 'pr') {
-			let params = fromPRUri(thread.uri);
-			if (this._prManager.activePullRequest && params && this._prManager.activePullRequest.prNumber === params.prNumber) {
-				return true;
-			} else {
-				return false;
-			}
-		}
 
-		const currentWorkspace = vscode.workspace.getWorkspaceFolder(thread.uri);
-		if (!currentWorkspace) {
+		if (!isFileInRepo(this._repository, thread.uri)) {
 			return false;
 		}
 
-		if (thread.uri.scheme === currentWorkspace.uri.scheme) {
+		if (thread.uri.scheme === this._repository.rootUri.scheme) {
 			return true;
 		}
 
 		return false;
 	}
 
-	private addToCommentThreadCache(thread: GHPRCommentThread): void {
-		const uri = thread.uri;
-		const currentWorkspace = vscode.workspace.getWorkspaceFolder(uri)!;
-		switch (uri.scheme) {
-			case 'pr':
-				const params = fromPRUri(uri);
-				if (params) {
-					const { fileName, isBase } = params;
-					const existingThreads = this._prDocumentCommentThreads.getThreadsForDocument(fileName, isBase) || [];
-					this._prDocumentCommentThreads.setDocumentThreads(fileName, isBase, existingThreads.concat(thread));
-				}
-				return;
-
-			case 'review':
-				const reviewParams = uri.query && fromReviewUri(uri);
-				if (reviewParams) {
-					const documentFileName = vscode.workspace.asRelativePath(uri.path);
-					const existingThreads = this._reviewDocumentCommentThreads.getThreadsForDocument(documentFileName, reviewParams.base) || [];
-					this._reviewDocumentCommentThreads.setDocumentThreads(documentFileName, reviewParams.base, existingThreads.concat(thread));
-					return;
-				}
-
-			case currentWorkspace.uri.scheme:
-				const workspaceFileName = vscode.workspace.asRelativePath(uri.path);
-				const existingWorkspaceThreads = this._workspaceFileChangeCommentThreads[workspaceFileName];
-				existingWorkspaceThreads.push(thread);
-				return;
-
-			default:
-				return;
-		}
-	}
-
-	async provideCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.Range[] | undefined> {
-		if (document.uri.scheme === 'pr') {
-			const params = fromPRUri(document.uri);
-
-			if (!params || params.prNumber !== this._prManager.activePullRequest!.prNumber) {
-				return;
-			}
-
-			const fileChange = this._localFileChanges.find(change => change.fileName === params.fileName);
-
-			if (!fileChange || fileChange instanceof RemoteFileChangeNode) {
-				return;
-			}
-
-			return getCommentingRanges(fileChange.diffHunks, document.lineCount, fileChange.isPartial, params.isBase);
-		}
-
-		let query: ReviewUriParams | undefined;
-
-		try {
-			query = fromReviewUri(document.uri);
-		} catch (e) { }
+	async provideCommentingRanges(
+		document: vscode.TextDocument,
+		_token: vscode.CancellationToken,
+	): Promise<vscode.Range[] | undefined> {
+		let query: ReviewUriParams | undefined =
+			(document.uri.query && document.uri.query !== '') ? fromReviewUri(document.uri.query) : undefined;
 
 		if (query) {
-			const matchedFile = this.findMatchedFileChangeForReviewDiffView(this._localFileChanges, document.uri);
+			const matchedFile = this.findMatchedFileChangeForReviewDiffView(this._reviewModel.localFileChanges, document.uri);
 
 			if (matchedFile) {
-				return getCommentingRanges(matchedFile.diffHunks, document.lineCount, matchedFile.isPartial, query.base);
+				Logger.debug('Found matched file for commenting ranges.', ReviewCommentController.ID);
+				return getCommentingRanges(await matchedFile.changeModel.diffHunks(), query.base, ReviewCommentController.ID);
 			}
 		}
 
-		const currentWorkspace = vscode.workspace.getWorkspaceFolder(document.uri);
-		if (!currentWorkspace) {
+		if (!isFileInRepo(this._repository, document.uri)) {
+			if (document.uri.scheme !== 'output') {
+				Logger.debug('No commenting ranges: File is not in the current repository.', ReviewCommentController.ID);
+			}
 			return;
 		}
 
-		if (document.uri.scheme === currentWorkspace.uri.scheme) {
-			const fileName = vscode.workspace.asRelativePath(document.uri.path);
-			const matchedFiles = gitFileChangeNodeFilter(this._localFileChanges).filter(fileChange => fileChange.fileName === fileName);
-			let matchedFile: GitFileChangeNode;
-			let ranges = [];
+		if (document.uri.scheme === this._repository.rootUri.scheme) {
+			if (!this._reposManager.activePullRequest!.isResolved()) {
+				Logger.debug('No commenting ranges: Active PR has not been resolved.', ReviewCommentController.ID);
+				return;
+			}
 
-			const headCommitSha = this._prManager.activePullRequest!.head.sha;
-			if (matchedFiles && matchedFiles.length) {
-				matchedFile = matchedFiles[0];
-				let contentDiff = await this.getContentDiff(document, headCommitSha, matchedFile.fileName);
-				let diffHunks = matchedFile.diffHunks;
+			const fileName = this.gitRelativeRootPath(document.uri.path);
+			const matchedFile = gitFileChangeNodeFilter(this._reviewModel.localFileChanges).find(
+				fileChange => fileChange.fileName === fileName,
+			);
+			const ranges: vscode.Range[] = [];
+
+			if (matchedFile) {
+				const diffHunks = await matchedFile.changeModel.diffHunks();
+				if ((matchedFile.status === GitChangeType.RENAME) && (diffHunks.length === 0)) {
+					Logger.debug('No commenting ranges: File was renamed with no diffs.', ReviewCommentController.ID);
+					return [];
+				}
+
+				const contentDiff = await this.getContentDiff(document.uri, matchedFile.fileName);
 
 				for (let i = 0; i < diffHunks.length; i++) {
-					let diffHunk = diffHunks[i];
-					let start = mapOldPositionToNew(contentDiff, diffHunk.newLineNumber);
-					let end = mapOldPositionToNew(contentDiff, diffHunk.newLineNumber + diffHunk.newLength - 1);
+					const diffHunk = diffHunks[i];
+					const start = mapOldPositionToNew(contentDiff, diffHunk.newLineNumber);
+					const end = mapOldPositionToNew(contentDiff, diffHunk.newLineNumber + diffHunk.newLength - 1);
 					if (start > 0 && end > 0) {
 						ranges.push(new vscode.Range(start - 1, 0, end - 1, 0));
 					}
 				}
+
+				if (ranges.length === 0) {
+					Logger.debug('No commenting ranges: File has diffs, but they could not be mapped to current lines.', ReviewCommentController.ID);
+				}
+			} else {
+				Logger.debug('No commenting ranges: File does not match any of the files in the review.', ReviewCommentController.ID);
 			}
 
+			Logger.debug(`Providing ${ranges.length} commenting ranges for ${nodePath.basename(document.uri.fsPath)}.`, ReviewCommentController.ID);
 			return ranges;
+		} else {
+			Logger.debug('No commenting ranges: File scheme differs from repository scheme.', ReviewCommentController.ID);
 		}
 
 		return;
@@ -425,165 +468,44 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	// #endregion
 
-	// #region Helper
+	private async getContentDiff(uri: vscode.Uri, fileName: string): Promise<string> {
+		const matchedEditor = vscode.window.visibleTextEditors.find(
+			editor => editor.document.uri.toString() === uri.toString(),
+		);
+		if (!this._reposManager.activePullRequest?.head) {
+			Logger.appendLine('Failed to get content diff. Cannot get content diff without an active pull request head.');
+			throw new Error('Cannot get content diff without an active pull request head.');
+		}
 
-	private async createNewThread(thread: GHPRCommentThread, matchedFile: GitFileChangeNode, text: string): Promise<IComment | undefined> {
-		const uri = thread.uri;
-		let isBase = false;
-		if (uri.query) {
-			if (uri.scheme === 'review') {
-				try {
-					isBase = fromReviewUri(uri).base;
-				} catch {
-					// do nothing
-				}
+		try {
+			if (matchedEditor && matchedEditor.document.isDirty) {
+				const documentText = matchedEditor.document.getText();
+				const details = await this._repository.getObjectDetails(
+					this._reposManager.activePullRequest.head.sha,
+					fileName,
+				);
+				const idAtLastCommit = details.object;
+				const idOfCurrentText = await this._repository.hashObject(documentText);
+
+				// git diff <blobid> <blobid>
+				return await this._repository.diffBlobs(idAtLastCommit, idOfCurrentText);
+			} else {
+				return await this._repository.diffWith(this._reposManager.activePullRequest.head.sha, fileName);
 			}
-
-			if (uri.scheme === 'pr') {
-				const params = fromPRUri(uri);
-				isBase = !!params && params.isBase;
-			}
+		} catch (e) {
+			Logger.appendLine(`Failed to get content diff. ${formatError(e)}`);
+			throw e;
 		}
-
-		if (!this._prManager.activePullRequest) {
-			throw new Error('No active pull request');
-		}
-		const headCommitSha = this._prManager.activePullRequest.head.sha;
-
-		// git diff sha -- fileName
-		const contentDiff = await this._repository.diffWith(headCommitSha, matchedFile.fileName);
-		const position = mapHeadLineToDiffHunkPosition(matchedFile.diffHunks, contentDiff, thread.range.start.line + 1, isBase);
-		// If this is base and the diff line isn't a deletion, then this should actually be created on the right hand side
-
-		if (position < 0) {
-			throw new Error('Comment position cannot be negative');
-		}
-
-		// there is no thread Id, which means it's a new thread
-		return await this._prManager.createComment(this._prManager.activePullRequest!, text, matchedFile.fileName, position);
 	}
 
-	private async getContentDiff(document: vscode.TextDocument, headCommitSha: string, fileName: string): Promise<string> {
-		let contentDiff: string;
-		if (document.isDirty) {
-			const documentText = document.getText();
-			const details = await this._repository.getObjectDetails(headCommitSha, fileName);
-			const idAtLastCommit = details.object;
-			const idOfCurrentText = await this._repository.hashObject(documentText);
-
-			// git diff <blobid> <blobid>
-			contentDiff = await this._repository.diffBlobs(idAtLastCommit, idOfCurrentText);
-		} else {
-			// git diff sha -- fileName
-			contentDiff = await this._repository.diffWith(headCommitSha, fileName);
-		}
-
-		return contentDiff;
-	}
-
-	private outdatedCommentsToCommentThreads(fileChange: GitFileChangeNode, fileComments: IComment[], collapsibleState: vscode.CommentThreadCollapsibleState): ThreadData[] {
-		if (!fileComments || !fileComments.length) {
-			return [];
-		}
-
-		let ret: ThreadData[] = [];
-		let sections = groupBy(fileComments, comment => String(comment.position));
-
-		for (let i in sections) {
-			let comments = sections[i];
-
-			const firstComment = comments[0];
-			let diffLine = getDiffLineByPosition(firstComment.diffHunks || [], firstComment.originalPosition!);
-
-			if (diffLine) {
-				firstComment.absolutePosition = diffLine.newLineNumber;
-			}
-
-			const pos = new vscode.Position(getZeroBased(firstComment.absolutePosition || 0), 0);
-			const range = new vscode.Range(pos, pos);
-
-			ret.push({
-				threadId: firstComment.id.toString(),
-				uri: fileChange.filePath,
-				range,
-				comments,
-				collapsibleState: collapsibleState
-			});
-		}
-
-		return ret;
-	}
-
-	private provideCommentsForReviewUri(document: vscode.TextDocument, query: ReviewUriParams): ThreadData[] {
-		const matchedFile = this.findMatchedFileChangeForReviewDiffView(this._localFileChanges, document.uri);
-
-		if (matchedFile) {
-			const matchingComments = matchedFile.comments;
-			const isBase = query.base;
-			matchingComments.forEach(comment => { comment.absolutePosition = getAbsolutePosition(comment, matchedFile!.diffHunks, isBase); });
-
-			return workspaceLocalCommentsToCommentThreads(this._repository, matchedFile, matchingComments.filter(comment => comment.absolutePosition !== undefined && comment.absolutePosition > 0), vscode.CommentThreadCollapsibleState.Expanded).map(thread => {
-				thread.uri = document.uri;
-				return thread;
-			});
-		}
-
-		const matchedObsoleteFile = this.findMatchedFileChangeForReviewDiffView(this._obsoleteFileChanges, document.uri);
-		let comments: IComment[] = [];
-		if (!matchedObsoleteFile) {
-			// The file may be a change from a specific commit, check the comments themselves to see if they match it, as obsolete file changs
-			// may not contain it
-			try {
-				comments = this._comments.filter(comment => comment.path === query!.path && `${comment.originalCommitId}^` === query.commit);
-			} catch (_) {
-				// Do nothing
-			}
-
-			if (!comments.length) {
-				return [];
-			}
-		} else {
-			comments = matchedObsoleteFile.comments;
-		}
-
-		let sections = groupBy(comments, comment => String(comment.originalPosition)); // comment.position is null in this case.
-		let ret: ThreadData[] = [];
-		for (let i in sections) {
-			let commentGroup = sections[i];
-			const firstComment = commentGroup[0];
-			let diffLine = getLastDiffLine(firstComment.diffHunk);
-			if (!diffLine) {
-				continue;
-			}
-
-			const lineNumber = query.base
-				? diffLine.oldLineNumber
-				: diffLine.oldLineNumber > 0
-					? -1
-					: diffLine.newLineNumber;
-
-			if (lineNumber < 0) {
-				continue;
-			}
-
-			const range = new vscode.Range(new vscode.Position(lineNumber, 0), new vscode.Position(lineNumber, 0));
-
-			ret.push({
-				threadId: String(firstComment.id),
-				uri: document.uri,
-				range,
-				comments,
-				collapsibleState: vscode.CommentThreadCollapsibleState.Expanded
-			});
-		}
-
-		return ret;
-	}
-
-	private findMatchedFileChangeForReviewDiffView(fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[], uri: vscode.Uri): GitFileChangeNode | undefined {
-		let query = fromReviewUri(uri);
-		let matchedFiles = fileChanges.filter(fileChange => {
-			if (fileChange instanceof RemoteFileChangeNode) {
+	private findMatchedFileChangeForReviewDiffView(
+		fileChanges: (GitFileChangeNode | RemoteFileChangeNode)[],
+		uri: vscode.Uri,
+	): GitFileChangeNode | undefined {
+		const query = fromReviewUri(uri.query);
+		const matchedFiles = fileChanges.filter(fileChangeNode => {
+			const fileChange = fileChangeNode.changeModel;
+			if (fileChange instanceof RemoteFileChangeModel) {
 				return false;
 			}
 
@@ -599,21 +521,17 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				}
 			}
 
-			try {
-				let q = JSON.parse(fileChange.filePath.query);
+			const q = fileChange.filePath.query ? JSON.parse(fileChange.filePath.query) : undefined;
 
-				if (q.commit === query.commit) {
-					return true;
-				}
-			} catch (e) { }
+			if (q && (q.commit === query.commit)) {
+				return true;
+			}
 
-			try {
-				let q = JSON.parse(fileChange.parentFilePath.query);
+			const parentQ = fileChange.parentFilePath.query ? JSON.parse(fileChange.parentFilePath.query) : undefined;
 
-				if (q.commit === query.commit) {
-					return true;
-				}
-			} catch (e) { }
+			if (parentQ && (parentQ.commit === query.commit)) {
+				return true;
+			}
 
 			return false;
 		});
@@ -621,183 +539,64 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		if (matchedFiles && matchedFiles.length) {
 			return matchedFiles[0] as GitFileChangeNode;
 		}
+		return undefined;
 	}
 
-	private findMatchedFileByUri(uri: vscode.Uri): GitFileChangeNode | undefined {
-		let fileName: string;
-		let isOutdated = false;
-		if (uri.scheme === 'review') {
-			const query = fromReviewUri(uri);
-			isOutdated = query.isOutdated;
-			fileName = query.path;
-		}
-
-		if (uri.scheme === 'pr') {
-			fileName = fromPRUri(uri)!.fileName;
-		}
-
-		const fileChangesToSearch = isOutdated ? this._obsoleteFileChanges : this._localFileChanges;
-		const matchedFiles = gitFileChangeNodeFilter(fileChangesToSearch).filter(fileChange => {
-			if (uri.scheme === 'review' || uri.scheme === 'pr') {
-				return fileChange.fileName === fileName;
-			} else {
-				return fileChange.filePath.path === uri.path;
-			}
-		});
-
-		if (matchedFiles && matchedFiles.length) {
-			return matchedFiles[0];
-		}
+	private gitRelativeRootPath(path: string) {
+		// get path relative to git root directory. Handles windows path by converting it to unix path.
+		return nodePath.relative(this._repository.rootUri.path, path).replace(/\\/g, '/');
 	}
 
 	// #endregion
 
 	// #region Review
-	public async startReview(thread: GHPRCommentThread, input: string): Promise<void> {
-		await this._prManager.startReview(this._prManager.activePullRequest!);
-		await this.createOrReplyComment(thread, input);
-	}
-
-	public async finishReview(thread: GHPRCommentThread, input: string): Promise<void> {
-		try {
-			await this.createOrReplyComment(thread, input);
-			await this._prManager.submitReview(this._prManager.activePullRequest!);
-		} catch (e) {
-			vscode.window.showErrorMessage(`Failed to submit the review: ${e}`);
+	private getCommentSide(thread: GHPRCommentThread): DiffSide {
+		if (thread.uri.scheme === Schemes.Review) {
+			const query = fromReviewUri(thread.uri.query);
+			return query.base ? DiffSide.LEFT : DiffSide.RIGHT;
 		}
+
+		return DiffSide.RIGHT;
 	}
 
-	private getUpdatedThreads(originalCommentThreads: GHPRCommentThread[], deletedReviewComments: IComment[]): GHPRCommentThread[] {
-		let threads: GHPRCommentThread[] = [];
-		originalCommentThreads.forEach(thread => {
-			thread.comments = thread.comments.filter((comment: GHPRComment) => !deletedReviewComments.some(deletedComment => deletedComment.id.toString() === comment.commentId));
-			updateCommentThreadLabel(thread);
-			if (!thread.comments.length) {
-				thread.dispose!();
-			} else {
-				threads.push(thread);
-			}
-		});
-
-		return threads;
-	}
-
-	async deleteReview(): Promise<void> {
-		const { deletedReviewComments } = await this._prManager.deleteReview(this._prManager.activePullRequest!);
-
-		[this._workspaceFileChangeCommentThreads, this._obsoleteFileChangeCommentThreads].forEach(commentThreadMap => {
-			for (let fileName in commentThreadMap) {
-				const updatedThreads = this.getUpdatedThreads(commentThreadMap[fileName], deletedReviewComments);
-
-				if (updatedThreads.length) {
-					commentThreadMap[fileName] = updatedThreads;
-				} else {
-					delete commentThreadMap[fileName];
-				}
-			}
-		});
-
-		this._reviewDocumentCommentThreads.getDocuments().forEach(fileName => {
-			const originalDocumentThreads = this._reviewDocumentCommentThreads.getThreadsForDocument(fileName, true);
-			if (originalDocumentThreads) {
-				const updatedThreads = this.getUpdatedThreads(originalDocumentThreads, deletedReviewComments);
-				this._reviewDocumentCommentThreads.setDocumentThreads(fileName, true, updatedThreads.length ? updatedThreads : undefined);
-			}
-
-			const modifiedDocumentThreads = this._reviewDocumentCommentThreads.getThreadsForDocument(fileName, false);
-			if (modifiedDocumentThreads) {
-				const updatedThreads = this.getUpdatedThreads(modifiedDocumentThreads, deletedReviewComments);
-				this._reviewDocumentCommentThreads.setDocumentThreads(fileName, false, updatedThreads.length ? updatedThreads : undefined);
-			}
-		});
-
-		this._prDocumentCommentThreads.getDocuments().forEach(fileName => {
-			const originalDocumentThreads = this._prDocumentCommentThreads.getThreadsForDocument(fileName, true);
-			if (originalDocumentThreads) {
-				const updatedThreads = this.getUpdatedThreads(originalDocumentThreads, deletedReviewComments);
-				this._prDocumentCommentThreads.setDocumentThreads(fileName, true, updatedThreads.length ? updatedThreads : undefined);
-			}
-
-			const modifiedDocumentThreads = this._prDocumentCommentThreads.getThreadsForDocument(fileName, false);
-			if (modifiedDocumentThreads) {
-				const updatedThreads = this.getUpdatedThreads(modifiedDocumentThreads, deletedReviewComments);
-				this._prDocumentCommentThreads.setDocumentThreads(fileName, false, updatedThreads.length ? updatedThreads : undefined);
-			}
-		});
-	}
-
-	// #endregion
-	private optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): number {
-		const currentUser = this._prManager.getCurrentUser(this._prManager.activePullRequest!);
-		const comment = new TemporaryComment(thread, input, inDraft, currentUser);
-		this.updateCommentThreadComments(thread, [...thread.comments, comment]);
-		return comment.id;
-	}
-
-	private updateCommentThreadComments(thread: GHPRCommentThread, newComments: (GHPRComment | TemporaryComment)[]) {
-		thread.comments = newComments;
-		updateCommentThreadLabel(thread);
-	}
-
-	private optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): number {
-		const currentUser = this._prManager.getCurrentUser(this._prManager.activePullRequest!);
-		const temporaryComment = new TemporaryComment(thread, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body, !!comment.label, currentUser, comment);
-		thread.comments = thread.comments.map(c => {
-			if (c instanceof GHPRComment && c.commentId === comment.commentId) {
-				return temporaryComment;
-			}
-
-			return c;
-		});
-
-		return temporaryComment.id;
-	}
-
-	private replaceTemporaryComment(thread: GHPRCommentThread, realComment: IComment, temporaryCommentId: number): void {
-		thread.comments = thread.comments.map(c => {
-			if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-				return new GHPRComment(realComment, thread);
-			}
-
-			return c;
-		});
-	}
-
-	// #region Comment
-	async createOrReplyComment(thread: GHPRCommentThread, input: string, inDraft?: boolean): Promise<void> {
+	public async startReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		const hasExistingComments = thread.comments.length;
-		const isDraft = inDraft !== undefined ? inDraft : this._prManager.activePullRequest!.inDraftMode;
-		const temporaryCommentId = this.optimisticallyAddComment(thread, input, isDraft);
+		const temporaryCommentId = await this.optimisticallyAddComment(thread, input, true);
 
 		try {
-			const matchedFile = this.findMatchedFileByUri(thread.uri);
-			if (!matchedFile) {
-				throw new Error(`Cannot find document ${thread.uri.toString()}`);
-			}
-
-			let rawComment: IComment | undefined;
 			if (!hasExistingComments) {
-				rawComment = await this.createNewThread(thread, matchedFile, input);
-				thread.threadId = rawComment!.id.toString();
-				this.addToCommentThreadCache(thread);
+				const fileName = this.gitRelativeRootPath(thread.uri.path);
+				const side = this.getCommentSide(thread);
+				this._pendingCommentThreadAdds.push(thread);
+
+				// If the thread is on the workspace file, make sure the position
+				// is properly adjusted to account for any local changes.
+				let startLine: number;
+				let endLine: number;
+				if (side === DiffSide.RIGHT) {
+					const diff = await this.getContentDiff(thread.uri, fileName);
+					startLine = mapNewPositionToOld(diff, thread.range.start.line);
+					endLine = mapNewPositionToOld(diff, thread.range.end.line);
+				} else {
+					startLine = thread.range.start.line;
+					endLine = thread.range.end.line;
+				}
+
+				await this._reposManager.activePullRequest!.createReviewThread(input, fileName, startLine + 1, endLine + 1, side);
 			} else {
 				const comment = thread.comments[0];
 				if (comment instanceof GHPRComment) {
-					rawComment = await this._prManager.createCommentReply(this._prManager.activePullRequest!, input, comment._rawComment);
+					await this._reposManager.activePullRequest!.createCommentReply(
+						input,
+						comment.rawComment.graphNodeId,
+						false,
+					);
 				} else {
 					throw new Error('Cannot reply to temporary comment');
 				}
 			}
-
-			this.replaceTemporaryComment(thread, rawComment!, temporaryCommentId);
-
-			matchedFile.comments.push(rawComment!);
-			this._comments.push(rawComment!);
-
-			await this.update(this._localFileChanges, this._obsoleteFileChanges);
-			this._onDidChangeComments.fire(this._comments);
 		} catch (e) {
-			vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
+			vscode.window.showErrorMessage(`Starting review failed: ${e}`);
 
 			thread.comments = thread.comments.map(c => {
 				if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
@@ -809,77 +608,200 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 		}
 	}
 
+	public async openReview(): Promise<void> {
+		await this._reviewManager.openDescription();
+		PullRequestOverviewPanel.scrollToReview();
+	}
+
+	// #endregion
+	private async optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): Promise<number> {
+		const currentUser = await this._reposManager.getCurrentUser();
+		const comment = new TemporaryComment(thread, input, inDraft, currentUser);
+		this.updateCommentThreadComments(thread, [...thread.comments, comment]);
+		return comment.id;
+	}
+
+	private updateCommentThreadComments(thread: GHPRCommentThread, newComments: (GHPRComment | TemporaryComment)[]) {
+		thread.comments = newComments;
+		updateCommentThreadLabel(thread);
+	}
+
+	private async optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): Promise<number> {
+		const currentUser = await this._reposManager.getCurrentUser();
+		const temporaryComment = new TemporaryComment(
+			thread,
+			comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
+			!!comment.label,
+			currentUser,
+			comment,
+		);
+		thread.comments = thread.comments.map(c => {
+			if (c instanceof GHPRComment && c.commentId === comment.commentId) {
+				return temporaryComment;
+			}
+
+			return c;
+		});
+
+		return temporaryComment.id;
+	}
+
+	// #region Comment
+	async createOrReplyComment(
+		thread: GHPRCommentThread,
+		input: string,
+		isSingleComment: boolean,
+		inDraft?: boolean,
+	): Promise<void> {
+		if (!this._reposManager.activePullRequest) {
+			throw new Error('Cannot create comment without an active pull request.');
+		}
+
+		const hasExistingComments = thread.comments.length;
+		const isDraft = isSingleComment
+			? false
+			: inDraft !== undefined
+				? inDraft
+				: this._reposManager.activePullRequest.hasPendingReview;
+		const temporaryCommentId = await this.optimisticallyAddComment(thread, input, isDraft);
+
+		try {
+			if (!hasExistingComments) {
+				const fileName = this.gitRelativeRootPath(thread.uri.path);
+				this._pendingCommentThreadAdds.push(thread);
+				const side = this.getCommentSide(thread);
+
+				// If the thread is on the workspace file, make sure the position
+				// is properly adjusted to account for any local changes.
+				let startLine: number;
+				let endLine: number;
+				if (side === DiffSide.RIGHT) {
+					const diff = await this.getContentDiff(thread.uri, fileName);
+					startLine = mapNewPositionToOld(diff, thread.range.start.line);
+					endLine = mapNewPositionToOld(diff, thread.range.end.line);
+				} else {
+					startLine = thread.range.start.line;
+					endLine = thread.range.end.line;
+				}
+				await this._reposManager.activePullRequest.createReviewThread(
+					input,
+					fileName,
+					startLine + 1,
+					endLine + 1,
+					side,
+					isSingleComment,
+				);
+			} else {
+				const comment = thread.comments[0];
+				if (comment instanceof GHPRComment) {
+					await this._reposManager.activePullRequest.createCommentReply(
+						input,
+						comment.rawComment.graphNodeId,
+						isSingleComment,
+					);
+				} else {
+					throw new Error('Cannot reply to temporary comment');
+				}
+			}
+
+			if (isSingleComment) {
+				await this._reposManager.activePullRequest.submitReview();
+			}
+		} catch (e) {
+			if (e.graphQLErrors?.length && e.graphQLErrors[0].type === 'NOT_FOUND') {
+				vscode.window.showWarningMessage('The comment that you\'re replying to was deleted. Refresh to update.', 'Refresh').then(result => {
+					if (result === 'Refresh') {
+						this._reviewManager.updateComments();
+					}
+				});
+			} else {
+				vscode.window.showErrorMessage(`Creating comment failed: ${e}`);
+			}
+
+			thread.comments = thread.comments.map(c => {
+				if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
+					c.mode = vscode.CommentMode.Editing;
+				}
+
+				return c;
+			});
+		}
+	}
+
+	private async createCommentOnResolve(thread: GHPRCommentThread, input: string): Promise<void> {
+		if (!this._reposManager.activePullRequest) {
+			throw new Error('Cannot create comment on resolve without an active pull request.');
+		}
+		const pendingReviewId = await this._reposManager.activePullRequest.getPendingReviewId();
+		await this.createOrReplyComment(thread, input, !pendingReviewId);
+	}
+
+	async resolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {
+		try {
+			if (input) {
+				await this.createCommentOnResolve(thread, input);
+			}
+
+			await this._reposManager.activePullRequest!.resolveReviewThread(thread.gitHubThreadId);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Resolving conversation failed: ${e}`);
+		}
+	}
+
+	async unresolveReviewThread(thread: GHPRCommentThread, input?: string): Promise<void> {
+		try {
+			if (input) {
+				await this.createCommentOnResolve(thread, input);
+			}
+
+			await this._reposManager.activePullRequest!.unresolveReviewThread(thread.gitHubThreadId);
+		} catch (e) {
+			vscode.window.showErrorMessage(`Unresolving conversation failed: ${e}`);
+		}
+	}
+
 	async editComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void> {
 		if (comment instanceof GHPRComment) {
-			const temporaryCommentId = this.optimisticallyEditComment(thread, comment);
+			const temporaryCommentId = await this.optimisticallyEditComment(thread, comment);
 			try {
-				if (!this._prManager.activePullRequest) {
+				if (!this._reposManager.activePullRequest) {
 					throw new Error('Unable to find active pull request');
 				}
 
-				const matchedFile = this.findMatchedFileByUri(thread.uri);
-				if (!matchedFile) {
-					throw new Error('Unable to find matching file');
-				}
-
-				const editedComment = await this._prManager.editReviewComment(this._prManager.activePullRequest, comment._rawComment, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body);
-
-				// Update the cached comments of the file
-				const matchingCommentIndex = matchedFile.comments.findIndex(c => String(c.id) === comment.commentId);
-				if (matchingCommentIndex > -1) {
-					matchedFile.comments.splice(matchingCommentIndex, 1, editedComment);
-				}
-
-				// Also update this._comments
-				const indexInAllComments = this._comments.findIndex(c => String(c.id) === comment.commentId);
-				if (indexInAllComments > -1) {
-					this._comments.splice(indexInAllComments, 1, editedComment);
-				}
-
-				this.replaceTemporaryComment(thread, editedComment!, temporaryCommentId);
-				updateCommentThreadLabel(thread);
+				await this._reposManager.activePullRequest.editReviewComment(
+					comment.rawComment,
+					comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
+				);
 			} catch (e) {
 				vscode.window.showErrorMessage(formatError(e));
 
 				thread.comments = thread.comments.map(c => {
 					if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-						return new GHPRComment(comment._rawComment, thread);
+						return new GHPRComment(comment.rawComment, thread);
 					}
 
 					return c;
 				});
 			}
 		} else {
-			this.createOrReplyComment(thread, comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body);
+			this.createOrReplyComment(
+				thread,
+				comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
+				false,
+			);
 		}
 	}
 
 	async deleteComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void> {
 		try {
-			if (!this._prManager.activePullRequest) {
+			if (!this._reposManager.activePullRequest) {
 				throw new Error('Unable to find active pull request');
 			}
 
-			const matchedFile = this.findMatchedFileByUri(thread.uri);
-			if (!matchedFile) {
-				throw new Error('Unable to find matching file');
-			}
-
 			if (comment instanceof GHPRComment) {
-				await this._prManager.deleteReviewComment(this._prManager.activePullRequest, comment.commentId);
-				const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id.toString() === comment.commentId);
-				if (matchingCommentIndex > -1) {
-					matchedFile.comments.splice(matchingCommentIndex, 1);
-				}
-
-				const indexInAllComments = this._comments.findIndex(c => c.id.toString() === comment.commentId);
-				if (indexInAllComments > -1) {
-					this._comments.splice(indexInAllComments, 1);
-				}
-
-				thread.comments = thread.comments.filter(c => c instanceof GHPRComment && c.commentId !== comment.commentId);
+				await this._reposManager.activePullRequest.deleteReviewComment(comment.commentId);
 			} else {
-				thread.comments = thread.comments.filter(c => c instanceof TemporaryComment && c.id === comment.id);
+				thread.comments = thread.comments.filter(c => !(c instanceof TemporaryComment && c.id === comment.id));
 			}
 
 			if (thread.comments.length === 0) {
@@ -888,13 +810,12 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 				updateCommentThreadLabel(thread);
 			}
 
-			let inDraftMode = await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
-			if (inDraftMode !== this._prManager.activePullRequest!.inDraftMode) {
-				this._prManager.activePullRequest!.inDraftMode = inDraftMode;
+			const inDraftMode = await this._reposManager.activePullRequest.validateDraftMode();
+			if (inDraftMode !== this._reposManager.activePullRequest.hasPendingReview) {
+				this._reposManager.activePullRequest.hasPendingReview = inDraftMode;
 			}
 
-			this.update(this._localFileChanges, this._obsoleteFileChanges);
-
+			this.update();
 		} catch (e) {
 			throw new Error(formatError(e));
 		}
@@ -903,119 +824,31 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 	// #endregion
 
 	// #region Incremental update comments
-	public async update(localFileChanges: GitFileChangeNode[], obsoleteFileChanges: (GitFileChangeNode | RemoteFileChangeNode)[]): Promise<void> {
-		await this._prManager.validateDraftMode(this._prManager.activePullRequest!);
-		// _workspaceFileChangeCommentThreads
-		for (let fileName in this._workspaceFileChangeCommentThreads) {
-			this.updateFileChangeCommentThreads(localFileChanges, fileName, false);
-		}
-
-		this._localFileChanges = localFileChanges;
-
-		// _obsoleteFileChangeCommentThreads
-		for (let fileName in this._obsoleteFileChangeCommentThreads) {
-			this.updateFileChangeCommentThreads(gitFileChangeNodeFilter(obsoleteFileChanges), fileName, true);
-		}
-
-		this._obsoleteFileChanges = obsoleteFileChanges;
-
-		// for pr and review documenet comments, as we dispose them when the editor is being closed, we only need to update for visible editors.
-		for (let editor of vscode.window.visibleTextEditors) {
-			await this.updateCommentThreadsForEditor(editor);
-		}
-	}
-
-	private async updateFileChangeCommentThreads(fileChanges: GitFileChangeNode[], fileName: string, forOutdated: boolean): Promise<void> {
-		const matchedFile = fileChanges.find(fileChange => fileChange.fileName === fileName);
-
-		if (!matchedFile) {
-			this._workspaceFileChangeCommentThreads[fileName].forEach(thread => thread.dispose());
-			delete this._workspaceFileChangeCommentThreads[fileName];
-		} else {
-			const existingCommentThreads = forOutdated
-				? this._obsoleteFileChangeCommentThreads[fileName]
-				: this._workspaceFileChangeCommentThreads[fileName];
-
-			const newThreads = forOutdated
-				? this.outdatedCommentsToCommentThreads(matchedFile, matchedFile.comments, vscode.CommentThreadCollapsibleState.Expanded)
-				: await this.getWorkspaceFileThreadDatas(matchedFile);
-
-			let resultThreads: GHPRCommentThread[] = [];
-
-			newThreads.forEach(thread => {
-				const matchedThread = existingCommentThreads.find(existingThread => existingThread.threadId === thread.threadId);
-
-				if (matchedThread) {
-					// update
-					resultThreads.push(matchedThread);
-					matchedThread.range = thread.range;
-					matchedThread.comments = thread.comments.map(comment => {
-						return new GHPRComment(comment, matchedThread);
-					});
-					updateCommentThreadLabel(matchedThread);
-				} else {
-					// create new thread
-					resultThreads.push(createVSCodeCommentThread(thread, this._commentController!));
-				}
-			});
-
-			existingCommentThreads.forEach(existingThread => {
-				const matchedThread = newThreads.filter(thread => thread.threadId === existingThread.threadId);
-
-				if (!matchedThread) {
-					existingThread.dispose();
-				}
-			});
-
-			this._workspaceFileChangeCommentThreads[fileName] = resultThreads;
-		}
+	public async update(): Promise<void> {
+		await this._reposManager.activePullRequest!.validateDraftMode();
 	}
 	// #endregion
 
 	// #region Reactions
 	async toggleReaction(comment: GHPRComment, reaction: vscode.CommentReaction): Promise<void> {
 		try {
-			if (!this._prManager.activePullRequest) {
+			if (!this._reposManager.activePullRequest) {
 				throw new Error('Unable to find active pull request');
 			}
 
-			const matchedFile = this.findMatchedFileByUri(comment.parent!.uri);
-			if (!matchedFile) {
-				throw new Error('Unable to find matching file');
-			}
-
-			let reactionGroups: ReactionGroup[] = [];
-			if (comment.reactions && !comment.reactions.find(ret => ret.label === reaction.label && !!ret.authorHasReacted)) {
-				const result = await this._prManager.addCommentReaction(this._prManager.activePullRequest, comment._rawComment.graphNodeId, reaction);
-				reactionGroups = result.addReaction.subject.reactionGroups;
+			if (
+				comment.reactions &&
+				!comment.reactions.find(ret => ret.label === reaction.label && !!ret.authorHasReacted)
+			) {
+				await this._reposManager.activePullRequest.addCommentReaction(
+					comment.rawComment.graphNodeId,
+					reaction,
+				);
 			} else {
-				const result = await this._prManager.deleteCommentReaction(this._prManager.activePullRequest, comment._rawComment.graphNodeId, reaction);
-				reactionGroups = result.removeReaction.subject.reactionGroups;
-			}
-
-			// Update the cached comments of the file
-			const matchingCommentIndex = matchedFile.comments.findIndex(c => c.id.toString() === comment.commentId);
-			if (matchingCommentIndex > -1) {
-				let editedComment = matchedFile.comments[matchingCommentIndex];
-				editedComment.reactions = parseGraphQLReaction(reactionGroups);
-				const vscodeCommentReactions = generateCommentReactions(editedComment.reactions);
-				const fileName = matchedFile.fileName;
-				const modifiedThreads = [
-					...(this._prDocumentCommentThreads.getAllThreadsForDocument(fileName) || []),
-					...(this._reviewDocumentCommentThreads.getAllThreadsForDocument(fileName) || []),
-					...(this._workspaceFileChangeCommentThreads[fileName] || []),
-					...(this._obsoleteFileChangeCommentThreads[fileName] || [])
-				].filter(td => !!td.comments.find((cmt: GHPRComment) => cmt.commentId === comment.commentId));
-
-				modifiedThreads.forEach(thread => {
-					thread.comments = thread.comments.map((cmt: GHPRComment) => {
-						if (cmt.commentId === comment.commentId) {
-							cmt.reactions = vscodeCommentReactions;
-						}
-
-						return cmt;
-					});
-				});
+				await this._reposManager.activePullRequest.deleteCommentReaction(
+					comment.rawComment.graphNodeId,
+					reaction,
+				);
 			}
 		} catch (e) {
 			throw new Error(formatError(e));
@@ -1024,10 +857,7 @@ export class ReviewCommentController implements vscode.Disposable, CommentHandle
 
 	// #endregion
 	public dispose() {
-		if (this._commentController) {
-			this._commentController.dispose();
-		}
-
+		unregisterCommentHandler(this._commentHandlerId);
 		this._localToDispose.forEach(d => d.dispose());
 	}
 }

@@ -3,13 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert = require('assert');
+import { default as assert } from 'assert';
 import { SinonSandbox, createSandbox } from 'sinon';
 import { CredentialStore } from '../../github/credentials';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { ReviewCommentController } from '../../view/reviewCommentController';
-import { PullRequestManager } from '../../github/pullRequestManager';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { MockRepository } from '../mocks/mockRepository';
 import { GitFileChangeNode } from '../../view/treeNodes/fileChangeNode';
 import { PullRequestsTreeDataProvider } from '../../view/prsTreeDataProvider';
@@ -19,15 +19,26 @@ import * as vscode from 'vscode';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { GitHubRepository } from '../../github/githubRepository';
 import { Protocol } from '../../common/protocol';
-import { Remote } from '../../common/remote';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { GHPRCommentThread } from '../../github/prComment';
 import { DiffLine } from '../../common/diffHunk';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
+import { GitApiImpl } from '../../api/api1';
+import { DiffSide } from '../../common/comment';
+import { ReviewManager, ShowPullRequest } from '../../view/reviewManager';
+import { PullRequestChangesTreeDataProvider } from '../../view/prChangesTreeDataProvider';
+import { MockExtensionContext } from '../mocks/mockExtensionContext';
+import { ReviewModel } from '../../view/reviewModel';
+import { Resource } from '../../common/resources';
+import { RepositoriesManager } from '../../github/repositoriesManager';
+import { GitFileChangeModel } from '../../view/fileChangeModel';
+import { WebviewViewCoordinator } from '../../view/webviewViewCoordinator';
+import { GitHubServerType } from '../../common/authentication';
+const schema = require('../../github/queries.gql');
 
 const protocol = new Protocol('https://github.com/github/test.git');
-const remote = new Remote('test', 'github/test', protocol);
+const remote = new GitHubRemote('test', 'github/test', protocol, GitHubServerType.GitHubDotCom);
 
 class TestReviewCommentController extends ReviewCommentController {
 	public workspaceFileChangeCommentThreads() {
@@ -41,30 +52,43 @@ describe('ReviewCommentController', function () {
 	let repository: MockRepository;
 	let telemetry: MockTelemetry;
 	let provider: PullRequestsTreeDataProvider;
-	let manager: PullRequestManager;
+	let manager: FolderRepositoryManager;
 	let activePullRequest: PullRequestModel;
+	let githubRepo: MockGitHubRepository;
+	let reviewManager: ReviewManager;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 
 		telemetry = new MockTelemetry();
-		credentialStore = new CredentialStore(telemetry);
+		const context = new MockExtensionContext();
+		credentialStore = new CredentialStore(telemetry, context);
 
 		repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 
-		provider = new PullRequestsTreeDataProvider(telemetry);
-		manager = new PullRequestManager(repository, telemetry, credentialStore);
+		provider = new PullRequestsTreeDataProvider(telemetry, context);
+		const activePrViewCoordinator = new WebviewViewCoordinator(context);
+		Resource.initialize(context);
+		const gitApiImpl = new GitApiImpl();
+		manager = new FolderRepositoryManager(context, repository, telemetry, gitApiImpl, credentialStore);
+		const tree = new PullRequestChangesTreeDataProvider(context, gitApiImpl, new RepositoriesManager([manager], credentialStore, telemetry));
+		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree, new ShowPullRequest(), activePrViewCoordinator);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
-			return new MockGitHubRepository(r, cStore, sinon);
+			return Promise.resolve(new MockGitHubRepository(GitHubRemote.remoteAsGitHub(r, GitHubServerType.GitHubDotCom), cStore, telemetry, sinon));
 		});
-		sinon.stub(credentialStore, 'hasOctokit').returns(Promise.resolve(false));
+		sinon.stub(credentialStore, 'isAuthenticated').returns(false);
 		await manager.updateRepositories();
 
 		const pr = new PullRequestBuilder().build();
-		const repo = new GitHubRepository(remote, credentialStore);
-		activePullRequest = new PullRequestModel(repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		githubRepo = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+		activePullRequest = new PullRequestModel(
+			telemetry,
+			githubRepo,
+			remote,
+			convertRESTPullRequestToRawPullRequest(pr, githubRepo),
+		);
 
 		manager.activePullRequest = activePullRequest;
 	});
@@ -73,84 +97,151 @@ describe('ReviewCommentController', function () {
 		sinon.restore();
 	});
 
-	function createLocalFileChange(uri: vscode.Uri, fileName: string): GitFileChangeNode {
-		return new GitFileChangeNode(
-			provider.view,
+	function createLocalFileChange(uri: vscode.Uri, fileName: string, rootUri: vscode.Uri): GitFileChangeNode {
+		const gitFileChangeModel = new GitFileChangeModel(
+			manager,
 			activePullRequest,
-			GitChangeType.MODIFY,
-			fileName,
-			'https://example.com',
+			{
+				status: GitChangeType.MODIFY,
+				fileName,
+				blobUrl: 'https://example.com',
+				diffHunks:
+					[
+						{
+							oldLineNumber: 22,
+							oldLength: 5,
+							newLineNumber: 22,
+							newLength: 11,
+							positionInHunk: 0,
+							diffLines: [
+								new DiffLine(3, -1, -1, 0, '@@ -22,5 +22,11 @@', true),
+								new DiffLine(0, 22, 22, 1, "     'title': 'Papayas',", true),
+								new DiffLine(0, 23, 23, 2, "     'title': 'Papayas',", true),
+								new DiffLine(0, 24, 24, 3, "     'title': 'Papayas',", true),
+								new DiffLine(1, -1, 25, 4, '+  {', true),
+								new DiffLine(1, -1, 26, 5, '+  {', true),
+								new DiffLine(1, -1, 27, 6, '+  {', true),
+								new DiffLine(1, -1, 28, 7, '+  {', true),
+								new DiffLine(1, -1, 29, 8, '+  {', true),
+								new DiffLine(1, -1, 30, 9, '+  {', true),
+								new DiffLine(0, 25, 31, 10, '+  {', true),
+								new DiffLine(0, 26, 32, 11, '+  {', true),
+							],
+						},
+					]
+			},
 			uri,
-			toReviewUri(uri, fileName, undefined, '1', false, { base: true }),
-			false,
-			[
-				{
-					oldLineNumber: 22,
-					oldLength: 5,
-					newLineNumber: 22,
-					newLength: 11,
-					positionInHunk: 0,
-					diffLines: [
-						new DiffLine(3, -1, -1, 0, '@@ -22,5 +22,11 @@', true),
-						new DiffLine(0, 22, 22, 1, '     \'title\': \'Papayas\',', true),
-						new DiffLine(0, 23, 23, 2, '     \'title\': \'Papayas\',', true),
-						new DiffLine(0, 24, 24, 3, '     \'title\': \'Papayas\',', true),
-						new DiffLine(1, -1, 25, 4, '+  {', true),
-						new DiffLine(1, -1, 26, 5, '+  {', true),
-						new DiffLine(1, -1, 27, 6, '+  {', true),
-						new DiffLine(1, -1, 28, 7, '+  {', true),
-						new DiffLine(1, -1, 29, 8, '+  {', true),
-						new DiffLine(1, -1, 30, 9, '+  {', true),
-						new DiffLine(0, 25, 31, 10, '+  {', true),
-						new DiffLine(0, 26, 32, 11, '+  {', true)
-					],
-				}],
-			[],
+			toReviewUri(uri, fileName, undefined, '1', false, { base: true }, rootUri),
 			'abcd'
+		);
+
+		return new GitFileChangeNode(
+			provider,
+			manager,
+			activePullRequest,
+			gitFileChangeModel
 		);
 	}
 
 	function createGHPRCommentThread(threadId: string, uri: vscode.Uri): GHPRCommentThread {
 		return {
-			threadId,
+			gitHubThreadId: threadId,
 			uri,
 			range: new vscode.Range(new vscode.Position(21, 0), new vscode.Position(21, 0)),
 			comments: [],
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
 			label: 'Start discussion',
-			dispose: () => { }
+			state: vscode.CommentThreadState.Unresolved,
+			canReply: false,
+			dispose: () => { },
 		};
 	}
+
+	describe('initializes workspace thread data', async function () {
+		const fileName = 'data/products.json';
+		const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
+		const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
+		const reviewModel = new ReviewModel();
+		reviewModel.localFileChanges = localFileChanges;
+		const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, reviewModel);
+
+		sinon.stub(activePullRequest, 'validateDraftMode').returns(Promise.resolve(false));
+		sinon.stub(activePullRequest, 'getReviewThreads').returns(
+			Promise.resolve([
+				{
+					id: '1',
+					isResolved: false,
+					viewerCanResolve: false,
+					viewerCanUnresolve: false,
+					path: fileName,
+					diffSide: DiffSide.RIGHT,
+					startLine: 372,
+					endLine: 372,
+					originalStartLine: 372,
+					originalEndLine: 372,
+					isOutdated: false,
+					comments: [
+						{
+							id: 1,
+							url: '',
+							diffHunk: '',
+							body: '',
+							createdAt: '',
+							htmlUrl: '',
+							graphNodeId: '',
+						}
+					],
+				},
+			]),
+		);
+
+		sinon.stub(manager, 'getCurrentUser').returns(Promise.resolve({
+			login: 'rmacfarlane',
+			url: 'https://github.com/rmacfarlane',
+		}));
+
+		sinon.stub(vscode.workspace, 'getWorkspaceFolder').returns({
+			uri: repository.rootUri,
+			name: '',
+			index: 0,
+		});
+
+		await reviewCommentController.initialize();
+		const workspaceFileChangeCommentThreads = reviewCommentController.workspaceFileChangeCommentThreads();
+		assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads).length, 1);
+		assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads)[0], fileName);
+		assert.strictEqual(workspaceFileChangeCommentThreads[fileName].length, 1);
+	});
 
 	describe('createOrReplyComment', function () {
 		it('creates a new comment on an empty thread in a local file', async function () {
 			const fileName = 'data/products.json';
 			const uri = vscode.Uri.parse(`${repository.rootUri.toString()}/${fileName}`);
-			const localFileChanges = [createLocalFileChange(uri, fileName)];
-			const reviewCommentController = new TestReviewCommentController(manager, repository, localFileChanges, [], []);
+			await activePullRequest.initializeReviewThreadCache();
+			const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
+			const reviewModel = new ReviewModel();
+			reviewModel.localFileChanges = localFileChanges;
+			const reviewCommentController = new TestReviewCommentController(
+				reviewManager,
+				manager,
+				repository,
+				reviewModel,
+			);
 			const thread = createGHPRCommentThread('review-1.1', uri);
 
-			sinon.stub(manager, 'validateDraftMode').returns(Promise.resolve(false));
+			sinon.stub(activePullRequest, 'validateDraftMode').returns(Promise.resolve(false));
+			sinon.stub(activePullRequest, 'getReviewThreads').returns(Promise.resolve([]));
+			sinon.stub(activePullRequest, 'getPendingReviewId').returns(Promise.resolve(undefined));
 
-			sinon.stub(manager, 'getCurrentUser').returns({
+			sinon.stub(manager, 'getCurrentUser').returns(Promise.resolve({
 				login: 'rmacfarlane',
-				url: 'https://github.com/rmacfarlane'
-			});
-
-			sinon.stub(reviewCommentController, 'createNewThread' as any).returns(Promise.resolve({
-				url: 'https://example.com',
-				id: 1,
-				diffHunk: '',
-				body: 'hello world',
-				createdAt: '',
-				htmlUrl: '',
-				graphNodeId: ''
+				url: 'https://github.com/rmacfarlane',
 			}));
 
 			sinon.stub(vscode.workspace, 'getWorkspaceFolder').returns({
 				uri: repository.rootUri,
 				name: '',
-				index: 0
+				index: 0,
 			});
 
 			sinon.stub(vscode.workspace, 'asRelativePath').callsFake((pathOrUri: string | vscode.Uri): string => {
@@ -160,18 +251,61 @@ describe('ReviewCommentController', function () {
 
 			sinon.stub(repository, 'diffWith').returns(Promise.resolve(''));
 
-			const replaceCommentSpy = sinon.spy(reviewCommentController, 'replaceTemporaryComment' as any);
-
 			await reviewCommentController.initialize();
 			const workspaceFileChangeCommentThreads = reviewCommentController.workspaceFileChangeCommentThreads();
-			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads).length, 1);
-			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads)[0], fileName);
-			assert.strictEqual(workspaceFileChangeCommentThreads[fileName].length, 0);
+			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads).length, 0);
 
-			await reviewCommentController.createOrReplyComment(thread, 'hello world');
+			githubRepo.queryProvider.expectGraphQLMutation(
+				{
+					mutation: schema.AddReviewThread,
+					variables: {
+						input: {
+							path: fileName,
+							body: 'hello world',
+							pullRequestId: activePullRequest.graphNodeId,
+							pullRequestReviewId: undefined,
+							startLine: undefined,
+							line: 22,
+							side: 'RIGHT'
+						}
+					}
+				},
+				{
+					data: {
+						addPullRequestReviewThread: {
+							thread: {
+								id: 1,
+								isResolved: false,
+								viewCanResolve: true,
+								path: fileName,
+								line: 22,
+								startLine: null,
+								originalStartLine: null,
+								originalLine: 22,
+								diffSide: 'RIGHT',
+								isOutdated: false,
+								comments: {
+									nodes: [
+										{
+											databaseId: 1,
+											id: 1,
+											body: 'hello world',
+											commit: {},
+											diffHunk: '',
+											reactionGroups: [],
+											author: {}
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			)
+
+			await reviewCommentController.createOrReplyComment(thread, 'hello world', false);
 
 			assert.strictEqual(thread.comments.length, 1);
-			assert(replaceCommentSpy.calledOnce);
 			assert.strictEqual(thread.comments[0].parent, thread);
 
 			assert.strictEqual(Object.keys(workspaceFileChangeCommentThreads).length, 1);

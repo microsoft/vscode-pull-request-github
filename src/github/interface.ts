@@ -6,19 +6,26 @@
 export enum PRType {
 	Query,
 	All,
-	LocalPullRequest
+	LocalPullRequest,
 }
 
 export enum ReviewEvent {
 	Approve = 'APPROVE',
 	RequestChanges = 'REQUEST_CHANGES',
-	Comment = 'COMMENT'
+	Comment = 'COMMENT',
 }
 
-export enum PullRequestStateEnum {
+export enum GithubItemStateEnum {
 	Open,
 	Merged,
 	Closed,
+}
+
+export enum PullRequestMergeability {
+	Mergeable,
+	NotMergeable,
+	Conflict,
+	Unknown,
 }
 
 export interface ReviewState {
@@ -31,6 +38,19 @@ export interface IAccount {
 	name?: string;
 	avatarUrl?: string;
 	url: string;
+	email?: string;
+}
+
+export interface ISuggestedReviewer extends IAccount {
+	isAuthor: boolean;
+	isCommenter: boolean;
+}
+
+export interface IMilestone {
+	title: string;
+	dueOn?: string | null;
+	createdAt: string;
+	id: string;
 }
 
 export interface MergePullRequest {
@@ -42,6 +62,8 @@ export interface MergePullRequest {
 
 export interface IRepository {
 	cloneUrl: string;
+	owner: string;
+	name: string;
 }
 
 export interface IGitHubRef {
@@ -53,9 +75,10 @@ export interface IGitHubRef {
 
 export interface ILabel {
 	name: string;
+	color: string;
 }
 
-export interface PullRequest {
+export interface Issue {
 	id: number;
 	graphNodeId: string;
 	url: string;
@@ -64,16 +87,35 @@ export interface PullRequest {
 	body: string;
 	bodyHTML?: string;
 	title: string;
-	assignee?: IAccount;
+	titleHTML: string;
+	assignees?: IAccount[];
 	createdAt: string;
 	updatedAt: string;
-	head?: IGitHubRef;
-	base?: IGitHubRef;
 	user: IAccount;
 	labels: ILabel[];
-	merged: boolean;
-	mergeable?: boolean;
-	isDraft: boolean;
+	milestone?: IMilestone;
+	repositoryOwner?: string;
+	repositoryName?: string;
+	repositoryUrl?: string;
+	comments?: {
+		author: IAccount;
+		body: string;
+		databaseId: number;
+	}[];
+}
+
+export interface PullRequest extends Issue {
+	isDraft?: boolean;
+	isRemoteHeadDeleted?: boolean;
+	head?: IGitHubRef;
+	isRemoteBaseDeleted?: boolean;
+	base?: IGitHubRef;
+	merged?: boolean;
+	mergeable?: PullRequestMergeability;
+	autoMerge?: boolean;
+	autoMergeMethod?: MergeMethod;
+	allowAutoMerge?: boolean;
+	suggestedReviewers?: ISuggestedReviewer[];
 }
 
 export interface IRawFileChange {
@@ -90,6 +132,7 @@ export interface IRawFileChange {
 
 export interface IPullRequestsPagingOptions {
 	fetchNextPage: boolean;
+	fetchOnePagePerRepo?: boolean;
 }
 
 export interface IPullRequestEditData {
@@ -102,3 +145,40 @@ export type MergeMethod = 'merge' | 'squash' | 'rebase';
 export type MergeMethodsAvailability = {
 	[method in MergeMethod]: boolean;
 };
+
+export type RepoAccessAndMergeMethods = {
+	hasWritePermission: boolean;
+	mergeMethodsAvailability: MergeMethodsAvailability;
+	viewerCanAutoMerge: boolean;
+};
+
+export interface User extends IAccount {
+	company?: string;
+	location?: string;
+	bio?: string;
+	commitContributions: {
+		createdAt: Date;
+		repoNameWithOwner: string;
+	}[];
+}
+
+export enum CheckState {
+	Success = 'success',
+	Failure = 'failure',
+	Neutral = 'neutral',
+	Pending = 'pending',
+	Unknown = 'unknown'
+}
+
+export interface PullRequestChecks {
+	state: CheckState;
+	statuses: {
+		id: string;
+		url?: string;
+		avatar_url?: string;
+		state?: CheckState;
+		description?: string;
+		target_url?: string;
+		context: string;
+	}[];
+}

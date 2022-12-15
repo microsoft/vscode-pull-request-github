@@ -7,6 +7,17 @@ import * as vscode from 'vscode';
 import { IAccount } from '../github/interface';
 import { DiffHunk } from './diffHunk';
 
+export enum DiffSide {
+	LEFT = 'LEFT',
+	RIGHT = 'RIGHT',
+}
+
+export enum ViewedState {
+	DISMISSED = 'DISMISSED',
+	VIEWED = 'VIEWED',
+	UNVIEWED = 'UNVIEWED'
+}
+
 export interface Reaction {
 	label: string;
 	count: number;
@@ -14,8 +25,23 @@ export interface Reaction {
 	viewerHasReacted: boolean;
 }
 
+export interface IReviewThread {
+	id: string;
+	prReviewDatabaseId?: number;
+	isResolved: boolean;
+	viewerCanResolve: boolean;
+	viewerCanUnresolve: boolean;
+	path: string;
+	diffSide: DiffSide;
+	startLine: number;
+	endLine: number;
+	originalStartLine: number;
+	originalEndLine: number;
+	isOutdated: boolean;
+	comments: IComment[];
+}
+
 export interface IComment {
-	absolutePosition?: number;
 	bodyHTML?: string;
 	diffHunks?: DiffHunk[];
 	canEdit?: boolean;
@@ -37,4 +63,5 @@ export interface IComment {
 	inReplyToId?: number;
 	graphNodeId: string;
 	reactions?: Reaction[];
+	isResolved?: boolean;
 }

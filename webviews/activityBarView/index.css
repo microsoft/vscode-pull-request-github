@@ -1,0 +1,172 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	padding: 10px 20px;
+}
+
+textarea {
+	min-height: 80px;
+	max-height: 500px;
+	border-radius: 2px;
+}
+
+.form-actions {
+	display: flex;
+	padding: 10px 0;
+}
+
+.icon svg {
+	margin-right: 6px;
+	width: 16px;
+}
+
+#status-checks {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 16px 0;
+}
+
+.comment-form {
+	padding-bottom: 16px;
+}
+
+.status-section {
+	padding-bottom: 16px;
+}
+
+.ready-for-review-container .select-control {
+	padding-bottom: 16px;
+}
+
+.ready-for-review-container p,
+.status-section p {
+	line-height: 1.5em;
+	margin: 0;
+}
+
+.select-container {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+}
+
+.ready-for-review-button {
+	width: 100%;
+}
+
+.ready-for-review-container {
+	padding-bottom: 16px;
+}
+
+.select-control,
+#merge-on-github,
+form,
+.button-container {
+	display: flex;
+	margin: auto;
+	max-width: 260px;
+	width: 100%;
+}
+
+.button-container button {
+	width: 100%;
+}
+
+#merge-on-github {
+	justify-content: center;
+}
+
+#comment-textarea {
+	margin-bottom: 10px;
+}
+
+.select-control form {
+	flex-grow: 2;
+}
+
+.select-control form input,
+form button {
+	width: 100%;
+}
+
+.select-control svg path {
+	fill: var(--vscode-button-foreground);
+}
+
+button:focus,
+input[type='submit']:focus {
+	outline-offset: -1px;
+}
+
+.select-control button,
+.branch-status-container button,
+input[type='submit'] {
+	min-height: 31px;
+	white-space: normal;
+}
+
+.select-control .open {
+	background-color: var(--vscode-button-hoverBackground);
+}
+
+button .icon svg {
+	margin-right: 0;
+}
+
+.options-select {
+	display: flex;
+	flex-direction: column;
+	width: inherit;
+	max-width: 260px;
+	margin: auto;
+}
+
+.options-select button {
+	margin-top: 1px;
+	background-color: var(--vscode-dropdown-background);
+	color: var(--vscode-dropdown-foreground);
+	text-align: start;
+	white-space: break-spaces;
+}
+
+.options-select button:hover,
+.options-select button:focus {
+	color: var(--vscode-button-foreground);
+}
+
+.branch-status-container {
+	padding: 10px 0;
+}
+
+.radio-button {
+	display: flex;
+	align-items: center;
+	margin-right: 3px;
+}
+
+.radio-button input {
+	margin-top: 0;
+}
+
+@media (max-width: 250px) {
+	.form-actions {
+		flex-direction: column;
+	}
+
+	.radio-button {
+		margin-bottom: 3px;
+	}
+}
+
+#status-checks .branch-status-message {
+	display: flex;
+}
+
+#status-checks .branch-status-icon {
+	display: flex;
+	padding-top: 1px;
+}

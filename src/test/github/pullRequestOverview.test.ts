@@ -1,52 +1,55 @@
-import assert = require('assert');
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { default as assert } from 'assert';
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { SinonSandbox, createSandbox, match as sinonMatch } from 'sinon';
 
-import { PullRequestManager } from '../../github/pullRequestManager';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { MockTelemetry } from '../mocks/mockTelemetry';
 import { MockRepository } from '../mocks/mockRepository';
 import { PullRequestOverviewPanel } from '../../github/pullRequestOverview';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
-import { Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
-import { DescriptionNode } from '../../view/treeNodes/descriptionNode';
-import { TreeNode } from '../../view/treeNodes/treeNode';
-import { init as initKeytar, setToken } from '../../authentication/keychain';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
-import { MockKeytar } from '../mocks/mockKeytar';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
+import { GitApiImpl } from '../../api/api1';
+import { CredentialStore } from '../../github/credentials';
+import { GitHubServerType } from '../../common/authentication';
+import { GitHubRemote } from '../../common/remote';
+import { CheckState } from '../../github/interface';
 
-const EXTENSION_PATH = path.resolve(__dirname, '../../..');
+const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
 
-describe('PullRequestOverview', function() {
+describe('PullRequestOverview', function () {
 	let sinon: SinonSandbox;
-	let pullRequestManager: PullRequestManager;
+	let pullRequestManager: FolderRepositoryManager;
 	let context: MockExtensionContext;
-	let remote: Remote;
+	let remote: GitHubRemote;
 	let repo: MockGitHubRepository;
+	let telemetry: MockTelemetry;
 
-	beforeEach(async function() {
+	beforeEach(async function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 		context = new MockExtensionContext();
 
 		const repository = new MockRepository();
-		const telemetry = new MockTelemetry();
-		pullRequestManager = new PullRequestManager(repository, telemetry);
+		telemetry = new MockTelemetry();
+		const credentialStore = new CredentialStore(telemetry, context);
+		pullRequestManager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore);
 
 		const url = 'https://github.com/aaa/bbb';
-		remote = new Remote('origin', url, new Protocol(url));
-		repo = new MockGitHubRepository(remote, pullRequestManager.credentialStore, sinon);
-
-		initKeytar(context, new MockKeytar());
-		await setToken('github.com', '1234');
+		remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+		repo = new MockGitHubRepository(remote, pullRequestManager.credentialStore, telemetry, sinon);
 	});
 
-	afterEach(function() {
+	afterEach(function () {
 		if (PullRequestOverviewPanel.currentPanel) {
 			PullRequestOverviewPanel.currentPanel.dispose();
 		}
@@ -56,12 +59,12 @@ describe('PullRequestOverview', function() {
 		sinon.restore();
 	});
 
-	describe('createOrShow', function() {
-		it('creates a new panel', async function() {
+	describe('createOrShow', function () {
+		it('creates a new panel', async function () {
 			assert.strictEqual(PullRequestOverviewPanel.currentPanel, undefined);
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
 
-			repo.addGraphQLPullRequest((builder) => {
+			repo.addGraphQLPullRequest(builder => {
 				builder.pullRequest(response => {
 					response.repository(r => {
 						r.pullRequest(pr => pr.number(1000));
@@ -69,45 +72,32 @@ describe('PullRequestOverview', function() {
 				});
 			});
 
-			const prItem = convertRESTPullRequestToRawPullRequest(
-				new PullRequestBuilder().number(1000).build(),
-				repo,
-			);
-			const prModel = new PullRequestModel(repo, remote, prItem);
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			const prModel = new PullRequestModel(telemetry, repo, remote, prItem);
 
-			const descriptionNode = new DescriptionNode(
-				new OrphanedTreeNode(),
-				'label',
-				'https://avatars3.githubusercontent.com/u/17565?v=4',
-				prModel,
-			);
+			await PullRequestOverviewPanel.createOrShow(EXTENSION_URI, pullRequestManager, prModel);
 
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel, descriptionNode);
-
-			assert(createWebviewPanel.calledWith(
-				sinonMatch.string,
-				'Pull Request #1000',
-				vscode.ViewColumn.One,
-				{
+			assert(
+				createWebviewPanel.calledWith(sinonMatch.string, 'Pull Request #1000', vscode.ViewColumn.One, {
 					enableScripts: true,
 					retainContextWhenHidden: true,
-					localResourceRoots: [vscode.Uri.file(path.resolve(EXTENSION_PATH, 'media'))]
-				}
-			));
+					localResourceRoots: [vscode.Uri.joinPath(EXTENSION_URI, 'dist')],
+				}),
+			);
 			assert.notStrictEqual(PullRequestOverviewPanel.currentPanel, undefined);
 		});
 
-		it('reveals and updates an existing panel', async function() {
+		it('reveals and updates an existing panel', async function () {
 			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
 
-			repo.addGraphQLPullRequest((builder) => {
+			repo.addGraphQLPullRequest(builder => {
 				builder.pullRequest(response => {
 					response.repository(r => {
 						r.pullRequest(pr => pr.number(1000));
 					});
 				});
 			});
-			repo.addGraphQLPullRequest((builder) => {
+			repo.addGraphQLPullRequest(builder => {
 				builder.pullRequest(response => {
 					response.repository(r => {
 						r.pullRequest(pr => pr.number(2000));
@@ -115,38 +105,26 @@ describe('PullRequestOverview', function() {
 				});
 			});
 
-			const prItem0 = convertRESTPullRequestToRawPullRequest(
-				new PullRequestBuilder().number(1000).build(),
-				repo,
-			);
-			const prModel0 = new PullRequestModel(repo, remote, prItem0);
-			const descriptionNode0 = new DescriptionNode(
-				new OrphanedTreeNode(),
-				'label',
-				'https://avatars3.githubusercontent.com/u/17565?v=4',
-				prModel0,
-			);
+			const prItem0 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			const prModel0 = new PullRequestModel(telemetry, repo, remote, prItem0);
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
-			sinon.stub(pullRequestManager, 'getReviewRequests').resolves([]);
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel0, descriptionNode0);
+			sinon.stub(prModel0, 'getReviewRequests').resolves([]);
+			sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
+			sinon.stub(prModel0, 'getStatusChecks').resolves({ state: CheckState.Pending, statuses: [] });
+			await PullRequestOverviewPanel.createOrShow(EXTENSION_URI, pullRequestManager, prModel0);
 
 			const panel0 = PullRequestOverviewPanel.currentPanel;
 			assert.notStrictEqual(panel0, undefined);
 			assert.strictEqual(createWebviewPanel.callCount, 1);
+			assert.strictEqual(panel0!.getCurrentTitle(), 'Pull Request #1000');
 
-			const prItem1 = convertRESTPullRequestToRawPullRequest(
-				new PullRequestBuilder().number(2000).build(),
-				repo,
-			);
-			const prModel1 = new PullRequestModel(repo, remote, prItem1);
-			const descriptionNode1 = new DescriptionNode(
-				new OrphanedTreeNode(),
-				'label',
-				'https://avatars3.githubusercontent.com/u/17565?v=4',
-				prModel1,
-			);
+			const prItem1 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(2000).build(), repo);
+			const prModel1 = new PullRequestModel(telemetry, repo, remote, prItem1);
 			resolveStub.resolves(prModel1);
-			await PullRequestOverviewPanel.createOrShow(EXTENSION_PATH, pullRequestManager, prModel1, descriptionNode1);
+			sinon.stub(prModel1, 'getReviewRequests').resolves([]);
+			sinon.stub(prModel1, 'getTimelineEvents').resolves([]);
+			sinon.stub(prModel1, 'getStatusChecks').resolves({ state: CheckState.Pending, statuses: [] });
+			await PullRequestOverviewPanel.createOrShow(EXTENSION_URI, pullRequestManager, prModel1);
 
 			assert.strictEqual(panel0, PullRequestOverviewPanel.currentPanel);
 			assert.strictEqual(createWebviewPanel.callCount, 1);
@@ -154,9 +132,3 @@ describe('PullRequestOverview', function() {
 		});
 	});
 });
-
-class OrphanedTreeNode extends TreeNode {
-	getTreeItem(): vscode.TreeItem {
-		throw new Error('Attempt to get tree item from orphaned node');
-	}
-}

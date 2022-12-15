@@ -1,38 +1,39 @@
 jobs:
-- job: test_suite
-  displayName: Test suite
-  pool:
-    name: Hosted macOS
-  steps:
+  - job: test_suite
+    displayName: Test suite
+    pool:
+      vmImage: 'macos-12'
+    steps:
+      - template: scripts/ci/common-setup.yml
 
-  - template: scripts/ci/common-setup.yml
+      - script: yarn run compile
+        displayName: Compile
 
-  - script: yarn run test
-    displayName: Run test suite
-    env:
-      TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
+      - script: yarn run test
+        displayName: Run test suite
+        env:
+          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
 
-  - task: PublishTestResults@2
-    displayName: Publish test results
-    inputs:
-      testResultsFormat: JUnit
-      testResultsFiles: $(Agent.HomeDirectory)/test-results.xml
-      testRunTitle: Mocha test suite
-    condition: succeededOrFailed()
+      # - script: yarn run browsertest --browserType=chromium
+      #   displayName: Run test suite (chromium)
+      #   env:
+      #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-chromium-test-results.xml
 
-- job: indexer
-  displayName: Code navigator indexing
-  pool:
-    name: Hosted VS2017
-  steps:
+      # - script: yarn run browsertest --browserType=firefox
+      #   displayName: Run test suite (firefox)
+      #   env:
+      #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
 
-  - template: scripts/ci/common-setup.yml
+      # - script: yarn run browsertest --browserType=webkit
+      #   displayName: Run test suite (webkit)
+      #   env:
+      #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
 
-  - task: MS-RichCodeNav.Indexer.build-task.RichCodeNavIndexer@0
-    displayName: Rich Code Navigation Indexer
-    inputs:
-      serviceConnection: Rich Code Navigation
-      languages: typescript
-      githubServiceConnection: GitHub Pull Request
-      nugetFeed: https://vside.myget.org/F/buildtools/api/v3/index.json
-      serviceEndpoint: https://prod.richnav.vsengsaas.visualstudio.com
+      - task: PublishTestResults@2
+        displayName: Publish test results
+        inputs:
+          testResultsFormat: JUnit
+          testResultsFiles: $(Agent.HomeDirectory)/*test-results.xml
+          testRunTitle: Mocha test suite
+          failTaskOnFailedTests: true
+        condition: succeededOrFailed()

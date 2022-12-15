@@ -33,7 +33,6 @@ export class MockCommandRegistry {
 	private _commands: { [commandName: string]: (args: any[]) => any } = {};
 
 	static install(sinon: SinonSandbox) {
-		// tslint:disable-next-line: no-unused-expression
 		new this(sinon);
 	}
 

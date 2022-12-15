@@ -4,9 +4,51 @@
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
-import { Event, Disposable } from 'vscode';
 import { sep } from 'path';
-import moment = require('moment');
+import dayjs from 'dayjs';
+import * as relativeTime from 'dayjs/plugin/relativeTime';
+import * as updateLocale from 'dayjs/plugin/updateLocale';
+import type { Disposable, Event, Uri } from 'vscode';
+// TODO: localization for webview needed
+
+dayjs.extend(relativeTime.default, {
+	thresholds: [
+		{ l: 's', r: 44, d: 'second' },
+		{ l: 'm', r: 89 },
+		{ l: 'mm', r: 44, d: 'minute' },
+		{ l: 'h', r: 89 },
+		{ l: 'hh', r: 21, d: 'hour' },
+		{ l: 'd', r: 35 },
+		{ l: 'dd', r: 6, d: 'day' },
+		{ l: 'w', r: 7 },
+		{ l: 'ww', r: 3, d: 'week' },
+		{ l: 'M', r: 4 },
+		{ l: 'MM', r: 10, d: 'month' },
+		{ l: 'y', r: 17 },
+		{ l: 'yy', d: 'year' },
+	],
+});
+
+dayjs.extend(updateLocale.default);
+dayjs.updateLocale('en', {
+	relativeTime: {
+		future: 'in %s',
+		past: '%s ago',
+		s: 'seconds',
+		m: 'a minute',
+		mm: '%d minutes',
+		h: 'an hour',
+		hh: '%d hours',
+		d: 'a day',
+		dd: '%d days',
+		w: 'a week',
+		ww: '%d weeks',
+		M: 'a month',
+		MM: '%d months',
+		y: 'a year',
+		yy: '%d years',
+	},
+});
 
 export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
 	const seen = Object.create(null);
@@ -49,15 +91,20 @@ export function anyEvent<T>(...events: Event<T>[]): Event<T> {
 }
 
 export function filterEvent<T>(event: Event<T>, filter: (e: T) => boolean): Event<T> {
-	return (listener, thisArgs = null, disposables?) => event(e => filter(e) && listener.call(thisArgs, e), null, disposables);
+	return (listener, thisArgs = null, disposables?) =>
+		event(e => filter(e) && listener.call(thisArgs, e), null, disposables);
 }
 
 export function onceEvent<T>(event: Event<T>): Event<T> {
 	return (listener, thisArgs = null, disposables?) => {
-		const result = event(e => {
-			result.dispose();
-			return listener.call(thisArgs, e);
-		}, null, disposables);
+		const result = event(
+			e => {
+				result.dispose();
+				return listener.call(thisArgs, e);
+			},
+			null,
+			disposables,
+		);
 
 		return result;
 	};
@@ -93,7 +140,36 @@ export function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[
 	}, Object.create(null));
 }
 
-export function formatError(e: any): string {
+export class UnreachableCaseError extends Error {
+	constructor(val: never) {
+		super(`Unreachable case: ${val}`);
+	}
+}
+
+interface HookError extends Error {
+	errors: any;
+}
+
+function isHookError(e: Error): e is HookError {
+	return !!(e as any).errors;
+}
+
+function hasFieldErrors(e: any): e is Error & { errors: { value: string; field: string; code: string }[] } {
+	let areFieldErrors = true;
+	if (!!e.errors && Array.isArray(e.errors)) {
+		for (const error of e.errors) {
+			if (!error.field || !error.value || !error.code) {
+				areFieldErrors = false;
+				break;
+			}
+		}
+	} else {
+		areFieldErrors = false;
+	}
+	return areFieldErrors;
+}
+
+export function formatError(e: HookError | any): string {
 	if (!(e instanceof Error)) {
 		if (typeof e === 'string') {
 			return e;
@@ -101,44 +177,43 @@ export function formatError(e: any): string {
 
 		if (e.gitErrorCode) {
 			// known git errors, we should display detailed git error messages.
-			return e.message + '. Please check git output for more details';
+			return `${e.message}. Please check git output for more details`;
+		} else if (e.stderr) {
+			return `${e.stderr}. Please check git output for more details`;
 		}
 		return 'Error';
 	}
 
-	try {
-		let errorMessage = e.message;
-
-		const message = JSON.parse(e.message);
-		if (message) {
-			errorMessage = message.message;
-
-			const furtherInfo = message.errors && message.errors.map((error: any) => {
+	let errorMessage = e.message;
+	let furtherInfo: string | undefined;
+	if (e.message === 'Validation Failed' && hasFieldErrors(e)) {
+		furtherInfo = e.errors
+			.map(error => {
+				return `Value "${error.value}" cannot be set for field ${error.field} (code: ${error.code})`;
+			})
+			.join(', ');
+	} else if (e.message.startsWith('Validation Failed:')) {
+		return e.message;
+	} else if (isHookError(e) && e.errors) {
+		return e.errors
+			.map((error: any) => {
 				if (typeof error === 'string') {
 					return error;
 				} else {
 					return error.message;
 				}
-			}).join(', ');
-			if (furtherInfo) {
-				errorMessage = `${errorMessage}: ${furtherInfo}`;
-			}
-		}
-
-		return errorMessage;
-	} catch (_) {
-		return e.message;
+			})
+			.join(', ');
 	}
+	if (furtherInfo) {
+		errorMessage = `${errorMessage}: ${furtherInfo}`;
+	}
+
+	return errorMessage;
 }
 
 export interface PromiseAdapter<T, U> {
-	(
-		value: T,
-		resolve:
-			(value?: U | PromiseLike<U>) => void,
-		reject:
-			(reason: any) => void
-	): any;
+	(value: T, resolve: (value?: U | PromiseLike<U>) => void, reject: (reason: any) => void): any;
 }
 
 const passthrough = (value: any, resolve: (value?: any) => void) => resolve(value);
@@ -157,19 +232,17 @@ const passthrough = (value: any, resolve: (value?: any) => void) => resolve(valu
  * @param {PromiseAdapter<T, U>?} adapter controls resolution of the returned promise
  * @returns {Promise<U>} a promise that resolves or rejects as specified by the adapter
  */
-export async function promiseFromEvent<T, U>(
-	event: Event<T>,
-	adapter: PromiseAdapter<T, U> = passthrough): Promise<U> {
+export async function promiseFromEvent<T, U>(event: Event<T>, adapter: PromiseAdapter<T, U> = passthrough): Promise<U> {
 	let subscription: Disposable;
-	return new Promise<U>((resolve, reject) =>
-		subscription = event((value: T) => {
+	return new Promise<U>(
+		(resolve, reject) =>
+		(subscription = event((value: T) => {
 			try {
-				Promise.resolve(adapter(value, resolve, reject))
-					.catch(reject);
+				Promise.resolve<U>(adapter(value, resolve as any, reject)).catch(reject);
 			} catch (error) {
 				reject(error);
 			}
-		})
+		})),
 	).then(
 		(result: U) => {
 			subscription.dispose();
@@ -178,30 +251,363 @@ export async function promiseFromEvent<T, U>(
 		error => {
 			subscription.dispose();
 			throw error;
-		}
+		},
 	);
 }
 
 export function dateFromNow(date: Date | string): string {
-	const duration = moment.duration(moment().diff(date));
+	const djs = dayjs(date);
 
-	if (duration.asMonths() < 1) {
-		return moment(date).fromNow();
-	} else if (duration.asYears() < 1) {
-		return 'on ' + moment(date).format('MMM D');
-	} else {
-		return 'on ' + moment(date).format('MMM D, YYYY');
+	const now = Date.now();
+	djs.diff(now, 'month');
+
+	if (djs.diff(now, 'month') < 1) {
+		return djs.fromNow();
+	} else if (djs.diff(now, 'year') < 1) {
+		return `on ${djs.format('MMM D')}`;
+	}
+	return `on ${djs.format('MMM D, YYYY')}`;
+}
+
+
+export function gitHubLabelColor(hexColor: string, isDark: boolean, markDown: boolean = false): { textColor: string, backgroundColor: string, borderColor: string } {
+	if (hexColor.startsWith('#')) {
+		hexColor = hexColor.substring(1);
+	}
+	const rgbColor = hexToRgb(hexColor);
+
+	if (isDark) {
+		const hslColor = rgbToHsl(rgbColor.r, rgbColor.g, rgbColor.b);
+
+		const lightnessThreshold = 0.6;
+		const backgroundAlpha = 0.18;
+		const borderAlpha = 0.3;
+
+		const perceivedLightness = (rgbColor.r * 0.2126 + rgbColor.g * 0.7152 + rgbColor.b * 0.0722) / 255;
+		const lightnessSwitch = Math.max(0, Math.min((perceivedLightness - lightnessThreshold) * -1000, 1));
+
+		const lightenBy = (lightnessThreshold - perceivedLightness) * 100 * lightnessSwitch;
+		const rgbBorder = hexToRgb(hslToHex(hslColor.h, hslColor.s, hslColor.l + lightenBy));
+
+		const textColor = `#${hslToHex(hslColor.h, hslColor.s, hslColor.l + lightenBy)}`;
+		const backgroundColor = !markDown ?
+			`rgba(${rgbColor.r},${rgbColor.g},${rgbColor.b},${backgroundAlpha})` :
+			`#${rgbToHex({ ...rgbColor, a: backgroundAlpha })}`;
+		const borderColor = !markDown ?
+			`rgba(${rgbBorder.r},${rgbBorder.g},${rgbBorder.b},${borderAlpha})` :
+			`#${rgbToHex({ ...rgbBorder, a: borderAlpha })}`;
+
+		return { textColor: textColor, backgroundColor: backgroundColor, borderColor: borderColor };
+	}
+	else {
+		return { textColor: `#${contrastColor(rgbColor)}`, backgroundColor: `#${hexColor}`, borderColor: `#${hexColor}` };
 	}
 }
+
+const rgbToHex = (color: { r: number, g: number, b: number, a?: number }) => {
+	const colors = [color.r, color.g, color.b];
+	if (color.a) {
+		colors.push(Math.floor(color.a * 255));
+	}
+	return colors.map((digit) => {
+		return digit.toString(16).padStart(2, '0');
+	}).join('');
+};
+
+function hexToRgb(color: string) {
+	const result = /^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color);
+
+	if (result) {
+		return {
+			r: parseInt(result[1], 16),
+			g: parseInt(result[2], 16),
+			b: parseInt(result[3], 16),
+		};
+	}
+	return {
+		r: 0,
+		g: 0,
+		b: 0,
+	};
+}
+
+function rgbToHsl(r: number, g: number, b: number) {
+	// Source: https://css-tricks.com/converting-color-spaces-in-javascript/
+	// Make r, g, and b fractions of 1
+	r /= 255;
+	g /= 255;
+	b /= 255;
+
+	// Find greatest and smallest channel values
+	let cmin = Math.min(r, g, b),
+		cmax = Math.max(r, g, b),
+		delta = cmax - cmin,
+		h = 0,
+		s = 0,
+		l = 0;
+
+	// Calculate hue
+	// No difference
+	if (delta == 0)
+		h = 0;
+	// Red is max
+	else if (cmax == r)
+		h = ((g - b) / delta) % 6;
+	// Green is max
+	else if (cmax == g)
+		h = (b - r) / delta + 2;
+	// Blue is max
+	else
+		h = (r - g) / delta + 4;
+
+	h = Math.round(h * 60);
+
+	// Make negative hues positive behind 360 deg
+	if (h < 0)
+		h += 360;
+
+	// Calculate lightness
+	l = (cmax + cmin) / 2;
+
+	// Calculate saturation
+	s = delta == 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+
+	// Multiply l and s by 100
+	s = +(s * 100).toFixed(1);
+	l = +(l * 100).toFixed(1);
+
+	return { h: h, s: s, l: l };
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+	// source https://www.jameslmilner.com/posts/converting-rgb-hex-hsl-colors/
+	const hDecimal = l / 100;
+	const a = (s * Math.min(hDecimal, 1 - hDecimal)) / 100;
+	const f = (n: number) => {
+		const k = (n + h / 30) % 12;
+		const color = hDecimal - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+
+		// Convert to Hex and prefix with "0" if required
+		return Math.round(255 * color)
+			.toString(16)
+			.padStart(2, '0');
+	};
+	return `${f(0)}${f(8)}${f(4)}`;
+}
+
+function contrastColor(rgbColor: { r: number, g: number, b: number }) {
+	// Color algorithm from https://stackoverflow.com/questions/1855884/determine-font-color-based-on-background-color
+	const luminance = (0.299 * rgbColor.r + 0.587 * rgbColor.g + 0.114 * rgbColor.b) / 255;
+	return luminance > 0.5 ? '000000' : 'ffffff';
+}
+
 export interface Predicate<T> {
 	(input: T): boolean;
 }
 
-export class PathIterator implements IKeyIterator {
+export const enum CharCode {
+	Period = 46,
+	/**
+	 * The `/` character.
+	 */
+	Slash = 47,
 
-	private _value: string;
-	private _from: number;
-	private _to: number;
+	A = 65,
+	Z = 90,
+
+	Backslash = 92,
+
+	a = 97,
+	z = 122,
+}
+
+export function compare(a: string, b: string): number {
+	if (a < b) {
+		return -1;
+	} else if (a > b) {
+		return 1;
+	}
+	return 0;
+}
+
+export function compareSubstring(
+	a: string,
+	b: string,
+	aStart: number = 0,
+	aEnd: number = a.length,
+	bStart: number = 0,
+	bEnd: number = b.length,
+): number {
+	for (; aStart < aEnd && bStart < bEnd; aStart++, bStart++) {
+		const codeA = a.charCodeAt(aStart);
+		const codeB = b.charCodeAt(bStart);
+		if (codeA < codeB) {
+			return -1;
+		} else if (codeA > codeB) {
+			return 1;
+		}
+	}
+	const aLen = aEnd - aStart;
+	const bLen = bEnd - bStart;
+	if (aLen < bLen) {
+		return -1;
+	} else if (aLen > bLen) {
+		return 1;
+	}
+	return 0;
+}
+
+export function compareIgnoreCase(a: string, b: string): number {
+	return compareSubstringIgnoreCase(a, b, 0, a.length, 0, b.length);
+}
+
+export function compareSubstringIgnoreCase(
+	a: string,
+	b: string,
+	aStart: number = 0,
+	aEnd: number = a.length,
+	bStart: number = 0,
+	bEnd: number = b.length,
+): number {
+	for (; aStart < aEnd && bStart < bEnd; aStart++, bStart++) {
+		let codeA = a.charCodeAt(aStart);
+		let codeB = b.charCodeAt(bStart);
+
+		if (codeA === codeB) {
+			// equal
+			continue;
+		}
+
+		const diff = codeA - codeB;
+		if (diff === 32 && isUpperAsciiLetter(codeB)) {
+			//codeB =[65-90] && codeA =[97-122]
+			continue;
+		} else if (diff === -32 && isUpperAsciiLetter(codeA)) {
+			//codeB =[97-122] && codeA =[65-90]
+			continue;
+		}
+
+		if (isLowerAsciiLetter(codeA) && isLowerAsciiLetter(codeB)) {
+			//
+			return diff;
+		} else {
+			return compareSubstring(a.toLowerCase(), b.toLowerCase(), aStart, aEnd, bStart, bEnd);
+		}
+	}
+
+	const aLen = aEnd - aStart;
+	const bLen = bEnd - bStart;
+
+	if (aLen < bLen) {
+		return -1;
+	} else if (aLen > bLen) {
+		return 1;
+	}
+
+	return 0;
+}
+
+export function isLowerAsciiLetter(code: number): boolean {
+	return code >= CharCode.a && code <= CharCode.z;
+}
+
+export function isUpperAsciiLetter(code: number): boolean {
+	return code >= CharCode.A && code <= CharCode.Z;
+}
+
+export interface IKeyIterator<K> {
+	reset(key: K): this;
+	next(): this;
+
+	hasNext(): boolean;
+	cmp(a: string): number;
+	value(): string;
+}
+
+export class StringIterator implements IKeyIterator<string> {
+	private _value: string = '';
+	private _pos: number = 0;
+
+	reset(key: string): this {
+		this._value = key;
+		this._pos = 0;
+		return this;
+	}
+
+	next(): this {
+		this._pos += 1;
+		return this;
+	}
+
+	hasNext(): boolean {
+		return this._pos < this._value.length - 1;
+	}
+
+	cmp(a: string): number {
+		const aCode = a.charCodeAt(0);
+		const thisCode = this._value.charCodeAt(this._pos);
+		return aCode - thisCode;
+	}
+
+	value(): string {
+		return this._value[this._pos];
+	}
+}
+
+export class ConfigKeysIterator implements IKeyIterator<string> {
+	private _value!: string;
+	private _from!: number;
+	private _to!: number;
+
+	constructor(private readonly _caseSensitive: boolean = true) { }
+
+	reset(key: string): this {
+		this._value = key;
+		this._from = 0;
+		this._to = 0;
+		return this.next();
+	}
+
+	hasNext(): boolean {
+		return this._to < this._value.length;
+	}
+
+	next(): this {
+		// this._data = key.split(/[\\/]/).filter(s => !!s);
+		this._from = this._to;
+		let justSeps = true;
+		for (; this._to < this._value.length; this._to++) {
+			const ch = this._value.charCodeAt(this._to);
+			if (ch === CharCode.Period) {
+				if (justSeps) {
+					this._from++;
+				} else {
+					break;
+				}
+			} else {
+				justSeps = false;
+			}
+		}
+		return this;
+	}
+
+	cmp(a: string): number {
+		return this._caseSensitive
+			? compareSubstring(a, this._value, 0, a.length, this._from, this._to)
+			: compareSubstringIgnoreCase(a, this._value, 0, a.length, this._from, this._to);
+	}
+
+	value(): string {
+		return this._value.substring(this._from, this._to);
+	}
+}
+
+export class PathIterator implements IKeyIterator<string> {
+	private _value!: string;
+	private _from!: number;
+	private _to!: number;
+
+	constructor(private readonly _splitOnBackslash: boolean = true, private readonly _caseSensitive: boolean = true) { }
 
 	reset(key: string): this {
 		this._value = key.replace(/\\$|\/$/, '');
@@ -220,7 +626,7 @@ export class PathIterator implements IKeyIterator {
 		let justSeps = true;
 		for (; this._to < this._value.length; this._to++) {
 			const ch = this._value.charCodeAt(this._to);
-			if (ch === 47 /* CharCode.Slash */ || ch === 92 /* CharCode.Backslash */) {
+			if (ch === CharCode.Slash || (this._splitOnBackslash && ch === CharCode.Backslash)) {
 				if (justSeps) {
 					this._from++;
 				} else {
@@ -234,27 +640,9 @@ export class PathIterator implements IKeyIterator {
 	}
 
 	cmp(a: string): number {
-
-		let aPos = 0;
-		const aLen = a.length;
-		let thisPos = this._from;
-
-		while (aPos < aLen && thisPos < this._to) {
-			const cmp = a.charCodeAt(aPos) - this._value.charCodeAt(thisPos);
-			if (cmp !== 0) {
-				return cmp;
-			}
-			aPos += 1;
-			thisPos += 1;
-		}
-
-		if (aLen === this._to - this._from) {
-			return 0;
-		} else if (aPos < aLen) {
-			return -1;
-		} else {
-			return 1;
-		}
+		return this._caseSensitive
+			? compareSubstring(a, this._value, 0, a.length, this._from, this._to)
+			: compareSubstringIgnoreCase(a, this._value, 0, a.length, this._from, this._to);
 	}
 
 	value(): string {
@@ -262,44 +650,129 @@ export class PathIterator implements IKeyIterator {
 	}
 }
 
-export interface IteratorUndefinedResult {
-	readonly done: true;
-	readonly value: undefined;
-}
-export const FIN: IteratorUndefinedResult = { done: true, value: undefined };
-
-export interface IKeyIterator {
-	reset(key: string): this;
-	next(): this;
-
-	hasNext(): boolean;
-	cmp(a: string): number;
-	value(): string;
+const enum UriIteratorState {
+	Scheme = 1,
+	Authority = 2,
+	Path = 3,
+	Query = 4,
+	Fragment = 5,
 }
 
-class TernarySearchTreeNode<E> {
-	segment: string;
-	value: E | undefined;
-	key: string;
-	left: TernarySearchTreeNode<E> | undefined;
-	mid: TernarySearchTreeNode<E> | undefined;
-	right: TernarySearchTreeNode<E> | undefined;
+export class UriIterator implements IKeyIterator<Uri> {
+	private _pathIterator!: PathIterator;
+	private _value!: Uri;
+	private _states: UriIteratorState[] = [];
+	private _stateIdx: number = 0;
+
+	constructor(private readonly _ignorePathCasing: (uri: Uri) => boolean) { }
+
+	reset(key: Uri): this {
+		this._value = key;
+		this._states = [];
+		if (this._value.scheme) {
+			this._states.push(UriIteratorState.Scheme);
+		}
+		if (this._value.authority) {
+			this._states.push(UriIteratorState.Authority);
+		}
+		if (this._value.path) {
+			this._pathIterator = new PathIterator(false, !this._ignorePathCasing(key));
+			this._pathIterator.reset(key.path);
+			if (this._pathIterator.value()) {
+				this._states.push(UriIteratorState.Path);
+			}
+		}
+		if (this._value.query) {
+			this._states.push(UriIteratorState.Query);
+		}
+		if (this._value.fragment) {
+			this._states.push(UriIteratorState.Fragment);
+		}
+		this._stateIdx = 0;
+		return this;
+	}
+
+	next(): this {
+		if (this._states[this._stateIdx] === UriIteratorState.Path && this._pathIterator.hasNext()) {
+			this._pathIterator.next();
+		} else {
+			this._stateIdx += 1;
+		}
+		return this;
+	}
+
+	hasNext(): boolean {
+		return (
+			(this._states[this._stateIdx] === UriIteratorState.Path && this._pathIterator.hasNext()) ||
+			this._stateIdx < this._states.length - 1
+		);
+	}
+
+	cmp(a: string): number {
+		if (this._states[this._stateIdx] === UriIteratorState.Scheme) {
+			return compareIgnoreCase(a, this._value.scheme);
+		} else if (this._states[this._stateIdx] === UriIteratorState.Authority) {
+			return compareIgnoreCase(a, this._value.authority);
+		} else if (this._states[this._stateIdx] === UriIteratorState.Path) {
+			return this._pathIterator.cmp(a);
+		} else if (this._states[this._stateIdx] === UriIteratorState.Query) {
+			return compare(a, this._value.query);
+		} else if (this._states[this._stateIdx] === UriIteratorState.Fragment) {
+			return compare(a, this._value.fragment);
+		}
+		throw new Error();
+	}
+
+	value(): string {
+		if (this._states[this._stateIdx] === UriIteratorState.Scheme) {
+			return this._value.scheme;
+		} else if (this._states[this._stateIdx] === UriIteratorState.Authority) {
+			return this._value.authority;
+		} else if (this._states[this._stateIdx] === UriIteratorState.Path) {
+			return this._pathIterator.value();
+		} else if (this._states[this._stateIdx] === UriIteratorState.Query) {
+			return this._value.query;
+		} else if (this._states[this._stateIdx] === UriIteratorState.Fragment) {
+			return this._value.fragment;
+		}
+		throw new Error();
+	}
+}
+
+class TernarySearchTreeNode<K, V> {
+	segment!: string;
+	value: V | undefined;
+	key!: K;
+	left: TernarySearchTreeNode<K, V> | undefined;
+	mid: TernarySearchTreeNode<K, V> | undefined;
+	right: TernarySearchTreeNode<K, V> | undefined;
 
 	isEmpty(): boolean {
 		return !this.left && !this.mid && !this.right && !this.value;
 	}
 }
 
-export class TernarySearchTree<E> {
-
-	static forPaths<E>(): TernarySearchTree<E> {
-		return new TernarySearchTree<E>(new PathIterator());
+export class TernarySearchTree<K, V> {
+	static forUris<E>(ignorePathCasing: (key: Uri) => boolean = () => false): TernarySearchTree<Uri, E> {
+		return new TernarySearchTree<Uri, E>(new UriIterator(ignorePathCasing));
 	}
 
-	private _iter: IKeyIterator;
-	private _root: TernarySearchTreeNode<E> | undefined;
+	static forPaths<E>(): TernarySearchTree<string, E> {
+		return new TernarySearchTree<string, E>(new PathIterator());
+	}
 
-	constructor(segments: IKeyIterator) {
+	static forStrings<E>(): TernarySearchTree<string, E> {
+		return new TernarySearchTree<string, E>(new StringIterator());
+	}
+
+	static forConfigKeys<E>(): TernarySearchTree<string, E> {
+		return new TernarySearchTree<string, E>(new ConfigKeysIterator());
+	}
+
+	private _iter: IKeyIterator<K>;
+	private _root: TernarySearchTreeNode<K, V> | undefined;
+
+	constructor(segments: IKeyIterator<K>) {
 		this._iter = segments;
 	}
 
@@ -307,12 +780,12 @@ export class TernarySearchTree<E> {
 		this._root = undefined;
 	}
 
-	set(key: string, element: E): E | undefined {
+	set(key: K, element: V): V | undefined {
 		const iter = this._iter.reset(key);
-		let node: TernarySearchTreeNode<E>;
+		let node: TernarySearchTreeNode<K, V>;
 
 		if (!this._root) {
-			this._root = new TernarySearchTreeNode<E>();
+			this._root = new TernarySearchTreeNode<K, V>();
 			this._root.segment = iter.value();
 		}
 
@@ -322,23 +795,22 @@ export class TernarySearchTree<E> {
 			if (val > 0) {
 				// left
 				if (!node.left) {
-					node.left = new TernarySearchTreeNode<E>();
+					node.left = new TernarySearchTreeNode<K, V>();
 					node.left.segment = iter.value();
 				}
 				node = node.left;
 			} else if (val < 0) {
 				// right
 				if (!node.right) {
-					node.right = new TernarySearchTreeNode<E>();
+					node.right = new TernarySearchTreeNode<K, V>();
 					node.right.segment = iter.value();
 				}
 				node = node.right;
-
 			} else if (iter.hasNext()) {
 				// mid
 				iter.next();
 				if (!node.mid) {
-					node.mid = new TernarySearchTreeNode<E>();
+					node.mid = new TernarySearchTreeNode<K, V>();
 					node.mid.segment = iter.value();
 				}
 				node = node.mid;
@@ -352,7 +824,11 @@ export class TernarySearchTree<E> {
 		return oldElement;
 	}
 
-	get(key: string): E | undefined {
+	get(key: K): V | undefined {
+		return this._getNode(key)?.value;
+	}
+
+	private _getNode(key: K) {
 		const iter = this._iter.reset(key);
 		let node = this._root;
 		while (node) {
@@ -371,13 +847,25 @@ export class TernarySearchTree<E> {
 				break;
 			}
 		}
-		return node ? node.value : undefined;
+		return node;
 	}
 
-	delete(key: string): void {
+	has(key: K): boolean {
+		const node = this._getNode(key);
+		return !(node?.value === undefined && node?.mid === undefined);
+	}
 
+	delete(key: K): void {
+		return this._delete(key, false);
+	}
+
+	deleteSuperstr(key: K): void {
+		return this._delete(key, true);
+	}
+
+	private _delete(key: K, superStr: boolean): void {
 		const iter = this._iter.reset(key);
-		const stack: [-1 | 0 | 1, TernarySearchTreeNode<E>][] = [];
+		const stack: [-1 | 0 | 1, TernarySearchTreeNode<K, V>][] = [];
 		let node = this._root;
 
 		// find and unset node
@@ -397,16 +885,29 @@ export class TernarySearchTree<E> {
 				stack.push([0, node]);
 				node = node.mid;
 			} else {
-				// remove element
-				node.value = undefined;
+				if (superStr) {
+					// remove children
+					node.left = undefined;
+					node.mid = undefined;
+					node.right = undefined;
+				} else {
+					// remove element
+					node.value = undefined;
+				}
 
 				// clean up empty nodes
 				while (stack.length > 0 && node.isEmpty()) {
 					let [dir, parent] = stack.pop()!;
 					switch (dir) {
-						case 1: parent.left = undefined; break;
-						case 0: parent.mid = undefined; break;
-						case -1: parent.right = undefined; break;
+						case 1:
+							parent.left = undefined;
+							break;
+						case 0:
+							parent.mid = undefined;
+							break;
+						case -1:
+							parent.right = undefined;
+							break;
 					}
 					node = parent;
 				}
@@ -415,10 +916,10 @@ export class TernarySearchTree<E> {
 		}
 	}
 
-	findSubstr(key: string): E | undefined {
+	findSubstr(key: K): V | undefined {
 		const iter = this._iter.reset(key);
 		let node = this._root;
-		let candidate: E | undefined = undefined;
+		let candidate: V | undefined = undefined;
 		while (node) {
 			const val = iter.cmp(node.segment);
 			if (val > 0) {
@@ -436,10 +937,10 @@ export class TernarySearchTree<E> {
 				break;
 			}
 		}
-		return node && node.value || candidate;
+		return (node && node.value) || candidate;
 	}
 
-	findSuperstr(key: string): Iterator<E | undefined> | undefined {
+	findSuperstr(key: K): IterableIterator<[K, V]> | undefined {
 		const iter = this._iter.reset(key);
 		let node = this._root;
 		while (node) {
@@ -459,57 +960,38 @@ export class TernarySearchTree<E> {
 				if (!node.mid) {
 					return undefined;
 				} else {
-					return this._nodeIterator(node.mid);
+					return this._entries(node.mid);
 				}
 			}
 		}
 		return undefined;
 	}
 
-	private _nodeIterator(node: TernarySearchTreeNode<E>): Iterator<E | undefined> {
-		let res: { done: false; value: E; };
-		let idx: number;
-		let data: E[];
-		const next = (): IteratorResult<E | undefined> => {
-			if (!data) {
-				// lazy till first invocation
-				data = [];
-				idx = 0;
-				this._forEach(node, value => data.push(value));
-			}
-			if (idx >= data.length) {
-				return { done: true, value: undefined };
-			}
-
-			if (!res) {
-				res = { done: false, value: data[idx++] };
-			} else {
-				res.value = data[idx++];
-			}
-			return res;
-		};
-		return { next };
+	forEach(callback: (value: V, index: K) => any): void {
+		for (const [key, value] of this) {
+			callback(value, key);
+		}
 	}
 
-	forEach(callback: (value: E, index: string) => any) {
-		this._forEach(this._root, callback);
+	*[Symbol.iterator](): IterableIterator<[K, V]> {
+		yield* this._entries(this._root);
 	}
 
-	private _forEach(node: TernarySearchTreeNode<E> | undefined, callback: (value: E, index: string) => any) {
+	private *_entries(node: TernarySearchTreeNode<K, V> | undefined): IterableIterator<[K, V]> {
 		if (node) {
 			// left
-			this._forEach(node.left, callback);
+			yield* this._entries(node.left);
 
 			// node
 			if (node.value) {
 				// callback(node.value, this._iter.join(parts));
-				callback(node.value, node.key);
+				yield [node.key, node.value];
 			}
 			// mid
-			this._forEach(node.mid, callback);
+			yield* this._entries(node.mid);
 
 			// right
-			this._forEach(node.right, callback);
+			yield* this._entries(node.right);
 		}
 	}
 }
