@@ -1677,7 +1677,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return results;
 	}
 
-	private async getRemoteDeletionItems() {
+	private async getRemoteDeletionItems(nonExistantBranches: Set<string>) {
 		// check if there are remotes that should be cleaned
 		const newConfigs = await this.repository.getConfigs();
 		const remoteInfos: Map<
@@ -1699,8 +1699,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						remoteInfos.set(remoteName, { branches: new Set() });
 					}
 
-					const value = remoteInfos.get(remoteName);
-					value!.branches.add(branchName);
+					if (!nonExistantBranches.has(branchName)) {
+						const value = remoteInfos.get(remoteName);
+						value!.branches.add(branchName);
+					}
 				}
 			}
 
@@ -1771,6 +1773,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 				if (firstStep) {
 					const picks = quickPick.selectedItems;
+					const nonExistantBranches = new Set<string>();
 					if (picks.length) {
 						try {
 							await Promise.all(
@@ -1781,6 +1784,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 										if ((typeof e.stderr === 'string') && (e.stderr as string).includes('not found')) {
 											// TODO: The git extension API doesn't support removing configs
 											// If that support is added we should remove the config as it is no longer useful.
+											nonExistantBranches.add(pick.label);
 										} else {
 											throw e;
 										}
@@ -1793,7 +1797,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					}
 
 					firstStep = false;
-					const remoteItems = await this.getRemoteDeletionItems();
+					const remoteItems = await this.getRemoteDeletionItems(nonExistantBranches);
 
 					if (remoteItems && remoteItems.length) {
 						quickPick.placeholder = vscode.l10n.t('Choose remotes you want to delete permanently');
@@ -1972,16 +1976,16 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return null;
 	}
 
-	async checkoutExistingPullRequestBranch(pullRequest: PullRequestModel): Promise<boolean> {
-		return await PullRequestGitHelper.checkoutExistingPullRequestBranch(this.repository, pullRequest);
+	async checkoutExistingPullRequestBranch(pullRequest: PullRequestModel, progress: vscode.Progress<{ message?: string; increment?: number }>): Promise<boolean> {
+		return await PullRequestGitHelper.checkoutExistingPullRequestBranch(this.repository, pullRequest, progress);
 	}
 
 	async getBranchNameForPullRequest(pullRequest: PullRequestModel) {
 		return await PullRequestGitHelper.getBranchNRemoteForPullRequest(this.repository, pullRequest);
 	}
 
-	async fetchAndCheckout(pullRequest: PullRequestModel): Promise<void> {
-		await PullRequestGitHelper.fetchAndCheckout(this.repository, this._allGitHubRemotes, pullRequest);
+	async fetchAndCheckout(pullRequest: PullRequestModel, progress: vscode.Progress<{ message?: string; increment?: number }>): Promise<void> {
+		await PullRequestGitHelper.fetchAndCheckout(this.repository, this._allGitHubRemotes, pullRequest, progress);
 	}
 
 	async checkout(branchName: string): Promise<void> {
