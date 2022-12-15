@@ -865,6 +865,12 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.copyCommentLink",
+				"title": "%command.pr.copyCommentLink.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(copy)"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "%command.issue.createIssueFromSelection.title%",
 				"category": "%command.issues.category%"
@@ -1292,6 +1298,10 @@
 				{
 					"command": "pr.goToPreviousDiffInPr",
 					"when": "activeEditor == workbench.editors.textDiffEditor && resourcePath in github:viewedFiles"
+				},
+				{
+					"command": "pr.copyCommentLink",
+					"when": "false"
 				},
 				{
 					"command": "issue.openIssue",
@@ -1753,6 +1763,11 @@
 				}
 			],
 			"comments/comment/title": [
+				{
+					"command": "pr.copyCommentLink",
+					"group": "inline@0",
+					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/"
+				},
 				{
 					"command": "pr.editComment",
 					"group": "inline@1",

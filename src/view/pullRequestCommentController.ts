@@ -364,7 +364,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	private reply(thread: GHPRCommentThread, input: string, isSingleComment: boolean): Promise<IComment | undefined> {
 		const replyingTo = thread.comments[0];
 		if (replyingTo instanceof GHPRComment) {
-			return this.pullRequestModel.createCommentReply(input, replyingTo._rawComment.graphNodeId, isSingleComment);
+			return this.pullRequestModel.createCommentReply(input, replyingTo.rawComment.graphNodeId, isSingleComment);
 		} else {
 			// TODO can we do better?
 			throw new Error('Cannot respond to temporary comment');
@@ -396,7 +396,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			const temporaryCommentId = await this.optimisticallyEditComment(thread, comment);
 			try {
 				await this.pullRequestModel.editReviewComment(
-					comment._rawComment,
+					comment.rawComment,
 					comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
 				);
 			} catch (e) {
@@ -404,7 +404,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 				thread.comments = thread.comments.map(c => {
 					if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-						return new GHPRComment(comment._rawComment, thread);
+						return new GHPRComment(comment.rawComment, thread);
 					}
 
 					return c;
@@ -526,9 +526,9 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			!comment.reactions.find(ret => ret.label === reaction.label && !!ret.authorHasReacted)
 		) {
 			// add reaction
-			await this.pullRequestModel.addCommentReaction(comment._rawComment.graphNodeId, reaction);
+			await this.pullRequestModel.addCommentReaction(comment.rawComment.graphNodeId, reaction);
 		} else {
-			await this.pullRequestModel.deleteCommentReaction(comment._rawComment.graphNodeId, reaction);
+			await this.pullRequestModel.deleteCommentReaction(comment.rawComment.graphNodeId, reaction);
 		}
 	}
 

@@ -158,7 +158,7 @@ export class TemporaryComment extends CommentBase {
 		};
 		this.label = isDraft ? vscode.l10n.t('Pending') : undefined;
 		this.contextValue = 'canEdit,canDelete';
-		this.originalBody = originalComment ? originalComment._rawComment.body : undefined;
+		this.originalBody = originalComment ? originalComment.rawComment.body : undefined;
 		this.reactions = originalComment ? originalComment.reactions : undefined;
 		this.id = TemporaryComment.idPool++;
 	}
@@ -189,13 +189,13 @@ export class GHPRComment extends CommentBase {
 	/**
 	 * The complete comment data returned from GitHub
 	 */
-	public _rawComment: IComment;
+	public readonly rawComment: IComment;
 
 	private _rawBody: string | vscode.MarkdownString;
 
 	constructor(comment: IComment, parent: GHPRCommentThread) {
 		super(parent);
-		this._rawComment = comment;
+		this.rawComment = comment;
 		this._rawBody = comment.body;
 		this.commentId = comment.id.toString();
 		this.author = {
@@ -233,12 +233,12 @@ export class GHPRComment extends CommentBase {
 		}
 		const linkified = this._rawBody.replace(/([^\[]|^)\@([^\s]+)/, (substring) => {
 			const username = substring.substring(substring.startsWith('@') ? 1 : 2);
-			return `${substring.startsWith('@') ? '' : substring.charAt(0)}[@${username}](${path.dirname(this._rawComment.user!.url)}/${username})`;
+			return `${substring.startsWith('@') ? '' : substring.charAt(0)}[@${username}](${path.dirname(this.rawComment.user!.url)}/${username})`;
 		});
 		return new vscode.MarkdownString(linkified);
 	}
 
 	protected getCancelEditBody() {
-		return new vscode.MarkdownString(this._rawComment.body);
+		return new vscode.MarkdownString(this.rawComment.body);
 	}
 }

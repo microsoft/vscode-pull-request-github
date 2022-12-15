@@ -209,7 +209,7 @@ export function updateCommentReviewState(thread: GHPRCommentThread, newDraftMode
 
 	thread.comments = thread.comments.map(comment => {
 		if (comment instanceof GHPRComment) {
-			comment._rawComment.isDraft = false;
+			comment.rawComment.isDraft = false;
 		}
 
 		comment.label = undefined;
