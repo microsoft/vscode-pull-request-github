@@ -1677,8 +1677,32 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return results;
 	}
 
-	private async getRemoteDeletionItems(nonExistantBranches: Set<string>) {
-		// check if there are remotes that should be cleaned
+	public async cleanupAfterPullRequest(branchName: string) {
+		const defaults = await this.getPullRequestDefaults();
+		if (branchName === defaults.base) {
+			Logger.debug('Not cleaning up default branch.', FolderRepositoryManager.ID);
+			return;
+		}
+		const branch = await this.repository.getBranch(branchName);
+		const remote = branch.upstream?.remote;
+		try {
+			Logger.debug(`Cleaning up branch ${branchName}`, FolderRepositoryManager.ID);
+			await this.repository.deleteBranch(branchName);
+		} catch (e) {
+			// The branch probably had unpushed changes and cannot be deleted.
+			return;
+		}
+		if (!remote) {
+			return;
+		}
+		const remotes = await this.getDeleatableRemotes();
+		if (remotes.has(remote)) {
+			Logger.debug(`Cleaning up remote ${remote}`, FolderRepositoryManager.ID);
+			this.repository.removeRemote(remote);
+		}
+	}
+
+	private async getDeleatableRemotes(nonExistantBranches?: Set<string>) {
 		const newConfigs = await this.repository.getConfigs();
 		const remoteInfos: Map<
 			string,
@@ -1699,7 +1723,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						remoteInfos.set(remoteName, { branches: new Set() });
 					}
 
-					if (!nonExistantBranches.has(branchName)) {
+					if (!nonExistantBranches?.has(branchName)) {
 						const value = remoteInfos.get(remoteName);
 						value!.branches.add(branchName);
 					}
@@ -1726,7 +1750,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				}
 			}
 		});
+		return remoteInfos;
+	}
 
+	private async getRemoteDeletionItems(nonExistantBranches: Set<string>) {
+		// check if there are remotes that should be cleaned
+		const remoteInfos = await this.getDeleatableRemotes(nonExistantBranches);
 		const remoteItems: (vscode.QuickPickItem & { remote: string })[] = [];
 
 		remoteInfos.forEach((value, key) => {

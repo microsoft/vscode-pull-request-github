@@ -499,7 +499,11 @@ export function registerCommands(
 					const branch = await pullRequestModel!.githubRepository.getDefaultBranch();
 					const manager = reposManager.getManagerForIssueModel(pullRequestModel);
 					if (manager) {
-						manager.checkoutDefaultBranch(branch);
+						const prBranch = manager.repository.state.HEAD?.name;
+						await manager.checkoutDefaultBranch(branch);
+						if (prBranch) {
+							await manager.cleanupAfterPullRequest(prBranch);
+						}
 					}
 				},
 			);
