@@ -738,11 +738,13 @@ export class ReviewManager {
 		this.switchingToReviewMode = true;
 
 		try {
-			const didLocalCheckout = await this._folderRepoManager.checkoutExistingPullRequestBranch(pr);
+			vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async (progress) => {
+				const didLocalCheckout = await this._folderRepoManager.checkoutExistingPullRequestBranch(pr, progress);
 
-			if (!didLocalCheckout) {
-				await this._folderRepoManager.fetchAndCheckout(pr);
-			}
+				if (!didLocalCheckout) {
+					await this._folderRepoManager.fetchAndCheckout(pr, progress);
+				}
+			});
 		} catch (e) {
 			Logger.appendLine(`Review> checkout failed #${JSON.stringify(e)}`);
 			this.switchingToReviewMode = false;
