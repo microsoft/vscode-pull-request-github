@@ -172,6 +172,18 @@ body img.avatar {
 	padding: 3px;
 }
 
+.section-icon.changes svg path {
+	fill: var(--vscode-list-errorForeground);
+}
+
+.section-icon.commented svg path,
+.section-icon.requested svg path {
+	fill: var(--vscode-list-warningForeground);
+}
+
+.section-icon.approved svg path {
+	fill: var(--vscode-issues-open);
+}
 .reviewer-icons {
 	display: flex;
 	gap: 4px;

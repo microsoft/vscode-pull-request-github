@@ -63,7 +63,7 @@ const CommitEventView = (event: CommitEvent) => (
 			<AuthorLink for={event.author} />
 			<div className="message-container">
 				<a className="message" href={event.htmlUrl} title={event.htmlUrl}>
-					{event.message}
+					{event.message.substr(0, event.message.indexOf('\n') > -1 ? event.message.indexOf('\n') : event.message.length)}
 				</a>
 			</div>
 		</div>

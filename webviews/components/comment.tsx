@@ -374,9 +374,10 @@ const COMMENT_METHODS = {
 export const AddCommentSimple = (pr: PullRequest) => {
 	const { updatePR, requestChanges, approve, submit, openOnGitHub } = useContext(PullRequestContext);
 	const textareaRef = useRef<HTMLTextAreaElement>();
+	let currentSelection: string = 'comment';
 
 	async function submitAction(selected: string): Promise<void> {
-		const { value } = textareaRef.current;
+		const { value } = textareaRef.current!;
 		if (pr.continueOnGitHub && selected !== ReviewType.Comment) {
 			await openOnGitHub();
 			return;
@@ -399,6 +400,21 @@ export const AddCommentSimple = (pr: PullRequest) => {
 		updatePR({ pendingCommentText: e.target.value });
 	};
 
+	async function onDropDownChange(value: string) {
+		currentSelection = value;
+	};
+
+	const onKeyDown = useCallback(
+		e => {
+			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+				
+				e.preventDefault();
+				submitAction(currentSelection);
+			}
+		},
+		[submitAction],
+	);
+
 	const availableActions = pr.isAuthor
 		? { comment: 'Comment and Submit' }
 		: pr.continueOnGitHub
@@ -418,8 +434,9 @@ export const AddCommentSimple = (pr: PullRequest) => {
 				ref={textareaRef}
 				value={pr.pendingCommentText}
 				onChange={onChangeTextarea}
+				onKeyDown={onKeyDown}
 			/>
-			<Dropdown options={availableActions} defaultOption="comment" submitAction={submitAction} />
+			<Dropdown options={availableActions} changeAction={onDropDownChange} defaultOption="comment" submitAction={submitAction} />
 		</span>
 	);
 };

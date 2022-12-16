@@ -18,6 +18,7 @@ export const NOTIFICATION_SETTING = 'notifications';
 export const POST_CREATE = 'postCreate';
 export const QUERIES = 'queries';
 export const FOCUSED_MODE = 'focusedMode';
+export const CREATE_DRAFT = 'createDraft';
 
 // git
 export const GIT = 'git';

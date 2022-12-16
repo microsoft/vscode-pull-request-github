@@ -994,13 +994,16 @@ code {
 	height: 18px;
 }
 
+.review-comment-body .diff-container .diff {
+	border-top: 1px solid var(--vscode-editorWidget-border);
+}
+
 .resolved-container {
 	padding: 6px 12px;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	background: var(--vscode-editorWidget-background);
-	border-bottom: 1px solid var(--vscode-editorWidget-border);
 	border-top-left-radius: 3px;
 	border-top-right-radius: 3px;
 }

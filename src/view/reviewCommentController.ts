@@ -14,7 +14,7 @@ import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPosition
 import { GitChangeType } from '../common/file';
 import Logger from '../common/logger';
 import { fromReviewUri, ReviewUriParams, Schemes, toReviewUri } from '../common/uri';
-import { formatError, groupBy, uniqBy } from '../common/utils';
+import { dispose, formatError, groupBy, uniqBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
@@ -156,6 +156,20 @@ export class ReviewCommentController
 	}
 
 	private async doInitializeCommentThreads(reviewThreads: IReviewThread[]): Promise<void> {
+		// First clean up all the old comments.
+		for (const key in this._workspaceFileChangeCommentThreads) {
+			dispose(this._workspaceFileChangeCommentThreads[key]);
+		}
+		this._workspaceFileChangeCommentThreads = {};
+		for (const key in this._reviewSchemeFileChangeCommentThreads) {
+			dispose(this._reviewSchemeFileChangeCommentThreads[key]);
+		}
+		this._reviewSchemeFileChangeCommentThreads = {};
+		for (const key in this._obsoleteFileChangeCommentThreads) {
+			dispose(this._obsoleteFileChangeCommentThreads[key]);
+		}
+		this._obsoleteFileChangeCommentThreads = {};
+
 		const threadsByPath = groupBy(reviewThreads, thread => thread.path);
 
 		Object.keys(threadsByPath).forEach(path => {
@@ -574,7 +588,7 @@ export class ReviewCommentController
 				if (comment instanceof GHPRComment) {
 					await this._reposManager.activePullRequest!.createCommentReply(
 						input,
-						comment._rawComment.graphNodeId,
+						comment.rawComment.graphNodeId,
 						false,
 					);
 				} else {
@@ -682,7 +696,7 @@ export class ReviewCommentController
 				if (comment instanceof GHPRComment) {
 					await this._reposManager.activePullRequest.createCommentReply(
 						input,
-						comment._rawComment.graphNodeId,
+						comment.rawComment.graphNodeId,
 						isSingleComment,
 					);
 				} else {
@@ -755,7 +769,7 @@ export class ReviewCommentController
 				}
 
 				await this._reposManager.activePullRequest.editReviewComment(
-					comment._rawComment,
+					comment.rawComment,
 					comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
 				);
 			} catch (e) {
@@ -763,7 +777,7 @@ export class ReviewCommentController
 
 				thread.comments = thread.comments.map(c => {
 					if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-						return new GHPRComment(comment._rawComment, thread);
+						return new GHPRComment(comment.rawComment, thread);
 					}
 
 					return c;
@@ -827,12 +841,12 @@ export class ReviewCommentController
 				!comment.reactions.find(ret => ret.label === reaction.label && !!ret.authorHasReacted)
 			) {
 				await this._reposManager.activePullRequest.addCommentReaction(
-					comment._rawComment.graphNodeId,
+					comment.rawComment.graphNodeId,
 					reaction,
 				);
 			} else {
 				await this._reposManager.activePullRequest.deleteCommentReaction(
-					comment._rawComment.graphNodeId,
+					comment.rawComment.graphNodeId,
 					reaction,
 				);
 			}
@@ -843,12 +857,7 @@ export class ReviewCommentController
 
 	// #endregion
 	public dispose() {
-		if (this._commentController) {
-			this._commentController.dispose();
-		}
-
 		unregisterCommentHandler(this._commentHandlerId);
-
 		this._localToDispose.forEach(d => d.dispose());
 	}
 }

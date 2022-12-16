@@ -102,7 +102,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
 		try {
 			const defaultBranch = await this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(this._item);
+			const prBranch = this._folderRepositoryManager.repository.state.HEAD?.name;
 			await this._folderRepositoryManager.checkoutDefaultBranch(defaultBranch);
+			if (prBranch) {
+				await this._folderRepositoryManager.cleanupAfterPullRequest(prBranch);
+			}
 		} finally {
 			// Complete webview promise so that button becomes enabled again
 			this._replyMessage(message, {});

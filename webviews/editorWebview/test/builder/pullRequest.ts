@@ -13,6 +13,7 @@ import { AccountBuilder } from './account';
 export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	number: { default: 1234 },
 	title: { default: 'the default title' },
+	titleHTML: { default: 'the default title' },
 	url: { default: 'https://github.com/owner/name/pulls/1234' },
 	createdAt: { default: '2019-01-01T10:00:00Z' },
 	body: { default: 'the *default* body' },
