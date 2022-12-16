@@ -26,6 +26,7 @@ export enum ReviewType {
 export interface PullRequest {
 	number: number;
 	title: string;
+	titleHTML: string;
 	url: string;
 	createdAt: string;
 	body: string;

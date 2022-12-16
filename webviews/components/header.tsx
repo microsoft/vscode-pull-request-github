@@ -9,6 +9,7 @@ import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
 import { checkIcon } from './icon';
+import { nbsp } from './space';
 import { AuthorLink, Avatar } from './user';
 
 export function Header({
@@ -17,6 +18,7 @@ export function Header({
 	head,
 	base,
 	title,
+	titleHTML,
 	number,
 	url,
 	author,
@@ -32,6 +34,7 @@ export function Header({
 		<>
 			<Title
 				title={currentTitle}
+				titleHTML={titleHTML}
 				number={number}
 				url={url}
 				inEditMode={inEditMode}
@@ -50,7 +53,7 @@ export function Header({
 	);
 }
 
-function Title({ title, number, url, inEditMode, setEditMode, setCurrentTitle }) {
+function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle }) {
 	const { setTitle } = useContext(PullRequestContext);
 
 	const titleForm = (
@@ -80,7 +83,8 @@ function Title({ title, number, url, inEditMode, setEditMode, setCurrentTitle })
 	const displayTitle = (
 		<div className="overview-title">
 			<h2>
-				{title}{' '}
+				<div dangerouslySetInnerHTML={{ __html: titleHTML }} />
+				{' '}
 				<a href={url} title={url}>
 					#{number}
 				</a>
@@ -162,7 +166,7 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBran
 		return (
 			<>
 				<button aria-live="polite" className="checkedOut small-button" disabled>
-					{checkIcon} Checked Out
+					{checkIcon}{nbsp} Checked Out
 				</button>
 				<button
 					aria-live="polite"

@@ -13,7 +13,7 @@ const enum KEYCODES {
 	up = 38,
 }
 
-export const Dropdown = ({ options, defaultOption, submitAction }: { options: { [key: string]: string }, defaultOption: string, submitAction: (string) => Promise<void> }) => {
+export const Dropdown = ({ options, defaultOption, submitAction, changeAction }: { options: { [key: string]: string }, defaultOption: string, submitAction: (string) => Promise<void>, changeAction?: (string) => Promise<void> }) => {
 	const [selectedMethod, selectMethod] = useState<string>(defaultOption);
 	const [areOptionsVisible, setOptionsVisible] = useState<boolean>(false);
 
@@ -29,6 +29,9 @@ export const Dropdown = ({ options, defaultOption, submitAction }: { options: { 
 		setOptionsVisible(false);
 		const primaryButton = document.getElementById(`confirm-button${dropdownId}`);
 		primaryButton?.focus();
+		if (changeAction) {
+			changeAction(e.target.value);
+		}
 	};
 
 	const onKeyDown = e => {

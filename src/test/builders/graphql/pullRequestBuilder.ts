@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { createBuilderClass, createLink } from '../base';
 import { PullRequestResponse, Ref, RefRepository } from '../../../github/graphql';
 
@@ -35,6 +40,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 			body: { default: '**markdown**' },
 			bodyHTML: { default: '<h1>markdown</h1>' },
 			title: { default: 'plz merge' },
+			titleHTML: { default: 'plz merge' },
 			assignees: createLink<AssigneesConn>()({
 				nodes: {
 					default: [
@@ -59,7 +65,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 			headRefOid: { default: '0000000000000000000000000000000000000000' },
 			headRepository: { linked: RefRepositoryBuilder },
 			baseRef: { linked: RefBuilder },
-			baseRefName: { default: 'main'},
+			baseRefName: { default: 'main' },
 			baseRefOid: { default: '0000000000000000000000000000000000000000' },
 			baseRepository: { linked: RefRepositoryBuilder },
 			labels: createLink<LabelConn>()({

@@ -74,7 +74,7 @@ describe('PullRequestGitHelper', function () {
 				assert(false, 'pull request head not resolved successfully');
 			}
 
-			await PullRequestGitHelper.checkoutFromFork(repository, pullRequest, undefined);
+			await PullRequestGitHelper.checkoutFromFork(repository, pullRequest, undefined, { report: () => undefined });
 
 			assert.deepStrictEqual(repository.state.remotes, [
 				{

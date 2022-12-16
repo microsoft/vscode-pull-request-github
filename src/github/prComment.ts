@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
 import { IAccount } from './interface';
@@ -63,7 +64,8 @@ abstract class CommentBase implements vscode.Comment {
 	/**
 	 * The text of the comment as from GitHub
 	 */
-	public body: string | vscode.MarkdownString;
+	public abstract get body(): string | vscode.MarkdownString;
+	public abstract set body(body: string | vscode.MarkdownString);
 
 	/**
 	 * Whether the comment is in edit mode or not
@@ -143,13 +145,12 @@ export class TemporaryComment extends CommentBase {
 
 	constructor(
 		parent: GHPRCommentThread,
-		input: string,
+		private input: string,
 		isDraft: boolean,
 		currentUser: IAccount,
 		originalComment?: GHPRComment,
 	) {
 		super(parent);
-		this.body = new vscode.MarkdownString(input);
 		this.mode = vscode.CommentMode.Preview;
 		this.author = {
 			name: currentUser.login,
@@ -157,9 +158,19 @@ export class TemporaryComment extends CommentBase {
 		};
 		this.label = isDraft ? vscode.l10n.t('Pending') : undefined;
 		this.contextValue = 'canEdit,canDelete';
-		this.originalBody = originalComment ? originalComment._rawComment.body : undefined;
+		this.originalBody = originalComment ? originalComment.rawComment.body : undefined;
 		this.reactions = originalComment ? originalComment.reactions : undefined;
 		this.id = TemporaryComment.idPool++;
+	}
+
+	set body(input: string | vscode.MarkdownString) {
+		if (typeof input === 'string') {
+			this.input = input;
+		}
+	}
+
+	get body(): string | vscode.MarkdownString {
+		return new vscode.MarkdownString(this.input);
 	}
 
 	commentEditId() {
@@ -178,13 +189,15 @@ export class GHPRComment extends CommentBase {
 	/**
 	 * The complete comment data returned from GitHub
 	 */
-	public _rawComment: IComment;
+	public readonly rawComment: IComment;
+
+	private _rawBody: string | vscode.MarkdownString;
 
 	constructor(comment: IComment, parent: GHPRCommentThread) {
 		super(parent);
-		this._rawComment = comment;
+		this.rawComment = comment;
+		this._rawBody = comment.body;
 		this.commentId = comment.id.toString();
-		this.body = new vscode.MarkdownString(comment.body);
 		this.author = {
 			name: comment.user!.login,
 			iconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined,
@@ -210,7 +223,22 @@ export class GHPRComment extends CommentBase {
 		return this.commentId;
 	}
 
+	set body(body: string | vscode.MarkdownString) {
+		this._rawBody = body;
+	}
+
+	get body(): string | vscode.MarkdownString {
+		if (this._rawBody instanceof vscode.MarkdownString) {
+			return this._rawBody;
+		}
+		const linkified = this._rawBody.replace(/([^\[]|^)\@([^\s]+)/, (substring) => {
+			const username = substring.substring(substring.startsWith('@') ? 1 : 2);
+			return `${substring.startsWith('@') ? '' : substring.charAt(0)}[@${username}](${path.dirname(this.rawComment.user!.url)}/${username})`;
+		});
+		return new vscode.MarkdownString(linkified);
+	}
+
 	protected getCancelEditBody() {
-		return new vscode.MarkdownString(this._rawComment.body);
+		return new vscode.MarkdownString(this.rawComment.body);
 	}
 }

@@ -10,7 +10,7 @@ import { GitHubServerType } from '../common/authentication';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { GitHubRemote } from '../common/remote';
-import { ASSIGN_TO, PULL_REQUEST_DESCRIPTION, PUSH_BRANCH } from '../common/settingKeys';
+import { ASSIGN_TO, CREATE_DRAFT, PULL_REQUEST_DESCRIPTION, PUSH_BRANCH } from '../common/settingKeys';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import {
 	byRemoteName,
@@ -25,6 +25,8 @@ import { RepoAccessAndMergeMethods } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
+
+const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
 
 export class CreatePullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public readonly viewType = 'github:createPullRequest';
@@ -168,9 +170,16 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 			// If the description is empty, check to see if the title of the PR contains something that looks like an issue
 			if (!description) {
-				const match = parseIssueExpressionOutput(title.match(ISSUE_EXPRESSION));
+				const issueExpMatch = title.match(ISSUE_EXPRESSION);
+				const match = parseIssueExpressionOutput(issueExpMatch);
 				if (match?.issueNumber && !match.name && !match.owner) {
 					description = `#${match.issueNumber}`;
+					const prefix = title.substr(0, title.indexOf(issueExpMatch![0]));
+
+					const keyWordMatch = prefix.match(ISSUE_CLOSING_KEYWORDS);
+					if (keyWordMatch) {
+						description = `${keyWordMatch[0]} ${description}`;
+					}
 				}
 			}
 		} catch (e) {
@@ -300,7 +309,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			defaultMergeMethod: getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability),
 			allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
 			mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
-			createError: ''
+			createError: '',
+			isDraft: vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get(CREATE_DRAFT, false)
 		};
 
 		Logger.appendLine(`Initializing "create" view: ${JSON.stringify(params)}`, 'CreatePullRequestViewProvider');

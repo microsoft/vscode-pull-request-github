@@ -15,7 +15,7 @@ import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { FOCUSED_MODE, IGNORE_PR_BRANCHES, POST_CREATE, PR_SETTINGS_NAMESPACE, USE_REVIEW_MODE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { fromPRUri, fromReviewUri, PRUriParams, Schemes, toReviewUri } from '../common/uri';
+import { fromPRUri, fromReviewUri, KnownMediaExtensions, PRUriParams, Schemes, toReviewUri } from '../common/uri';
 import { formatError, groupBy, onceEvent } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
@@ -44,7 +44,7 @@ export class ReviewManager {
 	private _lastCommitSha?: string;
 	private _updateMessageShown: boolean = false;
 	private _validateStatusInProgress?: Promise<void>;
-	private _reviewCommentController: ReviewCommentController;
+	private _reviewCommentController: ReviewCommentController | undefined;
 
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber?: number;
@@ -350,10 +350,10 @@ export class ReviewManager {
 		const hasPushedChanges = branch.commit !== oldLastCommitSha && branch.ahead === 0 && branch.behind === 0;
 		if (previousPrNumber === pr.number && !hasPushedChanges && (this._isShowingLastReviewChanges === pr.showChangesSinceReview)) {
 			vscode.commands.executeCommand('pr.refreshList');
+			this._validateStatusInProgress = undefined;
 			return;
 		}
 		this._isShowingLastReviewChanges = pr.showChangesSinceReview;
-		await this.clear(false);
 
 		const useReviewConfiguration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)
 			.get<{ merged: boolean, closed: boolean }>(USE_REVIEW_MODE, { merged: true, closed: false });
@@ -480,15 +480,19 @@ export class ReviewManager {
 
 	private openDiff() {
 		if (this._reviewModel.localFileChanges.length) {
-			let fileChangeToShow: GitFileChangeNode | undefined;
+			let fileChangeToShow: GitFileChangeNode[] = [];
 			for (const fileChange of this._reviewModel.localFileChanges) {
 				if (fileChange.status === GitChangeType.MODIFY) {
-					fileChangeToShow = fileChange;
-					break;
+					if (KnownMediaExtensions.includes(nodePath.extname(fileChange.fileName))) {
+						fileChangeToShow.push(fileChange);
+					} else {
+						fileChangeToShow.unshift(fileChange);
+						break;
+					}
 				}
 			}
-			fileChangeToShow = fileChangeToShow ?? this._reviewModel.localFileChanges[0];
-			fileChangeToShow.openDiff(this._folderRepoManager);
+			const change = fileChangeToShow.length ? fileChangeToShow[0] : this._reviewModel.localFileChanges[0];
+			change.openDiff(this._folderRepoManager);
 		}
 	}
 
@@ -587,7 +591,7 @@ export class ReviewManager {
 		await this._folderRepoManager.checkBranchUpToDate(pr, false);
 
 		await this.initializePullRequestData(pr);
-		await this._reviewCommentController.update();
+		await this._reviewCommentController?.update();
 
 		return Promise.resolve(void 0);
 	}
@@ -714,16 +718,16 @@ export class ReviewManager {
 	}
 
 	private async doRegisterCommentController() {
-		this._reviewCommentController = new ReviewCommentController(
-			this,
-			this._folderRepoManager,
-			this._repository,
-			this._reviewModel,
-		);
+		if (!this._reviewCommentController) {
+			this._reviewCommentController = new ReviewCommentController(
+				this,
+				this._folderRepoManager,
+				this._repository,
+				this._reviewModel,
+			);
 
-		await this._reviewCommentController.initialize();
-
-		this._localToDispose.push(this._reviewCommentController);
+			await this._reviewCommentController.initialize();
+		}
 	}
 
 	public async switch(pr: PullRequestModel): Promise<void> {
@@ -734,11 +738,13 @@ export class ReviewManager {
 		this.switchingToReviewMode = true;
 
 		try {
-			const didLocalCheckout = await this._folderRepoManager.checkoutExistingPullRequestBranch(pr);
+			vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async (progress) => {
+				const didLocalCheckout = await this._folderRepoManager.checkoutExistingPullRequestBranch(pr, progress);
 
-			if (!didLocalCheckout) {
-				await this._folderRepoManager.fetchAndCheckout(pr);
-			}
+				if (!didLocalCheckout) {
+					await this._folderRepoManager.fetchAndCheckout(pr, progress);
+				}
+			});
 		} catch (e) {
 			Logger.appendLine(`Review> checkout failed #${JSON.stringify(e)}`);
 			this.switchingToReviewMode = false;
@@ -1031,12 +1037,15 @@ export class ReviewManager {
 
 		this._updateMessageShown = false;
 		this._reviewModel.clear();
+		this._reviewCommentController?.dispose();
+		this._reviewCommentController = undefined;
 		this._localToDispose.forEach(disposable => disposable.dispose());
+		this._reviewCommentController = undefined;
 		// Ensure file explorer decorations are removed. When switching to a different PR branch,
 		// comments are recalculated when getting the data and the change decoration fired then,
 		// so comments only needs to be emptied in this case.
 		activePullRequest?.clear();
-
+		this._validateStatusInProgress = undefined;
 	}
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string | undefined> {

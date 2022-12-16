@@ -12,8 +12,11 @@ import { shouldShowHover, USER_EXPRESSION, userMarkdown } from './util';
 // https://jsdoc.app/index.html
 const JSDOC_NON_USERS = ['abstract', 'access', 'alias', 'async', 'augments', 'author', 'borrows', 'callback', 'class', 'classdesc', 'constant', 'constructs', 'copyright', 'default', 'deprecated', 'description', 'enum', 'event', 'example', 'exports', 'external', 'host', 'file', 'fires', 'function', 'generator', 'global', 'hideconstructor', 'ignore', 'implements', 'inheritdoc', 'inner', 'instance', 'interface', 'kind', 'lends', 'license', 'listens', 'member', 'memberof', 'mixes', 'mixin', 'module', 'name', 'namespace', 'override', 'package', 'param', 'private', 'property', 'protected', 'public', 'readonly', 'requires', 'returns', 'see', 'since', 'static', 'summary', 'this', 'throws', 'exception', 'todo', 'tutorial', 'type', 'typedef', 'variation', 'version', 'yields', 'yield', 'link'];
 
+// https://github.com/php-fig/fig-standards/blob/master/proposed/phpdoc-tags.md
+const PHPDOC_NON_USERS = ['api', 'author', 'copyright', 'deprecated', 'generated', 'internal', 'link', 'method', 'package', 'param', 'property', 'return', 'see', 'since', 'throws', 'todo', 'uses', 'var', 'version'];
+
 export class UserHoverProvider implements vscode.HoverProvider {
-	constructor(private manager: RepositoriesManager, private telemetry: ITelemetry) {}
+	constructor(private manager: RepositoriesManager, private telemetry: ITelemetry) { }
 
 	async provideHover(
 		document: vscode.TextDocument,
@@ -37,6 +40,10 @@ export class UserHoverProvider implements vscode.HoverProvider {
 				// JS and TS doc checks
 				if (((document.languageId === 'javascript') || (document.languageId === 'typescript'))
 					&& JSDOC_NON_USERS.indexOf(username) >= 0) {
+					return;
+				}
+				// PHP doc checks
+				if ((document.languageId === 'php') && PHPDOC_NON_USERS.indexOf(username) >= 0) {
 					return;
 				}
 				return this.createHover(document.uri, username, wordPosition);

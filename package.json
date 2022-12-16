@@ -20,7 +20,7 @@
 		"codiconDecoration",
 		"diffCommand"
 	],
-	"version": "0.54.0",
+	"version": "0.56.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.74.0"
@@ -83,6 +83,11 @@
 					],
 					"default": "template",
 					"description": "%githubPullRequests.pullRequestDescription.description%"
+				},
+				"githubPullRequests.createDraft": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubPullRequests.createDraft%"
 				},
 				"githubPullRequests.logLevel": {
 					"type": "string",
@@ -855,6 +860,17 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.goToPreviousDiffInPr",
+				"title": "%command.pr.goToPreviousDiffInPr.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.copyCommentLink",
+				"title": "%command.pr.copyCommentLink.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(copy)"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "%command.issue.createIssueFromSelection.title%",
 				"category": "%command.issues.category%"
@@ -1027,12 +1043,12 @@
 			},
 			{
 				"view": "pr:github",
-				"when": "!github:initialized && workspaceFolderCount == 0",
+				"when": "workspaceFolderCount == 0",
 				"contents": "%welcome.pr.github.noFolder.contents%"
 			},
 			{
 				"view": "pr:github",
-				"when": "git.state == initialized && gitOpenRepositoryCount == 0",
+				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0",
 				"contents": "%welcome.pr.github.noRepo.contents%"
 			},
 			{
@@ -1042,12 +1058,12 @@
 			},
 			{
 				"view": "issues:github",
-				"when": "!github:initialized && workspaceFolderCount == 0",
+				"when": "workspaceFolderCount == 0",
 				"contents": "%welcome.issues.github.noFolder.contents%"
 			},
 			{
 				"view": "issues:github",
-				"when": "git.state == initialized && gitOpenRepositoryCount == 0",
+				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0",
 				"contents": "%welcome.issues.github.noRepo.contents%"
 			},
 			{
@@ -1274,6 +1290,18 @@
 				{
 					"command": "pr.goToNextDiffInPr",
 					"when": "activeEditor == workbench.editors.textDiffEditor && resourcePath in github:viewedFiles"
+				},
+				{
+					"command": "pr.goToPreviousDiffInPr",
+					"when": "activeEditor == workbench.editors.textDiffEditor && resourcePath in github:unviewedFiles"
+				},
+				{
+					"command": "pr.goToPreviousDiffInPr",
+					"when": "activeEditor == workbench.editors.textDiffEditor && resourcePath in github:viewedFiles"
+				},
+				{
+					"command": "pr.copyCommentLink",
+					"when": "false"
 				},
 				{
 					"command": "issue.openIssue",
@@ -1686,28 +1714,28 @@
 					"command": "pr.startReview",
 					"group": "inline@2",
 					"when": "commentController =~ /^github-review/ && !reviewInDraftMode"
-				},
-				{
-					"command": "pr.openReview",
-					"group": "inline@3",
-					"when": "commentController =~ /^github-browse/ && prInDraft"
-				},
-				{
-					"command": "pr.openReview",
-					"group": "inline@3",
-					"when": "commentController =~ /^github-review/ && reviewInDraftMode"
 				}
 			],
 			"comments/commentThread/additionalActions": [
 				{
 					"command": "pr.resolveReviewThread",
-					"group": "inline@3",
+					"group": "inline@1",
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
 				},
 				{
 					"command": "pr.unresolveReviewThread",
-					"group": "inline@3",
+					"group": "inline@1",
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+				},
+				{
+					"command": "pr.openReview",
+					"group": "inline@2",
+					"when": "commentController =~ /^github-browse/ && prInDraft"
+				},
+				{
+					"command": "pr.openReview",
+					"group": "inline@2",
+					"when": "commentController =~ /^github-review/ && reviewInDraftMode"
 				}
 			],
 			"comments/commentThread/title/context": [
@@ -1735,6 +1763,11 @@
 				}
 			],
 			"comments/comment/title": [
+				{
+					"command": "pr.copyCommentLink",
+					"group": "inline@0",
+					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/"
+				},
 				{
 					"command": "pr.editComment",
 					"group": "inline@1",
