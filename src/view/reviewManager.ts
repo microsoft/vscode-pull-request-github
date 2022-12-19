@@ -738,7 +738,7 @@ export class ReviewManager {
 		this.switchingToReviewMode = true;
 
 		try {
-			vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async (progress) => {
+			await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async (progress) => {
 				const didLocalCheckout = await this._folderRepoManager.checkoutExistingPullRequestBranch(pr, progress);
 
 				if (!didLocalCheckout) {
