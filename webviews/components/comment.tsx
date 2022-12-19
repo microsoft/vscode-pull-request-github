@@ -63,32 +63,31 @@ export function CommentView(comment: Props) {
 			for={comment}
 			onMouseEnter={() => setShowActionBar(true)}
 			onMouseLeave={() => setShowActionBar(false)}
+			onFocus={() => setShowActionBar(true)}
 		>
-			{showActionBar ? (
-				<div className="action-bar comment-actions">
-					<button
-						title="Quote reply"
-						className="icon-button"
-						onClick={() => emitter.emit('quoteReply', bodyMd)}
-					>
-						{commentIcon}
+			<div className="action-bar comment-actions" style={{ display: showActionBar ? 'flex' : 'none' }}>
+				<button
+					title="Quote reply"
+					className="icon-button"
+					onClick={() => emitter.emit('quoteReply', bodyMd)}
+				>
+					{commentIcon}
+				</button>
+				{canEdit ? (
+					<button title="Edit comment" className="icon-button" onClick={() => setEditMode(true)}>
+						{editIcon}
 					</button>
-					{canEdit ? (
-						<button title="Edit comment" className="icon-button" onClick={() => setEditMode(true)}>
-							{editIcon}
-						</button>
-					) : null}
-					{canDelete ? (
-						<button
-							title="Delete comment"
-							className="icon-button"
-							onClick={() => deleteComment({ id, pullRequestReviewId })}
-						>
-							{deleteIcon}
-						</button>
-					) : null}
-				</div>
-			) : null}
+				) : null}
+				{canDelete ? (
+					<button
+						title="Delete comment"
+						className="icon-button"
+						onClick={() => deleteComment({ id, pullRequestReviewId })}
+					>
+						{deleteIcon}
+					</button>
+				) : null}
+			</div>
 			<CommentBody
 				comment={comment as IComment}
 				bodyHTML={bodyHTMLState}
@@ -102,15 +101,16 @@ export function CommentView(comment: Props) {
 type CommentBoxProps = {
 	for: Partial<IComment & PullRequest>;
 	header?: React.ReactChild;
+	onFocus?: any;
 	onMouseEnter?: any;
 	onMouseLeave?: any;
 	children?: any;
 };
 
-function CommentBox({ for: comment, onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
+function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
 	const { user, author, createdAt, htmlUrl, isDraft } = comment;
 	return (
-		<div className="comment-container comment review-comment" {...{ onMouseEnter, onMouseLeave }}>
+		<div className="comment-container comment review-comment" {...{ onFocus, onMouseEnter, onMouseLeave }}>
 			<div className="review-comment-container">
 				<div className="review-comment-header">
 					<Spaced>

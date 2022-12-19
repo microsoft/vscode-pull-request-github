@@ -9,7 +9,7 @@ import { ILabel, IMilestone } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { AuthorLink, Avatar } from '../components/user';
-import { deleteIcon, settingsIcon } from './icon';
+import { closeIcon, settingsIcon } from './icon';
 import { Reviewer } from './reviewer';
 import { nbsp } from './space';
 
@@ -171,7 +171,7 @@ function Label(label: ILabel & { canDelete: boolean }) {
 			{name}
 			{canDelete ? (
 				<button className="icon-button" onClick={() => removeLabel(name)}>
-					{deleteIcon}️
+					{closeIcon}️
 				</button>
 			) : null}
 		</div>
@@ -204,7 +204,7 @@ function Milestone(milestone: IMilestone & { canDelete: boolean }) {
 							updatePR({ milestone: null });
 						}}
 					>
-						{deleteIcon}️
+						{closeIcon}️
 					</button>
 				) : null}
 			</div>
