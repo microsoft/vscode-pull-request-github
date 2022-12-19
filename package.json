@@ -2043,8 +2043,8 @@
 		"webpack-cli": "4.2.0"
 	},
 	"dependencies": {
-		"@octokit/rest": "18.2.0",
-		"@octokit/types": "6.10.0",
+		"@octokit/rest": "18.2.1",
+		"@octokit/types": "6.10.1",
 		"@vscode/extension-telemetry": "0.6.2",
 		"apollo-boost": "^0.4.9",
 		"apollo-link-context": "1.0.20",
