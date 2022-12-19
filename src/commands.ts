@@ -502,7 +502,7 @@ export function registerCommands(
 						const prBranch = manager.repository.state.HEAD?.name;
 						await manager.checkoutDefaultBranch(branch);
 						if (prBranch) {
-							await manager.cleanupAfterPullRequest(prBranch);
+							await manager.cleanupAfterPullRequest(prBranch, pullRequestModel!);
 						}
 					}
 				},
