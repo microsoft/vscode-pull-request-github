@@ -790,7 +790,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const prBranch = this._folderRepositoryManager.repository.state.HEAD?.name;
 			await this._folderRepositoryManager.checkoutDefaultBranch(message.args);
 			if (prBranch) {
-				await this._folderRepositoryManager.cleanupAfterPullRequest(prBranch);
+				await this._folderRepositoryManager.cleanupAfterPullRequest(prBranch, this._item);
 			}
 		} finally {
 			// Complete webview promise so that button becomes enabled again

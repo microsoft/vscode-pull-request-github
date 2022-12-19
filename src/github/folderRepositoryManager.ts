@@ -1677,10 +1677,14 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return results;
 	}
 
-	public async cleanupAfterPullRequest(branchName: string) {
+	public async cleanupAfterPullRequest(branchName: string, pullRequest: PullRequestModel) {
 		const defaults = await this.getPullRequestDefaults();
 		if (branchName === defaults.base) {
 			Logger.debug('Not cleaning up default branch.', FolderRepositoryManager.ID);
+			return;
+		}
+		if (pullRequest.author.login === (await this.getCurrentUser()).login) {
+			Logger.debug('Not cleaning up user\'s branch.', FolderRepositoryManager.ID);
 			return;
 		}
 		const branch = await this.repository.getBranch(branchName);
@@ -1695,8 +1699,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		if (!remote) {
 			return;
 		}
-		const remotes = await this.getDeleatableRemotes();
-		if (remotes.has(remote)) {
+		const remotes = await this.getDeleatableRemotes(undefined);
+		if (remotes.has(remote) && remotes.get(remote)!.createdForPullRequest) {
 			Logger.debug(`Cleaning up remote ${remote}`, FolderRepositoryManager.ID);
 			this.repository.removeRemote(remote);
 		}
