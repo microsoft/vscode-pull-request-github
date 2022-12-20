@@ -1064,7 +1064,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return {
 				id: REVIEW_REQUIRED_CHECK_ID,
 				context: 'Branch Protection',
-				description: vscode.l10n.t('Requirements have not been met.'),
+				description: vscode.l10n.t('Other requirements have not been met.'),
 				state: (reviewStates.data as LatestReviewsResponse).repository.pullRequest.latestReviews.nodes.every(node => node.state !== 'CHANGES_REQUESTED') ? CheckState.Neutral : CheckState.Failure,
 				target_url: this.html_url
 			};
@@ -1080,7 +1080,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		// Fun info: The checks don't include whether a review is required.
 		// Also, unless you're an admin on the repo, you can't just do octokit.repos.getBranchProtection
-		if (this.item.mergeable === PullRequestMergeability.NotMergeable) {
+		if ((this.item.mergeable === PullRequestMergeability.NotMergeable) && (!checks || checks.statuses.every(status => status.state === CheckState.Success))) {
 			const reviewRequiredCheck = await this._getReviewRequiredCheck();
 			if (reviewRequiredCheck) {
 				if (!checks) {
@@ -1089,7 +1089,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 						statuses: []
 					};
 				}
-				checks.statuses.unshift(reviewRequiredCheck);
+				checks.statuses.push(reviewRequiredCheck);
 				checks.state = CheckState.Failure;
 			}
 		}
