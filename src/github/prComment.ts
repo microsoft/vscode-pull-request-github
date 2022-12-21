@@ -215,12 +215,34 @@ export class GHPRComment extends CommentBase {
 			contextValues.push('canDelete');
 		}
 
+		if (this.suggestion) {
+			contextValues.push('hasSuggestion');
+		}
+
 		this.contextValue = contextValues.join(',');
 		this.timestamp = new Date(comment.createdAt);
 	}
 
+	get suggestion(): string | undefined {
+		const suggestionBody = this.rawComment.body.match(/```suggestion(\n|\r\n)(.*)(\n|\r\n)```/);
+		if (suggestionBody?.length === 4) {
+			return suggestionBody[2];
+		}
+	}
+
 	public commentEditId() {
 		return this.commentId;
+	}
+
+	private replaceSuggestion(body: string) {
+		return body.replace(/```suggestion(\n|\r\n)(.*)(\n|\r\n)```/, (_substring: string, ...args: any[]) => {
+			return `***
+Suggested change:
+\`\`\`
+${args[1]}
+\`\`\`
+***`;
+		});
 	}
 
 	set body(body: string | vscode.MarkdownString) {
@@ -228,14 +250,18 @@ export class GHPRComment extends CommentBase {
 	}
 
 	get body(): string | vscode.MarkdownString {
-		if (this._rawBody instanceof vscode.MarkdownString) {
+		if (this.mode === vscode.CommentMode.Editing) {
 			return this._rawBody;
+		}
+		if (this._rawBody instanceof vscode.MarkdownString) {
+			return new vscode.MarkdownString(this.replaceSuggestion(this._rawBody.value));
 		}
 		const linkified = this._rawBody.replace(/([^\[]|^)\@([^\s]+)/, (substring) => {
 			const username = substring.substring(substring.startsWith('@') ? 1 : 2);
 			return `${substring.startsWith('@') ? '' : substring.charAt(0)}[@${username}](${path.dirname(this.rawComment.user!.url)}/${username})`;
 		});
-		return new vscode.MarkdownString(linkified);
+
+		return new vscode.MarkdownString(this.replaceSuggestion(linkified));
 	}
 
 	protected getCancelEditBody() {
