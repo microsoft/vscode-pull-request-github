@@ -182,6 +182,8 @@ export class TemporaryComment extends CommentBase {
 	}
 }
 
+const SUGGESTION_EXPRESSION = /```suggestion(\n|\r\n)([\s\S]*)(\n|\r\n)```/;
+
 export class GHPRComment extends CommentBase {
 	public commentId: string;
 	public timestamp: Date;
@@ -224,7 +226,7 @@ export class GHPRComment extends CommentBase {
 	}
 
 	get suggestion(): string | undefined {
-		const suggestionBody = this.rawComment.body.match(/```suggestion(\n|\r\n)(.*)(\n|\r\n)```/);
+		const suggestionBody = this.rawComment.body.match(SUGGESTION_EXPRESSION);
 		if (suggestionBody?.length === 4) {
 			return suggestionBody[2];
 		}
@@ -235,7 +237,7 @@ export class GHPRComment extends CommentBase {
 	}
 
 	private replaceSuggestion(body: string) {
-		return body.replace(/```suggestion(\n|\r\n)(.*)(\n|\r\n)```/, (_substring: string, ...args: any[]) => {
+		return body.replace(SUGGESTION_EXPRESSION, (_substring: string, ...args: any[]) => {
 			return `***
 Suggested change:
 \`\`\`
