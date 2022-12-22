@@ -867,6 +867,25 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.makeSuggestion', async (reply: CommentReply) => {
+			const commentEditor = vscode.window.activeTextEditor?.document.uri.scheme === Schemes.Comment ? vscode.window.activeTextEditor
+				: vscode.window.visibleTextEditors.find(visible => visible.document.uri.scheme === Schemes.Comment);
+			if (!commentEditor) {
+				Logger.appendLine('No comment editor visible for making a suggestion.');
+				vscode.window.showErrorMessage(vscode.l10n.t('No available comment editor to make a suggestion in.'));
+				return;
+			}
+			const editor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === reply.thread.uri.toString());
+			const contents = editor?.document.getText(new vscode.Range(reply.thread.range.start.line, 0, reply.thread.range.end.line, editor.document.lineAt(reply.thread.range.end.line).text.length));
+			return commentEditor.edit((editBuilder) => {
+				editBuilder.insert(new vscode.Position(commentEditor.document.lineCount, 0), `\`\`\`suggestion
+${contents}
+\`\`\``);
+			});
+		})
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.editComment', async (comment: GHPRComment | TemporaryComment) => {
 			/* __GDPR__
 			"pr.editComment" : {}
