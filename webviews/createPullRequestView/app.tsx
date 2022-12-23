@@ -29,7 +29,7 @@ export const RemoteSelect = ({ onChange, defaultOption, repos }:
 
 	return <ErrorBoundary>
 		<div className='wrapper flex'>
-			{repoIcon}<select value={caseCorrectedDefaultOption ?? defaultOption} onChange={(e) => {
+			{repoIcon}<select title='Choose a remote' value={caseCorrectedDefaultOption ?? defaultOption} onChange={(e) => {
 				const [owner, repositoryName] = e.currentTarget.value.split('/');
 				onChange(owner, repositoryName);
 			}}>
@@ -43,7 +43,7 @@ export const BranchSelect = ({ onChange, defaultOption, branches }:
 	{ onChange: (branch: string) => void, defaultOption: string | undefined, branches: string[] }) => {
 	return <ErrorBoundary>
 		<div className='wrapper flex'>
-			{gitCompareIcon}<select value={defaultOption} onChange={(e) => onChange(e.currentTarget.value)}>
+			{gitCompareIcon}<select title='Choose a branch' value={defaultOption} onChange={(e) => onChange(e.currentTarget.value)}>
 				{branches.map(branchName =>
 					<option
 						key={branchName}
@@ -103,7 +103,7 @@ export function main() {
 					},
 					[create],
 				);
-				
+
 				if (!ctx.initialized) {
 					return <div className="loading-indicator">Loading...</div>;
 				}
