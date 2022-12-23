@@ -868,7 +868,7 @@ export class ReviewCommentController
 			throw new Error('Cannot find the editor to apply the suggestion to.');
 		}
 		await editor.edit(builder => {
-			builder.replace(range, suggestion);
+			builder.replace(range.with(undefined, new vscode.Position(range.end.line + 1, 0)), suggestion);
 		});
 	}
 

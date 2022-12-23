@@ -18,7 +18,8 @@
 		"contribCommentPeekContext",
 		"contribCommentThreadAdditionalMenu",
 		"codiconDecoration",
-		"diffCommand"
+		"diffCommand",
+		"contribCommentEditorActionsMenu"
 	],
 	"version": "0.56.0",
 	"publisher": "GitHub",
@@ -760,6 +761,11 @@
 				"enablement": "!commentIsEmpty"
 			},
 			{
+				"command": "pr.makeSuggestion",
+				"title": "%command.pr.makeSuggestion.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.startReview",
 				"title": "%command.pr.startReview.title%",
 				"category": "%command.pull.request.category%",
@@ -1242,6 +1248,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.makeSuggestion",
+					"when": "false"
+				},
+				{
 					"command": "pr.startReview",
 					"when": "false"
 				},
@@ -1720,6 +1730,13 @@
 					"command": "pr.startReview",
 					"group": "inline@2",
 					"when": "commentController =~ /^github-review/ && !reviewInDraftMode"
+				}
+			],
+			"comments/comment/editorActions": [
+				{
+					"command": "pr.makeSuggestion",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-review/"
 				}
 			],
 			"comments/commentThread/additionalActions": [

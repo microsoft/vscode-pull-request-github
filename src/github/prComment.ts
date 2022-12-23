@@ -182,7 +182,7 @@ export class TemporaryComment extends CommentBase {
 	}
 }
 
-const SUGGESTION_EXPRESSION = /```suggestion(\n|\r\n)([\s\S]*)(\n|\r\n)```/;
+const SUGGESTION_EXPRESSION = /```suggestion(\r\n|\n)([\s\S]*)(\r\n|\n)```/;
 
 export class GHPRComment extends CommentBase {
 	public commentId: string;
