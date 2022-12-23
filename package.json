@@ -1055,6 +1055,11 @@
 			},
 			{
 				"view": "pr:github",
+				"when": "workspaceFolderCount > 0 && github:loadingPrsTree",
+				"contents": "%welcome.pr.github.uninitialized.contents%"
+			},
+			{
+				"view": "pr:github",
 				"when": "workspaceFolderCount == 0",
 				"contents": "%welcome.pr.github.noFolder.contents%"
 			},
@@ -1066,6 +1071,11 @@
 			{
 				"view": "issues:github",
 				"when": "git.state != initialized && !github:initialized && workspaceFolderCount > 0",
+				"contents": "%welcome.issues.github.uninitialized.contents%"
+			},
+			{
+				"view": "issues:github",
+				"when": "workspaceFolderCount > 0 && github:loadingPrsTree",
 				"contents": "%welcome.issues.github.uninitialized.contents%"
 			},
 			{
