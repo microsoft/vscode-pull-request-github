@@ -140,11 +140,11 @@ export class PullRequestGitHelper {
 			await repository.pull(true);
 			return;
 		} catch (e) {
-			Logger.appendLine(`Unshallowing failed: ${e}.`);
-			if (e.stderr && (e.stderr as string).includes('would clobber existing tag')) {
-				// ignore this error
+			if (e.stderr && ((e.stderr as string).includes('would clobber existing tag') || (e.stderr as string).includes('--unshallow on a complete repository does not make sense'))) {
+				// ignore this error, unshallow has succeeded.
 				return;
 			}
+			Logger.appendLine(`Unshallowing failed: ${e}.`, PullRequestGitHelper.ID);
 			error = e;
 		}
 		try {
