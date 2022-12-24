@@ -84,7 +84,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				) : (
 					<div className="section-placeholder">
 						None yet
-						{pr.canEdit ? (
+							{pr.hasWritePermission ? (
 							<>
 								&mdash;
 								<a
