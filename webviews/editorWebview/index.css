@@ -212,7 +212,8 @@ body .comment-container .review-comment-header {
 }
 
 .status-item,
-.form-actions {
+.form-actions,
+.ready-for-review-text-wrapper {
 	display: flex;
 	gap: 8px;
 	align-items: center;
@@ -238,12 +239,6 @@ body .comment-container .review-comment-header {
 	border-bottom-right-radius: 3px;
 	display: flex;
 	justify-content: space-between;
-	align-items: center;
-}
-
-.ready-for-review-text-wrapper {
-	display: flex;
-	gap: 8px;
 	align-items: center;
 }
 
