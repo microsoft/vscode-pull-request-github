@@ -196,14 +196,16 @@ export const ReadyForReview = ({ isSimple }: { isSimple: boolean }) => {
 
 	return (
 		<div className="ready-for-review-container">
-			<div className="select-control">
-				<button className="ready-for-review-button" disabled={isBusy} onClick={markReadyForReview}>
-					Ready for review
-				</button>
+			<div className='ready-for-review-text-wrapper'>
+				<div className="ready-for-review-icon">{isSimple ? null : alertIcon}</div>
+				<div>
+					<div className="ready-for-review-heading">This pull request is still a work in progress.</div>
+					<div className="ready-for-review-meta">Draft pull requests cannot be merged.</div>
+				</div>
 			</div>
-			{isSimple ? '' : <div className="ready-for-review-icon">{alertIcon}</div>}
-			<p className="ready-for-review-heading">This pull request is still a work in progress.</p>
-			<p className="ready-for-review-meta">Draft pull requests cannot be merged.</p>
+			<div className="select-control">
+				<button disabled={isBusy} onClick={markReadyForReview}>Ready for review</button>
+			</div>
 		</div>
 	);
 };

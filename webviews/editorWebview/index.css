@@ -235,14 +235,20 @@ body .comment-container .review-comment-header {
 	background-color: var(--vscode-editorWidget-background);
 	border-bottom-left-radius: 3px;
 	border-bottom-right-radius: 3px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
 }
 
-.ready-for-review-button {
-	float: right;
+.ready-for-review-text-wrapper {
+	display: flex;
+	gap: 8px;
+	align-items: center;
 }
 
 .ready-for-review-icon {
-	float: left;
+	width: 16px;
+	height: 16px;
 }
 
 .ready-for-review-heading {
