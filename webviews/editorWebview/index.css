@@ -522,7 +522,7 @@ body button .icon {
 .label {
 	display: flex;
 	justify-content: normal;
-	padding: 0 2px 0 8px;
+	padding: 0 8px;
 	border-radius: 20px;
 	border-style: solid;
 	border-width: 1px;
@@ -531,6 +531,12 @@ body button .icon {
 	font-size: 11px;
 	line-height: 18px;
 	font-weight: 600;
+}
+
+.vscode-high-contrast .labels-list .label {
+	background: var(--vscode-badge-background) !important;
+	color: var(--vscode-badge-foreground) !important;
+	border: 1px solid var(--vscode-panel-border) !important;
 }
 
 .label .icon-button:hover,
