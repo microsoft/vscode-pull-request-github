@@ -215,6 +215,7 @@ body .comment-container .review-comment-header {
 .form-actions {
 	display: flex;
 	gap: 8px;
+	align-items: center;
 }
 
 .status-item-detail-text {
