@@ -206,7 +206,7 @@ function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 				<button className="secondary" onClick={onCancel}>
 					Cancel
 				</button>
-				<input type="submit" name="submitButton" value="Save" />
+				<button type="submit" name="submitButton">Save</button>
 			</div>
 		</form>
 	);
@@ -353,13 +353,12 @@ export function AddComment({
 						{continueOnGitHub ? 'Approve on github.com' : 'Approve'}
 					</button>
 				) : null}
-				<input
+				<button
 					id="reply"
-					value="Comment"
 					type="submit"
-					className="secondary"
+					className="primary"
 					disabled={isBusy || !pendingCommentText}
-				/>
+				>Comment</button>
 			</div>
 		</form>
 	);
@@ -407,7 +406,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 	const onKeyDown = useCallback(
 		e => {
 			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-				
+
 				e.preventDefault();
 				submitAction(currentSelection);
 			}
