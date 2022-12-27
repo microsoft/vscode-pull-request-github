@@ -203,7 +203,9 @@ export const ReadyForReview = ({ isSimple }: { isSimple: boolean }) => {
 					<div className="ready-for-review-meta">Draft pull requests cannot be merged.</div>
 				</div>
 			</div>
-			<button disabled={isBusy} onClick={markReadyForReview}>Ready for review</button>
+			<div className='button-container'>
+				<button disabled={isBusy} onClick={markReadyForReview}>Ready for review</button>
+			</div>
 		</div>
 	);
 };
