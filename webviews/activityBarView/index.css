@@ -41,7 +41,8 @@ textarea {
 .ready-for-review-container {
 	display: flex;
 	flex-direction: column-reverse;
-	gap: 8px;
+	gap: 12px;
+	padding-bottom: 16px;
 }
 
 .ready-for-review-heading,
