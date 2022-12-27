@@ -38,11 +38,13 @@ textarea {
 	padding-bottom: 16px;
 }
 
-.ready-for-review-container .select-control {
-	padding-bottom: 16px;
+.ready-for-review-container {
+	display: flex;
+	flex-direction: column-reverse;
+	gap: 8px;
 }
 
-.ready-for-review-container p,
+.ready-for-review-heading,
 .status-section p {
 	line-height: 1.5em;
 	margin: 0;
@@ -52,14 +54,6 @@ textarea {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
-}
-
-.ready-for-review-button {
-	width: 100%;
-}
-
-.ready-for-review-container {
-	padding-bottom: 16px;
 }
 
 .select-control,
