@@ -2050,7 +2050,7 @@
 		"husky": "^8.0.1",
 		"jsdom": "19.0.0",
 		"jsdom-global": "3.0.2",
-		"json5": "2.2.0",
+		"json5": "2.2.2",
 		"merge-options": "3.0.4",
 		"minimist": "^1.2.6",
 		"mkdirp": "1.0.4",
