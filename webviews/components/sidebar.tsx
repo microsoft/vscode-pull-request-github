@@ -166,6 +166,7 @@ function Label(label: ILabel & { canDelete: boolean }) {
 				backgroundColor: labelColor.backgroundColor,
 				color: labelColor.textColor,
 				borderColor: `${labelColor.borderColor}`,
+				paddingRight: canDelete ? '2px' : '8px'
 			}}
 		>
 			{name}
