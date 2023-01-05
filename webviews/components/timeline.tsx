@@ -229,19 +229,31 @@ function AddReviewSummaryComment() {
 					<button
 						id="request-changes"
 						className='secondary'
-						onClick={() => requestChanges(comment.current!.value)}
+						onClick={(event) => {
+							event.preventDefault();
+							requestChanges(comment.current!.value);
+						}}
 					>
 						Request Changes
 					</button>
 				)}
 				{isAuthor ? null : (
-					<button id="approve" className='secondary' onClick={() => approve(comment.current!.value)}>
+					<button
+						id="approve" className='secondary'
+						onClick={(event) => {
+							event.preventDefault();
+							approve(comment.current!.value);
+						}}
+					>
 						Approve
 					</button>
 				)}
 				<button
 					id="submit"
-					onClick={() => submit(comment.current!.value)}
+					onClick={(event) => {
+						event.preventDefault();
+						submit(comment.current!.value);
+					}}
 				>
 					Submit Review
 				</button>
