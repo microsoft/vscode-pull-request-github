@@ -975,6 +975,12 @@ code {
 	cursor: pointer;
 }
 
+.diff .diffLine {
+	display: flex;
+	font-size: 12px;
+	line-height: 20px;
+}
+
 .win32 .diff .diffLine {
 	font-family: Consolas, Inconsolata, 'Courier New', monospace;
 }
@@ -1009,9 +1015,8 @@ code {
 	line-height: 20px;
 	text-align: right;
 	white-space: nowrap;
-	vertical-align: top;
 	box-sizing: border-box;
-	display: inline-block;
+	display: block;
 	user-select: none;
 	font-family: var(--vscode-editor-font-family);
 }
