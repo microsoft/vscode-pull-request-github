@@ -40,7 +40,7 @@ textarea {
 
 .ready-for-review-container {
 	display: flex;
-	flex-direction: column-reverse;
+	flex-direction: column;
 	gap: 12px;
 	padding-bottom: 16px;
 }
