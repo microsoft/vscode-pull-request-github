@@ -322,7 +322,7 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 
 	return (
 		<div>
-			<form
+			<form id='merge-comment-form'
 				onSubmit={async event => {
 					event.preventDefault();
 
@@ -343,10 +343,8 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 				<input type="text" name="title" defaultValue={getDefaultTitleText(method, pr)} />
 				<textarea name="description" defaultValue={getDefaultDescriptionText(method, pr)} />
 				<div className="form-actions">
-					<button className="secondary" onClick={cancel}>
-						Cancel
-					</button>
-					<input disabled={isBusy} type="submit" id="confirm-merge" value={MERGE_METHODS[method]} />
+					<button className="secondary" onClick={cancel}>Cancel</button>
+					<button disabled={isBusy} type="submit" id="confirm-merge">{MERGE_METHODS[method]}</button>
 				</div>
 			</form>
 		</div>

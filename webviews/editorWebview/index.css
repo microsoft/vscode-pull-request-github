@@ -253,10 +253,6 @@ body .comment-container .review-comment-header {
 	font-size: 0.9;
 }
 
-#confirm-merge {
-	margin-left: auto;
-}
-
 #status-checks {
 	border: 1px solid var(--vscode-editorHoverWidget-border);
 	border-radius: 4px;
@@ -338,7 +334,7 @@ body .diff .diffPath {
 	margin-right: 4px;
 }
 
-.comment-container form {
+.comment-container form, #merge-comment-form {
 	padding: 16px;
 }
 
@@ -715,7 +711,7 @@ body .comment-form {
 }
 
 #status-checks textarea {
-	margin: 10px 0;
+	margin-top: 10px;
 }
 
 textarea {
