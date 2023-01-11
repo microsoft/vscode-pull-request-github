@@ -126,7 +126,11 @@ body .comment-container.review {
 .icon-button:hover,
 .section .icon-button:hover,
 .section .icon-button:focus {
-	background-color: var(--vscode-toolbar-hoverBackground);
+	background-color: var(--vscode-button-hoverBackground);
+}
+
+.section .icon-button svg path {
+	fill: var(--vscode-button-foreground);
 }
 
 .icon-button:focus,
