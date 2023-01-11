@@ -193,6 +193,9 @@ export class PullRequestGitHelper {
 			progress.report({ message: vscode.l10n.t('Fetching branch {0}', branchName) });
 			await repository.fetch(remote, ref);
 			const branchStatus = await repository.getBranch(branchInfos[0].branch!);
+			if (branchStatus.upstream === undefined) {
+				return false;
+			}
 			if (branchStatus.behind !== undefined && branchStatus.behind > 0 && branchStatus.ahead === 0) {
 				Logger.debug(`Pull from upstream`, PullRequestGitHelper.ID);
 				progress.report({ message: vscode.l10n.t('Pulling branch {0}', branchName) });

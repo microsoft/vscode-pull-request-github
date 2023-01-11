@@ -354,9 +354,6 @@ export class ReviewManager {
 			return;
 		}
 		this._isShowingLastReviewChanges = pr.showChangesSinceReview;
-		if (previousPrNumber !== pr.number) {
-			this.clear(false);
-		}
 
 		const useReviewConfiguration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)
 			.get<{ merged: boolean, closed: boolean }>(USE_REVIEW_MODE, { merged: true, closed: false });
@@ -376,6 +373,7 @@ export class ReviewManager {
 		// Do not await the result of offering to ignore the branch.
 		this.offerIgnoreBranch(branch.name);
 
+		const previousActive = this._folderRepoManager.activePullRequest;
 		this._folderRepoManager.activePullRequest = pr;
 		this._lastCommitSha = pr.head.sha;
 
@@ -406,7 +404,7 @@ export class ReviewManager {
 		Logger.appendLine(`Review> register comments provider`);
 		await this.registerCommentController();
 
-		this._activePrViewCoordinator.setPullRequest(pr, this._folderRepoManager, this);
+		this._activePrViewCoordinator.setPullRequest(pr, this._folderRepoManager, this, previousActive);
 		this._localToDispose.push(
 			pr.onDidChangeChangesSinceReview(async _ => {
 				this._changesSinceLastReviewProgress.startProgress();

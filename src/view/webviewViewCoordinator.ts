@@ -39,7 +39,10 @@ export class WebviewViewCoordinator implements vscode.Disposable {
 		);
 	}
 
-	public setPullRequest(pullRequestModel: PullRequestModel, folderRepositoryManager: FolderRepositoryManager, reviewManager: ReviewManager) {
+	public setPullRequest(pullRequestModel: PullRequestModel, folderRepositoryManager: FolderRepositoryManager, reviewManager: ReviewManager, replace?: PullRequestModel) {
+		if (replace) {
+			this._pullRequestModel.delete(replace);
+		}
 		this._pullRequestModel.set(pullRequestModel, { folderRepositoryManager, reviewManager });
 		this.updatePullRequest();
 	}
@@ -47,10 +50,7 @@ export class WebviewViewCoordinator implements vscode.Disposable {
 	private updatePullRequest() {
 		const pullRequestModel = Array.from(this._pullRequestModel.keys())[0];
 		if (!pullRequestModel) {
-			this._webviewViewProvider?.dispose();
-			this._webviewViewProvider = undefined;
-			dispose(this._disposables);
-			this._disposables = [];
+			this.dispose();
 			return;
 		}
 		const { folderRepositoryManager, reviewManager } = this._pullRequestModel.get(pullRequestModel)!;
