@@ -623,10 +623,10 @@ export class GitHubRepository implements vscode.Disposable {
 		try {
 			Logger.debug(`Fork repository`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
-			const result = (await octokit.call(octokit.api.repos.createFork, {
+			const result = await octokit.call(octokit.api.repos.createFork, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
-			})) as any;
+			});
 			return result.data.clone_url;
 		} catch (e) {
 			Logger.appendLine(`GitHubRepository> Forking repository failed: ${e}`);

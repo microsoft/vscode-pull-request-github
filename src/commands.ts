@@ -25,6 +25,7 @@ import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, vscodeDevPrLink } from './github/utils';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
+import { ReviewCommentController } from './view/reviewCommentController';
 import { ReviewManager } from './view/reviewManager';
 import { CategoryTreeNode } from './view/treeNodes/categoryNode';
 import { CommitNode } from './view/treeNodes/commitNode';
@@ -502,7 +503,7 @@ export function registerCommands(
 						const prBranch = manager.repository.state.HEAD?.name;
 						await manager.checkoutDefaultBranch(branch);
 						if (prBranch) {
-							await manager.cleanupAfterPullRequest(prBranch);
+							await manager.cleanupAfterPullRequest(prBranch, pullRequestModel!);
 						}
 					}
 				},
@@ -866,6 +867,26 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.makeSuggestion', async (reply: CommentReply | GHPRComment) => {
+			const thread = reply instanceof GHPRComment ? reply.parent : reply.thread;
+			const commentEditor = vscode.window.activeTextEditor?.document.uri.scheme === Schemes.Comment ? vscode.window.activeTextEditor
+				: vscode.window.visibleTextEditors.find(visible => visible.document.uri.scheme === Schemes.Comment);
+			if (!commentEditor) {
+				Logger.appendLine('No comment editor visible for making a suggestion.');
+				vscode.window.showErrorMessage(vscode.l10n.t('No available comment editor to make a suggestion in.'));
+				return;
+			}
+			const editor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === thread.uri.toString());
+			const contents = editor?.document.getText(new vscode.Range(thread.range.start.line, 0, thread.range.end.line, editor.document.lineAt(thread.range.end.line).text.length));
+			return commentEditor.edit((editBuilder) => {
+				editBuilder.insert(new vscode.Position(commentEditor.document.lineCount, 0), `\`\`\`suggestion
+${contents}
+\`\`\``);
+			});
+		})
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.editComment', async (comment: GHPRComment | TemporaryComment) => {
 			/* __GDPR__
 			"pr.editComment" : {}
@@ -1133,6 +1154,20 @@ export function registerCommands(
 			const githubRepo = await chooseRepoToOpen();
 			if (githubRepo) {
 				vscode.env.openExternal(getIssuesUrl(githubRepo));
+			}
+		}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.applySuggestion', async (comment: GHPRComment) => {
+			/* __GDPR__
+				"pr.applySuggestion" : {}
+			*/
+			telemetry.sendTelemetryEvent('pr.applySuggestion');
+
+			const handler = resolveCommentHandler(comment.parent);
+
+			if (handler instanceof ReviewCommentController) {
+				handler.applySuggestion(comment);
 			}
 		}));
 

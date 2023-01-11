@@ -18,12 +18,13 @@
 		"contribCommentPeekContext",
 		"contribCommentThreadAdditionalMenu",
 		"codiconDecoration",
-		"diffCommand"
+		"diffCommand",
+		"contribCommentEditorActionsMenu"
 	],
 	"version": "0.56.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.74.0"
+		"vscode": "^1.75.0"
 	},
 	"categories": [
 		"Other"
@@ -760,6 +761,11 @@
 				"enablement": "!commentIsEmpty"
 			},
 			{
+				"command": "pr.makeSuggestion",
+				"title": "%command.pr.makeSuggestion.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.startReview",
 				"title": "%command.pr.startReview.title%",
 				"category": "%command.pull.request.category%",
@@ -869,6 +875,12 @@
 				"title": "%command.pr.copyCommentLink.title%",
 				"category": "%command.pull.request.category%",
 				"icon": "$(copy)"
+			},
+			{
+				"command": "pr.applySuggestion",
+				"title": "%command.pr.applySuggestion.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(gift)"
 			},
 			{
 				"command": "issue.createIssueFromSelection",
@@ -1043,6 +1055,11 @@
 			},
 			{
 				"view": "pr:github",
+				"when": "workspaceFolderCount > 0 && github:loadingPrsTree",
+				"contents": "%welcome.pr.github.uninitialized.contents%"
+			},
+			{
+				"view": "pr:github",
 				"when": "workspaceFolderCount == 0",
 				"contents": "%welcome.pr.github.noFolder.contents%"
 			},
@@ -1054,6 +1071,11 @@
 			{
 				"view": "issues:github",
 				"when": "git.state != initialized && !github:initialized && workspaceFolderCount > 0",
+				"contents": "%welcome.issues.github.uninitialized.contents%"
+			},
+			{
+				"view": "issues:github",
+				"when": "workspaceFolderCount > 0 && github:loadingPrsTree",
 				"contents": "%welcome.issues.github.uninitialized.contents%"
 			},
 			{
@@ -1233,6 +1255,10 @@
 				},
 				{
 					"command": "pr.createSingleComment",
+					"when": "false"
+				},
+				{
+					"command": "pr.makeSuggestion",
 					"when": "false"
 				},
 				{
@@ -1716,6 +1742,13 @@
 					"when": "commentController =~ /^github-review/ && !reviewInDraftMode"
 				}
 			],
+			"comments/comment/editorActions": [
+				{
+					"command": "pr.makeSuggestion",
+					"group": "inline@3",
+					"when": "commentController =~ /^github-review/"
+				}
+			],
 			"comments/commentThread/additionalActions": [
 				{
 					"command": "pr.resolveReviewThread",
@@ -1765,17 +1798,22 @@
 			"comments/comment/title": [
 				{
 					"command": "pr.copyCommentLink",
-					"group": "inline@0",
-					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/"
-				},
-				{
-					"command": "pr.editComment",
 					"group": "inline@1",
 					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/"
 				},
 				{
-					"command": "pr.deleteComment",
+					"command": "pr.applySuggestion",
+					"group": "inline@0",
+					"when": "commentController =~ /^github-review/ && comment =~ /hasSuggestion/"
+				},
+				{
+					"command": "pr.editComment",
 					"group": "inline@2",
+					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/"
+				},
+				{
+					"command": "pr.deleteComment",
+					"group": "inline@3",
 					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canDelete/"
 				}
 			],
@@ -2052,7 +2090,7 @@
 		"husky": "^8.0.1",
 		"jsdom": "19.0.0",
 		"jsdom-global": "3.0.2",
-		"json5": "2.2.0",
+		"json5": "2.2.2",
 		"merge-options": "3.0.4",
 		"minimist": "^1.2.6",
 		"mkdirp": "1.0.4",
@@ -2083,8 +2121,8 @@
 		"webpack-cli": "4.2.0"
 	},
 	"dependencies": {
-		"@octokit/rest": "18.2.0",
-		"@octokit/types": "6.10.0",
+		"@octokit/rest": "18.2.1",
+		"@octokit/types": "6.10.1",
 		"@vscode/extension-telemetry": "0.6.2",
 		"apollo-boost": "^0.4.9",
 		"apollo-link-context": "1.0.20",

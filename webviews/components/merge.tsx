@@ -20,7 +20,7 @@ import PullRequestContext, { PRContext } from '../common/context';
 import { Reviewer } from '../components/reviewer';
 import { AutoMerge } from './automergeSelect';
 import { Dropdown } from './dropdown';
-import { alertIcon, checkIcon, deleteIcon, mergeIcon, pendingIcon, skipIcon } from './icon';
+import { alertIcon, checkIcon, closeIcon, mergeIcon, pendingIcon, skipIcon } from './icon';
 import { nbsp } from './space';
 import { Avatar } from './user';
 
@@ -165,7 +165,7 @@ export const MergeStatus = ({ mergeable, isSimple }: { mergeable: PullRequestMer
 				: mergeable === PullRequestMergeability.Mergeable
 				? checkIcon
 				: mergeable === PullRequestMergeability.NotMergeable || mergeable === PullRequestMergeability.Conflict
-				? deleteIcon
+				? closeIcon
 				: pendingIcon}
 			<p>
 				{mergeable === PullRequestMergeability.Mergeable
@@ -196,14 +196,16 @@ export const ReadyForReview = ({ isSimple }: { isSimple: boolean }) => {
 
 	return (
 		<div className="ready-for-review-container">
-			<div className="select-control">
-				<button className="ready-for-review-button" disabled={isBusy} onClick={markReadyForReview}>
-					Ready for review
-				</button>
+			<div className='ready-for-review-text-wrapper'>
+				<div className="ready-for-review-icon">{isSimple ? null : alertIcon}</div>
+				<div>
+					<div className="ready-for-review-heading">This pull request is still a work in progress.</div>
+					<div className="ready-for-review-meta">Draft pull requests cannot be merged.</div>
+				</div>
 			</div>
-			{isSimple ? '' : <div className="ready-for-review-icon">{alertIcon}</div>}
-			<p className="ready-for-review-heading">This pull request is still a work in progress.</p>
-			<p className="ready-for-review-meta">Draft pull requests cannot be merged.</p>
+			<div className='button-container'>
+				<button disabled={isBusy} onClick={markReadyForReview}>Ready for review</button>
+			</div>
 		</div>
 	);
 };
@@ -448,7 +450,7 @@ function StateIcon({ state }: { state: string }) {
 		case 'success':
 			return checkIcon;
 		case 'failure':
-			return deleteIcon;
+			return closeIcon;
 	}
 	return pendingIcon;
 }

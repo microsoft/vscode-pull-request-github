@@ -212,9 +212,11 @@ body .comment-container .review-comment-header {
 }
 
 .status-item,
-.form-actions {
+.form-actions,
+.ready-for-review-text-wrapper {
 	display: flex;
 	gap: 8px;
+	align-items: center;
 }
 
 .status-item-detail-text {
@@ -230,23 +232,19 @@ body .comment-container .review-comment-header {
 	margin: 0;
 }
 
-.form-actions > input[type='submit'] {
-	margin-left: auto;
-}
-
 .ready-for-review-container {
 	padding: 16px;
 	background-color: var(--vscode-editorWidget-background);
 	border-bottom-left-radius: 3px;
 	border-bottom-right-radius: 3px;
-}
-
-.ready-for-review-button {
-	float: right;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
 }
 
 .ready-for-review-icon {
-	float: left;
+	width: 16px;
+	height: 16px;
 }
 
 .ready-for-review-heading {
@@ -340,6 +338,10 @@ body .resolved-container .unresolvedLabel {
 
 body .diff .diffPath {
 	margin-right: 4px;
+}
+
+.comment-container form {
+	padding: 16px;
 }
 
 body .comment-container .comment-body,
@@ -757,6 +759,7 @@ textarea {
 .editing-form .form-actions {
 	display: flex;
 	gap: 8px;
+	justify-content: flex-end;
 }
 
 .comment-form .form-actions > button,
@@ -765,17 +768,9 @@ textarea {
 	margin-left: 0;
 }
 
-.comment-form .form-actions > .push-right {
-	margin-left: auto;
-}
-
-.comment-form .form-actions > #close {
-	margin-left: 0;
-	margin-right: auto;
-}
-
 .form-actions {
 	display: flex;
+	justify-content: flex-end;
 	padding-top: 10px;
 }
 

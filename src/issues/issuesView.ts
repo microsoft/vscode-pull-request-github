@@ -5,6 +5,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { commands, contexts } from '../common/executeCommands';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
 import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
@@ -128,7 +129,8 @@ export class IssuesTreeData
 			|| !this.manager.folderManagers.length) {
 			return [];
 		} else {
-			return [new IssueUriTreeItem(undefined, vscode.l10n.t('Loading...'))];
+			commands.setContext(contexts.LOADING_ISSUES_TREE, true);
+			return [];
 		}
 	}
 

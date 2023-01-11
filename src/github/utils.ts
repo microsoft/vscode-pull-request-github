@@ -244,7 +244,6 @@ export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListRespons
 
 export function convertRESTPullRequestToRawPullRequest(
 	pullRequest:
-		| OctokitCommon.PullsCreateResponseData
 		| OctokitCommon.PullsGetResponseData
 		| OctokitCommon.PullsListResponseItem,
 	githubRepository: GitHubRepository,
@@ -283,7 +282,7 @@ export function convertRESTPullRequestToRawPullRequest(
 			: undefined,
 		createdAt: created_at,
 		updatedAt: updated_at,
-		head: convertRESTHeadToIGitHubRef(head),
+		head: head.repo ? convertRESTHeadToIGitHubRef(head as OctokitCommon.PullsListResponseItemHead) : undefined,
 		base: convertRESTHeadToIGitHubRef(base),
 		mergeable: (pullRequest as OctokitCommon.PullsGetResponseData).mergeable
 			? PullRequestMergeability.Mergeable

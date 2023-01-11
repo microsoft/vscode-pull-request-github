@@ -373,6 +373,7 @@ export class ReviewManager {
 		// Do not await the result of offering to ignore the branch.
 		this.offerIgnoreBranch(branch.name);
 
+		const previousActive = this._folderRepoManager.activePullRequest;
 		this._folderRepoManager.activePullRequest = pr;
 		this._lastCommitSha = pr.head.sha;
 
@@ -403,7 +404,7 @@ export class ReviewManager {
 		Logger.appendLine(`Review> register comments provider`);
 		await this.registerCommentController();
 
-		this._activePrViewCoordinator.setPullRequest(pr, this._folderRepoManager, this);
+		this._activePrViewCoordinator.setPullRequest(pr, this._folderRepoManager, this, previousActive);
 		this._localToDispose.push(
 			pr.onDidChangeChangesSinceReview(async _ => {
 				this._changesSinceLastReviewProgress.startProgress();
@@ -738,7 +739,7 @@ export class ReviewManager {
 		this.switchingToReviewMode = true;
 
 		try {
-			vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async (progress) => {
+			await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async (progress) => {
 				const didLocalCheckout = await this._folderRepoManager.checkoutExistingPullRequestBranch(pr, progress);
 
 				if (!didLocalCheckout) {

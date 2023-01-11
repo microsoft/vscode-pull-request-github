@@ -856,6 +856,22 @@ export class ReviewCommentController
 	}
 
 	// #endregion
+
+	async applySuggestion(comment: GHPRComment) {
+		const suggestion = comment.suggestion;
+		if (!suggestion) {
+			throw new Error('Comment doesn\'t contain a suggestion');
+		}
+		const range = comment.parent.range;
+		const editor = vscode.window.visibleTextEditors.find(editor => comment.parent.uri.toString() === editor.document.uri.toString());
+		if (!editor) {
+			throw new Error('Cannot find the editor to apply the suggestion to.');
+		}
+		await editor.edit(builder => {
+			builder.replace(range.with(undefined, new vscode.Position(range.end.line + 1, 0)), suggestion);
+		});
+	}
+
 	public dispose() {
 		unregisterCommentHandler(this._commentHandlerId);
 		this._localToDispose.forEach(d => d.dispose());
