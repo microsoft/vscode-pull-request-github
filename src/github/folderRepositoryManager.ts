@@ -1208,29 +1208,39 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		 * - At the root, the docs folder, or the.github folder, named pull_request_template.md or PULL_REQUEST_TEMPLATE.md
 		 * - At the same folder locations under a PULL_REQUEST_TEMPLATE folder with any name
 		 */
-		const pattern1 = '{pull_request_template,PULL_REQUEST_TEMPLATE}.md';
+		const pattern1 = '{pull_request_template,PULL_REQUEST_TEMPLATE}.{md,txt}';
 		const templatesPattern1 = vscode.workspace.findFiles(
 			new vscode.RelativePattern(this._repository.rootUri, pattern1)
 		);
 
-		const pattern2 = '{docs,.github}/{pull_request_template,PULL_REQUEST_TEMPLATE}.md';
+		const pattern2 = '{docs,.github}/{pull_request_template,PULL_REQUEST_TEMPLATE}.{md,txt}';
 		const templatesPattern2 = vscode.workspace.findFiles(
 			new vscode.RelativePattern(this._repository.rootUri, pattern2), null
 		);
 
-		const pattern3 = 'PULL_REQUEST_TEMPLATE/*.md';
+		const pattern3 = '{pull_request_template,PULL_REQUEST_TEMPLATE}';
 		const templatesPattern3 = vscode.workspace.findFiles(
 			new vscode.RelativePattern(this._repository.rootUri, pattern3)
 		);
 
-		const pattern4 = '{docs,.github}/PULL_REQUEST_TEMPLATE/*.md';
+		const pattern4 = '{docs,.github}/{pull_request_template,PULL_REQUEST_TEMPLATE}';
 		const templatesPattern4 = vscode.workspace.findFiles(
 			new vscode.RelativePattern(this._repository.rootUri, pattern4), null
 		);
 
-		const allResults = await Promise.all([templatesPattern1, templatesPattern2, templatesPattern3, templatesPattern4]);
+		const pattern5 = 'PULL_REQUEST_TEMPLATE/*.md';
+		const templatesPattern5 = vscode.workspace.findFiles(
+			new vscode.RelativePattern(this._repository.rootUri, pattern5)
+		);
 
-		return [...allResults[0], ...allResults[1], ...allResults[2], ...allResults[3]];
+		const pattern6 = '{docs,.github}/PULL_REQUEST_TEMPLATE/*.md';
+		const templatesPattern6 = vscode.workspace.findFiles(
+			new vscode.RelativePattern(this._repository.rootUri, pattern6), null
+		);
+
+		const allResults = await Promise.all([templatesPattern1, templatesPattern2, templatesPattern3, templatesPattern4, templatesPattern5, templatesPattern6]);
+
+		return [...allResults[0], ...allResults[1], ...allResults[2], ...allResults[3], ...allResults[4], ...allResults[5]];
 	}
 
 	async getPullRequestDefaults(branch?: Branch): Promise<PullRequestDefaults> {
