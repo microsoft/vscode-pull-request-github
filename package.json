@@ -2094,7 +2094,7 @@
 		"marked": "^4.0.10",
 		"react": "^16.12.0",
 		"react-dom": "^16.12.0",
-		"ssh-config": "^2.0.0-alpha.3",
+		"ssh-config": "4.1.1",
 		"tunnel": "0.0.6",
 		"url-search-params-polyfill": "^8.1.1",
 		"uuid": "8.3.2",
