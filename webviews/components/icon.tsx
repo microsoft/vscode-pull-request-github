@@ -21,6 +21,9 @@ export const commitIcon = <Icon src={require('../../resources/icons/commit_icon.
 export const copyIcon = <Icon src={require('../../resources/icons/copy.svg')} />;
 export const deleteIcon = <Icon src={require('../../resources/icons/delete.svg')} />;
 export const mergeIcon = <Icon src={require('../../resources/icons/merge_icon.svg')} />;
+export const prClosedIcon = <Icon src={require('../../resources/icons/pr_closed.svg')} />;
+export const prOpenIcon = <Icon src={require('../../resources/icons/pr.svg')} />;
+export const prDraftIcon = <Icon src={require('../../resources/icons/pr_draft.svg')} />;
 export const editIcon = <Icon src={require('../../resources/icons/edit.svg')} />;
 export const plusIcon = <Icon src={require('../../resources/icons/plus.svg')} />;
 export const pendingIcon = <Icon src={require('../../resources/icons/dot.svg')} />;

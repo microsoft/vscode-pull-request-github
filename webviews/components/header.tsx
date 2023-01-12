@@ -8,7 +8,7 @@ import { GithubItemStateEnum } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
-import { checkIcon } from './icon';
+import { checkIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
 import { nbsp } from './space';
 import { AuthorLink, Avatar } from './user';
 
@@ -123,9 +123,14 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 }
 
 function Subtitle({ state, isDraft, isIssue, author, base, head }) {
+	const { text, color, icon } = getStatus(state, isDraft);
+
 	return (
 		<div className="subtitle">
-			<div id="status">{getStatus(state, isDraft)}</div>
+			<div id="status" className={`status-badge-${color}`}>
+				<span className='icon'>{isIssue ? null : icon}</span>
+				<span>{text}</span>
+			</div>
 			<div className="author">
 				{!isIssue ? <Avatar for={author} /> : null}
 				{!isIssue ? (
@@ -198,11 +203,11 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBran
 
 export function getStatus(state: GithubItemStateEnum, isDraft: boolean) {
 	if (state === GithubItemStateEnum.Merged) {
-		return 'Merged';
+		return { text: 'Merged', color: 'merged', icon: mergeIcon };
 	} else if (state === GithubItemStateEnum.Open) {
-		return isDraft ? 'Draft' : 'Open';
+		return isDraft ? { text: 'Draft', color: 'draft', icon: prDraftIcon } : { text: 'Open', color: 'open', icon: prOpenIcon };
 	} else {
-		return 'Closed';
+		return { text: 'Closed', color: 'closed', icon: prClosedIcon };
 	}
 }
 
