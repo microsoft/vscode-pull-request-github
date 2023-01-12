@@ -122,7 +122,7 @@ const ReviewEventView = (event: ReviewEvent) => {
 	const comments = groupCommentsByPath(event.comments);
 	const reviewIsPending = event.state.toLocaleUpperCase() === 'PENDING';
 	return (
-		<div id={reviewIsPending ? 'pending-review' : null} className="comment-container comment">
+		<div id={reviewIsPending ? 'pending-review' : undefined} className="comment-container comment">
 			<div className="review-comment-container">
 				<div className="review-comment-header">
 					<Spaced>
@@ -222,32 +222,40 @@ function AddReviewSummaryComment() {
 	const { isAuthor } = pr;
 	const comment = useRef<HTMLTextAreaElement>();
 	return (
-		<div className="comment-form">
+		<form>
 			<textarea ref={comment} placeholder="Leave a review summary comment"></textarea>
 			<div className="form-actions">
 				{isAuthor ? null : (
 					<button
 						id="request-changes"
-						className="push-right"
-						onClick={() => requestChanges(comment.current.value)}
+						className='secondary'
+						onClick={(event) => {
+							event.preventDefault();
+							requestChanges(comment.current!.value);
+						}}
 					>
 						Request Changes
 					</button>
 				)}
 				{isAuthor ? null : (
-					<button id="approve" onClick={() => approve(comment.current.value)}>
+					<button
+						id="approve" className='secondary'
+						onClick={(event) => {
+							event.preventDefault();
+							approve(comment.current!.value);
+						}}
+					>
 						Approve
 					</button>
 				)}
 				<button
-					id="submit"
-					className={isAuthor ? 'push-right' : ''}
-					onClick={() => submit(comment.current.value)}
-				>
-					Submit Review
-				</button>
+					onClick={(event) => {
+						event.preventDefault();
+						submit(comment.current!.value);
+					}}
+				>Submit Review</button>
 			</div>
-		</div>
+		</form>
 	);
 }
 

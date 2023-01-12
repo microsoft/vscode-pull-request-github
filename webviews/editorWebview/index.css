@@ -255,10 +255,6 @@ body .comment-container .review-comment-header {
 	font-size: 0.9;
 }
 
-#confirm-merge {
-	margin-left: auto;
-}
-
 #status-checks {
 	border: 1px solid var(--vscode-editorHoverWidget-border);
 	border-radius: 4px;
@@ -340,7 +336,7 @@ body .diff .diffPath {
 	margin-right: 4px;
 }
 
-.comment-container form {
+.comment-container form, #merge-comment-form {
 	padding: 16px;
 }
 
@@ -557,7 +553,7 @@ body button .icon {
 .label {
 	display: flex;
 	justify-content: normal;
-	padding: 0 2px 0 8px;
+	padding: 0 8px;
 	border-radius: 20px;
 	border-style: solid;
 	border-width: 1px;
@@ -744,7 +740,7 @@ body .comment-form {
 }
 
 #status-checks textarea {
-	margin: 10px 0;
+	margin-top: 10px;
 }
 
 textarea {
@@ -779,10 +775,6 @@ textarea {
 
 .main-comment-form > .form-actions {
 	margin-bottom: 10px;
-}
-
-body .comment-form .form-actions button {
-	margin-right: 10px;
 }
 
 .details .comment-body {
@@ -1012,6 +1004,12 @@ code {
 	cursor: pointer;
 }
 
+.diff .diffLine {
+	display: flex;
+	font-size: 12px;
+	line-height: 20px;
+}
+
 .win32 .diff .diffLine {
 	font-family: Consolas, Inconsolata, 'Courier New', monospace;
 }
@@ -1046,9 +1044,8 @@ code {
 	line-height: 20px;
 	text-align: right;
 	white-space: nowrap;
-	vertical-align: top;
 	box-sizing: border-box;
-	display: inline-block;
+	display: block;
 	user-select: none;
 	font-family: var(--vscode-editor-font-family);
 }
