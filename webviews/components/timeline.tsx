@@ -222,10 +222,7 @@ function AddReviewSummaryComment() {
 	const { isAuthor } = pr;
 	const comment = useRef<HTMLTextAreaElement>();
 	return (
-		<form onSubmit={(event) => {
-			event.preventDefault();
-			submit(comment.current!.value);
-		}}>
+		<form>
 			<textarea ref={comment} placeholder="Leave a review summary comment"></textarea>
 			<div className="form-actions">
 				{isAuthor ? null : (
@@ -251,7 +248,12 @@ function AddReviewSummaryComment() {
 						Approve
 					</button>
 				)}
-				<button type='submit'>Submit Review</button>
+				<button
+					onClick={(event) => {
+						event.preventDefault();
+						submit(comment.current!.value);
+					}}
+				>Submit Review</button>
 			</div>
 		</form>
 	);

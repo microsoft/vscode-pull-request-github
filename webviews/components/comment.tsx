@@ -356,7 +356,6 @@ export function AddComment({
 				<button
 					id="reply"
 					type="submit"
-					className="primary"
 					disabled={isBusy || !pendingCommentText}
 				>Comment</button>
 			</div>
