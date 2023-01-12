@@ -1988,8 +1988,8 @@
 			{
 				"id": "pullRequests.open",
 				"defaults": {
-					"dark": "#238636",
-					"light": "#238636",
+					"dark": "issues.open",
+					"light": "issues.open",
 					"highContrast": "editor.background",
 					"highContrastLight": "editor.background"
 				},
@@ -1998,8 +1998,8 @@
 			{
 				"id": "pullRequests.closed",
 				"defaults": {
-					"dark": "#da3633",
-					"light": "#da3633",
+					"dark": "issues.closed",
+					"light": "issues.closed",
 					"highContrast": "editor.background",
 					"highContrastLight": "editor.background"
 				},
