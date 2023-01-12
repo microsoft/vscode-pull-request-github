@@ -5006,10 +5006,10 @@ sprintf-js@~1.0.2:
   resolved "https://registry.yarnpkg.com/sprintf-js/-/sprintf-js-1.0.3.tgz#04e6926f662895354f3dd015203633b857297e2c"
   integrity sha1-BOaSb2YolTVPPdAVIDYzuFcpfiw=
 
-ssh-config@^2.0.0-alpha.3:
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/ssh-config/-/ssh-config-2.0.0.tgz#84ed978ca0e56939a44e851117a6c5181256df94"
-  integrity sha512-yjsjUa33gtB0UoQj0FKqfEMf+KABs/l21Lf/vslT7hkbnK05d5Dm8vApg/dHAn4WMq/pwLjP/N3ep408WspSBQ==
+ssh-config@4.1.1:
+  version "4.1.1"
+  resolved "https://registry.yarnpkg.com/ssh-config/-/ssh-config-4.1.1.tgz#de8ab080c97234873291488b36090cdc2d075b06"
+  integrity sha512-p9t6ZX2yg3vzrUh81arLOOh73arUdm8aZ8YG1Rxve0T+1PVv6v7DhXQ/uPQ0lJaubEvGXJz7eGj7Z850443Ohg==
 
 "statuses@>= 1.4.0 < 2", "statuses@>= 1.5.0 < 2", statuses@^1.5.0:
   version "1.5.0"
