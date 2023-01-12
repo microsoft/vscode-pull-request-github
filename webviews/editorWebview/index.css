@@ -494,6 +494,7 @@ body button .icon {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
+	cursor: pointer;
 }
 
 .section-header .section-title {
