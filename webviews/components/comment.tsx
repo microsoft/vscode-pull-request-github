@@ -63,32 +63,31 @@ export function CommentView(comment: Props) {
 			for={comment}
 			onMouseEnter={() => setShowActionBar(true)}
 			onMouseLeave={() => setShowActionBar(false)}
+			onFocus={() => setShowActionBar(true)}
 		>
-			{showActionBar ? (
-				<div className="action-bar comment-actions">
-					<button
-						title="Quote reply"
-						className="icon-button"
-						onClick={() => emitter.emit('quoteReply', bodyMd)}
-					>
-						{commentIcon}
+			<div className="action-bar comment-actions" style={{ display: showActionBar ? 'flex' : 'none' }}>
+				<button
+					title="Quote reply"
+					className="icon-button"
+					onClick={() => emitter.emit('quoteReply', bodyMd)}
+				>
+					{commentIcon}
+				</button>
+				{canEdit ? (
+					<button title="Edit comment" className="icon-button" onClick={() => setEditMode(true)}>
+						{editIcon}
 					</button>
-					{canEdit ? (
-						<button title="Edit comment" className="icon-button" onClick={() => setEditMode(true)}>
-							{editIcon}
-						</button>
-					) : null}
-					{canDelete ? (
-						<button
-							title="Delete comment"
-							className="icon-button"
-							onClick={() => deleteComment({ id, pullRequestReviewId })}
-						>
-							{deleteIcon}
-						</button>
-					) : null}
-				</div>
-			) : null}
+				) : null}
+				{canDelete ? (
+					<button
+						title="Delete comment"
+						className="icon-button"
+						onClick={() => deleteComment({ id, pullRequestReviewId })}
+					>
+						{deleteIcon}
+					</button>
+				) : null}
+			</div>
 			<CommentBody
 				comment={comment as IComment}
 				bodyHTML={bodyHTMLState}
@@ -102,15 +101,16 @@ export function CommentView(comment: Props) {
 type CommentBoxProps = {
 	for: Partial<IComment & PullRequest>;
 	header?: React.ReactChild;
+	onFocus?: any;
 	onMouseEnter?: any;
 	onMouseLeave?: any;
 	children?: any;
 };
 
-function CommentBox({ for: comment, onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
+function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
 	const { user, author, createdAt, htmlUrl, isDraft } = comment;
 	return (
-		<div className="comment-container comment review-comment" {...{ onMouseEnter, onMouseLeave }}>
+		<div className="comment-container comment review-comment" {...{ onFocus, onMouseEnter, onMouseLeave }}>
 			<div className="review-comment-container">
 				<div className="review-comment-header">
 					<Spaced>
@@ -206,7 +206,7 @@ function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 				<button className="secondary" onClick={onCancel}>
 					Cancel
 				</button>
-				<input type="submit" name="submitButton" value="Save" />
+				<button type="submit" name="submitButton">Save</button>
 			</div>
 		</form>
 	);
@@ -353,13 +353,11 @@ export function AddComment({
 						{continueOnGitHub ? 'Approve on github.com' : 'Approve'}
 					</button>
 				) : null}
-				<input
+				<button
 					id="reply"
-					value="Comment"
 					type="submit"
-					className="secondary"
 					disabled={isBusy || !pendingCommentText}
-				/>
+				>Comment</button>
 			</div>
 		</form>
 	);
@@ -374,9 +372,10 @@ const COMMENT_METHODS = {
 export const AddCommentSimple = (pr: PullRequest) => {
 	const { updatePR, requestChanges, approve, submit, openOnGitHub } = useContext(PullRequestContext);
 	const textareaRef = useRef<HTMLTextAreaElement>();
+	let currentSelection: string = 'comment';
 
 	async function submitAction(selected: string): Promise<void> {
-		const { value } = textareaRef.current;
+		const { value } = textareaRef.current!;
 		if (pr.continueOnGitHub && selected !== ReviewType.Comment) {
 			await openOnGitHub();
 			return;
@@ -399,6 +398,21 @@ export const AddCommentSimple = (pr: PullRequest) => {
 		updatePR({ pendingCommentText: e.target.value });
 	};
 
+	async function onDropDownChange(value: string) {
+		currentSelection = value;
+	};
+
+	const onKeyDown = useCallback(
+		e => {
+			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+
+				e.preventDefault();
+				submitAction(currentSelection);
+			}
+		},
+		[submitAction],
+	);
+
 	const availableActions = pr.isAuthor
 		? { comment: 'Comment and Submit' }
 		: pr.continueOnGitHub
@@ -418,8 +432,9 @@ export const AddCommentSimple = (pr: PullRequest) => {
 				ref={textareaRef}
 				value={pr.pendingCommentText}
 				onChange={onChangeTextarea}
+				onKeyDown={onKeyDown}
 			/>
-			<Dropdown options={availableActions} defaultOption="comment" submitAction={submitAction} />
+			<Dropdown options={availableActions} changeAction={onDropDownChange} defaultOption="comment" submitAction={submitAction} />
 		</span>
 	);
 };

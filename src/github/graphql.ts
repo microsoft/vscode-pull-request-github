@@ -378,6 +378,7 @@ export interface UpdatePullRequestResponse {
 			body: string;
 			bodyHTML: string;
 			title: string;
+			titleHTML: string;
 		};
 	};
 }
@@ -430,6 +431,7 @@ export interface PullRequest {
 	body: string;
 	bodyHTML: string;
 	title: string;
+	titleHTML: string;
 	assignees?: {
 		nodes: {
 			login: string;

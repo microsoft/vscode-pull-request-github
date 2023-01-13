@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
+import { commands, contexts } from '../common/executeCommands';
 import { FILE_LIST_LAYOUT, QUERIES } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EXTENSION_ID } from '../constants';
@@ -219,7 +220,8 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		}
 
 		if (this._reposManager.state === ReposManagerState.Initializing) {
-			return Promise.resolve([new PRCategoryActionNode(this, PRCategoryActionType.Initializing)]);
+			commands.setContext(contexts.LOADING_PRS_TREE, true);
+			return [];
 		}
 
 		const remotes = await Promise.all(this._reposManager.folderManagers.map(manager => manager.getGitHubRemotes()));

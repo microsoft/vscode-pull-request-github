@@ -1097,7 +1097,7 @@ ${body ?? ''}\n
 				edit.insert(document.uri, new vscode.Position(lineNumber, insertIndex), ` ${insertText}`);
 				await vscode.workspace.applyEdit(edit);
 			} else {
-				const copyIssueUrl = vscode.l10n.t('Copy URL');
+				const copyIssueUrl = vscode.l10n.t('Copy Issue Link');
 				const openIssue = vscode.l10n.t({ message: 'Open Issue', comment: 'Open the issue description in the browser to see it\'s full contents.' });
 				vscode.window.showInformationMessage(vscode.l10n.t('Issue created'), copyIssueUrl, openIssue).then(async result => {
 					switch (result) {

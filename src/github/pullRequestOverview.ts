@@ -215,6 +215,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					pullrequest: {
 						number: pullRequest.number,
 						title: pullRequest.title,
+						titleHTML: pullRequest.titleHTML,
 						url: pullRequest.html_url,
 						createdAt: pullRequest.createdAt,
 						body: pullRequest.body,
@@ -786,7 +787,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
 		try {
+			const prBranch = this._folderRepositoryManager.repository.state.HEAD?.name;
 			await this._folderRepositoryManager.checkoutDefaultBranch(message.args);
+			if (prBranch) {
+				await this._folderRepositoryManager.cleanupAfterPullRequest(prBranch, this._item);
+			}
 		} finally {
 			// Complete webview promise so that button becomes enabled again
 			this._replyMessage(message, {});

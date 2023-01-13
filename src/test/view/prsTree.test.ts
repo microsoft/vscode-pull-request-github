@@ -86,7 +86,7 @@ describe('GitHub Pull Requests view', function () {
 		assert.strictEqual(rootNodes.length, 0);
 	});
 
-	it('displays a message when repositories have not yet been initialized', async function () {
+	it('has no children when repositories have not yet been initialized', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 		const manager = new RepositoriesManager(
@@ -97,13 +97,7 @@ describe('GitHub Pull Requests view', function () {
 		provider.initialize(manager, [], credentialStore);
 
 		const rootNodes = await provider.getChildren();
-		assert.strictEqual(rootNodes.length, 1);
-
-		const [onlyNode] = rootNodes;
-		const onlyItem = onlyNode.getTreeItem();
-		assert.strictEqual(onlyItem.collapsibleState, vscode.TreeItemCollapsibleState.None);
-		assert.strictEqual(onlyItem.label, 'Loading...');
-		assert.strictEqual(onlyItem.command, undefined);
+		assert.strictEqual(rootNodes.length, 0);
 	});
 
 	it('opens the viewlet and displays the default categories', async function () {

@@ -165,6 +165,7 @@ fragment PullRequestFragment on PullRequest {
 	state
 	body
 	bodyHTML
+	titleHTML
 	title
 	author {
 		login
@@ -664,7 +665,7 @@ query PullRequestState($owner: String!, $name: String!, $number: Int!) {
 
 query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!) {
 	repository(owner: $owner, name: $name) {
-		pullRequests(first: 1, headRefName: $headRefName, orderBy: { field: CREATED_AT, direction: DESC }) {
+		pullRequests(first: 3, headRefName: $headRefName, orderBy: { field: CREATED_AT, direction: DESC }) {
 			nodes {
 				...PullRequestFragment
 			}
@@ -780,6 +781,7 @@ mutation UpdatePullRequest($input: UpdatePullRequestInput!) {
 			body
 			bodyHTML
 			title
+			titleHTML
 		}
 	}
 }

@@ -212,9 +212,11 @@ body .comment-container .review-comment-header {
 }
 
 .status-item,
-.form-actions {
+.form-actions,
+.ready-for-review-text-wrapper {
 	display: flex;
 	gap: 8px;
+	align-items: center;
 }
 
 .status-item-detail-text {
@@ -230,23 +232,19 @@ body .comment-container .review-comment-header {
 	margin: 0;
 }
 
-.form-actions > input[type='submit'] {
-	margin-left: auto;
-}
-
 .ready-for-review-container {
 	padding: 16px;
 	background-color: var(--vscode-editorWidget-background);
 	border-bottom-left-radius: 3px;
 	border-bottom-right-radius: 3px;
-}
-
-.ready-for-review-button {
-	float: right;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
 }
 
 .ready-for-review-icon {
-	float: left;
+	width: 16px;
+	height: 16px;
 }
 
 .ready-for-review-heading {
@@ -255,10 +253,6 @@ body .comment-container .review-comment-header {
 
 .ready-for-review-meta {
 	font-size: 0.9;
-}
-
-#confirm-merge {
-	margin-left: auto;
 }
 
 #status-checks {
@@ -340,6 +334,10 @@ body .resolved-container .unresolvedLabel {
 
 body .diff .diffPath {
 	margin-right: 4px;
+}
+
+.comment-container form, #merge-comment-form {
+	padding: 16px;
 }
 
 body .comment-container .comment-body,
@@ -468,11 +466,43 @@ body button .icon {
 #status {
 	box-sizing: border-box;
 	line-height: 18px;
-	background: var(--vscode-badge-background);
-	color: var(--vscode-badge-foreground);
+	color: var(--vscode-button-foreground);
 	border-radius: 18px;
-	padding: 4px 8px;
+	padding: 4px 12px;
 	margin-right: 10px;
+	font-weight: 600;
+	display: flex;
+	gap: 4px;
+}
+
+#status svg path {
+	fill: var(--vscode-button-foreground);
+}
+
+.vscode-high-contrast #status {
+	border: 1px solid var(--vscode-contrastBorder);
+	background-color: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+}
+
+.vscode-high-contrast #status svg path {
+	fill: var(--vscode-badge-foreground);
+}
+
+.status-badge-merged {
+	background-color: var(--vscode-pullRequests-merged);
+}
+
+.status-badge-open {
+	background-color: var(--vscode-pullRequests-open);
+}
+
+.status-badge-closed {
+	background-color: var(--vscode-pullRequests-closed);
+}
+
+.status-badge-draft {
+	background-color: var(--vscode-pullRequests-draft);
 }
 
 .section {
@@ -492,6 +522,7 @@ body button .icon {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
+	cursor: pointer;
 }
 
 .section-header .section-title {
@@ -522,7 +553,7 @@ body button .icon {
 .label {
 	display: flex;
 	justify-content: normal;
-	padding: 0 2px 0 8px;
+	padding: 0 8px;
 	border-radius: 20px;
 	border-style: solid;
 	border-width: 1px;
@@ -709,7 +740,7 @@ body .comment-form {
 }
 
 #status-checks textarea {
-	margin: 10px 0;
+	margin-top: 10px;
 }
 
 textarea {
@@ -727,6 +758,7 @@ textarea {
 .editing-form .form-actions {
 	display: flex;
 	gap: 8px;
+	justify-content: flex-end;
 }
 
 .comment-form .form-actions > button,
@@ -735,26 +767,14 @@ textarea {
 	margin-left: 0;
 }
 
-.comment-form .form-actions > .push-right {
-	margin-left: auto;
-}
-
-.comment-form .form-actions > #close {
-	margin-left: 0;
-	margin-right: auto;
-}
-
 .form-actions {
 	display: flex;
+	justify-content: flex-end;
 	padding-top: 10px;
 }
 
 .main-comment-form > .form-actions {
 	margin-bottom: 10px;
-}
-
-body .comment-form .form-actions button {
-	margin-right: 10px;
 }
 
 .details .comment-body {
@@ -964,13 +984,16 @@ code {
 	height: 18px;
 }
 
+.review-comment-body .diff-container .diff {
+	border-top: 1px solid var(--vscode-editorWidget-border);
+}
+
 .resolved-container {
 	padding: 6px 12px;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	background: var(--vscode-editorWidget-background);
-	border-bottom: 1px solid var(--vscode-editorWidget-border);
 	border-top-left-radius: 3px;
 	border-top-right-radius: 3px;
 }
@@ -979,6 +1002,12 @@ code {
 	text-decoration: underline;
 	color: var(--vscode-textLink-activeForeground);
 	cursor: pointer;
+}
+
+.diff .diffLine {
+	display: flex;
+	font-size: 12px;
+	line-height: 20px;
 }
 
 .win32 .diff .diffLine {
@@ -1015,9 +1044,8 @@ code {
 	line-height: 20px;
 	text-align: right;
 	white-space: nowrap;
-	vertical-align: top;
 	box-sizing: border-box;
-	display: inline-block;
+	display: block;
 	user-select: none;
 	font-family: var(--vscode-editor-font-family);
 }
@@ -1107,6 +1135,7 @@ code {
 	width: 16px;
 	height: 16px;
 	font-size: 16px;
+	display: flex;
 }
 
 .action-bar {

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import React, { cloneElement } from 'react';
 import { ReviewState } from '../../src/github/interface';
-import { checkIcon, commentIcon, diffIcon, pendingIcon } from './icon';
+import { checkIcon, commentIcon, pendingIcon, requestChanges } from './icon';
 import { AuthorLink, Avatar } from './user';
 
 export function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
@@ -23,8 +23,8 @@ export function Reviewer(reviewState: ReviewState & { canDelete: boolean }) {
 }
 
 const REVIEW_STATE: { [state: string]: React.ReactElement } = {
-	REQUESTED: cloneElement(pendingIcon, { className: 'section-icon', title: 'Awaiting requested review' }),
-	COMMENTED: cloneElement(commentIcon, { className: 'section-icon', Root: 'div', title: 'Left review comments' }),
-	APPROVED: cloneElement(checkIcon, { className: 'section-icon', title: 'Approved these changes' }),
-	CHANGES_REQUESTED: cloneElement(diffIcon, { className: 'section-icon', title: 'Requested changes' }),
+	REQUESTED: cloneElement(pendingIcon, { className: 'section-icon requested', title: 'Awaiting requested review' }),
+	COMMENTED: cloneElement(commentIcon, { className: 'section-icon commented', Root: 'div', title: 'Left review comments' }),
+	APPROVED: cloneElement(checkIcon, { className: 'section-icon approved', title: 'Approved these changes' }),
+	CHANGES_REQUESTED: cloneElement(requestChanges, { className: 'section-icon changes', title: 'Requested changes' }),
 };

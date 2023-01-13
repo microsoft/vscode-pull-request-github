@@ -25,7 +25,6 @@ export enum PRCategoryActionType {
 	NoRemotes,
 	NoMatchingRemotes,
 	ConfigureRemotes,
-	Initializing,
 }
 
 export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
@@ -88,9 +87,6 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 					command: 'pr.configureRemotes',
 					arguments: [],
 				};
-				break;
-			case PRCategoryActionType.Initializing:
-				this.label = vscode.l10n.t('Loading...');
 				break;
 			default:
 				break;

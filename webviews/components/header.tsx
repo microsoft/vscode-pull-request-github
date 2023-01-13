@@ -8,7 +8,8 @@ import { GithubItemStateEnum } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
-import { checkIcon } from './icon';
+import { checkIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
+import { nbsp } from './space';
 import { AuthorLink, Avatar } from './user';
 
 export function Header({
@@ -17,6 +18,7 @@ export function Header({
 	head,
 	base,
 	title,
+	titleHTML,
 	number,
 	url,
 	author,
@@ -32,6 +34,7 @@ export function Header({
 		<>
 			<Title
 				title={currentTitle}
+				titleHTML={titleHTML}
 				number={number}
 				url={url}
 				inEditMode={inEditMode}
@@ -50,7 +53,7 @@ export function Header({
 	);
 }
 
-function Title({ title, number, url, inEditMode, setEditMode, setCurrentTitle }) {
+function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle }) {
 	const { setTitle } = useContext(PullRequestContext);
 
 	const titleForm = (
@@ -80,7 +83,8 @@ function Title({ title, number, url, inEditMode, setEditMode, setCurrentTitle })
 	const displayTitle = (
 		<div className="overview-title">
 			<h2>
-				{title}{' '}
+				<span dangerouslySetInnerHTML={{ __html: titleHTML }} />
+				{' '}
 				<a href={url} title={url}>
 					#{number}
 				</a>
@@ -98,7 +102,7 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 	return (
 		<div className="button-group">
 			<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
-			<button onClick={refresh} className="secondary small-button">
+			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary small-button">
 				Refresh
 			</button>
 			{canEdit && (
@@ -106,11 +110,11 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 					<button title="Rename" onClick={setEditMode} className="secondary small-button">
 						Rename
 					</button>
-					<button title="Copy Link" onClick={copyPrLink} className="secondary small-button">
+					<button title="Copy GitHub pull request link" onClick={copyPrLink} className="secondary small-button">
 						Copy Link
 					</button>
-					<button title="vscode.dev Link" onClick={copyVscodeDevLink} className="secondary small-button">
-						vscode.dev Link
+					<button title="Copy vscode.dev link for viewing this pull request in VS Code for the Web" onClick={copyVscodeDevLink} className="secondary small-button">
+						Copy vscode.dev Link
 					</button>
 				</>
 			)}
@@ -119,9 +123,14 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 }
 
 function Subtitle({ state, isDraft, isIssue, author, base, head }) {
+	const { text, color, icon } = getStatus(state, isDraft);
+
 	return (
 		<div className="subtitle">
-			<div id="status">{getStatus(state, isDraft)}</div>
+			<div id="status" className={`status-badge-${color}`}>
+				<span className='icon'>{isIssue ? null : icon}</span>
+				<span>{text}</span>
+			</div>
 			<div className="author">
 				{!isIssue ? <Avatar for={author} /> : null}
 				{!isIssue ? (
@@ -162,7 +171,7 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBran
 		return (
 			<>
 				<button aria-live="polite" className="checkedOut small-button" disabled>
-					{checkIcon} Checked Out
+					{checkIcon}{nbsp} Checked Out
 				</button>
 				<button
 					aria-live="polite"
@@ -194,11 +203,11 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBran
 
 export function getStatus(state: GithubItemStateEnum, isDraft: boolean) {
 	if (state === GithubItemStateEnum.Merged) {
-		return 'Merged';
+		return { text: 'Merged', color: 'merged', icon: mergeIcon };
 	} else if (state === GithubItemStateEnum.Open) {
-		return isDraft ? 'Draft' : 'Open';
+		return isDraft ? { text: 'Draft', color: 'draft', icon: prDraftIcon } : { text: 'Open', color: 'open', icon: prOpenIcon };
 	} else {
-		return 'Closed';
+		return { text: 'Closed', color: 'closed', icon: prClosedIcon };
 	}
 }
 

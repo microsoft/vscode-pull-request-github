@@ -9,7 +9,7 @@ import { ILabel, IMilestone } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { AuthorLink, Avatar } from '../components/user';
-import { deleteIcon, settingsIcon } from './icon';
+import { closeIcon, settingsIcon } from './icon';
 import { Reviewer } from './reviewer';
 import { nbsp } from './space';
 
@@ -28,17 +28,15 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 		<div id="sidebar">
 			{!isIssue ? (
 				<div id="reviewers" className="section">
-					<div className="section-header">
+					<div className="section-header" onClick={async () => {
+						const newReviewers = await addReviewers();
+						updatePR({ reviewers: newReviewers.reviewers });
+					}}>
 						<div className="section-title">Reviewers</div>
 						{hasWritePermission ? (
 							<button
 								className="icon-button"
-								title="Add Reviewers"
-								onClick={async () => {
-									const newReviewers = await addReviewers();
-									updatePR({ reviewers: newReviewers.reviewers });
-								}}
-							>
+								title="Add Reviewers">
 								{settingsIcon}
 							</button>
 						) : null}
@@ -55,17 +53,15 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				''
 			)}
 			<div id="assignees" className="section">
-				<div className="section-header">
+				<div className="section-header" onClick={async () => {
+					const newAssignees = await addAssignees();
+					updatePR({ assignees: newAssignees.assignees });
+				}}>
 					<div className="section-title">Assignees</div>
 					{hasWritePermission ? (
 						<button
 							className="icon-button"
-							title="Add Assignees"
-							onClick={async () => {
-								const newAssignees = await addAssignees();
-								updatePR({ assignees: newAssignees.assignees });
-							}}
-						>
+							title="Add Assignees">
 							{settingsIcon}
 						</button>
 					) : null}
@@ -84,7 +80,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				) : (
 					<div className="section-placeholder">
 						None yet
-						{pr.canEdit ? (
+						{pr.hasWritePermission ? (
 							<>
 								&mdash;
 								<a
@@ -103,17 +99,15 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 			</div>
 
 			<div id="labels" className="section">
-				<div className="section-header">
+				<div className="section-header" onClick={async () => {
+					const newLabels = await addLabels();
+					updatePR({ labels: pr.labels.concat(newLabels.added) });
+				}}>
 					<div className="section-title">Labels</div>
 					{hasWritePermission ? (
 						<button
 							className="icon-button"
-							title="Add Labels"
-							onClick={async () => {
-								const newLabels = await addLabels();
-								updatePR({ labels: pr.labels.concat(newLabels.added) });
-							}}
-						>
+							title="Add Labels">
 							{settingsIcon}
 						</button>
 					) : null}
@@ -130,17 +124,15 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				)}
 			</div>
 			<div id="milestone" className="section">
-				<div className="section-header">
+				<div className="section-header" onClick={async () => {
+					const newMilestone = await addMilestone();
+					updatePR({ milestone: newMilestone.added });
+				}}>
 					<div className="section-title">Milestone</div>
 					{hasWritePermission ? (
 						<button
 							className="icon-button"
-							title="Add Milestone"
-							onClick={async () => {
-								const newMilestone = await addMilestone();
-								updatePR({ milestone: newMilestone.added });
-							}}
-						>
+							title="Add Milestone">
 							{settingsIcon}
 						</button>
 					) : null}
@@ -166,12 +158,13 @@ function Label(label: ILabel & { canDelete: boolean }) {
 				backgroundColor: labelColor.backgroundColor,
 				color: labelColor.textColor,
 				borderColor: `${labelColor.borderColor}`,
+				paddingRight: canDelete ? '2px' : '8px'
 			}}
 		>
 			{name}
 			{canDelete ? (
 				<button className="icon-button" onClick={() => removeLabel(name)}>
-					{deleteIcon}️
+					{closeIcon}️
 				</button>
 			) : null}
 		</div>
@@ -204,7 +197,7 @@ function Milestone(milestone: IMilestone & { canDelete: boolean }) {
 							updatePR({ milestone: null });
 						}}
 					>
-						{deleteIcon}️
+						{closeIcon}️
 					</button>
 				) : null}
 			</div>

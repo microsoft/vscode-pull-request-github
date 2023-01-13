@@ -145,6 +145,9 @@ export class GitHubRepository implements vscode.Disposable {
 
 	dispose() {
 		this._toDispose.forEach(d => d.dispose());
+		this._toDispose = [];
+		this.commentsController = undefined;
+		this.commentsHandler = undefined;
 	}
 
 	public get octokit(): LoggingOctokit {
@@ -400,7 +403,9 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug(`Fetch pull requests for branch - done`, GitHubRepository.ID);
 
 			if (data?.repository.pullRequests.nodes.length > 0) {
-				return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data.repository.pullRequests.nodes[0], this));
+				const prs = data.repository.pullRequests.nodes.map(node => parseGraphQLPullRequest(node, this));
+				const mostRecentOrOpenPr = prs.find(pr => pr.state.toLowerCase() === 'open') ?? prs[0];
+				return this.createOrUpdatePullRequestModel(mostRecentOrOpenPr);
 			}
 		} catch (e) {
 			Logger.error(`Fetching pull requests for branch failed: ${e}`, GitHubRepository.ID);
@@ -622,10 +627,10 @@ export class GitHubRepository implements vscode.Disposable {
 		try {
 			Logger.debug(`Fork repository`, GitHubRepository.ID);
 			const { octokit, remote } = await this.ensure();
-			const result = (await octokit.call(octokit.api.repos.createFork, {
+			const result = await octokit.call(octokit.api.repos.createFork, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
-			})) as any;
+			});
 			return result.data.clone_url;
 		} catch (e) {
 			Logger.error(`GitHubRepository> Forking repository failed: ${e}`, GitHubRepository.ID);

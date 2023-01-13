@@ -18,12 +18,13 @@
 		"contribCommentPeekContext",
 		"contribCommentThreadAdditionalMenu",
 		"codiconDecoration",
-		"diffCommand"
+		"diffCommand",
+		"contribCommentEditorActionsMenu"
 	],
-	"version": "0.54.0",
+	"version": "0.56.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.74.0"
+		"vscode": "^1.75.0"
 	},
 	"categories": [
 		"Other"
@@ -83,6 +84,11 @@
 					],
 					"default": "template",
 					"description": "%githubPullRequests.pullRequestDescription.description%"
+				},
+				"githubPullRequests.createDraft": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubPullRequests.createDraft%"
 				},
 				"githubPullRequests.logLevel": {
 					"type": "string",
@@ -756,6 +762,11 @@
 				"enablement": "!commentIsEmpty"
 			},
 			{
+				"command": "pr.makeSuggestion",
+				"title": "%command.pr.makeSuggestion.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.startReview",
 				"title": "%command.pr.startReview.title%",
 				"category": "%command.pull.request.category%",
@@ -854,6 +865,23 @@
 				"command": "pr.goToNextDiffInPr",
 				"title": "%command.pr.goToNextDiffInPr.title%",
 				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.goToPreviousDiffInPr",
+				"title": "%command.pr.goToPreviousDiffInPr.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.copyCommentLink",
+				"title": "%command.pr.copyCommentLink.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "pr.applySuggestion",
+				"title": "%command.pr.applySuggestion.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(gift)"
 			},
 			{
 				"command": "issue.createIssueFromSelection",
@@ -1028,12 +1056,17 @@
 			},
 			{
 				"view": "pr:github",
-				"when": "!github:initialized && workspaceFolderCount == 0",
+				"when": "workspaceFolderCount > 0 && github:loadingPrsTree",
+				"contents": "%welcome.pr.github.uninitialized.contents%"
+			},
+			{
+				"view": "pr:github",
+				"when": "workspaceFolderCount == 0",
 				"contents": "%welcome.pr.github.noFolder.contents%"
 			},
 			{
 				"view": "pr:github",
-				"when": "git.state == initialized && gitOpenRepositoryCount == 0",
+				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0",
 				"contents": "%welcome.pr.github.noRepo.contents%"
 			},
 			{
@@ -1043,12 +1076,17 @@
 			},
 			{
 				"view": "issues:github",
-				"when": "!github:initialized && workspaceFolderCount == 0",
+				"when": "workspaceFolderCount > 0 && github:loadingPrsTree",
+				"contents": "%welcome.issues.github.uninitialized.contents%"
+			},
+			{
+				"view": "issues:github",
+				"when": "workspaceFolderCount == 0",
 				"contents": "%welcome.issues.github.noFolder.contents%"
 			},
 			{
 				"view": "issues:github",
-				"when": "git.state == initialized && gitOpenRepositoryCount == 0",
+				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0",
 				"contents": "%welcome.issues.github.noRepo.contents%"
 			},
 			{
@@ -1221,6 +1259,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.makeSuggestion",
+					"when": "false"
+				},
+				{
 					"command": "pr.startReview",
 					"when": "false"
 				},
@@ -1275,6 +1317,18 @@
 				{
 					"command": "pr.goToNextDiffInPr",
 					"when": "activeEditor == workbench.editors.textDiffEditor && resourcePath in github:viewedFiles"
+				},
+				{
+					"command": "pr.goToPreviousDiffInPr",
+					"when": "activeEditor == workbench.editors.textDiffEditor && resourcePath in github:unviewedFiles"
+				},
+				{
+					"command": "pr.goToPreviousDiffInPr",
+					"when": "activeEditor == workbench.editors.textDiffEditor && resourcePath in github:viewedFiles"
+				},
+				{
+					"command": "pr.copyCommentLink",
+					"when": "false"
 				},
 				{
 					"command": "issue.openIssue",
@@ -1687,28 +1741,35 @@
 					"command": "pr.startReview",
 					"group": "inline@2",
 					"when": "commentController =~ /^github-review/ && !reviewInDraftMode"
-				},
+				}
+			],
+			"comments/comment/editorActions": [
 				{
-					"command": "pr.openReview",
+					"command": "pr.makeSuggestion",
 					"group": "inline@3",
-					"when": "commentController =~ /^github-browse/ && prInDraft"
-				},
-				{
-					"command": "pr.openReview",
-					"group": "inline@3",
-					"when": "commentController =~ /^github-review/ && reviewInDraftMode"
+					"when": "commentController =~ /^github-review/"
 				}
 			],
 			"comments/commentThread/additionalActions": [
 				{
 					"command": "pr.resolveReviewThread",
-					"group": "inline@3",
+					"group": "inline@1",
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
 				},
 				{
 					"command": "pr.unresolveReviewThread",
-					"group": "inline@3",
+					"group": "inline@1",
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+				},
+				{
+					"command": "pr.openReview",
+					"group": "inline@2",
+					"when": "commentController =~ /^github-browse/ && prInDraft"
+				},
+				{
+					"command": "pr.openReview",
+					"group": "inline@2",
+					"when": "commentController =~ /^github-review/ && reviewInDraftMode"
 				}
 			],
 			"comments/commentThread/title/context": [
@@ -1737,13 +1798,23 @@
 			],
 			"comments/comment/title": [
 				{
-					"command": "pr.editComment",
+					"command": "pr.copyCommentLink",
 					"group": "inline@1",
 					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/"
 				},
 				{
-					"command": "pr.deleteComment",
+					"command": "pr.applySuggestion",
+					"group": "inline@0",
+					"when": "commentController =~ /^github-review/ && comment =~ /hasSuggestion/"
+				},
+				{
+					"command": "pr.editComment",
 					"group": "inline@2",
+					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/"
+				},
+				{
+					"command": "pr.deleteComment",
+					"group": "inline@3",
 					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canDelete/"
 				}
 			],
@@ -1896,6 +1967,46 @@
 				"description": "The color used for indicating that an issue is closed."
 			},
 			{
+				"id": "pullRequests.merged",
+				"defaults": {
+					"dark": "#8957e5",
+					"light": "#8957e5",
+					"highContrast": "editor.background",
+					"highContrastLight": "editor.background"
+				},
+				"description": "The color used for indicating that a pull request is merged."
+			},
+			{
+				"id": "pullRequests.draft",
+				"defaults": {
+					"dark": "#6e7681",
+					"light": "#6e7681",
+					"highContrast": "editor.background",
+					"highContrastLight": "editor.background"
+				},
+				"description": "The color used for indicating that a pull request is a draft."
+			},
+			{
+				"id": "pullRequests.open",
+				"defaults": {
+					"dark": "issues.open",
+					"light": "issues.open",
+					"highContrast": "editor.background",
+					"highContrastLight": "editor.background"
+				},
+				"description": "The color used for indicating that a pull request is open."
+			},
+			{
+				"id": "pullRequests.closed",
+				"defaults": {
+					"dark": "issues.closed",
+					"light": "issues.closed",
+					"highContrast": "editor.background",
+					"highContrastLight": "editor.background"
+				},
+				"description": "The color used for indicating that a pull request is closed."
+			},
+			{
 				"id": "pullRequests.notification",
 				"defaults": {
 					"dark": "notificationsInfoIcon.foreground",
@@ -1980,7 +2091,7 @@
 		"husky": "^8.0.1",
 		"jsdom": "19.0.0",
 		"jsdom-global": "3.0.2",
-		"json5": "2.2.0",
+		"json5": "2.2.2",
 		"merge-options": "3.0.4",
 		"minimist": "^1.2.6",
 		"mkdirp": "1.0.4",
@@ -2011,8 +2122,8 @@
 		"webpack-cli": "4.2.0"
 	},
 	"dependencies": {
-		"@octokit/rest": "18.2.0",
-		"@octokit/types": "6.10.0",
+		"@octokit/rest": "18.2.1",
+		"@octokit/types": "6.10.1",
 		"@vscode/extension-telemetry": "0.6.2",
 		"apollo-boost": "^0.4.9",
 		"apollo-link-context": "1.0.20",
@@ -2024,7 +2135,7 @@
 		"marked": "^4.0.10",
 		"react": "^16.12.0",
 		"react-dom": "^16.12.0",
-		"ssh-config": "^2.0.0-alpha.3",
+		"ssh-config": "4.1.1",
 		"tunnel": "0.0.6",
 		"url-search-params-polyfill": "^8.1.1",
 		"uuid": "8.3.2",

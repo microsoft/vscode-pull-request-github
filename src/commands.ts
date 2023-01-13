@@ -25,6 +25,7 @@ import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, vscodeDevPrLink } from './github/utils';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
+import { ReviewCommentController } from './view/reviewCommentController';
 import { ReviewManager } from './view/reviewManager';
 import { CategoryTreeNode } from './view/treeNodes/categoryNode';
 import { CommitNode } from './view/treeNodes/commitNode';
@@ -279,20 +280,42 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openModifiedFile', (e: GitFileChangeNode) => {
-			vscode.commands.executeCommand('vscode.open', e.changeModel.filePath);
+		vscode.commands.registerCommand('pr.openModifiedFile', (e: GitFileChangeNode | undefined) => {
+			let uri: vscode.Uri | undefined;
+			if (e) {
+				uri = e.changeModel.filePath;
+			} else {
+				uri = vscode.window.activeTextEditor?.document.uri;
+			}
+			if (uri) {
+				vscode.commands.executeCommand('vscode.open', uri);
+			}
 		}),
 	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openDiffView',
-			(fileChangeNode: GitFileChangeNode | InMemFileChangeNode) => {
-				const folderManager = reposManager.getManagerForIssueModel(fileChangeNode.pullRequest);
-				if (!folderManager) {
-					return;
+			(fileChangeNode: GitFileChangeNode | InMemFileChangeNode | undefined) => {
+				if (fileChangeNode) {
+					const folderManager = reposManager.getManagerForIssueModel(fileChangeNode.pullRequest);
+					if (!folderManager) {
+						return;
+					}
+					fileChangeNode.openDiff(folderManager);
+				} else if (vscode.window.activeTextEditor) {
+					const activeTextEditor = vscode.window.activeTextEditor;
+					const folderManager = reposManager.getManagerForFile(activeTextEditor.document.uri);
+					if (!folderManager?.activePullRequest) {
+						return;
+					}
+					const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
+					if (!reviewManager) {
+						return;
+					}
+					const change = reviewManager.reviewModel.localFileChanges.find(change => change.resourceUri.with({ query: '' }).toString() === activeTextEditor.document.uri.toString());
+					change?.openDiff(folderManager);
 				}
-				fileChangeNode.openDiff(folderManager);
 			},
 		),
 	);
@@ -477,7 +500,11 @@ export function registerCommands(
 					const branch = await pullRequestModel!.githubRepository.getDefaultBranch();
 					const manager = reposManager.getManagerForIssueModel(pullRequestModel);
 					if (manager) {
-						manager.checkoutDefaultBranch(branch);
+						const prBranch = manager.repository.state.HEAD?.name;
+						await manager.checkoutDefaultBranch(branch);
+						if (prBranch) {
+							await manager.cleanupAfterPullRequest(prBranch, pullRequestModel!);
+						}
 					}
 				},
 			);
@@ -752,15 +779,15 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openReview', async (reply: CommentReply) => {
+		vscode.commands.registerCommand('pr.openReview', async (thread: GHPRCommentThread) => {
 			/* __GDPR__
 				"pr.openReview" : {}
 			*/
 			telemetry.sendTelemetryEvent('pr.openReview');
-			const handler = resolveCommentHandler(reply.thread);
+			const handler = resolveCommentHandler(thread);
 
 			if (handler) {
-				await handler.openReview(reply.thread);
+				await handler.openReview(thread);
 			}
 		}),
 	);
@@ -837,6 +864,26 @@ export function registerCommands(
 				handler.createOrReplyComment(reply.thread, reply.text, true);
 			}
 		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.makeSuggestion', async (reply: CommentReply | GHPRComment) => {
+			const thread = reply instanceof GHPRComment ? reply.parent : reply.thread;
+			const commentEditor = vscode.window.activeTextEditor?.document.uri.scheme === Schemes.Comment ? vscode.window.activeTextEditor
+				: vscode.window.visibleTextEditors.find(visible => visible.document.uri.scheme === Schemes.Comment);
+			if (!commentEditor) {
+				Logger.appendLine('No comment editor visible for making a suggestion.');
+				vscode.window.showErrorMessage(vscode.l10n.t('No available comment editor to make a suggestion in.'));
+				return;
+			}
+			const editor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === thread.uri.toString());
+			const contents = editor?.document.getText(new vscode.Range(thread.range.start.line, 0, thread.range.end.line, editor.document.lineAt(thread.range.end.line).text.length));
+			return commentEditor.edit((editBuilder) => {
+				editBuilder.insert(new vscode.Position(commentEditor.document.lineCount, 0), `\`\`\`suggestion
+${contents}
+\`\`\``);
+			});
+		})
 	);
 
 	context.subscriptions.push(
@@ -1028,6 +1075,13 @@ export function registerCommands(
 		}));
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.copyCommentLink', (comment) => {
+			if (comment instanceof GHPRComment) {
+				return vscode.env.clipboard.writeText(comment.rawComment.htmlUrl);
+			}
+		}));
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.copyVscodeDevPrLink', async () => {
 			const activePullRequests: PullRequestModel[] = reposManager.folderManagers
 				.map(folderManager => folderManager.activePullRequest!)
@@ -1104,57 +1158,91 @@ export function registerCommands(
 		}));
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.applySuggestion', async (comment: GHPRComment) => {
+			/* __GDPR__
+				"pr.applySuggestion" : {}
+			*/
+			telemetry.sendTelemetryEvent('pr.applySuggestion');
+
+			const handler = resolveCommentHandler(comment.parent);
+
+			if (handler instanceof ReviewCommentController) {
+				handler.applySuggestion(comment);
+			}
+		}));
+
+	function goToNextPrevDiff(diffs: vscode.LineChange[], next: boolean) {
+		const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+		const input = tab?.input;
+		if (!(input instanceof vscode.TabInputTextDiff)) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Current editor isn\'t a diff editor.'));
+		}
+
+		const editor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === input.modified.toString());
+		if (!editor) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unexpectedly unable to find the current modified editor.'));
+		}
+
+		const editorUri = editor.document.uri;
+		if (input.original.scheme !== Schemes.Review) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Current file isn\'t a pull request diff.'));
+		}
+
+		// Find the next diff in the current file to scroll to
+		const visibleRange = editor.visibleRanges[0];
+		const iterateThroughDiffs = next ? diffs : diffs.reverse();
+		for (const diff of iterateThroughDiffs) {
+			const practicalModifiedEndLineNumber = (diff.modifiedEndLineNumber > diff.modifiedStartLineNumber) ? diff.modifiedEndLineNumber : diff.modifiedStartLineNumber as number + 1;
+			const diffRange = new vscode.Range(diff.modifiedStartLineNumber ? diff.modifiedStartLineNumber - 1 : diff.modifiedStartLineNumber, 0, practicalModifiedEndLineNumber, 0);
+			if (next && (visibleRange.end.line < practicalModifiedEndLineNumber) && (visibleRange.end.line !== (editor.document.lineCount - 1))) {
+				editor.revealRange(diffRange);
+				return;
+			} else if (!next && (visibleRange.start.line > diff.modifiedStartLineNumber) && (visibleRange.start.line !== 0)) {
+				editor.revealRange(diffRange);
+				return;
+			}
+		}
+
+		// There is no new range to reveal, time to go to the next file.
+		const folderManager = reposManager.getManagerForFile(editorUri);
+		if (!folderManager) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find a repository for pull request.'));
+		}
+
+		const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
+		if (!reviewManager) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Cannot find active pull request.'));
+		}
+
+		if (!reviewManager.reviewModel.hasLocalFileChanges || (reviewManager.reviewModel.localFileChanges.length === 0)) {
+			return vscode.window.showWarningMessage(vscode.l10n.t('Pull request data is not yet complete, please try again in a moment.'));
+		}
+
+		for (let i = 0; i < reviewManager.reviewModel.localFileChanges.length; i++) {
+			const index = next ? i : reviewManager.reviewModel.localFileChanges.length - 1;
+			const localFileChange = reviewManager.reviewModel.localFileChanges[index];
+			if (localFileChange.changeModel.filePath.toString() === editorUri.toString()) {
+				const nextIndex = next ? index + 1 : index - 1;
+				if (reviewManager.reviewModel.localFileChanges.length > nextIndex) {
+					return reviewManager.reviewModel.localFileChanges[nextIndex].openDiff(folderManager);
+				}
+			}
+		}
+		// No further files in PR.
+		const goInCircle = next ? vscode.l10n.t('Go to first diff') : vscode.l10n.t('Go to last diff');
+		return vscode.window.showInformationMessage(vscode.l10n.t('There are no more diffs in this pull request.'), goInCircle).then(result => {
+			if (result === goInCircle) {
+				return reviewManager.reviewModel.localFileChanges[next ? 0 : reviewManager.reviewModel.localFileChanges.length - 1].openDiff(folderManager);
+			}
+		});
+	}
+
+	context.subscriptions.push(
 		vscode.commands.registerDiffInformationCommand('pr.goToNextDiffInPr', async (diffs: vscode.LineChange[]) => {
-			const editor = vscode.window.activeTextEditor!;
-			// Find the next diff in the current file to scroll to
-			const visibleRange = editor.visibleRanges[0];
-			for (const diff of diffs) {
-				const diffRange = new vscode.Range(diff.modifiedStartLineNumber, 0, ((diff.modifiedEndLineNumber > diff.modifiedStartLineNumber) ? diff.modifiedEndLineNumber : diff.modifiedStartLineNumber as number + 1), 0);
-				if ((visibleRange.end.line < diff.modifiedEndLineNumber) && visibleRange.end.line !== (editor.document.lineCount - 1)) {
-					editor.revealRange(diffRange);
-					return;
-				}
-			}
-			// There is no new range to reveal, time to go to the next file.
-			const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
-			const input = tab?.input;
-			if (!(input instanceof vscode.TabInputTextDiff)) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('Current editor isn\'t a diff editor.'));
-			}
-
-			const editorUri = editor.document.uri;
-			if (input.original.scheme !== Schemes.Review) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('Current file isn\'t a pull request diff.'));
-			}
-
-			const folderManager = reposManager.getManagerForFile(editorUri);
-			if (!folderManager) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find a repository for pull request.'));
-			}
-
-			const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
-			if (!reviewManager) {
-				return vscode.window.showErrorMessage(vscode.l10n.t('Cannot find active pull request.'));
-			}
-
-			if (!reviewManager.reviewModel.hasLocalFileChanges) {
-				return vscode.window.showWarningMessage(vscode.l10n.t('Pull request data is not yet complete, please try again in a moment.'));
-			}
-
-			for (let i = 0; i < reviewManager.reviewModel.localFileChanges.length; i++) {
-				const localFileChange = reviewManager.reviewModel.localFileChanges[i];
-				if (localFileChange.changeModel.filePath.toString() === editorUri.toString()) {
-					if (reviewManager.reviewModel.localFileChanges.length > i + 1) {
-						return reviewManager.reviewModel.localFileChanges[i + 1].openDiff(folderManager);
-					}
-				}
-			}
-			// No further files in PR.
-			const goToFirst = vscode.l10n.t('Go to first diff');
-			return vscode.window.showInformationMessage(vscode.l10n.t('There are no more diffs in this pull request.'), goToFirst).then(result => {
-				if (result === goToFirst) {
-					return reviewManager.reviewModel.localFileChanges[0].openDiff(folderManager);
-				}
-			});
+			goToNextPrevDiff(diffs, true);
+		}));
+	context.subscriptions.push(
+		vscode.commands.registerDiffInformationCommand('pr.goToPreviousDiffInPr', async (diffs: vscode.LineChange[]) => {
+			goToNextPrevDiff(diffs, false);
 		}));
 }

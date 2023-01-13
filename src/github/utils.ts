@@ -209,7 +209,7 @@ export function updateCommentReviewState(thread: GHPRCommentThread, newDraftMode
 
 	thread.comments = thread.comments.map(comment => {
 		if (comment instanceof GHPRComment) {
-			comment._rawComment.isDraft = false;
+			comment.rawComment.isDraft = false;
 		}
 
 		comment.label = undefined;
@@ -244,7 +244,6 @@ export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListRespons
 
 export function convertRESTPullRequestToRawPullRequest(
 	pullRequest:
-		| OctokitCommon.PullsCreateResponseData
 		| OctokitCommon.PullsGetResponseData
 		| OctokitCommon.PullsListResponseItem,
 	githubRepository: GitHubRepository,
@@ -273,6 +272,7 @@ export function convertRESTPullRequestToRawPullRequest(
 		number,
 		body: body ?? '',
 		title,
+		titleHTML: title,
 		url: html_url,
 		user: convertRESTUserToAccount(user!, githubRepository),
 		state,
@@ -282,7 +282,7 @@ export function convertRESTPullRequestToRawPullRequest(
 			: undefined,
 		createdAt: created_at,
 		updatedAt: updated_at,
-		head: convertRESTHeadToIGitHubRef(head),
+		head: head.repo ? convertRESTHeadToIGitHubRef(head as OctokitCommon.PullsListResponseItemHead) : undefined,
 		base: convertRESTHeadToIGitHubRef(base),
 		mergeable: (pullRequest as OctokitCommon.PullsGetResponseData).mergeable
 			? PullRequestMergeability.Mergeable
@@ -320,6 +320,7 @@ export function convertRESTIssueToRawPullRequest(
 		number,
 		body: body ?? '',
 		title,
+		titleHTML: title,
 		url: html_url,
 		user: convertRESTUserToAccount(user!, githubRepository),
 		state,
@@ -600,6 +601,7 @@ export function parseGraphQLPullRequest(
 		body: graphQLPullRequest.body,
 		bodyHTML: graphQLPullRequest.bodyHTML,
 		title: graphQLPullRequest.title,
+		titleHTML: graphQLPullRequest.titleHTML,
 		createdAt: graphQLPullRequest.createdAt,
 		updatedAt: graphQLPullRequest.updatedAt,
 		isRemoteHeadDeleted: !graphQLPullRequest.headRef,
@@ -651,6 +653,7 @@ export function parseGraphQLIssue(issue: GraphQL.PullRequest, githubRepository: 
 		body: issue.body,
 		bodyHTML: issue.bodyHTML,
 		title: issue.title,
+		titleHTML: issue.titleHTML,
 		createdAt: issue.createdAt,
 		updatedAt: issue.updatedAt,
 		assignees: issue.assignees?.nodes.map(assignee => parseAuthor(assignee, githubRepository)),
@@ -659,37 +662,6 @@ export function parseGraphQLIssue(issue: GraphQL.PullRequest, githubRepository: 
 		repositoryName: issue.repository?.name,
 		repositoryOwner: issue.repository?.owner.login,
 		repositoryUrl: issue.repository?.url,
-	};
-}
-
-export function parseGraphQLIssuesRequest(
-	pullRequest: GraphQL.PullRequest,
-	githubRepository: GitHubRepository,
-): PullRequest {
-	const graphQLPullRequest = pullRequest;
-
-	return {
-		id: graphQLPullRequest.databaseId,
-		graphNodeId: graphQLPullRequest.id,
-		url: graphQLPullRequest.url,
-		number: graphQLPullRequest.number,
-		state: graphQLPullRequest.state,
-		body: graphQLPullRequest.body,
-		bodyHTML: graphQLPullRequest.bodyHTML,
-		title: graphQLPullRequest.title,
-		createdAt: graphQLPullRequest.createdAt,
-		updatedAt: graphQLPullRequest.updatedAt,
-		isRemoteHeadDeleted: !graphQLPullRequest.headRef,
-		head: parseRef(graphQLPullRequest.headRef?.name ?? graphQLPullRequest.headRefName, graphQLPullRequest.headRefOid, graphQLPullRequest.headRepository),
-		isRemoteBaseDeleted: !graphQLPullRequest.baseRef,
-		base: parseRef(graphQLPullRequest.baseRef?.name ?? graphQLPullRequest.baseRefName, graphQLPullRequest.baseRefOid, graphQLPullRequest.baseRepository),
-		user: parseAuthor(graphQLPullRequest.author, githubRepository),
-		merged: graphQLPullRequest.merged,
-		mergeable: parseMergeability(graphQLPullRequest.mergeable, pullRequest.mergeStateStatus),
-		labels: graphQLPullRequest.labels.nodes,
-		isDraft: graphQLPullRequest.isDraft,
-		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
-		milestone: parseMilestone(graphQLPullRequest.milestone),
 	};
 }
 
