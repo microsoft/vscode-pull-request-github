@@ -4,5 +4,6 @@ steps:
     inputs:
       versionSpec: '14.x'
 
-  - script: yarn install --frozen-lockfile
+  - script: yarn install --frozen-lockfile --check-files
     displayName: Install dependencies
+    retryCountOnTaskFailure: 3
