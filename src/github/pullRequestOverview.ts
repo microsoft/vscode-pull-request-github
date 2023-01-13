@@ -695,7 +695,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			await vscode.workspace.fs.delete(tempUri);
 			vscode.window.showInformationMessage('Patch applied!');
 		} catch (e) {
-			Logger.appendLine(`Applying patch failed: ${e}`);
+			Logger.error(`Applying patch failed: ${e}`, PullRequestOverviewPanel.ID);
 			vscode.window.showErrorMessage(`Applying patch failed: ${formatError(e)}`);
 		}
 	}
@@ -705,7 +705,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const comment = message.args.comment;
 			return PullRequestModel.openDiffFromComment(this._folderRepositoryManager, this._item, comment);
 		} catch (e) {
-			Logger.appendLine(`Open diff view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+			Logger.error(`Open diff view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}
 	}
 

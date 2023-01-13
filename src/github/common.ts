@@ -1,3 +1,7 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 import * as OctokitRest from '@octokit/rest';
 import { Endpoints } from '@octokit/types';
 
@@ -31,7 +35,7 @@ export namespace OctokitCommon {
 	export type PullsListReviewRequestsResponseTeamsItem = Endpoints['GET /repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers']['response']['data']['teams'][0];
 	export type PullsListResponseItemHeadRepoTemplateRepository = PullsListResponseItem['head']['repo']['template_repository'];
 	export type PullsListCommitsResponseItem = Endpoints['GET /repos/{owner}/{repo}/pulls/{pull_number}/commits']['response']['data'][0];
-	export type ReposCompareCommitsResponseData =  OctokitRest.RestEndpointMethodTypes['repos']['compareCommits']['response']['data'];
+	export type ReposCompareCommitsResponseData = OctokitRest.RestEndpointMethodTypes['repos']['compareCommits']['response']['data'];
 	export type ReposGetCombinedStatusForRefResponseStatusesItem = Endpoints['GET /repos/{owner}/{repo}/commits/{ref}/status']['response']['data']['statuses'][0];
 	export type ReposGetCommitResponseData = Endpoints['GET /repos/{owner}/{repo}/commits/{ref}']['response']['data'];
 	export type ReposGetCommitResponseFiles = Endpoints['GET /repos/{owner}/{repo}/commits/{ref}']['response']['data']['files'];
