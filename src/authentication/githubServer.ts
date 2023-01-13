@@ -81,7 +81,7 @@ export class GitHubManager {
 			}
 			return isGitHub;
 		} catch (ex) {
-			Logger.warn(`No response from host ${host}: ${ex.message}`, 'GitHubServer');
+			Logger.appendLine(`No response from host ${host}: ${ex.message}`, 'GitHubServer');
 			return isGitHub;
 		} finally {
 			Logger.debug(`Host ${host} is associated with GitHub: ${isGitHub}`, 'GitHubServer');

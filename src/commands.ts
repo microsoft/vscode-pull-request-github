@@ -239,7 +239,7 @@ export function registerCommands(
 				await vscode.workspace.fs.delete(tempUri);
 			} catch (err) {
 				const moreError = `${err}${err.stderr ? `\n${err.stderr}` : ''}`;
-				Logger.error(`Applying patch failed: ${moreError}`);
+				Logger.appendLine(`Applying patch failed: ${moreError}`);
 				vscode.window.showErrorMessage(vscode.l10n.t('Applying patch failed: {0}', formatError(err)));
 			}
 		}),
@@ -425,7 +425,7 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
 			if (pr === undefined) {
 				// This is unexpected, but has happened a few times.
-				Logger.error('Unexpectedly received undefined when picking a PR.');
+				Logger.appendLine('Unexpectedly received undefined when picking a PR.');
 				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
 			}
 

@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import { readFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
@@ -55,6 +50,6 @@ function resolverFromConfigFile(configPath = join(homedir(), '.ssh', 'config')):
 		const config = readFileSync(configPath).toString();
 		return resolverFromConfig(config);
 	} catch (error) {
-		Logger.warn(`${configPath}: ${error.message}`);
+		Logger.appendLine(`${configPath}: ${error.message}`);
 	}
 }

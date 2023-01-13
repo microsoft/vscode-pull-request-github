@@ -59,7 +59,7 @@ export abstract class FileChangeModel {
 				const patch = await this.folderRepoManager.repository.diffBetween(this.pullRequest.base.sha, commit, this.fileName);
 				diffHunks = parsePatch(patch);
 			} catch (e) {
-				Logger.error(`Failed to parse patch for outdated comments: ${e}`);
+				Logger.appendLine(`Failed to parse patch for outdated comments: ${e}`);
 			}
 		}
 		return diffHunks;
