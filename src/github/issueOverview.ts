@@ -225,12 +225,12 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				folderRepoManager: FolderRepositoryManager,
 				issue: IssueModel,
 			): Promise<vscode.QuickPickItem[]> {
-				const allLabels = await folderRepoManager.getLabels(issue);
-				newLabels = allLabels.filter(l => !issue.item.labels.some(label => label.name === l.name));
+				newLabels = await folderRepoManager.getLabels(issue);
 
 				return newLabels.map(label => {
 					return {
 						label: label.name,
+						picked: issue.item.labels.some(existingLabel => existingLabel.name === label.name)
 					};
 				});
 			}
@@ -244,7 +244,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				await this._item.addLabels(labelsToAdd.map(r => r.label));
 				const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
 
-				this._item.item.labels = this._item.item.labels.concat(...addedLabels);
+				this._item.item.labels = addedLabels;
 
 				this._replyMessage(message, {
 					added: addedLabels,
