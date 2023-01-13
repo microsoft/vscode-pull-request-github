@@ -97,7 +97,8 @@
 						"off"
 					],
 					"default": "info",
-					"description": "%githubPullRequests.logLevel.description%"
+					"description": "%githubPullRequests.logLevel.description%",
+					"deprecationMessage": "%githubPullRequests.logLevel.deprecationMessage%"
 				},
 				"githubPullRequests.remotes": {
 					"type": "array",

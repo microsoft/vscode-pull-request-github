@@ -44,7 +44,7 @@ export class Protocol {
 				this.owner = this.getOwnerName(this.url.path) || '';
 			}
 		} catch (e) {
-			Logger.appendLine(`Failed to parse '${uriString}'`);
+			Logger.error(`Failed to parse '${uriString}'`);
 			vscode.window.showWarningMessage(
 				vscode.l10n.t('Unable to parse remote \'{0}\'. Please check that it is correctly formatted.', uriString)
 			);
