@@ -32,7 +32,7 @@ class Log {
 	}
 
 	public trace(message: string, component: string) {
-		this._outputChannel.debug(this.logString(message, component));
+		this._outputChannel.trace(this.logString(message, component));
 	}
 
 	public debug(message: string, component: string) {
@@ -44,11 +44,11 @@ class Log {
 	}
 
 	public warn(message: string, component?: string) {
-		this._outputChannel.debug(this.logString(message, component));
+		this._outputChannel.warn(this.logString(message, component));
 	}
 
 	public error(message: string, component?: string) {
-		this._outputChannel.debug(this.logString(message, component));
+		this._outputChannel.error(this.logString(message, component));
 	}
 
 	public dispose() {
