@@ -211,9 +211,9 @@ export class CredentialStore implements vscode.Disposable {
 			try {
 				await this.initialize(authProviderId, { createIfNone: true });
 			} catch (e) {
-				Logger.error(`${errorPrefix}: ${e}`);
+				Logger.appendLine(`${errorPrefix}: ${e}`);
 				if (e instanceof Error && e.stack) {
-					Logger.error(e.stack);
+					Logger.appendLine(e.stack);
 				}
 			}
 			octokit = this.getHub(authProviderId);

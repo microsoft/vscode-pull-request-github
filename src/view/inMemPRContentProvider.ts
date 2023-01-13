@@ -106,7 +106,7 @@ export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 			);
 
 			if (!fileChange) {
-				Logger.error(`Cannot find content for document ${uri.toString()}`, 'PR');
+				Logger.appendLine(`PR> can not find content for document ${uri.toString()}`);
 				return '';
 			}
 
@@ -165,7 +165,7 @@ export async function provideDocumentContentForChangeModel(folderRepoManager: Fo
 				return pullRequestModel.getFile(fileChange.fileName, params.headCommit);
 			}
 		} catch (e) {
-			Logger.error(`Fetching file content failed: ${e}`, 'PR');
+			Logger.appendLine(`PR> Fetching file content failed: ${e}`);
 			vscode.window
 				.showWarningMessage(
 					'Opening this file locally failed. Would you like to view it on GitHub?',
