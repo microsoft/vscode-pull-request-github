@@ -101,7 +101,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 			<div id="labels" className="section">
 				<div className="section-header" onClick={async () => {
 					const newLabels = await addLabels();
-					updatePR({ labels: pr.labels.concat(newLabels.added) });
+					updatePR({ labels: newLabels.added });
 				}}>
 					<div className="section-title">Labels</div>
 					{hasWritePermission ? (
