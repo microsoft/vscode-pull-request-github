@@ -868,7 +868,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return [];
 		}
 
-		const localBranches = this.repository.state.refs
+		const localBranches = (await this.repository.getRefs({}))
 			.filter(r => r.type === RefType.Head && r.name !== undefined)
 			.map(r => r.name!);
 
