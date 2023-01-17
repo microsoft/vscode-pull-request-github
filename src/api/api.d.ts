@@ -128,11 +128,8 @@ export interface RefQuery {
 	readonly sort?: 'alphabetically' | 'committerdate';
 }
 
-export interface BranchQuery {
+export interface BranchQuery extends RefQuery {
 	readonly remote?: boolean;
-	readonly pattern?: string;
-	readonly count?: number;
-	readonly contains?: string;
 }
 
 export interface Repository {

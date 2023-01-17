@@ -59,8 +59,9 @@ export class MockRepository implements Repository {
 	getMergeBase(ref1: string, ref2: string): Promise<string> {
 		return Promise.reject(new Error(`Unexpected getMergeBase(${ref1}, ${ref2})`));
 	}
-	getRefs(query: RefQuery, _cancellationToken?: any): Promise<Ref[]> {
-		return Promise.reject(new Error(`Unexpected getRefs(${query})`));
+	async getRefs(_query: RefQuery, _cancellationToken?: any): Promise<Ref[]> {
+		// ignore the query
+		return this._state.refs;
 	}
 	log(options?: any): Promise<Commit[]> {
 		return Promise.reject(new Error(`Unexpected log(${options})`));
