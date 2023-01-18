@@ -166,6 +166,7 @@
 	"command.pr.goToPreviousDiffInPr.title": "Go to Previous Diff in Pull Request",
 	"command.pr.copyCommentLink.title": "Copy Comment Link",
 	"command.pr.applySuggestion.title": "Apply Suggestion",
+	"command.pr.addLabelsToNewPr.title": "Add Labels",
 	"command.issues.category": "GitHub Issues",
 	"command.issue.createIssueFromSelection.title": "Create Issue From Selection",
 	"command.issue.createIssueFromClipboard.title": "Create Issue From Clipboard",

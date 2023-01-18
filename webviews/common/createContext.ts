@@ -14,6 +14,7 @@ const defaultCreateParams: CreateParams = {
 	branchesForCompare: [],
 	validate: false,
 	showTitleValidationError: false,
+	labels: []
 };
 
 export class CreatePRContext {
@@ -133,7 +134,8 @@ export class CreatePRContext {
 			compareRepo: this.createParams.compareRemote!.repositoryName,
 			draft: !!this.createParams.isDraft,
 			autoMerge: !!this.createParams.autoMerge,
-			autoMergeMethod: this.createParams.autoMergeMethod
+			autoMergeMethod: this.createParams.autoMergeMethod,
+			labels: this.createParams.labels ?? []
 		};
 	}
 
@@ -228,6 +230,13 @@ export class CreatePRContext {
 					return;
 				}
 				window.scrollTo(message.scrollPosition.x, message.scrollPosition.y);
+				return;
+
+			case 'set-labels':
+				if (!message.params) {
+					return;
+				}
+				this.updateState(message.params);
 				return;
 		}
 	};

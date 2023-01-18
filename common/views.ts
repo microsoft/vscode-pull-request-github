@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { MergeMethod, MergeMethodsAvailability } from '../src/github/interface';
+import { ILabel, MergeMethod, MergeMethodsAvailability } from '../src/github/interface';
 
 export interface RemoteInfo {
 	owner: string;
@@ -30,6 +30,8 @@ export interface CreateParams {
 	compareRemote?: RemoteInfo;
 	compareBranch?: string;
 	isDraft?: boolean;
+	labels?: ILabel[];
+	isDarkTheme?: boolean;
 
 	validate?: boolean;
 	showTitleValidationError?: boolean;
@@ -59,4 +61,5 @@ export interface CreatePullRequest {
 	draft: boolean;
 	autoMerge: boolean;
 	autoMergeMethod?: MergeMethod;
+	labels: ILabel[];
 }

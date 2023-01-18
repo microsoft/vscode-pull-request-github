@@ -65,6 +65,12 @@ export class CreatePullRequestHelper {
 			}),
 		);
 
+		this._disposables.push(
+			vscode.commands.registerCommand('pr.addLabelsToNewPr', _ => {
+				return this._createPRViewProvider?.addLabels();
+			}),
+		);
+
 		if (usingCurrentBranchAsCompare) {
 			this._disposables.push(
 				this.repository.state.onDidChange(_ => {

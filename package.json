@@ -883,6 +883,12 @@
 				"icon": "$(gift)"
 			},
 			{
+				"command": "pr.addLabelsToNewPr",
+				"title": "%command.pr.addLabelsToNewPr.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(tag)"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "%command.issue.createIssueFromSelection.title%",
 				"category": "%command.issues.category%"
@@ -1330,6 +1336,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.addLabelsToNewPr",
+					"when": "false"
+				},
+				{
 					"command": "issue.openIssue",
 					"when": "false"
 				},
@@ -1497,6 +1507,11 @@
 					"command": "pr.openPullRequestOnGitHub",
 					"when": "view == github:activePullRequest && github:hasGitHubRemotes",
 					"group": "navigation@3"
+				},
+				{
+					"command": "pr.addLabelsToNewPr",
+					"when": "view == github:createPullRequest",
+					"group": "navigation@1"
 				}
 			],
 			"view/item/context": [

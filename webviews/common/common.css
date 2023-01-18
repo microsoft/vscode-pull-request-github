@@ -251,3 +251,23 @@ body img.avatar {
 ::-webkit-scrollbar-corner {
 	display: none;
 }
+
+.labels-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.label {
+	display: flex;
+	justify-content: normal;
+	padding: 0 8px;
+	border-radius: 20px;
+	border-style: solid;
+	border-width: 1px;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	font-size: 11px;
+	line-height: 18px;
+	font-weight: 600;
+}

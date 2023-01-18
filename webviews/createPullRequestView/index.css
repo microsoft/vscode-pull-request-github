@@ -103,3 +103,7 @@ body {
 	display: flex;
 	align-items: center;
 }
+
+.labels-list {
+	padding-top: 6px;
+}

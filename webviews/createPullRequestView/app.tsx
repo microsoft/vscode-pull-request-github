@@ -8,6 +8,7 @@ import { render } from 'react-dom';
 import { CreateParams, RemoteInfo } from '../../common/views';
 import PullRequestContext from '../common/createContext';
 import { ErrorBoundary } from '../common/errorBoundary';
+import { Label } from '../common/label';
 import { AutoMerge } from '../components/automergeSelect';
 import { gitCompareIcon, repoIcon } from '../components/icon';
 
@@ -126,6 +127,15 @@ export function main() {
 
 						<BranchSelect onChange={updateBaseBranch} defaultOption={params.baseBranch} branches={params.branchesForRemote} />
 					</div>
+
+					{params.labels && (params.labels.length > 0) ?
+						<div>
+							<label className='input-label'>Labels</label>
+							<div className='labels-list'>
+								{params.labels.map(label => <Label key={label.name} {...label} canDelete={false} isDarkTheme={!!params.isDarkTheme} />)}
+							</div>
+						</div>
+						: null}
 
 					<div className='wrapper'>
 						<label className='input-label' htmlFor='title'>Title</label>
