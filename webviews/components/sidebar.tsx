@@ -5,13 +5,13 @@
 
 import React, { useContext } from 'react';
 import { gitHubLabelColor } from '../../src/common/utils';
-import { ILabel, IMilestone } from '../../src/github/interface';
+import { IMilestone } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
+import { Label } from '../common/label';
 import { AuthorLink, Avatar } from '../components/user';
 import { closeIcon, settingsIcon } from './icon';
 import { Reviewer } from './reviewer';
-import { nbsp } from './space';
 
 export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, milestone, assignees }: PullRequest) {
 	const {
@@ -19,11 +19,11 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 		addAssignees,
 		addAssigneeYourself,
 		addLabels,
+		removeLabel,
 		addMilestone,
 		updatePR,
 		pr,
 	} = useContext(PullRequestContext);
-
 	return (
 		<div id="sidebar">
 			{!isIssue ? (
@@ -112,11 +112,16 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 						</button>
 					) : null}
 				</div>
-
 				{labels.length ? (
 					<div className="labels-list">
 						{labels.map(label => (
-							<Label key={label.name} {...label} canDelete={hasWritePermission} />
+							<Label key={label.name} {...label} canDelete={hasWritePermission} isDarkTheme={pr.isDarkTheme}>
+								{hasWritePermission ? (
+									<button className="icon-button" onClick={() => removeLabel(label.name)}>
+										{closeIcon}️
+									</button>
+								) : null}
+							</Label>
 						))}
 					</div>
 				) : (
@@ -143,30 +148,6 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					<div className="section-placeholder">No milestone</div>
 				)}
 			</div>
-		</div>
-	);
-}
-
-function Label(label: ILabel & { canDelete: boolean }) {
-	const { name, canDelete, color } = label;
-	const { removeLabel, pr } = useContext(PullRequestContext);
-	const labelColor = gitHubLabelColor(color, pr.isDarkTheme, false);
-	return (
-		<div
-			className="section-item label"
-			style={{
-				backgroundColor: labelColor.backgroundColor,
-				color: labelColor.textColor,
-				borderColor: `${labelColor.borderColor}`,
-				paddingRight: canDelete ? '2px' : '8px'
-			}}
-		>
-			{name}
-			{canDelete ? (
-				<button className="icon-button" onClick={() => removeLabel(name)}>
-					{closeIcon}️
-				</button>
-			) : null}
 		</div>
 	);
 }

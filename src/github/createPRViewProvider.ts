@@ -21,7 +21,7 @@ import {
 	titleAndBodyFrom,
 } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
-import { RepoAccessAndMergeMethods } from './interface';
+import { ILabel, MergeMethod, RepoAccessAndMergeMethods } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
@@ -48,6 +48,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 	private _compareBranch: string;
 	private _baseBranch: string;
+	private _baseRemote: RemoteInfo;
 
 	private _firstLoad: boolean = true;
 
@@ -322,13 +323,16 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
 			mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
 			createError: '',
-			isDraft: vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get(CREATE_DRAFT, false)
+			labels: this.labels,
+			isDraft: vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get(CREATE_DRAFT, false),
+			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
 		};
 
 		Logger.appendLine(`Initializing "create" view: ${JSON.stringify(params)}`, 'CreatePullRequestViewProvider');
 
 		this._compareBranch = this.defaultCompareBranch.name ?? '';
 		this._baseBranch = defaultBaseBranch;
+		this._baseRemote = defaultBaseRemote;
 
 		this._postMessage({
 			command: reset ? 'reset' : 'pr.initialize',
@@ -366,6 +370,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		if (isBase) {
 			newBranch = defaultBranch;
 			this._baseBranch = defaultBranch;
+			this._baseRemote = { owner, repositoryName };
 			this._onDidChangeBaseRemote.fire({ owner, repositoryName });
 			this._onDidChangeBaseBranch.fire(defaultBranch);
 		} else {
@@ -393,6 +398,52 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			await pr.addAssignees([resolved]);
 		} catch (e) {
 			Logger.appendLine(`Unable to assign pull request to user ${resolved}.`);
+		}
+	}
+
+	private async enableAutoMerge(pr: PullRequestModel, autoMerge: boolean, automergeMethod: MergeMethod | undefined): Promise<void> {
+		if (autoMerge && automergeMethod) {
+			return pr.enableAutoMerge(automergeMethod);
+		}
+	}
+
+	private async setLabels(pr: PullRequestModel, labels: ILabel[]): Promise<void> {
+		if (labels.length > 0) {
+			await pr.addLabels(labels.map(label => label.name));
+		}
+	}
+
+	private labels: ILabel[] = [];
+	public async addLabels(): Promise<void> {
+		let newLabels: ILabel[] = [];
+
+		async function getLabelOptions(
+			folderRepoManager: FolderRepositoryManager,
+			labels: ILabel[],
+			base: RemoteInfo
+		): Promise<vscode.QuickPickItem[]> {
+			newLabels = await folderRepoManager.getLabels(undefined, { owner: base.owner, repo: base.repositoryName });
+
+			return newLabels.map(label => {
+				return {
+					label: label.name,
+					picked: labels.some(existingLabel => existingLabel.name === label.name)
+				};
+			});
+		}
+
+		const labelsToAdd = await vscode.window.showQuickPick(
+			getLabelOptions(this._folderRepositoryManager, this.labels, this._baseRemote),
+			{ canPickMany: true },
+		);
+
+		if (labelsToAdd && labelsToAdd.length) {
+			const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
+			this.labels = addedLabels;
+			this._postMessage({
+				command: 'set-labels',
+				params: { labels: this.labels }
+			});
 		}
 	}
 
@@ -482,10 +533,10 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 					if (!createdPR) {
 						this._throwError(message, vscode.l10n.t('There must be a difference in commits to create a pull request.'));
 					} else {
-						if (message.args.autoMerge && message.args.autoMergeMethod) {
-							await createdPR.enableAutoMerge(message.args.autoMergeMethod);
-						}
-						await this.autoAssign(createdPR);
+						await Promise.all([
+							this.setLabels(createdPR, message.args.labels),
+							this.enableAutoMerge(createdPR, message.args.autoMerge, message.args.autoMergeMethod),
+							this.autoAssign(createdPR)]);
 						await this._replyMessage(message, {});
 						this._onDone.fire(createdPR);
 					}
