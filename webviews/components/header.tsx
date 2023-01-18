@@ -70,12 +70,12 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 				}
 			}}
 		>
-			<input type="text" style={{ width: '100%' }} defaultValue={title}></input>
+			<input type="text" style={{ width: '100%' }} defaultValue={title} ></input>
 			<div className="form-actions">
-				<button className="secondary" onClick={() => setEditMode(false)}>
+				<button type="button" className="secondary" onClick={() => setEditMode(false)}>
 					Cancel
 				</button>
-				<input type="submit" value="Update" />
+				<button type="submit">Update</button>
 			</div>
 		</form>
 	);
