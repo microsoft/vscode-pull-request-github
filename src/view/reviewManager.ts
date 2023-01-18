@@ -172,14 +172,14 @@ export class ReviewManager {
 	}
 
 	private registerQuickDiff() {
-		vscode.window.registerQuickDiffProvider({
+		this._disposables.push(vscode.window.registerQuickDiffProvider({ scheme: 'file' }, {
 			provideOriginalResource: (uri: vscode.Uri) => {
 				const changeNode = this.reviewModel.localFileChanges.find(changeNode => changeNode.changeModel.filePath.toString() === uri.toString());
 				if (changeNode) {
 					return changeNode.changeModel.parentFilePath;
 				}
 			}
-		}, 'GitHub Pull Request', this.repository.rootUri);
+		}, 'GitHub Pull Request', this.repository.rootUri));
 	}
 
 	get statusBarItem() {
