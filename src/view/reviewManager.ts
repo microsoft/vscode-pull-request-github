@@ -966,8 +966,7 @@ export class ReviewManager {
 		if (!this._createPullRequestHelper) {
 			this._createPullRequestHelper = new CreatePullRequestHelper(this.repository);
 			this._createPullRequestHelper.onDidCreate(async createdPR => {
-				await this.updateState(false, false);
-				const postCreate = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<'none' | 'openOverview'>(POST_CREATE, 'openOverview');
+				const postCreate = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<'none' | 'openOverview' | 'checkoutDefaultBranch'>(POST_CREATE, 'openOverview');
 				if (postCreate === 'openOverview') {
 					const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(this._folderRepoManager);
 					await openDescription(
@@ -977,7 +976,13 @@ export class ReviewManager {
 						descriptionNode,
 						this._folderRepoManager,
 					);
+				} else if (postCreate === 'checkoutDefaultBranch') {
+					const defaultBranch = await this._folderRepoManager.getPullRequestRepositoryDefaultBranch(createdPR);
+					if (defaultBranch) {
+						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch);
+					}
 				}
+				await this.updateState(false, false);
 			});
 		}
 
