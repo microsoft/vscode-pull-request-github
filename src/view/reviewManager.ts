@@ -99,6 +99,7 @@ export class ReviewManager {
 
 		this.updateState(true);
 		this.pollForStatusChange();
+		this.registerQuickDiff();
 	}
 
 	private registerListeners(): void {
@@ -168,6 +169,17 @@ export class ReviewManager {
 		}));
 
 		GitHubCreatePullRequestLinkProvider.registerProvider(this._disposables, this, this._folderRepoManager);
+	}
+
+	private registerQuickDiff() {
+		vscode.window.registerQuickDiffProvider({
+			provideOriginalResource: (uri: vscode.Uri) => {
+				const changeNode = this.reviewModel.localFileChanges.find(changeNode => changeNode.changeModel.filePath.toString() === uri.toString());
+				if (changeNode) {
+					return changeNode.changeModel.parentFilePath;
+				}
+			}
+		}, 'GitHub Pull Request', this.repository.rootUri);
 	}
 
 	get statusBarItem() {
