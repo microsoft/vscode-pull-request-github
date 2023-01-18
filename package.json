@@ -312,13 +312,15 @@
 					"type": "string",
 					"enum": [
 						"none",
-						"openOverview"
+						"openOverview",
+						"checkoutDefaultBranch"
 					],
 					"description": "%githubPullRequests.postCreate.description%",
 					"default": "openOverview",
 					"enumDescriptions": [
 						"%githubPullRequests.postCreate.none%",
-						"%githubPullRequests.postCreate.openOverview%"
+						"%githubPullRequests.postCreate.openOverview%",
+						"%githubPullRequests.postCreate.checkoutDefaultBranch%"
 					]
 				},
 				"githubIssues.ignoreMilestones": {

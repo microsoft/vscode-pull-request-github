@@ -51,6 +51,7 @@
 	"githubPullRequests.postCreate.description": "The action to take after creating a pull request.",
 	"githubPullRequests.postCreate.none": "No action",
 	"githubPullRequests.postCreate.openOverview": "Open the overview page of the pull request",
+	"githubPullRequests.postCreate.checkoutDefaultBranch": "Checkout the default branch of the repository",
 	"githubIssues.ignoreMilestones.description": "An array of milestones titles to never show issues from.",
 	"githubIssues.createIssueTriggers.description": "Strings that will cause the 'Create issue from comment' code action to show.",
 	"githubIssues.createIssueTriggers.items": "String that enables the 'Create issue from comment' code action. Should not contain whitespace.",
