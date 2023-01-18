@@ -18,6 +18,7 @@ import type {
 	Ref,
 	BranchQuery,
 	FetchOptions,
+	RefQuery,
 } from '../../api/api';
 
 type Mutable<T> = {
@@ -58,11 +59,15 @@ export class MockRepository implements Repository {
 	getMergeBase(ref1: string, ref2: string): Promise<string> {
 		return Promise.reject(new Error(`Unexpected getMergeBase(${ref1}, ${ref2})`));
 	}
+	async getRefs(_query: RefQuery, _cancellationToken?: any): Promise<Ref[]> {
+		// ignore the query
+		return this._state.refs;
+	}
 	log(options?: any): Promise<Commit[]> {
 		return Promise.reject(new Error(`Unexpected log(${options})`));
 	}
 
-	private _state: Mutable<RepositoryState> = {
+	private _state: Mutable<RepositoryState & { refs: Ref[] }> = {
 		HEAD: undefined,
 		refs: [],
 		remotes: [],

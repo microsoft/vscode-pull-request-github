@@ -6,7 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import type { Branch, Repository, UpstreamRef } from '../api/api';
-import { GitApiImpl, GitErrorCodes, RefType } from '../api/api1';
+import { GitApiImpl, GitErrorCodes } from '../api/api1';
 import { GitHubManager } from '../authentication/githubServer';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
@@ -868,8 +868,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return [];
 		}
 
-		const localBranches = this.repository.state.refs
-			.filter(r => r.type === RefType.Head && r.name !== undefined)
+		const localBranches = (await this.repository.getRefs({ pattern: 'refs/heads/' }))
+			.filter(r => r.name !== undefined)
 			.map(r => r.name!);
 
 		const promises = localBranches.map(async localBranchName => {

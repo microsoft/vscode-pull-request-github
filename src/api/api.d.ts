@@ -89,7 +89,6 @@ export interface Change {
 
 export interface RepositoryState {
 	readonly HEAD: Branch | undefined;
-	readonly refs: Ref[];
 	readonly remotes: Remote[];
 	readonly submodules: Submodule[];
 	readonly rebaseCommit: Commit | undefined;
@@ -122,11 +121,15 @@ export interface FetchOptions {
 	depth?: number;
 }
 
-export interface BranchQuery {
-	readonly remote?: boolean;
-	readonly pattern?: string;
-	readonly count?: number;
+export interface RefQuery {
 	readonly contains?: string;
+	readonly count?: number;
+	readonly pattern?: string;
+	readonly sort?: 'alphabetically' | 'committerdate';
+}
+
+export interface BranchQuery extends RefQuery {
+	readonly remote?: boolean;
 }
 
 export interface Repository {
@@ -201,6 +204,8 @@ export interface Repository {
 	getBranch(name: string): Promise<Branch>;
 	getBranches(query: BranchQuery): Promise<Ref[]>;
 	setBranchUpstream(name: string, upstream: string): Promise<void>;
+	getRefs(query: RefQuery, cancellationToken?: CancellationToken): Promise<Ref[]>;
+
 	getMergeBase(ref1: string, ref2: string): Promise<string>;
 
 	status(): Promise<void>;
