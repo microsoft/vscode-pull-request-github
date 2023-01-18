@@ -82,7 +82,8 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		} else if (document.languageId === 'scminput') {
 			uri = getRootUriFromScmInputUri(document.uri);
 		} else if (document.uri.scheme === Schemes.Comment) {
-			uri = vscode.window.activeTextEditor?.document.uri;
+			const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+			uri = activeTab instanceof vscode.TabInputText ? activeTab.uri : (activeTab instanceof vscode.TabInputTextDiff ? activeTab.modified : undefined);
 		}
 
 		if (!uri) {
