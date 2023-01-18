@@ -160,6 +160,8 @@ export class GitHubRepository implements vscode.Disposable {
 		private readonly _credentialStore: CredentialStore,
 		private readonly _telemetry: ITelemetry,
 	) {
+		// kick off the comments controller early so that the Comments view is visible and doesn't pop up later in an way that's jarring
+		this.ensureCommentsController();
 	}
 
 	get authMatchesServer(): boolean {
