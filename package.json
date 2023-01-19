@@ -1856,91 +1856,91 @@
 			"editor/context/copy": [
 				{
 					"command": "issue.copyGithubPermalink",
-					"when": "gitHubOpenRepositoryCount != 0",
+					"when": "github:hasGitHubRemotes",
 					"group": "3_githubPullRequests@0"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
-					"when": "gitHubOpenRepositoryCount != 0",
+					"when": "github:hasGitHubRemotes",
 					"group": "3_githubPullRequests@1"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
-					"when": "gitHubOpenRepositoryCount != 0",
+					"when": "github:hasGitHubRemotes",
 					"group": "3_githubPullRequests@2"
 				}
 			],
 			"editor/context/share": [
 				{
 					"command": "issue.copyGithubPermalink",
-					"when": "gitHubOpenRepositoryCount != 0",
+					"when": "github:hasGitHubRemotes",
 					"group": "1_githubPullRequests@0"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
-					"when": "gitHubOpenRepositoryCount != 0",
+					"when": "github:hasGitHubRemotes",
 					"group": "1_githubPullRequests@1"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
-					"when": "gitHubOpenRepositoryCount != 0",
+					"when": "github:hasGitHubRemotes",
 					"group": "1_githubPullRequests@2"
 				}
 			],
 			"file/share": [
 				{
 					"command": "issue.copyGithubPermalink",
-					"when": "gitHubOpenRepositoryCount != 0",
+					"when": "github:hasGitHubRemotes",
 					"group": "1_githubPullRequests@0"
 				},
 				{
 					"command": "pr.copyVscodeDevPrLink",
-					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode",
+					"when": "github:hasGitHubRemotes && github:inReviewMode",
 					"group": "1_githubPullRequests@1"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
-					"when": "gitHubOpenRepositoryCount != 0",
+					"when": "github:hasGitHubRemotes",
 					"group": "1_githubPullRequests@2"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
-					"when": "gitHubOpenRepositoryCount != 0",
+					"when": "github:hasGitHubRemotes",
 					"group": "1_githubPullRequests@3"
 				}
 			],
 			"editor/title/context": [
 				{
 					"command": "issue.copyGithubPermalink",
-					"when": "gitHubOpenRepositoryCount != 0",
+					"when": "github:hasGitHubRemotes",
 					"group": "1_cutcopypaste@10"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
-					"when": "gitHubOpenRepositoryCount != 0",
+					"when": "github:hasGitHubRemotes",
 					"group": "1_cutcopypaste@11"
 				}
 			],
 			"explorer/context": [
 				{
 					"command": "issue.copyGithubPermalink",
-					"when": "gitHubOpenRepositoryCount != 0",
+					"when": "github:hasGitHubRemotes",
 					"group": "5_cutcopypaste@10"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
-					"when": "gitHubOpenRepositoryCount != 0",
+					"when": "github:hasGitHubRemotes",
 					"group": "5_cutcopypaste@11"
 				}
 			],
 			"menuBar/edit/copy": [
 				{
 					"command": "issue.copyGithubPermalink",
-					"when": "gitHubOpenRepositoryCount != 0"
+					"when": "github:hasGitHubRemotes"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
-					"when": "gitHubOpenRepositoryCount != 0"
+					"when": "github:hasGitHubRemotes"
 				}
 			],
 			"remoteHub/pullRequest": [
