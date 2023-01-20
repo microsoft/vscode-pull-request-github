@@ -206,10 +206,11 @@ export class CredentialStore implements vscode.Disposable {
 		const errorPrefix = vscode.l10n.t('Error signing in to GitHub{0}', getGitHubSuffix(authProviderId));
 		let retry: boolean = true;
 		let octokit: GitHub | undefined = undefined;
+		const sessionOptions: vscode.AuthenticationGetSessionOptions = { createIfNone: true };
 
 		while (retry) {
 			try {
-				await this.initialize(authProviderId, { createIfNone: true });
+				await this.initialize(authProviderId, sessionOptions);
 			} catch (e) {
 				Logger.appendLine(`${errorPrefix}: ${e}`);
 				if (e instanceof Error && e.stack) {
@@ -221,6 +222,9 @@ export class CredentialStore implements vscode.Disposable {
 				retry = false;
 			} else {
 				retry = (await vscode.window.showErrorMessage(errorPrefix, TRY_AGAIN, CANCEL)) === TRY_AGAIN;
+				if (retry) {
+					sessionOptions.forceNewSession = true;
+				}
 			}
 		}
 
