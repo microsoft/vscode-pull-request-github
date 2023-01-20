@@ -80,7 +80,8 @@ export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 		let repo = folderRepositoryManager.findRepo(repo => repo.remote.remoteName === prUriParams.remoteName);
 		if (!repo) {
 			// Depending on the git provider, we might not have a GitHub repo right away, even if we already have git repos.
-			await this.waitForGitHubRepos(folderRepositoryManager, 2000);
+			// This can take a long time.
+			await this.waitForGitHubRepos(folderRepositoryManager, 10000);
 			repo = folderRepositoryManager.findRepo(repo => repo.remote.remoteName === prUriParams.remoteName);
 		}
 		if (!repo) {
