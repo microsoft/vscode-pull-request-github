@@ -903,8 +903,9 @@ code {
 }
 
 .vscode-high-contrast .comment-body pre:not(.hljs),
-.vscode-high-contrast .comment-body code > div {
-	background-color: rgb(0, 0, 0);
+.vscode-high-contrast .comment-body code>div {
+	background-color: var(--vscode-editor-background);
+	border: 1px solid var(--vscode-panel-border);
 }
 
 .vscode-high-contrast .comment-body h1 {
