@@ -161,7 +161,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 							range,
 							thread,
 							this._commentController,
-							currentUser.login
+							currentUser.login,
+							this.pullRequestModel.githubRepository
 						);
 					});
 			}
@@ -230,8 +231,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			if (index > -1) {
 				newThread = this._pendingCommentThreadAdds[index];
 				newThread.gitHubThreadId = thread.id;
-				newThread.comments = thread.comments.map(c => new GHPRComment(c, newThread!));
-				updateThreadWithRange(newThread, thread);
+				newThread.comments = thread.comments.map(c => new GHPRComment(c, newThread!, this.pullRequestModel.githubRepository));
+				updateThreadWithRange(newThread, thread, this.pullRequestModel.githubRepository);
 				this._pendingCommentThreadAdds.splice(index, 1);
 			} else {
 				const openPREditors = this.getPREditors(vscode.window.visibleTextEditors);
@@ -252,7 +253,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 						range,
 						thread,
 						this._commentController,
-						(await this._folderReposManager.getCurrentUser()).login
+						(await this._folderReposManager.getCurrentUser()).login,
+						this.pullRequestModel.githubRepository
 					);
 				}
 			}
@@ -273,7 +275,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			const index = this._commentThreadCache[key] ? this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id) : -1;
 			if (index > -1) {
 				const matchingThread = this._commentThreadCache[key][index];
-				updateThread(matchingThread, thread);
+				updateThread(matchingThread, thread, this.pullRequestModel.githubRepository);
 			}
 		});
 

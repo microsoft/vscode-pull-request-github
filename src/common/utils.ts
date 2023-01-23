@@ -995,3 +995,15 @@ export class TernarySearchTree<K, V> {
 		}
 	}
 }
+
+export async function stringReplaceAsync(str: string, regex: RegExp, asyncFn: (substring: string, ...args: any[]) => Promise<string>): Promise<string> {
+	const promises: Promise<string>[] = [];
+	str.replace(regex, (match, ...args) => {
+		const promise = asyncFn(match, ...args);
+		promises.push(promise);
+		return '';
+	});
+	const data = await Promise.all(promises);
+	let offset = 0;
+	return str.replace(regex, () => data[offset++]);
+}

@@ -16,6 +16,7 @@ import { CredentialStore, GitHub } from './credentials';
 import {
 	AssignableUsersResponse,
 	CreatePullRequestResponse,
+	FileContentResponse,
 	ForkDetailsResponse,
 	GetChecksResponse,
 	isCheckRun,
@@ -469,6 +470,25 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.appendLine(`GithubRepository> Unable to fetch milestones: ${e}`);
 			return;
 		}
+	}
+
+	async getLines(sha: string, file: string, lineStart: number, lineEnd: number): Promise<string | undefined> {
+		Logger.debug(`Fetch milestones - enter`, GitHubRepository.ID);
+		const { query, remote, schema } = await this.ensure();
+		const { data } = await query<FileContentResponse>({
+			query: schema.GetFileContent,
+			variables: {
+				owner: remote.owner,
+				name: remote.repositoryName,
+				expression: `${sha}:${file}`
+			}
+		});
+
+		if (!data.repository.object.text) {
+			return undefined;
+		}
+
+		return data.repository.object.text.split('\n').slice(lineStart - 1, lineEnd).join('\n');
 	}
 
 	async getIssuesForUserByMilestone(_page?: number): Promise<MilestoneData | undefined> {
