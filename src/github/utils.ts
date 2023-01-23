@@ -89,13 +89,14 @@ export function createVSCodeCommentThreadForReviewThread(
 	range: vscode.Range,
 	thread: IReviewThread,
 	commentController: vscode.CommentController,
-	currentUser: string
+	currentUser: string,
+	githubRepository?: GitHubRepository
 ): GHPRCommentThread {
 	const vscodeThread = commentController.createCommentThread(uri, range, []);
 
 	(vscodeThread as GHPRCommentThread).gitHubThreadId = thread.id;
 
-	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(comment, vscodeThread as GHPRCommentThread));
+	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(comment, vscodeThread as GHPRCommentThread, githubRepository));
 	vscodeThread.state = isResolvedToResolvedState(thread.isResolved);
 
 	if (thread.viewerCanResolve && !thread.isResolved) {
@@ -131,19 +132,19 @@ export function getCommentCollapsibleState(thread: IReviewThread, expand?: boole
 }
 
 
-export function updateThreadWithRange(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, expand?: boolean) {
+export function updateThreadWithRange(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepository: GitHubRepository, expand?: boolean) {
 	const editors = vscode.window.visibleTextEditors;
 	for (let editor of editors) {
 		if (editor.document.uri.toString() === vscodeThread.uri.toString()) {
 			const endLine = editor.document.lineAt(vscodeThread.range.end.line);
 			const range = new vscode.Range(vscodeThread.range.start.line, 0, vscodeThread.range.end.line, endLine.text.length);
-			updateThread(vscodeThread, reviewThread, expand, range);
+			updateThread(vscodeThread, reviewThread, githubRepository, expand, range);
 			break;
 		}
 	}
 }
 
-export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, expand?: boolean, range?: vscode.Range) {
+export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepository: GitHubRepository, expand?: boolean, range?: vscode.Range) {
 	if (reviewThread.viewerCanResolve && !reviewThread.isResolved) {
 		vscodeThread.contextValue = 'canResolve';
 	} else if (reviewThread.viewerCanUnresolve && reviewThread.isResolved) {
@@ -158,7 +159,7 @@ export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IRev
 	if (range) {
 		vscodeThread.range = range;
 	}
-	vscodeThread.comments = reviewThread.comments.map(c => new GHPRComment(c, vscodeThread));
+	vscodeThread.comments = reviewThread.comments.map(c => new GHPRComment(c, vscodeThread, githubRepository));
 	updateCommentThreadLabel(vscodeThread);
 }
 

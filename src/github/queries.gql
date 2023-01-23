@@ -1242,6 +1242,22 @@ query GetChecksWithoutSuite($owner: String!, $name: String!, $number: Int!) {
 	}
 }
 
+query GetFileContent($owner: String!, $name: String!, $expression: String!) {
+	repository(owner: $owner, name: $name) {
+		object(expression: $expression) {
+			... on Blob {
+				text
+			}
+		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
+}
+
 mutation ResolveReviewThread($input: ResolveReviewThreadInput!) {
 	resolveReviewThread(input: $input) {
 		thread {

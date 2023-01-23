@@ -6,6 +6,8 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
+import { stringReplaceAsync } from '../common/utils';
+import { GitHubRepository } from './githubRepository';
 import { IAccount } from './interface';
 import { updateCommentReactions } from './utils';
 
@@ -194,11 +196,13 @@ export class GHPRComment extends CommentBase {
 	public readonly rawComment: IComment;
 
 	private _rawBody: string | vscode.MarkdownString;
+	private replacedBody: string;
 
-	constructor(comment: IComment, parent: GHPRCommentThread) {
+	constructor(comment: IComment, parent: GHPRCommentThread, private readonly githubRepository?: GitHubRepository) {
 		super(parent);
 		this.rawComment = comment;
 		this._rawBody = comment.body;
+		this.body = comment.body;
 		this.commentId = comment.id.toString();
 		this.author = {
 			name: comment.user!.login,
@@ -247,23 +251,60 @@ ${args[1]}
 		});
 	}
 
+	private async replacePermalink(body: string): Promise<string> {
+		if (!this.githubRepository) {
+			return body;
+		}
+
+		const expression = new RegExp(`https://github.com/${this.githubRepository.remote.owner}/${this.githubRepository.remote.repositoryName}/blob/([0-9a-f]{40})/(.*)#L([0-9]+)-L([0-9]+)`, 'g');
+		return stringReplaceAsync(body, expression, async (match: string, sha: string, file: string, start: string, end: string) => {
+			const startLine = parseInt(start);
+			const endLine = parseInt(end);
+			const lineContents = await this.githubRepository!.getLines(sha, file, startLine, endLine);
+			if (!lineContents) {
+				return match;
+			}
+			return `***
+[${file}](${match})
+
+Lines ${startLine} to ${endLine} in \`${sha.substring(0, 7)}\`
+\`\`\`
+${lineContents}
+\`\`\`
+***`;
+		});
+	}
+
+	private async replaceBody(body: string | vscode.MarkdownString): Promise<string> {
+		if (body instanceof vscode.MarkdownString) {
+			const permalinkReplaced = await this.replacePermalink(body.value);
+			return this.replaceSuggestion(permalinkReplaced);
+		}
+		const linkified = body.replace(/([^\[]|^)\@([^\s]+)/, (substring) => {
+			const username = substring.substring(substring.startsWith('@') ? 1 : 2);
+			return `${substring.startsWith('@') ? '' : substring.charAt(0)}[@${username}](${path.dirname(this.rawComment.user!.url)}/${username})`;
+		});
+
+		const permalinkReplaced = await this.replacePermalink(linkified);
+		return this.replaceSuggestion(permalinkReplaced);
+	}
+
 	set body(body: string | vscode.MarkdownString) {
-		this._rawBody = body;
+		if (body !== this.replacedBody) {
+			this.replaceBody(body).then(replacedBody => {
+				this.replacedBody = replacedBody;
+				// Self assign the comments to trigger an update of the comments in VS Code now that we have replaced the body.
+				// eslint-disable-next-line no-self-assign
+				this.parent.comments = this.parent.comments;
+			});
+		}
 	}
 
 	get body(): string | vscode.MarkdownString {
 		if (this.mode === vscode.CommentMode.Editing) {
 			return this._rawBody;
 		}
-		if (this._rawBody instanceof vscode.MarkdownString) {
-			return new vscode.MarkdownString(this.replaceSuggestion(this._rawBody.value));
-		}
-		const linkified = this._rawBody.replace(/([^\[]|^)\@([^\s]+)/, (substring) => {
-			const username = substring.substring(substring.startsWith('@') ? 1 : 2);
-			return `${substring.startsWith('@') ? '' : substring.charAt(0)}[@${username}](${path.dirname(this.rawComment.user!.url)}/${username})`;
-		});
-
-		return new vscode.MarkdownString(this.replaceSuggestion(linkified));
+		return new vscode.MarkdownString(this.replacedBody);
 	}
 
 	protected getCancelEditBody() {

@@ -622,6 +622,14 @@ export interface UserResponse {
 	};
 }
 
+export interface FileContentResponse {
+	repository: {
+		object: {
+			text: string | undefined;
+		}
+	}
+}
+
 export interface StartReviewResponse {
 	addPullRequestReview: {
 		pullRequestReview: {
