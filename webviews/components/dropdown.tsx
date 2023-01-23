@@ -13,7 +13,7 @@ const enum KEYCODES {
 	up = 38,
 }
 
-export const Dropdown = ({ options, defaultOption, submitAction, changeAction }: { options: { [key: string]: string }, defaultOption: string, submitAction: (string) => Promise<void>, changeAction?: (string) => Promise<void> }) => {
+export const Dropdown = ({ options, defaultOption, disabled, submitAction, changeAction }: { options: { [key: string]: string }, defaultOption: string, disabled?: boolean, submitAction: (string) => Promise<void>, changeAction?: (string) => Promise<void> }) => {
 	const [selectedMethod, selectMethod] = useState<string>(defaultOption);
 	const [areOptionsVisible, setOptionsVisible] = useState<boolean>(false);
 
@@ -94,6 +94,7 @@ export const Dropdown = ({ options, defaultOption, submitAction, changeAction }:
 					options={options}
 					selected={selectedMethod}
 					submitAction={submitAction}
+					disabled={!!disabled}
 				/>
 				<button id={EXPAND_OPTIONS_BUTTON} className={'select-right ' + expandButtonClass} aria-label='Expand button options' onClick={onClick}>
 					{chevronIcon}
@@ -115,12 +116,14 @@ function Confirm({
 	className,
 	options,
 	selected,
+	disabled,
 	submitAction,
 }: {
 	dropdownId: string;
 	className: string;
 	options: { [key: string]: string };
 	selected: string;
+	disabled: boolean;
 	submitAction: (selected: string) => Promise<void>;
 }) {
 	const [isBusy, setBusy] = useState(false);
@@ -138,7 +141,7 @@ function Confirm({
 
 	return (
 		<form onSubmit={onSubmit}>
-			<input disabled={isBusy} type="submit" className={className} id={`confirm-button${dropdownId}`} value={options[selected]} />
+			<input disabled={isBusy || disabled} type="submit" className={className} id={`confirm-button${dropdownId}`} value={options[selected]} />
 		</form>
 	);
 }

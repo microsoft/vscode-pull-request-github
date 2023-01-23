@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { onDidUpdatePR, openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
-import { formatError } from '../common/utils';
+import { dispose, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { ReviewManager } from '../view/reviewManager';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -117,10 +117,19 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		await this.updatePullRequest(this._item);
 	}
 
+	private _prDisposables: vscode.Disposable[] | undefined = undefined;
+	private registerPrSpecificListeners(pullRequestModel: PullRequestModel) {
+		if (this._prDisposables !== undefined) {
+			dispose(this._prDisposables);
+		}
+		this._prDisposables = [];
+		this._prDisposables.push(pullRequestModel.onDidInvalidate(() => this.updatePullRequest(pullRequestModel)));
+		this._prDisposables.push(pullRequestModel.onDidChangePendingReviewState(() => this.updatePullRequest(pullRequestModel)));
+	}
+
 	public async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
-		if (!this._prChangeListener || (pullRequestModel.number !== this._item.number)) {
-			this._prChangeListener?.dispose();
-			this._prChangeListener = pullRequestModel.onDidInvalidate(() => this.updatePullRequest(pullRequestModel));
+		if ((this._prDisposables === undefined) || (pullRequestModel.number !== this._item.number)) {
+			this.registerPrSpecificListeners(pullRequestModel);
 		}
 		this._item = pullRequestModel;
 		return Promise.all([
@@ -135,10 +144,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
 			this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
 			this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
-			pullRequestModel.canEdit()
+			pullRequestModel.canEdit(),
+			pullRequestModel.validateDraftMode()
 		])
 			.then(result => {
-				const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit] = result;
+				const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit, hasReviewDraft] = result;
 				if (!pullRequest) {
 					throw new Error(
 						`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`,
@@ -207,7 +217,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 						isAuthor: currentUser.login === pullRequest.author.login,
 						reviewers: this._existingReviewers,
 						continueOnGitHub,
-						isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
+						isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
+						hasReviewDraft
 					},
 				});
 			})

@@ -516,6 +516,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		if (!data) {
 			throw new Error('Failed to start review');
 		}
+		this.hasPendingReview = true;
 		this._onDidChangeComments.fire();
 		return data.addPullRequestReview.pullRequestReview.id;
 	}
