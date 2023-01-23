@@ -71,6 +71,7 @@ export interface PullRequest {
 	continueOnGitHub: boolean;
 	currentUserReviewState: string;
 	isDarkTheme: boolean;
+	hasReviewDraft: boolean;
 }
 
 export function getState(): PullRequest {

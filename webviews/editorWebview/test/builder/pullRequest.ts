@@ -46,5 +46,6 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	milestone: { default: undefined },
 	continueOnGitHub: { default: false },
 	currentUserReviewState: { default: 'REQUESTED' },
-	isDarkTheme: { default: true }
+	isDarkTheme: { default: true },
+	hasReviewDraft: { default: false }
 });

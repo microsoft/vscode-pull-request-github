@@ -14,7 +14,7 @@ export class PRContext {
 	constructor(
 		public pr: PullRequest = getState(),
 		public onchange: ((ctx: PullRequest) => void) | null = null,
-		private _handler: MessageHandler = null,
+		private _handler: MessageHandler | null = null,
 	) {
 		if (!_handler) {
 			this._handler = getMessageHandler(this.handleMessage);
@@ -202,7 +202,7 @@ export class PRContext {
 	};
 
 	postMessage(message: any) {
-		return this._handler.postMessage(message);
+		return (this._handler?.postMessage(message) ?? Promise.resolve(undefined));
 	}
 
 	handleMessage = (message: any) => {
