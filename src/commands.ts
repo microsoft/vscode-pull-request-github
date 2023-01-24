@@ -282,13 +282,17 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.openModifiedFile', (e: GitFileChangeNode | undefined) => {
 			let uri: vscode.Uri | undefined;
+			const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+
 			if (e) {
 				uri = e.changeModel.filePath;
 			} else {
-				uri = vscode.window.activeTextEditor?.document.uri;
+				if (tab?.input instanceof vscode.TabInputTextDiff) {
+					uri = tab.input.modified;
+				}
 			}
 			if (uri) {
-				vscode.commands.executeCommand('vscode.open', uri);
+				vscode.commands.executeCommand('vscode.open', uri, tab?.group.viewColumn);
 			}
 		}),
 	);
