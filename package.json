@@ -12,7 +12,6 @@
 	},
 	"enabledApiProposals": [
 		"tokenInformation",
-		"commentsResolvedState",
 		"contribShareMenu",
 		"treeItemCheckbox",
 		"contribCommentPeekContext",
