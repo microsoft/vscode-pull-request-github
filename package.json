@@ -1754,7 +1754,7 @@
 				{
 					"command": "pr.createSingleComment",
 					"group": "inline@1",
-					"when": "commentController =~ /^github-browse/ && !prInDraft && config.githubPullRequests.defaultCommentType == single"
+					"when": "commentController =~ /^github-browse/ && !prInDraft && config.githubPullRequests.defaultCommentType != review"
 				},
 				{
 					"command": "pr.startReview",
@@ -1764,7 +1764,7 @@
 				{
 					"command": "pr.createSingleComment",
 					"group": "inline@1",
-					"when": "commentController =~ /^github-review/ && !reviewInDraftMode && config.githubPullRequests.defaultCommentType == single"
+					"when": "commentController =~ /^github-review/ && !reviewInDraftMode && config.githubPullRequests.defaultCommentType != review"
 				},
 				{
 					"command": "pr.startReview",
@@ -1774,7 +1774,7 @@
 				{
 					"command": "pr.startReview",
 					"group": "inline@2",
-					"when": "commentController =~ /^github-browse/ && !prInDraft && config.githubPullRequests.defaultCommentType == single"
+					"when": "commentController =~ /^github-browse/ && !prInDraft && config.githubPullRequests.defaultCommentType != review"
 				},
 				{
 					"command": "pr.createSingleComment",
@@ -1784,7 +1784,7 @@
 				{
 					"command": "pr.startReview",
 					"group": "inline@2",
-					"when": "commentController =~ /^github-review/ && !reviewInDraftMode && config.githubPullRequests.defaultCommentType == single"
+					"when": "commentController =~ /^github-review/ && !reviewInDraftMode && config.githubPullRequests.defaultCommentType != review"
 				},
 				{
 					"command": "pr.createSingleComment",
