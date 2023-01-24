@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { CreateParams, CreatePullRequest, RemoteInfo } from '../../common/views';
 import type { Branch } from '../api/api';
 import { GitHubServerType } from '../common/authentication';
+import { commands, contexts } from '../common/executeCommands';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { GitHubRemote } from '../common/remote';
@@ -240,6 +241,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			throw new Error('Create Pull Request view unable to initialize without default remotes.');
 		}
 		const defaultOrigin = await this._folderRepositoryManager.getOrigin(this.defaultCompareBranch);
+		const viewerPermission = await defaultOrigin.getViewerPermission();
+		commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 
 		const branchesForRemote = await defaultOrigin.listBranches(this._pullRequestDefaults.owner, this._pullRequestDefaults.repo);
 		// Ensure default into branch is in the remotes list
@@ -358,8 +361,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			throw new Error('No matching GitHub repository found.');
 		}
 
-		const defaultBranch = await githubRepository.getDefaultBranch();
-		const newBranches = await githubRepository.listBranches(owner, repositoryName);
+		const [defaultBranch, newBranches, viewerPermission] = await Promise.all([githubRepository.getDefaultBranch(), githubRepository.listBranches(owner, repositoryName), githubRepository.getViewerPermission()]);
+
+		commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 
 		if (!isBase && this.defaultCompareBranch?.name && !newBranches.includes(this.defaultCompareBranch.name)) {
 			newBranches.push(this.defaultCompareBranch.name);

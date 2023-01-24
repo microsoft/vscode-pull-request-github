@@ -14,6 +14,7 @@ export namespace contexts {
 	export const ACTIVE_PR_COUNT = 'github:activePRCount';
 	export const LOADING_PRS_TREE = 'github:loadingPrsTree';
 	export const LOADING_ISSUES_TREE = 'github:loadingIssuesTree';
+	export const CREATE_PR_PERMISSIONS = 'github:createPrPermissions';
 }
 
 export namespace commands {

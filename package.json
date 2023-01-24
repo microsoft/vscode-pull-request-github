@@ -1525,7 +1525,7 @@
 				},
 				{
 					"command": "pr.addLabelsToNewPr",
-					"when": "view == github:createPullRequest",
+					"when": "view == github:createPullRequest && github:createPrPermissions != READ",
 					"group": "navigation@1"
 				}
 			],
