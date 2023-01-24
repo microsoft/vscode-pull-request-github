@@ -1797,7 +1797,7 @@
 				{
 					"command": "pr.makeSuggestion",
 					"group": "inline@3",
-					"when": "commentController =~ /^github-review/"
+					"when": "commentController =~ /^github-(browse|review)/"
 				}
 			],
 			"comments/commentThread/additionalActions": [
