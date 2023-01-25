@@ -201,7 +201,6 @@ export class GHPRComment extends CommentBase {
 	constructor(comment: IComment, parent: GHPRCommentThread, private readonly githubRepository?: GitHubRepository) {
 		super(parent);
 		this.rawComment = comment;
-		this._rawBody = comment.body;
 		this.body = comment.body;
 		this.commentId = comment.id.toString();
 		this.author = {
@@ -290,14 +289,13 @@ ${lineContents}
 	}
 
 	set body(body: string | vscode.MarkdownString) {
-		if (body !== this.replacedBody) {
-			this.replaceBody(body).then(replacedBody => {
-				this.replacedBody = replacedBody;
-				// Self assign the comments to trigger an update of the comments in VS Code now that we have replaced the body.
-				// eslint-disable-next-line no-self-assign
-				this.parent.comments = this.parent.comments;
-			});
-		}
+		this._rawBody = body;
+		this.replaceBody(body).then(replacedBody => {
+			this.replacedBody = replacedBody;
+			// Self assign the comments to trigger an update of the comments in VS Code now that we have replaced the body.
+			// eslint-disable-next-line no-self-assign
+			this.parent.comments = this.parent.comments;
+		});
 	}
 
 	get body(): string | vscode.MarkdownString {
