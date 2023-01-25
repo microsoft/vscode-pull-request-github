@@ -1355,6 +1355,22 @@
 					"when": "false"
 				},
 				{
+					"command": "issue.copyGithubPermalink",
+					"when": "github:hasGitHubRemotes"
+				},
+				{
+					"command": "issue.copyGithubHeadLink",
+					"when": "github:hasGitHubRemotes"
+				},
+				{
+					"command": "issue.copyMarkdownGithubPermalink",
+					"when": "github:hasGitHubRemotes"
+				},
+				{
+					"command": "issue.openGithubPermalink",
+					"when": "github:hasGitHubRemotes"
+				},
+				{
 					"command": "issue.openIssue",
 					"when": "false"
 				},
