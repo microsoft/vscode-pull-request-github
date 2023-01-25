@@ -251,12 +251,19 @@ export class IssueModel<TItem extends Issue = Issue> {
 
 	async addLabels(labels: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.call(octokit.api.issues.addLabels, {
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			issue_number: this.number,
-			labels,
-		});
+		try {
+			await octokit.call(octokit.api.issues.addLabels, {
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				issue_number: this.number,
+				labels,
+			});
+		} catch (e) {
+			// We don't get a nice error message from the API when setting labels fails.
+			// Since adding labels isn't a critical part of the PR creation path it's safe to catch all errors that come from setting labels.
+			Logger.appendLine(`Failed to add labels to PR #${this.number}`, IssueModel.ID);
+			vscode.window.showWarningMessage(vscode.l10n.t('Not all labels could be added to the pull request.'));
+		}
 	}
 
 	async removeLabel(label: string): Promise<void> {
