@@ -262,7 +262,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 			// We don't get a nice error message from the API when setting labels fails.
 			// Since adding labels isn't a critical part of the PR creation path it's safe to catch all errors that come from setting labels.
 			Logger.appendLine(`Failed to add labels to PR #${this.number}`, IssueModel.ID);
-			vscode.window.showWarningMessage(vscode.l10n.t('Not all labels could be added to the pull request.'));
+			vscode.window.showWarningMessage(vscode.l10n.t('Some, or all, labels could not be added to the pull request.'));
 		}
 	}
 
