@@ -19,6 +19,7 @@ export const POST_CREATE = 'postCreate';
 export const QUERIES = 'queries';
 export const FOCUSED_MODE = 'focusedMode';
 export const CREATE_DRAFT = 'createDraft';
+export const QUICK_DIFF = 'experimental.quickDiff';
 
 // git
 export const GIT = 'git';

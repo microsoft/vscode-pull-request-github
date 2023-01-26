@@ -13,7 +13,7 @@ import { commands } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
-import { FOCUSED_MODE, IGNORE_PR_BRANCHES, POST_CREATE, PR_SETTINGS_NAMESPACE, USE_REVIEW_MODE } from '../common/settingKeys';
+import { FOCUSED_MODE, IGNORE_PR_BRANCHES, POST_CREATE, PR_SETTINGS_NAMESPACE, QUICK_DIFF, USE_REVIEW_MODE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, fromReviewUri, KnownMediaExtensions, PRUriParams, Schemes, toReviewUri } from '../common/uri';
 import { formatError, groupBy, onceEvent } from '../common/utils';
@@ -172,14 +172,16 @@ export class ReviewManager {
 	}
 
 	private registerQuickDiff() {
-		this._disposables.push(vscode.window.registerQuickDiffProvider({ scheme: 'file' }, {
-			provideOriginalResource: (uri: vscode.Uri) => {
-				const changeNode = this.reviewModel.localFileChanges.find(changeNode => changeNode.changeModel.filePath.toString() === uri.toString());
-				if (changeNode) {
-					return changeNode.changeModel.parentFilePath;
+		if (vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<boolean>(QUICK_DIFF)) {
+			this._disposables.push(vscode.window.registerQuickDiffProvider({ scheme: 'file' }, {
+				provideOriginalResource: (uri: vscode.Uri) => {
+					const changeNode = this.reviewModel.localFileChanges.find(changeNode => changeNode.changeModel.filePath.toString() === uri.toString());
+					if (changeNode) {
+						return changeNode.changeModel.parentFilePath;
+					}
 				}
-			}
-		}, 'GitHub Pull Request', this.repository.rootUri));
+			}, 'GitHub Pull Request', this.repository.rootUri));
+		}
 	}
 
 	get statusBarItem() {
