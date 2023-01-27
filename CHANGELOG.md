@@ -20,7 +20,7 @@
 ![Create a PR with labels](documentation/changelog/0.58.0/create-with-labels.png)
 
 - A progress notification shows during PR creation.
-- Branches and remote for PRs that are made from a fork and are checked out from the "Pull Requests" view will be automatically cleaned up when the default branch is checked out using the "Checkout default branch" button.
+- Branches and remotes for PRs that are made from a fork and are checked out from the "Pull Requests" view will be automatically cleaned up when the default branch is checked out using the "Checkout default branch" button.
 - An experimental setting `githubPullRequests.experimental.quickDiff` will show the quick diff widget in the editor gutter for changed lines in a checked out PR.
 
 ### Fixes
