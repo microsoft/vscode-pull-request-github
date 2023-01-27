@@ -6,7 +6,9 @@
 
 - Changes can be suggested and accepted from within editor comments
 
-![Make a suggestion](documentation/changelog/0.58.0/suggest-a-change.mp4)
+<video src="documentation/changelog/0.58.0/suggest-a-change.mp4" placeholder="documentation/changelog/0.58.0/suggest-a-change.mp4" autoplay loop controls muted title="Make a suggestion">
+    Sorry, your browser doesn't support HTML 5 video.
+</video>
 
 - The setting `githubPullRequests.defaultCommentType` controls whether the default comment type is a single comment or a review comment.
 - `"githubPullRequests.postCreate": "checkoutDefaultBranch"` will cause the default branch to be checked out after creating a PR.
@@ -31,6 +33,18 @@
 - Empty diff view after reloading. https://github.com/microsoft/vscode-pull-request-github/issues/4293
 - Error signing in to Github. Try Again doesn't try again. https://github.com/microsoft/vscode-pull-request-github/issues/4148
 - Other accessibility fixes. https://github.com/microsoft/vscode-pull-request-github/issues/4237
+
+**_Thank You_**
+
+* [@eamodio (Eric Amodio)](https://github.com/eamodio): Updates TypeScript (released 4.2) and Octokit (to get fixed types), and a couple minor others [PR #2525](https://github.com/microsoft/vscode-pull-request-github/pull/2525)
+* [@sravan1946 (sravan)](https://github.com/sravan1946): Remove unavailable badge from readme [PR #4393](https://github.com/microsoft/vscode-pull-request-github/pull/4393)
+* [@Thomas1664](https://github.com/Thomas1664)
+  * Fix comment layout & use bin as delete icon [PR #4285](https://github.com/microsoft/vscode-pull-request-github/pull/4285)
+  * Colorize status badge [PR #4286](https://github.com/microsoft/vscode-pull-request-github/pull/4286)
+  * UI fixes for PR view [PR #4368](https://github.com/microsoft/vscode-pull-request-github/pull/4368)
+  * Use correct permission to show 'assign yourself' in PR view sidebar [PR #4369](https://github.com/microsoft/vscode-pull-request-github/pull/4369)
+  * Fix UI for PR draft status check entry [PR #4370](https://github.com/microsoft/vscode-pull-request-github/pull/4370)
+
 
 ## 0.56.0
 
