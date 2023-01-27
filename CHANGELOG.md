@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.58.0
+
+### Changes
+
+- Changes can be suggested and accepted from within editor comments
+
+![Make a suggestion](documentation/changelog/0.58.0/suggest-a-change.mp4)
+
+- The setting `githubPullRequests.defaultCommentType` controls whether the default comment type is a single comment or a review comment.
+- `"githubPullRequests.postCreate": "checkoutDefaultBranch"` will cause the default branch to be checked out after creating a PR.
+- Section headings (assignees, reviewers, lables, and milestones) are clickable in the PR overview.
+- The commands pr.openModifiedFile pr.openDiffView can be executed with a keyboard shortcut on the active file.
+- GitHub handles in comments are now linkified.
+- Setting `"githubPullRequests.createDraft": true` will make created PRs default to drafts.
+- Permalinks can be created for non-text, rendered, files.
+- Labels can be added to PRs at creation time
+
+![Create a PR with labels](documentation/changelog/0.58.0/create-with-labels.png)
+
+- A progress notification shows during PR creation.
+- Branches and remotes for PRs that are made from a fork and are checked out from the "Pull Requests" view will be automatically cleaned up when the default branch is checked out using the "Checkout default branch" button.
+- An experimental setting `githubPullRequests.experimental.quickDiff` will show the quick diff widget in the editor gutter for changed lines in a checked out PR.
+
+### Fixes
+
+- Using the enter key while renaming a PR should save the title. https://github.com/microsoft/vscode-pull-request-github/issues/4402
+- JSDoc hover for @return shows GHPRI username hover. https://github.com/microsoft/vscode-pull-request-github/issues/4344
+- Some text is not visible in high contrast mode. https://github.com/microsoft/vscode-pull-request-github/issues/4287
+- Empty diff view after reloading. https://github.com/microsoft/vscode-pull-request-github/issues/4293
+- Error signing in to Github. Try Again doesn't try again. https://github.com/microsoft/vscode-pull-request-github/issues/4148
+- Other accessibility fixes. https://github.com/microsoft/vscode-pull-request-github/issues/4237
+
 ## 0.56.0
 
 ### Changes
@@ -40,7 +72,7 @@
 - Pull Requests can be submitted from the "Create" view by doing `ctrl/cmd+enter` while your cursor is in the description input box.
 - Keybindings are supported for "Mark File as Viewed" (`pr.markFileAsViewed`). When "Mark File as Viewed" is run from a command or from the editor toolbar the file will also be closed. Tip: Use with "Open All Diffs" for quickly going through a PR review.
 - Checked-out pull requests with less than 20 files will have all the diffs pre-fetched for faster diff-opening times.
-- String in VS Code UI have been configured for localization. Strings in webviews (such as the "Create" view and the PR description/overview) are still not localized.
+- Strings in VS Code UI have been configured for localization. Strings in webviews (such as the "Create" view and the PR description/overview) are still not localized.
 
 ### Fixes
 
