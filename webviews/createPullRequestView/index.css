@@ -73,6 +73,11 @@ body {
 	font-size: 11px;
 }
 
+.input-label.combo-box {
+	margin-right: 0px;
+	min-width: 43px;
+}
+
 .selector-group {
 	padding: 8px;
 	border: 1px solid var(--vscode-panel-border);

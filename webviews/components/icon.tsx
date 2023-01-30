@@ -28,7 +28,5 @@ export const editIcon = <Icon src={require('../../resources/icons/edit.svg')} />
 export const plusIcon = <Icon src={require('../../resources/icons/plus.svg')} />;
 export const pendingIcon = <Icon src={require('../../resources/icons/dot.svg')} />;
 export const requestChanges = <Icon src={require('../../resources/icons/request_changes.svg')} />;
-export const repoIcon = <Icon src={require('../../resources/icons/repo.svg')} />;
-export const gitCompareIcon = <Icon src={require('../../resources/icons/git_compare.svg')} />;
 export const settingsIcon = <Icon src={require('../../resources/icons/settings.svg')} />;
 export const closeIcon = <Icon src={require('../../resources/icons/close.svg')} />;

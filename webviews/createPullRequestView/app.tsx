@@ -10,7 +10,6 @@ import PullRequestContext from '../common/createContext';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { Label } from '../common/label';
 import { AutoMerge } from '../components/automergeSelect';
-import { gitCompareIcon, repoIcon } from '../components/icon';
 
 export const RemoteSelect = ({ onChange, defaultOption, repos }:
 	{ onChange: (owner: string, repositoryName: string) => Promise<void>, defaultOption: string | undefined, repos: RemoteInfo[] }) => {
@@ -30,7 +29,7 @@ export const RemoteSelect = ({ onChange, defaultOption, repos }:
 
 	return <ErrorBoundary>
 		<div className='wrapper flex'>
-			{repoIcon}<select title='Choose a remote' value={caseCorrectedDefaultOption ?? defaultOption} onChange={(e) => {
+			<div className='input-label combo-box'>remote</div><select title='Choose a remote' value={caseCorrectedDefaultOption ?? defaultOption} onChange={(e) => {
 				const [owner, repositoryName] = e.currentTarget.value.split('/');
 				onChange(owner, repositoryName);
 			}}>
@@ -44,7 +43,7 @@ export const BranchSelect = ({ onChange, defaultOption, branches }:
 	{ onChange: (branch: string) => void, defaultOption: string | undefined, branches: string[] }) => {
 	return <ErrorBoundary>
 		<div className='wrapper flex'>
-			{gitCompareIcon}<select title='Choose a branch' value={defaultOption} onChange={(e) => onChange(e.currentTarget.value)}>
+			<div className='input-label combo-box'>branch</div><select title='Choose a branch' value={defaultOption} onChange={(e) => onChange(e.currentTarget.value)}>
 				{branches.map(branchName =>
 					<option
 						key={branchName}
