@@ -217,17 +217,9 @@ export interface PromiseAdapter<T, U> {
 }
 
 // Copied from https://github.com/microsoft/vscode/blob/cfd9d25826b5b5bc3b06677521660b4f1ba6639a/extensions/vscode-api-tests/src/utils.ts#L135-L136
-export async function asPromise<T>(event: Event<T>, timeout = 5000): Promise<T> {
-	const error = new Error('asPromise TIMEOUT reached');
-	return new Promise<T>((resolve, reject) => {
-
-		const handle = setTimeout(() => {
-			sub.dispose();
-			reject(error);
-		}, timeout);
-
+export async function asPromise<T>(event: Event<T>): Promise<T> {
+	return new Promise<T>((resolve) => {
 		const sub = event(e => {
-			clearTimeout(handle);
 			sub.dispose();
 			resolve(e);
 		});
