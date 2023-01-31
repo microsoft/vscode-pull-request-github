@@ -7,7 +7,7 @@
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
-import { formatError } from '../common/utils';
+import { asPromise, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
 import { OctokitCommon } from './common';
@@ -219,6 +219,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	private async addLabels(message: IRequestMessage<void>): Promise<void> {
+		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem>();
 		try {
 			let newLabels: ILabel[] = [];
 			async function getLabelOptions(
@@ -235,10 +236,19 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				});
 			}
 
-			const labelsToAdd = await vscode.window.showQuickPick(
-				getLabelOptions(this._folderRepositoryManager, this._item),
-				{ canPickMany: true },
-			);
+			quickPick.busy = true;
+			quickPick.canSelectMany = true;
+			quickPick.show();
+			quickPick.items = await getLabelOptions(this._folderRepositoryManager, this._item);
+			quickPick.selectedItems = quickPick.items.filter(item => item.picked);
+
+			quickPick.busy = false;
+			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
+				return quickPick.selectedItems;
+			});
+			const hidePromise = asPromise<void>(quickPick.onDidHide);
+			const labelsToAdd = await Promise.race<readonly vscode.QuickPickItem[] | void>([acceptPromise, hidePromise]);
+			quickPick.busy = true;
 
 			if (labelsToAdd && labelsToAdd.length) {
 				await this._item.addLabels(labelsToAdd.map(r => r.label));
@@ -246,12 +256,15 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 				this._item.item.labels = addedLabels;
 
-				this._replyMessage(message, {
+				await this._replyMessage(message, {
 					added: addedLabels,
 				});
 			}
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
+		} finally {
+			quickPick.hide();
+			quickPick.dispose();
 		}
 	}
 

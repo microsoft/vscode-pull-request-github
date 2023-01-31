@@ -216,43 +216,22 @@ export interface PromiseAdapter<T, U> {
 	(value: T, resolve: (value?: U | PromiseLike<U>) => void, reject: (reason: any) => void): any;
 }
 
-const passthrough = (value: any, resolve: (value?: any) => void) => resolve(value);
+// Copied from https://github.com/microsoft/vscode/blob/cfd9d25826b5b5bc3b06677521660b4f1ba6639a/extensions/vscode-api-tests/src/utils.ts#L135-L136
+export async function asPromise<T>(event: Event<T>, timeout = 5000): Promise<T> {
+	const error = new Error('asPromise TIMEOUT reached');
+	return new Promise<T>((resolve, reject) => {
 
-/**
- * Return a promise that resolves with the next emitted event, or with some future
- * event as decided by an adapter.
- *
- * If specified, the adapter is a function that will be called with
- * `(event, resolve, reject)`. It will be called once per event until it resolves or
- * rejects.
- *
- * The default adapter is the passthrough function `(value, resolve) => resolve(value)`.
- *
- * @param {Event<T>} event the event
- * @param {PromiseAdapter<T, U>?} adapter controls resolution of the returned promise
- * @returns {Promise<U>} a promise that resolves or rejects as specified by the adapter
- */
-export async function promiseFromEvent<T, U>(event: Event<T>, adapter: PromiseAdapter<T, U> = passthrough): Promise<U> {
-	let subscription: Disposable;
-	return new Promise<U>(
-		(resolve, reject) =>
-		(subscription = event((value: T) => {
-			try {
-				Promise.resolve<U>(adapter(value, resolve as any, reject)).catch(reject);
-			} catch (error) {
-				reject(error);
-			}
-		})),
-	).then(
-		(result: U) => {
-			subscription.dispose();
-			return result;
-		},
-		error => {
-			subscription.dispose();
-			throw error;
-		},
-	);
+		const handle = setTimeout(() => {
+			sub.dispose();
+			reject(error);
+		}, timeout);
+
+		const sub = event(e => {
+			clearTimeout(handle);
+			sub.dispose();
+			resolve(e);
+		});
+	});
 }
 
 export function dateFromNow(date: Date | string): string {
