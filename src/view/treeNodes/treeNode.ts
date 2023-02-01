@@ -18,7 +18,7 @@ export type TreeNodeParent = TreeNode | BaseTreeNode;
 export const EXPANDED_QUERIES_STATE = 'expandedQueries';
 
 export abstract class TreeNode implements vscode.Disposable {
-	children: TreeNode[];
+	protected children: TreeNode[];
 	childrenDisposables: vscode.Disposable[];
 	parent: TreeNodeParent;
 	label?: string;
