@@ -184,10 +184,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
-		if (this.childrenDisposables && this.childrenDisposables.length) {
-			this.childrenDisposables.forEach(dp => dp.dispose());
-			this.childrenDisposables = [];
-		}
+		super.getChildren();
 
 		let hasMorePages = false;
 		let hasUnsearchedRepositories = false;
@@ -235,13 +232,13 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.TryOtherRemotes, this));
 			}
 
-			this.childrenDisposables = nodes;
+			this.children = nodes;
 			return nodes;
 		} else {
 			const category = needLogin ? PRCategoryActionType.Login : PRCategoryActionType.Empty;
 			const result = [new PRCategoryActionNode(this, category)];
 
-			this.childrenDisposables = result;
+			this.children = result;
 			return result;
 		}
 	}

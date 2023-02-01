@@ -51,6 +51,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
+		super.getChildren();
 		const fileChanges = (await this.pullRequest.getCommitChangedFiles(this.commit)) ?? [];
 
 		if (fileChanges.length === 0) {
@@ -117,6 +118,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 			// flat view
 			result = fileChangeNodes;
 		}
-		return Promise.resolve(result);
+		this.children = result;
+		return result;
 	}
 }

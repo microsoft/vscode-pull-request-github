@@ -82,7 +82,8 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 				this._pullRequest,
 			);
 		}
-		return [this._filesCategoryNode, this._commitsCategoryNode];
+		this.children = [this._filesCategoryNode, this._commitsCategoryNode];
+		return this.children;
 	}
 
 	getTreeItem(): vscode.TreeItem {
