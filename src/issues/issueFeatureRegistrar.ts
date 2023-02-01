@@ -421,6 +421,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		{ language: 'razor' },
 		{ language: 'ruby' },
 		{ language: 'rust' },
+		{ language: 'scminput' },
 		{ language: 'scss' },
 		{ language: 'search-result' },
 		{ language: 'shaderlab' },
