@@ -43,16 +43,17 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
+		super.getChildren();
 		try {
 			Logger.appendLine(`Getting children for Commits node`, PR_TREE);
 			const commits = await this._pr.getCommits();
-			const commitNodes = commits.map(
+			this.children = commits.map(
 				(commit, index) => new CommitNode(this, this._folderRepoManager, this._pr, commit, (index === commits.length - 1) && (this._folderRepoManager.repository.state.HEAD?.commit === commit.sha)),
 			);
 			Logger.appendLine(`Got all children for Commits node`, PR_TREE);
-			return Promise.resolve(commitNodes);
+			return this.children;
 		} catch (e) {
-			return Promise.resolve([]);
+			return [];
 		}
 	}
 }

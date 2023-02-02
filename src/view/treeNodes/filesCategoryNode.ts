@@ -42,6 +42,8 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
+		super.getChildren();
+
 		Logger.appendLine(`Getting children for Files node`, PR_TREE);
 		if (!this._reviewModel.hasLocalFileChanges) {
 			// Provide loading feedback until we get the files.
@@ -76,6 +78,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 			nodes = this._reviewModel.localFileChanges;
 		}
 		Logger.appendLine(`Got all children for Files node`, PR_TREE);
-		return Promise.resolve(nodes);
+		this.children = nodes;
+		return nodes;
 	}
 }

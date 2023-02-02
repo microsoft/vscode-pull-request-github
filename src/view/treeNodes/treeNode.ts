@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import Logger from '../../common/logger';
+import { dispose } from '../../common/utils';
 
 export interface BaseTreeNode {
 	reveal(element: TreeNode, options?: { select?: boolean; focus?: boolean; expand?: boolean | number }): Thenable<void>;
@@ -17,6 +18,7 @@ export type TreeNodeParent = TreeNode | BaseTreeNode;
 export const EXPANDED_QUERIES_STATE = 'expandedQueries';
 
 export abstract class TreeNode implements vscode.Disposable {
+	protected children: TreeNode[];
 	childrenDisposables: vscode.Disposable[];
 	parent: TreeNodeParent;
 	label?: string;
@@ -46,7 +48,18 @@ export abstract class TreeNode implements vscode.Disposable {
 		return this.parent.refresh(treeNode);
 	}
 
+	async cachedChildren(): Promise<TreeNode[]> {
+		if (this.children && this.children.length) {
+			return this.children;
+		}
+		return this.getChildren();
+	}
+
 	async getChildren(): Promise<TreeNode[]> {
+		if (this.children && this.children.length) {
+			dispose(this.children);
+			this.children = [];
+		}
 		return [];
 	}
 
@@ -56,7 +69,7 @@ export abstract class TreeNode implements vscode.Disposable {
 
 	dispose(): void {
 		if (this.childrenDisposables) {
-			this.childrenDisposables.forEach(dispose => dispose.dispose());
+			dispose(this.childrenDisposables);
 			this.childrenDisposables = [];
 		}
 	}

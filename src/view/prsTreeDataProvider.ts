@@ -31,7 +31,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		return this._onDidChange.event;
 	}
 	private _disposables: vscode.Disposable[];
-	private _childrenDisposables: vscode.Disposable[];
+	private _childrenDisposables: TreeNode[];
 	private _view: vscode.TreeView<TreeNode>;
 	private _reposManager: RepositoriesManager | undefined;
 	private _initialized: boolean = false;
@@ -212,6 +212,13 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		}
 
 		return actions;
+	}
+
+	async cachedChildren(element?: TreeNode): Promise<TreeNode[]> {
+		if (!element) {
+			return this._childrenDisposables;
+		}
+		return element.cachedChildren();
 	}
 
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {

@@ -176,13 +176,13 @@ export class NotificationProvider implements vscode.Disposable {
 			}
 		}
 
-		this._gitHubPrsTree.getChildren().then(async (catNodes: CategoryTreeNode[]) => {
+		this._gitHubPrsTree.cachedChildren().then(async (catNodes: CategoryTreeNode[]) => {
 			let allPrs: PullRequestModel[] = [];
 
 			for (const catNode of catNodes) {
 				if (catNode.id === 'All Open') {
 					if (catNode.prs.length === 0) {
-						for (const prNode of await catNode.getChildren()) {
+						for (const prNode of await catNode.cachedChildren()) {
 							if (prNode instanceof PRNode) {
 								allPrs.push(prNode.pullRequestModel);
 							}

@@ -10,6 +10,7 @@ import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT } from '../../common/settingKeys';
 import { createPRNodeUri, fromPRUri, Schemes } from '../../common/uri';
+import { dispose } from '../../common/utils';
 import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
 import { NotificationProvider } from '../../github/notifications';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
@@ -52,19 +53,15 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 	) {
 		super();
 		this.registerSinceReviewChange();
+		this._disposables.push(this.pullRequestModel.onDidInvalidate(() => this.refresh(this)));
 	}
 
 	// #region Tree
 	async getChildren(): Promise<TreeNode[]> {
+		super.getChildren();
 		Logger.debug(`Fetch children of PRNode #${this.pullRequestModel.number}`, PRNode.ID);
-		this.pullRequestModel.onDidInvalidate(() => this.refresh(this));
 
 		try {
-			if (this.childrenDisposables && this.childrenDisposables.length) {
-				this.childrenDisposables.forEach(dp => dp.dispose());
-				this.childrenDisposables = [];
-			}
-
 			const descriptionNode = new DescriptionNode(
 				this,
 				vscode.l10n.t('Description'),
@@ -77,11 +74,10 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				return [descriptionNode];
 			}
 
-			[, , this._fileChanges, ,] = await Promise.all([
-				this.pullRequestModel.initializeReviewThreadCache(),
+			[, this._fileChanges, ,] = await Promise.all([
 				this.pullRequestModel.initializePullRequestFileViewState(),
 				this.resolveFileChangeNodes(),
-				(!this._commentController) ? this.resolvePRCommentController() : new Promise(() => { return; }),
+				(!this._commentController) ? this.resolvePRCommentController() : new Promise<void>(resolve => resolve()),
 				this.pullRequestModel.validateDraftMode()
 			]);
 
@@ -114,7 +110,12 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				this.reopenNewPrDiffs(this.pullRequestModel);
 			}
 
-			this.childrenDisposables = result;
+			this.children = result;
+
+			// Kick off review thread initialization but don't await it.
+			// Events will be fired later that will cause the tree to update when this is ready.
+			this.pullRequestModel.initializeReviewThreadCache();
+
 			return result;
 		} catch (e) {
 			Logger.appendLine(e);
@@ -351,7 +352,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 
 		this._commentController = undefined;
 
-		this._disposables.forEach(d => d.dispose());
+		dispose(this._disposables);
 		this._disposables = [];
 	}
 }
