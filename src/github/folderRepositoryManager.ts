@@ -1037,7 +1037,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		for (let i = 0; i < githubRepositories.length; i++) {
 			const githubRepository = githubRepositories[i];
 			const remoteId = githubRepository.remote.url.toString() + queryId;
-			const pageInformation = this._repositoryPageInformation.get(remoteId)!;
+			let storedPageInfo = this._repositoryPageInformation.get(remoteId);
+			if (!storedPageInfo) {
+				Logger.appendLine(`No page information for ${remoteId}`);
+				storedPageInfo = { pullRequestPage: 0, hasMorePages: null };
+				this._repositoryPageInformation.set(remoteId, storedPageInfo);
+			}
+			const pageInformation = storedPageInfo;
 
 			const fetchPage = async (
 				pageNumber: number,
