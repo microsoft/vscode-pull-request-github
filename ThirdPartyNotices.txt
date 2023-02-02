@@ -741,6 +741,23 @@ THE SOFTWARE.
 
 ---------------------------------------------------------
 
+@octokit/openapi-types 12.11.0 - MIT
+https://github.com/octokit/openapi-types.ts#readme
+
+Copyright 2020 Gregor Martynus
+
+Copyright 2020 Gregor Martynus
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+---------------------------------------------------------
+
+---------------------------------------------------------
+
 @octokit/openapi-types 5.3.2 - MIT
 https://github.com/octokit/openapi-types.ts#readme
 
@@ -792,7 +809,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ---------------------------------------------------------
 
-@octokit/plugin-rest-endpoint-methods 4.12.0 - MIT
+@octokit/plugin-rest-endpoint-methods 4.12.2 - MIT
 https://github.com/octokit/plugin-rest-endpoint-methods.js#readme
 
 Copyright (c) 2019 Octokit
@@ -874,7 +891,7 @@ THE SOFTWARE.
 
 ---------------------------------------------------------
 
-@octokit/rest 18.2.0 - MIT
+@octokit/rest 18.2.1 - MIT
 https://github.com/octokit/rest.js#readme
 
 Copyright (c) 2017-2018 Octokit
@@ -908,7 +925,24 @@ THE SOFTWARE.
 
 ---------------------------------------------------------
 
-@octokit/types 6.10.0 - MIT
+@octokit/types 6.10.1 - MIT
+https://github.com/octokit/types.ts#readme
+
+
+MIT License Copyright (c) 2019 Octokit contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next paragraph) shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+---------------------------------------------------------
+
+---------------------------------------------------------
+
+@octokit/types 6.12.2 - MIT
 https://github.com/octokit/types.ts#readme
 
 Copyright (c) 2019 Octokit
@@ -926,7 +960,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ---------------------------------------------------------
 
-@octokit/types 6.12.2 - MIT
+@octokit/types 6.41.0 - MIT
 https://github.com/octokit/types.ts#readme
 
 Copyright (c) 2019 Octokit
@@ -2047,7 +2081,7 @@ SOFTWARE.
 
 ---------------------------------------------------------
 
-ssh-config 2.0.0 - MIT
+ssh-config 4.1.1 - MIT
 https://github.com/cyjake/ssh-config#readme
 
 Copyright (c) 2017 Chen Yangjian
