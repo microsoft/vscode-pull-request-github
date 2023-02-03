@@ -84,7 +84,7 @@ const InlineReviewers = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean 
 			<>
 				{' '}
 				{pr.reviewers.map(state => (
-					<Reviewer key={state.reviewer.login} {...state} canDelete={false} />
+					<Reviewer key={state.reviewer.login} {...state} />
 				))}
 			</>
 		) : null

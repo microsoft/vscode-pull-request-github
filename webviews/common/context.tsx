@@ -159,6 +159,13 @@ export class PRContext {
 		this.updatePR(state);
 	}
 
+	public reRequestReview = async (reviewerLogin: string) => {
+		const { reviewers } = await this.postMessage({ command: 'pr.re-request-review', args: reviewerLogin });
+		const state = this.pr;
+		state.reviewers = reviewers;
+		this.updatePR(state);
+	}
+
 	public async updateAutoMerge({ autoMerge, autoMergeMethod }: { autoMerge?: boolean, autoMergeMethod?: MergeMethod }) {
 		const response: { autoMerge: boolean, autoMergeMethod?: MergeMethod } = await this.postMessage({ command: 'pr.update-automerge', args: { autoMerge, autoMergeMethod } });
 		const state = this.pr;

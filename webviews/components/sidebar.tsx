@@ -43,7 +43,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					</div>
 					{reviewers && reviewers.length ? (
 						reviewers.map(state => (
-							<Reviewer key={state.reviewer.login} {...state} canDelete={hasWritePermission} />
+							<Reviewer key={state.reviewer.login} {...state} />
 						))
 					) : (
 						<div className="section-placeholder">None yet</div>
