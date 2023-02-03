@@ -24,7 +24,7 @@
 	"version": "0.58.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.75.0"
+		"vscode": "^1.76.0"
 	},
 	"categories": [
 		"Other"
@@ -97,7 +97,8 @@
 						"off"
 					],
 					"default": "info",
-					"description": "%githubPullRequests.logLevel.description%"
+					"description": "%githubPullRequests.logLevel.description%",
+					"deprecationMessage": "%githubPullRequests.logLevel.deprecationMessage%"
 				},
 				"githubPullRequests.remotes": {
 					"type": "array",

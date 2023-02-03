@@ -215,11 +215,11 @@ export class ReviewManager {
 			return;
 		}
 		if (!this._validateStatusInProgress) {
-			Logger.appendLine('Review> Validate state in progress');
+			Logger.appendLine('Validate state in progress', ReviewManager.ID);
 			this._validateStatusInProgress = this.validateStatueAndSetContext(silent, updateLayout);
 			return this._validateStatusInProgress;
 		} else {
-			Logger.appendLine('Review> Queuing additional validate state');
+			Logger.appendLine('Queuing additional validate state', ReviewManager.ID);
 			this._validateStatusInProgress = this._validateStatusInProgress.then(async _ => {
 				return await this.validateStatueAndSetContext(silent, updateLayout);
 			});
@@ -301,7 +301,7 @@ export class ReviewManager {
 	}
 
 	private async validateState(silent: boolean, updateLayout: boolean) {
-		Logger.appendLine('Review> Validating state...');
+		Logger.appendLine('Validating state...', ReviewManager.ID);
 		const oldLastCommitSha = this._lastCommitSha;
 		this._lastCommitSha = undefined;
 		await this._folderRepoManager.updateRepositories(false);
@@ -327,7 +327,7 @@ export class ReviewManager {
 
 		if (!matchingPullRequestMetadata) {
 			Logger.appendLine(
-				`Review> no matching pull request metadata found on GitHub for current branch ${branch.name}`,
+				`No matching pull request metadata found on GitHub for current branch ${branch.name}`, ReviewManager.ID
 			);
 			await this.clear(true);
 			return;
@@ -335,14 +335,14 @@ export class ReviewManager {
 
 		const remote = branch.upstream ? branch.upstream.remote : null;
 		if (!remote) {
-			Logger.appendLine(`Review> current branch ${this._repository.state.HEAD.name} hasn't setup remote yet`);
+			Logger.appendLine(`Current branch ${this._repository.state.HEAD.name} hasn't setup remote yet`, ReviewManager.ID);
 			await this.clear(true);
 			return;
 		}
 
 		// we switch to another PR, let's clean up first.
 		Logger.appendLine(
-			`Review> current branch ${this._repository.state.HEAD.name} is associated with pull request #${matchingPullRequestMetadata.prNumber}`,
+			`current branch ${this._repository.state.HEAD.name} is associated with pull request #${matchingPullRequestMetadata.prNumber}`, ReviewManager.ID
 		);
 		const previousPrNumber = this._prNumber;
 		let pr = await this.resolvePullRequest(matchingPullRequestMetadata);
@@ -374,13 +374,13 @@ export class ReviewManager {
 
 		if (pr.isClosed && !useReviewConfiguration.closed) {
 			await this.clear(true);
-			Logger.appendLine('Review> This PR is closed');
+			Logger.appendLine('This PR is closed', ReviewManager.ID);
 			return;
 		}
 
 		if (pr.isMerged && !useReviewConfiguration.merged) {
 			await this.clear(true);
-			Logger.appendLine('Review> This PR is merged');
+			Logger.appendLine('This PR is merged', ReviewManager.ID);
 			return;
 		}
 
@@ -396,7 +396,7 @@ export class ReviewManager {
 			this._folderRepoManager.checkBranchUpToDate(pr, true);
 		}
 
-		Logger.appendLine('Review> Fetching pull request data');
+		Logger.appendLine('Fetching pull request data', ReviewManager.ID);
 		if (!silent) {
 			onceEvent(this._reviewModel.onDidChangeLocalFileChanges)(() => {
 				if (pr) {
@@ -415,7 +415,7 @@ export class ReviewManager {
 		);
 		this.justSwitchedToReviewMode = false;
 
-		Logger.appendLine(`Review> register comments provider`);
+		Logger.appendLine(`Register comments provider`, ReviewManager.ID);
 		await this.registerCommentController();
 
 		this._activePrViewCoordinator.setPullRequest(pr, this._folderRepoManager, this, previousActive);
@@ -435,7 +435,7 @@ export class ReviewManager {
 			title: vscode.l10n.t('View Pull Request Description'),
 			arguments: [pr],
 		};
-		Logger.appendLine(`Review> display pull request status bar indicator and refresh pull request tree view.`);
+		Logger.appendLine(`Display pull request status bar indicator and refresh pull request tree view.`, ReviewManager.ID);
 		this.statusBarItem.show();
 		vscode.commands.executeCommand('pr.refreshList');
 
@@ -447,15 +447,15 @@ export class ReviewManager {
 	private layout(pr: PullRequestModel, updateLayout: boolean, silent: boolean) {
 		const isFocusMode = this._context.workspaceState.get(FOCUS_REVIEW_MODE);
 
-		Logger.appendLine(`Review> using focus mode = ${isFocusMode}.`);
-		Logger.appendLine(`Review> state validation silent = ${silent}.`);
-		Logger.appendLine(`Review> PR show should show = ${this._showPullRequest.shouldShow}.`);
+		Logger.appendLine(`Using focus mode = ${isFocusMode}.`, ReviewManager.ID);
+		Logger.appendLine(`State validation silent = ${silent}.`, ReviewManager.ID);
+		Logger.appendLine(`PR show should show = ${this._showPullRequest.shouldShow}.`, ReviewManager.ID);
 
 		if ((!silent || this._showPullRequest.shouldShow) && isFocusMode) {
 			this._doFocusShow(pr, updateLayout);
 		} else if (!this._showPullRequest.shouldShow && isFocusMode) {
 			const showPRChangedDisposable = this._showPullRequest.onChangedShowValue(shouldShow => {
-				Logger.appendLine(`Review> PR show value changed = ${shouldShow}.`);
+				Logger.appendLine(`PR show value changed = ${shouldShow}.`, ReviewManager.ID);
 				if (shouldShow) {
 					this._doFocusShow(pr, updateLayout);
 				}
@@ -599,7 +599,7 @@ export class ReviewManager {
 		);
 
 		if (!pr || !pr.isResolved()) {
-			Logger.appendLine('Review> This PR is no longer valid');
+			Logger.warn('This PR is no longer valid', ReviewManager.ID);
 			return;
 		}
 
@@ -712,7 +712,7 @@ export class ReviewManager {
 
 			return Promise.resolve(void 0);
 		} catch (e) {
-			Logger.appendLine(`Review> ${e}`);
+			Logger.error(`${e}`, ReviewManager.ID);
 		}
 	}
 
@@ -746,7 +746,7 @@ export class ReviewManager {
 	}
 
 	public async switch(pr: PullRequestModel): Promise<void> {
-		Logger.appendLine(`Review> switch to Pull Request #${pr.number} - start`);
+		Logger.appendLine(`Switch to Pull Request #${pr.number} - start`, ReviewManager.ID);
 		this.statusBarItem.text = vscode.l10n.t('{0} Switching to Review Mode', '$(sync~spin)');
 		this.statusBarItem.command = undefined;
 		this.statusBarItem.show();
@@ -761,7 +761,7 @@ export class ReviewManager {
 				}
 			});
 		} catch (e) {
-			Logger.appendLine(`Review> checkout failed #${JSON.stringify(e)}`);
+			Logger.error(`Checkout failed #${JSON.stringify(e)}`, ReviewManager.ID);
 			this.switchingToReviewMode = false;
 
 			if (e.message === 'User aborted') {
@@ -801,7 +801,7 @@ export class ReviewManager {
 				"pr.checkout" : {}
 			*/
 			this._telemetry.sendTelemetryEvent('pr.checkout');
-			Logger.appendLine(`Review> switch to Pull Request #${pr.number} - done`, ReviewManager.ID);
+			Logger.appendLine(`Switch to Pull Request #${pr.number} - done`, ReviewManager.ID);
 		} finally {
 			this.setStatusForPr(pr);
 			await this._repository.status();

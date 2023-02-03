@@ -200,7 +200,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				const templateContent = await vscode.workspace.fs.readFile(templateUris[0]);
 				return new TextDecoder('utf-8').decode(templateContent);
 			} catch (e) {
-				Logger.appendLine(`Reading pull request template failed: ${e}`);
+				Logger.warn(`Reading pull request template failed: ${e}`);
 				return undefined;
 			}
 		}
@@ -401,7 +401,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		try {
 			await pr.addAssignees([resolved]);
 		} catch (e) {
-			Logger.appendLine(`Unable to assign pull request to user ${resolved}.`);
+			Logger.error(`Unable to assign pull request to user ${resolved}.`);
 		}
 	}
 

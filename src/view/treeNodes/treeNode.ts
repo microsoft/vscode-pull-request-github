@@ -40,7 +40,7 @@ export abstract class TreeNode implements vscode.Disposable {
 		try {
 			await this.parent.reveal(treeNode || this, options);
 		} catch (e) {
-			Logger.appendLine(e, 'TreeNode');
+			Logger.error(e, 'TreeNode');
 		}
 	}
 
