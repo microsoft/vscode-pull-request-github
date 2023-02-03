@@ -413,7 +413,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 	private async setLabels(pr: PullRequestModel, labels: ILabel[]): Promise<void> {
 		if (labels.length > 0) {
-			await pr.addLabels(labels.map(label => label.name));
+			await pr.setLabels(labels.map(label => label.name));
 		}
 	}
 
