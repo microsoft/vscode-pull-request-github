@@ -6,9 +6,7 @@
 
 - Changes can be suggested and accepted from within editor comments
 
-<video src="documentation/changelog/0.58.0/suggest-a-change.mp4" placeholder="documentation/changelog/0.58.0/suggest-a-change.mp4" autoplay loop controls muted title="Make a suggestion">
-    Sorry, your browser doesn't support HTML 5 video.
-</video>
+![Suggest a Change](documentation/changelog/0.58.0/suggest-a-change.gif)
 
 - The setting `githubPullRequests.defaultCommentType` controls whether the default comment type is a single comment or a review comment.
 - `"githubPullRequests.postCreate": "checkoutDefaultBranch"` will cause the default branch to be checked out after creating a PR.
