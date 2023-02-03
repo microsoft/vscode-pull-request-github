@@ -401,7 +401,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		try {
 			await pr.addAssignees([resolved]);
 		} catch (e) {
-			Logger.appendLine(`Unable to assign pull request to user ${resolved}.`);
+			Logger.error(`Unable to assign pull request to user ${resolved}.`);
 		}
 	}
 

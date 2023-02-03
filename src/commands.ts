@@ -876,7 +876,7 @@ export function registerCommands(
 			const commentEditor = vscode.window.activeTextEditor?.document.uri.scheme === Schemes.Comment ? vscode.window.activeTextEditor
 				: vscode.window.visibleTextEditors.find(visible => visible.document.uri.scheme === Schemes.Comment);
 			if (!commentEditor) {
-				Logger.appendLine('No comment editor visible for making a suggestion.');
+				Logger.error('No comment editor visible for making a suggestion.');
 				vscode.window.showErrorMessage(vscode.l10n.t('No available comment editor to make a suggestion in.'));
 				return;
 			}

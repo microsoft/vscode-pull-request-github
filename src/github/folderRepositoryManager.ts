@@ -204,7 +204,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		const serverTypes = await Promise.all(
 			potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
 		).catch(e => {
-			Logger.appendLine(`Resolving GitHub remotes failed: ${e}`);
+			Logger.error(`Resolving GitHub remotes failed: ${e}`);
 			vscode.window.showErrorMessage(vscode.l10n.t('Resolving GitHub remotes failed: {0}', formatError(e)));
 			return [];
 		});
@@ -1039,7 +1039,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const remoteId = githubRepository.remote.url.toString() + queryId;
 			let storedPageInfo = this._repositoryPageInformation.get(remoteId);
 			if (!storedPageInfo) {
-				Logger.appendLine(`No page information for ${remoteId}`);
+				Logger.warn(`No page information for ${remoteId}`);
 				storedPageInfo = { pullRequestPage: 0, hasMorePages: null };
 				this._repositoryPageInformation.set(remoteId, storedPageInfo);
 			}
@@ -2169,7 +2169,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 							vscode.window.showErrorMessage(vscode.l10n.t('An error occurred when fetching the repository: {0}', e.stderr));
 						}
 					}
-					Logger.appendLine(`Error when fetching: ${e.stderr ?? e}`, FolderRepositoryManager.ID);
+					Logger.error(`Error when fetching: ${e.stderr ?? e}`, FolderRepositoryManager.ID);
 				}
 				const pullBranchConfiguration = await this.pullBranchConfiguration();
 				if (branch.behind !== undefined && branch.behind > 0) {

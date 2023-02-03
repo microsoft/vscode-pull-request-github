@@ -599,7 +599,7 @@ export class ReviewManager {
 		);
 
 		if (!pr || !pr.isResolved()) {
-			Logger.appendLine('This PR is no longer valid', ReviewManager.ID);
+			Logger.warn('This PR is no longer valid', ReviewManager.ID);
 			return;
 		}
 
