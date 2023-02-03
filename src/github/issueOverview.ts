@@ -251,7 +251,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			quickPick.busy = true;
 
 			if (labelsToAdd && labelsToAdd.length) {
-				await this._item.addLabels(labelsToAdd.map(r => r.label));
+				await this._item.setLabels(labelsToAdd.map(r => r.label));
 				const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
 
 				this._item.item.labels = addedLabels;
