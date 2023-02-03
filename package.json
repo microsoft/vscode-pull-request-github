@@ -98,7 +98,7 @@
 					],
 					"default": "info",
 					"description": "%githubPullRequests.logLevel.description%",
-					"deprecationMessage": "%githubPullRequests.logLevel.deprecationMessage%"
+					"markdownDeprecationMessage": "%githubPullRequests.logLevel.markdownDeprecationMessage%"
 				},
 				"githubPullRequests.remotes": {
 					"type": "array",
