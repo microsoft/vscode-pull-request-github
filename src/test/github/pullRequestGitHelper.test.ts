@@ -50,7 +50,7 @@ describe('PullRequestGitHelper', function () {
 			const remote = new GitHubRemote('elsewhere', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
 
-			const prItem = convertRESTPullRequestToRawPullRequest(
+			const prItem = await convertRESTPullRequestToRawPullRequest(
 				new PullRequestBuilder()
 					.number(100)
 					.user(u => u.login('me'))

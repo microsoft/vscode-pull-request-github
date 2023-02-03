@@ -43,7 +43,7 @@ describe('PullRequestManager', function () {
 	});
 
 	describe('activePullRequest', function () {
-		it('gets and sets the active pull request', function () {
+		it('gets and sets the active pull request', async function () {
 			assert.strictEqual(manager.activePullRequest, undefined);
 
 			const changeFired = sinon.spy();
@@ -54,7 +54,7 @@ describe('PullRequestManager', function () {
 			const remote = new GitHubRemote('origin', url, protocol, GitHubServerType.GitHubDotCom);
 			const rootUri = Uri.file('C:\\users\\test\\repo');
 			const repository = new GitHubRepository(remote, rootUri, manager.credentialStore, telemetry);
-			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
+			const prItem = await convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build(), repository);
 			const pr = new PullRequestModel(manager.credentialStore, telemetry, repository, remote, prItem);
 
 			manager.activePullRequest = pr;

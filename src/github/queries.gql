@@ -9,6 +9,12 @@ fragment Merged on MergedEvent {
 		login
 		avatarUrl
 		url
+		... on User {
+			email
+		}
+		... on Organization {
+			email
+		}
 	}
 	createdAt
 	mergeRef {
@@ -27,6 +33,12 @@ fragment HeadRefDeleted on HeadRefDeletedEvent {
 		login
 		avatarUrl
 		url
+		... on User {
+			email
+		}
+		... on Organization {
+			email
+		}
 	}
 	createdAt
 	headRefName
@@ -74,6 +86,9 @@ fragment Commit on PullRequestCommit {
 	id
 	commit {
 		author {
+			avatarUrl
+			name
+			email
 			user {
 				login
 				avatarUrl
@@ -84,6 +99,13 @@ fragment Commit on PullRequestCommit {
 		committer {
 			avatarUrl
 			name
+			email
+			user {
+				login
+				avatarUrl
+				url
+				email
+			}
 		}
 		oid
 		message
@@ -98,11 +120,18 @@ fragment AssignedEvent on AssignedEvent {
 		login
 		avatarUrl
 		url
+		... on User {
+			email
+		}
+		... on Organization {
+			email
+		}
 	}
 	user {
 		login
 		avatarUrl
 		url
+		email
 	}
 }
 
@@ -245,6 +274,7 @@ fragment PullRequestFragment on PullRequest {
 			avatarUrl
 			name
 			url
+			email
 		}
 	}
 }
@@ -695,6 +725,7 @@ query GetUser($login: String!) {
 	user(login: $login) {
 		login
 		avatarUrl(size: 50)
+		email
 		bio
 		name
 		company
@@ -1297,6 +1328,14 @@ query GetChecks($owner: String!, $name: String!, $number: Int!) {
 										context
 										avatarUrl
 										isRequired(pullRequestNumber: $number)
+										creator {
+											... on User {
+												email
+											}
+											... on Organization {
+												email
+											}
+										}
 									}
 									... on CheckRun {
 										id

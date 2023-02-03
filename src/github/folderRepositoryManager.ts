@@ -1563,7 +1563,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 			// Create PR
 			const { data } = await repo.octokit.call(repo.octokit.api.issues.create, params);
-			const item = convertRESTIssueToRawPullRequest(data, repo);
+			const item = await convertRESTIssueToRawPullRequest(data, repo);
 			const issueModel = new IssueModel(repo, repo.remote, item);
 
 			/* __GDPR__
@@ -2018,7 +2018,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					repo: remote.repositoryName,
 					pull_number: pullRequest.number,
 				});
-				pullRequest.update(convertRESTPullRequestToRawPullRequest(data, githubRepository));
+				pullRequest.update(await convertRESTPullRequestToRawPullRequest(data, githubRepository));
 			}
 
 			if (!pullRequest.mergeBase) {

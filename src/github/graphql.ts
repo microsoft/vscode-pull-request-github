@@ -13,6 +13,7 @@ export interface MergedEvent {
 		login: string;
 		avatarUrl: string;
 		url: string;
+		email?: string;
 	};
 	createdAt: string;
 	mergeRef: {
@@ -32,6 +33,7 @@ export interface HeadRefDeletedEvent {
 		login: string;
 		avatarUrl: string;
 		url: string;
+		email?: string;
 	};
 	createdAt: string;
 	headRefName: string;
@@ -99,6 +101,7 @@ export interface ReviewComment {
 		login: string;
 		avatarUrl: string;
 		url: string;
+		email?: string;
 	};
 	path: string;
 	originalPosition: number;
@@ -130,15 +133,26 @@ export interface Commit {
 	id: string;
 	commit: {
 		author: {
+			avatarUrl: string
+			name: string
+			email: string
 			user: {
 				login: string;
 				avatarUrl: string;
 				url: string;
+				email: string;
 			};
 		};
 		committer: {
-			avatarUrl: string;
-			name: string;
+			avatarUrl: string
+			name: string
+			email: string
+			user: {
+				login: string;
+				avatarUrl: string;
+				url: string;
+				email: string;
+			};
 		};
 		oid: string;
 		message: string;
@@ -155,11 +169,13 @@ export interface AssignedEvent {
 		login: string;
 		avatarUrl: string;
 		url: string;
+		email?: string;
 	};
 	user: {
 		login: string;
 		avatarUrl: string;
 		url: string;
+		email: string;
 	};
 }
 
@@ -173,6 +189,7 @@ export interface Review {
 		login: string;
 		avatarUrl: string;
 		url: string;
+		email?: string;
 	};
 	state: 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING';
 	body: string;
@@ -479,6 +496,7 @@ export interface SuggestedReviewerResponse {
 		avatarUrl: string;
 		name: string;
 		url: string;
+		email: string;
 	};
 }
 
@@ -504,6 +522,7 @@ export interface PullRequest {
 		login: string;
 		url: string;
 		avatarUrl: string;
+		email?: string
 	};
 	comments?: {
 		nodes: AbbreviatedIssueComment[];
@@ -672,10 +691,11 @@ export interface ContributionsCollection {
 export interface UserResponse {
 	user: {
 		login: string;
-		avatarUrl?: string;
-		bio?: string;
-		company?: string;
-		location?: string;
+		avatarUrl: string;
+		email: string;
+		bio: string;
+		company: string;
+		location: string;
 		name: string;
 		contributionsCollection: ContributionsCollection;
 		url: string;
@@ -707,6 +727,9 @@ export interface StatusContext {
 	targetUrl: string | null;
 	avatarUrl: string | null;
 	isRequired: boolean;
+	creator?: {
+		email?: string
+	}
 }
 
 export interface CheckRun {

@@ -75,28 +75,28 @@ describe('PullRequestModel', function () {
 		sinon.restore();
 	});
 
-	it('should return `state` properly as `open`', function () {
+	it('should return `state` properly as `open`', async function () {
 		const pr = new PullRequestBuilder().state('open').build();
-		const open = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		const open = new PullRequestModel(credentials, telemetry, repo, remote, await convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		assert.strictEqual(open.state, GithubItemStateEnum.Open);
 	});
 
-	it('should return `state` properly as `closed`', function () {
+	it('should return `state` properly as `closed`', async function () {
 		const pr = new PullRequestBuilder().state('closed').build();
-		const open = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		const open = new PullRequestModel(credentials, telemetry, repo, remote, await convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		assert.strictEqual(open.state, GithubItemStateEnum.Closed);
 	});
 
-	it('should return `state` properly as `merged`', function () {
+	it('should return `state` properly as `merged`', async function () {
 		const pr = new PullRequestBuilder().merged(true).state('closed').build();
-		const open = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		const open = new PullRequestModel(credentials, telemetry, repo, remote, await convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		assert.strictEqual(open.state, GithubItemStateEnum.Merged);
 	});
 
-	describe('reviewThreadCache', function () {
+	describe('reviewThreadCache', async function () {
 		it('should update the cache when then cache is initialized', async function () {
 			const pr = new PullRequestBuilder().build();
 			const model = new PullRequestModel(
@@ -104,7 +104,7 @@ describe('PullRequestModel', function () {
 				telemetry,
 				repo,
 				remote,
-				convertRESTPullRequestToRawPullRequest(pr, repo),
+				await convertRESTPullRequestToRawPullRequest(pr, repo),
 			);
 
 			repo.queryProvider.expectGraphQLQuery(

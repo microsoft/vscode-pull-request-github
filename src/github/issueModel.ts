@@ -18,7 +18,7 @@ import {
 	UpdatePullRequestResponse,
 } from './graphql';
 import { GithubItemStateEnum, IAccount, IMilestone, IPullRequestEditData, Issue } from './interface';
-import { parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
+import { getAvatarWithEnterpriseFallback, parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
 
 export class IssueModel<TItem extends Issue = Issue> {
 	static ID = 'IssueModel';
@@ -71,7 +71,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 
 	public get userAvatar(): string | undefined {
 		if (this.item) {
-			return this.item.user.avatarUrl;
+			return getAvatarWithEnterpriseFallback(this.item.user.avatarUrl, this.item.user.email, this.githubRepository.remote.authProviderId);
 		}
 
 		return undefined;

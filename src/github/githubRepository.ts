@@ -397,18 +397,20 @@ export class GitHubRepository implements vscode.Disposable {
 				};
 			}
 
-			const pullRequests = result.data
-				.map(pullRequest => {
-					if (!pullRequest.head.repo) {
-						Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
-						return null;
-					}
+			const pullRequests = (
+				await Promise.all(
+					result.data.map(async pullRequest => {
+						if (!pullRequest.head.repo) {
+							Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
+							return null;
+						}
 
-					return this.createOrUpdatePullRequestModel(
-						convertRESTPullRequestToRawPullRequest(pullRequest, this),
-					);
-				})
-				.filter(item => item !== null) as PullRequestModel[];
+						return this.createOrUpdatePullRequestModel(
+							await convertRESTPullRequestToRawPullRequest(pullRequest, this),
+						);
+					}),
+				)
+			).filter(item => item !== null) as PullRequestModel[];
 
 			Logger.debug(`Fetch all pull requests - done`, GitHubRepository.ID);
 			return {
@@ -926,7 +928,7 @@ export class GitHubRepository implements vscode.Disposable {
 					...result.data.repository.mentionableUsers.nodes.map(node => {
 						return {
 							login: node.login,
-							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
+							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, node.email, this.remote.authProviderId),
 							name: node.name,
 							url: node.url,
 							email: node.email,
@@ -969,7 +971,7 @@ export class GitHubRepository implements vscode.Disposable {
 					...result.data.repository.assignableUsers.nodes.map(node => {
 						return {
 							login: node.login,
-							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
+							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, node.email, this.remote.authProviderId),
 							name: node.name,
 							url: node.url,
 							email: node.email,
@@ -1106,7 +1108,7 @@ export class GitHubRepository implements vscode.Disposable {
 				...result.data.repository.pullRequest.participants.nodes.map(node => {
 					return {
 						login: node.login,
-						avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
+						avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, node.email, this.remote.authProviderId),
 						name: node.name,
 						url: node.url,
 						email: node.email,
@@ -1218,7 +1220,7 @@ export class GitHubRepository implements vscode.Disposable {
 							id: context.id,
 							url: context.targetUrl ?? undefined,
 							avatarUrl: context.avatarUrl
-								? getAvatarWithEnterpriseFallback(context.avatarUrl, undefined, this.remote.authProviderId)
+								? getAvatarWithEnterpriseFallback(context.avatarUrl, context.creator?.email, this.remote.authProviderId)
 								: undefined,
 							state: this.mapStateAsCheckState(context.state),
 							description: context.description,

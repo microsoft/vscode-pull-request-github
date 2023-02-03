@@ -90,7 +90,7 @@ describe('ReviewCommentController', function () {
 			telemetry,
 			githubRepo,
 			remote,
-			convertRESTPullRequestToRawPullRequest(pr, githubRepo),
+			await convertRESTPullRequestToRawPullRequest(pr, githubRepo),
 		);
 
 		manager.activePullRequest = activePullRequest;

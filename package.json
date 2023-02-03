@@ -514,6 +514,30 @@
 					"type": "boolean",
 					"default": false,
 					"description": "%githubPullRequests.showPullRequestNumberInTree.description%"
+				},
+				"githubPullRequests.defaultGravatarsStyle": {
+					"type": "string",
+					"default": "invertocat",
+					"enum": [
+						"none",
+						"identicon",
+						"mp",
+						"monsterid",
+						"retro",
+						"robohash",
+						"wavatar"
+					],
+					"enumDescriptions": [
+						"%githubPullRequests.defaultGravatarsStyle.none%",
+						"%githubPullRequests.defaultGravatarsStyle.identicon%",
+						"%githubPullRequests.defaultGravatarsStyle.mp%",
+						"%githubPullRequests.defaultGravatarsStyle.monsterid%",
+						"%githubPullRequests.defaultGravatarsStyle.retro%",
+						"%githubPullRequests.defaultGravatarsStyle.robohash%",
+						"%githubPullRequests.defaultGravatarsStyle.wavatar%"
+					],
+					"description": "%githubPullRequests.defaultGravatarsStyle.description%",
+					"scope": "window"
 				}
 			}
 		},

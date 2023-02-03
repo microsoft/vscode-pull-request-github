@@ -61,6 +61,7 @@ import { IssueModel } from './issueModel';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
+	getAvatarWithEnterpriseFallback,
 	getReactionGroup,
 	insertNewCommitsSinceReview,
 	parseGraphQLComment,
@@ -785,7 +786,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				const account: IAccount = {
 					login: reviewer.requestedReviewer.login,
 					url: reviewer.requestedReviewer.url,
-					avatarUrl: reviewer.requestedReviewer.avatarUrl,
+					avatarUrl: getAvatarWithEnterpriseFallback(reviewer.requestedReviewer.avatarUrl, reviewer.requestedReviewer.email, remote.authProviderId),
 					email: reviewer.requestedReviewer.email,
 					name: reviewer.requestedReviewer.name
 				};
@@ -794,7 +795,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				const team: ITeam = {
 					name: reviewer.requestedReviewer.name,
 					url: reviewer.requestedReviewer.url,
-					avatarUrl: reviewer.requestedReviewer.avatarUrl,
+					avatarUrl: getAvatarWithEnterpriseFallback(reviewer.requestedReviewer.avatarUrl, undefined, remote.authProviderId),
 					id: reviewer.requestedReviewer.id!,
 					org: remote.owner,
 					slug: reviewer.requestedReviewer.slug!
@@ -1244,7 +1245,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				repo: remote.repositoryName,
 				pull_number: this.number,
 			});
-			this.update(convertRESTPullRequestToRawPullRequest(info.data, githubRepository));
+			this.update(await convertRESTPullRequestToRawPullRequest(info.data, githubRepository));
 		}
 
 		let compareWithBaseRef = this.base.sha;

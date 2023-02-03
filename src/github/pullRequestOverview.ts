@@ -238,6 +238,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 							name: pullRequest.author.name,
 							avatarUrl: pullRequest.userAvatar,
 							url: pullRequest.author.url,
+							email: pullRequest.author.email,
 						},
 						state: pullRequest.state,
 						events: timelineEvents,

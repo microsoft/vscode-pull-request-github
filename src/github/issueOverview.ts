@@ -151,6 +151,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 							name: this._item.author.name,
 							avatarUrl: this._item.userAvatar,
 							url: this._item.author.url,
+							email: this._item.author.email,
 						},
 						state: this._item.state,
 						events: timelineEvents,
