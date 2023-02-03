@@ -249,10 +249,10 @@ export class IssueModel<TItem extends Issue = Issue> {
 		}
 	}
 
-	async addLabels(labels: string[]): Promise<void> {
+	async setLabels(labels: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		try {
-			await octokit.call(octokit.api.issues.addLabels, {
+			await octokit.call(octokit.api.issues.setLabels, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				issue_number: this.number,
