@@ -30,3 +30,4 @@ export const pendingIcon = <Icon src={require('../../resources/icons/dot.svg')} 
 export const requestChanges = <Icon src={require('../../resources/icons/request_changes.svg')} />;
 export const settingsIcon = <Icon src={require('../../resources/icons/settings.svg')} />;
 export const closeIcon = <Icon src={require('../../resources/icons/close.svg')} />;
+export const syncIcon = <Icon src={require('../../resources/icons/sync.svg')} />;

@@ -335,6 +335,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			case 'pr.gotoChangesSinceReview':
 				this.gotoChangesSinceReview();
 				break;
+			case 'pr.re-request-review':
+				this.reRequestReview(message);
+				break;
 		}
 	}
 
@@ -883,6 +886,18 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._throwError(message, `${formatError(e)}`);
 			},
 		);
+	}
+
+	private reRequestReview(message: IRequestMessage<string>): void {
+		this._item.requestReview([message.args]).then(() => {
+			const reviewer = this._existingReviewers.find(reviewer => reviewer.reviewer.login === message.args);
+			if (reviewer) {
+				reviewer.state = 'REQUESTED';
+			}
+			this._replyMessage(message, {
+				reviewers: this._existingReviewers,
+			});
+		});
 	}
 
 	private async copyPrLink(): Promise<void> {
