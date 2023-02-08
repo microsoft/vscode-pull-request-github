@@ -304,6 +304,13 @@ async function getExtensionConfig(target, mode, env) {
 							'dist-web',
 							'index.js',
 						),
+						'p-queue': path.join(
+							__dirname,
+							'node_modules',
+							'p-queue',
+							'dist',
+							'index.js',
+						),
 						'node-fetch': 'cross-fetch',
 						'../env/node/net': path.resolve(__dirname, 'src', 'env', 'browser', 'net'),
 						'../env/node/ssh': path.resolve(__dirname, 'src', 'env', 'browser', 'ssh'),

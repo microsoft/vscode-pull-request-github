@@ -6,6 +6,7 @@
 
 import * as crypto from 'crypto';
 import * as OctokitTypes from '@octokit/types';
+import PQueue from 'p-queue';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
@@ -40,6 +41,7 @@ import {
 	User,
 } from './interface';
 import { IssueModel } from './issueModel';
+import { LoggingOctokit } from './loggingOctokit';
 import { GHPRComment, GHPRCommentThread } from './prComment';
 import { PullRequestModel } from './pullRequestModel';
 
@@ -236,26 +238,16 @@ export function updateCommentReviewState(thread: GHPRCommentThread, newDraftMode
 	});
 }
 
-export async function convertRESTUserToAccount(
-	user: OctokitCommon.PullsListResponseItemUser,
-	githubRepository: GitHubRepository,
-): Promise<IAccount> {
-	let email = user.email;
-	if (githubRepository.remote.authProviderId === AuthProvider['github-enterprise'] && email === undefined) {
-		const { data } = await githubRepository.octokit.call(githubRepository.octokit.api.users.getByUsername, {
-			username: user.login
-		});
+export function isEnterprise(provider: AuthProvider): boolean {
+	return provider === AuthProvider['github-enterprise'];
+}
 
-		email = data.email;
-	}
-
-	email ||= undefined;
-
+export function convertRESTUserToAccount(user: OctokitCommon.PullsListResponseItemUser): IAccount {
 	return {
 		login: user.login,
 		url: user.html_url,
-		avatarUrl: getAvatarWithEnterpriseFallback(user.avatar_url, email, githubRepository.remote.authProviderId),
-		email: email,
+		avatarUrl: user.avatar_url,
+		email: user.email === null ? '' : user.email,
 	};
 }
 
@@ -273,12 +265,9 @@ export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListRespons
 	};
 }
 
-export async function convertRESTPullRequestToRawPullRequest(
-	pullRequest:
-		| OctokitCommon.PullsGetResponseData
-		| OctokitCommon.PullsListResponseItem,
-	githubRepository: GitHubRepository,
-): Promise<PullRequest> {
+export function convertRESTPullRequestToRawPullRequest(
+	pullRequest: OctokitCommon.PullsGetResponseData | OctokitCommon.PullsListResponseItem,
+): PullRequest {
 	const {
 		number,
 		body,
@@ -305,12 +294,10 @@ export async function convertRESTPullRequestToRawPullRequest(
 		title,
 		titleHTML: title,
 		url: html_url,
-		user: await convertRESTUserToAccount(user!, githubRepository),
+		user: convertRESTUserToAccount(user!),
 		state,
 		merged: (pullRequest as OctokitCommon.PullsGetResponseData).merged || false,
-		assignees: assignees
-			? await Promise.all(assignees.map(assignee => convertRESTUserToAccount(assignee!, githubRepository)))
-			: undefined,
+		assignees: assignees?.map(assignee => convertRESTUserToAccount(assignee!)),
 		createdAt: created_at,
 		updatedAt: updated_at,
 		head: head.repo ? convertRESTHeadToIGitHubRef(head as OctokitCommon.PullsListResponseItemHead) : undefined,
@@ -330,10 +317,7 @@ export async function convertRESTPullRequestToRawPullRequest(
 	return item;
 }
 
-export async function convertRESTIssueToRawPullRequest(
-	pullRequest: OctokitCommon.IssuesCreateResponseData,
-	githubRepository: GitHubRepository,
-): Promise<PullRequest> {
+export function convertRESTIssueToRawPullRequest(pullRequest: OctokitCommon.IssuesCreateResponseData): PullRequest {
 	const {
 		number,
 		body,
@@ -357,11 +341,9 @@ export async function convertRESTIssueToRawPullRequest(
 		title,
 		titleHTML: title,
 		url: html_url,
-		user: await convertRESTUserToAccount(user!, githubRepository),
+		user: convertRESTUserToAccount(user!),
 		state,
-		assignees: assignees
-			? await Promise.all(assignees.map(assignee => convertRESTUserToAccount(assignee!, githubRepository)))
-			: undefined,
+		assignees: assignees?.map(assignee => convertRESTUserToAccount(assignee!)),
 		createdAt: created_at,
 		updatedAt: updated_at,
 		labels: labels.map<ILabel>(l =>
@@ -373,18 +355,15 @@ export async function convertRESTIssueToRawPullRequest(
 	return item;
 }
 
-export async function convertRESTReviewEvent(
-	review: OctokitCommon.PullsCreateReviewResponseData,
-	githubRepository: GitHubRepository,
-): Promise<Common.ReviewEvent> {
+export function convertRESTReviewEvent(review: OctokitCommon.PullsCreateReviewResponseData): Common.ReviewEvent {
 	return {
 		event: Common.EventType.Reviewed,
 		comments: [],
-		submittedAt: (review as any).submitted_at, // TODO fix typings upstream
+		submittedAt: review.submitted_at || '',
 		body: review.body,
 		bodyHTML: review.body,
 		htmlUrl: review.html_url,
-		user: await convertRESTUserToAccount(review.user!, githubRepository),
+		user: convertRESTUserToAccount(review.user!),
 		authorAssociation: review.user!.type,
 		state: review.state as 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING',
 		id: review.id,
@@ -429,7 +408,7 @@ export function convertGraphQLEventType(text: string) {
 	}
 }
 
-export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRepository: GitHubRepository): IReviewThread {
+export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread): IReviewThread {
 	return {
 		id: thread.id,
 		prReviewDatabaseId: thread.comments.edges && thread.comments.edges.length ?
@@ -445,12 +424,12 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRep
 		originalEndLine: thread.originalLine,
 		diffSide: thread.diffSide,
 		isOutdated: thread.isOutdated,
-		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, githubRepository)),
+		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved)),
 		subjectType: thread.subjectType
 	};
 }
 
-export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean, githubRepository: GitHubRepository): IComment {
+export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean): IComment {
 	const c: IComment = {
 		id: comment.databaseId,
 		url: comment.url,
@@ -465,7 +444,7 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: 
 		commitId: comment.commit.oid,
 		originalPosition: comment.originalPosition,
 		originalCommitId: comment.originalCommit && comment.originalCommit.oid,
-		user: comment.author ? parseAuthor(comment.author, githubRepository) : undefined,
+		user: comment.author ? parseAuthor(comment.author) : undefined,
 		createdAt: comment.createdAt,
 		htmlUrl: comment.url,
 		graphNodeId: comment.id,
@@ -481,7 +460,7 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: 
 	return c;
 }
 
-export function parseGraphQlIssueComment(comment: GraphQL.IssueComment, githubRepository: GitHubRepository): IComment {
+export function parseGraphQlIssueComment(comment: GraphQL.IssueComment): IComment {
 	return {
 		id: comment.databaseId,
 		url: comment.url,
@@ -489,7 +468,7 @@ export function parseGraphQlIssueComment(comment: GraphQL.IssueComment, githubRe
 		bodyHTML: comment.bodyHTML,
 		canEdit: comment.viewerCanDelete,
 		canDelete: comment.viewerCanDelete,
-		user: parseAuthor(comment.author, githubRepository),
+		user: parseAuthor(comment.author),
 		createdAt: comment.createdAt,
 		htmlUrl: comment.url,
 		graphNodeId: comment.id,
@@ -537,16 +516,13 @@ function parseRef(refName: string, oid: string, repository?: GraphQL.RefReposito
 	};
 }
 
-function parseAuthor(
-	author: { login: string; url: string; avatarUrl: string; email?: string } | null,
-	githubRepository: GitHubRepository,
-): IAccount {
+function parseAuthor(author: IAccount | null): IAccount {
 	if (author) {
 		return {
 			login: author.login,
 			url: author.url,
-			avatarUrl: getAvatarWithEnterpriseFallback(author.avatarUrl, author.email, githubRepository.remote.authProviderId),
-			email: author.email
+			avatarUrl: author.avatarUrl,
+			email: author.email,
 		};
 	} else {
 		return {
@@ -602,10 +578,7 @@ export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFL
 	return parsed;
 }
 
-export function parseGraphQLPullRequest(
-	graphQLPullRequest: GraphQL.PullRequest,
-	githubRepository: GitHubRepository,
-): PullRequest {
+export function parseGraphQLPullRequest(graphQLPullRequest: GraphQL.PullRequest): PullRequest {
 	return {
 		id: graphQLPullRequest.databaseId,
 		graphNodeId: graphQLPullRequest.id,
@@ -619,10 +592,18 @@ export function parseGraphQLPullRequest(
 		createdAt: graphQLPullRequest.createdAt,
 		updatedAt: graphQLPullRequest.updatedAt,
 		isRemoteHeadDeleted: !graphQLPullRequest.headRef,
-		head: parseRef(graphQLPullRequest.headRef?.name ?? graphQLPullRequest.headRefName, graphQLPullRequest.headRefOid, graphQLPullRequest.headRepository),
+		head: parseRef(
+			graphQLPullRequest.headRef?.name ?? graphQLPullRequest.headRefName,
+			graphQLPullRequest.headRefOid,
+			graphQLPullRequest.headRepository,
+		),
 		isRemoteBaseDeleted: !graphQLPullRequest.baseRef,
-		base: parseRef(graphQLPullRequest.baseRef?.name ?? graphQLPullRequest.baseRefName, graphQLPullRequest.baseRefOid, graphQLPullRequest.baseRepository),
-		user: parseAuthor(graphQLPullRequest.author, githubRepository),
+		base: parseRef(
+			graphQLPullRequest.baseRef?.name ?? graphQLPullRequest.baseRefName,
+			graphQLPullRequest.baseRefOid,
+			graphQLPullRequest.baseRepository,
+		),
+		user: parseAuthor(graphQLPullRequest.author),
 		merged: graphQLPullRequest.merged,
 		mergeable: parseMergeability(graphQLPullRequest.mergeable, graphQLPullRequest.mergeStateStatus),
 		autoMerge: !!graphQLPullRequest.autoMergeRequest,
@@ -630,14 +611,14 @@ export function parseGraphQLPullRequest(
 		allowAutoMerge: graphQLPullRequest.viewerCanEnableAutoMerge || graphQLPullRequest.viewerCanDisableAutoMerge,
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
-		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers, githubRepository),
-		comments: parseComments(graphQLPullRequest.comments?.nodes, githubRepository),
+		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
+		comments: parseComments(graphQLPullRequest.comments?.nodes),
 		milestone: parseMilestone(graphQLPullRequest.milestone),
-		assignees: graphQLPullRequest.assignees?.nodes.map(assignee => parseAuthor(assignee, githubRepository)),
+		assignees: graphQLPullRequest.assignees?.nodes.map(assignee => parseAuthor(assignee)),
 	};
 }
 
-function parseComments(comments: GraphQL.AbbreviatedIssueComment[] | undefined, githubRepository: GitHubRepository) {
+function parseComments(comments: GraphQL.AbbreviatedIssueComment[] | undefined) {
 	if (!comments) {
 		return;
 	}
@@ -648,7 +629,7 @@ function parseComments(comments: GraphQL.AbbreviatedIssueComment[] | undefined, 
 	}[] = [];
 	for (const comment of comments) {
 		parsedComments.push({
-			author: parseAuthor(comment.author, githubRepository),
+			author: parseAuthor(comment.author),
 			body: comment.body,
 			databaseId: comment.databaseId,
 		});
@@ -657,7 +638,7 @@ function parseComments(comments: GraphQL.AbbreviatedIssueComment[] | undefined, 
 	return parsedComments;
 }
 
-export function parseGraphQLIssue(issue: GraphQL.PullRequest, githubRepository: GitHubRepository): Issue {
+export function parseGraphQLIssue(issue: GraphQL.PullRequest): Issue {
 	return {
 		id: issue.databaseId,
 		graphNodeId: issue.id,
@@ -670,24 +651,23 @@ export function parseGraphQLIssue(issue: GraphQL.PullRequest, githubRepository: 
 		titleHTML: issue.titleHTML,
 		createdAt: issue.createdAt,
 		updatedAt: issue.updatedAt,
-		assignees: issue.assignees?.nodes.map(assignee => parseAuthor(assignee, githubRepository)),
-		user: parseAuthor(issue.author, githubRepository),
+		assignees: issue.assignees?.nodes.map(assignee => parseAuthor(assignee)),
+		user: parseAuthor(issue.author),
 		labels: issue.labels.nodes,
-		repositoryName: issue.repository?.name ?? githubRepository.remote.repositoryName,
-		repositoryOwner: issue.repository?.owner.login ?? githubRepository.remote.owner,
-		repositoryUrl: issue.repository?.url ?? githubRepository.remote.url,
+		repositoryName: issue.repository?.name,
+		repositoryOwner: issue.repository?.owner.login,
+		repositoryUrl: issue.repository?.url,
 	};
 }
 
 function parseSuggestedReviewers(
 	suggestedReviewers: GraphQL.SuggestedReviewerResponse[] | undefined,
-	githubRepository: GitHubRepository
 ): ISuggestedReviewer[] {
 	if (!suggestedReviewers) {
 		return [];
 	}
 	const ret: ISuggestedReviewer[] = suggestedReviewers.map(suggestedReviewer => {
-		const user: IAccount = parseAuthor(suggestedReviewer.reviewer, githubRepository);
+		const user: IAccount = parseAuthor(suggestedReviewer.reviewer);
 
 		return {
 			...user,
@@ -714,18 +694,15 @@ export function teamComparator(a: ITeam, b: ITeam) {
 	return a.name.localeCompare(b.name, 'en', { sensitivity: 'accent' });
 }
 
-export function parseGraphQLReviewEvent(
-	review: GraphQL.SubmittedReview,
-	githubRepository: GitHubRepository,
-): Common.ReviewEvent {
+export function parseGraphQLReviewEvent(review: GraphQL.SubmittedReview): Common.ReviewEvent {
 	return {
 		event: Common.EventType.Reviewed,
-		comments: review.comments.nodes.map(comment => parseGraphQLComment(comment, false, githubRepository)).filter(c => !c.inReplyToId),
+		comments: review.comments.nodes.map(comment => parseGraphQLComment(comment, false)).filter(c => !c.inReplyToId),
 		submittedAt: review.submittedAt,
 		body: review.body,
 		bodyHTML: review.bodyHTML,
 		htmlUrl: review.url,
-		user: parseAuthor(review.author, githubRepository),
+		user: parseAuthor(review.author),
 		authorAssociation: review.authorAssociation,
 		state: review.state,
 		id: review.databaseId,
@@ -741,10 +718,9 @@ export function parseGraphQLTimelineEvents(
 		| GraphQL.AssignedEvent
 		| GraphQL.HeadRefDeletedEvent
 	)[],
-	githubRepository: GitHubRepository,
 ): Common.TimelineEvent[] {
 	const normalizedEvents: Common.TimelineEvent[] = [];
-	events.forEach(event => {
+	for (const event of events) {
 		const type = convertGraphQLEventType(event.__typename);
 
 		switch (type) {
@@ -754,7 +730,7 @@ export function parseGraphQLTimelineEvents(
 					htmlUrl: commentEvent.url,
 					body: commentEvent.body,
 					bodyHTML: commentEvent.bodyHTML,
-					user: parseAuthor(commentEvent.author, githubRepository),
+					user: parseAuthor(commentEvent.author),
 					event: type,
 					canEdit: commentEvent.viewerCanUpdate,
 					canDelete: commentEvent.viewerCanDelete,
@@ -762,7 +738,7 @@ export function parseGraphQLTimelineEvents(
 					graphNodeId: commentEvent.id,
 					createdAt: commentEvent.createdAt,
 				});
-				return;
+				break;
 			case Common.EventType.Reviewed:
 				const reviewEvent = event as GraphQL.Review;
 				normalizedEvents.push({
@@ -772,12 +748,12 @@ export function parseGraphQLTimelineEvents(
 					body: reviewEvent.body,
 					bodyHTML: reviewEvent.bodyHTML,
 					htmlUrl: reviewEvent.url,
-					user: parseAuthor(reviewEvent.author, githubRepository),
+					user: parseAuthor(reviewEvent.author),
 					authorAssociation: reviewEvent.authorAssociation,
 					state: reviewEvent.state,
 					id: reviewEvent.databaseId,
 				});
-				return;
+				break;
 			case Common.EventType.Committed:
 				const commitEv = event as GraphQL.Commit;
 				normalizedEvents.push({
@@ -785,20 +761,24 @@ export function parseGraphQLTimelineEvents(
 					event: type,
 					sha: commitEv.commit.oid,
 					author: commitEv.commit.author.user
-						? parseAuthor(commitEv.commit.author.user, githubRepository)
-						: { login: commitEv.commit.author.name, avatarUrl: commitEv.commit.author.avatarUrl, email: commitEv.commit.author.email },
+						? parseAuthor(commitEv.commit.author.user)
+						: parseAuthor({
+								login: commitEv.commit.author.name,
+								avatarUrl: commitEv.commit.author.avatarUrl,
+								email: commitEv.commit.author.email,
+								url: '',
+						  }),
 					htmlUrl: commitEv.url,
 					message: commitEv.commit.message,
 					authoredDate: new Date(commitEv.commit.authoredDate),
-				} as Common.CommitEvent); // TODO remove cast
-				return;
+				});
+				break;
 			case Common.EventType.Merged:
 				const mergeEv = event as GraphQL.MergedEvent;
-
 				normalizedEvents.push({
 					id: mergeEv.id,
 					event: type,
-					user: parseAuthor(mergeEv.actor, githubRepository),
+					user: parseAuthor(mergeEv.actor),
 					createdAt: mergeEv.createdAt,
 					mergeRef: mergeEv.mergeRef.name,
 					sha: mergeEv.commit.oid,
@@ -806,42 +786,38 @@ export function parseGraphQLTimelineEvents(
 					url: mergeEv.url,
 					graphNodeId: mergeEv.id,
 				});
-				return;
+				break;
 			case Common.EventType.Assigned:
 				const assignEv = event as GraphQL.AssignedEvent;
-
 				normalizedEvents.push({
 					id: assignEv.id,
 					event: type,
-					user: parseAuthor(assignEv.user, githubRepository),
-					actor: parseAuthor(assignEv.actor, githubRepository),
+					user: parseAuthor(assignEv.user),
+					actor: parseAuthor(assignEv.actor),
 				});
-				return;
+				break;
 			case Common.EventType.HeadRefDeleted:
 				const deletedEv = event as GraphQL.HeadRefDeletedEvent;
-
 				normalizedEvents.push({
 					id: deletedEv.id,
 					event: type,
-					actor: parseAuthor(deletedEv.actor, githubRepository),
+					actor: parseAuthor(deletedEv.actor),
 					createdAt: deletedEv.createdAt,
 					headRef: deletedEv.headRefName,
 				});
-				return;
-			default:
 				break;
 		}
-	});
+	}
 
 	return normalizedEvents;
 }
 
-export function parseGraphQLUser(resp: GraphQL.UserResponse, githubRepository: GitHubRepository): User {
+export function parseGraphQLUser(resp: GraphQL.UserResponse): User {
 	const user = resp.user;
 	return {
 		login: user.login,
 		name: user.name,
-		avatarUrl: getAvatarWithEnterpriseFallback(user.avatarUrl, user.email, githubRepository.remote.authProviderId),
+		avatarUrl: user.avatarUrl,
 		url: user.url,
 		bio: user.bio,
 		company: user.company,
@@ -1131,30 +1107,177 @@ export function hasEnterpriseUri(): boolean {
 	return !!getEnterpriseUri();
 }
 
-export function generateGravatarUrl(gravatarId: string | undefined, size: number = 200): string | undefined {
-	if (!gravatarId) {
-		return undefined;
-	}
-	const none = 'none';
+const GRAVATAR_STYLE_NONE = 'none';
 
-	let style = vscode.workspace.getConfiguration('githubPullRequests').get<string>('defaultGravatarsStyle', none);
-	if (style === none) {
-		return undefined;
-	}
-
-	return `https://www.gravatar.com/avatar/${gravatarId}?s=${size}&d=${style}`;
+function isGravatarEnabled() {
+	return getGravatarStyle() !== GRAVATAR_STYLE_NONE;
 }
 
-export function getAvatarWithEnterpriseFallback(avatarUrl: string | undefined, email: string | undefined, authProviderId: AuthProvider): string | undefined {
-	if (authProviderId === AuthProvider.github) {
-		return avatarUrl;
-	}
+function getGravatarStyle() {
+	return vscode.workspace.getConfiguration('githubPullRequests').get<string>('defaultGravatarsStyle', GRAVATAR_STYLE_NONE);
+}
 
-	if (!email) {
+function generateGravatarUrl(gravatarId: string | undefined, size: number = 200): string | undefined {
+	if (!gravatarId || !isGravatarEnabled()) {
 		return undefined;
 	}
 
-	return generateGravatarUrl(crypto.createHash('md5').update(email.trim().toLowerCase()).digest('hex'));
+	return `https://www.gravatar.com/avatar/${gravatarId}?s=${size}&d=${getGravatarStyle()}`;
+}
+
+// This limits the concurrent promises that fetch avatars from the Enterprise REST service
+const enterpriseAvatarQueue = new PQueue({concurrency: 3});
+
+// This is an in-memory cache of Enterprise avatar data URIs
+const enterpriseAvatarCache: {[k: string]: Promise<string | void>} = {};
+
+async function getEnterpriseAvatarUrl(avatarUrl: string | undefined, octokit: LoggingOctokit): Promise<string | undefined> {
+	try {
+		if (!avatarUrl || !hasEnterpriseUri()) {
+			return;
+		}
+
+		const avatarUri = vscode.Uri.parse(avatarUrl, true);
+		const enterpriseUri = getEnterpriseUri()!;
+		const enterpriseAvatarRestBase = '/enterprise/avatars';
+
+		// static asset from enterprise does not need authentication
+		if (avatarUri.scheme === 'data' || avatarUri.authority === `assets.${enterpriseUri.authority}`) {
+			return avatarUrl;
+		}
+
+		// only proxy avatars from the "avatars" sub-domain of Enterprise
+		if (avatarUri.authority !== `avatars.${enterpriseUri.authority}`) {
+			return;
+		}
+
+		const cacheKey = `${avatarUri.path}?${avatarUri.query}`;
+		const options = {};
+		const qs = new URLSearchParams(avatarUri.query);
+
+		qs.forEach((v, k) => {
+			options[k] = v;
+		});
+
+		if (!(cacheKey in enterpriseAvatarCache)) {
+			enterpriseAvatarCache[cacheKey] = enterpriseAvatarQueue.add(() =>
+				octokit.api.request(`GET ${enterpriseAvatarRestBase}${avatarUri.path}`, options).then(
+					resp => {
+						const dataUri = `data:${resp.headers['content-type']};base64,${Buffer.from(resp.data).toString(
+							'base64',
+						)}`;
+						return dataUri;
+					},
+					() => {
+						delete enterpriseAvatarCache[cacheKey];
+						return;
+					},
+				),
+			);
+		}
+
+		const avatarDataUri = await enterpriseAvatarCache[cacheKey];
+		if (avatarDataUri) {
+			return avatarDataUri;
+		}
+	} catch {
+		// ignore
+	}
+}
+
+export async function replaceAvatarUrl(user: IAccount | ITeam, octokit: LoggingOctokit): Promise<void> {
+	const origAvatarUrl = user.avatarUrl;
+	user.avatarUrl = undefined;
+
+	const enterpriseAvatarUrl = await getEnterpriseAvatarUrl(origAvatarUrl, octokit);
+	if (enterpriseAvatarUrl) {
+		user.avatarUrl = enterpriseAvatarUrl;
+		return;
+	}
+
+	if (!('login' in user)) {
+		return;
+	}
+
+	if (user.email === undefined && user.login) {
+		try {
+			const { data } = await octokit.call(octokit.api.users.getByUsername, {
+				username: user.login
+			});
+
+			user.email = data.email || undefined;
+		} catch {
+			// ignore
+		}
+	}
+
+	if (!user.email) {
+		return;
+	}
+
+	user.avatarUrl = generateGravatarUrl(crypto.createHash('md5').update(user.email.trim().toLowerCase()).digest('hex'));
+}
+
+export function replaceAccountAvatarUrls(pr: PullRequest, octokit: LoggingOctokit): Promise<void[]> {
+	const promises: Promise<void>[] = [];
+	promises.push(replaceAvatarUrl(pr.user, octokit));
+	if (pr.assignees) {
+		promises.push(...pr.assignees.map(user => replaceAvatarUrl(user, octokit)));
+	}
+	if (pr.suggestedReviewers) {
+		promises.push(...pr.suggestedReviewers.map(user => replaceAvatarUrl(user, octokit)));
+	}
+	return Promise.all(promises);
+}
+
+export function replaceTimelineEventAvatarUrls(events: Common.TimelineEvent[], octokit: LoggingOctokit): Promise<void[]> {
+	const promises: Promise<void>[] = [];
+
+	for (const event of events) {
+		const type = event.event;
+		switch (type) {
+			case Common.EventType.Commented:
+				const commentEvent = event as Common.CommentEvent;
+				promises.push(replaceAvatarUrl(commentEvent.user, octokit));
+				break;
+			case Common.EventType.Reviewed:
+				const reviewEvent = event as Common.ReviewEvent;
+				promises.push(replaceAvatarUrl(reviewEvent.user, octokit));
+				break;
+			case Common.EventType.Committed:
+				const commitEv = event as Common.CommitEvent;
+				promises.push(replaceAvatarUrl(commitEv.author, octokit));
+				break;
+			case Common.EventType.Merged:
+				const mergeEv = event as Common.MergedEvent;
+				promises.push(replaceAvatarUrl(mergeEv.user, octokit));
+				break;
+			case Common.EventType.Assigned:
+				const assignEv = event as Common.AssignEvent;
+				promises.push(replaceAvatarUrl(assignEv.user, octokit));
+				promises.push(replaceAvatarUrl(assignEv.actor, octokit));
+				break;
+			case Common.EventType.HeadRefDeleted:
+				const deletedEv = event as Common.HeadRefDeleteEvent;
+				promises.push(replaceAvatarUrl(deletedEv.actor, octokit));
+				break;
+		}
+	}
+
+	return Promise.all(promises);
+}
+
+export function replaceIssuesAvatarUrls(issues: Issue[], octokit: LoggingOctokit): Promise<void[]> {
+	const promises: Promise<void>[] = [];
+
+	for (const issue of issues) {
+		promises.push(replaceAvatarUrl(issue.user, octokit));
+		if (issue.assignees) {
+			promises.push(...issue.assignees.map(user => replaceAvatarUrl(user, octokit)));
+		}
+	}
+
+	return Promise.all(promises);
 }
 
 export function getPullsUrl(repo: GitHubRepository) {

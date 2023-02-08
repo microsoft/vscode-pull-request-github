@@ -408,7 +408,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 <html lang="en">
 	<head>
 		<meta charset="UTF-8">
-		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
+		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https: data:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 		<title>Active Pull Request</title>

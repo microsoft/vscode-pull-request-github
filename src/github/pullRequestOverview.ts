@@ -236,7 +236,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						author: {
 							login: pullRequest.author.login,
 							name: pullRequest.author.name,
-							avatarUrl: pullRequest.userAvatar,
+							avatarUrl: pullRequest.author.avatarUrl,
 							url: pullRequest.author.url,
 							email: pullRequest.author.email,
 						},

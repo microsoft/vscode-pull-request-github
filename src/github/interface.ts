@@ -176,9 +176,9 @@ export type RepoAccessAndMergeMethods = {
 };
 
 export interface User extends IAccount {
-	company?: string;
-	location?: string;
-	bio?: string;
+	company: string | null;
+	location: string | null;
+	bio: string | null;
 	commitContributions: {
 		createdAt: Date;
 		repoNameWithOwner: string;
@@ -202,6 +202,9 @@ export interface PullRequestCheckStatus {
 	targetUrl: string | null;
 	context: string;
 	isRequired: boolean;
+	creator?: {
+		email?: string;
+	};
 }
 
 export interface PullRequestChecks {

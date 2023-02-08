@@ -18,7 +18,7 @@ import {
 	UpdatePullRequestResponse,
 } from './graphql';
 import { GithubItemStateEnum, IAccount, IMilestone, IPullRequestEditData, Issue } from './interface';
-import { getAvatarWithEnterpriseFallback, parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
+import { parseGraphQlIssueComment, parseGraphQLTimelineEvents, replaceAvatarUrl, replaceTimelineEventAvatarUrls } from './utils';
 
 export class IssueModel<TItem extends Issue = Issue> {
 	static ID = 'IssueModel';
@@ -71,7 +71,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 
 	public get userAvatar(): string | undefined {
 		if (this.item) {
-			return getAvatarWithEnterpriseFallback(this.item.user.avatarUrl, this.item.user.email, this.githubRepository.remote.authProviderId);
+			return this.item.user.avatarUrl;
 		}
 
 		return undefined;
@@ -81,7 +81,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 		if (this.item) {
 			const key = this.userAvatar;
 			if (key) {
-				const uri = vscode.Uri.parse(`${key}&s=${64}`);
+				const uri = vscode.Uri.parse(key);
 
 				// hack, to ensure queries are not wrongly encoded.
 				const originalToStringFn = uri.toString;
@@ -201,7 +201,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 	}
 
 	async createIssueComment(text: string): Promise<IComment> {
-		const { mutate, schema } = await this.githubRepository.ensure();
+		const { mutate, schema, remote, octokit } = await this.githubRepository.ensure();
 		const { data } = await mutate<AddIssueCommentResponse>({
 			mutation: schema.AddIssueComment,
 			variables: {
@@ -212,12 +212,18 @@ export class IssueModel<TItem extends Issue = Issue> {
 			},
 		});
 
-		return parseGraphQlIssueComment(data!.addComment.commentEdge.node, this.githubRepository);
+		const comment = parseGraphQlIssueComment(data!.addComment.commentEdge.node);
+
+		if (remote.isEnterprise && comment.user) {
+			await replaceAvatarUrl(comment.user, octokit);
+		}
+
+		return comment;
 	}
 
 	async editIssueComment(comment: IComment, text: string): Promise<IComment> {
 		try {
-			const { mutate, schema } = await this.githubRepository.ensure();
+			const { mutate, schema, remote, octokit } = await this.githubRepository.ensure();
 
 			const { data } = await mutate<EditIssueCommentResponse>({
 				mutation: schema.EditIssueComment,
@@ -229,7 +235,13 @@ export class IssueModel<TItem extends Issue = Issue> {
 				},
 			});
 
-			return parseGraphQlIssueComment(data!.updateIssueComment.issueComment, this.githubRepository);
+			const newComment = parseGraphQlIssueComment(data!.updateIssueComment.issueComment);
+
+			if (remote.isEnterprise && newComment.user) {
+				await replaceAvatarUrl(newComment.user, octokit);
+			}
+
+			return newComment;
 		} catch (e) {
 			throw new Error(formatError(e));
 		}
@@ -279,7 +291,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 	async getIssueTimelineEvents(): Promise<TimelineEvent[]> {
 		Logger.debug(`Fetch timeline events of issue #${this.number} - enter`, IssueModel.ID);
 		const githubRepository = this.githubRepository;
-		const { query, remote, schema } = await githubRepository.ensure();
+		const { query, remote, schema, octokit } = await githubRepository.ensure();
 
 		try {
 			const { data } = await query<TimelineEventsResponse>({
@@ -291,7 +303,11 @@ export class IssueModel<TItem extends Issue = Issue> {
 				},
 			});
 			const ret = data.repository.pullRequest.timelineItems.nodes;
-			const events = parseGraphQLTimelineEvents(ret, githubRepository);
+			const events = parseGraphQLTimelineEvents(ret);
+
+			if (remote.isEnterprise) {
+				await replaceTimelineEventAvatarUrls(events, octokit);
+			}
 
 			return events;
 		} catch (e) {
@@ -299,6 +315,4 @@ export class IssueModel<TItem extends Issue = Issue> {
 			return [];
 		}
 	}
-
-
 }

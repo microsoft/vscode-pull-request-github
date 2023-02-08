@@ -48,6 +48,8 @@ import {
 	getRelatedUsersFromTimelineEvents,
 	loginComparator,
 	parseGraphQLUser,
+	replaceAccountAvatarUrls,
+	replaceAvatarUrl,
 	teamComparator,
 	variableSubstitution,
 } from './utils';
@@ -1563,7 +1565,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 			// Create PR
 			const { data } = await repo.octokit.call(repo.octokit.api.issues.create, params);
-			const item = await convertRESTIssueToRawPullRequest(data, repo);
+			const item = convertRESTIssueToRawPullRequest(data);
+
+			if (repo.remote.isEnterprise) {
+				await replaceAccountAvatarUrls(item, repo.octokit);
+			}
+
 			const issueModel = new IssueModel(repo, repo.remote, item);
 
 			/* __GDPR__
@@ -2018,7 +2025,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					repo: remote.repositoryName,
 					pull_number: pullRequest.number,
 				});
-				pullRequest.update(await convertRESTPullRequestToRawPullRequest(data, githubRepository));
+				const pr = convertRESTPullRequestToRawPullRequest(data);
+
+				if (remote.isEnterprise) {
+					await replaceAccountAvatarUrls(pr, octokit);
+				}
+
+				pullRequest.update(pr);
 			}
 
 			if (!pullRequest.mergeBase) {
@@ -2082,7 +2095,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	async resolveUser(owner: string, repositoryName: string, login: string): Promise<User | undefined> {
 		Logger.debug(`Fetch user ${login}`, FolderRepositoryManager.ID);
 		const githubRepository = await this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
-		const { query, schema } = await githubRepository.ensure();
+		const { query, schema, remote, octokit } = await githubRepository.ensure();
 
 		try {
 			const { data } = await query<UserResponse>({
@@ -2091,7 +2104,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					login,
 				},
 			});
-			return parseGraphQLUser(data, githubRepository);
+
+			if (remote.isEnterprise) {
+				await replaceAvatarUrl(data.user, octokit);
+			}
+
+			return parseGraphQLUser(data);
 		} catch (e) {
 			// Ignore cases where the user doesn't exist
 			if (!(e.message as (string | undefined))?.startsWith('GraphQL error: Could not resolve to a User with the login of')) {

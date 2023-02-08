@@ -16,7 +16,7 @@ import { ITelemetry } from '../common/telemetry';
 import { agent } from '../env/node/net';
 import { IAccount } from './interface';
 import { LoggingApolloClient, LoggingOctokit, RateLogger } from './loggingOctokit';
-import { convertRESTUserToAccount, getEnterpriseUri, hasEnterpriseUri } from './utils';
+import { convertRESTUserToAccount, getEnterpriseUri, hasEnterpriseUri, isEnterprise } from './utils';
 
 const TRY_AGAIN = vscode.l10n.t('Try again?');
 const CANCEL = vscode.l10n.t('Cancel');
@@ -89,7 +89,7 @@ export class CredentialStore implements vscode.Disposable {
 
 	private async initialize(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions = {}, scopes: string[] = authProviderId === AuthProvider.github ? this._scopes : this._scopesEnterprise): Promise<void> {
 		Logger.debug(`Initializing GitHub${getGitHubSuffix(authProviderId)} authentication provider.`, 'Authentication');
-		if (authProviderId === AuthProvider['github-enterprise']) {
+		if (isEnterprise(authProviderId)) {
 			if (!hasEnterpriseUri()) {
 				Logger.debug(`GitHub Enterprise provider selected without URI.`, 'Authentication');
 				return;
@@ -124,7 +124,7 @@ export class CredentialStore implements vscode.Disposable {
 		}
 
 		if (session) {
-			if (authProviderId === AuthProvider.github) {
+			if (!isEnterprise(authProviderId)) {
 				this._sessionId = session.id;
 			} else {
 				this._enterpriseSessionId = session.id;
@@ -139,7 +139,7 @@ export class CredentialStore implements vscode.Disposable {
 					return this.initialize(authProviderId, getAuthSessionOptions);
 				}
 			}
-			if (authProviderId === AuthProvider.github) {
+			if (!isEnterprise(authProviderId)) {
 				this._githubAPI = github;
 				this._scopes = usedScopes;
 			} else {
@@ -182,7 +182,7 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public isAuthenticated(authProviderId: AuthProvider): boolean {
-		if (authProviderId === AuthProvider.github) {
+		if (!isEnterprise(authProviderId)) {
 			return !!this._githubAPI;
 		}
 		return !!this._githubEnterpriseAPI;
@@ -196,7 +196,7 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public getHub(authProviderId: AuthProvider): GitHub | undefined {
-		if (authProviderId === AuthProvider.github) {
+		if (!isEnterprise(authProviderId)) {
 			return this._githubAPI;
 		}
 		return this._githubEnterpriseAPI;
@@ -209,7 +209,7 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public async getHubOrLogin(authProviderId: AuthProvider): Promise<GitHub | undefined> {
-		if (authProviderId === AuthProvider.github) {
+		if (!isEnterprise(authProviderId)) {
 			return this._githubAPI ?? (await this.login(authProviderId));
 		}
 		return this._githubEnterpriseAPI ?? (await this.login(authProviderId));
@@ -341,7 +341,7 @@ export class CredentialStore implements vscode.Disposable {
 	private async createHub(token: string, authProviderId: AuthProvider): Promise<GitHub> {
 		let baseUrl = 'https://api.github.com';
 		let enterpriseServerUri: vscode.Uri | undefined;
-		if (authProviderId === AuthProvider['github-enterprise']) {
+		if (isEnterprise(authProviderId)) {
 			enterpriseServerUri = getEnterpriseUri();
 		}
 
@@ -415,5 +415,5 @@ const link = (url: string, token: string) =>
 	);
 
 function getGitHubSuffix(authProviderId: AuthProvider) {
-	return authProviderId === AuthProvider.github ? '' : ' Enterprise';
+	return isEnterprise(authProviderId) ? ' Enterprise' : '';
 }

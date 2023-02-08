@@ -147,7 +147,7 @@ describe('GitHub Pull Requests view', function () {
 					);
 				});
 			}).pullRequest;
-			const prItem0 = parseGraphQLPullRequest(pr0.repository.pullRequest, gitHubRepository);
+			const prItem0 = parseGraphQLPullRequest(pr0.repository.pullRequest);
 			const pullRequest0 = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem0);
 
 			const pr1 = gitHubRepository.addGraphQLPullRequest(builder => {
@@ -163,7 +163,7 @@ describe('GitHub Pull Requests view', function () {
 					);
 				});
 			}).pullRequest;
-			const prItem1 = parseGraphQLPullRequest(pr1.repository.pullRequest, gitHubRepository);
+			const prItem1 = parseGraphQLPullRequest(pr1.repository.pullRequest);
 			const pullRequest1 = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem1);
 
 			const repository = new MockRepository();
@@ -201,14 +201,14 @@ describe('GitHub Pull Requests view', function () {
 			assert.strictEqual(localItem0.description, 'by @me');
 			assert.strictEqual(localItem0.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem0.contextValue, 'pullrequest:local:nonactive');
-			assert.deepStrictEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg&s=64');
+			assert.deepStrictEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg');
 
 			assert.strictEqual(localItem1.label, '✓ one');
 			assert.strictEqual(localItem1.tooltip, 'Current Branch * one by @you');
 			assert.strictEqual(localItem1.description, 'by @you');
 			assert.strictEqual(localItem1.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem1.contextValue, 'pullrequest:local:active');
-			assert.deepStrictEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg&s=64');
+			assert.deepStrictEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg');
 		});
 	});
 });

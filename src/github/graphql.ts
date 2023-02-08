@@ -693,9 +693,9 @@ export interface UserResponse {
 		login: string;
 		avatarUrl: string;
 		email: string;
-		bio: string;
-		company: string;
-		location: string;
+		bio: string | null;
+		company: string | null;
+		location: string | null;
 		name: string;
 		contributionsCollection: ContributionsCollection;
 		url: string;

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Repository } from '../api/api';
-import { getEnterpriseUri } from '../github/utils';
+import { getEnterpriseUri, isEnterprise } from '../github/utils';
 import { AuthProvider, GitHubServerType } from './authentication';
 import { Protocol } from './protocol';
 
@@ -26,6 +26,10 @@ export class Remote {
 
 	public get authProviderId(): AuthProvider {
 		return this.host === getEnterpriseUri()?.authority ? AuthProvider['github-enterprise'] : AuthProvider.github;
+	}
+
+	public get isEnterprise(): boolean {
+		return isEnterprise(this.authProviderId);
 	}
 
 	constructor(

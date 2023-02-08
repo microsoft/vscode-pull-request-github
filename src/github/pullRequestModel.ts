@@ -61,7 +61,6 @@ import { IssueModel } from './issueModel';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
-	getAvatarWithEnterpriseFallback,
 	getReactionGroup,
 	insertNewCommitsSinceReview,
 	parseGraphQLComment,
@@ -70,6 +69,9 @@ import {
 	parseGraphQLReviewThread,
 	parseGraphQLTimelineEvents,
 	parseMergeability,
+	replaceAccountAvatarUrls,
+	replaceAvatarUrl,
+	replaceTimelineEventAvatarUrls,
 	restPaginate,
 } from './utils';
 
@@ -355,7 +357,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		*/
 		this._telemetry.sendTelemetryEvent('pr.close');
 
-		return convertRESTPullRequestToRawPullRequest(ret.data, this.githubRepository);
+		const pr = convertRESTPullRequestToRawPullRequest(ret.data);
+
+		if (remote.isEnterprise) {
+			await replaceAccountAvatarUrls(pr, octokit);
+		}
+
+		return pr;
 	}
 
 	/**
@@ -374,7 +382,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			body: message,
 		});
 
-		return convertRESTReviewEvent(data, this.githubRepository);
+		const reviewEvent = convertRESTReviewEvent(data);
+
+		if (remote.isEnterprise) {
+			await replaceAvatarUrl(reviewEvent.user, octokit);
+		}
+
+		return reviewEvent;
 	}
 
 	/**
@@ -384,7 +398,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async submitReview(event?: ReviewEvent, body?: string): Promise<CommonReviewEvent> {
 		let pendingReviewId = await this.getPendingReviewId();
-		const { mutate, schema } = await this.githubRepository.ensure();
+		const { mutate, schema, remote, octokit } = await this.githubRepository.ensure();
 
 		if (!pendingReviewId && (event === ReviewEvent.Comment)) {
 			// Create a new review so that we can comment on it.
@@ -403,7 +417,16 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			this.hasPendingReview = false;
 			await this.updateDraftModeContext();
-			const reviewEvent = parseGraphQLReviewEvent(data!.submitPullRequestReview.pullRequestReview, this.githubRepository);
+			const reviewEvent = parseGraphQLReviewEvent(data!.submitPullRequestReview.pullRequestReview);
+
+			if (remote.isEnterprise) {
+				await Promise.all([
+					replaceAvatarUrl(reviewEvent.user, octokit),
+					...reviewEvent.comments.map(comment =>
+						Promise.resolve(comment.user && replaceAvatarUrl(comment.user, octokit)),
+					),
+				]);
+			}
 
 			const threadWithComment = this._reviewThreadsCache.find(thread =>
 				thread.comments.length ? (thread.comments[0].pullRequestReviewId === reviewEvent.id) : undefined,
@@ -496,7 +519,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async deleteReview(): Promise<{ deletedReviewId: number; deletedReviewComments: IComment[] }> {
 		const pendingReviewId = await this.getPendingReviewId();
-		const { mutate, schema } = await this.githubRepository.ensure();
+		const { mutate, schema, remote, octokit } = await this.githubRepository.ensure();
 		const { data } = await mutate<DeleteReviewResponse>({
 			mutation: schema.DeleteReview,
 			variables: {
@@ -511,9 +534,15 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		this.getReviewThreads();
 
+		const reviewComments = comments.nodes.map(comment => parseGraphQLComment(comment, false));
+
+		if (remote.isEnterprise) {
+			await Promise.all(reviewComments.map(comment => Promise.resolve(comment.user && replaceAvatarUrl(comment.user, octokit))));
+		}
+
 		return {
 			deletedReviewId: databaseId,
-			deletedReviewComments: comments.nodes.map(comment => parseGraphQLComment(comment, false, this.githubRepository)),
+			deletedReviewComments: reviewComments,
 		};
 	}
 
@@ -569,7 +598,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 		const pendingReviewId = await this.getPendingReviewId();
 
-		const { mutate, schema } = await this.githubRepository.ensure();
+		const { mutate, schema, remote, octokit } = await this.githubRepository.ensure();
 		const { data } = await mutate<AddReviewThreadResponse>({
 			mutation: schema.AddReviewThread,
 			variables: {
@@ -600,7 +629,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		const thread = data.addPullRequestReviewThread.thread;
-		const newThread = parseGraphQLReviewThread(thread, this.githubRepository);
+		const newThread = parseGraphQLReviewThread(thread);
+
+		if (remote.isEnterprise) {
+			await Promise.all(newThread.comments.map(comment => Promise.resolve(comment.user && replaceAvatarUrl(comment.user, octokit))));
+		}
+
 		this._reviewThreadsCache.push(newThread);
 		this._onDidChangeReviewThreads.fire({ added: [newThread], changed: [], removed: [] });
 		return newThread;
@@ -630,7 +664,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			pendingReviewId = await this.startReview(commitId);
 		}
 
-		const { mutate, schema } = await this.githubRepository.ensure();
+		const { mutate, schema, remote, octokit } = await this.githubRepository.ensure();
 		const { data } = await mutate<AddCommentResponse>({
 			mutation: schema.AddComment,
 			variables: {
@@ -648,7 +682,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		const { comment } = data.addPullRequestReviewComment;
-		const newComment = parseGraphQLComment(comment, false, this.githubRepository);
+		const newComment = parseGraphQLComment(comment, false);
+
+		if (remote.isEnterprise && newComment.user) {
+			await replaceAvatarUrl(newComment.user, octokit);
+		}
 
 		if (isSingleComment) {
 			newComment.isDraft = false;
@@ -691,7 +729,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param text The new comment text
 	 */
 	async editReviewComment(comment: IComment, text: string): Promise<IComment> {
-		const { mutate, schema } = await this.githubRepository.ensure();
+		const { mutate, schema, remote, octokit } = await this.githubRepository.ensure();
 		let threadWithComment = this._reviewThreadsCache.find(thread =>
 			thread.comments.some(c => c.graphNodeId === comment.graphNodeId),
 		);
@@ -717,8 +755,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const newComment = parseGraphQLComment(
 			data.updatePullRequestReviewComment.pullRequestReviewComment,
 			!!comment.isResolved,
-			this.githubRepository
 		);
+
+		if (remote.isEnterprise && newComment.user) {
+			await replaceAvatarUrl(newComment.user, octokit);
+		}
+
 		if (threadWithComment) {
 			const index = threadWithComment.comments.findIndex(c => c.graphNodeId === comment.graphNodeId);
 			threadWithComment.comments.splice(index, 1, newComment);
@@ -769,7 +811,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async getReviewRequests(): Promise<(IAccount | ITeam)[]> {
 		const githubRepository = this.githubRepository;
-		const { remote, query, schema } = await githubRepository.ensure();
+		const { remote, query, schema, octokit } = await githubRepository.ensure();
 
 		const { data } = await query<GetReviewRequestsResponse>({
 			query: this.credentialStore.isAuthenticatedWithAdditionalScopes(githubRepository.remote.authProviderId) ? schema.GetReviewRequestsAdditionalScopes : schema.GetReviewRequests,
@@ -786,7 +828,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				const account: IAccount = {
 					login: reviewer.requestedReviewer.login,
 					url: reviewer.requestedReviewer.url,
-					avatarUrl: getAvatarWithEnterpriseFallback(reviewer.requestedReviewer.avatarUrl, reviewer.requestedReviewer.email, remote.authProviderId),
+					avatarUrl: reviewer.requestedReviewer.avatarUrl,
 					email: reviewer.requestedReviewer.email,
 					name: reviewer.requestedReviewer.name
 				};
@@ -795,7 +837,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				const team: ITeam = {
 					name: reviewer.requestedReviewer.name,
 					url: reviewer.requestedReviewer.url,
-					avatarUrl: getAvatarWithEnterpriseFallback(reviewer.requestedReviewer.avatarUrl, undefined, remote.authProviderId),
+					avatarUrl: reviewer.requestedReviewer.avatarUrl,
 					id: reviewer.requestedReviewer.id!,
 					org: remote.owner,
 					slug: reviewer.requestedReviewer.slug!
@@ -803,6 +845,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				reviewers.push(team);
 			}
 		}
+
+		if (remote.isEnterprise) {
+			await Promise.all(reviewers.map(reviewer => replaceAvatarUrl(reviewer, octokit)));
+		}
+
 		return reviewers;
 	}
 
@@ -884,7 +931,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	async getReviewThreads(): Promise<IReviewThread[]> {
-		const { remote, query, schema } = await this.githubRepository.ensure();
+		const { remote, query, schema, octokit } = await this.githubRepository.ensure();
 		try {
 			const { data } = await query<PullRequestCommentsResponse>({
 				query: schema.PullRequestComments,
@@ -895,9 +942,21 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			});
 
-			const reviewThreads = data.repository.pullRequest.reviewThreads.nodes.map(node => {
-				return parseGraphQLReviewThread(node, this.githubRepository);
-			});
+			const reviewThreads = data.repository.pullRequest.reviewThreads.nodes.map(node =>
+				parseGraphQLReviewThread(node),
+			);
+
+			if (remote.isEnterprise) {
+				await Promise.all(
+					reviewThreads
+						.map(thread =>
+							thread.comments.map(comment =>
+								Promise.resolve(comment.user && replaceAvatarUrl(comment.user, octokit)),
+							),
+						)
+						.flat(),
+				);
+			}
 
 			const oldReviewThreads = this._reviewThreadsCache;
 			this._reviewThreadsCache = reviewThreads;
@@ -913,7 +972,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Get all review comments.
 	 */
 	async initializeReviewComments(): Promise<void> {
-		const { remote, query, schema } = await this.githubRepository.ensure();
+		const { remote, query, schema, octokit } = await this.githubRepository.ensure();
 		try {
 			const { data } = await query<PullRequestCommentsResponse>({
 				query: schema.PullRequestComments,
@@ -925,11 +984,15 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			});
 
 			const comments = data.repository.pullRequest.reviewThreads.nodes
-				.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved, this.githubRepository), remote))
+				.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved), remote))
 				.reduce((prev, curr) => prev.concat(curr), [])
 				.sort((a: IComment, b: IComment) => {
 					return a.createdAt > b.createdAt ? 1 : -1;
 				});
+
+			if (remote.isEnterprise) {
+				await Promise.all(comments.map(comment => comment.user && replaceAvatarUrl(comment.user, octokit)));
+			}
 
 			this.comments = comments;
 		} catch (e) {
@@ -1016,7 +1079,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async getTimelineEvents(): Promise<TimelineEvent[]> {
 		Logger.debug(`Fetch timeline events of PR #${this.number} - enter`, PullRequestModel.ID);
-		const { query, remote, schema } = await this.githubRepository.ensure();
+		const { query, remote, schema, octokit } = await this.githubRepository.ensure();
 
 		try {
 			const [{ data }, latestReviewCommitInfo, currentUser, reviewThreads] = await Promise.all([
@@ -1034,7 +1097,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			]);
 
 			const ret = data.repository.pullRequest.timelineItems.nodes;
-			const events = parseGraphQLTimelineEvents(ret, this.githubRepository);
+			const events = parseGraphQLTimelineEvents(ret);
+
+			if (remote.isEnterprise) {
+				await replaceTimelineEventAvatarUrls(events, octokit);
+			}
 
 			this.addReviewTimelineEventComments(events, reviewThreads);
 			insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, this.head);
@@ -1245,7 +1312,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				repo: remote.repositoryName,
 				pull_number: this.number,
 			});
-			this.update(await convertRESTPullRequestToRawPullRequest(info.data, githubRepository));
+
+			const pr = convertRESTPullRequestToRawPullRequest(info.data);
+
+			if (remote.isEnterprise) {
+				await replaceAccountAvatarUrls(pr, octokit);
+			}
+
+			this.update(pr);
 		}
 
 		let compareWithBaseRef = this.base.sha;
@@ -1448,7 +1522,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	async resolveReviewThread(threadId: string): Promise<void> {
-		const { mutate, schema } = await this.githubRepository.ensure();
+		const { mutate, schema, remote, octokit } = await this.githubRepository.ensure();
 
 		// optimistically update
 		const oldThread = this._reviewThreadsCache.find(thread => thread.id === threadId);
@@ -1481,14 +1555,23 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
 		if (index > -1) {
-			const thread = parseGraphQLReviewThread(data.resolveReviewThread.thread, this.githubRepository);
+			const thread = parseGraphQLReviewThread(data.resolveReviewThread.thread);
+
+			if (remote.isEnterprise) {
+				await Promise.all(
+					thread.comments.map(comment =>
+						Promise.resolve(comment.user && replaceAvatarUrl(comment.user, octokit)),
+					),
+				);
+			}
+
 			this._reviewThreadsCache.splice(index, 1, thread);
 			this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
 		}
 	}
 
 	async unresolveReviewThread(threadId: string): Promise<void> {
-		const { mutate, schema } = await this.githubRepository.ensure();
+		const { mutate, schema, remote, octokit } = await this.githubRepository.ensure();
 
 		// optimistically update
 		const oldThread = this._reviewThreadsCache.find(thread => thread.id === threadId);
@@ -1521,7 +1604,16 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
 		if (index > -1) {
-			const thread = parseGraphQLReviewThread(data.unresolveReviewThread.thread, this.githubRepository);
+			const thread = parseGraphQLReviewThread(data.unresolveReviewThread.thread);
+
+			if (remote.isEnterprise) {
+				await Promise.all(
+					thread.comments.map(comment =>
+						Promise.resolve(comment.user && replaceAvatarUrl(comment.user, octokit)),
+					),
+				);
+			}
+
 			this._reviewThreadsCache.splice(index, 1, thread);
 			this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
 		}

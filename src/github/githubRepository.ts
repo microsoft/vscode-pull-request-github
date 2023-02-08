@@ -50,13 +50,15 @@ import { PullRequestModel } from './pullRequestModel';
 import defaultSchema from './queries.gql';
 import {
 	convertRESTPullRequestToRawPullRequest,
-	getAvatarWithEnterpriseFallback,
 	getOverrideBranch,
 	getPRFetchQuery,
 	parseGraphQLIssue,
 	parseGraphQLPullRequest,
 	parseGraphQLViewerPermission,
 	parseMilestone,
+	replaceAccountAvatarUrls,
+	replaceAvatarUrl,
+	replaceIssuesAvatarUrls,
 } from './utils';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
@@ -397,20 +399,21 @@ export class GitHubRepository implements vscode.Disposable {
 				};
 			}
 
-			const pullRequests = (
-				await Promise.all(
-					result.data.map(async pullRequest => {
-						if (!pullRequest.head.repo) {
-							Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
-							return null;
-						}
+			const pullRequests: PullRequestModel[] = [];
+			for (const pullRequest of result.data) {
+				if (!pullRequest.head.repo) {
+					Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
+					continue;
+				}
 
-						return this.createOrUpdatePullRequestModel(
-							await convertRESTPullRequestToRawPullRequest(pullRequest, this),
-						);
-					}),
-				)
-			).filter(item => item !== null) as PullRequestModel[];
+				const pr = convertRESTPullRequestToRawPullRequest(pullRequest);
+
+				if (remote.isEnterprise) {
+					await replaceAccountAvatarUrls(pr, octokit);
+				}
+
+				pullRequests.push(this.createOrUpdatePullRequestModel(pr));
+			}
 
 			Logger.debug(`Fetch all pull requests - done`, GitHubRepository.ID);
 			return {
@@ -434,7 +437,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getPullRequestForBranch(branch: string): Promise<PullRequestModel | undefined> {
 		try {
 			Logger.debug(`Fetch pull requests for branch - enter`, GitHubRepository.ID);
-			const { query, remote, schema } = await this.ensure();
+			const { query, remote, schema, octokit } = await this.ensure();
 			const { data } = await query<PullRequestsResponse>({
 				query: schema.PullRequestForHead,
 				variables: {
@@ -446,8 +449,13 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug(`Fetch pull requests for branch - done`, GitHubRepository.ID);
 
 			if (data?.repository.pullRequests.nodes.length > 0) {
-				const prs = data.repository.pullRequests.nodes.map(node => parseGraphQLPullRequest(node, this));
+				const prs = data.repository.pullRequests.nodes.map(node => parseGraphQLPullRequest(node));
 				const mostRecentOrOpenPr = prs.find(pr => pr.state.toLowerCase() === 'open') ?? prs[0];
+
+				if (remote.isEnterprise) {
+					await replaceAccountAvatarUrls(mostRecentOrOpenPr, octokit);
+				}
+
 				return this.createOrUpdatePullRequestModel(mostRecentOrOpenPr);
 			}
 		} catch (e) {
@@ -521,7 +529,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getIssuesForUserByMilestone(_page?: number): Promise<MilestoneData | undefined> {
 		try {
 			Logger.debug(`Fetch all issues - enter`, GitHubRepository.ID);
-			const { query, remote, schema } = await this.ensure();
+			const { query, remote, schema, octokit } = await this.ensure();
 			const { data } = await query<MilestoneIssuesResponse>({
 				query: schema.GetMilestonesWithIssues,
 				variables: {
@@ -534,16 +542,20 @@ export class GitHubRepository implements vscode.Disposable {
 
 			const milestones: { milestone: IMilestone; issues: IssueModel[] }[] = [];
 			if (data && data.repository.milestones && data.repository.milestones.nodes) {
-				data.repository.milestones.nodes.forEach(raw => {
+				for (const raw of data.repository.milestones.nodes) {
 					const milestone = parseMilestone(raw);
-					if (milestone) {
-						const issues: IssueModel[] = [];
-						raw.issues.edges.forEach(issue => {
-							issues.push(new IssueModel(this, this.remote, parseGraphQLIssue(issue.node, this)));
-						});
-						milestones.push({ milestone, issues });
+					if (!milestone) {
+						continue;
 					}
-				});
+
+					const issues: Issue[] = raw.issues.edges.map(edge => parseGraphQLIssue(edge.node));
+
+					if (remote.isEnterprise) {
+						await replaceIssuesAvatarUrls(issues, octokit);
+					}
+
+					milestones.push({ milestone, issues: issues.map(issue => new IssueModel(this, this.remote, issue)) });
+				}
 			}
 			return {
 				items: milestones,
@@ -558,7 +570,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getIssuesWithoutMilestone(_page?: number): Promise<IssueData | undefined> {
 		try {
 			Logger.debug(`Fetch issues without milestone- enter`, GitHubRepository.ID);
-			const { query, remote, schema } = await this.ensure();
+			const { query, remote, schema, octokit } = await this.ensure();
 			const { data } = await query<IssuesResponse>({
 				query: schema.IssuesWithoutMilestone,
 				variables: {
@@ -571,12 +583,18 @@ export class GitHubRepository implements vscode.Disposable {
 
 			const issues: Issue[] = [];
 			if (data && data.repository.issues.edges) {
-				data.repository.issues.edges.forEach(raw => {
-					if (raw.node.id) {
-						issues.push(parseGraphQLIssue(raw.node, this));
+				for (const raw of data.repository.issues.edges) {
+					if (!raw.node.id) {
+						continue;
 					}
-				});
+					issues.push(parseGraphQLIssue(raw.node));
+				}
 			}
+
+			if (remote.isEnterprise) {
+				await replaceIssuesAvatarUrls(issues, octokit);
+			}
+
 			return {
 				items: issues,
 				hasMorePages: data.repository.issues.pageInfo.hasNextPage,
@@ -590,7 +608,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getIssues(page?: number, queryString?: string): Promise<IssueData | undefined> {
 		try {
 			Logger.debug(`Fetch issues with query - enter`, GitHubRepository.ID);
-			const { query, schema } = await this.ensure();
+			const { query, schema, remote, octokit } = await this.ensure();
 			const { data } = await query<IssuesSearchResponse>({
 				query: schema.Issues,
 				variables: {
@@ -601,12 +619,18 @@ export class GitHubRepository implements vscode.Disposable {
 
 			const issues: Issue[] = [];
 			if (data && data.search.edges) {
-				data.search.edges.forEach(raw => {
-					if (raw.node.id) {
-						issues.push(parseGraphQLIssue(raw.node, this));
+				for (const raw of data.search.edges) {
+					if (!raw.node.id) {
+						continue;
 					}
-				});
+					issues.push(parseGraphQLIssue(raw.node));
+				}
 			}
+
+			if (remote.isEnterprise) {
+				await replaceIssuesAvatarUrls(issues, octokit);
+			}
+
 			return {
 				items: issues,
 				hasMorePages: data.search.pageInfo.hasNextPage,
@@ -700,7 +724,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, GitHubRepository.ID);
-			const { octokit, query, schema } = await this.ensure();
+			const { octokit, query, schema, remote } = await this.ensure();
 
 			const user = await this.getAuthenticatedUser();
 			// Search api will not try to resolve repo that redirects, so get full name first
@@ -727,18 +751,21 @@ export class GitHubRepository implements vscode.Disposable {
 			const hasMorePages = !!headers.link && headers.link.indexOf('rel="next"') > -1;
 			const pullRequestResponses = await Promise.all(promises);
 
-			const pullRequests = pullRequestResponses
-				.map(response => {
-					if (!response.repository.pullRequest.headRef) {
-						Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
-						return null;
-					}
+			const pullRequests: PullRequestModel[] = [];
+			for (const response of pullRequestResponses) {
+				if (!response.repository.pullRequest.headRef) {
+					Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
+					continue;
+				}
 
-					return this.createOrUpdatePullRequestModel(
-						parseGraphQLPullRequest(response.repository.pullRequest, this),
-					);
-				})
-				.filter(item => item !== null) as PullRequestModel[];
+				const pr = parseGraphQLPullRequest(response.repository.pullRequest);
+
+				if (remote.isEnterprise) {
+					await replaceAccountAvatarUrls(pr, octokit);
+				}
+
+				pullRequests.push(this.createOrUpdatePullRequestModel(pr));
+			}
 
 			Logger.debug(`Fetch pull request category ${categoryQuery} - done`, GitHubRepository.ID);
 
@@ -778,7 +805,7 @@ export class GitHubRepository implements vscode.Disposable {
 		try {
 			Logger.debug(`Create pull request - enter`, GitHubRepository.ID);
 			const metadata = await this.getMetadata();
-			const { mutate, schema } = await this.ensure();
+			const { mutate, schema, remote, octokit } = await this.ensure();
 
 			const { data } = await mutate<CreatePullRequestResponse>({
 				mutation: schema.CreatePullRequest,
@@ -797,7 +824,13 @@ export class GitHubRepository implements vscode.Disposable {
 			if (!data) {
 				throw new Error('Failed to create pull request.');
 			}
-			return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data.createPullRequest.pullRequest, this));
+			const pr = parseGraphQLPullRequest(data.createPullRequest.pullRequest);
+
+			if (remote.isEnterprise) {
+				await replaceAccountAvatarUrls(pr, octokit);
+			}
+
+			return this.createOrUpdatePullRequestModel(pr);
 		} catch (e) {
 			Logger.error(`Unable to create PR: ${e}`, GitHubRepository.ID);
 			throw e;
@@ -807,7 +840,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
 		try {
 			Logger.debug(`Fetch pull request ${id} - enter`, GitHubRepository.ID);
-			const { query, remote, schema } = await this.ensure();
+			const { query, remote, schema, octokit } = await this.ensure();
 
 			const { data } = await query<PullRequestResponse>({
 				query: schema.PullRequest,
@@ -818,7 +851,13 @@ export class GitHubRepository implements vscode.Disposable {
 				},
 			});
 			Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
-			return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data.repository.pullRequest, this));
+			const pr = parseGraphQLPullRequest(data.repository.pullRequest);
+
+			if (remote.isEnterprise) {
+				await replaceAccountAvatarUrls(pr, octokit);
+			}
+
+			return this.createOrUpdatePullRequestModel(pr);
 		} catch (e) {
 			Logger.error(`Unable to fetch PR: ${e}`, GitHubRepository.ID);
 			return;
@@ -828,7 +867,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getIssue(id: number, withComments: boolean = false): Promise<IssueModel | undefined> {
 		try {
 			Logger.debug(`Fetch issue ${id} - enter`, GitHubRepository.ID);
-			const { query, remote, schema } = await this.ensure();
+			const { query, remote, schema, octokit } = await this.ensure();
 
 			const { data } = await query<PullRequestResponse>({
 				query: withComments ? schema.IssueWithComments : schema.Issue,
@@ -840,7 +879,13 @@ export class GitHubRepository implements vscode.Disposable {
 			}, true); // Don't retry on SAML errors as it's too distruptive for this query.
 			Logger.debug(`Fetch issue ${id} - done`, GitHubRepository.ID);
 
-			return new IssueModel(this, remote, parseGraphQLIssue(data.repository.pullRequest, this));
+			const issue = parseGraphQLIssue(data.repository.pullRequest);
+
+			if (remote.isEnterprise) {
+				await replaceIssuesAvatarUrls([issue], octokit);
+			}
+
+			return new IssueModel(this, remote, issue);
 		} catch (e) {
 			Logger.error(`Unable to fetch PR: ${e}`, GitHubRepository.ID);
 			return;
@@ -906,7 +951,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 	async getMentionableUsers(): Promise<IAccount[]> {
 		Logger.debug(`Fetch mentionable users - enter`, GitHubRepository.ID);
-		const { query, remote, schema } = await this.ensure();
+		const { query, remote, schema, octokit } = await this.ensure();
 
 		let after: string | null = null;
 		let hasNextPage = false;
@@ -924,11 +969,18 @@ export class GitHubRepository implements vscode.Disposable {
 					},
 				});
 
+
+				if (remote.isEnterprise) {
+					await Promise.all(
+						result.data.repository.mentionableUsers.nodes.map(node => replaceAvatarUrl(node, octokit)),
+					);
+				}
+
 				ret.push(
 					...result.data.repository.mentionableUsers.nodes.map(node => {
 						return {
 							login: node.login,
-							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, node.email, this.remote.authProviderId),
+							avatarUrl: node.avatarUrl,
 							name: node.name,
 							url: node.url,
 							email: node.email,
@@ -949,7 +1001,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 	async getAssignableUsers(): Promise<IAccount[]> {
 		Logger.debug(`Fetch assignable users - enter`, GitHubRepository.ID);
-		const { query, remote, schema } = await this.ensure();
+		const { query, remote, schema, octokit } = await this.ensure();
 
 		let after: string | null = null;
 		let hasNextPage = false;
@@ -967,11 +1019,17 @@ export class GitHubRepository implements vscode.Disposable {
 					},
 				});
 
+				if (remote.isEnterprise) {
+					await Promise.all(
+						result.data.repository.assignableUsers.nodes.map(node => replaceAvatarUrl(node, octokit)),
+					);
+				}
+
 				ret.push(
 					...result.data.repository.assignableUsers.nodes.map(node => {
 						return {
 							login: node.login,
-							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, node.email, this.remote.authProviderId),
+							avatarUrl: node.avatarUrl,
 							name: node.name,
 							url: node.url,
 							email: node.email,
@@ -1037,7 +1095,7 @@ export class GitHubRepository implements vscode.Disposable {
 			return [];
 		}
 
-		const { query, remote, schema } = await this.ensureAdditionalScopes();
+		const { query, remote, schema, octokit } = await this.ensureAdditionalScopes();
 
 		let after: string | null = null;
 		let hasNextPage = false;
@@ -1054,18 +1112,21 @@ export class GitHubRepository implements vscode.Disposable {
 					},
 				});
 
-				result.data.organization.teams.nodes.forEach(node => {
-					const team: ITeam = {
-						avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
-						name: node.name,
-						url: node.url,
-						slug: node.slug,
-						id: node.id,
-						org: remote.owner
-					};
-					orgTeams.push({ ...team, repositoryNames: node.repositories.nodes.map(repo => repo.name) });
-				});
+				const teamsWithRepositoryNames = result.data.organization.teams.nodes.map(node => ({
+					avatarUrl: node.avatarUrl,
+					name: node.name,
+					url: node.url,
+					slug: node.slug,
+					id: node.id,
+					org: remote.owner,
+					repositoryNames: node.repositories.nodes.map(repo => repo.name),
+				}));
 
+				if (remote.isEnterprise) {
+					await Promise.all(teamsWithRepositoryNames.map(team => replaceAvatarUrl(team, octokit)));
+				}
+
+				orgTeams.push(...teamsWithRepositoryNames);
 				hasNextPage = result.data.organization.teams.pageInfo.hasNextPage;
 				after = result.data.organization.teams.pageInfo.endCursor;
 			} catch (e) {
@@ -1089,7 +1150,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 	async getPullRequestParticipants(pullRequestNumber: number): Promise<IAccount[]> {
 		Logger.debug(`Fetch participants from a Pull Request`, GitHubRepository.ID);
-		const { query, remote, schema } = await this.ensure();
+		const { query, remote, schema, octokit } = await this.ensure();
 
 		const ret: IAccount[] = [];
 
@@ -1104,11 +1165,17 @@ export class GitHubRepository implements vscode.Disposable {
 				},
 			});
 
+			if (remote.isEnterprise) {
+				await Promise.all(
+					result.data.repository.pullRequest.participants.nodes.map(node => replaceAvatarUrl(node, octokit)),
+				);
+			}
+
 			ret.push(
 				...result.data.repository.pullRequest.participants.nodes.map(node => {
 					return {
 						login: node.login,
-						avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, node.email, this.remote.authProviderId),
+						avatarUrl: node.avatarUrl,
 						name: node.name,
 						url: node.url,
 						email: node.email,
@@ -1163,7 +1230,7 @@ export class GitHubRepository implements vscode.Disposable {
 	 */
 	private _useFallbackChecks: boolean = false;
 	async getStatusChecks(number: number): Promise<[PullRequestChecks | null, PullRequestReviewRequirement | null]> {
-		const { query, remote, schema } = await this.ensure();
+		const { query, remote, schema, octokit } = await this.ensure();
 		const captureUseFallbackChecks = this._useFallbackChecks;
 		let result: ApolloQueryResult<GetChecksResponse>;
 		try {
@@ -1202,13 +1269,7 @@ export class GitHubRepository implements vscode.Disposable {
 						return {
 							id: context.id,
 							url: context.checkSuite?.app?.url,
-							avatarUrl:
-								context.checkSuite?.app?.logoUrl &&
-								getAvatarWithEnterpriseFallback(
-									context.checkSuite.app.logoUrl,
-									undefined,
-									this.remote.authProviderId,
-								),
+							avatarUrl: context.checkSuite?.app?.logoUrl,
 							state: this.mapStateAsCheckState(context.conclusion),
 							description: context.title,
 							context: context.name,
@@ -1219,9 +1280,7 @@ export class GitHubRepository implements vscode.Disposable {
 						return {
 							id: context.id,
 							url: context.targetUrl ?? undefined,
-							avatarUrl: context.avatarUrl
-								? getAvatarWithEnterpriseFallback(context.avatarUrl, context.creator?.email, this.remote.authProviderId)
-								: undefined,
+							avatarUrl: context.avatarUrl ?? undefined,
 							state: this.mapStateAsCheckState(context.state),
 							description: context.description,
 							context: context.context,
@@ -1276,6 +1335,19 @@ export class GitHubRepository implements vscode.Disposable {
 					state: state
 				};
 			}
+		}
+
+		if (remote.isEnterprise) {
+			await Promise.all(checks.statuses.map(async status => {
+				const user: IAccount = {
+					login: '',
+					url: status.url || '',
+					email: status.creator?.email,
+					avatarUrl: status.avatarUrl,
+				};
+				await replaceAvatarUrl(user, octokit);
+				status.avatarUrl = user.avatarUrl;
+			}));
 		}
 
 		return [checks.statuses.length ? checks : null, reviewRequirement];

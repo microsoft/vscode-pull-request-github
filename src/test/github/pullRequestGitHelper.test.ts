@@ -50,7 +50,7 @@ describe('PullRequestGitHelper', function () {
 			const remote = new GitHubRemote('elsewhere', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
 
-			const prItem = await convertRESTPullRequestToRawPullRequest(
+			const prItem = convertRESTPullRequestToRawPullRequest(
 				new PullRequestBuilder()
 					.number(100)
 					.user(u => u.login('me'))
@@ -61,8 +61,7 @@ describe('PullRequestGitHelper', function () {
 						h.repo(r => (<RepositoryBuilder>r).clone_url('git@github.com:you/name.git'));
 						h.ref('my-branch');
 					})
-					.build(),
-				gitHubRepository,
+					.build()
 			);
 
 			repository.expectFetch('you', 'my-branch:pr/me/100', 1);

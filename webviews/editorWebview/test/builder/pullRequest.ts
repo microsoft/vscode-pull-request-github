@@ -7,7 +7,6 @@ import { GithubItemStateEnum, PullRequestMergeability } from '../../../../src/gi
 import { PullRequest } from '../../../../src/github/views';
 import { createBuilderClass } from '../../../../src/test/builders/base';
 import { CombinedStatusBuilder } from '../../../../src/test/builders/rest/combinedStatusBuilder';
-
 import { AccountBuilder } from './account';
 
 export const PullRequestBuilder = createBuilderClass<PullRequest>()({

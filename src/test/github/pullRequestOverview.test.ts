@@ -73,7 +73,7 @@ describe('PullRequestOverview', function () {
 				});
 			});
 
-			const prItem = await convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build());
 			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
 
 			await PullRequestOverviewPanel.createOrShow(EXTENSION_URI, pullRequestManager, prModel);
@@ -106,7 +106,7 @@ describe('PullRequestOverview', function () {
 				});
 			});
 
-			const prItem0 = await convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			const prItem0 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build());
 			const prModel0 = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem0);
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
 			sinon.stub(prModel0, 'getReviewRequests').resolves([]);
@@ -119,7 +119,7 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(createWebviewPanel.callCount, 1);
 			assert.strictEqual(panel0!.getCurrentTitle(), 'Pull Request #1000');
 
-			const prItem1 = await convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(2000).build(), repo);
+			const prItem1 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(2000).build());
 			const prModel1 = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem1);
 			resolveStub.resolves(prModel1);
 			sinon.stub(prModel1, 'getReviewRequests').resolves([]);

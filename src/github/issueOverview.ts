@@ -149,7 +149,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 						author: {
 							login: this._item.author.login,
 							name: this._item.author.name,
-							avatarUrl: this._item.userAvatar,
+							avatarUrl: this._item.author.avatarUrl,
 							url: this._item.author.url,
 							email: this._item.author.email,
 						},
@@ -398,7 +398,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 <html lang="en">
 	<head>
 		<meta charset="UTF-8">
-		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
+		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https: data:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
 
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<title>Pull Request #${number}</title>
