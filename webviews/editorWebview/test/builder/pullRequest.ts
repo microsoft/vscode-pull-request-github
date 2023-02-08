@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { GithubItemStateEnum, PullRequestMergeability } from '../../../../src/github/interface';
+import { PullRequest } from '../../../../src/github/views';
 import { createBuilderClass } from '../../../../src/test/builders/base';
 import { CombinedStatusBuilder } from '../../../../src/test/builders/rest/combinedStatusBuilder';
-import { PullRequest } from '../../../common/cache';
 
 import { AccountBuilder } from './account';
 

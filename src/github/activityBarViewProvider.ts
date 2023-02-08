@@ -16,6 +16,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { isInCodespaces, parseReviewers } from './utils';
+import { PullRequest } from './views';
 
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public readonly viewType = 'github:activePullRequest';
@@ -193,47 +194,51 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					pullRequest.head &&
 					!pullRequest.base.repositoryCloneUrl.equals(pullRequest.head.repositoryCloneUrl);
 
-				const continueOnGitHub = isCrossRepository && isInCodespaces();
+				const continueOnGitHub = !!(isCrossRepository && isInCodespaces());
+
+				const context: Partial<PullRequest> = {
+					number: pullRequest.number,
+					title: pullRequest.title,
+					url: pullRequest.html_url,
+					createdAt: pullRequest.createdAt,
+					body: pullRequest.body,
+					bodyHTML: pullRequest.bodyHTML,
+					labels: pullRequest.item.labels,
+					author: {
+						login: pullRequest.author.login,
+						name: pullRequest.author.name,
+						avatarUrl: pullRequest.userAvatar,
+						url: pullRequest.author.url,
+						email: pullRequest.author.email,
+					},
+					state: pullRequest.state,
+					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
+					isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
+					base: pullRequest.base.label,
+					isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
+					isLocalHeadDeleted: !branchInfo,
+					head: pullRequest.head?.label ?? '',
+					canEdit: canEdit,
+					hasWritePermission,
+					mergeable: pullRequest.item.mergeable,
+					isDraft: pullRequest.isDraft,
+					status: null,
+					reviewRequirement: null,
+					events: [],
+					mergeMethodsAvailability,
+					defaultMergeMethod,
+					repositoryDefaultBranch: defaultBranch,
+					isIssue: false,
+					isAuthor: currentUser.login === pullRequest.author.login,
+					reviewers: this._existingReviewers,
+					continueOnGitHub,
+					isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
+					hasReviewDraft
+				};
 
 				this._postMessage({
 					command: 'pr.initialize',
-					pullrequest: {
-						number: pullRequest.number,
-						title: pullRequest.title,
-						url: pullRequest.html_url,
-						createdAt: pullRequest.createdAt,
-						body: pullRequest.body,
-						bodyHTML: pullRequest.bodyHTML,
-						labels: pullRequest.item.labels,
-						author: {
-							login: pullRequest.author.login,
-							name: pullRequest.author.name,
-							avatarUrl: pullRequest.userAvatar,
-							url: pullRequest.author.url,
-						},
-						state: pullRequest.state,
-						isCurrentlyCheckedOut: isCurrentlyCheckedOut,
-						isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
-						base: pullRequest.base.label,
-						isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
-						isLocalHeadDeleted: !branchInfo,
-						head: pullRequest.head?.label ?? '',
-						canEdit: canEdit,
-						hasWritePermission,
-						mergeable: pullRequest.item.mergeable,
-						isDraft: pullRequest.isDraft,
-						status: { statuses: [] },
-						events: [],
-						mergeMethodsAvailability,
-						defaultMergeMethod,
-						repositoryDefaultBranch: defaultBranch,
-						isIssue: false,
-						isAuthor: currentUser.login === pullRequest.author.login,
-						reviewers: this._existingReviewers,
-						continueOnGitHub,
-						isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
-						hasReviewDraft
-					},
+					pullrequest: context,
 				});
 			})
 			.catch(e => {

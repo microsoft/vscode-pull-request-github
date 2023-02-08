@@ -6,7 +6,7 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { IComment } from '../../src/common/comment';
 import { GithubItemStateEnum } from '../../src/github/interface';
-import { PullRequest, ReviewType } from '../common/cache';
+import { PullRequest, ReviewType } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import emitter from '../common/events';
 import { useStateProp } from '../common/hooks';

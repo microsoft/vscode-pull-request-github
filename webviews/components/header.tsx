@@ -5,7 +5,7 @@
 
 import React, { useContext, useState } from 'react';
 import { GithubItemStateEnum } from '../../src/github/interface';
-import { PullRequest } from '../common/cache';
+import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
 import { checkIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';

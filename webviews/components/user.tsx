@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { PullRequest } from '../common/cache';
+import { PullRequest } from '../../src/github/views';
 import { Icon } from './icon';
 
 export const Avatar = ({ for: author }: { for: Partial<PullRequest['author']> }) => (

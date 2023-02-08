@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { PullRequest } from '../common/cache';
+import { PullRequest } from '../../src/github/views';
 
 import { AddComment, CommentView } from '../components/comment';
 import { Header } from '../components/header';

@@ -386,33 +386,6 @@ export function parseCommentDiffHunk(comment: IComment): DiffHunk[] {
 	return diffHunks;
 }
 
-export function convertPullRequestsGetCommentsResponseItemToComment(
-	comment: OctokitCommon.PullsCreateReviewCommentResponseData,
-	githubRepository: GitHubRepository,
-): IComment {
-	const ret: IComment = {
-		url: comment.url,
-		id: comment.id,
-		pullRequestReviewId: comment.pull_request_review_id ?? undefined,
-		diffHunk: comment.diff_hunk,
-		path: comment.path,
-		position: comment.position,
-		commitId: comment.commit_id,
-		originalPosition: comment.original_position,
-		originalCommitId: comment.original_commit_id,
-		user: convertRESTUserToAccount(comment.user!, githubRepository),
-		body: comment.body,
-		createdAt: comment.created_at,
-		htmlUrl: comment.html_url,
-		inReplyToId: comment.in_reply_to_id,
-		graphNodeId: comment.node_id,
-	};
-
-	const diffHunks = parseCommentDiffHunk(ret);
-	ret.diffHunks = diffHunks;
-	return ret;
-}
-
 export function convertGraphQLEventType(text: string) {
 	switch (text) {
 		case 'PullRequestCommit':

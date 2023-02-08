@@ -5,7 +5,7 @@
 
 import React, { useContext, useState } from 'react';
 import { GithubItemStateEnum } from '../../src/github/interface';
-import { PullRequest } from '../common/cache';
+import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 
 const ExitButton = ({ repositoryDefaultBranch, isBusy, onClick }: { repositoryDefaultBranch: string, isBusy: boolean, onClick: () => Promise<void> }) => {

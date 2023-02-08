@@ -7,7 +7,8 @@ import { createContext } from 'react';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, TimelineEvent } from '../../src/common/timelineEvent';
 import { MergeMethod, ReviewState } from '../../src/github/interface';
-import { getState, PullRequest, setState, updateState } from './cache';
+import { PullRequest } from '../../src/github/views';
+import { getState, setState, updateState } from './cache';
 import { getMessageHandler, MessageHandler } from './message';
 
 export class PRContext {
