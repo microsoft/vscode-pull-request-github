@@ -276,7 +276,7 @@ async function getExtensionConfig(target, mode, env) {
 				// //
 				// // We should either fix or remove that package, then remove this rule,
 				// // which introduces nonstandard behavior for mjs files, which are
-				// // terrible. This is all terrible. Everything is terrible.👇🏾
+				// // terrible. This is all terrible. Everything is terrible.
 				// {
 				// 	test: /\.mjs$/,
 				// 	include: /node_modules/,
@@ -345,6 +345,8 @@ async function getExtensionConfig(target, mode, env) {
 			// 'encoding': 'encoding',
 			'applicationinsights-native-metrics': 'applicationinsights-native-metrics',
 			'@opentelemetry/tracing': '@opentelemetry/tracing',
+			'@opentelemetry/instrumentation': '@opentelemetry/instrumentation',
+			'@azure/opentelemetry-instrumentation-azure-sdk': '@azure/opentelemetry-instrumentation-azure-sdk',
 			'fs': 'fs',
 		},
 		plugins: plugins,
