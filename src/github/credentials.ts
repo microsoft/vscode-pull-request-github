@@ -28,7 +28,7 @@ const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
 
 // If the scopes are changed, make sure to notify all interested parties to make sure this won't cause problems.
 const SCOPES_OLD = ['read:user', 'user:email', 'repo'];
-export const SCOPES = ['read:user', 'user:email', 'repo', 'workflow'];
+export const SCOPES = ['read:user', 'user:email', 'repo', 'workflow', 'read:org'];
 
 export interface GitHub {
 	octokit: LoggingOctokit;

@@ -27,7 +27,7 @@ import { OctokitCommon } from './common';
 import { CredentialStore } from './credentials';
 import { GitHubRepository, ItemsData, PullRequestData, ViewerPermission } from './githubRepository';
 import { PullRequestState, UserResponse } from './graphql';
-import { IAccount, ILabel, IMilestone, IPullRequestsPagingOptions, PRType, RepoAccessAndMergeMethods, User } from './interface';
+import { IAccount, ILabel, IMilestone, IPullRequestsPagingOptions, ITeam, PRType, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
 import { MilestoneModel } from './milestoneModel';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
@@ -39,6 +39,7 @@ import {
 	getRelatedUsersFromTimelineEvents,
 	loginComparator,
 	parseGraphQLUser,
+	teamComparator,
 	variableSubstitution,
 } from './utils';
 
@@ -125,7 +126,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	private _mentionableUsers?: { [key: string]: IAccount[] };
 	private _fetchMentionableUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
 	private _assignableUsers?: { [key: string]: IAccount[] };
+	private _teamReviewers?: { [key: string]: ITeam[] };
 	private _fetchAssignableUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
+	private _fetchTeamReviewersPromise?: Promise<{ [key: string]: ITeam[] }>;
 	private _gitBlameCache: { [key: string]: string } = {};
 	private _githubManager: GitHubManager;
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
@@ -734,7 +737,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				// file doesn't exist or json is unexpectedly invalid
 			}
 			if (repoSpecificCache) {
-				cache[repo.remote.repositoryName] = repoSpecificCache;
+				cache[repo.remote.remoteName] = repoSpecificCache;
 				return true;
 			}
 		}))).every(value => value);
@@ -744,6 +747,44 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 
 		Logger.appendLine(`No globalState for mentionable users.`);
+		return undefined;
+	}
+
+	private async getTeamReviewersFromGlobalState(): Promise<{ [key: string]: ITeam[] } | undefined> {
+		Logger.appendLine('Trying to use globalState for team reviewers.');
+
+		const teamReviewersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, 'teamReviewers');
+		let teamReviewersCacheExists;
+		try {
+			teamReviewersCacheExists = await vscode.workspace.fs.stat(teamReviewersCacheLocation);
+		} catch (e) {
+			// file doesn't exit
+		}
+		if (!teamReviewersCacheExists) {
+			return undefined;
+		}
+
+		const cache: { [key: string]: ITeam[] } = {};
+		const hasAllRepos = (await Promise.all(this._githubRepositories.map(async (repo) => {
+			const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
+			const repoSpecificFile = vscode.Uri.joinPath(teamReviewersCacheLocation, key);
+			let repoSpecificCache;
+			try {
+				repoSpecificCache = await vscode.workspace.fs.readFile(repoSpecificFile);
+			} catch (e) {
+				// file doesn't exist
+			}
+			if (repoSpecificCache && repoSpecificCache.toString()) {
+				cache[repo.remote.remoteName] = JSON.parse(repoSpecificCache.toString()) ?? [];
+				return true;
+			}
+		}))).every(value => value);
+		if (hasAllRepos) {
+			Logger.appendLine(`Using globalState team reviewers for ${Object.keys(cache).length}.`);
+			return cache;
+		}
+
+		Logger.appendLine(`No globalState for team reviewers.`);
 		return undefined;
 	}
 
@@ -819,6 +860,50 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 
 		return this._fetchAssignableUsersPromise;
+	}
+
+	async getTeamReviewers(clearCache?: boolean): Promise<{ [key: string]: ITeam[] }> {
+		if (clearCache) {
+			delete this._teamReviewers;
+		}
+
+		if (this._teamReviewers) {
+			return this._teamReviewers;
+		}
+
+		const globalStateTeamReviewers = clearCache ? undefined : await this.getTeamReviewersFromGlobalState();
+		if (globalStateTeamReviewers) {
+			return globalStateTeamReviewers || {};
+		}
+
+		if (!this._fetchTeamReviewersPromise) {
+			const cache: { [key: string]: ITeam[] } = {};
+			return (this._fetchTeamReviewersPromise = new Promise(resolve => {
+				const promises = this._githubRepositories.map(async githubRepository => {
+					const data = await githubRepository.getTeams();
+					cache[githubRepository.remote.remoteName] = data.sort(teamComparator);
+					return;
+				});
+
+				Promise.all(promises).then(() => {
+					this._teamReviewers = cache;
+					this._fetchTeamReviewersPromise = undefined;
+					const teamReviewersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, 'teamReviewers');
+					Promise.all(this._githubRepositories.map(async (repo) => {
+						const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
+						const repoSpecificFile = vscode.Uri.joinPath(teamReviewersCacheLocation, key);
+						await vscode.workspace.fs.writeFile(repoSpecificFile, new TextEncoder().encode(JSON.stringify(cache[repo.remote.remoteName])));
+					}));
+					resolve(cache);
+				});
+			}));
+		}
+
+		return this._fetchTeamReviewersPromise;
+	}
+
+	async getOrgTeamsCount(repository: GitHubRepository): Promise<number> {
+		return repository.getOrgTeamsCount();
 	}
 
 	async getPullRequestParticipants(githubRepository: GitHubRepository, pullRequestNumber: number): Promise<{ participants: IAccount[], viewer: IAccount }> {

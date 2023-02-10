@@ -26,12 +26,14 @@ import {
 	MaxIssueResponse,
 	MentionableUsersResponse,
 	MilestoneIssuesResponse,
+	OrganizationTeamsCountResponse,
+	OrganizationTeamsResponse,
 	PullRequestParticipantsResponse,
 	PullRequestResponse,
 	PullRequestsResponse,
 	ViewerPermissionResponse,
 } from './graphql';
-import { CheckState, IAccount, IMilestone, Issue, PullRequest, PullRequestChecks, RepoAccessAndMergeMethods } from './interface';
+import { CheckState, IAccount, IMilestone, Issue, ITeam, PullRequest, PullRequestChecks, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
 import { LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
@@ -976,6 +978,85 @@ export class GitHubRepository implements vscode.Disposable {
 				) {
 					vscode.window.showWarningMessage(
 						`GitHub user features will not work. ${e.graphQLErrors[0].message}`,
+					);
+				}
+				return ret;
+			}
+		} while (hasNextPage);
+
+		return ret;
+	}
+
+	async getOrgTeamsCount(): Promise<number> {
+		Logger.debug(`Fetch Teams Count - enter`, GitHubRepository.ID);
+		const { query, remote, schema } = await this.ensure();
+
+		try {
+			const result: { data: OrganizationTeamsCountResponse } = await query<OrganizationTeamsCountResponse>({
+				query: schema.GetOrganizationTeamsCount,
+				variables: {
+					login: remote.owner
+				},
+			});
+			return result.data.organization.teams.totalCount;
+		} catch (e) {
+			Logger.debug(`Unable to fetch teams Count: ${e}`, GitHubRepository.ID);
+			if (
+				e.graphQLErrors &&
+				e.graphQLErrors.length > 0 &&
+				e.graphQLErrors[0].type === 'INSUFFICIENT_SCOPES'
+			) {
+				vscode.window.showWarningMessage(
+					`GitHub teams features will not work. ${e.graphQLErrors[0].message}`,
+				);
+			}
+			return 0;
+		}
+	}
+
+	async getTeams(): Promise<ITeam[]> {
+		Logger.debug(`Fetch Teams - enter`, GitHubRepository.ID);
+		const { query, remote, schema } = await this.ensure();
+
+		let after: string | null = null;
+		let hasNextPage = false;
+		const ret: ITeam[] = [];
+
+		do {
+			try {
+				const result: { data: OrganizationTeamsResponse } = await query<OrganizationTeamsResponse>({
+					query: schema.GetOrganizationTeams,
+					variables: {
+						login: remote.owner,
+						after: after,
+						repoName: remote.repositoryName,
+					},
+				});
+
+				result.data.organization.teams.nodes.forEach(node => {
+					if (node.repositories.nodes.find(repo => repo.name === remote.repositoryName)) {
+						ret.push({
+							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
+							name: node.name,
+							url: node.url,
+							slug: node.slug,
+							id: node.id,
+							org: remote.owner
+						});
+					}
+				});
+
+				hasNextPage = result.data.organization.teams.pageInfo.hasNextPage;
+				after = result.data.organization.teams.pageInfo.endCursor;
+			} catch (e) {
+				Logger.debug(`Unable to fetch teams: ${e}`, GitHubRepository.ID);
+				if (
+					e.graphQLErrors &&
+					e.graphQLErrors.length > 0 &&
+					e.graphQLErrors[0].type === 'INSUFFICIENT_SCOPES'
+				) {
+					vscode.window.showWarningMessage(
+						`GitHub teams features will not work. ${e.graphQLErrors[0].message}`,
 					);
 				}
 				return ret;

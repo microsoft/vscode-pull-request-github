@@ -29,7 +29,7 @@ export enum PullRequestMergeability {
 }
 
 export interface ReviewState {
-	reviewer: IAccount;
+	reviewer: IAccount | ITeam;
 	state: string;
 }
 
@@ -39,6 +39,27 @@ export interface IAccount {
 	avatarUrl?: string;
 	url: string;
 	email?: string;
+}
+
+export interface ITeam {
+	name: string;
+	avatarUrl?: string;
+	url: string;
+	slug: string;
+	org: string;
+	id: string;
+}
+
+export function reviewerId(reviewer: ITeam | IAccount): string {
+	return (reviewer as ITeam).id || (reviewer as IAccount).login;
+}
+
+export function reviewerLabel(reviewer: ITeam | IAccount): string {
+	return (reviewer as ITeam).name || (reviewer as IAccount).login;
+}
+
+export function isTeam(reviewer: ITeam | IAccount): reviewer is ITeam {
+	return (reviewer as ITeam).id !== undefined;
 }
 
 export interface ISuggestedReviewer extends IAccount {
@@ -62,6 +83,7 @@ export interface MergePullRequest {
 
 export interface IRepository {
 	cloneUrl: string;
+	isInOrganization: boolean;
 	owner: string;
 	name: string;
 }

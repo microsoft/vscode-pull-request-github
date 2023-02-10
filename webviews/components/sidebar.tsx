@@ -5,7 +5,7 @@
 
 import React, { useContext } from 'react';
 import { gitHubLabelColor } from '../../src/common/utils';
-import { IMilestone } from '../../src/github/interface';
+import { IMilestone, reviewerId } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { Label } from '../common/label';
@@ -43,7 +43,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					</div>
 					{reviewers && reviewers.length ? (
 						reviewers.map(state => (
-							<Reviewer key={state.reviewer.login} {...state} />
+							<Reviewer key={reviewerId(state.reviewer)} {...state} />
 						))
 					) : (
 						<div className="section-placeholder">None yet</div>

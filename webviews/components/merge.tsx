@@ -14,7 +14,7 @@ import React, {
 	useState,
 } from 'react';
 import { groupBy } from '../../src/common/utils';
-import { GithubItemStateEnum, MergeMethod, PullRequestMergeability } from '../../src/github/interface';
+import { GithubItemStateEnum, MergeMethod, PullRequestMergeability, reviewerId } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
 import PullRequestContext, { PRContext } from '../common/context';
 import { Reviewer } from '../components/reviewer';
@@ -84,7 +84,7 @@ const InlineReviewers = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean 
 			<div className="section">
 				{' '}
 				{pr.reviewers.map(state => (
-					<Reviewer key={state.reviewer.login} {...state} />
+					<Reviewer key={reviewerId(state.reviewer)} {...state} />
 				))}
 			</div>
 		) : null
