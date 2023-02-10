@@ -248,8 +248,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	Logger.debug('Creating API implementation.', 'Activation');
 	const apiImpl = new GitApiImpl();
 
-	const version = vscode.extensions.getExtension(EXTENSION_ID)!.packageJSON.version;
-	telemetry = new ExperimentationTelemetry(new TelemetryReporter(EXTENSION_ID, version, ingestionKey));
+	telemetry = new ExperimentationTelemetry(new TelemetryReporter(ingestionKey));
 	context.subscriptions.push(telemetry);
 
 	await deferredActivate(context, apiImpl, showPRController);
