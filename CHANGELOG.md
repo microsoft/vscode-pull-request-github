@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.58.1
+
+### Fixes
+
+- Replacing a label with another appears to work in vscode but doesn't. https://github.com/microsoft/vscode-pull-request-github/issues/4492
+
 ## 0.58.0
 
 ### Changes
