@@ -11,6 +11,7 @@ import { Protocol } from '../common/protocol';
 import { GitHubRemote, parseRemote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
+import { Avatars } from './avatars';
 import { OctokitCommon } from './common';
 import { CredentialStore, GitHub } from './credentials';
 import {
@@ -56,9 +57,6 @@ import {
 	parseGraphQLPullRequest,
 	parseGraphQLViewerPermission,
 	parseMilestone,
-	replaceAccountAvatarUrls,
-	replaceAvatarUrl,
-	replaceIssuesAvatarUrls,
 } from './utils';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
@@ -180,6 +178,7 @@ export class GitHubRepository implements vscode.Disposable {
 		public readonly rootUri: vscode.Uri,
 		private readonly _credentialStore: CredentialStore,
 		private readonly _telemetry: ITelemetry,
+		private readonly _avatars: Avatars,
 		silent: boolean = false
 	) {
 		// kick off the comments controller early so that the Comments view is visible and doesn't pop up later in an way that's jarring
@@ -378,7 +377,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getAllPullRequests(page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch all pull requests - enter`, GitHubRepository.ID);
-			const { octokit, remote } = await this.ensure();
+			const { octokit, remote, _avatars } = await this.ensure();
 			const result = await octokit.call(octokit.api.pulls.list, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
@@ -409,7 +408,7 @@ export class GitHubRepository implements vscode.Disposable {
 				const pr = convertRESTPullRequestToRawPullRequest(pullRequest);
 
 				if (remote.isEnterprise) {
-					await replaceAccountAvatarUrls(pr, octokit);
+					await _avatars.replaceAccountAvatarUrls(pr, octokit);
 				}
 
 				pullRequests.push(this.createOrUpdatePullRequestModel(pr));
@@ -437,7 +436,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getPullRequestForBranch(branch: string): Promise<PullRequestModel | undefined> {
 		try {
 			Logger.debug(`Fetch pull requests for branch - enter`, GitHubRepository.ID);
-			const { query, remote, schema, octokit } = await this.ensure();
+			const { query, remote, schema, octokit, _avatars } = await this.ensure();
 			const { data } = await query<PullRequestsResponse>({
 				query: schema.PullRequestForHead,
 				variables: {
@@ -453,7 +452,7 @@ export class GitHubRepository implements vscode.Disposable {
 				const mostRecentOrOpenPr = prs.find(pr => pr.state.toLowerCase() === 'open') ?? prs[0];
 
 				if (remote.isEnterprise) {
-					await replaceAccountAvatarUrls(mostRecentOrOpenPr, octokit);
+					await _avatars.replaceAccountAvatarUrls(mostRecentOrOpenPr, octokit);
 				}
 
 				return this.createOrUpdatePullRequestModel(mostRecentOrOpenPr);
@@ -529,7 +528,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getIssuesForUserByMilestone(_page?: number): Promise<MilestoneData | undefined> {
 		try {
 			Logger.debug(`Fetch all issues - enter`, GitHubRepository.ID);
-			const { query, remote, schema, octokit } = await this.ensure();
+			const { query, remote, schema, octokit, _avatars } = await this.ensure();
 			const { data } = await query<MilestoneIssuesResponse>({
 				query: schema.GetMilestonesWithIssues,
 				variables: {
@@ -551,10 +550,10 @@ export class GitHubRepository implements vscode.Disposable {
 					const issues: Issue[] = raw.issues.edges.map(edge => parseGraphQLIssue(edge.node));
 
 					if (remote.isEnterprise) {
-						await replaceIssuesAvatarUrls(issues, octokit);
+						await _avatars.replaceIssuesAvatarUrls(issues, octokit);
 					}
 
-					milestones.push({ milestone, issues: issues.map(issue => new IssueModel(this, this.remote, issue)) });
+					milestones.push({ milestone, issues: issues.map(issue => new IssueModel(this, this.remote, issue, _avatars)) });
 				}
 			}
 			return {
@@ -570,7 +569,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getIssuesWithoutMilestone(_page?: number): Promise<IssueData | undefined> {
 		try {
 			Logger.debug(`Fetch issues without milestone- enter`, GitHubRepository.ID);
-			const { query, remote, schema, octokit } = await this.ensure();
+			const { query, remote, schema, octokit, _avatars } = await this.ensure();
 			const { data } = await query<IssuesResponse>({
 				query: schema.IssuesWithoutMilestone,
 				variables: {
@@ -592,7 +591,7 @@ export class GitHubRepository implements vscode.Disposable {
 			}
 
 			if (remote.isEnterprise) {
-				await replaceIssuesAvatarUrls(issues, octokit);
+				await _avatars.replaceIssuesAvatarUrls(issues, octokit);
 			}
 
 			return {
@@ -608,7 +607,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getIssues(page?: number, queryString?: string): Promise<IssueData | undefined> {
 		try {
 			Logger.debug(`Fetch issues with query - enter`, GitHubRepository.ID);
-			const { query, schema, remote, octokit } = await this.ensure();
+			const { query, schema, remote, octokit, _avatars } = await this.ensure();
 			const { data } = await query<IssuesSearchResponse>({
 				query: schema.Issues,
 				variables: {
@@ -628,7 +627,7 @@ export class GitHubRepository implements vscode.Disposable {
 			}
 
 			if (remote.isEnterprise) {
-				await replaceIssuesAvatarUrls(issues, octokit);
+				await _avatars.replaceIssuesAvatarUrls(issues, octokit);
 			}
 
 			return {
@@ -724,7 +723,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, GitHubRepository.ID);
-			const { octokit, query, schema, remote } = await this.ensure();
+			const { octokit, query, schema, remote, _avatars } = await this.ensure();
 
 			const user = await this.getAuthenticatedUser();
 			// Search api will not try to resolve repo that redirects, so get full name first
@@ -761,7 +760,7 @@ export class GitHubRepository implements vscode.Disposable {
 				const pr = parseGraphQLPullRequest(response.repository.pullRequest);
 
 				if (remote.isEnterprise) {
-					await replaceAccountAvatarUrls(pr, octokit);
+					await _avatars.replaceAccountAvatarUrls(pr, octokit);
 				}
 
 				pullRequests.push(this.createOrUpdatePullRequestModel(pr));
@@ -792,7 +791,7 @@ export class GitHubRepository implements vscode.Disposable {
 		if (model) {
 			model.update(pullRequest);
 		} else {
-			model = new PullRequestModel(this._credentialStore, this._telemetry, this, this.remote, pullRequest);
+			model = new PullRequestModel(this._credentialStore, this._telemetry, this, this.remote, pullRequest, this._avatars);
 			model.onDidInvalidate(() => this.getPullRequest(pullRequest.number));
 			this._pullRequestModels.set(pullRequest.number, model);
 			this._onDidAddPullRequest.fire(model);
@@ -805,7 +804,7 @@ export class GitHubRepository implements vscode.Disposable {
 		try {
 			Logger.debug(`Create pull request - enter`, GitHubRepository.ID);
 			const metadata = await this.getMetadata();
-			const { mutate, schema, remote, octokit } = await this.ensure();
+			const { mutate, schema, remote, octokit, _avatars } = await this.ensure();
 
 			const { data } = await mutate<CreatePullRequestResponse>({
 				mutation: schema.CreatePullRequest,
@@ -827,7 +826,7 @@ export class GitHubRepository implements vscode.Disposable {
 			const pr = parseGraphQLPullRequest(data.createPullRequest.pullRequest);
 
 			if (remote.isEnterprise) {
-				await replaceAccountAvatarUrls(pr, octokit);
+				await _avatars.replaceAccountAvatarUrls(pr, octokit);
 			}
 
 			return this.createOrUpdatePullRequestModel(pr);
@@ -840,7 +839,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
 		try {
 			Logger.debug(`Fetch pull request ${id} - enter`, GitHubRepository.ID);
-			const { query, remote, schema, octokit } = await this.ensure();
+			const { query, remote, schema, octokit, _avatars } = await this.ensure();
 
 			const { data } = await query<PullRequestResponse>({
 				query: schema.PullRequest,
@@ -854,7 +853,7 @@ export class GitHubRepository implements vscode.Disposable {
 			const pr = parseGraphQLPullRequest(data.repository.pullRequest);
 
 			if (remote.isEnterprise) {
-				await replaceAccountAvatarUrls(pr, octokit);
+				await _avatars.replaceAccountAvatarUrls(pr, octokit);
 			}
 
 			return this.createOrUpdatePullRequestModel(pr);
@@ -867,7 +866,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getIssue(id: number, withComments: boolean = false): Promise<IssueModel | undefined> {
 		try {
 			Logger.debug(`Fetch issue ${id} - enter`, GitHubRepository.ID);
-			const { query, remote, schema, octokit } = await this.ensure();
+			const { query, remote, schema, octokit, _avatars } = await this.ensure();
 
 			const { data } = await query<PullRequestResponse>({
 				query: withComments ? schema.IssueWithComments : schema.Issue,
@@ -882,10 +881,10 @@ export class GitHubRepository implements vscode.Disposable {
 			const issue = parseGraphQLIssue(data.repository.pullRequest);
 
 			if (remote.isEnterprise) {
-				await replaceIssuesAvatarUrls([issue], octokit);
+				await _avatars.replaceIssuesAvatarUrls([issue], octokit);
 			}
 
-			return new IssueModel(this, remote, issue);
+			return new IssueModel(this, remote, issue, _avatars);
 		} catch (e) {
 			Logger.error(`Unable to fetch PR: ${e}`, GitHubRepository.ID);
 			return;
@@ -951,7 +950,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 	async getMentionableUsers(): Promise<IAccount[]> {
 		Logger.debug(`Fetch mentionable users - enter`, GitHubRepository.ID);
-		const { query, remote, schema, octokit } = await this.ensure();
+		const { query, remote, schema, octokit, _avatars } = await this.ensure();
 
 		let after: string | null = null;
 		let hasNextPage = false;
@@ -972,7 +971,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 				if (remote.isEnterprise) {
 					await Promise.all(
-						result.data.repository.mentionableUsers.nodes.map(node => replaceAvatarUrl(node, octokit)),
+						result.data.repository.mentionableUsers.nodes.map(node => _avatars.replaceAvatarUrl(node, octokit)),
 					);
 				}
 
@@ -1001,7 +1000,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 	async getAssignableUsers(): Promise<IAccount[]> {
 		Logger.debug(`Fetch assignable users - enter`, GitHubRepository.ID);
-		const { query, remote, schema, octokit } = await this.ensure();
+		const { query, remote, schema, octokit, _avatars } = await this.ensure();
 
 		let after: string | null = null;
 		let hasNextPage = false;
@@ -1021,7 +1020,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 				if (remote.isEnterprise) {
 					await Promise.all(
-						result.data.repository.assignableUsers.nodes.map(node => replaceAvatarUrl(node, octokit)),
+						result.data.repository.assignableUsers.nodes.map(node => _avatars.replaceAvatarUrl(node, octokit)),
 					);
 				}
 
@@ -1095,7 +1094,7 @@ export class GitHubRepository implements vscode.Disposable {
 			return [];
 		}
 
-		const { query, remote, schema, octokit } = await this.ensureAdditionalScopes();
+		const { query, remote, schema, octokit, _avatars } = await this.ensureAdditionalScopes();
 
 		let after: string | null = null;
 		let hasNextPage = false;
@@ -1123,7 +1122,7 @@ export class GitHubRepository implements vscode.Disposable {
 				}));
 
 				if (remote.isEnterprise) {
-					await Promise.all(teamsWithRepositoryNames.map(team => replaceAvatarUrl(team, octokit)));
+					await Promise.all(teamsWithRepositoryNames.map(team => _avatars.replaceAvatarUrl(team, octokit)));
 				}
 
 				orgTeams.push(...teamsWithRepositoryNames);
@@ -1150,7 +1149,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 	async getPullRequestParticipants(pullRequestNumber: number): Promise<IAccount[]> {
 		Logger.debug(`Fetch participants from a Pull Request`, GitHubRepository.ID);
-		const { query, remote, schema, octokit } = await this.ensure();
+		const { query, remote, schema, octokit, _avatars } = await this.ensure();
 
 		const ret: IAccount[] = [];
 
@@ -1167,7 +1166,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 			if (remote.isEnterprise) {
 				await Promise.all(
-					result.data.repository.pullRequest.participants.nodes.map(node => replaceAvatarUrl(node, octokit)),
+					result.data.repository.pullRequest.participants.nodes.map(node => _avatars.replaceAvatarUrl(node, octokit)),
 				);
 			}
 
@@ -1230,7 +1229,7 @@ export class GitHubRepository implements vscode.Disposable {
 	 */
 	private _useFallbackChecks: boolean = false;
 	async getStatusChecks(number: number): Promise<[PullRequestChecks | null, PullRequestReviewRequirement | null]> {
-		const { query, remote, schema, octokit } = await this.ensure();
+		const { query, remote, schema, octokit, _avatars } = await this.ensure();
 		const captureUseFallbackChecks = this._useFallbackChecks;
 		let result: ApolloQueryResult<GetChecksResponse>;
 		try {
@@ -1345,7 +1344,7 @@ export class GitHubRepository implements vscode.Disposable {
 					email: status.creator?.email,
 					avatarUrl: status.avatarUrl,
 				};
-				await replaceAvatarUrl(user, octokit);
+				await _avatars.replaceAvatarUrl(user, octokit);
 				status.avatarUrl = user.avatarUrl;
 			}));
 		}

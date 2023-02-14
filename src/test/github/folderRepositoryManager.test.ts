@@ -21,6 +21,7 @@ import { CredentialStore } from '../../github/credentials';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { Uri } from 'vscode';
 import { GitHubServerType } from '../../common/authentication';
+import { Avatars } from '../../github/avatars';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
@@ -53,9 +54,10 @@ describe('PullRequestManager', function () {
 			const protocol = new Protocol(url);
 			const remote = new GitHubRemote('origin', url, protocol, GitHubServerType.GitHubDotCom);
 			const rootUri = Uri.file('C:\\users\\test\\repo');
-			const repository = new GitHubRepository(remote, rootUri, manager.credentialStore, telemetry);
+			const avatars = new Avatars(new MockExtensionContext())
+			const repository = new GitHubRepository(remote, rootUri, manager.credentialStore, telemetry, avatars);
 			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().build());
-			const pr = new PullRequestModel(manager.credentialStore, telemetry, repository, remote, prItem);
+			const pr = new PullRequestModel(manager.credentialStore, telemetry, repository, remote, prItem, avatars);
 
 			manager.activePullRequest = pr;
 			assert(changeFired.called);

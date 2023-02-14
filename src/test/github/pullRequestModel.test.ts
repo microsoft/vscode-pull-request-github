@@ -19,6 +19,7 @@ import { NetworkStatus } from 'apollo-client';
 import { Resource } from '../../common/resources';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { GitHubServerType } from '../../common/authentication';
+import { Avatars } from '../../github/avatars';
 const queries = require('../../github/queries.gql');
 
 const telemetry = new MockTelemetry();
@@ -57,12 +58,14 @@ describe('PullRequestModel', function () {
 	let credentials: CredentialStore;
 	let repo: MockGitHubRepository;
 	let context: MockExtensionContext;
+	let avatars: Avatars;
 
 	beforeEach(function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 
 		context = new MockExtensionContext();
+		avatars = new Avatars(context);
 		credentials = new CredentialStore(telemetry, context);
 		repo = new MockGitHubRepository(remote, credentials, telemetry, sinon);
 		Resource.initialize(context);
@@ -77,21 +80,21 @@ describe('PullRequestModel', function () {
 
 	it('should return `state` properly as `open`', function () {
 		const pr = new PullRequestBuilder().state('open').build();
-		const open = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr));
+		const open = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr), avatars);
 
 		assert.strictEqual(open.state, GithubItemStateEnum.Open);
 	});
 
 	it('should return `state` properly as `closed`', function () {
 		const pr = new PullRequestBuilder().state('closed').build();
-		const open = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr));
+		const open = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr), avatars);
 
 		assert.strictEqual(open.state, GithubItemStateEnum.Closed);
 	});
 
 	it('should return `state` properly as `merged`', function () {
 		const pr = new PullRequestBuilder().merged(true).state('closed').build();
-		const open = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr));
+		const open = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr), avatars);
 
 		assert.strictEqual(open.state, GithubItemStateEnum.Merged);
 	});
@@ -105,6 +108,7 @@ describe('PullRequestModel', function () {
 				repo,
 				remote,
 				convertRESTPullRequestToRawPullRequest(pr),
+				avatars,
 			);
 
 			repo.queryProvider.expectGraphQLQuery(

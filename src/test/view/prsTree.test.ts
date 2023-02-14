@@ -27,6 +27,7 @@ import { GitApiImpl } from '../../api/api1';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { GitHubServerType } from '../../common/authentication';
+import { Avatars } from '../../github/avatars';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -34,12 +35,14 @@ describe('GitHub Pull Requests view', function () {
 	let telemetry: MockTelemetry;
 	let provider: PullRequestsTreeDataProvider;
 	let credentialStore: CredentialStore;
+	let avatars: Avatars;
 
 	beforeEach(function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 
 		context = new MockExtensionContext();
+		avatars = new Avatars(context);
 
 		telemetry = new MockTelemetry();
 		provider = new PullRequestsTreeDataProvider(telemetry, context);
@@ -148,7 +151,7 @@ describe('GitHub Pull Requests view', function () {
 				});
 			}).pullRequest;
 			const prItem0 = parseGraphQLPullRequest(pr0.repository.pullRequest);
-			const pullRequest0 = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem0);
+			const pullRequest0 = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem0, avatars);
 
 			const pr1 = gitHubRepository.addGraphQLPullRequest(builder => {
 				builder.pullRequest(pr => {
@@ -164,7 +167,7 @@ describe('GitHub Pull Requests view', function () {
 				});
 			}).pullRequest;
 			const prItem1 = parseGraphQLPullRequest(pr1.repository.pullRequest);
-			const pullRequest1 = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem1);
+			const pullRequest1 = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem1, avatars);
 
 			const repository = new MockRepository();
 			await repository.addRemote(remote.remoteName, remote.url);

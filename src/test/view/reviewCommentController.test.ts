@@ -36,6 +36,7 @@ import { GitFileChangeModel } from '../../view/fileChangeModel';
 import { WebviewViewCoordinator } from '../../view/webviewViewCoordinator';
 import { GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
+import { Avatars } from '../../github/avatars';
 const schema = require('../../github/queries.gql');
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -65,6 +66,7 @@ describe('ReviewCommentController', function () {
 		telemetry = new MockTelemetry();
 		const context = new MockExtensionContext();
 		credentialStore = new CredentialStore(telemetry, context);
+		const avatars = new Avatars(context);
 
 		repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
@@ -91,6 +93,7 @@ describe('ReviewCommentController', function () {
 			githubRepo,
 			remote,
 			convertRESTPullRequestToRawPullRequest(pr),
+			avatars,
 		);
 
 		manager.activePullRequest = activePullRequest;

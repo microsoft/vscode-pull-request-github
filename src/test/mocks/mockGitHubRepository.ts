@@ -20,13 +20,15 @@ import {
 import { MockTelemetry } from './mockTelemetry';
 import { Uri } from 'vscode';
 import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
+import { MockExtensionContext } from './mockExtensionContext';
+import { Avatars } from '../../github/avatars';
 const queries = require('../../github/queries.gql');
 
 export class MockGitHubRepository extends GitHubRepository {
 	readonly queryProvider: QueryProvider;
 
 	constructor(remote: GitHubRemote, credentialStore: CredentialStore, telemetry: MockTelemetry, sinon: SinonSandbox) {
-		super(remote, Uri.file('C:\\users\\test\\repo'), credentialStore, telemetry);
+		super(remote, Uri.file('C:\\users\\test\\repo'), credentialStore, telemetry, new Avatars(new MockExtensionContext()));
 
 		this.queryProvider = new QueryProvider(sinon);
 

@@ -297,20 +297,6 @@ async function getExtensionConfig(target, mode, env) {
 			alias:
 				target === 'webworker'
 					? {
-						'universal-user-agent': path.join(
-							__dirname,
-							'node_modules',
-							'universal-user-agent',
-							'dist-web',
-							'index.js',
-						),
-						'p-queue': path.join(
-							__dirname,
-							'node_modules',
-							'p-queue',
-							'dist',
-							'index.js',
-						),
 						'node-fetch': 'cross-fetch',
 						'../env/node/net': path.resolve(__dirname, 'src', 'env', 'browser', 'net'),
 						'../env/node/ssh': path.resolve(__dirname, 'src', 'env', 'browser', 'ssh'),
@@ -325,9 +311,6 @@ async function getExtensionConfig(target, mode, env) {
 						)
 					}
 					: undefined,
-			// : {
-			// 	'universal-user-agent': path.join(__dirname, 'node_modules', 'universal-user-agent', 'dist-node', 'index.js'),
-			// },
 			fallback:
 				target === 'webworker'
 					? {
@@ -339,7 +322,8 @@ async function getExtensionConfig(target, mode, env) {
 						'os': require.resolve('os-browserify/browser'),
 						"constants": require.resolve("constants-browserify"),
 						buffer: require.resolve('buffer'),
-						timers: require.resolve('timers-browserify')
+						timers: require.resolve('timers-browserify'),
+						'p-queue': require.resolve('p-queue'),
 					}
 					: undefined,
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],

@@ -9,6 +9,7 @@ import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { TimelineEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
+import { Avatars } from './avatars';
 import { OctokitCommon } from './common';
 import { GitHubRepository } from './githubRepository';
 import {
@@ -18,7 +19,7 @@ import {
 	UpdatePullRequestResponse,
 } from './graphql';
 import { GithubItemStateEnum, IAccount, IMilestone, IPullRequestEditData, Issue } from './interface';
-import { parseGraphQlIssueComment, parseGraphQLTimelineEvents, replaceAvatarUrl, replaceTimelineEventAvatarUrls } from './utils';
+import { parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
 
 export class IssueModel<TItem extends Issue = Issue> {
 	static ID = 'IssueModel';
@@ -34,15 +35,18 @@ export class IssueModel<TItem extends Issue = Issue> {
 	public createdAt: string;
 	public updatedAt: string;
 	public milestone?: IMilestone;
-	public readonly githubRepository: GitHubRepository;
-	public readonly remote: Remote;
-	public item: TItem;
 	public bodyHTML?: string;
 
 	private _onDidInvalidate = new vscode.EventEmitter<void>();
 	public onDidInvalidate = this._onDidInvalidate.event;
 
-	constructor(githubRepository: GitHubRepository, remote: Remote, item: TItem, skipUpdate: boolean = false) {
+	constructor(
+		public readonly githubRepository: GitHubRepository,
+		public readonly remote: Remote,
+		public item: TItem,
+		protected readonly _avatars: Avatars,
+		skipUpdate: boolean = false,
+	) {
 		this.githubRepository = githubRepository;
 		this.remote = remote;
 		this.item = item;
@@ -119,7 +123,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 		if (issue.titleHTML) {
 			this.titleHTML = issue.titleHTML;
 		}
-		if (!this.bodyHTML || (issue.body !== this.body)) {
+		if (!this.bodyHTML || issue.body !== this.body) {
 			this.bodyHTML = issue.bodyHTML;
 		}
 		this.html_url = issue.url;
@@ -153,7 +157,9 @@ export class IssueModel<TItem extends Issue = Issue> {
 		return true;
 	}
 
-	async edit(toEdit: IPullRequestEditData): Promise<{ body: string; bodyHTML: string; title: string; titleHTML: string }> {
+	async edit(
+		toEdit: IPullRequestEditData,
+	): Promise<{ body: string; bodyHTML: string; title: string; titleHTML: string }> {
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
@@ -201,6 +207,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 	}
 
 	async createIssueComment(text: string): Promise<IComment> {
+		const _avatars = this._avatars;
 		const { mutate, schema, remote, octokit } = await this.githubRepository.ensure();
 		const { data } = await mutate<AddIssueCommentResponse>({
 			mutation: schema.AddIssueComment,
@@ -215,7 +222,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 		const comment = parseGraphQlIssueComment(data!.addComment.commentEdge.node);
 
 		if (remote.isEnterprise && comment.user) {
-			await replaceAvatarUrl(comment.user, octokit);
+			await _avatars.replaceAvatarUrl(comment.user, octokit);
 		}
 
 		return comment;
@@ -223,6 +230,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 
 	async editIssueComment(comment: IComment, text: string): Promise<IComment> {
 		try {
+			const _avatars = this._avatars;
 			const { mutate, schema, remote, octokit } = await this.githubRepository.ensure();
 
 			const { data } = await mutate<EditIssueCommentResponse>({
@@ -238,7 +246,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 			const newComment = parseGraphQlIssueComment(data!.updateIssueComment.issueComment);
 
 			if (remote.isEnterprise && newComment.user) {
-				await replaceAvatarUrl(newComment.user, octokit);
+				await _avatars.replaceAvatarUrl(newComment.user, octokit);
 			}
 
 			return newComment;
@@ -274,7 +282,9 @@ export class IssueModel<TItem extends Issue = Issue> {
 			// We don't get a nice error message from the API when setting labels fails.
 			// Since adding labels isn't a critical part of the PR creation path it's safe to catch all errors that come from setting labels.
 			Logger.error(`Failed to add labels to PR #${this.number}`, IssueModel.ID);
-			vscode.window.showWarningMessage(vscode.l10n.t('Some, or all, labels could not be added to the pull request.'));
+			vscode.window.showWarningMessage(
+				vscode.l10n.t('Some, or all, labels could not be added to the pull request.'),
+			);
 		}
 	}
 
@@ -290,6 +300,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 
 	async getIssueTimelineEvents(): Promise<TimelineEvent[]> {
 		Logger.debug(`Fetch timeline events of issue #${this.number} - enter`, IssueModel.ID);
+		const _avatars = this._avatars;
 		const githubRepository = this.githubRepository;
 		const { query, remote, schema, octokit } = await githubRepository.ensure();
 
@@ -306,7 +317,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 			const events = parseGraphQLTimelineEvents(ret);
 
 			if (remote.isEnterprise) {
-				await replaceTimelineEventAvatarUrls(events, octokit);
+				await _avatars.replaceTimelineEventAvatarUrls(events, octokit);
 			}
 
 			return events;

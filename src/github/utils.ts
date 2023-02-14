@@ -4,9 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as crypto from 'crypto';
 import * as OctokitTypes from '@octokit/types';
-import PQueue from 'p-queue';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
@@ -41,7 +39,6 @@ import {
 	User,
 } from './interface';
 import { IssueModel } from './issueModel';
-import { LoggingOctokit } from './loggingOctokit';
 import { GHPRComment, GHPRCommentThread } from './prComment';
 import { PullRequestModel } from './pullRequestModel';
 
@@ -1105,179 +1102,6 @@ export function getEnterpriseUri(): vscode.Uri | undefined {
 
 export function hasEnterpriseUri(): boolean {
 	return !!getEnterpriseUri();
-}
-
-const GRAVATAR_STYLE_NONE = 'none';
-
-function isGravatarEnabled() {
-	return getGravatarStyle() !== GRAVATAR_STYLE_NONE;
-}
-
-function getGravatarStyle() {
-	return vscode.workspace.getConfiguration('githubPullRequests').get<string>('defaultGravatarsStyle', GRAVATAR_STYLE_NONE);
-}
-
-function generateGravatarUrl(gravatarId: string | undefined, size: number = 200): string | undefined {
-	if (!gravatarId || !isGravatarEnabled()) {
-		return undefined;
-	}
-
-	return `https://www.gravatar.com/avatar/${gravatarId}?s=${size}&d=${getGravatarStyle()}`;
-}
-
-// This limits the concurrent promises that fetch avatars from the Enterprise REST service
-const enterpriseAvatarQueue = new PQueue({concurrency: 3});
-
-// This is an in-memory cache of Enterprise avatar data URIs
-const enterpriseAvatarCache: {[k: string]: Promise<string | void>} = {};
-
-async function getEnterpriseAvatarUrl(avatarUrl: string | undefined, octokit: LoggingOctokit): Promise<string | undefined> {
-	try {
-		if (!avatarUrl || !hasEnterpriseUri()) {
-			return;
-		}
-
-		const avatarUri = vscode.Uri.parse(avatarUrl, true);
-		const enterpriseUri = getEnterpriseUri()!;
-		const enterpriseAvatarRestBase = '/enterprise/avatars';
-
-		// static asset from enterprise does not need authentication
-		if (avatarUri.scheme === 'data' || avatarUri.authority === `assets.${enterpriseUri.authority}`) {
-			return avatarUrl;
-		}
-
-		// only proxy avatars from the "avatars" sub-domain of Enterprise
-		if (avatarUri.authority !== `avatars.${enterpriseUri.authority}`) {
-			return;
-		}
-
-		const cacheKey = `${avatarUri.path}?${avatarUri.query}`;
-		const options = {};
-		const qs = new URLSearchParams(avatarUri.query);
-
-		qs.forEach((v, k) => {
-			options[k] = v;
-		});
-
-		if (!(cacheKey in enterpriseAvatarCache)) {
-			enterpriseAvatarCache[cacheKey] = enterpriseAvatarQueue.add(() =>
-				octokit.api.request(`GET ${enterpriseAvatarRestBase}${avatarUri.path}`, options).then(
-					resp => {
-						const dataUri = `data:${resp.headers['content-type']};base64,${Buffer.from(resp.data).toString(
-							'base64',
-						)}`;
-						return dataUri;
-					},
-					() => {
-						delete enterpriseAvatarCache[cacheKey];
-						return;
-					},
-				),
-			);
-		}
-
-		const avatarDataUri = await enterpriseAvatarCache[cacheKey];
-		if (avatarDataUri) {
-			return avatarDataUri;
-		}
-	} catch {
-		// ignore
-	}
-}
-
-export async function replaceAvatarUrl(user: IAccount | ITeam, octokit: LoggingOctokit): Promise<void> {
-	const origAvatarUrl = user.avatarUrl;
-	user.avatarUrl = undefined;
-
-	const enterpriseAvatarUrl = await getEnterpriseAvatarUrl(origAvatarUrl, octokit);
-	if (enterpriseAvatarUrl) {
-		user.avatarUrl = enterpriseAvatarUrl;
-		return;
-	}
-
-	if (!('login' in user)) {
-		return;
-	}
-
-	if (user.email === undefined && user.login) {
-		try {
-			const { data } = await octokit.call(octokit.api.users.getByUsername, {
-				username: user.login
-			});
-
-			user.email = data.email || undefined;
-		} catch {
-			// ignore
-		}
-	}
-
-	if (!user.email) {
-		return;
-	}
-
-	user.avatarUrl = generateGravatarUrl(crypto.createHash('md5').update(user.email.trim().toLowerCase()).digest('hex'));
-}
-
-export function replaceAccountAvatarUrls(pr: PullRequest, octokit: LoggingOctokit): Promise<void[]> {
-	const promises: Promise<void>[] = [];
-	promises.push(replaceAvatarUrl(pr.user, octokit));
-	if (pr.assignees) {
-		promises.push(...pr.assignees.map(user => replaceAvatarUrl(user, octokit)));
-	}
-	if (pr.suggestedReviewers) {
-		promises.push(...pr.suggestedReviewers.map(user => replaceAvatarUrl(user, octokit)));
-	}
-	return Promise.all(promises);
-}
-
-export function replaceTimelineEventAvatarUrls(events: Common.TimelineEvent[], octokit: LoggingOctokit): Promise<void[]> {
-	const promises: Promise<void>[] = [];
-
-	for (const event of events) {
-		const type = event.event;
-		switch (type) {
-			case Common.EventType.Commented:
-				const commentEvent = event as Common.CommentEvent;
-				promises.push(replaceAvatarUrl(commentEvent.user, octokit));
-				break;
-			case Common.EventType.Reviewed:
-				const reviewEvent = event as Common.ReviewEvent;
-				promises.push(replaceAvatarUrl(reviewEvent.user, octokit));
-				break;
-			case Common.EventType.Committed:
-				const commitEv = event as Common.CommitEvent;
-				promises.push(replaceAvatarUrl(commitEv.author, octokit));
-				break;
-			case Common.EventType.Merged:
-				const mergeEv = event as Common.MergedEvent;
-				promises.push(replaceAvatarUrl(mergeEv.user, octokit));
-				break;
-			case Common.EventType.Assigned:
-				const assignEv = event as Common.AssignEvent;
-				promises.push(replaceAvatarUrl(assignEv.user, octokit));
-				promises.push(replaceAvatarUrl(assignEv.actor, octokit));
-				break;
-			case Common.EventType.HeadRefDeleted:
-				const deletedEv = event as Common.HeadRefDeleteEvent;
-				promises.push(replaceAvatarUrl(deletedEv.actor, octokit));
-				break;
-		}
-	}
-
-	return Promise.all(promises);
-}
-
-export function replaceIssuesAvatarUrls(issues: Issue[], octokit: LoggingOctokit): Promise<void[]> {
-	const promises: Promise<void>[] = [];
-
-	for (const issue of issues) {
-		promises.push(replaceAvatarUrl(issue.user, octokit));
-		if (issue.assignees) {
-			promises.push(...issue.assignees.map(user => replaceAvatarUrl(user, octokit)));
-		}
-	}
-
-	return Promise.all(promises);
 }
 
 export function getPullsUrl(repo: GitHubRepository) {

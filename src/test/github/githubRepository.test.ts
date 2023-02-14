@@ -15,6 +15,7 @@ import { Uri } from 'vscode';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { GitHubManager } from '../../authentication/githubServer';
 import { GitHubServerType } from '../../common/authentication';
+import { Avatars } from '../../github/avatars';
 
 describe('GitHubRepository', function () {
 	let sinon: SinonSandbox;
@@ -40,7 +41,8 @@ describe('GitHubRepository', function () {
 			const url = 'https://github.com/some/repo';
 			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 			const rootUri = Uri.file('C:\\users\\test\\repo');
-			const dotcomRepository = new GitHubRepository(remote, rootUri, credentialStore, telemetry);
+			const avatars = new Avatars(context)
+			const dotcomRepository = new GitHubRepository(remote, rootUri, credentialStore, telemetry, avatars);
 			assert(GitHubManager.isGithubDotCom(Uri.parse(remote.url).authority));
 		});
 
@@ -48,7 +50,8 @@ describe('GitHubRepository', function () {
 			const url = 'https://github.enterprise.horse/some/repo';
 			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 			const rootUri = Uri.file('C:\\users\\test\\repo');
-			const dotcomRepository = new GitHubRepository(remote, rootUri, credentialStore, telemetry);
+			const avatars = new Avatars(context)
+			const dotcomRepository = new GitHubRepository(remote, rootUri, credentialStore, telemetry, avatars);
 			// assert(! dotcomRepository.isGitHubDotCom);
 		});
 	});

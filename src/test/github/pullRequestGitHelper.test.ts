@@ -21,6 +21,7 @@ import { RefType } from '../../api/api1';
 import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { GitHubServerType } from '../../common/authentication';
+import { Avatars } from '../../github/avatars';
 
 describe('PullRequestGitHelper', function () {
 	let sinon: SinonSandbox;
@@ -49,6 +50,7 @@ describe('PullRequestGitHelper', function () {
 			const url = 'git@github.com:owner/name.git';
 			const remote = new GitHubRemote('elsewhere', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+			const avatars = new Avatars(context);
 
 			const prItem = convertRESTPullRequestToRawPullRequest(
 				new PullRequestBuilder()
@@ -67,7 +69,7 @@ describe('PullRequestGitHelper', function () {
 			repository.expectFetch('you', 'my-branch:pr/me/100', 1);
 			repository.expectPull(true);
 
-			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem, avatars);
 
 			if (!pullRequest.isResolved()) {
 				assert(false, 'pull request head not resolved successfully');

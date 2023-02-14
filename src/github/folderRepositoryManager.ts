@@ -32,6 +32,7 @@ import { EXTENSION_ID } from '../constants';
 import { NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
 import { UserCompletion, userMarkdown } from '../issues/util';
+import { Avatars } from './avatars';
 import { OctokitCommon } from './common';
 import { CredentialStore } from './credentials';
 import { GitHubRepository, ItemsData, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
@@ -48,8 +49,6 @@ import {
 	getRelatedUsersFromTimelineEvents,
 	loginComparator,
 	parseGraphQLUser,
-	replaceAccountAvatarUrls,
-	replaceAvatarUrl,
 	teamComparator,
 	variableSubstitution,
 } from './utils';
@@ -140,6 +139,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	private _gitBlameCache: { [key: string]: string } = {};
 	private _githubManager: GitHubManager;
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
+	private readonly _avatars: Avatars;
 
 	private _onDidMergePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidMergePullRequest = this._onDidMergePullRequest.event;
@@ -181,6 +181,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		);
 
 		this._subs.push(_credentialStore.onDidInitialize(() => this.updateRepositories()));
+
+		this._avatars = new Avatars(this.context);
 
 		this.setUpCompletionItemProvider();
 
@@ -1247,6 +1249,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		includeIssuesWithoutMilestone: boolean = false,
 		query?: string,
 	): Promise<ItemsResponseResult<MilestoneModel>> {
+		const _avatars = this._avatars;
 		const milestones: ItemsResponseResult<MilestoneModel> = await this.fetchPagedData<MilestoneModel>(
 			options,
 			'issuesKey',
@@ -1270,7 +1273,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				},
 				issues: await Promise.all(additionalIssues.items.map(async (issue) => {
 					const githubRepository = await this.getRepoForIssue(issue);
-					return new IssueModel(githubRepository, githubRepository.remote, issue);
+					return new IssueModel(githubRepository, githubRepository.remote, issue, _avatars);
 				})),
 			});
 		}
@@ -1313,6 +1316,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	async getIssues(
 		query?: string,
 	): Promise<ItemsResponseResult<IssueModel>> {
+		const _avatars = this._avatars;
 		const data = await this.fetchPagedData<Issue>({ fetchNextPage: false, fetchOnePagePerRepo: false }, 'issuesKey', PagedDataType.IssueSearch, PRType.All, query);
 		const mappedData: ItemsResponseResult<IssueModel> = {
 			items: [],
@@ -1321,7 +1325,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		};
 		for (const issue of data.items) {
 			const githubRepository = await this.getRepoForIssue(issue);
-			mappedData.items.push(new IssueModel(githubRepository, githubRepository.remote, issue));
+			mappedData.items.push(new IssueModel(githubRepository, githubRepository.remote, issue, _avatars));
 		}
 		return mappedData;
 	}
@@ -1554,6 +1558,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	async createIssue(params: OctokitCommon.IssuesCreateParams): Promise<IssueModel | undefined> {
 		try {
+			const _avatars = this._avatars;
 			const repo = this._githubRepositories.find(
 				r => r.remote.owner === params.owner && r.remote.repositoryName === params.repo,
 			);
@@ -1568,10 +1573,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const item = convertRESTIssueToRawPullRequest(data);
 
 			if (repo.remote.isEnterprise) {
-				await replaceAccountAvatarUrls(item, repo.octokit);
+				await _avatars.replaceAccountAvatarUrls(item, repo.octokit);
 			}
 
-			const issueModel = new IssueModel(repo, repo.remote, item);
+			const issueModel = new IssueModel(repo, repo.remote, item, _avatars);
 
 			/* __GDPR__
 				"issue.create.success" : {
@@ -2017,6 +2022,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 			Logger.debug(`Fulfill pull request missing info - start`, FolderRepositoryManager.ID);
 			const githubRepository = pullRequest.githubRepository;
+			const _avatars = this._avatars;
 			const { octokit, remote } = await githubRepository.ensure();
 
 			if (!pullRequest.base) {
@@ -2028,7 +2034,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				const pr = convertRESTPullRequestToRawPullRequest(data);
 
 				if (remote.isEnterprise) {
-					await replaceAccountAvatarUrls(pr, octokit);
+					await _avatars.replaceAccountAvatarUrls(pr, octokit);
 				}
 
 				pullRequest.update(pr);
@@ -2094,6 +2100,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	async resolveUser(owner: string, repositoryName: string, login: string): Promise<User | undefined> {
 		Logger.debug(`Fetch user ${login}`, FolderRepositoryManager.ID);
+		const _avatars = this._avatars;
 		const githubRepository = await this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
 		const { query, schema, remote, octokit } = await githubRepository.ensure();
 
@@ -2106,7 +2113,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			});
 
 			if (remote.isEnterprise) {
-				await replaceAvatarUrl(data.user, octokit);
+				await _avatars.replaceAvatarUrl(data.user, octokit);
 			}
 
 			return parseGraphQLUser(data);
@@ -2341,7 +2348,14 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	private async createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore, silent?: boolean) {
-		const repo = new GitHubRepository(GitHubRemote.remoteAsGitHub(remote, await this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)), this.repository.rootUri, credentialStore, this.telemetry, silent);
+		const repo = new GitHubRepository(
+			GitHubRemote.remoteAsGitHub(remote, await this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
+			this.repository.rootUri,
+			credentialStore,
+			this.telemetry,
+			this._avatars,
+			silent
+		);
 		this._githubRepositories.push(repo);
 		return repo;
 	}

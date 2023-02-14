@@ -23,6 +23,7 @@ import { CredentialStore } from '../../github/credentials';
 import { GitHubServerType } from '../../common/authentication';
 import { GitHubRemote } from '../../common/remote';
 import { CheckState } from '../../github/interface';
+import { Avatars } from '../../github/avatars';
 
 const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
 
@@ -34,11 +35,13 @@ describe('PullRequestOverview', function () {
 	let repo: MockGitHubRepository;
 	let telemetry: MockTelemetry;
 	let credentialStore: CredentialStore;
+	let avatars: Avatars;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 		context = new MockExtensionContext();
+		avatars = new Avatars(context);
 
 		const repository = new MockRepository();
 		telemetry = new MockTelemetry();
@@ -74,7 +77,7 @@ describe('PullRequestOverview', function () {
 			});
 
 			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build());
-			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem, avatars);
 
 			await PullRequestOverviewPanel.createOrShow(EXTENSION_URI, pullRequestManager, prModel);
 
@@ -107,7 +110,7 @@ describe('PullRequestOverview', function () {
 			});
 
 			const prItem0 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build());
-			const prModel0 = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem0);
+			const prModel0 = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem0, avatars);
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
 			sinon.stub(prModel0, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
@@ -120,7 +123,7 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(panel0!.getCurrentTitle(), 'Pull Request #1000');
 
 			const prItem1 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(2000).build());
-			const prModel1 = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem1);
+			const prModel1 = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem1, avatars);
 			resolveStub.resolves(prModel1);
 			sinon.stub(prModel1, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel1, 'getTimelineEvents').resolves([]);
