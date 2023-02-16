@@ -45,6 +45,7 @@ export class ReviewManager {
 	private _updateMessageShown: boolean = false;
 	private _validateStatusInProgress?: Promise<void>;
 	private _reviewCommentController: ReviewCommentController | undefined;
+	private _quickDiffProvider: vscode.Disposable | undefined;
 
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber?: number;
@@ -99,7 +100,6 @@ export class ReviewManager {
 
 		this.updateState(true);
 		this.pollForStatusChange();
-		this.registerQuickDiff();
 	}
 
 	private registerListeners(): void {
@@ -166,6 +166,7 @@ export class ReviewManager {
 
 		this._disposables.push(this._folderRepoManager.onDidChangeActivePullRequest(_ => {
 			this.updateFocusedViewMode();
+			this.registerQuickDiff();
 		}));
 
 		GitHubCreatePullRequestLinkProvider.registerProvider(this._disposables, this, this._folderRepoManager);
@@ -173,14 +174,19 @@ export class ReviewManager {
 
 	private registerQuickDiff() {
 		if (vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<boolean>(QUICK_DIFF)) {
-			this._disposables.push(vscode.window.registerQuickDiffProvider({ scheme: 'file' }, {
+			if (this._quickDiffProvider) {
+				this._quickDiffProvider.dispose();
+				this._quickDiffProvider = undefined;
+			}
+			const label = this._folderRepoManager.activePullRequest ? vscode.l10n.t('GitHub pull request #{0}', this._folderRepoManager.activePullRequest.number) : vscode.l10n.t('GitHub pull request');
+			this._disposables.push(this._quickDiffProvider = vscode.window.registerQuickDiffProvider({ scheme: 'file' }, {
 				provideOriginalResource: (uri: vscode.Uri) => {
 					const changeNode = this.reviewModel.localFileChanges.find(changeNode => changeNode.changeModel.filePath.toString() === uri.toString());
 					if (changeNode) {
 						return changeNode.changeModel.parentFilePath;
 					}
 				}
-			}, 'GitHub Pull Request', this.repository.rootUri));
+			}, label, this.repository.rootUri));
 		}
 	}
 
