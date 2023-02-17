@@ -16,8 +16,7 @@ import { ITelemetry } from '../common/telemetry';
 import { agent } from '../env/node/net';
 import { IAccount } from './interface';
 import { LoggingApolloClient, LoggingOctokit, RateLogger } from './loggingOctokit';
-import defaultSchema from './queries.gql';
-import { getEnterpriseUri, hasEnterpriseUri } from './utils';
+import { convertRESTUserToAccount, getEnterpriseUri, hasEnterpriseUri } from './utils';
 
 const TRY_AGAIN = vscode.l10n.t('Try again?');
 const CANCEL = vscode.l10n.t('Cancel');
@@ -260,8 +259,8 @@ export class CredentialStore implements vscode.Disposable {
 
 	private setCurrentUser(github: GitHub): void {
 		github.currentUser = new Promise(resolve => {
-			github.graphql.query({ query: (defaultSchema as any).Viewer }).then(result => {
-				resolve(result.data.viewer);
+			github.octokit.call(github.octokit.api.users.getAuthenticated, {}).then(result => {
+				resolve(convertRESTUserToAccount(result.data));
 			});
 		});
 	}
