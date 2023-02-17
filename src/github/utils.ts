@@ -221,12 +221,12 @@ export function updateCommentReviewState(thread: GHPRCommentThread, newDraftMode
 
 export function convertRESTUserToAccount(
 	user: OctokitCommon.PullsListResponseItemUser,
-	githubRepository: GitHubRepository,
+	githubRepository?: GitHubRepository,
 ): IAccount {
 	return {
 		login: user.login,
 		url: user.html_url,
-		avatarUrl: getAvatarWithEnterpriseFallback(user.avatar_url, user.gravatar_id ?? undefined, githubRepository.remote.authProviderId),
+		avatarUrl: githubRepository ? getAvatarWithEnterpriseFallback(user.avatar_url, user.gravatar_id ?? undefined, githubRepository.remote.authProviderId) : undefined,
 	};
 }
 
