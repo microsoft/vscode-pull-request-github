@@ -14,7 +14,8 @@ const defaultCreateParams: CreateParams = {
 	branchesForCompare: [],
 	validate: false,
 	showTitleValidationError: false,
-	labels: []
+	labels: [],
+	isDraft: false
 };
 
 export class CreatePRContext {
@@ -202,10 +203,6 @@ export class CreatePRContext {
 				} else {
 					// Notify the extension of the stored compare branch state
 					await this.changeCompareBranch(this.createParams.compareBranch);
-				}
-
-				if (this.createParams.isDraft === undefined) {
-					message.params.isDraft = false;
 				}
 
 				this.updateState(message.params);
