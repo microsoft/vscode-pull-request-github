@@ -107,6 +107,7 @@ body {
 .automerge-checkbox-label {
 	display: flex;
 	align-items: center;
+	margin-right: 0px;
 }
 
 .labels-list {
