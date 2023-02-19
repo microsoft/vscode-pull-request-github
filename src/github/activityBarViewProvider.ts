@@ -96,6 +96,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 			case 'pr.checkout-default-branch':
 				return this.checkoutDefaultBranch(message);
+			case 'pr.re-request-review':
+				return this.reRequestReview(message);
 		}
 	}
 
@@ -111,6 +113,18 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			// Complete webview promise so that button becomes enabled again
 			this._replyMessage(message, {});
 		}
+	}
+
+	private reRequestReview(message: IRequestMessage<string>): void {
+		this._item.requestReview([message.args]).then(() => {
+			const reviewer = this._existingReviewers.find(reviewer => reviewer.reviewer.login === message.args);
+			if (reviewer) {
+				reviewer.state = 'REQUESTED';
+			}
+			this._replyMessage(message, {
+				reviewers: this._existingReviewers,
+			});
+		});
 	}
 
 	public async refresh(): Promise<void> {
