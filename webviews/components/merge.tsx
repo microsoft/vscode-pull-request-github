@@ -81,12 +81,12 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 const InlineReviewers = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
 	return isSimple && pr.state === GithubItemStateEnum.Open ? (
 		pr.reviewers ? (
-			<>
+			<div className="section">
 				{' '}
 				{pr.reviewers.map(state => (
 					<Reviewer key={state.reviewer.login} {...state} />
 				))}
-			</>
+			</div>
 		) : null
 	) : null;
 };
