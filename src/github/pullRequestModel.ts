@@ -51,6 +51,7 @@ import {
 	MergeMethod,
 	PullRequest,
 	PullRequestChecks,
+	PullRequestCheckStatus,
 	PullRequestMergeability,
 	ReviewEvent,
 } from './interface';
@@ -1046,7 +1047,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	private async _getReviewRequiredCheck() {
+	private async _getReviewRequiredCheck(): Promise<PullRequestCheckStatus | null> {
 		const { query, remote, octokit, schema } = await this.githubRepository.ensure();
 
 		const [branch, reviewStates] = await Promise.all([
@@ -1064,34 +1065,46 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			// We need to add the "review required" check manually.
 			return {
 				id: REVIEW_REQUIRED_CHECK_ID,
+				url: this.html_url,
+				avatarUrl: undefined,
 				context: 'Branch Protection',
 				description: vscode.l10n.t('Other requirements have not been met.'),
-				state: (reviewStates.data as LatestReviewsResponse).repository.pullRequest.latestReviews.nodes.every(node => node.state !== 'CHANGES_REQUESTED') ? CheckState.Neutral : CheckState.Failure,
-				target_url: this.html_url
+				state: reviewStates.data.repository.pullRequest.latestReviews.nodes.every(node => node.state !== 'CHANGES_REQUESTED') ? CheckState.Neutral : CheckState.Failure,
+				targetUrl: this.html_url
 			};
 		}
-		return undefined;
+		return null;
 	}
 
 	/**
 	 * Get the status checks of the pull request, those for the last commit.
 	 */
-	async getStatusChecks(): Promise<PullRequestChecks | undefined> {
+	async getStatusChecks(): Promise<PullRequestChecks> {
 		let checks = await this.githubRepository.getStatusChecks(this.number);
+
+		if (this.item.mergeable === undefined) {
+			await this.getMergeability();
+		}
+
+		if (!checks) {
+			checks = {
+				state: CheckState.Success,
+				statuses: []
+			};
+		}
 
 		// Fun info: The checks don't include whether a review is required.
 		// Also, unless you're an admin on the repo, you can't just do octokit.repos.getBranchProtection
-		if ((this.item.mergeable === PullRequestMergeability.NotMergeable) && (!checks || checks.statuses.every(status => status.state === CheckState.Success))) {
+		if (
+			this.item.mergeable === PullRequestMergeability.NotMergeable &&
+			checks.statuses.every(status => status.state === CheckState.Success)
+		) {
 			const reviewRequiredCheck = await this._getReviewRequiredCheck();
 			if (reviewRequiredCheck) {
-				if (!checks) {
-					checks = {
-						state: CheckState.Failure,
-						statuses: []
-					};
-				}
 				checks.statuses.push(reviewRequiredCheck);
-				checks.state = CheckState.Failure;
+				if (checks.statuses.length === 1 || reviewRequiredCheck.state === CheckState.Failure) {
+					checks.state = reviewRequiredCheck.state;
+				}
 			}
 		}
 

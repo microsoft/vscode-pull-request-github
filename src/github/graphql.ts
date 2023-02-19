@@ -639,17 +639,19 @@ export interface StartReviewResponse {
 }
 
 export interface StatusContext {
+	__typename: string;
 	id: string;
-	state?: 'ERROR' | 'EXPECTED' | 'FAILURE' | 'PENDING' | 'SUCCESS';
-	description?: string;
+	state: 'ERROR' | 'EXPECTED' | 'FAILURE' | 'PENDING' | 'SUCCESS';
+	description: string | null;
 	context: string;
-	targetUrl?: string;
-	avatarUrl?: string;
+	targetUrl: string | null;
+	avatarUrl: string | null;
 }
 
 export interface CheckRun {
+	__typename: string;
 	id: string;
-	conclusion?:
+	conclusion:
 	| 'ACTION_REQUIRED'
 	| 'CANCELLED'
 	| 'FAILURE'
@@ -657,20 +659,21 @@ export interface CheckRun {
 	| 'SKIPPED'
 	| 'STALE'
 	| 'SUCCESS'
-	| 'TIMED_OUT';
+	| 'TIMED_OUT'
+	| null;
 	name: string;
-	title?: string;
-	detailsUrl?: string;
+	title: string | null;
+	detailsUrl: string | null;
 	checkSuite?: {
-		app?: {
+		app: {
 			logoUrl: string;
 			url: string;
-		};
+		} | null;
 	};
 }
 
 export function isCheckRun(x: CheckRun | StatusContext): x is CheckRun {
-	return (x as any).__typename === 'CheckRun';
+	return x.__typename === 'CheckRun';
 }
 
 export interface GetChecksResponse {
@@ -680,7 +683,7 @@ export interface GetChecksResponse {
 				nodes: {
 					commit: {
 						statusCheckRollup?: {
-							state: string;
+							state: 'EXPECTED' | 'ERROR' | 'FAILURE' | 'PENDING' | 'SUCCESS';
 							contexts: {
 								nodes: (StatusContext | CheckRun)[];
 							};

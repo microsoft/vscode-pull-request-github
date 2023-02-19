@@ -1063,7 +1063,7 @@ export class GitHubRepository implements vscode.Disposable {
 	async getStatusChecks(number: number): Promise<PullRequestChecks | undefined> {
 		const { query, remote, schema } = await this.ensure();
 		const captureUseFallbackChecks = this._useFallbackChecks;
-		let result;
+		let result: ApolloQueryResult<GetChecksResponse>;
 		try {
 			result = await query<GetChecksResponse>({
 				query: captureUseFallbackChecks ? schema.GetChecksWithoutSuite : schema.GetChecks,
@@ -1093,27 +1093,35 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 
 		const checks: PullRequestChecks = {
-			state: statusCheckRollup.state.toLowerCase(),
+			state: this.mapStateAsCheckState(statusCheckRollup.state),
 			statuses: statusCheckRollup.contexts.nodes.map(context => {
 				if (isCheckRun(context)) {
 					return {
 						id: context.id,
 						url: context.checkSuite?.app?.url,
-						avatar_url: context.checkSuite?.app?.logoUrl,
-						state: context.conclusion?.toLowerCase() || CheckState.Pending,
+						avatarUrl:
+							context.checkSuite?.app?.logoUrl &&
+							getAvatarWithEnterpriseFallback(
+								context.checkSuite.app.logoUrl,
+								undefined,
+								this.remote.authProviderId,
+							),
+						state: this.mapStateAsCheckState(context.conclusion),
 						description: context.title,
 						context: context.name,
-						target_url: context.detailsUrl,
+						targetUrl: context.detailsUrl,
 					};
 				} else {
 					return {
 						id: context.id,
-						url: context.targetUrl,
-						avatar_url: context.avatarUrl,
-						state: context.state?.toLowerCase(),
+						url: context.targetUrl || undefined,
+						avatarUrl: context.avatarUrl
+							? getAvatarWithEnterpriseFallback(context.avatarUrl, undefined, this.remote.authProviderId)
+							: undefined,
+						state: this.mapStateAsCheckState(context.state),
 						description: context.description,
 						context: context.context,
-						target_url: context.targetUrl,
+						targetUrl: context.targetUrl,
 					};
 				}
 			}),
@@ -1121,5 +1129,27 @@ export class GitHubRepository implements vscode.Disposable {
 
 
 		return checks;
+	}
+
+	mapStateAsCheckState(state: string | null | undefined): CheckState {
+		switch (state) {
+			case 'EXPECTED':
+			case 'PENDING':
+			case 'ACTION_REQUIRED':
+			case 'STALE':
+				return CheckState.Pending;
+			case 'ERROR':
+			case 'FAILURE':
+			case 'TIMED_OUT':
+			case 'STARTUP_FAILURE':
+				return CheckState.Failure;
+			case 'SUCCESS':
+				return CheckState.Success;
+			case 'NEUTRAL':
+			case 'SKIPPED':
+				return CheckState.Neutral;
+		}
+
+		return CheckState.Unknown;
 	}
 }

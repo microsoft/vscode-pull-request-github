@@ -5,7 +5,6 @@
 
 import React, {
 	ChangeEventHandler,
-	Context,
 	useCallback,
 	useContext,
 	useEffect,
@@ -14,9 +13,9 @@ import React, {
 	useState,
 } from 'react';
 import { groupBy } from '../../src/common/utils';
-import { GithubItemStateEnum, MergeMethod, PullRequestMergeability } from '../../src/github/interface';
+import { CheckState, GithubItemStateEnum, MergeMethod, PullRequestMergeability } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
-import PullRequestContext, { PRContext } from '../common/context';
+import PullRequestContext from '../common/context';
 import { Reviewer } from '../components/reviewer';
 import { AutoMerge } from './automergeSelect';
 import { Dropdown } from './dropdown';
@@ -392,18 +391,18 @@ export const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>
 
 const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) => (
 	<div>
-		{statuses.map(s => (
+		{statuses?.map(s => (
 			<div key={s.id} className="status-check">
 				<div className="status-check-details">
 					<StateIcon state={s.state} />
-					<Avatar for={{ avatarUrl: s.avatar_url, url: s.url }} />
+					<Avatar for={{ avatarUrl: s.avatarUrl, url: s.url }} />
 					<span className="status-check-detail-text">
 						{/* allow-any-unicode-next-line */}
 						{s.context} {s.description ? `— ${s.description}` : ''}
 					</span>
 				</div>
-				{!!s.target_url ? (
-					<a href={s.target_url} title={s.target_url}>
+				{!!s.targetUrl ? (
+					<a href={s.targetUrl} title={s.targetUrl}>
 						Details
 					</a>
 				) : null}
@@ -441,13 +440,13 @@ function getSummaryLabel(statuses: any[]) {
 	return statusPhrases.join(' and ');
 }
 
-function StateIcon({ state }: { state: string }) {
+function StateIcon({ state }: { state: CheckState }) {
 	switch (state) {
-		case 'neutral':
+		case CheckState.Neutral:
 			return skipIcon;
-		case 'success':
+		case CheckState.Success:
 			return checkIcon;
-		case 'failure':
+		case CheckState.Failure:
 			return closeIcon;
 	}
 	return pendingIcon;

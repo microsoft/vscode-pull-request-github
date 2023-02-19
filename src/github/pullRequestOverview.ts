@@ -238,7 +238,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						repositoryDefaultBranch: defaultBranch,
 						canEdit: canEdit,
 						hasWritePermission,
-						status: status ? status : { statuses: [] },
+						status: status,
 						mergeable: pullRequest.item.mergeable,
 						reviewers: this._existingReviewers,
 						isDraft: pullRequest.isDraft,
