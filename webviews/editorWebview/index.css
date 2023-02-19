@@ -115,26 +115,6 @@ body .comment-container.review {
 	background-color: var(--vscode-editor-background);
 }
 
-.icon-button {
-	display: flex;
-	padding: 2px;
-	background: transparent;
-	border-radius: 4px;
-	line-height: 0;
-}
-
-.icon-button:hover,
-.section .icon-button:hover,
-.section .icon-button:focus {
-	background-color: var(--vscode-toolbar-hoverBackground);
-}
-
-.icon-button:focus,
-.section .icon-button:focus {
-	outline: 1px solid var(--vscode-focusBorder);
-	outline-offset: unset;
-}
-
 .review-comment-container {
 	width: 100%;
 	display: flex;
