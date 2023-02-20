@@ -2212,9 +2212,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		if (existing) {
 			return existing;
 		}
-		const uri = `https://github.com/${owner}/${repositoryName}`;
 		const gitRemotes = parseRepositoryRemotes(this.repository);
 		const gitRemote = gitRemotes.find(r => r.owner === owner && r.repositoryName === repositoryName);
+		const uri = gitRemote?.url ?? `https://github.com/${owner}/${repositoryName}`;
 		return this.createAndAddGitHubRepository(new Remote(gitRemote?.remoteName ?? repositoryName, uri, new Protocol(uri)), this._credentialStore);
 	}
 
