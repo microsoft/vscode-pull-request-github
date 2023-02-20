@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.58.2
+
+### Fixes
+
+- "GitHub Pull Requests and Issues" plugin causing a large number of requests to github enterprise installation. https://github.com/microsoft/vscode-pull-request-github/issues/4523
+
 ## 0.58.1
 
 ### Fixes
