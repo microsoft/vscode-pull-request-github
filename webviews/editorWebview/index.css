@@ -888,6 +888,11 @@ code {
 	white-space: nowrap;
 }
 
+.timestamp {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
 /** Theming */
 
 .comment-body pre code {
