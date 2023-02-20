@@ -134,6 +134,9 @@ body .comment-container .review-comment-header {
 	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
 	border-top-left-radius: 3px;
 	border-top-right-radius: 3px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .description-header {
@@ -863,6 +866,11 @@ code {
 .timestamp:hover {
 	color: inherit;
 	white-space: nowrap;
+}
+
+.timestamp {
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 /** Theming */
