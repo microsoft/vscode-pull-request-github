@@ -279,7 +279,7 @@ ${lineContents}
 			const permalinkReplaced = await this.replacePermalink(body.value);
 			return this.replaceSuggestion(permalinkReplaced);
 		}
-		const linkified = body.replace(/([^\[`]|^)\@([^\s]+)/, (substring) => {
+		const linkified = body.replace(/([^\[`]|^)\@([^\s`]+)/, (substring) => {
 			const username = substring.substring(substring.startsWith('@') ? 1 : 2);
 			return `${substring.startsWith('@') ? '' : substring.charAt(0)}[@${username}](${path.dirname(this.rawComment.user!.url)}/${username})`;
 		});
