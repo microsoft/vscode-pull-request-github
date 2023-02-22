@@ -255,18 +255,20 @@ ${args[1]}
 			return body;
 		}
 
-		const expression = new RegExp(`https://github.com/${this.githubRepository.remote.owner}/${this.githubRepository.remote.repositoryName}/blob/([0-9a-f]{40})/(.*)#L([0-9]+)-L([0-9]+)`, 'g');
-		return stringReplaceAsync(body, expression, async (match: string, sha: string, file: string, start: string, end: string) => {
+		const expression = new RegExp(`https://github.com/${this.githubRepository.remote.owner}/${this.githubRepository.remote.repositoryName}/blob/([0-9a-f]{40})/(.*)#L([0-9]+)(-L([0-9]+))?`, 'g');
+		return stringReplaceAsync(body, expression, async (match: string, sha: string, file: string, start: string, _endGroup?: string, end?: string) => {
 			const startLine = parseInt(start);
-			const endLine = parseInt(end);
+			const endLine = end ? parseInt(end) : startLine + 1;
 			const lineContents = await this.githubRepository!.getLines(sha, file, startLine, endLine);
 			if (!lineContents) {
 				return match;
 			}
-			return `***
+			const lineMessage = end ? `Lines ${startLine} to ${endLine} in \`${sha.substring(0, 7)}\`` : `Line ${startLine} in \`${sha.substring(0, 7)}\``;
+			return `
+***
 [${file}](${match})
 
-Lines ${startLine} to ${endLine} in \`${sha.substring(0, 7)}\`
+${lineMessage}
 \`\`\`
 ${lineContents}
 \`\`\`
