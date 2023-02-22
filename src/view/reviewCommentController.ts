@@ -294,7 +294,7 @@ export class ReviewCommentController
 							? this._workspaceFileChangeCommentThreads
 							: this._reviewSchemeFileChangeCommentThreads;
 
-					const index = threadMap[thread.path].findIndex(t => t.gitHubThreadId === thread.id);
+					const index = threadMap[thread.path] ? threadMap[thread.path].findIndex(t => t.gitHubThreadId === thread.id) : -1;
 					if (index > -1) {
 						const matchingThread = threadMap[thread.path][index];
 						updateThread(matchingThread, thread, activePullRequest.githubRepository);
@@ -308,7 +308,7 @@ export class ReviewCommentController
 							? this._workspaceFileChangeCommentThreads
 							: this._reviewSchemeFileChangeCommentThreads;
 
-					const index = threadMap[thread.path].findIndex(t => t.gitHubThreadId === thread.id);
+					const index = threadMap[thread.path] ? threadMap[thread.path].findIndex(t => t.gitHubThreadId === thread.id) : -1;
 					if (index > -1) {
 						const matchingThread = threadMap[thread.path][index];
 						threadMap[thread.path].splice(index, 1);
