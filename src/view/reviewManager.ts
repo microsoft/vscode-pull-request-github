@@ -374,6 +374,9 @@ export class ReviewManager {
 			return;
 		}
 		this._isShowingLastReviewChanges = pr.showChangesSinceReview;
+		if (previousPrNumber !== pr.number) {
+			this.clear(false);
+		}
 
 		const useReviewConfiguration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)
 			.get<{ merged: boolean, closed: boolean }>(USE_REVIEW_MODE, { merged: true, closed: false });
@@ -1041,12 +1044,12 @@ export class ReviewManager {
 	}
 
 	private async clear(quitReviewMode: boolean) {
-		const activePullRequest = this._folderRepoManager.activePullRequest;
-		if (activePullRequest) {
-			this._activePrViewCoordinator.removePullRequest(activePullRequest);
-		}
-
 		if (quitReviewMode) {
+			const activePullRequest = this._folderRepoManager.activePullRequest;
+			if (activePullRequest) {
+				this._activePrViewCoordinator.removePullRequest(activePullRequest);
+			}
+
 			if (this.changesInPrDataProvider) {
 				await this.changesInPrDataProvider.removePrFromView(this._folderRepoManager);
 			}
@@ -1059,19 +1062,19 @@ export class ReviewManager {
 			}
 
 			vscode.commands.executeCommand('pr.refreshList');
+			this._updateMessageShown = false;
+			this._reviewModel.clear();
+
+			this._localToDispose.forEach(disposable => disposable.dispose());
+			// Ensure file explorer decorations are removed. When switching to a different PR branch,
+			// comments are recalculated when getting the data and the change decoration fired then,
+			// so comments only needs to be emptied in this case.
+			activePullRequest?.clear();
+			this._validateStatusInProgress = undefined;
 		}
 
-		this._updateMessageShown = false;
-		this._reviewModel.clear();
 		this._reviewCommentController?.dispose();
 		this._reviewCommentController = undefined;
-		this._localToDispose.forEach(disposable => disposable.dispose());
-		this._reviewCommentController = undefined;
-		// Ensure file explorer decorations are removed. When switching to a different PR branch,
-		// comments are recalculated when getting the data and the change decoration fired then,
-		// so comments only needs to be emptied in this case.
-		activePullRequest?.clear();
-		this._validateStatusInProgress = undefined;
 	}
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string | undefined> {
