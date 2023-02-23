@@ -874,7 +874,7 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.makeSuggestion', async (reply: CommentReply | GHPRComment) => {
 			const thread = reply instanceof GHPRComment ? reply.parent : reply.thread;
 			const commentEditor = vscode.window.activeTextEditor?.document.uri.scheme === Schemes.Comment ? vscode.window.activeTextEditor
-				: vscode.window.visibleTextEditors.find(visible => visible.document.uri.scheme === Schemes.Comment);
+				: vscode.window.visibleTextEditors.find(visible => (visible.document.uri.scheme === Schemes.Comment) && (visible.document.uri.query === ''));
 			if (!commentEditor) {
 				Logger.error('No comment editor visible for making a suggestion.');
 				vscode.window.showErrorMessage(vscode.l10n.t('No available comment editor to make a suggestion in.'));
@@ -883,7 +883,8 @@ export function registerCommands(
 			const editor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === thread.uri.toString());
 			const contents = editor?.document.getText(new vscode.Range(thread.range.start.line, 0, thread.range.end.line, editor.document.lineAt(thread.range.end.line).text.length));
 			return commentEditor.edit((editBuilder) => {
-				editBuilder.insert(commentEditor.selection.end, `\`\`\`suggestion
+				editBuilder.insert(commentEditor.selection.end, `
+\`\`\`suggestion
 ${contents}
 \`\`\``);
 			});
