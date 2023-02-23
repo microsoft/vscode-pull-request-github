@@ -214,6 +214,13 @@
 			"{Locked='](command:pr.signin)'}"
 		]
 	},
+	"welcome.github.loginNoEnterprise.contents": {
+		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signinNoEnterprise)",
+		"comment" : [
+			"Do not translate what's inside of (...). It is link syntax.",
+			"{Locked='](command:pr.signinNoEnterprise)'}"
+		]
+	},
 	"welcome.github.loginWithEnterprise.contents": {
 		"message": "[Sign in with GitHub Enterprise](command:pr.signinenterprise)",
 		"comment": [
