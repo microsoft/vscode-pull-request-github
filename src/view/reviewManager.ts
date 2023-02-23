@@ -12,6 +12,7 @@ import { DiffChangeType } from '../common/diffHunk';
 import { commands } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
+import { Protocol } from '../common/protocol';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import { FOCUSED_MODE, IGNORE_PR_BRANCHES, POST_CREATE, PR_SETTINGS_NAMESPACE, QUICK_DIFF, QUICK_DIFF_EXP, USE_REVIEW_MODE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
@@ -279,7 +280,22 @@ export class ReviewManager {
 
 	private async checkGitHubForPrBranch(branchName: string): Promise<(PullRequestMetadata & { model: PullRequestModel }) | undefined> {
 		Logger.appendLine(`Review> no matching pull request metadata found for current branch ${branchName}`);
-		const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub(this.repository.state.HEAD?.upstream?.remote, this._repository.state.HEAD?.upstream?.name);
+
+		let name: string | undefined = this.repository.state.HEAD?.upstream?.name;
+		let remote: string | undefined = this.repository.state.HEAD?.upstream?.remote;
+		let owner: string | undefined;
+		if (!remote) {
+			try {
+				const config = await this.repository.getConfig(`branch.${branchName}.remote`);
+				const parsedRemote = new Protocol(config);
+				owner = parsedRemote.owner;
+			} catch (_) { }
+		}
+		if (!name && (remote || owner)) {
+			name = branchName;
+		}
+
+		const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub(remote, owner, name);
 		if (metadataFromGithub) {
 			await PullRequestGitHelper.associateBranchWithPullRequest(
 				this._repository,

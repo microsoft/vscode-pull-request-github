@@ -178,7 +178,7 @@ export class CurrentIssue {
 	private async offerNewBranch(branch: Branch, branchNameConfig: string, branchNameMatch: RegExpMatchArray | null | undefined): Promise<string> {
 		// Check if this branch has a merged PR associated with it.
 		// If so, offer to create a new branch.
-		const pr = await this.manager.getMatchingPullRequestMetadataFromGitHub(branch.upstream?.remote, branch.upstream?.name);
+		const pr = await this.manager.getMatchingPullRequestMetadataFromGitHub(branch.upstream?.remote, undefined, branch.upstream?.name);
 		if (pr && (pr.model.state !== GithubItemStateEnum.Open)) {
 			const mergedMessage = vscode.l10n.t('The pull request for {0} has been merged. Do you want to create a new branch?', branch.name ?? 'unknown branch');
 			const closedMessage = vscode.l10n.t('The pull request for {0} has been closed. Do you want to create a new branch?', branch.name ?? 'unknown branch');
