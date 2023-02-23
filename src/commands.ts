@@ -741,6 +741,12 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.signinNoEnterprise', async () => {
+			await reposManager.authenticate(false);
+		}),
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.signinenterprise', async () => {
 			await reposManager.authenticate(true);
 		}),

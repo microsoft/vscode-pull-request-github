@@ -185,7 +185,10 @@ export class RepositoriesManager implements vscode.Disposable {
 		this.state = ReposManagerState.Initializing;
 	}
 
-	async authenticate(enterprise: boolean = false): Promise<boolean> {
+	async authenticate(enterprise?: boolean): Promise<boolean> {
+		if (enterprise === false) {
+			return !!this._credentialStore.login(AuthProvider.github);
+		}
 		const { dotComRemotes, enterpriseRemotes, unknownRemotes } = await findDotComAndEnterpriseRemotes(this.folderManagers);
 		const yes = vscode.l10n.t('Yes');
 
