@@ -21,7 +21,7 @@ export function Reviewer(reviewState: ReviewState) {
 			<div className="reviewer-icons">
 				{
 					state !== 'REQUESTED' ?
-						(<button className="icon-button" onClick={() => reRequestReview(reviewState.reviewer.login)}>
+						(<button className="icon-button" title="Re-request review" onClick={() => reRequestReview(reviewState.reviewer.login)}>
 							{syncIcon}️
 						</button>) : null
 				}
