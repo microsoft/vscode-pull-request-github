@@ -1158,6 +1158,8 @@ code {
 	border-bottom-width: 1px;
 	padding: 8px 16px;
 	border-bottom-color: var(--vscode-editorHoverWidget-border);
+	border-top-left-radius: 3px;
+	border-top-right-radius: 3px;
 }
 
 .comment-body .blob-num {
