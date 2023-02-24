@@ -73,7 +73,7 @@ export class ReviewManager {
 	public set switchingToReviewMode(newState: boolean) {
 		this._switchingToReviewMode = newState;
 		if (!newState) {
-			this.updateState();
+			this.updateState(true);
 		}
 	}
 
@@ -794,7 +794,6 @@ export class ReviewManager {
 				this.setStatusForPr(this._folderRepoManager.activePullRequest);
 			} else {
 				this.statusBarItem.hide();
-				this.switchingToReviewMode = false;
 			}
 			return;
 		}
