@@ -13,13 +13,13 @@ import React, {
 	useState,
 } from 'react';
 import { groupBy } from '../../src/common/utils';
-import { CheckState, GithubItemStateEnum, MergeMethod, PullRequestMergeability } from '../../src/github/interface';
+import { CheckState, GithubItemStateEnum, MergeMethod, PullRequestMergeability, PullRequestReviewRequirement } from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { Reviewer } from '../components/reviewer';
 import { AutoMerge } from './automergeSelect';
 import { Dropdown } from './dropdown';
-import { alertIcon, checkIcon, closeIcon, mergeIcon, pendingIcon, skipIcon } from './icon';
+import { alertIcon, checkIcon, closeIcon, mergeIcon, pendingIcon, requestChanges, skipIcon } from './icon';
 import { nbsp } from './space';
 import { Avatar } from './user';
 
@@ -42,11 +42,11 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 	const { state, status } = pr;
 	const [showDetails, toggleDetails] = useReducer(
 		show => !show,
-		status.statuses.some(s => s.state === 'failure'),
+		status.statuses.some(s => s.state === CheckState.Failure),
 	) as [boolean, () => void];
 
 	useEffect(() => {
-		if (status.statuses.some(s => s.state === 'failure')) {
+		if (status.statuses.some(s => s.state === CheckState.Failure)) {
 			if (!showDetails) {
 				toggleDetails();
 			}
@@ -77,6 +77,25 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 	) : null;
 };
 
+const RequiredReviewers = ({ pr }: { pr: PullRequest }) => {
+	const { state, reviewRequirement } = pr;
+	if (!reviewRequirement || state !== GithubItemStateEnum.Open) {
+		return null;
+	}
+	return (
+		<>
+			<div className="status-section">
+				<div className="status-item">
+					<RequiredReviewStateIcon state={reviewRequirement.state} />
+					<p className="status-item-detail-text">
+					{getRequiredReviewSummary(reviewRequirement)}
+					</p>
+				</div>
+			</div>
+		</>
+	);
+};
+
 const InlineReviewers = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
 	return isSimple && pr.state === GithubItemStateEnum.Open ? (
 		pr.reviewers ? (
@@ -100,6 +119,7 @@ export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimpl
 			{
 				<>
 					<PRStatusMessage pr={pr} isSimple={isSimple} />
+					<RequiredReviewers pr={pr} />
 					<StatusChecks pr={pr} />
 					<InlineReviewers pr={pr} isSimple={isSimple} />
 					<MergeStatusAndActions pr={pr} isSimple={isSimple} />
@@ -147,33 +167,40 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 	}, [mergeable]);
 
 	return (
-		<span>
+		<div>
 			<MergeStatus mergeable={mergeable} isSimple={isSimple} />
 			<PrActions pr={{ ...pr, mergeable }} isSimple={isSimple} />
-		</span>
+		</div>
 	);
 };
 
 export default StatusChecksSection;
 
 export const MergeStatus = ({ mergeable, isSimple }: { mergeable: PullRequestMergeability; isSimple: boolean }) => {
+	let icon: JSX.Element | null = pendingIcon;
+	let summary: string = 'Checking if this branch can be merged...';
+	if (mergeable === PullRequestMergeability.Mergeable) {
+		icon = checkIcon;
+		summary = 'This branch has no conflicts with the base branch.';
+	} else if (mergeable === PullRequestMergeability.Conflict) {
+		icon = closeIcon;
+		summary = 'This branch has conflicts that must be resolved.';
+	} else if (mergeable === PullRequestMergeability.NotMergeable) {
+		icon = closeIcon;
+		summary = 'Branch protection policy must be fulfilled before merging.';
+	} else if (mergeable === PullRequestMergeability.Behind) {
+		icon = alertIcon;
+		summary = 'This branch is out-of-date with the base branch.';
+	}
+
+	if (isSimple) {
+		icon = null;
+	}
 	return (
 		<div className="status-item status-section">
-			{isSimple
-				? null
-				: mergeable === PullRequestMergeability.Mergeable
-				? checkIcon
-				: mergeable === PullRequestMergeability.NotMergeable || mergeable === PullRequestMergeability.Conflict
-				? closeIcon
-				: pendingIcon}
+			{icon}
 			<p>
-				{mergeable === PullRequestMergeability.Mergeable
-					? 'This branch has no conflicts with the base branch.'
-					: mergeable === PullRequestMergeability.Conflict
-					? 'This branch has conflicts that must be resolved.'
-					: mergeable === PullRequestMergeability.NotMergeable
-					? 'Branch protection policy must be fulfilled before merging.'
-					: 'Checking if this branch can be merged...'}
+				{summary}
 			</p>
 		</div>
 	);
@@ -401,11 +428,16 @@ const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) => (
 						{s.context} {s.description ? `— ${s.description}` : ''}
 					</span>
 				</div>
+				<div>
+				{s.isRequired ? (
+					<span className="label">Required</span>
+				) : null }
 				{!!s.targetUrl ? (
 					<a href={s.targetUrl} title={s.targetUrl}>
 						Details
 					</a>
 				) : null}
+				</div>
 			</div>
 		))}
 	</div>
@@ -450,4 +482,30 @@ function StateIcon({ state }: { state: CheckState }) {
 			return closeIcon;
 	}
 	return pendingIcon;
+}
+
+function RequiredReviewStateIcon({ state }: { state: CheckState }) {
+	switch (state) {
+		case CheckState.Pending:
+			return requestChanges;
+		case CheckState.Failure:
+			return closeIcon;
+	}
+
+	return checkIcon;
+}
+
+function getRequiredReviewSummary(requirement: PullRequestReviewRequirement) {
+	const approvalCount = requirement.approvals.length;
+	const requestedChangesCount = requirement.requestedChanges.length;
+	const requiredCount = requirement.count;
+
+	switch (requirement.state) {
+		case CheckState.Failure:
+			return `At least ${requiredCount} approving review${requiredCount > 1 ? 's' : ''} is required by reviewers with write access.`;
+		case CheckState.Pending:
+			return `${requestedChangesCount} review${requestedChangesCount > 1 ? 's' : ''} requesting changes by reviewers with write access.`;
+	}
+
+	return `${approvalCount} approving review${approvalCount > 1 ? 's' : ''} by reviewers with write access.`;
 }

@@ -646,6 +646,7 @@ export interface StatusContext {
 	context: string;
 	targetUrl: string | null;
 	avatarUrl: string | null;
+	isRequired: boolean;
 }
 
 export interface CheckRun {
@@ -670,15 +671,40 @@ export interface CheckRun {
 			url: string;
 		} | null;
 	};
+	isRequired: boolean;
 }
 
 export function isCheckRun(x: CheckRun | StatusContext): x is CheckRun {
 	return x.__typename === 'CheckRun';
 }
 
+export interface ChecksReviewNode {
+	authorAssociation: 'MEMBER' | 'OWNER' | 'MANNEQUIN' | 'COLLABORATOR' | 'CONTRIBUTOR' | 'FIRST_TIME_CONTRIBUTOR' | 'FIRST_TIMER' | 'NONE';
+	authorCanPushToRepository: boolean
+	state: 'PENDING' | 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'DISMISSED';
+	author: {
+		login: string;
+	}
+}
+
 export interface GetChecksResponse {
 	repository: {
 		pullRequest: {
+			url: string;
+			latestReviews: {
+				nodes: ChecksReviewNode[];
+			};
+			reviewsRequestingChanges: {
+				nodes: ChecksReviewNode[];
+			};
+			baseRef: {
+				refUpdateRule: {
+					requiredApprovingReviewCount: number | null;
+					requiredStatusCheckContexts: string[] | null;
+					requiresCodeOwnerReviews: boolean;
+					viewerCanPush: boolean;
+				} | null;
+			};
 			commits: {
 				nodes: {
 					commit: {
@@ -693,18 +719,6 @@ export interface GetChecksResponse {
 			};
 		};
 	};
-}
-
-export interface LatestReviewsResponse {
-	repository: {
-		pullRequest: {
-			latestReviews: {
-				nodes: {
-					state: 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING';
-				}[]
-			}
-		}
-	}
 }
 
 export interface ResolveReviewThreadResponse {

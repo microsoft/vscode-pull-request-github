@@ -598,8 +598,12 @@ export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFL
 			parsed = PullRequestMergeability.Conflict;
 			break;
 	}
-	if ((parsed !== PullRequestMergeability.Conflict) && (mergeStateStatus === 'BLOCKED')) {
-		parsed = PullRequestMergeability.NotMergeable;
+	if (parsed !== PullRequestMergeability.Conflict) {
+		if (mergeStateStatus === 'BLOCKED') {
+			parsed = PullRequestMergeability.NotMergeable;
+		} else if (mergeStateStatus === 'BEHIND') {
+			parsed = PullRequestMergeability.Behind;
+		}
 	}
 	return parsed;
 }

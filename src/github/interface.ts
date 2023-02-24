@@ -26,6 +26,7 @@ export enum PullRequestMergeability {
 	NotMergeable,
 	Conflict,
 	Unknown,
+	Behind,
 }
 
 export interface ReviewState {
@@ -178,9 +179,17 @@ export interface PullRequestCheckStatus {
 	description: string | null;
 	targetUrl: string | null;
 	context: string;
+	isRequired: boolean;
 }
 
 export interface PullRequestChecks {
 	state: CheckState;
 	statuses: PullRequestCheckStatus[];
+}
+
+export interface PullRequestReviewRequirement {
+	count: number;
+	state: CheckState;
+	approvals: string[];
+	requestedChanges: string[];
 }

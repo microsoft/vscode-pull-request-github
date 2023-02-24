@@ -28,7 +28,6 @@ import {
 	DeleteReviewResponse,
 	EditCommentResponse,
 	LatestReviewCommitResponse,
-	LatestReviewsResponse,
 	MarkPullRequestReadyForReviewResponse,
 	PendingReviewIdResponse,
 	PullRequestCommentsResponse,
@@ -43,7 +42,6 @@ import {
 	UpdatePullRequestResponse,
 } from './graphql';
 import {
-	CheckState,
 	GithubItemStateEnum,
 	IAccount,
 	IRawFileChange,
@@ -51,8 +49,8 @@ import {
 	MergeMethod,
 	PullRequest,
 	PullRequestChecks,
-	PullRequestCheckStatus,
 	PullRequestMergeability,
+	PullRequestReviewRequirement,
 	ReviewEvent,
 } from './interface';
 import { IssueModel } from './issueModel';
@@ -91,8 +89,6 @@ export interface FileViewedStateChangeEvent {
 		viewed: ViewedState;
 	}[];
 }
-
-export const REVIEW_REQUIRED_CHECK_ID = 'reviewRequired';
 
 export type FileViewedState = { [key: string]: ViewedState };
 
@@ -1047,68 +1043,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	private async _getReviewRequiredCheck(): Promise<PullRequestCheckStatus | null> {
-		const { query, remote, octokit, schema } = await this.githubRepository.ensure();
-
-		const [branch, reviewStates] = await Promise.all([
-			octokit.call(octokit.api.repos.getBranch, { branch: this.base.ref, owner: remote.owner, repo: remote.repositoryName }),
-			query<LatestReviewsResponse>({
-				query: schema.LatestReviews,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					number: this.number,
-				}
-			})
-		]);
-		if (branch.data.protected && branch.data.protection.required_status_checks && branch.data.protection.required_status_checks.enforcement_level !== 'off') {
-			// We need to add the "review required" check manually.
-			return {
-				id: REVIEW_REQUIRED_CHECK_ID,
-				url: this.html_url,
-				avatarUrl: undefined,
-				context: 'Branch Protection',
-				description: vscode.l10n.t('Other requirements have not been met.'),
-				state: reviewStates.data.repository.pullRequest.latestReviews.nodes.every(node => node.state !== 'CHANGES_REQUESTED') ? CheckState.Neutral : CheckState.Failure,
-				targetUrl: this.html_url
-			};
-		}
-		return null;
-	}
-
 	/**
 	 * Get the status checks of the pull request, those for the last commit.
 	 */
-	async getStatusChecks(): Promise<PullRequestChecks> {
-		let checks = await this.githubRepository.getStatusChecks(this.number);
-
-		if (this.item.mergeable === undefined) {
-			await this.getMergeability();
-		}
-
-		if (!checks) {
-			checks = {
-				state: CheckState.Success,
-				statuses: []
-			};
-		}
-
-		// Fun info: The checks don't include whether a review is required.
-		// Also, unless you're an admin on the repo, you can't just do octokit.repos.getBranchProtection
-		if (
-			this.item.mergeable === PullRequestMergeability.NotMergeable &&
-			checks.statuses.every(status => status.state === CheckState.Success)
-		) {
-			const reviewRequiredCheck = await this._getReviewRequiredCheck();
-			if (reviewRequiredCheck) {
-				checks.statuses.push(reviewRequiredCheck);
-				if (checks.statuses.length === 1 || reviewRequiredCheck.state === CheckState.Failure) {
-					checks.state = reviewRequiredCheck.state;
-				}
-			}
-		}
-
-		return checks;
+	async getStatusChecks(): Promise<[PullRequestChecks, PullRequestReviewRequirement | null]> {
+		return this.githubRepository.getStatusChecks(this.number);
 	}
 
 	static async openDiffFromComment(
