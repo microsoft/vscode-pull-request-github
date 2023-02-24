@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.60.0
+
+### Changes
+
+- Permalinks are rendered better in both the comments widget and in the PR description.
+
+![Permalink in description](documentation/changelog/0.60.0/permalink-description.png)
+![Permalink in comment widget](documentation/changelog/0.60.0/permalink-comment-widget.png)
+
+- The description has a button to re-request a review.
+
+![Re-request review](documentation/changelog/0.60.0/re-request-review.png)
+
+- Quick diffs are no longer experimental. You can turn on PR quick diffs with the setting `githubPullRequests.experimental.quickDiff`.
+
+![Pull request quick diff](documentation/changelog/0.60.0/quick-diff.png)
+
+- Extension logging log level is now controlled by the command "Developer: Set Log Level". The old setting for log level has been deprecated.
+
+### Fixes
+
+- Make a suggestion sometimes only works once. https://github.com/microsoft/vscode-pull-request-github/issues/4470
+
+**_Thank You_**
+
+* [@joshuaobrien](https://github.com/joshuaobrien)
+  * Unify style of re-request review button [PR #4539](https://github.com/microsoft/vscode-pull-request-github/pull/4539)
+  * Ensure `re-request-review` command is handled in activityBarViewProvider [PR #4540](https://github.com/microsoft/vscode-pull-request-github/pull/4540)
+  * Prevent timestamp in comments overflowing [PR #4541](https://github.com/microsoft/vscode-pull-request-github/pull/4541)
+* [@kabel (Kevin Abel)](https://github.com/kabel): Ignore more files from the vsix [PR #4530](https://github.com/microsoft/vscode-pull-request-github/pull/4530)
+
 ## 0.58.2
 
 ### Fixes
