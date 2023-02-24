@@ -6,17 +6,18 @@
 import * as vscode from 'vscode';
 import { Branch, Repository } from '../api/api';
 import { Remote } from '../common/remote';
+import {
+	ASSIGN_WHEN_WORKING,
+	ISSUE_BRANCH_TITLE,
+	ISSUES_SETTINGS_NAMESPACE,
+	USE_BRANCH_FOR_ISSUES,
+	WORKING_ISSUE_FORMAT_SCM,
+} from '../common/settingKeys';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { GithubItemStateEnum } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { variableSubstitution } from '../github/utils';
 import { IssueState, StateManager } from './stateManager';
-import {
-	BRANCH_CONFIGURATION,
-	BRANCH_NAME_CONFIGURATION,
-	ISSUES_CONFIGURATION,
-	SCM_MESSAGE_CONFIGURATION
-} from './util';
 
 export class CurrentIssue {
 	private repoChangeDisposable: vscode.Disposable | undefined;
@@ -74,7 +75,7 @@ export class CurrentIssue {
 				this._onDidChangeCurrentIssueState.fire();
 				const login = (await this.manager.getCurrentUser(this.issueModel.githubRepository)).login;
 				if (
-					vscode.workspace.getConfiguration('githubIssues').get('assignWhenWorking') &&
+					vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get(ASSIGN_WHEN_WORKING) &&
 					!this.issueModel.assignees?.find(value => value.login === login)
 				) {
 					// Check that we have a repo open for this issue and only try to assign in that case.
@@ -149,7 +150,7 @@ export class CurrentIssue {
 
 	private async getBranchTitle(): Promise<string> {
 		return (
-			vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get<string>(BRANCH_NAME_CONFIGURATION) ??
+			vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<string>(ISSUE_BRANCH_TITLE) ??
 			this.getBasicBranchName(await this.getUser())
 		);
 	}
@@ -169,7 +170,7 @@ export class CurrentIssue {
 			if (result === editSetting) {
 				vscode.commands.executeCommand(
 					'workbench.action.openSettings',
-					`${ISSUES_CONFIGURATION}.${BRANCH_NAME_CONFIGURATION}`,
+					`${ISSUES_SETTINGS_NAMESPACE}.${ISSUE_BRANCH_TITLE}`,
 				);
 			}
 		});
@@ -198,7 +199,7 @@ export class CurrentIssue {
 	private async createIssueBranch(silent: boolean): Promise<boolean> {
 		const createBranchConfig = this.shouldPromptForBranch
 			? 'prompt'
-			: vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get<string>(BRANCH_CONFIGURATION);
+			: vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<string>(USE_BRANCH_FOR_ISSUES);
 		if (createBranchConfig === 'off') {
 			return true;
 		}
@@ -248,7 +249,9 @@ export class CurrentIssue {
 	}
 
 	public async getCommitMessage(): Promise<string | undefined> {
-		const configuration = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(SCM_MESSAGE_CONFIGURATION);
+		const configuration = vscode.workspace
+			.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
+			.get(WORKING_ISSUE_FORMAT_SCM);
 		if (typeof configuration === 'string') {
 			return variableSubstitution(configuration, this.issueModel, this._repoDefaults);
 		}

@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
+import { EDITOR, WORD_WRAP } from '../common/settingKeys';
 import { ReposManagerState } from '../github/folderRepositoryManager';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { ISSUE_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
@@ -33,7 +34,7 @@ export class IssueLinkProvider implements vscode.DocumentLinkProvider {
 		_token: vscode.CancellationToken,
 	): Promise<vscode.DocumentLink[]> {
 		const links: vscode.DocumentLink[] = [];
-		const wraps: boolean = vscode.workspace.getConfiguration('editor', document).get('wordWrap', 'off') !== 'off';
+		const wraps: boolean = vscode.workspace.getConfiguration(EDITOR, document).get(WORD_WRAP, 'off') !== 'off';
 		for (let i = 0; i < Math.min(document.lineCount, MAX_LINE_COUNT); i++) {
 			let searchResult = -1;
 			let lineOffset = 0;

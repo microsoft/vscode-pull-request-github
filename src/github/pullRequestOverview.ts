@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { onDidUpdatePR, openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
+import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { asPromise, dispose, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
@@ -940,7 +941,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 export function getDefaultMergeMethod(
 	methodsAvailability: MergeMethodsAvailability,
 ): MergeMethod {
-	const userPreferred = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
+	const userPreferred = vscode.workspace
+		.getConfiguration(PR_SETTINGS_NAMESPACE)
+		.get<MergeMethod>(DEFAULT_MERGE_METHOD);
 	// Use default merge method specified by user if it is available
 	if (userPreferred && methodsAvailability.hasOwnProperty(userPreferred) && methodsAvailability[userPreferred]) {
 		return userPreferred;

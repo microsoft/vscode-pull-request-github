@@ -4,6 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import {
+	IGNORE_COMPLETION_TRIGGER,
+	ISSUE_COMPLETION_FORMAT_SCM,
+	ISSUES_SETTINGS_NAMESPACE,
+} from '../common/settingKeys';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IMilestone } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
@@ -16,7 +21,6 @@ import {
 	getRootUriFromScmInputUri,
 	isComment,
 	issueMarkdown,
-	ISSUES_CONFIGURATION,
 } from './util';
 
 class IssueCompletionItem extends vscode.CompletionItem {
@@ -75,8 +79,8 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		if (
 			context.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter &&
 			vscode.workspace
-				.getConfiguration(ISSUES_CONFIGURATION)
-				.get<string[]>('ignoreCompletionTrigger', [])
+				.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
+				.get<string[]>(IGNORE_COMPLETION_TRIGGER, [])
 				.find(value => value === document.languageId)
 		) {
 			return [];
@@ -191,8 +195,8 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			item.insertText = `[${getIssueNumberLabel(issue, repo)}](${issue.html_url})`;
 		} else {
 			const configuration = vscode.workspace
-				.getConfiguration(ISSUES_CONFIGURATION)
-				.get('issueCompletionFormatScm');
+				.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
+				.get(ISSUE_COMPLETION_FORMAT_SCM);
 			if (document.uri.path.match(/git\/scm\d\/input/) && typeof configuration === 'string') {
 				item.insertText = await variableSubstitution(configuration, issue, repo);
 			} else {

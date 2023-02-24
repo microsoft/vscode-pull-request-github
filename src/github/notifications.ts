@@ -7,14 +7,13 @@ import { OctokitResponse } from '@octokit/types';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
 import Logger from '../common/logger';
-import { NOTIFICATION_SETTING } from '../common/settingKeys';
+import { NOTIFICATION_SETTING, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { createPRNodeUri } from '../common/uri';
 import { PullRequestsTreeDataProvider } from '../view/prsTreeDataProvider';
 import { CategoryTreeNode } from '../view/treeNodes/categoryNode';
 import { PRNode } from '../view/treeNodes/pullRequestNode';
 import { TreeNode } from '../view/treeNodes/treeNode';
 import { CredentialStore, GitHub } from './credentials';
-import { SETTINGS_NAMESPACE } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
 import { PullRequestState } from './graphql';
 import { PullRequestModel } from './pullRequestModel';
@@ -99,7 +98,7 @@ export class NotificationProvider implements vscode.Disposable {
 
 		this.disposables.push(
 			vscode.workspace.onDidChangeConfiguration((e) => {
-				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${NOTIFICATION_SETTING}`)) {
+				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${NOTIFICATION_SETTING}`)) {
 					this.checkNotificationSetting();
 				}
 			})
@@ -107,7 +106,10 @@ export class NotificationProvider implements vscode.Disposable {
 	}
 
 	private static isPRNotificationsOn() {
-		return vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(NOTIFICATION_SETTING) === 'pullRequests';
+		return (
+			vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(NOTIFICATION_SETTING) ===
+			'pullRequests'
+		);
 	}
 
 	private registerAuthProvider(credentialStore: CredentialStore) {

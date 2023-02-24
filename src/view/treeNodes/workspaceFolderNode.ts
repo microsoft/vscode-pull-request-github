@@ -5,9 +5,9 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { QUERIES } from '../../common/settingKeys';
+import { PR_SETTINGS_NAMESPACE, QUERIES } from '../../common/settingKeys';
 import { ITelemetry } from '../../common/telemetry';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
 import { NotificationProvider } from '../../github/notifications';
 import { PrsTreeModel } from '../prsTreeModel';
@@ -42,7 +42,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 	private static getQueries(folderManager: FolderRepositoryManager): IQueryInfo[] {
 		return (
 			vscode.workspace
-				.getConfiguration(SETTINGS_NAMESPACE, folderManager.repository.rootUri)
+				.getConfiguration(PR_SETTINGS_NAMESPACE, folderManager.repository.rootUri)
 				.get<IQueryInfo[]>(QUERIES) || []
 		);
 	}
