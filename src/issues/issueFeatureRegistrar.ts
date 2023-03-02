@@ -36,6 +36,7 @@ import {
 	createGithubPermalink,
 	getIssue,
 	ISSUES_CONFIGURATION,
+	LinkContext,
 	NewIssue,
 	PermalinkInfo,
 	pushAndCreatePR,
@@ -119,12 +120,12 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(
 			vscode.commands.registerCommand(
 				'issue.copyGithubPermalink',
-				(fileUri: any) => {
+				(context: LinkContext) => {
 					/* __GDPR__
 				"issue.copyGithubPermalink" : {}
 			*/
 					this.telemetry.sendTelemetryEvent('issue.copyGithubPermalink');
-					return this.copyPermalink(this.manager, fileUri instanceof vscode.Uri ? fileUri : undefined);
+					return this.copyPermalink(this.manager, context);
 				},
 				this,
 			),
@@ -1117,16 +1118,16 @@ ${body ?? ''}\n
 		return false;
 	}
 
-	private async getPermalinkWithError(repositoriesManager: RepositoriesManager, fileUri?: vscode.Uri): Promise<PermalinkInfo> {
-		const link = await createGithubPermalink(repositoriesManager, this.gitAPI, undefined, fileUri);
+	private async getPermalinkWithError(repositoriesManager: RepositoriesManager, context?: LinkContext): Promise<PermalinkInfo> {
+		const link = await createGithubPermalink(repositoriesManager, this.gitAPI, undefined, context);
 		if (link.error) {
 			vscode.window.showWarningMessage(vscode.l10n.t('Unable to create a GitHub permalink for the selection. {0}', link.error));
 		}
 		return link;
 	}
 
-	private async getHeadLinkWithError(fileUri?: vscode.Uri): Promise<PermalinkInfo> {
-		const link = await createGitHubLink(this.manager, fileUri);
+	private async getHeadLinkWithError(context?: vscode.Uri): Promise<PermalinkInfo> {
+		const link = await createGitHubLink(this.manager, context);
 		if (link.error) {
 			vscode.window.showWarningMessage(vscode.l10n.t('Unable to create a GitHub link for the selection. {0}', link.error));
 		}
@@ -1150,8 +1151,8 @@ ${body ?? ''}\n
 		return linkUri.with({ authority, path: linkPath }).toString();
 	}
 
-	async copyPermalink(repositoriesManager: RepositoriesManager, fileUri?: vscode.Uri) {
-		const link = await this.getPermalinkWithError(repositoriesManager, fileUri);
+	async copyPermalink(repositoriesManager: RepositoriesManager, context?: LinkContext) {
+		const link = await this.getPermalinkWithError(repositoriesManager, context);
 		if (link.permalink) {
 			return vscode.env.clipboard.writeText(
 				link.originalFile ? (await this.getContextualizedLink(link.originalFile, link.permalink)) : link.permalink);

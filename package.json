@@ -13,6 +13,7 @@
 	"enabledApiProposals": [
 		"tokenInformation",
 		"contribShareMenu",
+		"contribEditorLineNumberMenu",
 		"treeItemCheckbox",
 		"contribCommentPeekContext",
 		"contribCommentThreadAdditionalMenu",
@@ -1975,6 +1976,18 @@
 					"command": "issue.copyGithubHeadLink",
 					"when": "github:hasGitHubRemotes",
 					"group": "1_githubPullRequests@3"
+				}
+			],
+			"editor/lineNumber/context": [
+				{
+					"command": "issue.copyGithubPermalink",
+					"when": "github:hasGitHubRemotes",
+					"group": "1_cutcopypaste@1"
+				},
+				{
+					"command": "issue.copyGithubHeadLink",
+					"when": "github:hasGitHubRemotes",
+					"group": "1_cutcopypaste@2"
 				}
 			],
 			"editor/title/context": [
