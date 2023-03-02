@@ -74,7 +74,7 @@
 			"skipFiles": [
 				"<node_internals>/**/*.js",
 				"**/node_modules/**/*.js"
-			],
+			]
 			"preLaunchTask": "npm: watch",
 			"smartStep": true,
 			"sourceMaps": true,
