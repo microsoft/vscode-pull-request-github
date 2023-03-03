@@ -1990,7 +1990,7 @@
 					"group": "1_cutcopypaste@2"
 				}
 			],
-			"editor/title/context": [
+			"editor/title/context/share": [
 				{
 					"command": "issue.copyGithubPermalink",
 					"when": "github:hasGitHubRemotes",
@@ -2002,7 +2002,7 @@
 					"group": "1_cutcopypaste@11"
 				}
 			],
-			"explorer/context": [
+			"explorer/context/share": [
 				{
 					"command": "issue.copyGithubPermalink",
 					"when": "github:hasGitHubRemotes",
