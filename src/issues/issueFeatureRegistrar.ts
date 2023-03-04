@@ -145,6 +145,32 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		);
 		this.context.subscriptions.push(
 			vscode.commands.registerCommand(
+				'issue.copyGithubPermalinkWithoutRange',
+				(context: LinkContext) => {
+					/* __GDPR__
+				"issue.copyGithubPermalinkWithoutRange" : {}
+			*/
+					this.telemetry.sendTelemetryEvent('issue.copyGithubPermalinkWithoutRange');
+					return this.copyPermalink(this.manager, context, false);
+				},
+				this,
+			),
+		);
+		this.context.subscriptions.push(
+			vscode.commands.registerCommand(
+				'issue.copyGithubHeadLinkWithoutRange',
+				(fileUri: any) => {
+					/* __GDPR__
+				"issue.copyGithubHeadLinkWithoutRange" : {}
+			*/
+					this.telemetry.sendTelemetryEvent('issue.copyGithubHeadLinkWithoutRange');
+					return this.copyHeadLink(fileUri, false);
+				},
+				this,
+			),
+		);
+		this.context.subscriptions.push(
+			vscode.commands.registerCommand(
 				'issue.copyMarkdownGithubPermalink',
 				() => {
 					/* __GDPR__
@@ -1118,16 +1144,16 @@ ${body ?? ''}\n
 		return false;
 	}
 
-	private async getPermalinkWithError(repositoriesManager: RepositoriesManager, context?: LinkContext): Promise<PermalinkInfo> {
-		const link = await createGithubPermalink(repositoriesManager, this.gitAPI, undefined, context);
+	private async getPermalinkWithError(repositoriesManager: RepositoriesManager, context?: LinkContext, includeRange?: boolean): Promise<PermalinkInfo> {
+		const link = await createGithubPermalink(repositoriesManager, this.gitAPI, undefined, context, includeRange);
 		if (link.error) {
 			vscode.window.showWarningMessage(vscode.l10n.t('Unable to create a GitHub permalink for the selection. {0}', link.error));
 		}
 		return link;
 	}
 
-	private async getHeadLinkWithError(context?: vscode.Uri): Promise<PermalinkInfo> {
-		const link = await createGitHubLink(this.manager, context);
+	private async getHeadLinkWithError(context?: vscode.Uri, includeRange?: boolean): Promise<PermalinkInfo> {
+		const link = await createGitHubLink(this.manager, context, includeRange);
 		if (link.error) {
 			vscode.window.showWarningMessage(vscode.l10n.t('Unable to create a GitHub link for the selection. {0}', link.error));
 		}
@@ -1151,15 +1177,15 @@ ${body ?? ''}\n
 		return linkUri.with({ authority, path: linkPath }).toString();
 	}
 
-	async copyPermalink(repositoriesManager: RepositoriesManager, context?: LinkContext) {
-		const link = await this.getPermalinkWithError(repositoriesManager, context);
+	async copyPermalink(repositoriesManager: RepositoriesManager, context?: LinkContext, includeRange = true) {
+		const link = await this.getPermalinkWithError(repositoriesManager, context, includeRange);
 		if (link.permalink) {
 			return vscode.env.clipboard.writeText(
 				link.originalFile ? (await this.getContextualizedLink(link.originalFile, link.permalink)) : link.permalink);
 		}
 	}
 
-	async copyHeadLink(fileUri?: vscode.Uri) {
+	async copyHeadLink(fileUri?: vscode.Uri, includeRange = true) {
 		const link = await this.getHeadLinkWithError(fileUri);
 		if (link.permalink) {
 			return vscode.env.clipboard.writeText(

@@ -492,7 +492,8 @@ export async function createGithubPermalink(
 	repositoriesManager: RepositoriesManager,
 	gitAPI: GitApiImpl,
 	positionInfo?: NewIssue,
-	context?: LinkContext
+	context?: LinkContext,
+	includeRange?: boolean,
 ): Promise<PermalinkInfo> {
 	const { uri, range } = getFileAndPosition(context, positionInfo);
 	if (!uri) {
@@ -539,7 +540,7 @@ export async function createGithubPermalink(
 	const originOfFetchUrl = getUpstreamOrigin(rawUpstream).replace(/\/$/, '');
 	return {
 		permalink: `${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
-			}${pathSegment}${rangeString(range)}`,
+			}${pathSegment}${includeRange ? rangeString(range) : ''}`,
 		error: undefined,
 		originalFile: uri
 	};
@@ -590,7 +591,8 @@ export type LinkContext = vscode.Uri | EditorLineNumberContext | undefined;
 
 export async function createGitHubLink(
 	managers: RepositoriesManager,
-	context: LinkContext
+	context: LinkContext,
+	includeRange?: boolean
 ): Promise<PermalinkInfo> {
 	const { uri, range } = getFileAndPosition(context);
 	if (!uri) {
@@ -615,7 +617,7 @@ export async function createGitHubLink(
 	const originOfFetchUrl = getUpstreamOrigin(upstream).replace(/\/$/, '');
 	return {
 		permalink: `${originOfFetchUrl}/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${branchName
-			}${pathSegment}${rangeString(range)}`,
+			}${pathSegment}${includeRange ? rangeString(range) : ''}`,
 		error: undefined,
 		originalFile: uri
 	};

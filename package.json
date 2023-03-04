@@ -940,6 +940,16 @@
 				"category": "%command.issues.category%"
 			},
 			{
+				"command": "issue.copyGithubPermalinkWithoutRange",
+				"title": "%command.issue.copyGithubPermalink.title%",
+				"category": "%command.issues.category%"
+			},
+			{
+				"command": "issue.copyGithubHeadLinkWithoutRange",
+				"title": "%command.issue.copyGithubHeadLink.title%",
+				"category": "%command.issues.category%"
+			},
+			{
 				"command": "issue.copyMarkdownGithubPermalink",
 				"title": "%command.issue.copyMarkdownGithubPermalink.title%",
 				"category": "%command.issues.category%"
@@ -1471,6 +1481,14 @@
 					"when": "false"
 				},
 				{
+					"command": "issue.copyGithubPermalinkWithoutRange",
+					"when": "false"
+				},
+				{
+					"command": "issue.copyGithubHeadLinkWithoutRange",
+					"when": "false"
+				},
+				{
 					"command": "pr.refreshActivePullRequest",
 					"when": "false"
 				},
@@ -1992,24 +2010,24 @@
 			],
 			"editor/title/context/share": [
 				{
-					"command": "issue.copyGithubPermalink",
+					"command": "issue.copyGithubPermalinkWithoutRange",
 					"when": "github:hasGitHubRemotes",
 					"group": "1_cutcopypaste@10"
 				},
 				{
-					"command": "issue.copyGithubHeadLink",
+					"command": "issue.copyGithubHeadLinkWithoutRange",
 					"when": "github:hasGitHubRemotes",
 					"group": "1_cutcopypaste@11"
 				}
 			],
 			"explorer/context/share": [
 				{
-					"command": "issue.copyGithubPermalink",
+					"command": "issue.copyGithubPermalinkWithoutRange",
 					"when": "github:hasGitHubRemotes",
 					"group": "5_cutcopypaste@10"
 				},
 				{
-					"command": "issue.copyGithubHeadLink",
+					"command": "issue.copyGithubHeadLinkWithoutRange",
 					"when": "github:hasGitHubRemotes",
 					"group": "5_cutcopypaste@11"
 				}
