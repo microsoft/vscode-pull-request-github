@@ -172,12 +172,25 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(
 			vscode.commands.registerCommand(
 				'issue.copyMarkdownGithubPermalink',
-				() => {
+				(context: LinkContext) => {
 					/* __GDPR__
 				"issue.copyMarkdownGithubPermalink" : {}
 			*/
 					this.telemetry.sendTelemetryEvent('issue.copyMarkdownGithubPermalink');
-					return this.copyMarkdownPermalink(this.manager);
+					return this.copyMarkdownPermalink(this.manager, context);
+				},
+				this,
+			),
+		);
+		this.context.subscriptions.push(
+			vscode.commands.registerCommand(
+				'issue.copyMarkdownGithubPermalinkWithoutRange',
+				(context: LinkContext) => {
+					/* __GDPR__
+				"issue.copyMarkdownGithubPermalinkWithoutRange" : {}
+			*/
+					this.telemetry.sendTelemetryEvent('issue.copyMarkdownGithubPermalinkWithoutRange');
+					return this.copyMarkdownPermalink(this.manager, context, false);
 				},
 				this,
 			),
@@ -1215,8 +1228,8 @@ ${body ?? ''}\n
 		return undefined;
 	}
 
-	async copyMarkdownPermalink(repositoriesManager: RepositoriesManager) {
-		const link = await this.getPermalinkWithError(repositoriesManager);
+	async copyMarkdownPermalink(repositoriesManager: RepositoriesManager, context: LinkContext, includeRange = true) {
+		const link = await this.getPermalinkWithError(repositoriesManager, context, includeRange);
 		const selection = this.getMarkdownLinkText();
 		if (link.permalink && selection) {
 			return vscode.env.clipboard.writeText(`[${selection.trim()}](${link.permalink})`);

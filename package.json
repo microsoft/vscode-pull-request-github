@@ -955,6 +955,11 @@
 				"category": "%command.issues.category%"
 			},
 			{
+				"command": "issue.copyMarkdownGithubPermalinkWithoutRange",
+				"title": "%command.issue.copyMarkdownGithubPermalink.title%",
+				"category": "%command.issues.category%"
+			},
+			{
 				"command": "issue.openGithubPermalink",
 				"title": "%command.issue.openGithubPermalink.title%",
 				"category": "%command.issues.category%"
@@ -1485,6 +1490,10 @@
 					"when": "false"
 				},
 				{
+					"command": "issue.copyMarkdownGithubPermalinkWithoutRange",
+					"when": "false"
+				},
+				{
 					"command": "issue.copyGithubHeadLinkWithoutRange",
 					"when": "false"
 				},
@@ -2003,9 +2012,14 @@
 					"group": "1_cutcopypaste@1"
 				},
 				{
-					"command": "issue.copyGithubHeadLink",
+					"command": "issue.copyMarkdownGithubPermalink",
 					"when": "github:hasGitHubRemotes",
 					"group": "1_cutcopypaste@2"
+				},
+				{
+					"command": "issue.copyGithubHeadLink",
+					"when": "github:hasGitHubRemotes",
+					"group": "1_cutcopypaste@3"
 				}
 			],
 			"editor/title/context/share": [
@@ -2015,9 +2029,14 @@
 					"group": "1_cutcopypaste@10"
 				},
 				{
-					"command": "issue.copyGithubHeadLinkWithoutRange",
+					"command": "issue.copyMarkdownGithubPermalinkWithoutRange",
 					"when": "github:hasGitHubRemotes",
 					"group": "1_cutcopypaste@11"
+				},
+				{
+					"command": "issue.copyGithubHeadLinkWithoutRange",
+					"when": "github:hasGitHubRemotes",
+					"group": "1_cutcopypaste@12"
 				}
 			],
 			"explorer/context/share": [
@@ -2027,9 +2046,14 @@
 					"group": "5_cutcopypaste@10"
 				},
 				{
-					"command": "issue.copyGithubHeadLinkWithoutRange",
+					"command": "issue.copyMarkdownGithubPermalinkWithoutRange",
 					"when": "github:hasGitHubRemotes",
 					"group": "5_cutcopypaste@11"
+				},
+				{
+					"command": "issue.copyGithubHeadLinkWithoutRange",
+					"when": "github:hasGitHubRemotes",
+					"group": "5_cutcopypaste@12"
 				}
 			],
 			"menuBar/edit/copy": [
