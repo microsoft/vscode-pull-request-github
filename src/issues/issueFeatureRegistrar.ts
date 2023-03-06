@@ -1193,16 +1193,14 @@ ${body ?? ''}\n
 	async copyPermalink(repositoriesManager: RepositoriesManager, context?: LinkContext, includeRange = true) {
 		const link = await this.getPermalinkWithError(repositoriesManager, context, includeRange);
 		if (link.permalink) {
-			return vscode.env.clipboard.writeText(
-				link.originalFile ? (await this.getContextualizedLink(link.originalFile, link.permalink)) : link.permalink);
+			return vscode.env.clipboard.writeText(link.permalink);
 		}
 	}
 
 	async copyHeadLink(fileUri?: vscode.Uri, includeRange = true) {
 		const link = await this.getHeadLinkWithError(fileUri, includeRange);
 		if (link.permalink) {
-			return vscode.env.clipboard.writeText(
-				link.originalFile ? (await this.getContextualizedLink(link.originalFile, link.permalink)) : link.permalink);
+			return vscode.env.clipboard.writeText(link.permalink);
 		}
 	}
 
