@@ -13,7 +13,7 @@
 
 ![Re-request review](documentation/changelog/0.60.0/re-request-review.png)
 
-- Quick diffs are no longer experimental. You can turn on PR quick diffs with the setting `githubPullRequests.experimental.quickDiff`.
+- Quick diffs are no longer experimental. You can turn on PR quick diffs with the setting `githubPullRequests.quickDiff`.
 
 ![Pull request quick diff](documentation/changelog/0.60.0/quick-diff.png)
 
