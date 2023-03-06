@@ -1186,7 +1186,7 @@ ${body ?? ''}\n
 	}
 
 	async copyHeadLink(fileUri?: vscode.Uri, includeRange = true) {
-		const link = await this.getHeadLinkWithError(fileUri);
+		const link = await this.getHeadLinkWithError(fileUri, includeRange);
 		if (link.permalink) {
 			return vscode.env.clipboard.writeText(
 				link.originalFile ? (await this.getContextualizedLink(link.originalFile, link.permalink)) : link.permalink);
