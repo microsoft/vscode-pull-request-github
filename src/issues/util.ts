@@ -494,6 +494,7 @@ export async function createGithubPermalink(
 	positionInfo?: NewIssue,
 	context?: LinkContext,
 	includeRange?: boolean,
+	includeFile?: boolean,
 ): Promise<PermalinkInfo> {
 	const { uri, range } = getFileAndPosition(context, positionInfo);
 	if (!uri) {
@@ -540,7 +541,7 @@ export async function createGithubPermalink(
 	const originOfFetchUrl = getUpstreamOrigin(rawUpstream).replace(/\/$/, '');
 	return {
 		permalink: `${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
-			}${pathSegment}${includeRange ? rangeString(range) : ''}`,
+			}${includeFile ? `${pathSegment}${includeRange ? rangeString(range) : ''}` : ''}`,
 		error: undefined,
 		originalFile: uri
 	};
