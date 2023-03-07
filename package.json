@@ -2045,17 +2045,17 @@
 			"editor/lineNumber/context": [
 				{
 					"command": "issue.copyGithubPermalink",
-					"when": "github:hasGitHubRemotes",
+					"when": "github:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on",
 					"group": "1_cutcopypaste@1"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
-					"when": "github:hasGitHubRemotes",
+					"when": "github:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on",
 					"group": "1_cutcopypaste@2"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
-					"when": "github:hasGitHubRemotes",
+					"when": "github:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on",
 					"group": "1_cutcopypaste@3"
 				},
 				{
