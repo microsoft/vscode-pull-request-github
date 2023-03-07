@@ -930,7 +930,7 @@
 				"category": "%command.issues.category%"
 			},
 			{
-				"command": "issue.copyGithubDevLinkFileWithoutRange",
+				"command": "issue.copyGithubDevLinkWithoutRange",
 				"title": "%command.issue.copyGithubDevLink.title%",
 				"category": "%command.issues.category%"
 			},
