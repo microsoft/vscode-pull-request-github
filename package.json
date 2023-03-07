@@ -2061,24 +2061,24 @@
 				{
 					"command": "issue.copyGithubDevLink",
 					"when": "github:hasGitHubRemotes && remoteName == codespaces || github:hasGitHubRemotes && embedderIdentifier == github.dev",
-					"group": "0_vscode@0"
+					"group": "1_cutcopypaste@0"
 				}
 			],
 			"editor/title/context/share": [
 				{
 					"command": "issue.copyGithubPermalinkWithoutRange",
 					"when": "github:hasGitHubRemotes",
-					"group": "1_cutcopypaste@10"
+					"group": "1_githubPullRequests@10"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalinkWithoutRange",
 					"when": "github:hasGitHubRemotes",
-					"group": "1_cutcopypaste@11"
+					"group": "1_githubPullRequests@11"
 				},
 				{
 					"command": "issue.copyGithubHeadLinkWithoutRange",
 					"when": "github:hasGitHubRemotes",
-					"group": "1_cutcopypaste@12"
+					"group": "1_githubPullRequests@12"
 				},
 				{
 					"command": "issue.copyGithubDevLinkWithoutRange",
@@ -2090,17 +2090,17 @@
 				{
 					"command": "issue.copyGithubPermalinkWithoutRange",
 					"when": "github:hasGitHubRemotes",
-					"group": "5_cutcopypaste@10"
+					"group": "5_githubPulLRequests@10"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalinkWithoutRange",
 					"when": "github:hasGitHubRemotes",
-					"group": "5_cutcopypaste@11"
+					"group": "5_githubPulLRequests@11"
 				},
 				{
 					"command": "issue.copyGithubHeadLinkWithoutRange",
 					"when": "github:hasGitHubRemotes",
-					"group": "5_cutcopypaste@12"
+					"group": "5_githubPulLRequests@12"
 				},
 				{
 					"command": "issue.copyGithubDevLinkWithoutRange",
