@@ -193,7 +193,7 @@ export class GHPRComment extends CommentBase {
 	/**
 	 * The complete comment data returned from GitHub
 	 */
-	public readonly rawComment: IComment;
+	public rawComment: IComment;
 
 	private _rawBody: string | vscode.MarkdownString;
 	private replacedBody: string;
@@ -226,6 +226,54 @@ export class GHPRComment extends CommentBase {
 
 		this.contextValue = contextValues.join(',');
 		this.timestamp = new Date(comment.createdAt);
+	}
+
+	update(comment: IComment) {
+		const oldRawComment = this.rawComment;
+		this.rawComment = comment;
+		updateCommentReactions(this, comment.reactions);
+
+		let refresh: boolean = false;
+		const oldLabel = this.label;
+		this.label = comment.isDraft ? vscode.l10n.t('Pending') : undefined;
+		if (this.label !== oldLabel) {
+			refresh = true;
+		}
+
+		const contextValues: string[] = [];
+		if (comment.canEdit) {
+			contextValues.push('canEdit');
+		}
+
+		if (comment.canDelete) {
+			contextValues.push('canDelete');
+		}
+
+		if (this.suggestion) {
+			contextValues.push('hasSuggestion');
+		}
+
+		const oldContextValue = this.contextValue;
+		this.contextValue = contextValues.join(',');
+		if (oldContextValue !== this.contextValue) {
+			refresh = true;
+		}
+
+		// Set the comment body last as it will trigger an update if set.
+		if (oldRawComment.body !== comment.body) {
+			this.body = comment.body;
+			refresh = false;
+		}
+
+		if (refresh) {
+			this.refresh();
+		}
+	}
+
+	private refresh() {
+		// Self assign the comments to trigger an update of the comments in VS Code now that we have replaced the body.
+		// eslint-disable-next-line no-self-assign
+		this.parent.comments = this.parent.comments;
 	}
 
 	get suggestion(): string | undefined {
@@ -293,10 +341,10 @@ ${lineContents}
 	set body(body: string | vscode.MarkdownString) {
 		this._rawBody = body;
 		this.replaceBody(body).then(replacedBody => {
-			this.replacedBody = replacedBody;
-			// Self assign the comments to trigger an update of the comments in VS Code now that we have replaced the body.
-			// eslint-disable-next-line no-self-assign
-			this.parent.comments = this.parent.comments;
+			if (replacedBody !== this.replacedBody) {
+				this.replacedBody = replacedBody;
+				this.refresh();
+			}
 		});
 	}
 
