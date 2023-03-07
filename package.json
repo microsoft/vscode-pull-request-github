@@ -1598,12 +1598,12 @@
 				{
 					"command": "pr.refreshPullRequest",
 					"when": "view == pr:github && viewItem =~ /pullrequest|description/",
-					"group": "2_pullrequest@2"
+					"group": "pullrequest@1"
 				},
 				{
 					"command": "pr.openPullRequestOnGitHub",
 					"when": "view == pr:github && viewItem =~ /pullrequest|description/",
-					"group": "3_pullrequest@3"
+					"group": "1_pullrequest@3"
 				},
 				{
 					"command": "pr.deleteLocalBranch",

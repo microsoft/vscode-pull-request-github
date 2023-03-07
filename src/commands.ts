@@ -483,15 +483,6 @@ export function registerCommands(
 				pullRequestModel = pr;
 			}
 
-			const fromDescriptionPage = pr instanceof PullRequestModel;
-			/* __GDPR__
-			"pr.checkout" : {
-				"fromDescriptionPage" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-				"location" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-			}
-		*/
-			telemetry.sendTelemetryEvent('pr.checkout', { fromDescription: fromDescriptionPage.toString(), location: 'vscode.dev' });
-
 			return vscode.env.openExternal(vscode.Uri.parse(vscodeDevPrLink(pullRequestModel)));
 		}),
 	);
