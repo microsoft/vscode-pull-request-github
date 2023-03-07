@@ -1378,7 +1378,7 @@
 				},
 				{
 					"command": "pr.copyVscodeDevPrLink",
-					"when": "github:inReviewMode && remoteName != codespaces"
+					"when": "github:inReviewMode && remoteName != codespaces && embedderIdentifier != github.dev"
 				},
 				{
 					"command": "pr.goToNextDiffInPr",
@@ -2023,7 +2023,7 @@
 				},
 				{
 					"command": "pr.copyVscodeDevPrLink",
-					"when": "github:hasGitHubRemotes && github:inReviewMode && remoteName != codespaces",
+					"when": "github:hasGitHubRemotes && github:inReviewMode && remoteName != codespaces && embedderIdentifier != github.dev",
 					"group": "1_githubPullRequests@1"
 				},
 				{
