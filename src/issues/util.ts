@@ -412,7 +412,7 @@ function getFileAndPosition(context: LinkContext, positionInfo?: NewIssue): { ur
 	if (fileUri) {
 		uri = fileUri;
 		if (vscode.window.activeTextEditor?.document.uri.fsPath === uri.fsPath && !vscode.window.activeNotebookEditor) {
-			if (lineNumber) {
+			if (lineNumber && (vscode.window.activeTextEditor.selection.isEmpty || !vscode.window.activeTextEditor.selection.contains(new vscode.Position(lineNumber - 1, 0)))) {
 				range = new vscode.Range(new vscode.Position(lineNumber - 1, 0), new vscode.Position(lineNumber - 1, 1));
 			} else {
 				range = vscode.window.activeTextEditor.selection;
