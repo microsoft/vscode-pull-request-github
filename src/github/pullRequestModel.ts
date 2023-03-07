@@ -1434,6 +1434,16 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	async resolveReviewThread(threadId: string): Promise<void> {
 		const { mutate, schema } = await this.githubRepository.ensure();
+
+		// optimistically update
+		const oldThread = this._reviewThreadsCache.find(thread => thread.id === threadId);
+		if (oldThread && oldThread.viewerCanResolve) {
+			oldThread.isResolved = true;
+			oldThread.viewerCanResolve = false;
+			oldThread.viewerCanUnresolve = true;
+			this._onDidChangeReviewThreads.fire({ added: [], changed: [oldThread], removed: [] });
+		}
+
 		const { data } = await mutate<ResolveReviewThreadResponse>({
 			mutation: schema.ResolveReviewThread,
 			variables: {
@@ -1444,6 +1454,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		});
 
 		if (!data) {
+			// Undo optimistic update
+			if (oldThread && oldThread.viewerCanUnresolve) {
+				oldThread.isResolved = false;
+				oldThread.viewerCanResolve = true;
+				oldThread.viewerCanUnresolve = false;
+				this._onDidChangeReviewThreads.fire({ added: [], changed: [oldThread], removed: [] });
+			}
 			throw new Error('Resolve review thread failed.');
 		}
 
@@ -1457,6 +1474,16 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	async unresolveReviewThread(threadId: string): Promise<void> {
 		const { mutate, schema } = await this.githubRepository.ensure();
+
+		// optimistically update
+		const oldThread = this._reviewThreadsCache.find(thread => thread.id === threadId);
+		if (oldThread && oldThread.viewerCanUnresolve) {
+			oldThread.isResolved = false;
+			oldThread.viewerCanUnresolve = false;
+			oldThread.viewerCanResolve = true;
+			this._onDidChangeReviewThreads.fire({ added: [], changed: [oldThread], removed: [] });
+		}
+
 		const { data } = await mutate<UnresolveReviewThreadResponse>({
 			mutation: schema.UnresolveReviewThread,
 			variables: {
@@ -1467,6 +1494,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		});
 
 		if (!data) {
+			// Undo optimistic update
+			if (oldThread && oldThread.viewerCanResolve) {
+				oldThread.isResolved = true;
+				oldThread.viewerCanUnresolve = true;
+				oldThread.viewerCanResolve = false;
+				this._onDidChangeReviewThreads.fire({ added: [], changed: [oldThread], removed: [] });
+			}
 			throw new Error('Unresolve review thread failed.');
 		}
 
