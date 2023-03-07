@@ -2046,17 +2046,17 @@
 				{
 					"command": "issue.copyGithubPermalink",
 					"when": "github:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on",
-					"group": "1_cutcopypaste@1"
+					"group": "1_cutcopypaste@3"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
 					"when": "github:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on",
-					"group": "1_cutcopypaste@2"
+					"group": "1_cutcopypaste@4"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
 					"when": "github:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on",
-					"group": "1_cutcopypaste@3"
+					"group": "1_cutcopypaste@5"
 				},
 				{
 					"command": "issue.copyGithubDevLink",
