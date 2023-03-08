@@ -951,12 +951,22 @@
 				"category": "%command.issues.category%"
 			},
 			{
+				"command": "issue.copyGithubPermalinkFile",
+				"title": "%command.issue.copyGithubPermalink.title%",
+				"category": "%command.issues.category%"
+			},
+			{
 				"command": "issue.copyGithubPermalink",
 				"title": "%command.issue.copyGithubPermalink.title%",
 				"category": "%command.issues.category%"
 			},
 			{
 				"command": "issue.copyGithubHeadLink",
+				"title": "%command.issue.copyGithubHeadLink.title%",
+				"category": "%command.issues.category%"
+			},
+			{
+				"command": "issue.copyGithubHeadLinkFile",
 				"title": "%command.issue.copyGithubHeadLink.title%",
 				"category": "%command.issues.category%"
 			},
@@ -972,6 +982,11 @@
 			},
 			{
 				"command": "issue.copyMarkdownGithubPermalink",
+				"title": "%command.issue.copyMarkdownGithubPermalink.title%",
+				"category": "%command.issues.category%"
+			},
+			{
+				"command": "issue.copyMarkdownGithubPermalinkFile",
 				"title": "%command.issue.copyMarkdownGithubPermalink.title%",
 				"category": "%command.issues.category%"
 			},
@@ -1419,12 +1434,24 @@
 					"when": "github:hasGitHubRemotes"
 				},
 				{
+					"command": "issue.copyGithubPermalinkFile",
+					"when": "github:hasGitHubRemotes"
+				},
+				{
 					"command": "issue.copyGithubHeadLink",
+					"when": "github:hasGitHubRemotes"
+				},
+				{
+					"command": "issue.copyGithubHeadLinkFile",
 					"when": "github:hasGitHubRemotes"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
 					"when": "github:hasGitHubRemotes"
+				},
+				{
+					"command": "issue.copyMarkdownGithubPermalinkFile",
+					"when": "false"
 				},
 				{
 					"command": "issue.openGithubPermalink",
@@ -2032,7 +2059,7 @@
 			],
 			"file/share": [
 				{
-					"command": "issue.copyGithubPermalink",
+					"command": "issue.copyGithubPermalinkFile",
 					"when": "github:hasGitHubRemotes",
 					"group": "1_githubPullRequests@0"
 				},
@@ -2042,12 +2069,12 @@
 					"group": "1_githubPullRequests@1"
 				},
 				{
-					"command": "issue.copyMarkdownGithubPermalink",
+					"command": "issue.copyMarkdownGithubPermalinkFile",
 					"when": "github:hasGitHubRemotes",
 					"group": "1_githubPullRequests@2"
 				},
 				{
-					"command": "issue.copyGithubHeadLink",
+					"command": "issue.copyGithubHeadLinkFile",
 					"when": "github:hasGitHubRemotes",
 					"group": "1_githubPullRequests@3"
 				},

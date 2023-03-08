@@ -593,7 +593,8 @@ export type LinkContext = vscode.Uri | EditorLineNumberContext | undefined;
 export async function createGitHubLink(
 	managers: RepositoriesManager,
 	context: LinkContext,
-	includeRange?: boolean
+	includeRange?: boolean,
+	includeFile?: boolean,
 ): Promise<PermalinkInfo> {
 	const { uri, range } = getFileAndPosition(context);
 	if (!uri) {
@@ -618,7 +619,7 @@ export async function createGitHubLink(
 	const originOfFetchUrl = getUpstreamOrigin(upstream).replace(/\/$/, '');
 	return {
 		permalink: `${originOfFetchUrl}/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${branchName
-			}${pathSegment}${includeRange ? rangeString(range) : ''}`,
+			}${includeFile ? `${pathSegment}${includeRange ? rangeString(range) : ''}` : ''}`,
 		error: undefined,
 		originalFile: uri
 	};
