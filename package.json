@@ -13,6 +13,7 @@
 	"enabledApiProposals": [
 		"tokenInformation",
 		"contribShareMenu",
+		"contribEditorLineNumberMenu",
 		"treeItemCheckbox",
 		"contribCommentPeekContext",
 		"contribCommentThreadAdditionalMenu",
@@ -24,7 +25,7 @@
 	"version": "0.60.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.76.0"
+		"vscode": "^1.77.0-insider"
 	},
 	"categories": [
 		"Other"
@@ -929,6 +930,21 @@
 				"category": "%command.issues.category%"
 			},
 			{
+				"command": "issue.copyGithubDevLinkWithoutRange",
+				"title": "%command.issue.copyGithubDevLink.title%",
+				"category": "%command.issues.category%"
+			},
+			{
+				"command": "issue.copyGithubDevLinkFile",
+				"title": "%command.issue.copyGithubDevLink.title%",
+				"category": "%command.issues.category%"
+			},
+			{
+				"command": "issue.copyGithubDevLink",
+				"title": "%command.issue.copyGithubDevLink.title%",
+				"category": "%command.issues.category%"
+			},
+			{
 				"command": "issue.copyGithubPermalink",
 				"title": "%command.issue.copyGithubPermalink.title%",
 				"category": "%command.issues.category%"
@@ -939,7 +955,22 @@
 				"category": "%command.issues.category%"
 			},
 			{
+				"command": "issue.copyGithubPermalinkWithoutRange",
+				"title": "%command.issue.copyGithubPermalink.title%",
+				"category": "%command.issues.category%"
+			},
+			{
+				"command": "issue.copyGithubHeadLinkWithoutRange",
+				"title": "%command.issue.copyGithubHeadLink.title%",
+				"category": "%command.issues.category%"
+			},
+			{
 				"command": "issue.copyMarkdownGithubPermalink",
+				"title": "%command.issue.copyMarkdownGithubPermalink.title%",
+				"category": "%command.issues.category%"
+			},
+			{
+				"command": "issue.copyMarkdownGithubPermalinkWithoutRange",
 				"title": "%command.issue.copyMarkdownGithubPermalink.title%",
 				"category": "%command.issues.category%"
 			},
@@ -1347,7 +1378,7 @@
 				},
 				{
 					"command": "pr.copyVscodeDevPrLink",
-					"when": "github:inReviewMode"
+					"when": "github:inReviewMode && remoteName != codespaces && embedderIdentifier != github.dev"
 				},
 				{
 					"command": "pr.goToNextDiffInPr",
@@ -1467,6 +1498,30 @@
 				},
 				{
 					"command": "issue.goToLinkedCode",
+					"when": "false"
+				},
+				{
+					"command": "issue.copyGithubDevLinkWithoutRange",
+					"when": "false"
+				},
+				{
+					"command": "issue.copyGithubDevLinkFile",
+					"when": "false"
+				},
+				{
+					"command": "issue.copyGithubDevLink",
+					"when": "false"
+				},
+				{
+					"command": "issue.copyGithubPermalinkWithoutRange",
+					"when": "false"
+				},
+				{
+					"command": "issue.copyMarkdownGithubPermalinkWithoutRange",
+					"when": "false"
+				},
+				{
+					"command": "issue.copyGithubHeadLinkWithoutRange",
 					"when": "false"
 				},
 				{
@@ -1953,6 +2008,11 @@
 					"command": "issue.copyGithubHeadLink",
 					"when": "github:hasGitHubRemotes",
 					"group": "1_githubPullRequests@2"
+				},
+				{
+					"command": "issue.copyGithubDevLink",
+					"when": "github:hasGitHubRemotes && remoteName == codespaces || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"group": "0_vscode@0"
 				}
 			],
 			"file/share": [
@@ -1963,7 +2023,7 @@
 				},
 				{
 					"command": "pr.copyVscodeDevPrLink",
-					"when": "github:hasGitHubRemotes && github:inReviewMode",
+					"when": "github:hasGitHubRemotes && github:inReviewMode && remoteName != codespaces && embedderIdentifier != github.dev",
 					"group": "1_githubPullRequests@1"
 				},
 				{
@@ -1975,30 +2035,77 @@
 					"command": "issue.copyGithubHeadLink",
 					"when": "github:hasGitHubRemotes",
 					"group": "1_githubPullRequests@3"
+				},
+				{
+					"command": "issue.copyGithubDevLinkFile",
+					"when": "github:hasGitHubRemotes && remoteName == codespaces || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"group": "0_vscode@0"
 				}
 			],
-			"editor/title/context": [
+			"editor/lineNumber/context": [
 				{
 					"command": "issue.copyGithubPermalink",
-					"when": "github:hasGitHubRemotes",
-					"group": "1_cutcopypaste@10"
+					"when": "github:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on",
+					"group": "1_cutcopypaste@3"
+				},
+				{
+					"command": "issue.copyMarkdownGithubPermalink",
+					"when": "github:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on",
+					"group": "1_cutcopypaste@4"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
-					"when": "github:hasGitHubRemotes",
-					"group": "1_cutcopypaste@11"
-				}
-			],
-			"explorer/context": [
-				{
-					"command": "issue.copyGithubPermalink",
-					"when": "github:hasGitHubRemotes",
-					"group": "5_cutcopypaste@10"
+					"when": "github:hasGitHubRemotes && activeEditor == workbench.editors.files.textFileEditor && config.editor.lineNumbers == on",
+					"group": "1_cutcopypaste@5"
 				},
 				{
-					"command": "issue.copyGithubHeadLink",
+					"command": "issue.copyGithubDevLink",
+					"when": "github:hasGitHubRemotes && remoteName == codespaces || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"group": "1_cutcopypaste@0"
+				}
+			],
+			"editor/title/context/share": [
+				{
+					"command": "issue.copyGithubPermalinkWithoutRange",
 					"when": "github:hasGitHubRemotes",
-					"group": "5_cutcopypaste@11"
+					"group": "1_githubPullRequests@10"
+				},
+				{
+					"command": "issue.copyMarkdownGithubPermalinkWithoutRange",
+					"when": "github:hasGitHubRemotes",
+					"group": "1_githubPullRequests@11"
+				},
+				{
+					"command": "issue.copyGithubHeadLinkWithoutRange",
+					"when": "github:hasGitHubRemotes",
+					"group": "1_githubPullRequests@12"
+				},
+				{
+					"command": "issue.copyGithubDevLinkWithoutRange",
+					"when": "github:hasGitHubRemotes && remoteName == codespaces || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"group": "0_vscode@0"
+				}
+			],
+			"explorer/context/share": [
+				{
+					"command": "issue.copyGithubPermalinkWithoutRange",
+					"when": "github:hasGitHubRemotes",
+					"group": "5_githubPulLRequests@10"
+				},
+				{
+					"command": "issue.copyMarkdownGithubPermalinkWithoutRange",
+					"when": "github:hasGitHubRemotes",
+					"group": "5_githubPulLRequests@11"
+				},
+				{
+					"command": "issue.copyGithubHeadLinkWithoutRange",
+					"when": "github:hasGitHubRemotes",
+					"group": "5_githubPulLRequests@12"
+				},
+				{
+					"command": "issue.copyGithubDevLinkWithoutRange",
+					"when": "github:hasGitHubRemotes && remoteName == codespaces || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"group": "0_vscode@0"
 				}
 			],
 			"menuBar/edit/copy": [
