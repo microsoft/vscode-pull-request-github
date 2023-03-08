@@ -159,7 +159,18 @@ export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IRev
 	if (range) {
 		vscodeThread.range = range;
 	}
-	vscodeThread.comments = reviewThread.comments.map(c => new GHPRComment(c, vscodeThread, githubRepository));
+	if ((vscodeThread.comments.length === reviewThread.comments.length) && vscodeThread.comments.every((vscodeComment, index) => vscodeComment.commentId === `${reviewThread.comments[index].id}`)) {
+		// The comments all still exist. Update them instead of creating new ones. This allows the UI to be more stable.
+		let index = 0;
+		for (const comment of vscodeThread.comments) {
+			if (comment instanceof GHPRComment) {
+				comment.update(reviewThread.comments[index]);
+			}
+			index++;
+		}
+	} else {
+		vscodeThread.comments = reviewThread.comments.map(c => new GHPRComment(c, vscodeThread, githubRepository));
+	}
 	updateCommentThreadLabel(vscodeThread);
 }
 

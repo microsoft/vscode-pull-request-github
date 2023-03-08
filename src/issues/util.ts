@@ -393,13 +393,30 @@ async function getUpstream(repositoriesManager: RepositoriesManager, repository:
 	return bestRemote;
 }
 
-function getFileAndPosition(fileUri?: vscode.Uri, positionInfo?: NewIssue): { uri: vscode.Uri | undefined, range: vscode.Range | vscode.NotebookRange | undefined } {
+function extractContext(context: LinkContext): { fileUri: vscode.Uri | undefined, lineNumber: number | undefined } {
+	if (context instanceof vscode.Uri) {
+		return { fileUri: context, lineNumber: undefined };
+	} else if (context !== undefined && 'lineNumber' in context && 'uri' in context) {
+		return { fileUri: context.uri, lineNumber: context.lineNumber };
+	} else {
+		return { fileUri: undefined, lineNumber: undefined };
+	}
+}
+
+function getFileAndPosition(context: LinkContext, positionInfo?: NewIssue): { uri: vscode.Uri | undefined, range: vscode.Range | vscode.NotebookRange | undefined } {
 	let uri: vscode.Uri;
 	let range: vscode.Range | vscode.NotebookRange | undefined;
+
+	const { fileUri, lineNumber } = extractContext(context);
+
 	if (fileUri) {
 		uri = fileUri;
-		if (vscode.window.activeTextEditor?.document.uri.fsPath === uri.fsPath) {
-			range = vscode.window.activeTextEditor.selection;
+		if (vscode.window.activeTextEditor?.document.uri.fsPath === uri.fsPath && !vscode.window.activeNotebookEditor) {
+			if (lineNumber !== undefined && (vscode.window.activeTextEditor.selection.isEmpty || !vscode.window.activeTextEditor.selection.contains(new vscode.Position(lineNumber - 1, 0)))) {
+				range = new vscode.Range(new vscode.Position(lineNumber - 1, 0), new vscode.Position(lineNumber - 1, 1));
+			} else {
+				range = vscode.window.activeTextEditor.selection;
+			}
 		}
 	} else if (!positionInfo && vscode.window.activeTextEditor) {
 		uri = vscode.window.activeTextEditor.document.uri;
@@ -475,9 +492,11 @@ export async function createGithubPermalink(
 	repositoriesManager: RepositoriesManager,
 	gitAPI: GitApiImpl,
 	positionInfo?: NewIssue,
-	fileUri?: vscode.Uri
+	context?: LinkContext,
+	includeRange?: boolean,
+	includeFile?: boolean,
 ): Promise<PermalinkInfo> {
-	const { uri, range } = getFileAndPosition(fileUri, positionInfo);
+	const { uri, range } = getFileAndPosition(context, positionInfo);
 	if (!uri) {
 		return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined };
 	}
@@ -522,7 +541,7 @@ export async function createGithubPermalink(
 	const originOfFetchUrl = getUpstreamOrigin(rawUpstream).replace(/\/$/, '');
 	return {
 		permalink: `${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
-			}${pathSegment}${rangeString(range)}`,
+			}${includeFile ? `${pathSegment}${includeRange ? rangeString(range) : ''}` : ''}`,
 		error: undefined,
 		originalFile: uri
 	};
@@ -565,11 +584,18 @@ function rangeString(range: vscode.Range | vscode.NotebookRange | undefined) {
 	return hash;
 }
 
+interface EditorLineNumberContext {
+	uri: vscode.Uri;
+	lineNumber: number;
+}
+export type LinkContext = vscode.Uri | EditorLineNumberContext | undefined;
+
 export async function createGitHubLink(
 	managers: RepositoriesManager,
-	fileUri?: vscode.Uri
+	context: LinkContext,
+	includeRange?: boolean
 ): Promise<PermalinkInfo> {
-	const { uri, range } = getFileAndPosition(fileUri);
+	const { uri, range } = getFileAndPosition(context);
 	if (!uri) {
 		return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined };
 	}
@@ -592,7 +618,7 @@ export async function createGitHubLink(
 	const originOfFetchUrl = getUpstreamOrigin(upstream).replace(/\/$/, '');
 	return {
 		permalink: `${originOfFetchUrl}/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${branchName
-			}${pathSegment}${rangeString(range)}`,
+			}${pathSegment}${includeRange ? rangeString(range) : ''}`,
 		error: undefined,
 		originalFile: uri
 	};
