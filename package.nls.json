@@ -121,6 +121,7 @@
 	"command.pull.request.category": "GitHub Pull Requests",
 	"command.pr.create.title": "Create Pull Request",
 	"command.pr.pick.title": "Checkout Pull Request",
+	"command.pr.pickOnVscodeDev.title": "Checkout Pull Request on vscode.dev",
 	"command.pr.exit.title": "Checkout Default Branch",
 	"command.pr.dismissNotification.title": "Dismiss Notification",
 	"command.pr.merge.title": "Merge Pull Request",

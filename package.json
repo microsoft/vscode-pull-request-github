@@ -605,6 +605,12 @@
 				"icon": "$(arrow-right)"
 			},
 			{
+				"command": "pr.pickOnVscodeDev",
+				"title": "%command.pr.pickOnVscodeDev.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(globe)"
+			},
+			{
 				"command": "pr.exit",
 				"title": "%command.pr.exit.title%",
 				"category": "%command.pull.request.category%"
@@ -1193,6 +1199,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.pickOnVscodeDev",
+					"when": "false"
+				},
+				{
 					"command": "pr.exit",
 					"when": "github:inReviewMode"
 				},
@@ -1623,7 +1633,7 @@
 				{
 					"command": "pr.pick",
 					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive|description/",
-					"group": "pullrequest@1"
+					"group": "1_pullrequest@1"
 				},
 				{
 					"command": "pr.pick",
@@ -1633,17 +1643,22 @@
 				{
 					"command": "pr.exit",
 					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:active|description/",
-					"group": "pullrequest@1"
+					"group": "1_pullrequest@1"
+				},
+				{
+					"command": "pr.pickOnVscodeDev",
+					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive|description/ && remoteName != codespaces && embedderIdentifier != github.dev",
+					"group": "1_pullrequest@2"
 				},
 				{
 					"command": "pr.refreshPullRequest",
 					"when": "view == pr:github && viewItem =~ /pullrequest|description/",
-					"group": "pullrequest@2"
+					"group": "pullrequest@1"
 				},
 				{
 					"command": "pr.openPullRequestOnGitHub",
 					"when": "view == pr:github && viewItem =~ /pullrequest|description/",
-					"group": "pullrequest@3"
+					"group": "1_pullrequest@3"
 				},
 				{
 					"command": "pr.deleteLocalBranch",

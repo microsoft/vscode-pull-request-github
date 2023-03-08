@@ -1224,5 +1224,5 @@ export async function findDotComAndEnterpriseRemotes(folderManagers: FolderRepos
 
 export function vscodeDevPrLink(pullRequest: PullRequestModel) {
 	const itemUri = vscode.Uri.parse(pullRequest.html_url);
-	return `https://vscode.dev/github${itemUri.path}`;
+	return `https://${vscode.env.appName.includes('insiders') ? 'insiders.' : ''}vscode.dev/github${itemUri.path}`;
 }

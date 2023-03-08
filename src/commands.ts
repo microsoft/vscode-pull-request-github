@@ -468,6 +468,26 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.pickOnVscodeDev', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
+			if (pr === undefined) {
+				// This is unexpected, but has happened a few times.
+				Logger.error('Unexpectedly received undefined when picking a PR.');
+				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
+			}
+
+			let pullRequestModel: PullRequestModel;
+
+			if (pr instanceof PRNode || pr instanceof DescriptionNode) {
+				pullRequestModel = pr.pullRequestModel;
+			} else {
+				pullRequestModel = pr;
+			}
+
+			return vscode.env.openExternal(vscode.Uri.parse(vscodeDevPrLink(pullRequestModel)));
+		}),
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.exit', async (pr: PRNode | DescriptionNode | PullRequestModel | undefined) => {
 			let pullRequestModel: PullRequestModel | undefined;
 
