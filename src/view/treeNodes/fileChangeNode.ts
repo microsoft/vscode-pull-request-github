@@ -240,7 +240,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 			},
 			this.changeModel.status,
 		);
-		vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
+		return vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
 	}
 }
 

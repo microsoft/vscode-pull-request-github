@@ -297,16 +297,17 @@ export function registerCommands(
 		}),
 	);
 
-	function openDiffView(fileChangeNode: GitFileChangeNode | InMemFileChangeNode | vscode.Uri | undefined) {
+	async function openDiffView(fileChangeNode: GitFileChangeNode | InMemFileChangeNode | vscode.Uri | undefined) {
 		if (fileChangeNode && !(fileChangeNode instanceof vscode.Uri)) {
 			const folderManager = reposManager.getManagerForIssueModel(fileChangeNode.pullRequest);
 			if (!folderManager) {
 				return;
 			}
-			fileChangeNode.openDiff(folderManager);
+			return fileChangeNode.openDiff(folderManager);
 		} else if (fileChangeNode || vscode.window.activeTextEditor) {
-			const uri = fileChangeNode ? fileChangeNode : vscode.window.activeTextEditor!.document.uri;
-			const folderManager = reposManager.getManagerForFile(uri);
+			const editor = fileChangeNode ? vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === fileChangeNode.toString())! : vscode.window.activeTextEditor!;
+			const visibleRanges = editor.visibleRanges;
+			const folderManager = reposManager.getManagerForFile(editor.document.uri);
 			if (!folderManager?.activePullRequest) {
 				return;
 			}
@@ -314,8 +315,13 @@ export function registerCommands(
 			if (!reviewManager) {
 				return;
 			}
-			const change = reviewManager.reviewModel.localFileChanges.find(change => change.resourceUri.with({ query: '' }).toString() === uri.toString());
-			change?.openDiff(folderManager);
+			const change = reviewManager.reviewModel.localFileChanges.find(change => change.resourceUri.with({ query: '' }).toString() === editor.document.uri.toString());
+			await change?.openDiff(folderManager);
+			const tabInput = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+			const diffEditor = (tabInput instanceof vscode.TabInputTextDiff && tabInput.modified.toString() === editor.document.uri.toString()) ? vscode.window.activeTextEditor : undefined;
+			if (diffEditor) {
+				diffEditor.revealRange(visibleRanges[0]);
+			}
 		}
 	}
 
@@ -323,7 +329,7 @@ export function registerCommands(
 		vscode.commands.registerCommand(
 			'pr.openDiffView',
 			(fileChangeNode: GitFileChangeNode | InMemFileChangeNode | undefined) => {
-				openDiffView(fileChangeNode);
+				return openDiffView(fileChangeNode);
 			},
 		),
 	);
@@ -332,7 +338,7 @@ export function registerCommands(
 		vscode.commands.registerCommand(
 			'pr.openDiffViewFromEditor',
 			(uri: vscode.Uri) => {
-				openDiffView(uri);
+				return openDiffView(uri);
 			},
 		),
 	);
