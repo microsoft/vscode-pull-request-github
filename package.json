@@ -678,6 +678,12 @@
 				"icon": "$(compare-changes)"
 			},
 			{
+				"command": "pr.openDiffViewFromEditor",
+				"title": "%command.pr.openDiffViewFromEditor.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(git-pull-request)"
+			},
+			{
 				"command": "pr.openDescription",
 				"title": "%command.pr.openDescription.title%",
 				"category": "%command.pull.request.category%",
@@ -1279,6 +1285,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.openDiffViewFromEditor",
+					"when": "false"
+				},
+				{
 					"command": "pr.openDescriptionToTheSide",
 					"when": "false"
 				},
@@ -1831,6 +1841,16 @@
 					"command": "pr.unmarkFileAsViewed",
 					"group": "navigation",
 					"when": "resourceScheme != pr && resourceScheme != review && resourceScheme != filechange && resourcePath in github:viewedFiles"
+				},
+				{
+					"command": "pr.openDiffViewFromEditor",
+					"group": "navigation",
+					"when": "!isInDiffEditor && resourceScheme != pr && resourceScheme != review && resourceScheme != filechange && resourcePath in github:unviewedFiles"
+				},
+				{
+					"command": "pr.openDiffViewFromEditor",
+					"group": "navigation",
+					"when": "!isInDiffEditor && resourceScheme != pr && resourceScheme != review && resourceScheme != filechange && resourcePath in github:viewedFiles"
 				}
 			],
 			"scm/title": [

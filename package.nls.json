@@ -135,6 +135,7 @@
 	"command.pr.openOriginalFile.title": "Open Original File",
 	"command.pr.openModifiedFile.title": "Open Modified File",
 	"command.pr.openDiffView.title": "Open Diff View",
+	"command.pr.openDiffViewFromEditor.title": "Open Pull Request Diff View",
 	"command.pr.openDescription.title": "View Pull Request Description",
 	"command.pr.openDescriptionToTheSide.title": "Open Pull Request Description to the Side",
 	"command.pr.refreshDescription.title": "Refresh Pull Request Description",
