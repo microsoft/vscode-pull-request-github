@@ -297,29 +297,42 @@ export function registerCommands(
 		}),
 	);
 
+	function openDiffView(fileChangeNode: GitFileChangeNode | InMemFileChangeNode | vscode.Uri | undefined) {
+		if (fileChangeNode && !(fileChangeNode instanceof vscode.Uri)) {
+			const folderManager = reposManager.getManagerForIssueModel(fileChangeNode.pullRequest);
+			if (!folderManager) {
+				return;
+			}
+			fileChangeNode.openDiff(folderManager);
+		} else if (fileChangeNode || vscode.window.activeTextEditor) {
+			const uri = fileChangeNode ? fileChangeNode : vscode.window.activeTextEditor!.document.uri;
+			const folderManager = reposManager.getManagerForFile(uri);
+			if (!folderManager?.activePullRequest) {
+				return;
+			}
+			const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
+			if (!reviewManager) {
+				return;
+			}
+			const change = reviewManager.reviewModel.localFileChanges.find(change => change.resourceUri.with({ query: '' }).toString() === uri.toString());
+			change?.openDiff(folderManager);
+		}
+	}
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openDiffView',
 			(fileChangeNode: GitFileChangeNode | InMemFileChangeNode | undefined) => {
-				if (fileChangeNode) {
-					const folderManager = reposManager.getManagerForIssueModel(fileChangeNode.pullRequest);
-					if (!folderManager) {
-						return;
-					}
-					fileChangeNode.openDiff(folderManager);
-				} else if (vscode.window.activeTextEditor) {
-					const activeTextEditor = vscode.window.activeTextEditor;
-					const folderManager = reposManager.getManagerForFile(activeTextEditor.document.uri);
-					if (!folderManager?.activePullRequest) {
-						return;
-					}
-					const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
-					if (!reviewManager) {
-						return;
-					}
-					const change = reviewManager.reviewModel.localFileChanges.find(change => change.resourceUri.with({ query: '' }).toString() === activeTextEditor.document.uri.toString());
-					change?.openDiff(folderManager);
-				}
+				openDiffView(fileChangeNode);
+			},
+		),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'pr.openDiffViewFromEditor',
+			(uri: vscode.Uri) => {
+				openDiffView(uri);
 			},
 		),
 	);
