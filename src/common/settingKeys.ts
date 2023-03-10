@@ -21,6 +21,7 @@ export const FOCUSED_MODE = 'focusedMode';
 export const CREATE_DRAFT = 'createDraft';
 export const QUICK_DIFF_EXP = 'experimental.quickDiff';
 export const QUICK_DIFF = 'quickDiff';
+export const SET_AUTO_MERGE = 'setAutoMerge';
 
 // git
 export const GIT = 'git';

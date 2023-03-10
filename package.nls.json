@@ -62,6 +62,7 @@
 	"githubPullRequests.defaultCommentType.description": "The default comment type to use when submitting a comment and there is no active review",
 	"githubPullRequests.defaultCommentType.single": "Submits the comment as a single comment that will be immediately visible to other users",
 	"githubPullRequests.defaultCommentType.review": "Submits the comment as a review comment that will be visible to other users once the review is submitted",
+	"githubPullRequests.setAutoMerge.description": "Checks the \"Auto-merge\" checkbox in the \"Create Pull Request\" view.",
 	"githubIssues.ignoreMilestones.description": "An array of milestones titles to never show issues from.",
 	"githubIssues.createIssueTriggers.description": "Strings that will cause the 'Create issue from comment' code action to show.",
 	"githubIssues.createIssueTriggers.items": "String that enables the 'Create issue from comment' code action. Should not contain whitespace.",
