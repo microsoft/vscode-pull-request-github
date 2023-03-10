@@ -29,7 +29,7 @@ export class RateLogger {
 
 	public logAndLimit(): boolean {
 		if (!this.limiter.tryRemoveTokens(1)) {
-			Logger.appendLine('API call count has exceeded 100 calls in 1 second.', RateLogger.ID);
+			Logger.error('API call count has exceeded 100 calls in 1 second.', RateLogger.ID);
 			// We have hit 100 requests in 1 second. This likely indicates a bug in the extension.
 			/* __GDPR__
 				"pr.highApiCallRate" : {}
@@ -55,14 +55,15 @@ export class RateLogger {
 		}
 		const remaining = `${isRest ? 'REST' : 'GraphQL'} Rate limit remaining: ${rateLimitInfo?.remaining}, ${info}`;
 		if ((rateLimitInfo?.remaining ?? 1000) < 1000) {
-			Logger.appendLine(remaining, RateLogger.ID);
-		} else {
 			if (!this.hasLoggedLowRateLimit) {
 				/* __GDPR__
 					"pr.lowRateLimitRemaining" : {}
 				*/
 				this.telemetry.sendTelemetryErrorEvent('pr.lowRateLimitRemaining');
+				this.hasLoggedLowRateLimit = true;
 			}
+			Logger.warn(remaining, RateLogger.ID);
+		} else {
 			Logger.debug(remaining, RateLogger.ID);
 		}
 	}
