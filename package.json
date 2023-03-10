@@ -342,6 +342,11 @@
 					"description": "Enables quick diff in the editor gutter for checked-out pull requests. Requires a reload to take effect",
 					"default": false
 				},
+				"githubPullRequests.setAutoMerge": {
+					"type": "boolean",
+					"description": "%githubPullRequests.setAutoMerge.description%",
+					"default": false
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],
