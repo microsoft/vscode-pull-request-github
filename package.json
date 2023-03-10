@@ -1435,7 +1435,7 @@
 				},
 				{
 					"command": "issue.copyGithubPermalinkFile",
-					"when": "github:hasGitHubRemotes"
+					"when": "false"
 				},
 				{
 					"command": "issue.copyGithubHeadLink",
