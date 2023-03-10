@@ -20,7 +20,6 @@ import {
 import { MockTelemetry } from './mockTelemetry';
 import { Uri } from 'vscode';
 import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
-import { MockExtensionContext } from './mockExtensionContext';
 const queries = require('../../github/queries.gql');
 
 export class MockGitHubRepository extends GitHubRepository {
@@ -32,7 +31,7 @@ export class MockGitHubRepository extends GitHubRepository {
 		this.queryProvider = new QueryProvider(sinon);
 
 		this._hub = {
-			octokit: new LoggingOctokit(this.queryProvider.octokit, new RateLogger(new MockExtensionContext(), new MockTelemetry())),
+			octokit: new LoggingOctokit(this.queryProvider.octokit, new RateLogger(new MockTelemetry())),
 			graphql: null,
 		};
 
