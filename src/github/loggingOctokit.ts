@@ -7,6 +7,7 @@ import { Octokit } from '@octokit/rest';
 import { ApolloClient, ApolloQueryResult, FetchResult, MutationOptions, NormalizedCacheObject, OperationVariables, QueryOptions } from 'apollo-boost';
 import * as vscode from 'vscode';
 import Logger from '../common/logger';
+import { ITelemetry } from '../common/telemetry';
 import { RateLimit } from './graphql';
 
 const RATE_COUNTER_LAST_WINDOW = 'rateCounterLastWindow';
@@ -23,8 +24,9 @@ export class RateLogger {
 	private lastWindow: number;
 	private count: number = 0;
 	private static ID = 'RateLimit';
+	private hasLoggedLowRateLimit: boolean = false;
 
-	constructor(private readonly context: vscode.ExtensionContext) {
+	constructor(private readonly context: vscode.ExtensionContext, private readonly telemetry: ITelemetry) {
 		// We assume the common case for this logging: only one user.
 		// We also make up our own window. This will not line up exactly with GitHub's rate limit reset time,
 		// but it will give us a nice idea of how many API calls we're making. We use an hour, just like GitHub.
@@ -56,7 +58,7 @@ export class RateLogger {
 		}
 	}
 
-	public async logGraphqlRateLimit(result: Promise<{ data: { rateLimit: RateLimit | undefined } | undefined } | undefined>) {
+	public async logRateLimit(result: Promise<{ data: { rateLimit: RateLimit | undefined } | undefined } | undefined>, isRest: boolean = false) {
 		let rateLimitInfo;
 		try {
 			rateLimitInfo = (await result)?.data?.rateLimit;
@@ -67,10 +69,16 @@ export class RateLogger {
 		if ((rateLimitInfo?.limit ?? 5000) < 5000) {
 			Logger.appendLine(`Unexpectedly low rate limit: ${rateLimitInfo?.limit}`, RateLogger.ID);
 		}
-		const remaining = `Rate limit remaining: ${rateLimitInfo?.remaining}`;
+		const remaining = `${isRest ? 'REST' : 'GraphQL'} Rate limit remaining: ${rateLimitInfo?.remaining}`;
 		if ((rateLimitInfo?.remaining ?? 1000) < 1000) {
 			Logger.appendLine(remaining, RateLogger.ID);
 		} else {
+			if (!this.hasLoggedLowRateLimit) {
+				/* __GDPR__
+					"pr.lowRateLimitRemaining" : {}
+				*/
+				this.telemetry.sendTelemetryErrorEvent('pr.lowRateLimitRemaining');
+			}
 			Logger.debug(remaining, RateLogger.ID);
 		}
 	}
@@ -89,7 +97,7 @@ export class RateLogger {
 			remaining: Number(result.headers['x-ratelimit-remaining']),
 			resetAt: ''
 		};
-		this.logGraphqlRateLimit(Promise.resolve({ data: { rateLimit } }));
+		this.logRateLimit(Promise.resolve({ data: { rateLimit } }), true);
 	}
 }
 
@@ -99,14 +107,14 @@ export class LoggingApolloClient {
 	query<T = any, TVariables = OperationVariables>(options: QueryOptions<TVariables>): Promise<ApolloQueryResult<T>> {
 		this._rateLogger.log((options.query.definitions[0] as { name: { value: string } | undefined }).name?.value);
 		const result = this._graphql.query(options);
-		this._rateLogger.logGraphqlRateLimit(result as any);
+		this._rateLogger.logRateLimit(result as any);
 		return result;
 	}
 
 	mutate<T = any, TVariables = OperationVariables>(options: MutationOptions<T, TVariables>): Promise<FetchResult<T>> {
 		this._rateLogger.log(options.context);
 		const result = this._graphql.mutate(options);
-		this._rateLogger.logGraphqlRateLimit(result as any);
+		this._rateLogger.logRateLimit(result as any);
 		return result;
 	}
 }

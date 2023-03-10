@@ -32,7 +32,7 @@ export class MockGitHubRepository extends GitHubRepository {
 		this.queryProvider = new QueryProvider(sinon);
 
 		this._hub = {
-			octokit: new LoggingOctokit(this.queryProvider.octokit, new RateLogger(new MockExtensionContext())),
+			octokit: new LoggingOctokit(this.queryProvider.octokit, new RateLogger(new MockExtensionContext(), new MockTelemetry())),
 			graphql: null,
 		};
 
