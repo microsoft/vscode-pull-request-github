@@ -1443,7 +1443,7 @@
 				},
 				{
 					"command": "issue.copyGithubHeadLinkFile",
-					"when": "github:hasGitHubRemotes"
+					"when": "false"
 				},
 				{
 					"command": "issue.copyMarkdownGithubPermalink",
