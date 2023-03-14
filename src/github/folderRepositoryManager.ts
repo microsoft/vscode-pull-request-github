@@ -724,14 +724,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		const hasAllRepos = (await Promise.all(this._githubRepositories.map(async (repo) => {
 			const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
 			const repoSpecificFile = vscode.Uri.joinPath(mentionableUsersCacheLocation, key);
-			let repoSpecificCache;
+			let repoSpecificCache: IAccount[] | undefined;
 			try {
-				repoSpecificCache = await vscode.workspace.fs.readFile(repoSpecificFile);
+				const cacheFile = await vscode.workspace.fs.readFile(repoSpecificFile);
+				if (cacheFile && cacheFile.toString()) {
+					repoSpecificCache = JSON.parse(cacheFile.toString()) ?? [];
+				}
 			} catch (e) {
-				// file doesn't exist
+				// file doesn't exist or json is unexpectedly invalid
 			}
-			if (repoSpecificCache && repoSpecificCache.toString()) {
-				cache[repo.remote.repositoryName] = JSON.parse(repoSpecificCache.toString()) ?? [];
+			if (repoSpecificCache) {
+				cache[repo.remote.repositoryName] = repoSpecificCache;
 				return true;
 			}
 		}))).every(value => value);
