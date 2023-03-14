@@ -23,6 +23,10 @@ textarea {
 	width: 16px;
 }
 
+.reviewer-icons .icon svg {
+	margin-right: 0px;
+}
+
 #status-checks {
 	display: flex;
 	flex-direction: column;
