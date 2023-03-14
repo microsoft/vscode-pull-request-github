@@ -6,6 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
+import { JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
 import { stringReplaceAsync } from '../common/utils';
 import { GitHubRepository } from './githubRepository';
 import { IAccount } from './interface';
@@ -329,8 +330,14 @@ ${lineContents}
 			const permalinkReplaced = await this.replacePermalink(body.value);
 			return this.replaceSuggestion(permalinkReplaced);
 		}
-		const linkified = body.replace(/([^\[`]|^)\@([^\s`]+)/, (substring) => {
+		const documentLanguage = (await vscode.workspace.openTextDocument(this.parent.uri)).languageId;
+		// Replace user
+		const linkified = body.replace(/([^\[`]|^)\@([^\s`]+)/g, (substring) => {
 			const username = substring.substring(substring.startsWith('@') ? 1 : 2);
+			if ((((documentLanguage === 'javascript') || (documentLanguage === 'typescript')) && JSDOC_NON_USERS.includes(username))
+				|| ((documentLanguage === 'php') && PHPDOC_NON_USERS.includes(username))) {
+				return substring;
+			}
 			return `${substring.startsWith('@') ? '' : substring.charAt(0)}[@${username}](${path.dirname(this.rawComment.user!.url)}/${username})`;
 		});
 
