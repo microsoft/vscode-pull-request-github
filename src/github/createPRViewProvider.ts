@@ -325,10 +325,10 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			defaultMergeMethod: getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability),
 			allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
 			mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
-			autoMerge: mergeConfiguration.viewerCanAutoMerge && (vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<boolean>(SET_AUTO_MERGE, false) === true),
+			autoMergeDefault: mergeConfiguration.viewerCanAutoMerge && (vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<boolean>(SET_AUTO_MERGE, false) === true),
 			createError: '',
 			labels: this.labels,
-			isDraft: vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get(CREATE_DRAFT, false),
+			isDraftDefault: vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get(CREATE_DRAFT, false),
 			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
 		};
 
