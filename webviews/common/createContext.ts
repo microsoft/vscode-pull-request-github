@@ -15,7 +15,8 @@ const defaultCreateParams: CreateParams = {
 	validate: false,
 	showTitleValidationError: false,
 	labels: [],
-	isDraft: false
+	isDraftDefault: false,
+	autoMergeDefault: false
 };
 
 export class CreatePRContext {
@@ -203,6 +204,18 @@ export class CreatePRContext {
 				} else {
 					// Notify the extension of the stored compare branch state
 					await this.changeCompareBranch(this.createParams.compareBranch);
+				}
+
+				if (this.createParams.isDraft === undefined) {
+					message.params.isDraft = message.params.isDraftDefault;
+				} else {
+					message.params.isDraft = this.createParams.isDraft;
+				}
+
+				if (this.createParams.autoMerge === undefined) {
+					message.params.autoMerge = message.params.autoMergeDefault;
+				} else {
+					message.params.autoMerge = this.createParams.autoMerge;
 				}
 
 				this.updateState(message.params);

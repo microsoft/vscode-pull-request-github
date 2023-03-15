@@ -29,6 +29,7 @@ export interface CreateParams {
 	baseBranch?: string;
 	compareRemote?: RemoteInfo;
 	compareBranch?: string;
+	isDraftDefault: boolean;
 	isDraft?: boolean;
 	labels?: ILabel[];
 	isDarkTheme?: boolean;
@@ -37,6 +38,7 @@ export interface CreateParams {
 	showTitleValidationError?: boolean;
 	createError?: string;
 
+	autoMergeDefault: boolean;
 	autoMerge?: boolean;
 	autoMergeMethod?: MergeMethod;
 	allowAutoMerge?: boolean;
