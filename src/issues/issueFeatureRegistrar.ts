@@ -26,7 +26,7 @@ import {
 } from './issueFile';
 import { IssueHoverProvider } from './issueHoverProvider';
 import { openCodeLink } from './issueLinkLookup';
-import { IssuesTreeData, IssueUriTreeItem } from './issuesView';
+import { IssuesTreeData, IssueUriTreeItem, updateExpandedQueries } from './issuesView';
 import { IssueTodoProvider } from './issueTodoProvider';
 import { StateManager } from './stateManager';
 import { UserCompletionProvider } from './userCompletionProvider';
@@ -85,12 +85,13 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				',',
 			),
 		);
-		this.context.subscriptions.push(
-			vscode.window.createTreeView('issues:github', {
-				showCollapseAll: true,
-				treeDataProvider: new IssuesTreeData(this._stateManager, this.manager, this.context),
-			}),
-		);
+		const view = vscode.window.createTreeView('issues:github', {
+			showCollapseAll: true,
+			treeDataProvider: new IssuesTreeData(this._stateManager, this.manager, this.context),
+		});
+		this.context.subscriptions.push(view);
+		this.context.subscriptions.push(view.onDidCollapseElement(e => updateExpandedQueries(this.context, e.element, false)));
+		this.context.subscriptions.push(view.onDidExpandElement(e => updateExpandedQueries(this.context, e.element, true)));
 		this.context.subscriptions.push(
 			vscode.commands.registerCommand(
 				'issue.createIssueFromSelection',
