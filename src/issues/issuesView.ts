@@ -63,19 +63,20 @@ export class IssuesTreeData
 		let treeItem: IssueUriTreeItem;
 		if (element instanceof IssueUriTreeItem) {
 			treeItem = element;
+			treeItem.collapsibleState = getQueryExpandState(this.context, element, element.collapsibleState);
 		} else if (element instanceof FolderRepositoryManager) {
 			treeItem = new IssueUriTreeItem(
 				element.repository.rootUri,
 				path.basename(element.repository.rootUri.fsPath),
-				vscode.TreeItemCollapsibleState.Expanded,
+				getQueryExpandState(this.context, element, vscode.TreeItemCollapsibleState.Expanded)
 			);
 		} else if (!(element instanceof IssueModel)) {
 			treeItem = new IssueUriTreeItem(
 				element.uri,
 				element.milestone.title,
-				element.issues.length > 0
+				getQueryExpandState(this.context, element, element.issues.length > 0
 					? vscode.TreeItemCollapsibleState.Expanded
-					: vscode.TreeItemCollapsibleState.None,
+					: vscode.TreeItemCollapsibleState.None)
 			);
 		} else {
 			treeItem = new IssueUriTreeItem(
@@ -180,4 +181,50 @@ export class IssuesTreeData
 			return [];
 		}
 	}
+}
+
+const EXPANDED_ISSUES_STATE = 'expandedIssuesState';
+
+function expandStateId(element: FolderRepositoryManager | IssueItem | MilestoneItem | IssueUriTreeItem | vscode.TreeItem | undefined) {
+	if (!element) {
+		return;
+	}
+	let id: string | undefined;
+	if (element instanceof IssueUriTreeItem) {
+		id = element.labelAsString;
+	} else if (element instanceof vscode.TreeItem) {
+		// No id needed
+	} else if (element instanceof FolderRepositoryManager) {
+		id = element.repository.rootUri.toString();
+	} else if (!(element instanceof IssueModel)) {
+		id = element.milestone.title;
+	}
+	return id;
+}
+
+export function updateExpandedQueries(context: vscode.ExtensionContext, element: FolderRepositoryManager | IssueItem | MilestoneItem | IssueUriTreeItem | vscode.TreeItem | undefined, isExpanded: boolean) {
+	const id = expandStateId(element);
+
+	if (id) {
+		const expandedQueries = new Set<string>(context.workspaceState.get(EXPANDED_ISSUES_STATE, []) as string[]);
+		if (isExpanded) {
+			expandedQueries.add(id);
+		} else {
+			expandedQueries.delete(id);
+		}
+		context.workspaceState.update(EXPANDED_ISSUES_STATE, Array.from(expandedQueries.keys()));
+	}
+}
+
+function getQueryExpandState(context: vscode.ExtensionContext, element: FolderRepositoryManager | IssueItem | MilestoneItem | IssueUriTreeItem | undefined, defaultState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.Collapsed): vscode.TreeItemCollapsibleState {
+	const id = expandStateId(element);
+	if (id) {
+		const savedValue = context.workspaceState.get(EXPANDED_ISSUES_STATE);
+		if (!savedValue) {
+			return defaultState;
+		}
+		const expandedQueries = new Set<string>(savedValue as string[]);
+		return expandedQueries.has(id) ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
+	}
+	return vscode.TreeItemCollapsibleState.None;
 }
