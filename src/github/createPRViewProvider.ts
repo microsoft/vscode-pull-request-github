@@ -442,7 +442,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			{ canPickMany: true },
 		);
 
-		if (labelsToAdd && labelsToAdd.length) {
+		if (labelsToAdd) {
 			const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
 			this.labels = addedLabels;
 			this._postMessage({
