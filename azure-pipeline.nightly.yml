@@ -22,7 +22,29 @@ extends:
   template: azure-pipelines/extension/pre-release.yml@templates
   parameters:
     l10nSourcePaths: ./src
+
     buildSteps:
+      - script: yarn install --frozen-lockfile --check-files
+        displayName: Install dependencies
+        retryCountOnTaskFailure: 3
+
+      - script: yarn run bundle
+        displayName: Compile
+
+      - script: >
+          node ./scripts/prepare-nightly-build.js
+          -v "$VERSION"
+        displayName: Generate package.json
+
+      - script: |
+          mv ./package.json ./package.json.bak
+          mv ./package.insiders.json ./package.json
+        displayName: Override package.json
+
+    testPlatforms:
+      - Linux
+
+    testSteps:
       - script: yarn install --frozen-lockfile --check-files
         displayName: Install dependencies
         retryCountOnTaskFailure: 3
@@ -55,13 +77,3 @@ extends:
       #   displayName: Run test suite (webkit)
       #   env:
       #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
-
-      - script: >
-          node ./scripts/prepare-nightly-build.js
-          -v "$VERSION"
-        displayName: Generate package.json
-
-      - script: |
-          mv ./package.json ./package.json.bak
-          mv ./package.insiders.json ./package.json
-        displayName: Override package.json
