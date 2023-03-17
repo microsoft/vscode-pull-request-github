@@ -41,9 +41,6 @@ extends:
           mv ./package.insiders.json ./package.json
         displayName: Override package.json
 
-    testPlatforms:
-      - Linux
-
     testSteps:
       - script: yarn install --frozen-lockfile --check-files
         displayName: Install dependencies

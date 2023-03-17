@@ -29,9 +29,6 @@ extends:
       - script: yarn run bundle
         displayName: Compile
 
-    testPlatforms:
-      - Linux
-
     testSteps:
       - script: yarn install --frozen-lockfile --check-files
         displayName: Install dependencies
