@@ -452,6 +452,22 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		}
 	}
 
+	private async removeLabel(message: IRequestMessage<{ label: ILabel }>,): Promise<void> {
+		const { label } = message.args;
+		if (!label)
+			return;
+
+		const previousLabelsLength = this.labels.length;
+		this.labels = this.labels.filter(l => l.name !== label.name);
+		if (previousLabelsLength === this.labels.length)
+			return;
+
+		this._postMessage({
+			command: 'set-labels',
+			params: { labels: this.labels }
+		});
+	}
+
 	private async pushUpstream(compareOwner: string, compareRepositoryName: string, compareBranchName: string): Promise<{ compareUpstream: GitHubRemote, repo: GitHubRepository | undefined } | undefined> {
 		let createdPushRemote: GitHubRemote | undefined;
 		const pushRemote = this._folderRepositoryManager.repository.state.remotes.find(localRemote => {
@@ -614,6 +630,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 			case 'pr.changeCompareBranch':
 				return this.changeBranch(message, false);
+
+			case 'pr.removeLabel':
+				return this.removeLabel(message);
 
 			default:
 				// Log error

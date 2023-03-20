@@ -10,6 +10,8 @@ import PullRequestContext from '../common/createContext';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { Label } from '../common/label';
 import { AutoMerge } from '../components/automergeSelect';
+import { closeIcon } from '../components/icon';
+
 
 export const RemoteSelect = ({ onChange, defaultOption, repos }:
 	{ onChange: (owner: string, repositoryName: string) => Promise<void>, defaultOption: string | undefined, repos: RemoteInfo[] }) => {
@@ -131,7 +133,13 @@ export function main() {
 						<div>
 							<label className='input-label'>Labels</label>
 							<div className='labels-list'>
-								{params.labels.map(label => <Label key={label.name} {...label} canDelete={false} isDarkTheme={!!params.isDarkTheme} />)}
+								{params.labels.map(label => <Label key={label.name} {...label} canDelete isDarkTheme={!!params.isDarkTheme}>
+									<button className="icon-button" onClick={() => {
+										ctx.postMessage({ command: 'pr.removeLabel', args: { label } });
+									}}>
+										{closeIcon}️
+									</button>
+								</Label>)}
 							</div>
 						</div>
 						: null}

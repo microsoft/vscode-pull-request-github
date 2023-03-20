@@ -526,11 +526,6 @@ body button .icon {
 	margin-right: 0;
 }
 
-.label .icon-button:hover,
-.label .icon-button:focus {
-	background-color: transparent;
-}
-
 .commit svg {
 	width: 16px;
 	height: auto;
