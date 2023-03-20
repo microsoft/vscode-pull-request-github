@@ -478,6 +478,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async progress => {
 				let totalIncrement = 0;
 				progress.report({ message: vscode.l10n.t('Checking for upstream branch'), increment: totalIncrement });
+				let createdPR: PullRequestModel | undefined = undefined;
 				try {
 					const compareOwner = message.args.compareOwner;
 					const compareRepositoryName = message.args.compareRepo;
@@ -532,7 +533,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 					progress.report({ message: vscode.l10n.t('Creating pull request'), increment: 70 - totalIncrement });
 					totalIncrement += 70 - totalIncrement;
 					const head = `${headRepo.remote.owner}:${compareBranchName}`;
-					const createdPR = await this._folderRepositoryManager.createPullRequest({ ...message.args, head });
+					createdPR = await this._folderRepositoryManager.createPullRequest({ ...message.args, head });
 
 					// Create was cancelled
 					if (!createdPR) {
@@ -542,12 +543,19 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 							this.setLabels(createdPR, message.args.labels),
 							this.enableAutoMerge(createdPR, message.args.autoMerge, message.args.autoMergeMethod),
 							this.autoAssign(createdPR)]);
+					}
+				} catch (e) {
+					if (!createdPR) {
+						this._throwError(message, e.message);
+					} else {
+						// All of these errors occur after the PR is created, so the error is not critical.
+						vscode.window.showErrorMessage(vscode.l10n.t('There was an error creating the pull request: {0}', e.message));
+					}
+				} finally {
+					if (createdPR) {
 						await this._replyMessage(message, {});
 						this._onDone.fire(createdPR);
 					}
-				} catch (e) {
-					this._throwError(message, e.message);
-				} finally {
 					progress.report({ message: vscode.l10n.t('Pull request created'), increment: 100 - totalIncrement });
 				}
 			});
