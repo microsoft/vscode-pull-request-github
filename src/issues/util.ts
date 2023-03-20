@@ -491,10 +491,10 @@ function getOwnerAndRepo(repositoriesManager: RepositoriesManager, repository: R
 export async function createGithubPermalink(
 	repositoriesManager: RepositoriesManager,
 	gitAPI: GitApiImpl,
+	includeRange: boolean,
+	includeFile: boolean,
 	positionInfo?: NewIssue,
-	context?: LinkContext,
-	includeRange?: boolean,
-	includeFile?: boolean,
+	context?: LinkContext
 ): Promise<PermalinkInfo> {
 	const { uri, range } = getFileAndPosition(context, positionInfo);
 	if (!uri) {
