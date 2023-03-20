@@ -7,6 +7,9 @@ import { default as assert } from 'assert';
 import * as ssh from '../../env/node/ssh';
 import { Protocol, ProtocolType } from '../../common/protocol';
 
+const MISCONFIGURED_SSH_CONFIG_WITH_HOST_ALIASES = `
+Host
+`;
 const SSH_CONFIG_WITH_HOST_ALIASES = `
 Host gh_nocap
   User git
@@ -346,6 +349,16 @@ describe('Protocol', () => {
 			expectedType: ProtocolType.SSH,
 			expectedHost: 'github.com',
 			expectedOwner: 'queerviolet',
+			expectedRepositoryName: 'vscode',
+		});
+	});
+
+	describe.only('with an invalid ~/.ssh/config', () => {
+		testRemote({
+			uri: 'ssh://git@github.com/Microsoft/vscode',
+			expectedType: ProtocolType.SSH,
+			expectedHost: 'github.com',
+			expectedOwner: 'Microsoft',
 			expectedRepositoryName: 'vscode',
 		});
 	});

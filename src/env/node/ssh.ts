@@ -10,12 +10,16 @@ import Logger from '../../common/logger';
 import { baseResolver, chainResolvers, ConfigResolver, resolverFromConfig, sshParse } from '../browser/ssh';
 
 export class Resolvers {
-	static default = chainResolvers(baseResolver, resolverFromConfigFile());
 
 	static fromConfig(conf: string) {
 		return chainResolvers(baseResolver, resolverFromConfig(conf));
 	}
 
+	static fromConfigFile() {
+		return chainResolvers(baseResolver, resolverFromConfigFile());
+	}
+
+	static default = Resolvers.fromConfigFile();
 	static current = Resolvers.default;
 }
 

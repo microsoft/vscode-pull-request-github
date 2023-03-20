@@ -30,11 +30,12 @@ export class Protocol {
 
 	public readonly url: vscode.Uri;
 	constructor(uriString: string) {
-		if (this.parseSshProtocol(uriString)) {
-			return;
-		}
-
 		try {
+
+			if (this.parseSshProtocol(uriString)) {
+				return;
+			}
+
 			this.url = vscode.Uri.parse(uriString);
 			this.type = this.getType(this.url.scheme);
 
