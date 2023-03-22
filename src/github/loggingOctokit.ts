@@ -24,7 +24,7 @@ export class RateLogger {
 	private hasLoggedLowRateLimit: boolean = false;
 
 	constructor(private readonly telemetry: ITelemetry) {
-		this.limiter = new RateLimiter({ tokensPerInterval: 100, interval: 'second' });
+		this.limiter = new RateLimiter({ tokensPerInterval: 120, interval: 'second' });
 	}
 
 	public logAndLimit(): boolean {
