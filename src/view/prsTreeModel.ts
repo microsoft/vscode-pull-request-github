@@ -8,7 +8,7 @@ import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { dispose } from '../common/utils';
 import { FolderRepositoryManager, ItemsResponseResult } from '../github/folderRepositoryManager';
-import { CheckState, PRType } from '../github/interface';
+import { CheckState, PRType, PullRequestChecks } from '../github/interface';
 import { PullRequestModel, REVIEW_REQUIRED_CHECK_ID } from '../github/pullRequestModel';
 
 export enum UnsatisfiedChecks {
@@ -41,9 +41,16 @@ export class PrsTreeModel implements vscode.Disposable {
 	}
 
 	private async _getChecks(pullRequests: PullRequestModel[]) {
-		const checks = await Promise.all(pullRequests.map(pullRequest => {
-			return pullRequest.getStatusChecks();
-		}));
+		// If there are too many pull requests then we could hit our internal rate limit
+		// or even GitHub's secondary rate limit. If there are more than 100 PRs,
+		// chunk them into 100s.
+		let checks: (PullRequestChecks | undefined)[] = [];
+		for (let i = 0; i < pullRequests.length; i += 100) {
+			const sliceEnd = (i + 100 < pullRequests.length) ? i + 100 : pullRequests.length;
+			checks.push(...await Promise.all(pullRequests.slice(i, sliceEnd).map(pullRequest => {
+				return pullRequest.getStatusChecks();
+			})));
+		}
 
 		const changedStatuses: string[] = [];
 		for (let i = 0; i < pullRequests.length; i++) {
