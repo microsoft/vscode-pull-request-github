@@ -434,7 +434,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 				onChange={onChangeTextarea}
 				onKeyDown={onKeyDown}
 			/>
-			<Dropdown options={availableActions} changeAction={onDropDownChange} defaultOption="comment" submitAction={submitAction} disabled={!!pr.isAuthor && !pr.hasReviewDraft} />
+			<Dropdown options={availableActions} changeAction={onDropDownChange} defaultOption="comment" submitAction={submitAction} disabled={!!pr.isAuthor && !pr.hasReviewDraft && !pr.pendingCommentText} />
 		</span>
 	);
 };
