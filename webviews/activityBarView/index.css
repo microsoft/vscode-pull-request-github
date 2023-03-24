@@ -27,6 +27,10 @@ textarea {
 	margin-right: 0px;
 }
 
+.reviewer-icons .icon-button {
+	margin-left: 20px;
+}
+
 #status-checks {
 	display: flex;
 	flex-direction: column;
