@@ -3605,11 +3605,6 @@ just-extend@^4.0.2:
   resolved "https://registry.yarnpkg.com/just-extend/-/just-extend-4.1.1.tgz#158f1fdb01f128c411dc8b286a7b4837b3545282"
   integrity sha512-aWgeGFW67BP3e5181Ep1Fv2v8z//iBJfrvyTnq8wG86vEESwmonn1zPBJ0VfmT9CJq2FIT0VsETtrNFm2a+SHA==
 
-just-performance@4.3.0:
-  version "4.3.0"
-  resolved "https://registry.yarnpkg.com/just-performance/-/just-performance-4.3.0.tgz#cc2bc8c9227f09e97b6b1df4cd0de2df7ae16db1"
-  integrity sha512-L7RjvtJsL0QO8xFs5wEoDDzzJwoiowRw6Rn/GnvldlchS2JQr9wFYPiwZcDfrbbujEKqKN0tvENdbjXdYhDp5Q==
-
 keygrip@~1.1.0:
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/keygrip/-/keygrip-1.1.0.tgz#871b1681d5e159c62a445b0c74b615e0917e7226"
@@ -3725,13 +3720,6 @@ levn@~0.3.0:
   dependencies:
     prelude-ls "~1.1.2"
     type-check "~0.3.2"
-
-limiter@^2.1.0:
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/limiter/-/limiter-2.1.0.tgz#d38d7c5b63729bb84fb0c4d8594b7e955a5182a2"
-  integrity sha512-361TYz6iay6n+9KvUUImqdLuFigK+K79qrUtBsXhJTLdH4rIt/r1y8r1iozwh8KbZNpujbFTSh74mJ7bwbAMOw==
-  dependencies:
-    just-performance "4.3.0"
 
 lines-and-columns@^1.1.6:
   version "1.1.6"
