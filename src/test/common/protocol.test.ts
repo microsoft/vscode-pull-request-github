@@ -352,14 +352,4 @@ describe('Protocol', () => {
 			expectedRepositoryName: 'vscode',
 		});
 	});
-
-	describe.only('with an invalid ~/.ssh/config', () => {
-		testRemote({
-			uri: 'ssh://git@github.com/Microsoft/vscode',
-			expectedType: ProtocolType.SSH,
-			expectedHost: 'github.com',
-			expectedOwner: 'Microsoft',
-			expectedRepositoryName: 'vscode',
-		});
-	});
 });
