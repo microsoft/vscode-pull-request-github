@@ -57,7 +57,7 @@ export const sshParse = (url: string): Config | undefined => {
 	return config && resolveConfig(config);
 };
 
-export function baseResolver(config: Config) {
+export function baseResolver(config: Config): Config {
 	return {
 		...config,
 		Hostname: config.Host,
