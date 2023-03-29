@@ -28,8 +28,8 @@ export const RemoteSelect = ({ onChange, defaultOption, repos }:
 	});
 
 	return <ErrorBoundary>
-		<div className='select-wrapper flex'>
-			<select title='Choose a remote' value={caseCorrectedDefaultOption ?? defaultOption} onChange={(e) => {
+		<div className='wrapper flex'>
+			<div className='input-label combo-box'>remote</div><select title='Choose a remote' value={caseCorrectedDefaultOption ?? defaultOption} onChange={(e) => {
 				const [owner, repositoryName] = e.currentTarget.value.split('/');
 				onChange(owner, repositoryName);
 			}}>
@@ -42,8 +42,8 @@ export const RemoteSelect = ({ onChange, defaultOption, repos }:
 export const BranchSelect = ({ onChange, defaultOption, branches }:
 	{ onChange: (branch: string) => void, defaultOption: string | undefined, branches: string[] }) => {
 	return <ErrorBoundary>
-		<div className='select-wrapper flex'>
-			<select title='Choose a branch' value={defaultOption} onChange={(e) => onChange(e.currentTarget.value)}>
+		<div className='wrapper flex'>
+			<div className='input-label combo-box'>branch</div><select title='Choose a branch' value={defaultOption} onChange={(e) => onChange(e.currentTarget.value)}>
 				{branches.map(branchName =>
 					<option
 						key={branchName}
@@ -111,36 +111,20 @@ export function main() {
 				return <div>
 					<div className='selector-group'>
 						<span className='input-label'>Merge changes from</span>
-						<div className='selectors'>
-							<div className='labels'>
-								<div className='input-label combo-box'>remote</div>
-								<div className='input-label combo-box'>branch</div>
-							</div>
-							<div className='selects'>
-								<RemoteSelect onChange={ctx.changeCompareRemote}
-									defaultOption={`${params.compareRemote?.owner}/${params.compareRemote?.repositoryName}`}
-									repos={params.availableCompareRemotes} />
+						<RemoteSelect onChange={ctx.changeCompareRemote}
+							defaultOption={`${params.compareRemote?.owner}/${params.compareRemote?.repositoryName}`}
+							repos={params.availableCompareRemotes} />
 
-								<BranchSelect onChange={updateCompareBranch} defaultOption={params.compareBranch} branches={params.branchesForCompare} />
-							</div>
-						</div>
+						<BranchSelect onChange={updateCompareBranch} defaultOption={params.compareBranch} branches={params.branchesForCompare} />
 					</div>
 
 					<div className='selector-group'>
 						<span className='input-label'>into</span>
-						<div className='selectors'>
-							<div className='labels'>
-								<div className='input-label combo-box'>remote</div>
-								<div className='input-label combo-box'>branch</div>
-							</div>
-							<div className='selects'>
-								<RemoteSelect onChange={ctx.changeBaseRemote}
-									defaultOption={`${params.baseRemote?.owner}/${params.baseRemote?.repositoryName}`}
-									repos={params.availableBaseRemotes} />
+						<RemoteSelect onChange={ctx.changeBaseRemote}
+							defaultOption={`${params.baseRemote?.owner}/${params.baseRemote?.repositoryName}`}
+							repos={params.availableBaseRemotes} />
 
-								<BranchSelect onChange={updateBaseBranch} defaultOption={params.baseBranch} branches={params.branchesForRemote} />
-							</div>
-						</div>
+						<BranchSelect onChange={updateBaseBranch} defaultOption={params.baseBranch} branches={params.branchesForRemote} />
 					</div>
 
 					{params.labels && (params.labels.length > 0) ?
