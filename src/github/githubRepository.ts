@@ -1116,7 +1116,7 @@ export class GitHubRepository implements vscode.Disposable {
 					} else {
 						return {
 							id: context.id,
-							url: context.targetUrl || undefined,
+							url: context.targetUrl ?? undefined,
 							avatarUrl: context.avatarUrl
 								? getAvatarWithEnterpriseFallback(context.avatarUrl, undefined, this.remote.authProviderId)
 								: undefined,
@@ -1151,7 +1151,7 @@ export class GitHubRepository implements vscode.Disposable {
 				}
 			}
 
-			const requiredApprovingReviews = rule.requiredApprovingReviewCount || 0;
+			const requiredApprovingReviews = rule.requiredApprovingReviewCount ?? 0;
 			const approvingReviews = result.data.repository.pullRequest.latestReviews.nodes.filter(
 				review => review.authorCanPushToRepository && review.state === 'APPROVED',
 			);
