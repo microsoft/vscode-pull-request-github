@@ -36,13 +36,8 @@ svg path {
 	height: 16px;
 }
 
-.wrapper,
-.select-wrapper {
+.wrapper {
 	margin-top: 10px;
-}
-
-.labels .input-label {
-	margin-top: 10.5px;
 }
 
 .flex {
@@ -79,6 +74,7 @@ body {
 }
 
 .input-label.combo-box {
+	margin-right: 2px;
 	min-width: 48px;
 }
 
@@ -89,25 +85,11 @@ body {
 	margin-bottom: 10px;
 }
 
-.selector-group .selectors {
-	display: flex;
-}
-
-.selector-group .labels {
-	margin-right: 2px;
-}
-
-.selector-group .labels,
-.selector-group .selects {
-	display: flex;
-	flex-direction: column;
-	line-height: 26px;
-}
 .selector-group .wrapper:last-of-type {
 	margin-bottom: 5px;
 }
 
-.selector-group .flex {
+.selector-group .wrapper {
 	padding-right: 5px;
 }
 
