@@ -65,7 +65,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		try {
 			const descriptionNode = new DescriptionNode(
 				this,
-				`${vscode.l10n.t('Description')} #${this.pullRequestModel.number}`,
+				vscode.l10n.t('Description'),
 				new vscode.ThemeIcon('git-pull-request'),
 				this.pullRequestModel,
 				this.repository
