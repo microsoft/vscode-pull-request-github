@@ -22,10 +22,10 @@
 		"contribCommentEditorActionsMenu",
 		"quickDiffProvider"
 	],
-	"version": "0.60.0",
+	"version": "0.62.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.77.0-insider"
+		"vscode": "^1.77.0"
 	},
 	"categories": [
 		"Other"
