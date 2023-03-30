@@ -7,6 +7,7 @@ import * as buffer from 'buffer';
 import * as path from 'path';
 import equals from 'fast-deep-equal';
 import * as vscode from 'vscode';
+import { Repository } from '../api/api';
 import { DiffSide, IComment, IReviewThread, ViewedState } from '../common/comment';
 import { parseDiff } from '../common/diffHunk';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
@@ -282,7 +283,25 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Approve the pull request.
 	 * @param message Optional approval comment text.
 	 */
-	async approve(message?: string): Promise<CommonReviewEvent> {
+	async approve(repository: Repository, message?: string): Promise<CommonReviewEvent> {
+		// Check that the remote head of the PR branch matches the local head of the PR branch
+		let remoteHead: string | undefined;
+		let localHead: string | undefined;
+		let rejectMessage: string | undefined;
+		if (this.isActive) {
+			localHead = repository.state.HEAD?.commit;
+			remoteHead = (await this.githubRepository.getPullRequest(this.number))?.head?.sha;
+			rejectMessage = vscode.l10n.t('The remote head of the PR branch has changed. Please pull the latest changes from the remote branch before approving.');
+		} else {
+			localHead = this.head?.sha;
+			remoteHead = (await this.githubRepository.getPullRequest(this.number))?.head?.sha;
+			rejectMessage = vscode.l10n.t('The remote head of the PR branch has changed. Please refresh the pull request before approving.');
+		}
+
+		if (!remoteHead || remoteHead !== localHead) {
+			return Promise.reject(rejectMessage);
+		}
+
 		const action: Promise<CommonReviewEvent> = (await this.getPendingReviewId())
 			? this.submitReview(ReviewEvent.Approve, message)
 			: this.createReview(ReviewEvent.Approve, message);

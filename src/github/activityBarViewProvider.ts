@@ -280,7 +280,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private approvePullRequest(message: IRequestMessage<string>): void {
-		this._item.approve(message.args).then(
+		this._item.approve(this._folderRepositoryManager.repository, message.args).then(
 			review => {
 				this.updateReviewers(review);
 				this._replyMessage(message, {
