@@ -6,6 +6,7 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
 import { CreateParams, RemoteInfo } from '../../common/views';
+import { compareIgnoreCase } from '../../src/common/utils';
 import PullRequestContext from '../common/createContext';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { Label } from '../common/label';
@@ -92,6 +93,15 @@ export function main() {
 						await ctx.submit();
 					}
 					setBusy(false);
+				}
+
+				let isCreateable: boolean = true;
+				if (ctx.createParams.baseRemote && ctx.createParams.compareRemote && ctx.createParams.baseBranch && ctx.createParams.compareBranch
+					&& compareIgnoreCase(ctx.createParams.baseRemote?.owner, ctx.createParams.compareRemote?.owner) === 0
+					&& compareIgnoreCase(ctx.createParams.baseRemote?.repositoryName, ctx.createParams.compareRemote?.repositoryName) === 0
+					&& compareIgnoreCase(ctx.createParams.baseBranch, ctx.createParams.compareBranch) === 0) {
+
+					isCreateable = false;
 				}
 
 				const onKeyDown = useCallback(
@@ -205,7 +215,7 @@ export function main() {
 						<button disabled={isBusy} className="secondary" onClick={() => ctx.cancelCreate()}>
 							Cancel
 							</button>
-						<button disabled={isBusy} onClick={() => create()}>
+						<button disabled={isBusy || !isCreateable} onClick={() => create()}>
 							Create
 							</button>
 					</div>
