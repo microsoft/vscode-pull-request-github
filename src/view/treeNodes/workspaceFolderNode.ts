@@ -36,6 +36,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		this.parent = parent;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 		this.label = path.basename(uri.fsPath);
+		this.id = folderManager.repository.rootUri.toString();
 	}
 
 	private static getQueries(folderManager: FolderRepositoryManager): IQueryInfo[] {
