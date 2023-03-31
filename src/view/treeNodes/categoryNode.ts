@@ -141,7 +141,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				break;
 		}
 
-		this.id = parent instanceof TreeNode ? `${parent.label}/${this.label}` : this.label;
+		this.id = parent instanceof TreeNode ? `${parent.id ?? parent.label}/${this.label}` : this.label;
 
 		if ((expandedQueries.size === 0) && (_type === PRType.All)) {
 			this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
