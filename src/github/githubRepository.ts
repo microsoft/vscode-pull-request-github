@@ -31,7 +31,16 @@ import {
 	PullRequestsResponse,
 	ViewerPermissionResponse,
 } from './graphql';
-import { CheckState, IAccount, IMilestone, Issue, PullRequest, PullRequestChecks, PullRequestReviewRequirement, RepoAccessAndMergeMethods } from './interface';
+import {
+	CheckState,
+	IAccount,
+	IMilestone,
+	Issue,
+	PullRequest,
+	PullRequestChecks,
+	PullRequestReviewRequirement,
+	RepoAccessAndMergeMethods,
+} from './interface';
 import { IssueModel } from './issueModel';
 import { LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
@@ -1060,7 +1069,7 @@ export class GitHubRepository implements vscode.Disposable {
 	 * This method should go in PullRequestModel, but because of the status checks bug we want to track `_useFallbackChecks` at a repo level.
 	 */
 	private _useFallbackChecks: boolean = false;
-	async getStatusChecks(number: number): Promise<[PullRequestChecks, PullRequestReviewRequirement | null]> {
+	async getStatusChecks(number: number): Promise<[PullRequestChecks | null, PullRequestReviewRequirement | null]> {
 		const { query, remote, schema } = await this.ensure();
 		const captureUseFallbackChecks = this._useFallbackChecks;
 		let result: ApolloQueryResult<GetChecksResponse>;
@@ -1143,7 +1152,7 @@ export class GitHubRepository implements vscode.Disposable {
 						url: undefined,
 						avatarUrl: undefined,
 						state: CheckState.Pending,
-						description: vscode.l10n.t('Required status check context expected.'),
+						description: vscode.l10n.t('Waiting for status to be reported'),
 						context: context,
 						targetUrl: prUrl,
 						isRequired: true
@@ -1176,7 +1185,7 @@ export class GitHubRepository implements vscode.Disposable {
 			}
 		}
 
-		return [checks, reviewRequirement];
+		return [checks.statuses.length ? checks : null, reviewRequirement];
 	}
 
 	mapStateAsCheckState(state: string | null | undefined): CheckState {

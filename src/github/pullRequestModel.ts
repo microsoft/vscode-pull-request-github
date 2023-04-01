@@ -1046,7 +1046,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * Get the status checks of the pull request, those for the last commit.
 	 */
-	async getStatusChecks(): Promise<[PullRequestChecks, PullRequestReviewRequirement | null]> {
+	async getStatusChecks(): Promise<[PullRequestChecks | null, PullRequestReviewRequirement | null]> {
 		return this.githubRepository.getStatusChecks(this.number);
 	}
 

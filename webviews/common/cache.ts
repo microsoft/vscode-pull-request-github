@@ -58,7 +58,7 @@ export interface PullRequest {
 	pendingCommentText?: string;
 	pendingCommentDrafts?: { [key: string]: string };
 	pendingReviewType?: ReviewType;
-	status: PullRequestChecks;
+	status: PullRequestChecks | null;
 	reviewRequirement: PullRequestReviewRequirement | null;
 	mergeable: PullRequestMergeability;
 	defaultMergeMethod: MergeMethod;

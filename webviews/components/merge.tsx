@@ -13,7 +13,14 @@ import React, {
 	useState,
 } from 'react';
 import { groupBy } from '../../src/common/utils';
-import { CheckState, GithubItemStateEnum, MergeMethod, PullRequestMergeability, PullRequestReviewRequirement } from '../../src/github/interface';
+import {
+	CheckState,
+	GithubItemStateEnum,
+	MergeMethod,
+	PullRequestCheckStatus,
+	PullRequestMergeability,
+	PullRequestReviewRequirement,
+} from '../../src/github/interface';
 import { PullRequest } from '../common/cache';
 import PullRequestContext from '../common/context';
 import { Reviewer } from '../components/reviewer';
@@ -42,11 +49,11 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 	const { state, status } = pr;
 	const [showDetails, toggleDetails] = useReducer(
 		show => !show,
-		status.statuses.some(s => s.state === CheckState.Failure),
+		status?.statuses.some(s => s.state === CheckState.Failure) ?? false,
 	) as [boolean, () => void];
 
 	useEffect(() => {
-		if (status.statuses.some(s => s.state === CheckState.Failure)) {
+		if (status?.statuses.some(s => s.state === CheckState.Failure) ?? false) {
 			if (!showDetails) {
 				toggleDetails();
 			}
@@ -55,9 +62,9 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 				toggleDetails();
 			}
 		}
-	}, status.statuses);
+	}, status?.statuses);
 
-	return state === GithubItemStateEnum.Open && status.statuses.length ? (
+	return state === GithubItemStateEnum.Open && status?.statuses.length ? (
 		<>
 			<div className="status-section">
 				<div className="status-item">
@@ -416,9 +423,9 @@ export const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>
 	),
 );
 
-const StatusCheckDetails = ({ statuses }: Partial<PullRequest['status']>) => (
+const StatusCheckDetails = ( { statuses }: { statuses: PullRequestCheckStatus[] }) => (
 	<div>
-		{statuses?.map(s => (
+		{statuses.map(s => (
 			<div key={s.id} className="status-check">
 				<div className="status-check-details">
 					<StateIcon state={s.state} />

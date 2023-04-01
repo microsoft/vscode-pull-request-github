@@ -44,7 +44,7 @@ export class PrsTreeModel implements vscode.Disposable {
 		// If there are too many pull requests then we could hit our internal rate limit
 		// or even GitHub's secondary rate limit. If there are more than 100 PRs,
 		// chunk them into 100s.
-		let checks: [PullRequestChecks, PullRequestReviewRequirement | null][] = [];
+		let checks: [PullRequestChecks | null, PullRequestReviewRequirement | null][] = [];
 		for (let i = 0; i < pullRequests.length; i += 100) {
 			const sliceEnd = (i + 100 < pullRequests.length) ? i + 100 : pullRequests.length;
 			checks.push(...await Promise.all(pullRequests.slice(i, sliceEnd).map(pullRequest => {
