@@ -540,8 +540,8 @@ export async function createGithubPermalink(
 	const pathSegment = uri.path.substring(repository.rootUri.path.length);
 	const originOfFetchUrl = getUpstreamOrigin(rawUpstream).replace(/\/$/, '');
 	return {
-		permalink: `${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
-			}${includeFile ? `${pathSegment}${includeRange ? rangeString(range) : ''}` : ''}`,
+		permalink: encodeURI(`${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
+			}${includeFile ? `${pathSegment}${includeRange ? rangeString(range) : ''}` : ''}`),
 		error: undefined,
 		originalFile: uri
 	};
@@ -617,8 +617,8 @@ export async function createGitHubLink(
 	const pathSegment = uri.path.substring(folderManager.repository.rootUri.path.length);
 	const originOfFetchUrl = getUpstreamOrigin(upstream).replace(/\/$/, '');
 	return {
-		permalink: `${originOfFetchUrl}/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${branchName
-			}${pathSegment}${includeRange ? rangeString(range) : ''}`,
+		permalink: encodeURI(`${originOfFetchUrl}/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${branchName
+			}${pathSegment}${includeRange ? rangeString(range) : ''}`),
 		error: undefined,
 		originalFile: uri
 	};
