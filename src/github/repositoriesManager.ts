@@ -151,7 +151,12 @@ export class RepositoriesManager implements vscode.Disposable {
 			return this._folderManagers[0];
 		}
 
-		for (const folderManager of this._folderManagers) {
+		// Prioritize longest path first to handle nested workspaces
+		const folderManagers = this._folderManagers
+			.slice()
+			.sort((a, b) => b.repository.rootUri.path.length - a.repository.rootUri.path.length);
+
+		for (const folderManager of folderManagers) {
 			const managerPath = folderManager.repository.rootUri.path;
 			const testUriRelativePath = uri.path.substring(
 				managerPath.length > 1 ? managerPath.length + 1 : managerPath.length,
