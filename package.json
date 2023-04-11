@@ -13,7 +13,6 @@
 	"enabledApiProposals": [
 		"tokenInformation",
 		"contribShareMenu",
-		"contribEditorLineNumberMenu",
 		"treeItemCheckbox",
 		"contribCommentPeekContext",
 		"contribCommentThreadAdditionalMenu",
@@ -2051,7 +2050,7 @@
 				},
 				{
 					"command": "issue.copyGithubDevLink",
-					"when": "github:hasGitHubRemotes && remoteName == codespaces || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"when": "github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev",
 					"group": "0_vscode@0"
 				}
 			],
@@ -2078,7 +2077,7 @@
 				},
 				{
 					"command": "issue.copyGithubDevLinkFile",
-					"when": "github:hasGitHubRemotes && remoteName == codespaces || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"when": "github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev",
 					"group": "0_vscode@0"
 				}
 			],
@@ -2100,7 +2099,7 @@
 				},
 				{
 					"command": "issue.copyGithubDevLink",
-					"when": "github:hasGitHubRemotes && remoteName == codespaces || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"when": "github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev",
 					"group": "1_cutcopypaste@0"
 				}
 			],
@@ -2122,7 +2121,7 @@
 				},
 				{
 					"command": "issue.copyGithubDevLinkWithoutRange",
-					"when": "github:hasGitHubRemotes && remoteName == codespaces || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"when": "github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev",
 					"group": "0_vscode@0"
 				}
 			],
@@ -2144,7 +2143,7 @@
 				},
 				{
 					"command": "issue.copyGithubDevLinkWithoutRange",
-					"when": "github:hasGitHubRemotes && remoteName == codespaces || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"when": "github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev",
 					"group": "0_vscode@0"
 				}
 			],
