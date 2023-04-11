@@ -2327,6 +2327,7 @@
 		"@vscode/extension-telemetry": "0.7.5",
 		"apollo-boost": "^0.4.9",
 		"apollo-link-context": "1.0.20",
+		"cockatiel": "^3.1.1",
 		"cross-fetch": "3.1.5",
 		"dayjs": "1.10.4",
 		"events": "3.2.0",
