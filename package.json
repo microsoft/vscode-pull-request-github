@@ -508,6 +508,11 @@
 					],
 					"default": "firstDiff",
 					"description": "%githubPullRequests.focusedMode.description%"
+				},
+				"githubPullRequests.showPullRequestNumberInTree": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubPullRequests.showPullRequestNumberInTree.description%"
 				}
 			}
 		},
