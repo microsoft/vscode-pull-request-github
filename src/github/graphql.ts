@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DiffSide, ViewedState } from '../common/comment';
+import { DiffSide, SubjectType, ViewedState } from '../common/comment';
 import { ForkDetails } from './githubRepository';
 
 export interface MergedEvent {
@@ -181,6 +181,7 @@ export interface ReviewThread {
 	originalStartLine: number | null;
 	originalLine: number;
 	isOutdated: boolean;
+	subjectType: SubjectType;
 	comments: {
 		nodes: ReviewComment[];
 		edges: [{

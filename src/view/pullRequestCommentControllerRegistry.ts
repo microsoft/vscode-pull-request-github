@@ -20,7 +20,7 @@ interface PullRequestCommentHandlerInfo {
 
 export class PRCommentControllerRegistry implements vscode.CommentingRangeProvider, CommentReactionHandler, vscode.Disposable {
 	private _prCommentHandlers: { [key: number]: PullRequestCommentHandlerInfo } = {};
-	private _prCommentingRangeProviders: { [key: number]: vscode.CommentingRangeProvider } = {};
+	private _prCommentingRangeProviders: { [key: number]: vscode.CommentingRangeProvider2 } = {};
 
 	constructor(public commentsController: vscode.CommentController) {
 		this.commentsController.commentingRangeProvider = this;
@@ -87,7 +87,7 @@ export class PRCommentControllerRegistry implements vscode.CommentingRangeProvid
 		return this._prCommentHandlers[prNumber];
 	}
 
-	public registerCommentingRangeProvider(prNumber: number, provider: vscode.CommentingRangeProvider): vscode.Disposable {
+	public registerCommentingRangeProvider(prNumber: number, provider: vscode.CommentingRangeProvider2): vscode.Disposable {
 		this._prCommentingRangeProviders[prNumber] = provider;
 
 		return {

@@ -25,7 +25,7 @@ import { GHPRCommentThread } from '../../github/prComment';
 import { DiffLine } from '../../common/diffHunk';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { GitApiImpl } from '../../api/api1';
-import { DiffSide } from '../../common/comment';
+import { DiffSide, SubjectType } from '../../common/comment';
 import { ReviewManager, ShowPullRequest } from '../../view/reviewManager';
 import { PullRequestChangesTreeDataProvider } from '../../view/prChangesTreeDataProvider';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
@@ -191,6 +191,7 @@ describe('ReviewCommentController', function () {
 							graphNodeId: '',
 						}
 					],
+					subjectType: SubjectType.LINE
 				},
 			]),
 		);

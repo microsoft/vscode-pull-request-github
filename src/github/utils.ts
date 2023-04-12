@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
-import { IComment, IReviewThread, Reaction } from '../common/comment';
+import { IComment, IReviewThread, Reaction, SubjectType } from '../common/comment';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
@@ -86,7 +86,7 @@ export function threadRange(startLine: number, endLine: number, endCharacter?: n
 
 export function createVSCodeCommentThreadForReviewThread(
 	uri: vscode.Uri,
-	range: vscode.Range,
+	range: vscode.Range | undefined,
 	thread: IReviewThread,
 	commentController: vscode.CommentController,
 	currentUser: string,
@@ -120,7 +120,7 @@ export const COMMENT_EXPAND_STATE_COLLAPSE_VALUE = 'collapseAll';
 export const COMMENT_EXPAND_STATE_EXPAND_VALUE = 'expandUnresolved';
 export function getCommentCollapsibleState(thread: IReviewThread, expand?: boolean, currentUser?: string) {
 	if (thread.isResolved
-		|| (currentUser && thread.comments[thread.comments.length - 1].user?.login === currentUser)) {
+		|| (currentUser && (thread.comments[thread.comments.length - 1].user?.login === currentUser) && thread.subjectType === SubjectType.LINE)) {
 		return vscode.CommentThreadCollapsibleState.Collapsed;
 	}
 	if (expand === undefined) {
@@ -133,6 +133,9 @@ export function getCommentCollapsibleState(thread: IReviewThread, expand?: boole
 
 
 export function updateThreadWithRange(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepository: GitHubRepository, expand?: boolean) {
+	if (!vscodeThread.range) {
+		return;
+	}
 	const editors = vscode.window.visibleTextEditors;
 	for (let editor of editors) {
 		if (editor.document.uri.toString() === vscodeThread.uri.toString()) {
@@ -450,6 +453,7 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRep
 		diffSide: thread.diffSide,
 		isOutdated: thread.isOutdated,
 		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, githubRepository)),
+		subjectType: thread.subjectType
 	};
 }
 

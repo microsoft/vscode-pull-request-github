@@ -152,6 +152,7 @@ fragment ReviewThread on PullRequestReviewThread {
 	originalStartLine
 	originalLine
 	isOutdated
+	subjectType
 	comments(first: 100) {
 		nodes {
 			...ReviewComment
@@ -428,6 +429,7 @@ query PullRequestComments($owner: String!, $name: String!, $number: Int!, $first
 					originalStartLine
 					originalLine
 					isOutdated
+					subjectType
 					comments(first: 100) {
 						edges {
 							node {

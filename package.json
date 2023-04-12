@@ -14,6 +14,7 @@
 		"tokenInformation",
 		"contribShareMenu",
 		"contribEditorLineNumberMenu",
+		"fileComments",
 		"treeItemCheckbox",
 		"contribCommentPeekContext",
 		"contribCommentThreadAdditionalMenu",
@@ -932,6 +933,12 @@
 				"icon": "$(tag)"
 			},
 			{
+				"command": "pr.addFileComment",
+				"title": "%command.pr.addFileComment.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(comment)"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "%command.issue.createIssueFromSelection.title%",
 				"category": "%command.issues.category%"
@@ -1430,6 +1437,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.addFileComment",
+					"when": "false"
+				},
+				{
 					"command": "issue.copyGithubPermalink",
 					"when": "github:hasGitHubRemotes"
 				},
@@ -1856,6 +1867,11 @@
 					"command": "pr.openDiffViewFromEditor",
 					"group": "navigation",
 					"when": "!isInDiffEditor && resourceScheme != pr && resourceScheme != review && resourceScheme != filechange && resourcePath in github:viewedFiles"
+				},
+				{
+					"command": "pr.addFileComment",
+					"group": "navigation",
+					"when": "(resourceScheme == pr) || (resourcePath in github:viewedFiles) || (resourcePath in github:unviewedFiles)"
 				}
 			],
 			"scm/title": [
