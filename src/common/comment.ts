@@ -25,6 +25,11 @@ export interface Reaction {
 	viewerHasReacted: boolean;
 }
 
+export enum SubjectType {
+	LINE = 'LINE',
+	FILE = 'FILE'
+}
+
 export interface IReviewThread {
 	id: string;
 	prReviewDatabaseId?: number;
@@ -39,6 +44,7 @@ export interface IReviewThread {
 	originalEndLine: number;
 	isOutdated: boolean;
 	comments: IComment[];
+	subjectType: SubjectType;
 }
 
 export interface IComment {
