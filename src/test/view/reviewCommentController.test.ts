@@ -267,7 +267,8 @@ describe('ReviewCommentController', function () {
 							pullRequestReviewId: undefined,
 							startLine: undefined,
 							line: 22,
-							side: 'RIGHT'
+							side: 'RIGHT',
+							subjectType: 'LINE'
 						}
 					}
 				},
@@ -285,6 +286,7 @@ describe('ReviewCommentController', function () {
 								originalLine: 22,
 								diffSide: 'RIGHT',
 								isOutdated: false,
+								subjectType: 'LINE',
 								comments: {
 									nodes: [
 										{
