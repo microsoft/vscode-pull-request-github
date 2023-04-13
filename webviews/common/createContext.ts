@@ -231,6 +231,7 @@ export class CreatePRContext {
 				message.params.baseBranch = message.params.defaultBaseBranch;
 				message.params.compareBranch = message.params.defaultCompareBranch;
 				message.params.compareRemote = message.params.defaultCompareRemote;
+				message.params.autoMerge = message.params.autoMergeDefault;
 				this.updateState(message.params);
 				return;
 

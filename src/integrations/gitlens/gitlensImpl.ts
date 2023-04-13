@@ -20,7 +20,10 @@ export class GitLensIntegration implements Disposable {
 		Disposable.from(...this._subscriptions).dispose();
 	}
 
-	private register(api: GitLensApi) {
+	private register(api: GitLensApi | undefined) {
+		if (!api) {
+			return;
+		}
 		this._subscriptions.push(
 			api.registerActionRunner('createPullRequest', {
 				partnerId: 'ghpr',
@@ -43,8 +46,8 @@ export class GitLensIntegration implements Disposable {
 
 	private async onExtensionsChanged() {
 		const extension =
-			extensions.getExtension<Promise<GitLensApi>>('eamodio.gitlens') ??
-			extensions.getExtension<Promise<GitLensApi>>('eamodio.gitlens-insiders');
+			extensions.getExtension<Promise<GitLensApi | undefined>>('eamodio.gitlens') ??
+			extensions.getExtension<Promise<GitLensApi | undefined>>('eamodio.gitlens-insiders');
 		if (extension) {
 			this._extensionsDisposable.dispose();
 

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.62.0
+
+### Changes
+
+- Pull requests can be opened on vscode.dev from the Pull Requests view.
+- Collapse state is preserved in the Issues view.
+- There's a new setting to check the "auto-merge" checkbox in the Create view: `githubPullRequests.setAutoMerge`.
+
+### Fixes
+
+- Cannot remove the last label. https://github.com/microsoft/vscode-pull-request-github/issues/4634
+- @type within code block rendering as link to GitHub user. https://github.com/microsoft/vscode-pull-request-github/issues/4611
+
+**_Thank You_**
+
+* [@Balastrong (Leonardo Montini)](https://github.com/Balastrong)
+  * Allow empty labels array to be pushed to set-labels to remove all of them [PR #4637](https://github.com/microsoft/vscode-pull-request-github/pull/4637)
+  * Allow empty array to be pushed to remove the last label [PR #4648](https://github.com/microsoft/vscode-pull-request-github/pull/4648)
+
 ## 0.60.0
 
 ### Changes

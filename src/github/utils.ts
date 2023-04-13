@@ -299,13 +299,17 @@ export function convertRESTPullRequestToRawPullRequest(
 		updatedAt: updated_at,
 		head: head.repo ? convertRESTHeadToIGitHubRef(head as OctokitCommon.PullsListResponseItemHead) : undefined,
 		base: convertRESTHeadToIGitHubRef(base),
-		mergeable: (pullRequest as OctokitCommon.PullsGetResponseData).mergeable
-			? PullRequestMergeability.Mergeable
-			: PullRequestMergeability.NotMergeable,
 		labels: labels.map<ILabel>(l => ({ name: '', color: '', ...l })),
 		isDraft: draft,
 		suggestedReviewers: [], // suggested reviewers only available through GraphQL API
 	};
+
+	// mergeable is not included in the list response, will need to fetch later
+	if ('mergeable' in pullRequest) {
+		item.mergeable = pullRequest.mergeable
+			? PullRequestMergeability.Mergeable
+			: PullRequestMergeability.NotMergeable;
+	}
 
 	return item;
 }
@@ -598,8 +602,12 @@ export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFL
 			parsed = PullRequestMergeability.Conflict;
 			break;
 	}
-	if ((parsed !== PullRequestMergeability.Conflict) && (mergeStateStatus === 'BLOCKED')) {
-		parsed = PullRequestMergeability.NotMergeable;
+	if (parsed !== PullRequestMergeability.Conflict) {
+		if (mergeStateStatus === 'BLOCKED') {
+			parsed = PullRequestMergeability.NotMergeable;
+		} else if (mergeStateStatus === 'BEHIND') {
+			parsed = PullRequestMergeability.Behind;
+		}
 	}
 	return parsed;
 }
@@ -1228,5 +1236,5 @@ export async function findDotComAndEnterpriseRemotes(folderManagers: FolderRepos
 
 export function vscodeDevPrLink(pullRequest: PullRequestModel) {
 	const itemUri = vscode.Uri.parse(pullRequest.html_url);
-	return `https://${vscode.env.appName.includes('insider') ? 'insiders.' : ''}vscode.dev/github${itemUri.path}`;
+	return `https://${vscode.env.appName.toLowerCase().includes('insider') ? 'insiders.' : ''}vscode.dev/github${itemUri.path}`;
 }

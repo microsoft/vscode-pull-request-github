@@ -491,10 +491,10 @@ function getOwnerAndRepo(repositoriesManager: RepositoriesManager, repository: R
 export async function createGithubPermalink(
 	repositoriesManager: RepositoriesManager,
 	gitAPI: GitApiImpl,
+	includeRange: boolean,
+	includeFile: boolean,
 	positionInfo?: NewIssue,
-	context?: LinkContext,
-	includeRange?: boolean,
-	includeFile?: boolean,
+	context?: LinkContext
 ): Promise<PermalinkInfo> {
 	const { uri, range } = getFileAndPosition(context, positionInfo);
 	if (!uri) {
@@ -537,11 +537,11 @@ export async function createGithubPermalink(
 	}
 	const upstream: Remote & { fetchUrl: string } = rawUpstream as any;
 
-	const pathSegment = uri.path.substring(repository.rootUri.path.length);
+	const encodedPathSegment = encodeURIComponentExceptSlashes(uri.path.substring(repository.rootUri.path.length));
 	const originOfFetchUrl = getUpstreamOrigin(rawUpstream).replace(/\/$/, '');
 	return {
-		permalink: `${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
-			}${includeFile ? `${pathSegment}${includeRange ? rangeString(range) : ''}` : ''}`,
+		permalink: (`${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
+			}${includeFile ? `${encodedPathSegment}${includeRange ? rangeString(range) : ''}` : ''}`),
 		error: undefined,
 		originalFile: uri
 	};
@@ -571,6 +571,16 @@ function getUpstreamOrigin(upstream: Remote) {
 		}
 	}
 	return `https://${resultHost}`;
+}
+
+function encodeURIComponentExceptSlashes(path: string) {
+	// There may be special characters like # and whitespace in the path.
+	// These characters are not escaped by encodeURI(), so it is not sufficient to
+	// feed the full URI to encodeURI().
+	// Additonally, if we feed the full path into encodeURIComponent(),
+	// this will also encode the path separators, leading to an invalid path.
+	// Therefore, split on the path separator and encode each segment individually.
+	return path.split('/').map((segment) => encodeURIComponent(segment)).join('/');
 }
 
 function rangeString(range: vscode.Range | vscode.NotebookRange | undefined) {
@@ -616,9 +626,10 @@ export async function createGitHubLink(
 	}
 	const pathSegment = uri.path.substring(folderManager.repository.rootUri.path.length);
 	const originOfFetchUrl = getUpstreamOrigin(upstream).replace(/\/$/, '');
+	const encodedBranchAndFilePath = encodeURIComponentExceptSlashes(`${branchName}${pathSegment}`);
 	return {
-		permalink: `${originOfFetchUrl}/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${branchName
-			}${pathSegment}${includeRange ? rangeString(range) : ''}`,
+		permalink: (`${originOfFetchUrl}/${new Protocol(upstream.fetchUrl).nameWithOwner}/blob/${encodedBranchAndFilePath
+			}${includeRange ? rangeString(range) : ''}`),
 		error: undefined,
 		originalFile: uri
 	};

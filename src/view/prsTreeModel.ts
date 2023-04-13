@@ -8,8 +8,8 @@ import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { dispose } from '../common/utils';
 import { FolderRepositoryManager, ItemsResponseResult } from '../github/folderRepositoryManager';
-import { CheckState, PRType } from '../github/interface';
-import { PullRequestModel, REVIEW_REQUIRED_CHECK_ID } from '../github/pullRequestModel';
+import { CheckState, PRType, PullRequestChecks, PullRequestReviewRequirement } from '../github/interface';
+import { PullRequestModel } from '../github/pullRequestModel';
 
 export enum UnsatisfiedChecks {
 	None = 0,
@@ -41,27 +41,37 @@ export class PrsTreeModel implements vscode.Disposable {
 	}
 
 	private async _getChecks(pullRequests: PullRequestModel[]) {
-		const checks = await Promise.all(pullRequests.map(pullRequest => {
-			return pullRequest.getStatusChecks();
-		}));
+		// If there are too many pull requests then we could hit our internal rate limit
+		// or even GitHub's secondary rate limit. If there are more than 100 PRs,
+		// chunk them into 100s.
+		let checks: [PullRequestChecks | null, PullRequestReviewRequirement | null][] = [];
+		for (let i = 0; i < pullRequests.length; i += 100) {
+			const sliceEnd = (i + 100 < pullRequests.length) ? i + 100 : pullRequests.length;
+			checks.push(...await Promise.all(pullRequests.slice(i, sliceEnd).map(pullRequest => {
+				return pullRequest.getStatusChecks();
+			})));
+		}
 
 		const changedStatuses: string[] = [];
 		for (let i = 0; i < pullRequests.length; i++) {
 			const pullRequest = pullRequests[i];
-			const check = checks[i];
+			const [check, reviewRequirement] = checks[i];
 			let newStatus: UnsatisfiedChecks = UnsatisfiedChecks.None;
+
+			if (reviewRequirement) {
+				if (reviewRequirement.state === CheckState.Failure) {
+					newStatus |= UnsatisfiedChecks.ReviewRequired;
+				} else if (reviewRequirement.state == CheckState.Pending) {
+					newStatus |= UnsatisfiedChecks.ChangesRequested;
+				}
+			}
+
 			if (!check || check.state === CheckState.Unknown) {
 				continue;
 			}
 			if (check.state !== CheckState.Success) {
 				for (const status of check.statuses) {
-					// We add the review required check in first if it exists.
-					if (status.id === REVIEW_REQUIRED_CHECK_ID) {
-						if (status.state === CheckState.Failure) {
-							newStatus |= UnsatisfiedChecks.ChangesRequested;
-						}
-						newStatus |= UnsatisfiedChecks.ReviewRequired;
-					} else if (status.state === CheckState.Failure) {
+					if (status.state === CheckState.Failure) {
 						newStatus |= UnsatisfiedChecks.CIFailed;
 					} else if (status.state === CheckState.Pending) {
 						newStatus |= UnsatisfiedChecks.CIPending;

@@ -7,6 +7,7 @@ import * as buffer from 'buffer';
 import * as path from 'path';
 import equals from 'fast-deep-equal';
 import * as vscode from 'vscode';
+import { Repository } from '../api/api';
 import { DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
 import { parseDiff } from '../common/diffHunk';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
@@ -28,7 +29,6 @@ import {
 	DeleteReviewResponse,
 	EditCommentResponse,
 	LatestReviewCommitResponse,
-	LatestReviewsResponse,
 	MarkPullRequestReadyForReviewResponse,
 	PendingReviewIdResponse,
 	PullRequestCommentsResponse,
@@ -43,7 +43,6 @@ import {
 	UpdatePullRequestResponse,
 } from './graphql';
 import {
-	CheckState,
 	GithubItemStateEnum,
 	IAccount,
 	IRawFileChange,
@@ -52,6 +51,7 @@ import {
 	PullRequest,
 	PullRequestChecks,
 	PullRequestMergeability,
+	PullRequestReviewRequirement,
 	ReviewEvent,
 } from './interface';
 import { IssueModel } from './issueModel';
@@ -90,8 +90,6 @@ export interface FileViewedStateChangeEvent {
 		viewed: ViewedState;
 	}[];
 }
-
-export const REVIEW_REQUIRED_CHECK_ID = 'reviewRequired';
 
 export type FileViewedState = { [key: string]: ViewedState };
 
@@ -282,7 +280,25 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Approve the pull request.
 	 * @param message Optional approval comment text.
 	 */
-	async approve(message?: string): Promise<CommonReviewEvent> {
+	async approve(repository: Repository, message?: string): Promise<CommonReviewEvent> {
+		// Check that the remote head of the PR branch matches the local head of the PR branch
+		let remoteHead: string | undefined;
+		let localHead: string | undefined;
+		let rejectMessage: string | undefined;
+		if (this.isActive) {
+			localHead = repository.state.HEAD?.commit;
+			remoteHead = (await this.githubRepository.getPullRequest(this.number))?.head?.sha;
+			rejectMessage = vscode.l10n.t('The remote head of the PR branch has changed. Please pull the latest changes from the remote branch before approving.');
+		} else {
+			localHead = this.head?.sha;
+			remoteHead = (await this.githubRepository.getPullRequest(this.number))?.head?.sha;
+			rejectMessage = vscode.l10n.t('The remote head of the PR branch has changed. Please refresh the pull request before approving.');
+		}
+
+		if (!remoteHead || remoteHead !== localHead) {
+			return Promise.reject(rejectMessage);
+		}
+
 		const action: Promise<CommonReviewEvent> = (await this.getPendingReviewId())
 			? this.submitReview(ReviewEvent.Approve, message)
 			: this.createReview(ReviewEvent.Approve, message);
@@ -1047,56 +1063,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	private async _getReviewRequiredCheck() {
-		const { query, remote, octokit, schema } = await this.githubRepository.ensure();
-
-		const [branch, reviewStates] = await Promise.all([
-			octokit.call(octokit.api.repos.getBranch, { branch: this.base.ref, owner: remote.owner, repo: remote.repositoryName }),
-			query<LatestReviewsResponse>({
-				query: schema.LatestReviews,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					number: this.number,
-				}
-			})
-		]);
-		if (branch.data.protected && branch.data.protection.required_status_checks && branch.data.protection.required_status_checks.enforcement_level !== 'off') {
-			// We need to add the "review required" check manually.
-			return {
-				id: REVIEW_REQUIRED_CHECK_ID,
-				context: 'Branch Protection',
-				description: vscode.l10n.t('Other requirements have not been met.'),
-				state: (reviewStates.data as LatestReviewsResponse).repository.pullRequest.latestReviews.nodes.every(node => node.state !== 'CHANGES_REQUESTED') ? CheckState.Neutral : CheckState.Failure,
-				target_url: this.html_url
-			};
-		}
-		return undefined;
-	}
-
 	/**
 	 * Get the status checks of the pull request, those for the last commit.
 	 */
-	async getStatusChecks(): Promise<PullRequestChecks | undefined> {
-		let checks = await this.githubRepository.getStatusChecks(this.number);
-
-		// Fun info: The checks don't include whether a review is required.
-		// Also, unless you're an admin on the repo, you can't just do octokit.repos.getBranchProtection
-		if ((this.item.mergeable === PullRequestMergeability.NotMergeable) && (!checks || checks.statuses.every(status => status.state === CheckState.Success))) {
-			const reviewRequiredCheck = await this._getReviewRequiredCheck();
-			if (reviewRequiredCheck) {
-				if (!checks) {
-					checks = {
-						state: CheckState.Failure,
-						statuses: []
-					};
-				}
-				checks.statuses.push(reviewRequiredCheck);
-				checks.state = CheckState.Failure;
-			}
-		}
-
-		return checks;
+	async getStatusChecks(): Promise<[PullRequestChecks | null, PullRequestReviewRequirement | null]> {
+		return this.githubRepository.getStatusChecks(this.number);
 	}
 
 	static async openDiffFromComment(

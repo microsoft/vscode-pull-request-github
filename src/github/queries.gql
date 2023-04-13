@@ -309,24 +309,6 @@ query LatestReviewCommit($owner: String!, $name: String!, $number: Int!) {
 	}
 }
 
-query LatestReviews($owner: String!, $name: String!, $number: Int!) {
-	repository(owner: $owner, name: $name) {
-		pullRequest(number: $number) {
-			latestReviews (first: 10) {
-				nodes {
-					state
-				}
-			}
-		}
-	}
-	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
-	}
-}
-
 fragment ReviewComment on PullRequestReviewComment {
 	id
 	databaseId
@@ -1157,6 +1139,35 @@ query GetRepositoryForkDetails($owner: String!, $name: String!) {
 query GetChecks($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
+			url
+			latestReviews (first: 10) {
+				nodes {
+					authorAssociation
+					authorCanPushToRepository
+					state
+					author {
+						login
+					}
+				}
+			}
+			reviewsRequestingChanges: reviews (last: 5, states: [CHANGES_REQUESTED]) {
+				nodes {
+					authorAssociation
+					authorCanPushToRepository
+					state
+					author {
+						login
+					}
+				}
+			}
+			baseRef {
+				refUpdateRule {
+					requiredApprovingReviewCount
+					requiredStatusCheckContexts
+					requiresCodeOwnerReviews
+					viewerCanPush
+				}
+			}
 			commits(last: 1) {
 				nodes {
 					commit {
@@ -1164,6 +1175,7 @@ query GetChecks($owner: String!, $name: String!, $number: Int!) {
 							state
 							contexts(first: 100) {
 								nodes {
+									__typename
 									... on StatusContext {
 										id
 										state
@@ -1171,6 +1183,7 @@ query GetChecks($owner: String!, $name: String!, $number: Int!) {
 										description
 										context
 										avatarUrl
+										isRequired(pullRequestNumber: $number)
 									}
 									... on CheckRun {
 										id
@@ -1179,6 +1192,7 @@ query GetChecks($owner: String!, $name: String!, $number: Int!) {
 										detailsUrl
 										name
 										resourcePath
+										isRequired(pullRequestNumber: $number)
 										checkSuite {
 											app {
 												logoUrl
@@ -1205,6 +1219,35 @@ query GetChecks($owner: String!, $name: String!, $number: Int!) {
 query GetChecksWithoutSuite($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
+			url
+			latestReviews (first: 10) {
+				nodes {
+					authorAssociation
+					authorCanPushToRepository
+					state
+					author {
+						login
+					}
+				}
+			}
+			reviewsRequestingChanges: reviews (last: 5, states: [CHANGES_REQUESTED]) {
+				nodes {
+					authorAssociation
+					authorCanPushToRepository
+					state
+					author {
+						login
+					}
+				}
+			}
+			baseRef {
+				refUpdateRule {
+					requiredApprovingReviewCount
+					requiredStatusCheckContexts
+					requiresCodeOwnerReviews
+					viewerCanPush
+				}
+			}
 			commits(last: 1) {
 				nodes {
 					commit {
@@ -1212,6 +1255,7 @@ query GetChecksWithoutSuite($owner: String!, $name: String!, $number: Int!) {
 							state
 							contexts(first: 100) {
 								nodes {
+									__typename
 									... on StatusContext {
 										id
 										state
@@ -1219,6 +1263,7 @@ query GetChecksWithoutSuite($owner: String!, $name: String!, $number: Int!) {
 										description
 										context
 										avatarUrl
+										isRequired(pullRequestNumber: $number)
 									}
 									... on CheckRun {
 										id
@@ -1227,6 +1272,7 @@ query GetChecksWithoutSuite($owner: String!, $name: String!, $number: Int!) {
 										detailsUrl
 										name
 										resourcePath
+										isRequired(pullRequestNumber: $number)
 									}
 								}
 							}

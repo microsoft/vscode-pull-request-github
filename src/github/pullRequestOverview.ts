@@ -238,7 +238,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						repositoryDefaultBranch: defaultBranch,
 						canEdit: canEdit,
 						hasWritePermission,
-						status: status ? status : { statuses: [] },
+						status: status[0],
+						reviewRequirement: status[1],
 						mergeable: pullRequest.item.mergeable,
 						reviewers: this._existingReviewers,
 						isDraft: pullRequest.isDraft,
@@ -838,7 +839,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private approvePullRequest(message: IRequestMessage<string>): void {
-		this._item.approve(message.args).then(
+		this._item.approve(this._folderRepositoryManager.repository, message.args).then(
 			review => {
 				this.updateReviewers(review);
 				this._replyMessage(message, {
