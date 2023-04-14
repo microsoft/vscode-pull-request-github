@@ -51,15 +51,15 @@ export interface ITeam {
 }
 
 export function reviewerId(reviewer: ITeam | IAccount): string {
-	return (reviewer as ITeam).id || (reviewer as IAccount).login;
+	return isTeam(reviewer) ? reviewer.id : reviewer.login;
 }
 
 export function reviewerLabel(reviewer: ITeam | IAccount): string {
-	return (reviewer as ITeam).name || (reviewer as IAccount).login;
+	return isTeam(reviewer) ? reviewer.name : reviewer.login;
 }
 
 export function isTeam(reviewer: ITeam | IAccount): reviewer is ITeam {
-	return (reviewer as ITeam).id !== undefined;
+	return 'id' in reviewer;
 }
 
 export interface ISuggestedReviewer extends IAccount {
