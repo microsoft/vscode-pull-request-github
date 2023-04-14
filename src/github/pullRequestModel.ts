@@ -18,6 +18,7 @@ import { ReviewEvent as CommonReviewEvent, EventType, TimelineEvent } from '../c
 import { resolvePath, toPRUri, toReviewUri } from '../common/uri';
 import { formatError } from '../common/utils';
 import { OctokitCommon } from './common';
+import { CredentialStore } from './credentials';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
 import {
@@ -139,6 +140,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	_telemetry: ITelemetry;
 
 	constructor(
+		private readonly credentialStore: CredentialStore,
 		telemetry: ITelemetry,
 		githubRepository: GitHubRepository,
 		remote: Remote,
@@ -750,15 +752,17 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const { remote, query, schema } = await githubRepository.ensure();
 
 		const { data } = await query<GetReviewRequestsResponse>({
-			query: schema.GetReviewRequests,
+			query: this.credentialStore.isAuthenticatedWithAdditionalScopes(githubRepository.remote.authProviderId) ? schema.GetReviewRequestsAdditionalScopes : schema.GetReviewRequests,
 			variables: {
 				number: this.number,
 				owner: remote.owner,
 				name: remote.repositoryName
 			},
 		});
-		return data.repository.pullRequest.reviewRequests.nodes.map(reviewer => {
-			if (reviewer.requestedReviewer.login) {
+
+		const reviewers: (IAccount | ITeam)[] = [];
+		for (const reviewer of data.repository.pullRequest.reviewRequests.nodes) {
+			if (reviewer.requestedReviewer?.login) {
 				const account: IAccount = {
 					login: reviewer.requestedReviewer.login,
 					url: reviewer.requestedReviewer.url,
@@ -766,8 +770,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					email: reviewer.requestedReviewer.email,
 					name: reviewer.requestedReviewer.name
 				};
-				return account;
-			} else {
+				reviewers.push(account);
+			} else if (reviewer.requestedReviewer) {
 				const team: ITeam = {
 					name: reviewer.requestedReviewer.name,
 					url: reviewer.requestedReviewer.url,
@@ -776,9 +780,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					org: remote.owner,
 					slug: reviewer.requestedReviewer.slug!
 				};
-				return team;
+				reviewers.push(team);
 			}
-		});
+		}
+		return reviewers;
 	}
 
 	/**

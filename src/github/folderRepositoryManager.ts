@@ -25,7 +25,7 @@ import { git } from '../gitProviders/gitCommands';
 import { UserCompletion, userMarkdown } from '../issues/util';
 import { OctokitCommon } from './common';
 import { CredentialStore } from './credentials';
-import { GitHubRepository, ItemsData, PullRequestData, ViewerPermission } from './githubRepository';
+import { GitHubRepository, ItemsData, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
 import { PullRequestState, UserResponse } from './graphql';
 import { IAccount, ILabel, IMilestone, IPullRequestsPagingOptions, ITeam, PRType, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
@@ -862,8 +862,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return this._fetchAssignableUsersPromise;
 	}
 
-	async getTeamReviewers(clearCache?: boolean): Promise<{ [key: string]: ITeam[] }> {
-		if (clearCache) {
+	async getTeamReviewers(refreshKind: TeamReviewerRefreshKind): Promise<{ [key: string]: ITeam[] }> {
+		if (refreshKind === TeamReviewerRefreshKind.Force) {
 			delete this._teamReviewers;
 		}
 
@@ -871,31 +871,33 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return this._teamReviewers;
 		}
 
-		const globalStateTeamReviewers = clearCache ? undefined : await this.getTeamReviewersFromGlobalState();
+		const globalStateTeamReviewers = (refreshKind === TeamReviewerRefreshKind.Force) ? undefined : await this.getTeamReviewersFromGlobalState();
 		if (globalStateTeamReviewers) {
 			return globalStateTeamReviewers || {};
 		}
 
 		if (!this._fetchTeamReviewersPromise) {
 			const cache: { [key: string]: ITeam[] } = {};
-			return (this._fetchTeamReviewersPromise = new Promise(resolve => {
-				const promises = this._githubRepositories.map(async githubRepository => {
-					const data = await githubRepository.getTeams();
-					cache[githubRepository.remote.remoteName] = data.sort(teamComparator);
-					return;
-				});
+			return (this._fetchTeamReviewersPromise = new Promise(async (resolve) => {
+				// Go through one github repo at a time so that we don't make overlapping auth calls
+				for (const githubRepository of this._githubRepositories) {
+					try {
+						const data = await githubRepository.getTeams(refreshKind);
+						cache[githubRepository.remote.remoteName] = data.sort(teamComparator);
+					} catch (e) {
+						// ignore errors from getTeams
+					}
+				}
 
-				Promise.all(promises).then(() => {
-					this._teamReviewers = cache;
-					this._fetchTeamReviewersPromise = undefined;
-					const teamReviewersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, 'teamReviewers');
-					Promise.all(this._githubRepositories.map(async (repo) => {
-						const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
-						const repoSpecificFile = vscode.Uri.joinPath(teamReviewersCacheLocation, key);
-						await vscode.workspace.fs.writeFile(repoSpecificFile, new TextEncoder().encode(JSON.stringify(cache[repo.remote.remoteName])));
-					}));
-					resolve(cache);
-				});
+				this._teamReviewers = cache;
+				this._fetchTeamReviewersPromise = undefined;
+				const teamReviewersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, 'teamReviewers');
+				Promise.all(this._githubRepositories.map(async (repo) => {
+					const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
+					const repoSpecificFile = vscode.Uri.joinPath(teamReviewersCacheLocation, key);
+					await vscode.workspace.fs.writeFile(repoSpecificFile, new TextEncoder().encode(JSON.stringify(cache[repo.remote.remoteName])));
+				}));
+				resolve(cache);
 			}));
 		}
 

@@ -81,6 +81,12 @@ export enum ViewerPermission {
 	Write = 'WRITE',
 }
 
+export enum TeamReviewerRefreshKind {
+	None,
+	Try,
+	Force
+}
+
 export interface ForkDetails {
 	isFork: boolean;
 	parent: {
@@ -277,6 +283,23 @@ export class GitHubRepository implements vscode.Disposable {
 			}
 		} else {
 			this._hub = this._credentialStore.getHub(this.remote.authProviderId);
+		}
+
+		return this;
+	}
+
+	async ensureAdditionalScopes(): Promise<GitHubRepository> {
+		this._initialized = true;
+
+		if (!this._credentialStore.isAuthenticated(this.remote.authProviderId)) {
+			// We need auth now. (ex., a PR is already checked out)
+			// We can no longer wait until later for login to be done
+			await this._credentialStore.create(undefined, true);
+			if (!this._credentialStore.isAuthenticated(this.remote.authProviderId)) {
+				this._hub = await this._credentialStore.showSignInNotification(this.remote.authProviderId);
+			}
+		} else {
+			this._hub = await this._credentialStore.getHubEnsureAdditionalScopes(this.remote.authProviderId);
 		}
 
 		return this;
@@ -753,7 +776,7 @@ export class GitHubRepository implements vscode.Disposable {
 		if (model) {
 			model.update(pullRequest);
 		} else {
-			model = new PullRequestModel(this._telemetry, this, this.remote, pullRequest);
+			model = new PullRequestModel(this._credentialStore, this._telemetry, this, this.remote, pullRequest);
 			model.onDidInvalidate(() => this.getPullRequest(pullRequest.number));
 			this._pullRequestModels.set(pullRequest.number, model);
 			this._onDidAddPullRequest.fire(model);
@@ -989,7 +1012,11 @@ export class GitHubRepository implements vscode.Disposable {
 
 	async getOrgTeamsCount(): Promise<number> {
 		Logger.debug(`Fetch Teams Count - enter`, GitHubRepository.ID);
-		const { query, remote, schema } = await this.ensure();
+		if (!this._credentialStore.isAuthenticatedWithAdditionalScopes(this.remote.authProviderId)) {
+			return 0;
+		}
+
+		const { query, remote, schema } = await this.ensureAdditionalScopes();
 
 		try {
 			const result: { data: OrganizationTeamsCountResponse } = await query<OrganizationTeamsCountResponse>({
@@ -1014,9 +1041,14 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
-	async getTeams(): Promise<ITeam[]> {
+	async getTeams(refreshKind: TeamReviewerRefreshKind): Promise<ITeam[]> {
 		Logger.debug(`Fetch Teams - enter`, GitHubRepository.ID);
-		const { query, remote, schema } = await this.ensure();
+		if ((refreshKind === TeamReviewerRefreshKind.None) || (refreshKind === TeamReviewerRefreshKind.Try && !this._credentialStore.isAuthenticatedWithAdditionalScopes(this.remote.authProviderId))) {
+			Logger.debug(`Fetch Teams - exit without fetching teams`, GitHubRepository.ID);
+			return [];
+		}
+
+		const { query, remote, schema } = await this.ensureAdditionalScopes();
 
 		let after: string | null = null;
 		let hasNextPage = false;
@@ -1063,6 +1095,7 @@ export class GitHubRepository implements vscode.Disposable {
 			}
 		} while (hasNextPage);
 
+		Logger.debug(`Fetch Teams - exit`, GitHubRepository.ID);
 		return ret;
 	}
 

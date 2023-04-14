@@ -12,6 +12,7 @@ import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { asPromise, dispose, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
+import { TeamReviewerRefreshKind } from './githubRepository';
 import {
 	GithubItemStateEnum,
 	IAccount,
@@ -353,14 +354,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async getReviewersQuickPickItems(
-		suggestedReviewers: ISuggestedReviewer[] | undefined, refreshTeamReviewers: boolean
+		suggestedReviewers: ISuggestedReviewer[] | undefined, refreshKind: TeamReviewerRefreshKind,
 	): Promise<(vscode.QuickPickItem & { reviewer?: IAccount | ITeam })[]> {
 		if (!suggestedReviewers) {
 			return [];
 		}
 
 		const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
-		const teamReviewers = this._item.base.isInOrganization ? await this._folderRepositoryManager.getTeamReviewers(refreshTeamReviewers) : [];
+		const teamReviewers = this._item.base.isInOrganization ? await this._folderRepositoryManager.getTeamReviewers(refreshKind) : [];
 		const assignableUsers: (IAccount | ITeam)[] = teamReviewers[this._item.remote.remoteName] ?? [];
 		assignableUsers.push(...allAssignableUsers[this._item.remote.remoteName]);
 
@@ -522,19 +523,22 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			quickPick.canSelectMany = true;
 			quickPick.matchOnDescription = true;
 			quickPick.show();
-			const updateItems = async (forceRefreshTeamReviewers: boolean) => {
-				quickPick.items = await this.getReviewersQuickPickItems(this._item.suggestedReviewers, forceRefreshTeamReviewers);
+			const updateItems = async (refreshKind: TeamReviewerRefreshKind) => {
+				quickPick.items = await this.getReviewersQuickPickItems(this._item.suggestedReviewers, refreshKind);
 				quickPick.selectedItems = quickPick.items.filter(item => item.picked);
 			};
 
-			updateItems(this._teamsCount <= quickMaxTeamReviewers);
-			if (this._item.base.isInOrganization && (this._teamsCount > quickMaxTeamReviewers)) {
+			await updateItems((this._teamsCount !== 0 && this._teamsCount <= quickMaxTeamReviewers) ? TeamReviewerRefreshKind.Try : TeamReviewerRefreshKind.None);
+			if (this._item.base.isInOrganization) {
 				quickPick.buttons = [{ iconPath: new vscode.ThemeIcon('organization'), tooltip: vscode.l10n.t('Show or refresh team reviewers') }];
 			}
-			quickPick.onDidTriggerButton(async () => {
+			quickPick.onDidTriggerButton(() => {
 				quickPick.busy = true;
-				await updateItems(true);
-				quickPick.busy = false;
+				quickPick.ignoreFocusOut = true;
+				updateItems(TeamReviewerRefreshKind.Force).then(() => {
+					quickPick.ignoreFocusOut = false;
+					quickPick.busy = false;
+				});
 			});
 			quickPick.busy = false;
 			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {

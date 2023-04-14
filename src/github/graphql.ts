@@ -254,7 +254,7 @@ export interface GetReviewRequestsResponse {
 						// Team properties
 						slug?: string;
 						id?: string;
-					};
+					} | null;
 				}[];
 			};
 		};

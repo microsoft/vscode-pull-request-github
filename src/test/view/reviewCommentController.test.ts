@@ -84,6 +84,7 @@ describe('ReviewCommentController', function () {
 		const pr = new PullRequestBuilder().build();
 		githubRepo = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
 		activePullRequest = new PullRequestModel(
+			credentialStore,
 			telemetry,
 			githubRepo,
 			remote,

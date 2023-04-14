@@ -358,9 +358,15 @@ query GetOrganizationTeams($login: String!, $after: String, $repoName: String!) 
 			}
 		}
 	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
 }
 
-query GetReviewRequests($owner: String!, $name: String!, $number: Int!) {
+query GetReviewRequestsAdditionalScopes($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
 			reviewRequests(first: 100) {
@@ -379,6 +385,26 @@ query GetReviewRequests($owner: String!, $name: String!, $number: Int!) {
 							url
 							slug
 							id
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+query GetReviewRequests($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			reviewRequests(first: 100) {
+				nodes {
+					requestedReviewer {
+						... on User {
+							login
+							avatarUrl
+							url
+							email
+							name
 						}
 					}
 				}
