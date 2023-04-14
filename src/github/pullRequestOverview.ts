@@ -44,6 +44,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _existingReviewers: ReviewState[] = [];
 
 	private _prListeners: vscode.Disposable[] = [];
+	private _isUpdating: boolean = false;
 
 	public static async createOrShow(
 		extensionUri: vscode.Uri,
@@ -139,7 +140,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		if (this._item) {
 			this._prListeners.push(this._item.onDidChangeComments(() => {
-				this.refreshPanel();
+				if (!this._isUpdating) {
+					this.refreshPanel();
+				}
 			}));
 		}
 	}
@@ -858,8 +861,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private requestChanges(message: IRequestMessage<string>): void {
+		this._isUpdating = true;
 		this._item.requestChanges(message.args).then(
 			review => {
+				this._isUpdating = false;
 				this.updateReviewers(review);
 				this._replyMessage(message, {
 					review: review,
@@ -867,15 +872,19 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				});
 			},
 			e => {
+				this._isUpdating = false;
 				vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
 				this._throwError(message, `${formatError(e)}`);
 			},
+
 		);
 	}
 
 	private submitReview(message: IRequestMessage<string>): void {
+		this._isUpdating = true;
 		this._item.submitReview(ReviewEvent.Comment, message.args).then(
 			review => {
+				this._isUpdating = false;
 				this.updateReviewers(review);
 				this._replyMessage(message, {
 					review: review,
@@ -883,6 +892,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				});
 			},
 			e => {
+				this._isUpdating = false;
 				vscode.window.showErrorMessage(`Submitting review failed. ${formatError(e)}`);
 				this._throwError(message, `${formatError(e)}`);
 			},
