@@ -1069,6 +1069,7 @@ export class ReviewManager {
 			// comments are recalculated when getting the data and the change decoration fired then,
 			// so comments only needs to be emptied in this case.
 			activePullRequest?.clear();
+			this._folderRepoManager.setFileViewedContext();
 			this._validateStatusInProgress = undefined;
 		}
 
