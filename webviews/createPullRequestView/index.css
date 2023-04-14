@@ -11,6 +11,7 @@ textarea {
 
 select {
 	width: 100%;
+	max-width: 400px;
 }
 
 textarea {
@@ -103,6 +104,11 @@ body {
 	flex-direction: column;
 	line-height: 26px;
 }
+
+.selector-group .selects {
+	flex-grow: 1;
+}
+
 .selector-group .wrapper:last-of-type {
 	margin-bottom: 5px;
 }
