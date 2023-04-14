@@ -19,6 +19,7 @@ import { ReviewEvent as CommonReviewEvent, EventType, TimelineEvent } from '../c
 import { resolvePath, toPRUri, toReviewUri } from '../common/uri';
 import { formatError } from '../common/utils';
 import { OctokitCommon } from './common';
+import { CredentialStore } from './credentials';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
 import {
@@ -28,6 +29,7 @@ import {
 	DeleteReactionResponse,
 	DeleteReviewResponse,
 	EditCommentResponse,
+	GetReviewRequestsResponse,
 	LatestReviewCommitResponse,
 	MarkPullRequestReadyForReviewResponse,
 	PendingReviewIdResponse,
@@ -47,6 +49,7 @@ import {
 	IAccount,
 	IRawFileChange,
 	ISuggestedReviewer,
+	ITeam,
 	MergeMethod,
 	PullRequest,
 	PullRequestChecks,
@@ -58,7 +61,6 @@ import { IssueModel } from './issueModel';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
-	convertRESTUserToAccount,
 	getReactionGroup,
 	insertNewCommitsSinceReview,
 	parseGraphQLComment,
@@ -136,6 +138,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	_telemetry: ITelemetry;
 
 	constructor(
+		private readonly credentialStore: CredentialStore,
 		telemetry: ITelemetry,
 		githubRepository: GitHubRepository,
 		remote: Remote,
@@ -230,14 +233,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this.isRemoteHeadDeleted = item.isRemoteHeadDeleted;
 		}
 		if (item.head) {
-			this.head = new GitHubRef(item.head.ref, item.head.label, item.head.sha, item.head.repo.cloneUrl, item.head.repo.owner, item.head.repo.name);
+			this.head = new GitHubRef(item.head.ref, item.head.label, item.head.sha, item.head.repo.cloneUrl, item.head.repo.owner, item.head.repo.name, item.head.repo.isInOrganization);
 		}
 
 		if (item.isRemoteBaseDeleted != null) {
 			this.isRemoteBaseDeleted = item.isRemoteBaseDeleted;
 		}
 		if (item.base) {
-			this.base = new GitHubRef(item.base.ref, item.base!.label, item.base!.sha, item.base!.repo.cloneUrl, item.base.repo.owner, item.base.repo.name);
+			this.base = new GitHubRef(item.base.ref, item.base!.label, item.base!.sha, item.base!.repo.cloneUrl, item.base.repo.owner, item.base.repo.name, item.base.repo.isInOrganization);
 		}
 	}
 
@@ -761,29 +764,60 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * Get existing requests to review.
 	 */
-	async getReviewRequests(): Promise<IAccount[]> {
+	async getReviewRequests(): Promise<(IAccount | ITeam)[]> {
 		const githubRepository = this.githubRepository;
-		const { remote, octokit } = await githubRepository.ensure();
-		const result = await octokit.call(octokit.api.pulls.listRequestedReviewers, {
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			pull_number: this.number,
+		const { remote, query, schema } = await githubRepository.ensure();
+
+		const { data } = await query<GetReviewRequestsResponse>({
+			query: this.credentialStore.isAuthenticatedWithAdditionalScopes(githubRepository.remote.authProviderId) ? schema.GetReviewRequestsAdditionalScopes : schema.GetReviewRequests,
+			variables: {
+				number: this.number,
+				owner: remote.owner,
+				name: remote.repositoryName
+			},
 		});
 
-		return result.data.users.map((user: any) => convertRESTUserToAccount(user, githubRepository));
+		const reviewers: (IAccount | ITeam)[] = [];
+		for (const reviewer of data.repository.pullRequest.reviewRequests.nodes) {
+			if (reviewer.requestedReviewer?.login) {
+				const account: IAccount = {
+					login: reviewer.requestedReviewer.login,
+					url: reviewer.requestedReviewer.url,
+					avatarUrl: reviewer.requestedReviewer.avatarUrl,
+					email: reviewer.requestedReviewer.email,
+					name: reviewer.requestedReviewer.name
+				};
+				reviewers.push(account);
+			} else if (reviewer.requestedReviewer) {
+				const team: ITeam = {
+					name: reviewer.requestedReviewer.name,
+					url: reviewer.requestedReviewer.url,
+					avatarUrl: reviewer.requestedReviewer.avatarUrl,
+					id: reviewer.requestedReviewer.id!,
+					org: remote.owner,
+					slug: reviewer.requestedReviewer.slug!
+				};
+				reviewers.push(team);
+			}
+		}
+		return reviewers;
 	}
 
 	/**
 	 * Add reviewers to a pull request
 	 * @param reviewers A list of GitHub logins
 	 */
-	async requestReview(reviewers: string[]): Promise<void> {
-		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.call(octokit.api.pulls.requestReviewers, {
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			pull_number: this.number,
-			reviewers,
+	async requestReview(reviewers: string[], teamReviewers: string[]): Promise<void> {
+		const { mutate, schema } = await this.githubRepository.ensure();
+		await mutate({
+			mutation: schema.AddReviewers,
+			variables: {
+				input: {
+					pullRequestId: this.graphNodeId,
+					teamIds: teamReviewers,
+					userIds: reviewers
+				},
+			},
 		});
 	}
 
@@ -791,13 +825,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Remove a review request that has not yet been completed
 	 * @param reviewer A GitHub Login
 	 */
-	async deleteReviewRequest(reviewers: string[]): Promise<void> {
+	async deleteReviewRequest(reviewers: string[], teamReviewers: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		await octokit.call(octokit.api.pulls.removeRequestedReviewers, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
 			reviewers,
+			team_reviewers: teamReviewers
 		});
 	}
 

@@ -12,13 +12,17 @@ import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { asPromise, dispose, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
+import { TeamReviewerRefreshKind } from './githubRepository';
 import {
 	GithubItemStateEnum,
 	IAccount,
 	IMilestone,
+	isTeam,
 	ISuggestedReviewer,
+	ITeam,
 	MergeMethod,
 	MergeMethodsAvailability,
+	reviewerId,
 	ReviewEvent,
 	ReviewState,
 } from './interface';
@@ -42,6 +46,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[] = [];
+	private _teamsCount = 0;
 
 	private _prListeners: vscode.Disposable[] = [];
 	private _isUpdating: boolean = false;
@@ -153,7 +158,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 * @param pullRequestModel Model of the PR
 	 */
 	private getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount): string | undefined {
-		const review = reviewers.find(r => r.reviewer.login === currentUser.login);
+		const review = reviewers.find(r => reviewerId(r.reviewer) === currentUser.login);
 		// There will always be a review. If not then the PR shouldn't have been or fetched/shown for the current user
 		return review?.state;
 	}
@@ -172,7 +177,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
 			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
 			this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
-			pullRequestModel.canEdit()
+			pullRequestModel.canEdit(),
+			this._folderRepositoryManager.getOrgTeamsCount(pullRequestModel.githubRepository)
 		])
 			.then(result => {
 				const [
@@ -184,7 +190,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					repositoryAccess,
 					branchInfo,
 					currentUser,
-					viewerCanEdit
+					viewerCanEdit,
+					orgTeamsCount
 				] = result;
 				if (!pullRequest) {
 					throw new Error(
@@ -195,6 +202,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._item = pullRequest;
 				this.registerPrListeners();
 				this._repositoryDefaultBranch = defaultBranch!;
+				this._teamsCount = orgTeamsCount;
 				this._panel.title = `Pull Request #${pullRequestModel.number.toString()}`;
 
 				const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
@@ -350,28 +358,31 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async getReviewersQuickPickItems(
-		suggestedReviewers: ISuggestedReviewer[] | undefined,
-	): Promise<(vscode.QuickPickItem & { reviewer?: IAccount })[]> {
+		suggestedReviewers: ISuggestedReviewer[] | undefined, refreshKind: TeamReviewerRefreshKind,
+	): Promise<(vscode.QuickPickItem & { reviewer?: IAccount | ITeam })[]> {
 		if (!suggestedReviewers) {
 			return [];
 		}
 
 		const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
-		const assignableUsers = allAssignableUsers[this._item.remote.remoteName] ?? [];
+		const teamReviewers = this._item.base.isInOrganization ? await this._folderRepositoryManager.getTeamReviewers(refreshKind) : [];
+		const assignableUsers: (IAccount | ITeam)[] = teamReviewers[this._item.remote.remoteName] ?? [];
+		assignableUsers.push(...allAssignableUsers[this._item.remote.remoteName]);
+
 
 		// used to track logins that shouldn't be added to pick list
 		// e.g. author, existing and already added reviewers
 		const skipList: Set<string> = new Set([
 			this._item.author.login,
-			...this._existingReviewers.map(reviewer => reviewer.reviewer.login),
+			...this._existingReviewers.map(reviewer => reviewerId(reviewer.reviewer)),
 		]);
 
-		const reviewers: (vscode.QuickPickItem & { reviewer?: IAccount })[] = [];
+		const reviewers: (vscode.QuickPickItem & { reviewer?: IAccount | ITeam })[] = [];
 
 		// Start will all existing reviewers so they show at the top
 		for (const reviewer of this._existingReviewers) {
 			reviewers.push({
-				label: reviewer.reviewer.login,
+				label: (reviewer.reviewer as IAccount).login ?? `${(reviewer.reviewer as ITeam).org}/${(reviewer.reviewer as ITeam).slug}`,
 				description: reviewer.reviewer.name,
 				reviewer: reviewer.reviewer,
 				picked: true
@@ -404,12 +415,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 
 		for (const user of assignableUsers) {
-			if (skipList.has(user.login)) {
+			if (skipList.has(reviewerId(user))) {
 				continue;
 			}
 
 			reviewers.push({
-				label: user.login,
+				label: (user as IAccount).login ?? `${(user as ITeam).org}/${(user as ITeam).slug}`,
 				description: user.name,
 				reviewer: user,
 			});
@@ -508,26 +519,59 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async changeReviewers(message: IRequestMessage<void>): Promise<void> {
-		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { reviewer?: IAccount }>();
+		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { reviewer?: IAccount | ITeam }>();
+		// The quick-max is used to show the "update reviewers" button. If the number of teams is less than the quick-max, then they'll be automatically updated when the quick pick is opened.
+		const quickMaxTeamReviewers = 100;
 		try {
 			quickPick.busy = true;
 			quickPick.canSelectMany = true;
 			quickPick.matchOnDescription = true;
 			quickPick.show();
-			quickPick.items = await this.getReviewersQuickPickItems(this._item.suggestedReviewers);
-			quickPick.selectedItems = quickPick.items.filter(item => item.picked);
+			const updateItems = async (refreshKind: TeamReviewerRefreshKind) => {
+				quickPick.items = await this.getReviewersQuickPickItems(this._item.suggestedReviewers, refreshKind);
+				quickPick.selectedItems = quickPick.items.filter(item => item.picked);
+			};
+
+			await updateItems((this._teamsCount !== 0 && this._teamsCount <= quickMaxTeamReviewers) ? TeamReviewerRefreshKind.Try : TeamReviewerRefreshKind.None);
+			if (this._item.base.isInOrganization) {
+				quickPick.buttons = [{ iconPath: new vscode.ThemeIcon('organization'), tooltip: vscode.l10n.t('Show or refresh team reviewers') }];
+			}
+			quickPick.onDidTriggerButton(() => {
+				quickPick.busy = true;
+				quickPick.ignoreFocusOut = true;
+				updateItems(TeamReviewerRefreshKind.Force).then(() => {
+					quickPick.ignoreFocusOut = false;
+					quickPick.busy = false;
+				});
+			});
 			quickPick.busy = false;
 			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
-				return quickPick.selectedItems.filter(item => item.reviewer) as (vscode.QuickPickItem & { reviewer: IAccount })[] | undefined;
+				return quickPick.selectedItems.filter(item => item.reviewer) as (vscode.QuickPickItem & { reviewer: IAccount | ITeam })[] | undefined;
 			});
 			const hidePromise = asPromise<void>(quickPick.onDidHide);
-			const allReviewers = await Promise.race<(vscode.QuickPickItem & { reviewer: IAccount })[] | void>([acceptPromise, hidePromise]);
+			const allReviewers = await Promise.race<(vscode.QuickPickItem & { reviewer: IAccount | ITeam })[] | void>([acceptPromise, hidePromise]);
 			quickPick.busy = true;
+
 			if (allReviewers) {
-				const newReviewers = allReviewers.map(r => r.label);
-				const removedReviewers = this._existingReviewers.filter(existing => !newReviewers.find(newReviewer => newReviewer === existing.reviewer.login));
-				await this._item.requestReview(newReviewers);
-				await this._item.deleteReviewRequest(removedReviewers.map(reviewer => reviewer.reviewer.login));
+				const newUserReviewers: string[] = [];
+				const newTeamReviewers: string[] = [];
+				allReviewers.forEach(reviewer => {
+					const newReviewers = isTeam(reviewer.reviewer) ? newTeamReviewers : newUserReviewers;
+					newReviewers.push(reviewerId(reviewer.reviewer));
+				});
+
+				const removedUserReviewers: string[] = [];
+				const removedTeamReviewers: string[] = [];
+				this._existingReviewers.forEach(existing => {
+					let newReviewers: string[] = isTeam(existing.reviewer) ? newTeamReviewers : newUserReviewers;
+					let removedReviewers: string[] = isTeam(existing.reviewer) ? removedTeamReviewers : removedUserReviewers;
+					if (!newReviewers.find(newTeamReviewer => newTeamReviewer === reviewerId(existing.reviewer))) {
+						removedReviewers.push(reviewerId(existing.reviewer));
+					}
+				});
+
+				await this._item.requestReview(newUserReviewers, newTeamReviewers);
+				await this._item.deleteReviewRequest(removedUserReviewers, removedTeamReviewers);
 				const addedReviewers: ReviewState[] = allReviewers.map(selected => {
 					return {
 						reviewer: selected.reviewer,
@@ -828,7 +872,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private updateReviewers(review?: CommonReviewEvent): void {
 		if (review) {
 			const existingReviewer = this._existingReviewers.find(
-				reviewer => review.user.login === reviewer.reviewer.login,
+				reviewer => review.user.login === (reviewer.reviewer as IAccount).login,
 			);
 			if (existingReviewer) {
 				existingReviewer.state = review.state;
@@ -900,8 +944,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private reRequestReview(message: IRequestMessage<string>): void {
-		this._item.requestReview([message.args]).then(() => {
-			const reviewer = this._existingReviewers.find(reviewer => reviewer.reviewer.login === message.args);
+		const reviewer = this._existingReviewers.find(reviewer => reviewerId(reviewer.reviewer) === message.args);
+		const userReviewers: string[] = [];
+		const teamReviewers: string[] = [];
+		if (reviewer && isTeam(reviewer.reviewer)) {
+			teamReviewers.push(reviewer.reviewer.id);
+		} else if (reviewer && !isTeam(reviewer.reviewer)) {
+			userReviewers.push(reviewer.reviewer.login);
+		}
+		this._item.requestReview(userReviewers, teamReviewers).then(() => {
 			if (reviewer) {
 				reviewer.state = 'REQUESTED';
 			}
