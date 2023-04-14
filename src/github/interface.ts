@@ -26,6 +26,7 @@ export enum PullRequestMergeability {
 	NotMergeable,
 	Conflict,
 	Unknown,
+	Behind,
 }
 
 export interface ReviewState {
@@ -192,15 +193,25 @@ export enum CheckState {
 	Unknown = 'unknown'
 }
 
+export interface PullRequestCheckStatus {
+	id: string;
+	url: string | undefined;
+	avatarUrl: string | undefined;
+	state: CheckState;
+	description: string | null;
+	targetUrl: string | null;
+	context: string;
+	isRequired: boolean;
+}
+
 export interface PullRequestChecks {
 	state: CheckState;
-	statuses: {
-		id: string;
-		url?: string;
-		avatar_url?: string;
-		state?: CheckState;
-		description?: string;
-		target_url?: string;
-		context: string;
-	}[];
+	statuses: PullRequestCheckStatus[];
+}
+
+export interface PullRequestReviewRequirement {
+	count: number;
+	state: CheckState;
+	approvals: string[];
+	requestedChanges: string[];
 }

@@ -8,10 +8,10 @@ import { Repository } from '../../api/api';
 import { getCommentingRanges } from '../../common/commentingRanges';
 import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
-import { FILE_LIST_LAYOUT } from '../../common/settingKeys';
+import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE } from '../../common/settingKeys';
 import { createPRNodeUri, fromPRUri, Schemes } from '../../common/uri';
 import { dispose } from '../../common/utils';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { NotificationProvider } from '../../github/notifications';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
@@ -21,7 +21,7 @@ import { DirectoryTreeNode } from './directoryTreeNode';
 import { InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
-export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
+export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 {
 	static ID = 'PRNode';
 
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[] | undefined;
@@ -53,6 +53,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 	) {
 		super();
 		this.registerSinceReviewChange();
+		this.registerConfigurationChange();
 		this._disposables.push(this.pullRequestModel.onDidInvalidate(() => this.refresh(this)));
 	}
 
@@ -89,7 +90,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 			}
 
 			const result: TreeNode[] = [descriptionNode];
-			const layout = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
+			const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 			if (layout === 'tree') {
 				// tree view
 				const dirNode = new DirectoryTreeNode(this, '');
@@ -127,6 +128,16 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		this._disposables.push(
 			this.pullRequestModel.onDidChangeChangesSinceReview(_ => {
 				if (!this.pullRequestModel.isActive) {
+					this.refresh();
+				}
+			})
+		);
+	}
+
+	protected registerConfigurationChange() {
+		this._disposables.push(
+			vscode.workspace.onDidChangeConfiguration(e => {
+				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`)) {
 					this.refresh();
 				}
 			})
@@ -273,9 +284,19 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 
 		const hasNotification = this._notificationProvider.hasNotification(this.pullRequestModel);
 
-		const labelPrefix = currentBranchIsForThisPR ? '✓ ' : '';
-		const tooltipPrefix = currentBranchIsForThisPR ? 'Current Branch * ' : '';
 		const formattedPRNumber = number.toString();
+		let labelPrefix = currentBranchIsForThisPR ? '✓ ' : '';
+		let tooltipPrefix = currentBranchIsForThisPR ? 'Current Branch * ' : '';
+
+		if (
+			vscode.workspace
+				.getConfiguration(PR_SETTINGS_NAMESPACE)
+				.get<boolean>(SHOW_PULL_REQUEST_NUMBER_IN_TREE, false)
+		) {
+			labelPrefix += `#${formattedPRNumber}: `;
+			tooltipPrefix += `#${formattedPRNumber}: `;
+		}
+
 		const label = `${labelPrefix}${isDraft ? '[DRAFT] ' : ''}${title}`;
 		const tooltip = `${tooltipPrefix}${title} by @${login}`;
 		const description = `by @${login}`;
@@ -301,10 +322,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		};
 	}
 
-	async provideCommentingRanges(
-		document: vscode.TextDocument,
-		_token: vscode.CancellationToken,
-	): Promise<vscode.Range[] | undefined> {
+	async provideCommentingRanges(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.Range[] | { fileComments: boolean; ranges?: vscode.Range[] } | undefined> {
 		if (document.uri.scheme === Schemes.Pr) {
 			const params = fromPRUri(document.uri);
 
@@ -318,7 +336,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				return undefined;
 			}
 
-			return getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase, PRNode.ID);
+			return { ranges: getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase, PRNode.ID), fileComments: true };
 		}
 
 		return undefined;

@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
-import { IComment, IReviewThread, Reaction } from '../common/comment';
+import { IComment, IReviewThread, Reaction, SubjectType } from '../common/comment';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
@@ -89,7 +89,7 @@ export function threadRange(startLine: number, endLine: number, endCharacter?: n
 
 export function createVSCodeCommentThreadForReviewThread(
 	uri: vscode.Uri,
-	range: vscode.Range,
+	range: vscode.Range | undefined,
 	thread: IReviewThread,
 	commentController: vscode.CommentController,
 	currentUser: string,
@@ -123,7 +123,7 @@ export const COMMENT_EXPAND_STATE_COLLAPSE_VALUE = 'collapseAll';
 export const COMMENT_EXPAND_STATE_EXPAND_VALUE = 'expandUnresolved';
 export function getCommentCollapsibleState(thread: IReviewThread, expand?: boolean, currentUser?: string) {
 	if (thread.isResolved
-		|| (currentUser && thread.comments[thread.comments.length - 1].user?.login === currentUser)) {
+		|| (currentUser && (thread.comments[thread.comments.length - 1].user?.login === currentUser) && thread.subjectType === SubjectType.LINE)) {
 		return vscode.CommentThreadCollapsibleState.Collapsed;
 	}
 	if (expand === undefined) {
@@ -136,6 +136,9 @@ export function getCommentCollapsibleState(thread: IReviewThread, expand?: boole
 
 
 export function updateThreadWithRange(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepository: GitHubRepository, expand?: boolean) {
+	if (!vscodeThread.range) {
+		return;
+	}
 	const editors = vscode.window.visibleTextEditors;
 	for (let editor of editors) {
 		if (editor.document.uri.toString() === vscodeThread.uri.toString()) {
@@ -300,13 +303,17 @@ export function convertRESTPullRequestToRawPullRequest(
 		updatedAt: updated_at,
 		head: head.repo ? convertRESTHeadToIGitHubRef(head as OctokitCommon.PullsListResponseItemHead) : undefined,
 		base: convertRESTHeadToIGitHubRef(base),
-		mergeable: (pullRequest as OctokitCommon.PullsGetResponseData).mergeable
-			? PullRequestMergeability.Mergeable
-			: PullRequestMergeability.NotMergeable,
 		labels: labels.map<ILabel>(l => ({ name: '', color: '', ...l })),
 		isDraft: draft,
 		suggestedReviewers: [], // suggested reviewers only available through GraphQL API
 	};
+
+	// mergeable is not included in the list response, will need to fetch later
+	if ('mergeable' in pullRequest) {
+		item.mergeable = pullRequest.mergeable
+			? PullRequestMergeability.Mergeable
+			: PullRequestMergeability.NotMergeable;
+	}
 
 	return item;
 }
@@ -454,6 +461,7 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRep
 		diffSide: thread.diffSide,
 		isOutdated: thread.isOutdated,
 		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, githubRepository)),
+		subjectType: thread.subjectType
 	};
 }
 
@@ -599,8 +607,12 @@ export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFL
 			parsed = PullRequestMergeability.Conflict;
 			break;
 	}
-	if ((parsed !== PullRequestMergeability.Conflict) && (mergeStateStatus === 'BLOCKED')) {
-		parsed = PullRequestMergeability.NotMergeable;
+	if (parsed !== PullRequestMergeability.Conflict) {
+		if (mergeStateStatus === 'BLOCKED') {
+			parsed = PullRequestMergeability.NotMergeable;
+		} else if (mergeStateStatus === 'BEHIND') {
+			parsed = PullRequestMergeability.Behind;
+		}
 	}
 	return parsed;
 }

@@ -33,7 +33,17 @@ import {
 	PullRequestsResponse,
 	ViewerPermissionResponse,
 } from './graphql';
-import { CheckState, IAccount, IMilestone, Issue, ITeam, PullRequest, PullRequestChecks, RepoAccessAndMergeMethods } from './interface';
+import {
+	CheckState,
+	IAccount,
+	IMilestone,
+	Issue,
+	ITeam,
+	PullRequest,
+	PullRequestChecks,
+	PullRequestReviewRequirement,
+	RepoAccessAndMergeMethods,
+} from './interface';
 import { IssueModel } from './issueModel';
 import { LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
@@ -1174,10 +1184,10 @@ export class GitHubRepository implements vscode.Disposable {
 	 * This method should go in PullRequestModel, but because of the status checks bug we want to track `_useFallbackChecks` at a repo level.
 	 */
 	private _useFallbackChecks: boolean = false;
-	async getStatusChecks(number: number): Promise<PullRequestChecks | undefined> {
+	async getStatusChecks(number: number): Promise<[PullRequestChecks | null, PullRequestReviewRequirement | null]> {
 		const { query, remote, schema } = await this.ensure();
 		const captureUseFallbackChecks = this._useFallbackChecks;
-		let result;
+		let result: ApolloQueryResult<GetChecksResponse>;
 		try {
 			result = await query<GetChecksResponse>({
 				query: captureUseFallbackChecks ? schema.GetChecksWithoutSuite : schema.GetChecks,
@@ -1202,38 +1212,116 @@ export class GitHubRepository implements vscode.Disposable {
 		// We always fetch the status checks for only the last commit, so there should only be one node present
 		const statusCheckRollup = result.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup;
 
-		if (!statusCheckRollup) {
-			return undefined;
+		const checks: PullRequestChecks = !statusCheckRollup
+			? {
+				state: CheckState.Success,
+				statuses: []
+			}
+			: {
+				state: this.mapStateAsCheckState(statusCheckRollup.state),
+				statuses: statusCheckRollup.contexts.nodes.map(context => {
+					if (isCheckRun(context)) {
+						return {
+							id: context.id,
+							url: context.checkSuite?.app?.url,
+							avatarUrl:
+								context.checkSuite?.app?.logoUrl &&
+								getAvatarWithEnterpriseFallback(
+									context.checkSuite.app.logoUrl,
+									undefined,
+									this.remote.authProviderId,
+								),
+							state: this.mapStateAsCheckState(context.conclusion),
+							description: context.title,
+							context: context.name,
+							targetUrl: context.detailsUrl,
+							isRequired: context.isRequired,
+						};
+					} else {
+						return {
+							id: context.id,
+							url: context.targetUrl ?? undefined,
+							avatarUrl: context.avatarUrl
+								? getAvatarWithEnterpriseFallback(context.avatarUrl, undefined, this.remote.authProviderId)
+								: undefined,
+							state: this.mapStateAsCheckState(context.state),
+							description: context.description,
+							context: context.context,
+							targetUrl: context.targetUrl,
+							isRequired: context.isRequired,
+						};
+					}
+				}),
+			};
+
+		let reviewRequirement: PullRequestReviewRequirement | null = null;
+		const rule = result.data.repository.pullRequest.baseRef.refUpdateRule;
+		if (rule) {
+			const prUrl = result.data.repository.pullRequest.url;
+
+			for (const context of rule.requiredStatusCheckContexts || []) {
+				if (!checks.statuses.some(status => status.context === context)) {
+					checks.state = CheckState.Pending;
+					checks.statuses.push({
+						id: '',
+						url: undefined,
+						avatarUrl: undefined,
+						state: CheckState.Pending,
+						description: vscode.l10n.t('Waiting for status to be reported'),
+						context: context,
+						targetUrl: prUrl,
+						isRequired: true
+					});
+				}
+			}
+
+			const requiredApprovingReviews = rule.requiredApprovingReviewCount ?? 0;
+			const approvingReviews = result.data.repository.pullRequest.latestReviews.nodes.filter(
+				review => review.authorCanPushToRepository && review.state === 'APPROVED',
+			);
+			const requestedChanges = result.data.repository.pullRequest.reviewsRequestingChanges.nodes.filter(
+				review => review.authorCanPushToRepository
+			);
+			let state: CheckState = CheckState.Success;
+			if (approvingReviews.length < requiredApprovingReviews) {
+				state = CheckState.Failure;
+
+				if (requestedChanges.length) {
+					state = CheckState.Pending;
+				}
+			}
+			if (requiredApprovingReviews > 0) {
+				reviewRequirement = {
+					count: requiredApprovingReviews,
+					approvals: approvingReviews.map(review => review.author.login),
+					requestedChanges: requestedChanges.map(review => review.author.login),
+					state: state
+				};
+			}
 		}
 
-		const checks: PullRequestChecks = {
-			state: statusCheckRollup.state.toLowerCase(),
-			statuses: statusCheckRollup.contexts.nodes.map(context => {
-				if (isCheckRun(context)) {
-					return {
-						id: context.id,
-						url: context.checkSuite?.app?.url,
-						avatar_url: context.checkSuite?.app?.logoUrl,
-						state: context.conclusion?.toLowerCase() || CheckState.Pending,
-						description: context.title,
-						context: context.name,
-						target_url: context.detailsUrl,
-					};
-				} else {
-					return {
-						id: context.id,
-						url: context.targetUrl,
-						avatar_url: context.avatarUrl,
-						state: context.state?.toLowerCase(),
-						description: context.description,
-						context: context.context,
-						target_url: context.targetUrl,
-					};
-				}
-			}),
-		};
+		return [checks.statuses.length ? checks : null, reviewRequirement];
+	}
 
+	mapStateAsCheckState(state: string | null | undefined): CheckState {
+		switch (state) {
+			case 'EXPECTED':
+			case 'PENDING':
+			case 'ACTION_REQUIRED':
+			case 'STALE':
+				return CheckState.Pending;
+			case 'ERROR':
+			case 'FAILURE':
+			case 'TIMED_OUT':
+			case 'STARTUP_FAILURE':
+				return CheckState.Failure;
+			case 'SUCCESS':
+				return CheckState.Success;
+			case 'NEUTRAL':
+			case 'SKIPPED':
+				return CheckState.Neutral;
+		}
 
-		return checks;
+		return CheckState.Unknown;
 	}
 }

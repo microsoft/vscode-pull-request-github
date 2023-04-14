@@ -12,7 +12,7 @@ import { GitHubRepository } from './githubRepository';
 import { IAccount } from './interface';
 import { updateCommentReactions } from './utils';
 
-export interface GHPRCommentThread extends vscode.CommentThread {
+export interface GHPRCommentThread extends vscode.CommentThread2 {
 	gitHubThreadId: string;
 
 	/**
@@ -24,7 +24,7 @@ export interface GHPRCommentThread extends vscode.CommentThread {
 	 * The range the comment thread is located within the document. The thread icon will be shown
 	 * at the first line of the range.
 	 */
-	range: vscode.Range;
+	range: vscode.Range | undefined;
 
 	/**
 	 * The ordered comments of the thread.

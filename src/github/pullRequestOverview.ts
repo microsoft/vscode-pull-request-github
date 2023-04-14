@@ -49,6 +49,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _teamsCount = 0;
 
 	private _prListeners: vscode.Disposable[] = [];
+	private _isUpdating: boolean = false;
 
 	public static async createOrShow(
 		extensionUri: vscode.Uri,
@@ -144,7 +145,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		if (this._item) {
 			this._prListeners.push(this._item.onDidChangeComments(() => {
-				this.refreshPanel();
+				if (!this._isUpdating) {
+					this.refreshPanel();
+				}
 			}));
 		}
 	}
@@ -246,7 +249,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						repositoryDefaultBranch: defaultBranch,
 						canEdit: canEdit,
 						hasWritePermission,
-						status: status ? status : { statuses: [] },
+						status: status[0],
+						reviewRequirement: status[1],
 						mergeable: pullRequest.item.mergeable,
 						reviewers: this._existingReviewers,
 						isDraft: pullRequest.isDraft,
@@ -882,7 +886,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private approvePullRequest(message: IRequestMessage<string>): void {
-		this._item.approve(message.args).then(
+		this._item.approve(this._folderRepositoryManager.repository, message.args).then(
 			review => {
 				this.updateReviewers(review);
 				this._replyMessage(message, {
@@ -901,8 +905,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private requestChanges(message: IRequestMessage<string>): void {
+		this._isUpdating = true;
 		this._item.requestChanges(message.args).then(
 			review => {
+				this._isUpdating = false;
 				this.updateReviewers(review);
 				this._replyMessage(message, {
 					review: review,
@@ -910,15 +916,19 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				});
 			},
 			e => {
+				this._isUpdating = false;
 				vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
 				this._throwError(message, `${formatError(e)}`);
 			},
+
 		);
 	}
 
 	private submitReview(message: IRequestMessage<string>): void {
+		this._isUpdating = true;
 		this._item.submitReview(ReviewEvent.Comment, message.args).then(
 			review => {
+				this._isUpdating = false;
 				this.updateReviewers(review);
 				this._replyMessage(message, {
 					review: review,
@@ -926,6 +936,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				});
 			},
 			e => {
+				this._isUpdating = false;
 				vscode.window.showErrorMessage(`Submitting review failed. ${formatError(e)}`);
 				this._throwError(message, `${formatError(e)}`);
 			},

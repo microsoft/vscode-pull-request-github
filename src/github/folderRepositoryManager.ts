@@ -1493,21 +1493,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				}
 			}
 
-			if (!this._repository.state.HEAD?.upstream) {
-				const publishBranch = vscode.l10n.t('Publish Branch');
-				const shouldPushUpstream = await vscode.window.showInformationMessage(
-					vscode.l10n.t('There is no upstream branch for \'{0}\'.\n\nDo you want to publish it and create the pull request?', params.base),
-					{ modal: true },
-					publishBranch
-				);
-				if (shouldPushUpstream === publishBranch) {
-					await this._repository.push(repo.remote.remoteName, params.base, true);
-					return this.createPullRequest(params);
-				} else {
-					return;
-				}
-			}
-
 			Logger.error(`Creating pull requests failed: ${e}`, FolderRepositoryManager.ID);
 
 			/* __GDPR__
@@ -2102,7 +2087,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		// Search through each github repo to see if it has a PR with this head branch.
 		for (const repo of this.gitHubRepositories) {
 			const matchingPullRequest = await repo.getPullRequestForBranch(upstreamBranchName);
-			if (matchingPullRequest && (matchingPullRequest.head?.owner === headGitHubRepo?.remote.owner)) {
+			if (matchingPullRequest?.head?.owner && (matchingPullRequest.head?.owner === headGitHubRepo?.remote.owner)) {
 				return {
 					owner: repo.remote.owner,
 					repositoryName: repo.remote.repositoryName,
