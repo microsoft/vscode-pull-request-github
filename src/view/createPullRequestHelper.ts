@@ -5,12 +5,13 @@
 
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
+import { dispose } from '../common/utils';
 import { CreatePullRequestViewProvider } from '../github/createPRViewProvider';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { CompareChangesTreeProvider } from './compareChangesTreeDataProvider';
 
-export class CreatePullRequestHelper {
+export class CreatePullRequestHelper implements vscode.Disposable {
 	private _disposables: vscode.Disposable[] = [];
 	private _createPRViewProvider: CreatePullRequestViewProvider | undefined;
 	private _treeView: CompareChangesTreeProvider | undefined;
@@ -23,15 +24,7 @@ export class CreatePullRequestHelper {
 	private registerListeners(usingCurrentBranchAsCompare: boolean) {
 		this._disposables.push(
 			this._createPRViewProvider!.onDone(async createdPR => {
-				vscode.commands.executeCommand('setContext', 'github:createPullRequest', false);
-
-				this._createPRViewProvider?.dispose();
-				this._createPRViewProvider = undefined;
-
-				this._treeView?.dispose();
-				this._treeView = undefined;
-
-				this._disposables.forEach(d => d.dispose());
+				this.dispose();
 
 				if (createdPR) {
 					this._onDidCreate.fire(createdPR);
@@ -156,5 +149,17 @@ export class CreatePullRequestHelper {
 		}
 
 		this._createPRViewProvider.show(branch);
+	}
+
+	dispose() {
+		vscode.commands.executeCommand('setContext', 'github:createPullRequest', false);
+
+		this._createPRViewProvider?.dispose();
+		this._createPRViewProvider = undefined;
+
+		this._treeView?.dispose();
+		this._treeView = undefined;
+
+		dispose(this._disposables);
 	}
 }

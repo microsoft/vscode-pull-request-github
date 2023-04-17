@@ -8,6 +8,7 @@ import { Repository } from '../api/api';
 import { getGitChangeType } from '../common/diffHunk';
 import Logger from '../common/logger';
 import { Schemes } from '../common/uri';
+import { toDisposable } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
 import { GitHubContentProvider } from './gitHubContentProvider';
@@ -130,6 +131,9 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 						isReadonly: true,
 					}),
 				);
+				this._disposables.push(toDisposable(() => {
+					CompareChangesTreeProvider.closeTabs();
+				}));
 			} catch (e) {
 				// already registered
 			}
@@ -175,6 +179,16 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		this._disposables.forEach(d => d.dispose());
 		this._contentProvider = undefined;
 		this._view.dispose();
+	}
+
+	public static closeTabs() {
+		vscode.window.tabGroups.all.forEach(group => group.tabs.forEach(tab => {
+			if (tab.input instanceof vscode.TabInputTextDiff) {
+				if (tab.input.modified.scheme === Schemes.GithubPr) {
+					vscode.window.tabGroups.close(tab);
+				}
+			}
+		}));
 	}
 }
 
