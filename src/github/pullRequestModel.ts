@@ -808,17 +808,22 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param reviewers A list of GitHub logins
 	 */
 	async requestReview(reviewers: string[], teamReviewers: string[]): Promise<void> {
-		const { mutate, schema } = await this.githubRepository.ensure();
-		await mutate({
+		const { octokit, mutate, schema, remote } = await this.githubRepository.ensure();
+		await Promise.all([mutate({
 			mutation: schema.AddReviewers,
 			variables: {
 				input: {
 					pullRequestId: this.graphNodeId,
 					teamIds: teamReviewers,
-					userIds: reviewers
 				},
 			},
-		});
+		}),
+		octokit.call(octokit.api.pulls.requestReviewers, {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			pull_number: this.number,
+			reviewers,
+		})]);
 	}
 
 	/**
