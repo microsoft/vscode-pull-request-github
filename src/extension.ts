@@ -27,6 +27,7 @@ import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitP
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
 import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
+import { CompareChangesTreeProvider } from './view/compareChangesTreeDataProvider';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { getInMemPRFileSystemProvider } from './view/inMemPRContentProvider';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
@@ -216,6 +217,8 @@ async function init(
 	await experimentationService.initializePromise;
 	await experimentationService.isCachedFlightEnabled('githubaa');
 	registerPostCommitCommandsProvider(reposManager, git);
+	// Make sure any compare changes tabs, which come from the create flow, are closed.
+	CompareChangesTreeProvider.closeTabs();
 	/* __GDPR__
 		"startup" : {}
 	*/
