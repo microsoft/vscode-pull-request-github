@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
-import { GitHubRemote, parseRemote, Remote } from '../common/remote';
+import { GitHubRemote, parseRemote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
 import { OctokitCommon } from './common';
@@ -69,11 +69,11 @@ export interface ItemsData {
 }
 
 export interface IssueData extends ItemsData {
-	items: IssueModel[];
+	items: Issue[];
 	hasMorePages: boolean;
 }
 
-export interface PullRequestData extends IssueData {
+export interface PullRequestData extends ItemsData {
 	items: PullRequestModel[];
 }
 
@@ -178,9 +178,12 @@ export class GitHubRepository implements vscode.Disposable {
 		public readonly rootUri: vscode.Uri,
 		private readonly _credentialStore: CredentialStore,
 		private readonly _telemetry: ITelemetry,
+		silent: boolean = false
 	) {
 		// kick off the comments controller early so that the Comments view is visible and doesn't pop up later in an way that's jarring
-		this.ensureCommentsController();
+		if (!silent) {
+			this.ensureCommentsController();
+		}
 	}
 
 	get authMatchesServer(): boolean {
@@ -460,23 +463,6 @@ export class GitHubRepository implements vscode.Disposable {
 		return undefined;
 	}
 
-	private getRepoForIssue(githubRepository: GitHubRepository, parsedIssue: Issue): GitHubRepository {
-		if (
-			parsedIssue.repositoryName &&
-			parsedIssue.repositoryUrl &&
-			(githubRepository.remote.owner !== parsedIssue.repositoryOwner ||
-				githubRepository.remote.repositoryName !== parsedIssue.repositoryName)
-		) {
-			const remote = new Remote(
-				parsedIssue.repositoryName,
-				parsedIssue.repositoryUrl,
-				new Protocol(parsedIssue.repositoryUrl),
-			);
-			githubRepository = new GitHubRepository(GitHubRemote.remoteAsGitHub(remote, this.remote.githubServerType), this.rootUri, this._credentialStore, this._telemetry);
-		}
-		return githubRepository;
-	}
-
 	async getMilestones(includeClosed: boolean = false): Promise<any> {
 		try {
 			Logger.debug(`Fetch milestones - enter`, GitHubRepository.ID);
@@ -545,16 +531,13 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug(`Fetch all issues - done`, GitHubRepository.ID);
 
 			const milestones: { milestone: IMilestone; issues: IssueModel[] }[] = [];
-			let githubRepository: GitHubRepository = this;
 			if (data && data.repository.milestones && data.repository.milestones.nodes) {
 				data.repository.milestones.nodes.forEach(raw => {
 					const milestone = parseMilestone(raw);
 					if (milestone) {
 						const issues: IssueModel[] = [];
 						raw.issues.edges.forEach(issue => {
-							const parsedIssue = parseGraphQLIssue(issue.node, this);
-							githubRepository = this.getRepoForIssue(githubRepository, parsedIssue);
-							issues.push(new IssueModel(githubRepository, githubRepository.remote, parsedIssue));
+							issues.push(new IssueModel(this, this.remote, parseGraphQLIssue(issue.node, this)));
 						});
 						milestones.push({ milestone, issues });
 					}
@@ -584,14 +567,11 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 			Logger.debug(`Fetch issues without milestone - done`, GitHubRepository.ID);
 
-			const issues: IssueModel[] = [];
-			let githubRepository: GitHubRepository = this;
+			const issues: Issue[] = [];
 			if (data && data.repository.issues.edges) {
 				data.repository.issues.edges.forEach(raw => {
 					if (raw.node.id) {
-						const parsedIssue = parseGraphQLIssue(raw.node, this);
-						githubRepository = this.getRepoForIssue(githubRepository, parsedIssue);
-						issues.push(new IssueModel(githubRepository, githubRepository.remote, parsedIssue));
+						issues.push(parseGraphQLIssue(raw.node, this));
 					}
 				});
 			}
@@ -617,14 +597,11 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 			Logger.debug(`Fetch issues with query - done`, GitHubRepository.ID);
 
-			const issues: IssueModel[] = [];
-			let githubRepository: GitHubRepository = this;
+			const issues: Issue[] = [];
 			if (data && data.search.edges) {
 				data.search.edges.forEach(raw => {
 					if (raw.node.id) {
-						const parsedIssue = parseGraphQLIssue(raw.node, this);
-						githubRepository = this.getRepoForIssue(githubRepository, parsedIssue);
-						issues.push(new IssueModel(githubRepository, githubRepository.remote, parsedIssue));
+						issues.push(parseGraphQLIssue(raw.node, this));
 					}
 				});
 			}
