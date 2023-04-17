@@ -433,11 +433,23 @@ export function registerCommands(
 			async (args?: any | Repository) => {
 				if (isSourceControl(args)) {
 					const reviewManager = await chooseReviewManager(args.rootUri.fsPath);
+					const folderManager = reposManager.getManagerForFile(args.rootUri);
+					let create = true;
+					if (folderManager?.activePullRequest) {
+						const push = vscode.l10n.t('Push');
+						const result = await vscode.window.showInformationMessage(vscode.l10n.t('You already have a pull request for this branch. Do you want to push your changes to the remote branch?'), { modal: true }, push);
+						if (result !== push) {
+							return;
+						}
+						create = false;
+					}
 					if (reviewManager) {
 						if (args.state.HEAD?.upstream) {
 							await args.push();
 						}
-						reviewManager.createPullRequest();
+						if (create) {
+							reviewManager.createPullRequest();
+						}
 					}
 				}
 			},
