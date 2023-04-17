@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
+import { bulkhead } from 'cockatiel';
 import * as vscode from 'vscode';
 import type { Branch, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl, GitErrorCodes } from '../api/api1';
@@ -27,7 +28,7 @@ import { OctokitCommon } from './common';
 import { CredentialStore } from './credentials';
 import { GitHubRepository, ItemsData, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
 import { PullRequestState, UserResponse } from './graphql';
-import { IAccount, ILabel, IMilestone, IPullRequestsPagingOptions, ITeam, PRType, RepoAccessAndMergeMethods, User } from './interface';
+import { IAccount, ILabel, IMilestone, IPullRequestsPagingOptions, Issue, ITeam, PRType, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
 import { MilestoneModel } from './milestoneModel';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
@@ -1272,6 +1273,16 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 	}
 
+	private async getRepoForIssue(parsedIssue: Issue): Promise<GitHubRepository> {
+		const remote = new Remote(
+			parsedIssue.repositoryName!,
+			parsedIssue.repositoryUrl!,
+			new Protocol(parsedIssue.repositoryUrl!),
+		);
+		return this.createGitHubRepository(remote, this.credentialStore, true);
+
+	}
+
 	/**
 	 * Pull request defaults in the query, like owner and repository variables, will be resolved.
 	 */
@@ -1279,7 +1290,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		options: IPullRequestsPagingOptions = { fetchNextPage: false, fetchOnePagePerRepo: true },
 		query?: string,
 	): Promise<ItemsResponseResult<IssueModel>> {
-		return this.fetchPagedData<IssueModel>(options, 'issuesKey', PagedDataType.IssueSearch, PRType.All, query);
+		const data = await this.fetchPagedData<Issue>(options, 'issuesKey', PagedDataType.IssueSearch, PRType.All, query);
+		const mappedData: ItemsResponseResult<IssueModel> = {
+			items: [],
+			hasMorePages: data.hasMorePages,
+			hasUnsearchedRepositories: data.hasUnsearchedRepositories
+		};
+		for (const issue of data.items) {
+			const githubRepository = await this.getRepoForIssue(issue);
+			mappedData.items.push(new IssueModel(githubRepository, githubRepository.remote, issue));
+		}
+		return mappedData;
 	}
 
 	async getMaxIssue(): Promise<number> {
@@ -2277,15 +2298,19 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		);
 	}
 
-	private async createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore) {
-		const repo = new GitHubRepository(GitHubRemote.remoteAsGitHub(remote, await this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)), this.repository.rootUri, credentialStore, this.telemetry);
+	private async createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore, silent?: boolean) {
+		const repo = new GitHubRepository(GitHubRemote.remoteAsGitHub(remote, await this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)), this.repository.rootUri, credentialStore, this.telemetry, silent);
 		this._githubRepositories.push(repo);
 		return repo;
 	}
 
-	async createGitHubRepository(remote: Remote, credentialStore: CredentialStore): Promise<GitHubRepository> {
-		return this.findExistingGitHubRepository(remote) ??
-			this.createAndAddGitHubRepository(remote, credentialStore);
+	private _createGitHubRepositoryBulkhead = bulkhead(1, 300);
+	async createGitHubRepository(remote: Remote, credentialStore: CredentialStore, silent?: boolean): Promise<GitHubRepository> {
+		// Use a bulkhead/semaphore to ensure that we don't create multiple GitHubRepositories for the same remote at the same time.
+		return this._createGitHubRepositoryBulkhead.execute(() => {
+			return this.findExistingGitHubRepository(remote) ??
+				this.createAndAddGitHubRepository(remote, credentialStore, silent);
+		});
 	}
 
 	async createGitHubRepositoryFromOwnerName(owner: string, repositoryName: string): Promise<GitHubRepository> {
