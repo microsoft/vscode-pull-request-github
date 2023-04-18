@@ -19,8 +19,6 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 	private _onDidCreate = new vscode.EventEmitter<PullRequestModel>();
 	readonly onDidCreate: vscode.Event<PullRequestModel> = this._onDidCreate.event;
 
-	private _folderRepoManager: FolderRepositoryManager | undefined;
-
 	constructor() { }
 
 	private registerListeners(repository: Repository, usingCurrentBranchAsCompare: boolean) {
@@ -109,10 +107,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 		folderRepoManager: FolderRepositoryManager,
 		compareBranch: string | undefined,
 	) {
-		if (this._folderRepoManager !== folderRepoManager) {
-			this.reset();
-		}
-		this._folderRepoManager = folderRepoManager;
+		this.reset();
 
 		await folderRepoManager.loginAndUpdate();
 		vscode.commands.executeCommand('setContext', 'github:createPullRequest', true);
