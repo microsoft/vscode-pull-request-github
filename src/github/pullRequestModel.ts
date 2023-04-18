@@ -219,7 +219,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	protected updateState(state: string) {
 		if (state.toLowerCase() === 'open') {
 			this.state = GithubItemStateEnum.Open;
-		} else if (state.toLowerCase() === 'merged') {
+		} else if (state.toLowerCase() === 'merged' || this.item.merged) {
 			this.state = GithubItemStateEnum.Merged;
 		} else {
 			this.state = GithubItemStateEnum.Closed;

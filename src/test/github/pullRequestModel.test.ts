@@ -90,7 +90,7 @@ describe('PullRequestModel', function () {
 	});
 
 	it('should return `state` properly as `merged`', function () {
-		const pr = new PullRequestBuilder().merged(true).state('merged').build();
+		const pr = new PullRequestBuilder().merged(true).state('closed').build();
 		const open = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		assert.strictEqual(open.state, GithubItemStateEnum.Merged);
