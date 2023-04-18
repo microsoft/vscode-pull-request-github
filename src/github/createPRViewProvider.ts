@@ -30,6 +30,7 @@ import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } fr
 const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
 
 export class CreatePullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
+	private static readonly ID = 'CreatePullRequestViewProvider';
 	public readonly viewType = 'github:createPullRequest';
 
 	private _onDone = new vscode.EventEmitter<PullRequestModel | undefined>();
@@ -138,7 +139,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		const useTemplate = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(PULL_REQUEST_DESCRIPTION) === 'template';
 
 		let useBranchName = this._pullRequestDefaults.base === compareBranch.name;
-		Logger.debug(`Compare branch name: ${compareBranch.name}, Base branch name: ${this._pullRequestDefaults.base}`, 'CreatePullRequestViewProvider');
+		Logger.debug(`Compare branch name: ${compareBranch.name}, Base branch name: ${this._pullRequestDefaults.base}`, CreatePullRequestViewProvider.ID);
 		try {
 			const name = compareBranch.name;
 			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
@@ -147,7 +148,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				useTemplate ? await this.getPullRequestTemplate() : undefined
 			]);
 
-			Logger.debug(`Total commits: ${totalCommits}`, 'CreatePullRequestViewProvider');
+			Logger.debug(`Total commits: ${totalCommits}`, CreatePullRequestViewProvider.ID);
 			if (totalCommits === undefined) {
 				// There is no upstream branch. Use the last commit as the title and description.
 				useBranchName = false;
@@ -188,7 +189,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			}
 		} catch (e) {
 			// Ignore and fall back to commit message
-			Logger.debug(`Error while getting total commits: ${e}`, 'CreatePullRequestViewProvider');
+			Logger.debug(`Error while getting total commits: ${e}`, CreatePullRequestViewProvider.ID);
 		}
 		return { title, description };
 	}
@@ -332,7 +333,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
 		};
 
-		Logger.appendLine(`Initializing "create" view: ${JSON.stringify(params)}`, 'CreatePullRequestViewProvider');
+		Logger.appendLine(`Initializing "create" view: ${JSON.stringify(params)}`, CreatePullRequestViewProvider.ID);
 
 		this._compareBranch = this.defaultCompareBranch.name ?? '';
 		this._baseBranch = defaultBaseBranch;
@@ -467,13 +468,14 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		});
 
 		if (pushRemote && createdPushRemote) {
-			Logger.appendLine(`Found push remote ${pushRemote.name} for ${compareOwner}/${compareRepositoryName} and branch ${compareBranchName}`, 'CreatePullRequestViewProvider');
+			Logger.appendLine(`Found push remote ${pushRemote.name} for ${compareOwner}/${compareRepositoryName} and branch ${compareBranchName}`, CreatePullRequestViewProvider.ID);
 			await this._folderRepositoryManager.repository.push(pushRemote.name, compareBranchName, true);
 			return { compareUpstream: createdPushRemote, repo: this._folderRepositoryManager.findRepo(byRemoteName(createdPushRemote.remoteName)) };
 		}
 	}
 
 	private async create(message: IRequestMessage<CreatePullRequest>): Promise<void> {
+		Logger.debug(`Creating pull request with args ${JSON.stringify(message.args)}`, CreatePullRequestViewProvider.ID);
 		vscode.window.withProgress({ location: { viewId: 'github:createPullRequest' } }, () => {
 			return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async progress => {
 				let totalIncrement = 0;
