@@ -16,7 +16,7 @@ import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { ReviewEvent as CommonReviewEvent, EventType, TimelineEvent } from '../common/timelineEvent';
-import { resolvePath, toPRUri, toReviewUri } from '../common/uri';
+import { resolvePath, Schemes, toPRUri, toReviewUri } from '../common/uri';
 import { formatError } from '../common/utils';
 import { OctokitCommon } from './common';
 import { CredentialStore } from './credentials';
@@ -1651,7 +1651,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	private setFileViewedState(fileSubpath: string, viewedState: ViewedState, event: boolean) {
-		const filePath = vscode.Uri.joinPath(this.githubRepository.rootUri, fileSubpath).fsPath;
+		const uri = vscode.Uri.joinPath(this.githubRepository.rootUri, fileSubpath);
+		const filePath = ((vscode.env.uiKind === vscode.UIKind.Web) && (this.githubRepository.rootUri.scheme !== Schemes.File)) ? uri.path : uri.fsPath;
 		switch (viewedState) {
 			case ViewedState.DISMISSED: {
 				this._viewedFiles.delete(filePath);
