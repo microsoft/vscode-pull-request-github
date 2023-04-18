@@ -19,9 +19,11 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 	private _onDidCreate = new vscode.EventEmitter<PullRequestModel>();
 	readonly onDidCreate: vscode.Event<PullRequestModel> = this._onDidCreate.event;
 
-	constructor(private readonly repository: Repository) { }
+	private _folderRepoManager: FolderRepositoryManager | undefined;
 
-	private registerListeners(usingCurrentBranchAsCompare: boolean) {
+	constructor() { }
+
+	private registerListeners(repository: Repository, usingCurrentBranchAsCompare: boolean) {
 		this._disposables.push(
 			this._createPRViewProvider!.onDone(async createdPR => {
 				this.dispose();
@@ -66,9 +68,9 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 
 		if (usingCurrentBranchAsCompare) {
 			this._disposables.push(
-				this.repository.state.onDidChange(_ => {
-					if (this._createPRViewProvider && this.repository.state.HEAD) {
-						this._createPRViewProvider.defaultCompareBranch = this.repository.state.HEAD;
+				repository.state.onDidChange(_ => {
+					if (this._createPRViewProvider && repository.state.HEAD) {
+						this._createPRViewProvider.defaultCompareBranch = repository.state.HEAD;
 						this._treeView?.updateCompareBranch();
 					}
 				}),
@@ -107,6 +109,11 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 		folderRepoManager: FolderRepositoryManager,
 		compareBranch: string | undefined,
 	) {
+		if (this._folderRepoManager !== folderRepoManager) {
+			this.reset();
+		}
+		this._folderRepoManager = folderRepoManager;
+
 		await folderRepoManager.loginAndUpdate();
 		vscode.commands.executeCommand('setContext', 'github:createPullRequest', true);
 
@@ -129,7 +136,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 
 			const compareOrigin = await folderRepoManager.getOrigin(branch);
 			this._treeView = new CompareChangesTreeProvider(
-				this.repository,
+				folderRepoManager.repository,
 				pullRequestDefaults.owner,
 				pullRequestDefaults.base,
 				compareOrigin.remote.owner,
@@ -138,7 +145,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 				folderRepoManager,
 			);
 
-			this.registerListeners(!compareBranch);
+			this.registerListeners(folderRepoManager.repository, !compareBranch);
 
 			this._disposables.push(
 				vscode.window.registerWebviewViewProvider(
@@ -151,7 +158,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 		this._createPRViewProvider.show(branch);
 	}
 
-	dispose() {
+	private reset() {
 		vscode.commands.executeCommand('setContext', 'github:createPullRequest', false);
 
 		this._createPRViewProvider?.dispose();
@@ -161,5 +168,9 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 		this._treeView = undefined;
 
 		dispose(this._disposables);
+	}
+
+	dispose() {
+		this.reset();
 	}
 }
