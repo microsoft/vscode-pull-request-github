@@ -28,6 +28,7 @@ import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServic
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
 import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
 import { CompareChangesTreeProvider } from './view/compareChangesTreeDataProvider';
+import { CreatePullRequestHelper } from './view/createPullRequestHelper';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { getInMemPRFileSystemProvider } from './view/inMemPRContentProvider';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
@@ -145,8 +146,10 @@ async function init(
 
 	const activePrViewCoordinator = new WebviewViewCoordinator(context);
 	context.subscriptions.push(activePrViewCoordinator);
+	const createPrHelper = new CreatePullRequestHelper();
+	context.subscriptions.push(createPrHelper);
 	const reviewManagers = reposManager.folderManagers.map(
-		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree, showPRController, activePrViewCoordinator),
+		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree, showPRController, activePrViewCoordinator, createPrHelper),
 	);
 	context.subscriptions.push(new FileTypeDecorationProvider(reposManager, reviewManagers));
 
@@ -175,7 +178,8 @@ async function init(
 				telemetry,
 				changesTree,
 				showPRController,
-				activePrViewCoordinator
+				activePrViewCoordinator,
+				createPrHelper
 			);
 			reviewsManager.addReviewManager(newReviewManager);
 			tree.refresh();
