@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
-import { GitHubRemote, parseRemote, Remote } from '../common/remote';
+import { GitHubRemote, parseRemote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
 import { OctokitCommon } from './common';
@@ -26,6 +26,8 @@ import {
 	MaxIssueResponse,
 	MentionableUsersResponse,
 	MilestoneIssuesResponse,
+	OrganizationTeamsCountResponse,
+	OrganizationTeamsResponse,
 	PullRequestParticipantsResponse,
 	PullRequestResponse,
 	PullRequestsResponse,
@@ -36,6 +38,7 @@ import {
 	IAccount,
 	IMilestone,
 	Issue,
+	ITeam,
 	PullRequest,
 	PullRequestChecks,
 	PullRequestReviewRequirement,
@@ -66,11 +69,11 @@ export interface ItemsData {
 }
 
 export interface IssueData extends ItemsData {
-	items: IssueModel[];
+	items: Issue[];
 	hasMorePages: boolean;
 }
 
-export interface PullRequestData extends IssueData {
+export interface PullRequestData extends ItemsData {
 	items: PullRequestModel[];
 }
 
@@ -86,6 +89,12 @@ export enum ViewerPermission {
 	Read = 'READ',
 	Triage = 'TRIAGE',
 	Write = 'WRITE',
+}
+
+export enum TeamReviewerRefreshKind {
+	None,
+	Try,
+	Force
 }
 
 export interface ForkDetails {
@@ -169,9 +178,12 @@ export class GitHubRepository implements vscode.Disposable {
 		public readonly rootUri: vscode.Uri,
 		private readonly _credentialStore: CredentialStore,
 		private readonly _telemetry: ITelemetry,
+		silent: boolean = false
 	) {
 		// kick off the comments controller early so that the Comments view is visible and doesn't pop up later in an way that's jarring
-		this.ensureCommentsController();
+		if (!silent) {
+			this.ensureCommentsController();
+		}
 	}
 
 	get authMatchesServer(): boolean {
@@ -284,6 +296,23 @@ export class GitHubRepository implements vscode.Disposable {
 			}
 		} else {
 			this._hub = this._credentialStore.getHub(this.remote.authProviderId);
+		}
+
+		return this;
+	}
+
+	async ensureAdditionalScopes(): Promise<GitHubRepository> {
+		this._initialized = true;
+
+		if (!this._credentialStore.isAuthenticated(this.remote.authProviderId)) {
+			// We need auth now. (ex., a PR is already checked out)
+			// We can no longer wait until later for login to be done
+			await this._credentialStore.create(undefined, true);
+			if (!this._credentialStore.isAuthenticated(this.remote.authProviderId)) {
+				this._hub = await this._credentialStore.showSignInNotification(this.remote.authProviderId);
+			}
+		} else {
+			this._hub = await this._credentialStore.getHubEnsureAdditionalScopes(this.remote.authProviderId);
 		}
 
 		return this;
@@ -434,23 +463,6 @@ export class GitHubRepository implements vscode.Disposable {
 		return undefined;
 	}
 
-	private getRepoForIssue(githubRepository: GitHubRepository, parsedIssue: Issue): GitHubRepository {
-		if (
-			parsedIssue.repositoryName &&
-			parsedIssue.repositoryUrl &&
-			(githubRepository.remote.owner !== parsedIssue.repositoryOwner ||
-				githubRepository.remote.repositoryName !== parsedIssue.repositoryName)
-		) {
-			const remote = new Remote(
-				parsedIssue.repositoryName,
-				parsedIssue.repositoryUrl,
-				new Protocol(parsedIssue.repositoryUrl),
-			);
-			githubRepository = new GitHubRepository(GitHubRemote.remoteAsGitHub(remote, this.remote.githubServerType), this.rootUri, this._credentialStore, this._telemetry);
-		}
-		return githubRepository;
-	}
-
 	async getMilestones(includeClosed: boolean = false): Promise<any> {
 		try {
 			Logger.debug(`Fetch milestones - enter`, GitHubRepository.ID);
@@ -519,16 +531,13 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug(`Fetch all issues - done`, GitHubRepository.ID);
 
 			const milestones: { milestone: IMilestone; issues: IssueModel[] }[] = [];
-			let githubRepository: GitHubRepository = this;
 			if (data && data.repository.milestones && data.repository.milestones.nodes) {
 				data.repository.milestones.nodes.forEach(raw => {
 					const milestone = parseMilestone(raw);
 					if (milestone) {
 						const issues: IssueModel[] = [];
 						raw.issues.edges.forEach(issue => {
-							const parsedIssue = parseGraphQLIssue(issue.node, this);
-							githubRepository = this.getRepoForIssue(githubRepository, parsedIssue);
-							issues.push(new IssueModel(githubRepository, githubRepository.remote, parsedIssue));
+							issues.push(new IssueModel(this, this.remote, parseGraphQLIssue(issue.node, this)));
 						});
 						milestones.push({ milestone, issues });
 					}
@@ -558,14 +567,11 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 			Logger.debug(`Fetch issues without milestone - done`, GitHubRepository.ID);
 
-			const issues: IssueModel[] = [];
-			let githubRepository: GitHubRepository = this;
+			const issues: Issue[] = [];
 			if (data && data.repository.issues.edges) {
 				data.repository.issues.edges.forEach(raw => {
 					if (raw.node.id) {
-						const parsedIssue = parseGraphQLIssue(raw.node, this);
-						githubRepository = this.getRepoForIssue(githubRepository, parsedIssue);
-						issues.push(new IssueModel(githubRepository, githubRepository.remote, parsedIssue));
+						issues.push(parseGraphQLIssue(raw.node, this));
 					}
 				});
 			}
@@ -591,14 +597,11 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 			Logger.debug(`Fetch issues with query - done`, GitHubRepository.ID);
 
-			const issues: IssueModel[] = [];
-			let githubRepository: GitHubRepository = this;
+			const issues: Issue[] = [];
 			if (data && data.search.edges) {
 				data.search.edges.forEach(raw => {
 					if (raw.node.id) {
-						const parsedIssue = parseGraphQLIssue(raw.node, this);
-						githubRepository = this.getRepoForIssue(githubRepository, parsedIssue);
-						issues.push(new IssueModel(githubRepository, githubRepository.remote, parsedIssue));
+						issues.push(parseGraphQLIssue(raw.node, this));
 					}
 				});
 			}
@@ -760,7 +763,7 @@ export class GitHubRepository implements vscode.Disposable {
 		if (model) {
 			model.update(pullRequest);
 		} else {
-			model = new PullRequestModel(this._telemetry, this, this.remote, pullRequest);
+			model = new PullRequestModel(this._credentialStore, this._telemetry, this, this.remote, pullRequest);
 			model.onDidInvalidate(() => this.getPullRequest(pullRequest.number));
 			this._pullRequestModels.set(pullRequest.number, model);
 			this._onDidAddPullRequest.fire(model);
@@ -992,6 +995,94 @@ export class GitHubRepository implements vscode.Disposable {
 		} while (hasNextPage);
 
 		return ret;
+	}
+
+	async getOrgTeamsCount(): Promise<number> {
+		Logger.debug(`Fetch Teams Count - enter`, GitHubRepository.ID);
+		if (!this._credentialStore.isAuthenticatedWithAdditionalScopes(this.remote.authProviderId)) {
+			return 0;
+		}
+
+		const { query, remote, schema } = await this.ensureAdditionalScopes();
+
+		try {
+			const result: { data: OrganizationTeamsCountResponse } = await query<OrganizationTeamsCountResponse>({
+				query: schema.GetOrganizationTeamsCount,
+				variables: {
+					login: remote.owner
+				},
+			});
+			return result.data.organization.teams.totalCount;
+		} catch (e) {
+			Logger.debug(`Unable to fetch teams Count: ${e}`, GitHubRepository.ID);
+			if (
+				e.graphQLErrors &&
+				e.graphQLErrors.length > 0 &&
+				e.graphQLErrors[0].type === 'INSUFFICIENT_SCOPES'
+			) {
+				vscode.window.showWarningMessage(
+					`GitHub teams features will not work. ${e.graphQLErrors[0].message}`,
+				);
+			}
+			return 0;
+		}
+	}
+
+	async getOrgTeams(refreshKind: TeamReviewerRefreshKind): Promise<(ITeam & { repositoryNames: string[] })[]> {
+		Logger.debug(`Fetch Teams - enter`, GitHubRepository.ID);
+		if ((refreshKind === TeamReviewerRefreshKind.None) || (refreshKind === TeamReviewerRefreshKind.Try && !this._credentialStore.isAuthenticatedWithAdditionalScopes(this.remote.authProviderId))) {
+			Logger.debug(`Fetch Teams - exit without fetching teams`, GitHubRepository.ID);
+			return [];
+		}
+
+		const { query, remote, schema } = await this.ensureAdditionalScopes();
+
+		let after: string | null = null;
+		let hasNextPage = false;
+		const orgTeams: (ITeam & { repositoryNames: string[] })[] = [];
+
+		do {
+			try {
+				const result: { data: OrganizationTeamsResponse } = await query<OrganizationTeamsResponse>({
+					query: schema.GetOrganizationTeams,
+					variables: {
+						login: remote.owner,
+						after: after,
+						repoName: remote.repositoryName,
+					},
+				});
+
+				result.data.organization.teams.nodes.forEach(node => {
+					const team: ITeam = {
+						avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
+						name: node.name,
+						url: node.url,
+						slug: node.slug,
+						id: node.id,
+						org: remote.owner
+					};
+					orgTeams.push({ ...team, repositoryNames: node.repositories.nodes.map(repo => repo.name) });
+				});
+
+				hasNextPage = result.data.organization.teams.pageInfo.hasNextPage;
+				after = result.data.organization.teams.pageInfo.endCursor;
+			} catch (e) {
+				Logger.debug(`Unable to fetch teams: ${e}`, GitHubRepository.ID);
+				if (
+					e.graphQLErrors &&
+					e.graphQLErrors.length > 0 &&
+					e.graphQLErrors[0].type === 'INSUFFICIENT_SCOPES'
+				) {
+					vscode.window.showWarningMessage(
+						`GitHub teams features will not work. ${e.graphQLErrors[0].message}`,
+					);
+				}
+				return orgTeams;
+			}
+		} while (hasNextPage);
+
+		Logger.debug(`Fetch Teams - exit`, GitHubRepository.ID);
+		return orgTeams;
 	}
 
 	async getPullRequestParticipants(pullRequestNumber: number): Promise<IAccount[]> {

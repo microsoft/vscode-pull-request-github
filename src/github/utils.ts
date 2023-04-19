@@ -30,9 +30,12 @@ import {
 	IMilestone,
 	Issue,
 	ISuggestedReviewer,
+	ITeam,
 	MergeMethod,
 	PullRequest,
 	PullRequestMergeability,
+	reviewerId,
+	reviewerLabel,
 	ReviewState,
 	User,
 } from './interface';
@@ -244,13 +247,14 @@ export function convertRESTUserToAccount(
 	};
 }
 
-export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListResponseItemHead) {
+export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListResponseItemHead): IGitHubRef {
 	return {
 		label: head.label,
 		ref: head.ref,
 		sha: head.sha,
 		repo: {
 			cloneUrl: head.repo.clone_url,
+			isInOrganization: !!head.repo.organization,
 			owner: head.repo.owner!.login,
 			name: head.repo.name
 		},
@@ -514,6 +518,7 @@ function parseRef(refName: string, oid: string, repository?: GraphQL.RefReposito
 		sha: oid,
 		repo: {
 			cloneUrl: repository.url,
+			isInOrganization: repository.isInOrganization,
 			owner: repository.owner.login,
 			name: refName
 		},
@@ -688,6 +693,13 @@ function parseSuggestedReviewers(
 export function loginComparator(a: IAccount, b: IAccount) {
 	// sensitivity: 'accent' allows case insensitive comparison
 	return a.login.localeCompare(b.login, 'en', { sensitivity: 'accent' });
+}
+/**
+ * Used for case insensitive sort by team name
+ */
+export function teamComparator(a: ITeam, b: ITeam) {
+	// sensitivity: 'accent' allows case insensitive comparison
+	return a.name.localeCompare(b.name, 'en', { sensitivity: 'accent' });
 }
 
 export function parseGraphQLReviewEvent(
@@ -989,7 +1001,7 @@ export function getRepositoryForFile(gitAPI: GitApiImpl, file: vscode.Uri): Repo
  * @param author The author of the pull request
  */
 export function parseReviewers(
-	requestedReviewers: IAccount[],
+	requestedReviewers: (IAccount | ITeam)[],
 	timelineEvents: Common.TimelineEvent[],
 	author: IAccount,
 ): ReviewState[] {
@@ -1012,13 +1024,13 @@ export function parseReviewers(
 	}
 
 	requestedReviewers.forEach(request => {
-		if (!seen.get(request.login)) {
+		if (!seen.get(reviewerId(request))) {
 			reviewers.push({
 				reviewer: request,
 				state: 'REQUESTED',
 			});
 		} else {
-			const reviewer = reviewers.find(r => r.reviewer.login === request.login);
+			const reviewer = reviewers.find(r => reviewerId(r.reviewer) === reviewerId(request));
 			reviewer!.state = 'REQUESTED';
 		}
 	});
@@ -1033,7 +1045,7 @@ export function parseReviewers(
 			return -1;
 		}
 
-		return a.reviewer.login.toLowerCase() < b.reviewer.login.toLowerCase() ? -1 : 1;
+		return reviewerLabel(a.reviewer).toLowerCase() < reviewerLabel(b.reviewer).toLowerCase() ? -1 : 1;
 	});
 
 	return reviewers;

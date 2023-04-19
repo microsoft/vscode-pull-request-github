@@ -55,8 +55,6 @@ export class ReviewManager {
 		remotes: Remote[];
 	};
 
-	private _createPullRequestHelper: CreatePullRequestHelper | undefined;
-
 	private _switchingToReviewMode: boolean;
 	private _changesSinceLastReviewProgress: ProgressHelper = new ProgressHelper();
 	/**
@@ -86,7 +84,8 @@ export class ReviewManager {
 		private _telemetry: ITelemetry,
 		public changesInPrDataProvider: PullRequestChangesTreeDataProvider,
 		private _showPullRequest: ShowPullRequest,
-		private readonly _activePrViewCoordinator: WebviewViewCoordinator
+		private readonly _activePrViewCoordinator: WebviewViewCoordinator,
+		private _createPullRequestHelper: CreatePullRequestHelper
 	) {
 		this._switchingToReviewMode = false;
 		this._disposables = [];
@@ -985,30 +984,28 @@ export class ReviewManager {
 	}
 
 	public async createPullRequest(compareBranch?: string): Promise<void> {
-		if (!this._createPullRequestHelper) {
-			this._createPullRequestHelper = new CreatePullRequestHelper(this.repository);
-			this._createPullRequestHelper.onDidCreate(async createdPR => {
-				const postCreate = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<'none' | 'openOverview' | 'checkoutDefaultBranch'>(POST_CREATE, 'openOverview');
-				if (postCreate === 'openOverview') {
-					const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(this._folderRepoManager);
-					await openDescription(
-						this._context,
-						this._telemetry,
-						createdPR,
-						descriptionNode,
-						this._folderRepoManager,
-					);
-				} else if (postCreate === 'checkoutDefaultBranch') {
-					const defaultBranch = await this._folderRepoManager.getPullRequestRepositoryDefaultBranch(createdPR);
-					if (defaultBranch) {
-						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch);
-					}
+		const disposable = this._createPullRequestHelper.onDidCreate(async createdPR => {
+			const postCreate = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<'none' | 'openOverview' | 'checkoutDefaultBranch'>(POST_CREATE, 'openOverview');
+			if (postCreate === 'openOverview') {
+				const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(this._folderRepoManager);
+				await openDescription(
+					this._context,
+					this._telemetry,
+					createdPR,
+					descriptionNode,
+					this._folderRepoManager,
+				);
+			} else if (postCreate === 'checkoutDefaultBranch') {
+				const defaultBranch = await this._folderRepoManager.getPullRequestRepositoryDefaultBranch(createdPR);
+				if (defaultBranch) {
+					await this._folderRepoManager.checkoutDefaultBranch(defaultBranch);
 				}
-				await this.updateState(false, false);
-			});
-		}
+			}
+			await this.updateState(false, false);
+			disposable.dispose();
+		});
 
-		this._createPullRequestHelper.create(this._context.extensionUri, this._folderRepoManager, compareBranch);
+		return this._createPullRequestHelper.create(this._context.extensionUri, this._folderRepoManager, compareBranch);
 	}
 
 	public async openDescription(): Promise<void> {
@@ -1069,6 +1066,7 @@ export class ReviewManager {
 			// comments are recalculated when getting the data and the change decoration fired then,
 			// so comments only needs to be emptied in this case.
 			activePullRequest?.clear();
+			this._folderRepoManager.setFileViewedContext();
 			this._validateStatusInProgress = undefined;
 		}
 

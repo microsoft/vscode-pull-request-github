@@ -68,11 +68,22 @@ export class CreatePRContext {
 			},
 		});
 
-		this.updateState({
+		const updateValues: Partial<CreateParams> = {
 			baseRemote: { owner, repositoryName },
-			branchesForRemote: response.branches,
-			baseBranch: response.defaultBranch,
-		});
+			branchesForRemote: response.branches
+		};
+		if ((this.createParams.baseRemote?.owner !== owner) || (this.createParams.baseRemote.repositoryName !== repositoryName)) {
+			updateValues.baseBranch = response.defaultBranch;
+			updateValues.defaultMergeMethod = response.defaultMergeMethod;
+			updateValues.allowAutoMerge = response.allowAutoMerge;
+			updateValues.mergeMethodsAvailability = response.mergeMethodsAvailability;
+			updateValues.autoMergeDefault = response.autoMergeDefault;
+			if (!this.createParams.allowAutoMerge && updateValues.allowAutoMerge) {
+				updateValues.autoMerge = updateValues.autoMergeDefault;
+			}
+		}
+
+		this.updateState(updateValues);
 	};
 
 	public changeBaseBranch = async (branch: string): Promise<void> => {
@@ -101,11 +112,15 @@ export class CreatePRContext {
 			},
 		});
 
-		this.updateState({
+		const updateValues: Partial<CreateParams> = {
 			compareRemote: { owner, repositoryName },
-			branchesForCompare: response.branches,
-			compareBranch: response.defaultBranch,
-		});
+			branchesForCompare: response.branches
+		};
+		if ((this.createParams.compareRemote?.owner !== owner) || (this.createParams.compareRemote.repositoryName !== repositoryName)) {
+			updateValues.compareBranch = response.defaultBranch;
+		}
+
+		this.updateState(updateValues);
 	};
 
 	public changeCompareBranch = async (branch: string): Promise<void> => {
@@ -214,6 +229,7 @@ export class CreatePRContext {
 
 				if (this.createParams.autoMerge === undefined) {
 					message.params.autoMerge = message.params.autoMergeDefault;
+					message.params.autoMergeMethod = message.params.defaultMergeMethod;
 				} else {
 					message.params.autoMerge = this.createParams.autoMerge;
 				}

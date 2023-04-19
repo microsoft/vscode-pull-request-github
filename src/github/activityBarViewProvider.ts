@@ -11,7 +11,7 @@ import { dispose, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { ReviewManager } from '../view/reviewManager';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, ReviewEvent, ReviewState } from './interface';
+import { GithubItemStateEnum, isTeam, reviewerId, ReviewEvent, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
@@ -117,8 +117,15 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private reRequestReview(message: IRequestMessage<string>): void {
-		this._item.requestReview([message.args]).then(() => {
-			const reviewer = this._existingReviewers.find(reviewer => reviewer.reviewer.login === message.args);
+		const reviewer = this._existingReviewers.find(reviewer => reviewerId(reviewer.reviewer) === message.args);
+		const userReviewers: string[] = [];
+		const teamReviewers: string[] = [];
+		if (reviewer && isTeam(reviewer.reviewer)) {
+			teamReviewers.push(reviewer.reviewer.id);
+		} else if (reviewer && !isTeam(reviewer.reviewer)) {
+			userReviewers.push(reviewer.reviewer.login);
+		}
+		this._item.requestReview(userReviewers, teamReviewers).then(() => {
 			if (reviewer) {
 				reviewer.state = 'REQUESTED';
 			}
@@ -271,7 +278,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	private updateReviewers(review?: CommonReviewEvent): void {
 		if (review) {
 			const existingReviewer = this._existingReviewers.find(
-				reviewer => review.user.login === reviewer.reviewer.login,
+				reviewer => review.user.login === reviewerId(reviewer.reviewer),
 			);
 			if (existingReviewer) {
 				existingReviewer.state = review.state;

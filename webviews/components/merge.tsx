@@ -20,6 +20,7 @@ import {
 	PullRequestCheckStatus,
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
+	reviewerId,
 } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
@@ -109,7 +110,7 @@ const InlineReviewers = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean 
 			<div className="section">
 				{' '}
 				{pr.reviewers.map(state => (
-					<Reviewer key={state.reviewer.login} {...state} />
+					<Reviewer key={reviewerId(state.reviewer)} {...state} />
 				))}
 			</div>
 		) : null

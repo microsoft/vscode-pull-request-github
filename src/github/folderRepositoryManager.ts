@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
+import { bulkhead } from 'cockatiel';
 import * as vscode from 'vscode';
 import type { Branch, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl, GitErrorCodes } from '../api/api1';
@@ -13,7 +14,7 @@ import { commands, contexts } from '../common/executeCommands';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
 import { GitHubRemote, parseRepositoryRemotes, Remote } from '../common/remote';
-import { PULL_BRANCH } from '../common/settingKeys';
+import { GIT, PULL_BEFORE_CHECKOUT, PULL_BRANCH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { fromPRUri, Schemes } from '../common/uri';
@@ -25,9 +26,9 @@ import { git } from '../gitProviders/gitCommands';
 import { UserCompletion, userMarkdown } from '../issues/util';
 import { OctokitCommon } from './common';
 import { CredentialStore } from './credentials';
-import { GitHubRepository, ItemsData, PullRequestData, ViewerPermission } from './githubRepository';
+import { GitHubRepository, ItemsData, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
 import { PullRequestState, UserResponse } from './graphql';
-import { IAccount, ILabel, IMilestone, IPullRequestsPagingOptions, PRType, RepoAccessAndMergeMethods, User } from './interface';
+import { IAccount, ILabel, IMilestone, IPullRequestsPagingOptions, Issue, ITeam, PRType, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
 import { MilestoneModel } from './milestoneModel';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
@@ -39,6 +40,7 @@ import {
 	getRelatedUsersFromTimelineEvents,
 	loginComparator,
 	parseGraphQLUser,
+	teamComparator,
 	variableSubstitution,
 } from './utils';
 
@@ -125,7 +127,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	private _mentionableUsers?: { [key: string]: IAccount[] };
 	private _fetchMentionableUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
 	private _assignableUsers?: { [key: string]: IAccount[] };
+	private _teamReviewers?: { [key: string]: ITeam[] };
 	private _fetchAssignableUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
+	private _fetchTeamReviewersPromise?: Promise<{ [key: string]: ITeam[] }>;
 	private _gitBlameCache: { [key: string]: string } = {};
 	private _githubManager: GitHubManager;
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
@@ -734,7 +738,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				// file doesn't exist or json is unexpectedly invalid
 			}
 			if (repoSpecificCache) {
-				cache[repo.remote.repositoryName] = repoSpecificCache;
+				cache[repo.remote.remoteName] = repoSpecificCache;
 				return true;
 			}
 		}))).every(value => value);
@@ -744,6 +748,44 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 
 		Logger.appendLine(`No globalState for mentionable users.`);
+		return undefined;
+	}
+
+	private async getTeamReviewersFromGlobalState(): Promise<{ [key: string]: ITeam[] } | undefined> {
+		Logger.appendLine('Trying to use globalState for team reviewers.');
+
+		const teamReviewersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, 'teamReviewers');
+		let teamReviewersCacheExists;
+		try {
+			teamReviewersCacheExists = await vscode.workspace.fs.stat(teamReviewersCacheLocation);
+		} catch (e) {
+			// file doesn't exit
+		}
+		if (!teamReviewersCacheExists) {
+			return undefined;
+		}
+
+		const cache: { [key: string]: ITeam[] } = {};
+		const hasAllRepos = (await Promise.all(this._githubRepositories.map(async (repo) => {
+			const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
+			const repoSpecificFile = vscode.Uri.joinPath(teamReviewersCacheLocation, key);
+			let repoSpecificCache;
+			try {
+				repoSpecificCache = await vscode.workspace.fs.readFile(repoSpecificFile);
+			} catch (e) {
+				// file doesn't exist
+			}
+			if (repoSpecificCache && repoSpecificCache.toString()) {
+				cache[repo.remote.remoteName] = JSON.parse(repoSpecificCache.toString()) ?? [];
+				return true;
+			}
+		}))).every(value => value);
+		if (hasAllRepos) {
+			Logger.appendLine(`Using globalState team reviewers for ${Object.keys(cache).length}.`);
+			return cache;
+		}
+
+		Logger.appendLine(`No globalState for team reviewers.`);
 		return undefined;
 	}
 
@@ -819,6 +861,58 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 
 		return this._fetchAssignableUsersPromise;
+	}
+
+	async getTeamReviewers(refreshKind: TeamReviewerRefreshKind): Promise<{ [key: string]: ITeam[] }> {
+		if (refreshKind === TeamReviewerRefreshKind.Force) {
+			delete this._teamReviewers;
+		}
+
+		if (this._teamReviewers) {
+			return this._teamReviewers;
+		}
+
+		const globalStateTeamReviewers = (refreshKind === TeamReviewerRefreshKind.Force) ? undefined : await this.getTeamReviewersFromGlobalState();
+		if (globalStateTeamReviewers) {
+			return globalStateTeamReviewers || {};
+		}
+
+		if (!this._fetchTeamReviewersPromise) {
+			const cache: { [key: string]: ITeam[] } = {};
+			return (this._fetchTeamReviewersPromise = new Promise(async (resolve) => {
+				// Keep track of the org teams we have already gotten so we don't make duplicate calls
+				const orgTeams: Map<string, (ITeam & { repositoryNames: string[] })[]> = new Map();
+				// Go through one github repo at a time so that we don't make overlapping auth calls
+				for (const githubRepository of this._githubRepositories) {
+					if (!orgTeams.has(githubRepository.remote.owner)) {
+						try {
+							const data = await githubRepository.getOrgTeams(refreshKind);
+							orgTeams.set(githubRepository.remote.owner, data);
+						} catch (e) {
+							// ignore errors from getTeams
+						}
+					}
+					const allTeamsForOrg = orgTeams.get(githubRepository.remote.owner) ?? [];
+					cache[githubRepository.remote.remoteName] = allTeamsForOrg.filter(team => team.repositoryNames.includes(githubRepository.remote.repositoryName)).sort(teamComparator);
+				}
+
+				this._teamReviewers = cache;
+				this._fetchTeamReviewersPromise = undefined;
+				const teamReviewersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, 'teamReviewers');
+				Promise.all(this._githubRepositories.map(async (repo) => {
+					const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
+					const repoSpecificFile = vscode.Uri.joinPath(teamReviewersCacheLocation, key);
+					await vscode.workspace.fs.writeFile(repoSpecificFile, new TextEncoder().encode(JSON.stringify(cache[repo.remote.remoteName])));
+				}));
+				resolve(cache);
+			}));
+		}
+
+		return this._fetchTeamReviewersPromise;
+	}
+
+	async getOrgTeamsCount(repository: GitHubRepository): Promise<number> {
+		return repository.getOrgTeamsCount();
 	}
 
 	async getPullRequestParticipants(githubRepository: GitHubRepository, pullRequestNumber: number): Promise<{ participants: IAccount[], viewer: IAccount }> {
@@ -1185,6 +1279,16 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 	}
 
+	private async getRepoForIssue(parsedIssue: Issue): Promise<GitHubRepository> {
+		const remote = new Remote(
+			parsedIssue.repositoryName!,
+			parsedIssue.repositoryUrl!,
+			new Protocol(parsedIssue.repositoryUrl!),
+		);
+		return this.createGitHubRepository(remote, this.credentialStore, true);
+
+	}
+
 	/**
 	 * Pull request defaults in the query, like owner and repository variables, will be resolved.
 	 */
@@ -1192,7 +1296,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		options: IPullRequestsPagingOptions = { fetchNextPage: false, fetchOnePagePerRepo: true },
 		query?: string,
 	): Promise<ItemsResponseResult<IssueModel>> {
-		return this.fetchPagedData<IssueModel>(options, 'issuesKey', PagedDataType.IssueSearch, PRType.All, query);
+		const data = await this.fetchPagedData<Issue>(options, 'issuesKey', PagedDataType.IssueSearch, PRType.All, query);
+		const mappedData: ItemsResponseResult<IssueModel> = {
+			items: [],
+			hasMorePages: data.hasMorePages,
+			hasUnsearchedRepositories: data.hasUnsearchedRepositories
+		};
+		for (const issue of data.items) {
+			const githubRepository = await this.getRepoForIssue(issue);
+			mappedData.items.push(new IssueModel(githubRepository, githubRepository.remote, issue));
+		}
+		return mappedData;
 	}
 
 	async getMaxIssue(): Promise<number> {
@@ -2053,6 +2167,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				return;
 			}
 
+			// respect the git setting to fetch before checkout
+			if (vscode.workspace.getConfiguration(GIT).get<boolean>(PULL_BEFORE_CHECKOUT, false) && branchObj.upstream) {
+				await this.repository.fetch({ remote: branchObj.upstream.remote, ref: `${branchObj.upstream.name}:${branchObj.name}` });
+			}
+
 			if (branchObj.upstream && branch === branchObj.upstream.name) {
 				await this.repository.checkout(branch);
 			} else {
@@ -2190,15 +2309,19 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		);
 	}
 
-	private async createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore) {
-		const repo = new GitHubRepository(GitHubRemote.remoteAsGitHub(remote, await this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)), this.repository.rootUri, credentialStore, this.telemetry);
+	private async createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore, silent?: boolean) {
+		const repo = new GitHubRepository(GitHubRemote.remoteAsGitHub(remote, await this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)), this.repository.rootUri, credentialStore, this.telemetry, silent);
 		this._githubRepositories.push(repo);
 		return repo;
 	}
 
-	async createGitHubRepository(remote: Remote, credentialStore: CredentialStore): Promise<GitHubRepository> {
-		return this.findExistingGitHubRepository(remote) ??
-			this.createAndAddGitHubRepository(remote, credentialStore);
+	private _createGitHubRepositoryBulkhead = bulkhead(1, 300);
+	async createGitHubRepository(remote: Remote, credentialStore: CredentialStore, silent?: boolean): Promise<GitHubRepository> {
+		// Use a bulkhead/semaphore to ensure that we don't create multiple GitHubRepositories for the same remote at the same time.
+		return this._createGitHubRepositoryBulkhead.execute(() => {
+			return this.findExistingGitHubRepository(remote) ??
+				this.createAndAddGitHubRepository(remote, credentialStore, silent);
+		});
 	}
 
 	async createGitHubRepositoryFromOwnerName(owner: string, repositoryName: string): Promise<GitHubRepository> {

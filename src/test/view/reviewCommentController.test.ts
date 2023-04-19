@@ -35,6 +35,7 @@ import { RepositoriesManager } from '../../github/repositoriesManager';
 import { GitFileChangeModel } from '../../view/fileChangeModel';
 import { WebviewViewCoordinator } from '../../view/webviewViewCoordinator';
 import { GitHubServerType } from '../../common/authentication';
+import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 const schema = require('../../github/queries.gql');
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -70,11 +71,12 @@ describe('ReviewCommentController', function () {
 
 		provider = new PullRequestsTreeDataProvider(telemetry, context);
 		const activePrViewCoordinator = new WebviewViewCoordinator(context);
+		const createPrHelper = new CreatePullRequestHelper();
 		Resource.initialize(context);
 		const gitApiImpl = new GitApiImpl();
 		manager = new FolderRepositoryManager(context, repository, telemetry, gitApiImpl, credentialStore);
 		const tree = new PullRequestChangesTreeDataProvider(context, gitApiImpl, new RepositoriesManager([manager], credentialStore, telemetry));
-		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree, new ShowPullRequest(), activePrViewCoordinator);
+		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree, new ShowPullRequest(), activePrViewCoordinator, createPrHelper);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
 			return Promise.resolve(new MockGitHubRepository(GitHubRemote.remoteAsGitHub(r, GitHubServerType.GitHubDotCom), cStore, telemetry, sinon));
 		});
@@ -84,6 +86,7 @@ describe('ReviewCommentController', function () {
 		const pr = new PullRequestBuilder().build();
 		githubRepo = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
 		activePullRequest = new PullRequestModel(
+			credentialStore,
 			telemetry,
 			githubRepo,
 			remote,

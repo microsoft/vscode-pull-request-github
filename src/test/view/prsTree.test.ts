@@ -148,7 +148,7 @@ describe('GitHub Pull Requests view', function () {
 				});
 			}).pullRequest;
 			const prItem0 = parseGraphQLPullRequest(pr0.repository.pullRequest, gitHubRepository);
-			const pullRequest0 = new PullRequestModel(telemetry, gitHubRepository, remote, prItem0);
+			const pullRequest0 = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem0);
 
 			const pr1 = gitHubRepository.addGraphQLPullRequest(builder => {
 				builder.pullRequest(pr => {
@@ -164,7 +164,7 @@ describe('GitHub Pull Requests view', function () {
 				});
 			}).pullRequest;
 			const prItem1 = parseGraphQLPullRequest(pr1.repository.pullRequest, gitHubRepository);
-			const pullRequest1 = new PullRequestModel(telemetry, gitHubRepository, remote, prItem1);
+			const pullRequest1 = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem1);
 
 			const repository = new MockRepository();
 			await repository.addRemote(remote.remoteName, remote.url);

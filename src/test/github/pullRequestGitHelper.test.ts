@@ -68,7 +68,7 @@ describe('PullRequestGitHelper', function () {
 			repository.expectFetch('you', 'my-branch:pr/me/100', 1);
 			repository.expectPull(true);
 
-			const pullRequest = new PullRequestModel(telemetry, gitHubRepository, remote, prItem);
+			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
 
 			if (!pullRequest.isResolved()) {
 				assert(false, 'pull request head not resolved successfully');
