@@ -365,24 +365,29 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 
 		const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
-		const teamReviewers = this._item.base.isInOrganization ? await this._folderRepositoryManager.getTeamReviewers(refreshKind) : [];
-		const assignableUsers: (IAccount | ITeam)[] = teamReviewers[this._item.remote.remoteName] ?? [];
+		const allTeamReviewers = this._item.base.isInOrganization ? await this._folderRepositoryManager.getTeamReviewers(refreshKind) : [];
+		const teamReviewers: ITeam[] = allTeamReviewers[this._item.remote.remoteName] ?? [];
+		const assignableUsers: (IAccount | ITeam)[] = [...teamReviewers];
 		assignableUsers.push(...allAssignableUsers[this._item.remote.remoteName]);
-
+		let hasTeams = teamReviewers.length > 0;
 
 		// used to track logins that shouldn't be added to pick list
 		// e.g. author, existing and already added reviewers
 		const skipList: Set<string> = new Set([
 			this._item.author.login,
-			...this._existingReviewers.map(reviewer => reviewerId(reviewer.reviewer)),
+			...this._existingReviewers.map(reviewer => {
+				if (isTeam(reviewer.reviewer)) {
+					hasTeams = true;
+				}
+				return reviewerId(reviewer.reviewer);
+			}),
 		]);
 
 		const reviewers: (vscode.QuickPickItem & { reviewer?: IAccount | ITeam })[] = [];
-
 		// Start will all existing reviewers so they show at the top
 		for (const reviewer of this._existingReviewers) {
 			reviewers.push({
-				label: (reviewer.reviewer as IAccount).login ?? `${(reviewer.reviewer as ITeam).org}/${(reviewer.reviewer as ITeam).slug}`,
+				label: isTeam(reviewer.reviewer) ? `$(organization) ${reviewer.reviewer.org}/${reviewer.reviewer.slug}` : `${hasTeams ? `$(account) ` : ''}${reviewer.reviewer.login}`,
 				description: reviewer.reviewer.name,
 				reviewer: reviewer.reviewer,
 				picked: true
@@ -405,7 +410,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 							: vscode.l10n.t('Suggested reviewer');
 
 			reviewers.push({
-				label: login,
+				label: `${hasTeams ? `$(account) ` : ''}${login}`,
 				description: name,
 				detail: suggestionReason,
 				reviewer: user,
@@ -420,7 +425,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}
 
 			reviewers.push({
-				label: (user as IAccount).login ?? `${(user as ITeam).org}/${(user as ITeam).slug}`,
+				label: isTeam(user) ? `$(organization) ${user.org}/${user.slug}` : `${hasTeams ? `$(account) ` : ''}${user.login}`,
 				description: user.name,
 				reviewer: user,
 			});
@@ -528,8 +533,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			quickPick.matchOnDescription = true;
 			quickPick.show();
 			const updateItems = async (refreshKind: TeamReviewerRefreshKind) => {
+				const slowWarning = setTimeout(() => {
+					quickPick.placeholder = vscode.l10n.t('Getting team reviewers can take several minutes. Results will be cached.');
+				}, 3000);
 				quickPick.items = await this.getReviewersQuickPickItems(this._item.suggestedReviewers, refreshKind);
+				clearTimeout(slowWarning);
 				quickPick.selectedItems = quickPick.items.filter(item => item.picked);
+				quickPick.placeholder = undefined;
 			};
 
 			await updateItems((this._teamsCount !== 0 && this._teamsCount <= quickMaxTeamReviewers) ? TeamReviewerRefreshKind.Try : TeamReviewerRefreshKind.None);
