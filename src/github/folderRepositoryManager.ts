@@ -880,14 +880,20 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		if (!this._fetchTeamReviewersPromise) {
 			const cache: { [key: string]: ITeam[] } = {};
 			return (this._fetchTeamReviewersPromise = new Promise(async (resolve) => {
+				// Keep track of the org teams we have already gotten so we don't make duplicate calls
+				const orgTeams: Map<string, (ITeam & { repositoryNames: string[] })[]> = new Map();
 				// Go through one github repo at a time so that we don't make overlapping auth calls
 				for (const githubRepository of this._githubRepositories) {
-					try {
-						const data = await githubRepository.getTeams(refreshKind);
-						cache[githubRepository.remote.remoteName] = data.sort(teamComparator);
-					} catch (e) {
-						// ignore errors from getTeams
+					if (!orgTeams.has(githubRepository.remote.owner)) {
+						try {
+							const data = await githubRepository.getOrgTeams(refreshKind);
+							orgTeams.set(githubRepository.remote.owner, data);
+						} catch (e) {
+							// ignore errors from getTeams
+						}
 					}
+					const allTeamsForOrg = orgTeams.get(githubRepository.remote.owner) ?? [];
+					cache[githubRepository.remote.remoteName] = allTeamsForOrg.filter(team => team.repositoryNames.includes(githubRepository.remote.repositoryName)).sort(teamComparator);
 				}
 
 				this._teamReviewers = cache;

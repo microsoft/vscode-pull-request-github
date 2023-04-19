@@ -1028,7 +1028,7 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
-	async getTeams(refreshKind: TeamReviewerRefreshKind): Promise<ITeam[]> {
+	async getOrgTeams(refreshKind: TeamReviewerRefreshKind): Promise<(ITeam & { repositoryNames: string[] })[]> {
 		Logger.debug(`Fetch Teams - enter`, GitHubRepository.ID);
 		if ((refreshKind === TeamReviewerRefreshKind.None) || (refreshKind === TeamReviewerRefreshKind.Try && !this._credentialStore.isAuthenticatedWithAdditionalScopes(this.remote.authProviderId))) {
 			Logger.debug(`Fetch Teams - exit without fetching teams`, GitHubRepository.ID);
@@ -1039,7 +1039,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 		let after: string | null = null;
 		let hasNextPage = false;
-		const ret: ITeam[] = [];
+		const orgTeams: (ITeam & { repositoryNames: string[] })[] = [];
 
 		do {
 			try {
@@ -1053,16 +1053,15 @@ export class GitHubRepository implements vscode.Disposable {
 				});
 
 				result.data.organization.teams.nodes.forEach(node => {
-					if (node.repositories.nodes.find(repo => repo.name === remote.repositoryName)) {
-						ret.push({
-							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
-							name: node.name,
-							url: node.url,
-							slug: node.slug,
-							id: node.id,
-							org: remote.owner
-						});
-					}
+					const team: ITeam = {
+						avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
+						name: node.name,
+						url: node.url,
+						slug: node.slug,
+						id: node.id,
+						org: remote.owner
+					};
+					orgTeams.push({ ...team, repositoryNames: node.repositories.nodes.map(repo => repo.name) });
 				});
 
 				hasNextPage = result.data.organization.teams.pageInfo.hasNextPage;
@@ -1078,12 +1077,12 @@ export class GitHubRepository implements vscode.Disposable {
 						`GitHub teams features will not work. ${e.graphQLErrors[0].message}`,
 					);
 				}
-				return ret;
+				return orgTeams;
 			}
 		} while (hasNextPage);
 
 		Logger.debug(`Fetch Teams - exit`, GitHubRepository.ID);
-		return ret;
+		return orgTeams;
 	}
 
 	async getPullRequestParticipants(pullRequestNumber: number): Promise<IAccount[]> {
