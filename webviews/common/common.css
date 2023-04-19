@@ -256,7 +256,7 @@ body img.avatar {
 	background: var(--vscode-button-background);
 }
 
-.vscode-high-contrast button{
+.vscode-high-contrast button {
 	outline: none;
 	border: 1px solid var(--vscode-contrastBorder);
 }
