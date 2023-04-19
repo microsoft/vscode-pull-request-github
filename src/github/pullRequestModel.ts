@@ -8,7 +8,7 @@ import * as path from 'path';
 import equals from 'fast-deep-equal';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
-import { DiffSide, IComment, IReviewThread, ViewedState } from '../common/comment';
+import { DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
 import { parseDiff } from '../common/diffHunk';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
@@ -553,8 +553,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	async createReviewThread(
 		body: string,
 		commentPath: string,
-		startLine: number,
-		endLine: number,
+		startLine: number | undefined,
+		endLine: number | undefined,
 		side: DiffSide,
 		suppressDraftModeUpdate?: boolean,
 	): Promise<IReviewThread | undefined> {
@@ -573,8 +573,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					pullRequestId: this.graphNodeId,
 					pullRequestReviewId: pendingReviewId,
 					startLine: startLine === endLine ? undefined : startLine,
-					line: endLine,
+					line: (endLine === undefined) ? 0 : endLine,
 					side,
+					subjectType: (startLine === undefined || endLine === undefined) ? SubjectType.FILE : SubjectType.LINE
 				},
 			},
 		});

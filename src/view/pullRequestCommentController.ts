@@ -7,7 +7,7 @@ import * as path from 'path';
 import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
-import { DiffSide, IComment } from '../common/comment';
+import { DiffSide, IComment, SubjectType } from '../common/comment';
 import { fromPRUri, Schemes } from '../common/uri';
 import { groupBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -154,7 +154,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 					)
 					.map(thread => {
 						const endLine = thread.endLine - 1;
-						const range = threadRange(thread.startLine - 1, endLine, editor.document.lineAt(endLine).range.end.character);
+						const range = thread.subjectType === SubjectType.FILE ? undefined : threadRange(thread.startLine - 1, endLine, editor.document.lineAt(endLine).range.end.character);
 
 						return createVSCodeCommentThreadForReviewThread(
 							editor.document.uri,
@@ -223,7 +223,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			const fileName = thread.path;
 			const index = this._pendingCommentThreadAdds.findIndex(t => {
 				const samePath = this.gitRelativeRootPath(t.uri.path) === thread.path;
-				const sameLine = t.range.end.line + 1 === thread.endLine;
+				const sameLine = (t.range === undefined && thread.subjectType === SubjectType.FILE) || (t.range && t.range.end.line + 1 === thread.endLine);
 				return samePath && sameLine;
 			});
 
@@ -246,7 +246,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 				if (matchingEditor) {
 					const endLine = thread.endLine - 1;
-					const range = threadRange(thread.startLine - 1, endLine, matchingEditor.document.lineAt(endLine).range.end.character);
+					const range = thread.subjectType === SubjectType.FILE ? undefined : threadRange(thread.startLine - 1, endLine, matchingEditor.document.lineAt(endLine).range.end.character);
 
 					newThread = createVSCodeCommentThreadForReviewThread(
 						matchingEditor.document.uri,
@@ -333,8 +333,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				await this.pullRequestModel.createReviewThread(
 					input,
 					fileName,
-					thread.range.start.line + 1,
-					thread.range.end.line + 1,
+					thread.range ? (thread.range.start.line + 1) : undefined,
+					thread.range ? (thread.range.end.line + 1) : undefined,
 					side,
 					isSingleComment,
 				);
@@ -447,7 +447,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				const fileName = this.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
 				this._pendingCommentThreadAdds.push(thread);
-				await this.pullRequestModel.createReviewThread(input, fileName, thread.range.start.line + 1, thread.range.end.line + 1, side);
+				await this.pullRequestModel.createReviewThread(input, fileName, thread.range ? (thread.range.start.line + 1) : undefined, thread.range ? (thread.range.end.line + 1) : undefined, side);
 			} else {
 				await this.reply(thread, input, false);
 			}

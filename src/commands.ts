@@ -918,6 +918,9 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.makeSuggestion', async (reply: CommentReply | GHPRComment) => {
 			const thread = reply instanceof GHPRComment ? reply.parent : reply.thread;
+			if (!thread.range) {
+				return;
+			}
 			const commentEditor = vscode.window.activeTextEditor?.document.uri.scheme === Schemes.Comment ? vscode.window.activeTextEditor
 				: vscode.window.visibleTextEditors.find(visible => (visible.document.uri.scheme === Schemes.Comment) && (visible.document.uri.query === ''));
 			if (!commentEditor) {
@@ -1219,6 +1222,11 @@ ${contents}
 			if (handler instanceof ReviewCommentController) {
 				handler.applySuggestion(comment);
 			}
+		}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.addFileComment', async () => {
+			return vscode.commands.executeCommand('workbench.action.addComment', { fileComment: true });
 		}));
 
 	function goToNextPrevDiff(diffs: vscode.LineChange[], next: boolean) {
