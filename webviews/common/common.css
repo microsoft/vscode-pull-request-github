@@ -13,7 +13,6 @@ body a:hover {
 
 button,
 input[type='submit'] {
-	background-color: var(--vscode-button-background);
 	color: var(--vscode-button-foreground);
 	font-family: var(--vscode-font-family);
 	border-radius: 2px;
@@ -24,6 +23,11 @@ input[type='submit'] {
 	line-height: 18px;
 	white-space: nowrap;
 	user-select: none;
+}
+
+button:not(.icon-button),
+input[type='submit'] {
+	background-color: var(--vscode-button-background);
 }
 
 input.select-left {
@@ -248,9 +252,12 @@ body img.avatar {
 
 /** Theming */
 
-.vscode-high-contrast button {
-	outline: none;
+.vscode-high-contrast button:not(.secondary):not(.icon-button) {
 	background: var(--vscode-button-background);
+}
+
+.vscode-high-contrast button{
+	outline: none;
 	border: 1px solid var(--vscode-contrastBorder);
 }
 
