@@ -74,6 +74,13 @@ export class CreatePRContext {
 		};
 		if ((this.createParams.baseRemote?.owner !== owner) || (this.createParams.baseRemote.repositoryName !== repositoryName)) {
 			updateValues.baseBranch = response.defaultBranch;
+			updateValues.defaultMergeMethod = response.defaultMergeMethod;
+			updateValues.allowAutoMerge = response.allowAutoMerge;
+			updateValues.mergeMethodsAvailability = response.mergeMethodsAvailability;
+			updateValues.autoMergeDefault = response.autoMergeDefault;
+			if (!this.createParams.allowAutoMerge && updateValues.allowAutoMerge) {
+				updateValues.autoMerge = updateValues.autoMergeDefault;
+			}
 		}
 
 		this.updateState(updateValues);
@@ -106,8 +113,8 @@ export class CreatePRContext {
 		});
 
 		const updateValues: Partial<CreateParams> = {
-			baseRemote: { owner, repositoryName },
-			branchesForRemote: response.branches
+			compareRemote: { owner, repositoryName },
+			branchesForCompare: response.branches
 		};
 		if ((this.createParams.compareRemote?.owner !== owner) || (this.createParams.compareRemote.repositoryName !== repositoryName)) {
 			updateValues.compareBranch = response.defaultBranch;
