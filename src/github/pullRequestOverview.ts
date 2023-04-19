@@ -1012,9 +1012,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 export function getDefaultMergeMethod(
 	methodsAvailability: MergeMethodsAvailability,
 ): MergeMethod {
-	const userPreferred = vscode.workspace
-		.getConfiguration(PR_SETTINGS_NAMESPACE)
-		.get<MergeMethod>(DEFAULT_MERGE_METHOD);
+	const userPreferred = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<MergeMethod>(DEFAULT_MERGE_METHOD);
 	// Use default merge method specified by user if it is available
 	if (userPreferred && methodsAvailability.hasOwnProperty(userPreferred) && methodsAvailability[userPreferred]) {
 		return userPreferred;

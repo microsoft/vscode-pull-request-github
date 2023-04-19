@@ -249,9 +249,7 @@ export class CurrentIssue {
 	}
 
 	public async getCommitMessage(): Promise<string | undefined> {
-		const configuration = vscode.workspace
-			.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
-			.get(WORKING_ISSUE_FORMAT_SCM);
+		const configuration = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get(WORKING_ISSUE_FORMAT_SCM);
 		if (typeof configuration === 'string') {
 			return variableSubstitution(configuration, this.issueModel, this._repoDefaults);
 		}

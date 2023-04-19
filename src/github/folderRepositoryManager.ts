@@ -19,7 +19,7 @@ import {
 	DEFAULT_MERGE_METHOD,
 	GIT,
 	PR_SETTINGS_NAMESPACE,
-  PULL_BEFORE_CHECKOUT,
+	PULL_BEFORE_CHECKOUT,
 	PULL_BRANCH,
 	REMOTES,
 } from '../common/settingKeys';
@@ -1377,9 +1377,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		const origin = await this.getOrigin(branch);
 		const meta = await origin.getMetadata();
-		const remotesSettingDefault = vscode.workspace
-			.getConfiguration(PR_SETTINGS_NAMESPACE)
-			.inspect<string[]>(REMOTES)?.defaultValue;
+		const remotesSettingDefault = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).inspect<string[]>(REMOTES)?.defaultValue;
 		const remotesSettingSetValue = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(REMOTES);
 		const settingsEqual = (!remotesSettingSetValue || remotesSettingDefault?.every((value, index) => remotesSettingSetValue[index] === value));
 		const parent = (meta.fork && meta.parent && settingsEqual)
@@ -1679,9 +1677,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			commit_title: title,
 			merge_method:
 				method ||
-				vscode.workspace
-					.getConfiguration(PR_SETTINGS_NAMESPACE)
-					.get<'merge' | 'squash' | 'rebase'>(DEFAULT_MERGE_METHOD),
+				vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'merge' | 'squash' | 'rebase'>(DEFAULT_MERGE_METHOD),
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: pullRequest.number,
@@ -2222,13 +2218,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		const neverShowPullNotification = this.context.globalState.get<boolean>(NEVER_SHOW_PULL_NOTIFICATION, false);
 		if (neverShowPullNotification) {
 			this.context.globalState.update(NEVER_SHOW_PULL_NOTIFICATION, false);
-			await vscode.workspace
-				.getConfiguration(PR_SETTINGS_NAMESPACE)
-				.update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
+			await vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
 		}
-		return vscode.workspace
-			.getConfiguration(PR_SETTINGS_NAMESPACE)
-			.get<'never' | 'prompt' | 'always'>(PULL_BRANCH, 'prompt');
+		return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'never' | 'prompt' | 'always'>(PULL_BRANCH, 'prompt');
 	}
 
 	private async pullBranch(branch: Branch) {
@@ -2257,13 +2249,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				await this.pullBranch(branch);
 				this._updateMessageShown = false;
 			} else if (never) {
-				await vscode.workspace
-					.getConfiguration(PR_SETTINGS_NAMESPACE)
-					.update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
+				await vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
 			} else if (always) {
-				await vscode.workspace
-					.getConfiguration(PR_SETTINGS_NAMESPACE)
-					.update(PULL_BRANCH, 'always', vscode.ConfigurationTarget.Global);
+				await vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(PULL_BRANCH, 'always', vscode.ConfigurationTarget.Global);
 				await this.pullBranch(branch);
 			}
 		}

@@ -1221,9 +1221,7 @@ export function getIssueNumberLabelFromParsed(parsed: ParsedIssue) {
 }
 
 export function getOverrideBranch(): string | undefined {
-	const overrideSetting = vscode.workspace
-		.getConfiguration(PR_SETTINGS_NAMESPACE)
-		.get<string | undefined>(OVERRIDE_DEFAULT_BRANCH);
+	const overrideSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string | undefined>(OVERRIDE_DEFAULT_BRANCH);
 	if (overrideSetting) {
 		Logger.debug('Using override setting for default branch', GitHubRepository.ID);
 		return overrideSetting;

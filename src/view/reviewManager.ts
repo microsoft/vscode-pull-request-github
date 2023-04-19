@@ -994,7 +994,6 @@ export class ReviewManager {
 	}
 
 	public async createPullRequest(compareBranch?: string): Promise<void> {
-
 		const disposable = this._createPullRequestHelper.onDidCreate(async createdPR => {
 			const postCreate = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'none' | 'openOverview' | 'checkoutDefaultBranch'>(POST_CREATE, 'openOverview');
 			if (postCreate === 'openOverview') {
