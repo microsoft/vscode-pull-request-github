@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
-import { IComment, IReviewThread, Reaction } from '../common/comment';
+import { IComment, IReviewThread, Reaction, SubjectType } from '../common/comment';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
@@ -30,9 +30,12 @@ import {
 	IMilestone,
 	Issue,
 	ISuggestedReviewer,
+	ITeam,
 	MergeMethod,
 	PullRequest,
 	PullRequestMergeability,
+	reviewerId,
+	reviewerLabel,
 	ReviewState,
 	User,
 } from './interface';
@@ -86,7 +89,7 @@ export function threadRange(startLine: number, endLine: number, endCharacter?: n
 
 export function createVSCodeCommentThreadForReviewThread(
 	uri: vscode.Uri,
-	range: vscode.Range,
+	range: vscode.Range | undefined,
 	thread: IReviewThread,
 	commentController: vscode.CommentController,
 	currentUser: string,
@@ -120,7 +123,7 @@ export const COMMENT_EXPAND_STATE_COLLAPSE_VALUE = 'collapseAll';
 export const COMMENT_EXPAND_STATE_EXPAND_VALUE = 'expandUnresolved';
 export function getCommentCollapsibleState(thread: IReviewThread, expand?: boolean, currentUser?: string) {
 	if (thread.isResolved
-		|| (currentUser && thread.comments[thread.comments.length - 1].user?.login === currentUser)) {
+		|| (currentUser && (thread.comments[thread.comments.length - 1].user?.login === currentUser) && thread.subjectType === SubjectType.LINE)) {
 		return vscode.CommentThreadCollapsibleState.Collapsed;
 	}
 	if (expand === undefined) {
@@ -133,6 +136,9 @@ export function getCommentCollapsibleState(thread: IReviewThread, expand?: boole
 
 
 export function updateThreadWithRange(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepository: GitHubRepository, expand?: boolean) {
+	if (!vscodeThread.range) {
+		return;
+	}
 	const editors = vscode.window.visibleTextEditors;
 	for (let editor of editors) {
 		if (editor.document.uri.toString() === vscodeThread.uri.toString()) {
@@ -241,13 +247,14 @@ export function convertRESTUserToAccount(
 	};
 }
 
-export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListResponseItemHead) {
+export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListResponseItemHead): IGitHubRef {
 	return {
 		label: head.label,
 		ref: head.ref,
 		sha: head.sha,
 		repo: {
 			cloneUrl: head.repo.clone_url,
+			isInOrganization: !!head.repo.organization,
 			owner: head.repo.owner!.login,
 			name: head.repo.name
 		},
@@ -454,6 +461,7 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRep
 		diffSide: thread.diffSide,
 		isOutdated: thread.isOutdated,
 		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, githubRepository)),
+		subjectType: thread.subjectType
 	};
 }
 
@@ -537,6 +545,7 @@ function parseRef(refName: string, oid: string, repository?: GraphQL.RefReposito
 		sha: oid,
 		repo: {
 			cloneUrl: repository.url,
+			isInOrganization: repository.isInOrganization,
 			owner: repository.owner.login,
 			name: refName
 		},
@@ -711,6 +720,13 @@ function parseSuggestedReviewers(
 export function loginComparator(a: IAccount, b: IAccount) {
 	// sensitivity: 'accent' allows case insensitive comparison
 	return a.login.localeCompare(b.login, 'en', { sensitivity: 'accent' });
+}
+/**
+ * Used for case insensitive sort by team name
+ */
+export function teamComparator(a: ITeam, b: ITeam) {
+	// sensitivity: 'accent' allows case insensitive comparison
+	return a.name.localeCompare(b.name, 'en', { sensitivity: 'accent' });
 }
 
 export function parseGraphQLReviewEvent(
@@ -1012,7 +1028,7 @@ export function getRepositoryForFile(gitAPI: GitApiImpl, file: vscode.Uri): Repo
  * @param author The author of the pull request
  */
 export function parseReviewers(
-	requestedReviewers: IAccount[],
+	requestedReviewers: (IAccount | ITeam)[],
 	timelineEvents: Common.TimelineEvent[],
 	author: IAccount,
 ): ReviewState[] {
@@ -1035,13 +1051,13 @@ export function parseReviewers(
 	}
 
 	requestedReviewers.forEach(request => {
-		if (!seen.get(request.login)) {
+		if (!seen.get(reviewerId(request))) {
 			reviewers.push({
 				reviewer: request,
 				state: 'REQUESTED',
 			});
 		} else {
-			const reviewer = reviewers.find(r => r.reviewer.login === request.login);
+			const reviewer = reviewers.find(r => reviewerId(r.reviewer) === reviewerId(request));
 			reviewer!.state = 'REQUESTED';
 		}
 	});
@@ -1056,7 +1072,7 @@ export function parseReviewers(
 			return -1;
 		}
 
-		return a.reviewer.login.toLowerCase() < b.reviewer.login.toLowerCase() ? -1 : 1;
+		return reviewerLabel(a.reviewer).toLowerCase() < reviewerLabel(b.reviewer).toLowerCase() ? -1 : 1;
 	});
 
 	return reviewers;

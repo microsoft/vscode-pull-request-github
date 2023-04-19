@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DiffSide, ViewedState } from '../common/comment';
+import { DiffSide, SubjectType, ViewedState } from '../common/comment';
 import { ForkDetails } from './githubRepository';
 
 export interface MergedEvent {
@@ -75,6 +75,19 @@ export interface Account {
 	name: string;
 	url: string;
 	email: string;
+}
+
+interface Team {
+	avatarUrl: string;
+	name: string;
+	url: string;
+	repositories: {
+		nodes: {
+			name: string
+		}[];
+	};
+	slug: string;
+	id: string;
 }
 
 export interface ReviewComment {
@@ -181,6 +194,7 @@ export interface ReviewThread {
 	originalStartLine: number | null;
 	originalLine: number;
 	isOutdated: boolean;
+	subjectType: SubjectType;
 	comments: {
 		nodes: ReviewComment[];
 		edges: [{
@@ -225,6 +239,29 @@ export interface PendingReviewIdResponse {
 	rateLimit: RateLimit;
 }
 
+export interface GetReviewRequestsResponse {
+	repository: {
+		pullRequest: {
+			reviewRequests: {
+				nodes: {
+					requestedReviewer: {
+						// Shared properties between accounts and teams
+						avatarUrl: string;
+						url: string;
+						name: string;
+						// Account properties
+						login?: string;
+						email?: string;
+						// Team properties
+						slug?: string;
+						id?: string;
+					} | null;
+				}[];
+			};
+		};
+	};
+};
+
 export interface PullRequestState {
 	repository: {
 		pullRequest: {
@@ -262,6 +299,28 @@ export interface AssignableUsersResponse {
 	repository: {
 		assignableUsers: {
 			nodes: Account[];
+			pageInfo: {
+				hasNextPage: boolean;
+				endCursor: string;
+			};
+		};
+	};
+	rateLimit: RateLimit;
+}
+
+export interface OrganizationTeamsCountResponse {
+	organization: {
+		teams: {
+			totalCount: number;
+		};
+	};
+}
+
+export interface OrganizationTeamsResponse {
+	organization: {
+		teams: {
+			nodes: Team[];
+			totalCount: number;
 			pageInfo: {
 				hasNextPage: boolean;
 				endCursor: string;
@@ -398,6 +457,7 @@ export interface ListBranchesResponse {
 }
 
 export interface RefRepository {
+	isInOrganization: boolean;
 	owner: {
 		login: string;
 	};

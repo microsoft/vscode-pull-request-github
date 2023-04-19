@@ -97,11 +97,7 @@ export class StateManager {
 		readonly gitAPI: GitApiImpl,
 		private manager: RepositoriesManager,
 		private context: vscode.ExtensionContext,
-	) {
-		manager.folderManagers.forEach(folderManager => {
-			this.context.subscriptions.push(folderManager.onDidChangeRepositories(() => this.refresh()));
-		});
-	}
+	) { }
 
 	private getOrCreateSingleRepoState(uri: vscode.Uri, folderManager?: FolderRepositoryManager): SingleRepoState {
 		let state = this._singleRepoStates.get(uri.path);
@@ -228,7 +224,10 @@ export class StateManager {
 				await this.refresh();
 			}),
 		);
+
 		for (const folderManager of this.manager.folderManagers) {
+			this.context.subscriptions.push(folderManager.onDidChangeRepositories(() => this.refresh()));
+
 			const singleRepoState: SingleRepoState = this.getOrCreateSingleRepoState(
 				folderManager.repository.rootUri,
 				folderManager,

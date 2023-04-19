@@ -47,6 +47,7 @@ export const IGNORE_MILESTONES = 'ignoreMilestones';
 
 // git
 export const GIT = 'git';
+export const PULL_BEFORE_CHECKOUT = 'pullBeforeCheckout';
 export const OPEN_DIFF_ON_CLICK = 'openDiffOnClick';
 export const AUTO_STASH = 'autoStash';
 

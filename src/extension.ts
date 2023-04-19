@@ -27,6 +27,8 @@ import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitP
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
 import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
+import { CompareChangesTreeProvider } from './view/compareChangesTreeDataProvider';
+import { CreatePullRequestHelper } from './view/createPullRequestHelper';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { getInMemPRFileSystemProvider } from './view/inMemPRContentProvider';
 import { PullRequestChangesTreeDataProvider } from './view/prChangesTreeDataProvider';
@@ -144,8 +146,10 @@ async function init(
 
 	const activePrViewCoordinator = new WebviewViewCoordinator(context);
 	context.subscriptions.push(activePrViewCoordinator);
+	const createPrHelper = new CreatePullRequestHelper();
+	context.subscriptions.push(createPrHelper);
 	const reviewManagers = reposManager.folderManagers.map(
-		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree, showPRController, activePrViewCoordinator),
+		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree, showPRController, activePrViewCoordinator, createPrHelper),
 	);
 	context.subscriptions.push(new FileTypeDecorationProvider(reposManager, reviewManagers));
 
@@ -174,7 +178,8 @@ async function init(
 				telemetry,
 				changesTree,
 				showPRController,
-				activePrViewCoordinator
+				activePrViewCoordinator,
+				createPrHelper
 			);
 			reviewsManager.addReviewManager(newReviewManager);
 			tree.refresh();
@@ -216,6 +221,8 @@ async function init(
 	await experimentationService.initializePromise;
 	await experimentationService.isCachedFlightEnabled('githubaa');
 	registerPostCommitCommandsProvider(reposManager, git);
+	// Make sure any compare changes tabs, which come from the create flow, are closed.
+	CompareChangesTreeProvider.closeTabs();
 	/* __GDPR__
 		"startup" : {}
 	*/

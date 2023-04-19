@@ -152,6 +152,7 @@ fragment ReviewThread on PullRequestReviewThread {
 	originalStartLine
 	originalLine
 	isOutdated
+	subjectType
 	comments(first: 100) {
 		nodes {
 			...ReviewComment
@@ -186,6 +187,7 @@ fragment PullRequestFragment on PullRequest {
 	headRefName
 	headRefOid
 	headRepository {
+		isInOrganization
 		owner {
 			login
 		}
@@ -197,6 +199,7 @@ fragment PullRequestFragment on PullRequest {
 	baseRefName
 	baseRefOid
 	baseRepository {
+		isInOrganization
 		owner {
 			login
 		}
@@ -308,6 +311,109 @@ query LatestReviewCommit($owner: String!, $name: String!, $number: Int!) {
 	}
 }
 
+query LatestReviews($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			latestReviews (first: 10) {
+				nodes {
+					state
+				}
+			}
+		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
+}
+
+query GetOrganizationTeamsCount($login: String!) {
+	organization(login: $login) {
+		teams(first: 0, privacy: VISIBLE) {
+			totalCount
+		}
+	}
+}
+
+query GetOrganizationTeams($login: String!, $after: String, $repoName: String!) {
+	organization(login: $login) {
+		teams(first: 100, after: $after, privacy: VISIBLE) {
+			nodes {
+				name
+				avatarUrl
+				url
+				repositories(first: 5, query: $repoName) {
+					nodes {
+						name
+					}
+				}
+				slug
+				id
+			}
+			totalCount
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
+}
+
+query GetReviewRequestsAdditionalScopes($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			reviewRequests(first: 100) {
+				nodes {
+					requestedReviewer {
+						... on User {
+							login
+							avatarUrl
+							url
+							email
+							name
+						}
+						... on Team {
+							name
+							avatarUrl
+							url
+							slug
+							id
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+query GetReviewRequests($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			reviewRequests(first: 100) {
+				nodes {
+					requestedReviewer {
+						... on User {
+							login
+							avatarUrl
+							url
+							email
+							name
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 fragment ReviewComment on PullRequestReviewComment {
 	id
 	databaseId
@@ -410,6 +516,7 @@ query PullRequestComments($owner: String!, $name: String!, $number: Int!, $first
 					originalStartLine
 					originalLine
 					isOutdated
+					subjectType
 					comments(first: 100) {
 						edges {
 							node {
@@ -681,6 +788,14 @@ mutation AddReviewThread($input: AddPullRequestReviewThreadInput!) {
 	addPullRequestReviewThread(input: $input) {
 		thread {
 			...ReviewThread
+		}
+	}
+}
+
+mutation AddReviewers($input: RequestReviewsInput!) {
+	requestReviews(input: $input) {
+		pullRequest {
+			id
 		}
 	}
 }

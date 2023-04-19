@@ -9,6 +9,7 @@ import { PullRequestResponse, Ref, RefRepository } from '../../../github/graphql
 import { RateLimitBuilder } from './rateLimitBuilder';
 
 const RefRepositoryBuilder = createBuilderClass<RefRepository>()({
+	isInOrganization: { default: false },
 	owner: createLink<RefRepository['owner']>()({
 		login: { default: 'me' },
 	}),

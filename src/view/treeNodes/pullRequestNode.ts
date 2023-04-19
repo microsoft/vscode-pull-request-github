@@ -21,7 +21,7 @@ import { DirectoryTreeNode } from './directoryTreeNode';
 import { InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
-export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
+export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 {
 	static ID = 'PRNode';
 
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[] | undefined;
@@ -322,10 +322,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 		};
 	}
 
-	async provideCommentingRanges(
-		document: vscode.TextDocument,
-		_token: vscode.CancellationToken,
-	): Promise<vscode.Range[] | undefined> {
+	async provideCommentingRanges(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.Range[] | { fileComments: boolean; ranges?: vscode.Range[] } | undefined> {
 		if (document.uri.scheme === Schemes.Pr) {
 			const params = fromPRUri(document.uri);
 
@@ -339,7 +336,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider {
 				return undefined;
 			}
 
-			return getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase, PRNode.ID);
+			return { ranges: getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase, PRNode.ID), fileComments: true };
 		}
 
 		return undefined;

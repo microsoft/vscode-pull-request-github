@@ -35,7 +35,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	pendingCommentText: { default: undefined },
 	pendingCommentDrafts: { default: undefined },
 	status: { linked: CombinedStatusBuilder },
-	reviewRequirement: { default: null},
+	reviewRequirement: { default: null },
 	mergeable: { default: PullRequestMergeability.Mergeable },
 	defaultMergeMethod: { default: 'merge' },
 	mergeMethodsAvailability: { default: { merge: true, squash: true, rebase: true } },
