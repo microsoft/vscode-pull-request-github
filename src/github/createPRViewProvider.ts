@@ -373,12 +373,22 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		}
 
 		let newBranch: string | undefined;
+		let mergeArgs: Partial<CreateParams> = {};
+
 		if (isBase) {
 			newBranch = defaultBranch;
 			this._baseBranch = defaultBranch;
 			this._baseRemote = { owner, repositoryName };
 			this._onDidChangeBaseRemote.fire({ owner, repositoryName });
 			this._onDidChangeBaseBranch.fire(defaultBranch);
+
+			const mergeConfiguration = await this.getMergeConfiguration(owner, repositoryName);
+			mergeArgs = {
+				defaultMergeMethod: getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability),
+				allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
+				mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
+				autoMergeDefault: mergeConfiguration.viewerCanAutoMerge && (vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<boolean>(SET_AUTO_MERGE, false) === true)
+			};
 		} else {
 			if (this.defaultCompareBranch?.name) {
 				newBranch = this.defaultCompareBranch?.name;
@@ -387,8 +397,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			this._onDidChangeCompareRemote.fire({ owner, repositoryName });
 		}
 
-		// TODO: if base is change need to update auto merge
-		return this._replyMessage(message, { branches: newBranches, defaultBranch: newBranch });
+		return this._replyMessage(message, { branches: newBranches, defaultBranch: newBranch, ...mergeArgs });
 	}
 
 	private async autoAssign(pr: PullRequestModel): Promise<void> {
