@@ -14,7 +14,7 @@ import { commands, contexts } from '../common/executeCommands';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
 import { GitHubRemote, parseRepositoryRemotes, Remote } from '../common/remote';
-import { PULL_BRANCH } from '../common/settingKeys';
+import { GIT, PULL_BEFORE_CHECKOUT, PULL_BRANCH } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { fromPRUri, Schemes } from '../common/uri';
@@ -2165,6 +2165,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					}
 				});
 				return;
+			}
+
+			// respect the git setting to fetch before checkout
+			if (vscode.workspace.getConfiguration(GIT).get<boolean>(PULL_BEFORE_CHECKOUT, false) && branchObj.upstream) {
+				await this.repository.fetch({ remote: branchObj.upstream.remote, ref: `${branchObj.upstream.name}:${branchObj.name}` });
 			}
 
 			if (branchObj.upstream && branch === branchObj.upstream.name) {
