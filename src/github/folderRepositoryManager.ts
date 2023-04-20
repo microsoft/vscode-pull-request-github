@@ -1298,7 +1298,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	 * Pull request defaults in the query, like owner and repository variables, will be resolved.
 	 */
 	async getIssues(
-		options: IPullRequestsPagingOptions = { fetchNextPage: false, fetchOnePagePerRepo: true },
+		options: IPullRequestsPagingOptions = { fetchNextPage: false, fetchOnePagePerRepo: false },
 		query?: string,
 	): Promise<ItemsResponseResult<IssueModel>> {
 		const data = await this.fetchPagedData<Issue>(options, 'issuesKey', PagedDataType.IssueSearch, PRType.All, query);
