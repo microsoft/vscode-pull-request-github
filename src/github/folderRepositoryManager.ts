@@ -1290,7 +1290,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			parsedIssue.repositoryUrl!,
 			new Protocol(parsedIssue.repositoryUrl!),
 		);
-		return this.createGitHubRepository(remote, this.credentialStore, true);
+		return this.createGitHubRepository(remote, this.credentialStore, true, true);
 
 	}
 
@@ -1298,10 +1298,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	 * Pull request defaults in the query, like owner and repository variables, will be resolved.
 	 */
 	async getIssues(
-		options: IPullRequestsPagingOptions = { fetchNextPage: false, fetchOnePagePerRepo: true },
 		query?: string,
 	): Promise<ItemsResponseResult<IssueModel>> {
-		const data = await this.fetchPagedData<Issue>(options, 'issuesKey', PagedDataType.IssueSearch, PRType.All, query);
+		const data = await this.fetchPagedData<Issue>({ fetchNextPage: false, fetchOnePagePerRepo: false }, 'issuesKey', PagedDataType.IssueSearch, PRType.All, query);
 		const mappedData: ItemsResponseResult<IssueModel> = {
 			items: [],
 			hasMorePages: data.hasMorePages,
@@ -2319,10 +2318,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	private _createGitHubRepositoryBulkhead = bulkhead(1, 300);
-	async createGitHubRepository(remote: Remote, credentialStore: CredentialStore, silent?: boolean): Promise<GitHubRepository> {
+	async createGitHubRepository(remote: Remote, credentialStore: CredentialStore, silent?: boolean, ignoreRemoteName: boolean = false): Promise<GitHubRepository> {
 		// Use a bulkhead/semaphore to ensure that we don't create multiple GitHubRepositories for the same remote at the same time.
 		return this._createGitHubRepositoryBulkhead.execute(() => {
-			return this.findExistingGitHubRepository(remote) ??
+			return this.findExistingGitHubRepository({ owner: remote.owner, repositoryName: remote.repositoryName, remoteName: ignoreRemoteName ? undefined : remote.remoteName }) ??
 				this.createAndAddGitHubRepository(remote, credentialStore, silent);
 		});
 	}
