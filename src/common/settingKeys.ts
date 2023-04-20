@@ -19,7 +19,6 @@ export const POST_CREATE = 'postCreate';
 export const QUERIES = 'queries';
 export const FOCUSED_MODE = 'focusedMode';
 export const CREATE_DRAFT = 'createDraft';
-export const QUICK_DIFF_EXP = 'experimental.quickDiff';
 export const QUICK_DIFF = 'quickDiff';
 export const SET_AUTO_MERGE = 'setAutoMerge';
 export const SHOW_PULL_REQUEST_NUMBER_IN_TREE = 'showPullRequestNumberInTree';

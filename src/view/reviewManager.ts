@@ -21,7 +21,6 @@ import {
 	POST_CREATE,
 	PR_SETTINGS_NAMESPACE,
 	QUICK_DIFF,
-	QUICK_DIFF_EXP,
 	USE_REVIEW_MODE,
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
@@ -182,7 +181,7 @@ export class ReviewManager {
 	}
 
 	private registerQuickDiff() {
-		if (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(QUICK_DIFF_EXP) || vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(QUICK_DIFF)) {
+		if (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(QUICK_DIFF)) {
 			if (this._quickDiffProvider) {
 				this._quickDiffProvider.dispose();
 				this._quickDiffProvider = undefined;
