@@ -21,7 +21,6 @@ import {
 	POST_CREATE,
 	PR_SETTINGS_NAMESPACE,
 	QUICK_DIFF,
-	QUICK_DIFF_EXP,
 	USE_REVIEW_MODE,
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
