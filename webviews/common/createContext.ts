@@ -232,6 +232,7 @@ export class CreatePRContext {
 					message.params.autoMergeMethod = message.params.defaultMergeMethod;
 				} else {
 					message.params.autoMerge = this.createParams.autoMerge;
+					message.params.autoMergeMethod = this.createParams.autoMergeMethod;
 				}
 
 				this.updateState(message.params);
