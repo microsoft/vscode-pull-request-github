@@ -6,10 +6,10 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { getGitChangeType } from '../../common/diffHunk';
-import { FILE_LIST_LAYOUT } from '../../common/settingKeys';
+import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 import { toReviewUri } from '../../common/uri';
 import { OctokitCommon } from '../../github/common';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { GitFileChangeModel } from '../fileChangeModel';
 import { DirectoryTreeNode } from './directoryTreeNode';
@@ -102,7 +102,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		});
 
 		let result: TreeNode[] = [];
-		const layout = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
+		const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 		if (layout === 'tree') {
 			// tree view
 			const dirNode = new DirectoryTreeNode(this, '');

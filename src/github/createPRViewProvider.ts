@@ -11,14 +11,20 @@ import { commands, contexts } from '../common/executeCommands';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { GitHubRemote } from '../common/remote';
-import { ASSIGN_TO, CREATE_DRAFT, PULL_REQUEST_DESCRIPTION, PUSH_BRANCH, SET_AUTO_MERGE } from '../common/settingKeys';
+import {
+	ASSIGN_TO,
+	CREATE_DRAFT,
+	PR_SETTINGS_NAMESPACE,
+	PULL_REQUEST_DESCRIPTION,
+	PUSH_BRANCH,
+	SET_AUTO_MERGE,
+} from '../common/settingKeys';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import {
 	byRemoteName,
 	DetachedHeadError,
 	FolderRepositoryManager,
 	PullRequestDefaults,
-	SETTINGS_NAMESPACE,
 	titleAndBodyFrom,
 } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
@@ -136,7 +142,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		// By default, the base branch we use for comparison is the base branch of origin. Compare this to the
 		// compare branch if it has a GitHub remote.
 		const origin = await this._folderRepositoryManager.getOrigin(compareBranch);
-		const useTemplate = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(PULL_REQUEST_DESCRIPTION) === 'template';
+		const useTemplate =
+			vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(PULL_REQUEST_DESCRIPTION) ===
+			'template';
 
 		let useBranchName = this._pullRequestDefaults.base === compareBranch.name;
 		Logger.debug(`Compare branch name: ${compareBranch.name}, Base branch name: ${this._pullRequestDefaults.base}`, CreatePullRequestViewProvider.ID);
@@ -326,10 +334,10 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			defaultMergeMethod: getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability),
 			allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
 			mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
-			autoMergeDefault: mergeConfiguration.viewerCanAutoMerge && (vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<boolean>(SET_AUTO_MERGE, false) === true),
+			autoMergeDefault: mergeConfiguration.viewerCanAutoMerge && (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(SET_AUTO_MERGE, false) === true),
 			createError: '',
 			labels: this.labels,
-			isDraftDefault: vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get(CREATE_DRAFT, false),
+			isDraftDefault: vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get(CREATE_DRAFT, false),
 			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
 		};
 
@@ -387,7 +395,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				defaultMergeMethod: getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability),
 				allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
 				mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
-				autoMergeDefault: mergeConfiguration.viewerCanAutoMerge && (vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<boolean>(SET_AUTO_MERGE, false) === true)
+				autoMergeDefault: mergeConfiguration.viewerCanAutoMerge && (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(SET_AUTO_MERGE, false) === true)
 			};
 		} else {
 			if (this.defaultCompareBranch?.name) {
@@ -401,7 +409,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	}
 
 	private async autoAssign(pr: PullRequestModel): Promise<void> {
-		const configuration = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string | undefined>(ASSIGN_TO);
+		const configuration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string | undefined>(ASSIGN_TO);
 		if (!configuration) {
 			return;
 		}
@@ -508,7 +516,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 						// We assume this happens only when the compare branch is based on the current branch.
 						const alwaysPublish = vscode.l10n.t('Always Publish Branch');
 						const publish = vscode.l10n.t('Publish Branch');
-						const pushBranchSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get(PUSH_BRANCH) === 'always';
+						const pushBranchSetting =
+							vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get(PUSH_BRANCH) === 'always';
 						const messageResult = !pushBranchSetting ? await vscode.window.showInformationMessage(
 							vscode.l10n.t('There is no upstream branch for \'{0}\'.\n\nDo you want to publish it and then create the pull request?', compareBranchName),
 							{ modal: true },
@@ -516,7 +525,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 							alwaysPublish)
 							: publish;
 						if (messageResult === alwaysPublish) {
-							await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PUSH_BRANCH, 'always', vscode.ConfigurationTarget.Global);
+							await vscode.workspace
+								.getConfiguration(PR_SETTINGS_NAMESPACE)
+								.update(PUSH_BRANCH, 'always', vscode.ConfigurationTarget.Global);
 						}
 						if ((messageResult === alwaysPublish) || (messageResult === publish)) {
 							progress.report({ message: vscode.l10n.t('Pushing branch'), increment: 10 });

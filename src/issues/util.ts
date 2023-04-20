@@ -27,13 +27,6 @@ export const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
 
 export const MAX_LINE_LENGTH = 150;
 
-export const ISSUES_CONFIGURATION: string = 'githubIssues';
-export const QUERIES_CONFIGURATION = 'queries';
-export const DEFAULT_QUERY_CONFIGURATION = 'default';
-export const BRANCH_NAME_CONFIGURATION = 'issueBranchTitle';
-export const BRANCH_CONFIGURATION = 'useBranchForIssues';
-export const SCM_MESSAGE_CONFIGURATION = 'workingIssueFormatScm';
-
 export async function getIssue(
 	stateManager: StateManager,
 	manager: FolderRepositoryManager,

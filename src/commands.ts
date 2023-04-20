@@ -11,6 +11,7 @@ import { GitErrorCodes } from './api/api1';
 import { CommentReply, resolveCommentHandler } from './commentHandlerResolver';
 import { IComment } from './common/comment';
 import Logger from './common/logger';
+import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { ITelemetry } from './common/telemetry';
 import { asImageDataURI, fromReviewUri, Schemes } from './common/uri';
 import { formatError } from './common/utils';
@@ -1043,13 +1044,13 @@ ${contents}
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.setFileListLayoutAsTree', _ => {
-			vscode.workspace.getConfiguration('githubPullRequests').update('fileListLayout', 'tree', true);
+			vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(FILE_LIST_LAYOUT, 'tree', true);
 		}),
 	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.setFileListLayoutAsFlat', _ => {
-			vscode.workspace.getConfiguration('githubPullRequests').update('fileListLayout', 'flat', true);
+			vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(FILE_LIST_LAYOUT, 'flat', true);
 		}),
 	);
 

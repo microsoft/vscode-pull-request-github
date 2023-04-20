@@ -13,13 +13,23 @@ import { commands } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
-import { FOCUSED_MODE, IGNORE_PR_BRANCHES, POST_CREATE, PR_SETTINGS_NAMESPACE, QUICK_DIFF, QUICK_DIFF_EXP, USE_REVIEW_MODE } from '../common/settingKeys';
+import {
+	COMMENTS,
+	FOCUSED_MODE,
+	IGNORE_PR_BRANCHES,
+	OPEN_VIEW,
+	POST_CREATE,
+	PR_SETTINGS_NAMESPACE,
+	QUICK_DIFF,
+	QUICK_DIFF_EXP,
+	USE_REVIEW_MODE,
+} from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, fromReviewUri, KnownMediaExtensions, PRUriParams, Schemes, toReviewUri } from '../common/uri';
 import { formatError, groupBy, onceEvent } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
+import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
 import { GithubItemStateEnum } from '../github/interface';
 import { PullRequestGitHelper, PullRequestMetadata } from '../github/pullRequestGitHelper';
@@ -157,7 +167,7 @@ export class ReviewManager {
 		this._disposables.push(
 			vscode.workspace.onDidChangeConfiguration(e => {
 				this.updateFocusedViewMode();
-				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${IGNORE_PR_BRANCHES}`)) {
+				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${IGNORE_PR_BRANCHES}`)) {
 					this.validateState(true, false);
 				}
 			}),
@@ -172,7 +182,7 @@ export class ReviewManager {
 	}
 
 	private registerQuickDiff() {
-		if (vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<boolean>(QUICK_DIFF_EXP) || vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<boolean>(QUICK_DIFF)) {
+		if (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(QUICK_DIFF_EXP) || vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(QUICK_DIFF)) {
 			if (this._quickDiffProvider) {
 				this._quickDiffProvider.dispose();
 				this._quickDiffProvider = undefined;
@@ -264,7 +274,7 @@ export class ReviewManager {
 			dontShow);
 		if (offerResult === ignore) {
 			Logger.appendLine(`Branch ${currentBranchName} will now be ignored in ${IGNORE_PR_BRANCHES}.`, ReviewManager.ID);
-			const settingNamespace = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE);
+			const settingNamespace = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
 			const setting = settingNamespace.get<string[]>(IGNORE_PR_BRANCHES, []);
 			setting.push(currentBranchName);
 			await settingNamespace.update(IGNORE_PR_BRANCHES, setting);
@@ -317,7 +327,7 @@ export class ReviewManager {
 		}
 
 		const branch = this._repository.state.HEAD;
-		const ignoreBranches = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(IGNORE_PR_BRANCHES);
+		const ignoreBranches = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(IGNORE_PR_BRANCHES);
 		if (ignoreBranches?.find(value => value === branch.name)) {
 			Logger.appendLine(`Branch ${branch.name} is ignored in ${IGNORE_PR_BRANCHES}.`, ReviewManager.ID);
 			await this.clear(true);
@@ -521,13 +531,13 @@ export class ReviewManager {
 
 	private _doFocusShow(pr: PullRequestModel, updateLayout: boolean) {
 		// Respect the setting 'comments.openView' when it's 'never'.
-		const shouldShowCommentsView = vscode.workspace.getConfiguration('comments').get<'never' | string>('openView');
+		const shouldShowCommentsView = vscode.workspace.getConfiguration(COMMENTS).get<'never' | string>(OPEN_VIEW);
 		if (shouldShowCommentsView !== 'never') {
 			commands.executeCommand('workbench.action.focusCommentsPanel');
 		}
 		this._activePrViewCoordinator.show(pr);
 		if (updateLayout) {
-			const focusedMode = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<'firstDiff' | 'overview' | false>(FOCUSED_MODE);
+			const focusedMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'firstDiff' | 'overview' | false>(FOCUSED_MODE);
 			if (focusedMode === 'firstDiff') {
 				if (this._reviewModel.localFileChanges.length) {
 					this.openDiff();
@@ -985,7 +995,7 @@ export class ReviewManager {
 
 	public async createPullRequest(compareBranch?: string): Promise<void> {
 		const disposable = this._createPullRequestHelper.onDidCreate(async createdPR => {
-			const postCreate = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<'none' | 'openOverview' | 'checkoutDefaultBranch'>(POST_CREATE, 'openOverview');
+			const postCreate = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'none' | 'openOverview' | 'checkoutDefaultBranch'>(POST_CREATE, 'openOverview');
 			if (postCreate === 'openOverview') {
 				const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(this._folderRepoManager);
 				await openDescription(
@@ -1029,7 +1039,7 @@ export class ReviewManager {
 	}
 
 	private async updateFocusedViewMode(): Promise<void> {
-		const focusedSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get(FOCUSED_MODE);
+		const focusedSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get(FOCUSED_MODE);
 		if (focusedSetting) {
 			vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, true);
 			await this._context.workspaceState.update(FOCUS_REVIEW_MODE, true);

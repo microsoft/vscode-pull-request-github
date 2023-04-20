@@ -5,6 +5,14 @@
 
 import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
+import {
+	CREATE_INSERT_FORMAT,
+	ENABLED,
+	ISSUE_COMPLETIONS,
+	ISSUES_SETTINGS_NAMESPACE,
+	QUERIES,
+	USER_COMPLETIONS,
+} from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
@@ -35,17 +43,12 @@ import {
 	createGitHubLink,
 	createGithubPermalink,
 	getIssue,
-	ISSUES_CONFIGURATION,
 	LinkContext,
 	NewIssue,
 	PermalinkInfo,
 	pushAndCreatePR,
-	QUERIES_CONFIGURATION,
 	USER_EXPRESSION,
 } from './util';
-
-const ISSUE_COMPLETIONS_CONFIGURATION = 'issueCompletions.enabled';
-const USER_COMPLETIONS_CONFIGURATION = 'userCompletions.enabled';
 
 const CREATING_ISSUE_FROM_FILE_CONTEXT = 'issues.creatingFromFile';
 
@@ -558,17 +561,17 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 					provider: IssueCompletionProvider,
 					trigger: '#',
 					disposable: undefined,
-					configuration: ISSUE_COMPLETIONS_CONFIGURATION,
+					configuration: `${ISSUE_COMPLETIONS}.${ENABLED}`,
 				},
 				{
 					provider: UserCompletionProvider,
 					trigger: '@',
 					disposable: undefined,
-					configuration: USER_COMPLETIONS_CONFIGURATION,
+					configuration: `${USER_COMPLETIONS}.${ENABLED}`,
 				},
 			];
 		for (const element of providers) {
-			if (vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get(element.configuration, true)) {
+			if (vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get(element.configuration, true)) {
 				this.context.subscriptions.push(
 					(element.disposable = vscode.languages.registerCompletionItemProvider(
 						this.documentFilters,
@@ -581,9 +584,9 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(
 			vscode.workspace.onDidChangeConfiguration(change => {
 				for (const element of providers) {
-					if (change.affectsConfiguration(`${ISSUES_CONFIGURATION}.${element.configuration}`)) {
+					if (change.affectsConfiguration(`${ISSUES_SETTINGS_NAMESPACE}.${element.configuration}`)) {
 						const newValue: boolean = vscode.workspace
-							.getConfiguration(ISSUES_CONFIGURATION)
+							.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
 							.get(element.configuration, true);
 						if (!newValue && element.disposable) {
 							element.disposable.dispose();
@@ -691,15 +694,15 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	async editQuery(query: IssueUriTreeItem) {
-		const config = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION, null);
-		const inspect = config.inspect<{ label: string; query: string }[]>(QUERIES_CONFIGURATION);
+		const config = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null);
+		const inspect = config.inspect<{ label: string; query: string }[]>(QUERIES);
 		let command: string;
 		if (inspect?.workspaceValue) {
 			command = 'workbench.action.openWorkspaceSettingsFile';
 		} else {
-			const value = config.get<{ label: string; query: string }[]>(QUERIES_CONFIGURATION);
+			const value = config.get<{ label: string; query: string }[]>(QUERIES);
 			if (inspect?.defaultValue && JSON.stringify(inspect?.defaultValue) === JSON.stringify(value)) {
-				config.update(QUERIES_CONFIGURATION, inspect.defaultValue, vscode.ConfigurationTarget.Global);
+				config.update(QUERIES, inspect.defaultValue, vscode.ConfigurationTarget.Global);
 			}
 			command = 'workbench.action.openSettingsJson';
 		}
@@ -1171,7 +1174,7 @@ ${body ?? ''}\n
 			if (document !== undefined && insertIndex !== undefined && lineNumber !== undefined) {
 				const edit: vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
 				const insertText: string =
-					vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('createInsertFormat', 'number') ===
+					vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get(CREATE_INSERT_FORMAT, 'number') ===
 						'number'
 						? `#${issue.number}`
 						: issue.html_url;

@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import Logger, { PR_TREE } from '../../common/logger';
+import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { ReviewModel } from '../reviewModel';
 import { DirectoryTreeNode } from './directoryTreeNode';
@@ -60,7 +61,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		let nodes: TreeNode[];
-		const layout = vscode.workspace.getConfiguration('githubPullRequests').get<string>('fileListLayout');
+		const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 
 		const dirNode = new DirectoryTreeNode(this, '');
 		this._reviewModel.localFileChanges.forEach(f => dirNode.addFile(f));

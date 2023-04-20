@@ -14,7 +14,15 @@ import { commands, contexts } from '../common/executeCommands';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
 import { GitHubRemote, parseRepositoryRemotes, Remote } from '../common/remote';
-import { GIT, PULL_BEFORE_CHECKOUT, PULL_BRANCH } from '../common/settingKeys';
+import {
+	AUTO_STASH,
+	DEFAULT_MERGE_METHOD,
+	GIT,
+	PR_SETTINGS_NAMESPACE,
+	PULL_BEFORE_CHECKOUT,
+	PULL_BRANCH,
+	REMOTES,
+} from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { fromPRUri, Schemes } from '../common/uri';
@@ -90,9 +98,6 @@ export class BadUpstreamError extends Error {
 	}
 }
 
-export const SETTINGS_NAMESPACE = 'githubPullRequests';
-export const REMOTES_SETTING = 'remotes';
-
 export const ReposManagerStateContext: string = 'ReposManagerStateContext';
 
 export enum ReposManagerState {
@@ -167,7 +172,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		this._subs.push(
 			vscode.workspace.onDidChangeConfiguration(async e => {
-				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${REMOTES_SETTING}`)) {
+				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${REMOTES}`)) {
 					await this.updateRepositories();
 				}
 			}),
@@ -245,7 +250,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	public async getActiveGitHubRemotes(allGitHubRemotes: GitHubRemote[]): Promise<GitHubRemote[]> {
-		const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
+		const remotesSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(REMOTES);
 
 		if (!remotesSetting) {
 			Logger.error(`Unable to read remotes setting`);
@@ -1372,8 +1377,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		const origin = await this.getOrigin(branch);
 		const meta = await origin.getMetadata();
-		const remotesSettingDefault = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).inspect<string[]>(REMOTES_SETTING)?.defaultValue;
-		const remotesSettingSetValue = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
+		const remotesSettingDefault = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).inspect<string[]>(REMOTES)?.defaultValue;
+		const remotesSettingSetValue = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(REMOTES);
 		const settingsEqual = (!remotesSettingSetValue || remotesSettingDefault?.every((value, index) => remotesSettingSetValue[index] === value));
 		const parent = (meta.fork && meta.parent && settingsEqual)
 			? meta.parent
@@ -1672,9 +1677,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			commit_title: title,
 			merge_method:
 				method ||
-				vscode.workspace
-					.getConfiguration('githubPullRequests')
-					.get<'merge' | 'squash' | 'rebase'>('defaultMergeMethod'),
+				vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'merge' | 'squash' | 'rebase'>(DEFAULT_MERGE_METHOD),
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: pullRequest.number,
@@ -2215,9 +2218,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		const neverShowPullNotification = this.context.globalState.get<boolean>(NEVER_SHOW_PULL_NOTIFICATION, false);
 		if (neverShowPullNotification) {
 			this.context.globalState.update(NEVER_SHOW_PULL_NOTIFICATION, false);
-			await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
+			await vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
 		}
-		return vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<'never' | 'prompt' | 'always'>(PULL_BRANCH, 'prompt');
+		return vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'never' | 'prompt' | 'always'>(PULL_BRANCH, 'prompt');
 	}
 
 	private async pullBranch(branch: Branch) {
@@ -2246,9 +2249,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				await this.pullBranch(branch);
 				this._updateMessageShown = false;
 			} else if (never) {
-				await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
+				await vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(PULL_BRANCH, 'never', vscode.ConfigurationTarget.Global);
 			} else if (always) {
-				await vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).update(PULL_BRANCH, 'always', vscode.ConfigurationTarget.Global);
+				await vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(PULL_BRANCH, 'always', vscode.ConfigurationTarget.Global);
 				await this.pullBranch(branch);
 			}
 		}
@@ -2282,7 +2285,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				if (branch.behind !== undefined && branch.behind > 0) {
 					switch (pullBranchConfiguration) {
 						case 'always': {
-							const autoStash = vscode.workspace.getConfiguration('git').get<boolean>('autoStash', false);
+							const autoStash = vscode.workspace.getConfiguration(GIT).get<boolean>(AUTO_STASH, false);
 							if (autoStash) {
 								return this.promptPullBrach(pr, branch, autoStash);
 							} else {

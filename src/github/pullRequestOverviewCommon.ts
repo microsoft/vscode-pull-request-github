@@ -5,6 +5,12 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import {
+	DEFAULT_DELETION_METHOD,
+	PR_SETTINGS_NAMESPACE,
+	SELECT_LOCAL_BRANCH,
+	SELECT_REMOTE,
+} from '../common/settingKeys';
 import { Schemes } from '../common/uri';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { PullRequestModel } from './pullRequestModel';
@@ -31,8 +37,8 @@ export namespace PullRequestView {
 
 		if (branchInfo) {
 			const preferredLocalBranchDeletionMethod = vscode.workspace
-				.getConfiguration('githubPullRequests')
-				.get<boolean>('defaultDeletionMethod.selectLocalBranch');
+				.getConfiguration(PR_SETTINGS_NAMESPACE)
+				.get<boolean>(`${DEFAULT_DELETION_METHOD}.${SELECT_LOCAL_BRANCH}`);
 			actions.push({
 				label: vscode.l10n.t('Delete local branch {0}', branchInfo.branch),
 				type: 'local',
@@ -40,8 +46,8 @@ export namespace PullRequestView {
 			});
 
 			const preferredRemoteDeletionMethod = vscode.workspace
-				.getConfiguration('githubPullRequests')
-				.get<boolean>('defaultDeletionMethod.selectRemote');
+				.getConfiguration(PR_SETTINGS_NAMESPACE)
+				.get<boolean>(`${DEFAULT_DELETION_METHOD}.${SELECT_REMOTE}`);
 
 			if (branchInfo.remote && branchInfo.createdForPullRequest && !branchInfo.remoteInUse) {
 				actions.push({

@@ -16,11 +16,11 @@ import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { Resource } from '../common/resources';
-import { OVERRIDE_DEFAULT_BRANCH } from '../common/settingKeys';
+import { GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { uniqBy } from '../common/utils';
 import { OctokitCommon } from './common';
-import { FolderRepositoryManager, PullRequestDefaults, SETTINGS_NAMESPACE } from './folderRepositoryManager';
+import { FolderRepositoryManager, PullRequestDefaults } from './folderRepositoryManager';
 import { GitHubRepository, ViewerPermission } from './githubRepository';
 import * as GraphQL from './graphql';
 import {
@@ -127,7 +127,7 @@ export function getCommentCollapsibleState(thread: IReviewThread, expand?: boole
 		return vscode.CommentThreadCollapsibleState.Collapsed;
 	}
 	if (expand === undefined) {
-		const config = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE)?.get(COMMENT_EXPAND_STATE_SETTING);
+		const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)?.get(COMMENT_EXPAND_STATE_SETTING);
 		expand = config === COMMENT_EXPAND_STATE_EXPAND_VALUE;
 	}
 	return expand
@@ -1127,11 +1127,11 @@ export function isInCodespaces(): boolean {
 }
 
 export async function setEnterpriseUri(host: string) {
-	return vscode.workspace.getConfiguration('github-enterprise').update('uri', host, vscode.ConfigurationTarget.Workspace);
+	return vscode.workspace.getConfiguration(GITHUB_ENTERPRISE).update(URI, host, vscode.ConfigurationTarget.Workspace);
 }
 
 export function getEnterpriseUri(): vscode.Uri | undefined {
-	const config: string = vscode.workspace.getConfiguration('github-enterprise').get<string>('uri', '');
+	const config: string = vscode.workspace.getConfiguration(GITHUB_ENTERPRISE).get<string>(URI, '');
 	if (config) {
 		let uri = vscode.Uri.parse(config, true);
 		if (uri.scheme === 'http') {
@@ -1221,7 +1221,7 @@ export function getIssueNumberLabelFromParsed(parsed: ParsedIssue) {
 }
 
 export function getOverrideBranch(): string | undefined {
-	const overrideSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string | undefined>(OVERRIDE_DEFAULT_BRANCH);
+	const overrideSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string | undefined>(OVERRIDE_DEFAULT_BRANCH);
 	if (overrideSetting) {
 		Logger.debug('Using override setting for default branch', GitHubRepository.ID);
 		return overrideSetting;

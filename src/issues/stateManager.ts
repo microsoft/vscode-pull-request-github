@@ -10,6 +10,13 @@ import { GitApiImpl } from '../api/api1';
 import { AuthProvider } from '../common/authentication';
 import { parseRepositoryRemotes } from '../common/remote';
 import {
+	DEFAULT,
+	IGNORE_MILESTONES,
+	ISSUES_SETTINGS_NAMESPACE,
+	QUERIES,
+	USE_BRANCH_FOR_ISSUES,
+} from '../common/settingKeys';
+import {
 	FolderRepositoryManager,
 	NO_MILESTONE,
 	PullRequestDefaults,
@@ -21,20 +28,12 @@ import { MilestoneModel } from '../github/milestoneModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getIssueNumberLabel, variableSubstitution } from '../github/utils';
 import { CurrentIssue } from './currentIssue';
-import {
-	BRANCH_CONFIGURATION,
-	DEFAULT_QUERY_CONFIGURATION,
-	ISSUES_CONFIGURATION,
-	QUERIES_CONFIGURATION,
-} from './util';
 
 // TODO: make exclude from date words configurable
 const excludeFromDate: string[] = ['Recovery'];
 const CURRENT_ISSUE_KEY = 'currentIssue';
 
 const ISSUES_KEY = 'issues';
-
-const IGNORE_MILESTONES_CONFIGURATION = 'ignoreMilestones';
 
 export interface IssueState {
 	branch?: string;
@@ -201,19 +200,19 @@ export class StateManager {
 	private async doInitialize() {
 		this.cleanIssueState();
 		this._queries = vscode.workspace
-			.getConfiguration(ISSUES_CONFIGURATION, null)
-			.get(QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION_VALUE);
+			.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null)
+			.get(QUERIES, DEFAULT_QUERY_CONFIGURATION_VALUE);
 		if (this._queries.length === 0) {
 			this._queries = DEFAULT_QUERY_CONFIGURATION_VALUE;
 		}
 		this.context.subscriptions.push(
 			vscode.workspace.onDidChangeConfiguration(change => {
-				if (change.affectsConfiguration(`${ISSUES_CONFIGURATION}.${QUERIES_CONFIGURATION}`)) {
+				if (change.affectsConfiguration(`${ISSUES_SETTINGS_NAMESPACE}.${QUERIES}`)) {
 					this._queries = vscode.workspace
-						.getConfiguration(ISSUES_CONFIGURATION, null)
-						.get(QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION_VALUE);
+						.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null)
+						.get(QUERIES, DEFAULT_QUERY_CONFIGURATION_VALUE);
 					this._onRefreshCacheNeeded.fire();
-				} else if (change.affectsConfiguration(`${ISSUES_CONFIGURATION}.${IGNORE_MILESTONES_CONFIGURATION}`)) {
+				} else if (change.affectsConfiguration(`${ISSUES_SETTINGS_NAMESPACE}.${IGNORE_MILESTONES}`)) {
 					this._onRefreshCacheNeeded.fire();
 				}
 			}),
@@ -296,7 +295,7 @@ export class StateManager {
 		let user: string | undefined;
 		for (const query of this._queries) {
 			let items: Promise<IssueItem[] | MilestoneItem[]>;
-			if (query.query === DEFAULT_QUERY_CONFIGURATION) {
+			if (query.query === DEFAULT) {
 				items = this.setMilestones(folderManager);
 			} else {
 				if (!defaults) {
@@ -341,8 +340,8 @@ export class StateManager {
 
 	private async setCurrentIssueFromBranch(singleRepoState: SingleRepoState, branchName: string, silent: boolean = false) {
 		const createBranchConfig = vscode.workspace
-			.getConfiguration(ISSUES_CONFIGURATION)
-			.get<string>(BRANCH_CONFIGURATION);
+			.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
+			.get<string>(USE_BRANCH_FOR_ISSUES);
 		if (createBranchConfig === 'off') {
 			return;
 		}
@@ -387,8 +386,8 @@ export class StateManager {
 		return new Promise(async resolve => {
 			const now = new Date();
 			const skipMilestones: string[] = vscode.workspace
-				.getConfiguration(ISSUES_CONFIGURATION)
-				.get(IGNORE_MILESTONES_CONFIGURATION, []);
+				.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
+				.get(IGNORE_MILESTONES, []);
 			const milestones = await folderManager.getMilestoneIssues(
 				{ fetchNextPage: false },
 				skipMilestones.indexOf(NO_MILESTONE) < 0,

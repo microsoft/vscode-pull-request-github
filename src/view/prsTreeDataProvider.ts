@@ -6,11 +6,11 @@
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
-import { FILE_LIST_LAYOUT, QUERIES } from '../common/settingKeys';
+import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, QUERIES, REMOTES } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EXTENSION_ID } from '../constants';
 import { CredentialStore } from '../github/credentials';
-import { REMOTES_SETTING, ReposManagerState, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
+import { ReposManagerState } from '../github/folderRepositoryManager';
 import { NotificationProvider } from '../github/notifications';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { findDotComAndEnterpriseRemotes } from '../github/utils';
@@ -94,7 +94,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 		this._disposables.push(
 			vscode.workspace.onDidChangeConfiguration(e => {
-				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)) {
+				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)) {
 					this._onDidChangeTreeData.fire();
 				}
 			}),
@@ -167,7 +167,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private async initializeCategories() {
 		this._disposables.push(
 			vscode.workspace.onDidChangeConfiguration(async e => {
-				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${QUERIES}`)) {
+				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${QUERIES}`)) {
 					this.refresh();
 				}
 			}),
@@ -194,7 +194,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			return [];
 		}
 
-		const remotesSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string[]>(REMOTES_SETTING);
+		const remotesSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(REMOTES);
 		let actions: PRCategoryActionNode[];
 		if (remotesSetting) {
 			actions = [

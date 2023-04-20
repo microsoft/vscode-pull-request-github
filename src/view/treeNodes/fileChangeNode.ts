@@ -7,10 +7,10 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { IComment, ViewedState } from '../../common/comment';
 import { GitChangeType, InMemFileChange } from '../../common/file';
-import { FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK } from '../../common/settingKeys';
+import { FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 import { asImageDataURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, Schemes, toResourceUri } from '../../common/uri';
 import { groupBy } from '../../common/utils';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { FileChangeModel, GitFileChangeModel, InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { DecorationProvider } from '../treeDecorationProvider';
@@ -152,7 +152,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 	}
 
 	get description(): string | true {
-		const layout = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
+		const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 		if (layout === 'flat') {
 			return true;
 		} else {
