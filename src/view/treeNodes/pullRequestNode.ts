@@ -303,7 +303,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 
 		return {
 			label,
-			id: `${this.parent instanceof TreeNode ? (this.parent.id ?? this.parent.label) : ''}${html_url}`, // unique id stable across checkout status
+			id: `${this.parent instanceof TreeNode ? (this.parent.id ?? this.parent.label) : ''}${html_url}${this._isLocal ? this.pullRequestModel.localBranchName : ''}`, // unique id stable across checkout status
 			tooltip,
 			description,
 			collapsibleState: 1,

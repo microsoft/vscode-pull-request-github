@@ -973,34 +973,41 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			.filter(r => r.name !== undefined)
 			.map(r => r.name!);
 
-		const promises = localBranches.map(async localBranchName => {
-			const matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(
-				this.repository,
-				localBranchName,
-			);
+		// Chunk localBranches into chunks of 100 to avoid hitting the GitHub API rate limit
+		const chunkedLocalBranches: string[][] = [];
+		const chunkSize = 100;
+		for (let i = 0; i < localBranches.length; i += chunkSize) {
+			const chunk = localBranches.slice(i, i + chunkSize);
+			chunkedLocalBranches.push(chunk);
+		}
 
-			if (matchingPRMetadata) {
-				const { owner, prNumber } = matchingPRMetadata;
-				const githubRepo = githubRepositories.find(
-					repo => repo.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase(),
+		const models: (PullRequestModel | undefined)[] = [];
+		for (const chunk of chunkedLocalBranches) {
+			models.push(...await Promise.all(chunk.map(async localBranchName => {
+				const matchingPRMetadata = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(
+					this.repository,
+					localBranchName,
 				);
 
-				if (githubRepo) {
-					const pullRequest: PullRequestModel | undefined = await githubRepo.getPullRequest(prNumber);
+				if (matchingPRMetadata) {
+					const { owner, prNumber } = matchingPRMetadata;
+					const githubRepo = githubRepositories.find(
+						repo => repo.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase(),
+					);
 
-					if (pullRequest) {
-						pullRequest.localBranchName = localBranchName;
-						return pullRequest;
+					if (githubRepo) {
+						const pullRequest: PullRequestModel | undefined = await githubRepo.getPullRequest(prNumber);
+
+						if (pullRequest) {
+							pullRequest.localBranchName = localBranchName;
+							return pullRequest;
+						}
 					}
 				}
-			}
+			})));
+		}
 
-			return Promise.resolve(null);
-		});
-
-		return Promise.all(promises).then(values => {
-			return values.filter(value => value !== null) as PullRequestModel[];
-		});
+		return models.filter(value => value !== undefined) as PullRequestModel[];
 	}
 
 	async getLabels(issue?: IssueModel, repoInfo?: { owner: string; repo: string }): Promise<ILabel[]> {
