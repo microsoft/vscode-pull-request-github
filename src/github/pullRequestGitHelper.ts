@@ -12,6 +12,7 @@ import { GitErrorCodes } from '../api/api1';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
+import { GIT, PULL_BEFORE_CHECKOUT } from '../common/settingKeys';
 import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
@@ -31,7 +32,7 @@ export class PullRequestGitHelper {
 		repository: Repository,
 		pullRequest: PullRequestModel & IResolvedPullRequestModel,
 		remoteName: string | undefined,
-		progress: vscode.Progress<{ message?: string; increment?: number }>
+		progress: vscode.Progress<{ message?: string; increment?: number }>,
 	) {
 		// the branch is from a fork
 		const localBranchName = await PullRequestGitHelper.calculateUniqueBranchNameForPR(repository, pullRequest);
@@ -42,7 +43,12 @@ export class PullRequestGitHelper {
 				`Branch ${localBranchName} is from a fork. Create a remote first.`,
 				PullRequestGitHelper.ID,
 			);
-			progress.report({ message: vscode.l10n.t('Creating git remote for {0}', `${pullRequest.remote.owner}/${pullRequest.remote.repositoryName}`) });
+			progress.report({
+				message: vscode.l10n.t(
+					'Creating git remote for {0}',
+					`${pullRequest.remote.owner}/${pullRequest.remote.repositoryName}`,
+				),
+			});
 			remoteName = await PullRequestGitHelper.createRemote(
 				repository,
 				pullRequest.remote,
@@ -69,7 +75,7 @@ export class PullRequestGitHelper {
 		repository: Repository,
 		remotes: Remote[],
 		pullRequest: PullRequestModel,
-		progress: vscode.Progress<{ message?: string; increment?: number }>
+		progress: vscode.Progress<{ message?: string; increment?: number }>,
 	): Promise<void> {
 		if (!pullRequest.validatePullRequestModel('Checkout pull request failed')) {
 			return;
@@ -78,7 +84,12 @@ export class PullRequestGitHelper {
 		const remote = PullRequestGitHelper.getHeadRemoteForPullRequest(remotes, pullRequest);
 		const isFork = pullRequest.head.repositoryCloneUrl.owner !== pullRequest.base.repositoryCloneUrl.owner;
 		if (!remote || isFork) {
-			return PullRequestGitHelper.checkoutFromFork(repository, pullRequest, remote && remote.remoteName, progress);
+			return PullRequestGitHelper.checkoutFromFork(
+				repository,
+				pullRequest,
+				remote && remote.remoteName,
+				progress,
+			);
 		}
 
 		const branchName = pullRequest.head.ref;
@@ -89,7 +100,10 @@ export class PullRequestGitHelper {
 			branch = await repository.getBranch(branchName);
 			// Make sure we aren't already on this branch
 			if (repository.state.HEAD?.name === branch.name) {
-				Logger.appendLine(`Tried to checkout ${branchName}, but branch is already checked out.`, PullRequestGitHelper.ID);
+				Logger.appendLine(
+					`Tried to checkout ${branchName}, but branch is already checked out.`,
+					PullRequestGitHelper.ID,
+				);
 				return;
 			}
 			Logger.debug(`Checkout ${branchName}`, PullRequestGitHelper.ID);
@@ -166,7 +180,11 @@ export class PullRequestGitHelper {
 		}
 	}
 
-	static async checkoutExistingPullRequestBranch(repository: Repository, pullRequest: PullRequestModel, progress: vscode.Progress<{ message?: string; increment?: number }>) {
+	static async checkoutExistingPullRequestBranch(
+		repository: Repository,
+		pullRequest: PullRequestModel,
+		progress: vscode.Progress<{ message?: string; increment?: number }>,
+	) {
 		const key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
 		const configs = await repository.getConfigs();
 
@@ -188,14 +206,20 @@ export class PullRequestGitHelper {
 			const branchName = branchInfos[0].branch!;
 			progress.report({ message: vscode.l10n.t('Checking out branch {0}', branchName) });
 			await repository.checkout(branchName);
-			const remote = readConfig(`branch.${branchName}.remote`);
-			const ref = readConfig(`branch.${branchName}.merge`);
-			progress.report({ message: vscode.l10n.t('Fetching branch {0}', branchName) });
-			await repository.fetch(remote, ref);
+
+			// respect the git setting to fetch before checkout
+			if (vscode.workspace.getConfiguration(GIT).get<boolean>(PULL_BEFORE_CHECKOUT, false)) {
+				const remote = readConfig(`branch.${branchName}.remote`);
+				const ref = readConfig(`branch.${branchName}.merge`);
+				progress.report({ message: vscode.l10n.t('Fetching branch {0}', branchName) });
+				await repository.fetch(remote, ref);
+			}
+
 			const branchStatus = await repository.getBranch(branchInfos[0].branch!);
 			if (branchStatus.upstream === undefined) {
 				return false;
 			}
+
 			if (branchStatus.behind !== undefined && branchStatus.behind > 0 && branchStatus.ahead === 0) {
 				Logger.debug(`Pull from upstream`, PullRequestGitHelper.ID);
 				progress.report({ message: vscode.l10n.t('Pulling branch {0}', branchName) });
@@ -392,7 +416,11 @@ export class PullRequestGitHelper {
 		pullRequest: PullRequestModel & IResolvedPullRequestModel,
 	): Remote | undefined {
 		return remotes.find(
-			remote => remote.gitProtocol && (remote.gitProtocol.owner.toLowerCase() === pullRequest.head.repositoryCloneUrl.owner.toLowerCase()) && (remote.gitProtocol.repositoryName.toLowerCase() === pullRequest.head.repositoryCloneUrl.repositoryName.toLowerCase())
+			remote =>
+				remote.gitProtocol &&
+				remote.gitProtocol.owner.toLowerCase() === pullRequest.head.repositoryCloneUrl.owner.toLowerCase() &&
+				remote.gitProtocol.repositoryName.toLowerCase() ===
+				pullRequest.head.repositoryCloneUrl.repositoryName.toLowerCase(),
 		);
 	}
 
