@@ -1106,7 +1106,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		type: PRType = PRType.All,
 		query?: string,
 	): Promise<ItemsResponseResult<T>> {
-		if (!this._githubRepositories || !this._githubRepositories.length) {
+		const githubRepositoriesWithGitRemotes = pagedDataType === PagedDataType.PullRequest ? this._githubRepositories.filter(repo => this.repository.state.remotes.find(r => r.name === repo.remote.remoteName)) : this._githubRepositories;
+		if (!githubRepositoriesWithGitRemotes.length) {
 			return {
 				items: [],
 				hasMorePages: false,
@@ -1117,7 +1118,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		const getTotalFetchedPages = () => this.totalFetchedPages.get(queryId) || 0;
 		const setTotalFetchedPages = (numPages: number) => this.totalFetchedPages.set(queryId, numPages);
 
-		for (const repository of this._githubRepositories) {
+		for (const repository of githubRepositoriesWithGitRemotes) {
 			const remoteId = repository.remote.url.toString() + queryId;
 			if (!this._repositoryPageInformation.get(remoteId)) {
 				this._repositoryPageInformation.set(remoteId, {
