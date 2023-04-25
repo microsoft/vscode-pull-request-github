@@ -26,10 +26,11 @@ export enum PullRequestMergeability {
 	NotMergeable,
 	Conflict,
 	Unknown,
+	Behind,
 }
 
 export interface ReviewState {
-	reviewer: IAccount;
+	reviewer: IAccount | ITeam;
 	state: string;
 }
 
@@ -39,6 +40,27 @@ export interface IAccount {
 	avatarUrl?: string;
 	url: string;
 	email?: string;
+}
+
+export interface ITeam {
+	name: string;
+	avatarUrl?: string;
+	url: string;
+	slug: string;
+	org: string;
+	id: string;
+}
+
+export function reviewerId(reviewer: ITeam | IAccount): string {
+	return isTeam(reviewer) ? reviewer.id : reviewer.login;
+}
+
+export function reviewerLabel(reviewer: ITeam | IAccount): string {
+	return isTeam(reviewer) ? reviewer.name : reviewer.login;
+}
+
+export function isTeam(reviewer: ITeam | IAccount): reviewer is ITeam {
+	return 'id' in reviewer;
 }
 
 export interface ISuggestedReviewer extends IAccount {
@@ -62,6 +84,7 @@ export interface MergePullRequest {
 
 export interface IRepository {
 	cloneUrl: string;
+	isInOrganization: boolean;
 	owner: string;
 	name: string;
 }
@@ -170,15 +193,25 @@ export enum CheckState {
 	Unknown = 'unknown'
 }
 
+export interface PullRequestCheckStatus {
+	id: string;
+	url: string | undefined;
+	avatarUrl: string | undefined;
+	state: CheckState;
+	description: string | null;
+	targetUrl: string | null;
+	context: string;
+	isRequired: boolean;
+}
+
 export interface PullRequestChecks {
 	state: CheckState;
-	statuses: {
-		id: string;
-		url?: string;
-		avatar_url?: string;
-		state?: CheckState;
-		description?: string;
-		target_url?: string;
-		context: string;
-	}[];
+	statuses: PullRequestCheckStatus[];
+}
+
+export interface PullRequestReviewRequirement {
+	count: number;
+	state: CheckState;
+	approvals: string[];
+	requestedChanges: string[];
 }

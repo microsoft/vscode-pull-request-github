@@ -4,12 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { IGNORE_USER_COMPLETION_TRIGGER, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { Schemes } from '../common/uri';
 import { User } from '../github/interface';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { ASSIGNEES, extractIssueOriginFromQuery, NEW_ISSUE_SCHEME } from './issueFile';
 import { StateManager } from './stateManager';
-import { getRootUriFromScmInputUri, isComment, ISSUES_CONFIGURATION, UserCompletion, userMarkdown } from './util';
+import { getRootUriFromScmInputUri, isComment, UserCompletion, userMarkdown } from './util';
 
 export class UserCompletionProvider implements vscode.CompletionItemProvider {
 	constructor(
@@ -58,8 +59,8 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		if (
 			context.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter &&
 			vscode.workspace
-				.getConfiguration(ISSUES_CONFIGURATION)
-				.get<string[]>('ignoreUserCompletionTrigger', [])
+				.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
+				.get<string[]>(IGNORE_USER_COMPLETION_TRIGGER, [])
 				.find(value => value === document.languageId)
 		) {
 			return [];

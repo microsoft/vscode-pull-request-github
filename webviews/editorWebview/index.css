@@ -243,6 +243,11 @@ body .comment-container .review-comment-header {
 	border-radius: 4px;
 }
 
+#status-checks .label {
+	display: inline-flex;
+	margin-right: 16px;
+}
+
 #status-checks a {
 	cursor: pointer;
 }

@@ -11,6 +11,7 @@ import { GitErrorCodes } from './api/api1';
 import { CommentReply, resolveCommentHandler } from './commentHandlerResolver';
 import { IComment } from './common/comment';
 import Logger from './common/logger';
+import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { ITelemetry } from './common/telemetry';
 import { asImageDataURI, fromReviewUri, Schemes } from './common/uri';
 import { formatError } from './common/utils';
@@ -433,11 +434,23 @@ export function registerCommands(
 			async (args?: any | Repository) => {
 				if (isSourceControl(args)) {
 					const reviewManager = await chooseReviewManager(args.rootUri.fsPath);
+					const folderManager = reposManager.getManagerForFile(args.rootUri);
+					let create = true;
+					if (folderManager?.activePullRequest) {
+						const push = vscode.l10n.t('Push');
+						const result = await vscode.window.showInformationMessage(vscode.l10n.t('You already have a pull request for this branch. Do you want to push your changes to the remote branch?'), { modal: true }, push);
+						if (result !== push) {
+							return;
+						}
+						create = false;
+					}
 					if (reviewManager) {
 						if (args.state.HEAD?.upstream) {
 							await args.push();
 						}
-						reviewManager.createPullRequest();
+						if (create) {
+							reviewManager.createPullRequest();
+						}
 					}
 				}
 			},
@@ -918,6 +931,9 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.makeSuggestion', async (reply: CommentReply | GHPRComment) => {
 			const thread = reply instanceof GHPRComment ? reply.parent : reply.thread;
+			if (!thread.range) {
+				return;
+			}
 			const commentEditor = vscode.window.activeTextEditor?.document.uri.scheme === Schemes.Comment ? vscode.window.activeTextEditor
 				: vscode.window.visibleTextEditors.find(visible => (visible.document.uri.scheme === Schemes.Comment) && (visible.document.uri.query === ''));
 			if (!commentEditor) {
@@ -1028,13 +1044,13 @@ ${contents}
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.setFileListLayoutAsTree', _ => {
-			vscode.workspace.getConfiguration('githubPullRequests').update('fileListLayout', 'tree', true);
+			vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(FILE_LIST_LAYOUT, 'tree', true);
 		}),
 	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.setFileListLayoutAsFlat', _ => {
-			vscode.workspace.getConfiguration('githubPullRequests').update('fileListLayout', 'flat', true);
+			vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(FILE_LIST_LAYOUT, 'flat', true);
 		}),
 	);
 
@@ -1219,6 +1235,11 @@ ${contents}
 			if (handler instanceof ReviewCommentController) {
 				handler.applySuggestion(comment);
 			}
+		}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.addFileComment', async () => {
+			return vscode.commands.executeCommand('workbench.action.addComment', { fileComment: true });
 		}));
 
 	function goToNextPrevDiff(diffs: vscode.LineChange[], next: boolean) {

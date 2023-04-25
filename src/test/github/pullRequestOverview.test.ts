@@ -33,6 +33,7 @@ describe('PullRequestOverview', function () {
 	let remote: GitHubRemote;
 	let repo: MockGitHubRepository;
 	let telemetry: MockTelemetry;
+	let credentialStore: CredentialStore;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
@@ -41,7 +42,7 @@ describe('PullRequestOverview', function () {
 
 		const repository = new MockRepository();
 		telemetry = new MockTelemetry();
-		const credentialStore = new CredentialStore(telemetry, context);
+		credentialStore = new CredentialStore(telemetry, context);
 		pullRequestManager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore);
 
 		const url = 'https://github.com/aaa/bbb';
@@ -73,7 +74,7 @@ describe('PullRequestOverview', function () {
 			});
 
 			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
-			const prModel = new PullRequestModel(telemetry, repo, remote, prItem);
+			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
 
 			await PullRequestOverviewPanel.createOrShow(EXTENSION_URI, pullRequestManager, prModel);
 
@@ -106,11 +107,11 @@ describe('PullRequestOverview', function () {
 			});
 
 			const prItem0 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
-			const prModel0 = new PullRequestModel(telemetry, repo, remote, prItem0);
+			const prModel0 = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem0);
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
 			sinon.stub(prModel0, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
-			sinon.stub(prModel0, 'getStatusChecks').resolves({ state: CheckState.Pending, statuses: [] });
+			sinon.stub(prModel0, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
 			await PullRequestOverviewPanel.createOrShow(EXTENSION_URI, pullRequestManager, prModel0);
 
 			const panel0 = PullRequestOverviewPanel.currentPanel;
@@ -119,11 +120,11 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(panel0!.getCurrentTitle(), 'Pull Request #1000');
 
 			const prItem1 = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(2000).build(), repo);
-			const prModel1 = new PullRequestModel(telemetry, repo, remote, prItem1);
+			const prModel1 = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem1);
 			resolveStub.resolves(prModel1);
 			sinon.stub(prModel1, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel1, 'getTimelineEvents').resolves([]);
-			sinon.stub(prModel1, 'getStatusChecks').resolves({ state: CheckState.Pending, statuses: [] });
+			sinon.stub(prModel1, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
 			await PullRequestOverviewPanel.createOrShow(EXTENSION_URI, pullRequestManager, prModel1);
 
 			assert.strictEqual(panel0, PullRequestOverviewPanel.currentPanel);

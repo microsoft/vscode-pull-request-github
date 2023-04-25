@@ -7,8 +7,8 @@ import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
 import { commands, contexts } from '../common/executeCommands';
 import Logger, { PR_TREE } from '../common/logger';
-import { FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK } from '../common/settingKeys';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
+import { FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { ProgressHelper } from './progress';
@@ -40,10 +40,10 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 		this._disposables.push(
 			vscode.workspace.onDidChangeConfiguration(async e => {
-				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)) {
+				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)) {
 					this._onDidChangeTreeData.fire();
 					const layout = vscode.workspace
-						.getConfiguration(`${SETTINGS_NAMESPACE}`)
+						.getConfiguration(PR_SETTINGS_NAMESPACE)
 						.get<string>(FILE_LIST_LAYOUT);
 					await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
 				} else if (e.affectsConfiguration(`${GIT}.${OPEN_DIFF_ON_CLICK}`)) {

@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { CREATE_ISSUE_TRIGGERS, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ISSUE_OR_URL_EXPRESSION } from '../github/utils';
-import { ISSUES_CONFIGURATION, MAX_LINE_LENGTH } from './util';
+import { MAX_LINE_LENGTH } from './util';
 
 export class IssueTodoProvider implements vscode.CodeActionProvider {
 	private expression: RegExp | undefined;
@@ -20,7 +21,7 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 	}
 
 	private updateTriggers() {
-		const triggers = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('createIssueTriggers', []);
+		const triggers = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get(CREATE_ISSUE_TRIGGERS, []);
 		this.expression = triggers.length > 0 ? new RegExp(triggers.join('|')) : undefined;
 	}
 

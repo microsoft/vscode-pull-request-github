@@ -6,6 +6,7 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
 import { CreateParams, RemoteInfo } from '../../common/views';
+import { compareIgnoreCase } from '../../src/common/utils';
 import PullRequestContext from '../common/createContext';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { Label } from '../common/label';
@@ -30,8 +31,8 @@ export const RemoteSelect = ({ onChange, defaultOption, repos }:
 	});
 
 	return <ErrorBoundary>
-		<div className='wrapper flex'>
-			<div className='input-label combo-box'>remote</div><select title='Choose a remote' value={caseCorrectedDefaultOption ?? defaultOption} onChange={(e) => {
+		<div className='select-wrapper flex'>
+			<select title='Choose a remote' value={caseCorrectedDefaultOption ?? defaultOption} onChange={(e) => {
 				const [owner, repositoryName] = e.currentTarget.value.split('/');
 				onChange(owner, repositoryName);
 			}}>
@@ -44,8 +45,8 @@ export const RemoteSelect = ({ onChange, defaultOption, repos }:
 export const BranchSelect = ({ onChange, defaultOption, branches }:
 	{ onChange: (branch: string) => void, defaultOption: string | undefined, branches: string[] }) => {
 	return <ErrorBoundary>
-		<div className='wrapper flex'>
-			<div className='input-label combo-box'>branch</div><select title='Choose a branch' value={defaultOption} onChange={(e) => onChange(e.currentTarget.value)}>
+		<div className='select-wrapper flex'>
+			<select title='Choose a branch' value={defaultOption} onChange={(e) => onChange(e.currentTarget.value)}>
 				{branches.map(branchName =>
 					<option
 						key={branchName}
@@ -96,6 +97,15 @@ export function main() {
 					setBusy(false);
 				}
 
+				let isCreateable: boolean = true;
+				if (ctx.createParams.baseRemote && ctx.createParams.compareRemote && ctx.createParams.baseBranch && ctx.createParams.compareBranch
+					&& compareIgnoreCase(ctx.createParams.baseRemote?.owner, ctx.createParams.compareRemote?.owner) === 0
+					&& compareIgnoreCase(ctx.createParams.baseRemote?.repositoryName, ctx.createParams.compareRemote?.repositoryName) === 0
+					&& compareIgnoreCase(ctx.createParams.baseBranch, ctx.createParams.compareBranch) === 0) {
+
+					isCreateable = false;
+				}
+
 				const onKeyDown = useCallback(
 					e => {
 						if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -113,20 +123,36 @@ export function main() {
 				return <div>
 					<div className='selector-group'>
 						<span className='input-label'>Merge changes from</span>
-						<RemoteSelect onChange={ctx.changeCompareRemote}
-							defaultOption={`${params.compareRemote?.owner}/${params.compareRemote?.repositoryName}`}
-							repos={params.availableCompareRemotes} />
+						<div className='selectors'>
+							<div className='labels'>
+								<div className='input-label combo-box'>remote</div>
+								<div className='input-label combo-box'>branch</div>
+							</div>
+							<div className='selects'>
+								<RemoteSelect onChange={ctx.changeCompareRemote}
+									defaultOption={`${params.compareRemote?.owner}/${params.compareRemote?.repositoryName}`}
+									repos={params.availableCompareRemotes} />
 
-						<BranchSelect onChange={updateCompareBranch} defaultOption={params.compareBranch} branches={params.branchesForCompare} />
+								<BranchSelect onChange={updateCompareBranch} defaultOption={params.compareBranch} branches={params.branchesForCompare} />
+							</div>
+						</div>
 					</div>
 
 					<div className='selector-group'>
 						<span className='input-label'>into</span>
-						<RemoteSelect onChange={ctx.changeBaseRemote}
-							defaultOption={`${params.baseRemote?.owner}/${params.baseRemote?.repositoryName}`}
-							repos={params.availableBaseRemotes} />
+						<div className='selectors'>
+							<div className='labels'>
+								<div className='input-label combo-box'>remote</div>
+								<div className='input-label combo-box'>branch</div>
+							</div>
+							<div className='selects'>
+								<RemoteSelect onChange={ctx.changeBaseRemote}
+									defaultOption={`${params.baseRemote?.owner}/${params.baseRemote?.repositoryName}`}
+									repos={params.availableBaseRemotes} />
 
-						<BranchSelect onChange={updateBaseBranch} defaultOption={params.baseBranch} branches={params.branchesForRemote} />
+								<BranchSelect onChange={updateBaseBranch} defaultOption={params.baseBranch} branches={params.branchesForRemote} />
+							</div>
+						</div>
 					</div>
 
 					{params.labels && (params.labels.length > 0) ?
@@ -197,7 +223,7 @@ export function main() {
 						<button disabled={isBusy} className="secondary" onClick={() => ctx.cancelCreate()}>
 							Cancel
 							</button>
-						<button disabled={isBusy} onClick={() => create()}>
+						<button disabled={isBusy || !isCreateable} onClick={() => create()}>
 							Create
 							</button>
 					</div>

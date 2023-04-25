@@ -13,7 +13,7 @@
 	"enabledApiProposals": [
 		"tokenInformation",
 		"contribShareMenu",
-		"contribEditorLineNumberMenu",
+		"fileComments",
 		"treeItemCheckbox",
 		"contribCommentPeekContext",
 		"contribCommentThreadAdditionalMenu",
@@ -22,10 +22,10 @@
 		"contribCommentEditorActionsMenu",
 		"quickDiffProvider"
 	],
-	"version": "0.60.0",
+	"version": "0.62.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.77.0-insider"
+		"vscode": "^1.78.0"
 	},
 	"categories": [
 		"Other"
@@ -509,6 +509,11 @@
 					],
 					"default": "firstDiff",
 					"description": "%githubPullRequests.focusedMode.description%"
+				},
+				"githubPullRequests.showPullRequestNumberInTree": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubPullRequests.showPullRequestNumberInTree.description%"
 				}
 			}
 		},
@@ -930,6 +935,12 @@
 				"title": "%command.pr.addLabelsToNewPr.title%",
 				"category": "%command.pull.request.category%",
 				"icon": "$(tag)"
+			},
+			{
+				"command": "pr.addFileComment",
+				"title": "%command.pr.addFileComment.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(comment)"
 			},
 			{
 				"command": "issue.createIssueFromSelection",
@@ -1430,6 +1441,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.addFileComment",
+					"when": "false"
+				},
+				{
 					"command": "issue.copyGithubPermalink",
 					"when": "github:hasGitHubRemotes"
 				},
@@ -1856,6 +1871,11 @@
 					"command": "pr.openDiffViewFromEditor",
 					"group": "navigation",
 					"when": "!isInDiffEditor && resourceScheme != pr && resourceScheme != review && resourceScheme != filechange && resourcePath in github:viewedFiles"
+				},
+				{
+					"command": "pr.addFileComment",
+					"group": "navigation",
+					"when": "(resourceScheme == pr) || (resourcePath in github:viewedFiles) || (resourcePath in github:unviewedFiles)"
 				}
 			],
 			"scm/title": [
@@ -1874,52 +1894,27 @@
 				{
 					"command": "pr.createComment",
 					"group": "inline@1",
-					"when": "commentController =~ /^github-browse/ && prInDraft"
-				},
-				{
-					"command": "pr.createComment",
-					"group": "inline@1",
-					"when": "commentController =~ /^github-review/ && reviewInDraftMode"
+					"when": "(commentController =~ /^github-browse/ && prInDraft) || (commentController =~ /^github-review/ && reviewInDraftMode)"
 				},
 				{
 					"command": "pr.createSingleComment",
 					"group": "inline@1",
-					"when": "commentController =~ /^github-browse/ && !prInDraft && config.githubPullRequests.defaultCommentType != review"
+					"when": "config.githubPullRequests.defaultCommentType != review && ((commentController =~ /^github-browse/ && !prInDraft) || (commentController =~ /^github-review/ && !reviewInDraftMode))"
 				},
 				{
 					"command": "pr.startReview",
 					"group": "inline@1",
-					"when": "commentController =~ /^github-browse/ && !prInDraft && config.githubPullRequests.defaultCommentType == review"
-				},
-				{
-					"command": "pr.createSingleComment",
-					"group": "inline@1",
-					"when": "commentController =~ /^github-review/ && !reviewInDraftMode && config.githubPullRequests.defaultCommentType != review"
-				},
-				{
-					"command": "pr.startReview",
-					"group": "inline@1",
-					"when": "commentController =~ /^github-review/ && !reviewInDraftMode && config.githubPullRequests.defaultCommentType == review"
+					"when": "config.githubPullRequests.defaultCommentType == review && ((commentController =~ /^github-browse/ && !prInDraft) || (commentController =~ /^github-review/ && !reviewInDraftMode))"
 				},
 				{
 					"command": "pr.startReview",
 					"group": "inline@2",
-					"when": "commentController =~ /^github-browse/ && !prInDraft && config.githubPullRequests.defaultCommentType != review"
+					"when": "config.githubPullRequests.defaultCommentType != review && ((commentController =~ /^github-browse/ && !prInDraft) || (commentController =~ /^github-review/ && !reviewInDraftMode))"
 				},
 				{
 					"command": "pr.createSingleComment",
 					"group": "inline@2",
-					"when": "commentController =~ /^github-browse/ && !prInDraft && config.githubPullRequests.defaultCommentType == review"
-				},
-				{
-					"command": "pr.startReview",
-					"group": "inline@2",
-					"when": "commentController =~ /^github-review/ && !reviewInDraftMode && config.githubPullRequests.defaultCommentType != review"
-				},
-				{
-					"command": "pr.createSingleComment",
-					"group": "inline@2",
-					"when": "commentController =~ /^github-review/ && !reviewInDraftMode && config.githubPullRequests.defaultCommentType == review"
+					"when": "config.githubPullRequests.defaultCommentType == review && ((commentController =~ /^github-browse/ && !prInDraft) || commentController =~ /^github-review/ && !reviewInDraftMode)"
 				}
 			],
 			"comments/comment/editorActions": [
@@ -1943,12 +1938,7 @@
 				{
 					"command": "pr.openReview",
 					"group": "inline@2",
-					"when": "commentController =~ /^github-browse/ && prInDraft"
-				},
-				{
-					"command": "pr.openReview",
-					"group": "inline@2",
-					"when": "commentController =~ /^github-review/ && reviewInDraftMode"
+					"when": "(commentController =~ /^github-browse/ && prInDraft) || (commentController =~ /^github-review/ && reviewInDraftMode)"
 				}
 			],
 			"comments/commentThread/title/context": [
@@ -2051,7 +2041,7 @@
 				},
 				{
 					"command": "issue.copyGithubDevLink",
-					"when": "github:hasGitHubRemotes && remoteName == codespaces || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"when": "github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev",
 					"group": "0_vscode@0"
 				}
 			],
@@ -2078,7 +2068,7 @@
 				},
 				{
 					"command": "issue.copyGithubDevLinkFile",
-					"when": "github:hasGitHubRemotes && remoteName == codespaces || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"when": "github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev",
 					"group": "0_vscode@0"
 				}
 			],
@@ -2100,7 +2090,7 @@
 				},
 				{
 					"command": "issue.copyGithubDevLink",
-					"when": "github:hasGitHubRemotes && remoteName == codespaces || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"when": "github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev",
 					"group": "1_cutcopypaste@0"
 				}
 			],
@@ -2122,7 +2112,7 @@
 				},
 				{
 					"command": "issue.copyGithubDevLinkWithoutRange",
-					"when": "github:hasGitHubRemotes && remoteName == codespaces || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"when": "github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev",
 					"group": "0_vscode@0"
 				}
 			],
@@ -2144,7 +2134,7 @@
 				},
 				{
 					"command": "issue.copyGithubDevLinkWithoutRange",
-					"when": "github:hasGitHubRemotes && remoteName == codespaces || github:hasGitHubRemotes && embedderIdentifier == github.dev",
+					"when": "github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev",
 					"group": "0_vscode@0"
 				}
 			],
@@ -2358,11 +2348,11 @@
 		"@vscode/extension-telemetry": "0.7.5",
 		"apollo-boost": "^0.4.9",
 		"apollo-link-context": "1.0.20",
+		"cockatiel": "^3.1.1",
 		"cross-fetch": "3.1.5",
 		"dayjs": "1.10.4",
 		"events": "3.2.0",
 		"fast-deep-equal": "^3.1.3",
-		"limiter": "^2.1.0",
 		"lru-cache": "6.0.0",
 		"marked": "^4.0.10",
 		"react": "^16.12.0",

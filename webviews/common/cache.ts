@@ -13,6 +13,7 @@ import {
 	MergeMethodsAvailability,
 	PullRequestChecks,
 	PullRequestMergeability,
+	PullRequestReviewRequirement,
 	ReviewState,
 } from '../../src/github/interface';
 import { vscode } from './message';
@@ -43,7 +44,7 @@ export interface PullRequest {
 	labels: ILabel[];
 	assignees: IAccount[];
 	commitsCount: number;
-	milestone: IMilestone;
+	milestone: IMilestone | undefined;
 	repositoryDefaultBranch: string;
 	/**
 	 * User can edit PR title and description (author or user with push access)
@@ -57,7 +58,8 @@ export interface PullRequest {
 	pendingCommentText?: string;
 	pendingCommentDrafts?: { [key: string]: string };
 	pendingReviewType?: ReviewType;
-	status: PullRequestChecks;
+	status: PullRequestChecks | null;
+	reviewRequirement: PullRequestReviewRequirement | null;
 	mergeable: PullRequestMergeability;
 	defaultMergeMethod: MergeMethod;
 	mergeMethodsAvailability: MergeMethodsAvailability;

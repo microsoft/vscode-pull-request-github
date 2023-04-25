@@ -7,7 +7,8 @@ import * as buffer from 'buffer';
 import * as path from 'path';
 import equals from 'fast-deep-equal';
 import * as vscode from 'vscode';
-import { DiffSide, IComment, IReviewThread, ViewedState } from '../common/comment';
+import { Repository } from '../api/api';
+import { DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
 import { parseDiff } from '../common/diffHunk';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
@@ -15,9 +16,10 @@ import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { ReviewEvent as CommonReviewEvent, EventType, TimelineEvent } from '../common/timelineEvent';
-import { resolvePath, toPRUri, toReviewUri } from '../common/uri';
+import { resolvePath, Schemes, toPRUri, toReviewUri } from '../common/uri';
 import { formatError } from '../common/utils';
 import { OctokitCommon } from './common';
+import { CredentialStore } from './credentials';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
 import {
@@ -27,8 +29,8 @@ import {
 	DeleteReactionResponse,
 	DeleteReviewResponse,
 	EditCommentResponse,
+	GetReviewRequestsResponse,
 	LatestReviewCommitResponse,
-	LatestReviewsResponse,
 	MarkPullRequestReadyForReviewResponse,
 	PendingReviewIdResponse,
 	PullRequestCommentsResponse,
@@ -43,22 +45,22 @@ import {
 	UpdatePullRequestResponse,
 } from './graphql';
 import {
-	CheckState,
 	GithubItemStateEnum,
 	IAccount,
 	IRawFileChange,
 	ISuggestedReviewer,
+	ITeam,
 	MergeMethod,
 	PullRequest,
 	PullRequestChecks,
 	PullRequestMergeability,
+	PullRequestReviewRequirement,
 	ReviewEvent,
 } from './interface';
 import { IssueModel } from './issueModel';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
-	convertRESTUserToAccount,
 	getReactionGroup,
 	insertNewCommitsSinceReview,
 	parseGraphQLComment,
@@ -90,8 +92,6 @@ export interface FileViewedStateChangeEvent {
 		viewed: ViewedState;
 	}[];
 }
-
-export const REVIEW_REQUIRED_CHECK_ID = 'reviewRequired';
 
 export type FileViewedState = { [key: string]: ViewedState };
 
@@ -138,6 +138,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	_telemetry: ITelemetry;
 
 	constructor(
+		private readonly credentialStore: CredentialStore,
 		telemetry: ITelemetry,
 		githubRepository: GitHubRepository,
 		remote: Remote,
@@ -218,8 +219,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	protected updateState(state: string) {
 		if (state.toLowerCase() === 'open') {
 			this.state = GithubItemStateEnum.Open;
+		} else if (state.toLowerCase() === 'merged' || this.item.merged) {
+			this.state = GithubItemStateEnum.Merged;
 		} else {
-			this.state = this.item.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Closed;
+			this.state = GithubItemStateEnum.Closed;
 		}
 	}
 
@@ -232,14 +235,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this.isRemoteHeadDeleted = item.isRemoteHeadDeleted;
 		}
 		if (item.head) {
-			this.head = new GitHubRef(item.head.ref, item.head.label, item.head.sha, item.head.repo.cloneUrl, item.head.repo.owner, item.head.repo.name);
+			this.head = new GitHubRef(item.head.ref, item.head.label, item.head.sha, item.head.repo.cloneUrl, item.head.repo.owner, item.head.repo.name, item.head.repo.isInOrganization);
 		}
 
 		if (item.isRemoteBaseDeleted != null) {
 			this.isRemoteBaseDeleted = item.isRemoteBaseDeleted;
 		}
 		if (item.base) {
-			this.base = new GitHubRef(item.base.ref, item.base!.label, item.base!.sha, item.base!.repo.cloneUrl, item.base.repo.owner, item.base.repo.name);
+			this.base = new GitHubRef(item.base.ref, item.base!.label, item.base!.sha, item.base!.repo.cloneUrl, item.base.repo.owner, item.base.repo.name, item.base.repo.isInOrganization);
 		}
 	}
 
@@ -282,7 +285,25 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Approve the pull request.
 	 * @param message Optional approval comment text.
 	 */
-	async approve(message?: string): Promise<CommonReviewEvent> {
+	async approve(repository: Repository, message?: string): Promise<CommonReviewEvent> {
+		// Check that the remote head of the PR branch matches the local head of the PR branch
+		let remoteHead: string | undefined;
+		let localHead: string | undefined;
+		let rejectMessage: string | undefined;
+		if (this.isActive) {
+			localHead = repository.state.HEAD?.commit;
+			remoteHead = (await this.githubRepository.getPullRequest(this.number))?.head?.sha;
+			rejectMessage = vscode.l10n.t('The remote head of the PR branch has changed. Please pull the latest changes from the remote branch before approving.');
+		} else {
+			localHead = this.head?.sha;
+			remoteHead = (await this.githubRepository.getPullRequest(this.number))?.head?.sha;
+			rejectMessage = vscode.l10n.t('The remote head of the PR branch has changed. Please refresh the pull request before approving.');
+		}
+
+		if (!remoteHead || remoteHead !== localHead) {
+			return Promise.reject(rejectMessage);
+		}
+
 		const action: Promise<CommonReviewEvent> = (await this.getPendingReviewId())
 			? this.submitReview(ReviewEvent.Approve, message)
 			: this.createReview(ReviewEvent.Approve, message);
@@ -537,8 +558,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	async createReviewThread(
 		body: string,
 		commentPath: string,
-		startLine: number,
-		endLine: number,
+		startLine: number | undefined,
+		endLine: number | undefined,
 		side: DiffSide,
 		suppressDraftModeUpdate?: boolean,
 	): Promise<IReviewThread | undefined> {
@@ -557,8 +578,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					pullRequestId: this.graphNodeId,
 					pullRequestReviewId: pendingReviewId,
 					startLine: startLine === endLine ? undefined : startLine,
-					line: endLine,
+					line: (endLine === undefined) ? 0 : endLine,
 					side,
+					subjectType: (startLine === undefined || endLine === undefined) ? SubjectType.FILE : SubjectType.LINE
 				},
 			},
 		});
@@ -744,43 +766,80 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * Get existing requests to review.
 	 */
-	async getReviewRequests(): Promise<IAccount[]> {
+	async getReviewRequests(): Promise<(IAccount | ITeam)[]> {
 		const githubRepository = this.githubRepository;
-		const { remote, octokit } = await githubRepository.ensure();
-		const result = await octokit.call(octokit.api.pulls.listRequestedReviewers, {
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			pull_number: this.number,
+		const { remote, query, schema } = await githubRepository.ensure();
+
+		const { data } = await query<GetReviewRequestsResponse>({
+			query: this.credentialStore.isAuthenticatedWithAdditionalScopes(githubRepository.remote.authProviderId) ? schema.GetReviewRequestsAdditionalScopes : schema.GetReviewRequests,
+			variables: {
+				number: this.number,
+				owner: remote.owner,
+				name: remote.repositoryName
+			},
 		});
 
-		return result.data.users.map((user: any) => convertRESTUserToAccount(user, githubRepository));
+		const reviewers: (IAccount | ITeam)[] = [];
+		for (const reviewer of data.repository.pullRequest.reviewRequests.nodes) {
+			if (reviewer.requestedReviewer?.login) {
+				const account: IAccount = {
+					login: reviewer.requestedReviewer.login,
+					url: reviewer.requestedReviewer.url,
+					avatarUrl: reviewer.requestedReviewer.avatarUrl,
+					email: reviewer.requestedReviewer.email,
+					name: reviewer.requestedReviewer.name
+				};
+				reviewers.push(account);
+			} else if (reviewer.requestedReviewer) {
+				const team: ITeam = {
+					name: reviewer.requestedReviewer.name,
+					url: reviewer.requestedReviewer.url,
+					avatarUrl: reviewer.requestedReviewer.avatarUrl,
+					id: reviewer.requestedReviewer.id!,
+					org: remote.owner,
+					slug: reviewer.requestedReviewer.slug!
+				};
+				reviewers.push(team);
+			}
+		}
+		return reviewers;
 	}
 
 	/**
 	 * Add reviewers to a pull request
 	 * @param reviewers A list of GitHub logins
 	 */
-	async requestReview(reviewers: string[]): Promise<void> {
-		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.call(octokit.api.pulls.requestReviewers, {
+	async requestReview(reviewers: string[], teamReviewers: string[]): Promise<void> {
+		const { octokit, mutate, schema, remote } = await this.githubRepository.ensure();
+		await Promise.all([mutate({
+			mutation: schema.AddReviewers,
+			variables: {
+				input: {
+					pullRequestId: this.graphNodeId,
+					teamIds: teamReviewers,
+				},
+			},
+		}),
+		octokit.call(octokit.api.pulls.requestReviewers, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
 			reviewers,
-		});
+		})]);
 	}
 
 	/**
 	 * Remove a review request that has not yet been completed
 	 * @param reviewer A GitHub Login
 	 */
-	async deleteReviewRequest(reviewers: string[]): Promise<void> {
+	async deleteReviewRequest(reviewers: string[], teamReviewers: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		await octokit.call(octokit.api.pulls.removeRequestedReviewers, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
 			reviewers,
+			team_reviewers: teamReviewers
 		});
 	}
 
@@ -1046,56 +1105,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	private async _getReviewRequiredCheck() {
-		const { query, remote, octokit, schema } = await this.githubRepository.ensure();
-
-		const [branch, reviewStates] = await Promise.all([
-			octokit.call(octokit.api.repos.getBranch, { branch: this.base.ref, owner: remote.owner, repo: remote.repositoryName }),
-			query<LatestReviewsResponse>({
-				query: schema.LatestReviews,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					number: this.number,
-				}
-			})
-		]);
-		if (branch.data.protected && branch.data.protection.required_status_checks && branch.data.protection.required_status_checks.enforcement_level !== 'off') {
-			// We need to add the "review required" check manually.
-			return {
-				id: REVIEW_REQUIRED_CHECK_ID,
-				context: 'Branch Protection',
-				description: vscode.l10n.t('Other requirements have not been met.'),
-				state: (reviewStates.data as LatestReviewsResponse).repository.pullRequest.latestReviews.nodes.every(node => node.state !== 'CHANGES_REQUESTED') ? CheckState.Neutral : CheckState.Failure,
-				target_url: this.html_url
-			};
-		}
-		return undefined;
-	}
-
 	/**
 	 * Get the status checks of the pull request, those for the last commit.
 	 */
-	async getStatusChecks(): Promise<PullRequestChecks | undefined> {
-		let checks = await this.githubRepository.getStatusChecks(this.number);
-
-		// Fun info: The checks don't include whether a review is required.
-		// Also, unless you're an admin on the repo, you can't just do octokit.repos.getBranchProtection
-		if ((this.item.mergeable === PullRequestMergeability.NotMergeable) && (!checks || checks.statuses.every(status => status.state === CheckState.Success))) {
-			const reviewRequiredCheck = await this._getReviewRequiredCheck();
-			if (reviewRequiredCheck) {
-				if (!checks) {
-					checks = {
-						state: CheckState.Failure,
-						statuses: []
-					};
-				}
-				checks.statuses.push(reviewRequiredCheck);
-				checks.state = CheckState.Failure;
-			}
-		}
-
-		return checks;
+	async getStatusChecks(): Promise<[PullRequestChecks | null, PullRequestReviewRequirement | null]> {
+		return this.githubRepository.getStatusChecks(this.number);
 	}
 
 	static async openDiffFromComment(
@@ -1639,7 +1653,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	private setFileViewedState(fileSubpath: string, viewedState: ViewedState, event: boolean) {
-		const filePath = vscode.Uri.joinPath(this.githubRepository.rootUri, fileSubpath).fsPath;
+		const uri = vscode.Uri.joinPath(this.githubRepository.rootUri, fileSubpath);
+		const filePath = ((vscode.env.uiKind === vscode.UIKind.Web) && (this.githubRepository.rootUri.scheme !== Schemes.File)) ? uri.path : uri.fsPath;
 		switch (viewedState) {
 			case ViewedState.DISMISSED: {
 				this._viewedFiles.delete(filePath);

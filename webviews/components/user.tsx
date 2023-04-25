@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { PullRequest } from '../common/cache';
+import { IAccount, ITeam, reviewerLabel } from '../../src/github/interface';
 import { Icon } from './icon';
 
-export const Avatar = ({ for: author }: { for: Partial<PullRequest['author']> }) => (
+export const Avatar = ({ for: author }: { for: Partial<IAccount> }) => (
 	<a className="avatar-link" href={author.url} title={author.url}>
 		{author.avatarUrl ? (
 			<img className="avatar" src={author.avatarUrl} alt="" />
@@ -17,7 +17,7 @@ export const Avatar = ({ for: author }: { for: Partial<PullRequest['author']> })
 	</a>
 );
 
-export const AuthorLink = ({ for: author, text = author.login }: { for: PullRequest['author']; text?: string }) => (
+export const AuthorLink = ({ for: author, text = reviewerLabel(author) }: { for: IAccount | ITeam; text?: string }) => (
 	<a className="author-link" href={author.url} title={author.url}>
 		{text}
 	</a>

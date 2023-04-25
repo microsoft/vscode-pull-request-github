@@ -250,7 +250,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			const labelsToAdd = await Promise.race<readonly vscode.QuickPickItem[] | void>([acceptPromise, hidePromise]);
 			quickPick.busy = true;
 
-			if (labelsToAdd && labelsToAdd.length) {
+			if (labelsToAdd) {
 				await this._item.setLabels(labelsToAdd.map(r => r.label));
 				const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
 

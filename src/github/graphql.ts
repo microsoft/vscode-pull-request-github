@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DiffSide, ViewedState } from '../common/comment';
+import { DiffSide, SubjectType, ViewedState } from '../common/comment';
 import { ForkDetails } from './githubRepository';
 
 export interface MergedEvent {
@@ -75,6 +75,19 @@ export interface Account {
 	name: string;
 	url: string;
 	email: string;
+}
+
+interface Team {
+	avatarUrl: string;
+	name: string;
+	url: string;
+	repositories: {
+		nodes: {
+			name: string
+		}[];
+	};
+	slug: string;
+	id: string;
 }
 
 export interface ReviewComment {
@@ -181,6 +194,7 @@ export interface ReviewThread {
 	originalStartLine: number | null;
 	originalLine: number;
 	isOutdated: boolean;
+	subjectType: SubjectType;
 	comments: {
 		nodes: ReviewComment[];
 		edges: [{
@@ -225,6 +239,29 @@ export interface PendingReviewIdResponse {
 	rateLimit: RateLimit;
 }
 
+export interface GetReviewRequestsResponse {
+	repository: {
+		pullRequest: {
+			reviewRequests: {
+				nodes: {
+					requestedReviewer: {
+						// Shared properties between accounts and teams
+						avatarUrl: string;
+						url: string;
+						name: string;
+						// Account properties
+						login?: string;
+						email?: string;
+						// Team properties
+						slug?: string;
+						id?: string;
+					} | null;
+				}[];
+			};
+		};
+	};
+};
+
 export interface PullRequestState {
 	repository: {
 		pullRequest: {
@@ -262,6 +299,28 @@ export interface AssignableUsersResponse {
 	repository: {
 		assignableUsers: {
 			nodes: Account[];
+			pageInfo: {
+				hasNextPage: boolean;
+				endCursor: string;
+			};
+		};
+	};
+	rateLimit: RateLimit;
+}
+
+export interface OrganizationTeamsCountResponse {
+	organization: {
+		teams: {
+			totalCount: number;
+		};
+	};
+}
+
+export interface OrganizationTeamsResponse {
+	organization: {
+		teams: {
+			nodes: Team[];
+			totalCount: number;
 			pageInfo: {
 				hasNextPage: boolean;
 				endCursor: string;
@@ -398,6 +457,7 @@ export interface ListBranchesResponse {
 }
 
 export interface RefRepository {
+	isInOrganization: boolean;
 	owner: {
 		login: string;
 	};
@@ -639,17 +699,20 @@ export interface StartReviewResponse {
 }
 
 export interface StatusContext {
+	__typename: string;
 	id: string;
-	state?: 'ERROR' | 'EXPECTED' | 'FAILURE' | 'PENDING' | 'SUCCESS';
-	description?: string;
+	state: 'ERROR' | 'EXPECTED' | 'FAILURE' | 'PENDING' | 'SUCCESS';
+	description: string | null;
 	context: string;
-	targetUrl?: string;
-	avatarUrl?: string;
+	targetUrl: string | null;
+	avatarUrl: string | null;
+	isRequired: boolean;
 }
 
 export interface CheckRun {
+	__typename: string;
 	id: string;
-	conclusion?:
+	conclusion:
 	| 'ACTION_REQUIRED'
 	| 'CANCELLED'
 	| 'FAILURE'
@@ -657,30 +720,56 @@ export interface CheckRun {
 	| 'SKIPPED'
 	| 'STALE'
 	| 'SUCCESS'
-	| 'TIMED_OUT';
+	| 'TIMED_OUT'
+	| null;
 	name: string;
-	title?: string;
-	detailsUrl?: string;
+	title: string | null;
+	detailsUrl: string | null;
 	checkSuite?: {
-		app?: {
+		app: {
 			logoUrl: string;
 			url: string;
-		};
+		} | null;
 	};
+	isRequired: boolean;
 }
 
 export function isCheckRun(x: CheckRun | StatusContext): x is CheckRun {
-	return (x as any).__typename === 'CheckRun';
+	return x.__typename === 'CheckRun';
+}
+
+export interface ChecksReviewNode {
+	authorAssociation: 'MEMBER' | 'OWNER' | 'MANNEQUIN' | 'COLLABORATOR' | 'CONTRIBUTOR' | 'FIRST_TIME_CONTRIBUTOR' | 'FIRST_TIMER' | 'NONE';
+	authorCanPushToRepository: boolean
+	state: 'PENDING' | 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'DISMISSED';
+	author: {
+		login: string;
+	}
 }
 
 export interface GetChecksResponse {
 	repository: {
 		pullRequest: {
+			url: string;
+			latestReviews: {
+				nodes: ChecksReviewNode[];
+			};
+			reviewsRequestingChanges: {
+				nodes: ChecksReviewNode[];
+			};
+			baseRef: {
+				refUpdateRule: {
+					requiredApprovingReviewCount: number | null;
+					requiredStatusCheckContexts: string[] | null;
+					requiresCodeOwnerReviews: boolean;
+					viewerCanPush: boolean;
+				} | null;
+			};
 			commits: {
 				nodes: {
 					commit: {
 						statusCheckRollup?: {
-							state: string;
+							state: 'EXPECTED' | 'ERROR' | 'FAILURE' | 'PENDING' | 'SUCCESS';
 							contexts: {
 								nodes: (StatusContext | CheckRun)[];
 							};
@@ -690,18 +779,6 @@ export interface GetChecksResponse {
 			};
 		};
 	};
-}
-
-export interface LatestReviewsResponse {
-	repository: {
-		pullRequest: {
-			latestReviews: {
-				nodes: {
-					state: 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING';
-				}[]
-			}
-		}
-	}
 }
 
 export interface ResolveReviewThreadResponse {

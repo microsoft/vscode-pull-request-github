@@ -10,17 +10,17 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
-import { IComment, IReviewThread, Reaction } from '../common/comment';
+import { IComment, IReviewThread, Reaction, SubjectType } from '../common/comment';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { Resource } from '../common/resources';
-import { OVERRIDE_DEFAULT_BRANCH } from '../common/settingKeys';
+import { GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { uniqBy } from '../common/utils';
 import { OctokitCommon } from './common';
-import { FolderRepositoryManager, PullRequestDefaults, SETTINGS_NAMESPACE } from './folderRepositoryManager';
+import { FolderRepositoryManager, PullRequestDefaults } from './folderRepositoryManager';
 import { GitHubRepository, ViewerPermission } from './githubRepository';
 import * as GraphQL from './graphql';
 import {
@@ -30,9 +30,12 @@ import {
 	IMilestone,
 	Issue,
 	ISuggestedReviewer,
+	ITeam,
 	MergeMethod,
 	PullRequest,
 	PullRequestMergeability,
+	reviewerId,
+	reviewerLabel,
 	ReviewState,
 	User,
 } from './interface';
@@ -86,7 +89,7 @@ export function threadRange(startLine: number, endLine: number, endCharacter?: n
 
 export function createVSCodeCommentThreadForReviewThread(
 	uri: vscode.Uri,
-	range: vscode.Range,
+	range: vscode.Range | undefined,
 	thread: IReviewThread,
 	commentController: vscode.CommentController,
 	currentUser: string,
@@ -120,11 +123,11 @@ export const COMMENT_EXPAND_STATE_COLLAPSE_VALUE = 'collapseAll';
 export const COMMENT_EXPAND_STATE_EXPAND_VALUE = 'expandUnresolved';
 export function getCommentCollapsibleState(thread: IReviewThread, expand?: boolean, currentUser?: string) {
 	if (thread.isResolved
-		|| (currentUser && thread.comments[thread.comments.length - 1].user?.login === currentUser)) {
+		|| (currentUser && (thread.comments[thread.comments.length - 1].user?.login === currentUser) && thread.subjectType === SubjectType.LINE)) {
 		return vscode.CommentThreadCollapsibleState.Collapsed;
 	}
 	if (expand === undefined) {
-		const config = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE)?.get(COMMENT_EXPAND_STATE_SETTING);
+		const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)?.get(COMMENT_EXPAND_STATE_SETTING);
 		expand = config === COMMENT_EXPAND_STATE_EXPAND_VALUE;
 	}
 	return expand
@@ -133,6 +136,9 @@ export function getCommentCollapsibleState(thread: IReviewThread, expand?: boole
 
 
 export function updateThreadWithRange(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepository: GitHubRepository, expand?: boolean) {
+	if (!vscodeThread.range) {
+		return;
+	}
 	const editors = vscode.window.visibleTextEditors;
 	for (let editor of editors) {
 		if (editor.document.uri.toString() === vscodeThread.uri.toString()) {
@@ -241,13 +247,14 @@ export function convertRESTUserToAccount(
 	};
 }
 
-export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListResponseItemHead) {
+export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListResponseItemHead): IGitHubRef {
 	return {
 		label: head.label,
 		ref: head.ref,
 		sha: head.sha,
 		repo: {
 			cloneUrl: head.repo.clone_url,
+			isInOrganization: !!head.repo.organization,
 			owner: head.repo.owner!.login,
 			name: head.repo.name
 		},
@@ -296,13 +303,17 @@ export function convertRESTPullRequestToRawPullRequest(
 		updatedAt: updated_at,
 		head: head.repo ? convertRESTHeadToIGitHubRef(head as OctokitCommon.PullsListResponseItemHead) : undefined,
 		base: convertRESTHeadToIGitHubRef(base),
-		mergeable: (pullRequest as OctokitCommon.PullsGetResponseData).mergeable
-			? PullRequestMergeability.Mergeable
-			: PullRequestMergeability.NotMergeable,
 		labels: labels.map<ILabel>(l => ({ name: '', color: '', ...l })),
 		isDraft: draft,
 		suggestedReviewers: [], // suggested reviewers only available through GraphQL API
 	};
+
+	// mergeable is not included in the list response, will need to fetch later
+	if ('mergeable' in pullRequest) {
+		item.mergeable = pullRequest.mergeable
+			? PullRequestMergeability.Mergeable
+			: PullRequestMergeability.NotMergeable;
+	}
 
 	return item;
 }
@@ -450,6 +461,7 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRep
 		diffSide: thread.diffSide,
 		isOutdated: thread.isOutdated,
 		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, githubRepository)),
+		subjectType: thread.subjectType
 	};
 }
 
@@ -533,6 +545,7 @@ function parseRef(refName: string, oid: string, repository?: GraphQL.RefReposito
 		sha: oid,
 		repo: {
 			cloneUrl: repository.url,
+			isInOrganization: repository.isInOrganization,
 			owner: repository.owner.login,
 			name: refName
 		},
@@ -594,8 +607,12 @@ export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFL
 			parsed = PullRequestMergeability.Conflict;
 			break;
 	}
-	if ((parsed !== PullRequestMergeability.Conflict) && (mergeStateStatus === 'BLOCKED')) {
-		parsed = PullRequestMergeability.NotMergeable;
+	if (parsed !== PullRequestMergeability.Conflict) {
+		if (mergeStateStatus === 'BLOCKED') {
+			parsed = PullRequestMergeability.NotMergeable;
+		} else if (mergeStateStatus === 'BEHIND') {
+			parsed = PullRequestMergeability.Behind;
+		}
 	}
 	return parsed;
 }
@@ -703,6 +720,13 @@ function parseSuggestedReviewers(
 export function loginComparator(a: IAccount, b: IAccount) {
 	// sensitivity: 'accent' allows case insensitive comparison
 	return a.login.localeCompare(b.login, 'en', { sensitivity: 'accent' });
+}
+/**
+ * Used for case insensitive sort by team name
+ */
+export function teamComparator(a: ITeam, b: ITeam) {
+	// sensitivity: 'accent' allows case insensitive comparison
+	return a.name.localeCompare(b.name, 'en', { sensitivity: 'accent' });
 }
 
 export function parseGraphQLReviewEvent(
@@ -1004,7 +1028,7 @@ export function getRepositoryForFile(gitAPI: GitApiImpl, file: vscode.Uri): Repo
  * @param author The author of the pull request
  */
 export function parseReviewers(
-	requestedReviewers: IAccount[],
+	requestedReviewers: (IAccount | ITeam)[],
 	timelineEvents: Common.TimelineEvent[],
 	author: IAccount,
 ): ReviewState[] {
@@ -1027,13 +1051,13 @@ export function parseReviewers(
 	}
 
 	requestedReviewers.forEach(request => {
-		if (!seen.get(request.login)) {
+		if (!seen.get(reviewerId(request))) {
 			reviewers.push({
 				reviewer: request,
 				state: 'REQUESTED',
 			});
 		} else {
-			const reviewer = reviewers.find(r => r.reviewer.login === request.login);
+			const reviewer = reviewers.find(r => reviewerId(r.reviewer) === reviewerId(request));
 			reviewer!.state = 'REQUESTED';
 		}
 	});
@@ -1048,7 +1072,7 @@ export function parseReviewers(
 			return -1;
 		}
 
-		return a.reviewer.login.toLowerCase() < b.reviewer.login.toLowerCase() ? -1 : 1;
+		return reviewerLabel(a.reviewer).toLowerCase() < reviewerLabel(b.reviewer).toLowerCase() ? -1 : 1;
 	});
 
 	return reviewers;
@@ -1103,11 +1127,11 @@ export function isInCodespaces(): boolean {
 }
 
 export async function setEnterpriseUri(host: string) {
-	return vscode.workspace.getConfiguration('github-enterprise').update('uri', host, vscode.ConfigurationTarget.Workspace);
+	return vscode.workspace.getConfiguration(GITHUB_ENTERPRISE).update(URI, host, vscode.ConfigurationTarget.Workspace);
 }
 
 export function getEnterpriseUri(): vscode.Uri | undefined {
-	const config: string = vscode.workspace.getConfiguration('github-enterprise').get<string>('uri', '');
+	const config: string = vscode.workspace.getConfiguration(GITHUB_ENTERPRISE).get<string>(URI, '');
 	if (config) {
 		let uri = vscode.Uri.parse(config, true);
 		if (uri.scheme === 'http') {
@@ -1197,7 +1221,7 @@ export function getIssueNumberLabelFromParsed(parsed: ParsedIssue) {
 }
 
 export function getOverrideBranch(): string | undefined {
-	const overrideSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string | undefined>(OVERRIDE_DEFAULT_BRANCH);
+	const overrideSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string | undefined>(OVERRIDE_DEFAULT_BRANCH);
 	if (overrideSetting) {
 		Logger.debug('Using override setting for default branch', GitHubRepository.ID);
 		return overrideSetting;
@@ -1224,5 +1248,5 @@ export async function findDotComAndEnterpriseRemotes(folderManagers: FolderRepos
 
 export function vscodeDevPrLink(pullRequest: PullRequestModel) {
 	const itemUri = vscode.Uri.parse(pullRequest.html_url);
-	return `https://${vscode.env.appName.includes('insider') ? 'insiders.' : ''}vscode.dev/github${itemUri.path}`;
+	return `https://${vscode.env.appName.toLowerCase().includes('insider') ? 'insiders.' : ''}vscode.dev/github${itemUri.path}`;
 }
