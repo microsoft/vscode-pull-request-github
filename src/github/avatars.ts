@@ -10,6 +10,7 @@ import { OctokitResponse, RequestParameters, ResponseHeaders } from '@octokit/ty
 import PQueue from 'p-queue';
 import * as vscode from 'vscode';
 import Logger from '../common/logger';
+import { DEFAULT_GRAVATAR_STYLE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { IAccount, Issue, ITeam, PullRequest } from './interface';
 import { LoggingOctokit } from './loggingOctokit';
@@ -23,8 +24,8 @@ function isGravatarEnabled() {
 
 function getGravatarStyle() {
 	return vscode.workspace
-		.getConfiguration('githubPullRequests')
-		.get<string>('defaultGravatarsStyle', GRAVATAR_STYLE_NONE);
+		.getConfiguration(PR_SETTINGS_NAMESPACE)
+		.get<string>(DEFAULT_GRAVATAR_STYLE, GRAVATAR_STYLE_NONE);
 }
 
 function generateGravatarUrl(gravatarId: string | undefined, size: number = 200): string | undefined {
@@ -168,7 +169,7 @@ export class Avatars {
 			const serverDate = headers.date ? new Date(headers.date) : new Date();
 			const expireAt = serverDate.setSeconds(
 				serverDate.getSeconds() +
-					(cacheControlDirectives['s-maxage'] ?? cacheControlDirectives['max-age'] ?? 0),
+				(cacheControlDirectives['s-maxage'] ?? cacheControlDirectives['max-age'] ?? 0),
 			);
 			if (expireAt - Date.now() > 0) {
 				Logger.appendLine('Cache fresh hit', LOGGER_COMPONENT);
@@ -249,7 +250,7 @@ export class Avatars {
 						await vscode.workspace.fs.writeFile(cacheResult.uri, cacheResult.content);
 						return convertBinaryToDataUri(cacheResult.content, cacheResult.contentType);
 					},
-			(reason: RequestError) => {
+					(reason: RequestError) => {
 						if (reason.status !== 304) {
 							Logger.warn(`REST request failed: ${reason.message}`, LOGGER_COMPONENT);
 							return;

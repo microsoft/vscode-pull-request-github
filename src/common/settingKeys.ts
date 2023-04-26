@@ -27,6 +27,7 @@ export const DEFAULT_DELETION_METHOD = 'defaultDeletionMethod';
 export const SELECT_LOCAL_BRANCH = 'selectLocalBranch';
 export const SELECT_REMOTE = 'selectRemote';
 export const REMOTES = 'remotes';
+export const DEFAULT_GRAVATAR_STYLE = 'defaultGravatarsStyle';
 
 export const ISSUES_SETTINGS_NAMESPACE = 'githubIssues';
 export const ASSIGN_WHEN_WORKING = 'assignWhenWorking';
