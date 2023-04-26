@@ -661,9 +661,9 @@ export function parseGraphQLIssue(issue: GraphQL.PullRequest, githubRepository: 
 		assignees: issue.assignees?.nodes.map(assignee => parseAuthor(assignee, githubRepository)),
 		user: parseAuthor(issue.author, githubRepository),
 		labels: issue.labels.nodes,
-		repositoryName: issue.repository?.name,
-		repositoryOwner: issue.repository?.owner.login,
-		repositoryUrl: issue.repository?.url,
+		repositoryName: issue.repository?.name ?? githubRepository.remote.repositoryName,
+		repositoryOwner: issue.repository?.owner.login ?? githubRepository.remote.owner,
+		repositoryUrl: issue.repository?.url ?? githubRepository.remote.url,
 	};
 }
 
