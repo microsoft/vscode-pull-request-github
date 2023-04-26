@@ -1253,7 +1253,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			query,
 		);
 		if (includeIssuesWithoutMilestone) {
-			const additionalIssues: ItemsResponseResult<IssueModel> = await this.fetchPagedData<IssueModel>(
+			const additionalIssues: ItemsResponseResult<Issue> = await this.fetchPagedData<Issue>(
 				options,
 				'issuesKey',
 				PagedDataType.IssuesWithoutMilestone,
@@ -1266,7 +1266,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					id: '',
 					title: NO_MILESTONE,
 				},
-				issues: additionalIssues.items,
+				issues: await Promise.all(additionalIssues.items.map(async (issue) => {
+					const githubRepository = await this.getRepoForIssue(issue);
+					return new IssueModel(githubRepository, githubRepository.remote, issue);
+				})),
 			});
 		}
 		return milestones;
