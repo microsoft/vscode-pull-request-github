@@ -364,9 +364,9 @@ export function AddComment({
 }
 
 const COMMENT_METHODS = {
-	comment: 'Comment and Submit',
-	approve: 'Approve and Submit',
-	requestChanges: 'Request Changes and Submit',
+	comment: 'Comment',
+	approve: 'Approve',
+	requestChanges: 'Request Changes',
 };
 
 export const AddCommentSimple = (pr: PullRequest) => {
@@ -414,10 +414,10 @@ export const AddCommentSimple = (pr: PullRequest) => {
 	);
 
 	const availableActions = pr.isAuthor
-		? { comment: 'Comment and Submit' }
+		? { comment: 'Comment' }
 		: pr.continueOnGitHub
 			? {
-				comment: 'Comment and Submit',
+				comment: 'Comment',
 				approve: 'Approve on github.com',
 				requestChanges: 'Request changes on github.com',
 			}
