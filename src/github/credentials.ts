@@ -315,7 +315,7 @@ export class CredentialStore implements vscode.Disposable {
 
 		let usedScopes: string[];
 
-		if (getAuthSessionOptions.createIfNone && !getAuthSessionOptions.forceNewSession) {
+		if (getAuthSessionOptions.createIfNone && !getAuthSessionOptions.forceNewSession && (scopes.length === SCOPES.length)) {
 			const silent = getAuthSessionOptions.silent;
 			getAuthSessionOptions.createIfNone = false;
 			getAuthSessionOptions.silent = true;
@@ -327,7 +327,7 @@ export class CredentialStore implements vscode.Disposable {
 				session = await vscode.authentication.getSession(authProviderId, scopes, getAuthSessionOptions);
 				usedScopes = scopes;
 			}
-		} else if (getAuthSessionOptions.forceNewSession) {
+		} else if (getAuthSessionOptions.forceNewSession || scopes.length === SCOPES_WITH_ADDITIONAL.length) {
 			session = await vscode.authentication.getSession(authProviderId, scopes, getAuthSessionOptions);
 			usedScopes = scopes;
 		} else {
