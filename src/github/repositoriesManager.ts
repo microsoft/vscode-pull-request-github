@@ -221,7 +221,7 @@ export class RepositoriesManager implements vscode.Disposable {
 		let githubEnterprise;
 		const hasNonDotComRemote = (enterpriseRemotes.length > 0) || (unknownRemotes.length > 0);
 		if ((hasEnterpriseUri() || (dotComRemotes.length === 0)) && hasNonDotComRemote) {
-			githubEnterprise = await this._credentialStore.login(AuthProvider['github-enterprise']);
+			githubEnterprise = await this._credentialStore.login(AuthProvider.githubEnterprise);
 		}
 		let github;
 		if (!githubEnterprise && (!hasEnterpriseUri() || enterpriseRemotes.length === 0)) {

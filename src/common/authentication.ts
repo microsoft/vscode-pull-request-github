@@ -11,7 +11,7 @@ export enum GitHubServerType {
 
 export enum AuthProvider {
 	github = 'github',
-	'github-enterprise' = 'github-enterprise'
+	githubEnterprise = 'github-enterprise'
 }
 
 export class AuthenticationError extends Error {

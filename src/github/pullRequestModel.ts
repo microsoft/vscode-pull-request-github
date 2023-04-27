@@ -61,6 +61,7 @@ import { IssueModel } from './issueModel';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
+	getAvatarWithEnterpriseFallback,
 	getReactionGroup,
 	insertNewCommitsSinceReview,
 	parseGraphQLComment,
@@ -785,7 +786,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				const account: IAccount = {
 					login: reviewer.requestedReviewer.login,
 					url: reviewer.requestedReviewer.url,
-					avatarUrl: reviewer.requestedReviewer.avatarUrl,
+					avatarUrl: getAvatarWithEnterpriseFallback(reviewer.requestedReviewer.avatarUrl, undefined, remote.isEnterprise),
 					email: reviewer.requestedReviewer.email,
 					name: reviewer.requestedReviewer.name
 				};
@@ -794,7 +795,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				const team: ITeam = {
 					name: reviewer.requestedReviewer.name,
 					url: reviewer.requestedReviewer.url,
-					avatarUrl: reviewer.requestedReviewer.avatarUrl,
+					avatarUrl: getAvatarWithEnterpriseFallback(reviewer.requestedReviewer.avatarUrl, undefined, remote.isEnterprise),
 					id: reviewer.requestedReviewer.id!,
 					org: remote.owner,
 					slug: reviewer.requestedReviewer.slug!

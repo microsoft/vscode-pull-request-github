@@ -189,7 +189,7 @@ export class GitHubRepository implements vscode.Disposable {
 	get authMatchesServer(): boolean {
 		if ((this.remote.githubServerType === GitHubServerType.GitHubDotCom) && this._credentialStore.isAuthenticated(AuthProvider.github)) {
 			return true;
-		} else if ((this.remote.githubServerType === GitHubServerType.Enterprise) && this._credentialStore.isAuthenticated(AuthProvider['github-enterprise'])) {
+		} else if ((this.remote.githubServerType === GitHubServerType.Enterprise) && this._credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
 			return true;
 		} else {
 			// Not good. We have a mismatch between auth type and server type.
@@ -926,7 +926,7 @@ export class GitHubRepository implements vscode.Disposable {
 					...result.data.repository.mentionableUsers.nodes.map(node => {
 						return {
 							login: node.login,
-							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
+							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.isEnterprise),
 							name: node.name,
 							url: node.url,
 							email: node.email,
@@ -969,7 +969,7 @@ export class GitHubRepository implements vscode.Disposable {
 					...result.data.repository.assignableUsers.nodes.map(node => {
 						return {
 							login: node.login,
-							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
+							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.isEnterprise),
 							name: node.name,
 							url: node.url,
 							email: node.email,
@@ -1054,7 +1054,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 				result.data.organization.teams.nodes.forEach(node => {
 					const team: ITeam = {
-						avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
+						avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.isEnterprise),
 						name: node.name,
 						url: node.url,
 						slug: node.slug,
@@ -1106,7 +1106,7 @@ export class GitHubRepository implements vscode.Disposable {
 				...result.data.repository.pullRequest.participants.nodes.map(node => {
 					return {
 						login: node.login,
-						avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.authProviderId),
+						avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.isEnterprise),
 						name: node.name,
 						url: node.url,
 						email: node.email,
@@ -1205,7 +1205,7 @@ export class GitHubRepository implements vscode.Disposable {
 								getAvatarWithEnterpriseFallback(
 									context.checkSuite.app.logoUrl,
 									undefined,
-									this.remote.authProviderId,
+									this.remote.isEnterprise,
 								),
 							state: this.mapStateAsCheckState(context.conclusion),
 							description: context.title,
@@ -1218,7 +1218,7 @@ export class GitHubRepository implements vscode.Disposable {
 							id: context.id,
 							url: context.targetUrl ?? undefined,
 							avatarUrl: context.avatarUrl
-								? getAvatarWithEnterpriseFallback(context.avatarUrl, undefined, this.remote.authProviderId)
+								? getAvatarWithEnterpriseFallback(context.avatarUrl, undefined, this.remote.isEnterprise)
 								: undefined,
 							state: this.mapStateAsCheckState(context.state),
 							description: context.description,
