@@ -894,7 +894,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 							const data = await githubRepository.getOrgTeams(refreshKind);
 							orgTeams.set(githubRepository.remote.owner, data);
 						} catch (e) {
-							// ignore errors from getTeams
+							break;
 						}
 					}
 					const allTeamsForOrg = orgTeams.get(githubRepository.remote.owner) ?? [];
