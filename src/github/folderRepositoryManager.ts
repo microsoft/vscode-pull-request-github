@@ -1243,22 +1243,19 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	async getMilestoneIssues(
 		options: IPullRequestsPagingOptions = { fetchNextPage: false },
 		includeIssuesWithoutMilestone: boolean = false,
-		query?: string,
 	): Promise<ItemsResponseResult<MilestoneModel>> {
 		const milestones: ItemsResponseResult<MilestoneModel> = await this.fetchPagedData<MilestoneModel>(
 			options,
-			'issuesKey',
+			'milestoneIssuesKey',
 			PagedDataType.Milestones,
-			PRType.All,
-			query,
+			PRType.All
 		);
 		if (includeIssuesWithoutMilestone) {
 			const additionalIssues: ItemsResponseResult<Issue> = await this.fetchPagedData<Issue>(
 				options,
-				'issuesKey',
+				'noMilestoneIssuesKey',
 				PagedDataType.IssuesWithoutMilestone,
-				PRType.All,
-				query,
+				PRType.All
 			);
 			milestones.items.push({
 				milestone: {
@@ -1311,7 +1308,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	async getIssues(
 		query?: string,
 	): Promise<ItemsResponseResult<IssueModel>> {
-		const data = await this.fetchPagedData<Issue>({ fetchNextPage: false, fetchOnePagePerRepo: false }, 'issuesKey', PagedDataType.IssueSearch, PRType.All, query);
+		const data = await this.fetchPagedData<Issue>({ fetchNextPage: false, fetchOnePagePerRepo: false }, `issuesKey${query}`, PagedDataType.IssueSearch, PRType.All, query);
 		const mappedData: ItemsResponseResult<IssueModel> = {
 			items: [],
 			hasMorePages: data.hasMorePages,
