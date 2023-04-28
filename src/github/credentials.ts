@@ -103,6 +103,8 @@ export class CredentialStore implements vscode.Disposable {
 		let session: vscode.AuthenticationSession | undefined = undefined;
 		let isNew: boolean = false;
 		let usedScopes: string[] | undefined = SCOPES;
+		const oldScopes = this._scopes;
+		const oldEnterpriseScopes = this._scopesEnterprise;
 		try {
 			// Set scopes before getting the session to prevent new session events from using the old scopes.
 			if (authProviderId === AuthProvider.github) {
@@ -115,6 +117,8 @@ export class CredentialStore implements vscode.Disposable {
 			session = result.session;
 			isNew = result.isNew;
 		} catch (e) {
+			this._scopes = oldScopes;
+			this._scopesEnterprise = oldEnterpriseScopes;
 			if (getAuthSessionOptions.forceNewSession && (e.message === 'User did not consent to login.')) {
 				// There are cases where a forced login may not be 100% needed, so just continue as usual if
 				// the user didn't consent to the login prompt.
