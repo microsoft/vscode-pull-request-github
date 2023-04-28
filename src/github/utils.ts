@@ -1223,3 +1223,7 @@ export function vscodeDevPrLink(pullRequest: PullRequestModel) {
 	const itemUri = vscode.Uri.parse(pullRequest.html_url);
 	return `https://${vscode.env.appName.toLowerCase().includes('insider') ? 'insiders.' : ''}vscode.dev/github${itemUri.path}`;
 }
+
+export function copyPrNumber(pullRequest: PullRequestModel) {
+	return pullRequest.number.toString();
+}
