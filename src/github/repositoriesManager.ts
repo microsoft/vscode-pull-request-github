@@ -126,15 +126,12 @@ export class RepositoriesManager implements vscode.Disposable {
 		if (issueModel === undefined) {
 			return undefined;
 		}
-		const issueRemoteUrl = issueModel.remote.url.substring(
-			0,
-			issueModel.remote.url.length - path.extname(issueModel.remote.url).length,
-		);
+		const issueRemoteUrl = `${issueModel.remote.owner.toLowerCase()}/${issueModel.remote.repositoryName.toLowerCase()}`;
 		for (const folderManager of this._folderManagers) {
 			if (
 				folderManager.gitHubRepositories
 					.map(repo =>
-						repo.remote.url.substring(0, repo.remote.url.length - path.extname(repo.remote.url).length),
+						`${repo.remote.owner.toLowerCase()}/${repo.remote.repositoryName.toLowerCase()}`
 					)
 					.includes(issueRemoteUrl)
 			) {
