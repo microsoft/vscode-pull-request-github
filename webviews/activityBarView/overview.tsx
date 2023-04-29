@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React from 'react';
-import { PullRequest } from '../common/cache';
+import { PullRequest } from '../../src/github/views';
 
 import { AddCommentSimple } from '../components/comment';
 import { StatusChecksSection } from '../components/merge';

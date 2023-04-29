@@ -3,78 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { TimelineEvent } from '../../src/common/timelineEvent';
-import {
-	GithubItemStateEnum,
-	IAccount,
-	ILabel,
-	IMilestone,
-	MergeMethod,
-	MergeMethodsAvailability,
-	PullRequestChecks,
-	PullRequestMergeability,
-	PullRequestReviewRequirement,
-	ReviewState,
-} from '../../src/github/interface';
+import { PullRequest } from '../../src/github/views';
 import { vscode } from './message';
-
-export enum ReviewType {
-	Comment = 'comment',
-	Approve = 'approve',
-	RequestChanges = 'requestChanges',
-}
-
-export interface PullRequest {
-	number: number;
-	title: string;
-	titleHTML: string;
-	url: string;
-	createdAt: string;
-	body: string;
-	bodyHTML?: string;
-	author: IAccount;
-	state: GithubItemStateEnum;
-	events: TimelineEvent[];
-	isCurrentlyCheckedOut: boolean;
-	isRemoteBaseDeleted?: boolean;
-	base: string;
-	isRemoteHeadDeleted?: boolean;
-	isLocalHeadDeleted?: boolean;
-	head: string;
-	labels: ILabel[];
-	assignees: IAccount[];
-	commitsCount: number;
-	milestone: IMilestone | undefined;
-	repositoryDefaultBranch: string;
-	/**
-	 * User can edit PR title and description (author or user with push access)
-	 */
-	canEdit: boolean;
-	/**
-	 * Users with push access to repo have rights to merge/close PRs,
-	 * edit title/description, assign reviewers/labels etc.
-	 */
-	hasWritePermission: boolean;
-	pendingCommentText?: string;
-	pendingCommentDrafts?: { [key: string]: string };
-	pendingReviewType?: ReviewType;
-	status: PullRequestChecks | null;
-	reviewRequirement: PullRequestReviewRequirement | null;
-	mergeable: PullRequestMergeability;
-	defaultMergeMethod: MergeMethod;
-	mergeMethodsAvailability: MergeMethodsAvailability;
-	autoMerge?: boolean;
-	allowAutoMerge: boolean;
-	autoMergeMethod?: MergeMethod;
-	reviewers: ReviewState[];
-	isDraft?: boolean;
-	isIssue: boolean;
-	isAuthor?: boolean;
-	continueOnGitHub: boolean;
-	currentUserReviewState: string;
-	isDarkTheme: boolean;
-	hasReviewDraft: boolean;
-}
 
 export function getState(): PullRequest {
 	return vscode.getState();

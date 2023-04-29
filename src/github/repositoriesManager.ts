@@ -28,8 +28,6 @@ export interface PullRequestDefaults {
 	base: string;
 }
 
-export const NO_MILESTONE: string = 'No Milestone';
-
 export class RepositoriesManager implements vscode.Disposable {
 	static ID = 'RepositoriesManager';
 

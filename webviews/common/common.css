@@ -165,6 +165,11 @@ body img.avatar {
 	outline-offset: unset;
 }
 
+.label .icon-button:hover,
+.label .icon-button:focus {
+	background-color: transparent;
+}
+
 .section-item {
 	display: flex;
 	align-items: center;

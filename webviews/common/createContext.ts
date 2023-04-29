@@ -79,7 +79,7 @@ export class CreatePRContext {
 			updateValues.mergeMethodsAvailability = response.mergeMethodsAvailability;
 			updateValues.autoMergeDefault = response.autoMergeDefault;
 			if (!this.createParams.allowAutoMerge && updateValues.allowAutoMerge) {
-				updateValues.autoMerge = updateValues.autoMergeDefault;
+				updateValues.autoMerge = this.createParams.isDraft ? false : updateValues.autoMergeDefault;
 			}
 		}
 
@@ -230,6 +230,7 @@ export class CreatePRContext {
 				if (this.createParams.autoMerge === undefined) {
 					message.params.autoMerge = message.params.autoMergeDefault;
 					message.params.autoMergeMethod = message.params.defaultMergeMethod;
+					message.params.isDraft = false;
 				} else {
 					message.params.autoMerge = this.createParams.autoMerge;
 					message.params.autoMergeMethod = this.createParams.autoMergeMethod;
@@ -249,6 +250,10 @@ export class CreatePRContext {
 				message.params.compareBranch = message.params.defaultCompareBranch;
 				message.params.compareRemote = message.params.defaultCompareRemote;
 				message.params.autoMerge = message.params.autoMergeDefault;
+				message.params.autoMergeMethod = message.params.defaultMergeMethod;
+				if (message.params.autoMergeDefault) {
+					message.params.isDraft = false;
+				}
 				this.updateState(message.params);
 				return;
 
