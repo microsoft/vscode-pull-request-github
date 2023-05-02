@@ -1677,7 +1677,7 @@
 				},
 				{
 					"command": "pr.pickOnVscodeDev",
-					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive|description/ && remoteName != codespaces && embedderIdentifier != github.dev",
+					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive|description/ && (!isWeb || remoteName != codespaces && virtualWorkspace != vscode-vfs)",
 					"group": "1_pullrequest@2"
 				},
 				{
