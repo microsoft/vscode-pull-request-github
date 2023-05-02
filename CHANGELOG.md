@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.64.0
+
+### Changes
+
+- File level comments can be created from PR files.
+
+![File level comments](documentation/changelog/0.64.0/file-level-comments.gif)
+
+- We have an internal rate limit which should help prevent us from hitting GitHub's rate limit.
+- All of the places where you can "Checkout default branch" respect the git setting `"git.pullBeforeCheckout"`.
+- Team reviewers can be added as reviewers to PRs from the PR overview/description. Fetching team reviewers can be slow, so they are only fetched on demand and are then cached until you fetch them on demand again.
+
+![Show or refresh team reviewers button](documentation/changelog/0.64.0/get-team-reviewers.png)
+
+### Fixes
+
+- quickDiff setting is ignored. https://github.com/microsoft/vscode-pull-request-github/issues/4726
+- Overview shows closed instead of merged. https://github.com/microsoft/vscode-pull-request-github/issues/4721
+- 'Commit & Create Pull Request' automatically pushes when working on a PR. https://github.com/microsoft/vscode-pull-request-github/issues/4692
+- PRs for only one repo show in a multi root workspace. https://github.com/microsoft/vscode-pull-request-github/issues/4682
+- Publishing branch reset target branch to main. https://github.com/microsoft/vscode-pull-request-github/issues/4681
+- Old PR editors show error after revisiting. https://github.com/microsoft/vscode-pull-request-github/issues/4661
+- org in issue query causes crash. https://github.com/microsoft/vscode-pull-request-github/issues/4595
+
+**_Thank You_**
+
+* [@Balastrong (Leonardo Montini)](https://github.com/Balastrong)
+  * Add x button to remove a label from a new PR [PR #4649](https://github.com/microsoft/vscode-pull-request-github/pull/4649)
+  * Change file mode for execute husky hook on MacOS [PR #4695](https://github.com/microsoft/vscode-pull-request-github/pull/4695)
+* [@eastwood (Clinton Ryan)](https://github.com/eastwood): Gracefully handle errors where the SSH configuration file is corrupt or malformed [PR #4644](https://github.com/microsoft/vscode-pull-request-github/pull/4644)
+* [@kabel (Kevin Abel)](https://github.com/kabel)
+  * Fix status checks rendering [PR #4542](https://github.com/microsoft/vscode-pull-request-github/pull/4542)
+  * Make the display of PR number in tree view configurable [PR #4576](https://github.com/microsoft/vscode-pull-request-github/pull/4576)
+  * Centralize all configuration strings into `settingKeys.ts` [PR #4577](https://github.com/microsoft/vscode-pull-request-github/pull/4577)
+  * Move `PullRequest` to a shared location for reviewing of types [PR #4578](https://github.com/microsoft/vscode-pull-request-github/pull/4578)
+* [@ypresto (Yuya Tanaka)](https://github.com/ypresto): Fix wrong repo URL for nested repos in workspace (fix copy permalink) [PR #4711](https://github.com/microsoft/vscode-pull-request-github/pull/4711)
+
 ## 0.62.0
 
 ### Changes
