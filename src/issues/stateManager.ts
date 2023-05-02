@@ -165,7 +165,7 @@ export class StateManager {
 						await that.setCurrentIssueFromBranch(state, newBranch, true);
 					}
 				} else {
-					await that.setCurrentIssue(state, undefined);
+					await that.setCurrentIssue(state, undefined, true);
 				}
 			}
 			state.lastHead = repository.state.HEAD ? repository.state.HEAD.commit : undefined;
@@ -354,7 +354,7 @@ export class StateManager {
 			return;
 		}
 		if (branchName === defaults.base) {
-			await this.setCurrentIssue(singleRepoState, undefined);
+			await this.setCurrentIssue(singleRepoState, undefined, false);
 			return;
 		}
 
@@ -374,6 +374,7 @@ export class StateManager {
 					await this.setCurrentIssue(
 						singleRepoState,
 						new CurrentIssue(issueModel, singleRepoState.folderManager, this),
+						false,
 						silent
 					);
 				}
@@ -456,7 +457,7 @@ export class StateManager {
 	}
 
 	private isSettingIssue: boolean = false;
-	async setCurrentIssue(repoState: SingleRepoState | FolderRepositoryManager, issue: CurrentIssue | undefined, silent: boolean = false) {
+	async setCurrentIssue(repoState: SingleRepoState | FolderRepositoryManager, issue: CurrentIssue | undefined, checkoutDefaultBranch: boolean, silent: boolean = false) {
 		if (this.isSettingIssue && issue === undefined) {
 			return;
 		}
@@ -473,7 +474,7 @@ export class StateManager {
 				return;
 			}
 			if (repoState.currentIssue) {
-				await repoState.currentIssue.stopWorking();
+				await repoState.currentIssue.stopWorking(checkoutDefaultBranch);
 			}
 			if (issue) {
 				this.context.subscriptions.push(issue.onDidChangeCurrentIssueState(() => this.updateStatusBar()));
