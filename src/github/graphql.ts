@@ -194,7 +194,7 @@ export interface ReviewThread {
 	originalStartLine: number | null;
 	originalLine: number;
 	isOutdated: boolean;
-	subjectType: SubjectType;
+	subjectType?: SubjectType;
 	comments: {
 		nodes: ReviewComment[];
 		edges: [{
