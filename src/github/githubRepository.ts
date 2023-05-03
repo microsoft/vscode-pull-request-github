@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ApolloQueryResult, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
+import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
 import * as vscode from 'vscode';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
 import Logger from '../common/logger';
@@ -197,7 +197,7 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
-	query = async <T>(query: QueryOptions, ignoreSamlErrors: boolean = false): Promise<ApolloQueryResult<T>> => {
+	query = async <T>(query: QueryOptions, ignoreSamlErrors: boolean = false, legacyFallback?: { query: DocumentNode }): Promise<ApolloQueryResult<T>> => {
 		const gql = this.authMatchesServer && this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${query}`, GRAPHQL_COMPONENT_ID);
@@ -214,6 +214,11 @@ export class GitHubRepository implements vscode.Disposable {
 		try {
 			rsp = await gql.query<T>(query);
 		} catch (e) {
+			if (legacyFallback) {
+				query.query = legacyFallback.query;
+				return this.query(query, ignoreSamlErrors);
+			}
+
 			// Some queries just result in SAML errors, and some queries we may not want to retry because it will be too disruptive.
 			if (!ignoreSamlErrors && e.message?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
 				await this._credentialStore.recreate();
@@ -226,7 +231,7 @@ export class GitHubRepository implements vscode.Disposable {
 		return rsp;
 	};
 
-	mutate = async <T>(mutation: MutationOptions<T>): Promise<FetchResult<T>> => {
+	mutate = async <T>(mutation: MutationOptions<T>, legacyFallback?: { mutation: DocumentNode, deleteProps: string[] }): Promise<FetchResult<T>> => {
 		const gql = this.authMatchesServer && this.hub && this.hub.graphql;
 		if (!gql) {
 			Logger.debug(`Not available for query: ${mutation}`, GRAPHQL_COMPONENT_ID);
@@ -239,7 +244,21 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 
 		Logger.trace(`Request: ${JSON.stringify(mutation, null, 2)}`, GRAPHQL_COMPONENT_ID);
-		const rsp = await gql.mutate<T>(mutation);
+		let rsp;
+		try {
+			rsp = await gql.mutate<T>(mutation);
+		} catch {
+			if (legacyFallback) {
+				mutation.mutation = legacyFallback.mutation;
+				if (mutation.variables?.input) {
+					for (const prop of legacyFallback.deleteProps) {
+						delete mutation.variables.input[prop];
+					}
+				}
+			}
+
+			return this.mutate(mutation);
+		}
 		Logger.trace(`Response: ${JSON.stringify(rsp, null, 2)}`, GRAPHQL_COMPONENT_ID);
 		return rsp;
 	};
