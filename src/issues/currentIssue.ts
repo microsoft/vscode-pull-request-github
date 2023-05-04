@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { Branch, Repository } from '../api/api';
+import { GitErrorCodes } from '../api/api1';
 import { Remote } from '../common/remote';
 import {
 	ASSIGN_WHEN_WORKING,
@@ -104,7 +105,16 @@ export class CurrentIssue {
 			this.repo.inputBox.value = '';
 		}
 		if (this._repoDefaults && checkoutDefaultBranch) {
-			await this.manager.repository.checkout(this._repoDefaults.base);
+			try {
+				await this.manager.repository.checkout(this._repoDefaults.base);
+			} catch (e) {
+				if (e.gitErrorCode === GitErrorCodes.DirtyWorkTree) {
+					vscode.window.showErrorMessage(
+						vscode.l10n.t('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches'),
+					);
+				}
+				throw e;
+			}
 		}
 		this._onDidChangeCurrentIssueState.fire();
 		this.dispose();
