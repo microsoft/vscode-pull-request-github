@@ -581,9 +581,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					line: (endLine === undefined) ? 0 : endLine,
 					side,
 					subjectType: (startLine === undefined || endLine === undefined) ? SubjectType.FILE : SubjectType.LINE
-				},
-			},
-		});
+				}
+			}
+		}, { mutation: schema.LegacyAddReviewThread, deleteProps: ['subjectType'] });
 
 		if (!data) {
 			throw new Error('Creating review thread failed.');
@@ -892,7 +892,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					name: remote.repositoryName,
 					number: this.number,
 				},
-			});
+			}, false, { query: schema.LegacyPullRequestComments });
 
 			const reviewThreads = data.repository.pullRequest.reviewThreads.nodes.map(node => {
 				return parseGraphQLReviewThread(node, this.githubRepository);
@@ -921,7 +921,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					name: remote.repositoryName,
 					number: this.number,
 				},
-			});
+			}, false, { query: schema.LegacyPullRequestComments });
 
 			const comments = data.repository.pullRequest.reviewThreads.nodes
 				.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved, this.githubRepository), remote))
@@ -1465,7 +1465,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					threadId,
 				},
 			},
-		});
+		}, { mutation: schema.LegacyResolveReviewThread, deleteProps: [] });
 
 		if (!data) {
 			// Undo optimistic update
@@ -1505,7 +1505,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					threadId,
 				},
 			},
-		});
+		}, { mutation: schema.LegacyUnresolveReviewThread, deleteProps: [] });
 
 		if (!data) {
 			// Undo optimistic update

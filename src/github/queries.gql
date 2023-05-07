@@ -160,6 +160,25 @@ fragment ReviewThread on PullRequestReviewThread {
 	}
 }
 
+fragment LegacyReviewThread on PullRequestReviewThread {
+	id
+	isResolved
+	viewerCanResolve
+	viewerCanUnresolve
+	path
+	diffSide
+	line
+	startLine
+	originalStartLine
+	originalLine
+	isOutdated
+	comments(first: 100) {
+		nodes {
+			...ReviewComment
+		}
+	}
+}
+
 fragment PullRequestFragment on PullRequest {
 	number
 	url
@@ -541,6 +560,46 @@ query PullRequestComments($owner: String!, $name: String!, $number: Int!, $first
 	}
 }
 
+query LegacyPullRequestComments($owner: String!, $name: String!, $number: Int!, $first: Int = 100) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			reviewThreads(first: $first) {
+				nodes {
+					id
+					isResolved
+					viewerCanResolve
+					viewerCanUnresolve
+					path
+					diffSide
+					startLine
+					line
+					originalStartLine
+					originalLine
+					isOutdated
+					comments(first: 100) {
+						edges {
+							node {
+								pullRequestReview {
+									databaseId
+								}
+							}
+						}
+						nodes {
+							...ReviewComment
+						}
+					}
+				}
+			}
+		}
+	}
+	rateLimit {
+		limit
+		cost
+		remaining
+		resetAt
+	}
+}
+
 query Viewer {
 	viewer {
 		login
@@ -788,6 +847,14 @@ mutation AddReviewThread($input: AddPullRequestReviewThreadInput!) {
 	addPullRequestReviewThread(input: $input) {
 		thread {
 			...ReviewThread
+		}
+	}
+}
+
+mutation LegacyAddReviewThread($input: AddPullRequestReviewThreadInput!) {
+	addPullRequestReviewThread(input: $input) {
+		thread {
+			...LegacyReviewThread
 		}
 	}
 }
@@ -1427,10 +1494,26 @@ mutation ResolveReviewThread($input: ResolveReviewThreadInput!) {
 	}
 }
 
+mutation LegacyResolveReviewThread($input: ResolveReviewThreadInput!) {
+	resolveReviewThread(input: $input) {
+		thread {
+			...LegacyReviewThread
+		}
+	}
+}
+
 mutation UnresolveReviewThread($input: UnresolveReviewThreadInput!) {
 	unresolveReviewThread(input: $input) {
 		thread {
 			...ReviewThread
+		}
+	}
+}
+
+mutation LegacyUnresolveReviewThread($input: UnresolveReviewThreadInput!) {
+	unresolveReviewThread(input: $input) {
+		thread {
+			...LegacyReviewThread
 		}
 	}
 }

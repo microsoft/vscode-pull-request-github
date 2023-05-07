@@ -434,7 +434,7 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRep
 		diffSide: thread.diffSide,
 		isOutdated: thread.isOutdated,
 		comments: thread.comments.nodes.map(comment => parseGraphQLComment(comment, thread.isResolved, githubRepository)),
-		subjectType: thread.subjectType
+		subjectType: thread.subjectType ?? SubjectType.LINE
 	};
 }
 
