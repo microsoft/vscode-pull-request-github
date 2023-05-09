@@ -22,7 +22,7 @@
 		"contribCommentEditorActionsMenu",
 		"quickDiffProvider"
 	],
-	"version": "0.62.0",
+	"version": "0.64.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.78.0"

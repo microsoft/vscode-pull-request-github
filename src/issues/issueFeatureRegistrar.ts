@@ -776,6 +776,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		await this._stateManager.setCurrentIssue(
 			repoManager,
 			new CurrentIssue(issueModel, repoManager, this._stateManager, remoteNameResult.remote, needsBranchPrompt),
+			true
 		);
 	}
 
@@ -815,7 +816,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			issueModel instanceof IssueModel &&
 			this._stateManager.currentIssue(folderManager.repository.rootUri)?.issue.number === issueModel.number
 		) {
-			await this._stateManager.setCurrentIssue(folderManager, undefined);
+			await this._stateManager.setCurrentIssue(folderManager, undefined, true);
 		}
 	}
 
@@ -850,7 +851,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				break;
 			}
 			case stopWorkingText:
-				return this._stateManager.setCurrentIssue(currentIssue.manager, undefined);
+				return this._stateManager.setCurrentIssue(currentIssue.manager, undefined, true);
 		}
 	}
 

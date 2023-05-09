@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
@@ -126,15 +125,12 @@ export class RepositoriesManager implements vscode.Disposable {
 		if (issueModel === undefined) {
 			return undefined;
 		}
-		const issueRemoteUrl = issueModel.remote.url.substring(
-			0,
-			issueModel.remote.url.length - path.extname(issueModel.remote.url).length,
-		);
+		const issueRemoteUrl = `${issueModel.remote.owner.toLowerCase()}/${issueModel.remote.repositoryName.toLowerCase()}`;
 		for (const folderManager of this._folderManagers) {
 			if (
 				folderManager.gitHubRepositories
 					.map(repo =>
-						repo.remote.url.substring(0, repo.remote.url.length - path.extname(repo.remote.url).length),
+						`${repo.remote.owner.toLowerCase()}/${repo.remote.repositoryName.toLowerCase()}`
 					)
 					.includes(issueRemoteUrl)
 			) {
@@ -221,7 +217,7 @@ export class RepositoriesManager implements vscode.Disposable {
 		let githubEnterprise;
 		const hasNonDotComRemote = (enterpriseRemotes.length > 0) || (unknownRemotes.length > 0);
 		if ((hasEnterpriseUri() || (dotComRemotes.length === 0)) && hasNonDotComRemote) {
-			githubEnterprise = await this._credentialStore.login(AuthProvider['github-enterprise']);
+			githubEnterprise = await this._credentialStore.login(AuthProvider.githubEnterprise);
 		}
 		let github;
 		if (!githubEnterprise && (!hasEnterpriseUri() || enterpriseRemotes.length === 0)) {

@@ -99,11 +99,11 @@ export class CurrentIssue {
 		this.repoChangeDisposable?.dispose();
 	}
 
-	public async stopWorking() {
+	public async stopWorking(checkoutDefaultBranch: boolean) {
 		if (this.repo) {
 			this.repo.inputBox.value = '';
 		}
-		if (this._repoDefaults) {
+		if (this._repoDefaults && checkoutDefaultBranch) {
 			await this.manager.repository.checkout(this._repoDefaults.base);
 		}
 		this._onDidChangeCurrentIssueState.fire();

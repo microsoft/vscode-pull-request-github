@@ -236,6 +236,10 @@ export function updateCommentReviewState(thread: GHPRCommentThread, newDraftMode
 	});
 }
 
+export function isEnterprise(provider: AuthProvider): boolean {
+	return provider === AuthProvider.githubEnterprise;
+}
+
 export function convertRESTUserToAccount(
 	user: OctokitCommon.PullsListResponseItemUser,
 	githubRepository?: GitHubRepository,
@@ -243,7 +247,7 @@ export function convertRESTUserToAccount(
 	return {
 		login: user.login,
 		url: user.html_url,
-		avatarUrl: githubRepository ? getAvatarWithEnterpriseFallback(user.avatar_url, user.gravatar_id ?? undefined, githubRepository.remote.authProviderId) : undefined,
+		avatarUrl: githubRepository ? getAvatarWithEnterpriseFallback(user.avatar_url, user.gravatar_id ?? undefined, githubRepository.remote.isEnterprise) : undefined,
 	};
 }
 
@@ -533,7 +537,7 @@ function parseAuthor(
 		return {
 			login: author.login,
 			url: author.url,
-			avatarUrl: getAvatarWithEnterpriseFallback(author.avatarUrl, undefined, githubRepository.remote.authProviderId),
+			avatarUrl: getAvatarWithEnterpriseFallback(author.avatarUrl, undefined, githubRepository.remote.isEnterprise),
 			email: author.email
 		};
 	} else {
@@ -828,7 +832,7 @@ export function parseGraphQLUser(user: GraphQL.UserResponse, githubRepository: G
 	return {
 		login: user.user.login,
 		name: user.user.name,
-		avatarUrl: getAvatarWithEnterpriseFallback(user.user.avatarUrl ?? '', undefined, githubRepository.remote.authProviderId),
+		avatarUrl: getAvatarWithEnterpriseFallback(user.user.avatarUrl ?? '', undefined, githubRepository.remote.isEnterprise),
 		url: user.user.url,
 		bio: user.user.bio,
 		company: user.user.company,
@@ -1122,8 +1126,8 @@ export function generateGravatarUrl(gravatarId: string | undefined, size: number
 	return !!gravatarId ? `https://www.gravatar.com/avatar/${gravatarId}?s=${size}&d=retro` : undefined;
 }
 
-export function getAvatarWithEnterpriseFallback(avatarUrl: string, email: string | undefined, authProviderId: AuthProvider): string | undefined {
-	return authProviderId === AuthProvider.github ? avatarUrl : (email ? generateGravatarUrl(
+export function getAvatarWithEnterpriseFallback(avatarUrl: string, email: string | undefined, isEnterpriseRemote: boolean): string | undefined {
+	return !isEnterpriseRemote ? avatarUrl : (email ? generateGravatarUrl(
 		crypto.createHash('md5').update(email?.trim()?.toLowerCase()).digest('hex')) : undefined);
 }
 
