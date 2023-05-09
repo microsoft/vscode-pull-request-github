@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
@@ -126,15 +125,12 @@ export class RepositoriesManager implements vscode.Disposable {
 		if (issueModel === undefined) {
 			return undefined;
 		}
-		const issueRemoteUrl = issueModel.remote.url.substring(
-			0,
-			issueModel.remote.url.length - path.extname(issueModel.remote.url).length,
-		);
+		const issueRemoteUrl = `${issueModel.remote.owner.toLowerCase()}/${issueModel.remote.repositoryName.toLowerCase()}`;
 		for (const folderManager of this._folderManagers) {
 			if (
 				folderManager.gitHubRepositories
 					.map(repo =>
-						repo.remote.url.substring(0, repo.remote.url.length - path.extname(repo.remote.url).length),
+						`${repo.remote.owner.toLowerCase()}/${repo.remote.repositoryName.toLowerCase()}`
 					)
 					.includes(issueRemoteUrl)
 			) {
