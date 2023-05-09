@@ -585,10 +585,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 		}
 
-		let isAuthenticated = this._credentialStore.isAuthenticated(AuthProvider.github) || this._credentialStore.isAuthenticated(AuthProvider['github-enterprise']);
+		let isAuthenticated = this._credentialStore.isAuthenticated(AuthProvider.github) || this._credentialStore.isAuthenticated(AuthProvider.githubEnterprise);
 		if ((dotComCount > 0) && this._credentialStore.isAuthenticated(AuthProvider.github)) {
 			// good
-		} else if ((enterpriseCount > 0) && this._credentialStore.isAuthenticated(AuthProvider['github-enterprise'])) {
+		} else if ((enterpriseCount > 0) && this._credentialStore.isAuthenticated(AuthProvider.githubEnterprise)) {
 			// also good
 		} else if (isAuthenticated) {
 			// Not good. We have a mismatch between auth type and server type.

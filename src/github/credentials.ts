@@ -16,7 +16,7 @@ import { ITelemetry } from '../common/telemetry';
 import { agent } from '../env/node/net';
 import { IAccount } from './interface';
 import { LoggingApolloClient, LoggingOctokit, RateLogger } from './loggingOctokit';
-import { convertRESTUserToAccount, getEnterpriseUri, hasEnterpriseUri } from './utils';
+import { convertRESTUserToAccount, getEnterpriseUri, hasEnterpriseUri, isEnterprise } from './utils';
 
 const TRY_AGAIN = vscode.l10n.t('Try again?');
 const CANCEL = vscode.l10n.t('Cancel');
@@ -65,8 +65,8 @@ export class CredentialStore implements vscode.Disposable {
 					promises.push(this.initialize(AuthProvider.github));
 				}
 
-				if (!this.isAuthenticated(AuthProvider['github-enterprise']) && hasEnterpriseUri()) {
-					promises.push(this.initialize(AuthProvider['github-enterprise']));
+				if (!this.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
+					promises.push(this.initialize(AuthProvider.githubEnterprise));
 				}
 
 				await Promise.all(promises);
@@ -87,9 +87,9 @@ export class CredentialStore implements vscode.Disposable {
 		await this.context.globalState.update(LAST_USED_SCOPES_ENTERPRISE_KEY, this._scopesEnterprise);
 	}
 
-	private async initialize(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions = {}, scopes: string[] = authProviderId === AuthProvider.github ? this._scopes : this._scopesEnterprise): Promise<void> {
+	private async initialize(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions = {}, scopes: string[] = !isEnterprise(authProviderId) ? this._scopes : this._scopesEnterprise): Promise<void> {
 		Logger.debug(`Initializing GitHub${getGitHubSuffix(authProviderId)} authentication provider.`, 'Authentication');
-		if (authProviderId === AuthProvider['github-enterprise']) {
+		if (isEnterprise(authProviderId)) {
 			if (!hasEnterpriseUri()) {
 				Logger.debug(`GitHub Enterprise provider selected without URI.`, 'Authentication');
 				return;
@@ -107,7 +107,7 @@ export class CredentialStore implements vscode.Disposable {
 		const oldEnterpriseScopes = this._scopesEnterprise;
 		try {
 			// Set scopes before getting the session to prevent new session events from using the old scopes.
-			if (authProviderId === AuthProvider.github) {
+			if (!isEnterprise(authProviderId)) {
 				this._scopes = scopes;
 			} else {
 				this._scopesEnterprise = scopes;
@@ -128,7 +128,7 @@ export class CredentialStore implements vscode.Disposable {
 		}
 
 		if (session) {
-			if (authProviderId === AuthProvider.github) {
+			if (!isEnterprise(authProviderId)) {
 				this._sessionId = session.id;
 			} else {
 				this._enterpriseSessionId = session.id;
@@ -143,7 +143,7 @@ export class CredentialStore implements vscode.Disposable {
 					return this.initialize(authProviderId, getAuthSessionOptions);
 				}
 			}
-			if (authProviderId === AuthProvider.github) {
+			if (!isEnterprise(authProviderId)) {
 				this._githubAPI = github;
 				this._scopes = usedScopes;
 			} else {
@@ -163,7 +163,7 @@ export class CredentialStore implements vscode.Disposable {
 	private async doCreate(options: vscode.AuthenticationGetSessionOptions, additionalScopes: boolean = false) {
 		await this.initialize(AuthProvider.github, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined);
 		if (hasEnterpriseUri()) {
-			await this.initialize(AuthProvider['github-enterprise'], options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined);
+			await this.initialize(AuthProvider.githubEnterprise, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined);
 		}
 	}
 
@@ -182,25 +182,25 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public isAnyAuthenticated() {
-		return this.isAuthenticated(AuthProvider.github) || this.isAuthenticated(AuthProvider['github-enterprise']);
+		return this.isAuthenticated(AuthProvider.github) || this.isAuthenticated(AuthProvider.githubEnterprise);
 	}
 
 	public isAuthenticated(authProviderId: AuthProvider): boolean {
-		if (authProviderId === AuthProvider.github) {
+		if (!isEnterprise(authProviderId)) {
 			return !!this._githubAPI;
 		}
 		return !!this._githubEnterpriseAPI;
 	}
 
 	public isAuthenticatedWithAdditionalScopes(authProviderId: AuthProvider): boolean {
-		if (authProviderId === AuthProvider.github) {
+		if (!isEnterprise(authProviderId)) {
 			return !!this._githubAPI && this._scopes.length == SCOPES_WITH_ADDITIONAL.length;
 		}
 		return !!this._githubEnterpriseAPI && this._scopes.length == SCOPES_WITH_ADDITIONAL.length;
 	}
 
 	public getHub(authProviderId: AuthProvider): GitHub | undefined {
-		if (authProviderId === AuthProvider.github) {
+		if (!isEnterprise(authProviderId)) {
 			return this._githubAPI;
 		}
 		return this._githubEnterpriseAPI;
@@ -213,7 +213,7 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public async getHubOrLogin(authProviderId: AuthProvider): Promise<GitHub | undefined> {
-		if (authProviderId === AuthProvider.github) {
+		if (!isEnterprise(authProviderId)) {
 			return this._githubAPI ?? (await this.login(authProviderId));
 		}
 		return this._githubEnterpriseAPI ?? (await this.login(authProviderId));
@@ -345,7 +345,7 @@ export class CredentialStore implements vscode.Disposable {
 	private async createHub(token: string, authProviderId: AuthProvider): Promise<GitHub> {
 		let baseUrl = 'https://api.github.com';
 		let enterpriseServerUri: vscode.Uri | undefined;
-		if (authProviderId === AuthProvider['github-enterprise']) {
+		if (isEnterprise(authProviderId)) {
 			enterpriseServerUri = getEnterpriseUri();
 		}
 
@@ -419,5 +419,5 @@ const link = (url: string, token: string) =>
 	);
 
 function getGitHubSuffix(authProviderId: AuthProvider) {
-	return authProviderId === AuthProvider.github ? '' : ' Enterprise';
+	return !isEnterprise(authProviderId) ? '' : ' Enterprise';
 }

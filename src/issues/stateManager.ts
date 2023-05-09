@@ -307,9 +307,9 @@ export class StateManager {
 				}
 				if (!user) {
 					const enterpriseRemotes = parseRepositoryRemotes(folderManager.repository).filter(
-						remote => remote.authProviderId === AuthProvider['github-enterprise']
+						remote => remote.isEnterprise
 					);
-					user = await this.getCurrentUser(enterpriseRemotes.length ? AuthProvider['github-enterprise'] : AuthProvider.github);
+					user = await this.getCurrentUser(enterpriseRemotes.length ? AuthProvider.githubEnterprise : AuthProvider.github);
 				}
 				items = this.setIssues(
 					folderManager,

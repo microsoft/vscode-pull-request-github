@@ -7,6 +7,7 @@ import { RemoteSource, RemoteSourceProvider } from './@types/git';
 import { AuthProvider } from './common/authentication';
 import { OctokitCommon } from './github/common';
 import { CredentialStore, GitHub } from './github/credentials';
+import { isEnterprise } from './github/utils';
 
 interface Repository {
 	readonly full_name: string;
@@ -39,7 +40,7 @@ export class GithubRemoteSourceProvider implements RemoteSourceProvider {
 	private userReposCache: RemoteSource[] = [];
 
 	constructor(private readonly credentialStore: CredentialStore, private readonly authProviderId: AuthProvider = AuthProvider.github) {
-		if (authProviderId === AuthProvider['github-enterprise']) {
+		if (isEnterprise(authProviderId)) {
 			this.name = 'GitHub Enterprise';
 		}
 	}
