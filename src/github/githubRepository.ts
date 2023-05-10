@@ -18,6 +18,7 @@ import {
 	CreatePullRequestResponse,
 	FileContentResponse,
 	ForkDetailsResponse,
+	GetBranchResponse,
 	GetChecksResponse,
 	isCheckRun,
 	IssuesResponse,
@@ -862,6 +863,21 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.error(`Unable to fetch PR: ${e}`, GitHubRepository.ID);
 			return;
 		}
+	}
+
+	async hasBranch(branchName: string): Promise<boolean> {
+		const { query, remote, schema } = await this.ensure();
+
+		const { data } = await query<GetBranchResponse>({
+			query: schema.GetBranch,
+			variables: {
+				owner: remote.owner,
+				name: remote.repositoryName,
+				qualifiedName: `refs/heads/${branchName}`,
+			}
+		});
+
+		return data.repository.ref !== null;
 	}
 
 	async listBranches(owner: string, repositoryName: string): Promise<string[]> {

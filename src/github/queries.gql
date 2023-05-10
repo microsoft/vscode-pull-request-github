@@ -1016,6 +1016,16 @@ query GetAssignableUsers($owner: String!, $name: String!, $first: Int!, $after: 
 	}
 }
 
+query GetBranch($owner: String!, $name: String!, $qualifiedName: String!) {
+	repository(owner: $owner, name: $name) {
+		ref(qualifiedName: $qualifiedName) {
+			target {
+				oid
+			}
+		}
+	}
+}
+
 query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String) {
 	repository(owner: $owner, name: $name) {
 		refs(first: $first, after: $after, refPrefix: "refs/heads/") {
