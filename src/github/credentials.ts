@@ -253,6 +253,7 @@ export class CredentialStore implements vscode.Disposable {
 		let retry: boolean = true;
 		let octokit: GitHub | undefined = undefined;
 		const sessionOptions: vscode.AuthenticationGetSessionOptions = { createIfNone: true };
+		let isCanceled: boolean = false;
 		while (retry) {
 			try {
 				await this.initialize(authProviderId, sessionOptions);
@@ -261,9 +262,12 @@ export class CredentialStore implements vscode.Disposable {
 				if (e instanceof Error && e.stack) {
 					Logger.error(e.stack);
 				}
+				if (e.message === 'Cancelled') {
+					isCanceled = true;
+				}
 			}
 			octokit = this.getHub(authProviderId);
-			if (octokit) {
+			if (octokit || isCanceled) {
 				retry = false;
 			} else {
 				retry = (await vscode.window.showErrorMessage(errorPrefix, TRY_AGAIN, CANCEL)) === TRY_AGAIN;
