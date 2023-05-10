@@ -2064,7 +2064,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	): Promise<PullRequestModel | undefined> {
 		const githubRepo = await this.resolveItem(owner, repositoryName);
 		if (githubRepo) {
-			return githubRepo.getPullRequest(pullRequestNumber);
+			const pr = await githubRepo.getPullRequest(pullRequestNumber);
+			if (pr) {
+				if (await githubRepo.hasBranch(pr.base.name)) {
+					return pr;
+				}
+			}
 		}
 		return undefined;
 	}
