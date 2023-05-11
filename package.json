@@ -347,6 +347,11 @@
 					"description": "%githubPullRequests.setAutoMerge.description%",
 					"default": false
 				},
+				"githubPullRequests.pullPullRequestBranchBeforeCheckout": {
+					"type": "boolean",
+					"description": "%githubPullRequests.pullPullRequestBranchBeforeCheckout.description%",
+					"default": true
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],
