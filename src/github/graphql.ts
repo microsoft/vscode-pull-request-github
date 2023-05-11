@@ -442,6 +442,16 @@ export interface UpdatePullRequestResponse {
 	};
 }
 
+export interface GetBranchResponse {
+	repository: {
+		ref: {
+			target: {
+				oid: string;
+			}
+		}
+	}
+}
+
 export interface ListBranchesResponse {
 	repository: {
 		refs: {
