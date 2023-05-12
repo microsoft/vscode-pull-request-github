@@ -12,6 +12,7 @@ import { GitErrorCodes } from '../api/api1';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
+import { PR_SETTINGS_NAMESPACE, PULL_PR_BRANCH_BEFORE_CHECKOUT } from '../common/settingKeys';
 import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
@@ -188,14 +189,20 @@ export class PullRequestGitHelper {
 			const branchName = branchInfos[0].branch!;
 			progress.report({ message: vscode.l10n.t('Checking out branch {0}', branchName) });
 			await repository.checkout(branchName);
-			const remote = readConfig(`branch.${branchName}.remote`);
-			const ref = readConfig(`branch.${branchName}.merge`);
-			progress.report({ message: vscode.l10n.t('Fetching branch {0}', branchName) });
-			await repository.fetch(remote, ref);
+
+			// respect the git setting to fetch before checkout
+			if (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(PULL_PR_BRANCH_BEFORE_CHECKOUT, true)) {
+				const remote = readConfig(`branch.${branchName}.remote`);
+				const ref = readConfig(`branch.${branchName}.merge`);
+				progress.report({ message: vscode.l10n.t('Fetching branch {0}', branchName) });
+				await repository.fetch(remote, ref);
+			}
+
 			const branchStatus = await repository.getBranch(branchInfos[0].branch!);
 			if (branchStatus.upstream === undefined) {
 				return false;
 			}
+
 			if (branchStatus.behind !== undefined && branchStatus.behind > 0 && branchStatus.ahead === 0) {
 				Logger.debug(`Pull from upstream`, PullRequestGitHelper.ID);
 				progress.report({ message: vscode.l10n.t('Pulling branch {0}', branchName) });
