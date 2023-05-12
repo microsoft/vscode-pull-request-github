@@ -332,7 +332,11 @@ ${lineContents}
 		}
 		const documentLanguage = (await vscode.workspace.openTextDocument(this.parent.uri)).languageId;
 		// Replace user
-		const linkified = body.replace(/([^\[`]|^)\@([^\s`]+)/g, (substring) => {
+		const linkified = body.replace(/([^\[`]|^)\@([^\s`]+)/g, (substring, _1, _2, offset) => {
+			// Do not try to replace user if there's a code block.
+			if ((body.substring(0, offset).match(/```/g)?.length ?? 0) % 2 === 1) {
+				return substring;
+			}
 			const username = substring.substring(substring.startsWith('@') ? 1 : 2);
 			if ((((documentLanguage === 'javascript') || (documentLanguage === 'typescript')) && JSDOC_NON_USERS.includes(username))
 				|| ((documentLanguage === 'php') && PHPDOC_NON_USERS.includes(username))) {
