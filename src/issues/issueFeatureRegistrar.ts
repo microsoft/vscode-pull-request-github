@@ -829,7 +829,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		} catch (e) {
 			// leave defaults undefined
 		}
-		const stopWorkingText: string = vscode.l10n.t('{0} Stop working on #{}', '$(primitive-square)', currentIssue.issue.number);
+		const stopWorkingText: string = vscode.l10n.t('{0} Stop working on #{1}', '$(primitive-square)', currentIssue.issue.number);
 		const choices =
 			currentIssue.branchName && defaults
 				? [openIssueText, pullRequestText, stopWorkingText]
