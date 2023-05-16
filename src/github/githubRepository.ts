@@ -834,7 +834,7 @@ export class GitHubRepository implements vscode.Disposable {
 					name: remote.repositoryName,
 					number: id,
 				},
-			});
+			}, true);
 			Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
 			return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data.repository.pullRequest, this));
 		} catch (e) {
