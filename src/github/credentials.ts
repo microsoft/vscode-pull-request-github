@@ -196,7 +196,7 @@ export class CredentialStore implements vscode.Disposable {
 		if (!isEnterprise(authProviderId)) {
 			return !!this._githubAPI && this._scopes.length == SCOPES_WITH_ADDITIONAL.length;
 		}
-		return !!this._githubEnterpriseAPI && this._scopes.length == SCOPES_WITH_ADDITIONAL.length;
+		return !!this._githubEnterpriseAPI && this._scopesEnterprise.length == SCOPES_WITH_ADDITIONAL.length;
 	}
 
 	public getHub(authProviderId: AuthProvider): GitHub | undefined {
