@@ -122,6 +122,10 @@ body .comment-container.review {
 	position: relative;
 }
 
+body .comment-container .review-comment-header:not(:last-child) {
+	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
+}
+
 body .comment-container .review-comment-header {
 	position: relative;
 	display: flex;
@@ -131,7 +135,6 @@ body .comment-container .review-comment-header {
 	color: var(--vscode-foreground);
 	align-items: center;
 	background: var(--vscode-editorWidget-background);
-	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
 	border-top-left-radius: 3px;
 	border-top-right-radius: 3px;
 	overflow: hidden;
