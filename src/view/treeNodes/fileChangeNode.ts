@@ -77,7 +77,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 	public command: vscode.Command;
 	public opts: vscode.TextDocumentShowOptions;
 
-	public checkboxState: { state: vscode.TreeItemCheckboxState; tooltip?: string };
+	public checkboxState: { state: vscode.TreeItemCheckboxState; tooltip?: string; accessibilityInformation: vscode.AccessibilityInformation };
 
 	public childrenDisposables: vscode.Disposable[] = [];
 
@@ -139,9 +139,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 				const matchingChange = e.changed.find(viewStateChange => viewStateChange.fileName === this.changeModel.fileName);
 				if (matchingChange) {
 					this.updateViewed(matchingChange.viewed);
-					if (this.parent instanceof TreeNode && !this.parent.updateParentCheckbox()) {
-						this.refresh(this);
-					}
 				}
 			}),
 		);
@@ -167,8 +164,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 		this.contextValue = `${Schemes.FileChange}:${GitChangeType[this.changeModel.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
 		this.checkboxState = viewed === ViewedState.VIEWED ?
-			{ state: vscode.TreeItemCheckboxState.Checked, tooltip: 'unmark file as viewed' } :
-			{ state: vscode.TreeItemCheckboxState.Unchecked, tooltip: 'mark file as viewed' };
+			{ state: vscode.TreeItemCheckboxState.Checked, tooltip: vscode.l10n.t('Mark file as viewed'), accessibilityInformation: { label: vscode.l10n.t('Mark file {0} as viewed', this.label ?? '') } } :
+			{ state: vscode.TreeItemCheckboxState.Unchecked, tooltip: vscode.l10n.t('Mark file as unviewed'), accessibilityInformation: { label: vscode.l10n.t('Mark file {0} as unviewed', this.label ?? '') } };
 	}
 
 	public async markFileAsViewed() {
@@ -185,20 +182,11 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 		const viewed = newState === vscode.TreeItemCheckboxState.Checked ? ViewedState.VIEWED : ViewedState.UNVIEWED;
 		this.updateViewed(viewed);
 
-		async function markFile(node: FileChangeNode) {
-			if (newState === vscode.TreeItemCheckboxState.Checked) {
-				await node.markFileAsViewed();
-			}
-			else {
-				await node.unmarkFileAsViewed();
-			}
+		if (newState === vscode.TreeItemCheckboxState.Checked) {
+			this.markFileAsViewed();
+		} else {
+			this.unmarkFileAsViewed();
 		}
-
-		markFile(this).then(_ => {
-			if (this.parent instanceof TreeNode && !this.parent.updateParentCheckbox()) {
-				this.refresh(this);
-			}
-		});
 	}
 
 	updateShowOptions() {
