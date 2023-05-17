@@ -1447,83 +1447,98 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return data;
 	}
 
-	async resolveReviewThread(threadId: string): Promise<void> {
-		const { mutate, schema } = await this.githubRepository.ensure();
-
-		// optimistically update
-		const oldThread = this._reviewThreadsCache.find(thread => thread.id === threadId);
-		if (oldThread && oldThread.viewerCanResolve) {
-			oldThread.isResolved = true;
-			oldThread.viewerCanResolve = false;
-			oldThread.viewerCanUnresolve = true;
+	private undoOptimisticResolveState(oldThread: IReviewThread | undefined) {
+		if (oldThread) {
+			oldThread.isResolved = !oldThread.isResolved;
+			oldThread.viewerCanResolve = !oldThread.viewerCanResolve;
+			oldThread.viewerCanUnresolve = !oldThread.viewerCanUnresolve;
 			this._onDidChangeReviewThreads.fire({ added: [], changed: [oldThread], removed: [] });
 		}
+	}
 
-		const { data } = await mutate<ResolveReviewThreadResponse>({
-			mutation: schema.ResolveReviewThread,
-			variables: {
-				input: {
-					threadId,
-				},
-			},
-		}, { mutation: schema.LegacyResolveReviewThread, deleteProps: [] });
+	async resolveReviewThread(threadId: string): Promise<void> {
+		const oldThread = this._reviewThreadsCache.find(thread => thread.id === threadId);
 
-		if (!data) {
-			// Undo optimistic update
-			if (oldThread && oldThread.viewerCanUnresolve) {
-				oldThread.isResolved = false;
-				oldThread.viewerCanResolve = true;
-				oldThread.viewerCanUnresolve = false;
+		try {
+			Logger.debug(`Resolve review thread - enter`, PullRequestModel.ID);
+
+			const { mutate, schema } = await this.githubRepository.ensure();
+
+			// optimistically update
+			if (oldThread && oldThread.viewerCanResolve) {
+				oldThread.isResolved = true;
+				oldThread.viewerCanResolve = false;
+				oldThread.viewerCanUnresolve = true;
 				this._onDidChangeReviewThreads.fire({ added: [], changed: [oldThread], removed: [] });
 			}
-			throw new Error('Resolve review thread failed.');
-		}
 
-		const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
-		if (index > -1) {
-			const thread = parseGraphQLReviewThread(data.resolveReviewThread.thread, this.githubRepository);
-			this._reviewThreadsCache.splice(index, 1, thread);
-			this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
+			const { data } = await mutate<ResolveReviewThreadResponse>({
+				mutation: schema.ResolveReviewThread,
+				variables: {
+					input: {
+						threadId,
+					},
+				},
+			}, { mutation: schema.LegacyResolveReviewThread, deleteProps: [] });
+
+			if (!data) {
+				this.undoOptimisticResolveState(oldThread);
+				throw new Error('Resolve review thread failed.');
+			}
+
+			const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
+			if (index > -1) {
+				const thread = parseGraphQLReviewThread(data.resolveReviewThread.thread, this.githubRepository);
+				this._reviewThreadsCache.splice(index, 1, thread);
+				this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
+			}
+			Logger.debug(`Resolve review thread - done`, PullRequestModel.ID);
+		} catch (e) {
+			Logger.error(`Resolve review thread failed: ${e}`, PullRequestModel.ID);
+			this.undoOptimisticResolveState(oldThread);
 		}
 	}
 
 	async unresolveReviewThread(threadId: string): Promise<void> {
-		const { mutate, schema } = await this.githubRepository.ensure();
-
-		// optimistically update
 		const oldThread = this._reviewThreadsCache.find(thread => thread.id === threadId);
-		if (oldThread && oldThread.viewerCanUnresolve) {
-			oldThread.isResolved = false;
-			oldThread.viewerCanUnresolve = false;
-			oldThread.viewerCanResolve = true;
-			this._onDidChangeReviewThreads.fire({ added: [], changed: [oldThread], removed: [] });
-		}
 
-		const { data } = await mutate<UnresolveReviewThreadResponse>({
-			mutation: schema.UnresolveReviewThread,
-			variables: {
-				input: {
-					threadId,
-				},
-			},
-		}, { mutation: schema.LegacyUnresolveReviewThread, deleteProps: [] });
+		try {
+			Logger.debug(`Unresolve review thread - enter`, PullRequestModel.ID);
 
-		if (!data) {
-			// Undo optimistic update
-			if (oldThread && oldThread.viewerCanResolve) {
-				oldThread.isResolved = true;
-				oldThread.viewerCanUnresolve = true;
-				oldThread.viewerCanResolve = false;
+			const { mutate, schema } = await this.githubRepository.ensure();
+
+			// optimistically update
+			if (oldThread && oldThread.viewerCanUnresolve) {
+				oldThread.isResolved = false;
+				oldThread.viewerCanUnresolve = false;
+				oldThread.viewerCanResolve = true;
 				this._onDidChangeReviewThreads.fire({ added: [], changed: [oldThread], removed: [] });
 			}
-			throw new Error('Unresolve review thread failed.');
-		}
 
-		const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
-		if (index > -1) {
-			const thread = parseGraphQLReviewThread(data.unresolveReviewThread.thread, this.githubRepository);
-			this._reviewThreadsCache.splice(index, 1, thread);
-			this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
+			const { data } = await mutate<UnresolveReviewThreadResponse>({
+				mutation: schema.UnresolveReviewThread,
+				variables: {
+					input: {
+						threadId,
+					},
+				},
+			}, { mutation: schema.LegacyUnresolveReviewThread, deleteProps: [] });
+
+			if (!data) {
+				this.undoOptimisticResolveState(oldThread);
+				throw new Error('Unresolve review thread failed.');
+			}
+
+			const index = this._reviewThreadsCache.findIndex(thread => thread.id === threadId);
+			if (index > -1) {
+				const thread = parseGraphQLReviewThread(data.unresolveReviewThread.thread, this.githubRepository);
+				this._reviewThreadsCache.splice(index, 1, thread);
+				this._onDidChangeReviewThreads.fire({ added: [], changed: [thread], removed: [] });
+			}
+			Logger.debug(`Unresolve review thread - done`, PullRequestModel.ID);
+		} catch (e) {
+			Logger.error(`Unresolve review thread failed: ${e}`, PullRequestModel.ID);
+			this.undoOptimisticResolveState(oldThread);
 		}
 	}
 
