@@ -217,9 +217,6 @@ async function init(
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 
-	const experimentationService = await createExperimentationService(context, telemetry);
-	await experimentationService.initializePromise;
-	await experimentationService.isCachedFlightEnabled('githubaa');
 	registerPostCommitCommandsProvider(reposManager, git);
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
 	CompareChangesTreeProvider.closeTabs();
@@ -340,7 +337,11 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	Logger.debug('Creating credential store.', 'Activation');
 	const credentialStore = new CredentialStore(telemetry, context);
 	context.subscriptions.push(credentialStore);
-	await credentialStore.create({ silent: true });
+	const experimentationService = await createExperimentationService(context, telemetry);
+	await experimentationService.initializePromise;
+	await experimentationService.isCachedFlightEnabled('githubaa');
+	const showBadge = experimentationService.getTreatmentVariable('vscode', 'showAuthBadge');
+	await credentialStore.create(showBadge ? undefined : { silent: true });
 
 	deferredActivateRegisterBuiltInGitProvider(context, apiImpl, credentialStore);
 

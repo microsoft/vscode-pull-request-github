@@ -155,6 +155,12 @@ export class CredentialStore implements vscode.Disposable {
 			if (!(getAuthSessionOptions.createIfNone || getAuthSessionOptions.forceNewSession) || isNew) {
 				this._onDidInitialize.fire();
 			}
+			if (isNew) {
+				/* __GDPR__
+					"auth.session" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('auth.session');
+			}
 		} else {
 			Logger.debug(`No GitHub${getGitHubSuffix(authProviderId)} token found.`, 'Authentication');
 		}
