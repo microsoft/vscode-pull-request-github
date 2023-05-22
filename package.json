@@ -1165,8 +1165,18 @@
 			},
 			{
 				"view": "pr:github",
-				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0",
+				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount == 0",
 				"contents": "%welcome.pr.github.noRepo.contents%"
+			},
+			{
+				"view": "pr:github",
+				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount == 1",
+				"contents": "%welcome.pr.github.parentRepo.contents%"
+			},
+			{
+				"view": "pr:github",
+				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount > 1",
+				"contents": "%welcome.pr.github.parentRepo.contents%"
 			},
 			{
 				"view": "issues:github",
@@ -1185,8 +1195,18 @@
 			},
 			{
 				"view": "issues:github",
-				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0",
+				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount == 0",
 				"contents": "%welcome.issues.github.noRepo.contents%"
+			},
+			{
+				"view": "issues:github",
+				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount == 1",
+				"contents": "%welcome.pr.github.parentRepo.contents%"
+			},
+			{
+				"view": "issues:github",
+				"when": "git.state == initialized && gitOpenRepositoryCount == 0 && workspaceFolderCount > 0 && git.parentRepositoryCount > 1",
+				"contents": "%welcome.pr.github.parentRepo.contents%"
 			},
 			{
 				"view": "github:activePullRequest:welcome",
