@@ -36,6 +36,7 @@ import { IssueHoverProvider } from './issueHoverProvider';
 import { openCodeLink } from './issueLinkLookup';
 import { IssuesTreeData, IssueUriTreeItem, updateExpandedQueries } from './issuesView';
 import { IssueTodoProvider } from './issueTodoProvider';
+import { ShareProviderManager } from './shareProviders';
 import { StateManager } from './stateManager';
 import { UserCompletionProvider } from './userCompletionProvider';
 import { UserHoverProvider } from './userHoverProvider';
@@ -251,6 +252,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
+		this.context.subscriptions.push(new ShareProviderManager(this.manager, this.gitAPI));
 		this.context.subscriptions.push(
 			vscode.commands.registerCommand('issue.openIssue', (issueModel: any) => {
 				/* __GDPR__
