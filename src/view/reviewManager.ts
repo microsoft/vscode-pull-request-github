@@ -812,6 +812,7 @@ export class ReviewManager {
 			this.statusBarItem.show();
 
 			await this._folderRepoManager.fulfillPullRequestMissingInfo(pr);
+			this._upgradePullRequestEditors(pr);
 
 			/* __GDPR__
 				"pr.checkout" : {}
