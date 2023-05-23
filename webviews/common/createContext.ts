@@ -189,7 +189,7 @@ export class CreatePRContext {
 
 				if (this.createParams.baseRemote === undefined) {
 					message.params.baseRemote = message.params.defaultBaseRemote;
-				} else {
+				} else if (message.params.baseRemote && ((this.createParams.baseRemote.owner !== message.params.baseRemote.owner) || (this.createParams.baseRemote.repositoryName !== message.params.baseRemote.repositoryName))) {
 					// Notify the extension of the stored selected remote state
 					await this.changeBaseRemote(
 						this.createParams.baseRemote.owner,
@@ -206,7 +206,7 @@ export class CreatePRContext {
 
 				if (this.createParams.compareRemote === undefined) {
 					message.params.compareRemote = message.params.defaultCompareRemote;
-				} else {
+				} else if (message.params.compareRemote && ((this.createParams.compareRemote.owner !== message.params.compareRemote.owner) || (this.createParams.compareRemote.repositoryName !== message.params.compareRemote.repositoryName))) {
 					// Notify the extension of the stored base branch state This is where master is getting set.
 					await this.changeCompareRemote(
 						this.createParams.compareRemote.owner,
