@@ -42,12 +42,21 @@ abstract class AbstractShareProvider implements vscode.Disposable, vscode.ShareP
 		public readonly priority: number,
 		private readonly origin = 'github.com'
 	) {
-		if (this.hasGitHubRepositories() && this.shouldRegister()) {
+		this.initialize();
+	}
+
+	public dispose() {
+		this.disposables.forEach((d) => d.dispose());
+		this.shareProviderRegistrations?.map((d) => d.dispose());
+	}
+
+	private async initialize() {
+		if ((await this.hasGitHubRepositories()) && this.shouldRegister()) {
 			this.register();
 		} else {
 			this.disposables.push(this.gitAPI.onDidOpenRepository(async e => {
 				await e.status();
-				if (this.hasGitHubRepositories() && this.shouldRegister()) {
+				if ((await this.hasGitHubRepositories()) && this.shouldRegister()) {
 					this.register();
 				}
 			}));
@@ -59,13 +68,14 @@ abstract class AbstractShareProvider implements vscode.Disposable, vscode.ShareP
 		}));
 	}
 
-	public dispose() {
-		this.disposables.forEach((d) => d.dispose());
-		this.shareProviderRegistrations?.map((d) => d.dispose());
-	}
-
-	private hasGitHubRepositories() {
-		return this.repositoryManager.folderManagers.some(folderManager => folderManager.gitHubRepositories.length > 0);
+	private async hasGitHubRepositories() {
+		for (const folderManager of this.repositoryManager.folderManagers) {
+			await folderManager.repository.status();
+			if ((await folderManager.computeAllGitHubRemotes()).length) {
+				return true;
+			}
+			return false;
+		}
 	}
 
 	private register() {
@@ -112,7 +122,7 @@ abstract class AbstractShareProvider implements vscode.Disposable, vscode.ShareP
 		return vscode.Uri.parse([
 			origin,
 			'/',
-			getOwnerAndRepo(this.repositoryManager, repository, remote as Remote & { fetchUrl: string }),
+			getOwnerAndRepo(this.repositoryManager, repository, { ...remote, fetchUrl: remote.fetchUrl }),
 			'/blob/',
 			blob,
 			path,
@@ -123,7 +133,7 @@ abstract class AbstractShareProvider implements vscode.Disposable, vscode.ShareP
 
 export class GitHubDevShareProvider extends AbstractShareProvider implements vscode.ShareProvider {
 	constructor(repositoryManager: RepositoriesManager, gitApi: GitApiImpl) {
-		super(repositoryManager, gitApi, 'githubDevLink', vscode.l10n.t('Copy github.dev Link'), 0, 'github.dev');
+		super(repositoryManager, gitApi, 'githubDevLink', vscode.l10n.t('Copy github.dev Link'), 10, 'github.dev');
 	}
 
 	protected shouldRegister(): boolean {
@@ -141,7 +151,7 @@ export class GitHubDevShareProvider extends AbstractShareProvider implements vsc
 
 export class GitHubPermalinkShareProvider extends AbstractShareProvider implements vscode.ShareProvider {
 	constructor(repositoryManager: RepositoriesManager, gitApi: GitApiImpl) {
-		super(repositoryManager, gitApi, 'githubComPermalink', vscode.l10n.t('Copy GitHub Permalink'), 1);
+		super(repositoryManager, gitApi, 'githubComPermalink', vscode.l10n.t('Copy GitHub Permalink'), 11);
 	}
 
 	protected shouldRegister() {
@@ -189,7 +199,7 @@ export class GitHubPermalinkShareProvider extends AbstractShareProvider implemen
 
 export class GitHubHeadLinkShareProvider extends AbstractShareProvider implements vscode.ShareProvider {
 	constructor(repositoryManager: RepositoriesManager, gitApi: GitApiImpl) {
-		super(repositoryManager, gitApi, 'githubComHeadLink', vscode.l10n.t('Copy GitHub HEAD Link'), 2);
+		super(repositoryManager, gitApi, 'githubComHeadLink', vscode.l10n.t('Copy GitHub HEAD Link'), 12);
 	}
 
 	protected shouldRegister() {
