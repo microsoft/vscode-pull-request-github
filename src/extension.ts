@@ -340,7 +340,7 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	const experimentationService = await createExperimentationService(context, telemetry);
 	await experimentationService.initializePromise;
 	await experimentationService.isCachedFlightEnabled('githubaa');
-	const showBadge = experimentationService.getTreatmentVariable('vscode', 'showAuthBadge');
+	const showBadge = ((vscode.env.appHost === 'desktop') && experimentationService.getTreatmentVariable('vscode', 'showAuthBadge'));
 	await credentialStore.create(showBadge ? undefined : { silent: true });
 
 	deferredActivateRegisterBuiltInGitProvider(context, apiImpl, credentialStore);
