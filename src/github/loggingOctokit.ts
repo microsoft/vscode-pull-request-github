@@ -25,7 +25,7 @@ export class RateLogger {
 
 	constructor(private readonly telemetry: ITelemetry) { }
 
-	public logAndLimit(apiRequest: () => Promise<any>): Promise<any> | undefined {
+	public logAndLimit(info: string | undefined, apiRequest: () => Promise<any>): Promise<any> | undefined {
 		if (this.bulkhead.executionSlots === 0) {
 			Logger.error('API call count has exceeded 140 concurrent calls.', RateLogger.ID);
 			// We have hit more than 140 concurrent API requests.
@@ -36,7 +36,13 @@ export class RateLogger {
 			vscode.window.showErrorMessage(vscode.l10n.t('The GitHub Pull Requests extension is making too many requests to GitHub. This indicates a bug in the extension. Please file an issue on GitHub and include the output from "GitHub Pull Request".'));
 			return undefined;
 		}
-		Logger.debug(`Extension rate limit remaining: ${this.bulkhead.executionSlots}`, RateLogger.ID);
+		const log = `Extension rate limit remaining: ${this.bulkhead.executionSlots}, ${info}`;
+		if (this.bulkhead.executionSlots < 5) {
+			Logger.appendLine(log, RateLogger.ID);
+		} else {
+			Logger.debug(log, RateLogger.ID);
+		}
+
 		return this.bulkhead.execute(() => apiRequest());
 	}
 
@@ -93,20 +99,22 @@ export class LoggingApolloClient {
 	constructor(private readonly _graphql: ApolloClient<NormalizedCacheObject>, private _rateLogger: RateLogger) { };
 
 	query<T = any, TVariables = OperationVariables>(options: QueryOptions<TVariables>): Promise<ApolloQueryResult<T>> {
-		const result = this._rateLogger.logAndLimit(() => this._graphql.query(options));
+		const logInfo = (options.query.definitions[0] as { name: { value: string } | undefined }).name?.value;
+		const result = this._rateLogger.logAndLimit(logInfo, () => this._graphql.query(options));
 		if (result === undefined) {
 			throw new Error('API call count has exceeded a rate limit.');
 		}
-		this._rateLogger.logRateLimit((options.query.definitions[0] as { name: { value: string } | undefined }).name?.value, result as any);
+		this._rateLogger.logRateLimit(logInfo, result as any);
 		return result;
 	}
 
 	mutate<T = any, TVariables = OperationVariables>(options: MutationOptions<T, TVariables>): Promise<FetchResult<T>> {
-		const result = this._rateLogger.logAndLimit(() => this._graphql.mutate(options));
+		const logInfo = options.context;
+		const result = this._rateLogger.logAndLimit(logInfo, () => this._graphql.mutate(options));
 		if (result === undefined) {
 			throw new Error('API call count has exceeded a rate limit.');
 		}
-		this._rateLogger.logRateLimit(options.context, result as any);
+		this._rateLogger.logRateLimit(logInfo, result as any);
 		return result;
 	}
 }
@@ -115,11 +123,12 @@ export class LoggingOctokit {
 	constructor(public readonly api: Octokit, private _rateLogger: RateLogger) { };
 
 	async call<T, U>(api: (T) => Promise<U>, args: T): Promise<U> {
-		const result = this._rateLogger.logAndLimit(() => api(args));
+		const logInfo = (api as unknown as { endpoint: { DEFAULTS: { url: string } | undefined } | undefined }).endpoint?.DEFAULTS?.url;
+		const result = this._rateLogger.logAndLimit(logInfo, () => api(args));
 		if (result === undefined) {
 			throw new Error('API call count has exceeded a rate limit.');
 		}
-		this._rateLogger.logRestRateLimit((api as unknown as { endpoint: { DEFAULTS: { url: string } | undefined } | undefined }).endpoint?.DEFAULTS?.url, result as Promise<unknown> as Promise<RestResponse>);
+		this._rateLogger.logRestRateLimit(logInfo, result as Promise<unknown> as Promise<RestResponse>);
 		return result;
 	}
 }
