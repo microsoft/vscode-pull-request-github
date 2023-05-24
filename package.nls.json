@@ -184,6 +184,7 @@
 	"command.pr.applySuggestion.title": "Apply Suggestion",
 	"command.pr.addLabelsToNewPr.title": "Add Labels",
 	"command.pr.addFileComment.title": "Add File Comment",
+	"command.review.diffWithPrHead.title": "Open Diff With Pull Request Head (readonly)",
 	"command.issues.category": "GitHub Issues",
 	"command.issue.createIssueFromSelection.title": "Create Issue From Selection",
 	"command.issue.createIssueFromClipboard.title": "Create Issue From Clipboard",
