@@ -221,8 +221,11 @@ export class GitHubRepository implements vscode.Disposable {
 			}
 
 			// Some queries just result in SAML errors, and some queries we may not want to retry because it will be too disruptive.
-			if (!ignoreSamlErrors && e.message?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
+			if (!ignoreSamlErrors && (e.message as string | undefined)?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
 				await this._credentialStore.recreate();
+				rsp = await gql.query<T>(query);
+			} else if ((e.message as string | undefined)?.includes('401 Unauthorized')) {
+				await this._credentialStore.recreate(vscode.l10n.t('Your authentication session has lost authorization. You need to sign in again to regain authorization.'));
 				rsp = await gql.query<T>(query);
 			} else {
 				throw e;
