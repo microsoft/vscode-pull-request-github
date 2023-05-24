@@ -948,6 +948,12 @@
 				"icon": "$(comment)"
 			},
 			{
+				"command": "review.diffWithPrHead",
+				"title": "%command.review.diffWithPrHead.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(cloud)"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "%command.issue.createIssueFromSelection.title%",
 				"category": "%command.issues.category%"
@@ -1470,6 +1476,10 @@
 					"when": "false"
 				},
 				{
+					"command": "review.diffWithPrHead",
+					"when": "false"
+				},
+				{
 					"command": "issue.copyGithubPermalink",
 					"when": "github:hasGitHubRemotes"
 				},
@@ -1757,6 +1767,11 @@
 					"command": "pr.openDiffView",
 					"group": "inline@0",
 					"when": "!openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
+				},
+				{
+					"command": "review.diffWithPrHead",
+					"group": "inline@1",
+					"when": "openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
 				},
 				{
 					"command": "pr.openOriginalFile",

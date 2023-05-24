@@ -34,8 +34,9 @@ import { GithubItemStateEnum } from '../github/interface';
 import { PullRequestGitHelper, PullRequestMetadata } from '../github/pullRequestGitHelper';
 import { IResolvedPullRequestModel, PullRequestModel } from '../github/pullRequestModel';
 import { CreatePullRequestHelper } from './createPullRequestHelper';
-import { GitFileChangeModel } from './fileChangeModel';
+import { GitFileChangeModel, InMemFileChangeModel, RemoteFileChangeModel } from './fileChangeModel';
 import { getGitHubFileContent } from './gitHubContentProvider';
+import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from './inMemPRContentProvider';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { ProgressHelper } from './progress';
 import { RemoteQuickPickItem } from './quickpick';
@@ -55,6 +56,7 @@ export class ReviewManager {
 	private _validateStatusInProgress?: Promise<void>;
 	private _reviewCommentController: ReviewCommentController | undefined;
 	private _quickDiffProvider: vscode.Disposable | undefined;
+	private _inMemGitHubContentProvider: vscode.Disposable | undefined;
 
 	private _statusBarItem: vscode.StatusBarItem;
 	private _prNumber?: number;
@@ -445,6 +447,7 @@ export class ReviewManager {
 				this._changesSinceLastReviewProgress.endProgress();
 			})
 		);
+		await this.registerGitHubInMemContentProvider();
 
 		this.statusBarItem.text = '$(git-pull-request) ' + vscode.l10n.t('Pull Request #{0}', pr.number);
 		this.statusBarItem.command = {
@@ -731,6 +734,50 @@ export class ReviewManager {
 		} catch (e) {
 			Logger.error(`${e}`, ReviewManager.ID);
 		}
+	}
+
+	private async registerGitHubInMemContentProvider() {
+		this._inMemGitHubContentProvider?.dispose();
+		this._inMemGitHubContentProvider = undefined;
+
+		const pr = this._folderRepoManager.activePullRequest;
+		if (!pr) {
+			return;
+		}
+		const rawChanges = await pr.getFileChangesInfo();
+		const mergeBase = pr.mergeBase;
+		if (!mergeBase) {
+			return;
+		}
+		const changes = rawChanges.map(change => {
+			if (change instanceof SlimFileChange) {
+				return new RemoteFileChangeModel(this._folderRepoManager, change, pr);
+			}
+			return new InMemFileChangeModel(this._folderRepoManager,
+				pr as (PullRequestModel & IResolvedPullRequestModel),
+				change, true, mergeBase);
+		});
+
+		this._inMemGitHubContentProvider = getInMemPRFileSystemProvider()?.registerTextDocumentContentProvider(
+			pr.number,
+			async (uri: vscode.Uri): Promise<string> => {
+				const params = fromPRUri(uri);
+				if (!params) {
+					return '';
+				}
+				const fileChange = changes.find(
+					contentChange => contentChange.fileName === params.fileName,
+				);
+
+				if (!fileChange) {
+					Logger.error(`Cannot find content for document ${uri.toString()}`, 'PR');
+					return '';
+				}
+
+				return provideDocumentContentForChangeModel(this._folderRepoManager, pr, params, fileChange);
+
+			},
+		);
 	}
 
 	private async registerCommentController() {
@@ -1082,6 +1129,8 @@ export class ReviewManager {
 
 		this._reviewCommentController?.dispose();
 		this._reviewCommentController = undefined;
+		this._inMemGitHubContentProvider?.dispose();
+		this._inMemGitHubContentProvider = undefined;
 	}
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string | undefined> {
