@@ -434,7 +434,7 @@ export interface PermalinkInfo {
 	originalFile: vscode.Uri | undefined;
 }
 
-function getSimpleUpstream(repository: Repository) {
+export function getSimpleUpstream(repository: Repository) {
 	const upstream: UpstreamRef | undefined = repository.state.HEAD?.upstream;
 	for (const remote of repository.state.remotes) {
 		// If we don't have an upstream, then just use the first remote.
@@ -444,7 +444,7 @@ function getSimpleUpstream(repository: Repository) {
 	}
 }
 
-async function getBestPossibleUpstream(repositoriesManager: RepositoriesManager, repository: Repository, commit: Commit | undefined): Promise<Remote | undefined> {
+export async function getBestPossibleUpstream(repositoriesManager: RepositoriesManager, repository: Repository, commit: Commit | undefined): Promise<Remote | undefined> {
 	const fallbackUpstream = new Promise<Remote | undefined>(resolve => {
 		resolve(getSimpleUpstream(repository));
 	});
@@ -468,7 +468,7 @@ async function getBestPossibleUpstream(repositoriesManager: RepositoriesManager,
 	return upstream;
 }
 
-function getOwnerAndRepo(repositoriesManager: RepositoriesManager, repository: Repository, upstream: Remote & { fetchUrl: string }): string {
+export function getOwnerAndRepo(repositoriesManager: RepositoriesManager, repository: Repository, upstream: Remote & { fetchUrl: string }): string {
 	const folderManager = repositoriesManager.getManagerForFile(repository.rootUri);
 	// Find the GitHub repository that matches the chosen upstream remote
 	const githubRepository = folderManager?.gitHubRepositories.find(githubRepository => {
@@ -540,8 +540,7 @@ export async function createGithubPermalink(
 	};
 }
 
-function getUpstreamOrigin(upstream: Remote) {
-	let resultHost: string = 'github.com';
+export function getUpstreamOrigin(upstream: Remote, resultHost: string = 'github.com') {
 	const enterpriseUri = getEnterpriseUri();
 	let fetchUrl = upstream.fetchUrl;
 	if (enterpriseUri && fetchUrl) {
@@ -566,7 +565,7 @@ function getUpstreamOrigin(upstream: Remote) {
 	return `https://${resultHost}`;
 }
 
-function encodeURIComponentExceptSlashes(path: string) {
+export function encodeURIComponentExceptSlashes(path: string) {
 	// There may be special characters like # and whitespace in the path.
 	// These characters are not escaped by encodeURI(), so it is not sufficient to
 	// feed the full URI to encodeURI().
@@ -576,7 +575,7 @@ function encodeURIComponentExceptSlashes(path: string) {
 	return path.split('/').map((segment) => encodeURIComponent(segment)).join('/');
 }
 
-function rangeString(range: vscode.Range | vscode.NotebookRange | undefined) {
+export function rangeString(range: vscode.Range | vscode.NotebookRange | undefined) {
 	if (!range || (range instanceof vscode.NotebookRange)) {
 		return '';
 	}
