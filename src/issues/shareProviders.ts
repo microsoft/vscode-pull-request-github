@@ -16,6 +16,10 @@ export class ShareProviderManager implements vscode.Disposable {
 	private disposables: vscode.Disposable[] = [];
 
 	constructor(repositoryManager: RepositoriesManager, gitAPI: GitApiImpl) {
+		if (!vscode.window.registerShareProvider) {
+			return;
+		}
+
 		this.disposables.push(
 			new GitHubDevShareProvider(repositoryManager, gitAPI),
 			new GitHubPermalinkShareProvider(repositoryManager, gitAPI),
