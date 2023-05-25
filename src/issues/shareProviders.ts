@@ -31,7 +31,7 @@ export class ShareProviderManager implements vscode.Disposable {
 	}
 }
 
-const supportedSchemes = [Schemes.File, Schemes.Review, Schemes.Pr, Schemes.GithubPr, Schemes.VscodeVfs];
+const supportedSchemes = [Schemes.File, Schemes.Review, Schemes.Pr, Schemes.VscodeVfs];
 
 abstract class AbstractShareProvider implements vscode.Disposable, vscode.ShareProvider {
 	private disposables: vscode.Disposable[] = [];
