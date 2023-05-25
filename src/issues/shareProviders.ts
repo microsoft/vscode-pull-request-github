@@ -9,7 +9,6 @@ import { GitApiImpl } from '../api/api1';
 import { fromReviewUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { getRepositoryForFile } from '../github/utils';
 import { encodeURIComponentExceptSlashes, getBestPossibleUpstream, getOwnerAndRepo, getSimpleUpstream, getUpstreamOrigin, rangeString } from './util';
 
 export class ShareProviderManager implements vscode.Disposable {
@@ -32,7 +31,7 @@ export class ShareProviderManager implements vscode.Disposable {
 	}
 }
 
-const supportedSchemes = [Schemes.File, Schemes.Review, Schemes.Pr, Schemes.PRNode, Schemes.FileChange, Schemes.GithubPr, Schemes.VscodeVfs, Schemes.Comment];
+const supportedSchemes = [Schemes.File, Schemes.Review, Schemes.Pr, Schemes.GithubPr, Schemes.VscodeVfs];
 
 abstract class AbstractShareProvider implements vscode.Disposable, vscode.ShareProvider {
 	private disposables: vscode.Disposable[] = [];
@@ -57,14 +56,14 @@ abstract class AbstractShareProvider implements vscode.Disposable, vscode.ShareP
 	private async initialize() {
 		if ((await this.hasGitHubRepositories()) && this.shouldRegister()) {
 			this.register();
-		} else {
-			this.disposables.push(this.gitAPI.onDidOpenRepository(async e => {
-				await e.status();
-				if ((await this.hasGitHubRepositories()) && this.shouldRegister()) {
-					this.register();
-				}
-			}));
 		}
+
+		this.disposables.push(this.repositoryManager.onDidLoadAnyRepositories(async () => {
+			if ((await this.hasGitHubRepositories()) && this.shouldRegister()) {
+				this.register();
+			}
+		}));
+
 		this.disposables.push(this.gitAPI.onDidCloseRepository(() => {
 			if (!this.hasGitHubRepositories()) {
 				this.unregister();
@@ -74,7 +73,6 @@ abstract class AbstractShareProvider implements vscode.Disposable, vscode.ShareP
 
 	private async hasGitHubRepositories() {
 		for (const folderManager of this.repositoryManager.folderManagers) {
-			await folderManager.repository.status();
 			if ((await folderManager.computeAllGitHubRemotes()).length) {
 				return true;
 			}
@@ -100,12 +98,6 @@ abstract class AbstractShareProvider implements vscode.Disposable, vscode.ShareP
 	protected abstract getUpstream(repository: Repository, commit: string): Promise<Remote | undefined>;
 
 	public async provideShare(item: vscode.ShareableItem): Promise<vscode.Uri | undefined> {
-		// Get the repository that this URI is associated with
-		const repository = getRepositoryForFile(this.gitAPI, item.resourceUri);
-		if (!repository) {
-			throw new Error(vscode.l10n.t('Current file does not belong to an open repository.'));
-		}
-
 		// Get the blob
 		const folderManager = this.repositoryManager.getManagerForFile(item.resourceUri);
 		if (!folderManager) {
@@ -114,6 +106,7 @@ abstract class AbstractShareProvider implements vscode.Disposable, vscode.ShareP
 		const blob = await this.getBlob(folderManager, item.resourceUri);
 
 		// Get the upstream
+		const repository = folderManager.repository;
 		const remote = await this.getUpstream(repository, blob);
 		if (!remote || !remote.fetchUrl) {
 			throw new Error(vscode.l10n.t('The selection may not exist on any remote.'));
