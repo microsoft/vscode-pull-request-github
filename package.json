@@ -950,8 +950,7 @@
 			{
 				"command": "review.diffWithPrHead",
 				"title": "%command.review.diffWithPrHead.title%",
-				"category": "%command.pull.request.category%",
-				"icon": "$(cloud)"
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "issue.createIssueFromSelection",
@@ -1736,10 +1735,6 @@
 					"group": "pullrequest@5"
 				},
 				{
-					"command": "pr.openFileOnGitHub",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange/"
-				},
-				{
 					"command": "pr.copyCommitHash",
 					"when": "view == prStatus:github && viewItem =~ /commit/"
 				},
@@ -1769,17 +1764,24 @@
 					"when": "!openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
 				},
 				{
-					"command": "review.diffWithPrHead",
-					"group": "inline@1",
-					"when": "openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
+					"command": "pr.openFileOnGitHub",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange/",
+					"group": "0_open@0"
 				},
 				{
 					"command": "pr.openOriginalFile",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/"
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/",
+					"group": "0_open@1"
 				},
 				{
 					"command": "pr.openModifiedFile",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/"
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /filechange:MODIFY/",
+					"group": "0_open@2"
+				},
+				{
+					"command": "review.diffWithPrHead",
+					"group": "1_diff@0",
+					"when": "openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
 				},
 				{
 					"command": "pr.editQuery",
