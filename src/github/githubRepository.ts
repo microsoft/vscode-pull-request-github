@@ -251,7 +251,7 @@ export class GitHubRepository implements vscode.Disposable {
 		let rsp;
 		try {
 			rsp = await gql.mutate<T>(mutation);
-		} catch {
+		} catch (e) {
 			if (legacyFallback) {
 				mutation.mutation = legacyFallback.mutation;
 				if (mutation.variables?.input) {
@@ -259,9 +259,9 @@ export class GitHubRepository implements vscode.Disposable {
 						delete mutation.variables.input[prop];
 					}
 				}
+				return this.mutate(mutation);
 			}
-
-			return this.mutate(mutation);
+			throw e;
 		}
 		Logger.trace(`Response: ${JSON.stringify(rsp, null, 2)}`, GRAPHQL_COMPONENT_ID);
 		return rsp;
