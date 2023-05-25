@@ -7,13 +7,14 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
+import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
 import { compareIgnoreCase, dispose } from '../common/utils';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
 import { IssueModel } from './issueModel';
-import { findDotComAndEnterpriseRemotes, hasEnterpriseUri, setEnterpriseUri } from './utils';
+import { findDotComAndEnterpriseRemotes, getEnterpriseUri, hasEnterpriseUri, setEnterpriseUri } from './utils';
 
 export interface ItemsResponseResult<T> {
 	items: T[];
@@ -192,12 +193,22 @@ export class RepositoriesManager implements vscode.Disposable {
 		const yes = vscode.l10n.t('Yes');
 
 		if (enterprise) {
-			const remoteToUse = enterpriseRemotes.length ? enterpriseRemotes[0] : (unknownRemotes.length ? unknownRemotes[0] : undefined);
+			const remoteToUse = getEnterpriseUri()?.toString() ?? (enterpriseRemotes.length ? enterpriseRemotes[0].normalizedHost : (unknownRemotes.length ? unknownRemotes[0].normalizedHost : undefined));
+			if (enterpriseRemotes.length === 0 && unknownRemotes.length === 0) {
+				Logger.appendLine(`Enterprise login selected, but no possible enterprise remotes discovered (${dotComRemotes.length} .com)`);
+			}
 			if (remoteToUse) {
-				const promptResult = await vscode.window.showInformationMessage(vscode.l10n.t('Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server {0}?', remoteToUse.normalizedHost),
+				const promptResult = await vscode.window.showInformationMessage(vscode.l10n.t('Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server {0}?', remoteToUse),
 					{ modal: true }, yes, vscode.l10n.t('No, manually set {0}', 'github-enterprise.uri'));
 				if (promptResult === yes) {
-					await setEnterpriseUri(remoteToUse.normalizedHost);
+					await setEnterpriseUri(remoteToUse);
+				} else {
+					return false;
+				}
+			} else {
+				const setEnterpriseUriPrompt = await vscode.window.showInputBox({ placeHolder: vscode.l10n.t('Set a GitHub Enterprise server URL'), ignoreFocusOut: true });
+				if (setEnterpriseUriPrompt) {
+					await setEnterpriseUri(setEnterpriseUriPrompt);
 				} else {
 					return false;
 				}
