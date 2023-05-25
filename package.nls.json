@@ -185,6 +185,7 @@
 	"command.pr.addLabelsToNewPr.title": "Add Labels",
 	"command.pr.addFileComment.title": "Add File Comment",
 	"command.review.diffWithPrHead.title": "Compare Base With Pull Request Head (readonly)",
+	"command.review.diffLocalWithPrHead.title": "Compare Pull Request Head with Local",
 	"command.issues.category": "GitHub Issues",
 	"command.issue.createIssueFromSelection.title": "Create Issue From Selection",
 	"command.issue.createIssueFromClipboard.title": "Create Issue From Clipboard",
