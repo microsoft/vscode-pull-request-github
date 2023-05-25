@@ -1261,7 +1261,21 @@ ${contents}
 				fileChangeNode.fileName,
 				false,
 				fileChangeNode.status);
-			return vscode.commands.executeCommand('vscode.diff', parentURI, headURI, `${fileName} (Pull Request Diff with Head)`);
+			return vscode.commands.executeCommand('vscode.diff', parentURI, headURI, `${fileName} (Pull Request Compare Base with Head)`);
+		}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('review.diffLocalWithPrHead', async (fileChangeNode: GitFileChangeNode) => {
+			const fileName = fileChangeNode.fileName;
+			let headURI = toPRUri(
+				fileChangeNode.resourceUri,
+				fileChangeNode.pullRequest,
+				fileChangeNode.pullRequest.base.sha,
+				fileChangeNode.pullRequest.head.sha,
+				fileChangeNode.fileName,
+				false,
+				fileChangeNode.status);
+			return vscode.commands.executeCommand('vscode.diff', headURI, fileChangeNode.resourceUri, `${fileName} (Pull Request Compare Head with Local)`);
 		}));
 
 	function goToNextPrevDiff(diffs: vscode.LineChange[], next: boolean) {
