@@ -472,7 +472,7 @@ export class ReviewCommentController
 
 	// #endregion
 
-	private async getContentDiff(uri: vscode.Uri, fileName: string): Promise<string> {
+	private async getContentDiff(uri: vscode.Uri, fileName: string, retry: boolean = true): Promise<string> {
 		const matchedEditor = vscode.window.visibleTextEditors.find(
 			editor => editor.document.uri.toString() === uri.toString(),
 		);
@@ -498,6 +498,17 @@ export class ReviewCommentController
 			}
 		} catch (e) {
 			Logger.error(`Failed to get content diff. ${formatError(e)}`);
+			if ((e.stderr as string | undefined)?.includes('bad object')) {
+				if (this._repository.state.HEAD?.upstream && retry) {
+					try {
+						await this._repository.pull();
+						return this.getContentDiff(uri, fileName, false);
+					} catch (e) {
+						// No remote branch
+					}
+				}
+				vscode.window.showErrorMessage(vscode.l10n.t('Unable to get pull request diff for {0}. The commit for this diff is not available locally and there is no remote branch.', this._reposManager.activePullRequest.head.sha));
+			}
 			throw e;
 		}
 	}
