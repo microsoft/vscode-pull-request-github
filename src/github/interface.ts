@@ -43,7 +43,7 @@ export interface IAccount {
 }
 
 export interface ITeam {
-	name: string;
+	name?: string;
 	avatarUrl?: string;
 	url: string;
 	slug: string;
@@ -55,7 +55,7 @@ export function reviewerId(reviewer: ITeam | IAccount): string {
 	return isTeam(reviewer) ? reviewer.id : reviewer.login;
 }
 
-export function reviewerLabel(reviewer: ITeam | IAccount): string {
+export function reviewerLabel(reviewer: ITeam | IAccount): string | undefined {
 	return isTeam(reviewer) ? reviewer.name : reviewer.login;
 }
 
