@@ -76,7 +76,7 @@ describe('ReviewCommentController', function () {
 		const gitApiImpl = new GitApiImpl();
 		manager = new FolderRepositoryManager(context, repository, telemetry, gitApiImpl, credentialStore);
 		const tree = new PullRequestChangesTreeDataProvider(context, gitApiImpl, new RepositoriesManager([manager], credentialStore, telemetry));
-		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree, new ShowPullRequest(), activePrViewCoordinator, createPrHelper);
+		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree, new ShowPullRequest(), activePrViewCoordinator, createPrHelper, gitApiImpl);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
 			return Promise.resolve(new MockGitHubRepository(GitHubRemote.remoteAsGitHub(r, GitHubServerType.GitHubDotCom), cStore, telemetry, sinon));
 		});

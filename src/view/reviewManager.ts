@@ -6,7 +6,7 @@
 import * as nodePath from 'path';
 import * as vscode from 'vscode';
 import type { Branch, Repository } from '../api/api';
-import { GitErrorCodes } from '../api/api1';
+import { GitApiImpl, GitErrorCodes } from '../api/api1';
 import { openDescription } from '../commands';
 import { DiffChangeType } from '../common/diffHunk';
 import { commands } from '../common/executeCommands';
@@ -96,7 +96,8 @@ export class ReviewManager {
 		public changesInPrDataProvider: PullRequestChangesTreeDataProvider,
 		private _showPullRequest: ShowPullRequest,
 		private readonly _activePrViewCoordinator: WebviewViewCoordinator,
-		private _createPullRequestHelper: CreatePullRequestHelper
+		private _createPullRequestHelper: CreatePullRequestHelper,
+		gitApi: GitApiImpl
 	) {
 		this._switchingToReviewMode = false;
 		this._disposables = [];
@@ -108,7 +109,9 @@ export class ReviewManager {
 
 		this.registerListeners();
 
-		this.updateState(true);
+		if (gitApi.state === 'initialized') {
+			this.updateState(true);
+		}
 		this.pollForStatusChange();
 	}
 
