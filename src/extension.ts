@@ -149,7 +149,7 @@ async function init(
 	const createPrHelper = new CreatePullRequestHelper();
 	context.subscriptions.push(createPrHelper);
 	const reviewManagers = reposManager.folderManagers.map(
-		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree, showPRController, activePrViewCoordinator, createPrHelper),
+		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree, showPRController, activePrViewCoordinator, createPrHelper, git),
 	);
 	context.subscriptions.push(new FileTypeDecorationProvider(reposManager, reviewManagers));
 
@@ -179,7 +179,8 @@ async function init(
 				changesTree,
 				showPRController,
 				activePrViewCoordinator,
-				createPrHelper
+				createPrHelper,
+				git
 			);
 			reviewsManager.addReviewManager(newReviewManager);
 			tree.refresh();
