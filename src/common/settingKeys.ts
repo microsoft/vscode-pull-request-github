@@ -28,6 +28,7 @@ export const SELECT_LOCAL_BRANCH = 'selectLocalBranch';
 export const SELECT_REMOTE = 'selectRemote';
 export const REMOTES = 'remotes';
 export const PULL_PR_BRANCH_BEFORE_CHECKOUT = 'pullPullRequestBranchBeforeCheckout';
+export const EXPERIMENTAL_ACCOUNT_BADGE = 'experimental.accountBadge';
 
 export const ISSUES_SETTINGS_NAMESPACE = 'githubIssues';
 export const ASSIGN_WHEN_WORKING = 'assignWhenWorking';
