@@ -956,17 +956,31 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private reRequestReview(message: IRequestMessage<string>): void {
-		const reviewer = this._existingReviewers.find(reviewer => reviewerId(reviewer.reviewer) === message.args);
+		let targetReviewer: ReviewState | undefined;
 		const userReviewers: string[] = [];
 		const teamReviewers: string[] = [];
-		if (reviewer && isTeam(reviewer.reviewer)) {
-			teamReviewers.push(reviewer.reviewer.id);
-		} else if (reviewer && !isTeam(reviewer.reviewer)) {
-			userReviewers.push(reviewer.reviewer.login);
+
+		for (const reviewer of this._existingReviewers) {
+			let id: string | undefined;
+			let reviewerArray: string[] | undefined;
+			if (reviewer && isTeam(reviewer.reviewer)) {
+				id = reviewer.reviewer.id;
+				reviewerArray = teamReviewers;
+			} else if (reviewer && !isTeam(reviewer.reviewer)) {
+				id = reviewer.reviewer.login;
+				reviewerArray = userReviewers;
+			}
+			if (reviewerArray && id && ((reviewer.state === 'REQUESTED') || (id === message.args))) {
+				reviewerArray.push(id);
+				if (id === message.args) {
+					targetReviewer = reviewer;
+				}
+			}
 		}
+
 		this._item.requestReview(userReviewers, teamReviewers).then(() => {
-			if (reviewer) {
-				reviewer.state = 'REQUESTED';
+			if (targetReviewer) {
+				targetReviewer.state = 'REQUESTED';
 			}
 			this._replyMessage(message, {
 				reviewers: this._existingReviewers,
