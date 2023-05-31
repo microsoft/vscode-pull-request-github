@@ -452,7 +452,7 @@ export class GitHubRepository implements vscode.Disposable {
 		return undefined;
 	}
 
-	async getPullRequestForBranch(branch: string): Promise<PullRequestModel | undefined> {
+	async getPullRequestForBranch(branch: string, headOwner: string): Promise<PullRequestModel | undefined> {
 		try {
 			Logger.debug(`Fetch pull requests for branch - enter`, GitHubRepository.ID);
 			const { query, remote, schema } = await this.ensure();
@@ -467,7 +467,7 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug(`Fetch pull requests for branch - done`, GitHubRepository.ID);
 
 			if (data?.repository.pullRequests.nodes.length > 0) {
-				const prs = data.repository.pullRequests.nodes.map(node => parseGraphQLPullRequest(node, this));
+				const prs = data.repository.pullRequests.nodes.map(node => parseGraphQLPullRequest(node, this)).filter(pr => pr.head?.repo.owner === headOwner);
 				const mostRecentOrOpenPr = prs.find(pr => pr.state.toLowerCase() === 'open') ?? prs[0];
 				return this.createOrUpdatePullRequestModel(mostRecentOrOpenPr);
 			}
