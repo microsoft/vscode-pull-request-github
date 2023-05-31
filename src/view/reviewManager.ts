@@ -294,6 +294,7 @@ export class ReviewManager {
 		Logger.appendLine(`Review> no matching pull request metadata found for current branch ${branchName}`);
 		const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub(this.repository.state.HEAD?.upstream?.remote, this._repository.state.HEAD?.upstream?.name);
 		if (metadataFromGithub) {
+			Logger.appendLine(`Found matching pull request metadata on GitHub for current branch ${branchName}. Repo: ${metadataFromGithub.owner}/${metadataFromGithub.repositoryName} PR: ${metadataFromGithub.prNumber}`);
 			await PullRequestGitHelper.associateBranchWithPullRequest(
 				this._repository,
 				metadataFromGithub.model,
@@ -341,6 +342,7 @@ export class ReviewManager {
 		let matchingPullRequestMetadata = await this._folderRepoManager.getMatchingPullRequestMetadataForBranch();
 
 		if (!matchingPullRequestMetadata) {
+			Logger.appendLine(`No matching pull request metadata found locally for current branch ${branch.name}`, ReviewManager.ID);
 			matchingPullRequestMetadata = await this.checkGitHubForPrBranch(branch.name!);
 		}
 
