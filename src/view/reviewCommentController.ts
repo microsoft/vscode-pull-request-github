@@ -13,6 +13,7 @@ import { getCommentingRanges } from '../common/commentingRanges';
 import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPositionMapping';
 import { GitChangeType } from '../common/file';
 import Logger from '../common/logger';
+import { PR_SETTINGS_NAMESPACE, PULL_PR_BRANCH_BEFORE_CHECKOUT } from '../common/settingKeys';
 import { fromReviewUri, ReviewUriParams, Schemes, toReviewUri } from '../common/uri';
 import { dispose, formatError, groupBy, uniqBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -500,14 +501,19 @@ export class ReviewCommentController
 			Logger.error(`Failed to get content diff. ${formatError(e)}`);
 			if ((e.stderr as string | undefined)?.includes('bad object')) {
 				if (this._repository.state.HEAD?.upstream && retry) {
-					try {
-						await this._repository.pull();
-						return this.getContentDiff(uri, fileName, false);
-					} catch (e) {
-						// No remote branch
+					const pullSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(PULL_PR_BRANCH_BEFORE_CHECKOUT, true);
+					if (pullSetting) {
+						try {
+							await this._repository.pull();
+							return this.getContentDiff(uri, fileName, false);
+						} catch (e) {
+							// No remote branch
+						}
+					} else if (!pullSetting && this._repository.state.HEAD?.commit) {
+						return this._repository.diffWith(this._repository.state.HEAD.commit, fileName);
 					}
 				}
-				vscode.window.showErrorMessage(vscode.l10n.t('Unable to get pull request diff for {0}. The commit for this diff is not available locally and there is no remote branch.', this._reposManager.activePullRequest.head.sha));
+				vscode.window.showErrorMessage(vscode.l10n.t('Unable to get comment locations for commit {0}. This commit is not available locally and there is no remote branch.', this._reposManager.activePullRequest.head.sha));
 			}
 			throw e;
 		}
