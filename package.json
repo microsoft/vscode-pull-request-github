@@ -1706,17 +1706,17 @@
 			"view/item/context": [
 				{
 					"command": "pr.pick",
-					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive|description/",
+					"when": "view == pr:github && viewItem =~ /(pullrequest(:local)?:nonactive)|(description:nonactive)/",
 					"group": "1_pullrequest@1"
 				},
 				{
 					"command": "pr.pick",
-					"when": "view == pr:github && viewItem =~ /description/",
+					"when": "view == pr:github && viewItem =~ /description:nonactive/",
 					"group": "inline"
 				},
 				{
 					"command": "pr.exit",
-					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:active|description/",
+					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:active|description:active/",
 					"group": "1_pullrequest@1"
 				},
 				{
@@ -1756,12 +1756,12 @@
 				{
 					"command": "pr.showDiffSinceLastReview",
 					"group": "inline",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:changesSinceReview:inactive/"
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:(active|nonactive):hasChangesSinceReview:showingAllChanges/"
 				},
 				{
 					"command": "pr.showDiffAll",
 					"group": "inline",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:changesSinceReview:active/"
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:(active|nonactive):hasChangesSinceReview:showingChangesSinceReview/"
 				},
 				{
 					"command": "review.openFile",

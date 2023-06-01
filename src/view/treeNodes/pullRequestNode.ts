@@ -68,7 +68,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				vscode.l10n.t('Description'),
 				new vscode.ThemeIcon('git-pull-request'),
 				this.pullRequestModel,
-				this.repository
+				this.repository,
+				this._folderReposManager
 			);
 
 			if (!this.pullRequestModel.isResolved()) {
