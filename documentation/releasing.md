@@ -5,21 +5,18 @@
 	**Until the marketplace supports semantic versioning, the minor version should always be an event number. Odd numbers are reserved for the pre-release version of the extension.**
     - (If necessary) Update vscode engine version
 
-
 2. Update [CHANGELOG.md](https://github.com/Microsoft/vscode-pull-request-github/blob/main/CHANGELOG.md)
     - In the **Changes** section, link to issues that were fixed or closed in the last sprint. Use a link to the pull request if there is no issue to reference.
     - In the **Thank You** section, @ mention users who contributed (if there were any).
 
-
 3. If there are new dependencies that have been added, update [ThirdPartyNotices.txt](https://github.com/microsoft/vscode-pull-request-github/commits/main/ThirdPartyNotices.txt).
-
 
 4. Create PR with changes to `package.json` and `CHANGELOG.md` (and `ThirdPartyNotices.txt` when necessary)
     - Merge PR once changes are reviewed
 
 5. If the minor version was increased, run the nightly build pipeline to ensure a new pre-release version with the increased version number is released
 
-6. Push a tag with the new version number to the appropriate commit (ex. `v0.5.0`).
+6. Run the release pipeline with the `publishExtension` variable set to `true`.
 
 7. Wait for the release pipeline to finish running.
 
