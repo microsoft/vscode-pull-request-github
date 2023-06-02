@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as pathLib from 'path';
 import * as vscode from 'vscode';
 import { Commit, Remote, Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
@@ -22,6 +23,7 @@ export class ShareProviderManager implements vscode.Disposable {
 		this.disposables.push(
 			new GitHubDevShareProvider(repositoryManager, gitAPI),
 			new GitHubPermalinkShareProvider(repositoryManager, gitAPI),
+			new GitHubPermalinkAsMarkdownShareProvider(repositoryManager, gitAPI),
 			new GitHubHeadLinkShareProvider(repositoryManager, gitAPI)
 		);
 	}
@@ -97,7 +99,7 @@ abstract class AbstractShareProvider implements vscode.Disposable, vscode.ShareP
 	protected abstract getBlob(folderManager: FolderRepositoryManager, uri: vscode.Uri): Promise<string>;
 	protected abstract getUpstream(repository: Repository, commit: string): Promise<Remote | undefined>;
 
-	public async provideShare(item: vscode.ShareableItem): Promise<vscode.Uri | undefined> {
+	public async provideShare(item: vscode.ShareableItem): Promise<vscode.Uri | string | undefined> {
 		// Get the blob
 		const folderManager = this.repositoryManager.getManagerForFile(item.resourceUri);
 		if (!folderManager) {
@@ -147,8 +149,14 @@ export class GitHubDevShareProvider extends AbstractShareProvider implements vsc
 }
 
 export class GitHubPermalinkShareProvider extends AbstractShareProvider implements vscode.ShareProvider {
-	constructor(repositoryManager: RepositoriesManager, gitApi: GitApiImpl) {
-		super(repositoryManager, gitApi, 'githubComPermalink', vscode.l10n.t('Copy GitHub Permalink'), 11);
+	constructor(
+		repositoryManager: RepositoriesManager,
+		gitApi: GitApiImpl,
+		id: string = 'githubComPermalink',
+		label: string = vscode.l10n.t('Copy GitHub Permalink'),
+		priority: number = 11
+	) {
+		super(repositoryManager, gitApi, id, label, priority);
 	}
 
 	protected shouldRegister() {
@@ -194,9 +202,49 @@ export class GitHubPermalinkShareProvider extends AbstractShareProvider implemen
 	}
 }
 
+export class GitHubPermalinkAsMarkdownShareProvider extends GitHubPermalinkShareProvider {
+
+	constructor(repositoryManager: RepositoriesManager, gitApi: GitApiImpl) {
+		super(repositoryManager, gitApi, 'githubComPermalinkAsMarkdown', vscode.l10n.t('Copy GitHub Permalink as Markdown'), 12);
+	}
+
+	async provideShare(item: vscode.ShareableItem): Promise<vscode.Uri | string | undefined> {
+		const link = await super.provideShare(item);
+
+		const text = await this.getMarkdownLinkText(item);
+		if (link) {
+			return `[${text?.trim() ?? ''}](${link.toString()})`;
+		}
+	}
+
+	private async getMarkdownLinkText(item: vscode.ShareableItem): Promise<string | undefined> {
+		const fileName = pathLib.basename(item.resourceUri.path);
+
+		if (item.selection) {
+			const document = await vscode.workspace.openTextDocument(item.resourceUri);
+
+			const editorSelection = item.selection.start === item.selection.end
+				? item.selection
+				: new vscode.Range(item.selection.start, new vscode.Position(item.selection.start.line + 1, 0));
+
+			const selectedText = document.getText(editorSelection);
+			if (selectedText) {
+				return selectedText;
+			}
+
+			const wordRange = document.getWordRangeAtPosition(item.selection.start);
+			if (wordRange) {
+				return document.getText(wordRange);
+			}
+		}
+
+		return fileName;
+	}
+}
+
 export class GitHubHeadLinkShareProvider extends AbstractShareProvider implements vscode.ShareProvider {
 	constructor(repositoryManager: RepositoriesManager, gitApi: GitApiImpl) {
-		super(repositoryManager, gitApi, 'githubComHeadLink', vscode.l10n.t('Copy GitHub HEAD Link'), 12);
+		super(repositoryManager, gitApi, 'githubComHeadLink', vscode.l10n.t('Copy GitHub HEAD Link'), 13);
 	}
 
 	protected shouldRegister() {
