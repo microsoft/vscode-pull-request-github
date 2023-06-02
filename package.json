@@ -969,6 +969,11 @@
 				"category": "%command.issues.category%"
 			},
 			{
+				"command": "pr.copyPrNumber",
+				"title": "%command.pr.copyPrNumber.title%",
+				"category": "%command.issues.category%"
+			},
+			{
 				"command": "pr.copyVscodeDevPrLink",
 				"title": "%command.pr.copyVscodeDevPrLink.title%",
 				"category": "%command.issues.category%"
@@ -1451,6 +1456,10 @@
 				{
 					"command": "pr.collapseAllComments",
 					"when": "false"
+				},
+				{
+					"command": "pr.copyPrNumber",
+					"when": "github:inReviewMode && remoteName != codespaces && embedderIdentifier != github.dev"
 				},
 				{
 					"command": "pr.copyVscodeDevPrLink",
@@ -2111,6 +2120,11 @@
 					"command": "issue.copyGithubPermalink",
 					"when": "github:hasGitHubRemotes",
 					"group": "1_githubPullRequests@0"
+				},
+				{
+					"command": "pr.copyPrNumber",
+					"when": "github:hasGitHubRemotes && github:inReviewMode && remoteName != codespaces && embedderIdentifier != github.dev",
+					"group": "1_githubPullRequests@1"
 				},
 				{
 					"command": "pr.copyVscodeDevPrLink",
