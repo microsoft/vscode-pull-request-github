@@ -775,13 +775,18 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
 			const repoSpecificFile = vscode.Uri.joinPath(teamReviewersCacheLocation, key);
 			let repoSpecificCache;
+			let cacheAsJson;
 			try {
 				repoSpecificCache = await vscode.workspace.fs.readFile(repoSpecificFile);
+				cacheAsJson = JSON.parse(repoSpecificCache.toString());
 			} catch (e) {
+				if (e instanceof Error && e.message.includes('Unexpected non-whitespace character after JSON')) {
+					Logger.error(`Error parsing team reviewers cache for ${repo.remote.remoteName}.`);
+				}
 				// file doesn't exist
 			}
 			if (repoSpecificCache && repoSpecificCache.toString()) {
-				cache[repo.remote.remoteName] = JSON.parse(repoSpecificCache.toString()) ?? [];
+				cache[repo.remote.remoteName] = cacheAsJson ?? [];
 				return true;
 			}
 		}))).every(value => value);
