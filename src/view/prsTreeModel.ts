@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { PR_SETTINGS_NAMESPACE, USE_REVIEW_MODE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { dispose } from '../common/utils';
@@ -93,7 +94,12 @@ export class PrsTreeModel implements vscode.Disposable {
 	}
 
 	async getLocalPullRequests(folderRepoManager: FolderRepositoryManager) {
-		const prs = await folderRepoManager.getLocalPullRequests();
+		const useReviewConfiguration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)
+			.get<{ merged: boolean, closed: boolean }>(USE_REVIEW_MODE, { merged: true, closed: false });
+
+		const prs = (await folderRepoManager.getLocalPullRequests())
+			.filter(pr => pr.isOpen || (pr.isClosed && useReviewConfiguration.closed) || (pr.isMerged && useReviewConfiguration.merged));
+
 		/* __GDPR__
 			"pr.expand.local" : {}
 		*/
