@@ -1357,6 +1357,10 @@
 					"when": "false"
 				},
 				{
+					"command": "review.suggestDiff",
+					"when": "false"
+				},
+				{
 					"command": "pr.refreshList",
 					"when": "gitHubOpenRepositoryCount != 0 && github:authenticated && github:hasGitHubRemotes"
 				},
