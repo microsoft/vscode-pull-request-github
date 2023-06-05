@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.66.0
+
+### Changes
+
+- We show the same welcome view as the git extension when you open a subfolder of a git repository.
+
+![Git subfolder welcome view](documentation/changelog/0.66.0/git-subfolder-welcome.png)
+
+- Improved performance of extension activation, particularly for multi-repo workspaces
+- There are two new actions for viewing diffs of checked out PRs: **Compare Base With Pull Request Head (readonly)** and **Compare Pull Request Head with Local**. These actions are available from the PR changes context menu.
+
+![Compare changes with commands location](documentation/changelog/0.66.0/compare-changes-with-commands.png)
+
+- The new setting `"githubPullRequests.pullPullRequestBranchBeforeCheckout"` can be used to turn off pulling a previously checked out PR branch when checking out that same branch again.
+
+### Fixes
+
+- Bad/missing error handling when creating PR can lead to being rate limited. https://github.com/microsoft/vscode-pull-request-github/issues/4848
+- My vscode workspace sometimes shows a PR from vscode-cpptools. https://github.com/microsoft/vscode-pull-request-github/issues/4842
+- Improper `@mentions` in comments. https://github.com/microsoft/vscode-pull-request-github/issues/4810
+- Duplicated issues in tree. https://github.com/microsoft/vscode-pull-request-github/issues/4781
+- Element with id Local Pull Request Brancheshttps... is already registered. https://github.com/microsoft/vscode-pull-request-github/issues/4642
+
+**_Thank You_**
+
+* [@kabel (Kevin Abel)](https://github.com/kabel): Simplify `AuthProvider` enum [PR #4779](https://github.com/microsoft/vscode-pull-request-github/pull/4779)
+* [@SKPG-Tech (Salvijus K.)](https://github.com/SKPG-Tech): Add missing index in template [PR #4822](https://github.com/microsoft/vscode-pull-request-github/pull/4822)
+* [@unknovvn (Andzej Korovacki)](https://github.com/unknovvn): Use git setting to fetch before checkout in checkoutExistingPullRequestBranch [PR #4759](https://github.com/microsoft/vscode-pull-request-github/pull/4759)
+
 ## 0.64.0
 
 ### Changes
