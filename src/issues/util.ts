@@ -96,7 +96,7 @@ export class UserCompletion extends vscode.CompletionItem {
 export function userMarkdown(origin: PullRequestDefaults, user: User): vscode.MarkdownString {
 	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
 	markdown.appendMarkdown(
-		`![Avatar](${user.avatarUrl}|height=50,width=50) ${user.name ? `**${user.name}**` : ''} [${user.login}](${user.url})`,
+		`![Avatar](${user.avatarUrl}|height=50,width=50) ${user.name ? `**${user.name}** ` : ''}[${user.login}](${user.url})`,
 	);
 	if (user.bio) {
 		markdown.appendText('  \r\n' + user.bio.replace(/\r\n/g, ' '));
