@@ -10,7 +10,6 @@ import { FileChangeNodeUriParams, fromFileChangeNodeUri, fromPRUri, PRUriParams,
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { ReviewManager } from './reviewManager';
 
 export class FileTypeDecorationProvider implements vscode.FileDecorationProvider {
 	private _disposables: vscode.Disposable[] = [];
@@ -24,7 +23,7 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 	onDidChangeFileDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeFileDecorations.event;
 
 
-	constructor(private _repositoriesManager: RepositoriesManager, private _reviewManagers: ReviewManager[]) {
+	constructor(private _repositoriesManager: RepositoriesManager) {
 		this._disposables.push(vscode.window.registerFileDecorationProvider(this));
 		this._registerListeners();
 	}

@@ -28,6 +28,7 @@ import { getIssuesUrl, getPullsUrl, isInCodespaces, vscodeDevPrLink } from './gi
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewCommentController } from './view/reviewCommentController';
 import { ReviewManager } from './view/reviewManager';
+import { ReviewsManager } from './view/reviewsManager';
 import { CategoryTreeNode } from './view/treeNodes/categoryNode';
 import { CommitNode } from './view/treeNodes/commitNode';
 import { DescriptionNode } from './view/treeNodes/descriptionNode';
@@ -116,7 +117,7 @@ export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | Pull
 export function registerCommands(
 	context: vscode.ExtensionContext,
 	reposManager: RepositoriesManager,
-	reviewManagers: ReviewManager[],
+	reviewsManager: ReviewsManager,
 	telemetry: ITelemetry,
 	tree: PullRequestsTreeDataProvider
 ) {
@@ -169,7 +170,7 @@ export function registerCommands(
 				}
 
 				const { folderManager } = activePullRequestAndFolderManager;
-				const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
+				const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager);
 
 				if (!reviewManager) {
 					return;
@@ -312,7 +313,7 @@ export function registerCommands(
 			if (!folderManager?.activePullRequest) {
 				return;
 			}
-			const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
+			const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager);
 			if (!reviewManager) {
 				return;
 			}
@@ -397,14 +398,14 @@ export function registerCommands(
 	function chooseReviewManager(repoPath?: string) {
 		if (repoPath) {
 			const uri = vscode.Uri.file(repoPath).toString();
-			for (const mgr of reviewManagers) {
+			for (const mgr of reviewsManager.reviewManagers) {
 				if (mgr.repository.rootUri.toString() === uri) {
 					return mgr;
 				}
 			}
 		}
 		return chooseItem<ReviewManager>(
-			reviewManagers,
+			reviewsManager.reviewManagers,
 			itemValue => pathLib.basename(itemValue.repository.rootUri.fsPath),
 			{ placeHolder: vscode.l10n.t('Choose a repository to create a pull request in'), ignoreFocusOut: true },
 		);
@@ -490,7 +491,7 @@ export function registerCommands(
 				},
 				async () => {
 					await ReviewManager.getReviewManagerForRepository(
-						reviewManagers,
+						reviewsManager.reviewManagers,
 						pullRequestModel.githubRepository,
 						repository
 					)?.switch(pullRequestModel);
@@ -734,7 +735,7 @@ export function registerCommands(
 				if (argument instanceof DescriptionNode) {
 					descriptionNode = argument;
 				} else {
-					const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
+					const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager);
 					if (!reviewManager) {
 						return;
 					}
@@ -1034,7 +1035,7 @@ ${contents}
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.refreshChanges', _ => {
-			reviewManagers.forEach(reviewManager => {
+			reviewsManager.reviewManagers.forEach(reviewManager => {
 				reviewManager.updateComments();
 				PullRequestOverviewPanel.refresh();
 				reviewManager.changesInPrDataProvider.refresh();
@@ -1058,7 +1059,7 @@ ${contents}
 		vscode.commands.registerCommand('pr.refreshPullRequest', (prNode: PRNode) => {
 			const folderManager = reposManager.getManagerForIssueModel(prNode.pullRequestModel);
 			if (folderManager && prNode.pullRequestModel.equals(folderManager?.activePullRequest)) {
-				ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager)?.updateComments();
+				ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager)?.updateComments();
 			}
 
 			PullRequestOverviewPanel.refresh();
@@ -1193,7 +1194,7 @@ ${contents}
 			}
 			const prModel = await githubRepo.manager.fetchById(githubRepo.repo, Number(prNumber.match(prNumberMatcher)![1]));
 			if (prModel) {
-				return ReviewManager.getReviewManagerForFolderManager(reviewManagers, githubRepo.manager)?.switch(prModel);
+				return ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, githubRepo.manager)?.switch(prModel);
 			}
 		}));
 
@@ -1316,7 +1317,7 @@ ${contents}
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find a repository for pull request.'));
 		}
 
-		const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewManagers, folderManager);
+		const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager);
 		if (!reviewManager) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('Cannot find active pull request.'));
 		}

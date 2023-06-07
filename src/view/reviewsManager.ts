@@ -37,6 +37,10 @@ export class ReviewsManager {
 		this._disposables.push(this._prsTreeDataProvider);
 	}
 
+	get reviewManagers(): ReviewManager[] {
+		return this._reviewManagers;
+	}
+
 	private registerListeners(): void {
 		this._disposables.push(
 			vscode.workspace.onDidChangeConfiguration(async e => {
@@ -69,6 +73,20 @@ export class ReviewsManager {
 	}
 
 	public addReviewManager(reviewManager: ReviewManager) {
+		// Try to insert in workspace folder order
+		const workspaceFolders = vscode.workspace.workspaceFolders;
+		if (workspaceFolders) {
+			const index = workspaceFolders.findIndex(
+				folder => folder.uri.toString() === reviewManager.repository.rootUri.toString(),
+			);
+			if (index > -1) {
+				const arrayEnd = this._reviewManagers.slice(index, this._reviewManagers.length);
+				this._reviewManagers = this._reviewManagers.slice(0, index);
+				this._reviewManagers.push(reviewManager);
+				this._reviewManagers.push(...arrayEnd);
+				return;
+			}
+		}
 		this._reviewManagers.push(reviewManager);
 	}
 
