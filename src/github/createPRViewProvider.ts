@@ -100,7 +100,18 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		const commitChanged = compareBranch && (compareBranch.commit !== this._defaultCompareBranch.commit);
 		if (branchChanged || commitChanged) {
 			this._defaultCompareBranch = compareBranch!;
-			void this.initializeParams();
+			this.changeBranch(compareBranch!.name!, false).then(titleAndDescription => {
+				const params: Partial<CreateParams> = {
+					defaultTitle: titleAndDescription.title,
+					defaultDescription: titleAndDescription.description,
+					compareBranch: compareBranch?.name,
+					defaultCompareBranch: compareBranch?.name
+				};
+				return this._postMessage({
+					command: 'reset',
+					params,
+				});
+			});
 
 			if (branchChanged) {
 				this._onDidChangeCompareBranch.fire(this._defaultCompareBranch.name!);
@@ -600,8 +611,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		});
 	}
 
-	private async changeBranch(message: IRequestMessage<string | { name: string }>, isBase: boolean): Promise<void> {
-		const newBranch = (typeof message.args === 'string') ? message.args : message.args.name;
+	private async changeBranch(newBranch: string, isBase: boolean): Promise<{ title: string, description: string }> {
 		let compareBranch: Branch | undefined;
 		if (isBase) {
 			this._baseBranch = newBranch;
@@ -609,6 +619,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		} else {
 			try {
 				compareBranch = await this._folderRepositoryManager.repository.getBranch(newBranch);
+				this._compareBranch = newBranch;
 				this._onDidChangeCompareBranch.fire(compareBranch.name!);
 			} catch (e) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Branch does not exist locally.'));
@@ -616,7 +627,12 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		}
 
 		compareBranch = compareBranch ?? await this._folderRepositoryManager.repository.getBranch(this._compareBranch);
-		const titleAndDescription = await this.getTitleAndDescription(compareBranch, this._baseBranch);
+		return this.getTitleAndDescription(compareBranch, this._baseBranch);
+	}
+
+	private async changeBranchFromWebview(message: IRequestMessage<string | { name: string }>, isBase: boolean): Promise<void> {
+		const newBranch = (typeof message.args === 'string') ? message.args : message.args.name;
+		const titleAndDescription = await this.changeBranch(newBranch, isBase);
 		return this._replyMessage(message, { title: titleAndDescription.title, description: titleAndDescription.description });
 	}
 
@@ -645,13 +661,13 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				return this.changeRemote(message, true);
 
 			case 'pr.changeBaseBranch':
-				return this.changeBranch(message, true);
+				return this.changeBranchFromWebview(message, true);
 
 			case 'pr.changeCompareRemote':
 				return this.changeRemote(message, false);
 
 			case 'pr.changeCompareBranch':
-				return this.changeBranch(message, false);
+				return this.changeBranchFromWebview(message, false);
 
 			case 'pr.removeLabel':
 				return this.removeLabel(message);
