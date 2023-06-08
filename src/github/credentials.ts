@@ -40,6 +40,10 @@ export interface GitHub {
 	currentUser?: Promise<IAccount>;
 }
 
+interface AuthResult {
+	canceled: boolean;
+}
+
 export class CredentialStore implements vscode.Disposable {
 	private _githubAPI: GitHub | undefined;
 	private _sessionId: string | undefined;
@@ -87,12 +91,12 @@ export class CredentialStore implements vscode.Disposable {
 		await this.context.globalState.update(LAST_USED_SCOPES_ENTERPRISE_KEY, this._scopesEnterprise);
 	}
 
-	private async initialize(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions = {}, scopes: string[] = !isEnterprise(authProviderId) ? this._scopes : this._scopesEnterprise): Promise<void> {
+	private async initialize(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions = {}, scopes: string[] = !isEnterprise(authProviderId) ? this._scopes : this._scopesEnterprise): Promise<AuthResult> {
 		Logger.debug(`Initializing GitHub${getGitHubSuffix(authProviderId)} authentication provider.`, 'Authentication');
 		if (isEnterprise(authProviderId)) {
 			if (!hasEnterpriseUri()) {
 				Logger.debug(`GitHub Enterprise provider selected without URI.`, 'Authentication');
-				return;
+				return { canceled: false };
 			}
 		}
 
@@ -105,6 +109,7 @@ export class CredentialStore implements vscode.Disposable {
 		let usedScopes: string[] | undefined = SCOPES;
 		const oldScopes = this._scopes;
 		const oldEnterpriseScopes = this._scopesEnterprise;
+		const authResult: AuthResult = { canceled: false };
 		try {
 			// Set scopes before getting the session to prevent new session events from using the old scopes.
 			if (!isEnterprise(authProviderId)) {
@@ -119,7 +124,11 @@ export class CredentialStore implements vscode.Disposable {
 		} catch (e) {
 			this._scopes = oldScopes;
 			this._scopesEnterprise = oldEnterpriseScopes;
-			if (getAuthSessionOptions.forceNewSession && (e.message === 'User did not consent to login.')) {
+			const userCanceld = (e.message === 'User did not consent to login.');
+			if (userCanceld) {
+				authResult.canceled = true;
+			}
+			if (getAuthSessionOptions.forceNewSession && userCanceld) {
 				// There are cases where a forced login may not be 100% needed, so just continue as usual if
 				// the user didn't consent to the login prompt.
 			} else {
@@ -161,23 +170,29 @@ export class CredentialStore implements vscode.Disposable {
 				*/
 				this._telemetry.sendTelemetryEvent('auth.session');
 			}
+			return authResult;
 		} else {
 			Logger.debug(`No GitHub${getGitHubSuffix(authProviderId)} token found.`, 'Authentication');
+			return authResult;
 		}
 	}
 
-	private async doCreate(options: vscode.AuthenticationGetSessionOptions, additionalScopes: boolean = false) {
-		await this.initialize(AuthProvider.github, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined);
+	private async doCreate(options: vscode.AuthenticationGetSessionOptions, additionalScopes: boolean = false): Promise<AuthResult> {
+		const github = await this.initialize(AuthProvider.github, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined);
+		let enterprise: AuthResult | undefined;
 		if (hasEnterpriseUri()) {
-			await this.initialize(AuthProvider.githubEnterprise, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined);
+			enterprise = await this.initialize(AuthProvider.githubEnterprise, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined);
 		}
+		return {
+			canceled: github.canceled || !!(enterprise && enterprise.canceled)
+		};
 	}
 
 	public async create(options: vscode.AuthenticationGetSessionOptions = {}, additionalScopes: boolean = false) {
 		return this.doCreate(options, additionalScopes);
 	}
 
-	public async recreate(reason?: string) {
+	public async recreate(reason?: string): Promise<AuthResult> {
 		return this.doCreate({ forceNewSession: reason ? { detail: reason } : true });
 	}
 
@@ -299,8 +314,8 @@ export class CredentialStore implements vscode.Disposable {
 		return octokit;
 	}
 
-	public async showSamlMessageAndAuth() {
-		return this.recreate(vscode.l10n.t('GitHub Pull Requests and Issues requires that you provide SAML access to your organization when you sign in.'));
+	public async showSamlMessageAndAuth(organizations: string[]): Promise<AuthResult> {
+		return this.recreate(vscode.l10n.t('GitHub Pull Requests and Issues requires that you provide SAML access to your organization ({0}) when you sign in.', organizations.join(', ')));
 	}
 
 	public async isCurrentUser(username: string): Promise<boolean> {

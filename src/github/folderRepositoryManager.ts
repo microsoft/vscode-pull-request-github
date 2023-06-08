@@ -159,6 +159,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	private _onDidChangeGithubRepositories = new vscode.EventEmitter<GitHubRepository[]>();
 	readonly onDidChangeGithubRepositories: vscode.Event<GitHubRepository[]> = this._onDidChangeGithubRepositories.event;
 
+	private _onDidDispose = new vscode.EventEmitter<void>();
+	readonly onDidDispose: vscode.Event<void> = this._onDidDispose.event;
+
 	constructor(
 		public context: vscode.ExtensionContext,
 		private _repository: Repository,
@@ -627,8 +630,18 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 
 		return Promise.all(resolveRemotePromises).then(async (remoteResults: boolean[]) => {
-			if (remoteResults.some(value => !value)) {
-				this._credentialStore.showSamlMessageAndAuth();
+			const missingSaml: string[] = [];
+			for (let i = 0; i < remoteResults.length; i++) {
+				if (!remoteResults[i]) {
+					missingSaml.push(repositories[i].remote.owner);
+				}
+			}
+			if (missingSaml.length > 0) {
+				const result = await this._credentialStore.showSamlMessageAndAuth(missingSaml);
+				if (result.canceled) {
+					this.dispose();
+					return;
+				}
 			}
 
 			this._githubRepositories = repositories;
@@ -2500,6 +2513,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	dispose() {
 		this._subs.forEach(sub => sub.dispose());
+		this._onDidDispose.fire();
 	}
 }
 

@@ -1001,7 +1001,7 @@ export class GitHubRepository implements vscode.Disposable {
 						first: 100,
 						after: after,
 					},
-				});
+				}, true); // we ignore SAML errors here because this query can happen at startup
 
 				ret.push(
 					...result.data.repository.assignableUsers.nodes.map(node => {
