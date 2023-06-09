@@ -52,13 +52,17 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 	}
 
 	updateBaseBranch(branch: string): void {
-		this.baseBranchName = branch;
-		this._onDidChangeTreeData.fire();
+		if (this.baseBranchName !== branch) {
+			this.baseBranchName = branch;
+			this._onDidChangeTreeData.fire();
+		}
 	}
 
 	updateBaseOwner(owner: string) {
-		this.baseOwner = owner;
-		this._onDidChangeTreeData.fire();
+		if (this.baseOwner !== owner) {
+			this.baseOwner = owner;
+			this._onDidChangeTreeData.fire();
+		}
 	}
 
 	async reveal(treeNode: TreeNode, options?: { select?: boolean; focus?: boolean; expand?: boolean }): Promise<void> {
@@ -83,11 +87,13 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 	}
 
 	async updateCompareBranch(branch?: string): Promise<void> {
-		if (branch) {
-			await this.updateHasUpstream(branch);
-			this.compareBranchName = branch;
+		if (this.compareBranchName !== branch) {
+			if (branch) {
+				await this.updateHasUpstream(branch);
+				this.compareBranchName = branch;
+			}
+			this._onDidChangeTreeData.fire();
 		}
-		this._onDidChangeTreeData.fire();
 	}
 
 	get compareOwner(): string {
@@ -95,14 +101,16 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 	}
 
 	set compareOwner(owner: string) {
-		this._gitHubRepository = this.folderRepoManager.gitHubRepositories.find(repo => repo.remote.owner === owner);
+		if (this._compareOwner !== owner) {
+			this._gitHubRepository = this.folderRepoManager.gitHubRepositories.find(repo => repo.remote.owner === owner);
 
-		if (this._contentProvider && this._gitHubRepository) {
-			this._contentProvider.gitHubRepository = this._gitHubRepository;
+			if (this._contentProvider && this._gitHubRepository) {
+				this._contentProvider.gitHubRepository = this._gitHubRepository;
+			}
+
+			this._compareOwner = owner;
+			this._onDidChangeTreeData.fire();
 		}
-
-		this._compareOwner = owner;
-		this._onDidChangeTreeData.fire();
 	}
 
 	getTreeItem(element: TreeNode): vscode.TreeItem | Thenable<vscode.TreeItem> {

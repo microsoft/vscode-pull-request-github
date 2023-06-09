@@ -468,6 +468,9 @@ export class GitHubRepository implements vscode.Disposable {
 
 			if (data?.repository.pullRequests.nodes.length > 0) {
 				const prs = data.repository.pullRequests.nodes.map(node => parseGraphQLPullRequest(node, this)).filter(pr => pr.head?.repo.owner === headOwner);
+				if (prs.length === 0) {
+					return undefined;
+				}
 				const mostRecentOrOpenPr = prs.find(pr => pr.state.toLowerCase() === 'open') ?? prs[0];
 				return this.createOrUpdatePullRequestModel(mostRecentOrOpenPr);
 			}
@@ -1001,7 +1004,7 @@ export class GitHubRepository implements vscode.Disposable {
 						first: 100,
 						after: after,
 					},
-				});
+				}, true); // we ignore SAML errors here because this query can happen at startup
 
 				ret.push(
 					...result.data.repository.assignableUsers.nodes.map(node => {

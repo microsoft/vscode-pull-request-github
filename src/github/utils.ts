@@ -702,11 +702,10 @@ export function loginComparator(a: IAccount, b: IAccount) {
  * Used for case insensitive sort by team name
  */
 export function teamComparator(a: ITeam, b: ITeam) {
-	if ((a.name === undefined) || (b.name === undefined)) {
-		return 0;
-	}
+	const aKey = a.name ?? a.slug;
+	const bKey = b.name ?? b.slug;
 	// sensitivity: 'accent' allows case insensitive comparison
-	return a.name.localeCompare(b.name, 'en', { sensitivity: 'accent' });
+	return aKey.localeCompare(bKey, 'en', { sensitivity: 'accent' });
 }
 
 export function parseGraphQLReviewEvent(
@@ -1052,7 +1051,7 @@ export function parseReviewers(
 			return -1;
 		}
 
-		return (reviewerLabel(a.reviewer)?.toLowerCase() ?? 0) < (reviewerLabel(b.reviewer)?.toLowerCase() ?? 0) ? -1 : 1;
+		return reviewerLabel(a.reviewer).toLowerCase() < reviewerLabel(b.reviewer).toLowerCase() ? -1 : 1;
 	});
 
 	return reviewers;

@@ -55,8 +55,8 @@ export function reviewerId(reviewer: ITeam | IAccount): string {
 	return isTeam(reviewer) ? reviewer.id : reviewer.login;
 }
 
-export function reviewerLabel(reviewer: ITeam | IAccount): string | undefined {
-	return isTeam(reviewer) ? reviewer.name : reviewer.login;
+export function reviewerLabel(reviewer: ITeam | IAccount): string {
+	return isTeam(reviewer) ? (reviewer.name ?? reviewer.slug) : reviewer.login;
 }
 
 export function isTeam(reviewer: ITeam | IAccount): reviewer is ITeam {

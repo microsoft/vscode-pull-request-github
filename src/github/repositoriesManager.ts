@@ -78,7 +78,8 @@ export class RepositoriesManager implements vscode.Disposable {
 				this.state = state;
 				this._onDidLoadAnyRepositories.fire();
 			}),
-			folderManager.onDidChangeActivePullRequest(() => this.updateActiveReviewCount())
+			folderManager.onDidChangeActivePullRequest(() => this.updateActiveReviewCount()),
+			folderManager.onDidDispose(() => this.removeRepo(folderManager.repository))
 		];
 		this._subs.set(folderManager, disposables);
 	}

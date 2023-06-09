@@ -23,10 +23,10 @@
 		"shareProvider",
 		"quickDiffProvider"
 	],
-	"version": "0.64.0",
+	"version": "0.66.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.78.0"
+		"vscode": "^1.79.0"
 	},
 	"categories": [
 		"Other"
@@ -1354,6 +1354,10 @@
 				},
 				{
 					"command": "pr.showDiffAll",
+					"when": "false"
+				},
+				{
+					"command": "review.suggestDiff",
 					"when": "false"
 				},
 				{

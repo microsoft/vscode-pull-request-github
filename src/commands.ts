@@ -184,6 +184,17 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('review.suggestDiff', async e => {
+			const hasShownMessageKey = 'githubPullRequest.suggestDiffMessage';
+			const hasShownMessage = context.globalState.get(hasShownMessageKey, false);
+			if (!hasShownMessage) {
+				await context.globalState.update(hasShownMessageKey, true);
+				const documentation = vscode.l10n.t('Open documentation');
+				const result = await vscode.window.showInformationMessage(vscode.l10n.t('You can now make suggestions from review comments, just like on GitHub.com. See the documentation for more details.'),
+					{ modal: true }, documentation);
+				if (result === documentation) {
+					return vscode.env.openExternal(vscode.Uri.parse('https://github.com/microsoft/vscode-pull-request-github/blob/main/documentation/changelog/0.58.0/suggest-a-change.gif'));
+				}
+			}
 			try {
 				const folderManager = await chooseItem<FolderRepositoryManager>(
 					reposManager.folderManagers,
