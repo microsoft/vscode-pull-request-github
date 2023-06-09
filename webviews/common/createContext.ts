@@ -173,7 +173,7 @@ export class CreatePRContext {
 		return this._handler?.postMessage(message);
 	};
 
-	handleMessage = async (message: { command: string, params?: CreateParams, scrollPosition?: ScrollPosition }): Promise<void> => {
+	handleMessage = async (message: { command: string, params?: Partial<CreateParams>, scrollPosition?: ScrollPosition }): Promise<void> => {
 		switch (message.command) {
 			case 'pr.initialize':
 				if (!message.params) {
@@ -199,7 +199,7 @@ export class CreatePRContext {
 
 				if (this.createParams.baseBranch === undefined) {
 					message.params.baseBranch = message.params.defaultBaseBranch;
-				} else {
+				} else if (message.params.baseBranch && (this.createParams.baseBranch !== message.params.baseBranch)) {
 					// Notify the extension of the stored base branch state
 					await this.changeBaseBranch(this.createParams.baseBranch);
 				}
@@ -207,7 +207,7 @@ export class CreatePRContext {
 				if (this.createParams.compareRemote === undefined) {
 					message.params.compareRemote = message.params.defaultCompareRemote;
 				} else if (message.params.compareRemote && ((this.createParams.compareRemote.owner !== message.params.compareRemote.owner) || (this.createParams.compareRemote.repositoryName !== message.params.compareRemote.repositoryName))) {
-					// Notify the extension of the stored base branch state This is where master is getting set.
+					// Notify the extension of the stored base branch state
 					await this.changeCompareRemote(
 						this.createParams.compareRemote.owner,
 						this.createParams.compareRemote.repositoryName
@@ -216,7 +216,7 @@ export class CreatePRContext {
 
 				if (this.createParams.compareBranch === undefined) {
 					message.params.compareBranch = message.params.defaultCompareBranch;
-				} else {
+				} else if (message.params.compareBranch && (this.createParams.compareBranch !== message.params.compareBranch)) {
 					// Notify the extension of the stored compare branch state
 					await this.changeCompareBranch(this.createParams.compareBranch);
 				}
@@ -243,14 +243,14 @@ export class CreatePRContext {
 				if (!message.params) {
 					return;
 				}
-				message.params.pendingTitle = message.params.defaultTitle;
-				message.params.pendingDescription = message.params.defaultDescription;
-				message.params.baseRemote = message.params.defaultBaseRemote;
-				message.params.baseBranch = message.params.defaultBaseBranch;
-				message.params.compareBranch = message.params.defaultCompareBranch;
-				message.params.compareRemote = message.params.defaultCompareRemote;
-				message.params.autoMerge = message.params.autoMergeDefault;
-				message.params.autoMergeMethod = message.params.defaultMergeMethod;
+				message.params.pendingTitle = message.params.defaultTitle ?? this.createParams.pendingTitle;
+				message.params.pendingDescription = message.params.defaultDescription ?? this.createParams.pendingDescription;
+				message.params.baseRemote = message.params.defaultBaseRemote ?? this.createParams.baseRemote;
+				message.params.baseBranch = message.params.defaultBaseBranch ?? this.createParams.baseBranch;
+				message.params.compareBranch = message.params.defaultCompareBranch ?? this.createParams.compareBranch;
+				message.params.compareRemote = message.params.defaultCompareRemote ?? this.createParams.compareRemote;
+				message.params.autoMerge = (message.params.autoMergeDefault !== undefined ? message.params.autoMergeDefault : this.createParams.autoMerge);
+				message.params.autoMergeMethod = (message.params.defaultMergeMethod !== undefined ? message.params.defaultMergeMethod : this.createParams.autoMergeMethod);
 				if (message.params.autoMergeDefault) {
 					message.params.isDraft = false;
 				}
