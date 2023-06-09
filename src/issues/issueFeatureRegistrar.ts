@@ -20,6 +20,7 @@ import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getRepositoryForFile, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../github/utils';
 import { ReviewManager } from '../view/reviewManager';
+import { ReviewsManager } from '../view/reviewsManager';
 import { CurrentIssue } from './currentIssue';
 import { IssueCompletionProvider } from './issueCompletionProvider';
 import {
@@ -69,7 +70,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	constructor(
 		private gitAPI: GitApiImpl,
 		private manager: RepositoriesManager,
-		private reviewManagers: ReviewManager[],
+		private reviewsManager: ReviewsManager,
 		private context: vscode.ExtensionContext,
 		private telemetry: ITelemetry,
 	) {
@@ -844,7 +845,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				return this.openIssue(currentIssue.issue);
 			case pullRequestText: {
 				const reviewManager = ReviewManager.getReviewManagerForFolderManager(
-					this.reviewManagers,
+					this.reviewsManager.reviewManagers,
 					currentIssue.manager,
 				);
 				if (reviewManager) {

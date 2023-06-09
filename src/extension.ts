@@ -61,8 +61,8 @@ async function init(
 	vscode.authentication.onDidChangeSessions(async e => {
 		if (e.provider.id === 'github') {
 			await reposManager.clearCredentialCache();
-			if (reviewManagers) {
-				reviewManagers.forEach(reviewManager => reviewManager.updateState(true));
+			if (reviewsManager) {
+				reviewsManager.reviewManagers.forEach(reviewManager => reviewManager.updateState(true));
 			}
 		}
 	});
@@ -78,7 +78,7 @@ async function init(
 				return;
 			}
 
-			const reviewManager = reviewManagers.find(
+			const reviewManager = reviewsManager.reviewManagers.find(
 				manager => manager.repository.rootUri.toString() === e.repository.rootUri.toString(),
 			);
 			if (reviewManager?.isCreatingPullRequest) {
@@ -151,14 +151,14 @@ async function init(
 	const reviewManagers = reposManager.folderManagers.map(
 		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree, showPRController, activePrViewCoordinator, createPrHelper, git),
 	);
-	context.subscriptions.push(new FileTypeDecorationProvider(reposManager, reviewManagers));
+	context.subscriptions.push(new FileTypeDecorationProvider(reposManager));
 
 	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, credentialStore, git);
 	context.subscriptions.push(reviewsManager);
 
 	git.onDidChangeState(() => {
 		Logger.appendLine(`Git initialization state changed: state=${git.state}`);
-		reviewManagers.forEach(reviewManager => reviewManager.updateState(true));
+		reviewsManager.reviewManagers.forEach(reviewManager => reviewManager.updateState(true));
 	});
 
 	git.onDidOpenRepository(repo => {
@@ -201,16 +201,16 @@ async function init(
 		tree.refresh();
 	});
 
-	tree.initialize(reposManager, reviewManagers.map(manager => manager.reviewModel), credentialStore);
+	tree.initialize(reposManager, reviewsManager.reviewManagers.map(manager => manager.reviewModel), credentialStore);
 
 	context.subscriptions.push(new PRNotificationDecorationProvider(tree.notificationProvider));
 
-	registerCommands(context, reposManager, reviewManagers, telemetry, tree);
+	registerCommands(context, reposManager, reviewsManager, telemetry, tree);
 
 	const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
 
-	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewManagers, context, telemetry);
+	const issuesFeatures = new IssueFeatureRegistrar(git, reposManager, reviewsManager, context, telemetry);
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
 
