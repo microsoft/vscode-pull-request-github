@@ -468,6 +468,9 @@ export class GitHubRepository implements vscode.Disposable {
 
 			if (data?.repository.pullRequests.nodes.length > 0) {
 				const prs = data.repository.pullRequests.nodes.map(node => parseGraphQLPullRequest(node, this)).filter(pr => pr.head?.repo.owner === headOwner);
+				if (prs.length === 0) {
+					return undefined;
+				}
 				const mostRecentOrOpenPr = prs.find(pr => pr.state.toLowerCase() === 'open') ?? prs[0];
 				return this.createOrUpdatePullRequestModel(mostRecentOrOpenPr);
 			}
