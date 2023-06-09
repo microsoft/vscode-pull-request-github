@@ -21,7 +21,8 @@
 		"diffCommand",
 		"contribCommentEditorActionsMenu",
 		"shareProvider",
-		"quickDiffProvider"
+		"quickDiffProvider",
+		"quickPickItemIcon"
 	],
 	"version": "0.66.0",
 	"publisher": "GitHub",
