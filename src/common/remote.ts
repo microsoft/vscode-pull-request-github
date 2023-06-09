@@ -45,10 +45,10 @@ export class Remote {
 		if (this.host !== remote.host) {
 			return false;
 		}
-		if (this.owner !== remote.owner) {
+		if (this.owner.toLocaleLowerCase() !== remote.owner.toLocaleLowerCase()) {
 			return false;
 		}
-		if (this.repositoryName !== remote.repositoryName) {
+		if (this.repositoryName.toLocaleLowerCase() !== remote.repositoryName.toLocaleLowerCase()) {
 			return false;
 		}
 
