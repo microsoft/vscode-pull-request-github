@@ -6,6 +6,7 @@
 'use strict';
 
 import * as pathUtils from 'path';
+import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -152,14 +153,27 @@ export async function asTempStorageURI(uri: vscode.Uri, repository: Repository):
 	}
 }
 
-export function asImageDataURI(contents: Buffer): vscode.Uri | undefined {
-	try {
-		return vscode.Uri.parse(
-			`data:image/svg+xml;size:${contents.byteLength};base64,${contents.toString('base64')}`,
-		);
-	} catch (err) {
-		return;
+export function asImageDataURI(contents: Buffer): vscode.Uri {
+	return vscode.Uri.parse(
+		`data:image/svg+xml;size:${contents.byteLength};base64,${contents.toString('base64')}`
+	);
+}
+
+export async function circleAsImageDataUri(imageSourceUrl: string | undefined, height: number, width: number): Promise<vscode.Uri | undefined> {
+	if (imageSourceUrl === undefined) {
+		return undefined;
 	}
+
+	const response = await fetch(imageSourceUrl);
+	const buffer = await response.arrayBuffer();
+	const innerImageContents = Buffer.from(buffer);
+	const innerImageEncoded = `data:image/jpeg;size:${innerImageContents.byteLength};base64,${innerImageContents.toString('base64')}`;
+	const contentsString = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+	<image href="${innerImageEncoded}" width="${width}" height="${height}" style="clip-path: inset(0 0 0 0 round 50%);"/>
+	</svg>`;
+	const contents = Buffer.from(contentsString);
+	const finalDataUri = asImageDataURI(contents);
+	return finalDataUri;
 }
 
 export function toReviewUri(

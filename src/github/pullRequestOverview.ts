@@ -10,6 +10,7 @@ import { IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
+import { circleAsImageDataUri } from '../common/uri';
 import { asPromise, dispose, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -384,16 +385,19 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}),
 		]);
 
-		const reviewers: (vscode.QuickPickItem & { reviewer?: IAccount | ITeam })[] = [];
+		const reviewers: Promise<(vscode.QuickPickItem & { reviewer?: IAccount | ITeam })>[] = [];
 		// Start will all existing reviewers so they show at the top
 		for (const reviewer of this._existingReviewers) {
-			reviewers.push({
-				label: isTeam(reviewer.reviewer) ? `$(organization) ${reviewer.reviewer.org}/${reviewer.reviewer.slug}` : `${hasTeams ? `$(account) ` : ''}${reviewer.reviewer.login}`,
-				description: reviewer.reviewer.name,
-				reviewer: reviewer.reviewer,
-				picked: true,
-				iconPath: reviewer.reviewer.avatarUrl ? vscode.Uri.parse(reviewer.reviewer.avatarUrl) : undefined
-			});
+			const label = isTeam(reviewer.reviewer) ? `$(organization) ${reviewer.reviewer.org}/${reviewer.reviewer.slug}` : `${hasTeams ? `$(account) ` : ''}${reviewer.reviewer.login}`;
+			reviewers.push(circleAsImageDataUri(reviewer.reviewer.avatarUrl, 16, 16).then(avatarUrl => {
+				return {
+					label,
+					description: reviewer.reviewer.name,
+					reviewer: reviewer.reviewer,
+					picked: true,
+					iconPath: avatarUrl
+				};
+			}));
 		}
 
 		for (const user of suggestedReviewers) {
@@ -411,13 +415,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 							? vscode.l10n.t('Recently reviewed changes to these files')
 							: vscode.l10n.t('Suggested reviewer');
 
-			reviewers.push({
-				label: `${hasTeams ? `$(account) ` : ''}${login}`,
-				description: name,
-				detail: suggestionReason,
-				reviewer: user,
-				iconPath: user.avatarUrl ? vscode.Uri.parse(user.avatarUrl) : undefined
-			});
+			const label = `${hasTeams ? `$(account) ` : ''}${login}`;
+			reviewers.push(circleAsImageDataUri(user.avatarUrl, 16, 16).then(avatarUrl => {
+				return {
+					label,
+					description: name,
+					detail: suggestionReason,
+					reviewer: user,
+					iconPath: avatarUrl
+				};
+			}));
 			// this user shouldn't be added later from assignable users list
 			skipList.add(login);
 		}
@@ -427,21 +434,24 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				continue;
 			}
 
-			reviewers.push({
-				label: isTeam(user) ? `$(organization) ${user.org}/${user.slug}` : `${hasTeams ? `$(account) ` : ''}${user.login}`,
-				description: user.name,
-				reviewer: user,
-				iconPath: user.avatarUrl ? vscode.Uri.parse(user.avatarUrl) : undefined
-			});
+			const label = isTeam(user) ? `$(organization) ${user.org}/${user.slug}` : `${hasTeams ? `$(account) ` : ''}${user.login}`;
+			reviewers.push(circleAsImageDataUri(user.avatarUrl, 16, 16).then(avatarUrl => {
+				return {
+					label,
+					description: user.name,
+					reviewer: user,
+					iconPath: avatarUrl
+				};
+			}));
 		}
 
 		if (reviewers.length === 0) {
-			reviewers.push({
+			reviewers.push(Promise.resolve({
 				label: vscode.l10n.t('No reviewers available for this repository')
-			});
+			}));
 		}
 
-		return reviewers;
+		return Promise.all(reviewers);
 	}
 
 	private async getAssigneesQuickPickItems():
@@ -459,26 +469,30 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		// e.g. author, existing and already added reviewers
 		const skipList: Set<string> = new Set([...(this._item.assignees?.map(assignee => assignee.login) ?? [])]);
 
-		const assignees: (vscode.QuickPickItem & { assignee?: IAccount })[] = [];
+		const assignees: Promise<(vscode.QuickPickItem & { assignee?: IAccount })>[] = [];
 		// Start will all currently assigned so they show at the top
 		for (const current of (this._item.assignees ?? [])) {
-			assignees.push({
-				label: current.login,
-				description: current.name,
-				assignee: current,
-				picked: true,
-				iconPath: current.avatarUrl ? vscode.Uri.parse(current.avatarUrl) : undefined
-			});
+			assignees.push(circleAsImageDataUri(current.avatarUrl, 16, 16).then(avatarUrl => {
+				return {
+					label: current.login,
+					description: current.name,
+					assignee: current,
+					picked: true,
+					iconPath: avatarUrl
+				};
+			}));
 		}
 
 		// Check if the viewer is allowed to be assigned to the PR
 		if (!skipList.has(viewer.login) && (assignableUsers.findIndex((assignableUser: IAccount) => assignableUser.login === viewer.login) !== -1)) {
-			assignees.push({
-				label: viewer.login,
-				description: viewer.name,
-				assignee: viewer,
-				iconPath: viewer.avatarUrl ? vscode.Uri.parse(viewer.avatarUrl) : undefined
-			});
+			assignees.push(circleAsImageDataUri(viewer.avatarUrl, 16, 16).then(avatarUrl => {
+				return {
+					label: viewer.login,
+					description: viewer.name,
+					assignee: viewer,
+					iconPath: avatarUrl
+				};
+			}));
 			skipList.add(viewer.login);
 		}
 
@@ -487,49 +501,52 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				continue;
 			}
 
-			assignees.push({
-				label: suggestedReviewer.login,
-				description: suggestedReviewer.name,
-				assignee: suggestedReviewer,
-				iconPath: suggestedReviewer.avatarUrl ? vscode.Uri.parse(suggestedReviewer.avatarUrl) : undefined
-
-			});
+			assignees.push(circleAsImageDataUri(suggestedReviewer.avatarUrl, 16, 16).then(avatarUrl => {
+				return {
+					label: suggestedReviewer.login,
+					description: suggestedReviewer.name,
+					assignee: suggestedReviewer,
+					iconPath: avatarUrl
+				};
+			}));
 			// this user shouldn't be added later from assignable users list
 			skipList.add(suggestedReviewer.login);
 		}
 
 		if (assignees.length !== 0) {
-			assignees.unshift({
+			assignees.unshift(Promise.resolve({
 				kind: vscode.QuickPickItemKind.Separator,
 				label: vscode.l10n.t('Suggestions')
-			});
+			}));
 		}
 
-		assignees.push({
+		assignees.push(Promise.resolve({
 			kind: vscode.QuickPickItemKind.Separator,
 			label: vscode.l10n.t('Users')
-		});
+		}));
 
 		for (const user of assignableUsers) {
 			if (skipList.has(user.login)) {
 				continue;
 			}
 
-			assignees.push({
-				label: user.login,
-				description: user.name,
-				assignee: user,
-				iconPath: user.avatarUrl ? vscode.Uri.parse(user.avatarUrl) : undefined
-			});
+			assignees.push(circleAsImageDataUri(user.avatarUrl, 16, 16).then(avatarUrl => {
+				return {
+					label: user.login,
+					description: user.name,
+					assignee: user,
+					iconPath: avatarUrl
+				};
+			}));
 		}
 
 		if (assignees.length === 0) {
-			assignees.push({
+			assignees.push(Promise.resolve({
 				label: vscode.l10n.t('No assignees available for this repository')
-			});
+			}));
 		}
 
-		return assignees;
+		return Promise.all(assignees);
 	}
 
 	private async changeReviewers(message: IRequestMessage<void>): Promise<void> {
