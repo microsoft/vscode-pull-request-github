@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { IComment, ViewedState } from '../../common/comment';
 import { GitChangeType, InMemFileChange } from '../../common/file';
 import { FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
-import { asImageDataURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, Schemes, toResourceUri } from '../../common/uri';
+import { asTempStorageURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, Schemes, toResourceUri } from '../../common/uri';
 import { groupBy } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
@@ -44,8 +44,8 @@ async function openDiffCommand(
 	opts: vscode.TextDocumentShowOptions | undefined,
 	status: GitChangeType,
 ): Promise<vscode.Command> {
-	let parentURI = (await asImageDataURI(parentFilePath, folderManager.repository)) || parentFilePath;
-	let headURI = (await asImageDataURI(filePath, folderManager.repository)) || filePath;
+	let parentURI = (await asTempStorageURI(parentFilePath, folderManager.repository)) || parentFilePath;
+	let headURI = (await asTempStorageURI(filePath, folderManager.repository)) || filePath;
 	if (parentURI.scheme === 'data' || headURI.scheme === 'data') {
 		if (status === GitChangeType.ADD) {
 			parentURI = EMPTY_IMAGE_URI;
