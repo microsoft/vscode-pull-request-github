@@ -391,7 +391,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				label: isTeam(reviewer.reviewer) ? `$(organization) ${reviewer.reviewer.org}/${reviewer.reviewer.slug}` : `${hasTeams ? `$(account) ` : ''}${reviewer.reviewer.login}`,
 				description: reviewer.reviewer.name,
 				reviewer: reviewer.reviewer,
-				picked: true
+				picked: true,
+				iconPath: reviewer.reviewer.avatarUrl ? vscode.Uri.parse(reviewer.reviewer.avatarUrl) : undefined
 			});
 		}
 
@@ -415,6 +416,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				description: name,
 				detail: suggestionReason,
 				reviewer: user,
+				iconPath: user.avatarUrl ? vscode.Uri.parse(user.avatarUrl) : undefined
 			});
 			// this user shouldn't be added later from assignable users list
 			skipList.add(login);
@@ -429,6 +431,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				label: isTeam(user) ? `$(organization) ${user.org}/${user.slug}` : `${hasTeams ? `$(account) ` : ''}${user.login}`,
 				description: user.name,
 				reviewer: user,
+				iconPath: user.avatarUrl ? vscode.Uri.parse(user.avatarUrl) : undefined
 			});
 		}
 
