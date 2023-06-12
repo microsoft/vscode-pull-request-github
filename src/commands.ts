@@ -13,7 +13,7 @@ import { IComment } from './common/comment';
 import Logger from './common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { ITelemetry } from './common/telemetry';
-import { asImageDataURI, fromReviewUri, Schemes, toPRUri } from './common/uri';
+import { asTempStorageURI, fromReviewUri, Schemes, toPRUri } from './common/uri';
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
@@ -286,7 +286,7 @@ export function registerCommands(
 			// if this is an image, encode it as a base64 data URI
 			const folderManager = reposManager.getManagerForIssueModel(e.pullRequest);
 			if (folderManager) {
-				const imageDataURI = await asImageDataURI(e.changeModel.parentFilePath, folderManager.repository);
+				const imageDataURI = await asTempStorageURI(e.changeModel.parentFilePath, folderManager.repository);
 				vscode.commands.executeCommand('vscode.open', imageDataURI || e.changeModel.parentFilePath);
 			}
 		}),

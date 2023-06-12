@@ -128,7 +128,7 @@ export const EMPTY_IMAGE_URI = vscode.Uri.parse(
 	`data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==`,
 );
 
-export async function asImageDataURI(uri: vscode.Uri, repository: Repository): Promise<vscode.Uri | undefined> {
+export async function asTempStorageURI(uri: vscode.Uri, repository: Repository): Promise<vscode.Uri | undefined> {
 	try {
 		const { commit, baseCommit, headCommit, isBase, path } = JSON.parse(uri.query);
 		const ext = pathUtils.extname(path);
@@ -147,6 +147,16 @@ export async function asImageDataURI(uri: vscode.Uri, repository: Repository): P
 			const contents = await repository.buffer(ref, uri.fsPath);
 			return TemporaryState.write(pathUtils.dirname(path), pathUtils.basename(path), contents);
 		}
+	} catch (err) {
+		return;
+	}
+}
+
+export function asImageDataURI(contents: Buffer): vscode.Uri | undefined {
+	try {
+		return vscode.Uri.parse(
+			`data:image/svg+xml;size:${contents.byteLength};base64,${contents.toString('base64')}`,
+		);
 	} catch (err) {
 		return;
 	}

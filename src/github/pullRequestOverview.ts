@@ -466,7 +466,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				label: current.login,
 				description: current.name,
 				assignee: current,
-				picked: true
+				picked: true,
+				iconPath: current.avatarUrl ? vscode.Uri.parse(current.avatarUrl) : undefined
 			});
 		}
 
@@ -476,6 +477,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				label: viewer.login,
 				description: viewer.name,
 				assignee: viewer,
+				iconPath: viewer.avatarUrl ? vscode.Uri.parse(viewer.avatarUrl) : undefined
 			});
 			skipList.add(viewer.login);
 		}
@@ -489,6 +491,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				label: suggestedReviewer.login,
 				description: suggestedReviewer.name,
 				assignee: suggestedReviewer,
+				iconPath: suggestedReviewer.avatarUrl ? vscode.Uri.parse(suggestedReviewer.avatarUrl) : undefined
+
 			});
 			// this user shouldn't be added later from assignable users list
 			skipList.add(suggestedReviewer.login);
@@ -515,6 +519,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				label: user.login,
 				description: user.name,
 				assignee: user,
+				iconPath: user.avatarUrl ? vscode.Uri.parse(user.avatarUrl) : undefined
 			});
 		}
 
