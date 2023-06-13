@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.66.1
+
+### Fixes
+
+- TypeError: Cannot read properties of undefined (reading 'number'). https://github.com/microsoft/vscode-pull-request-github/issues/4893
+
 ## 0.66.0
 
 ### Changes
