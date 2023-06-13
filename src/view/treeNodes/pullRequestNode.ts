@@ -9,7 +9,7 @@ import { getCommentingRanges } from '../../common/commentingRanges';
 import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE } from '../../common/settingKeys';
-import { DataUri, createPRNodeUri, fromPRUri, Schemes } from '../../common/uri';
+import { createPRNodeUri, DataUri, fromPRUri, Schemes } from '../../common/uri';
 import { dispose } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { NotificationProvider } from '../../github/notifications';
