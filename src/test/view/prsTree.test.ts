@@ -27,6 +27,8 @@ import { GitApiImpl } from '../../api/api1';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { GitHubServerType } from '../../common/authentication';
+import { DataUri } from '../../common/uri';
+import { IAccount, ITeam } from '../../github/interface';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -185,6 +187,9 @@ describe('GitHub Pull Requests view', function () {
 				return Promise.resolve(gitHubRepository);
 			});
 			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(DataUri, 'avatarCircleAsImageDataUri').callsFake((user: IAccount | ITeam, _height: number, _width: number) => {
+				return Promise.resolve(user.avatarUrl ? vscode.Uri.parse(user.avatarUrl) : undefined);
+			});
 			await manager.updateRepositories();
 			provider.initialize(reposManager, [], credentialStore);
 			manager.activePullRequest = pullRequest1;
@@ -203,14 +208,14 @@ describe('GitHub Pull Requests view', function () {
 			assert.strictEqual(localItem0.description, 'by @me');
 			assert.strictEqual(localItem0.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem0.contextValue, 'pullrequest:local:nonactive');
-			assert.deepStrictEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg&s=64');
+			assert.deepStrictEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg');
 
 			assert.strictEqual(localItem1.label, '✓ one');
 			assert.strictEqual(localItem1.tooltip, 'Current Branch * one by @you');
 			assert.strictEqual(localItem1.description, 'by @you');
 			assert.strictEqual(localItem1.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem1.contextValue, 'pullrequest:local:active');
-			assert.deepStrictEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg&s=64');
+			assert.deepStrictEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg');
 		});
 	});
 });

@@ -9,7 +9,7 @@ import { getCommentingRanges } from '../../common/commentingRanges';
 import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE } from '../../common/settingKeys';
-import { avatarCircleAsImageDataUri, createPRNodeUri, fromPRUri, Schemes } from '../../common/uri';
+import { DataUri, createPRNodeUri, fromPRUri, Schemes } from '../../common/uri';
 import { dispose } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { NotificationProvider } from '../../github/notifications';
@@ -312,7 +312,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				(this._isLocal ? ':local' : '') +
 				(currentBranchIsForThisPR ? ':active' : ':nonactive') +
 				(hasNotification ? ':notification' : ''),
-			iconPath: await avatarCircleAsImageDataUri(this.pullRequestModel.author, 16, 16)
+			iconPath: await DataUri.avatarCircleAsImageDataUri(this.pullRequestModel.author, 16, 16)
 				?? new vscode.ThemeIcon('github'),
 			accessibilityInformation: {
 				label: `${isDraft ? 'Draft ' : ''}Pull request number ${formattedPRNumber}: ${title} by ${login}`
