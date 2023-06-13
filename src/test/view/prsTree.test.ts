@@ -117,10 +117,11 @@ describe('GitHub Pull Requests view', function () {
 		const rootNodes = await provider.getChildren();
 
 		// All but the last category are expected to be collapsed
-		assert(rootNodes.slice(0, rootNodes.length - 1).every(n => n.getTreeItem().collapsibleState === vscode.TreeItemCollapsibleState.Collapsed));
-		assert(rootNodes[rootNodes.length - 1].getTreeItem().collapsibleState === vscode.TreeItemCollapsibleState.Expanded);
+		const treeItems = await Promise.all(rootNodes.map(node => node.getTreeItem()));
+		assert(treeItems.slice(0, treeItems.length - 1).every(n => n.collapsibleState === vscode.TreeItemCollapsibleState.Collapsed));
+		assert(treeItems[treeItems.length - 1].collapsibleState === vscode.TreeItemCollapsibleState.Expanded);
 		assert.deepStrictEqual(
-			rootNodes.map(n => n.getTreeItem().label),
+			treeItems.map(n => n.label),
 			['Local Pull Request Branches', 'Waiting For My Review', 'Assigned To Me', 'Created By Me', 'All Open'],
 		);
 	});
@@ -189,12 +190,13 @@ describe('GitHub Pull Requests view', function () {
 			manager.activePullRequest = pullRequest1;
 
 			const rootNodes = await provider.getChildren();
-			const localNode = rootNodes.find(node => node.getTreeItem().label === 'Local Pull Request Branches');
+			const rootTreeItems = await Promise.all(rootNodes.map(node => node.getTreeItem()));
+			const localNode = rootNodes.find((_node, index) => rootTreeItems[index].label === 'Local Pull Request Branches');
 			assert(localNode);
 
 			const localChildren = await localNode!.getChildren();
 			assert.strictEqual(localChildren.length, 2);
-			const [localItem0, localItem1] = localChildren.map(node => node.getTreeItem());
+			const [localItem0, localItem1] = await Promise.all(localChildren.map(node => node.getTreeItem()));
 
 			assert.strictEqual(localItem0.label, 'zero');
 			assert.strictEqual(localItem0.tooltip, 'zero by @me');

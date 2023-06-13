@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import Logger, { PR_TREE } from '../../common/logger';
 import { AUTO_REVEAL, EXPLORER } from '../../common/settingKeys';
-import { Schemes } from '../../common/uri';
+import { avatarCircleAsImageDataUri, Schemes } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { ProgressHelper } from '../progress';
@@ -30,7 +30,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 		private _reviewModel: ReviewModel,
 		private _progress: ProgressHelper
 	) {
-		super(parent, _pullRequest.title, _pullRequest.userAvatarUri!, _pullRequest, _pullRequestManager.repository, _pullRequestManager);
+		super(parent, _pullRequest.title, _pullRequest, _pullRequestManager.repository, _pullRequestManager);
 		// Cause tree values to be filled
 		this.getTreeItem();
 
@@ -87,8 +87,9 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 		return this.children;
 	}
 
-	getTreeItem(): vscode.TreeItem {
+	async getTreeItem(): Promise<vscode.TreeItem> {
 		this.label = this._pullRequest.title;
+		this.iconPath = await avatarCircleAsImageDataUri(this._pullRequestManager.context, this._pullRequest.author, 16, 16);
 		this.updateContextValue();
 		return this;
 	}
