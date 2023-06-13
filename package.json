@@ -23,7 +23,7 @@
 		"shareProvider",
 		"quickDiffProvider"
 	],
-	"version": "0.66.0",
+	"version": "0.66.1",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.79.0"
