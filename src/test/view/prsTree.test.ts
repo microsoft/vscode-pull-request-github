@@ -27,6 +27,8 @@ import { GitApiImpl } from '../../api/api1';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { GitHubServerType } from '../../common/authentication';
+import { DataUri } from '../../common/uri';
+import { IAccount, ITeam } from '../../github/interface';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -117,10 +119,11 @@ describe('GitHub Pull Requests view', function () {
 		const rootNodes = await provider.getChildren();
 
 		// All but the last category are expected to be collapsed
-		assert(rootNodes.slice(0, rootNodes.length - 1).every(n => n.getTreeItem().collapsibleState === vscode.TreeItemCollapsibleState.Collapsed));
-		assert(rootNodes[rootNodes.length - 1].getTreeItem().collapsibleState === vscode.TreeItemCollapsibleState.Expanded);
+		const treeItems = await Promise.all(rootNodes.map(node => node.getTreeItem()));
+		assert(treeItems.slice(0, treeItems.length - 1).every(n => n.collapsibleState === vscode.TreeItemCollapsibleState.Collapsed));
+		assert(treeItems[treeItems.length - 1].collapsibleState === vscode.TreeItemCollapsibleState.Expanded);
 		assert.deepStrictEqual(
-			rootNodes.map(n => n.getTreeItem().label),
+			treeItems.map(n => n.label),
 			['Local Pull Request Branches', 'Waiting For My Review', 'Assigned To Me', 'Created By Me', 'All Open'],
 		);
 	});
@@ -184,31 +187,35 @@ describe('GitHub Pull Requests view', function () {
 				return Promise.resolve(gitHubRepository);
 			});
 			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(DataUri, 'avatarCircleAsImageDataUri').callsFake((user: IAccount | ITeam, _height: number, _width: number) => {
+				return Promise.resolve(user.avatarUrl ? vscode.Uri.parse(user.avatarUrl) : undefined);
+			});
 			await manager.updateRepositories();
 			provider.initialize(reposManager, [], credentialStore);
 			manager.activePullRequest = pullRequest1;
 
 			const rootNodes = await provider.getChildren();
-			const localNode = rootNodes.find(node => node.getTreeItem().label === 'Local Pull Request Branches');
+			const rootTreeItems = await Promise.all(rootNodes.map(node => node.getTreeItem()));
+			const localNode = rootNodes.find((_node, index) => rootTreeItems[index].label === 'Local Pull Request Branches');
 			assert(localNode);
 
 			const localChildren = await localNode!.getChildren();
 			assert.strictEqual(localChildren.length, 2);
-			const [localItem0, localItem1] = localChildren.map(node => node.getTreeItem());
+			const [localItem0, localItem1] = await Promise.all(localChildren.map(node => node.getTreeItem()));
 
 			assert.strictEqual(localItem0.label, 'zero');
 			assert.strictEqual(localItem0.tooltip, 'zero by @me');
 			assert.strictEqual(localItem0.description, 'by @me');
 			assert.strictEqual(localItem0.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem0.contextValue, 'pullrequest:local:nonactive');
-			assert.deepStrictEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg&s=64');
+			assert.deepStrictEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg');
 
 			assert.strictEqual(localItem1.label, '✓ one');
 			assert.strictEqual(localItem1.tooltip, 'Current Branch * one by @you');
 			assert.strictEqual(localItem1.description, 'by @you');
 			assert.strictEqual(localItem1.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem1.contextValue, 'pullrequest:local:active');
-			assert.deepStrictEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg&s=64');
+			assert.deepStrictEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg');
 		});
 	});
 });

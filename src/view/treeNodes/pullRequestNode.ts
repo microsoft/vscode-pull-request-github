@@ -9,7 +9,7 @@ import { getCommentingRanges } from '../../common/commentingRanges';
 import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE } from '../../common/settingKeys';
-import { createPRNodeUri, fromPRUri, Schemes } from '../../common/uri';
+import { createPRNodeUri, DataUri, fromPRUri, Schemes } from '../../common/uri';
 import { dispose } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { NotificationProvider } from '../../github/notifications';
@@ -66,7 +66,6 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 			const descriptionNode = new DescriptionNode(
 				this,
 				vscode.l10n.t('Description'),
-				new vscode.ThemeIcon('git-pull-request'),
 				this.pullRequestModel,
 				this.repository,
 				this._folderReposManager
@@ -276,7 +275,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		});
 	}
 
-	getTreeItem(): vscode.TreeItem {
+	async getTreeItem(): Promise<vscode.TreeItem> {
 		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
 
 		const { title, number, author, isDraft, html_url } = this.pullRequestModel;
@@ -313,9 +312,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				(this._isLocal ? ':local' : '') +
 				(currentBranchIsForThisPR ? ':active' : ':nonactive') +
 				(hasNotification ? ':notification' : ''),
-			iconPath: this.pullRequestModel.userAvatarUri
-				? this.pullRequestModel.userAvatarUri
-				: new vscode.ThemeIcon('github'),
+			iconPath: await DataUri.avatarCircleAsImageDataUri(this.pullRequestModel.author, 16, 16)
+				?? new vscode.ThemeIcon('github'),
 			accessibilityInformation: {
 				label: `${isDraft ? 'Draft ' : ''}Pull request number ${formattedPRNumber}: ${title} by ${login}`
 			},

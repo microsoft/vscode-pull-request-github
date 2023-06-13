@@ -9,6 +9,7 @@ import * as pathUtils from 'path';
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
+import { IAccount, ITeam, reviewerId } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { GitChangeType } from './file';
 import { TemporaryState } from './temporaryState';
@@ -153,27 +154,41 @@ export async function asTempStorageURI(uri: vscode.Uri, repository: Repository):
 	}
 }
 
-export function asImageDataURI(contents: Buffer): vscode.Uri {
-	return vscode.Uri.parse(
-		`data:image/svg+xml;size:${contents.byteLength};base64,${contents.toString('base64')}`
-	);
-}
-
-export async function circleAsImageDataUri(imageSourceUrl: string | undefined, height: number, width: number): Promise<vscode.Uri | undefined> {
-	if (imageSourceUrl === undefined) {
-		return undefined;
+export namespace DataUri {
+	export function asImageDataURI(contents: Buffer): vscode.Uri {
+		return vscode.Uri.parse(
+			`data:image/svg+xml;size:${contents.byteLength};base64,${contents.toString('base64')}`
+		);
 	}
 
-	const response = await fetch(imageSourceUrl);
-	const buffer = await response.arrayBuffer();
-	const innerImageContents = Buffer.from(buffer);
-	const innerImageEncoded = `data:image/jpeg;size:${innerImageContents.byteLength};base64,${innerImageContents.toString('base64')}`;
-	const contentsString = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-	<image href="${innerImageEncoded}" width="${width}" height="${height}" style="clip-path: inset(0 0 0 0 round 50%);"/>
-	</svg>`;
-	const contents = Buffer.from(contentsString);
-	const finalDataUri = asImageDataURI(contents);
-	return finalDataUri;
+	export async function avatarCircleAsImageDataUri(user: IAccount | ITeam, height: number, width: number): Promise<vscode.Uri | undefined> {
+		const imageSourceUrl = user.avatarUrl;
+		if (imageSourceUrl === undefined) {
+			return undefined;
+		}
+		const iconsFolder = 'userIcons';
+		const iconFilename = `${reviewerId(user)}.jpg`;
+		let innerImageContents: Buffer;
+		try {
+			const fileContents = await TemporaryState.read(iconsFolder, iconFilename);
+			if (!fileContents) {
+				throw new Error('Temporary state not initialized');
+			}
+			innerImageContents = Buffer.from(fileContents);
+		} catch (e) {
+			const response = await fetch(imageSourceUrl.toString());
+			const buffer = await response.arrayBuffer();
+			await TemporaryState.write(iconsFolder, iconFilename, new Uint8Array(buffer));
+			innerImageContents = Buffer.from(buffer);
+		}
+		const innerImageEncoded = `data:image/jpeg;size:${innerImageContents.byteLength};base64,${innerImageContents.toString('base64')}`;
+		const contentsString = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+		<image href="${innerImageEncoded}" width="${width}" height="${height}" style="clip-path: inset(0 0 0 0 round 50%);"/>
+		</svg>`;
+		const contents = Buffer.from(contentsString);
+		const finalDataUri = asImageDataURI(contents);
+		return finalDataUri;
+	}
 }
 
 export function toReviewUri(
