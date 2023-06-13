@@ -160,23 +160,24 @@ export function asImageDataURI(contents: Buffer): vscode.Uri {
 	);
 }
 
-export async function avatarCircleAsImageDataUri(context: vscode.ExtensionContext, user: IAccount | ITeam, height: number, width: number): Promise<vscode.Uri | undefined> {
+export async function avatarCircleAsImageDataUri(user: IAccount | ITeam, height: number, width: number): Promise<vscode.Uri | undefined> {
 	const imageSourceUrl = user.avatarUrl;
 	if (imageSourceUrl === undefined) {
 		return undefined;
 	}
-
-
-	const iconsFolder = vscode.Uri.joinPath(context.globalStorageUri, 'userIcons');
-	const iconPath = vscode.Uri.joinPath(iconsFolder, `${reviewerId(user)}.jpg`);
+	const iconsFolder = 'userIcons';
+	const iconFilename = `${reviewerId(user)}.jpg`;
 	let innerImageContents: Buffer;
 	try {
-		const fileContents = await (vscode.workspace.fs.readFile(iconPath));
+		const fileContents = await TemporaryState.read(iconsFolder, iconFilename);
+		if (!fileContents) {
+			throw new Error('Temporary state not initialized');
+		}
 		innerImageContents = Buffer.from(fileContents);
 	} catch (e) {
 		const response = await fetch(imageSourceUrl.toString());
 		const buffer = await response.arrayBuffer();
-		await vscode.workspace.fs.writeFile(iconPath, new Uint8Array(buffer));
+		await TemporaryState.write(iconsFolder, iconFilename, new Uint8Array(buffer));
 		innerImageContents = Buffer.from(buffer);
 	}
 	const innerImageEncoded = `data:image/jpeg;size:${innerImageContents.byteLength};base64,${innerImageContents.toString('base64')}`;

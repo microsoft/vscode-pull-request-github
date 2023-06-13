@@ -52,6 +52,19 @@ export class TemporaryState extends vscode.Disposable {
 		return file;
 	}
 
+	private async readState(subpath: string, filename: string): Promise<Uint8Array> {
+		let filePath: vscode.Uri = this.path;
+		const workspace = (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0)
+			? vscode.workspace.workspaceFolders[0].name : undefined;
+
+		if (workspace) {
+			filePath = vscode.Uri.joinPath(filePath, workspace);
+		}
+		filePath = vscode.Uri.joinPath(filePath, subpath);
+		const file = vscode.Uri.joinPath(filePath, filename);
+		return vscode.workspace.fs.readFile(file);
+	}
+
 	static async init(context: vscode.ExtensionContext): Promise<vscode.Disposable | undefined> {
 		if (context.globalStorageUri && !tempState) {
 			tempState = new TemporaryState(context.globalStorageUri);
@@ -76,5 +89,13 @@ export class TemporaryState extends vscode.Disposable {
 		}
 
 		return tempState.writeState(subpath, filename, contents);
+	}
+
+	static async read(subpath: string, filename: string): Promise<Uint8Array | undefined> {
+		if (!tempState) {
+			return;
+		}
+
+		return tempState.readState(subpath, filename);
 	}
 }

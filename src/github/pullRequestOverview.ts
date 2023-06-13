@@ -389,7 +389,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		// Start will all existing reviewers so they show at the top
 		for (const reviewer of this._existingReviewers) {
 			const label = isTeam(reviewer.reviewer) ? `$(organization) ${reviewer.reviewer.org}/${reviewer.reviewer.slug}` : `${hasTeams ? `$(account) ` : ''}${reviewer.reviewer.login}`;
-			reviewers.push(avatarCircleAsImageDataUri(this._folderRepositoryManager.context, reviewer.reviewer, 16, 16).then(avatarUrl => {
+			reviewers.push(avatarCircleAsImageDataUri(reviewer.reviewer, 16, 16).then(avatarUrl => {
 				return {
 					label,
 					description: reviewer.reviewer.name,
@@ -416,7 +416,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 							: vscode.l10n.t('Suggested reviewer');
 
 			const label = `${hasTeams ? `$(account) ` : ''}${login}`;
-			reviewers.push(avatarCircleAsImageDataUri(this._folderRepositoryManager.context, user, 16, 16).then(avatarUrl => {
+			reviewers.push(avatarCircleAsImageDataUri(user, 16, 16).then(avatarUrl => {
 				return {
 					label,
 					description: name,
@@ -435,7 +435,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}
 
 			const label = isTeam(user) ? `$(organization) ${user.org}/${user.slug}` : `${hasTeams ? `$(account) ` : ''}${user.login}`;
-			reviewers.push(avatarCircleAsImageDataUri(this._folderRepositoryManager.context, user, 16, 16).then(avatarUrl => {
+			reviewers.push(avatarCircleAsImageDataUri(user, 16, 16).then(avatarUrl => {
 				return {
 					label,
 					description: user.name,
@@ -472,7 +472,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		const assignees: Promise<(vscode.QuickPickItem & { assignee?: IAccount })>[] = [];
 		// Start will all currently assigned so they show at the top
 		for (const current of (this._item.assignees ?? [])) {
-			assignees.push(avatarCircleAsImageDataUri(this._folderRepositoryManager.context, current, 16, 16).then(avatarUrl => {
+			assignees.push(avatarCircleAsImageDataUri(current, 16, 16).then(avatarUrl => {
 				return {
 					label: current.login,
 					description: current.name,
@@ -485,7 +485,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 		// Check if the viewer is allowed to be assigned to the PR
 		if (!skipList.has(viewer.login) && (assignableUsers.findIndex((assignableUser: IAccount) => assignableUser.login === viewer.login) !== -1)) {
-			assignees.push(avatarCircleAsImageDataUri(this._folderRepositoryManager.context, viewer, 16, 16).then(avatarUrl => {
+			assignees.push(avatarCircleAsImageDataUri(viewer, 16, 16).then(avatarUrl => {
 				return {
 					label: viewer.login,
 					description: viewer.name,
@@ -501,7 +501,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				continue;
 			}
 
-			assignees.push(avatarCircleAsImageDataUri(this._folderRepositoryManager.context, suggestedReviewer, 16, 16).then(avatarUrl => {
+			assignees.push(avatarCircleAsImageDataUri(suggestedReviewer, 16, 16).then(avatarUrl => {
 				return {
 					label: suggestedReviewer.login,
 					description: suggestedReviewer.name,
@@ -530,7 +530,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				continue;
 			}
 
-			assignees.push(avatarCircleAsImageDataUri(this._folderRepositoryManager.context, user, 16, 16).then(avatarUrl => {
+			assignees.push(avatarCircleAsImageDataUri(user, 16, 16).then(avatarUrl => {
 				return {
 					label: user.login,
 					description: user.name,

@@ -312,7 +312,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				(this._isLocal ? ':local' : '') +
 				(currentBranchIsForThisPR ? ':active' : ':nonactive') +
 				(hasNotification ? ':notification' : ''),
-			iconPath: await avatarCircleAsImageDataUri(this._folderReposManager.context, this.pullRequestModel.author, 16, 16)
+			iconPath: await avatarCircleAsImageDataUri(this.pullRequestModel.author, 16, 16)
 				?? new vscode.ThemeIcon('github'),
 			accessibilityInformation: {
 				label: `${isDraft ? 'Draft ' : ''}Pull request number ${formattedPRNumber}: ${title} by ${login}`
