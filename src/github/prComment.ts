@@ -6,6 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
+import { DataUri } from '../common/uri';
 import { JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
 import { stringReplaceAsync } from '../common/utils';
 import { GitHubRepository } from './githubRepository';
@@ -208,6 +209,13 @@ export class GHPRComment extends CommentBase {
 			name: comment.user!.login,
 			iconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined,
 		};
+		if (comment.user) {
+			DataUri.avatarCircleAsImageDataUri(comment.user, 28, 28).then(avatarUri => {
+				this.author.iconPath = avatarUri;
+				this.refresh();
+			});
+		}
+
 		updateCommentReactions(this, comment.reactions);
 
 		this.label = comment.isDraft ? vscode.l10n.t('Pending') : undefined;
