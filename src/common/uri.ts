@@ -5,6 +5,7 @@
 
 'use strict';
 
+import { Buffer } from 'buffer';
 import * as pathUtils from 'path';
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
