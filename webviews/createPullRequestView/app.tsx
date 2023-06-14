@@ -32,7 +32,7 @@ export const RemoteSelect = ({ onChange, defaultOption, repos }:
 
 	return <ErrorBoundary>
 		<div className='select-wrapper flex'>
-			<select title='Choose a remote' value={caseCorrectedDefaultOption ?? defaultOption} onChange={(e) => {
+			<select title='Choose a remote' value={caseCorrectedDefaultOption ?? defaultOption} disabled={options.length === 0} onChange={(e) => {
 				const [owner, repositoryName] = e.currentTarget.value.split('/');
 				onChange(owner, repositoryName);
 			}}>
@@ -46,7 +46,7 @@ export const BranchSelect = ({ onChange, defaultOption, branches }:
 	{ onChange: (branch: string) => void, defaultOption: string | undefined, branches: string[] }) => {
 	return <ErrorBoundary>
 		<div className='select-wrapper flex'>
-			<select title='Choose a branch' value={defaultOption} onChange={(e) => onChange(e.currentTarget.value)}>
+			<select title='Choose a branch' value={defaultOption} disabled={branches.length === 0} onChange={(e) => onChange(e.currentTarget.value)}>
 				{branches.map(branchName =>
 					<option
 						key={branchName}

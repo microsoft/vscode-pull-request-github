@@ -241,6 +241,7 @@ export class CreatePRContext {
 
 			case 'reset':
 				if (!message.params) {
+					this.updateState(defaultCreateParams);
 					return;
 				}
 				message.params.pendingTitle = message.params.defaultTitle ?? this.createParams.pendingTitle;
