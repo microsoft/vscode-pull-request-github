@@ -18,6 +18,12 @@ resources:
       ref: main
       endpoint: Monaco
 
+parameters:
+  - name: publishExtension
+    displayName: 🚀 Publish Extension
+    type: boolean
+    default: false
+
 extends:
   template: azure-pipelines/extension/pre-release.yml@templates
   parameters:
@@ -74,3 +80,5 @@ extends:
       #   displayName: Run test suite (webkit)
       #   env:
       #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
+
+    publishExtension: ${{ parameters.publishExtension }}
