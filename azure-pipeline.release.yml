@@ -67,4 +67,4 @@ extends:
       #   env:
       #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
 
-    publishExtension: ${{ parameters.publishExtension }}
+    publishExtension: ${{ and(parameters.publishExtension, eq(variables['Build.Repository.Uri'], 'https://github.com/microsoft/vscode-pull-request-github.git')) }}
