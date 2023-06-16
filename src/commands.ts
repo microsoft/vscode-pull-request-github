@@ -13,7 +13,7 @@ import { IComment } from './common/comment';
 import Logger from './common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { ITelemetry } from './common/telemetry';
-import { asTempStorageURI, fromReviewUri, Schemes, toPRUri } from './common/uri';
+import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes, toPRUri } from './common/uri';
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
@@ -510,6 +510,29 @@ export function registerCommands(
 			);
 		}),
 	);
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromReadonlyFile', async () => {
+		const uri = vscode.window.activeTextEditor?.document.uri;
+		if (uri?.scheme !== Schemes.Pr) {
+			return;
+		}
+		const prUriPropserties = fromPRUri(uri);
+		if (prUriPropserties === undefined) {
+			return;
+		}
+		let githubRepository: GitHubRepository | undefined;
+		const folderManager = reposManager.folderManagers.find(folderManager => {
+			githubRepository = folderManager.gitHubRepositories.find(githubRepo => githubRepo.remote.remoteName === prUriPropserties.remoteName);
+			return !!githubRepository;
+		});
+		if (!folderManager || !githubRepository) {
+			return;
+		}
+		const prModel = await folderManager.fetchById(githubRepository, Number(prUriPropserties.prNumber));
+		if (prModel) {
+			return ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager)?.switch(prModel);
+		}
+	}));
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.pickOnVscodeDev', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
