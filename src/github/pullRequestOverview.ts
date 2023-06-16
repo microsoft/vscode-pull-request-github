@@ -593,7 +593,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				const newTeamReviewers: string[] = [];
 				allReviewers.forEach(reviewer => {
 					const newReviewers = isTeam(reviewer.reviewer) ? newTeamReviewers : newUserReviewers;
-					newReviewers.push(reviewerId(reviewer.reviewer));
+					newReviewers.push(reviewer.reviewer.id);
 				});
 
 				const removedUserReviewers: string[] = [];
@@ -601,8 +601,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._existingReviewers.forEach(existing => {
 					let newReviewers: string[] = isTeam(existing.reviewer) ? newTeamReviewers : newUserReviewers;
 					let removedReviewers: string[] = isTeam(existing.reviewer) ? removedTeamReviewers : removedUserReviewers;
-					if (!newReviewers.find(newTeamReviewer => newTeamReviewer === reviewerId(existing.reviewer))) {
-						removedReviewers.push(reviewerId(existing.reviewer));
+					if (!newReviewers.find(newTeamReviewer => newTeamReviewer === existing.reviewer.id)) {
+						removedReviewers.push(existing.reviewer.id);
 					}
 				});
 
@@ -992,7 +992,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				id = reviewer.reviewer.id;
 				reviewerArray = teamReviewers;
 			} else if (reviewer && !isTeam(reviewer.reviewer)) {
-				id = reviewer.reviewer.login;
+				id = reviewer.reviewer.id;
 				reviewerArray = userReviewers;
 			}
 			if (reviewerArray && id && ((reviewer.state === 'REQUESTED') || (id === message.args))) {

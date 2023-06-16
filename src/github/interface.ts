@@ -34,8 +34,15 @@ export interface ReviewState {
 	state: string;
 }
 
-export interface IAccount {
+export interface IActor {
 	login: string;
+	avatarUrl?: string;
+	url: string;
+}
+
+export interface IAccount extends IActor {
+	login: string;
+	id: string;
 	name?: string;
 	avatarUrl?: string;
 	url: string;
@@ -55,12 +62,12 @@ export function reviewerId(reviewer: ITeam | IAccount): string {
 	return isTeam(reviewer) ? reviewer.id : reviewer.login;
 }
 
-export function reviewerLabel(reviewer: ITeam | IAccount): string {
+export function reviewerLabel(reviewer: ITeam | IAccount | IActor): string {
 	return isTeam(reviewer) ? (reviewer.name ?? reviewer.slug) : reviewer.login;
 }
 
-export function isTeam(reviewer: ITeam | IAccount): reviewer is ITeam {
-	return 'id' in reviewer;
+export function isTeam(reviewer: ITeam | IAccount | IActor): reviewer is ITeam {
+	return 'org' in reviewer;
 }
 
 export interface ISuggestedReviewer extends IAccount {

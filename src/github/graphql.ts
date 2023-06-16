@@ -42,7 +42,8 @@ export interface AbbreviatedIssueComment {
 		login: string;
 		avatarUrl: string;
 		url: string;
-		email?: string
+		email?: string;
+		id: string;
 	};
 	body: string;
 	databaseId: number;
@@ -75,6 +76,7 @@ export interface Account {
 	name: string;
 	url: string;
 	email: string;
+	id: string;
 }
 
 interface Team {
@@ -99,6 +101,7 @@ export interface ReviewComment {
 		login: string;
 		avatarUrl: string;
 		url: string;
+		id: string;
 	};
 	path: string;
 	originalPosition: number;
@@ -134,6 +137,7 @@ export interface Commit {
 				login: string;
 				avatarUrl: string;
 				url: string;
+				id: string;
 			};
 		};
 		committer: {
@@ -160,6 +164,7 @@ export interface AssignedEvent {
 		login: string;
 		avatarUrl: string;
 		url: string;
+		id: string;
 	};
 }
 
@@ -173,6 +178,7 @@ export interface Review {
 		login: string;
 		avatarUrl: string;
 		url: string;
+		id: string;
 	};
 	state: 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING';
 	body: string;
@@ -254,7 +260,7 @@ export interface GetReviewRequestsResponse {
 						email?: string;
 						// Team properties
 						slug?: string;
-						id?: string;
+						id: string;
 					} | null;
 				}[];
 			};
@@ -489,6 +495,7 @@ export interface SuggestedReviewerResponse {
 		avatarUrl: string;
 		name: string;
 		url: string;
+		id: string;
 	};
 }
 
@@ -508,12 +515,14 @@ export interface PullRequest {
 			url: string;
 			email: string;
 			avatarUrl: string;
+			id: string;
 		}[];
 	};
 	author: {
 		login: string;
 		url: string;
 		avatarUrl: string;
+		id: string;
 	};
 	comments?: {
 		nodes: AbbreviatedIssueComment[];
@@ -689,6 +698,7 @@ export interface UserResponse {
 		name: string;
 		contributionsCollection: ContributionsCollection;
 		url: string;
+		id: string;
 	};
 }
 

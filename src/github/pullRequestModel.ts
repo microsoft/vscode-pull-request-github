@@ -788,7 +788,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					url: reviewer.requestedReviewer.url,
 					avatarUrl: getAvatarWithEnterpriseFallback(reviewer.requestedReviewer.avatarUrl, undefined, remote.isEnterprise),
 					email: reviewer.requestedReviewer.email,
-					name: reviewer.requestedReviewer.name
+					name: reviewer.requestedReviewer.name,
+					id: reviewer.requestedReviewer.id
 				};
 				reviewers.push(account);
 			} else if (reviewer.requestedReviewer) {
@@ -811,22 +812,17 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param reviewers A list of GitHub logins
 	 */
 	async requestReview(reviewers: string[], teamReviewers: string[]): Promise<void> {
-		const { octokit, mutate, schema, remote } = await this.githubRepository.ensure();
-		await Promise.all([mutate({
+		const { mutate, schema } = await this.githubRepository.ensure();
+		await mutate({
 			mutation: schema.AddReviewers,
 			variables: {
 				input: {
 					pullRequestId: this.graphNodeId,
 					teamIds: teamReviewers,
+					userIds: reviewers
 				},
 			},
-		}),
-		octokit.call(octokit.api.pulls.requestReviewers, {
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			pull_number: this.number,
-			reviewers,
-		})]);
+		});
 	}
 
 	/**

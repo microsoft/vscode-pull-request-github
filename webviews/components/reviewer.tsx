@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import React, { cloneElement, useContext } from 'react';
-import { reviewerId, ReviewState } from '../../src/github/interface';
+import {  ReviewState } from '../../src/github/interface';
 import PullRequestContext from '../common/context';
 import { checkIcon, commentIcon, pendingIcon, requestChanges, syncIcon } from './icon';
 import { AuthorLink, Avatar } from './user';
@@ -21,7 +21,7 @@ export function Reviewer(reviewState: ReviewState) {
 			<div className="reviewer-icons">
 				{
 					state !== 'REQUESTED' ?
-						(<button className="icon-button" title="Re-request review" onClick={() => reRequestReview(reviewerId(reviewState.reviewer))}>
+						(<button className="icon-button" title="Re-request review" onClick={() => reRequestReview(reviewState.reviewer.id)}>
 							{syncIcon}️
 						</button>) : null
 				}

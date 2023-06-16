@@ -935,7 +935,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	async getOrgTeamsCount(repository: GitHubRepository): Promise<number> {
-		return repository.getOrgTeamsCount();
+		if ((await repository.getMetadata()).organization) {
+			return repository.getOrgTeamsCount();
+		}
+		return 0;
 	}
 
 	async getPullRequestParticipants(githubRepository: GitHubRepository, pullRequestNumber: number): Promise<{ participants: IAccount[], viewer: IAccount }> {
