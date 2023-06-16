@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { IAccount, ITeam, reviewerLabel } from '../../src/github/interface';
+import { IAccount, IActor, ITeam, reviewerLabel } from '../../src/github/interface';
 import { Icon } from './icon';
 
 export const Avatar = ({ for: author }: { for: Partial<IAccount> }) => (
@@ -17,7 +17,7 @@ export const Avatar = ({ for: author }: { for: Partial<IAccount> }) => (
 	</a>
 );
 
-export const AuthorLink = ({ for: author, text = reviewerLabel(author) }: { for: IAccount | ITeam; text?: string }) => (
+export const AuthorLink = ({ for: author, text = reviewerLabel(author) }: { for: IActor | ITeam; text?: string }) => (
 	<a className="author-link" href={author.url} title={author.url}>
 		{text}
 	</a>

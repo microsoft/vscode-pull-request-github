@@ -50,6 +50,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 							email: undefined,
 							login: 'me',
 							url: 'https://github.com/me',
+							id: '123'
 						},
 					],
 				},
@@ -58,6 +59,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 				login: { default: 'me' },
 				url: { default: 'https://github.com/me' },
 				avatarUrl: { default: 'https://avatars3.githubusercontent.com/u/17565?v=4' },
+				id: { default: '123' },
 			}),
 			createdAt: { default: '2019-01-01T10:00:00Z' },
 			updatedAt: { default: '2019-01-01T11:00:00Z' },

@@ -202,6 +202,7 @@ describe('ReviewCommentController', function () {
 		sinon.stub(manager, 'getCurrentUser').returns(Promise.resolve({
 			login: 'rmacfarlane',
 			url: 'https://github.com/rmacfarlane',
+			id: '123'
 		}));
 
 		sinon.stub(vscode.workspace, 'getWorkspaceFolder').returns({
@@ -240,6 +241,7 @@ describe('ReviewCommentController', function () {
 			sinon.stub(manager, 'getCurrentUser').returns(Promise.resolve({
 				login: 'rmacfarlane',
 				url: 'https://github.com/rmacfarlane',
+				id: '123'
 			}));
 
 			sinon.stub(vscode.workspace, 'getWorkspaceFolder').returns({

@@ -55,9 +55,11 @@ fragment Comment on IssueComment {
 		url
 		... on User {
 			email
+			id
 		}
 		... on Organization {
 			email
+			id
 		}
 	}
 	url
@@ -77,6 +79,7 @@ fragment Commit on PullRequestCommit {
 			user {
 				login
 				avatarUrl
+				id
 				url
 				email
 			}
@@ -102,6 +105,7 @@ fragment AssignedEvent on AssignedEvent {
 	user {
 		login
 		avatarUrl
+		id
 		url
 	}
 }
@@ -117,9 +121,11 @@ fragment Review on PullRequestReview {
 		url
 		... on User {
 			email
+			id
 		}
 		... on Organization {
 			email
+			id
 		}
 	}
 	state
@@ -193,9 +199,11 @@ fragment PullRequestFragment on PullRequest {
 		avatarUrl
 		... on User {
 			email
+			id
 		}
 		... on Organization {
 			email
+			id
 		}
 	}
 	createdAt
@@ -252,6 +260,7 @@ fragment PullRequestFragment on PullRequest {
 			login
 			name
 			avatarUrl
+			id
 			url
 			email
 		}
@@ -262,6 +271,7 @@ fragment PullRequestFragment on PullRequest {
 		reviewer {
 			login
 			avatarUrl
+			id
 			name
 			url
 		}
@@ -395,6 +405,7 @@ query GetReviewRequestsAdditionalScopes($owner: String!, $name: String!, $number
 						... on User {
 							login
 							avatarUrl
+							id
 							url
 							email
 							name
@@ -422,6 +433,7 @@ query GetReviewRequests($owner: String!, $name: String!, $number: Int!) {
 						... on User {
 							login
 							avatarUrl
+							id
 							url
 							email
 							name
@@ -443,9 +455,11 @@ fragment ReviewComment on PullRequestReviewComment {
 		url
 		... on User {
 			email
+			id
 		}
 		... on Organization {
 			email
+			id
 		}
 	}
 	path
@@ -486,6 +500,7 @@ query GetParticipants($owner: String!, $name: String!, $number: Int!, $first: In
 				nodes {
 					login
 					avatarUrl
+					id
 					name
 					url
 					email
@@ -604,6 +619,7 @@ query Viewer {
 	viewer {
 		login
 		avatarUrl
+		id
 		name
 		url
 		email
@@ -668,9 +684,11 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 				avatarUrl
 				... on User {
 					email
+					id
 				}
 				... on Organization {
 					email
+					id
 				}
 			}
 			createdAt
@@ -708,9 +726,11 @@ query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
 				avatarUrl
 				... on User {
 					email
+					id
 				}
 				... on Organization {
 					email
+					id
 				}
 			}
 			createdAt
@@ -731,9 +751,11 @@ query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
 						avatarUrl
 						... on User {
 							email
+							id
 						}
 						... on Organization {
 							email
+							id
 						}
 					}
 					body
@@ -754,6 +776,7 @@ query GetUser($login: String!) {
 	user(login: $login) {
 		login
 		avatarUrl(size: 50)
+		id
 		bio
 		name
 		company
@@ -977,6 +1000,7 @@ query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after:
 				name
 				url
 				email
+				id
 			}
 			pageInfo {
 				hasNextPage
@@ -1001,6 +1025,7 @@ query GetAssignableUsers($owner: String!, $name: String!, $first: Int!, $after: 
 				name
 				url
 				email
+				id
 			}
 			pageInfo {
 				hasNextPage
@@ -1180,6 +1205,7 @@ query GetMilestonesWithIssues($owner: String!, $name: String!, $assignee: String
 										email
 										login
 										url
+										id
 									}
 								}
 								author {
@@ -1188,9 +1214,11 @@ query GetMilestonesWithIssues($owner: String!, $name: String!, $assignee: String
 									avatarUrl(size: 50)
 									... on User {
 										email
+										id
 									}
 									... on Organization {
 										email
+										id
 									}
 								}
 								createdAt
@@ -1248,6 +1276,7 @@ query Issues($query: String!) {
 							email
 							login
 							url
+							id
 						}
 					}
 					author {
@@ -1256,9 +1285,11 @@ query Issues($query: String!) {
 						avatarUrl(size: 50)
 						... on User {
 							email
+							id
 						}
 						... on Organization {
 							email
+							id
 						}
 					}
 					createdAt

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IAccount } from '../github/interface';
+import { IAccount, IActor } from '../github/interface';
 import { IComment } from './comment';
 
 export enum EventType {
@@ -80,7 +80,7 @@ export interface NewCommitsSinceReviewEvent {
 export interface MergedEvent {
 	id: string;
 	graphNodeId: string;
-	user: IAccount;
+	user: IActor;
 	createdAt: string;
 	mergeRef: string;
 	sha: string;
@@ -93,13 +93,13 @@ export interface AssignEvent {
 	id: number;
 	event: EventType.Assigned;
 	user: IAccount;
-	actor: IAccount;
+	actor: IActor;
 }
 
 export interface HeadRefDeleteEvent {
 	id: string;
 	event: EventType.HeadRefDeleted;
-	actor: IAccount;
+	actor: IActor;
 	createdAt: string;
 	headRef: string;
 }

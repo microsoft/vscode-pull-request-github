@@ -117,13 +117,13 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private reRequestReview(message: IRequestMessage<string>): void {
-		const reviewer = this._existingReviewers.find(reviewer => reviewerId(reviewer.reviewer) === message.args);
+		const reviewer = this._existingReviewers.find(reviewer => reviewer.reviewer.id === message.args);
 		const userReviewers: string[] = [];
 		const teamReviewers: string[] = [];
 		if (reviewer && isTeam(reviewer.reviewer)) {
 			teamReviewers.push(reviewer.reviewer.id);
 		} else if (reviewer && !isTeam(reviewer.reviewer)) {
-			userReviewers.push(reviewer.reviewer.login);
+			userReviewers.push(reviewer.reviewer.id);
 		}
 		this._item.requestReview(userReviewers, teamReviewers).then(() => {
 			if (reviewer) {
@@ -217,6 +217,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 						avatarUrl: pullRequest.userAvatar,
 						url: pullRequest.author.url,
 						email: pullRequest.author.email,
+						id: pullRequest.author.id
 					},
 					state: pullRequest.state,
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut,

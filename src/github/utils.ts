@@ -25,6 +25,7 @@ import { GitHubRepository, ViewerPermission } from './githubRepository';
 import * as GraphQL from './graphql';
 import {
 	IAccount,
+	IActor,
 	IGitHubRef,
 	ILabel,
 	IMilestone,
@@ -248,6 +249,7 @@ export function convertRESTUserToAccount(
 		login: user.login,
 		url: user.html_url,
 		avatarUrl: githubRepository ? getAvatarWithEnterpriseFallback(user.avatar_url, user.gravatar_id ?? undefined, githubRepository.remote.isEnterprise) : user.avatar_url,
+		id: user.node_id
 	};
 }
 
@@ -530,7 +532,7 @@ function parseRef(refName: string, oid: string, repository?: GraphQL.RefReposito
 }
 
 function parseAuthor(
-	author: { login: string; url: string; avatarUrl: string; email?: string } | null,
+	author: { login: string; url: string; avatarUrl: string; email?: string, id: string } | null,
 	githubRepository: GitHubRepository,
 ): IAccount {
 	if (author) {
@@ -538,7 +540,27 @@ function parseAuthor(
 			login: author.login,
 			url: author.url,
 			avatarUrl: getAvatarWithEnterpriseFallback(author.avatarUrl, undefined, githubRepository.remote.isEnterprise),
-			email: author.email
+			email: author.email,
+			id: author.id
+		};
+	} else {
+		return {
+			login: '',
+			url: '',
+			id: ''
+		};
+	}
+}
+
+function parseActor(
+	author: { login: string; url: string; avatarUrl: string; } | null,
+	githubRepository: GitHubRepository,
+): IActor {
+	if (author) {
+		return {
+			login: author.login,
+			url: author.url,
+			avatarUrl: getAvatarWithEnterpriseFallback(author.avatarUrl, undefined, githubRepository.remote.isEnterprise),
 		};
 	} else {
 		return {
@@ -685,6 +707,7 @@ function parseSuggestedReviewers(
 			url: suggestedReviewer.reviewer.url,
 			isAuthor: suggestedReviewer.isAuthor,
 			isCommenter: suggestedReviewer.isCommenter,
+			id: suggestedReviewer.reviewer.id
 		};
 	});
 
@@ -792,7 +815,7 @@ export function parseGraphQLTimelineEvents(
 				normalizedEvents.push({
 					id: mergeEv.id,
 					event: type,
-					user: parseAuthor(mergeEv.actor, githubRepository),
+					user: parseActor(mergeEv.actor, githubRepository),
 					createdAt: mergeEv.createdAt,
 					mergeRef: mergeEv.mergeRef.name,
 					sha: mergeEv.commit.oid,
@@ -817,7 +840,7 @@ export function parseGraphQLTimelineEvents(
 				normalizedEvents.push({
 					id: deletedEv.id,
 					event: type,
-					actor: parseAuthor(deletedEv.actor, githubRepository),
+					actor: parseActor(deletedEv.actor, githubRepository),
 					createdAt: deletedEv.createdAt,
 					headRef: deletedEv.headRefName,
 				});
@@ -840,6 +863,7 @@ export function parseGraphQLUser(user: GraphQL.UserResponse, githubRepository: G
 		company: user.user.company,
 		location: user.user.location,
 		commitContributions: parseGraphQLCommitContributions(user.user.contributionsCollection),
+		id: user.user.id
 	};
 }
 

@@ -971,6 +971,7 @@ export class GitHubRepository implements vscode.Disposable {
 							name: node.name,
 							url: node.url,
 							email: node.email,
+							id: node.id
 						};
 					}),
 				);
@@ -1014,6 +1015,7 @@ export class GitHubRepository implements vscode.Disposable {
 							name: node.name,
 							url: node.url,
 							email: node.email,
+							id: node.id
 						};
 					}),
 				);
@@ -1151,6 +1153,7 @@ export class GitHubRepository implements vscode.Disposable {
 						name: node.name,
 						url: node.url,
 						email: node.email,
+						id: node.id
 					};
 				}),
 			);

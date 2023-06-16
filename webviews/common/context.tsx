@@ -160,8 +160,8 @@ export class PRContext {
 		this.updatePR(state);
 	}
 
-	public reRequestReview = async (reviewerLogin: string) => {
-		const { reviewers } = await this.postMessage({ command: 'pr.re-request-review', args: reviewerLogin });
+	public reRequestReview = async (reviewerId: string) => {
+		const { reviewers } = await this.postMessage({ command: 'pr.re-request-review', args: reviewerId });
 		const state = this.pr;
 		state.reviewers = reviewers;
 		this.updatePR(state);
