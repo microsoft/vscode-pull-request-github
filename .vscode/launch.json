@@ -94,10 +94,7 @@
 			],
 			"preLaunchTask": "npm: test:preprocess",
 			"smartStep": true,
-			"sourceMaps": true,
-			"outFiles": [
-				"${workspaceFolder}/dist/test/*.js"
-			]
+			"sourceMaps": true
 		},
 		{
 			"type": "node",
