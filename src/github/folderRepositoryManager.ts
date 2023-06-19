@@ -142,8 +142,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	private _onDidMergePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidMergePullRequest = this._onDidMergePullRequest.event;
 
-	private _onDidChangeActivePullRequest = new vscode.EventEmitter<void>();
-	readonly onDidChangeActivePullRequest: vscode.Event<void> = this._onDidChangeActivePullRequest.event;
+	private _onDidChangeActivePullRequest = new vscode.EventEmitter<{ new: number | undefined, old: number | undefined }>();
+	readonly onDidChangeActivePullRequest: vscode.Event<{ new: number | undefined, old: number | undefined }> = this._onDidChangeActivePullRequest.event;
 	private _onDidChangeActiveIssue = new vscode.EventEmitter<void>();
 	readonly onDidChangeActiveIssue: vscode.Event<void> = this._onDidChangeActiveIssue.event;
 
@@ -497,6 +497,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	set activePullRequest(pullRequest: PullRequestModel | undefined) {
+		const oldNumber = this._activePullRequest?.number;
 		if (this._activePullRequest) {
 			this._activePullRequest.isActive = false;
 		}
@@ -504,9 +505,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		if (pullRequest) {
 			pullRequest.isActive = true;
 		}
+		const newNumber = pullRequest?.number;
 
 		this._activePullRequest = pullRequest;
-		this._onDidChangeActivePullRequest.fire();
+		this._onDidChangeActivePullRequest.fire({ old: oldNumber, new: newNumber });
 	}
 
 	get repository(): Repository {
