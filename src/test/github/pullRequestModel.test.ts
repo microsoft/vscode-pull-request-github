@@ -124,6 +124,9 @@ describe('PullRequestModel', function () {
 									nodes: [
 										reviewThreadResponse
 									],
+									pageInfo: {
+										hasNextPage: false
+									}
 								},
 							},
 						},

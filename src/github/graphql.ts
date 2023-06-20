@@ -6,6 +6,11 @@
 import { DiffSide, SubjectType, ViewedState } from '../common/comment';
 import { ForkDetails } from './githubRepository';
 
+interface PageInfo {
+	hasNextPage: boolean;
+	endCursor: string;
+}
+
 export interface MergedEvent {
 	__typename: string;
 	id: string;
@@ -283,6 +288,7 @@ export interface PullRequestCommentsResponse {
 		pullRequest: {
 			reviewThreads: {
 				nodes: ReviewThread[];
+				pageInfo: PageInfo;
 			};
 		};
 	};
@@ -292,10 +298,7 @@ export interface MentionableUsersResponse {
 	repository: {
 		mentionableUsers: {
 			nodes: Account[];
-			pageInfo: {
-				hasNextPage: boolean;
-				endCursor: string;
-			};
+			pageInfo: PageInfo;
 		};
 	};
 	rateLimit: RateLimit;
@@ -305,10 +308,7 @@ export interface AssignableUsersResponse {
 	repository: {
 		assignableUsers: {
 			nodes: Account[];
-			pageInfo: {
-				hasNextPage: boolean;
-				endCursor: string;
-			};
+			pageInfo: PageInfo;
 		};
 	};
 	rateLimit: RateLimit;
@@ -327,10 +327,7 @@ export interface OrganizationTeamsResponse {
 		teams: {
 			nodes: Team[];
 			totalCount: number;
-			pageInfo: {
-				hasNextPage: boolean;
-				endCursor: string;
-			};
+			pageInfo: PageInfo;
 		};
 	};
 	rateLimit: RateLimit;
@@ -464,10 +461,7 @@ export interface ListBranchesResponse {
 			nodes: {
 				name: string;
 			}[];
-			pageInfo: {
-				hasNextPage: boolean;
-				endCursor: string;
-			};
+			pageInfo: PageInfo;
 		};
 	};
 }
@@ -588,10 +582,7 @@ export interface PullRequestMergabilityResponse {
 export interface IssuesSearchResponse {
 	search: {
 		issueCount: number;
-		pageInfo: {
-			hasNextPage: boolean;
-			endCursor: string;
-		};
+		pageInfo: PageInfo;
 		edges: {
 			node: PullRequest;
 		}[];
@@ -613,10 +604,7 @@ export interface MilestoneIssuesResponse {
 					}[];
 				};
 			}[];
-			pageInfo: {
-				hasNextPage: boolean;
-				endCursor: string;
-			};
+			pageInfo: PageInfo;
 		};
 	};
 }
@@ -627,10 +615,7 @@ export interface IssuesResponse {
 			edges: {
 				node: PullRequest;
 			}[];
-			pageInfo: {
-				hasNextPage: boolean;
-				endCursor: string;
-			};
+			pageInfo: PageInfo;
 		};
 	};
 }

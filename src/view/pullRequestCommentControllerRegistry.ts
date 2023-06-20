@@ -21,6 +21,7 @@ interface PullRequestCommentHandlerInfo {
 export class PRCommentControllerRegistry implements vscode.CommentingRangeProvider, CommentReactionHandler, vscode.Disposable {
 	private _prCommentHandlers: { [key: number]: PullRequestCommentHandlerInfo } = {};
 	private _prCommentingRangeProviders: { [key: number]: vscode.CommentingRangeProvider2 } = {};
+	private _activeChangeListeners: Map<FolderRepositoryManager, vscode.Disposable> = new Map();
 
 	constructor(public commentsController: vscode.CommentController) {
 		this.commentsController.commentingRangeProvider = this;
@@ -65,6 +66,14 @@ export class PRCommentControllerRegistry implements vscode.CommentingRangeProvid
 		if (this._prCommentHandlers[prNumber]) {
 			this._prCommentHandlers[prNumber].refCount += 1;
 			return this._prCommentHandlers[prNumber];
+		}
+
+		if (!this._activeChangeListeners.has(folderRepositoryManager)) {
+			this._activeChangeListeners.set(folderRepositoryManager, folderRepositoryManager.onDidChangeActivePullRequest(e => {
+				if (e.old) {
+					this._prCommentHandlers[e.old].dispose();
+				}
+			}));
 		}
 
 		const handler = new PullRequestCommentController(pullRequestModel, folderRepositoryManager, this.commentsController);

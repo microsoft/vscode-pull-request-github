@@ -123,7 +123,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _onDidChangeChangesSinceReview = new vscode.EventEmitter<void>();
 	public onDidChangeChangesSinceReview = this._onDidChangeChangesSinceReview.event;
 
-	private _comments: IComment[] | undefined;
+	private _comments: readonly IComment[] | undefined;
 	private _onDidChangeComments: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidChangeComments: vscode.Event<void> = this._onDidChangeComments.event;
 
@@ -199,11 +199,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		this._onDidChangeChangesSinceReview.fire();
 	}
 
-	get comments(): IComment[] {
+	get comments(): readonly IComment[] {
 		return this._comments ?? [];
 	}
 
-	set comments(comments: IComment[]) {
+	set comments(comments: readonly IComment[]) {
 		this._comments = comments;
 		this._onDidChangeComments.fire();
 	}
@@ -881,19 +881,28 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	async getReviewThreads(): Promise<IReviewThread[]> {
 		const { remote, query, schema } = await this.githubRepository.ensure();
+		let after: string | null = null;
+		let hasNextPage = false;
+		const reviewThreads: IReviewThread[] = [];
 		try {
-			const { data } = await query<PullRequestCommentsResponse>({
-				query: schema.PullRequestComments,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					number: this.number,
-				},
-			}, false, { query: schema.LegacyPullRequestComments });
+			do {
+				const { data } = await query<PullRequestCommentsResponse>({
+					query: schema.PullRequestComments,
+					variables: {
+						owner: remote.owner,
+						name: remote.repositoryName,
+						number: this.number,
+						after
+					},
+				}, false, { query: schema.LegacyPullRequestComments });
 
-			const reviewThreads = data.repository.pullRequest.reviewThreads.nodes.map(node => {
-				return parseGraphQLReviewThread(node, this.githubRepository);
-			});
+				reviewThreads.push(...data.repository.pullRequest.reviewThreads.nodes.map(node => {
+					return parseGraphQLReviewThread(node, this.githubRepository);
+				}));
+
+				hasNextPage = data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage;
+				after = data.repository.pullRequest.reviewThreads.pageInfo.endCursor;
+			} while (hasNextPage && reviewThreads.length < 1000);
 
 			const oldReviewThreads = this._reviewThreadsCache;
 			this._reviewThreadsCache = reviewThreads;
@@ -910,23 +919,31 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async initializeReviewComments(): Promise<void> {
 		const { remote, query, schema } = await this.githubRepository.ensure();
+		let after: string | null = null;
+		let hasNextPage = false;
+		const comments: IComment[] = [];
 		try {
-			const { data } = await query<PullRequestCommentsResponse>({
-				query: schema.PullRequestComments,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					number: this.number,
-				},
-			}, false, { query: schema.LegacyPullRequestComments });
+			do {
+				const { data } = await query<PullRequestCommentsResponse>({
+					query: schema.PullRequestComments,
+					variables: {
+						owner: remote.owner,
+						name: remote.repositoryName,
+						number: this.number,
+						after,
+					},
+				}, false, { query: schema.LegacyPullRequestComments });
 
-			const comments = data.repository.pullRequest.reviewThreads.nodes
-				.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved, this.githubRepository), remote))
-				.reduce((prev, curr) => prev.concat(curr), [])
-				.sort((a: IComment, b: IComment) => {
-					return a.createdAt > b.createdAt ? 1 : -1;
-				});
+				comments.push(...data.repository.pullRequest.reviewThreads.nodes
+					.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved, this.githubRepository), remote))
+					.reduce((prev, curr) => prev.concat(curr), [])
+					.sort((a: IComment, b: IComment) => {
+						return a.createdAt > b.createdAt ? 1 : -1;
+					}));
 
+				hasNextPage = data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage;
+				after = data.repository.pullRequest.reviewThreads.pageInfo.endCursor;
+			} while (hasNextPage && comments.length < 1000);
 			this.comments = comments;
 		} catch (e) {
 			Logger.error(`Failed to get pull request review comments: ${e}`, PullRequestModel.ID);
