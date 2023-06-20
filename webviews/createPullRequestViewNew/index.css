@@ -83,11 +83,9 @@ body {
 	min-width: 48px;
 }
 
+
 .selector-group {
-	padding: 8px;
-	border: 1px solid var(--vscode-panel-border);
-	border-radius: 4px;
-	margin-bottom: 10px;
+	margin-bottom: 24px;
 }
 
 .selector-group .selectors {
@@ -113,9 +111,8 @@ body {
 	margin-bottom: 5px;
 }
 
-.selector-group .flex {
-	padding-right: 5px;
-}
+
+
 
 .automerge-section {
 	display: flex;
