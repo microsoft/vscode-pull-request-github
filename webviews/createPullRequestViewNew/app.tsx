@@ -171,7 +171,6 @@ export function main() {
 						: null}
 
 					<div className='wrapper'>
-						<label className='input-label' htmlFor='title'>Title</label>
 						<input
 							id='title'
 							type='text'
@@ -180,7 +179,7 @@ export function main() {
 							className={params.showTitleValidationError ? 'input-error' : ''}
 							aria-invalid={!!params.showTitleValidationError}
 							aria-describedby={params.showTitleValidationError ? 'title-error' : ''}
-							placeholder='Pull Request Title'
+							placeholder='Title'
 							value={params.pendingTitle}
 							required
 							onChange={(e) => updateTitle(e.currentTarget.value)}
@@ -190,11 +189,10 @@ export function main() {
 					</div>
 
 					<div className='wrapper'>
-						<label className='input-label' htmlFor='description'>Description</label>
 						<textarea
 							id='description'
 							name='description'
-							placeholder='Pull Request Description'
+							placeholder='Description'
 							value={params.pendingDescription}
 							required
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
