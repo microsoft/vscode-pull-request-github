@@ -28,7 +28,7 @@ export class GitLensIntegration implements Disposable {
 			api.registerActionRunner('createPullRequest', {
 				partnerId: 'ghpr',
 				name: 'GitHub Pull Requests and Issues',
-				label: 'Create Pull Request',
+				label: 'Create',
 				run: function (context: CreatePullRequestActionContext) {
 					// For now only work with branches that aren't remote
 					if (context.branch.isRemote) {
