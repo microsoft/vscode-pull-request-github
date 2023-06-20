@@ -15,7 +15,7 @@ select {
 }
 
 textarea {
-	height: 256px;
+	height: 196px;
 	/* 16px = 10px top and bottom padding + 6px of "padding" around the font */
 	min-height: calc(var(--vscode-font-size) + 16px);
 }

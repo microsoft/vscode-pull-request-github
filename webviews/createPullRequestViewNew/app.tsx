@@ -122,11 +122,10 @@ export function main() {
 
 				return <div>
 					<div className='selector-group'>
-						<span className='input-label'>Merge changes from</span>
 						<div className='selectors'>
 							<div className='labels'>
-								<div className='input-label combo-box'>remote</div>
-								<div className='input-label combo-box'>branch</div>
+								<div className='input-label combo-box'>base</div>
+								<div className='input-label combo-box'>merge</div>
 							</div>
 							<div className='selects'>
 								<RemoteSelect onChange={ctx.changeCompareRemote}
@@ -134,23 +133,6 @@ export function main() {
 									repos={params.availableCompareRemotes} />
 
 								<BranchSelect onChange={updateCompareBranch} defaultOption={params.compareBranch} branches={params.branchesForCompare} />
-							</div>
-						</div>
-					</div>
-
-					<div className='selector-group'>
-						<span className='input-label'>into</span>
-						<div className='selectors'>
-							<div className='labels'>
-								<div className='input-label combo-box'>remote</div>
-								<div className='input-label combo-box'>branch</div>
-							</div>
-							<div className='selects'>
-								<RemoteSelect onChange={ctx.changeBaseRemote}
-									defaultOption={`${params.baseRemote?.owner}/${params.baseRemote?.repositoryName}`}
-									repos={params.availableBaseRemotes} />
-
-								<BranchSelect onChange={updateBaseBranch} defaultOption={params.baseBranch} branches={params.branchesForRemote} />
 							</div>
 						</div>
 					</div>
