@@ -188,6 +188,14 @@ export function main() {
 					</div>
 					<AutoMerge {...params} updateState={ctx.updateState}></AutoMerge>
 
+					<div className="actions">
+						<button disabled={isBusy} className="secondary" onClick={() => ctx.cancelCreate()}>
+							Cancel
+						</button>
+						<button disabled={isBusy || !isCreateable} onClick={() => create()}>
+							Create
+						</button>
+					</div>
 					<div className="wrapper flex">
 						<input
 							id="draft-checkbox"
@@ -198,14 +206,6 @@ export function main() {
 							onChange={() => ctx.updateState({ isDraft: !params.isDraft })}
 						></input>
 						<label htmlFor="draft-checkbox">Create as draft</label>
-					</div>
-					<div className="actions">
-						<button disabled={isBusy} className="secondary" onClick={() => ctx.cancelCreate()}>
-							Cancel
-						</button>
-						<button disabled={isBusy || !isCreateable} onClick={() => create()}>
-							Create
-						</button>
 					</div>
 				</div>;
 			}}
