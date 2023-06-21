@@ -49,7 +49,8 @@ export class RateLogger {
 	public async logRateLimit(info: string | undefined, result: Promise<{ data: { rateLimit: RateLimit | undefined } | undefined } | undefined>, isRest: boolean = false) {
 		let rateLimitInfo;
 		try {
-			rateLimitInfo = (await result)?.data?.rateLimit;
+			const resolvedResult = await result;
+			rateLimitInfo = resolvedResult?.data?.rateLimit;
 		} catch (e) {
 			// Ignore errors here since we're just trying to log the rate limit.
 			return;
