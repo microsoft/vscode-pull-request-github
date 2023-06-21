@@ -12,6 +12,9 @@ import { ErrorBoundary } from '../common/errorBoundary';
 import { Label } from '../common/label';
 import { AutoMerge } from '../components/automergeSelect';
 import { closeIcon } from '../components/icon';
+import { prBaseIcon } from '../components/icon';
+import { prMergeIcon } from '../components/icon';
+import { gearIcon } from '../components/icon';
 
 
 export const RemoteSelect = ({ onChange, defaultOption, repos }:
@@ -122,19 +125,21 @@ export function main() {
 
 				return <div>
 					<div className='selector-group'>
-						<div className='selectors'>
-							<div className='labels'>
-								<div className='input-label combo-box'>base</div>
-								<div className='input-label combo-box'>merge</div>
-							</div>
-							<div className='selects'>
-								<RemoteSelect onChange={ctx.changeCompareRemote}
+
+							<div className='input-label combo-box base'>{prBaseIcon} base <div className='select'>Select</div></div>
+
+
+						<div className='input-label combo-box merge'>{prMergeIcon} merge <div className='select'>Select</div></div>
+
+						<div className="dropdowns">
+
+
+							<BranchSelect onChange={updateCompareBranch} defaultOption={params.compareBranch} branches={params.branchesForCompare} />
+							<RemoteSelect onChange={ctx.changeCompareRemote}
 									defaultOption={`${params.compareRemote?.owner}/${params.compareRemote?.repositoryName}`}
 									repos={params.availableCompareRemotes} />
-
-								<BranchSelect onChange={updateCompareBranch} defaultOption={params.compareBranch} branches={params.branchesForCompare} />
-							</div>
 						</div>
+
 					</div>
 
 					{params.labels && (params.labels.length > 0) ?
@@ -188,6 +193,10 @@ export function main() {
 					<AutoMerge {...params} updateState={ctx.updateState}></AutoMerge>
 
 					<div className="actions">
+						<a
+							className=''
+							title="Add">{gearIcon}
+						</a>
 						<button disabled={isBusy} className="secondary" onClick={() => ctx.cancelCreate()}>
 							Cancel
 						</button>
