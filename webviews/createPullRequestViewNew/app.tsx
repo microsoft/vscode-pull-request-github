@@ -7,7 +7,7 @@ import React, { useCallback, useContext, useEffect, useRef, useState } from 'rea
 import { render } from 'react-dom';
 import { CreateParams, RemoteInfo } from '../../common/views';
 import { compareIgnoreCase } from '../../src/common/utils';
-import PullRequestContext from '../common/createContext';
+import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { Label } from '../common/label';
 import { AutoMerge } from '../components/automergeSelect';
@@ -63,7 +63,7 @@ export function main() {
 	render(
 		<Root>
 			{(params: CreateParams) => {
-				const ctx = useContext(PullRequestContext);
+				const ctx = useContext(PullRequestContextNew);
 				const [isBusy, setBusy] = useState(false);
 
 				const titleInput = useRef<HTMLInputElement>();
@@ -90,7 +90,7 @@ export function main() {
 					setBusy(true);
 					const hasValidTitle = ctx.validate();
 					if (!hasValidTitle) {
-						titleInput.current.focus();
+						titleInput.current?.focus();
 					} else {
 						await ctx.submit();
 					}
@@ -235,7 +235,7 @@ export function main() {
 }
 
 export function Root({ children }) {
-	const ctx = useContext(PullRequestContext);
+	const ctx = useContext(PullRequestContextNew);
 	const [pr, setPR] = useState<any>(ctx.createParams);
 	useEffect(() => {
 		ctx.onchange = setPR;
