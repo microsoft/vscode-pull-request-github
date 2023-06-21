@@ -67,4 +67,17 @@ extends:
       #   env:
       #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
 
+    tsa:
+      enabled: true
+      options:
+        codebaseName: 'devdiv_$(Build.Repository.Name)'
+        serviceTreeID: '1788a767-5861-45fb-973b-c686b67c5541'
+        instanceUrl: 'https://devdiv.visualstudio.com/defaultcollection'
+        projectName: 'DevDiv'
+        areaPath: "DevDiv\\VS Code (compliance tracking only)\\Visual Studio Code Web Extensions"
+        notificationAliases:
+          - 'stbatt@microsoft.com'
+          - 'lszomoru@microsoft.com'
+          - 'alros@microsoft.com'
+
     publishExtension: ${{ and(parameters.publishExtension, eq(variables['Build.Repository.Uri'], 'https://github.com/microsoft/vscode-pull-request-github.git')) }}
