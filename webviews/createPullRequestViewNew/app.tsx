@@ -5,59 +5,29 @@
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
-import { CreateParams, RemoteInfo } from '../../common/views';
+import { CreateParamsNew, RemoteInfo } from '../../common/views';
 import { compareIgnoreCase } from '../../src/common/utils';
-import PullRequestContext from '../common/createContext';
+import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { Label } from '../common/label';
 import { AutoMerge } from '../components/automergeSelect';
-import { closeIcon } from '../components/icon';
-import { prBaseIcon } from '../components/icon';
-import { prMergeIcon } from '../components/icon';
-import { gearIcon } from '../components/icon';
+import { closeIcon, gearIcon, prBaseIcon, prMergeIcon } from '../components/icon';
 
 
-export const RemoteSelect = ({ onChange, defaultOption, repos }:
-	{ onChange: (owner: string, repositoryName: string) => Promise<void>, defaultOption: string | undefined, repos: RemoteInfo[] }) => {
-	let caseCorrectedDefaultOption: string | undefined;
-	const options = repos.map(param => {
-		const value = param.owner + '/' + param.repositoryName;
-		const label = `${param.owner}/${param.repositoryName}`;
-		if (label.toLowerCase() === defaultOption) {
-			caseCorrectedDefaultOption = label;
-		}
-		return <option
-			key={value}
-			value={value}>
-			{label}
-		</option>;
-	});
+
+
+
+export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch }:
+	{ onClick: (remote?: RemoteInfo, branch?: string) => Promise<void>, defaultRemote: RemoteInfo | undefined, defaultBranch: string | undefined }) => {
+	const defaultsLabel = defaultRemote && defaultBranch ? `${defaultRemote.owner}/${defaultBranch}` : '-';
 
 	return <ErrorBoundary>
 		<div className='select-wrapper flex'>
-			<select title='Choose a remote' value={caseCorrectedDefaultOption ?? defaultOption} disabled={options.length === 0} onChange={(e) => {
-				const [owner, repositoryName] = e.currentTarget.value.split('/');
-				onChange(owner, repositoryName);
+			<button title='Choose a remote' onClick={() => {
+				onClick(defaultRemote, defaultBranch);
 			}}>
-				{options}
-			</select>
-		</div>
-	</ErrorBoundary>;
-};
-
-export const BranchSelect = ({ onChange, defaultOption, branches }:
-	{ onChange: (branch: string) => void, defaultOption: string | undefined, branches: string[] }) => {
-	return <ErrorBoundary>
-		<div className='select-wrapper flex'>
-			<select title='Choose a branch' value={defaultOption} disabled={branches.length === 0} onChange={(e) => onChange(e.currentTarget.value)}>
-				{branches.map(branchName =>
-					<option
-						key={branchName}
-						value={branchName}>
-						{branchName}
-					</option>
-				)}
-			</select>
+				{defaultsLabel}
+			</button>
 		</div>
 	</ErrorBoundary>;
 };
@@ -65,21 +35,11 @@ export const BranchSelect = ({ onChange, defaultOption, branches }:
 export function main() {
 	render(
 		<Root>
-			{(params: CreateParams) => {
-				const ctx = useContext(PullRequestContext);
+			{(params: CreateParamsNew) => {
+				const ctx = useContext(PullRequestContextNew);
 				const [isBusy, setBusy] = useState(false);
 
 				const titleInput = useRef<HTMLInputElement>();
-
-				function updateBaseBranch(branch: string): void {
-					ctx.changeBaseBranch(branch);
-					ctx.updateState({ baseBranch: branch });
-				}
-
-				function updateCompareBranch(branch: string): void {
-					ctx.changeCompareBranch(branch);
-					ctx.updateState({ compareBranch: branch });
-				}
 
 				function updateTitle(title: string): void {
 					if (params.validate) {
@@ -93,7 +53,7 @@ export function main() {
 					setBusy(true);
 					const hasValidTitle = ctx.validate();
 					if (!hasValidTitle) {
-						titleInput.current.focus();
+						titleInput.current?.focus();
 					} else {
 						await ctx.submit();
 					}
@@ -134,10 +94,12 @@ export function main() {
 						<div className="dropdowns">
 
 
-							<BranchSelect onChange={updateCompareBranch} defaultOption={params.compareBranch} branches={params.branchesForCompare} />
-							<RemoteSelect onChange={ctx.changeCompareRemote}
-									defaultOption={`${params.compareRemote?.owner}/${params.compareRemote?.repositoryName}`}
-									repos={params.availableCompareRemotes} />
+							<ChooseRemoteAndBranch onClick={ctx.changeBaseRemoteAndBranch}
+									defaultRemote={params.baseRemote}
+									defaultBranch={params.baseBranch} />
+							<ChooseRemoteAndBranch onClick={ctx.changeMergeRemoteAndBranch}
+									defaultRemote={params.compareRemote}
+									defaultBranch={params.compareBranch} />
 						</div>
 
 					</div>
@@ -212,7 +174,7 @@ export function main() {
 }
 
 export function Root({ children }) {
-	const ctx = useContext(PullRequestContext);
+	const ctx = useContext(PullRequestContextNew);
 	const [pr, setPR] = useState<any>(ctx.createParams);
 	useEffect(() => {
 		ctx.onchange = setPR;
