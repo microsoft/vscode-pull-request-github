@@ -195,17 +195,6 @@ export function main() {
 							Create
 						</button>
 					</div>
-					<div className="wrapper flex">
-						<input
-							id="draft-checkbox"
-							type="checkbox"
-							name="draft"
-							checked={params.isDraft}
-							disabled={params.autoMerge}
-							onChange={() => ctx.updateState({ isDraft: !params.isDraft })}
-						></input>
-						<label htmlFor="draft-checkbox">Create as draft</label>
-					</div>
 				</div>;
 			}}
 		</Root>,
