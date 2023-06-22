@@ -23,7 +23,7 @@ export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch }:
 
 	return <ErrorBoundary>
 		<div className='select-wrapper flex'>
-			<button title='Choose a remote' onClick={() => {
+			<button title='Choose a repository and branch' className='secondary' onClick={() => {
 				onClick(defaultRemote, defaultBranch);
 			}}>
 				{defaultsLabel}
