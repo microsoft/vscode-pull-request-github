@@ -11,7 +11,7 @@ import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { Label } from '../common/label';
 import { AutoMerge } from '../components/automergeSelect';
-import { closeIcon, gearIcon, prBaseIcon, prMergeIcon } from '../components/icon';
+import { closeIcon, gearIcon, prBaseIcon, prMergeIcon, chevronDownIcon } from '../components/icon';
 
 
 
@@ -153,16 +153,17 @@ export function main() {
 					<AutoMerge {...params} updateState={ctx.updateState}></AutoMerge>
 
 					<div className="actions">
-						<a
-							className=''
-							title="Add">{gearIcon}
-						</a>
 						<button disabled={isBusy} className="secondary" onClick={() => ctx.cancelCreate()}>
 							Cancel
 						</button>
-						<button disabled={isBusy || !isCreateable} onClick={() => create()}>
-							Create
-						</button>
+						<div>
+							<button className='split-left' disabled={isBusy || !isCreateable} onClick={() => create()}>
+								Create
+							</button>
+							<button className='split-right' disabled={isBusy || !isCreateable} onClick={() => create()}>
+								{chevronDownIcon}
+							</button>
+						</div>
 					</div>
 				</div>;
 			}}

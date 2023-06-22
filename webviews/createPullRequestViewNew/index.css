@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 body {
-	padding: 5px 20px;
+	padding: 10px 20px;
 }
 
 
@@ -186,4 +186,26 @@ svg path {
 
 .labels .input-label {
 	margin-top: 10.5px;
+}
+
+
+
+button.split-left {
+	display: block;
+	float: left;
+	border-radius:  2px 0 0 2px;
+}
+
+button.split-right {
+	display: block;
+	float: left;
+	width: 24px;
+	height: 28px;
+	margin-left: 1px;
+	padding: 4px 0;
+	border-radius: 0 2px 2px 0;
+}
+
+button.split-right svg path {
+	fill: var(--vscode-button-foreground);
 }
