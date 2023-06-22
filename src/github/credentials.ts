@@ -374,7 +374,9 @@ export class CredentialStore implements vscode.Disposable {
 			enterpriseServerUri = getEnterpriseUri();
 		}
 
-		if (enterpriseServerUri) {
+		if (enterpriseServerUri && enterpriseServerUri.authority.endsWith('ghe.com')) {
+			baseUrl = `${enterpriseServerUri.scheme}://api.${enterpriseServerUri.authority}`;
+		} else if (enterpriseServerUri) {
 			baseUrl = `${enterpriseServerUri.scheme}://${enterpriseServerUri.authority}/api/v3`;
 		}
 
