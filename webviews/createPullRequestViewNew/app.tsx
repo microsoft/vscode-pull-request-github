@@ -86,17 +86,15 @@ export function main() {
 				return <div>
 					<div className='selector-group'>
 
-							<div className='input-label combo-box base'>{prBaseIcon} base <div className='select'>Select</div></div>
-
-
-						<div className='input-label combo-box merge'>{prMergeIcon} merge <div className='select'>Select</div></div>
-
-						<div className="dropdowns">
-
-
+						<div className='input-label combo-box base'>
+							<div className="deco">{prBaseIcon} Base</div>
 							<ChooseRemoteAndBranch onClick={ctx.changeBaseRemoteAndBranch}
-									defaultRemote={params.baseRemote}
-									defaultBranch={params.baseBranch} />
+								defaultRemote={params.baseRemote}
+								defaultBranch={params.baseBranch} />
+						</div>
+
+						<div className='input-label combo-box merge'>
+							<div className="deco">{prMergeIcon} Merge</div>
 							<ChooseRemoteAndBranch onClick={ctx.changeMergeRemoteAndBranch}
 									defaultRemote={params.compareRemote}
 									defaultBranch={params.compareBranch} />

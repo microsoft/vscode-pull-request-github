@@ -3,29 +3,46 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
-
-
-
-
 body {
 	padding: 5px 20px;
 }
 
 
-.dropdowns {
-	width: 150px;
-	background-color: red;
+.base, .merge {
+	display: block !important;
 }
 
-.dropdowns :last-child() {
-	width: 50px;
+.base .deco,
+.merge .deco {
+	display: block;
+	float: left;
+	margin-right: 8px;
+	user-select: none;
 }
 
-
-
-select {
+.base button,
+.merge button {
+	display: block;
+	float: right;
 	width: 100%;
+	height: 24px;
+	margin-top: -4px;
+	padding-top: 2px;
+	padding-left: 8px;
+	text-align: left;
+}
+
+.icon svg {
+	width: 16px;
+	height: 16px;
+}
+
+.merge {
+	padding-left: 28px;
+}
+
+.merge .icon svg {
+	margin-top: -16px;
 }
 
 
@@ -93,12 +110,13 @@ svg path {
 }
 
 
+
 .input-label.combo-box {
 	font-variant-caps: all-small-caps;
 	font-size: small;
 	display: flex;
 	align-items: center;
-	margin-bottom: 8px;
+	margin-bottom: 14px;
 }
 
 .input-label.combo-box .icon {
@@ -109,38 +127,6 @@ svg path {
 	margin-right: 6px;
 	margin-top: 1px;
 }
-
-
-
-.input-label.combo-box.merge {
-	padding-left: 28px;
-}
-
-.merge .icon {
-}
-
-
-.icon svg {
-	width: 16px;
-	height: 16px;
-}
-
-.select {
-	height: 24px;
-	background-color: brown;
-	width: 100%;
-	margin-left: 8px;
-	margin-top: 2px;
-	display: block;
-}
-
-select {
-	display: block;
-	float: right;
-	width: 100%;
-}
-
-
 
 
 .selector-group {
