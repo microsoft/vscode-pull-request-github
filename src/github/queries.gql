@@ -3,6 +3,13 @@
 #  *  Licensed under the MIT License. See License.txt in the project root for license information.
 #  *--------------------------------------------------------------------------------------------*/
 
+fragment RateLimit on RateLimit {
+	limit
+	cost
+	remaining
+	resetAt
+}
+
 fragment Merged on MergedEvent {
 	id
 	actor {
@@ -295,10 +302,7 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -315,10 +319,7 @@ query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last:
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -333,10 +334,7 @@ query LatestReviewCommit($owner: String!, $name: String!, $number: Int!) {
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -351,10 +349,7 @@ query LatestReviews($owner: String!, $name: String!, $number: Int!) {
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -363,6 +358,9 @@ query GetOrganizationTeamsCount($login: String!) {
 		teams(first: 0, privacy: VISIBLE) {
 			totalCount
 		}
+	}
+	rateLimit {
+		...RateLimit
 	}
 }
 
@@ -389,10 +387,7 @@ query GetOrganizationTeams($login: String!, $after: String, $repoName: String!) 
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -422,6 +417,9 @@ query GetReviewRequestsAdditionalScopes($owner: String!, $name: String!, $number
 			}
 		}
 	}
+	rateLimit {
+		...RateLimit
+	}
 }
 
 query GetReviewRequests($owner: String!, $name: String!, $number: Int!) {
@@ -442,6 +440,9 @@ query GetReviewRequests($owner: String!, $name: String!, $number: Int!) {
 				}
 			}
 		}
+	}
+	rateLimit {
+		...RateLimit
 	}
 }
 
@@ -509,10 +510,7 @@ query GetParticipants($owner: String!, $name: String!, $number: Int!, $first: In
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -527,10 +525,7 @@ query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -572,10 +567,7 @@ query PullRequestComments($owner: String!, $name: String!, $number: Int!, $after
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -612,10 +604,7 @@ query LegacyPullRequestComments($owner: String!, $name: String!, $number: Int!, 
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -629,10 +618,7 @@ query Viewer {
 		email
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -643,10 +629,7 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -666,10 +649,7 @@ query PullRequestFiles($owner: String!, $name: String!, $number: Int!, $after: S
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -708,10 +688,7 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -769,10 +746,7 @@ query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -800,10 +774,7 @@ query GetUser($login: String!) {
 		url
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -815,10 +786,7 @@ query PullRequestMergeability($owner: String!, $name: String!, $number: Int!) {
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -831,10 +799,7 @@ query PullRequestState($owner: String!, $name: String!, $number: Int!) {
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -847,10 +812,7 @@ query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!)
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -1013,10 +975,7 @@ query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after:
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -1038,10 +997,7 @@ query GetAssignableUsers($owner: String!, $name: String!, $first: Int!, $after: 
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -1052,6 +1008,9 @@ query GetBranch($owner: String!, $name: String!, $qualifiedName: String!) {
 				oid
 			}
 		}
+	}
+	rateLimit {
+		...RateLimit
 	}
 }
 
@@ -1068,10 +1027,7 @@ query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -1134,10 +1090,7 @@ query IssuesWithoutMilestone($owner: String!, $name: String!, $assignee: String!
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -1154,10 +1107,7 @@ query MaxIssue($owner: String!, $name: String!) {
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -1173,10 +1123,7 @@ query GetMilestones($owner: String!, $name: String!, $states: [MilestoneState!]!
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -1251,10 +1198,7 @@ query GetMilestonesWithIssues($owner: String!, $name: String!, $assignee: String
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -1324,10 +1268,7 @@ query Issues($query: String!) {
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -1336,10 +1277,7 @@ query GetViewerPermission($owner: String!, $name: String!) {
 		viewerPermission
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -1354,10 +1292,7 @@ query GetRepositoryForkDetails($owner: String!, $name: String!) {
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -1434,10 +1369,7 @@ query GetChecks($owner: String!, $name: String!, $number: Int!) {
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -1508,10 +1440,7 @@ query GetChecksWithoutSuite($owner: String!, $name: String!, $number: Int!) {
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
@@ -1524,10 +1453,7 @@ query GetFileContent($owner: String!, $name: String!, $expression: String!) {
 		}
 	}
 	rateLimit {
-		limit
-		cost
-		remaining
-		resetAt
+		...RateLimit
 	}
 }
 
