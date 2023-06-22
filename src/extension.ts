@@ -368,8 +368,8 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	const reposManager = new RepositoriesManager(folderManagers, credentialStore, telemetry);
 	context.subscriptions.push(reposManager);
 	const inMemPRFileSystemProvider = getInMemPRFileSystemProvider({ reposManager, gitAPI: apiImpl, credentialStore })!;
-	const readOnlyMessage = new vscode.MarkdownString(vscode.l10n.t('[Check out](command:pr.checkoutFromReadonlyFile) this pull request to edit.'));
-	readOnlyMessage.isTrusted = true;
+	const readOnlyMessage = new vscode.MarkdownString(vscode.l10n.t('Cannot edit this pull request file. [Check out](command:pr.checkoutFromReadonlyFile) this pull request to edit.'));
+	readOnlyMessage.isTrusted = { enabledCommands: ['pr.checkoutFromReadonlyFile'] };
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.Pr, inMemPRFileSystemProvider, { isReadonly: readOnlyMessage }));
 
 	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager);
