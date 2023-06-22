@@ -379,7 +379,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		});
 	}
 
-	private async branchPicks(githubRepository: GitHubRepository, baseMessage: string, isBase: boolean): Promise<(vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[]> {
+	private async branchPicks(githubRepository: GitHubRepository, changeRepoMessage: string, isBase: boolean): Promise<(vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })[]> {
 		let branches: (string | Ref)[];
 		if (isBase) {
 			// For the base, we only want to show branches from GitHub.
@@ -403,7 +403,12 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			return pick;
 		});
 		branchPicks.unshift({
-			label: baseMessage
+			kind: vscode.QuickPickItemKind.Separator,
+			label: vscode.l10n.t('Branches')
+		});
+		branchPicks.unshift({
+			iconPath: new vscode.ThemeIcon('github-alt'),
+			label: changeRepoMessage
 		});
 		return branchPicks;
 	}
@@ -456,7 +461,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			repo => message.args.currentRemote?.owner === repo.remote.owner && message.args.currentRemote.repositoryName === repo.remote.repositoryName,
 		);
 
-		const chooseDifferentRemote = vscode.l10n.t('Change Repository...');
+		const chooseDifferentRemote = vscode.l10n.t('Choose a different repository...');
 		const remotePlaceholder = vscode.l10n.t('Choose a remote');
 		quickPick.placeholder = githubRepository ? vscode.l10n.t('Choose a branch from {0}', `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`) : remotePlaceholder;
 		quickPick.show();
