@@ -12,6 +12,7 @@ import { ErrorBoundary } from '../common/errorBoundary';
 import { Label } from '../common/label';
 import { AutoMerge } from '../components/automergeSelect';
 import { closeIcon, gearIcon, prBaseIcon, prMergeIcon, chevronDownIcon } from '../components/icon';
+import { assigneeIcon, reviewerIcon, labelIcon, milestoneIcon } from '../components/icon';
 
 
 
@@ -131,7 +132,42 @@ export function main() {
 							onChange={(e) => updateTitle(e.currentTarget.value)}
 							onKeyDown={onKeyDown}>
 						</input>
-						<div id='title-error' className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required.</div>
+						<div id='title-error' className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required</div>
+					</div>
+
+					<div className='wrapper'>
+						<div className='additions assignees'>
+							{assigneeIcon}
+							<ul aria-label="Assignees">
+								<li>deepak1556</li>
+								<li>hbons</li>
+								<li>alexr00</li>
+							</ul>
+						</div>
+						<div className='additions reviewers'>
+							{reviewerIcon}
+							<ul aria-label="Reviewers">
+								<li>alexr00</li>
+								<li>hbons</li>
+								<li>deepak1556</li>
+							</ul>
+						</div>
+						<div className='additions labels'>
+							{labelIcon}
+							<ul aria-label="Labels">
+								<li>ux</li>
+								<li>design</li>
+								<li>docs</li>
+								<li>macos</li>
+								<li>help-wanted</li>
+							</ul>
+						</div>
+						<div className='additions milestone'>
+							{milestoneIcon}
+							<ul aria-label="Milestone">
+								<li>January 2024</li>
+							</ul>
+						</div>
 					</div>
 
 					<div className='wrapper'>

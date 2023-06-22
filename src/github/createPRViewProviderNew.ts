@@ -424,7 +424,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			repo => message.args.currentRemote?.owner === repo.remote.owner && message.args.currentRemote.repositoryName === repo.remote.repositoryName,
 		);
 
-		const chooseDifferentRemote = vscode.l10n.t('Choose a branch from another repository...');
+		const chooseDifferentRemote = vscode.l10n.t('Change Repository...');
 		const remotePlaceholder = vscode.l10n.t('Choose a remote');
 		quickPick.placeholder = githubRepository ? vscode.l10n.t('Choose a branch from {0}', `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`) : remotePlaceholder;
 		quickPick.show();
