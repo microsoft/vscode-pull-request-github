@@ -618,10 +618,10 @@
   dependencies:
     "@types/node" "*"
 
-"@types/vscode@1.69.0":
-  version "1.69.0"
-  resolved "https://registry.yarnpkg.com/@types/vscode/-/vscode-1.69.0.tgz#a472011af392fbcf82cbb82f60b4c239c21b921c"
-  integrity sha512-RlzDAnGqUoo9wS6d4tthNyAdZLxOIddLiX3djMoWk29jFfSA1yJbIwr0epBYqqYarWB6s2Z+4VaZCQ80Jaa3kA==
+"@types/vscode@1.79.0":
+  version "1.79.0"
+  resolved "https://registry.yarnpkg.com/@types/vscode/-/vscode-1.79.0.tgz#e2aed1bb3946ae2bebbc3b88020d0efe18f941a9"
+  integrity sha512-Tfowu2rSW8hVGbqzQLSPlOEiIOYYryTkgJ+chMecpYiJcnw9n0essvSiclnK+Qh/TcSVJHgaK4EMrQDZjZJ/Sw==
 
 "@types/webpack-env@^1.16.0":
   version "1.16.2"

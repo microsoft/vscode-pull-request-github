@@ -22,7 +22,8 @@
 		"contribCommentEditorActionsMenu",
 		"shareProvider",
 		"quickDiffProvider",
-		"quickPickItemIcon"
+		"quickPickItemIcon",
+		"readonlyMessage"
 	],
 	"version": "0.66.0",
 	"publisher": "GitHub",
@@ -948,6 +949,11 @@
 				"title": "%command.pr.addFileComment.title%",
 				"category": "%command.pull.request.category%",
 				"icon": "$(comment)"
+			},
+			{
+				"command": "pr.checkoutFromReadonlyFile",
+				"title": "%command.pr.pick.title%",
+				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "review.diffWithPrHead",
@@ -2349,7 +2355,7 @@
 		"@types/react-dom": "^16.8.2",
 		"@types/sinon": "7.0.11",
 		"@types/temp": "0.8.34",
-		"@types/vscode": "1.69.0",
+		"@types/vscode": "1.79.0",
 		"@types/webpack-env": "^1.16.0",
 		"@typescript-eslint/eslint-plugin": "4.18.0",
 		"@typescript-eslint/parser": "4.18.0",
