@@ -939,10 +939,28 @@
 				"icon": "$(gift)"
 			},
 			{
+				"command": "pr.addAssigneesToNewPr",
+				"title": "%command.pr.addAssigneesToNewPr.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(account)"
+			},
+			{
+				"command": "pr.addReviewersToNewPr",
+				"title": "%command.pr.addReviewersToNewPr.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(feedback)"
+			},
+			{
 				"command": "pr.addLabelsToNewPr",
 				"title": "%command.pr.addLabelsToNewPr.title%",
 				"category": "%command.pull.request.category%",
 				"icon": "$(tag)"
+			},
+			{
+				"command": "pr.addMilestoneToNewPr",
+				"title": "%command.pr.addMilestoneToNewPr.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(milestone)"
 			},
 			{
 				"command": "pr.addFileComment",
@@ -1484,7 +1502,19 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.addAssigneesToNewPr",
+					"when": "false"
+				},
+				{
+					"command": "pr.addReviewersToNewPr",
+					"when": "false"
+				},
+				{
 					"command": "pr.addLabelsToNewPr",
+					"when": "false"
+				},
+				{
+					"command": "pr.addMilestoneToNewPr",
 					"when": "false"
 				},
 				{
@@ -1709,9 +1739,24 @@
 					"group": "navigation@3"
 				},
 				{
-					"command": "pr.addLabelsToNewPr",
+					"command": "pr.addAssigneesToNewPr",
 					"when": "view == github:createPullRequest && github:createPrPermissions != READ && github:createPrPermissions",
 					"group": "navigation@1"
+				},
+				{
+					"command": "pr.addReviewersToNewPr",
+					"when": "view == github:createPullRequest && github:createPrPermissions != READ && github:createPrPermissions",
+					"group": "navigation@2"
+				},
+				{
+					"command": "pr.addLabelsToNewPr",
+					"when": "view == github:createPullRequest && github:createPrPermissions != READ && github:createPrPermissions",
+					"group": "navigation@3"
+				},
+				{
+					"command": "pr.addMilestoneToNewPr",
+					"when": "view == github:createPullRequest && github:createPrPermissions != READ && github:createPrPermissions",
+					"group": "navigation@4"
 				}
 			],
 			"view/item/context": [

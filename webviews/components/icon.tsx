@@ -16,6 +16,7 @@ export const alertIcon = <Icon src={require('../../resources/icons/alert.svg')} 
 export const checkIcon = <Icon src={require('../../resources/icons/check.svg')} />;
 export const skipIcon = <Icon src={require('../../resources/icons/skip.svg')} />;
 export const chevronIcon = <Icon src={require('../../resources/icons/chevron.svg')} />;
+export const chevronDownIcon = <Icon src={require('../../resources/icons/chevron-down.svg')} />;
 export const commentIcon = <Icon src={require('../../resources/icons/comment.svg')} />;
 export const commitIcon = <Icon src={require('../../resources/icons/commit_icon.svg')} />;
 export const copyIcon = <Icon src={require('../../resources/icons/copy.svg')} />;
@@ -31,3 +32,10 @@ export const requestChanges = <Icon src={require('../../resources/icons/request_
 export const settingsIcon = <Icon src={require('../../resources/icons/settings.svg')} />;
 export const closeIcon = <Icon src={require('../../resources/icons/close.svg')} />;
 export const syncIcon = <Icon src={require('../../resources/icons/sync.svg')} />;
+export const prBaseIcon = <Icon src={require('../../resources/icons/pr_base.svg')} />;
+export const prMergeIcon = <Icon src={require('../../resources/icons/pr_merge.svg')} />;
+export const gearIcon = <Icon src={require('../../resources/icons/gear.svg')} />;
+export const assigneeIcon = <Icon src={require('../../resources/icons/assignee.svg')} />;
+export const reviewerIcon = <Icon src={require('../../resources/icons/reviewer.svg')} />;
+export const labelIcon = <Icon src={require('../../resources/icons/label.svg')} />;
+export const milestoneIcon = <Icon src={require('../../resources/icons/milestone.svg')} />;

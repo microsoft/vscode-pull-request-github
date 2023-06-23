@@ -4,14 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createContext } from 'react';
-import { CreateParams, CreatePullRequest, ScrollPosition } from '../../common/views';
+import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequest, RemoteInfo, ScrollPosition } from '../../common/views';
 import { getMessageHandler, MessageHandler, vscode } from './message';
 
-const defaultCreateParams: CreateParams = {
-	availableBaseRemotes: [],
-	availableCompareRemotes: [],
-	branchesForRemote: [],
-	branchesForCompare: [],
+const defaultCreateParams: CreateParamsNew = {
 	validate: false,
 	showTitleValidationError: false,
 	labels: [],
@@ -20,10 +16,10 @@ const defaultCreateParams: CreateParams = {
 };
 
 export class CreatePRContextNew {
-	public createParams: CreateParams;
+	public createParams: CreateParamsNew;
 
 	constructor(
-		public onchange: ((ctx: CreateParams) => void) | null = null,
+		public onchange: ((ctx: CreateParamsNew) => void) | null = null,
 		private _handler: MessageHandler | null = null,
 	) {
 		this.createParams = vscode.getState() ?? defaultCreateParams;
@@ -33,10 +29,10 @@ export class CreatePRContextNew {
 	}
 
 	get initialized(): boolean {
-		if (this.createParams.availableBaseRemotes.length !== 0
-			|| this.createParams.availableCompareRemotes.length !== 0
-			|| this.createParams.branchesForRemote.length !== 0
-			|| this.createParams.branchesForCompare.length !== 0
+		if (this.createParams.defaultBaseRemote !== undefined
+			|| this.createParams.defaultBaseBranch !== undefined
+			|| this.createParams.defaultCompareRemote !== undefined
+			|| this.createParams.defaultCompareBranch !== undefined
 			|| this.createParams.validate
 			|| this.createParams.showTitleValidationError) {
 			return true;
@@ -51,7 +47,7 @@ export class CreatePRContextNew {
 		return this.postMessage({ command: 'pr.cancelCreate', args });
 	};
 
-	public updateState = (params: Partial<CreateParams>): void => {
+	public updateState = (params: Partial<CreateParamsNew>): void => {
 		this.createParams = { ...this.createParams, ...params };
 		vscode.setState(this.createParams);
 		if (this.onchange) {
@@ -59,21 +55,21 @@ export class CreatePRContextNew {
 		}
 	};
 
-	public changeBaseRemote = async (owner: string, repositoryName: string): Promise<void> => {
-		const response = await this.postMessage({
-			command: 'pr.changeBaseRemote',
-			args: {
-				owner,
-				repositoryName,
-			},
+	public changeBaseRemoteAndBranch = async (currentRemote?: RemoteInfo, currentBranch?: string): Promise<void> => {
+		const args: ChooseRemoteAndBranchArgs = {
+			currentRemote,
+			currentBranch
+		};
+		const response: ChooseBaseRemoteAndBranchResult = await this.postMessage({
+			command: 'pr.changeBaseRemoteAndBranch',
+			args
 		});
 
-		const updateValues: Partial<CreateParams> = {
-			baseRemote: { owner, repositoryName },
-			branchesForRemote: response.branches
+		const updateValues: Partial<CreateParamsNew> = {
+			baseRemote: response.baseRemote,
+			baseBranch: response.baseBranch
 		};
-		if ((this.createParams.baseRemote?.owner !== owner) || (this.createParams.baseRemote.repositoryName !== repositoryName)) {
-			updateValues.baseBranch = response.defaultBranch;
+		if ((this.createParams.baseRemote?.owner !== response.baseRemote.owner) || (this.createParams.baseRemote.repositoryName !== response.baseRemote.repositoryName)) {
 			updateValues.defaultMergeMethod = response.defaultMergeMethod;
 			updateValues.allowAutoMerge = response.allowAutoMerge;
 			updateValues.mergeMethodsAvailability = response.mergeMethodsAvailability;
@@ -81,50 +77,35 @@ export class CreatePRContextNew {
 			if (!this.createParams.allowAutoMerge && updateValues.allowAutoMerge) {
 				updateValues.autoMerge = this.createParams.isDraft ? false : updateValues.autoMergeDefault;
 			}
+			updateValues.defaultTitle = response.defaultTitle;
+			if ((this.createParams.pendingTitle === undefined) || (this.createParams.pendingTitle === this.createParams.defaultTitle)) {
+				updateValues.pendingTitle = response.defaultTitle;
+			}
+			updateValues.defaultDescription = response.defaultDescription;
+			if ((this.createParams.pendingDescription === undefined) || (this.createParams.pendingDescription === this.createParams.defaultDescription)) {
+				updateValues.pendingDescription = response.defaultDescription;
+			}
 		}
 
 		this.updateState(updateValues);
 	};
 
-	public changeBaseBranch = async (branch: string): Promise<void> => {
-		const response: { title?: string, description?: string } = await this.postMessage({
-			command: 'pr.changeBaseBranch',
-			args: branch
-		});
-
-		const pendingTitle = ((this.createParams.pendingTitle === undefined) || (this.createParams.pendingTitle === this.createParams.defaultTitle))
-			? response.title : this.createParams.pendingTitle;
-		const pendingDescription = ((this.createParams.pendingDescription === undefined) || (this.createParams.pendingDescription === this.createParams.defaultDescription))
-			? response.description : this.createParams.pendingDescription;
-
-		this.updateState({
-			pendingTitle,
-			pendingDescription
-		});
-	};
-
-	public changeCompareRemote = async (owner: string, repositoryName: string): Promise<void> => {
-		const response = await this.postMessage({
-			command: 'pr.changeCompareRemote',
-			args: {
-				owner,
-				repositoryName,
-			},
-		});
-
-		const updateValues: Partial<CreateParams> = {
-			compareRemote: { owner, repositoryName },
-			branchesForCompare: response.branches
+	public changeMergeRemoteAndBranch = async (currentRemote?: RemoteInfo, currentBranch?: string): Promise<void> => {
+		const args: ChooseRemoteAndBranchArgs = {
+			currentRemote,
+			currentBranch
 		};
-		if ((this.createParams.compareRemote?.owner !== owner) || (this.createParams.compareRemote.repositoryName !== repositoryName)) {
-			updateValues.compareBranch = response.defaultBranch;
-		}
+		const response: ChooseCompareRemoteAndBranchResult = await this.postMessage({
+			command: 'pr.changeCompareRemoteAndBranch',
+			args
+		});
+
+		const updateValues: Partial<CreateParamsNew> = {
+			compareRemote: response.compareRemote,
+			compareBranch: response.compareBranch
+		};
 
 		this.updateState(updateValues);
-	};
-
-	public changeCompareBranch = async (branch: string): Promise<void> => {
-		return this.postMessage({ command: 'pr.changeCompareBranch', args: branch });
 	};
 
 	public validate = (): boolean => {
@@ -173,7 +154,7 @@ export class CreatePRContextNew {
 		return this._handler?.postMessage(message);
 	};
 
-	handleMessage = async (message: { command: string, params?: Partial<CreateParams>, scrollPosition?: ScrollPosition }): Promise<void> => {
+	handleMessage = async (message: { command: string, params?: Partial<CreateParamsNew>, scrollPosition?: ScrollPosition }): Promise<void> => {
 		switch (message.command) {
 			case 'pr.initialize':
 				if (!message.params) {
@@ -189,36 +170,18 @@ export class CreatePRContextNew {
 
 				if (this.createParams.baseRemote === undefined) {
 					message.params.baseRemote = message.params.defaultBaseRemote;
-				} else if (message.params.baseRemote && ((this.createParams.baseRemote.owner !== message.params.baseRemote.owner) || (this.createParams.baseRemote.repositoryName !== message.params.baseRemote.repositoryName))) {
-					// Notify the extension of the stored selected remote state
-					await this.changeBaseRemote(
-						this.createParams.baseRemote.owner,
-						this.createParams.baseRemote.repositoryName,
-					);
 				}
 
 				if (this.createParams.baseBranch === undefined) {
 					message.params.baseBranch = message.params.defaultBaseBranch;
-				} else if (message.params.baseBranch && (this.createParams.baseBranch !== message.params.baseBranch)) {
-					// Notify the extension of the stored base branch state
-					await this.changeBaseBranch(this.createParams.baseBranch);
 				}
 
 				if (this.createParams.compareRemote === undefined) {
 					message.params.compareRemote = message.params.defaultCompareRemote;
-				} else if (message.params.compareRemote && ((this.createParams.compareRemote.owner !== message.params.compareRemote.owner) || (this.createParams.compareRemote.repositoryName !== message.params.compareRemote.repositoryName))) {
-					// Notify the extension of the stored base branch state
-					await this.changeCompareRemote(
-						this.createParams.compareRemote.owner,
-						this.createParams.compareRemote.repositoryName
-					);
 				}
 
 				if (this.createParams.compareBranch === undefined) {
 					message.params.compareBranch = message.params.defaultCompareBranch;
-				} else if (message.params.compareBranch && (this.createParams.compareBranch !== message.params.compareBranch)) {
-					// Notify the extension of the stored compare branch state
-					await this.changeCompareBranch(this.createParams.compareBranch);
 				}
 
 				if (this.createParams.isDraft === undefined) {

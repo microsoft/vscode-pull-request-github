@@ -5,56 +5,30 @@
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
-import { CreateParams, RemoteInfo } from '../../common/views';
+import { CreateParamsNew, RemoteInfo } from '../../common/views';
 import { compareIgnoreCase } from '../../src/common/utils';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { Label } from '../common/label';
 import { AutoMerge } from '../components/automergeSelect';
-import { closeIcon } from '../components/icon';
+import { closeIcon, gearIcon, prBaseIcon, prMergeIcon, chevronDownIcon } from '../components/icon';
+import { assigneeIcon, reviewerIcon, labelIcon, milestoneIcon } from '../components/icon';
 
 
-export const RemoteSelect = ({ onChange, defaultOption, repos }:
-	{ onChange: (owner: string, repositoryName: string) => Promise<void>, defaultOption: string | undefined, repos: RemoteInfo[] }) => {
-	let caseCorrectedDefaultOption: string | undefined;
-	const options = repos.map(param => {
-		const value = param.owner + '/' + param.repositoryName;
-		const label = `${param.owner}/${param.repositoryName}`;
-		if (label.toLowerCase() === defaultOption) {
-			caseCorrectedDefaultOption = label;
-		}
-		return <option
-			key={value}
-			value={value}>
-			{label}
-		</option>;
-	});
+
+
+
+export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch }:
+	{ onClick: (remote?: RemoteInfo, branch?: string) => Promise<void>, defaultRemote: RemoteInfo | undefined, defaultBranch: string | undefined }) => {
+	const defaultsLabel = defaultRemote && defaultBranch ? `${defaultRemote.owner}/${defaultBranch}` : '-';
 
 	return <ErrorBoundary>
 		<div className='select-wrapper flex'>
-			<select title='Choose a remote' value={caseCorrectedDefaultOption ?? defaultOption} disabled={options.length === 0} onChange={(e) => {
-				const [owner, repositoryName] = e.currentTarget.value.split('/');
-				onChange(owner, repositoryName);
+			<button title='Choose a repository and branch' className='secondary' onClick={() => {
+				onClick(defaultRemote, defaultBranch);
 			}}>
-				{options}
-			</select>
-		</div>
-	</ErrorBoundary>;
-};
-
-export const BranchSelect = ({ onChange, defaultOption, branches }:
-	{ onChange: (branch: string) => void, defaultOption: string | undefined, branches: string[] }) => {
-	return <ErrorBoundary>
-		<div className='select-wrapper flex'>
-			<select title='Choose a branch' value={defaultOption} disabled={branches.length === 0} onChange={(e) => onChange(e.currentTarget.value)}>
-				{branches.map(branchName =>
-					<option
-						key={branchName}
-						value={branchName}>
-						{branchName}
-					</option>
-				)}
-			</select>
+				{defaultsLabel}
+			</button>
 		</div>
 	</ErrorBoundary>;
 };
@@ -62,21 +36,11 @@ export const BranchSelect = ({ onChange, defaultOption, branches }:
 export function main() {
 	render(
 		<Root>
-			{(params: CreateParams) => {
+			{(params: CreateParamsNew) => {
 				const ctx = useContext(PullRequestContextNew);
 				const [isBusy, setBusy] = useState(false);
 
 				const titleInput = useRef<HTMLInputElement>();
-
-				function updateBaseBranch(branch: string): void {
-					ctx.changeBaseBranch(branch);
-					ctx.updateState({ baseBranch: branch });
-				}
-
-				function updateCompareBranch(branch: string): void {
-					ctx.changeCompareBranch(branch);
-					ctx.updateState({ compareBranch: branch });
-				}
 
 				function updateTitle(title: string): void {
 					if (params.validate) {
@@ -122,37 +86,21 @@ export function main() {
 
 				return <div>
 					<div className='selector-group'>
-						<span className='input-label'>Merge changes from</span>
-						<div className='selectors'>
-							<div className='labels'>
-								<div className='input-label combo-box'>remote</div>
-								<div className='input-label combo-box'>branch</div>
-							</div>
-							<div className='selects'>
-								<RemoteSelect onChange={ctx.changeCompareRemote}
-									defaultOption={`${params.compareRemote?.owner}/${params.compareRemote?.repositoryName}`}
-									repos={params.availableCompareRemotes} />
 
-								<BranchSelect onChange={updateCompareBranch} defaultOption={params.compareBranch} branches={params.branchesForCompare} />
-							</div>
+						<div className='input-label combo-box base'>
+							<div className="deco">{prBaseIcon} Base</div>
+							<ChooseRemoteAndBranch onClick={ctx.changeBaseRemoteAndBranch}
+								defaultRemote={params.baseRemote}
+								defaultBranch={params.baseBranch} />
 						</div>
-					</div>
 
-					<div className='selector-group'>
-						<span className='input-label'>into</span>
-						<div className='selectors'>
-							<div className='labels'>
-								<div className='input-label combo-box'>remote</div>
-								<div className='input-label combo-box'>branch</div>
-							</div>
-							<div className='selects'>
-								<RemoteSelect onChange={ctx.changeBaseRemote}
-									defaultOption={`${params.baseRemote?.owner}/${params.baseRemote?.repositoryName}`}
-									repos={params.availableBaseRemotes} />
-
-								<BranchSelect onChange={updateBaseBranch} defaultOption={params.baseBranch} branches={params.branchesForRemote} />
-							</div>
+						<div className='input-label combo-box merge'>
+							<div className="deco">{prMergeIcon} Merge</div>
+							<ChooseRemoteAndBranch onClick={ctx.changeMergeRemoteAndBranch}
+									defaultRemote={params.compareRemote}
+									defaultBranch={params.compareBranch} />
 						</div>
+
 					</div>
 
 					{params.labels && (params.labels.length > 0) ?
@@ -171,7 +119,6 @@ export function main() {
 						: null}
 
 					<div className='wrapper'>
-						<label className='input-label' htmlFor='title'>Title</label>
 						<input
 							id='title'
 							type='text'
@@ -180,21 +127,54 @@ export function main() {
 							className={params.showTitleValidationError ? 'input-error' : ''}
 							aria-invalid={!!params.showTitleValidationError}
 							aria-describedby={params.showTitleValidationError ? 'title-error' : ''}
-							placeholder='Pull Request Title'
-							value={params.pendingTitle}
+							placeholder='Title'
 							required
 							onChange={(e) => updateTitle(e.currentTarget.value)}
 							onKeyDown={onKeyDown}>
 						</input>
-						<div id='title-error' className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required.</div>
+						<div id='title-error' className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required</div>
 					</div>
 
 					<div className='wrapper'>
-						<label className='input-label' htmlFor='description'>Description</label>
+						<div className='additions assignees'>
+							{assigneeIcon}
+							<ul aria-label="Assignees">
+								<li>deepak1556</li>
+								<li>hbons</li>
+								<li>alexr00</li>
+							</ul>
+						</div>
+						<div className='additions reviewers'>
+							{reviewerIcon}
+							<ul aria-label="Reviewers">
+								<li>alexr00</li>
+								<li>hbons</li>
+								<li>deepak1556</li>
+							</ul>
+						</div>
+						<div className='additions labels'>
+							{labelIcon}
+							<ul aria-label="Labels">
+								<li>ux</li>
+								<li>design</li>
+								<li>docs</li>
+								<li>macos</li>
+								<li>help-wanted</li>
+							</ul>
+						</div>
+						<div className='additions milestone'>
+							{milestoneIcon}
+							<ul aria-label="Milestone">
+								<li>January 2024</li>
+							</ul>
+						</div>
+					</div>
+
+					<div className='wrapper'>
 						<textarea
 							id='description'
 							name='description'
-							placeholder='Pull Request Description'
+							placeholder='Description'
 							value={params.pendingDescription}
 							required
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
@@ -208,24 +188,18 @@ export function main() {
 					</div>
 					<AutoMerge {...params} updateState={ctx.updateState}></AutoMerge>
 
-					<div className="wrapper flex">
-						<input
-							id="draft-checkbox"
-							type="checkbox"
-							name="draft"
-							checked={params.isDraft}
-							disabled={params.autoMerge}
-							onChange={() => ctx.updateState({ isDraft: !params.isDraft })}
-						></input>
-						<label htmlFor="draft-checkbox">Create as draft</label>
-					</div>
 					<div className="actions">
 						<button disabled={isBusy} className="secondary" onClick={() => ctx.cancelCreate()}>
 							Cancel
 						</button>
-						<button disabled={isBusy || !isCreateable} onClick={() => create()}>
-							Create
-						</button>
+						<div>
+							<button className='split-left' disabled={isBusy || !isCreateable} onClick={() => create()}>
+								Create
+							</button>
+							<button className='split-right' disabled={isBusy || !isCreateable} onClick={() => create()}>
+								{chevronDownIcon}
+							</button>
+						</div>
 					</div>
 				</div>;
 			}}

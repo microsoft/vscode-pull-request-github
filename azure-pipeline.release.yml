@@ -16,6 +16,7 @@ resources:
 
 parameters:
   - name: publishExtension
+    # allow-any-unicode-next-line
     displayName: 🚀 Publish Extension
     type: boolean
     default: false

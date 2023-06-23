@@ -65,3 +65,61 @@ export interface CreatePullRequest {
 	autoMergeMethod?: MergeMethod;
 	labels: ILabel[];
 }
+
+// #region new create view
+
+export interface CreateParamsNew {
+	defaultBaseRemote?: RemoteInfo;
+	defaultBaseBranch?: string;
+	defaultCompareRemote?: RemoteInfo;
+	defaultCompareBranch?: string;
+	defaultTitle?: string;
+	defaultDescription?: string;
+
+	pendingTitle?: string;
+	pendingDescription?: string;
+	baseRemote?: RemoteInfo;
+	baseBranch?: string;
+	compareRemote?: RemoteInfo;
+	compareBranch?: string;
+	isDraftDefault: boolean;
+	isDraft?: boolean;
+	labels?: ILabel[];
+	isDarkTheme?: boolean;
+
+	validate?: boolean;
+	showTitleValidationError?: boolean;
+	createError?: string;
+
+	autoMergeDefault: boolean;
+	autoMerge?: boolean;
+	autoMergeMethod?: MergeMethod;
+	allowAutoMerge?: boolean;
+	defaultMergeMethod?: MergeMethod;
+	mergeMethodsAvailability?: MergeMethodsAvailability;
+}
+
+export interface ChooseRemoteAndBranchArgs {
+	currentRemote: RemoteInfo | undefined;
+	currentBranch: string | undefined;
+}
+
+export interface ChooseBaseRemoteAndBranchResult {
+	baseRemote: RemoteInfo;
+	baseBranch: string;
+	defaultBaseBranch: string;
+	defaultMergeMethod: MergeMethod;
+	allowAutoMerge: boolean;
+	mergeMethodsAvailability: MergeMethodsAvailability;
+	autoMergeDefault: boolean;
+	defaultTitle: string;
+	defaultDescription: string;
+}
+
+export interface ChooseCompareRemoteAndBranchResult {
+	compareRemote: RemoteInfo;
+	compareBranch: string;
+	defaultCompareBranch: string;
+}
+
+// #endregion
