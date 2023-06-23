@@ -2419,6 +2419,7 @@
 		"cockatiel": "^3.1.1",
 		"cross-fetch": "3.1.5",
 		"dayjs": "1.10.4",
+		"debounce": "^1.2.1",
 		"events": "3.2.0",
 		"fast-deep-equal": "^3.1.3",
 		"lru-cache": "6.0.0",
