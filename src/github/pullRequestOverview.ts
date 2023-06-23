@@ -293,7 +293,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			scrollPosition: this._scrollPosition,
 		});
 
-		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.number.toString());
+		if (!this._item || (this._item.number !== pullRequestModel.number) || !this._panel.webview.html) {
+			this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.number.toString());
+		}
 
 		return this.updatePullRequest(pullRequestModel);
 	}
