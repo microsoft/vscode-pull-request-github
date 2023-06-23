@@ -451,20 +451,29 @@ const StatusCheckDetails = ( { statuses }: { statuses: PullRequestCheckStatus[] 
 	</div>
 );
 
-function getSummaryLabel(statuses: any[]) {
-	const statusTypes = groupBy(statuses, (status: any) => status.state);
+function getSummaryLabel(statuses: PullRequestCheckStatus[]) {
+	const statusTypes = groupBy(statuses, (status: PullRequestCheckStatus) => {
+		switch (status.state) {
+			case CheckState.Success:
+			case CheckState.Failure:
+			case CheckState.Neutral:
+				return status.state;
+			default:
+				return CheckState.Pending;
+		}
+	});
 	const statusPhrases: string[] = [];
 	for (const statusType of Object.keys(statusTypes)) {
 		const numOfType = statusTypes[statusType].length;
 		let statusAdjective = '';
 		switch (statusType) {
-			case 'success':
+			case CheckState.Success:
 				statusAdjective = 'successful';
 				break;
-			case 'failure':
+			case CheckState.Failure:
 				statusAdjective = 'failed';
 				break;
-			case 'neutral':
+			case CheckState.Neutral:
 				statusAdjective = 'skipped';
 				break;
 			default:
