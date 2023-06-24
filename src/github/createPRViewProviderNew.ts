@@ -370,6 +370,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		const remotes = isBase ? await this._folderRepositoryManager.getGitHubRemotes() : this._folderRepositoryManager.gitHubRepositories.map(repo => repo.remote);
 		return remotes.map(remote => {
 			return {
+				iconPath: new vscode.ThemeIcon('repo'),
 				label: `${remote.owner}/${remote.repositoryName}`,
 				remote: {
 					owner: remote.owner,
@@ -407,7 +408,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			label: vscode.l10n.t('Branches')
 		});
 		branchPicks.unshift({
-			iconPath: new vscode.ThemeIcon('github-alt'),
+			iconPath: new vscode.ThemeIcon('repo'),
 			label: changeRepoMessage
 		});
 		return branchPicks;
