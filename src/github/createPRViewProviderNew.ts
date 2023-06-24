@@ -405,7 +405,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		});
 		branchPicks.unshift({
 			kind: vscode.QuickPickItemKind.Separator,
-			label: vscode.l10n.t('Branches')
+			label: `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`
 		});
 		branchPicks.unshift({
 			iconPath: new vscode.ThemeIcon('repo'),
