@@ -462,9 +462,12 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			repo => message.args.currentRemote?.owner === repo.remote.owner && message.args.currentRemote.repositoryName === repo.remote.repositoryName,
 		);
 
-		const chooseDifferentRemote = vscode.l10n.t('Choose a different repository...');
+		const chooseDifferentRemote = vscode.l10n.t('Change Repository...');
 		const remotePlaceholder = vscode.l10n.t('Choose a remote');
-		quickPick.placeholder = githubRepository ? vscode.l10n.t('Choose a branch from {0}', `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`) : remotePlaceholder;
+		const branchPlaceholder = isBase ? vscode.l10n.t('Choose a base branch') : vscode.l10n.t('Choose a branch to merge');
+		const repositoryPlaceholder = isBase ? vscode.l10n.t('Choose a base repository') : vscode.l10n.t('Choose a repository to merge from');
+
+		quickPick.placeholder = githubRepository ? branchPlaceholder : remotePlaceholder;
 		quickPick.show();
 		quickPick.busy = true;
 		quickPick.items = githubRepository ? await this.branchPicks(githubRepository, chooseDifferentRemote, isBase) : await this.remotePicks(isBase);
@@ -479,12 +482,13 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 					quickPick.busy = true;
 					quickPick.items = await this.remotePicks(isBase);
 					quickPick.busy = false;
+					quickPick.placeholder = githubRepository ? repositoryPlaceholder : remotePlaceholder;
 				} else if ((selectedPick.branch === undefined) && selectedPick.remote) {
 					const selectedRemote = selectedPick as vscode.QuickPickItem & { remote: RemoteInfo };
 					quickPick.busy = true;
 					githubRepository = this._folderRepositoryManager.findRepo(repo => repo.remote.owner === selectedRemote.remote.owner && repo.remote.repositoryName === selectedRemote.remote.repositoryName)!;
 					quickPick.items = await this.branchPicks(githubRepository, chooseDifferentRemote, isBase);
-					quickPick.placeholder = vscode.l10n.t('Choose a branch from {0}', `${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}`);
+					quickPick.placeholder = branchPlaceholder;
 					quickPick.busy = false;
 				} else if (selectedPick.branch && selectedPick.remote) {
 					const selectedBranch = selectedPick as vscode.QuickPickItem & { remote: RemoteInfo, branch: string };
