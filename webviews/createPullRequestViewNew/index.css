@@ -3,8 +3,17 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+
 body {
-	padding: 10px 20px;
+	padding: 0 20px;
+}
+
+.group-main {
+	height: 100vh;
+	min-width: 205px;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
 }
 
 .icon svg {
@@ -18,11 +27,11 @@ svg path {
 }
 
 
-/* Base/Merge Branch Buttons */
+/* Base + Merge Branches */
 
-.selector-group {
-	margin-bottom: 24px;
-	margin-top: 6px;
+.group-branches {
+	margin-top: 16px;
+	margin-bottom: 10px;
 }
 
 .base, .merge {
@@ -57,33 +66,42 @@ svg path {
 	margin-top: -16px;
 }
 
-
-/* Text Fields */
-
-input,
-textarea {
-	padding: 5px !important;
-	margin-top: 5px;
-}
-
-textarea {
-	height: 256px;
-	/* 16px = 10px top and bottom padding + 6px of "padding" around the font */
-	min-height: calc(var(--vscode-font-size) + 16px);
-}
-
-.wrapper {
-	margin-top: 10px;
-}
-
 .flex {
 	display: flex;
 	align-items: center;
 }
 
-.wrapper span {
+.input-label {
 	display: flex;
-	margin-right: 8px;
+	align-items: center;
+	font-variant-caps: all-small-caps;
+	font-size: small;
+	margin-bottom: 14px;
+}
+
+.input-label .icon {
+	display: block;
+	float: left;
+	margin-right: 6px;
+}
+
+
+/* Title, Description */
+
+.group-description {
+	flex-grow: 1;
+	margin-top: 10px;
+}
+
+input[type=text],
+textarea {
+	padding: 5px;
+}
+
+textarea {
+	height: 100%;
+	min-height: 128px;
+	resize: none;
 }
 
 .validation-error {
@@ -96,32 +114,18 @@ textarea {
 	border-top: none !important;
 }
 
-
 .input-error {
 	border: 1px solid var(--vscode-inputValidation-errorBorder) !important;
 }
 
-.input-label.combo-box {
-	font-variant-caps: all-small-caps;
-	font-size: small;
-	display: flex;
-	align-items: center;
-	margin-bottom: 14px;
-}
 
-.input-label.combo-box .icon {
-	width: 16px;
-	height: 16px;
+/* Assignees, Reviewers, Labels, Milestone */
+
+.group-additions {
 	display: block;
-	float: left;
-	margin-right: 6px;
-	margin-top: 1px;
 }
 
-
-/* Assignees/Reviewers/Labels/Milestone */
-
-.additions {
+.group-additions div {
 	width: 100%;
 	display: block;
 	float: left;
@@ -129,84 +133,73 @@ textarea {
 	border-bottom: 1px solid var(--vscode-menu-separatorBackground);
 }
 
-.additions:last-child {
-	border: none;
-	margin-bottom: 18px;
+.group-additions div:first-child {
+	margin-top: 8px;
 }
 
-.additions .icon {
+.group-additions div:last-child {
+	border: none;
+	margin-bottom: 4px;
+}
+
+.group-additions .icon {
 	display: block;
 	float: left;
 	margin-top: 9px;
-	margin-left: 4px;
+	margin-left: 8px;
 	width: 16px;
 	height: 16px;
 }
 
-.additions ul {
-	font-size: smaller;
+.group-additions ul {
+	display: flex;
+	align-content: flex-start;
+	flex-wrap: wrap;
+	gap: 4px;
 	list-style-type: none;
-	display: block;
-	float: left;
+	font-size: smaller;
 	margin: 0;
-	margin-left: 36px;
-	padding-bottom: 6px;
+	margin-left: 16px;
 	user-select: none;
 	margin-top: 0;
 	padding: 0;
 	padding-top: 8px;
-	padding-bottom: 4px;
-	margin: 0;
-}
-
-.additions ul li {
-	display: block;
-	float: left;
-	padding: 2px;
-	margin: 0 4px 4px 0;
+	padding-bottom: 8px;
+	padding-left: 10px;
 	cursor: pointer;
 }
 
-.additions.labels ul li {
-	border-width: 1px;
-	border-style: solid;
+.group-additions ul li {
+
+	padding: 2px;
+}
+
+.labels ul li {
+	border: 1px solid var(--vscode-menu-separatorBackground);
 	border-radius: 2px;
 	padding: 2px 4px;
-	border-color: var(--vscode-menu-separatorBackground);
-}
-
-.additions.milestone ul li {
-	border: none;
-}
-
-
-/* AutoMerge */
-
-.automerge-section {
-	display: flex;
-	align-items: center;
-}
-
-.automerge-section .merge-select-container {
-	padding-top: 4px;
-	padding-left: 4px;
-}
-
-.automerge-checkbox-wrapper,
-.automerge-checkbox-label {
-	display: flex;
-	align-items: center;
-	margin-right: 0px;
 }
 
 
 /* Actions */
 
-.actions {
+.group-actions {
 	display: flex;
-	justify-content: end;
 	gap: 8px;
 	margin-top: 10px;
+	margin-bottom: 20px;
+}
+
+.group-actions .spacer {
+	flex-grow: 1;
+}
+
+button.merge-method {
+	padding: 0;
+	margin: 0;
+	margin-left: 4px;
+	background-color: transparent !important;
+
 }
 
 button.split-left {
