@@ -23,7 +23,7 @@ export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch }:
 	const defaultsLabel = defaultRemote && defaultBranch ? `${defaultRemote.owner}/${defaultBranch}` : '-';
 
 	return <ErrorBoundary>
-		<div className='select-wrapper flex'>
+		<div className='flex'>
 			<button title='Choose a repository and branch' className='secondary' onClick={() => {
 				onClick(defaultRemote, defaultBranch);
 			}}>
@@ -84,23 +84,21 @@ export function main() {
 					return <div className="loading-indicator">Loading...</div>;
 				}
 
-				return <div>
-					<div className='selector-group'>
-
-						<div className='input-label combo-box base'>
-							<div className="deco">{prBaseIcon} Base</div>
+				return <div className='group-main'>
+					<div className='group-branches'>
+						<div className='input-label base'>
+							<div className="deco"><span title='Base branch'>{prBaseIcon} Base</span></div>
 							<ChooseRemoteAndBranch onClick={ctx.changeBaseRemoteAndBranch}
 								defaultRemote={params.baseRemote}
 								defaultBranch={params.baseBranch} />
 						</div>
 
-						<div className='input-label combo-box merge'>
-							<div className="deco">{prMergeIcon} Merge</div>
+						<div className='input-label merge'>
+							<div className="deco"><span title='Merge branch'>{prMergeIcon} Merge</span></div>
 							<ChooseRemoteAndBranch onClick={ctx.changeMergeRemoteAndBranch}
 									defaultRemote={params.compareRemote}
 									defaultBranch={params.compareBranch} />
 						</div>
-
 					</div>
 
 					{params.labels && (params.labels.length > 0) ?
@@ -118,7 +116,7 @@ export function main() {
 						</div>
 						: null}
 
-					<div className='wrapper'>
+					<div className='group-title'>
 						<input
 							id='title'
 							type='text'
@@ -128,6 +126,7 @@ export function main() {
 							aria-invalid={!!params.showTitleValidationError}
 							aria-describedby={params.showTitleValidationError ? 'title-error' : ''}
 							placeholder='Title'
+							title='Required'
 							required
 							onChange={(e) => updateTitle(e.currentTarget.value)}
 							onKeyDown={onKeyDown}>
@@ -135,26 +134,42 @@ export function main() {
 						<div id='title-error' className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required</div>
 					</div>
 
-					<div className='wrapper'>
-						<div className='additions assignees'>
-							{assigneeIcon}
+					<div className='group-additions'>
+						<div className='assignees'>
+							<span title='Assignees'>{assigneeIcon}</span>
 							<ul aria-label="Assignees">
+							<li>deepak1556</li>
+								<li>hbons</li>
+								<li>alexr00</li>
+								<li>deepak1556</li>
+								<li>hbons</li>
+								<li>alexr00</li>
 								<li>deepak1556</li>
 								<li>hbons</li>
 								<li>alexr00</li>
 							</ul>
 						</div>
-						<div className='additions reviewers'>
-							{reviewerIcon}
+						<div className='reviewers'>
+							<span title='Reviewers'>{reviewerIcon}</span>
 							<ul aria-label="Reviewers">
 								<li>alexr00</li>
-								<li>hbons</li>
 								<li>deepak1556</li>
+								<li>hbons</li>
+								<li>alexr00</li>
+								<li>deepak1556</li>
+								<li>hbons</li>
+								<li>alexr00</li>
+								<li>hbons</li>
 							</ul>
 						</div>
-						<div className='additions labels'>
-							{labelIcon}
+						<div className='labels'>
+							<span title='Labels'>{labelIcon}</span>
 							<ul aria-label="Labels">
+							<li>ux</li>
+								<li>design</li>
+								<li>docs</li>
+								<li>macos</li>
+								<li>help-wanted</li>
 								<li>ux</li>
 								<li>design</li>
 								<li>docs</li>
@@ -162,21 +177,20 @@ export function main() {
 								<li>help-wanted</li>
 							</ul>
 						</div>
-						<div className='additions milestone'>
-							{milestoneIcon}
+						<div className='milestone'>
+							<span title='Milestone'>{milestoneIcon}</span>
 							<ul aria-label="Milestone">
 								<li>January 2024</li>
 							</ul>
 						</div>
 					</div>
 
-					<div className='wrapper'>
+					<div className='group-description'>
 						<textarea
 							id='description'
 							name='description'
 							placeholder='Description'
 							value={params.pendingDescription}
-							required
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
 							onKeyDown={onKeyDown}></textarea>
 					</div>
@@ -194,11 +208,12 @@ export function main() {
 						<button disabled={isBusy} className="secondary" onClick={() => ctx.cancelCreate()}>
 							Cancel
 						</button>
-						<div>
+						<div className='create-button'>
 							<button className='split-left' disabled={isBusy || !isCreateable} onClick={() => create()}>
 								Create
 							</button>
-							<button className='split-right' disabled={isBusy || !isCreateable} onClick={() => create()}>
+							<button className='split-right' disabled={isBusy || !isCreateable} onClick={() => create()}
+								title='Creation Actions'>
 								{chevronDownIcon}
 							</button>
 						</div>
