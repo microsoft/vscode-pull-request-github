@@ -188,7 +188,9 @@ export function main() {
 					</div>
 					<AutoMerge {...params} updateState={ctx.updateState}></AutoMerge>
 
-					<div className="actions">
+					<div className="group-actions">
+						<button className='secondary merge-method' title="Merge Method: Squash and Merge">{gearIcon}</button>
+						<div className='spacer'></div>
 						<button disabled={isBusy} className="secondary" onClick={() => ctx.cancelCreate()}>
 							Cancel
 						</button>
