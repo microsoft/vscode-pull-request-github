@@ -561,7 +561,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 
 		const labelsToAdd = await vscode.window.showQuickPick(
 			getLabelOptions(this._folderRepositoryManager, this.labels, this._baseRemote),
-			{ canPickMany: true },
+			{ canPickMany: true, placeHolder: 'Apply labels' },
 		);
 
 		if (labelsToAdd) {
