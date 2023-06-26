@@ -169,7 +169,7 @@ export function main() {
 						</div>
 						<div className='labels'>
 							<span title='Labels'>{labelIcon}</span>
-							<ul title='' aria-label='Labels' tabIndex='0'>
+							<ul aria-label='Labels' tabIndex='0'>
 							<li>ux</li>
 								<li>design</li>
 								<li>docs</li>
