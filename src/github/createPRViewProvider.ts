@@ -19,6 +19,7 @@ import {
 	PUSH_BRANCH,
 	SET_AUTO_MERGE,
 } from '../common/settingKeys';
+import { compareIgnoreCase } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import {
 	byRemoteName,
@@ -397,6 +398,12 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		if (isBase) {
 			newBranch = defaultBranch;
 			this._baseBranch = defaultBranch;
+			if (compareIgnoreCase(this._baseRemote.owner, owner) !== 0 || compareIgnoreCase(this._baseRemote.repositoryName, repositoryName)) {
+				/* __GDPR__
+				"pr.create.changedBaseRemote" : {}
+				*/
+				this._folderRepositoryManager.telemetry.sendTelemetryEvent('pr.create.changedBaseRemote');
+			}
 			this._baseRemote = { owner, repositoryName };
 			this._onDidChangeBaseRemote.fire({ owner, repositoryName });
 			this._onDidChangeBaseBranch.fire(defaultBranch);
@@ -614,6 +621,12 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	private async changeBranch(newBranch: string, isBase: boolean): Promise<{ title: string, description: string }> {
 		let compareBranch: Branch | undefined;
 		if (isBase) {
+			if (this._baseBranch !== newBranch) {
+				/* __GDPR__
+				"pr.create.changedBaseBranch" : {}
+				*/
+				this._folderRepositoryManager.telemetry.sendTelemetryEvent('pr.create.changedBaseBranch');
+			}
 			this._baseBranch = newBranch;
 			this._onDidChangeBaseBranch.fire(newBranch);
 		} else {
