@@ -101,21 +101,6 @@ export function main() {
 						</div>
 					</div>
 
-					{params.labels && (params.labels.length > 0) ?
-						<div>
-							<label className='input-label'>Labels</label>
-							<div className='labels-list'>
-								{params.labels.map(label => <Label key={label.name} {...label} canDelete isDarkTheme={!!params.isDarkTheme}>
-									<button className="icon-button" onClick={() => {
-										ctx.postMessage({ command: 'pr.removeLabel', args: { label } });
-									}}>
-										{closeIcon}️
-									</button>
-								</Label>)}
-							</div>
-						</div>
-						: null}
-
 					<div className='group-title'>
 						<input
 							id='title'
@@ -135,6 +120,7 @@ export function main() {
 					</div>
 
 					<div className='group-additions'>
+						{ /*
 						<div className='assignees'>
 							<span title='Assignees'>{assigneeIcon}</span>
 							<ul aria-label="Assignees">
@@ -162,27 +148,25 @@ export function main() {
 								<li>hbons</li>
 							</ul>
 						</div>
+						*/ }
+
+						{params.labels && (params.labels.length > 0) ?
 						<div className='labels'>
 							<span title='Labels'>{labelIcon}</span>
 							<ul aria-label="Labels">
-							<li>ux</li>
-								<li>design</li>
-								<li>docs</li>
-								<li>macos</li>
-								<li>help-wanted</li>
-								<li>ux</li>
-								<li>design</li>
-								<li>docs</li>
-								<li>macos</li>
-								<li>help-wanted</li>
+								{params.labels.map(label => <Label key={label.name} {...label} canDelete isDarkTheme={!!params.isDarkTheme} />)}
 							</ul>
 						</div>
+						: null}
+
+						{ /*
 						<div className='milestone'>
 							<span title='Milestone'>{milestoneIcon}</span>
 							<ul aria-label="Milestone">
 								<li>January 2024</li>
 							</ul>
 						</div>
+						*/ }
 					</div>
 
 					<div className='group-description'>

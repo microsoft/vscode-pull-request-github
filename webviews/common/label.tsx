@@ -14,18 +14,8 @@ export interface LabelProps {
 
 export function Label(label: ILabel & { canDelete: boolean; isDarkTheme: boolean; children?: ReactNode}) {
 	const { name, canDelete, color } = label;
-	const labelColor = gitHubLabelColor(color, label.isDarkTheme, false);
+	const labelColor = gitHubLabelColor(color, label.isDarkTheme, false); /* TODO: Colors */
 	return (
-		<div
-			className="section-item label"
-			style={{
-				backgroundColor: labelColor.backgroundColor,
-				color: labelColor.textColor,
-				borderColor: `${labelColor.borderColor}`,
-				paddingRight: canDelete ? '2px' : '8px'
-			}}
-		>
-			{name}{label.children}
-		</div>
+		<li>{name}{label.children}</li>
 	);
 }
