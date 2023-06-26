@@ -1031,6 +1031,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			await this._item.disableAutoMerge();
 			replyMessage = { autoMerge: this._item.autoMerge };
 		} else {
+			if (this._item.autoMerge && message.args.autoMergeMethod !== this._item.autoMergeMethod) {
+				await this._item.disableAutoMerge();
+			}
 			await this._item.enableAutoMerge(message.args.autoMergeMethod);
 			replyMessage = { autoMerge: this._item.autoMerge, autoMergeMethod: this._item.autoMergeMethod };
 		}
