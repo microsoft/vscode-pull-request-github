@@ -437,9 +437,17 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				defaultDescription: titleAndDescription.description
 			};
 			if (baseRemoteChanged) {
+				/* __GDPR__
+				"pr.create.changedBaseRemote" : {}
+				*/
+				this._folderRepositoryManager.telemetry.sendTelemetryEvent('pr.create.changedBaseRemote');
 				this._onDidChangeBaseRemote.fire(this._baseRemote);
 			}
 			if (baseBranchChanged) {
+				/* __GDPR__
+				"pr.create.changedBaseBranch" : {}
+				*/
+				this._folderRepositoryManager.telemetry.sendTelemetryEvent('pr.create.changedBaseBranch');
 				this._onDidChangeBaseBranch.fire(this._baseBranch);
 			}
 		} else {
@@ -449,6 +457,10 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				compareBranch: result.branch,
 				defaultCompareBranch: defaultBranch
 			};
+			/* __GDPR__
+			"pr.create.changedCompare" : {}
+			*/
+			this._folderRepositoryManager.telemetry.sendTelemetryEvent('pr.create.changedCompare');
 			this._onDidChangeCompareRemote.fire(result.remote);
 			this._onDidChangeCompareBranch.fire(this._compareBranch);
 		}
