@@ -17,6 +17,7 @@ import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel'
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
 export const PullRequestMetadataKey = 'github-pr-owner-number';
+const BaseBranchMetadataKey = 'github-pr-base-branch';
 const PullRequestBranchRegex = /branch\.(.+)\.github-pr-owner-number/;
 const PullRequestRemoteRegex = /branch\.(.+)\.remote/;
 
@@ -24,6 +25,12 @@ export interface PullRequestMetadata {
 	owner: string;
 	repositoryName: string;
 	prNumber: number;
+}
+
+export interface BaseBranchMetadata {
+	owner: string;
+	repositoryName: string;
+	branch: string;
 }
 
 export class PullRequestGitHelper {
@@ -292,8 +299,12 @@ export class PullRequestGitHelper {
 		return null;
 	}
 
-	static buildPullRequestMetadata(pullRequest: PullRequestModel) {
+	private static buildPullRequestMetadata(pullRequest: PullRequestModel) {
 		return `${pullRequest.base.repositoryCloneUrl.owner}#${pullRequest.base.repositoryCloneUrl.repositoryName}#${pullRequest.number}`;
+	}
+
+	private static buildBaseBranchMetadata(owner: string, repository: string, baseBranch: string) {
+		return `${owner}#${repository}#${baseBranch}`;
 	}
 
 	static parsePullRequestMetadata(value: string): PullRequestMetadata | undefined {
@@ -311,8 +322,27 @@ export class PullRequestGitHelper {
 		return undefined;
 	}
 
-	static getMetadataKeyForBranch(branchName: string): string {
+	private static parseBaseBranchMetadata(value: string): BaseBranchMetadata | undefined {
+		if (value) {
+			const matches = /(.*)#(.*)#(.*)/g.exec(value);
+			if (matches && matches.length === 4) {
+				const [, owner, repo, branch] = matches;
+				return {
+					owner,
+					repositoryName: repo,
+					branch,
+				};
+			}
+		}
+		return undefined;
+	}
+
+	private static getMetadataKeyForBranch(branchName: string): string {
 		return `branch.${branchName}.${PullRequestMetadataKey}`;
+	}
+
+	private static getBaseBranchMetadataKeyForBranch(branchName: string): string {
+		return `branch.${branchName}.${BaseBranchMetadataKey}`;
 	}
 
 	static async getMatchingPullRequestMetadataForBranch(
@@ -323,6 +353,19 @@ export class PullRequestGitHelper {
 			const configKey = this.getMetadataKeyForBranch(branchName);
 			const configValue = await repository.getConfig(configKey);
 			return PullRequestGitHelper.parsePullRequestMetadata(configValue);
+		} catch (_) {
+			return;
+		}
+	}
+
+	static async getMatchingBaseBranchMetadataForBranch(
+		repository: Repository,
+		branchName: string,
+	): Promise<BaseBranchMetadata | undefined> {
+		try {
+			const configKey = this.getBaseBranchMetadataKeyForBranch(branchName);
+			const configValue = await repository.getConfig(configKey);
+			return PullRequestGitHelper.parseBaseBranchMetadata(configValue);
 		} catch (_) {
 			return;
 		}
@@ -411,5 +454,17 @@ export class PullRequestGitHelper {
 		Logger.appendLine(`associate ${branchName} with Pull Request #${pullRequest.number}`, PullRequestGitHelper.ID);
 		const prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
 		await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
+	}
+
+	static async associateBaseBranchWithBranch(
+		repository: Repository,
+		branch: string,
+		owner: string,
+		repo: string,
+		baseBranch: string
+	) {
+		Logger.appendLine(`associate ${branch} with base branch ${owner}/${repo}#${baseBranch}`, PullRequestGitHelper.ID);
+		const prConfigKey = `branch.${branch}.${BaseBranchMetadataKey}`;
+		await repository.setConfig(prConfigKey, PullRequestGitHelper.buildBaseBranchMetadata(owner, repo, baseBranch));
 	}
 }
