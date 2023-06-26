@@ -29,6 +29,7 @@ import {
 } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
 import { ILabel, MergeMethod, RepoAccessAndMergeMethods } from './interface';
+import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
@@ -296,10 +297,13 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		if (!this.defaultCompareBranch) {
 			throw new DetachedHeadError(this._folderRepositoryManager.repository);
 		}
+		const defaultCompareBranch = this.defaultCompareBranch.name ?? '';
+
+		const detectedBaseMetadata = await PullRequestGitHelper.getMatchingBaseBranchMetadataForBranch(this._folderRepositoryManager.repository, defaultCompareBranch);
 
 		const defaultBaseRemote: RemoteInfo = {
-			owner: this._pullRequestDefaults.owner,
-			repositoryName: this._pullRequestDefaults.repo,
+			owner: detectedBaseMetadata?.owner ?? this._pullRequestDefaults.owner,
+			repositoryName: detectedBaseMetadata?.repositoryName ?? this._pullRequestDefaults.repo,
 		};
 
 		const defaultOrigin = await this._folderRepositoryManager.getOrigin(this.defaultCompareBranch);
@@ -308,7 +312,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			repositoryName: defaultOrigin.remote.repositoryName,
 		};
 
-		const defaultBaseBranch = this._pullRequestDefaults.base;
+		const defaultBaseBranch = detectedBaseMetadata?.branch ?? this._pullRequestDefaults.base;
 		const [configuredGitHubRemotes, allGitHubRemotes, defaultTitleAndDescription, mergeConfiguration] = await Promise.all([
 			this._folderRepositoryManager.getGitHubRemotes(),
 			this._folderRepositoryManager.getAllGitHubRemotes(),
@@ -329,7 +333,6 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				repositoryName: remote.repositoryName,
 			};
 		});
-		const defaultCompareBranch = this.defaultCompareBranch.name ?? '';
 
 		const params: CreateParams = {
 			availableBaseRemotes: configuredRemotes,
