@@ -198,7 +198,15 @@ button.merge-method {
 	margin: 0;
 	margin-left: 4px;
 	background-color: transparent !important;
+}
 
+button.merge-method svg {
+	padding: 1px;
+	border-radius: 5px;
+}
+
+button.merge-method:focus svg {
+	outline: var(--vscode-focusBorder) solid 1px !important;
 }
 
 button.split-left {
