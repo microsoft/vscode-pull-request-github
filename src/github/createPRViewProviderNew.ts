@@ -750,6 +750,9 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			case 'pr.changeCompareRemoteAndBranch':
 				return this.changeRemoteAndBranch(message, false);
 
+			case 'pr.changeLabels':
+				return this.addLabels();
+
 			case 'pr.removeLabel':
 				return this.removeLabel(message);
 

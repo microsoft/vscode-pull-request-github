@@ -153,7 +153,9 @@ export function main() {
 						{params.labels && (params.labels.length > 0) ?
 						<div className='labels'>
 							<span title='Labels'>{labelIcon}</span>
-							<ul aria-label="Labels">
+							<ul aria-label="Labels" onClick={() => {
+								ctx.postMessage({ command: 'pr.changeLabels', args: null });
+							}}>
 								{params.labels.map(label => <Label key={label.name} {...label} canDelete isDarkTheme={!!params.isDarkTheme} />)}
 							</ul>
 						</div>
