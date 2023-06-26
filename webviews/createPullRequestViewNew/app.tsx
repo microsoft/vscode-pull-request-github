@@ -159,10 +159,15 @@ export function main() {
 						{params.labels && (params.labels.length > 0) ?
 						<div className='labels'>
 							<span title='Labels'>{labelIcon}</span>
+<<<<<<< HEAD
 							<ul aria-label="Labels" onClick={() => {
 								ctx.postMessage({ command: 'pr.changeLabels', args: null });
 							}}>
 								{params.labels.map(label => <LabelCreate key={label.name} {...label} canDelete isDarkTheme={!!params.isDarkTheme} />)}
+=======
+							<ul aria-label="Labels">
+								{params.labels.map(label => <Label key={label.name} {...label} canDelete isDarkTheme={!!params.isDarkTheme} />)}
+>>>>>>> 7336f10c (pr: Add back labels feature)
 							</ul>
 						</div>
 						: null}
