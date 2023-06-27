@@ -1739,12 +1739,12 @@
 				},
 				{
 					"command": "pr.addAssigneesToNewPr",
-					"when": "view == github:createPullRequest && github:createPrPermissions != READ && github:createPrPermissions",
+					"when": "view == github:createPullRequest && github:createPrPermissions != READ && github:createPrPermissions && config.githubPullRequests.experimental.createView",
 					"group": "navigation@1"
 				},
 				{
 					"command": "pr.addReviewersToNewPr",
-					"when": "view == github:createPullRequest && github:createPrPermissions != READ && github:createPrPermissions",
+					"when": "view == github:createPullRequest && github:createPrPermissions != READ && github:createPrPermissions && config.githubPullRequests.experimental.createView",
 					"group": "navigation@2"
 				},
 				{
@@ -1754,7 +1754,7 @@
 				},
 				{
 					"command": "pr.addMilestoneToNewPr",
-					"when": "view == github:createPullRequest && github:createPrPermissions != READ && github:createPrPermissions",
+					"when": "view == github:createPullRequest && github:createPrPermissions != READ && github:createPrPermissions && config.githubPullRequests.experimental.createView",
 					"group": "navigation@4"
 				}
 			],
