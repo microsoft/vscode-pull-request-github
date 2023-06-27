@@ -56,6 +56,9 @@ svg path {
 	padding-top: 2px;
 	padding-left: 8px;
 	text-align: left;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
 }
 
 .merge {
