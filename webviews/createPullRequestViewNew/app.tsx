@@ -9,7 +9,7 @@ import { CreateParamsNew, RemoteInfo } from '../../common/views';
 import { compareIgnoreCase } from '../../src/common/utils';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
-import { Label } from '../common/label';
+import { LabelCreate } from '../common/label';
 import { AutoMerge } from '../components/automergeSelect';
 import { closeIcon, gearIcon, prBaseIcon, prMergeIcon, chevronDownIcon } from '../components/icon';
 import { assigneeIcon, reviewerIcon, labelIcon, milestoneIcon } from '../components/icon';
@@ -156,7 +156,7 @@ export function main() {
 							<ul aria-label="Labels" onClick={() => {
 								ctx.postMessage({ command: 'pr.changeLabels', args: null });
 							}}>
-								{params.labels.map(label => <Label key={label.name} {...label} canDelete isDarkTheme={!!params.isDarkTheme} />)}
+								{params.labels.map(label => <LabelCreate key={label.name} {...label} canDelete isDarkTheme={!!params.isDarkTheme} />)}
 							</ul>
 						</div>
 						: null}
