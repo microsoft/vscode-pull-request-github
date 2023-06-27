@@ -142,8 +142,8 @@ export function main() {
 					<div className='group-additions'>
 						<div className='assignees'>
 							<span title='Assignees'>{assigneeIcon}</span>
-							<ul aria-label='Assignees' tabIndex='0'>
-							<li>deepak1556</li>
+							<ul aria-label='Assignees' tabIndex={0}>
+								<li>deepak1556</li>
 								<li>hbons</li>
 								<li>alexr00</li>
 								<li>deepak1556</li>
@@ -156,7 +156,7 @@ export function main() {
 						</div>
 						<div className='reviewers'>
 							<span title='Reviewers'>{reviewerIcon}</span>
-							<ul aria-label='Reviewers' tabIndex='0'>
+							<ul aria-label='Reviewers' tabIndex={0}>
 								<li>alexr00</li>
 								<li>deepak1556</li>
 								<li>hbons</li>
@@ -169,7 +169,7 @@ export function main() {
 						</div>
 						<div className='labels'>
 							<span title='Labels'>{labelIcon}</span>
-							<ul aria-label='Labels' tabIndex='0'>
+							<ul aria-label='Labels' tabIndex={0}>
 							<li>ux</li>
 								<li>design</li>
 								<li>docs</li>
@@ -184,7 +184,7 @@ export function main() {
 						</div>
 						<div className='milestone'>
 							<span title='Milestone'>{milestoneIcon}</span>
-							<ul aria-label='Milestone' tabIndex='0'>
+							<ul aria-label='Milestone' tabIndex={0}>
 								<li>January 2024</li>
 							</ul>
 						</div>
