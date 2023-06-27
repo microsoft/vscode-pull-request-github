@@ -213,7 +213,7 @@ button.split-right {
 	border-radius: 0 2px 2px 0;
 	width: 24px;
 	height: 28px;
-	margin-left: 1px;
+	border-left: 1px solid rgba(0, 0, 0, 0.2);
 	padding: 4px 0;
 }
 
