@@ -179,7 +179,7 @@ export namespace DataUri {
 		} catch (e) {
 			const response = await fetch(imageSourceUrl.toString());
 			const buffer = await response.arrayBuffer();
-			await TemporaryState.write(iconsFolder, iconFilename, new Uint8Array(buffer));
+			await TemporaryState.write(iconsFolder, iconFilename, new Uint8Array(buffer), true);
 			innerImageContents = Buffer.from(buffer);
 		}
 		const innerImageEncoded = `data:image/jpeg;size:${innerImageContents.byteLength};base64,${innerImageContents.toString('base64')}`;
