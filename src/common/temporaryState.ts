@@ -4,12 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 import Logger from './logger';
+import { dispose } from './utils';
 
 let tempState: TemporaryState | undefined;
 
 export class TemporaryState extends vscode.Disposable {
 	private readonly SUBPATH = 'temp';
 	private readonly disposables: vscode.Disposable[] = [];
+	private readonly persistInSessionDisposables: vscode.Disposable[] = [];
 
 	constructor(private _storageUri: vscode.Uri) {
 		super(() => this.disposables.forEach(disposable => disposable.dispose()));
@@ -19,15 +21,24 @@ export class TemporaryState extends vscode.Disposable {
 		return vscode.Uri.joinPath(this._storageUri, this.SUBPATH);
 	}
 
-	private addDisposable(disposable: vscode.Disposable) {
-		if (this.disposables.length > 30) {
-			const oldDisposable = this.disposables.shift();
-			oldDisposable?.dispose();
-		}
-		this.disposables.push(disposable);
+	dispose() {
+		dispose(this.disposables);
+		dispose(this.persistInSessionDisposables);
 	}
 
-	private async writeState(subpath: string, filename: string, contents: Uint8Array): Promise<vscode.Uri> {
+	private addDisposable(disposable: vscode.Disposable, persistInSession: boolean) {
+		if (persistInSession) {
+			this.persistInSessionDisposables.push(disposable);
+		} else {
+			if (this.disposables.length > 30) {
+				const oldDisposable = this.disposables.shift();
+				oldDisposable?.dispose();
+			}
+			this.disposables.push(disposable);
+		}
+	}
+
+	private async writeState(subpath: string, filename: string, contents: Uint8Array, persistInSession: boolean): Promise<vscode.Uri> {
 		let filePath: vscode.Uri = this.path;
 		const workspace = (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0)
 			? vscode.workspace.workspaceFolders[0].name : undefined;
@@ -45,10 +56,14 @@ export class TemporaryState extends vscode.Disposable {
 
 		const dispose = {
 			dispose: () => {
-				return vscode.workspace.fs.delete(file, { recursive: true });
+				try {
+					return vscode.workspace.fs.delete(file, { recursive: true });
+				} catch (e) {
+					// No matter the error, we do not want to throw in dispose.
+				}
 			}
 		};
-		this.addDisposable(dispose);
+		this.addDisposable(dispose, persistInSession);
 		return file;
 	}
 
@@ -83,12 +98,12 @@ export class TemporaryState extends vscode.Disposable {
 		}
 	}
 
-	static async write(subpath: string, filename: string, contents: Uint8Array): Promise<vscode.Uri | undefined> {
+	static async write(subpath: string, filename: string, contents: Uint8Array, persistInSession: boolean = false): Promise<vscode.Uri | undefined> {
 		if (!tempState) {
 			return;
 		}
 
-		return tempState.writeState(subpath, filename, contents);
+		return tempState.writeState(subpath, filename, contents, persistInSession);
 	}
 
 	static async read(subpath: string, filename: string): Promise<Uint8Array | undefined> {
