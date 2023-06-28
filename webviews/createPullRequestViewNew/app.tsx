@@ -113,6 +113,7 @@ export function main() {
 							type='text'
 							ref={titleInput}
 							name='title'
+							value={params.pendingTitle}
 							className={params.showTitleValidationError ? 'input-error' : ''}
 							aria-invalid={!!params.showTitleValidationError}
 							aria-describedby={params.showTitleValidationError ? 'title-error' : ''}
