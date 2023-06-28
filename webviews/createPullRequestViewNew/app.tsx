@@ -15,16 +15,15 @@ import { closeIcon, gearIcon, prBaseIcon, prMergeIcon, chevronDownIcon } from '.
 import { assigneeIcon, reviewerIcon, labelIcon, milestoneIcon } from '../components/icon';
 
 
+export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch, isBase }:
+	{ onClick: (remote?: RemoteInfo, branch?: string) => Promise<void>, defaultRemote: RemoteInfo | undefined, defaultBranch: string | undefined, isBase: boolean }) => {
 
-
-
-export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch }:
-	{ onClick: (remote?: RemoteInfo, branch?: string) => Promise<void>, defaultRemote: RemoteInfo | undefined, defaultBranch: string | undefined }) => {
-	const defaultsLabel = defaultRemote && defaultBranch ? `${defaultRemote.owner}/${defaultBranch}` : '-';
+	const defaultsLabel = (defaultRemote && defaultBranch) ? `${defaultRemote.owner}/${defaultBranch}` : '-';
+	const title = isBase ? 'Base branch: ' + defaultsLabel : 'Branch to merge: ' + defaultsLabel;
 
 	return <ErrorBoundary>
 		<div className='flex'>
-			<button title='Choose a repository and branch' className='secondary' onClick={() => {
+			<button title={title} aria-label={title} className='secondary' onClick={() => {
 				onClick(defaultRemote, defaultBranch);
 			}}>
 				{defaultsLabel}
@@ -93,7 +92,8 @@ export function main() {
 							</div>
 							<ChooseRemoteAndBranch onClick={ctx.changeBaseRemoteAndBranch}
 								defaultRemote={params.baseRemote}
-								defaultBranch={params.baseBranch} />
+								defaultBranch={params.baseBranch}
+								isBase={true} />
 						</div>
 
 						<div className='input-label merge'>
@@ -101,8 +101,9 @@ export function main() {
 								<span title='Merge branch'>{prMergeIcon} Merge</span>
 							</div>
 							<ChooseRemoteAndBranch onClick={ctx.changeMergeRemoteAndBranch}
-									defaultRemote={params.compareRemote}
-									defaultBranch={params.compareBranch} />
+								defaultRemote={params.compareRemote}
+								defaultBranch={params.compareBranch}
+								isBase={false} />
 						</div>
 					</div>
 
