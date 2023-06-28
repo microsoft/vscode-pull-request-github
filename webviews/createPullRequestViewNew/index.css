@@ -75,8 +75,6 @@ svg path {
 	color: var(--vscode-button-foreground);
 }
 
-
-
 .merge {
 	padding-left: 28px;
 }
@@ -223,8 +221,9 @@ textarea {
 button.merge-method {
 	padding: 0;
 	margin: 0;
-	margin-left: 4px;
 	background-color: transparent !important;
+	width: 28px;
+	padding-top: 3px;
 }
 
 button.merge-method svg {
@@ -232,8 +231,8 @@ button.merge-method svg {
 	border-radius: 5px;
 }
 
-button.merge-method:focus svg {
-	outline: var(--vscode-focusBorder) solid 1px;
+button.merge-method:focus {
+	background-color: var(--vscode-focusBorder) !important;
 }
 
 button.split-left {
