@@ -75,8 +75,6 @@ svg path {
 	color: var(--vscode-button-foreground);
 }
 
-
-
 .merge {
 	padding-left: 28px;
 }
@@ -240,6 +238,8 @@ textarea {
 	height: 28px;
 	cursor: pointer;
 	background-color: transparent !important;
+	width: 28px;
+	padding-top: 3px;
 }
 
 .merge-method select:focus {
