@@ -59,7 +59,23 @@ svg path {
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
 }
+
+.base button:hover,
+.merge button:hover {
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+}
+
+.base button:focus,
+.merge button:focus {
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+
 
 .merge {
 	padding-left: 28px;
