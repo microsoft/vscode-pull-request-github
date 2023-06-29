@@ -230,10 +230,15 @@ textarea {
 	z-index: -1;
 }
 
-.merge-method select {
+.merge-method
 	appearance: none;
 	border: none;
 	font-size: 0;
+	width: 28px;
+	height: 28px;
+	cursor: pointer;
+	background-color: transparent !important;
+>>>>>>> 35195088 (create: Merge method dropdown menu)
 	width: 28px;
 	height: 28px;
 	cursor: pointer;
