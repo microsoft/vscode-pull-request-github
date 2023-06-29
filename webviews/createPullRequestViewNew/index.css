@@ -230,7 +230,7 @@ textarea {
 	z-index: -1;
 }
 
-.merge-method {
+.merge-method select {
 	appearance: none;
 	border: none;
 	font-size: 0;
@@ -277,8 +277,6 @@ button.split-left {
 	width: 24px; height: 28px;
 	border-radius: 0 2px 2px 0;
 	border: 1px solid var(--vscode-button-border) !important;
-	background-color: var(--vscode-button-background) !important;
-	border: none;
 	font-size: 0;
 }
 
@@ -293,5 +291,4 @@ button.split-left {
 .split-right select:focus {
 	outline: none;
 	border: 1px solid var(--vscode-contrastActiveBorder) !important;
-	background-color: var(--vscode-button-hoverBackground) !important;
 }
