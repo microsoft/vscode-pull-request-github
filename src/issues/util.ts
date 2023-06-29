@@ -203,7 +203,7 @@ export async function issueMarkdown(
 	commentNumber?: number,
 ): Promise<vscode.MarkdownString> {
 	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
-	markdown.isTrusted = true;
+	markdown.supportHtml = true;
 	const date = new Date(issue.createdAt);
 	const ownerName = `${issue.remote.owner}/${issue.remote.repositoryName}`;
 	markdown.appendMarkdown(
