@@ -511,6 +511,7 @@ export function registerCommands(
 		}),
 	);
 
+	let isCheckingOutFromReadonlyFile = false;
 	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromReadonlyFile', async () => {
 		const uri = vscode.window.activeTextEditor?.document.uri;
 		if (uri?.scheme !== Schemes.Pr) {
@@ -528,9 +529,15 @@ export function registerCommands(
 		if (!folderManager || !githubRepository) {
 			return;
 		}
-		const prModel = await folderManager.fetchById(githubRepository, Number(prUriPropserties.prNumber));
-		if (prModel) {
-			return ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager)?.switch(prModel);
+		const prModel = await vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, () => folderManager.fetchById(githubRepository!, Number(prUriPropserties.prNumber)));
+		if (prModel && !isCheckingOutFromReadonlyFile) {
+			isCheckingOutFromReadonlyFile = true;
+			try {
+				await ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager)?.switch(prModel);
+			} catch (e) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Unable to check out pull request from read-only file: {0}', e instanceof Error ? e.message : 'unknown'));
+			}
+			isCheckingOutFromReadonlyFile = false;
 		}
 	}));
 
