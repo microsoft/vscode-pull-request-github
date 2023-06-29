@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.66.2
+
+### Fixes
+
+- Use `supportHtml` for markdown that just cares about coloring spans for showing issue labels.
+
+## 0.66.1
+
+### Fixes
+
+- TypeError: Cannot read properties of undefined (reading 'number'). https://github.com/microsoft/vscode-pull-request-github/issues/4893
+
 ## 0.66.0
 
 ### Changes
