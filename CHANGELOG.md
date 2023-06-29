@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.66.2
+
+### Fixes
+
+- Use `supportHtml` for markdown that just cares about coloring spans for showing issue labels.
+
 ## 0.66.1
 
 ### Fixes
