@@ -33,6 +33,7 @@ export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch }:
 	</ErrorBoundary>;
 };
 
+
 export function main() {
 	render(
 		<Root>
@@ -225,10 +226,15 @@ export function main() {
 							<button className='split-left' disabled={isBusy || !isCreateable} onClick={() => create()}>
 								Create
 							</button>
-							<button className='split-right' disabled={isBusy || !isCreateable} onClick={() => create()}
-								title='Create Actions' aria-label='Create Actions'>
+							<div className='split-right'>
 								{chevronDownIcon}
-							</button>
+								<select name='create-action' disabled={isBusy || !isCreateable}
+									title='Create Actions' aria-label='Create Actions'>
+									<option value='create'>Create</option>
+									<option value='create-draft'>Create Draft</option>
+									<option value='create-automerge'>Create and Auto-merge</option>
+								</select>
+							</div>
 						</div>
 					</div>
 				</div>;

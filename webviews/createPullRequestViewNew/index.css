@@ -208,7 +208,7 @@ textarea {
 	z-index: -1;
 }
 
-select {
+.merge-method select {
 	appearance: none;
 	border: none;
 	font-size: 0;
@@ -218,7 +218,7 @@ select {
 	background-color: transparent !important;
 }
 
-select:focus {
+.merge-method select:focus {
 	outline: none;
 	border: 1px solid var(--vscode-focusBorder);
 }
@@ -229,16 +229,42 @@ button.split-left {
 	border-radius:  2px 0 0 2px;
 }
 
-button.split-right {
+.split-right {
+	position: relative;
 	display: block;
 	float: left;
-	border-radius: 0 2px 2px 0;
-	width: 24px;
-	height: 28px;
 	margin-left: 1px;
-	padding: 4px 0;
+	padding: 0;
 }
 
-button.split-right svg path {
+.split-right .icon {
+	pointer-events: none;
+	position: absolute;
+	top: 6px; right: 4px;
+}
+
+.split-right .icon svg path {
 	fill: var(--vscode-button-foreground);
+}
+
+.split-right select {
+	appearance: none;
+	width: 24px; height: 28px;
+	border-radius: 0 2px 2px 0;
+	background-color: var(--vscode-button-background) !important;
+	border: none;
+	font-size: 0;
+}
+
+.split-right select:disabled {
+	opacity: 0.4;
+}
+
+.split-right:has(select:disabled) .icon {
+	opacity: 0.4;
+}
+
+.split-right select:focus {
+	outline: none;
+	background-color: var(--vscode-button-hoverBackground) !important;
 }
