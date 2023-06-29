@@ -206,16 +206,19 @@ export function main() {
 							{params.createError}
 						</ErrorBoundary>
 					</div>
-					<AutoMerge {...params} updateState={ctx.updateState}></AutoMerge>
 
-					<div className="group-actions">
-						<button className='secondary merge-method'
-							title='Merge Method'
-							aria-label='Merge Method'>
-								{gearIcon}
-						</button>
+					<div className='group-actions'>
+						<div className='merge-method'>
+							{gearIcon}
+							<select name='merge-method' title='Merge Method' aria-label='Merge Method'>
+								<option value='create-merge-commit'>Create Merge Commit</option>
+								<option value='quash-and-merge'>Squash and Merge</option>
+								<option value='rebase-and-merge' selected>Rebase and Merge</option>
+							</select>
+						</div>
+
 						<div className='spacer'></div>
-						<button disabled={isBusy} className="secondary" onClick={() => ctx.cancelCreate()}>
+						<button disabled={isBusy} className='secondary' onClick={() => ctx.cancelCreate()}>
 							Cancel
 						</button>
 						<div className='create-button'>
