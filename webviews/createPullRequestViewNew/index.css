@@ -230,7 +230,7 @@ textarea {
 	z-index: -1;
 }
 
-.merge-method select {
+.merge-method {
 	appearance: none;
 	border: none;
 	font-size: 0;
@@ -238,8 +238,6 @@ textarea {
 	height: 28px;
 	cursor: pointer;
 	background-color: transparent !important;
-	width: 28px;
-	padding-top: 3px;
 }
 
 .merge-method select:focus {
