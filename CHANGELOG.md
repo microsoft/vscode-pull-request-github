@@ -4,6 +4,10 @@
 
 ### Changes
 
+- Avatars in tree views and comments are circles instead of squares
+
+![Circle avatar](/documentation/changelog/0.68.0/circle-avatar.png)
+
 - The old "Suggest Edit" command from the SCM view now directs you to "Suggest a Change" feature introduced in version 0.58.0.
 - Up to 1000 (from the previous 100) comment threads can be loaded in a pull request.
 - The new VS Code API proposal for a read-only message let's you check out a PR directly from an un-checked-out diff.
