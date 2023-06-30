@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.68.0
+
+### Changes
+
+- Avatars in tree views and comments are circles instead of squares
+
+![Circle avatar](/documentation/changelog/0.68.0/circle-avatar.png)
+
+- The old "Suggest Edit" command from the SCM view now directs you to "Suggest a Change" feature introduced in version 0.58.0.
+- Up to 1000 (from the previous 100) comment threads can be loaded in a pull request.
+- The new VS Code API proposal for a read-only message let's you check out a PR directly from an un-checked-out diff.
+
+![Read-only PR file message](/documentation/changelog/0.68.0/read-only-file-message.png)
+
+### Fixes
+
+- User hover shows null when writing the @username. https://github.com/microsoft/vscode-pull-request-github/issues/4891
+- Reverted PR remains visible in "Local Pull Request Branches" tab of sidebar. https://github.com/microsoft/vscode-pull-request-github/issues/4855
+- Order of workspaces in multi-root workspace is not what I expect. https://github.com/microsoft/vscode-pull-request-github/issues/4837
+- Reassigning same reviewers causes desync with GitHub. https://github.com/microsoft/vscode-pull-request-github/issues/4836
+- Re-request review from one reviewer will remove other reviewers. https://github.com/microsoft/vscode-pull-request-github/issues/4830
+- Don't reload entire DOM when getting data from GitHub. https://github.com/microsoft/vscode-pull-request-github/issues/4371
+
 ## 0.66.2
 
 ### Fixes
