@@ -28,3 +28,5 @@
     - Upload .vsix, which can be downloaded from the release pipeline
     - Preview release
     - **Publish** release
+
+9. If the nightly pre-release build was disable, re-enable in in https://github.com/microsoft/vscode-pull-request-github/blob/c6f00d59fb99c7807bfb963f55926505bdb723ef/azure-pipeline.nightly.yml
