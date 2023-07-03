@@ -2,13 +2,13 @@
 trigger: none
 pr: none
 
-schedules:
-  - cron: '0 9 * * Mon-Thu'
-    displayName: Nightly Release Schedule
-    always: true
-    branches:
-      include:
-        - main
+# schedules:
+#   - cron: '0 9 * * Mon-Thu'
+#     displayName: Nightly Release Schedule
+#     always: true
+#     branches:
+#       include:
+#         - main
 
 resources:
   repositories:
