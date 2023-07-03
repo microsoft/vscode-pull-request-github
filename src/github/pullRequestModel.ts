@@ -1643,7 +1643,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	async markFileAsViewed(filePathOrSubpath: string): Promise<void> {
+	async markFileAsViewed(filePathOrSubpath: string, event: boolean): Promise<void> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 		const fileName = filePathOrSubpath.startsWith(this.githubRepository.rootUri.path) ?
 			filePathOrSubpath.substring(this.githubRepository.rootUri.path.length + 1) : filePathOrSubpath;
@@ -1657,10 +1657,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			},
 		});
 
-		this.setFileViewedState(fileName, ViewedState.VIEWED, true);
+		this.setFileViewedState(fileName, ViewedState.VIEWED, event);
 	}
 
-	async unmarkFileAsViewed(filePathOrSubpath: string): Promise<void> {
+	async unmarkFileAsViewed(filePathOrSubpath: string, event: boolean): Promise<void> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 		const fileName = filePathOrSubpath.startsWith(this.githubRepository.rootUri.path) ?
 			filePathOrSubpath.substring(this.githubRepository.rootUri.path.length + 1) : filePathOrSubpath;
@@ -1674,11 +1674,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			},
 		});
 
-		this.setFileViewedState(fileName, ViewedState.UNVIEWED, true);
+		this.setFileViewedState(fileName, ViewedState.UNVIEWED, event);
 	}
 
 	async unmarkAllFilesAsViewed(): Promise<void[]> {
-		return Promise.all(Array.from(this.fileChanges.keys()).map(change => this.unmarkFileAsViewed(change)));
+		return Promise.all(Array.from(this.fileChanges.keys()).map(change => this.unmarkFileAsViewed(change, true)));
 	}
 
 	private setFileViewedState(fileSubpath: string, viewedState: ViewedState, event: boolean) {
