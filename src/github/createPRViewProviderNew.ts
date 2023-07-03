@@ -570,6 +570,14 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 
 	private async create(message: IRequestMessage<CreatePullRequest>): Promise<void> {
 		Logger.debug(`Creating pull request with args ${JSON.stringify(message.args)}`, CreatePullRequestViewProviderNew.ID);
+
+		function postCreate(createdPR: PullRequestModel) {
+			return Promise.all([
+				this.setLabels(createdPR, message.args.labels),
+				this.enableAutoMerge(createdPR, message.args.autoMerge, message.args.autoMergeMethod),
+				this.autoAssign(createdPR)]);
+		}
+
 		vscode.window.withProgress({ location: { viewId: 'github:createPullRequest' } }, () => {
 			return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async progress => {
 				let totalIncrement = 0;
@@ -638,15 +646,16 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 					if (!createdPR) {
 						this._throwError(message, vscode.l10n.t('There must be a difference in commits to create a pull request.'));
 					} else {
-						await Promise.all([
-							this.setLabels(createdPR, message.args.labels),
-							this.enableAutoMerge(createdPR, message.args.autoMerge, message.args.autoMergeMethod),
-							this.autoAssign(createdPR)]);
+						await postCreate(createdPR);
 					}
 				} catch (e) {
 					if (!createdPR) {
 						this._throwError(message, e.message);
 					} else {
+						if (e.message === 'GraphQL error: ["Pull request Pull request is in unstable status"]') {
+							// This error can happen if the PR isn't fully created by the time we try to set properties on it. Try again.
+							await postCreate(createdPR);
+						}
 						// All of these errors occur after the PR is created, so the error is not critical.
 						vscode.window.showErrorMessage(vscode.l10n.t('There was an error creating the pull request: {0}', e.message));
 					}

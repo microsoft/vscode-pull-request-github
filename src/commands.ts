@@ -192,7 +192,7 @@ export function registerCommands(
 				const result = await vscode.window.showInformationMessage(vscode.l10n.t('You can now make suggestions from review comments, just like on GitHub.com. See the documentation for more details.'),
 					{ modal: true }, documentation);
 				if (result === documentation) {
-					return vscode.env.openExternal(vscode.Uri.parse('https://github.com/microsoft/vscode-pull-request-github/blob/main/documentation/changelog/0.58.0/suggest-a-change.gif'));
+					return vscode.env.openExternal(vscode.Uri.parse('https://github.com/microsoft/vscode-pull-request-github/blob/main/documentation/suggestAChange.md'));
 				}
 			}
 			try {
@@ -511,6 +511,7 @@ export function registerCommands(
 		}),
 	);
 
+	let isCheckingOutFromReadonlyFile = false;
 	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromReadonlyFile', async () => {
 		const uri = vscode.window.activeTextEditor?.document.uri;
 		if (uri?.scheme !== Schemes.Pr) {
@@ -528,9 +529,15 @@ export function registerCommands(
 		if (!folderManager || !githubRepository) {
 			return;
 		}
-		const prModel = await folderManager.fetchById(githubRepository, Number(prUriPropserties.prNumber));
-		if (prModel) {
-			return ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager)?.switch(prModel);
+		const prModel = await vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, () => folderManager.fetchById(githubRepository!, Number(prUriPropserties.prNumber)));
+		if (prModel && !isCheckingOutFromReadonlyFile) {
+			isCheckingOutFromReadonlyFile = true;
+			try {
+				await ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager)?.switch(prModel);
+			} catch (e) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Unable to check out pull request from read-only file: {0}', e instanceof Error ? e.message : 'unknown'));
+			}
+			isCheckingOutFromReadonlyFile = false;
 		}
 	}));
 
@@ -1110,7 +1117,7 @@ ${contents}
 				}
 
 				if (treeNode instanceof FileChangeNode) {
-					await treeNode.markFileAsViewed();
+					await treeNode.markFileAsViewed(false);
 				} else if (treeNode) {
 					// When the argument is a uri it came from the editor menu and we should also close the file
 					// Do the close first to improve perceived performance of marking as viewed.
@@ -1127,7 +1134,7 @@ ${contents}
 						}
 					}
 					const manager = reposManager.getManagerForFile(treeNode);
-					await manager?.activePullRequest?.markFileAsViewed(treeNode.path);
+					await manager?.activePullRequest?.markFileAsViewed(treeNode.path, true);
 					manager?.setFileViewedContext();
 				}
 			} catch (e) {
@@ -1145,10 +1152,10 @@ ${contents}
 				}
 
 				if (treeNode instanceof FileChangeNode) {
-					treeNode.unmarkFileAsViewed();
+					treeNode.unmarkFileAsViewed(false);
 				} else if (treeNode) {
 					const manager = reposManager.getManagerForFile(treeNode);
-					await manager?.activePullRequest?.unmarkFileAsViewed(treeNode.path);
+					await manager?.activePullRequest?.unmarkFileAsViewed(treeNode.path, true);
 					manager?.setFileViewedContext();
 				}
 			} catch (e) {

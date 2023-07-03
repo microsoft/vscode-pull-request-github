@@ -87,14 +87,18 @@ export function main() {
 				return <div className='group-main'>
 					<div className='group-branches'>
 						<div className='input-label base'>
-							<div className="deco"><span title='Base branch'>{prBaseIcon} Base</span></div>
+							<div className="deco">
+								<span title='Base branch'>{prBaseIcon} Base</span>
+							</div>
 							<ChooseRemoteAndBranch onClick={ctx.changeBaseRemoteAndBranch}
 								defaultRemote={params.baseRemote}
 								defaultBranch={params.baseBranch} />
 						</div>
 
 						<div className='input-label merge'>
-							<div className="deco"><span title='Merge branch'>{prMergeIcon} Merge</span></div>
+							<div className="deco">
+								<span title='Merge branch'>{prMergeIcon} Merge</span>
+							</div>
 							<ChooseRemoteAndBranch onClick={ctx.changeMergeRemoteAndBranch}
 									defaultRemote={params.compareRemote}
 									defaultBranch={params.compareBranch} />
@@ -111,6 +115,7 @@ export function main() {
 							aria-invalid={!!params.showTitleValidationError}
 							aria-describedby={params.showTitleValidationError ? 'title-error' : ''}
 							placeholder='Title'
+							aria-label='Title'
 							title='Required'
 							required
 							onChange={(e) => updateTitle(e.currentTarget.value)}
@@ -123,8 +128,8 @@ export function main() {
 						{ /*
 						<div className='assignees'>
 							<span title='Assignees'>{assigneeIcon}</span>
-							<ul aria-label="Assignees">
-							<li>deepak1556</li>
+							<ul aria-label='Assignees' tabIndex={0}>
+								<li>deepak1556</li>
 								<li>hbons</li>
 								<li>alexr00</li>
 								<li>deepak1556</li>
@@ -137,7 +142,7 @@ export function main() {
 						</div>
 						<div className='reviewers'>
 							<span title='Reviewers'>{reviewerIcon}</span>
-							<ul aria-label="Reviewers">
+							<ul aria-label='Reviewers' tabIndex={0}>
 								<li>alexr00</li>
 								<li>deepak1556</li>
 								<li>hbons</li>
@@ -164,7 +169,7 @@ export function main() {
 						{ /*
 						<div className='milestone'>
 							<span title='Milestone'>{milestoneIcon}</span>
-							<ul aria-label="Milestone">
+							<ul aria-label='Milestone' tabIndex={0}>
 								<li>January 2024</li>
 							</ul>
 						</div>
@@ -176,6 +181,7 @@ export function main() {
 							id='description'
 							name='description'
 							placeholder='Description'
+							aria-label='Description'
 							value={params.pendingDescription}
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
 							onKeyDown={onKeyDown}></textarea>
@@ -189,7 +195,11 @@ export function main() {
 					<AutoMerge {...params} updateState={ctx.updateState}></AutoMerge>
 
 					<div className="group-actions">
-						<button className='secondary merge-method' title="Merge Method: Squash and Merge">{gearIcon}</button>
+						<button className='secondary merge-method'
+							title='Merge Method'
+							aria-label='Merge Method'>
+								{gearIcon}
+						</button>
 						<div className='spacer'></div>
 						<button disabled={isBusy} className="secondary" onClick={() => ctx.cancelCreate()}>
 							Cancel
@@ -199,7 +209,7 @@ export function main() {
 								Create
 							</button>
 							<button className='split-right' disabled={isBusy || !isCreateable} onClick={() => create()}
-								title='Creation Actions'>
+								title='Create Actions' aria-label='Create Actions'>
 								{chevronDownIcon}
 							</button>
 						</div>
