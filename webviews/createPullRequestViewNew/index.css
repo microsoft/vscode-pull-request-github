@@ -218,21 +218,31 @@ textarea {
 	flex-grow: 1;
 }
 
-button.merge-method {
-	padding: 0;
-	margin: 0;
-	background-color: transparent !important;
+.merge-method {
+	position: relative;
+	display: block;
+}
+
+.merge-method .icon {
+	position: absolute;
+	top: 6px;
+	left: 6px;
+	z-index: -1;
+}
+
+.merge-method select {
+	appearance: none;
+	border: none;
+	font-size: 0;
 	width: 28px;
-	padding-top: 3px;
+	height: 28px;
+	cursor: pointer;
+	background-color: transparent !important;
 }
 
-button.merge-method svg {
-	padding: 1px;
-	border-radius: 5px;
-}
-
-button.merge-method:focus {
-	background-color: var(--vscode-focusBorder) !important;
+.merge-method select:focus {
+	outline: none;
+	border: 1px solid var(--vscode-focusBorder);
 }
 
 button.split-left {
@@ -241,16 +251,44 @@ button.split-left {
 	border-radius:  2px 0 0 2px;
 }
 
-button.split-right {
+.split-right {
+	position: relative;
 	display: block;
 	float: left;
-	border-radius: 0 2px 2px 0;
-	width: 24px;
-	height: 28px;
 	margin-left: 1px;
-	padding: 4px 0;
+	padding: 0;
 }
 
-button.split-right svg path {
+.split-right .icon {
+	pointer-events: none;
+	position: absolute;
+	top: 6px; right: 4px;
+}
+
+.split-right .icon svg path {
 	fill: var(--vscode-button-foreground);
+}
+
+.split-right select {
+	appearance: none;
+	width: 24px; height: 28px;
+	border-radius: 0 2px 2px 0;
+	border: 1px solid var(--vscode-button-border) !important;
+	background-color: var(--vscode-button-background) !important;
+	border: none;
+	font-size: 0;
+}
+
+.split-right select:disabled {
+	opacity: 0.4;
+}
+
+.split-right:has(select:disabled) .icon {
+	opacity: 0.4;
+}
+
+.split-right select:focus {
+	outline: none;
+	border: 1px solid var(--vscode-contrastActiveBorder) !important;
+	background-color: var(--vscode-button-hoverBackground) !important;
 }

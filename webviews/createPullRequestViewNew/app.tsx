@@ -209,26 +209,34 @@ export function main() {
 							{params.createError}
 						</ErrorBoundary>
 					</div>
-					<AutoMerge {...params} updateState={ctx.updateState}></AutoMerge>
 
-					<div className="group-actions">
-						<button className='secondary merge-method'
-							title='Merge Method'
-							aria-label='Merge Method'>
-								{gearIcon}
-						</button>
+					<div className='group-actions'>
+						<div className='merge-method'>
+							{gearIcon}
+							<select name='merge-method' title='Merge Method' aria-label='Merge Method'>
+								<option value='create-merge-commit'>Create Merge Commit</option>
+								<option value='quash-and-merge'>Squash and Merge</option>
+								<option value='rebase-and-merge' selected>Rebase and Merge</option>
+							</select>
+						</div>
+
 						<div className='spacer'></div>
-						<button disabled={isBusy} className="secondary" onClick={() => ctx.cancelCreate()}>
+						<button disabled={isBusy} className='secondary' onClick={() => ctx.cancelCreate()}>
 							Cancel
 						</button>
 						<div className='create-button'>
 							<button className='split-left' disabled={isBusy || !isCreateable} onClick={() => create()}>
 								Create
 							</button>
-							<button className='split-right' disabled={isBusy || !isCreateable} onClick={() => create()}
-								title='Create Actions' aria-label='Create Actions'>
+							<div className='split-right'>
 								{chevronDownIcon}
-							</button>
+								<select name='create-action' disabled={isBusy || !isCreateable}
+									title='Create Actions' aria-label='Create Actions'>
+									<option value='create'>Create</option>
+									<option value='create-draft'>Create Draft</option>
+									<option value='create-automerge'>Create and Auto-merge</option>
+								</select>
+							</div>
 						</div>
 					</div>
 				</div>;
