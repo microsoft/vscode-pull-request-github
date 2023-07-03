@@ -56,7 +56,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 			checkboxUpdates.items.forEach(checkboxUpdate => {
 				const node = checkboxUpdate[0];
 				const newState = checkboxUpdate[1];
-				node.updateCheckbox(newState);
+				node.updateFromCheckboxChanged(newState);
 			});
 		}));
 	}
