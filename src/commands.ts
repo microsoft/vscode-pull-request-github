@@ -192,7 +192,7 @@ export function registerCommands(
 				const result = await vscode.window.showInformationMessage(vscode.l10n.t('You can now make suggestions from review comments, just like on GitHub.com. See the documentation for more details.'),
 					{ modal: true }, documentation);
 				if (result === documentation) {
-					return vscode.env.openExternal(vscode.Uri.parse('https://github.com/microsoft/vscode-pull-request-github/blob/main/documentation/changelog/0.58.0/suggest-a-change.gif'));
+					return vscode.env.openExternal(vscode.Uri.parse('https://github.com/microsoft/vscode-pull-request-github/blob/main/documentation/suggestAChange.md'));
 				}
 			}
 			try {
