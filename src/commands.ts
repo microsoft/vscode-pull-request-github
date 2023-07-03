@@ -1117,7 +1117,7 @@ ${contents}
 				}
 
 				if (treeNode instanceof FileChangeNode) {
-					await treeNode.markFileAsViewed();
+					await treeNode.markFileAsViewed(false);
 				} else if (treeNode) {
 					// When the argument is a uri it came from the editor menu and we should also close the file
 					// Do the close first to improve perceived performance of marking as viewed.
@@ -1134,7 +1134,7 @@ ${contents}
 						}
 					}
 					const manager = reposManager.getManagerForFile(treeNode);
-					await manager?.activePullRequest?.markFileAsViewed(treeNode.path);
+					await manager?.activePullRequest?.markFileAsViewed(treeNode.path, true);
 					manager?.setFileViewedContext();
 				}
 			} catch (e) {
@@ -1152,10 +1152,10 @@ ${contents}
 				}
 
 				if (treeNode instanceof FileChangeNode) {
-					treeNode.unmarkFileAsViewed();
+					treeNode.unmarkFileAsViewed(false);
 				} else if (treeNode) {
 					const manager = reposManager.getManagerForFile(treeNode);
-					await manager?.activePullRequest?.unmarkFileAsViewed(treeNode.path);
+					await manager?.activePullRequest?.unmarkFileAsViewed(treeNode.path, true);
 					manager?.setFileViewedContext();
 				}
 			} catch (e) {

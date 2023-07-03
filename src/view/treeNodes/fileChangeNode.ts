@@ -169,17 +169,17 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 			{ state: vscode.TreeItemCheckboxState.Unchecked, tooltip: vscode.l10n.t('Mark file as viewed'), accessibilityInformation: { label: vscode.l10n.t('Mark file {0} as viewed', this.label ?? '') } };
 	}
 
-	public async markFileAsViewed() {
-		await this.pullRequest.markFileAsViewed(this.fileName);
+	public async markFileAsViewed(fromCheckboxChanged: boolean = true) {
+		await this.pullRequest.markFileAsViewed(this.fileName, !fromCheckboxChanged);
 		this.pullRequestManager.setFileViewedContext();
 	}
 
-	public async unmarkFileAsViewed() {
-		await this.pullRequest.unmarkFileAsViewed(this.fileName);
+	public async unmarkFileAsViewed(fromCheckboxChanged: boolean = true) {
+		await this.pullRequest.unmarkFileAsViewed(this.fileName, !fromCheckboxChanged);
 		this.pullRequestManager.setFileViewedContext();
 	}
 
-	updateCheckbox(newState: vscode.TreeItemCheckboxState) {
+	updateFromCheckboxChanged(newState: vscode.TreeItemCheckboxState) {
 		const viewed = newState === vscode.TreeItemCheckboxState.Checked ? ViewedState.VIEWED : ViewedState.UNVIEWED;
 		this.updateViewed(viewed);
 
