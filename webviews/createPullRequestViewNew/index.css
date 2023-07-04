@@ -233,22 +233,11 @@ button.split-left {
 	position: relative;
 	display: block;
 	float: left;
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-	margin-left: 1px;
-	padding: 0;
-=======
->>>>>>> 20bcdffa (pr: Fix Create button separator for all themes)
 	border-radius: 0 2px 2px 0;
 	width: 24px;
 	height: 28px;
 	border-left: 1px solid rgba(0, 0, 0, 0.2);
 	padding: 4px 0;
-<<<<<<< HEAD
-=======
->>>>>>> c146534e (pr: Fix Create button separator for all themes)
->>>>>>> 20bcdffa (pr: Fix Create button separator for all themes)
 }
 
 .split-right .icon {
