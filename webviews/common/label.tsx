@@ -29,3 +29,11 @@ export function Label(label: ILabel & { canDelete: boolean; isDarkTheme: boolean
 		</div>
 	);
 }
+
+export function LabelCreate(label: ILabel & { canDelete: boolean; isDarkTheme: boolean; children?: ReactNode}) {
+	const { name, canDelete, color } = label;
+	const labelColor = gitHubLabelColor(color, label.isDarkTheme, false); /* TODO: Colors */
+	return (
+		<li>{name}{label.children}</li>
+	);
+}
