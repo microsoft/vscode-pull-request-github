@@ -10,17 +10,14 @@ import { IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
-import { DataUri } from '../common/uri';
 import { asPromise, dispose, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { TeamReviewerRefreshKind } from './githubRepository';
 import {
 	GithubItemStateEnum,
 	IAccount,
 	IMilestone,
 	isTeam,
-	ISuggestedReviewer,
 	ITeam,
 	MergeMethod,
 	MergeMethodsAvailability,
@@ -31,13 +28,8 @@ import {
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
+import { getAssigneesQuickPickItems, getMilestoneFromQuickPick, reviewersQuickPick } from './quickPicks';
 import { isInCodespaces, parseReviewers, vscodeDevPrLink } from './utils';
-
-type MilestoneQuickPickItem = vscode.QuickPickItem & { id: string; milestone: IMilestone };
-
-function isMilestoneQuickPickItem(x: vscode.QuickPickItem | MilestoneQuickPickItem): x is MilestoneQuickPickItem {
-	return !!(x as MilestoneQuickPickItem).id && !!(x as MilestoneQuickPickItem).milestone;
-}
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -361,230 +353,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this._item.showChangesSinceReview = true;
 	}
 
-	private async getReviewersQuickPickItems(
-		suggestedReviewers: ISuggestedReviewer[] | undefined, refreshKind: TeamReviewerRefreshKind,
-	): Promise<(vscode.QuickPickItem & { reviewer?: IAccount | ITeam })[]> {
-		if (!suggestedReviewers) {
-			return [];
-		}
-
-		const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
-		const allTeamReviewers = this._item.base.isInOrganization ? await this._folderRepositoryManager.getTeamReviewers(refreshKind) : [];
-		const teamReviewers: ITeam[] = allTeamReviewers[this._item.remote.remoteName] ?? [];
-		const assignableUsers: (IAccount | ITeam)[] = [...teamReviewers];
-		assignableUsers.push(...allAssignableUsers[this._item.remote.remoteName]);
-		let hasTeams = teamReviewers.length > 0;
-
-		// used to track logins that shouldn't be added to pick list
-		// e.g. author, existing and already added reviewers
-		const skipList: Set<string> = new Set([
-			this._item.author.login,
-			...this._existingReviewers.map(reviewer => {
-				if (isTeam(reviewer.reviewer)) {
-					hasTeams = true;
-				}
-				return reviewerId(reviewer.reviewer);
-			}),
-		]);
-
-		const reviewers: Promise<(vscode.QuickPickItem & { reviewer?: IAccount | ITeam })>[] = [];
-		// Start will all existing reviewers so they show at the top
-		for (const reviewer of this._existingReviewers) {
-			const label = isTeam(reviewer.reviewer) ? `$(organization) ${reviewer.reviewer.org}/${reviewer.reviewer.slug}` : `${hasTeams ? `$(account) ` : ''}${reviewer.reviewer.login}`;
-			reviewers.push(DataUri.avatarCircleAsImageDataUri(reviewer.reviewer, 16, 16).then(avatarUrl => {
-				return {
-					label,
-					description: reviewer.reviewer.name,
-					reviewer: reviewer.reviewer,
-					picked: true,
-					iconPath: avatarUrl
-				};
-			}));
-		}
-
-		for (const user of suggestedReviewers) {
-			const { login, name, isAuthor, isCommenter } = user;
-			if (skipList.has(login)) {
-				continue;
-			}
-
-			const suggestionReason: string =
-				isAuthor && isCommenter
-					? vscode.l10n.t('Recently edited and reviewed changes to these files')
-					: isAuthor
-						? vscode.l10n.t('Recently edited these files')
-						: isCommenter
-							? vscode.l10n.t('Recently reviewed changes to these files')
-							: vscode.l10n.t('Suggested reviewer');
-
-			const label = `${hasTeams ? `$(account) ` : ''}${login}`;
-			reviewers.push(DataUri.avatarCircleAsImageDataUri(user, 16, 16).then(avatarUrl => {
-				return {
-					label,
-					description: name,
-					detail: suggestionReason,
-					reviewer: user,
-					iconPath: avatarUrl
-				};
-			}));
-			// this user shouldn't be added later from assignable users list
-			skipList.add(login);
-		}
-
-		for (const user of assignableUsers) {
-			if (skipList.has(reviewerId(user))) {
-				continue;
-			}
-
-			const label = isTeam(user) ? `$(organization) ${user.org}/${user.slug}` : `${hasTeams ? `$(account) ` : ''}${user.login}`;
-			reviewers.push(DataUri.avatarCircleAsImageDataUri(user, 16, 16).then(avatarUrl => {
-				return {
-					label,
-					description: user.name,
-					reviewer: user,
-					iconPath: avatarUrl
-				};
-			}));
-		}
-
-		if (reviewers.length === 0) {
-			reviewers.push(Promise.resolve({
-				label: vscode.l10n.t('No reviewers available for this repository')
-			}));
-		}
-
-		return Promise.all(reviewers);
-	}
-
-	private async getAssigneesQuickPickItems():
-		Promise<(vscode.QuickPickItem & { assignee?: IAccount })[]> {
-
-		const [allAssignableUsers, { participants, viewer }] = await Promise.all([
-			this._folderRepositoryManager.getAssignableUsers(),
-			this._folderRepositoryManager.getPullRequestParticipants(this._item.githubRepository, this._item.number)
-		]);
-
-		let assignableUsers = allAssignableUsers[this._item.remote.remoteName];
-
-		assignableUsers = assignableUsers ?? [];
-		// used to track logins that shouldn't be added to pick list
-		// e.g. author, existing and already added reviewers
-		const skipList: Set<string> = new Set([...(this._item.assignees?.map(assignee => assignee.login) ?? [])]);
-
-		const assignees: Promise<(vscode.QuickPickItem & { assignee?: IAccount })>[] = [];
-		// Start will all currently assigned so they show at the top
-		for (const current of (this._item.assignees ?? [])) {
-			assignees.push(DataUri.avatarCircleAsImageDataUri(current, 16, 16).then(avatarUrl => {
-				return {
-					label: current.login,
-					description: current.name,
-					assignee: current,
-					picked: true,
-					iconPath: avatarUrl
-				};
-			}));
-		}
-
-		// Check if the viewer is allowed to be assigned to the PR
-		if (!skipList.has(viewer.login) && (assignableUsers.findIndex((assignableUser: IAccount) => assignableUser.login === viewer.login) !== -1)) {
-			assignees.push(DataUri.avatarCircleAsImageDataUri(viewer, 16, 16).then(avatarUrl => {
-				return {
-					label: viewer.login,
-					description: viewer.name,
-					assignee: viewer,
-					iconPath: avatarUrl
-				};
-			}));
-			skipList.add(viewer.login);
-		}
-
-		for (const suggestedReviewer of participants) {
-			if (skipList.has(suggestedReviewer.login)) {
-				continue;
-			}
-
-			assignees.push(DataUri.avatarCircleAsImageDataUri(suggestedReviewer, 16, 16).then(avatarUrl => {
-				return {
-					label: suggestedReviewer.login,
-					description: suggestedReviewer.name,
-					assignee: suggestedReviewer,
-					iconPath: avatarUrl
-				};
-			}));
-			// this user shouldn't be added later from assignable users list
-			skipList.add(suggestedReviewer.login);
-		}
-
-		if (assignees.length !== 0) {
-			assignees.unshift(Promise.resolve({
-				kind: vscode.QuickPickItemKind.Separator,
-				label: vscode.l10n.t('Suggestions')
-			}));
-		}
-
-		assignees.push(Promise.resolve({
-			kind: vscode.QuickPickItemKind.Separator,
-			label: vscode.l10n.t('Users')
-		}));
-
-		for (const user of assignableUsers) {
-			if (skipList.has(user.login)) {
-				continue;
-			}
-
-			assignees.push(DataUri.avatarCircleAsImageDataUri(user, 16, 16).then(avatarUrl => {
-				return {
-					label: user.login,
-					description: user.name,
-					assignee: user,
-					iconPath: avatarUrl
-				};
-			}));
-		}
-
-		if (assignees.length === 0) {
-			assignees.push(Promise.resolve({
-				label: vscode.l10n.t('No assignees available for this repository')
-			}));
-		}
-
-		return Promise.all(assignees);
-	}
-
 	private async changeReviewers(message: IRequestMessage<void>): Promise<void> {
-		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { reviewer?: IAccount | ITeam }>();
-		// The quick-max is used to show the "update reviewers" button. If the number of teams is less than the quick-max, then they'll be automatically updated when the quick pick is opened.
-		const quickMaxTeamReviewers = 100;
-		try {
-			quickPick.busy = true;
-			quickPick.canSelectMany = true;
-			quickPick.matchOnDescription = true;
-			quickPick.show();
-			const updateItems = async (refreshKind: TeamReviewerRefreshKind) => {
-				const slowWarning = setTimeout(() => {
-					quickPick.placeholder = vscode.l10n.t('Getting team reviewers can take several minutes. Results will be cached.');
-				}, 3000);
-				quickPick.items = await this.getReviewersQuickPickItems(this._item.suggestedReviewers, refreshKind);
-				clearTimeout(slowWarning);
-				quickPick.selectedItems = quickPick.items.filter(item => item.picked);
-				quickPick.placeholder = undefined;
-			};
+		let quickPick: vscode.QuickPick<vscode.QuickPickItem & {
+			reviewer?: IAccount | ITeam | undefined;
+		}> | undefined;
 
-			await updateItems((this._teamsCount !== 0 && this._teamsCount <= quickMaxTeamReviewers) ? TeamReviewerRefreshKind.Try : TeamReviewerRefreshKind.None);
-			if (this._item.base.isInOrganization) {
-				quickPick.buttons = [{ iconPath: new vscode.ThemeIcon('organization'), tooltip: vscode.l10n.t('Show or refresh team reviewers') }];
-			}
-			quickPick.onDidTriggerButton(() => {
-				quickPick.busy = true;
-				quickPick.ignoreFocusOut = true;
-				updateItems(TeamReviewerRefreshKind.Force).then(() => {
-					quickPick.ignoreFocusOut = false;
-					quickPick.busy = false;
-				});
-			});
+		try {
+			quickPick = await reviewersQuickPick(this._folderRepositoryManager, this._item.remote.remoteName, this._item.base.isInOrganization, this._teamsCount, this._item.author, this._existingReviewers, this._item.suggestedReviewers);
 			quickPick.busy = false;
 			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
-				return quickPick.selectedItems.filter(item => item.reviewer) as (vscode.QuickPickItem & { reviewer: IAccount | ITeam })[] | undefined;
+				return quickPick!.selectedItems.filter(item => item.reviewer) as (vscode.QuickPickItem & { reviewer: IAccount | ITeam })[] | undefined;
 			});
 			const hidePromise = asPromise<void>(quickPick.onDidHide);
 			const allReviewers = await Promise.race<(vscode.QuickPickItem & { reviewer: IAccount | ITeam })[] | void>([acceptPromise, hidePromise]);
@@ -626,98 +404,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			Logger.error(formatError(e));
 			vscode.window.showErrorMessage(formatError(e));
 		} finally {
-			quickPick.hide();
-			quickPick.dispose();
+			quickPick?.hide();
+			quickPick?.dispose();
 		}
 	}
 
 	private async addMilestone(message: IRequestMessage<void>): Promise<void> {
-		try {
-			const githubRepository = this._item.githubRepository;
-			async function getMilestoneOptions(): Promise<(MilestoneQuickPickItem | vscode.QuickPickItem)[]> {
-				const milestones = await githubRepository.getMilestones();
-				if (!milestones.length) {
-					return [
-						{
-							label: vscode.l10n.t('No milestones created for this repository.'),
-						},
-					];
-				}
-
-				return milestones.map(result => {
-					return {
-						label: result.title,
-						id: result.id,
-						milestone: result,
-					};
-				});
-			}
-
-			const quickPick = vscode.window.createQuickPick();
-			quickPick.busy = true;
-			quickPick.canSelectMany = false;
-			quickPick.title = vscode.l10n.t('Select a milestone to add');
-			quickPick.buttons = [{
-				iconPath: new vscode.ThemeIcon('add'),
-				tooltip: 'Create',
-			}];
-			quickPick.onDidTriggerButton((_) => {
-				quickPick.hide();
-
-				const inputBox = vscode.window.createInputBox();
-				inputBox.title = vscode.l10n.t('Create new milestone');
-				inputBox.placeholder = vscode.l10n.t('New milestone title');
-				if (quickPick.value !== '') {
-					inputBox.value = quickPick.value;
-				}
-				inputBox.show();
-				inputBox.onDidAccept(async () => {
-					inputBox.hide();
-					if (inputBox.value === '') {
-						return;
-					}
-					if (inputBox.value.length > 255) {
-						vscode.window.showErrorMessage(vscode.l10n.t(`Failed to create milestone: The title can contain a maximum of 255 characters`));
-						return;
-					}
-					// Check if milestone already exists (only check open ones)
-					for (const existingMilestone of quickPick.items) {
-						if (existingMilestone.label === inputBox.value) {
-							vscode.window.showErrorMessage(vscode.l10n.t('Failed to create milestone: The milestone \'{0}\' already exists', inputBox.value));
-							return;
-						}
-					}
-					try {
-						const milestone = await this._folderRepositoryManager.createMilestone(githubRepository, inputBox.value);
-						if (milestone !== undefined) {
-							await this.updateMilestone(milestone, message);
-						}
-					} catch (e) {
-						if (e.errors && Array.isArray(e.errors) && e.errors.find(error => error.code === 'already_exists') !== undefined) {
-							vscode.window.showErrorMessage(vscode.l10n.t('Failed to create milestone: The milestone already exists and might be closed'));
-						}
-						else {
-							vscode.window.showErrorMessage(`Failed to create milestone: ${formatError(e)}`);
-						}
-					}
-				});
-			});
-
-			quickPick.show();
-			quickPick.items = await getMilestoneOptions();
-			quickPick.busy = false;
-
-			quickPick.onDidAccept(async () => {
-				quickPick.hide();
-				const milestoneToAdd = quickPick.selectedItems[0];
-				if (milestoneToAdd && isMilestoneQuickPickItem(milestoneToAdd)) {
-					await this.updateMilestone(milestoneToAdd.milestone, message);
-				}
-			});
-
-		} catch (e) {
-			vscode.window.showErrorMessage(`Failed to add milestone: ${formatError(e)}`);
-		}
+		return getMilestoneFromQuickPick(this._folderRepositoryManager, this._item.githubRepository, this.updateMilestone, message);
 	}
 
 	private async updateMilestone(milestone: IMilestone, message: IRequestMessage<void>) {
@@ -744,7 +437,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			quickPick.canSelectMany = true;
 			quickPick.matchOnDescription = true;
 			quickPick.show();
-			quickPick.items = await this.getAssigneesQuickPickItems();
+			quickPick.items = await getAssigneesQuickPickItems(this._folderRepositoryManager, this._item.remote.remoteName, this._item.assignees ?? [], this._item);
 			quickPick.selectedItems = quickPick.items.filter(item => item.picked);
 
 			quickPick.busy = false;

@@ -62,13 +62,17 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.addAssigneesToNewPr', _ => {
-				return null; // TODO
+				if (this._createPRViewProvider instanceof CreatePullRequestViewProviderNew) {
+					return this._createPRViewProvider.addAssignees();
+				}
 			}),
 		);
 
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.addReviewersToNewPr', _ => {
-				return null; // TODO
+				if (this._createPRViewProvider instanceof CreatePullRequestViewProviderNew) {
+					return this._createPRViewProvider.addReviewers();
+				}
 			}),
 		);
 
@@ -80,7 +84,9 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.addMilestoneToNewPr', _ => {
-				return null; // TODO
+				if (this._createPRViewProvider instanceof CreatePullRequestViewProviderNew) {
+					return this._createPRViewProvider.addMilestone();
+				}
 			}),
 		);
 
