@@ -5,20 +5,19 @@
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
-import { CreateParamsNew, RemoteInfo } from '../../common/views';
+import { CreateMethod, CreateParamsNew, RemoteInfo } from '../../common/views';
 import { compareIgnoreCase } from '../../src/common/utils';
-import { isTeam } from '../../src/github/interface';
+import { isTeam, MergeMethod } from '../../src/github/interface';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
-import { AutoMerge } from '../components/automergeSelect';
 import { assigneeIcon, chevronDownIcon, gearIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon } from '../components/icon';
+import { MergeSelect } from '../components/merge';
 
+export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch, isBase, remoteCount = 0 }:
+	{ onClick: (remote?: RemoteInfo, branch?: string) => Promise<void>, defaultRemote: RemoteInfo | undefined, defaultBranch: string | undefined, isBase: boolean, remoteCount: number | undefined }) => {
 
-export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch, isBase }:
-	{ onClick: (remote?: RemoteInfo, branch?: string) => Promise<void>, defaultRemote: RemoteInfo | undefined, defaultBranch: string | undefined, isBase: boolean }) => {
-
-	const defaultsLabel = (defaultRemote && defaultBranch) ? `${defaultRemote.owner}/${defaultBranch}` : '-';
+	const defaultsLabel = (defaultRemote && defaultBranch) ? `${remoteCount > 1 ? `${defaultRemote.owner}/` : ''}${defaultBranch}` : '-';
 	const title = isBase ? 'Base branch: ' + defaultsLabel : 'Branch to merge: ' + defaultsLabel;
 
 	return <ErrorBoundary>
@@ -40,7 +39,7 @@ export function main() {
 				const ctx = useContext(PullRequestContextNew);
 				const [isBusy, setBusy] = useState(false);
 
-				const titleInput = useRef<HTMLInputElement>();
+				const titleInput = useRef<HTMLInputElement>() as React.MutableRefObject<HTMLInputElement>;
 
 				function updateTitle(title: string): void {
 					if (params.validate) {
@@ -84,6 +83,11 @@ export function main() {
 					return <div className="loading-indicator">Loading...</div>;
 				}
 
+				const mergeMethodSelect: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
+				const createMethodSelect: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
+
+				const defaultCreateMethod = (ctx.createParams.defaultCreateMethod !== 'create-automerge' || ctx.createParams.allowAutoMerge) ? ctx.createParams.defaultCreateMethod : 'create';
+
 				return <div className='group-main'>
 					<div className='group-branches'>
 						<div className='input-label base'>
@@ -93,6 +97,7 @@ export function main() {
 							<ChooseRemoteAndBranch onClick={ctx.changeBaseRemoteAndBranch}
 								defaultRemote={params.baseRemote}
 								defaultBranch={params.baseBranch}
+								remoteCount={params.remoteCount}
 								isBase={true} />
 						</div>
 
@@ -103,6 +108,7 @@ export function main() {
 							<ChooseRemoteAndBranch onClick={ctx.changeMergeRemoteAndBranch}
 								defaultRemote={params.compareRemote}
 								defaultBranch={params.compareBranch}
+								remoteCount={params.remoteCount}
 								isBase={false} />
 						</div>
 					</div>
@@ -194,30 +200,51 @@ export function main() {
 					</div>
 
 					<div className='group-actions'>
-						<div className='merge-method'>
-							{gearIcon}
-							<select name='merge-method' title='Merge Method' aria-label='Merge Method'>
-								<option value='create-merge-commit'>Create Merge Commit</option>
-								<option value='quash-and-merge'>Squash and Merge</option>
-								<option value='rebase-and-merge' selected>Rebase and Merge</option>
-							</select>
-						</div>
+						{params.allowAutoMerge ? (
+							<div className='merge-method'>
+								{gearIcon}
+								<MergeSelect
+									name='merge-method'
+									title='Merge Method'
+									aria-label='Merge Method'
+									ref={mergeMethodSelect}
+									defaultMergeMethod={params.defaultMergeMethod!}
+									mergeMethodsAvailability={params.mergeMethodsAvailability!}
+									onChange={() => {
+										ctx.updateState({ autoMergeMethod: mergeMethodSelect.current?.value as MergeMethod });
+									}}
+								/>
+							</div>
+						)
+							: null}
 
 						<div className='spacer'></div>
 						<button disabled={isBusy} className='secondary' onClick={() => ctx.cancelCreate()}>
 							Cancel
 						</button>
 						<div className='create-button'>
-							<button className='split-left' disabled={isBusy || !isCreateable} onClick={() => create()}>
+							<button className='split-left' disabled={isBusy || !isCreateable} onClick={() => {
+								const selected = createMethodSelect.current?.value as CreateMethod;
+								switch (selected) {
+									case 'create-draft':
+										ctx.updateState({ isDraft: true });
+										break;
+									case 'create-automerge':
+										ctx.updateState({autoMerge: true});
+										break;
+								}
+								return create();
+							}}>
 								Create
 							</button>
 							<div className='split-right'>
 								{chevronDownIcon}
-								<select name='create-action' disabled={isBusy || !isCreateable}
-									title='Create Actions' aria-label='Create Actions'>
-									<option value='create'>Create</option>
-									<option value='create-draft'>Create Draft</option>
-									<option value='create-automerge'>Create and Auto-merge</option>
+								<select ref={createMethodSelect} name='create-action' disabled={isBusy || !isCreateable}
+									title='Create Actions' aria-label='Create Actions'
+									defaultValue={defaultCreateMethod}>
+									<option value={'create'}>Create</option>
+									<option value={'create-draft'}>Create Draft</option>
+									{params.allowAutoMerge ? <option value={'create-automerge'}>Create and Auto-merge ({params.autoMergeMethod})</option> : null}
 								</select>
 							</div>
 						</div>

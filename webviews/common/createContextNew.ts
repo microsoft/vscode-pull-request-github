@@ -70,7 +70,8 @@ export class CreatePRContextNew {
 
 		const updateValues: Partial<CreateParamsNew> = {
 			baseRemote: response.baseRemote,
-			baseBranch: response.baseBranch
+			baseBranch: response.baseBranch,
+			createError: ''
 		};
 		if ((this.createParams.baseRemote?.owner !== response.baseRemote.owner) || (this.createParams.baseRemote.repositoryName !== response.baseRemote.repositoryName)) {
 			updateValues.defaultMergeMethod = response.defaultMergeMethod;
@@ -105,7 +106,8 @@ export class CreatePRContextNew {
 
 		const updateValues: Partial<CreateParamsNew> = {
 			compareRemote: response.compareRemote,
-			compareBranch: response.compareBranch
+			compareBranch: response.compareBranch,
+			createError: ''
 		};
 
 		this.updateState(updateValues);
