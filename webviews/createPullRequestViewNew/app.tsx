@@ -7,12 +7,12 @@ import React, { useCallback, useContext, useEffect, useRef, useState } from 'rea
 import { render } from 'react-dom';
 import { CreateParamsNew, RemoteInfo } from '../../common/views';
 import { compareIgnoreCase } from '../../src/common/utils';
+import { isTeam } from '../../src/github/interface';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
 import { AutoMerge } from '../components/automergeSelect';
-import { closeIcon, gearIcon, prBaseIcon, prMergeIcon, chevronDownIcon } from '../components/icon';
-import { assigneeIcon, reviewerIcon, labelIcon, milestoneIcon } from '../components/icon';
+import { assigneeIcon, chevronDownIcon, gearIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon } from '../components/icon';
 
 
 export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch, isBase }:
@@ -128,55 +128,52 @@ export function main() {
 					</div>
 
 					<div className='group-additions'>
-						{ /*
-						<div className='assignees'>
-							<span title='Assignees'>{assigneeIcon}</span>
-							<ul aria-label='Assignees' tabIndex={0}>
-								<li>deepak1556</li>
-								<li>hbons</li>
-								<li>alexr00</li>
-								<li>deepak1556</li>
-								<li>hbons</li>
-								<li>alexr00</li>
-								<li>deepak1556</li>
-								<li>hbons</li>
-								<li>alexr00</li>
-							</ul>
-						</div>
-						<div className='reviewers'>
-							<span title='Reviewers'>{reviewerIcon}</span>
-							<ul aria-label='Reviewers' tabIndex={0}>
-								<li>alexr00</li>
-								<li>deepak1556</li>
-								<li>hbons</li>
-								<li>alexr00</li>
-								<li>deepak1556</li>
-								<li>hbons</li>
-								<li>alexr00</li>
-								<li>hbons</li>
-							</ul>
-						</div>
-						*/ }
+
+						{params.assignees && (params.assignees.length > 0) ?
+							<div className='assignees'>
+								<span title='Assignees'>{assigneeIcon}</span>
+								<ul aria-label="Assignees" tabIndex={0}>
+									{params.assignees.map(assignee =>
+										<li>
+											{assignee.login}
+										</li>)}
+								</ul>
+							</div>
+							: null}
+
+						{params.reviewers && (params.reviewers.length > 0) ?
+							<div className='reviewers'>
+								<span title='Reviewers'>{reviewerIcon}</span>
+								<ul aria-label="Reviewers" tabIndex={0}>
+									{params.reviewers.map(reviewer =>
+										<li>
+											{isTeam(reviewer) ? reviewer.slug : reviewer.login}
+										</li>)}
+								</ul>
+							</div>
+							: null}
 
 						{params.labels && (params.labels.length > 0) ?
-						<div className='labels'>
-							<span title='Labels'>{labelIcon}</span>
-							<ul aria-label="Labels" onClick={() => {
-								ctx.postMessage({ command: 'pr.changeLabels', args: null });
-							}}>
-								{params.labels.map(label => <LabelCreate key={label.name} {...label} canDelete isDarkTheme={!!params.isDarkTheme} />)}
-							</ul>
-						</div>
+							<div className='labels'>
+								<span title='Labels'>{labelIcon}</span>
+								<ul aria-label="Labels" onClick={() => {
+									ctx.postMessage({ command: 'pr.changeLabels', args: null });
+								}}>
+									{params.labels.map(label => <LabelCreate key={label.name} {...label} canDelete isDarkTheme={!!params.isDarkTheme} />)}
+								</ul>
+							</div>
 						: null}
 
-						{ /*
-						<div className='milestone'>
-							<span title='Milestone'>{milestoneIcon}</span>
-							<ul aria-label='Milestone' tabIndex={0}>
-								<li>January 2024</li>
-							</ul>
-						</div>
-						*/ }
+						{params.milestone ?
+							<div className='milestone'>
+								<span title='Milestone'>{milestoneIcon}</span>
+								<ul aria-label="Milestone" tabIndex={0}>
+									<li>
+										{params.milestone.title}
+									</li>
+								</ul>
+							</div>
+							: null}
 					</div>
 
 					<div className='group-description'>
