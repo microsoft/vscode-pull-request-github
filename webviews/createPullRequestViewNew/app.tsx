@@ -23,15 +23,15 @@ const CreateMethodLabels: CreateMethodLabel = {
 	'create-automerge': 'Create & Auto-Merge',
 };
 
-export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch, isBase, remoteCount = 0 }:
-	{ onClick: (remote?: RemoteInfo, branch?: string) => Promise<void>, defaultRemote: RemoteInfo | undefined, defaultBranch: string | undefined, isBase: boolean, remoteCount: number | undefined }) => {
+export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch, isBase, remoteCount = 0, disabled }:
+	{ onClick: (remote?: RemoteInfo, branch?: string) => Promise<void>, defaultRemote: RemoteInfo | undefined, defaultBranch: string | undefined, isBase: boolean, remoteCount: number | undefined, disabled: boolean }) => {
 
 	const defaultsLabel = (defaultRemote && defaultBranch) ? `${remoteCount > 1 ? `${defaultRemote.owner}/` : ''}${defaultBranch}` : '-';
 	const title = isBase ? 'Base branch: ' + defaultsLabel : 'Branch to merge: ' + defaultsLabel;
 
 	return <ErrorBoundary>
 		<div className='flex'>
-			<button title={title} aria-label={title} onClick={() => {
+			<button title={title} aria-label={title} disabled={disabled} onClick={() => {
 				onClick(defaultRemote, defaultBranch);
 			}}>
 				{defaultsLabel}
@@ -90,10 +90,6 @@ export function main() {
 				const mergeMethodSelect: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
 				const createMethodSelect: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
 
-				if (!ctx.initialized) {
-					return <div className="loading-indicator">Loading...</div>;
-				}
-
 				const onCreateButton = () => {
 					const selected = createMethodSelect.current?.value as CreateMethod;
 					let isDraft = false;
@@ -125,7 +121,8 @@ export function main() {
 								defaultRemote={params.baseRemote}
 								defaultBranch={params.baseBranch}
 								remoteCount={params.remoteCount}
-								isBase={true} />
+								isBase={true}
+								disabled={!ctx.initialized} />
 						</div>
 
 						<div className='input-label merge'>
@@ -136,7 +133,8 @@ export function main() {
 								defaultRemote={params.compareRemote}
 								defaultBranch={params.compareBranch}
 								remoteCount={params.remoteCount}
-								isBase={false} />
+								isBase={false}
+								disabled={!ctx.initialized} />
 						</div>
 					</div>
 
@@ -155,7 +153,8 @@ export function main() {
 							title='Required'
 							required
 							onChange={(e) => updateTitle(e.currentTarget.value)}
-							onKeyDown={onKeyDown}>
+							onKeyDown={onKeyDown}
+							disabled={!ctx.initialized}>
 						</input>
 						<div id='title-error' className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required</div>
 					</div>
@@ -217,7 +216,8 @@ export function main() {
 							aria-label='Description'
 							value={params.pendingDescription}
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
-							onKeyDown={onKeyDown}></textarea>
+							onKeyDown={onKeyDown}
+							disabled={!ctx.initialized}></textarea>
 					</div>
 
 					<div className={params.validate && !!params.createError ? 'wrapper validation-error' : 'hidden'} aria-live='assertive'>
@@ -240,6 +240,7 @@ export function main() {
 									onChange={() => {
 										ctx.updateState({ autoMergeMethod: mergeMethodSelect.current?.value as MergeMethod });
 									}}
+									disabled={!ctx.initialized}
 								/>
 							</div>
 						)
@@ -250,12 +251,12 @@ export function main() {
 							Cancel
 						</button>
 						<div className='create-button'>
-							<button className='split-left' disabled={isBusy || !isCreateable} onClick={onCreateButton}>
+							<button className='split-left' disabled={isBusy || !isCreateable || !ctx.initialized} onClick={onCreateButton}>
 								{CreateMethodLabels[defaultCreateMethod]}
 							</button>
 							<div className='split-right'>
 								{chevronDownIcon}
-								<select ref={createMethodSelect} name='create-action' disabled={isBusy || !isCreateable}
+								<select ref={createMethodSelect} name='create-action' disabled={isBusy || !isCreateable || !ctx.initialized}
 									title='Create Actions' aria-label='Create Actions'
 									defaultValue={defaultCreateMethod}
 									onChange={onCreateButton}>
