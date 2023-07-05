@@ -245,7 +245,12 @@ textarea {
 	border: 1px solid var(--vscode-focusBorder);
 }
 
-button.split-left {
+
+.create-button {
+	display: block;
+}
+
+.split-left {
 	display: block;
 	float: left;
 	border-radius:  2px 0 0 2px;
@@ -255,11 +260,6 @@ button.split-left {
 	position: relative;
 	display: block;
 	float: left;
-	border-radius: 0 2px 2px 0;
-	width: 24px;
-	height: 28px;
-	border-left: 1px solid rgba(0, 0, 0, 0.2);
-	padding: 4px 0;
 }
 
 .split-right .icon {
@@ -274,21 +274,28 @@ button.split-left {
 
 .split-right select {
 	appearance: none;
+	cursor: pointer;
 	width: 24px; height: 28px;
+	border-left: 1px solid rgba(0, 0, 0, 0.2);
 	border-radius: 0 2px 2px 0;
-	border: 1px solid var(--vscode-button-border) !important;
+	background-color: var(--vscode-button-background);
+	border: 1px solid var(--vscode-contrastBorder);
 	font-size: 0;
+
+}
+
+.split-right select:focus,
+.split-right select:hover {
+	outline: none;
+	background-color: var(--vscode-button-hoverBackground);
+	border: 1px solid var(--vscode-contrastActiveBorder);
 }
 
 .split-right select:disabled {
 	opacity: 0.4;
 }
-
-.split-right:has(select:disabled) .icon {
-	opacity: 0.4;
+/*
+.split-right:has(select:disabled) .icon svg path {
+	fill: var(--vscode-) !important;
 }
-
-.split-right select:focus {
-	outline: none;
-	border: 1px solid var(--vscode-contrastActiveBorder) !important;
-}
+*/
