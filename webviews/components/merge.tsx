@@ -409,19 +409,19 @@ const MERGE_METHODS = {
 };
 
 type MergeSelectProps = Pick<PullRequest, 'mergeMethodsAvailability'> &
-	Pick<PullRequest, 'defaultMergeMethod'> & { onChange?: ChangeEventHandler<HTMLSelectElement> };
+	Pick<PullRequest, 'defaultMergeMethod'> & { onChange?: ChangeEventHandler<HTMLSelectElement>, name?: string, title?: string, ariaLabel?: string };
 
 export const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>(
-	({ defaultMergeMethod, mergeMethodsAvailability: avail, onChange }: MergeSelectProps, ref) => (
-		<select ref={ref} defaultValue={defaultMergeMethod} onChange={onChange} aria-label='Select merge method'>
+	({ defaultMergeMethod, mergeMethodsAvailability: avail, onChange, ariaLabel, name, title }: MergeSelectProps, ref) => {
+		return <select ref={ref} defaultValue={defaultMergeMethod} onChange={onChange} aria-label={ariaLabel ?? 'Select merge method'} name={name} title={title}>
 			{Object.entries(MERGE_METHODS).map(([method, text]) => (
 				<option key={method} value={method} disabled={!avail[method]}>
 					{text}
 					{!avail[method] ? ' (not enabled)' : null}
 				</option>
 			))}
-		</select>
-	),
+		</select>;
+	},
 );
 
 const StatusCheckDetails = ( { statuses }: { statuses: PullRequestCheckStatus[] }) => (

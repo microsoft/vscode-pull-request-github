@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, RemoteInfo } from '../../common/views';
+import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateMethod, CreateParamsNew, CreatePullRequestNew, RemoteInfo } from '../../common/views';
 import type { Branch, Ref } from '../api/api';
 import { GitHubServerType } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
@@ -21,6 +21,7 @@ import {
 } from '../common/settingKeys';
 import { asPromise, compareIgnoreCase, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
+import { PREVIOUS_CREATE_METHOD } from '../extensionState';
 import {
 	byRemoteName,
 	DetachedHeadError,
@@ -260,7 +261,9 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		}
 
 		const defaultCompareBranch = this.defaultCompareBranch.name ?? '';
-		const detectedBaseMetadata = await PullRequestGitHelper.getMatchingBaseBranchMetadataForBranch(this._folderRepositoryManager.repository, defaultCompareBranch);
+		const [detectedBaseMetadata, remotes] = await Promise.all([
+			PullRequestGitHelper.getMatchingBaseBranchMetadataForBranch(this._folderRepositoryManager.repository, defaultCompareBranch),
+			this._folderRepositoryManager.getGitHubRemotes()]);
 
 		const defaultBaseRemote: RemoteInfo = {
 			owner: detectedBaseMetadata?.owner ?? this._pullRequestDefaults.owner,
@@ -290,6 +293,8 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			defaultTitle: defaultTitleAndDescription.title,
 			defaultDescription: defaultTitleAndDescription.description,
 			defaultMergeMethod: getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability),
+			defaultCreateMethod: this._folderRepositoryManager.context.workspaceState.get<CreateMethod>(PREVIOUS_CREATE_METHOD, 'create'),
+			remoteCount: remotes.length,
 			allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
 			mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
 			autoMergeDefault: mergeConfiguration.viewerCanAutoMerge && (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(SET_AUTO_MERGE, false) === true),
@@ -668,6 +673,10 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 
 	private async create(message: IRequestMessage<CreatePullRequestNew>): Promise<void> {
 		Logger.debug(`Creating pull request with args ${JSON.stringify(message.args)}`, CreatePullRequestViewProviderNew.ID);
+
+		// Save create method
+		const createMethod: CreateMethod = message.args.draft ? 'create-draft' : (message.args.autoMerge ? 'create-automerge' : 'create');
+		this._folderRepositoryManager.context.workspaceState.update(PREVIOUS_CREATE_METHOD, createMethod);
 
 		const postCreate = (createdPR: PullRequestModel) => {
 			return Promise.all([

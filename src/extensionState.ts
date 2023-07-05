@@ -11,6 +11,7 @@ export const NEVER_SHOW_PULL_NOTIFICATION = 'github.pullRequest.pullNotification
 
 // Not synced keys
 export const REPO_KEYS = 'github.pullRequest.repos';
+export const PREVIOUS_CREATE_METHOD = 'github.pullRequest.previousCreateMethod';
 
 export interface RepoState {
 	mentionableUsers?: IAccount[];

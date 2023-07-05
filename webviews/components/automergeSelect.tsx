@@ -25,7 +25,7 @@ export const AutoMerge = ({
 	if ((!allowAutoMerge && !autoMerge) || !mergeMethodsAvailability || !defaultMergeMethod) {
 		return null;
 	}
-	const select = React.useRef<HTMLSelectElement>();
+	const select: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
 
 	return (
 		<div className="automerge-section">
