@@ -12,7 +12,6 @@ import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
 import { assigneeIcon, chevronDownIcon, mergeMethodIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon } from '../components/icon';
-import { assigneeIcon, chevronDownIcon, gearIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon } from '../components/icon';
 import { MergeSelect } from '../components/merge';
 
 type CreateMethodLabel = {
