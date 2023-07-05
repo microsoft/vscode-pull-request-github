@@ -14,6 +14,15 @@ import { LabelCreate } from '../common/label';
 import { assigneeIcon, chevronDownIcon, gearIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon } from '../components/icon';
 import { MergeSelect } from '../components/merge';
 
+type CreateMethodLabel = {
+	[method in CreateMethod]: string;
+}
+const CreateMethodLabels: CreateMethodLabel = {
+	'create-draft': 'Create Draft',
+	'create': 'Create',
+	'create-automerge': 'Create & Auto-Merge',
+};
+
 export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch, isBase, remoteCount = 0 }:
 	{ onClick: (remote?: RemoteInfo, branch?: string) => Promise<void>, defaultRemote: RemoteInfo | undefined, defaultBranch: string | undefined, isBase: boolean, remoteCount: number | undefined }) => {
 
@@ -85,8 +94,26 @@ export function main() {
 
 				const mergeMethodSelect: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
 				const createMethodSelect: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
+				const onCreateButton = () => {
+					const selected = createMethodSelect.current?.value as CreateMethod;
+					let isDraft = false;
+					let autoMerge = false;
+					switch (selected) {
+						case 'create-draft':
+							isDraft = true;
+							autoMerge = false;
+							break;
+						case 'create-automerge':
+							isDraft = false;
+							autoMerge = true;
+							break;
+					}
+					ctx.updateState({ isDraft, autoMerge, defaultCreateMethod: selected });
+					return create();
+				};
 
-				const defaultCreateMethod = (ctx.createParams.defaultCreateMethod !== 'create-automerge' || ctx.createParams.allowAutoMerge) ? ctx.createParams.defaultCreateMethod : 'create';
+				const defaultCreateMethod: CreateMethod = (ctx.createParams.defaultCreateMethod && (ctx.createParams.defaultCreateMethod !== 'create-automerge' || ctx.createParams.allowAutoMerge))
+					? ctx.createParams.defaultCreateMethod : 'create';
 
 				return <div className='group-main'>
 					<div className='group-branches'>
@@ -223,28 +250,18 @@ export function main() {
 							Cancel
 						</button>
 						<div className='create-button'>
-							<button className='split-left' disabled={isBusy || !isCreateable} onClick={() => {
-								const selected = createMethodSelect.current?.value as CreateMethod;
-								switch (selected) {
-									case 'create-draft':
-										ctx.updateState({ isDraft: true });
-										break;
-									case 'create-automerge':
-										ctx.updateState({autoMerge: true});
-										break;
-								}
-								return create();
-							}}>
-								Create
+							<button className='split-left' disabled={isBusy || !isCreateable} onClick={onCreateButton}>
+								{CreateMethodLabels[defaultCreateMethod]}
 							</button>
 							<div className='split-right'>
 								{chevronDownIcon}
 								<select ref={createMethodSelect} name='create-action' disabled={isBusy || !isCreateable}
 									title='Create Actions' aria-label='Create Actions'
-									defaultValue={defaultCreateMethod}>
-									<option value={'create'}>Create</option>
-									<option value={'create-draft'}>Create Draft</option>
-									{params.allowAutoMerge ? <option value={'create-automerge'}>Create and Auto-merge ({params.autoMergeMethod})</option> : null}
+									defaultValue={defaultCreateMethod}
+									onChange={onCreateButton}>
+									<option value={'create'}>{CreateMethodLabels['create']}</option>
+									<option value={'create-draft'}>{CreateMethodLabels['create-draft']}</option>
+									{params.allowAutoMerge ? <option value={'create-automerge'}>{CreateMethodLabels['create-automerge']} ({params.autoMergeMethod})</option> : null}
 								</select>
 							</div>
 						</div>
