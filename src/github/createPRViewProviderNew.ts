@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, RemoteInfo } from '../../common/views';
+import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateMethod, CreateParamsNew, CreatePullRequestNew, RemoteInfo } from '../../common/views';
 import type { Branch, Ref } from '../api/api';
 import { GitHubServerType } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
@@ -21,6 +21,7 @@ import {
 } from '../common/settingKeys';
 import { asPromise, compareIgnoreCase, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
+import { PREVIOUS_CREATE_METHOD } from '../extensionState';
 import {
 	byRemoteName,
 	DetachedHeadError,
@@ -38,7 +39,7 @@ import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } fr
 
 const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
 
-export class CreatePullRequestViewProviderNew extends WebviewViewBase implements vscode.WebviewViewProvider {
+export class CreatePullRequestViewProviderNew extends WebviewViewBase implements vscode.WebviewViewProvider, vscode.Disposable {
 	private static readonly ID = 'CreatePullRequestViewProvider';
 	public readonly viewType = 'github:createPullRequest';
 
@@ -85,10 +86,9 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		if (this._firstLoad) {
 			this._firstLoad = false;
 			// Reset any stored state.
-			// TODO @RMacfarlane Clear stored state on extension deactivation instead.
-			this.initializeParams(true);
+			return this.initializeParams(true);
 		} else {
-			this.initializeParams();
+			return this.initializeParams();
 		}
 	}
 
@@ -98,10 +98,10 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	}
 
 	set defaultCompareBranch(compareBranch: Branch | undefined) {
-		const branchChanged = compareBranch && (compareBranch.name !== this._defaultCompareBranch.name ||
-			compareBranch.upstream?.remote !== this._defaultCompareBranch.upstream?.remote);
+		const branchChanged = compareBranch && (compareBranch.name !== this._defaultCompareBranch.name);
+		const branchRemoteChanged = compareBranch && (compareBranch.upstream?.remote !== this._defaultCompareBranch.upstream?.remote);
 		const commitChanged = compareBranch && (compareBranch.commit !== this._defaultCompareBranch.commit);
-		if (branchChanged || commitChanged) {
+		if (branchChanged || branchRemoteChanged || commitChanged) {
 			this._defaultCompareBranch = compareBranch!;
 			this.changeBranch(compareBranch!.name!, false).then(titleAndDescription => {
 				const params: Partial<CreateParamsNew> = {
@@ -110,10 +110,12 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 					compareBranch: compareBranch?.name,
 					defaultCompareBranch: compareBranch?.name
 				};
-				return this._postMessage({
-					command: 'reset',
-					params,
-				});
+				if (!branchRemoteChanged) {
+					return this._postMessage({
+						command: 'reset',
+						params,
+					});
+				}
 			});
 
 			if (branchChanged) {
@@ -260,7 +262,9 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		}
 
 		const defaultCompareBranch = this.defaultCompareBranch.name ?? '';
-		const detectedBaseMetadata = await PullRequestGitHelper.getMatchingBaseBranchMetadataForBranch(this._folderRepositoryManager.repository, defaultCompareBranch);
+		const [detectedBaseMetadata, remotes] = await Promise.all([
+			PullRequestGitHelper.getMatchingBaseBranchMetadataForBranch(this._folderRepositoryManager.repository, defaultCompareBranch),
+			this._folderRepositoryManager.getGitHubRemotes()]);
 
 		const defaultBaseRemote: RemoteInfo = {
 			owner: detectedBaseMetadata?.owner ?? this._pullRequestDefaults.owner,
@@ -290,6 +294,8 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			defaultTitle: defaultTitleAndDescription.title,
 			defaultDescription: defaultTitleAndDescription.description,
 			defaultMergeMethod: getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability),
+			defaultCreateMethod: this._folderRepositoryManager.context.workspaceState.get<CreateMethod>(PREVIOUS_CREATE_METHOD, 'create'),
+			remoteCount: remotes.length,
 			allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
 			mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
 			autoMergeDefault: mergeConfiguration.viewerCanAutoMerge && (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(SET_AUTO_MERGE, false) === true),
@@ -669,6 +675,10 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	private async create(message: IRequestMessage<CreatePullRequestNew>): Promise<void> {
 		Logger.debug(`Creating pull request with args ${JSON.stringify(message.args)}`, CreatePullRequestViewProviderNew.ID);
 
+		// Save create method
+		const createMethod: CreateMethod = message.args.draft ? 'create-draft' : (message.args.autoMerge ? 'create-automerge' : 'create');
+		this._folderRepositoryManager.context.workspaceState.update(PREVIOUS_CREATE_METHOD, createMethod);
+
 		const postCreate = (createdPR: PullRequestModel) => {
 			return Promise.all([
 				this.setLabels(createdPR, message.args.labels),
@@ -826,6 +836,11 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				// Log error
 				vscode.window.showErrorMessage('Unsupported webview message');
 		}
+	}
+
+	dispose() {
+		super.dispose();
+		this._postMessage({ command: 'reset' });
 	}
 
 	private _getHtmlForWebview() {

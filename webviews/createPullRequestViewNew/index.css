@@ -272,6 +272,7 @@ textarea {
 
 .split-right select {
 	color: transparent;
+	appearance: none;
 	cursor: pointer;
 	width: 24px; height: 28px;
 	border-left: 1px solid rgba(0, 0, 0, 0.2);

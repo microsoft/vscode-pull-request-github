@@ -8,6 +8,10 @@ import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, Ch
 import { getMessageHandler, MessageHandler, vscode } from './message';
 
 const defaultCreateParams: CreateParamsNew = {
+	defaultBaseRemote: undefined,
+	defaultBaseBranch: undefined,
+	defaultCompareRemote: undefined,
+	defaultCompareBranch: undefined,
 	validate: false,
 	showTitleValidationError: false,
 	labels: [],
@@ -16,6 +20,10 @@ const defaultCreateParams: CreateParamsNew = {
 	assignees: [],
 	reviewers: [],
 	milestone: undefined,
+	defaultTitle: undefined,
+	pendingTitle: undefined,
+	defaultDescription: undefined,
+	pendingDescription: undefined,
 };
 
 export class CreatePRContextNew {
@@ -70,7 +78,8 @@ export class CreatePRContextNew {
 
 		const updateValues: Partial<CreateParamsNew> = {
 			baseRemote: response.baseRemote,
-			baseBranch: response.baseBranch
+			baseBranch: response.baseBranch,
+			createError: ''
 		};
 		if ((this.createParams.baseRemote?.owner !== response.baseRemote.owner) || (this.createParams.baseRemote.repositoryName !== response.baseRemote.repositoryName)) {
 			updateValues.defaultMergeMethod = response.defaultMergeMethod;
@@ -105,7 +114,8 @@ export class CreatePRContextNew {
 
 		const updateValues: Partial<CreateParamsNew> = {
 			compareRemote: response.compareRemote,
-			compareBranch: response.compareBranch
+			compareBranch: response.compareBranch,
+			createError: ''
 		};
 
 		this.updateState(updateValues);
