@@ -86,7 +86,6 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		if (this._firstLoad) {
 			this._firstLoad = false;
 			// Reset any stored state.
-			// TODO @RMacfarlane Clear stored state on extension deactivation instead.
 			this.initializeParams(true);
 		} else {
 			this.initializeParams();
@@ -99,10 +98,10 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	}
 
 	set defaultCompareBranch(compareBranch: Branch | undefined) {
-		const branchChanged = compareBranch && (compareBranch.name !== this._defaultCompareBranch.name ||
-			compareBranch.upstream?.remote !== this._defaultCompareBranch.upstream?.remote);
+		const branchChanged = compareBranch && (compareBranch.name !== this._defaultCompareBranch.name);
+		const branchRemoteChanged = compareBranch && (compareBranch.upstream?.remote !== this._defaultCompareBranch.upstream?.remote);
 		const commitChanged = compareBranch && (compareBranch.commit !== this._defaultCompareBranch.commit);
-		if (branchChanged || commitChanged) {
+		if (branchChanged || branchRemoteChanged || commitChanged) {
 			this._defaultCompareBranch = compareBranch!;
 			this.changeBranch(compareBranch!.name!, false).then(titleAndDescription => {
 				const params: Partial<CreateParamsNew> = {
@@ -111,10 +110,12 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 					compareBranch: compareBranch?.name,
 					defaultCompareBranch: compareBranch?.name
 				};
-				return this._postMessage({
-					command: 'reset',
-					params,
-				});
+				if (!branchRemoteChanged) {
+					return this._postMessage({
+						command: 'reset',
+						params,
+					});
+				}
 			});
 
 			if (branchChanged) {

@@ -233,7 +233,7 @@ textarea {
 .merge-method select {
 	appearance: none;
 	border: none;
-	font-size: 0;
+	/* font-size: 0; */
 	width: 28px;
 	height: 28px;
 	cursor: pointer;
@@ -280,7 +280,7 @@ textarea {
 	border-radius: 0 2px 2px 0;
 	background-color: var(--vscode-button-background);
 	border: 1px solid var(--vscode-contrastBorder);
-	font-size: 0;
+	/* font-size: 0; */
 
 }
 

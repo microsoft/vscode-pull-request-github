@@ -16,6 +16,10 @@ const defaultCreateParams: CreateParamsNew = {
 	assignees: [],
 	reviewers: [],
 	milestone: undefined,
+	defaultTitle: undefined,
+	pendingTitle: undefined,
+	defaultDescription: undefined,
+	pendingDescription: undefined,
 };
 
 export class CreatePRContextNew {
