@@ -87,13 +87,13 @@ export function main() {
 					},
 					[create],
 				);
+				const mergeMethodSelect: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
+				const createMethodSelect: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
 
 				if (!ctx.initialized) {
 					return <div className="loading-indicator">Loading...</div>;
 				}
 
-				const mergeMethodSelect: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
-				const createMethodSelect: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
 				const onCreateButton = () => {
 					const selected = createMethodSelect.current?.value as CreateMethod;
 					let isDraft = false;

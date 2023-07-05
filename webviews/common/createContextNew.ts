@@ -8,6 +8,10 @@ import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, Ch
 import { getMessageHandler, MessageHandler, vscode } from './message';
 
 const defaultCreateParams: CreateParamsNew = {
+	defaultBaseRemote: undefined,
+	defaultBaseBranch: undefined,
+	defaultCompareRemote: undefined,
+	defaultCompareBranch: undefined,
 	validate: false,
 	showTitleValidationError: false,
 	labels: [],
