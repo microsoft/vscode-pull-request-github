@@ -39,7 +39,7 @@ import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } fr
 
 const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
 
-export class CreatePullRequestViewProviderNew extends WebviewViewBase implements vscode.WebviewViewProvider {
+export class CreatePullRequestViewProviderNew extends WebviewViewBase implements vscode.WebviewViewProvider, vscode.Disposable {
 	private static readonly ID = 'CreatePullRequestViewProvider';
 	public readonly viewType = 'github:createPullRequest';
 
@@ -86,9 +86,9 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		if (this._firstLoad) {
 			this._firstLoad = false;
 			// Reset any stored state.
-			this.initializeParams(true);
+			return this.initializeParams(true);
 		} else {
-			this.initializeParams();
+			return this.initializeParams();
 		}
 	}
 
@@ -836,6 +836,11 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				// Log error
 				vscode.window.showErrorMessage('Unsupported webview message');
 		}
+	}
+
+	dispose() {
+		super.dispose();
+		this._postMessage({ command: 'reset' });
 	}
 
 	private _getHtmlForWebview() {
