@@ -30,7 +30,7 @@ svg path {
 /* Base + Merge Branches */
 
 .group-branches {
-	margin-top: 16px;
+	margin-top: 28px;
 	margin-bottom: 10px;
 }
 
@@ -210,7 +210,7 @@ textarea {
 	display: flex;
 	gap: 8px;
 	margin-top: 10px;
-	margin-bottom: 20px;
+	margin-bottom: 24px;
 }
 
 .group-actions .spacer {
