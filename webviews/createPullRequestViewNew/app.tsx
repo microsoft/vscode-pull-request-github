@@ -12,7 +12,7 @@ import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
 import { AutoMerge } from '../components/automergeSelect';
-import { assigneeIcon, chevronDownIcon, gearIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon } from '../components/icon';
+import { assigneeIcon, chevronDownIcon, mergeMethodIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon } from '../components/icon';
 
 
 export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch, isBase }:
@@ -195,7 +195,7 @@ export function main() {
 
 					<div className='group-actions'>
 						<div className='merge-method'>
-							{gearIcon}
+							{mergeMethodIcon}
 							<select name='merge-method' title='Merge Method' aria-label='Merge Method'>
 								<option value='create-merge-commit'>Create Merge Commit</option>
 								<option value='quash-and-merge'>Squash and Merge</option>
