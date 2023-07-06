@@ -23,6 +23,10 @@
 - Re-request review from one reviewer will remove other reviewers. https://github.com/microsoft/vscode-pull-request-github/issues/4830
 - Don't reload entire DOM when getting data from GitHub. https://github.com/microsoft/vscode-pull-request-github/issues/4371
 
+**_Thank You_**
+
+* [@SKPG-Tech (Salvijus K.)](https://github.com/SKPG-Tech): Fix null when no user name available  [PR #4892](https://github.com/microsoft/vscode-pull-request-github/pull/4892)
+
 ## 0.66.2
 
 ### Fixes
