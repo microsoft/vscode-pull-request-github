@@ -30,7 +30,7 @@ svg path {
 /* Base + Merge Branches */
 
 .group-branches {
-	margin-top: 16px;
+	margin-top: 28px;
 	margin-bottom: 10px;
 }
 
@@ -49,9 +49,8 @@ svg path {
 .base button,
 .merge button {
 	display: block;
-	float: right;
-	width: 100%;
-	height: 24px;
+	float: left;
+	width: 100%; height: 24px;
 	margin-top: -4px;
 	padding-top: 2px;
 	padding-left: 8px;
@@ -59,21 +58,20 @@ svg path {
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
-	background-color: var(--vscode-input-background);
-	color: var(--vscode-input-foreground);
+	color: var(--vscode-button-secondaryForeground) !important;
+	background-color: var(--vscode-button-secondaryBackground) !important;
 }
 
-.base button:hover,
-.merge button:hover {
-	background-color: var(--vscode-input-background);
-	color: var(--vscode-input-foreground);
-}
-
+.base button:active,
 .base button:focus,
-.merge button:focus {
-	background-color: var(--vscode-button-background);
-	color: var(--vscode-button-foreground);
+.base button:hover,
+.merge button:active,
+.merge button:focus,
+.merge button:hover {
+	color: var(--vscode-inputOption-activeForeground) !important;
+	background-color: var(--vscode-inputOption-activeBackground) !important;
 }
+
 
 .merge {
 	padding-left: 28px;
@@ -211,7 +209,7 @@ textarea {
 	display: flex;
 	gap: 8px;
 	margin-top: 10px;
-	margin-bottom: 20px;
+	margin-bottom: 24px;
 }
 
 .group-actions .spacer {
@@ -232,8 +230,8 @@ textarea {
 
 .merge-method select {
 	appearance: none;
+	color: transparent;
 	border: none;
-	/* font-size: 0; */
 	width: 28px;
 	height: 28px;
 	cursor: pointer;
@@ -273,15 +271,15 @@ textarea {
 }
 
 .split-right select {
+	color: transparent;
 	appearance: none;
 	cursor: pointer;
 	width: 24px; height: 28px;
 	border-left: 1px solid rgba(0, 0, 0, 0.2);
 	border-radius: 0 2px 2px 0;
+	padding: inherit;
 	background-color: var(--vscode-button-background);
 	border: 1px solid var(--vscode-contrastBorder);
-	/* font-size: 0; */
-
 }
 
 .split-right select:focus,

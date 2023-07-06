@@ -11,7 +11,7 @@ import { isTeam, MergeMethod } from '../../src/github/interface';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
-import { assigneeIcon, chevronDownIcon, gearIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon } from '../components/icon';
+import { assigneeIcon, chevronDownIcon, mergeMethodIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon } from '../components/icon';
 import { MergeSelect } from '../components/merge';
 
 type CreateMethodLabel = {
@@ -227,9 +227,10 @@ export function main() {
 					</div>
 
 					<div className='group-actions'>
+
 						{params.allowAutoMerge ? (
 							<div className='merge-method'>
-								{gearIcon}
+								{mergeMethodIcon}
 								<MergeSelect
 									name='merge-method'
 									title='Merge Method'
