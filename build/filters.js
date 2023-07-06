@@ -28,6 +28,7 @@ module.exports.unicodeFilter = [
 	'!**/ThirdPartyNotices.txt',
 	'!**/LICENSE.{txt,rtf}',
 	'!**/LICENSE',
+	'!*.yml'
 ];
 
 module.exports.indentationFilter = [
