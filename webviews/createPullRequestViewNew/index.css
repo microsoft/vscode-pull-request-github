@@ -238,6 +238,10 @@ textarea {
 	background-color: transparent !important;
 }
 
+option {
+	color: var(--vscode-dropdown-foreground);
+}
+
 .merge-method select:focus {
 	outline: none;
 	border: 1px solid var(--vscode-focusBorder);
