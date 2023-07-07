@@ -600,6 +600,10 @@ query LegacyPullRequestComments($owner: String!, $name: String!, $number: Int!, 
 						}
 					}
 				}
+				pageInfo {
+					hasNextPage
+					endCursor
+				}
 			}
 		}
 	}
