@@ -95,7 +95,7 @@ export interface CreateParamsNew {
 	defaultCompareBranch?: string;
 	defaultTitle?: string;
 	defaultDescription?: string;
-	defaultCreateMethod?: CreateMethod;
+	defaultCreateMethod: CreateMethod;
 
 	pendingTitle?: string;
 	pendingDescription?: string;
