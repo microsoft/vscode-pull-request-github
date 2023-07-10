@@ -11,7 +11,7 @@ import { isTeam, MergeMethod } from '../../src/github/interface';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
-import { assigneeIcon, chevronDownIcon, mergeMethodIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon } from '../components/icon';
+import { assigneeIcon, chevronDownIcon, labelIcon, mergeMethodIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon } from '../components/icon';
 import { MergeSelect } from '../components/merge';
 
 type CreateMethodLabel = {
@@ -108,9 +108,6 @@ export function main() {
 					return create();
 				};
 
-				const defaultCreateMethod: CreateMethod = (ctx.createParams.defaultCreateMethod && (ctx.createParams.defaultCreateMethod !== 'create-automerge' || ctx.createParams.allowAutoMerge))
-					? ctx.createParams.defaultCreateMethod : 'create';
-
 				return <div className='group-main'>
 					<div className='group-branches'>
 						<div className='input-label base'>
@@ -144,7 +141,7 @@ export function main() {
 							type='text'
 							ref={titleInput}
 							name='title'
-							value={params.pendingTitle}
+							value={params.pendingTitle ?? ''}
 							className={params.showTitleValidationError ? 'input-error' : ''}
 							aria-invalid={!!params.showTitleValidationError}
 							aria-describedby={params.showTitleValidationError ? 'title-error' : ''}
@@ -253,13 +250,13 @@ export function main() {
 						</button>
 						<div className='create-button'>
 							<button className='split-left' disabled={isBusy || !isCreateable || !ctx.initialized} onClick={onCreateButton}>
-								{CreateMethodLabels[defaultCreateMethod]}
+								{CreateMethodLabels[ctx.createParams.defaultCreateMethod]}
 							</button>
 							<div className='split-right'>
 								{chevronDownIcon}
 								<select ref={createMethodSelect} name='create-action' disabled={isBusy || !isCreateable || !ctx.initialized}
 									title='Create Actions' aria-label='Create Actions'
-									defaultValue={defaultCreateMethod}
+									defaultValue={ctx.createParams.defaultCreateMethod}
 									onChange={onCreateButton}>
 									<option value={'create'}>{CreateMethodLabels['create']}</option>
 									<option value={'create-draft'}>{CreateMethodLabels['create-draft']}</option>

@@ -24,6 +24,7 @@ const defaultCreateParams: CreateParamsNew = {
 	pendingTitle: undefined,
 	defaultDescription: undefined,
 	pendingDescription: undefined,
+	defaultCreateMethod: 'create'
 };
 
 export class CreatePRContextNew {
