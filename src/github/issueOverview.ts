@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
+import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
