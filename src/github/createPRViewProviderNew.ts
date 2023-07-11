@@ -770,11 +770,15 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 						vscode.window.showErrorMessage(vscode.l10n.t('There was an error creating the pull request: {0}', e.message));
 					}
 				} finally {
+					let completeMessage: string;
 					if (createdPR) {
 						await this._replyMessage(message, {});
 						this._onDone.fire(createdPR);
+						completeMessage = vscode.l10n.t('Pull request created');
+					} else {
+						completeMessage = vscode.l10n.t('Unable to create pull request');
 					}
-					progress.report({ message: vscode.l10n.t('Pull request created'), increment: 100 - totalIncrement });
+					progress.report({ message: completeMessage, increment: 100 - totalIncrement });
 				}
 			});
 		});
