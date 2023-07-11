@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateMethod, CreateParamsNew, CreatePullRequestNew, RemoteInfo } from '../../common/views';
+import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, RemoteInfo } from '../../common/views';
 import type { Branch, Ref } from '../api/api';
 import { GitHubServerType } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
@@ -284,6 +284,15 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			await defaultOrigin.getViewerPermission()
 		]);
 
+		const lastCreateMethod: { autoMerge: boolean, mergeMethod: MergeMethod | undefined, isDraft: boolean } | undefined = this._folderRepositoryManager.context.workspaceState.get<{ autoMerge: boolean, mergeMethod: MergeMethod, isDraft } | undefined>(PREVIOUS_CREATE_METHOD, undefined);
+		const repoMergeMethod = getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability);
+		const defaultMergeMethod = lastCreateMethod?.mergeMethod ?? repoMergeMethod;
+
+		const draftSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get(CREATE_DRAFT, false);
+		const isDraftDefault = lastCreateMethod?.isDraft ?? draftSetting;
+
+		const autoMergeSetting = (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(SET_AUTO_MERGE, false) === true);
+		const autoMergeDefault = mergeConfiguration.viewerCanAutoMerge && (lastCreateMethod?.autoMerge ?? autoMergeSetting);
 		commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 
 		const params: CreateParamsNew = {
@@ -293,15 +302,14 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			defaultCompareBranch,
 			defaultTitle: defaultTitleAndDescription.title,
 			defaultDescription: defaultTitleAndDescription.description,
-			defaultMergeMethod: getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability),
-			defaultCreateMethod: this._folderRepositoryManager.context.workspaceState.get<CreateMethod>(PREVIOUS_CREATE_METHOD, 'create'),
+			defaultMergeMethod,
 			remoteCount: remotes.length,
 			allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
 			mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
-			autoMergeDefault: mergeConfiguration.viewerCanAutoMerge && (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(SET_AUTO_MERGE, false) === true),
+			autoMergeDefault,
 			createError: '',
 			labels: this.labels,
-			isDraftDefault: vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get(CREATE_DRAFT, false),
+			isDraftDefault,
 			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
 		};
 
@@ -676,7 +684,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		Logger.debug(`Creating pull request with args ${JSON.stringify(message.args)}`, CreatePullRequestViewProviderNew.ID);
 
 		// Save create method
-		const createMethod: CreateMethod = message.args.draft ? 'create-draft' : (message.args.autoMerge ? 'create-automerge' : 'create');
+		const createMethod: { autoMerge: boolean, mergeMethod: MergeMethod | undefined, isDraft: boolean } = { autoMerge: message.args.autoMerge, mergeMethod: message.args.autoMergeMethod, isDraft: message.args.draft };
 		this._folderRepositoryManager.context.workspaceState.update(PREVIOUS_CREATE_METHOD, createMethod);
 
 		const postCreate = (createdPR: PullRequestModel) => {
