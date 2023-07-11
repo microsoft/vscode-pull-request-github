@@ -86,8 +86,6 @@ export interface CreatePullRequestNew {
 
 // #region new create view
 
-export type CreateMethod = 'create-draft' | 'create' | 'create-automerge';
-
 export interface CreateParamsNew {
 	defaultBaseRemote?: RemoteInfo;
 	defaultBaseBranch?: string;
@@ -95,8 +93,6 @@ export interface CreateParamsNew {
 	defaultCompareBranch?: string;
 	defaultTitle?: string;
 	defaultDescription?: string;
-	defaultCreateMethod: CreateMethod;
-
 	pendingTitle?: string;
 	pendingDescription?: string;
 	baseRemote?: RemoteInfo;
