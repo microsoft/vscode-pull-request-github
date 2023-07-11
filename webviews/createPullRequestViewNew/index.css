@@ -293,9 +293,16 @@ option {
 	border: 1px solid var(--vscode-contrastActiveBorder);
 }
 
-.split-right select:disabled {
+.split-right select:disabled,
+:disabled {
+	cursor: wait;
+}
+
+:disabled {
+	color: var(--vscode-disabledForeground);
 	opacity: 0.4;
 }
+
 /*
 .split-right:has(select:disabled) .icon svg path {
 	fill: var(--vscode-) !important;
