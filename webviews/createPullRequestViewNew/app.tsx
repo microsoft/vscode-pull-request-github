@@ -31,7 +31,7 @@ export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch, i
 
 	return <ErrorBoundary>
 		<div className='flex'>
-			<button title={title} aria-label={title} disabled={disabled} onClick={() => {
+			<button title={disabled ? '' : title} aria-label={title} disabled={disabled} onClick={() => {
 				onClick(defaultRemote, defaultBranch);
 			}}>
 				{defaultsLabel}
