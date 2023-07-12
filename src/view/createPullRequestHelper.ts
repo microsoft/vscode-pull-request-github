@@ -26,11 +26,10 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 	private registerListeners(repository: Repository, usingCurrentBranchAsCompare: boolean) {
 		this._disposables.push(
 			this._createPRViewProvider!.onDone(async createdPR => {
-				this.dispose();
-
 				if (createdPR) {
 					this._onDidCreate.fire(createdPR);
 				}
+				this.dispose();
 			}),
 		);
 
