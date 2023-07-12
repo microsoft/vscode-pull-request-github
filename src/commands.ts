@@ -1368,7 +1368,7 @@ ${contents}
 		}
 
 		for (let i = 0; i < reviewManager.reviewModel.localFileChanges.length; i++) {
-			const index = next ? i : reviewManager.reviewModel.localFileChanges.length - 1;
+			const index = next ? i : reviewManager.reviewModel.localFileChanges.length - 1 - i;
 			const localFileChange = reviewManager.reviewModel.localFileChanges[index];
 			if (localFileChange.changeModel.filePath.toString() === editorUri.toString()) {
 				const nextIndex = next ? index + 1 : index - 1;
