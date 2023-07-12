@@ -81,11 +81,6 @@ export async function getAssigneesQuickPickItems(folderRepositoryManager: Folder
 		}));
 	}
 
-	assignees.push(Promise.resolve({
-		kind: vscode.QuickPickItemKind.Separator,
-		label: vscode.l10n.t('Users')
-	}));
-
 	for (const user of assignableUsers) {
 		if (skipList.has(user.login)) {
 			continue;
@@ -212,9 +207,11 @@ export async function reviewersQuickPick(folderRepositoryManager: FolderReposito
 	const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { reviewer?: IAccount | ITeam }>();
 	// The quick-max is used to show the "update reviewers" button. If the number of teams is less than the quick-max, then they'll be automatically updated when the quick pick is opened.
 	const quickMaxTeamReviewers = 100;
+	const defaultPlaceholder = vscode.l10n.t('Add reviewers');
 	quickPick.busy = true;
 	quickPick.canSelectMany = true;
 	quickPick.matchOnDescription = true;
+	quickPick.placeholder = defaultPlaceholder;
 	quickPick.show();
 	const updateItems = async (refreshKind: TeamReviewerRefreshKind) => {
 		const slowWarning = setTimeout(() => {
@@ -223,7 +220,7 @@ export async function reviewersQuickPick(folderRepositoryManager: FolderReposito
 		quickPick.items = await getReviewersQuickPickItems(folderRepositoryManager, remoteName, isInOrganization, author, existingReviewers, suggestedReviewers, refreshKind);
 		clearTimeout(slowWarning);
 		quickPick.selectedItems = quickPick.items.filter(item => item.picked);
-		quickPick.placeholder = undefined;
+		quickPick.placeholder = defaultPlaceholder;
 	};
 
 	await updateItems((teamsCount !== 0 && teamsCount <= quickMaxTeamReviewers) ? TeamReviewerRefreshKind.Try : TeamReviewerRefreshKind.None);
@@ -261,6 +258,7 @@ export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderR
 
 			return milestones.map(result => {
 				return {
+					iconPath: new vscode.ThemeIcon('milestone'),
 					label: result.title,
 					id: result.id,
 					milestone: result,

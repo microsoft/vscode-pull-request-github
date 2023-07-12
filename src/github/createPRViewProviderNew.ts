@@ -598,7 +598,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	public async addAssignees(): Promise<void> {
 		const remote = await this.getRemote();
 		const assigneesToAdd = await vscode.window.showQuickPick(getAssigneesQuickPickItems(this._folderRepositoryManager, remote.remoteName, this.assignees),
-			{ canPickMany: true, placeHolder: vscode.l10n.t('Add Assignees') });
+			{ canPickMany: true, placeHolder: vscode.l10n.t('Add assignees') });
 		if (assigneesToAdd) {
 			const addedAssignees = assigneesToAdd.map(assignee => assignee.assignee).filter<IAccount>((assignee): assignee is IAccount => !!assignee);
 			this.assignees = addedAssignees;
