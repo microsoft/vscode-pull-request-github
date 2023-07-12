@@ -247,7 +247,7 @@ function isMilestoneQuickPickItem(x: vscode.QuickPickItem | MilestoneQuickPickIt
 	return !!(x as MilestoneQuickPickItem).id && !!(x as MilestoneQuickPickItem).milestone;
 }
 
-export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderRepositoryManager, githubRepository: GitHubRepository, callback: (milestone: IMilestone, message?: IRequestMessage<void>) => Promise<void>, message?: IRequestMessage<void>): Promise<void> {
+export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderRepositoryManager, githubRepository: GitHubRepository, callback: (milestone: IMilestone) => Promise<void>): Promise<void> {
 	try {
 		async function getMilestoneOptions(): Promise<(MilestoneQuickPickItem | vscode.QuickPickItem)[]> {
 			const milestones = await githubRepository.getMilestones();
@@ -305,7 +305,7 @@ export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderR
 				try {
 					const milestone = await folderRepositoryManager.createMilestone(githubRepository, inputBox.value);
 					if (milestone !== undefined) {
-						await callback(milestone, message);
+						await callback(milestone);
 					}
 				} catch (e) {
 					if (e.errors && Array.isArray(e.errors) && e.errors.find(error => error.code === 'already_exists') !== undefined) {
@@ -326,7 +326,7 @@ export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderR
 			quickPick.hide();
 			const milestoneToAdd = quickPick.selectedItems[0];
 			if (milestoneToAdd && isMilestoneQuickPickItem(milestoneToAdd)) {
-				await callback(milestoneToAdd.milestone, message);
+				await callback(milestoneToAdd.milestone);
 			}
 		});
 	} catch (e) {
