@@ -141,7 +141,7 @@ export function main() {
 								defaultBranch={params.baseBranch}
 								remoteCount={params.remoteCount}
 								isBase={true}
-								disabled={!ctx.initialized} />
+								disabled={!ctx.initialized || isBusy} />
 						</div>
 
 						<div className='input-label merge'>
@@ -153,7 +153,7 @@ export function main() {
 								defaultBranch={params.compareBranch}
 								remoteCount={params.remoteCount}
 								isBase={false}
-								disabled={!ctx.initialized} />
+								disabled={!ctx.initialized || isBusy} />
 						</div>
 					</div>
 
@@ -173,7 +173,7 @@ export function main() {
 							required
 							onChange={(e) => updateTitle(e.currentTarget.value)}
 							onKeyDown={onKeyDown}
-							disabled={!ctx.initialized}>
+							disabled={!ctx.initialized || isBusy}>
 						</input>
 						<div id='title-error' className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required</div>
 					</div>
@@ -236,7 +236,7 @@ export function main() {
 							value={params.pendingDescription}
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
 							onKeyDown={onKeyDown}
-							disabled={!ctx.initialized}></textarea>
+							disabled={!ctx.initialized || isBusy}></textarea>
 					</div>
 
 					<div className={params.validate && !!params.createError ? 'wrapper validation-error' : 'hidden'} aria-live='assertive'>
