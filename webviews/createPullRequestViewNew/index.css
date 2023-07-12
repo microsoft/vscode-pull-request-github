@@ -210,58 +210,26 @@ textarea {
 	gap: 8px;
 	margin-top: 10px;
 	margin-bottom: 24px;
+	width: 100%;
 }
 
-.group-actions .spacer {
-	flex-grow: 1;
-}
-
-.merge-method {
-	position: relative;
-	display: block;
-}
-
-.merge-method .icon {
-	position: absolute;
-	top: 6px;
-	left: 6px;
-	z-index: -1;
-}
-
-.merge-method select {
-	appearance: none;
-	color: transparent;
-	border: none;
-	width: 28px;
-	height: 28px;
-	cursor: pointer;
-	background-color: transparent !important;
-}
 
 option {
 	color: var(--vscode-dropdown-foreground);
 }
 
-.merge-method select:focus {
-	outline: none;
-	border: 1px solid var(--vscode-focusBorder);
-}
-
-
 .create-button {
-	display: block;
+	display: flex;
+	flex-grow: 1;
 }
 
 .split-left {
-	display: block;
-	float: left;
+	flex-grow: 1;
 	border-radius:  2px 0 0 2px;
 }
 
 .split-right {
 	position: relative;
-	display: block;
-	float: left;
 }
 
 .split-right .icon {
@@ -302,9 +270,3 @@ option {
 	color: var(--vscode-disabledForeground);
 	opacity: 0.4;
 }
-
-/*
-.split-right:has(select:disabled) .icon svg path {
-	fill: var(--vscode-) !important;
-}
-*/

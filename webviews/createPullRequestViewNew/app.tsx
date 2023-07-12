@@ -246,8 +246,6 @@ export function main() {
 					</div>
 
 					<div className='group-actions'>
-
-						<div className='spacer'></div>
 						<button disabled={isBusy} className='secondary' onClick={() => ctx.cancelCreate()}>
 							Cancel
 						</button>
