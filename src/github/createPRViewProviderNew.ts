@@ -676,6 +676,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		if (pushRemote && createdPushRemote) {
 			Logger.appendLine(`Found push remote ${pushRemote.name} for ${compareOwner}/${compareRepositoryName} and branch ${compareBranchName}`, CreatePullRequestViewProviderNew.ID);
 			await this._folderRepositoryManager.repository.push(pushRemote.name, compareBranchName, true);
+			await this._folderRepositoryManager.repository.status();
 			return { compareUpstream: createdPushRemote, repo: this._folderRepositoryManager.findRepo(byRemoteName(createdPushRemote.remoteName)) };
 		}
 	}
