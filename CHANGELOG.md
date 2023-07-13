@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.68.1
+
+### Fixes
+
+- Github Enterprise Doesn't Show Comments. https://github.com/microsoft/vscode-pull-request-github/issues/4995
+- Buffer is not defined when adding labels. https://github.com/microsoft/vscode-pull-request-github/issues/5009
+
 ## 0.68.0
 
 ### Changes

@@ -24,7 +24,7 @@
 		"quickPickItemIcon",
 		"readonlyMessage"
 	],
-	"version": "0.68.0",
+	"version": "0.68.1",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.80.0"
