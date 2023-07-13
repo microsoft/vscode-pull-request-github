@@ -43,7 +43,9 @@ export function main() {
 					let label: string;
 					if (autoMerge && autoMergeMethod) {
 						value = `create-automerge-${autoMergeMethod}` as CreateMethod;
-						label = `Create & Auto-Merge (${autoMergeMethod})`;
+						const mergeMethodLabel = autoMergeMethod.charAt(0).toUpperCase() + autoMergeMethod.slice(1);
+						label = `Create + Auto-${mergeMethodLabel}`;
+
 					} else if (isDraft) {
 						value = 'create-draft';
 						label = 'Create Draft';
@@ -262,9 +264,9 @@ export function main() {
 									onChange={onCreateButton}>
 									{createMethodOption()}
 									{createMethodOption(true)}
+									{params.allowAutoMerge && params.mergeMethodsAvailability && params.mergeMethodsAvailability['merge'] ? createMethodOption(false, true, 'merge') : null}
 									{params.allowAutoMerge && params.mergeMethodsAvailability && params.mergeMethodsAvailability['squash'] ? createMethodOption(false, true, 'squash') : null}
 									{params.allowAutoMerge && params.mergeMethodsAvailability && params.mergeMethodsAvailability['rebase'] ? createMethodOption(false, true, 'rebase') : null}
-									{params.allowAutoMerge && params.mergeMethodsAvailability && params.mergeMethodsAvailability['merge'] ? createMethodOption(false, true, 'merge') : null}
 								</select>
 							</div>
 						</div>
