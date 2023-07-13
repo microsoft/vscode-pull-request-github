@@ -259,11 +259,11 @@ export function main() {
 								{chevronDownIcon}
 								<select ref={createMethodSelect} name='create-action' disabled={isBusy || !isCreateable || !ctx.initialized}
 									title='Create Actions' aria-label='Create Actions'
-									// defaultValue={createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).value}
 									value={createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).value}
 									onChange={onCreateButton}>
 									{createMethodOption()}
 									{createMethodOption(true)}
+									{params.allowAutoMerge ? <option disabled>&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;</option> : null}
 									{params.allowAutoMerge && params.mergeMethodsAvailability && params.mergeMethodsAvailability['merge'] ? createMethodOption(false, true, 'merge') : null}
 									{params.allowAutoMerge && params.mergeMethodsAvailability && params.mergeMethodsAvailability['squash'] ? createMethodOption(false, true, 'squash') : null}
 									{params.allowAutoMerge && params.mergeMethodsAvailability && params.mergeMethodsAvailability['rebase'] ? createMethodOption(false, true, 'rebase') : null}
