@@ -196,7 +196,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					return;
 				}
 
-				this._view.title = `${pullRequest.title} #${pullRequestModel.number.toString()}`;
+				try {
+					this._view.title = `${pullRequest.title} #${pullRequestModel.number.toString()}`;
+				} catch (e) {
+					// If we ry to set the title of the webview too early it will throw an error.
+				}
 
 				const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
 				const hasWritePermission = repositoryAccess!.hasWritePermission;
