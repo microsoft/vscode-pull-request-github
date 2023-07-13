@@ -4,12 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-:disabled {
-	opacity: 0.4;
-}
-
 body {
 	padding: 0 20px;
+}
+
+input:disabled,
+textarea:disabled {
+	opacity: 0.4;
 }
 
 .group-main {
@@ -25,12 +26,6 @@ body {
 	height: 16px;
 }
 
-/*
-svg,
-svg path {
-	fill: var(--vscode-foreground);
-}
-*/
 
 /* Base + Merge Branches */
 
@@ -76,7 +71,6 @@ svg path {
 	color: var(--vscode-inputOption-activeForeground) !important;
 	background-color: var(--vscode-inputOption-activeBackground) !important;
 }
-
 
 .merge {
 	padding-left: 28px;
@@ -255,12 +249,21 @@ option {
 	top: 6px; right: 4px;
 }
 
+.split-right select:disabled {
+	opacity: 1;
+}
+
+.split-right:has(select:disabled) {
+	opacity: 0.4 !important;
+}
+
 .split-right .icon svg path {
 	fill: var(--vscode-button-foreground);
 }
 
 .split-right:has(select:disabled) .icon svg path {
-	opacity: 0.4;
+	fill: var(--vscode-button-foreground);
+	opacity: 1;
 }
 
 .split-right select {
