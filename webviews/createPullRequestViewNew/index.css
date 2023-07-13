@@ -228,9 +228,9 @@ option {
 .split-left {
 	flex-grow: 1;
 	border-radius: 2px 0 0 2px;
-	overflow: hidden !important;
-	white-space: nowrap !important;
-	text-overflow: ellipsis !important;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
 }
 
 .split {
