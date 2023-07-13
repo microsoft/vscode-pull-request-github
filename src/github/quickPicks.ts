@@ -7,7 +7,6 @@
 import * as vscode from 'vscode';
 import { DataUri } from '../common/uri';
 import { formatError } from '../common/utils';
-import { IRequestMessage } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
 import { IAccount, IMilestone, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
