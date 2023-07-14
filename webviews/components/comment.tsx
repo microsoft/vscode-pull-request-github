@@ -371,6 +371,7 @@ const COMMENT_METHODS = {
 
 export const AddCommentSimple = (pr: PullRequest) => {
 	const { updatePR, requestChanges, approve, submit, openOnGitHub } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>();
 	let currentSelection: string = 'comment';
 
@@ -380,7 +381,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			await openOnGitHub();
 			return;
 		}
-
+		setBusy(true);
 		switch (selected) {
 			case ReviewType.RequestChanges:
 				await requestChanges(value);
@@ -391,6 +392,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			default:
 				await submit(value);
 		}
+		setBusy(false);
 		updatePR({ pendingCommentText: '', pendingReviewType: undefined });
 	}
 
@@ -433,6 +435,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 				value={pr.pendingCommentText}
 				onChange={onChangeTextarea}
 				onKeyDown={onKeyDown}
+				disabled={isBusy}
 			/>
 			<Dropdown options={availableActions} changeAction={onDropDownChange} defaultOption="comment" submitAction={submitAction} disabled={!!pr.isAuthor && !pr.hasReviewDraft && !pr.pendingCommentText} />
 		</span>
