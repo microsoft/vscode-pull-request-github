@@ -265,7 +265,7 @@ export function main() {
 									onChange={onCreateButton}>
 									{createMethodOption()}
 									{createMethodOption(true)}
-									{params.allowAutoMerge ? <option disabled>&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;</option> : null}
+									{params.allowAutoMerge ? <option disabled aria-hidden='true'>&mdash;</option> : null}
 									{params.allowAutoMerge && params.mergeMethodsAvailability && params.mergeMethodsAvailability['merge'] ? createMethodOption(false, true, 'merge') : null}
 									{params.allowAutoMerge && params.mergeMethodsAvailability && params.mergeMethodsAvailability['squash'] ? createMethodOption(false, true, 'squash') : null}
 									{params.allowAutoMerge && params.mergeMethodsAvailability && params.mergeMethodsAvailability['rebase'] ? createMethodOption(false, true, 'rebase') : null}
