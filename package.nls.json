@@ -226,6 +226,7 @@
 			"{Locked='](command:pr.signin)'}"
 		]
 	},
+	"welcome.github.noGit.contents": "Git is not installed or otherwise not available. Install git or fix your git installation and then reload.",
 	"welcome.github.loginNoEnterprise.contents": {
 		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signinNoEnterprise)",
 		"comment" : [
