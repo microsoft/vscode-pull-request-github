@@ -1169,6 +1169,11 @@
 				"contents": "%welcome.github.login.contents%"
 			},
 			{
+				"view": "pr:github",
+				"when": "gitNotInstalled",
+				"contents": "%welcome.github.noGit.contents%"
+			},
+			{
 				"view": "github:login",
 				"when": "ReposManagerStateContext == NeedsAuthentication && !github:hasGitHubRemotes && gitOpenRepositoryCount",
 				"contents": "%welcome.github.loginNoEnterprise.contents%"
