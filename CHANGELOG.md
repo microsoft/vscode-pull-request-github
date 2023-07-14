@@ -38,7 +38,7 @@
 
 ### Fixes
 
-- Use `supportHtml` for markdown that just cares about coloring spans for showing issue labels.
+- Use `supportHtml` for markdown that just cares about coloring spans for showing issue labels. [CVE-2023-36867](https://msrc.microsoft.com/update-guide/vulnerability/CVE-2023-36867)
 
 ## 0.66.1
 
