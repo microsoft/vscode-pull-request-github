@@ -18,7 +18,7 @@ type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'cre
 export const ChooseRemoteAndBranch = ({ onClick, defaultRemote, defaultBranch, isBase, remoteCount = 0, disabled }:
 	{ onClick: (remote?: RemoteInfo, branch?: string) => Promise<void>, defaultRemote: RemoteInfo | undefined, defaultBranch: string | undefined, isBase: boolean, remoteCount: number | undefined, disabled: boolean }) => {
 
-	const defaultsLabel = (defaultRemote && defaultBranch) ? `${remoteCount > 1 ? `${defaultRemote.owner}/` : ''}${defaultBranch}` : '-';
+	const defaultsLabel = (defaultRemote && defaultBranch) ? `${remoteCount > 1 ? `${defaultRemote.owner}/` : ''}${defaultBranch}` : '&mdash;';
 	const title = isBase ? 'Base branch: ' + defaultsLabel : 'Branch to merge: ' + defaultsLabel;
 
 	return <ErrorBoundary>
@@ -213,7 +213,7 @@ export function main() {
 						{params.labels && (params.labels.length > 0) ?
 							<div className='labels'>
 								<span title='Labels'>{labelIcon}</span>
-								<ul aria-label="Labels" onClick={() => {
+								<ul aria-label="Labels" tabIndex={0} onClick={() => {
 									ctx.postMessage({ command: 'pr.changeLabels' });
 								}}>
 									{params.labels.map(label => <LabelCreate key={label.name} {...label} canDelete isDarkTheme={!!params.isDarkTheme} />)}

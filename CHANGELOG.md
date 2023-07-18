@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.68.1
+
+### Fixes
+
+- Github Enterprise Doesn't Show Comments. https://github.com/microsoft/vscode-pull-request-github/issues/4995
+- Buffer is not defined when adding labels. https://github.com/microsoft/vscode-pull-request-github/issues/5009
+
 ## 0.68.0
 
 ### Changes
@@ -31,7 +38,7 @@
 
 ### Fixes
 
-- Use `supportHtml` for markdown that just cares about coloring spans for showing issue labels.
+- Use `supportHtml` for markdown that just cares about coloring spans for showing issue labels. [CVE-2023-36867](https://msrc.microsoft.com/update-guide/vulnerability/CVE-2023-36867)
 
 ## 0.66.1
 

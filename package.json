@@ -354,6 +354,11 @@
 					"description": "%githubPullRequests.pullPullRequestBranchBeforeCheckout.description%",
 					"default": true
 				},
+				"githubPullRequests.experimental.createView": {
+					"type":"boolean",
+					"description": "%githubPullRequests.experimental.createView.description%",
+					"default": true
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],
@@ -1167,6 +1172,11 @@
 				"view": "github:login",
 				"when": "ReposManagerStateContext == NeedsAuthentication && github:hasGitHubRemotes",
 				"contents": "%welcome.github.login.contents%"
+			},
+			{
+				"view": "pr:github",
+				"when": "gitNotInstalled",
+				"contents": "%welcome.github.noGit.contents%"
 			},
 			{
 				"view": "github:login",

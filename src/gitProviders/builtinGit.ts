@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { APIState, GitAPI, GitExtension, PublishEvent } from '../@types/git';
 import { IGit, Repository } from '../api/api';
+import { commands } from '../common/executeCommands';
 
 export class BuiltinGitProvider implements IGit, vscode.Disposable {
 	get repositories(): Repository[] {
@@ -35,7 +36,7 @@ export class BuiltinGitProvider implements IGit, vscode.Disposable {
 			this._gitAPI = gitExtension.getAPI(1);
 		} catch (e) {
 			// The git extension will throw if a git model cannot be found, i.e. if git is not installed.
-			vscode.window.showErrorMessage('Activating the Pull Requests and Issues extension failed. Please make sure you have git installed.');
+			commands.setContext('gitNotInstalled', true);
 			throw e;
 		}
 
