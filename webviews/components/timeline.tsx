@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useContext, useRef, useState } from 'react';
-
 import { IComment } from '../../src/common/comment';
 import {
 	AssignEvent,
@@ -18,10 +17,10 @@ import {
 } from '../../src/common/timelineEvent';
 import { groupBy, UnreachableCaseError } from '../../src/common/utils';
 import PullRequestContext from '../common/context';
-import { CommentBody, CommentView } from './comment';
+import {  CommentView } from './comment';
 import Diff from './diff';
 import { commitIcon, mergeIcon, plusIcon } from './icon';
-import { nbsp, Spaced } from './space';
+import { nbsp } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
 
@@ -96,54 +95,17 @@ const NewCommitsSinceReviewEventView = () => {
 	);
 };
 
-const association = ({ authorAssociation }: ReviewEvent, format = (assoc: string) => `(${assoc.toLowerCase()})`) =>
-	authorAssociation.toLowerCase() === 'user'
-		? format('you')
-		: authorAssociation && authorAssociation !== 'NONE'
-		? format(authorAssociation)
-		: null;
-
 const positionKey = (comment: IComment) =>
 	comment.position !== null ? `pos:${comment.position}` : `ori:${comment.originalPosition}`;
 
 const groupCommentsByPath = (comments: IComment[]) =>
 	groupBy(comments, comment => comment.path + ':' + positionKey(comment));
 
-const DESCRIPTORS = {
-	PENDING: 'will review',
-	COMMENTED: 'reviewed',
-	CHANGES_REQUESTED: 'requested changes',
-	APPROVED: 'approved',
-};
-
-const reviewDescriptor = (state: string) => DESCRIPTORS[state] || 'reviewed';
-
 const ReviewEventView = (event: ReviewEvent) => {
 	const comments = groupCommentsByPath(event.comments);
 	const reviewIsPending = event.state.toLocaleUpperCase() === 'PENDING';
 	return (
-		<div id={reviewIsPending ? 'pending-review' : undefined} className="comment-container comment">
-			<div className="review-comment-container">
-				<div className="review-comment-header">
-					<Spaced>
-						<Avatar for={event.user} />
-						<AuthorLink for={event.user} />
-						{association(event)}
-						{reviewIsPending ? (
-							<em>review pending</em>
-						) : (
-							<>
-								{reviewDescriptor(event.state)}
-								{nbsp}
-								<Timestamp href={event.htmlUrl} date={event.submittedAt} />
-							</>
-						)}
-					</Spaced>
-				</div>
-				{event.state !== 'PENDING' && event.body ? (
-					<CommentBody body={event.body} bodyHTML={event.bodyHTML} canApplyPatch={false} />
-				) : null}
-
+		<CommentView comment={event}>
 				{/* Don't show the empty comment body unless a comment has been written. Shows diffs and suggested changes. */}
 				{event.comments.length ? (
 					<div className="comment-body review-comment-body">
@@ -154,8 +116,7 @@ const ReviewEventView = (event: ReviewEvent) => {
 				) : null}
 
 				{reviewIsPending ? <AddReviewSummaryComment /> : null}
-			</div>
-		</div>
+		</CommentView>
 	);
 };
 
@@ -200,9 +161,9 @@ function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEve
 			</div>
 			{revealed ? (
 				<div>
-					<Diff hunks={comment.diffHunks} />
+					<Diff hunks={comment.diffHunks ?? []} />
 					{thread.map(c => (
-						<CommentView key={c.id} {...c} pullRequestReviewId={event.id} />
+						<CommentView key={c.id} comment={c} />
 					))}
 					{resolvePermission ? (
 						<div className="resolve-comment-row">
@@ -259,7 +220,7 @@ function AddReviewSummaryComment() {
 	);
 }
 
-const CommentEventView = (event: CommentEvent) => <CommentView headerInEditMode {...event} />;
+const CommentEventView = (event: CommentEvent) => <CommentView headerInEditMode comment={event} />;
 
 const MergedEventView = (event: MergedEvent) => (
 	<div className="comment-container commit">
