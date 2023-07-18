@@ -276,7 +276,11 @@ textarea {
 }
 
 .split-right select option {
-	color: var(--vscode-dropdown-foreground);
+	background-color: revert;
+	color: revert;
+	border: revert;
+	border-radius: revert;
+	padding: revert;
 }
 
 .split-right select:focus,
