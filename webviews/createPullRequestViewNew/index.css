@@ -212,12 +212,6 @@ textarea {
 	width: 100%;
 }
 
-
-/* TODO: Check style on Windows */
-option {
-	color: var(--vscode-dropdown-foreground);
-}
-
 .create-button {
 	display: flex;
 	flex-grow: 1;
@@ -273,13 +267,20 @@ option {
 	width: 24px; height: 28px;
 	border-left: 1px solid rgba(0, 0, 0, 0.2);
 	border-radius: 0 2px 2px 0;
-	padding: inherit;
 	background-color: var(--vscode-button-background);
 	border: 1px solid var(--vscode-contrastBorder);
 }
 
-select:disabled {
+.split-right select:disabled {
 	cursor: default;
+}
+
+.split-right select option {
+	background-color: revert;
+	color: revert;
+	border: revert;
+	border-radius: revert;
+	padding: revert;
 }
 
 .split-right select:focus,

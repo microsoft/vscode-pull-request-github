@@ -32,8 +32,14 @@ export function Label(label: ILabel & { canDelete: boolean; isDarkTheme: boolean
 
 export function LabelCreate(label: ILabel & { canDelete: boolean; isDarkTheme: boolean; children?: ReactNode}) {
 	const { name, canDelete, color } = label;
-	const labelColor = gitHubLabelColor(color, label.isDarkTheme, false); /* TODO: Colors */
+	const labelColor = gitHubLabelColor(color, label.isDarkTheme, false);
 	return (
-		<li>{name}{label.children}</li>
+		<li
+		style={{
+			backgroundColor: labelColor.backgroundColor,
+			color: labelColor.textColor,
+			borderColor: `${labelColor.borderColor}`
+		}}>
+			{name}{label.children}</li>
 	);
 }
