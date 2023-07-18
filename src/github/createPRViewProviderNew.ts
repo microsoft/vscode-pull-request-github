@@ -446,6 +446,8 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		quickPick.show();
 		quickPick.busy = true;
 		quickPick.items = githubRepository ? await this.branchPicks(githubRepository, chooseDifferentRemote, isBase) : await this.remotePicks(isBase);
+		const activeItem = message.args.currentBranch ? quickPick.items.find(item => item.branch === message.args.currentBranch) : undefined;
+		quickPick.activeItems = activeItem ? [activeItem] : [];
 		quickPick.busy = false;
 		const remoteAndBranch: Promise<{ remote: RemoteInfo, branch: string } | undefined> = new Promise((resolve) => {
 			quickPick.onDidAccept(async () => {
