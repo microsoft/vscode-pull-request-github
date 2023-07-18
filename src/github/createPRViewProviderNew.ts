@@ -842,6 +842,15 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			case 'pr.changeLabels':
 				return this.addLabels();
 
+			case 'pr.changeReviewers':
+				return this.addReviewers();
+
+			case 'pr.changeAssignees':
+				return this.addAssignees();
+
+			case 'pr.changeMilestone':
+				return this.addMilestone();
+
 			case 'pr.removeLabel':
 				return this.removeLabel(message);
 
