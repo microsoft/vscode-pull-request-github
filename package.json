@@ -354,6 +354,11 @@
 					"description": "%githubPullRequests.pullPullRequestBranchBeforeCheckout.description%",
 					"default": true
 				},
+				"githubPullRequests.experimental.createView": {
+					"type":"boolean",
+					"description": "%githubPullRequests.experimental.createView.description%",
+					"default": true
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],
