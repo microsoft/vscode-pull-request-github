@@ -112,6 +112,7 @@
 	"githubIssues.assignWhenWorking.description": "Assigns the issue you're working on to you. Only applies when the issue you're working on is in a repo you currently have open.",
 	"githubPullRequests.focusedMode.description": "The layout to use when a pull request is checked out. Set to false to prevent layout changes.",
 	"githubPullRequests.showPullRequestNumberInTree.description": "Shows the pull request number in the tree view.",
+	"githubPullRequests.experimental.createView.description": "Causes the new create view to be shown when creating a pull request. This setting will eventually be removed and the new create view will be the default.",
 	"view.github.pull.request.name": "GitHub Pull Request",
 	"view.github.login.name": "Login",
 	"view.pr.github.name": "Pull Requests",
