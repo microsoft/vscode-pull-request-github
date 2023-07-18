@@ -19,6 +19,7 @@ import {
 	PUSH_BRANCH,
 	SET_AUTO_MERGE,
 } from '../common/settingKeys';
+import { DataUri } from '../common/uri';
 import { asPromise, compareIgnoreCase, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { PREVIOUS_CREATE_METHOD } from '../extensionState';
@@ -623,7 +624,10 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			return newLabels.map(label => {
 				return {
 					label: label.name,
-					picked: labels.some(existingLabel => existingLabel.name === label.name)
+					picked: labels.some(existingLabel => existingLabel.name === label.name),
+					iconPath: DataUri.asImageDataURI(Buffer.from(`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<rect x="2" y="2" width="12" height="12" rx="6" fill="#${label.color}"/>
+						</svg>`, 'utf8'))
 				};
 			});
 		}
