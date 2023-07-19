@@ -260,7 +260,7 @@ textarea {
 	opacity: 1;
 }
 
-.split-right select {
+.split-right {
 	color: transparent;
 	appearance: none;
 	cursor: pointer;

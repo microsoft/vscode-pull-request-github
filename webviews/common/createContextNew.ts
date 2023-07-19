@@ -24,6 +24,7 @@ const defaultCreateParams: CreateParamsNew = {
 	pendingTitle: undefined,
 	defaultDescription: undefined,
 	pendingDescription: undefined,
+	creating: false
 };
 
 export class CreatePRContextNew {
@@ -155,6 +156,7 @@ export class CreatePRContextNew {
 
 	public submit = async (): Promise<void> => {
 		try {
+			this.updateState({ creating: false });
 			const args: CreatePullRequestNew = this.copyParams();
 			vscode.setState(defaultCreateParams);
 			await this.postMessage({
@@ -248,6 +250,12 @@ export class CreatePRContextNew {
 			case 'set-assignees':
 			case 'set-reviewers':
 			case 'set-milestone':
+				if (!message.params) {
+					return;
+				}
+				this.updateState(message.params);
+				return;
+			case 'create':
 				if (!message.params) {
 					return;
 				}

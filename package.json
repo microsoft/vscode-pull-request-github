@@ -988,6 +988,31 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.createPrMenuCreate",
+				"title": "%command.pr.createPrMenuCreate.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.createPrMenuDraft",
+				"title": "%command.pr.createPrMenuDraft.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.createPrMenuMerge",
+				"title": "%command.pr.createPrMenuMerge.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.createPrMenuSquash",
+				"title": "%command.pr.createPrMenuSquash.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.createPrMenuRebase",
+				"title": "%command.pr.createPrMenuRebase.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "%command.issue.createIssueFromSelection.title%",
 				"category": "%command.issues.category%"
@@ -1536,6 +1561,26 @@
 				},
 				{
 					"command": "review.diffLocalWithPrHead",
+					"when": "false"
+				},
+				{
+					"command": "pr.createPrMenuCreate",
+					"when": "false"
+				},
+				{
+					"command": "pr.createPrMenuDraft",
+					"when": "false"
+				},
+				{
+					"command": "pr.createPrMenuMerge",
+					"when": "false"
+				},
+				{
+					"command": "pr.createPrMenuSquash",
+					"when": "false"
+				},
+				{
+					"command": "pr.createPrMenuRebase",
 					"when": "false"
 				},
 				{
@@ -2275,6 +2320,33 @@
 					"command": "pr.create",
 					"when": "scmProvider =~ /^remoteHub:github/",
 					"group": "1_modification@0"
+				}
+			],
+			"webview/context": [
+				{
+					"command": "pr.createPrMenuCreate",
+					"when": "webviewId == 'github:createPullRequest' && github:createPrMenu",
+					"group": "0_create@0"
+				},
+				{
+					"command": "pr.createPrMenuDraft",
+					"when": "webviewId == 'github:createPullRequest' && github:createPrMenu && github:createPrMenuDraft",
+					"group": "0_create@1"
+				},
+				{
+					"command": "pr.createPrMenuMerge",
+					"when": "webviewId == 'github:createPullRequest' && github:createPrMenu && github:createPrMenuMerge",
+					"group": "1_create@0"
+				},
+				{
+					"command": "pr.createPrMenuSquash",
+					"when": "webviewId == 'github:createPullRequest' && github:createPrMenu && github:createPrMenuSquash",
+					"group": "1_create@1"
+				},
+				{
+					"command": "pr.createPrMenuRebase",
+					"when": "webviewId == 'github:createPullRequest' && github:createPrMenu && github:createPrMenuRebase",
+					"group": "1_create@2"
 				}
 			]
 		},

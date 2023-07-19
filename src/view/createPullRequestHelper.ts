@@ -89,6 +89,42 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 			}),
 		);
 
+		this._disposables.push(
+			vscode.commands.registerCommand('pr.createPrMenuCreate', () => {
+				if (this._createPRViewProvider instanceof CreatePullRequestViewProviderNew) {
+					this._createPRViewProvider.createFromCommand(false, false, undefined);
+				}
+			})
+		);
+		this._disposables.push(
+			vscode.commands.registerCommand('pr.createPrMenuDraft', () => {
+				if (this._createPRViewProvider instanceof CreatePullRequestViewProviderNew) {
+					this._createPRViewProvider.createFromCommand(true, false, undefined);
+				}
+			})
+		);
+		this._disposables.push(
+			vscode.commands.registerCommand('pr.createPrMenuMerge', () => {
+				if (this._createPRViewProvider instanceof CreatePullRequestViewProviderNew) {
+					this._createPRViewProvider.createFromCommand(false, true, 'merge');
+				}
+			})
+		);
+		this._disposables.push(
+			vscode.commands.registerCommand('pr.createPrMenuSquash', () => {
+				if (this._createPRViewProvider instanceof CreatePullRequestViewProviderNew) {
+					this._createPRViewProvider.createFromCommand(false, true, 'squash');
+				}
+			})
+		);
+		this._disposables.push(
+			vscode.commands.registerCommand('pr.createPrMenuRebase', () => {
+				if (this._createPRViewProvider instanceof CreatePullRequestViewProviderNew) {
+					this._createPRViewProvider.createFromCommand(false, true, 'rebase');
+				}
+			})
+		);
+
 		if (usingCurrentBranchAsCompare) {
 			this._disposables.push(
 				repository.state.onDidChange(_ => {

@@ -118,6 +118,8 @@ export interface CreateParamsNew {
 	allowAutoMerge?: boolean;
 	defaultMergeMethod?: MergeMethod;
 	mergeMethodsAvailability?: MergeMethodsAvailability;
+
+	creating: boolean;
 }
 
 export interface ChooseRemoteAndBranchArgs {

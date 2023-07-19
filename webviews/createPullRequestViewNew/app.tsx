@@ -37,7 +37,7 @@ export function main() {
 		<Root>
 			{(params: CreateParamsNew) => {
 				const ctx = useContext(PullRequestContextNew);
-				const [isBusy, setBusy] = useState(false);
+				const [isBusy, setBusy] = useState(params.creating);
 				function createMethodLabel(isDraft?: boolean, autoMerge?: boolean, autoMergeMethod?: MergeMethod): { value: CreateMethod, label: string } {
 					let value: CreateMethod;
 					let label: string;
@@ -55,10 +55,6 @@ export function main() {
 					}
 
 					return {value, label};
-				}
-				function createMethodOption(isDraft?: boolean, autoMerge?: boolean, autoMergeMethod?: MergeMethod) {
-					const {value, label} = createMethodLabel(isDraft, autoMerge, autoMergeMethod);
-					return <option value={value}>{label}</option>;
 				}
 
 				const titleInput = useRef<HTMLInputElement>() as React.MutableRefObject<HTMLInputElement>;
@@ -131,6 +127,29 @@ export function main() {
 					ctx.updateState({ isDraft, autoMerge, autoMergeMethod });
 					return create();
 				};
+
+				function makeCreateMenuContext(createParams: CreateParamsNew) {
+					const createMenuContexts = {
+						'preventDefaultContextMenuItems': true,
+						'github:createPrMenu': true,
+						'github:createPrMenuDraft': true
+					};
+					if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability && createParams.mergeMethodsAvailability['merge']) {
+						createMenuContexts['github:createPrMenuMerge'] = true;
+					}
+					if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability && createParams.mergeMethodsAvailability['squash']) {
+						createMenuContexts['github:createPrMenuSquash'] = true;
+					}
+					if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability && createParams.mergeMethodsAvailability['rebase']) {
+						createMenuContexts['github:createPrMenuRebase'] = true;
+					}
+					const stringified = JSON.stringify(createMenuContexts);
+					return stringified;
+				}
+
+				if (params.creating) {
+					create();
+				}
 
 				return <div className='group-main'>
 					<div className='group-branches'>
@@ -263,19 +282,12 @@ export function main() {
 								{createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).label}
 							</button>
 							<div className='split'></div>
-							<div className='split-right'>
+							<div className='split-right' onClick={(e) => {
+								e.preventDefault();
+								e.target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: e.clientX, clientY: e.clientY }));
+								e.stopPropagation();
+							}} data-vscode-context={makeCreateMenuContext(params)}>
 								{chevronDownIcon}
-								<select ref={createMethodSelect} name='create-action' disabled={isBusy || !isCreateable || !ctx.initialized}
-									title='Create Actions' aria-label='Create Actions'
-									value={createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).value}
-									onChange={onCreateButton}>
-									{createMethodOption()}
-									{createMethodOption(true)}
-									{params.allowAutoMerge ? <option disabled>&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;</option> : null}
-									{params.allowAutoMerge && params.mergeMethodsAvailability && params.mergeMethodsAvailability['merge'] ? createMethodOption(false, true, 'merge') : null}
-									{params.allowAutoMerge && params.mergeMethodsAvailability && params.mergeMethodsAvailability['squash'] ? createMethodOption(false, true, 'squash') : null}
-									{params.allowAutoMerge && params.mergeMethodsAvailability && params.mergeMethodsAvailability['rebase'] ? createMethodOption(false, true, 'rebase') : null}
-								</select>
 							</div>
 						</div>
 					</div>

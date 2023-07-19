@@ -17,7 +17,8 @@
 			"smartStep": true,
 			"sourceMaps": true,
 			"outFiles": [
-				"${workspaceFolder}/dist/*.js"
+				"${workspaceFolder}/dist/*.js",
+				"${workspaceFolder}"
 			],
 			"debugWebviews": true
 		},
