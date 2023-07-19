@@ -312,7 +312,8 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			createError: '',
 			labels: this.labels,
 			isDraftDefault,
-			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
+			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
+			creating: false
 		};
 
 		Logger.appendLine(`Initializing "create" view: ${JSON.stringify(params)}`, CreatePullRequestViewProviderNew.ID);
@@ -686,6 +687,19 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			await this._folderRepositoryManager.repository.status();
 			return { compareUpstream: createdPushRemote, repo: this._folderRepositoryManager.findRepo(byRemoteName(createdPushRemote.remoteName)) };
 		}
+	}
+
+	public async createFromCommand(isDraft: boolean, autoMerge: boolean, autoMergeMethod: MergeMethod | undefined) {
+		const params: Partial<CreateParamsNew> = {
+			isDraft,
+			autoMerge,
+			autoMergeMethod,
+			creating: true
+		};
+		return this._postMessage({
+			command: 'create',
+			params
+		});
 	}
 
 	private async create(message: IRequestMessage<CreatePullRequestNew>): Promise<void> {
