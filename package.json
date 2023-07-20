@@ -21,13 +21,12 @@
 		"contribCommentEditorActionsMenu",
 		"shareProvider",
 		"quickDiffProvider",
-		"quickPickItemIcon",
 		"readonlyMessage"
 	],
 	"version": "0.68.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.80.0"
+		"vscode": "^1.81.0"
 	},
 	"categories": [
 		"Other"
