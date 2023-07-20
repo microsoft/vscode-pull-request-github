@@ -96,10 +96,9 @@ export function main() {
 					},
 					[create],
 				);
-				const createMethodSelect: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
 
-				const onCreateButton = () => {
-					const selected = createMethodSelect.current?.value as CreateMethod;
+				const onCreateButton: React.MouseEventHandler<HTMLButtonElement> = (event) => {
+					const selected = (event.target as HTMLButtonElement).value as CreateMethod;
 					let isDraft = false;
 					let autoMerge = false;
 					let autoMergeMethod: MergeMethod | undefined;
@@ -277,7 +276,7 @@ export function main() {
 							Cancel
 						</button>
 						<div className='create-button'>
-							<button className='split-left' disabled={isBusy || !isCreateable || !ctx.initialized} onClick={onCreateButton}
+							<button className='split-left' disabled={isBusy || !isCreateable || !ctx.initialized} onClick={onCreateButton} value={createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).value}
 								title={createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).label}>
 								{createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).label}
 							</button>
