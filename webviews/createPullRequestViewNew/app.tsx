@@ -282,9 +282,16 @@ export function main() {
 								{createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).label}
 							</button>
 							<div className='split'></div>
-							<button className='split-right' onClick={(e) => {
+							<button className='split-right' disabled={isBusy || !isCreateable || !ctx.initialized} onClick={(e) => {
 								e.preventDefault();
-								e.target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: e.clientX, clientY: e.clientY }));
+								let x = e.clientX;
+								let y = e.clientY;
+								if (x === 0 && y === 0) {
+									const rect = (e.target as HTMLElement).getBoundingClientRect();
+									x = rect.x;
+									y = rect.y;
+								}
+								e.target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: x, clientY: y }));
 								e.stopPropagation();
 							}} data-vscode-context={makeCreateMenuContext(params)}>
 								{chevronDownIcon}
