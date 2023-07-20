@@ -282,13 +282,13 @@ export function main() {
 								{createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).label}
 							</button>
 							<div className='split'></div>
-							<div className='split-right' onClick={(e) => {
+							<button className='split-right' onClick={(e) => {
 								e.preventDefault();
 								e.target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: e.clientX, clientY: e.clientY }));
 								e.stopPropagation();
 							}} data-vscode-context={makeCreateMenuContext(params)}>
 								{chevronDownIcon}
-							</div>
+							</button>
 						</div>
 					</div>
 				</div>;
