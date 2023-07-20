@@ -12,6 +12,7 @@ import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
 import { assigneeIcon, chevronDownIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon } from '../components/icon';
+import { Avatar } from '../components/user';
 
 type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'create-automerge-rebase' | 'create-automerge-merge';
 
@@ -209,6 +210,7 @@ export function main() {
 								}}>
 									{params.assignees.map(assignee =>
 										<li>
+											<Avatar for={assignee} />
 											{assignee.login}
 										</li>)}
 								</ul>
@@ -223,6 +225,7 @@ export function main() {
 								}}>
 									{params.reviewers.map(reviewer =>
 										<li>
+											<Avatar for={reviewer} />
 											{isTeam(reviewer) ? reviewer.slug : reviewer.login}
 										</li>)}
 								</ul>
