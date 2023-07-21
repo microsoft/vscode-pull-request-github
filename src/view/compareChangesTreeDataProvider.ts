@@ -274,6 +274,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 			const diff = await this.folderRepoManager.repository.diffBetween(this.baseBranchName, this.compareBranchName);
 			if (diff.length === 0) {
 				this._view.message = `There are no commits between the base '${this.baseBranchName}' branch and the comparing '${this.compareBranchName}' branch`;
+				return [];
 			} else if (!this.compareHasUpstream) {
 				this._view.message = vscode.l10n.t('Branch {0} has not been pushed yet. Showing local changes.', this.compareBranchName);
 			} else if (this._isDisposed) {
