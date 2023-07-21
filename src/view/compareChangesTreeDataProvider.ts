@@ -261,7 +261,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 	public static closeTabs() {
 		vscode.window.tabGroups.all.forEach(group => group.tabs.forEach(tab => {
 			if (tab.input instanceof vscode.TabInputTextDiff) {
-				if (tab.input.modified.scheme === Schemes.GithubPr) {
+				if ((tab.input.modified.scheme === Schemes.GithubPr) || (tab.input.modified.scheme === Schemes.GitPr)) {
 					vscode.window.tabGroups.close(tab);
 				}
 			}
