@@ -22,6 +22,7 @@ import {
 	PULL_BEFORE_CHECKOUT,
 	PULL_BRANCH,
 	REMOTES,
+	UPSTREAM_REMOTE,
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
@@ -138,6 +139,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	private _gitBlameCache: { [key: string]: string } = {};
 	private _githubManager: GitHubManager;
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
+	private _addedUpstreamCount: number = 0;
 
 	private _onDidMergePullRequest = new vscode.EventEmitter<void>();
 	readonly onDidMergePullRequest = this._onDidMergePullRequest.event;
@@ -687,7 +689,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		try {
 			const origin = await this.getOrigin();
 			const metadata = await origin.getMetadata();
-			if (metadata.fork && metadata.parent) {
+			const configuration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
+			if (metadata.fork && metadata.parent && (configuration.get<'add' | 'never'>(UPSTREAM_REMOTE, 'add') === 'add')) {
 				const parentUrl = new Protocol(metadata.parent.git_url);
 				const missingParentRemote = !this._githubRepositories.some(
 					repo =>
@@ -705,6 +708,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 							await this.repository.addRemote(remoteName, metadata.parent.ssh_url);
 						} else {
 							await this.repository.addRemote(remoteName, metadata.parent.clone_url);
+						}
+						this._addedUpstreamCount++;
+						if (this._addedUpstreamCount > 1) {
+							// We've already added this remote, which means the user likely removed it. Let the user know they can disable this feature.
+							const neverOption = vscode.l10n.t('Set to `never`');
+							vscode.window.showInformationMessage(vscode.l10n.t('An `upstream` remote has been added for this repository. You can disable this feature by setting `githubPullRequests.upstreamRemote` to `never`.'), neverOption)
+								.then(choice => {
+									if (choice === neverOption) {
+										configuration.update(UPSTREAM_REMOTE, 'never', vscode.ConfigurationTarget.Global);
+									}
+								});
 						}
 						return true;
 					}
