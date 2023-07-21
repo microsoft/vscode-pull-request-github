@@ -144,9 +144,9 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		return element.getTreeItem();
 	}
 
-	async getChildren() {
+	private initialize() {
 		if (!this._gitHubRepository) {
-			return [];
+			return;
 		}
 
 		if (!this._gitHubcontentProvider) {
@@ -170,62 +170,78 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 				// already registered
 			}
 		}
+	}
 
-		const { octokit, remote } = await this._gitHubRepository.ensure();
+	private async getGitHubChildren(gitHubRepository: GitHubRepository) {
+		const { octokit, remote } = await gitHubRepository.ensure();
+
+		const { data } = await octokit.call(octokit.api.repos.compareCommits, {
+			repo: remote.repositoryName,
+			owner: remote.owner,
+			base: `${this.baseOwner}:${this.baseBranchName}`,
+			head: `${this.compareOwner}:${this.compareBranchName}`,
+		});
+
+		if (!data.files?.length) {
+			this._view.message = `There are no commits between the base '${this.baseBranchName}' branch and the comparing '${this.compareBranchName}' branch`;
+		} else if (this._isDisposed) {
+			return [];
+		} else {
+			this._view.message = undefined;
+		}
+
+		return data.files?.map(file => {
+			return new GitHubFileChangeNode(
+				this,
+				file.filename,
+				file.previous_filename,
+				getGitChangeType(file.status),
+				data.merge_base_commit.sha,
+				this.compareBranchName,
+				false,
+			);
+		});
+	}
+
+	private async getGitChildren() {
+		const diff = await this.folderRepoManager.repository.diffBetween(this.baseBranchName, this.compareBranchName);
+		if (diff.length === 0) {
+			this._view.message = `There are no commits between the base '${this.baseBranchName}' branch and the comparing '${this.compareBranchName}' branch`;
+		} else if (!this.compareHasUpstream) {
+			this._view.message = vscode.l10n.t('Branch {0} has not been pushed yet. Showing local changes.', this.compareBranchName);
+		} else if (this._isDisposed) {
+			return [];
+		} else {
+			this._view.message = undefined;
+		}
+
+		return diff.map(change => {
+			const filename = pathLib.relative(this.folderRepoManager.repository.rootUri.fsPath, change.uri.fsPath);
+			const previousFilename = pathLib.relative(this.folderRepoManager.repository.rootUri.fsPath, change.originalUri.fsPath);
+			return new GitHubFileChangeNode(
+				this,
+				filename,
+				previousFilename,
+				getGitChangeTypeFromApi(change.status),
+				this.baseBranchName,
+				this.compareBranchName,
+				true,
+			);
+		});
+	}
+
+	async getChildren() {
+		if (!this._gitHubRepository) {
+			return [];
+		}
+
+		this.initialize();
 
 		try {
 			if (this.compareHasUpstream) {
-				const { data } = await octokit.call(octokit.api.repos.compareCommits, {
-					repo: remote.repositoryName,
-					owner: remote.owner,
-					base: `${this.baseOwner}:${this.baseBranchName}`,
-					head: `${this.compareOwner}:${this.compareBranchName}`,
-				});
-
-				if (!data.files?.length) {
-					this._view.message = `There are no commits between the base '${this.baseBranchName}' branch and the comparing '${this.compareBranchName}' branch`;
-				} else if (this._isDisposed) {
-					return [];
-				} else {
-					this._view.message = undefined;
-				}
-
-				return data.files?.map(file => {
-					return new GitHubFileChangeNode(
-						this,
-						file.filename,
-						file.previous_filename,
-						getGitChangeType(file.status),
-						data.merge_base_commit.sha,
-						this.compareBranchName,
-						false,
-					);
-				});
+				return this.getGitHubChildren(this._gitHubRepository);
 			} else {
-				const diff = await this.folderRepoManager.repository.diffBetween(this.baseBranchName, this.compareBranchName);
-				if (diff.length === 0) {
-					this._view.message = `There are no commits between the base '${this.baseBranchName}' branch and the comparing '${this.compareBranchName}' branch`;
-				} else if (!this.compareHasUpstream) {
-					this._view.message = vscode.l10n.t('Branch {0} has not been pushed yet. Showing local changes.', this.compareBranchName);
-				} else if (this._isDisposed) {
-					return [];
-				} else {
-					this._view.message = undefined;
-				}
-
-				return diff.map(change => {
-					const filename = pathLib.relative(this.folderRepoManager.repository.rootUri.fsPath, change.uri.fsPath);
-					const previousFilename = pathLib.relative(this.folderRepoManager.repository.rootUri.fsPath, change.originalUri.fsPath);
-					return new GitHubFileChangeNode(
-						this,
-						filename,
-						previousFilename,
-						getGitChangeTypeFromApi(change.status),
-						this.baseBranchName,
-						this.compareBranchName,
-						true,
-					);
-				});
+				return this.getGitChildren();
 			}
 		} catch (e) {
 			Logger.error(`Comparing changes failed: ${e}`);
