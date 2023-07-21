@@ -44,4 +44,5 @@ export namespace OctokitCommon {
 	export type ReposGetResponseOrganization = ReposGetResponseData['organization'];
 	export type ReposListBranchesResponseData = Endpoints['GET /repos/{owner}/{repo}/branches']['response']['data'];
 	export type SearchReposResponseItem = Endpoints['GET /search/repositories']['response']['data']['items'][0];
+	export type CompareCommits = Endpoints['GET /repos/{owner}/{repo}/compare/{base}...{head}']['response']['data'];
 }
