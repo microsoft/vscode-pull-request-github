@@ -358,6 +358,19 @@
 					"description": "%githubPullRequests.experimental.createView.description%",
 					"default": true
 				},
+				"githubPullRequests.upstreamRemote": {
+					"type": "string",
+					"enum": [
+						"add",
+						"never"
+					],
+					"markdownDescription": "%githubPullRequests.upstreamRemote.description%",
+					"markdownEnumDescriptions": [
+						"%githubPullRequests.upstreamRemote.add%",
+						"%githubPullRequests.upstreamRemote.never%"
+					],
+					"default": "add"
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],
