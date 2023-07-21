@@ -255,8 +255,8 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 
 	private async getGitFileChildren(diff: Change[]) {
 		return diff.map(change => {
-			const filename = pathLib.relative(this.folderRepoManager.repository.rootUri.fsPath, change.uri.fsPath);
-			const previousFilename = pathLib.relative(this.folderRepoManager.repository.rootUri.fsPath, change.originalUri.fsPath);
+			const filename = pathLib.posix.relative(this.folderRepoManager.repository.rootUri.path, change.uri.path);
+			const previousFilename = pathLib.posix.relative(this.folderRepoManager.repository.rootUri.path, change.originalUri.path);
 			return new GitHubFileChangeNode(
 				this,
 				filename,
