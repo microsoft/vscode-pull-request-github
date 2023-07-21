@@ -247,13 +247,6 @@
 			"{Locked='](command:pr.signinenterprise)'}"
 		]
 	},
-	"welcome.github.compareChanges.contents": {
-		"message": "The comparing branch has no upstream remote\n[Publish branch](command:git.publish)",
-		"comment" : [
-			"Do not translate what's inside of (...). It is link syntax.",
-			"{Locked='](command:git.publish)'}"
-		]
-	},
 	"welcome.pr.github.uninitialized.contents": "Loading...",
 	"welcome.pr.github.noFolder.contents": {
 		"message": "You have not yet opened a folder.\n[Open Folder](command:workbench.action.files.openFolder)",

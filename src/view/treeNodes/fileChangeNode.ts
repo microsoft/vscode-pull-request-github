@@ -439,12 +439,14 @@ export class GitHubFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly status: GitChangeType,
 		public readonly baseBranch: string,
 		public readonly headBranch: string,
+		public readonly isLocal: boolean
 	) {
 		super();
+		const scheme = isLocal ? Schemes.GitPr : Schemes.GithubPr;
 		this.label = fileName;
 		this.iconPath = vscode.ThemeIcon.File;
 		this.fileChangeResourceUri = vscode.Uri.file(fileName).with({
-			scheme: Schemes.GithubPr,
+			scheme,
 			query: JSON.stringify({ status, fileName }),
 		});
 
@@ -453,7 +455,7 @@ export class GitHubFileChangeNode extends TreeNode implements vscode.TreeItem {
 			query: JSON.stringify({ fileName, branch: baseBranch }),
 		});
 		let headURI = vscode.Uri.file(fileName).with({
-			scheme: Schemes.GithubPr,
+			scheme,
 			query: JSON.stringify({ fileName, branch: headBranch }),
 		});
 		switch (status) {
@@ -473,7 +475,7 @@ export class GitHubFileChangeNode extends TreeNode implements vscode.TreeItem {
 
 			case GitChangeType.DELETE:
 				headURI = vscode.Uri.file(fileName).with({
-					scheme: Schemes.GithubPr,
+					scheme,
 					query: JSON.stringify({ fileName, branch: headBranch, isEmpty: true }),
 				});
 				break;

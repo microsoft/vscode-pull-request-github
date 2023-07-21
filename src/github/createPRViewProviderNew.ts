@@ -272,6 +272,9 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			owner: detectedBaseMetadata?.owner ?? this._pullRequestDefaults.owner,
 			repositoryName: detectedBaseMetadata?.repositoryName ?? this._pullRequestDefaults.repo,
 		};
+		if (defaultBaseRemote.owner !== this._pullRequestDefaults.owner || defaultBaseRemote.repositoryName !== this._pullRequestDefaults.repo) {
+			this._onDidChangeBaseRemote.fire(defaultBaseRemote);
+		}
 
 		const defaultOrigin = await this._folderRepositoryManager.getOrigin(this.defaultCompareBranch);
 		const defaultCompareRemote: RemoteInfo = {
@@ -280,6 +283,10 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		};
 
 		const defaultBaseBranch = detectedBaseMetadata?.branch ?? this._pullRequestDefaults.base;
+		if (defaultBaseBranch !== this._pullRequestDefaults.base) {
+			this._onDidChangeBaseBranch.fire(defaultBaseBranch);
+		}
+
 		const [defaultTitleAndDescription, mergeConfiguration, viewerPermission] = await Promise.all([
 			this.getTitleAndDescription(this.defaultCompareBranch, defaultBaseBranch),
 			this.getMergeConfiguration(defaultBaseRemote.owner, defaultBaseRemote.repositoryName),
