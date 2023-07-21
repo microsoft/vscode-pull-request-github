@@ -315,6 +315,7 @@ export enum Schemes {
 	PRNode = 'prnode',
 	FileChange = 'filechange',
 	GithubPr = 'githubpr',
+	GitPr = 'gitpr',
 	VscodeVfs = 'vscode-vfs', // Remote Repository
 	Comment = 'comment' // Comments from the VS Code comment widget
 }

@@ -1213,11 +1213,6 @@
 				"contents": "%welcome.github.loginWithEnterprise.contents%"
 			},
 			{
-				"view": "github:compareChanges",
-				"when": "github:noUpstream",
-				"contents": "%welcome.github.compareChanges.contents%"
-			},
-			{
 				"view": "pr:github",
 				"when": "git.state != initialized && !github:initialized && workspaceFolderCount > 0",
 				"contents": "%welcome.pr.github.uninitialized.contents%"
