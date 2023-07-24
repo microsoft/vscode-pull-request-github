@@ -114,7 +114,7 @@ textarea {
 
 textarea {
 	height: 100%;
-	min-height: 32px;
+	min-height: 96px;
 	resize: none;
 }
 
@@ -166,6 +166,12 @@ textarea {
 	left: 9px;
 	width: 16px;
 	height: 16px;
+}
+
+.group-additions img.avatar,
+.group-additions img.avatar-icon {
+	margin-right: 4px;
+	width: 16px; height: 16px;
 }
 
 .group-additions ul {
