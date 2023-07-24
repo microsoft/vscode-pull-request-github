@@ -36,22 +36,6 @@ export function getGitChangeTypeFromApi(status: Status): GitChangeType {
 	}
 }
 
-class AllFilesNode extends TreeNode {
-	getTreeItem(): vscode.TreeItem | Promise<vscode.TreeItem> {
-		return {
-			label: vscode.l10n.t('All Changes'),
-			collapsibleState: vscode.TreeItemCollapsibleState.Expanded
-		};
-	}
-	constructor(protected readonly children: TreeNode[]) {
-		super();
-	}
-
-	async getChildren(): Promise<TreeNode[]> {
-		return this.children;
-	}
-}
-
 class CommitNode extends TreeNode {
 	getTreeItem(): vscode.TreeItem | Promise<vscode.TreeItem> {
 		return {
@@ -93,41 +77,31 @@ class CommitNode extends TreeNode {
 	}
 }
 
-export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeNode> {
+abstract class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 	private _view: vscode.TreeView<TreeNode>;
 
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-	private _gitHubcontentProvider: GitHubContentProvider | undefined;
-	private _gitcontentProvider: GitContentProvider | undefined;
-
 	private _disposables: vscode.Disposable[] = [];
-
-	private _gitHubRepository: GitHubRepository | undefined;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
 	}
 
+	set view(view: vscode.TreeView<TreeNode>) {
+		this._view = view;
+	}
+
 	constructor(
-		private readonly repository: Repository,
-		private baseOwner: string,
-		private baseBranchName: string,
+		private repository: Repository,
+		protected baseOwner: string,
+		protected baseBranchName: string,
 		private _compareOwner: string,
-		private compareBranchName: string,
-		private compareHasUpstream: boolean,
-		private folderRepoManager: FolderRepositoryManager,
+		protected compareBranchName: string,
+		protected compareHasUpstream: boolean,
+		protected _gitHubRepository: GitHubRepository | undefined
 	) {
-		this._view = vscode.window.createTreeView('github:compareChanges', {
-			treeDataProvider: this,
-		});
-
-		this._gitHubRepository = this.folderRepoManager.gitHubRepositories.find(
-			repo => repo.remote.owner === this._compareOwner,
-		);
-
-		this._disposables.push(this._view);
 	}
 
 	updateBaseBranch(branch: string): void {
@@ -150,6 +124,14 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 
 	refresh(): void {
 		this._onDidChangeTreeData.fire();
+	}
+
+	get compareOwner(): string {
+		return this._compareOwner;
+	}
+
+	set compareOwner(owner: string) {
+		this._compareOwner = owner;
 	}
 
 	private async updateHasUpstream(branch: string): Promise<boolean> {
@@ -183,25 +165,241 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		}
 	}
 
-	get compareOwner(): string {
-		return this._compareOwner;
+	getTreeItem(element: TreeNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
+		return element.getTreeItem();
 	}
 
-	set compareOwner(owner: string) {
-		if (this._compareOwner !== owner) {
-			this._gitHubRepository = this.folderRepoManager.gitHubRepositories.find(repo => repo.remote.owner === owner);
+	protected async getRawGitHubData(gitHubRepository: GitHubRepository) {
+		const { octokit, remote } = await gitHubRepository.ensure();
 
-			if (this._gitHubcontentProvider && this._gitHubRepository) {
-				this._gitHubcontentProvider.gitHubRepository = this._gitHubRepository;
+		const { data } = await octokit.call(octokit.api.repos.compareCommits, {
+			repo: remote.repositoryName,
+			owner: remote.owner,
+			base: `${this.baseOwner}:${this.baseBranchName}`,
+			head: `${this.compareOwner}:${this.compareBranchName}`,
+		});
+
+		const rawFiles = data.files;
+		const rawCommits = data.commits;
+
+		if (!rawFiles?.length || !rawCommits?.length) {
+			this.view.message = `There are no commits between the base '${this.baseBranchName}' branch and the comparing '${this.compareBranchName}' branch`;
+			return {};
+		} else if (this._isDisposed) {
+			return {};
+		} else {
+			this.view.message = undefined;
+		}
+
+		return { rawFiles, rawCommits, octokit, remote, mergeBase: data.merge_base_commit.sha };
+	}
+
+	protected abstract getGitHubChildren(gitHubRepository: GitHubRepository, element?: TreeNode);
+
+	protected abstract getGitChildren(element?: TreeNode);
+
+	async getChildren(element?: TreeNode) {
+		if (!this._gitHubRepository) {
+			return [];
+		}
+
+		try {
+			if (this.compareHasUpstream) {
+				return this.getGitHubChildren(this._gitHubRepository, element);
+			} else {
+				return this.getGitChildren(element);
 			}
-
-			this._compareOwner = owner;
-			this._onDidChangeTreeData.fire();
+		} catch (e) {
+			Logger.error(`Comparing changes failed: ${e}`);
+			return [];
 		}
 	}
 
-	getTreeItem(element: TreeNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
-		return element.getTreeItem();
+	protected _isDisposed: boolean = false;
+	dispose() {
+		this._isDisposed = true;
+		this._disposables.forEach(d => d.dispose());
+		this._view.dispose();
+	}
+
+	public static closeTabs() {
+		vscode.window.tabGroups.all.forEach(group => group.tabs.forEach(tab => {
+			if (tab.input instanceof vscode.TabInputTextDiff) {
+				if ((tab.input.modified.scheme === Schemes.GithubPr) || (tab.input.modified.scheme === Schemes.GitPr)) {
+					vscode.window.tabGroups.close(tab);
+				}
+			}
+		}));
+	}
+}
+
+class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
+	constructor(
+		repository: Repository,
+		baseOwner: string,
+		baseBranchName: string,
+		compareOwner: string,
+		compareBranchName: string,
+		compareHasUpstream: boolean,
+		gitHubRepository: GitHubRepository | undefined,
+		private folderRepoManager: FolderRepositoryManager,
+	) {
+		super(repository, baseOwner, baseBranchName, compareOwner, compareBranchName, compareHasUpstream, gitHubRepository);
+	}
+
+	protected async getGitHubChildren(gitHubRepository: GitHubRepository, element?: TreeNode) {
+		if (element) {
+			return element.getChildren();
+		}
+
+		const { rawFiles, mergeBase } = await this.getRawGitHubData(gitHubRepository);
+		if (rawFiles && mergeBase) {
+			return rawFiles.map(file => {
+				return new GitHubFileChangeNode(
+					this,
+					file.filename,
+					file.previous_filename,
+					getGitChangeType(file.status),
+					mergeBase,
+					this.compareBranchName,
+					false,
+				);
+			});
+		}
+	}
+
+	private async getGitFileChildren(diff: Change[]) {
+		return diff.map(change => {
+			const filename = pathLib.posix.relative(this.folderRepoManager.repository.rootUri.path, change.uri.path);
+			const previousFilename = pathLib.posix.relative(this.folderRepoManager.repository.rootUri.path, change.originalUri.path);
+			return new GitHubFileChangeNode(
+				this,
+				filename,
+				previousFilename,
+				getGitChangeTypeFromApi(change.status),
+				this.baseBranchName,
+				this.compareBranchName,
+				true,
+			);
+		});
+	}
+
+	protected async getGitChildren(element?: TreeNode) {
+		if (!element) {
+			const diff = await this.folderRepoManager.repository.diffBetween(this.baseBranchName, this.compareBranchName);
+			if (diff.length === 0) {
+				this.view.message = `There are no commits between the base '${this.baseBranchName}' branch and the comparing '${this.compareBranchName}' branch`;
+				return [];
+			} else if (!this.compareHasUpstream) {
+				this.view.message = vscode.l10n.t('Branch {0} has not been pushed yet. Showing local changes.', this.compareBranchName);
+			} else if (this._isDisposed) {
+				return [];
+			} else {
+				this.view.message = undefined;
+			}
+
+			return this.getGitFileChildren(diff);
+		} else {
+			return element.getChildren();
+		}
+
+	}
+}
+
+class CompareChangesCommitsTreeProvider extends CompareChangesTreeProvider {
+	constructor(
+		repository: Repository,
+		baseOwner: string,
+		baseBranchName: string,
+		compareOwner: string,
+		compareBranchName: string,
+		compareHasUpstream: boolean,
+		gitHubRepository: GitHubRepository | undefined,
+	) {
+		super(repository, baseOwner, baseBranchName, compareOwner, compareBranchName, compareHasUpstream, gitHubRepository);
+	}
+
+	protected async getGitHubChildren(gitHubRepository: GitHubRepository, element?: TreeNode) {
+		if (element) {
+			return element.getChildren();
+		}
+
+		const { rawCommits, octokit, remote } = await this.getRawGitHubData(gitHubRepository);
+		if (rawCommits && octokit && remote) {
+			return rawCommits.map((commit, index) => {
+				return new CommitNode(commit, octokit, remote, index === 0 ? this.baseBranchName : rawCommits[index - 1].sha);
+			});
+		}
+	}
+
+	protected async getGitChildren(_element?: TreeNode) {
+		this.view.message = vscode.l10n.t('Branch {0} has not been pushed yet. Unable to show commits.', this.compareBranchName);
+		return [];
+	}
+}
+
+export class CompareChanges implements vscode.Disposable {
+	private _filesView: vscode.TreeView<TreeNode>;
+	private _filesDataProvider: CompareChangesFilesTreeProvider;
+	private _commitsView: vscode.TreeView<TreeNode>;
+	private _commitsDataProvider: CompareChangesCommitsTreeProvider;
+
+	private _gitHubcontentProvider: GitHubContentProvider | undefined;
+	private _gitcontentProvider: GitContentProvider | undefined;
+
+	private _disposables: vscode.Disposable[] = [];
+
+	private _gitHubRepository: GitHubRepository | undefined;
+
+	constructor(
+		repository: Repository,
+		baseOwner: string,
+		baseBranchName: string,
+		compareOwner: string,
+		compareBranchName: string,
+		compareHasUpstream: boolean,
+		private folderRepoManager: FolderRepositoryManager,
+	) {
+		this._gitHubRepository = this.folderRepoManager.gitHubRepositories.find(
+			repo => repo.remote.owner === compareOwner,
+		);
+
+		this._filesDataProvider = new CompareChangesFilesTreeProvider(repository, baseOwner, baseBranchName, compareOwner, compareBranchName, compareHasUpstream, this._gitHubRepository, folderRepoManager);
+		this._filesView = vscode.window.createTreeView('github:compareChangesFiles', {
+			treeDataProvider: this._filesDataProvider
+		});
+		this._filesDataProvider.view = this._filesView;
+		this._commitsDataProvider = new CompareChangesCommitsTreeProvider(repository, baseOwner, baseBranchName, compareOwner, compareBranchName, compareHasUpstream, this._gitHubRepository);
+		this._commitsView = vscode.window.createTreeView('github:compareChangesCommits', {
+			treeDataProvider: this._commitsDataProvider
+		});
+		this._commitsDataProvider.view = this._commitsView;
+		this._disposables.push(this._filesDataProvider);
+		this._disposables.push(this._filesView);
+		this._disposables.push(this._commitsDataProvider);
+		this._disposables.push(this._commitsView);
+
+		this.initialize();
+	}
+
+	updateBaseBranch(branch: string): void {
+		this._filesDataProvider.updateBaseBranch(branch);
+		this._commitsDataProvider.updateBaseBranch(branch);
+	}
+
+	updateBaseOwner(owner: string) {
+		this._filesDataProvider.updateBaseOwner(owner);
+		this._commitsDataProvider.updateBaseOwner(owner);
+	}
+
+	async updateCompareBranch(branch?: string): Promise<void> {
+		this._filesDataProvider.updateCompareBranch(branch);
+		this._commitsDataProvider.updateCompareBranch(branch);
+	}
+
+	set compareOwner(owner: string) {
+		this._filesDataProvider.compareOwner = owner;
+		this._commitsDataProvider.compareOwner = owner;
 	}
 
 	private initialize() {
@@ -232,128 +430,11 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		}
 	}
 
-	private async getGitHubFileChildren(files: OctokitCommon.CompareCommits['files'], mergeBase: string) {
-		return files.map(file => {
-			return new GitHubFileChangeNode(
-				this,
-				file.filename,
-				file.previous_filename,
-				getGitChangeType(file.status),
-				mergeBase,
-				this.compareBranchName,
-				false,
-			);
-		});
-	}
-
-	private async getGitHubCommitsChildren(commits: OctokitCommon.CompareCommits['commits'], octokit: LoggingOctokit, remote: GitHubRemote): Promise<TreeNode[]> {
-		return commits.map((commit, index) => {
-			return new CommitNode(commit, octokit, remote, index === 0 ? this.baseBranchName : commits[index - 1].sha);
-		});
-	}
-
-	private async getGitHubChildren(gitHubRepository: GitHubRepository, element?: TreeNode) {
-		if (element) {
-			return element.getChildren();
-		}
-
-		const { octokit, remote } = await gitHubRepository.ensure();
-
-		const { data } = await octokit.call(octokit.api.repos.compareCommits, {
-			repo: remote.repositoryName,
-			owner: remote.owner,
-			base: `${this.baseOwner}:${this.baseBranchName}`,
-			head: `${this.compareOwner}:${this.compareBranchName}`,
-		});
-
-		const rawFiles = data.files;
-		const rawCommits = data.commits;
-
-		if (!rawFiles?.length || !rawCommits?.length) {
-			this._view.message = `There are no commits between the base '${this.baseBranchName}' branch and the comparing '${this.compareBranchName}' branch`;
-			return [];
-		} else if (this._isDisposed) {
-			return [];
-		} else {
-			this._view.message = undefined;
-		}
-
-		const files = await this.getGitHubFileChildren(rawFiles, data.merge_base_commit.sha);
-		const commits = await this.getGitHubCommitsChildren(rawCommits, octokit, remote);
-		return [...commits, new AllFilesNode(files)];
-	}
-
-	private async getGitFileChildren(diff: Change[]) {
-		return diff.map(change => {
-			const filename = pathLib.posix.relative(this.folderRepoManager.repository.rootUri.path, change.uri.path);
-			const previousFilename = pathLib.posix.relative(this.folderRepoManager.repository.rootUri.path, change.originalUri.path);
-			return new GitHubFileChangeNode(
-				this,
-				filename,
-				previousFilename,
-				getGitChangeTypeFromApi(change.status),
-				this.baseBranchName,
-				this.compareBranchName,
-				true,
-			);
-		});
-	}
-
-	private async getGitChildren(element?: TreeNode) {
-		if (!element) {
-			const diff = await this.folderRepoManager.repository.diffBetween(this.baseBranchName, this.compareBranchName);
-			if (diff.length === 0) {
-				this._view.message = `There are no commits between the base '${this.baseBranchName}' branch and the comparing '${this.compareBranchName}' branch`;
-				return [];
-			} else if (!this.compareHasUpstream) {
-				this._view.message = vscode.l10n.t('Branch {0} has not been pushed yet. Showing local changes.', this.compareBranchName);
-			} else if (this._isDisposed) {
-				return [];
-			} else {
-				this._view.message = undefined;
-			}
-
-			return this.getGitFileChildren(diff);
-		} else {
-			return element.getChildren();
-		}
-
-	}
-
-	async getChildren(element?: TreeNode) {
-		if (!this._gitHubRepository) {
-			return [];
-		}
-
-		this.initialize();
-
-		// Example tree (only when there's an upstream compare branch, when there isn't we just show files)
-		// 2 commits
-		//   First commit
-		//   Second commit
-		// 2 changed files
-		//   file1
-		//   file2
-
-		try {
-			if (this.compareHasUpstream) {
-				return this.getGitHubChildren(this._gitHubRepository, element);
-			} else {
-				return this.getGitChildren(element);
-			}
-		} catch (e) {
-			Logger.error(`Comparing changes failed: ${e}`);
-			return [];
-		}
-	}
-
-	private _isDisposed: boolean = false;
 	dispose() {
-		this._isDisposed = true;
 		this._disposables.forEach(d => d.dispose());
 		this._gitHubcontentProvider = undefined;
 		this._gitcontentProvider = undefined;
-		this._view.dispose();
+		this._filesView.dispose();
 	}
 
 	public static closeTabs() {
