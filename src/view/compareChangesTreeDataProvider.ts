@@ -240,7 +240,7 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		const rawCommits = data.commits;
 
 		if (!rawFiles?.length || !rawCommits?.length) {
-			this._view.message = `There are no commits between the base '${this.baseBranchName}' branch and the comparing '${this.compareBranchName}' branch`;
+			(this._view as vscode.TreeView2<TreeNode>).message = new vscode.MarkdownString(vscode.l10n.t('There are no commits between the base `{0}` branch and the comparing `{1}` branch', this.baseBranchName, this.compareBranchName));
 			return [];
 		} else if (this._isDisposed) {
 			return [];
@@ -273,10 +273,12 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		if (!element) {
 			const diff = await this.folderRepoManager.repository.diffBetween(this.baseBranchName, this.compareBranchName);
 			if (diff.length === 0) {
-				this._view.message = `There are no commits between the base '${this.baseBranchName}' branch and the comparing '${this.compareBranchName}' branch`;
+				(this._view as vscode.TreeView2<TreeNode>).message = new vscode.MarkdownString(vscode.l10n.t('There are no commits between the base `{0}` branch and the comparing `{1}` branch', this.baseBranchName, this.compareBranchName));
 				return [];
 			} else if (!this.compareHasUpstream) {
-				this._view.message = vscode.l10n.t('Branch {0} has not been pushed yet. Showing local changes.', this.compareBranchName);
+				const message = new vscode.MarkdownString(vscode.l10n.t('Branch `{0}` has not been pushed yet. [Publish branch](command:git.publish) to see all changes.', this.compareBranchName));
+				message.isTrusted = { enabledCommands: ['git.publish'] };
+				(this._view as vscode.TreeView2<TreeNode>).message = message;
 			} else if (this._isDisposed) {
 				return [];
 			} else {
