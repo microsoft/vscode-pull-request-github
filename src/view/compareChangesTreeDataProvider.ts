@@ -10,11 +10,13 @@ import { Status } from '../api/api1';
 import { getGitChangeType } from '../common/diffHunk';
 import { GitChangeType } from '../common/file';
 import Logger from '../common/logger';
+import { GitHubRemote } from '../common/remote';
 import { Schemes } from '../common/uri';
 import { dateFromNow, toDisposable } from '../common/utils';
 import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
+import { LoggingOctokit } from '../github/loggingOctokit';
 import { GitContentProvider, GitHubContentProvider } from './gitHubContentProvider';
 import { GitHubFileChangeNode } from './treeNodes/fileChangeNode';
 import { TreeNode } from './treeNodes/treeNode';
@@ -34,14 +36,14 @@ export function getGitChangeTypeFromApi(status: Status): GitChangeType {
 	}
 }
 
-class CountNode extends TreeNode {
+class AllFilesNode extends TreeNode {
 	getTreeItem(): vscode.TreeItem | Promise<vscode.TreeItem> {
 		return {
-			label: this.children.length > 1 ? vscode.l10n.t(this.multipleTemplate, this.children.length) : vscode.l10n.t(this.singleTemplate),
+			label: vscode.l10n.t('All Changes'),
 			collapsibleState: vscode.TreeItemCollapsibleState.Expanded
 		};
 	}
-	constructor(private readonly singleTemplate: string, private readonly multipleTemplate: string, protected readonly children: TreeNode[]) {
+	constructor(protected readonly children: TreeNode[]) {
 		super();
 	}
 
@@ -53,12 +55,40 @@ class CountNode extends TreeNode {
 class CommitNode extends TreeNode {
 	getTreeItem(): vscode.TreeItem | Promise<vscode.TreeItem> {
 		return {
-			label: this.commit.message,
-			description: this.commit.author?.date ? dateFromNow(new Date(this.commit.author.date)) : undefined,
+			label: this.commit.commit.message,
+			description: this.commit.commit.author?.date ? dateFromNow(new Date(this.commit.commit.author.date)) : undefined,
 			iconPath: new vscode.ThemeIcon('git-commit'),
+			collapsibleState: vscode.TreeItemCollapsibleState.Collapsed
 		};
 	}
-	constructor(private readonly commit: OctokitCommon.CompareCommits['commits'][0]['commit']) {
+
+	async getChildren(): Promise<TreeNode[]> {
+		const { data } = await this.octokit.call(this.octokit.api.repos.compareCommits, {
+			repo: this.remote.repositoryName,
+			owner: this.remote.owner,
+			base: this.parentRef,
+			head: this.commit.sha,
+		});
+
+		const rawFiles = data.files;
+
+		if (!rawFiles) {
+			return [];
+		}
+		return rawFiles.map(file => {
+			return new GitHubFileChangeNode(
+				this,
+				file.filename,
+				file.previous_filename,
+				getGitChangeType(file.status),
+				this.parentRef,
+				this.commit.sha,
+				false,
+			);
+		});
+	}
+
+	constructor(private readonly commit: OctokitCommon.CompareCommits['commits'][0], private readonly octokit: LoggingOctokit, private readonly remote: GitHubRemote, private readonly parentRef) {
 		super();
 	}
 }
@@ -216,9 +246,9 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		});
 	}
 
-	private async getGitHubCommitsChildren(commits: OctokitCommon.CompareCommits['commits']): Promise<TreeNode[]> {
-		return commits.map(commit => {
-			return new CommitNode(commit.commit);
+	private async getGitHubCommitsChildren(commits: OctokitCommon.CompareCommits['commits'], octokit: LoggingOctokit, remote: GitHubRemote): Promise<TreeNode[]> {
+		return commits.map((commit, index) => {
+			return new CommitNode(commit, octokit, remote, index === 0 ? this.baseBranchName : commits[index - 1].sha);
 		});
 	}
 
@@ -249,8 +279,8 @@ export class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeN
 		}
 
 		const files = await this.getGitHubFileChildren(rawFiles, data.merge_base_commit.sha);
-		const commits = await this.getGitHubCommitsChildren(rawCommits);
-		return [new CountNode('1 commit', '{0} commits', commits), new CountNode('1 file changed', '{0} files changed', files)];
+		const commits = await this.getGitHubCommitsChildren(rawCommits, octokit, remote);
+		return [...commits, new AllFilesNode(files)];
 	}
 
 	private async getGitFileChildren(diff: Change[]) {
