@@ -8,13 +8,13 @@ import { IAccount, IActor, ITeam, reviewerLabel } from '../../src/github/interfa
 import { Icon } from './icon';
 
 export const Avatar = ({ for: author }: { for: Partial<IAccount> }) => (
-	<a className="avatar-link" href={author.url} title={author.url}>
+	<>
 		{author.avatarUrl ? (
-			<img className="avatar" src={author.avatarUrl} alt="" />
+			<img className="avatar" src={author.avatarUrl} alt="" role="presentation" />
 		) : (
 			<Icon className="avatar-icon" src={require('../../resources/icons/dark/github.svg')} />
 		)}
-	</a>
+	</>
 );
 
 export const AuthorLink = ({ for: author, text = reviewerLabel(author) }: { for: IActor | ITeam; text?: string }) => (
