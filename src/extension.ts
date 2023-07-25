@@ -27,7 +27,7 @@ import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitP
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
 import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
-import { CompareChangesTreeProvider } from './view/compareChangesTreeDataProvider';
+import { CompareChanges } from './view/compareChangesTreeDataProvider';
 import { CreatePullRequestHelper } from './view/createPullRequestHelper';
 import { FileTypeDecorationProvider } from './view/fileTypeDecorationProvider';
 import { getInMemPRFileSystemProvider } from './view/inMemPRContentProvider';
@@ -220,7 +220,7 @@ async function init(
 
 	registerPostCommitCommandsProvider(reposManager, git);
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
-	CompareChangesTreeProvider.closeTabs();
+	CompareChanges.closeTabs();
 	/* __GDPR__
 		"startup" : {}
 	*/

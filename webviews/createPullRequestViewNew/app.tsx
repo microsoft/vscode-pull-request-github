@@ -286,13 +286,9 @@ export function main() {
 							<div className='split'></div>
 							<button className='split-right' disabled={isBusy || !isCreateable || !ctx.initialized} onClick={(e) => {
 								e.preventDefault();
-								let x = e.clientX;
-								let y = e.clientY;
-								if (x === 0 && y === 0) {
-									const rect = (e.target as HTMLElement).getBoundingClientRect();
-									x = rect.x;
-									y = rect.y;
-								}
+								const rect = (e.target as HTMLElement).getBoundingClientRect();
+								const x = rect.left;
+								const y = rect.bottom;
 								e.target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: x, clientY: y }));
 								e.stopPropagation();
 							}} data-vscode-context={makeCreateMenuContext(params)}>

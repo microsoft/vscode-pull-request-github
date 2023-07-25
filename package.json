@@ -579,7 +579,7 @@
 			],
 			"github-pull-request": [
 				{
-					"id": "github:createPullRequest",
+					"id": "github:createPullRequestWebview",
 					"type": "webview",
 					"name": "%view.github.create.pull.request.name%",
 					"when": "github:createPullRequest",
@@ -587,8 +587,15 @@
 					"initialSize": 2
 				},
 				{
-					"id": "github:compareChanges",
+					"id": "github:compareChangesFiles",
 					"name": "%view.github.compare.changes.name%",
+					"when": "github:createPullRequest",
+					"visibility": "visible",
+					"initialSize": 1
+				},
+				{
+					"id": "github:compareChangesCommits",
+					"name": "%view.github.compare.changesCommits.name%",
 					"when": "github:createPullRequest",
 					"visibility": "visible",
 					"initialSize": 1
@@ -1802,22 +1809,22 @@
 				},
 				{
 					"command": "pr.addAssigneesToNewPr",
-					"when": "view == github:createPullRequest && github:createPrPermissions != READ && github:createPrPermissions && config.githubPullRequests.experimental.createView",
+					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions && config.githubPullRequests.experimental.createView",
 					"group": "navigation@1"
 				},
 				{
 					"command": "pr.addReviewersToNewPr",
-					"when": "view == github:createPullRequest && github:createPrPermissions != READ && github:createPrPermissions && config.githubPullRequests.experimental.createView",
+					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions && config.githubPullRequests.experimental.createView",
 					"group": "navigation@2"
 				},
 				{
 					"command": "pr.addLabelsToNewPr",
-					"when": "view == github:createPullRequest && github:createPrPermissions != READ && github:createPrPermissions",
+					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions",
 					"group": "navigation@3"
 				},
 				{
 					"command": "pr.addMilestoneToNewPr",
-					"when": "view == github:createPullRequest && github:createPrPermissions != READ && github:createPrPermissions && config.githubPullRequests.experimental.createView",
+					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions && config.githubPullRequests.experimental.createView",
 					"group": "navigation@4"
 				}
 			],
@@ -2333,27 +2340,27 @@
 			"webview/context": [
 				{
 					"command": "pr.createPrMenuCreate",
-					"when": "webviewId == 'github:createPullRequest' && github:createPrMenu",
+					"when": "webviewId == 'github:createPullRequestWebview' && github:createPrMenu",
 					"group": "0_create@0"
 				},
 				{
 					"command": "pr.createPrMenuDraft",
-					"when": "webviewId == 'github:createPullRequest' && github:createPrMenu && github:createPrMenuDraft",
+					"when": "webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuDraft",
 					"group": "0_create@1"
 				},
 				{
 					"command": "pr.createPrMenuMerge",
-					"when": "webviewId == 'github:createPullRequest' && github:createPrMenu && github:createPrMenuMerge",
+					"when": "webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuMerge",
 					"group": "1_create@0"
 				},
 				{
 					"command": "pr.createPrMenuSquash",
-					"when": "webviewId == 'github:createPullRequest' && github:createPrMenu && github:createPrMenuSquash",
+					"when": "webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuSquash",
 					"group": "1_create@1"
 				},
 				{
 					"command": "pr.createPrMenuRebase",
-					"when": "webviewId == 'github:createPullRequest' && github:createPrMenu && github:createPrMenuRebase",
+					"when": "webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuRebase",
 					"group": "1_create@2"
 				}
 			]
