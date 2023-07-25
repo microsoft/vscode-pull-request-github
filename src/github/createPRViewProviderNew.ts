@@ -43,7 +43,7 @@ const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|r
 
 export class CreatePullRequestViewProviderNew extends WebviewViewBase implements vscode.WebviewViewProvider, vscode.Disposable {
 	private static readonly ID = 'CreatePullRequestViewProvider';
-	public readonly viewType = 'github:createPullRequest';
+	public readonly viewType = 'github:createPullRequestWebview';
 
 	private _onDone = new vscode.EventEmitter<PullRequestModel | undefined>();
 	readonly onDone: vscode.Event<PullRequestModel | undefined> = this._onDone.event;
@@ -725,7 +725,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				this.setMilestone(createdPR, message.args.milestone)]);
 		};
 
-		vscode.window.withProgress({ location: { viewId: 'github:createPullRequest' } }, () => {
+		vscode.window.withProgress({ location: { viewId: 'github:createPullRequestWebview' } }, () => {
 			return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async progress => {
 				let totalIncrement = 0;
 				progress.report({ message: vscode.l10n.t('Checking for upstream branch'), increment: totalIncrement });
