@@ -155,7 +155,7 @@ export function main() {
 					<div className='group-branches'>
 						<div className='input-label base'>
 							<div className="deco">
-								<span title='Base branch'>{prBaseIcon} Base</span>
+								<span title='Base branch' aria-hidden='true'>{prBaseIcon} Base</span>
 							</div>
 							<ChooseRemoteAndBranch onClick={ctx.changeBaseRemoteAndBranch}
 								defaultRemote={params.baseRemote}
@@ -167,7 +167,7 @@ export function main() {
 
 						<div className='input-label merge'>
 							<div className="deco">
-								<span title='Merge branch'>{prMergeIcon} Merge</span>
+								<span title='Merge branch' aria-hidden='true'>{prMergeIcon} Merge</span>
 							</div>
 							<ChooseRemoteAndBranch onClick={ctx.changeMergeRemoteAndBranch}
 								defaultRemote={params.compareRemote}
@@ -203,14 +203,16 @@ export function main() {
 
 						{params.assignees && (params.assignees.length > 0) ?
 							<div className='assignees'>
-								<span title='Assignees'>{assigneeIcon}</span>
+								<span title='Assignees' aria-hidden='true'>{assigneeIcon}</span>
 								<ul aria-label="Assignees" tabIndex={0} onClick={() => {
 									ctx.postMessage({ command: 'pr.changeAssignees' });
 								}}>
 									{params.assignees.map(assignee =>
 										<li>
-											<Avatar for={assignee} />
-											{assignee.login}
+											<span title={assignee.name} aria-label={assignee.name}>
+												<Avatar for={assignee} link={false} />
+												{assignee.login}
+											</span>
 										</li>)}
 								</ul>
 							</div>
@@ -218,14 +220,16 @@ export function main() {
 
 						{params.reviewers && (params.reviewers.length > 0) ?
 							<div className='reviewers'>
-								<span title='Reviewers'>{reviewerIcon}</span>
+								<span title='Reviewers' aria-hidden='true'>{reviewerIcon}</span>
 								<ul aria-label="Reviewers" tabIndex={0} onClick={() => {
 									ctx.postMessage({ command: 'pr.changeReviewers' });
 								}}>
 									{params.reviewers.map(reviewer =>
 										<li>
-											<Avatar for={reviewer} />
-											{isTeam(reviewer) ? reviewer.slug : reviewer.login}
+											<span title={reviewer.name} aria-label={reviewer.name}>
+												<Avatar for={reviewer} link={false} />
+												{isTeam(reviewer) ? reviewer.slug : reviewer.login}
+											</span>
 										</li>)}
 								</ul>
 							</div>
@@ -233,7 +237,7 @@ export function main() {
 
 						{params.labels && (params.labels.length > 0) ?
 							<div className='labels'>
-								<span title='Labels'>{labelIcon}</span>
+								<span title='Labels' aria-hidden='true'>{labelIcon}</span>
 								<ul aria-label="Labels" tabIndex={0} onClick={() => {
 									ctx.postMessage({ command: 'pr.changeLabels' });
 								}}>
@@ -244,7 +248,7 @@ export function main() {
 
 						{params.milestone ?
 							<div className='milestone'>
-								<span title='Milestone'>{milestoneIcon}</span>
+								<span title='Milestone' aria-hidden='true'>{milestoneIcon}</span>
 								<ul aria-label="Milestone" tabIndex={0} onClick={() => {
 									ctx.postMessage({ command: 'pr.changeMilestone' });
 								}}>
@@ -284,7 +288,7 @@ export function main() {
 								{createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).label}
 							</button>
 							<div className='split'></div>
-							<button className='split-right' disabled={isBusy || !isCreateable || !ctx.initialized} onClick={(e) => {
+							<button className='split-right' title='Create Actions' disabled={isBusy || !isCreateable || !ctx.initialized} onClick={(e) => {
 								e.preventDefault();
 								const rect = (e.target as HTMLElement).getBoundingClientRect();
 								const x = rect.left;
