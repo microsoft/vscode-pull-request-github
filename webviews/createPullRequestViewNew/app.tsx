@@ -210,7 +210,7 @@ export function main() {
 									{params.assignees.map(assignee =>
 										<li>
 											<span title={assignee.name} aria-label={assignee.name}>
-												<Avatar for={assignee} />
+												<Avatar for={assignee} link={false} />
 												{assignee.login}
 											</span>
 										</li>)}
@@ -227,7 +227,7 @@ export function main() {
 									{params.reviewers.map(reviewer =>
 										<li>
 											<span title={reviewer.name} aria-label={reviewer.name}>
-												<Avatar for={reviewer} />
+												<Avatar for={reviewer} link={false} />
 												{isTeam(reviewer) ? reviewer.slug : reviewer.login}
 											</span>
 										</li>)}
