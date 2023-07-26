@@ -151,7 +151,7 @@ export function main() {
 					create();
 				}
 
-				return <div className='group-main'>
+				return <div className='group-main' data-vscode-context='{"preventDefaultContextMenuItems": true}'>
 					<div className='group-branches'>
 						<div className='input-label base'>
 							<div className="deco">
@@ -194,6 +194,7 @@ export function main() {
 							required
 							onChange={(e) => updateTitle(e.currentTarget.value)}
 							onKeyDown={onKeyDown}
+							data-vscode-context='{"preventDefaultContextMenuItems": false}'
 							disabled={!ctx.initialized || isBusy}>
 						</input>
 						<div id='title-error' className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required</div>
@@ -269,6 +270,7 @@ export function main() {
 							value={params.pendingDescription}
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
 							onKeyDown={onKeyDown}
+							data-vscode-context='{"preventDefaultContextMenuItems": false}'
 							disabled={!ctx.initialized || isBusy}></textarea>
 					</div>
 
