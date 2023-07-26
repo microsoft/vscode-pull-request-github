@@ -359,7 +359,7 @@ export function convertRESTIssueToRawPullRequest(
 		createdAt: created_at,
 		updatedAt: updated_at,
 		labels: labels.map<ILabel>(l =>
-			typeof l === 'string' ? { name: l, color: '' } : { name: l.name ?? '', color: l.color ?? '' },
+			typeof l === 'string' ? { name: l, color: '' } : { name: l.name ?? '', color: l.color ?? '', description: l.description ?? undefined },
 		),
 		suggestedReviewers: [], // suggested reviewers only available through GraphQL API
 	};

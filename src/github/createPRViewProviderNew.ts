@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
 import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, RemoteInfo } from '../../common/views';
 import type { Branch, Ref } from '../api/api';
@@ -20,7 +19,6 @@ import {
 	PUSH_BRANCH,
 	SET_AUTO_MERGE,
 } from '../common/settingKeys';
-import { DataUri } from '../common/uri';
 import { asPromise, compareIgnoreCase, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { PREVIOUS_CREATE_METHOD } from '../extensionState';
@@ -36,7 +34,7 @@ import { IAccount, ILabel, IMilestone, isTeam, ITeam, MergeMethod, RepoAccessAnd
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
-import { getAssigneesQuickPickItems, getMilestoneFromQuickPick, reviewersQuickPick } from './quickPicks';
+import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, reviewersQuickPick } from './quickPicks';
 import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
 
 const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
@@ -625,26 +623,11 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	public async addLabels(): Promise<void> {
 		let newLabels: ILabel[] = [];
 
-		async function getLabelOptions(
-			folderRepoManager: FolderRepositoryManager,
-			labels: ILabel[],
-			base: RemoteInfo
-		): Promise<vscode.QuickPickItem[]> {
-			newLabels = await folderRepoManager.getLabels(undefined, { owner: base.owner, repo: base.repositoryName });
-
-			return newLabels.map(label => {
-				return {
-					label: label.name,
-					picked: labels.some(existingLabel => existingLabel.name === label.name),
-					iconPath: DataUri.asImageDataURI(Buffer.from(`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-						<rect x="2" y="2" width="12" height="12" rx="6" fill="#${label.color}"/>
-						</svg>`, 'utf8'))
-				};
-			});
-		}
-
 		const labelsToAdd = await vscode.window.showQuickPick(
-			getLabelOptions(this._folderRepositoryManager, this.labels, this._baseRemote),
+			getLabelOptions(this._folderRepositoryManager, this.labels, this._baseRemote).then(options => {
+				newLabels = options.newLabels;
+				return options.labelPicks;
+			}) as Promise<vscode.QuickPickItem[]>,
 			{ canPickMany: true, placeHolder: vscode.l10n.t('Apply labels') },
 		);
 

@@ -4,12 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
+import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
+import { RemoteInfo } from '../../common/views';
 import { DataUri } from '../common/uri';
 import { formatError } from '../common/utils';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
-import { IAccount, IMilestone, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
+import { IAccount, ILabel, IMilestone, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 
 export async function getAssigneesQuickPickItems(folderRepositoryManager: FolderRepositoryManager, remoteName: string, alreadyAssigned: IAccount[], item?: PullRequestModel):
@@ -329,4 +331,24 @@ export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderR
 	} catch (e) {
 		vscode.window.showErrorMessage(`Failed to add milestone: ${formatError(e)}`);
 	}
+}
+
+export async function getLabelOptions(
+	folderRepoManager: FolderRepositoryManager,
+	labels: ILabel[],
+	base: RemoteInfo
+): Promise<{ newLabels: ILabel[], labelPicks: vscode.QuickPickItem[] }> {
+	const newLabels = await folderRepoManager.getLabels(undefined, { owner: base.owner, repo: base.repositoryName });
+
+	const labelPicks = newLabels.map(label => {
+		return {
+			label: label.name,
+			description: label.description,
+			picked: labels.some(existingLabel => existingLabel.name === label.name),
+			iconPath: DataUri.asImageDataURI(Buffer.from(`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<rect x="2" y="2" width="12" height="12" rx="6" fill="#${label.color}"/>
+				</svg>`, 'utf8'))
+		};
+	});
+	return { newLabels, labelPicks };
 }

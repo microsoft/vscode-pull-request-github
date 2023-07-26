@@ -4,11 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
-import { DataUri } from '../common/uri';
 import { asPromise, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
@@ -16,6 +14,7 @@ import { OctokitCommon } from './common';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { ILabel } from './interface';
 import { IssueModel } from './issueModel';
+import { getLabelOptions } from './quickPicks';
 
 export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends WebviewBase {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -224,27 +223,14 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem>();
 		try {
 			let newLabels: ILabel[] = [];
-			async function getLabelOptions(
-				folderRepoManager: FolderRepositoryManager,
-				issue: IssueModel,
-			): Promise<vscode.QuickPickItem[]> {
-				newLabels = await folderRepoManager.getLabels(issue);
-
-				return newLabels.map(label => {
-					return {
-						label: label.name,
-						picked: issue.item.labels.some(existingLabel => existingLabel.name === label.name),
-						iconPath: DataUri.asImageDataURI(Buffer.from(`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-						<rect x="2" y="2" width="12" height="12" rx="6" fill="#${label.color}"/>
-						</svg>`, 'utf8'))
-					};
-				});
-			}
 
 			quickPick.busy = true;
 			quickPick.canSelectMany = true;
 			quickPick.show();
-			quickPick.items = await getLabelOptions(this._folderRepositoryManager, this._item);
+			quickPick.items = await (getLabelOptions(this._folderRepositoryManager, this._item.item.labels, this._item.remote).then(options => {
+				newLabels = options.newLabels;
+				return options.labelPicks;
+			}));
 			quickPick.selectedItems = quickPick.items.filter(item => item.picked);
 
 			quickPick.busy = false;
