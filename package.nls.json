@@ -8,7 +8,7 @@
 	"githubPullRequests.defaultCreateOption.lastUsed": "The most recently used create option.",
 	"githubPullRequests.defaultCreateOption.create": "The pull request will be created.",
 	"githubPullRequests.defaultCreateOption.createDraft": "The pull request will be created as a draft.",
-	"githubPullRequests.defaultCreateOption.createAutoMerge": "The pull request will be created with auto-merge enabled.",
+	"githubPullRequests.defaultCreateOption.createAutoMerge": "The pull request will be created with auto-merge enabled. The merge method selected will be the default for the repo or the value of `githubPullRequests.defaultMergeMethod` if set.",
 	"githubPullRequests.createDraft": "Whether the \"Draft\" checkbox will be checked by default when creating a pull request.",
 	"githubPullRequests.logLevel.description": "Logging for GitHub Pull Request extension. The log is emitted to the output channel named as GitHub Pull Request.",
 	"githubPullRequests.logLevel.markdownDeprecationMessage":{

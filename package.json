@@ -94,7 +94,7 @@
 						"createDraft",
 						"createAutoMerge"
 					],
-					"enumDescriptions": [
+					"markdownEnumDescriptions": [
 						"%githubPullRequests.defaultCreateOption.lastUsed%",
 						"%githubPullRequests.defaultCreateOption.create%",
 						"%githubPullRequests.defaultCreateOption.createDraft%",
