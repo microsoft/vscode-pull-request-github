@@ -86,9 +86,27 @@
 					"default": "template",
 					"description": "%githubPullRequests.pullRequestDescription.description%"
 				},
+				"githubPullRequests.defaultCreateOption": {
+					"type":"string",
+					"enum": [
+						"lastUsed",
+						"create",
+						"createDraft",
+						"createAutoMerge"
+					],
+					"enumDescriptions": [
+						"%githubPullRequests.defaultCreateOption.lastUsed%",
+						"%githubPullRequests.defaultCreateOption.create%",
+						"%githubPullRequests.defaultCreateOption.createDraft%",
+						"%githubPullRequests.defaultCreateOption.createAutoMerge%"
+					],
+					"default": "lastUsed",
+					"description": "%githubPullRequests.defaultCreateOption.description%"
+				},
 				"githubPullRequests.createDraft": {
 					"type": "boolean",
 					"default": false,
+					"deprecationMessage": "Use the setting 'githubPullRequests.defaultCreateMethod' instead.",
 					"description": "%githubPullRequests.createDraft%"
 				},
 				"githubPullRequests.logLevel": {
@@ -346,6 +364,7 @@
 				"githubPullRequests.setAutoMerge": {
 					"type": "boolean",
 					"description": "%githubPullRequests.setAutoMerge.description%",
+					"deprecationMessage": "Use the setting 'githubPullRequests.defaultCreateMethod' instead.",
 					"default": false
 				},
 				"githubPullRequests.pullPullRequestBranchBeforeCheckout": {
