@@ -1075,6 +1075,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					return {
 						name: label.name,
 						color: label.color,
+						description: label.description ?? undefined
 					};
 				}),
 			);

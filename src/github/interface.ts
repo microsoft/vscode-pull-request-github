@@ -106,6 +106,7 @@ export interface IGitHubRef {
 export interface ILabel {
 	name: string;
 	color: string;
+	description?: string;
 }
 
 export interface Issue {
