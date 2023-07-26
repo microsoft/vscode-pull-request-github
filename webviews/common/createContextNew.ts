@@ -233,6 +233,7 @@ export class CreatePRContextNew {
 				message.params.compareRemote = message.params.defaultCompareRemote ?? this.createParams.compareRemote;
 				message.params.autoMerge = (message.params.autoMergeDefault !== undefined ? message.params.autoMergeDefault : this.createParams.autoMerge);
 				message.params.autoMergeMethod = (message.params.defaultMergeMethod !== undefined ? message.params.defaultMergeMethod : this.createParams.autoMergeMethod);
+				message.params.isDraft = (message.params.isDraftDefault !== undefined ? message.params.isDraftDefault : this.createParams.isDraft);
 				if (message.params.autoMergeDefault) {
 					message.params.isDraft = false;
 				}

@@ -14,11 +14,10 @@ import { Protocol } from '../common/protocol';
 import { GitHubRemote } from '../common/remote';
 import {
 	ASSIGN_TO,
-	CREATE_DRAFT,
+	DEFAULT_CREATE_OPTION,
 	PR_SETTINGS_NAMESPACE,
 	PULL_REQUEST_DESCRIPTION,
-	PUSH_BRANCH,
-	SET_AUTO_MERGE,
+	PUSH_BRANCH
 } from '../common/settingKeys';
 import { DataUri } from '../common/uri';
 import { asPromise, compareIgnoreCase, formatError } from '../common/utils';
@@ -293,15 +292,25 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			await defaultOrigin.getViewerPermission()
 		]);
 
+		const defaultCreateOption = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'lastUsed' | 'create' | 'createDraft' | 'createAutoMerge'>(DEFAULT_CREATE_OPTION, 'lastUsed');
 		const lastCreateMethod: { autoMerge: boolean, mergeMethod: MergeMethod | undefined, isDraft: boolean } | undefined = this._folderRepositoryManager.context.workspaceState.get<{ autoMerge: boolean, mergeMethod: MergeMethod, isDraft } | undefined>(PREVIOUS_CREATE_METHOD, undefined);
 		const repoMergeMethod = getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability);
-		const defaultMergeMethod = lastCreateMethod?.mergeMethod ?? repoMergeMethod;
 
-		const draftSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get(CREATE_DRAFT, false);
-		const isDraftDefault = lastCreateMethod?.isDraft ?? draftSetting;
+		// default values are for 'create'
+		let defaultMergeMethod: MergeMethod = repoMergeMethod;
+		let isDraftDefault: boolean = false;
+		let autoMergeDefault: boolean = false;
+		defaultMergeMethod = (defaultCreateOption === 'lastUsed' && lastCreateMethod?.mergeMethod) ? lastCreateMethod?.mergeMethod : repoMergeMethod;
 
-		const autoMergeSetting = (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(SET_AUTO_MERGE, false) === true);
-		const autoMergeDefault = mergeConfiguration.viewerCanAutoMerge && (lastCreateMethod?.autoMerge ?? autoMergeSetting);
+		if (defaultCreateOption === 'lastUsed') {
+			defaultMergeMethod = lastCreateMethod?.mergeMethod ?? repoMergeMethod;
+			isDraftDefault = !!lastCreateMethod?.isDraft;
+			autoMergeDefault = mergeConfiguration.viewerCanAutoMerge && !!lastCreateMethod?.autoMerge;
+		} else if (defaultCreateOption === 'createDraft') {
+			isDraftDefault = true;
+		} else if (defaultCreateOption === 'createAutoMerge') {
+			autoMergeDefault = mergeConfiguration.viewerCanAutoMerge;
+		}
 		commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 
 		const params: CreateParamsNew = {
@@ -397,6 +406,13 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			this._baseRemote = result.remote;
 			const compareBranch = await this._folderRepositoryManager.repository.getBranch(this._compareBranch);
 			const [mergeConfiguration, titleAndDescription] = await Promise.all([this.getMergeConfiguration(result.remote.owner, result.remote.repositoryName), this.getTitleAndDescription(compareBranch, this._baseBranch)]);
+			let autoMergeDefault = false;
+			if (mergeConfiguration.viewerCanAutoMerge) {
+				const defaultCreateOption = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'lastUsed' | 'create' | 'createDraft' | 'createAutoMerge'>(DEFAULT_CREATE_OPTION, 'lastUsed');
+				const lastCreateMethod: { autoMerge: boolean, mergeMethod: MergeMethod | undefined, isDraft: boolean } | undefined = this._folderRepositoryManager.context.workspaceState.get<{ autoMerge: boolean, mergeMethod: MergeMethod, isDraft } | undefined>(PREVIOUS_CREATE_METHOD, undefined);
+				autoMergeDefault = (defaultCreateOption === 'lastUsed' && lastCreateMethod?.autoMerge) || (defaultCreateOption === 'createAutoMerge');
+			}
+
 			chooseResult = {
 				baseRemote: result.remote,
 				baseBranch: result.branch,
@@ -404,7 +420,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				defaultMergeMethod: getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability),
 				allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
 				mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
-				autoMergeDefault: mergeConfiguration.viewerCanAutoMerge && (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(SET_AUTO_MERGE, false) === true),
+				autoMergeDefault,
 				defaultTitle: titleAndDescription.title,
 				defaultDescription: titleAndDescription.description
 			};
