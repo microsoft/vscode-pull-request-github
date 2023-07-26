@@ -58,8 +58,8 @@ textarea:disabled {
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
-	color: var(--vscode-button-secondaryForeground) !important;
-	background-color: var(--vscode-button-secondaryBackground) !important;
+	color: var(--vscode-input-foreground) !important;
+	background-color: var(--vscode-input-background) !important;
 }
 
 .base button:active,
@@ -70,6 +70,11 @@ textarea:disabled {
 .merge button:hover {
 	color: var(--vscode-inputOption-activeForeground) !important;
 	background-color: var(--vscode-inputOption-activeBackground) !important;
+}
+
+.base button:focus,
+.merge button:focus {
+	border-color: var(--vscode-focusBorder) !important;
 }
 
 .merge {
