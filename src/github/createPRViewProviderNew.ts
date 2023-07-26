@@ -111,7 +111,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				};
 				if (!branchRemoteChanged) {
 					return this._postMessage({
-						command: 'reset',
+						command: 'pr.initialize',
 						params,
 					});
 				}
