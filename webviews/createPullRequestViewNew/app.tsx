@@ -288,7 +288,7 @@ export function main() {
 								{createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).label}
 							</button>
 							<div className='split'></div>
-							<button className='split-right' title='Create Actions' disabled={isBusy || !isCreateable || !ctx.initialized} onClick={(e) => {
+							<button className='split-right' title='Create with Option' disabled={isBusy || !isCreateable || !ctx.initialized} onClick={(e) => {
 								e.preventDefault();
 								const rect = (e.target as HTMLElement).getBoundingClientRect();
 								const x = rect.left;
