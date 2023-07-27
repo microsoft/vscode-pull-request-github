@@ -270,7 +270,7 @@ export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderR
 		const quickPick = vscode.window.createQuickPick();
 		quickPick.busy = true;
 		quickPick.canSelectMany = false;
-		quickPick.title = vscode.l10n.t('Select a milestone to add');
+		quickPick.title = vscode.l10n.t('Set milestone');
 		quickPick.buttons = [{
 			iconPath: new vscode.ThemeIcon('add'),
 			tooltip: 'Create',
