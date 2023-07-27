@@ -155,7 +155,7 @@ export function main() {
 					if (event instanceof KeyboardEvent) {
 						if (event.key === "Enter" || event.key === " ") {
 							ctx.postMessage({ command: command });
-						}``
+						}
 					} else if (event instanceof MouseEvent) {
 						event.preventDefault();
 						ctx.postMessage({ command: command });
