@@ -30,7 +30,7 @@ textarea:disabled {
 /* Base + Merge Branches */
 
 .group-branches {
-	margin-top: 28px;
+	margin-top: 20px;
 	margin-bottom: 10px;
 }
 
@@ -219,7 +219,7 @@ textarea {
 	display: flex;
 	gap: 8px;
 	margin-top: 10px;
-	margin-bottom: 24px;
+	margin-bottom: 20px;
 	width: 100%;
 }
 
