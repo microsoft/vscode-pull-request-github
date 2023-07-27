@@ -750,7 +750,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 						const pushBranchSetting =
 							vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get(PUSH_BRANCH) === 'always';
 						const messageResult = !pushBranchSetting ? await vscode.window.showInformationMessage(
-							vscode.l10n.t('There is no upstream branch on {0}/{1} for \'{2}\'.\n\nDo you want to publish it and then create the pull request?', compareOwner, compareRepositoryName, compareBranchName),
+							vscode.l10n.t('There is no remote branch on {0}/{1} for \'{2}\'.\n\nDo you want to publish it and then create the pull request?', compareOwner, compareRepositoryName, compareBranchName),
 							{ modal: true },
 							publish,
 							alwaysPublish)
@@ -774,7 +774,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 						}
 					}
 					if (!existingCompareUpstream) {
-						this._throwError(message, vscode.l10n.t('No upstream on {0}/{1} for the compare branch.', compareOwner, compareRepositoryName));
+						this._throwError(message, vscode.l10n.t('No remote branch on {0}/{1} for the merge branch.', compareOwner, compareRepositoryName));
 						progress.report({ message: vscode.l10n.t('Pull request cancelled'), increment: 100 - totalIncrement });
 						return;
 					}
