@@ -151,6 +151,17 @@ export function main() {
 					create();
 				}
 
+				function activateCommand(event: MouseEvent | KeyboardEvent, command: string): void {
+					if (event instanceof KeyboardEvent) {
+						if (event.key === "Enter" || event.key === " ") {
+							ctx.postMessage({ command: command });
+						}``
+					} else if (event instanceof MouseEvent) {
+						event.preventDefault();
+						ctx.postMessage({ command: command });
+					}
+				}
+
 				return <div className='group-main' data-vscode-context='{"preventDefaultContextMenuItems": true}'>
 					<div className='group-branches'>
 						<div className='input-label base'>
@@ -201,13 +212,13 @@ export function main() {
 					</div>
 
 					<div className='group-additions'>
-
 						{params.assignees && (params.assignees.length > 0) ?
 							<div className='assignees'>
 								<span title='Assignees' aria-hidden='true'>{assigneeIcon}</span>
-								<ul aria-label="Assignees" tabIndex={0} onClick={() => {
-									ctx.postMessage({ command: 'pr.changeAssignees' });
-								}}>
+								<ul aria-label='Assignees' tabIndex={0} role='button'
+									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeAssignees')}
+									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeAssignees')}
+								>
 									{params.assignees.map(assignee =>
 										<li>
 											<span title={assignee.name} aria-label={assignee.name}>
@@ -222,9 +233,10 @@ export function main() {
 						{params.reviewers && (params.reviewers.length > 0) ?
 							<div className='reviewers'>
 								<span title='Reviewers' aria-hidden='true'>{reviewerIcon}</span>
-								<ul aria-label="Reviewers" tabIndex={0} onClick={() => {
-									ctx.postMessage({ command: 'pr.changeReviewers' });
-								}}>
+								<ul aria-label='Reviewers' tabIndex={0} role='button'
+									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeReviewers')}
+									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeReviewers')}
+								>
 									{params.reviewers.map(reviewer =>
 										<li>
 											<span title={reviewer.name} aria-label={reviewer.name}>
@@ -239,9 +251,10 @@ export function main() {
 						{params.labels && (params.labels.length > 0) ?
 							<div className='labels'>
 								<span title='Labels' aria-hidden='true'>{labelIcon}</span>
-								<ul aria-label="Labels" tabIndex={0} onClick={() => {
-									ctx.postMessage({ command: 'pr.changeLabels' });
-								}}>
+								<ul aria-label='Labels' tabIndex={0} role='button'
+									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeLabels')}
+									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeLabels')}
+								>
 									{params.labels.map(label => <LabelCreate key={label.name} {...label} canDelete isDarkTheme={!!params.isDarkTheme} />)}
 								</ul>
 							</div>
@@ -250,9 +263,10 @@ export function main() {
 						{params.milestone ?
 							<div className='milestone'>
 								<span title='Milestone' aria-hidden='true'>{milestoneIcon}</span>
-								<ul aria-label="Milestone" tabIndex={0} onClick={() => {
-									ctx.postMessage({ command: 'pr.changeMilestone' });
-								}}>
+								<ul aria-label='Milestone' tabIndex={0} role='button'
+									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeMilestone')}
+									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeMilestone')}
+								>
 									<li>
 										{params.milestone.title}
 									</li>
