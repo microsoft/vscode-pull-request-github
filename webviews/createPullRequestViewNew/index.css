@@ -70,8 +70,8 @@ textarea:disabled {
 	background-color: var(--vscode-inputOption-activeBackground) !important;
 }
 
-.base button:hover,
-.merge button:hover {
+.base button:hover:not(:disabled),
+.merge button:hover:not(:disabled) {
 	background-color: var(--vscode-inputOption-hoverBackground) !important;
 }
 
