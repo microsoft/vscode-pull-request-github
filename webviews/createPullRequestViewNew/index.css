@@ -64,12 +64,15 @@ textarea:disabled {
 
 .base button:active,
 .base button:focus,
-.base button:hover:not(:disabled),
 .merge button:active,
-.merge button:focus,
-.merge button:hover:not(:disabled) {
+.merge button:focus {
 	color: var(--vscode-inputOption-activeForeground) !important;
 	background-color: var(--vscode-inputOption-activeBackground) !important;
+}
+
+.base button:hover:not(:disabled),
+.merge button:hover:not(:disabled) {
+	background-color: var(--vscode-inputOption-hoverBackground) !important;
 }
 
 .base button:focus,
