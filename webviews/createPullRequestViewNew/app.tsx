@@ -153,7 +153,7 @@ export function main() {
 
 				function activateCommand(event: MouseEvent | KeyboardEvent, command: string): void {
 					if (event instanceof KeyboardEvent) {
-						if (event.key === "Enter" || event.key === " ") {
+						if (event.key === 'Enter' || event.key === ' ') {
 							event.preventDefault();
 							ctx.postMessage({ command: command });
 						}
