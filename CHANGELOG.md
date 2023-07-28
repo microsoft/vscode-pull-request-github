@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.70.0
+
+### Changes
+
+- The "Create" view has been updated to be less noisy and more useful. Asside from the purely visual changes, the following features have been added:
+  - We try to guess the best possible base branch for your PR instead of always using the default branch.
+  - You can add reviewers, assignees, labels, and milestones to your PR from the "Create" view.
+  - By default, your last "create option" will be remembered (ex. draft or auto merge)
+  - The view is much faster.
+  - You can view diffs before publishing your branch.
+  - Once the branch is published, you can also view commits (this is coming soon for unpublished branches).
+
+  
+
+
+### Fixes
+
+
+
 ## 0.68.1
 
 ### Fixes
