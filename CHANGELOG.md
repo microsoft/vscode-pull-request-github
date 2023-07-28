@@ -12,12 +12,14 @@
   - You can view diffs before publishing your branch.
   - Once the branch is published, you can also view commits (this is coming soon for unpublished branches).
 
-  
+  ![The new create view](/documentation/changelog/0.70.0/new-create-view.png)
 
+- If you work on a fork of a repository, but don't ever want to know about or make PRs to the parent, you can prevent the `upstream` remote from being added with the new setting `"githubPullRequests.upstreamRemote": "never"`.
 
 ### Fixes
 
-
+- Quote reply missing for some comments. https://github.com/microsoft/vscode-pull-request-github/issues/5012
+- Accessibility of "suggest edits" new workflow and documentation. https://github.com/microsoft/vscode-pull-request-github/issues/4946
 
 ## 0.68.1
 
