@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.70.0
+
+### Changes
+
+- The "Create" view has been updated to be less noisy and more useful. Asside from the purely visual changes, the following features have been added:
+  - We try to guess the best possible base branch for your PR instead of always using the default branch.
+  - You can add reviewers, assignees, labels, and milestones to your PR from the "Create" view.
+  - By default, your last "create option" will be remembered (ex. draft or auto merge)
+  - The view is much faster.
+  - You can view diffs before publishing your branch.
+  - Once the branch is published, you can also view commits (this is coming soon for unpublished branches).
+
+  ![The new create view](/documentation/changelog/0.70.0/new-create-view.png)
+
+- If you work on a fork of a repository, but don't ever want to know about or make PRs to the parent, you can prevent the `upstream` remote from being added with the new setting `"githubPullRequests.upstreamRemote": "never"`.
+
+### Fixes
+
+- Quote reply missing for some comments. https://github.com/microsoft/vscode-pull-request-github/issues/5012
+- Accessibility of "suggest edits" new workflow and documentation. https://github.com/microsoft/vscode-pull-request-github/issues/4946
+
+**_Thank You_**
+
+* [@mgyucht (Miles Yucht)](https://github.com/mgyucht): Correctly iterate backwards through diffs across files [PR #5036](https://github.com/microsoft/vscode-pull-request-github/pull/5036)
+
 ## 0.68.1
 
 ### Fixes
