@@ -21,6 +21,10 @@
 - Quote reply missing for some comments. https://github.com/microsoft/vscode-pull-request-github/issues/5012
 - Accessibility of "suggest edits" new workflow and documentation. https://github.com/microsoft/vscode-pull-request-github/issues/4946
 
+**_Thank You_**
+
+* [@mgyucht (Miles Yucht)](https://github.com/mgyucht): Correctly iterate backwards through diffs across files [PR #5036](https://github.com/microsoft/vscode-pull-request-github/pull/5036)
+
 ## 0.68.1
 
 ### Fixes
