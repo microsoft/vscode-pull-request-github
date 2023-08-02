@@ -16,7 +16,7 @@
 
 5. If the minor version was increased, run the nightly build pipeline to ensure a new pre-release version with the increased version number is released
 
-6. Run the release pipeline with the `publishExtension` variable set to `true`.
+6. Run the release pipeline with the `publishExtension` variable set to `true`. If needed, set the branch to the appropriate release branch (ex. `release/0.5`).
 
 7. Wait for the release pipeline to finish running.
 
@@ -25,7 +25,6 @@
     - Tag should be the same as the extension version (ex. `v0.5.0`)
     - Set release title to the name of the version (ex. `0.5.0`)
     - Copy over contents from CHANGELOG.md
-    - Upload .vsix, which can be downloaded from the release pipeline
     - Preview release
     - **Publish** release
 
