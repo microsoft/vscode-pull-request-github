@@ -1216,3 +1216,19 @@ code {
 	border-collapse: unset;
 	border-color: var(--vscode-editorHoverWidget-border);
 }
+
+.comment-body .js-suggested-changes-blob {
+	border-collapse: collapse;
+}
+
+.blob-code-deletion,
+.blob-num-deletion {
+	border-collapse: collapse;
+	background-color: var(--vscode-diffEditor-removedLineBackground);
+}
+
+.blob-code-addition,
+.blob-num-addition {
+	border-collapse: collapse;
+	background-color: var(--vscode-diffEditor-insertedLineBackground);
+}
