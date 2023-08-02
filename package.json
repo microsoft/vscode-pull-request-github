@@ -24,7 +24,7 @@
 		"readonlyMessage",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.68.0",
+	"version": "0.70.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.81.0"
