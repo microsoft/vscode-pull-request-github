@@ -1166,7 +1166,7 @@ export function getIssuesUrl(repo: GitHubRepository) {
 }
 
 export function sanitizeIssueTitle(title: string): string {
-	const regex = /[~^:;'".,~#?%*[\]@\\{}()]|\/\//g;
+	const regex = /[~^:;'".,~#?%*[\]@\\{}()/]|\/\//g;
 
 	return title.replace(regex, '').trim().substring(0, 150).replace(/\s+/g, '-');
 }
