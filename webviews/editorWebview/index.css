@@ -117,6 +117,7 @@ body .comment-container.review {
 
 .review-comment-container {
 	width: 100%;
+	max-width: 1000px;
 	display: flex;
 	flex-direction: column;
 	position: relative;
@@ -957,6 +958,7 @@ code {
 
 .review-comment-body .diff-container .diff {
 	border-top: 1px solid var(--vscode-editorWidget-border);
+	overflow: scroll;
 }
 
 .resolved-container {
