@@ -169,7 +169,7 @@ export namespace DataUri {
 		}
 		const iconsFolder = 'userIcons';
 		const iconFilename = `${reviewerId(user)}.jpg`;
-		let innerImageContents: Buffer;
+		let innerImageContents: Buffer | undefined;
 		try {
 			const fileContents = await TemporaryState.read(iconsFolder, iconFilename);
 			if (!fileContents) {
@@ -177,10 +177,21 @@ export namespace DataUri {
 			}
 			innerImageContents = Buffer.from(fileContents);
 		} catch (e) {
-			const response = await fetch(imageSourceUrl.toString());
-			const buffer = await response.arrayBuffer();
-			await TemporaryState.write(iconsFolder, iconFilename, new Uint8Array(buffer), true);
-			innerImageContents = Buffer.from(buffer);
+			const doFetch = async () => {
+				const response = await fetch(imageSourceUrl.toString());
+				const buffer = await response.arrayBuffer();
+				await TemporaryState.write(iconsFolder, iconFilename, new Uint8Array(buffer), true);
+				innerImageContents = Buffer.from(buffer);
+			};
+			try {
+				await doFetch();
+			} catch (e) {
+				// We retry once.
+				await doFetch();
+			}
+		}
+		if (!innerImageContents) {
+			return undefined;
 		}
 		const innerImageEncoded = `data:image/jpeg;size:${innerImageContents.byteLength};base64,${innerImageContents.toString('base64')}`;
 		const contentsString = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
