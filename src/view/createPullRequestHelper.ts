@@ -5,9 +5,7 @@
 
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
-import { EXPERIMENTAL_CREATE_VIEW, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { dispose } from '../common/utils';
-import { CreatePullRequestViewProvider } from '../github/createPRViewProvider';
 import { CreatePullRequestViewProviderNew } from '../github/createPRViewProviderNew';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -15,7 +13,7 @@ import { CompareChanges } from './compareChangesTreeDataProvider';
 
 export class CreatePullRequestHelper implements vscode.Disposable {
 	private _disposables: vscode.Disposable[] = [];
-	private _createPRViewProvider: CreatePullRequestViewProvider | CreatePullRequestViewProviderNew | undefined;
+	private _createPRViewProvider: CreatePullRequestViewProviderNew | undefined;
 	private _treeView: CompareChanges | undefined;
 
 	private _onDidCreate = new vscode.EventEmitter<PullRequestModel>();
@@ -183,21 +181,13 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 				await folderRepoManager.getPullRequestDefaults(branch),
 			);
 
-			const useNewCreateView = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get(EXPERIMENTAL_CREATE_VIEW, false);
 
-			this._createPRViewProvider = useNewCreateView ?
-				new CreatePullRequestViewProviderNew(
-					extensionUri,
-					folderRepoManager,
-					pullRequestDefaults,
-					branch
-				)
-				: new CreatePullRequestViewProvider(
-					extensionUri,
-					folderRepoManager,
-					pullRequestDefaults,
-					branch
-				);
+			this._createPRViewProvider = new CreatePullRequestViewProviderNew(
+				extensionUri,
+				folderRepoManager,
+				pullRequestDefaults,
+				branch
+			);
 
 			const compareOrigin = await folderRepoManager.getOrigin(branch);
 			this._treeView = new CompareChanges(

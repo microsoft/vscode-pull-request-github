@@ -373,11 +373,6 @@
 					"description": "%githubPullRequests.pullPullRequestBranchBeforeCheckout.description%",
 					"default": true
 				},
-				"githubPullRequests.experimental.createView": {
-					"type":"boolean",
-					"description": "%githubPullRequests.experimental.createView.description%",
-					"default": true
-				},
 				"githubPullRequests.upstreamRemote": {
 					"type": "string",
 					"enum": [
@@ -1828,12 +1823,12 @@
 				},
 				{
 					"command": "pr.addAssigneesToNewPr",
-					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions && config.githubPullRequests.experimental.createView",
+					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions",
 					"group": "navigation@1"
 				},
 				{
 					"command": "pr.addReviewersToNewPr",
-					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions && config.githubPullRequests.experimental.createView",
+					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions",
 					"group": "navigation@2"
 				},
 				{
@@ -1843,7 +1838,7 @@
 				},
 				{
 					"command": "pr.addMilestoneToNewPr",
-					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions && config.githubPullRequests.experimental.createView",
+					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions",
 					"group": "navigation@4"
 				}
 			],
