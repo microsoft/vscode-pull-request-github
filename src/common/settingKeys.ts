@@ -29,7 +29,6 @@ export const SELECT_REMOTE = 'selectRemote';
 export const REMOTES = 'remotes';
 export const PULL_PR_BRANCH_BEFORE_CHECKOUT = 'pullPullRequestBranchBeforeCheckout';
 export const EXPERIMENTAL_ACCOUNT_BADGE = 'experimental.accountBadge';
-export const EXPERIMENTAL_CREATE_VIEW = 'experimental.createView';
 export const UPSTREAM_REMOTE = 'upstreamRemote';
 export const DEFAULT_CREATE_OPTION = 'defaultCreateOption';
 
