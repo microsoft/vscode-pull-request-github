@@ -198,7 +198,7 @@ export class ReviewManager {
 		if (githubRepository) {
 			const metadata = await githubRepository.getMetadata();
 			if (metadata.fork && oldHead.name === metadata.default_branch) {
-				// For forks, we use the upstream repo if it's available.
+				// For forks, we use the upstream repo if it's available. Otherwise, fallback to the fork.
 				githubRepository = this._folderRepoManager.gitHubRepositories.find(repo => repo.remote.owner === metadata.parent?.owner?.login && repo.remote.repositoryName === metadata.parent?.name) ?? githubRepository;
 			}
 			return PullRequestGitHelper.associateBaseBranchWithBranch(this.repository, newHead.name, githubRepository.remote.owner, githubRepository.remote.repositoryName, oldHead.name);
