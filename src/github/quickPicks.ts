@@ -7,6 +7,7 @@
 import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
 import { RemoteInfo } from '../../common/views';
+import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
 import { formatError } from '../common/utils';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -218,7 +219,9 @@ export async function reviewersQuickPick(folderRepositoryManager: FolderReposito
 		const slowWarning = setTimeout(() => {
 			quickPick.placeholder = vscode.l10n.t('Getting team reviewers can take several minutes. Results will be cached.');
 		}, 3000);
+		const start = performance.now();
 		quickPick.items = await getReviewersQuickPickItems(folderRepositoryManager, remoteName, isInOrganization, author, existingReviewers, suggestedReviewers, refreshKind);
+		Logger.appendLine(`Setting quick pick reviewers took ${performance.now() - start}ms`, 'QuickPicks');
 		clearTimeout(slowWarning);
 		quickPick.selectedItems = quickPick.items.filter(item => item.picked);
 		quickPick.placeholder = defaultPlaceholder;
