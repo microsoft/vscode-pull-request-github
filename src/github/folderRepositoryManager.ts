@@ -744,65 +744,25 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return undefined;
 	}
 
-	private async getMentionableUsersFromGlobalState(): Promise<{ [key: string]: IAccount[] } | undefined> {
-		Logger.appendLine('Trying to use globalState for mentionable users.');
+	private async getUsersFromGlobalState<T extends IAccount | ITeam>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers'): Promise<{ [key: string]: T[] } | undefined> {
+		Logger.appendLine(`Trying to use globalState for ${userKind}.`);
 
-		const mentionableUsersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, 'mentionableUsers');
-		let mentionableUsersCacheExists;
+		const usersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, userKind);
+		let usersCacheExists;
 		try {
-			mentionableUsersCacheExists = await vscode.workspace.fs.stat(mentionableUsersCacheLocation);
+			usersCacheExists = await vscode.workspace.fs.stat(usersCacheLocation);
 		} catch (e) {
 			// file doesn't exit
 		}
-		if (!mentionableUsersCacheExists) {
+		if (!usersCacheExists) {
+			Logger.appendLine(`GlobalState does not exist for ${userKind}.`);
 			return undefined;
 		}
 
-		const cache: { [key: string]: IAccount[] } = {};
+		const cache: { [key: string]: T[] } = {};
 		const hasAllRepos = (await Promise.all(this._githubRepositories.map(async (repo) => {
 			const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
-			const repoSpecificFile = vscode.Uri.joinPath(mentionableUsersCacheLocation, key);
-			let repoSpecificCache: IAccount[] | undefined;
-			try {
-				const cacheFile = await vscode.workspace.fs.readFile(repoSpecificFile);
-				if (cacheFile && cacheFile.toString()) {
-					repoSpecificCache = JSON.parse(cacheFile.toString()) ?? [];
-				}
-			} catch (e) {
-				// file doesn't exist or json is unexpectedly invalid
-			}
-			if (repoSpecificCache) {
-				cache[repo.remote.remoteName] = repoSpecificCache;
-				return true;
-			}
-		}))).every(value => value);
-		if (hasAllRepos) {
-			Logger.appendLine(`Using globalState mentionable users for ${Object.keys(cache).length}.`);
-			return cache;
-		}
-
-		Logger.appendLine(`No globalState for mentionable users.`);
-		return undefined;
-	}
-
-	private async getTeamReviewersFromGlobalState(): Promise<{ [key: string]: ITeam[] } | undefined> {
-		Logger.appendLine('Trying to use globalState for team reviewers.');
-
-		const teamReviewersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, 'teamReviewers');
-		let teamReviewersCacheExists;
-		try {
-			teamReviewersCacheExists = await vscode.workspace.fs.stat(teamReviewersCacheLocation);
-		} catch (e) {
-			// file doesn't exit
-		}
-		if (!teamReviewersCacheExists) {
-			return undefined;
-		}
-
-		const cache: { [key: string]: ITeam[] } = {};
-		const hasAllRepos = (await Promise.all(this._githubRepositories.map(async (repo) => {
-			const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
-			const repoSpecificFile = vscode.Uri.joinPath(teamReviewersCacheLocation, key);
+			const repoSpecificFile = vscode.Uri.joinPath(usersCacheLocation, key);
 			let repoSpecificCache;
 			let cacheAsJson;
 			try {
@@ -810,7 +770,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				cacheAsJson = JSON.parse(repoSpecificCache.toString());
 			} catch (e) {
 				if (e instanceof Error && e.message.includes('Unexpected non-whitespace character after JSON')) {
-					Logger.error(`Error parsing team reviewers cache for ${repo.remote.remoteName}.`);
+					Logger.error(`Error parsing ${userKind} cache for ${repo.remote.remoteName}.`);
 				}
 				// file doesn't exist
 			}
@@ -820,12 +780,21 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 		}))).every(value => value);
 		if (hasAllRepos) {
-			Logger.appendLine(`Using globalState team reviewers for ${Object.keys(cache).length}.`);
+			Logger.appendLine(`Using globalState ${userKind} for ${Object.keys(cache).length}.`);
 			return cache;
 		}
 
-		Logger.appendLine(`No globalState for team reviewers.`);
+		Logger.appendLine(`No globalState for ${userKind}.`);
 		return undefined;
+	}
+
+	private async saveUsersInGlobalState<T extends IAccount | ITeam>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers', cache: { [key: string]: T[] }): Promise<void> {
+		const cacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, userKind);
+		await Promise.all(this._githubRepositories.map(async (repo) => {
+			const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
+			const repoSpecificFile = vscode.Uri.joinPath(cacheLocation, key);
+			await vscode.workspace.fs.writeFile(repoSpecificFile, new TextEncoder().encode(JSON.stringify(cache[repo.remote.remoteName])));
+		}));
 	}
 
 	private createFetchMentionableUsersPromise(): Promise<{ [key: string]: IAccount[] }> {
@@ -840,12 +809,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			Promise.all(promises).then(() => {
 				this._mentionableUsers = cache;
 				this._fetchMentionableUsersPromise = undefined;
-				const mentionableUsersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, 'mentionableUsers');
-				Promise.all(this._githubRepositories.map(async (repo) => {
-					const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
-					const repoSpecificFile = vscode.Uri.joinPath(mentionableUsersCacheLocation, key);
-					await vscode.workspace.fs.writeFile(repoSpecificFile, new TextEncoder().encode(JSON.stringify(cache[repo.remote.remoteName])));
-				}))
+				this.saveUsersInGlobalState('mentionableUsers', cache)
 					.then(() => resolve(cache));
 			});
 		});
@@ -857,10 +821,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 
 		if (this._mentionableUsers) {
+			Logger.appendLine('Using in-memory cached mentionable users.');
 			return this._mentionableUsers;
 		}
 
-		const globalStateMentionableUsers = await this.getMentionableUsersFromGlobalState();
+		const globalStateMentionableUsers = await this.getUsersFromGlobalState<IAccount>('mentionableUsers');
 
 		if (!this._fetchMentionableUsersPromise) {
 			this._fetchMentionableUsersPromise = this.createFetchMentionableUsersPromise();
@@ -876,13 +841,16 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 
 		if (this._assignableUsers) {
+			Logger.appendLine('Using in-memory cached assignable users.');
 			return this._assignableUsers;
 		}
+
+		const globalStateAssignableUsers = await this.getUsersFromGlobalState<IAccount>('assignableUsers');
 
 		if (!this._fetchAssignableUsersPromise) {
 			const cache: { [key: string]: IAccount[] } = {};
 			const allAssignableUsers: IAccount[] = [];
-			return (this._fetchAssignableUsersPromise = new Promise(resolve => {
+			this._fetchAssignableUsersPromise = new Promise(resolve => {
 				const promises = this._githubRepositories.map(async githubRepository => {
 					const data = await githubRepository.getAssignableUsers();
 					cache[githubRepository.remote.remoteName] = data.sort(loginComparator);
@@ -893,10 +861,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				Promise.all(promises).then(() => {
 					this._assignableUsers = cache;
 					this._fetchAssignableUsersPromise = undefined;
+					this.saveUsersInGlobalState('assignableUsers', cache);
 					resolve(cache);
 					this._onDidChangeAssignableUsers.fire(allAssignableUsers);
 				});
-			}));
+			});
+			return globalStateAssignableUsers ?? this._fetchAssignableUsersPromise;
 		}
 
 		return this._fetchAssignableUsersPromise;
@@ -908,11 +878,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 
 		if (this._teamReviewers) {
+			Logger.appendLine('Using in-memory cached team reviewers.');
 			return this._teamReviewers;
 		}
 
-		const globalStateTeamReviewers = (refreshKind === TeamReviewerRefreshKind.Force) ? undefined : await this.getTeamReviewersFromGlobalState();
+		const globalStateTeamReviewers = (refreshKind === TeamReviewerRefreshKind.Force) ? undefined : await this.getUsersFromGlobalState<ITeam>('teamReviewers');
 		if (globalStateTeamReviewers) {
+			this._teamReviewers = globalStateTeamReviewers;
 			return globalStateTeamReviewers || {};
 		}
 
@@ -937,12 +909,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 				this._teamReviewers = cache;
 				this._fetchTeamReviewersPromise = undefined;
-				const teamReviewersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, 'teamReviewers');
-				Promise.all(this._githubRepositories.map(async (repo) => {
-					const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
-					const repoSpecificFile = vscode.Uri.joinPath(teamReviewersCacheLocation, key);
-					await vscode.workspace.fs.writeFile(repoSpecificFile, new TextEncoder().encode(JSON.stringify(cache[repo.remote.remoteName])));
-				}));
+				this.saveUsersInGlobalState('teamReviewers', cache);
 				resolve(cache);
 			}));
 		}
