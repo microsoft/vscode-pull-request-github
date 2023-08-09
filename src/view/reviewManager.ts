@@ -189,13 +189,18 @@ export class ReviewManager {
 		GitHubCreatePullRequestLinkProvider.registerProvider(this._disposables, this, this._folderRepoManager);
 	}
 
-	private updateBaseBranchMetadata(oldHead: Branch, newHead: Branch) {
+	private async updateBaseBranchMetadata(oldHead: Branch, newHead: Branch) {
 		if (!oldHead.commit || (oldHead.commit !== newHead.commit) || !newHead.name || !oldHead.name || (oldHead.name === newHead.name)) {
 			return;
 		}
 
-		const githubRepository = this._folderRepoManager.gitHubRepositories.find(repo => repo.remote.remoteName === oldHead.upstream?.remote);
+		let githubRepository = this._folderRepoManager.gitHubRepositories.find(repo => repo.remote.remoteName === oldHead.upstream?.remote);
 		if (githubRepository) {
+			const metadata = await githubRepository.getMetadata();
+			if (metadata.fork && oldHead.name === metadata.default_branch) {
+				// For forks, we use the upstream repo if it's available.
+				githubRepository = this._folderRepoManager.gitHubRepositories.find(repo => repo.remote.owner === metadata.parent?.owner?.login && repo.remote.repositoryName === metadata.parent?.name) ?? githubRepository;
+			}
 			return PullRequestGitHelper.associateBaseBranchWithBranch(this.repository, newHead.name, githubRepository.remote.owner, githubRepository.remote.repositoryName, oldHead.name);
 		}
 	}
