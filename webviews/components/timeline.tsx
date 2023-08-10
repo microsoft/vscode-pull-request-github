@@ -105,7 +105,7 @@ const ReviewEventView = (event: ReviewEvent) => {
 	const comments = groupCommentsByPath(event.comments);
 	const reviewIsPending = event.state.toLocaleUpperCase() === 'PENDING';
 	return (
-		<CommentView comment={event}>
+		<CommentView comment={event} allowEmpty={true}>
 				{/* Don't show the empty comment body unless a comment has been written. Shows diffs and suggested changes. */}
 				{event.comments.length ? (
 					<div className="comment-body review-comment-body">
