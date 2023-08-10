@@ -22,6 +22,7 @@ export type Props = {
 	isPRDescription?: boolean;
 	children?: any;
 	comment: IComment | ReviewEvent | PullRequest | CommentEvent;
+	allowEmpty?: boolean;
 };
 
 const association = ({ authorAssociation }: ReviewEvent, format = (assoc: string) => `(${assoc.toLowerCase()})`) =>
@@ -109,6 +110,7 @@ export function CommentView(commentProps: Props) {
 				bodyHTML={bodyHTMLState}
 				body={bodyMd}
 				canApplyPatch={pr.isCurrentlyCheckedOut}
+				allowEmpty={!!commentProps.allowEmpty}
 			/>
 			{children}
 		</CommentBox>
@@ -255,10 +257,14 @@ export interface Embodied {
 	bodyHTML?: string;
 	body?: string;
 	canApplyPatch: boolean;
+	allowEmpty: boolean
 }
 
-export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch }: Embodied) => {
+export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty }: Embodied) => {
 	if (!body && !bodyHTML) {
+		if (allowEmpty) {
+			return null;
+		}
 		return (
 			<div className="comment-body">
 				<em>No description provided.</em>
