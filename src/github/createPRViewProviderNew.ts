@@ -345,7 +345,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 
 
 	private async remotePicks(isBase: boolean): Promise<(vscode.QuickPickItem & { remote?: RemoteInfo })[]> {
-		const remotes = isBase ? await this._folderRepositoryManager.getGitHubRemotes() : this._folderRepositoryManager.gitHubRepositories.map(repo => repo.remote);
+		const remotes = isBase ? await this._folderRepositoryManager.getActiveGitHubRemotes(await this._folderRepositoryManager.getGitHubRemotes()) : this._folderRepositoryManager.gitHubRepositories.map(repo => repo.remote);
 		return remotes.map(remote => {
 			return {
 				iconPath: new vscode.ThemeIcon('repo'),
