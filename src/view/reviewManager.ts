@@ -196,7 +196,7 @@ export class ReviewManager {
 
 		let githubRepository = this._folderRepoManager.gitHubRepositories.find(repo => repo.remote.remoteName === oldHead.upstream?.remote);
 		if (githubRepository) {
-			const metadata = await githubRepository.getMetadata();
+			let metadata = await githubRepository.getMetadata();
 			if (metadata.fork && oldHead.name === metadata.default_branch) {
 				// For forks, we use the upstream repo if it's available. Otherwise, fallback to the fork.
 				githubRepository = this._folderRepoManager.gitHubRepositories.find(repo => repo.remote.owner === metadata.parent?.owner?.login && repo.remote.repositoryName === metadata.parent?.name) ?? githubRepository;
