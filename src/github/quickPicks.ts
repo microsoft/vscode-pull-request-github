@@ -248,11 +248,15 @@ function isMilestoneQuickPickItem(x: vscode.QuickPickItem | MilestoneQuickPickIt
 	return !!(x as MilestoneQuickPickItem).id && !!(x as MilestoneQuickPickItem).milestone;
 }
 
-export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderRepositoryManager, githubRepository: GitHubRepository, callback: (milestone: IMilestone) => Promise<void>): Promise<void> {
+export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderRepositoryManager, githubRepository: GitHubRepository, currentMilestone: IMilestone | undefined, callback: (milestone: IMilestone | undefined) => Promise<void>): Promise<void> {
 	try {
+		const removeMilestoneItem: vscode.QuickPickItem = {
+			label: vscode.l10n.t('Remove milestone')
+		};
+		let selectedItem: vscode.QuickPickItem | undefined;
 		async function getMilestoneOptions(): Promise<(MilestoneQuickPickItem | vscode.QuickPickItem)[]> {
 			const milestones = await githubRepository.getMilestones();
-			if (!milestones.length) {
+			if (!milestones || !milestones.length) {
 				return [
 					{
 						label: vscode.l10n.t('No milestones created for this repository.'),
@@ -260,14 +264,23 @@ export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderR
 				];
 			}
 
-			return milestones.map(result => {
-				return {
+			const milestonesItems: (MilestoneQuickPickItem | vscode.QuickPickItem)[] = milestones.map(result => {
+				const item = {
 					iconPath: new vscode.ThemeIcon('milestone'),
 					label: result.title,
 					id: result.id,
-					milestone: result,
+					milestone: result
 				};
+				if (currentMilestone && currentMilestone.id === result.id) {
+					selectedItem = item;
+				}
+				return item;
 			});
+			if (currentMilestone) {
+				milestonesItems.unshift({ label: 'Milestones', kind: vscode.QuickPickItemKind.Separator });
+				milestonesItems.unshift(removeMilestoneItem);
+			}
+			return milestonesItems;
 		}
 
 		const quickPick = vscode.window.createQuickPick();
@@ -322,6 +335,7 @@ export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderR
 
 		quickPick.show();
 		quickPick.items = await getMilestoneOptions();
+		quickPick.activeItems = selectedItem ? [selectedItem] : (currentMilestone ? [quickPick.items[1]] : [quickPick.items[0]]);
 		quickPick.busy = false;
 
 		quickPick.onDidAccept(async () => {
@@ -329,6 +343,8 @@ export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderR
 			const milestoneToAdd = quickPick.selectedItems[0];
 			if (milestoneToAdd && isMilestoneQuickPickItem(milestoneToAdd)) {
 				await callback(milestoneToAdd.milestone);
+			} else if (milestoneToAdd && milestoneToAdd === removeMilestoneItem) {
+				await callback(undefined);
 			}
 		});
 	} catch (e) {

@@ -250,11 +250,16 @@ export class CreatePRContextNew {
 			case 'set-labels':
 			case 'set-assignees':
 			case 'set-reviewers':
-			case 'set-milestone':
 				if (!message.params) {
 					return;
 				}
 				this.updateState(message.params);
+				return;
+			case 'set-milestone':
+				if (!message.params) {
+					return;
+				}
+				this.updateState(Object.keys(message.params).length === 0 ? { milestone: undefined } : message.params);
 				return;
 			case 'create':
 				if (!message.params) {

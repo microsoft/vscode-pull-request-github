@@ -577,7 +577,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		const remote = await this.getRemote();
 		const repo = this._folderRepositoryManager.gitHubRepositories.find(repo => repo.remote.remoteName === remote.remoteName)!;
 
-		return getMilestoneFromQuickPick(this._folderRepositoryManager, repo, (milestone) => {
+		return getMilestoneFromQuickPick(this._folderRepositoryManager, repo, this.milestone, (milestone) => {
 			this.milestone = milestone;
 			return this._postMessage({
 				command: 'set-milestone',

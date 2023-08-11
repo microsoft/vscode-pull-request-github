@@ -410,10 +410,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async addMilestone(message: IRequestMessage<void>): Promise<void> {
-		return getMilestoneFromQuickPick(this._folderRepositoryManager, this._item.githubRepository, (milestone) => this.updateMilestone(milestone, message));
+		return getMilestoneFromQuickPick(this._folderRepositoryManager, this._item.githubRepository, this._item.milestone, (milestone) => this.updateMilestone(milestone, message));
 	}
 
-	private async updateMilestone(milestone: IMilestone, message: IRequestMessage<void>) {
+	private async updateMilestone(milestone: IMilestone | undefined, message: IRequestMessage<void>) {
+		if (!milestone) {
+			return this.removeMilestone(message);
+		}
 		await this._item.updateMilestone(milestone.id);
 		this._replyMessage(message, {
 			added: milestone,

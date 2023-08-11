@@ -489,7 +489,7 @@ export class GitHubRepository implements vscode.Disposable {
 		return undefined;
 	}
 
-	async getMilestones(includeClosed: boolean = false): Promise<any> {
+	async getMilestones(includeClosed: boolean = false): Promise<IMilestone[] | undefined> {
 		try {
 			Logger.debug(`Fetch milestones - enter`, GitHubRepository.ID);
 			const { query, remote, schema } = await this.ensure();
