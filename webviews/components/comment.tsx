@@ -12,7 +12,7 @@ import PullRequestContext from '../common/context';
 import emitter from '../common/events';
 import { useStateProp } from '../common/hooks';
 import { Dropdown } from './dropdown';
-import { commentIcon, deleteIcon, editIcon } from './icon';
+import { chevronDownIcon, commentIcon, deleteIcon, editIcon } from './icon';
 import { nbsp, Spaced } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -419,14 +419,14 @@ export const AddCommentSimple = (pr: PullRequest) => {
 	const textareaRef = useRef<HTMLTextAreaElement>();
 	let currentSelection: string = 'comment';
 
-	async function submitAction(selected: string): Promise<void> {
+	async function submitAction(): Promise<void> {
 		const { value } = textareaRef.current!;
-		if (pr.continueOnGitHub && selected !== ReviewType.Comment) {
+		if (pr.continueOnGitHub && currentSelection !== ReviewType.Comment) {
 			await openOnGitHub();
 			return;
 		}
 		setBusy(true);
-		switch (selected) {
+		switch (currentSelection) {
 			case ReviewType.RequestChanges:
 				await requestChanges(value);
 				break;
@@ -444,22 +444,18 @@ export const AddCommentSimple = (pr: PullRequest) => {
 		updatePR({ pendingCommentText: e.target.value });
 	};
 
-	async function onDropDownChange(value: string) {
-		currentSelection = value;
-	};
-
 	const onKeyDown = useCallback(
 		e => {
 			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
 
 				e.preventDefault();
-				submitAction(currentSelection);
+				submitAction();
 			}
 		},
 		[submitAction],
 	);
 
-	const availableActions = pr.isAuthor
+	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = pr.isAuthor
 		? { comment: 'Comment' }
 		: pr.continueOnGitHub
 			? {
@@ -468,6 +464,33 @@ export const AddCommentSimple = (pr: PullRequest) => {
 				requestChanges: 'Request changes on github.com',
 			}
 			: COMMENT_METHODS;
+
+	const makeCommentMenuContext = () => {
+		const createMenuContexts = {
+			'preventDefaultContextMenuItems': true,
+			'github:reviewCommentMenu': true,
+		};
+		if (availableActions.approve) {
+			if (availableActions.approve === COMMENT_METHODS.approve) {
+				createMenuContexts['github:reviewCommentApprove'] = true;
+			} else {
+				createMenuContexts['github:reviewCommentApproveOnDotCom'] = true;
+			}
+		}
+		if (availableActions.comment) {
+			createMenuContexts['github:reviewCommentComment'] = true;
+		}
+		if (availableActions.requestChanges) {
+			if (availableActions.requestChanges === COMMENT_METHODS.requestChanges) {
+				createMenuContexts['github:reviewCommentRequestChanges'] = true;
+			} else {
+				createMenuContexts['github:reviewCommentRequestChangesOnDotCom'] = true;
+			}
+		}
+		createMenuContexts['body'] = pr.pendingCommentText;
+		const stringified = JSON.stringify(createMenuContexts);
+		return stringified;
+	};
 
 	return (
 		<span className="comment-form">
@@ -479,9 +502,27 @@ export const AddCommentSimple = (pr: PullRequest) => {
 				value={pr.pendingCommentText}
 				onChange={onChangeTextarea}
 				onKeyDown={onKeyDown}
-				disabled={isBusy}
+				disabled={isBusy || pr.busy}
 			/>
-			<Dropdown options={availableActions} changeAction={onDropDownChange} defaultOption="comment" submitAction={submitAction} disabled={!!pr.isAuthor && !pr.hasReviewDraft && !pr.pendingCommentText} />
+			<div className='comment-button'>
+				<button className='split-left' disabled={isBusy || pr.busy} onClick={submitAction} value={currentSelection}
+					title={currentSelection}>
+					{availableActions[currentSelection]}
+				</button>
+				<div className='split'></div>
+				{Object.keys(availableActions).length > 1
+					? <button className='split-right' title='Submit pull request' disabled={isBusy || pr.busy} onClick={(e) => {
+						e.preventDefault();
+						const rect = (e.target as HTMLElement).getBoundingClientRect();
+						const x = rect.left;
+						const y = rect.bottom;
+						e.target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: x, clientY: y }));
+						e.stopPropagation();
+					}} data-vscode-context={makeCommentMenuContext()}>
+						{chevronDownIcon}
+					</button>
+					: null}
+			</div>
 		</span>
 	);
 };

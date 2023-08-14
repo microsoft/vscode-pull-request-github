@@ -87,9 +87,9 @@ export class WebviewBase {
 		this._webview?.postMessage(reply);
 	}
 
-	protected async _throwError(originalMessage: IRequestMessage<any>, error: any) {
+	protected async _throwError(originalMessage: IRequestMessage<any> | undefined, error: any) {
 		const reply: IReplyMessage = {
-			seq: originalMessage.req,
+			seq: originalMessage?.req,
 			err: error,
 		};
 		this._webview?.postMessage(reply);
