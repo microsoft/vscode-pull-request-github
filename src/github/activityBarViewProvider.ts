@@ -52,6 +52,10 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				state: GithubItemStateEnum.Merged,
 			});
 		}));
+
+		this._disposables.push(vscode.commands.registerCommand('review.approve', (e) => this.approvePullRequestCommand(e)));
+		this._disposables.push(vscode.commands.registerCommand('review.comment', (e) => this.submitReviewCommand(e)));
+		this._disposables.push(vscode.commands.registerCommand('review.requestChanges', (e) => this.requestChangesCommand(e)));
 	}
 
 	public resolveWebviewView(
@@ -88,11 +92,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			case 'pr.readyForReview':
 				return this.setReadyForReview(message);
 			case 'pr.approve':
-				return this.approvePullRequest(message);
+				return this.approvePullRequestMessage(message);
 			case 'pr.request-changes':
-				return this.requestChanges(message);
+				return this.requestChangesMessage(message);
 			case 'pr.submit':
-				return this.submitReview(message);
+				return this.submitReviewMessage(message);
 			case 'pr.openOnGitHub':
 				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 			case 'pr.checkout-default-branch':
@@ -309,55 +313,76 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 	}
 
-	private approvePullRequest(message: IRequestMessage<string>): void {
-		this._item.approve(this._folderRepositoryManager.repository, message.args).then(
-			review => {
-				this.updateReviewers(review);
-				this._replyMessage(message, {
-					review: review,
-					reviewers: this._existingReviewers,
-				});
-				//refresh the pr list as this one is approved
-				vscode.commands.executeCommand('pr.refreshList');
-			},
-			e => {
-				vscode.window.showErrorMessage(vscode.l10n.t('Approving pull request failed. {0}', formatError(e)));
-
-				this._throwError(message, `${formatError(e)}`);
-			},
-		);
+	private async doReviewCommand(context: { body: string }, action: (body: string) => Promise<CommonReviewEvent>) {
+		const submittingMessage = {
+			command: 'pr.submitting-review'
+		};
+		this._postMessage(submittingMessage);
+		try {
+			const review = await action(context.body);
+			this.updateReviewers(review);
+			const reviewMessage = {
+				command: 'pr.append-review',
+				review,
+				reviewers: this._existingReviewers
+			};
+			await this._postMessage(reviewMessage);
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
+			this._throwError(undefined, `${formatError(e)}`);
+		} finally {
+			this._postMessage({ command: 'pr.append-review' });
+		}
 	}
 
-	private requestChanges(message: IRequestMessage<string>): void {
-		this._item.requestChanges(message.args).then(
-			review => {
-				this.updateReviewers(review);
-				this._replyMessage(message, {
-					review: review,
-					reviewers: this._existingReviewers,
-				});
-			},
-			e => {
-				vscode.window.showErrorMessage(vscode.l10n.t('Requesting changes failed. {0}', formatError(e)));
-				this._throwError(message, `${formatError(e)}`);
-			},
-		);
+	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<CommonReviewEvent>) {
+		try {
+			const review = await action(message.args);
+			this.updateReviewers(review);
+			this._replyMessage(message, {
+				review: review,
+				reviewers: this._existingReviewers,
+			});
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
+			this._throwError(message, `${formatError(e)}`);
+		}
 	}
 
-	private submitReview(message: IRequestMessage<string>): void {
-		this._item.submitReview(ReviewEvent.Comment, message.args).then(
-			review => {
-				this.updateReviewers(review);
-				this._replyMessage(message, {
-					review: review,
-					reviewers: this._existingReviewers,
-				});
-			},
-			e => {
-				vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
-				this._throwError(message, `${formatError(e)}`);
-			},
-		);
+	private approvePullRequest(body: string): Promise<CommonReviewEvent> {
+		return this._item.approve(this._folderRepositoryManager.repository, body);
+	}
+
+	private approvePullRequestMessage(message: IRequestMessage<string>): Promise<void> {
+		return this.doReviewMessage(message, (body) => this.approvePullRequest(body));
+	}
+
+	private approvePullRequestCommand(context: { body: string }): Promise<void> {
+		return this.doReviewCommand(context, (body) => this.approvePullRequest(body));
+	}
+
+	private requestChanges(body: string): Promise<CommonReviewEvent> {
+		return this._item.requestChanges(body);
+	}
+
+	private requestChangesCommand(context: { body: string }): Promise<void> {
+		return this.doReviewCommand(context, (body) => this.requestChanges(body));
+	}
+
+	private requestChangesMessage(message: IRequestMessage<string>): Promise<void> {
+		return this.doReviewMessage(message, (body) => this.requestChanges(body));
+	}
+
+	private submitReview(body: string): Promise<CommonReviewEvent> {
+		return this._item.submitReview(ReviewEvent.Comment, body);
+	}
+
+	private submitReviewCommand(context: { body: string }) {
+		return this.doReviewCommand(context, (body) => this.submitReview(body));
+	}
+
+	private submitReviewMessage(message: IRequestMessage<string>) {
+		return this.doReviewMessage(message, (body) => this.submitReview(body));
 	}
 
 	private async deleteBranch(message: IRequestMessage<any>) {

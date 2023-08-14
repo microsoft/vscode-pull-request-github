@@ -146,8 +146,13 @@ export class PRContext {
 		this.postMessage({ command: 'pr.apply-patch', args: { comment } });
 	};
 
-	private appendReview({ review, reviewers }: { review: ReviewEvent, reviewers: ReviewState[] }) {
+	private appendReview({ review, reviewers }: { review?: ReviewEvent, reviewers?: ReviewState[] }) {
 		const state = this.pr;
+		state.busy = false;
+		if (!review || !reviewers) {
+			this.updatePR(state);
+			return;
+		}
 		const events = state.events.filter(e => e.event !== EventType.Reviewed || e.state.toLowerCase() !== 'pending');
 		events.forEach(event => {
 			if (event.event === EventType.Reviewed) {
@@ -242,6 +247,10 @@ export class PRContext {
 					pendingReview.scrollIntoView();
 				}
 				return;
+			case 'pr.submitting-review':
+				return this.updatePR({ busy: true });
+			case 'pr.append-review':
+				return this.appendReview(message);
 		}
 	};
 
