@@ -1022,6 +1022,31 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "review.approve",
+				"title": "%command.review.approve.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "review.comment",
+				"title": "%command.review.comment.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "review.requestChanges",
+				"title": "%command.review.requestChanges.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "review.approveOnDotCom",
+				"title": "%command.review.approveOnDotCom.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "review.requestChangesOnDotCom",
+				"title": "%command.review.requestChangesOnDotCom.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.createPrMenuCreate",
 				"title": "%command.pr.createPrMenuCreate.title%",
 				"category": "%command.pull.request.category%"
@@ -1446,6 +1471,26 @@
 				},
 				{
 					"command": "review.suggestDiff",
+					"when": "false"
+				},
+				{
+					"command": "review.approve",
+					"when": "false"
+				},
+				{
+					"command": "review.comment",
+					"when": "false"
+				},
+				{
+					"command": "review.requestChanges",
+					"when": "false"
+				},
+				{
+					"command": "review.approveOnDotCom",
+					"when": "false"
+				},
+				{
+					"command": "review.requestChangesOnDotCom",
 					"when": "false"
 				},
 				{
@@ -2376,6 +2421,26 @@
 					"command": "pr.createPrMenuRebase",
 					"when": "webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuRebase",
 					"group": "1_create@2"
+				},
+				{
+					"command": "review.approve",
+					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentApprove"
+				},
+				{
+					"command": "review.comment",
+					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentComment"
+				},
+				{
+					"command": "review.requestChanges",
+					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentRequestChanges"
+				},
+				{
+					"command": "review.approveOnDotCom",
+					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentApproveOnDotCom"
+				},
+				{
+					"command": "review.requestChangesOnDotCom",
+					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentRequestChangesOnDotCom"
 				}
 			]
 		},

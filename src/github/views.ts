@@ -73,4 +73,6 @@ export interface PullRequest {
 	currentUserReviewState: string;
 	isDarkTheme: boolean;
 	hasReviewDraft: boolean;
+
+	busy: boolean;
 }
