@@ -83,12 +83,13 @@ export async function getAssigneesQuickPickItems(folderRepositoryManager: Folder
 		}));
 	}
 
+	const tooManyAssignable = assignableUsers.length > 100;
 	for (const user of assignableUsers) {
 		if (skipList.has(user.login)) {
 			continue;
 		}
 
-		assignees.push(DataUri.avatarCircleAsImageDataUri(user, 16, 16).then(avatarUrl => {
+		assignees.push(DataUri.avatarCircleAsImageDataUri(user, 16, 16, tooManyAssignable).then(avatarUrl => {
 			return {
 				label: user.login,
 				description: user.name,
@@ -177,13 +178,14 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 		skipList.add(login);
 	}
 
+	const tooManyAssignable = assignableUsers.length > 100;
 	for (const user of assignableUsers) {
 		if (skipList.has(reviewerId(user))) {
 			continue;
 		}
 
 		const label = isTeam(user) ? `$(organization) ${user.org}/${user.slug}` : `${hasTeams ? `$(account) ` : ''}${user.login}`;
-		reviewers.push(DataUri.avatarCircleAsImageDataUri(user, 16, 16).then(avatarUrl => {
+		reviewers.push(DataUri.avatarCircleAsImageDataUri(user, 16, 16, tooManyAssignable).then(avatarUrl => {
 			return {
 				label,
 				description: user.name,
