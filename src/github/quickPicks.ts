@@ -83,7 +83,7 @@ export async function getAssigneesQuickPickItems(folderRepositoryManager: Folder
 		}));
 	}
 
-	const tooManyAssignable = assignableUsers.length > 100;
+	const tooManyAssignable = assignableUsers.length > 80;
 	for (const user of assignableUsers) {
 		if (skipList.has(user.login)) {
 			continue;
@@ -94,7 +94,7 @@ export async function getAssigneesQuickPickItems(folderRepositoryManager: Folder
 				label: user.login,
 				description: user.name,
 				assignee: user,
-				iconPath: avatarUrl
+				iconPath: avatarUrl ?? userThemeIcon(user)
 			};
 		}));
 	}
@@ -106,6 +106,10 @@ export async function getAssigneesQuickPickItems(folderRepositoryManager: Folder
 	}
 
 	return Promise.all(assignees);
+}
+
+function userThemeIcon(user: IAccount | ITeam) {
+	return (isTeam(user) ? new vscode.ThemeIcon('organization') : new vscode.ThemeIcon('account'));
 }
 
 async function getReviewersQuickPickItems(folderRepositoryManager: FolderRepositoryManager, remoteName: string, isInOrganization: boolean, author: IAccount, existingReviewers: ReviewState[],
@@ -120,16 +124,12 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 	const teamReviewers: ITeam[] = allTeamReviewers[remoteName] ?? [];
 	const assignableUsers: (IAccount | ITeam)[] = [...teamReviewers];
 	assignableUsers.push(...allAssignableUsers[remoteName]);
-	let hasTeams = teamReviewers.length > 0;
 
 	// used to track logins that shouldn't be added to pick list
 	// e.g. author, existing and already added reviewers
 	const skipList: Set<string> = new Set([
 		author.login,
 		...existingReviewers.map(reviewer => {
-			if (isTeam(reviewer.reviewer)) {
-				hasTeams = true;
-			}
 			return reviewerId(reviewer.reviewer);
 		}),
 	]);
@@ -137,14 +137,13 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 	const reviewers: Promise<(vscode.QuickPickItem & { reviewer?: IAccount | ITeam })>[] = [];
 	// Start will all existing reviewers so they show at the top
 	for (const reviewer of existingReviewers) {
-		const label = isTeam(reviewer.reviewer) ? `$(organization) ${reviewer.reviewer.org}/${reviewer.reviewer.slug}` : `${hasTeams ? `$(account) ` : ''}${reviewer.reviewer.login}`;
 		reviewers.push(DataUri.avatarCircleAsImageDataUri(reviewer.reviewer, 16, 16).then(avatarUrl => {
 			return {
-				label,
+				label: isTeam(reviewer.reviewer) ? `${reviewer.reviewer.org}/${reviewer.reviewer.slug}` : reviewer.reviewer.login,
 				description: reviewer.reviewer.name,
 				reviewer: reviewer.reviewer,
 				picked: true,
-				iconPath: avatarUrl
+				iconPath: avatarUrl ?? userThemeIcon(reviewer.reviewer)
 			};
 		}));
 	}
@@ -164,33 +163,31 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 						? vscode.l10n.t('Recently reviewed changes to these files')
 						: vscode.l10n.t('Suggested reviewer');
 
-		const label = `${hasTeams ? `$(account) ` : ''}${login}`;
 		reviewers.push(DataUri.avatarCircleAsImageDataUri(user, 16, 16).then(avatarUrl => {
 			return {
-				label,
+				label: login,
 				description: name,
 				detail: suggestionReason,
 				reviewer: user,
-				iconPath: avatarUrl
+				iconPath: avatarUrl ?? userThemeIcon(user)
 			};
 		}));
 		// this user shouldn't be added later from assignable users list
 		skipList.add(login);
 	}
 
-	const tooManyAssignable = assignableUsers.length > 100;
+	const tooManyAssignable = assignableUsers.length > 80;
 	for (const user of assignableUsers) {
 		if (skipList.has(reviewerId(user))) {
 			continue;
 		}
 
-		const label = isTeam(user) ? `$(organization) ${user.org}/${user.slug}` : `${hasTeams ? `$(account) ` : ''}${user.login}`;
 		reviewers.push(DataUri.avatarCircleAsImageDataUri(user, 16, 16, tooManyAssignable).then(avatarUrl => {
 			return {
-				label,
+				label: isTeam(user) ? `${user.org}/${user.slug}` : user.login,
 				description: user.name,
 				reviewer: user,
-				iconPath: avatarUrl
+				iconPath: avatarUrl ?? userThemeIcon(user)
 			};
 		}));
 	}
