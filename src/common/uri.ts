@@ -162,7 +162,7 @@ export namespace DataUri {
 		);
 	}
 
-	export async function avatarCircleAsImageDataUri(user: IAccount | ITeam, height: number, width: number): Promise<vscode.Uri | undefined> {
+	export async function avatarCircleAsImageDataUri(user: IAccount | ITeam, height: number, width: number, localOnly?: boolean): Promise<vscode.Uri | undefined> {
 		const imageSourceUrl = user.avatarUrl;
 		if (imageSourceUrl === undefined) {
 			return undefined;
@@ -177,6 +177,9 @@ export namespace DataUri {
 			}
 			innerImageContents = Buffer.from(fileContents);
 		} catch (e) {
+			if (localOnly) {
+				return;
+			}
 			const doFetch = async () => {
 				const response = await fetch(imageSourceUrl.toString());
 				const buffer = await response.arrayBuffer();
