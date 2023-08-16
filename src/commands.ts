@@ -1208,9 +1208,11 @@ ${contents}
 		vscode.commands.registerCommand('pr.checkoutByNumber', async () => {
 
 			const githubRepositories: { manager: FolderRepositoryManager, repo: GitHubRepository }[] = [];
-			reposManager.folderManagers.forEach(manager => {
-				githubRepositories.push(...(manager.gitHubRepositories.map(repo => { return { manager, repo }; })));
-			});
+			for (const manager of reposManager.folderManagers) {
+				const remotes = await manager.getActiveGitHubRemotes(await manager.getGitHubRemotes());
+				const activeGitHubRepos = manager.gitHubRepositories.filter(repo => remotes.find(remote => remote.remoteName === repo.remote.remoteName));
+				githubRepositories.push(...(activeGitHubRepos.map(repo => { return { manager, repo }; })));
+			}
 			const githubRepo = await chooseItem<{ manager: FolderRepositoryManager, repo: GitHubRepository }>(
 				githubRepositories,
 				itemValue => `${itemValue.repo.remote.owner}/${itemValue.repo.remote.repositoryName}`,
