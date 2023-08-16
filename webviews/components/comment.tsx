@@ -11,7 +11,6 @@ import { PullRequest, ReviewType } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import emitter from '../common/events';
 import { useStateProp } from '../common/hooks';
-import { Dropdown } from './dropdown';
 import { chevronDownIcon, commentIcon, deleteIcon, editIcon } from './icon';
 import { nbsp, Spaced } from './space';
 import { Timestamp } from './timestamp';
@@ -417,7 +416,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 	const { updatePR, requestChanges, approve, submit, openOnGitHub } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>();
-	let currentSelection: string = 'comment';
+	let currentSelection: string = pr.lastReviewType ?? 'comment';
 
 	async function submitAction(): Promise<void> {
 		const { value } = textareaRef.current!;

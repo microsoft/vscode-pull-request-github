@@ -16,7 +16,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { isInCodespaces, parseReviewers } from './utils';
-import { PullRequest } from './views';
+import { PullRequest, ReviewType } from './views';
 
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public readonly viewType = 'github:activePullRequest';
@@ -319,9 +319,10 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 	}
 
-	private async doReviewCommand(context: { body: string }, action: (body: string) => Promise<CommonReviewEvent>) {
+	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<CommonReviewEvent>) {
 		const submittingMessage = {
-			command: 'pr.submitting-review'
+			command: 'pr.submitting-review',
+			lastReviewType: reviewType
 		};
 		this._postMessage(submittingMessage);
 		try {
@@ -364,7 +365,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private approvePullRequestCommand(context: { body: string }): Promise<void> {
-		return this.doReviewCommand(context, (body) => this.approvePullRequest(body));
+		return this.doReviewCommand(context, ReviewType.Approve, (body) => this.approvePullRequest(body));
 	}
 
 	private requestChanges(body: string): Promise<CommonReviewEvent> {
@@ -372,7 +373,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private requestChangesCommand(context: { body: string }): Promise<void> {
-		return this.doReviewCommand(context, (body) => this.requestChanges(body));
+		return this.doReviewCommand(context, ReviewType.RequestChanges, (body) => this.requestChanges(body));
 	}
 
 	private requestChangesMessage(message: IRequestMessage<string>): Promise<void> {
@@ -384,7 +385,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private submitReviewCommand(context: { body: string }) {
-		return this.doReviewCommand(context, (body) => this.submitReview(body));
+		return this.doReviewCommand(context, ReviewType.Comment, (body) => this.submitReview(body));
 	}
 
 	private submitReviewMessage(message: IRequestMessage<string>) {
