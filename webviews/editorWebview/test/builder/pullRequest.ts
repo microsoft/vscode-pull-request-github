@@ -49,5 +49,6 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	currentUserReviewState: { default: 'REQUESTED' },
 	isDarkTheme: { default: true },
 	hasReviewDraft: { default: false },
-	busy: { default: false }
+	busy: { default: undefined },
+	lastReviewType: { default: undefined },
 });

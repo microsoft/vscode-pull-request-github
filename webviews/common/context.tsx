@@ -248,7 +248,7 @@ export class PRContext {
 				}
 				return;
 			case 'pr.submitting-review':
-				return this.updatePR({ busy: true });
+				return this.updatePR({ busy: true, lastReviewType: message.lastReviewType });
 			case 'pr.append-review':
 				return this.appendReview(message);
 		}
