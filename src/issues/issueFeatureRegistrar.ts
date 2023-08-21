@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
+import Logger from '../common/logger';
 import {
 	CREATE_INSERT_FORMAT,
 	ENABLED,
@@ -47,6 +48,7 @@ import {
 	getIssue,
 	LinkContext,
 	NewIssue,
+	PERMALINK_COMPONENT,
 	PermalinkInfo,
 	pushAndCreatePR,
 	USER_EXPRESSION,
@@ -1240,7 +1242,9 @@ ${body ?? ''}\n
 	async copyPermalink(repositoriesManager: RepositoriesManager, context?: LinkContext, includeRange: boolean = true, includeFile: boolean = true, contextualizeLink: boolean = false) {
 		const link = await this.getPermalinkWithError(repositoriesManager, includeRange, includeFile, context);
 		if (link.permalink) {
-			return vscode.env.clipboard.writeText(contextualizeLink && link.originalFile ? await this.getContextualizedLink(link.originalFile, link.permalink) : link.permalink);
+			const contextualizedLink = contextualizeLink && link.originalFile ? await this.getContextualizedLink(link.originalFile, link.permalink) : link.permalink;
+			Logger.debug(`writing ${contextualizedLink} to the clipboard`, PERMALINK_COMPONENT);
+			return vscode.env.clipboard.writeText(contextualizedLink);
 		}
 	}
 
