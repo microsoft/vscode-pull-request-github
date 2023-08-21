@@ -11,6 +11,7 @@ import * as vscode from 'vscode';
 import { gitHubLabelColor } from '../../src/common/utils';
 import { Commit, Ref, Remote, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl } from '../api/api1';
+import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { fromReviewUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager, NoGitHubReposError, PullRequestDefaults } from '../github/folderRepositoryManager';
@@ -26,6 +27,7 @@ import { StateManager } from './stateManager';
 export const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
 
 export const MAX_LINE_LENGTH = 150;
+export const PERMALINK_COMPONENT = 'Permalink';
 
 export async function getIssue(
 	stateManager: StateManager,
@@ -396,6 +398,7 @@ function extractContext(context: LinkContext): { fileUri: vscode.Uri | undefined
 }
 
 function getFileAndPosition(context: LinkContext, positionInfo?: NewIssue): { uri: vscode.Uri | undefined, range: vscode.Range | vscode.NotebookRange | undefined } {
+	Logger.debug(`getting file and position`, PERMALINK_COMPONENT);
 	let uri: vscode.Uri;
 	let range: vscode.Range | vscode.NotebookRange | undefined;
 
@@ -424,6 +427,7 @@ function getFileAndPosition(context: LinkContext, positionInfo?: NewIssue): { ur
 	} else {
 		return { uri: undefined, range: undefined };
 	}
+	Logger.debug(`got file and position: ${uri.fsPath} ${range?.start.toString()}`, PERMALINK_COMPONENT);
 	return { uri, range };
 }
 
@@ -523,20 +527,26 @@ export async function createGithubPermalink(
 		}
 	}
 
+	Logger.debug(`commit hash: ${commitHash}`, PERMALINK_COMPONENT);
+
 	const rawUpstream = await getBestPossibleUpstream(repositoriesManager, repository, commit);
 	if (!rawUpstream || !rawUpstream.fetchUrl) {
 		return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri };
 	}
 	const upstream: Remote & { fetchUrl: string } = rawUpstream as any;
 
+	Logger.debug(`upstream: ${upstream.fetchUrl}`, PERMALINK_COMPONENT);
+
 	const encodedPathSegment = encodeURIComponentExceptSlashes(uri.path.substring(repository.rootUri.path.length));
 	const originOfFetchUrl = getUpstreamOrigin(rawUpstream).replace(/\/$/, '');
-	return {
+	const result = {
 		permalink: (`${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
 			}${includeFile ? `${encodedPathSegment}${includeRange ? rangeString(range) : ''}` : ''}`),
 		error: undefined,
 		originalFile: uri
 	};
+	Logger.debug(`permalink generated: ${result.permalink}`, PERMALINK_COMPONENT);
+	return result;
 }
 
 export function getUpstreamOrigin(upstream: Remote, resultHost: string = 'github.com') {
