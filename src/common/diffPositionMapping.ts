@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DiffHunk, DiffLine, parseDiffHunk } from './diffHunk';
+import { DiffChangeType, DiffHunk, DiffLine, parseDiffHunk } from './diffHunk';
 
 /**
  * Line position in a git diff is 1 based, except for the case when the original or changed file have
@@ -44,7 +44,17 @@ export function mapOldPositionToNew(patch: string, line: number): number {
 		} else if (diffHunk.oldLineNumber + diffHunk.oldLength - 1 < line) {
 			delta += diffHunk.newLength - diffHunk.oldLength;
 		} else {
-			delta += diffHunk.newLength - diffHunk.oldLength;
+			// Part of the hunk is before line, part is after.
+			for (const diffLine of diffHunk.diffLines) {
+				if (diffLine.oldLineNumber > line) {
+					return line + delta;
+				}
+				if (diffLine.type === DiffChangeType.Add) {
+					delta++;
+				} else if (diffLine.type === DiffChangeType.Delete) {
+					delta--;
+				}
+			}
 			return line + delta;
 		}
 
@@ -67,7 +77,17 @@ export function mapNewPositionToOld(patch: string, line: number): number {
 		} else if (diffHunk.newLineNumber + diffHunk.newLength - 1 < line) {
 			delta += diffHunk.oldLength - diffHunk.newLength;
 		} else {
-			delta += diffHunk.oldLength - diffHunk.newLength;
+			// Part of the hunk is before line, part is after.
+			for (const diffLine of diffHunk.diffLines) {
+				if (diffLine.newLineNumber > line) {
+					return line + delta;
+				}
+				if (diffLine.type === DiffChangeType.Add) {
+					delta--;
+				} else if (diffLine.type === DiffChangeType.Delete) {
+					delta++;
+				}
+			}
 			return line + delta;
 		}
 
