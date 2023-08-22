@@ -127,7 +127,15 @@ export class ReviewCommentController
 			endLine = mapOldPositionToNew(localDiff, endLine);
 		}
 
-		const range = thread.subjectType === SubjectType.FILE ? undefined : threadRange(startLine - 1, endLine - 1);
+		let range: vscode.Range | undefined;
+		if (thread.subjectType !== SubjectType.FILE) {
+			const adjustedStartLine = startLine - 1;
+			const adjustedEndLine = endLine - 1;
+			if (adjustedStartLine < 0 || adjustedEndLine < 0) {
+				Logger.error(`Mapped new position for workspace comment thread is invalid. Original: (${thread.startLine}, ${thread.endLine}) New: (${adjustedStartLine}, ${adjustedEndLine})`);
+			}
+			range = threadRange(startLine - 1, endLine - 1);
+		}
 		return createVSCodeCommentThreadForReviewThread(uri, range, thread, this._commentController, (await this._reposManager.getCurrentUser()).login, this._reposManager.activePullRequest?.githubRepository);
 	}
 
