@@ -134,7 +134,7 @@ export class ReviewCommentController
 			if (adjustedStartLine < 0 || adjustedEndLine < 0) {
 				Logger.error(`Mapped new position for workspace comment thread is invalid. Original: (${thread.startLine}, ${thread.endLine}) New: (${adjustedStartLine}, ${adjustedEndLine})`);
 			}
-			range = threadRange(startLine - 1, endLine - 1);
+			range = threadRange(adjustedStartLine, adjustedEndLine);
 		}
 		return createVSCodeCommentThreadForReviewThread(uri, range, thread, this._commentController, (await this._reposManager.getCurrentUser()).login, this._reposManager.activePullRequest?.githubRepository);
 	}
