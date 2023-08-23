@@ -28,7 +28,6 @@ export const SELECT_LOCAL_BRANCH = 'selectLocalBranch';
 export const SELECT_REMOTE = 'selectRemote';
 export const REMOTES = 'remotes';
 export const PULL_PR_BRANCH_BEFORE_CHECKOUT = 'pullPullRequestBranchBeforeCheckout';
-export const EXPERIMENTAL_ACCOUNT_BADGE = 'experimental.accountBadge';
 export const UPSTREAM_REMOTE = 'upstreamRemote';
 export const DEFAULT_CREATE_OPTION = 'defaultCreateOption';
 
