@@ -1396,4 +1396,16 @@ ${contents}
 		vscode.commands.registerDiffInformationCommand('pr.goToPreviousDiffInPr', async (diffs: vscode.LineChange[]) => {
 			goToNextPrevDiff(diffs, false);
 		}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.refreshComments', async () => {
+		for (const folderManager of reposManager.folderManagers) {
+			for (const githubRepository of folderManager.gitHubRepositories) {
+				for (const pullRequest of githubRepository.pullRequestModels) {
+					if (pullRequest[1].isResolved() && pullRequest[1].reviewThreadsCacheReady) {
+						pullRequest[1].initializeReviewThreadCache();
+					}
+				}
+			}
+		}
+	}));
 }

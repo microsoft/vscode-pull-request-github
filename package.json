@@ -1087,6 +1087,12 @@
 				"category": "%command.issues.category%"
 			},
 			{
+				"command": "pr.refreshComments",
+				"title": "%command.pr.refreshComments.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "issue.copyGithubDevLinkWithoutRange",
 				"title": "%command.issue.copyGithubDevLink.title%",
 				"category": "%command.issues.category%"
@@ -1658,6 +1664,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.refreshComments",
+					"when": "gitHubOpenRepositoryCount != 0"
+				},
+				{
 					"command": "issue.copyGithubPermalink",
 					"when": "github:hasGitHubRemotes"
 				},
@@ -1885,6 +1895,11 @@
 					"command": "pr.addMilestoneToNewPr",
 					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions",
 					"group": "navigation@4"
+				},
+				{
+					"command": "pr.refreshComments",
+					"when": "view == workbench.panel.comments",
+					"group": "navigation"
 				}
 			],
 			"view/item/context": [
