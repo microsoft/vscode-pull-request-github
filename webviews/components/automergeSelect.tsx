@@ -7,6 +7,16 @@ import * as React from 'react';
 import { MergeMethod, MergeMethodsAvailability } from '../../src/github/interface';
 import { MergeSelect } from './merge';
 
+const AutoMergeLabel = ({ busy }: { busy: boolean }) => {
+	if (busy) {
+		return <label htmlFor="automerge-checkbox" className="automerge-checkbox-label">Setting...</label>;
+	} else {
+		return <label htmlFor="automerge-checkbox" className="automerge-checkbox-label">
+			Auto-merge
+		</label>;
+	}
+};
+
 export const AutoMerge = ({
 	updateState,
 	allowAutoMerge,
@@ -15,7 +25,7 @@ export const AutoMerge = ({
 	autoMerge,
 	isDraft,
 }: {
-	updateState: (params: Partial<{ autoMerge: boolean; autoMergeMethod: MergeMethod }>) => void;
+		updateState: (params: Partial<{ autoMerge: boolean; autoMergeMethod: MergeMethod }>) => Promise<void>;
 	allowAutoMerge?: boolean;
 	defaultMergeMethod?: MergeMethod;
 	mergeMethodsAvailability?: MergeMethodsAvailability;
@@ -27,6 +37,8 @@ export const AutoMerge = ({
 	}
 	const select: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
 
+	const [isBusy, setBusy] = React.useState(false);
+
 	return (
 		<div className="automerge-section">
 			<div className="automerge-checkbox-wrapper">
@@ -35,23 +47,26 @@ export const AutoMerge = ({
 					type="checkbox"
 					name="automerge"
 					checked={autoMerge}
-					disabled={!allowAutoMerge || isDraft}
-					onChange={() =>
-						updateState({ autoMerge: !autoMerge, autoMergeMethod: select.current?.value as MergeMethod })
-					}
+					disabled={!allowAutoMerge || isDraft || isBusy}
+					onChange={async () => {
+						setBusy(true);
+						await updateState({ autoMerge: !autoMerge, autoMergeMethod: select.current?.value as MergeMethod });
+						setBusy(false);
+					}}
 				></input>
 			</div>
-			<label htmlFor="automerge-checkbox" className="automerge-checkbox-label">
-				Auto-merge
-			</label>
+			<AutoMergeLabel busy={isBusy} />
 			<div className="merge-select-container">
 				<MergeSelect
 					ref={select}
 					defaultMergeMethod={defaultMergeMethod}
 					mergeMethodsAvailability={mergeMethodsAvailability}
-					onChange={() => {
-						updateState({ autoMergeMethod: select.current?.value as MergeMethod });
+					onChange={async () => {
+						setBusy(true);
+						await updateState({ autoMergeMethod: select.current?.value as MergeMethod });
+						setBusy(false);
 					}}
+					disabled={isBusy}
 				/>
 			</div>
 		</div>
