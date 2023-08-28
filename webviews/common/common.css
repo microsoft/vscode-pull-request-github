@@ -255,6 +255,9 @@ body img.avatar {
 	margin-right: 4px;
 }
 
+.automerge-checkbox-label {
+	min-width: 80px;
+}
 /** Theming */
 
 .vscode-high-contrast button:not(.secondary):not(.icon-button) {

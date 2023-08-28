@@ -278,7 +278,7 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 		return (
 			<AutoMerge
 				updateState={(params: Partial<{ autoMerge: boolean; autoMergeMethod: MergeMethod }>) => {
-					ctx.updateAutoMerge(params);
+					return ctx.updateAutoMerge(params);
 				}}
 				{...pr}
 				defaultMergeMethod={pr.autoMergeMethod ?? pr.defaultMergeMethod}
