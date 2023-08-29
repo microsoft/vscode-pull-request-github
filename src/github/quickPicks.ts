@@ -250,7 +250,7 @@ function isMilestoneQuickPickItem(x: vscode.QuickPickItem | MilestoneQuickPickIt
 export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderRepositoryManager, githubRepository: GitHubRepository, currentMilestone: IMilestone | undefined, callback: (milestone: IMilestone | undefined) => Promise<void>): Promise<void> {
 	try {
 		const removeMilestoneItem: vscode.QuickPickItem = {
-			label: vscode.l10n.t('Remove milestone')
+			label: vscode.l10n.t('Remove Milestone')
 		};
 		let selectedItem: vscode.QuickPickItem | undefined;
 		async function getMilestoneOptions(): Promise<(MilestoneQuickPickItem | vscode.QuickPickItem)[]> {
