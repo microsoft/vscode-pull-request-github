@@ -186,7 +186,7 @@ export class TemporaryComment extends CommentBase {
 	}
 }
 
-const SUGGESTION_EXPRESSION = /```suggestion(\r\n|\n)([\s\S]*?)(\r\n|\n)```/;
+const SUGGESTION_EXPRESSION = /```suggestion(\r\n|\n)(([\s\S]*?)(\r\n|\n))?```/;
 
 export class GHPRComment extends CommentBase {
 	public commentId: string;
@@ -229,7 +229,7 @@ export class GHPRComment extends CommentBase {
 			contextValues.push('canDelete');
 		}
 
-		if (this.suggestion) {
+		if (this.suggestion !== undefined) {
 			contextValues.push('hasSuggestion');
 		}
 
@@ -258,7 +258,7 @@ export class GHPRComment extends CommentBase {
 			contextValues.push('canDelete');
 		}
 
-		if (this.suggestion) {
+		if (this.suggestion !== undefined) {
 			contextValues.push('hasSuggestion');
 		}
 
@@ -287,8 +287,8 @@ export class GHPRComment extends CommentBase {
 
 	get suggestion(): string | undefined {
 		const suggestionBody = this.rawComment.body.match(SUGGESTION_EXPRESSION);
-		if (suggestionBody?.length === 4) {
-			return `${suggestionBody[2]}\n`;
+		if (suggestionBody?.length === 5) {
+			return suggestionBody[3] ? `${suggestionBody[3]}\n` : '';
 		}
 	}
 
@@ -301,7 +301,7 @@ export class GHPRComment extends CommentBase {
 			return `***
 Suggested change:
 \`\`\`
-${args[1]}
+${args[2] ?? ''}
 \`\`\`
 ***`;
 		});

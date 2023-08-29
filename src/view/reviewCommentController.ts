@@ -897,7 +897,7 @@ export class ReviewCommentController
 	async applySuggestion(comment: GHPRComment) {
 		const range = comment.parent.range;
 		const suggestion = comment.suggestion;
-		if (!suggestion || !range) {
+		if ((suggestion === undefined) || !range) {
 			throw new Error('Comment doesn\'t contain a suggestion');
 		}
 
