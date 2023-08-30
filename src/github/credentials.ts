@@ -416,7 +416,7 @@ export class CredentialStore implements vscode.Disposable {
 			},
 		});
 
-		const rateLogger = new RateLogger(this._telemetry);
+		const rateLogger = new RateLogger(this._telemetry, isEnterprise(authProviderId));
 		const github: GitHub = {
 			octokit: new LoggingOctokit(octokit, rateLogger),
 			graphql: new LoggingApolloClient(graphql, rateLogger),

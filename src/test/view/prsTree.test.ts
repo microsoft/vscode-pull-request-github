@@ -56,7 +56,7 @@ describe('GitHub Pull Requests view', function () {
 					baseUrl: 'https://github.com',
 					userAgent: 'GitHub VSCode Pull Requests',
 					previews: ['shadow-cat-preview'],
-				}), new RateLogger(telemetry)),
+				}), new RateLogger(telemetry, true)),
 				graphql: null,
 			};
 
