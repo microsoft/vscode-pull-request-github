@@ -23,7 +23,7 @@ export class RateLogger {
 	private static ID = 'RateLimit';
 	private hasLoggedLowRateLimit: boolean = false;
 
-	constructor(private readonly telemetry: ITelemetry) { }
+	constructor(private readonly telemetry: ITelemetry, private readonly errorOnFlood: boolean) { }
 
 	public logAndLimit(info: string | undefined, apiRequest: () => Promise<any>): Promise<any> | undefined {
 		if (this.bulkhead.executionSlots === 0) {
@@ -33,8 +33,14 @@ export class RateLogger {
 				"pr.highApiCallRate" : {}
 			*/
 			this.telemetry.sendTelemetryErrorEvent('pr.highApiCallRate');
-			vscode.window.showErrorMessage(vscode.l10n.t('The GitHub Pull Requests extension is making too many requests to GitHub. This indicates a bug in the extension. Please file an issue on GitHub and include the output from "GitHub Pull Request".'));
-			return undefined;
+
+			if (!this.errorOnFlood) {
+				// We don't want to error on flood, so try to execute the API request anyway.
+				return apiRequest();
+			} else {
+				vscode.window.showErrorMessage(vscode.l10n.t('The GitHub Pull Requests extension is making too many requests to GitHub. This indicates a bug in the extension. Please file an issue on GitHub and include the output from "GitHub Pull Request".'));
+				return undefined;
+			}
 		}
 		const log = `Extension rate limit remaining: ${this.bulkhead.executionSlots}, ${info}`;
 		if (this.bulkhead.executionSlots < 5) {
