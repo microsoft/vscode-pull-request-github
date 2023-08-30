@@ -796,7 +796,11 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 					}
 				} catch (e) {
 					if (!createdPR) {
-						this._throwError(message, e.message);
+						let errorMessage: string = e.message;
+						if (errorMessage.startsWith('GraphQL error: ')) {
+							errorMessage = errorMessage.substring('GraphQL error: '.length);
+						}
+						this._throwError(message, errorMessage);
 					} else {
 						if (e.message === 'GraphQL error: ["Pull request Pull request is in unstable status"]') {
 							// This error can happen if the PR isn't fully created by the time we try to set properties on it. Try again.
