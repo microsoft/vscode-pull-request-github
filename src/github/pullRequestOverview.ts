@@ -197,7 +197,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this.registerPrListeners();
 				this._repositoryDefaultBranch = defaultBranch!;
 				this._teamsCount = orgTeamsCount;
-				this._panel.title = `Pull Request #${pullRequestModel.number.toString()}`;
+				this.setPanelTitle(`Pull Request #${pullRequestModel.number.toString()}`);
 
 				const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
 				const hasWritePermission = repositoryAccess!.hasWritePermission;

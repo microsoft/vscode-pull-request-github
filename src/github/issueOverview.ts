@@ -67,6 +67,15 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 	}
 
+	protected setPanelTitle(title: string): void {
+		try {
+			this._panel.title = title;
+		} catch (e) {
+			// The webview can be disposed at the time that we try to set the title if the user has closed
+			// it while it's still loading.
+		}
+	}
+
 	protected constructor(
 		private readonly _extensionUri: vscode.Uri,
 		column: vscode.ViewColumn,
@@ -134,7 +143,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				}
 
 				this._item = issue as TItem;
-				this._panel.title = `Pull Request #${issueModel.number.toString()}`;
+				this.setPanelTitle(`Pull Request #${issueModel.number.toString()}`);
 
 				Logger.debug('pr.initialize', IssueOverviewPanel.ID);
 				this._postMessage({
