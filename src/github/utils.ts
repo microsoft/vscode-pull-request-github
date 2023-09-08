@@ -197,28 +197,33 @@ export function updateCommentThreadLabel(thread: GHPRCommentThread) {
 	}
 }
 
-export function generateCommentReactions(reactions: Reaction[] | undefined) {
-	return getReactionGroup().map(reaction => {
+export function updateCommentReactions(comment: vscode.Comment, reactions: Reaction[] | undefined) {
+	let reactionsHaveUpdates = false;
+	const previousReactions = comment.reactions;
+	const newReactions = getReactionGroup().map((reaction, index) => {
 		if (!reactions) {
 			return { label: reaction.label, authorHasReacted: false, count: 0, iconPath: reaction.icon || '' };
 		}
 
 		const matchedReaction = reactions.find(re => re.label === reaction.label);
-
+		let newReaction: vscode.CommentReaction;
 		if (matchedReaction) {
-			return {
+			newReaction = {
 				label: matchedReaction.label,
 				authorHasReacted: matchedReaction.viewerHasReacted,
 				count: matchedReaction.count,
 				iconPath: reaction.icon || '',
 			};
 		} else {
-			return { label: reaction.label, authorHasReacted: false, count: 0, iconPath: reaction.icon || '' };
+			newReaction = { label: reaction.label, authorHasReacted: false, count: 0, iconPath: reaction.icon || '' };
 		}
+		if (!reactionsHaveUpdates && (!previousReactions || (previousReactions[index].authorHasReacted !== newReaction.authorHasReacted) || (previousReactions[index].count !== newReaction.count))) {
+			reactionsHaveUpdates = true;
+		}
+		return newReaction;
 	});
-}
-export function updateCommentReactions(comment: vscode.Comment, reactions: Reaction[] | undefined) {
-	comment.reactions = generateCommentReactions(reactions);
+	comment.reactions = newReactions;
+	return reactionsHaveUpdates;
 }
 
 export function updateCommentReviewState(thread: GHPRCommentThread, newDraftMode: boolean) {
