@@ -48,11 +48,10 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		}
 		// If the suggest was not triggered by the trigger character, require that the previous character be the trigger character
 		if (
-			document.languageId !== 'scminput' &&
-			document.uri.scheme !== NEW_ISSUE_SCHEME &&
 			position.character > 0 &&
 			context.triggerKind === vscode.CompletionTriggerKind.Invoke &&
-			wordAtPos?.charAt(0) !== '@'
+			((document.languageId === 'scminput' && !document.lineAt(position.line).text.includes('@')) ||
+				(document.languageId !== 'scminput' && document.uri.scheme !== NEW_ISSUE_SCHEME && wordAtPos?.charAt(0) !== '@'))
 		) {
 			return [];
 		}

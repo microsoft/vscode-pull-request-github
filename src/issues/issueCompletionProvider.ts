@@ -56,11 +56,10 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 
 		// If the suggest was not triggered by the trigger character, require that the previous character be the trigger character
 		if (
-			document.languageId !== 'scminput' &&
-			document.uri.scheme !== 'comment' &&
 			position.character > 0 &&
 			context.triggerKind === vscode.CompletionTriggerKind.Invoke &&
-			!wordAtPos?.match(/#[0-9]*$/)
+			((document.languageId === 'scminput' && !document.lineAt(position.line).text.includes('#')) ||
+				(document.languageId !== 'scminput' && document.uri.scheme !== 'comment' && !wordAtPos?.match(/#[0-9]*$/)))
 		) {
 			return [];
 		}
