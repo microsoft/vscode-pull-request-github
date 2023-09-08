@@ -957,14 +957,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		try {
 			Logger.debug(`Fetch commits of PR #${this.number} - enter`, PullRequestModel.ID);
 			const { remote, octokit } = await this.githubRepository.ensure();
-			const commitData = await octokit.call(octokit.api.pulls.listCommits, {
+			const commitData = await octokit.api.paginate(octokit.api.pulls.listCommits, {
 				pull_number: this.number,
 				owner: remote.owner,
 				repo: remote.repositoryName,
 			});
 			Logger.debug(`Fetch commits of PR #${this.number} - done`, PullRequestModel.ID);
 
-			return commitData.data;
+			return commitData;
 		} catch (e) {
 			vscode.window.showErrorMessage(`Fetching commits failed: ${formatError(e)}`);
 			return [];
