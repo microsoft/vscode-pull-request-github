@@ -90,9 +90,9 @@
 		]
 	},
 	"githubIssues.useBranchForIssues.description": {
-		"message": "Determines whether a branch should be checked out when working on an issue. To configure the name of the branch, set `githubIssues.issueBranchTitle`.",
+		"message": "Determines whether a branch should be checked out when working on an issue. To configure the name of the branch, set `#githubIssues.issueBranchTitle#`.",
 		"comment": [
-			"{Locked='`githubIssues.issueBranchTitle`'}",
+			"{Locked='`#githubIssues.issueBranchTitle#`'}",
 			"Do not translate what's inside of the `...`. It is a setting id."
 		]
 	},
