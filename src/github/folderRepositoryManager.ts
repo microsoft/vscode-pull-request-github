@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as path from 'path';
 import { bulkhead } from 'cockatiel';
 import * as vscode from 'vscode';
 import type { Branch, Repository, UpstreamRef } from '../api/api';
@@ -25,14 +24,12 @@ import {
 	UPSTREAM_REMOTE,
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { EventType, TimelineEvent } from '../common/timelineEvent';
-import { fromPRUri, Schemes } from '../common/uri';
-import { compareIgnoreCase, formatError, Predicate } from '../common/utils';
+import { EventType } from '../common/timelineEvent';
+import { Schemes } from '../common/uri';
+import { formatError, Predicate } from '../common/utils';
 import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
-import { EXTENSION_ID } from '../constants';
 import { NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
-import { UserCompletion, userMarkdown } from '../issues/util';
 import { OctokitCommon } from './common';
 import { CredentialStore } from './credentials';
 import { GitHubRepository, ItemsData, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
@@ -46,7 +43,6 @@ import {
 	convertRESTIssueToRawPullRequest,
 	convertRESTPullRequestToRawPullRequest,
 	getOverrideBranch,
-	getRelatedUsersFromTimelineEvents,
 	loginComparator,
 	parseGraphQLUser,
 	teamComparator,
@@ -185,8 +181,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		this._subs.push(_credentialStore.onDidInitialize(() => this.updateRepositories()));
 
-		this.setUpCompletionItemProvider();
-
 		this.cleanStoredRepoState();
 	}
 
@@ -277,212 +271,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return remotesSetting
 			.map(remote => allGitHubRemotes.find(repo => repo.remoteName === remote))
 			.filter((repo: GitHubRemote | undefined): repo is GitHubRemote => !!repo);
-	}
-
-	public setUpCompletionItemProvider() {
-		let lastPullRequest: PullRequestModel | undefined = undefined;
-		let lastPullRequestTimelineEvents: TimelineEvent[] = [];
-		let cachedUsers: UserCompletion[] = [];
-
-		vscode.languages.registerCompletionItemProvider(
-			{ scheme: 'comment' },
-			{
-				provideCompletionItems: async (document, position, _token) => {
-					try {
-						const query = JSON.parse(document.uri.query);
-						if (compareIgnoreCase(query.extensionId, EXTENSION_ID) !== 0) {
-							return;
-						}
-
-						const wordRange = document.getWordRangeAtPosition(
-							position,
-							/@([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})?/i,
-						);
-						if (!wordRange || wordRange.isEmpty) {
-							return;
-						}
-
-						let prRelatedusers: { login: string; name?: string }[] = [];
-						const fileRelatedUsersNames: { [key: string]: boolean } = {};
-						let mentionableUsers: { [key: string]: { login: string; name?: string }[] } = {};
-						let prNumber: number | undefined;
-						let remoteName: string | undefined;
-
-						const activeTextEditors = vscode.window.visibleTextEditors;
-						if (activeTextEditors.length) {
-							const visiblePREditor = activeTextEditors.find(
-								editor => editor.document.uri.scheme === Schemes.Pr,
-							);
-
-							if (visiblePREditor) {
-								const params = fromPRUri(visiblePREditor.document.uri);
-								prNumber = params!.prNumber;
-								remoteName = params!.remoteName;
-							} else if (this._activePullRequest) {
-								prNumber = this._activePullRequest.number;
-								remoteName = this._activePullRequest.remote.remoteName;
-							}
-
-							if (lastPullRequest && prNumber && prNumber === lastPullRequest.number) {
-								return cachedUsers;
-							}
-						}
-
-						const prRelatedUsersPromise = new Promise<void>(async resolve => {
-							if (prNumber && remoteName) {
-								Logger.debug('get Timeline Events and parse users', FolderRepositoryManager.ID);
-								if (lastPullRequest && lastPullRequest.number === prNumber) {
-									return lastPullRequestTimelineEvents;
-								}
-
-								const githubRepo = this._githubRepositories.find(
-									repo => repo.remote.remoteName === remoteName,
-								);
-
-								if (githubRepo) {
-									lastPullRequest = await githubRepo.getPullRequest(prNumber);
-									lastPullRequestTimelineEvents = await lastPullRequest!.getTimelineEvents();
-								}
-
-								prRelatedusers = getRelatedUsersFromTimelineEvents(lastPullRequestTimelineEvents);
-								resolve();
-							}
-
-							resolve();
-						});
-
-						const fileRelatedUsersNamesPromise = new Promise<void>(async resolve => {
-							if (activeTextEditors.length) {
-								try {
-									Logger.debug('git blame and parse users', FolderRepositoryManager.ID);
-									const fsPath = path.resolve(activeTextEditors[0].document.uri.fsPath);
-									let blames: string | undefined;
-									if (this._gitBlameCache[fsPath]) {
-										blames = this._gitBlameCache[fsPath];
-									} else {
-										blames = await this.repository.blame(fsPath);
-										this._gitBlameCache[fsPath] = blames;
-									}
-
-									const blameLines = blames.split('\n');
-
-									for (const line of blameLines) {
-										const matches = /^\w{11} \S*\s*\((.*)\s*\d{4}\-/.exec(line);
-
-										if (matches && matches.length === 2) {
-											const name = matches[1].trim();
-											fileRelatedUsersNames[name] = true;
-										}
-									}
-								} catch (err) {
-									Logger.debug(err, FolderRepositoryManager.ID);
-								}
-							}
-
-							resolve();
-						});
-
-						const getMentionableUsersPromise = new Promise<void>(async resolve => {
-							Logger.debug('get mentionable users', FolderRepositoryManager.ID);
-							mentionableUsers = await this.getMentionableUsers();
-							resolve();
-						});
-
-						await Promise.all([
-							prRelatedUsersPromise,
-							fileRelatedUsersNamesPromise,
-							getMentionableUsersPromise,
-						]);
-
-						cachedUsers = [];
-						const prRelatedUsersMap: { [key: string]: { login: string; name?: string } } = {};
-						Logger.debug('prepare user suggestions', FolderRepositoryManager.ID);
-
-						prRelatedusers.forEach(user => {
-							if (!prRelatedUsersMap[user.login]) {
-								prRelatedUsersMap[user.login] = user;
-							}
-						});
-
-						const secondMap: { [key: string]: boolean } = {};
-
-						for (const mentionableUserGroup in mentionableUsers) {
-							for (const user of mentionableUsers[mentionableUserGroup]) {
-								if (!prRelatedUsersMap[user.login] && !secondMap[user.login]) {
-									secondMap[user.login] = true;
-
-									let priority = 2;
-									if (
-										fileRelatedUsersNames[user.login] ||
-										(user.name && fileRelatedUsersNames[user.name])
-									) {
-										priority = 1;
-									}
-
-									if (prRelatedUsersMap[user.login]) {
-										priority = 0;
-									}
-
-									cachedUsers.push({
-										label: user.login,
-										insertText: user.login,
-										filterText:
-											`${user.login}` +
-											(user.name && user.name !== user.login
-												? `_${user.name.toLowerCase().replace(' ', '_')}`
-												: ''),
-										sortText: `${priority}_${user.login}`,
-										detail: user.name,
-										kind: vscode.CompletionItemKind.User,
-										login: user.login,
-										uri: this.repository.rootUri,
-									});
-								}
-							}
-						}
-
-						for (const user in prRelatedUsersMap) {
-							if (!secondMap[user]) {
-								// if the mentionable api call fails partially, we should still populate related users from timeline events into the completion list
-								cachedUsers.push({
-									label: prRelatedUsersMap[user].login,
-									insertText: `${prRelatedUsersMap[user].login}`,
-									filterText:
-										`${prRelatedUsersMap[user].login}` +
-										(prRelatedUsersMap[user].name &&
-											prRelatedUsersMap[user].name !== prRelatedUsersMap[user].login
-											? `_${prRelatedUsersMap[user].name!.toLowerCase().replace(' ', '_')}`
-											: ''),
-									sortText: `0_${prRelatedUsersMap[user].login}`,
-									detail: prRelatedUsersMap[user].name,
-									kind: vscode.CompletionItemKind.User,
-									login: prRelatedUsersMap[user].login,
-									uri: this.repository.rootUri,
-								});
-							}
-						}
-
-						Logger.debug('done', FolderRepositoryManager.ID);
-						return cachedUsers;
-					} catch (e) {
-						return [];
-					}
-				},
-				resolveCompletionItem: async (item: vscode.CompletionItem, _token: vscode.CancellationToken) => {
-					try {
-						const repo = await this.getPullRequestDefaults();
-						const user: User | undefined = await this.resolveUser(repo.owner, repo.repo, (typeof item.label === 'string') ? item.label : item.label.label);
-						if (user) {
-							item.documentation = userMarkdown(repo, user);
-						}
-					} catch (e) {
-						// The user might not be resolvable in the repo, since users from outside the repo are included in the list.
-					}
-					return item;
-				},
-			},
-			'@',
-		);
 	}
 
 	get activeIssue(): IssueModel | undefined {
