@@ -2245,8 +2245,13 @@
 			],
 			"comments/commentThread/title": [
 				{
+					"command": "pr.refreshComments",
+					"group": "0_refresh@0",
+					"when": "commentController =~ /^github-(browse|review)/"
+				},
+				{
 					"command": "pr.collapseAllComments",
-					"group": "collapse@0",
+					"group": "1_collapse@0",
 					"when": "commentController =~ /^github-(browse|review)/"
 				}
 			],
