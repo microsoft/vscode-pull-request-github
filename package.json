@@ -24,10 +24,10 @@
 		"readonlyMessage",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.70.0",
+	"version": "0.72.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.81.0"
+		"vscode": "^1.82.0"
 	},
 	"categories": [
 		"Other"
