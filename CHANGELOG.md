@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.72.0
+
+### Changes
+
+- The pull request base in the "Create" view will use the upstream repo as the base if the current branch is a fork.
+- There's a refresh button in the Comments view to immediately refresh comments.
+
+### Fixes
+
+- PR view comments should have a maximum width, with the code view using a horizontal scrollbar. https://github.com/microsoft/vscode-pull-request-github/issues/5155
+- Code suggestions in PRs are hard to differentiate. https://github.com/microsoft/vscode-pull-request-github/issues/5141
+- No way to remove Milestone. https://github.com/microsoft/vscode-pull-request-github/issues/5102
+- Progress feedback on PR description actions. https://github.com/microsoft/vscode-pull-request-github/issues/4954
+
+**_Thank You_**
+
+* [@tobbbe (Tobbe)](https://github.com/tobbbe): Sanitize slashes from title [PR #5149](https://github.com/microsoft/vscode-pull-request-github/pull/5149)
+
 ## 0.70.0
 
 ### Changes
