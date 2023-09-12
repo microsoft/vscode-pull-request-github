@@ -5,7 +5,7 @@
 
 import * as pathLib from 'path';
 import * as vscode from 'vscode';
-import { Change, Repository } from '../api/api';
+import { Change, Commit, Repository } from '../api/api';
 import { Status } from '../api/api1';
 import { getGitChangeType } from '../common/diffHunk';
 import { GitChangeType } from '../common/file';
@@ -36,7 +36,7 @@ export function getGitChangeTypeFromApi(status: Status): GitChangeType {
 	}
 }
 
-class CommitNode extends TreeNode {
+class GitHubCommitNode extends TreeNode {
 	getTreeItem(): vscode.TreeItem | Promise<vscode.TreeItem> {
 		return {
 			label: this.commit.commit.message,
@@ -77,6 +77,39 @@ class CommitNode extends TreeNode {
 	}
 }
 
+class GitCommitNode extends TreeNode {
+	getTreeItem(): vscode.TreeItem | Promise<vscode.TreeItem> {
+		return {
+			label: this.commit.message,
+			description: this.commit.authorDate ? dateFromNow(new Date(this.commit.authorDate)) : undefined,
+			iconPath: new vscode.ThemeIcon('git-commit'),
+			collapsibleState: vscode.TreeItemCollapsibleState.Collapsed
+		};
+	}
+
+	async getChildren(): Promise<TreeNode[]> {
+		const changes = await this.repository.diffBetween(this.parentRef, this.commit.hash);
+
+		return changes.map(change => {
+			const filename = pathLib.posix.relative(this.folderRepoManager.repository.rootUri.path, change.uri.path);
+			const previousFilename = pathLib.posix.relative(this.folderRepoManager.repository.rootUri.path, change.originalUri.path);
+			return new GitHubFileChangeNode(
+				this,
+				filename,
+				previousFilename,
+				getGitChangeTypeFromApi(change.status),
+				this.parentRef,
+				this.commit.hash,
+				true,
+			);
+		});
+	}
+
+	constructor(private readonly commit: Commit, private readonly repository: Repository, private readonly folderRepoManager: FolderRepositoryManager, private readonly parentRef) {
+		super();
+	}
+}
+
 abstract class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 	private _view: vscode.TreeView<TreeNode>;
 
@@ -94,7 +127,7 @@ abstract class CompareChangesTreeProvider implements vscode.TreeDataProvider<Tre
 	}
 
 	constructor(
-		private repository: Repository,
+		protected repository: Repository,
 		protected baseOwner: string,
 		protected baseBranchName: string,
 		private _compareOwner: string,
@@ -311,6 +344,7 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 class CompareChangesCommitsTreeProvider extends CompareChangesTreeProvider {
 	constructor(
 		repository: Repository,
+		private readonly folderRepoManager: FolderRepositoryManager,
 		baseOwner: string,
 		baseBranchName: string,
 		compareOwner: string,
@@ -329,14 +363,29 @@ class CompareChangesCommitsTreeProvider extends CompareChangesTreeProvider {
 		const { rawCommits, octokit, remote } = await this.getRawGitHubData(gitHubRepository);
 		if (rawCommits && octokit && remote) {
 			return rawCommits.map((commit, index) => {
-				return new CommitNode(commit, octokit, remote, index === 0 ? this.baseBranchName : rawCommits[index - 1].sha);
+				return new GitHubCommitNode(commit, octokit, remote, index === 0 ? this.baseBranchName : rawCommits[index - 1].sha);
 			});
 		}
 	}
 
-	protected async getGitChildren(_element?: TreeNode) {
-		this.view.message = vscode.l10n.t('Branch {0} has not been pushed yet. Unable to show commits.', this.compareBranchName);
-		return [];
+	protected async getGitChildren(element?: TreeNode) {
+		if (element) {
+			return element.getChildren();
+		}
+
+		const log = await this.repository.log({ range: `${this.baseBranchName}..${this.compareBranchName}` });
+		if (log.length === 0) {
+			(this.view as vscode.TreeView2<TreeNode>).message = new vscode.MarkdownString(vscode.l10n.t('There are no commits between the base `{0}` branch and the comparing `{1}` branch', this.baseBranchName, this.compareBranchName));
+			return [];
+		} else if (this._isDisposed) {
+			return [];
+		} else {
+			this.view.message = undefined;
+		}
+
+		return log.reverse().map((commit, index) => {
+			return new GitCommitNode(commit, this.repository, this.folderRepoManager, index === 0 ? this.baseBranchName : log[index - 1].hash);
+		});
 	}
 }
 
@@ -371,7 +420,7 @@ export class CompareChanges implements vscode.Disposable {
 			treeDataProvider: this._filesDataProvider
 		});
 		this._filesDataProvider.view = this._filesView;
-		this._commitsDataProvider = new CompareChangesCommitsTreeProvider(repository, baseOwner, baseBranchName, compareOwner, compareBranchName, compareHasUpstream, this._gitHubRepository);
+		this._commitsDataProvider = new CompareChangesCommitsTreeProvider(repository, folderRepoManager, baseOwner, baseBranchName, compareOwner, compareBranchName, compareHasUpstream, this._gitHubRepository);
 		this._commitsView = vscode.window.createTreeView('github:compareChangesCommits', {
 			treeDataProvider: this._commitsDataProvider
 		});
