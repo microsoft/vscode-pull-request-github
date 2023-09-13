@@ -739,6 +739,10 @@ textarea {
 	padding-top: 10px;
 }
 
+#rebase-actions {
+	flex-direction: row-reverse;
+}
+
 .main-comment-form > .form-actions {
 	margin-bottom: 10px;
 }

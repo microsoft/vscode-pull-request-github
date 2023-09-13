@@ -52,7 +52,7 @@ export class PRContext {
 
 	public checkMergeability = () => this.postMessage({ command: 'pr.checkMergeability' });
 
-	public merge = (args: { title: string; description: string; method: MergeMethod }) =>
+	public merge = (args: { title: string | undefined; description: string | undefined; method: MergeMethod }) =>
 		this.postMessage({ command: 'pr.merge', args });
 
 	public openOnGitHub = () => this.postMessage({ command: 'pr.openOnGitHub' });
