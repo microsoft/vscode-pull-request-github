@@ -1234,3 +1234,11 @@ code {
 	border-collapse: collapse;
 	background-color: var(--vscode-diffEditor-insertedLineBackground);
 }
+
+.blob-code-marker-addition::before {
+	content: "+ ";
+}
+
+.blob-code-marker-deletion::before {
+	content: "- ";
+}
