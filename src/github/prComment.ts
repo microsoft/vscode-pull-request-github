@@ -161,7 +161,7 @@ export class TemporaryComment extends CommentBase {
 			iconPath: currentUser.avatarUrl ? vscode.Uri.parse(`${currentUser.avatarUrl}&s=64`) : undefined,
 		};
 		this.label = isDraft ? vscode.l10n.t('Pending') : undefined;
-		this.contextValue = 'canEdit,canDelete';
+		this.contextValue = 'temporary,canEdit,canDelete';
 		this.originalBody = originalComment ? originalComment.rawComment.body : undefined;
 		this.reactions = originalComment ? originalComment.reactions : undefined;
 		this.id = TemporaryComment.idPool++;

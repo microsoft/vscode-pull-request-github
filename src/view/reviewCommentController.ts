@@ -797,7 +797,7 @@ export class ReviewCommentController
 		}
 	}
 
-	async editComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void> {
+	async editComment(thread: GHPRCommentThread, comment: GHPRComment): Promise<void> {
 		if (comment instanceof GHPRComment) {
 			const temporaryCommentId = await this.optimisticallyEditComment(thread, comment);
 			try {
@@ -820,12 +820,6 @@ export class ReviewCommentController
 					return c;
 				});
 			}
-		} else {
-			this.createOrReplyComment(
-				thread,
-				comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
-				false,
-			);
 		}
 	}
 
