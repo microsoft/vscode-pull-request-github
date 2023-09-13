@@ -366,8 +366,8 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 						setBusy(true);
 						const { title, description }: any = event.target;
 						const { state } = await merge({
-							title: title.value,
-							description: description.value,
+							title: title?.value,
+							description: description?.value,
 							method,
 						});
 						updatePR({ state });
@@ -376,11 +376,11 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 					}
 				}}
 			>
-				<input type="text" name="title" defaultValue={getDefaultTitleText(method, pr)} />
-				<textarea name="description" defaultValue={getDefaultDescriptionText(method, pr)} />
-				<div className="form-actions">
+				{method === 'rebase' ? null : (<input type="text" name="title" defaultValue={getDefaultTitleText(method, pr)} />)}
+				{method === 'rebase' ? null : (<textarea name="description" defaultValue={getDefaultDescriptionText(method, pr)} />)}
+				<div className="form-actions" id={method === 'rebase' ? 'rebase-actions' : ''}>
 					<button className="secondary" onClick={cancel}>Cancel</button>
-					<button disabled={isBusy} type="submit" id="confirm-merge">{MERGE_METHODS[method]}</button>
+					<button disabled={isBusy} type="submit" id="confirm-merge">{method === 'rebase' ? 'Confirm ' : ''}{MERGE_METHODS[method]}</button>
 				</div>
 			</form>
 		</div>
