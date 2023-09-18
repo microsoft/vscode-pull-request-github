@@ -157,7 +157,26 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 	}
 
+	private async addNewQuery(inputBox: vscode.InputBox) {
+
+	}
+
 	async editQuery() {
+		const inputBox = vscode.window.createInputBox();
+		inputBox.title = vscode.l10n.t('Edit Query "{0}"', this.label ?? '');
+		inputBox.value = this._categoryQuery ?? '';
+		inputBox.prompt = vscode.l10n.t('Enter a GitHub pull request search query to run against the current repository');
+		inputBox.buttons = [{ iconPath: new vscode.ThemeIcon('add'), tooltip: vscode.l10n.t('Add new query') }, { iconPath: new vscode.ThemeIcon('settings'), tooltip: vscode.l10n.t('Edit in settings.json') }];
+		inputBox.onDidTriggerButton(() => this.addNewQuery(inputBox));
+		inputBox.onDidAccept(async () => {
+			inputBox.hide();
+			const newQuery = inputBox.value;
+			if (newQuery !== this._categoryQuery) {
+
+
+			}
+		});
+
 		const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
 		const inspect = config.inspect<{ label: string; query: string }[]>(QUERIES);
 		let command: string;
