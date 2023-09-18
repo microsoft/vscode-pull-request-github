@@ -20,7 +20,6 @@ export function openFileCommand(uri: vscode.Uri, inputOpts: vscode.TextDocumentS
 	const activeTextEditor = vscode.window.activeTextEditor;
 	const opts = {
 		...inputOpts, ...{
-			preserveFocus: true,
 			viewColumn: vscode.ViewColumn.Active,
 		}
 	};
@@ -113,9 +112,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 			}`;
 		this.label = path.basename(this.changeModel.fileName);
 		this.iconPath = vscode.ThemeIcon.File;
-		this.opts = {
-			preserveFocus: true,
-		};
+		this.opts = {};
 		this.updateShowOptions();
 		this.fileChangeResourceUri = toResourceUri(
 			vscode.Uri.file(this.changeModel.fileName),
@@ -351,8 +348,8 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 				command: 'vscode.diff',
 				arguments:
 					this.status === GitChangeType.DELETE
-						? [this.changeModel.parentFilePath, emptyFileUri, `${this.fileName}`, { preserveFocus: true }]
-						: [emptyFileUri, this.changeModel.parentFilePath, `${this.fileName}`, { preserveFocus: true }],
+						? [this.changeModel.parentFilePath, emptyFileUri, `${this.fileName}`, {}]
+						: [emptyFileUri, this.changeModel.parentFilePath, `${this.fileName}`, {}],
 				title: 'Open Diff',
 			};
 		}
@@ -376,9 +373,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 			currentFilePath = this.pullRequestManager.repository.rootUri.with({ path: path.posix.join(query.rootPath, query.path) });
 		}
 
-		const options: vscode.TextDocumentShowOptions = {
-			preserveFocus: true,
-		};
+		const options: vscode.TextDocumentShowOptions = {};
 
 		const reviewThreads = this.pullRequest.reviewThreadsCache;
 		const reviewThreadsByFile = groupBy(reviewThreads, t => t.path);
