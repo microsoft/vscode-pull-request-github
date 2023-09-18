@@ -161,6 +161,8 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 	}
 
+	private updateQuery(queries: { label: string; query: string }[], quer)
+
 	async editQuery() {
 		const inputBox = vscode.window.createInputBox();
 		inputBox.title = vscode.l10n.t('Edit Query "{0}"', this.label ?? '');
@@ -171,9 +173,18 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		inputBox.onDidAccept(async () => {
 			inputBox.hide();
 			const newQuery = inputBox.value;
-			if (newQuery !== this._categoryQuery) {
+			if (newQuery !== this._categoryQuery && this.label) {
+				const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
+				const inspect = config.inspect<{ label: string; query: string }[]>(QUERIES);
+				if (inspect?.workspaceValue) {
+					inspect.workspaceValue[this.label] = { label: this.label, query: newQuery };
+					config.update(QUERIES, inspect.workspaceValue, vscode.ConfigurationTarget.Workspace);
+				} else {
+					const value = config.get<{ label: string; query: string }[]>(QUERIES);
+					value[this.label] = { label: this.label, query: newQuery };
 
-
+					command = 'workbench.action.openSettingsJson';
+				}
 			}
 		});
 
