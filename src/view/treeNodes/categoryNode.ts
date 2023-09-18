@@ -27,6 +27,19 @@ export enum PRCategoryActionType {
 	ConfigureRemotes,
 }
 
+interface QueryInspect {
+	key: string;
+	defaultValue?: { label: string; query: string }[];
+	globalValue?: { label: string; query: string }[];
+	workspaceValue?: { label: string; query: string }[];
+	workspaceFolderValue?: { label: string; query: string }[];
+	defaultLanguageValue?: { label: string; query: string }[];
+	globalLanguageValue?: { label: string; query: string }[];
+	workspaceLanguageValue?: { label: string; query: string }[];
+	workspaceFolderLanguageValue?: { label: string; query: string }[];
+	languageIds?: string[]
+}
+
 export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public iconPath?: { light: string | vscode.Uri; dark: string | vscode.Uri };
@@ -157,16 +170,65 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 	}
 
-	async editQuery() {
-		const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
-		const inspect = config.inspect<{ label: string; query: string }[]>(QUERIES);
+	private async addNewQuery(config: vscode.WorkspaceConfiguration, inspect: QueryInspect | undefined, startingValue: string) {
+		const inputBox = vscode.window.createInputBox();
+		inputBox.title = vscode.l10n.t('Enter the title of the new query');
+		inputBox.placeholder = vscode.l10n.t('Title');
+		inputBox.step = 1;
+		inputBox.totalSteps = 2;
+		inputBox.show();
+		let title: string | undefined;
+		inputBox.onDidAccept(async () => {
+			inputBox.validationMessage = '';
+			if (inputBox.step === 1) {
+				if (!inputBox.value) {
+					inputBox.validationMessage = vscode.l10n.t('Title is required');
+					return;
+				}
+
+				title = inputBox.value;
+				inputBox.value = startingValue;
+				inputBox.title = vscode.l10n.t('Enter the GitHub search query');
+				inputBox.step++;
+			} else {
+				if (!inputBox.value) {
+					inputBox.validationMessage = vscode.l10n.t('Query is required');
+					return;
+				}
+				inputBox.busy = true;
+				if (inputBox.value && title) {
+					if (inspect?.workspaceValue) {
+						inspect.workspaceValue.push({ label: title, query: inputBox.value });
+						await config.update(QUERIES, inspect.workspaceValue, vscode.ConfigurationTarget.Workspace);
+					} else {
+						const value = config.get<{ label: string; query: string }[]>(QUERIES);
+						value?.push({ label: title, query: inputBox.value });
+						await config.update(QUERIES, value, vscode.ConfigurationTarget.Global);
+					}
+				}
+				inputBox.dispose();
+			}
+		});
+		inputBox.onDidHide(() => inputBox.dispose());
+	}
+
+	private updateQuery(queries: { label: string; query: string }[], queryToUpdate: { label: string; query: string }) {
+		for (const query of queries) {
+			if (query.label === queryToUpdate.label) {
+				query.query = queryToUpdate.query;
+				return;
+			}
+		}
+	}
+
+	private async openSettings(config: vscode.WorkspaceConfiguration, inspect: QueryInspect | undefined) {
 		let command: string;
 		if (inspect?.workspaceValue) {
 			command = 'workbench.action.openWorkspaceSettingsFile';
 		} else {
 			const value = config.get<{ label: string; query: string }[]>(QUERIES);
 			if (inspect?.defaultValue && JSON.stringify(inspect?.defaultValue) === JSON.stringify(value)) {
-				config.update(QUERIES, inspect.defaultValue, vscode.ConfigurationTarget.Global);
+				await config.update(QUERIES, inspect.defaultValue, vscode.ConfigurationTarget.Global);
 			}
 			command = 'workbench.action.openSettingsJson';
 		}
@@ -181,6 +243,41 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				editor.selection = new vscode.Selection(position, position);
 			}
 		}
+	}
+
+	async editQuery() {
+		const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
+		const inspect = config.inspect<{ label: string; query: string }[]>(QUERIES);
+
+		const inputBox = vscode.window.createQuickPick();
+		inputBox.title = vscode.l10n.t('Edit Pull Request Query "{0}"', this.label ?? '');
+		inputBox.value = this._categoryQuery ?? '';
+		inputBox.items = [{ iconPath: new vscode.ThemeIcon('pencil'), label: vscode.l10n.t('Save edits'), alwaysShow: true }, { iconPath: new vscode.ThemeIcon('add'), label: vscode.l10n.t('Add new query'), alwaysShow: true }, { iconPath: new vscode.ThemeIcon('settings'), label: vscode.l10n.t('Edit in settings.json'), alwaysShow: true }];
+		inputBox.activeItems = [];
+		inputBox.selectedItems = [];
+		inputBox.onDidAccept(async () => {
+			inputBox.busy = true;
+			if (inputBox.selectedItems[0] === inputBox.items[0]) {
+				const newQuery = inputBox.value;
+				if (newQuery !== this._categoryQuery && this.label) {
+					if (inspect?.workspaceValue) {
+						this.updateQuery(inspect.workspaceValue, { label: this.label, query: newQuery });
+						await config.update(QUERIES, inspect.workspaceValue, vscode.ConfigurationTarget.Workspace);
+					} else {
+						const value = config.get<{ label: string; query: string }[]>(QUERIES) ?? inspect!.defaultValue!;
+						this.updateQuery(value, { label: this.label, query: newQuery });
+						await config.update(QUERIES, value, vscode.ConfigurationTarget.Global);
+					}
+				}
+			} else if (inputBox.selectedItems[0] === inputBox.items[1]) {
+				this.addNewQuery(config, inspect, inputBox.value);
+			} else if (inputBox.selectedItems[0] === inputBox.items[2]) {
+				this.openSettings(config, inspect);
+			}
+			inputBox.dispose();
+		});
+		inputBox.onDidHide(() => inputBox.dispose());
+		inputBox.show();
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
