@@ -126,7 +126,7 @@ export class NewIssueCache {
 	public get(): string | undefined {
 		const content = this.context.workspaceState.get<Uint8Array | undefined>(NEW_ISSUE_CACHE);
 		if (content) {
-			return content.toString();
+			return new TextDecoder().decode(content);
 		}
 	}
 }
