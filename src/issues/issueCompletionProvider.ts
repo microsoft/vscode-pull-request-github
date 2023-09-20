@@ -97,6 +97,25 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			}
 		}
 
+		// Check for owner/repo preceding the #
+		let filterOwnerAndRepo: { owner: string; repo: string } | undefined;
+		if (wordAtPos === '#' && wordRange) {
+			if (wordRange.start.character >= 3) {
+				const ownerRepoRange = new vscode.Range(
+					wordRange.start.with(undefined, 0),
+					wordRange.start
+				);
+				const ownerRepo = document.getText(ownerRepoRange);
+				const ownerRepoMatch = ownerRepo.match(/([^\s]+)\/([^\s]+)/);
+				if (ownerRepoMatch) {
+					filterOwnerAndRepo = {
+						owner: ownerRepoMatch[1],
+						repo: ownerRepoMatch[2],
+					};
+				}
+			}
+		}
+
 		const completionItems: Map<string, vscode.CompletionItem> = new Map();
 		const now = new Date();
 		let repo: PullRequestDefaults | undefined;
@@ -151,6 +170,9 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			if (issuesOrMilestones[0] instanceof IssueModel) {
 				let index = 0;
 				for (const issue of issuesOrMilestones) {
+					if (filterOwnerAndRepo && ((issue as IssueModel).remote.owner !== filterOwnerAndRepo.owner || (issue as IssueModel).remote.repositoryName !== filterOwnerAndRepo.repo)) {
+						continue;
+					}
 					completionItems.set(
 						getIssueNumberLabel(issue as IssueModel),
 						await this.completionItemFromIssue(repo, issue as IssueModel, now, range, document, index++, totalIssues),
@@ -160,6 +182,9 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 				for (let index = 0; index < issuesOrMilestones.length; index++) {
 					const value: MilestoneModel = issuesOrMilestones[index] as MilestoneModel;
 					for (const issue of value.issues) {
+						if (filterOwnerAndRepo && ((issue as IssueModel).remote.owner !== filterOwnerAndRepo.owner || (issue as IssueModel).remote.repositoryName !== filterOwnerAndRepo.repo)) {
+							continue;
+						}
 						completionItems.set(
 							getIssueNumberLabel(issue),
 							await this.completionItemFromIssue(
