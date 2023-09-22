@@ -50,6 +50,7 @@ export class CredentialStore implements vscode.Disposable {
 	private _githubEnterpriseAPI: GitHub | undefined;
 	private _enterpriseSessionId: string | undefined;
 	private _disposables: vscode.Disposable[];
+	private _isInitialized: boolean = false;
 	private _onDidInitialize: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidInitialize: vscode.Event<void> = this._onDidInitialize.event;
 	private _scopes: string[];
@@ -161,7 +162,8 @@ export class CredentialStore implements vscode.Disposable {
 			}
 			await this.saveScopesInState();
 
-			if (!(getAuthSessionOptions.createIfNone || getAuthSessionOptions.forceNewSession) || isNew) {
+			if (!this._isInitialized || isNew) {
+				this._isInitialized = true;
 				this._onDidInitialize.fire();
 			}
 			if (isNew) {
