@@ -213,6 +213,9 @@ export async function reviewersQuickPick(folderRepositoryManager: FolderReposito
 	quickPick.canSelectMany = true;
 	quickPick.matchOnDescription = true;
 	quickPick.placeholder = defaultPlaceholder;
+	if (isInOrganization) {
+		quickPick.buttons = [{ iconPath: new vscode.ThemeIcon('organization'), tooltip: vscode.l10n.t('Show or refresh team reviewers') }];
+	}
 	quickPick.show();
 	const updateItems = async (refreshKind: TeamReviewerRefreshKind) => {
 		const slowWarning = setTimeout(() => {
@@ -227,9 +230,6 @@ export async function reviewersQuickPick(folderRepositoryManager: FolderReposito
 	};
 
 	await updateItems((teamsCount !== 0 && teamsCount <= quickMaxTeamReviewers) ? TeamReviewerRefreshKind.Try : TeamReviewerRefreshKind.None);
-	if (isInOrganization) {
-		quickPick.buttons = [{ iconPath: new vscode.ThemeIcon('organization'), tooltip: vscode.l10n.t('Show or refresh team reviewers') }];
-	}
 	quickPick.onDidTriggerButton(() => {
 		quickPick.busy = true;
 		quickPick.ignoreFocusOut = true;
