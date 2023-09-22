@@ -1358,6 +1358,12 @@
 				"mac": "cmd+s",
 				"command": "issue.createIssueFromFile",
 				"when": "resourceScheme == newIssue && config.files.autoSave != off"
+			},
+			{
+				"key": "ctrl+enter",
+				"mac": "cmd+enter",
+				"command": "issue.createIssueFromFile",
+				"when": "resourceScheme == newIssue"
 			}
 		],
 		"menus": {
