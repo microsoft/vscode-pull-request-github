@@ -471,7 +471,7 @@ export class ReviewCommentController
 			}
 
 			Logger.debug(`Providing ${ranges.length} commenting ranges for ${nodePath.basename(document.uri.fsPath)}.`, ReviewCommentController.ID);
-			return { ranges, fileComments: true };
+			return { ranges, fileComments: ranges.length > 0 };
 		} else {
 			Logger.debug('No commenting ranges: File scheme differs from repository scheme.', ReviewCommentController.ID);
 		}
