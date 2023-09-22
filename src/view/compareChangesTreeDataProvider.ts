@@ -205,26 +205,33 @@ abstract class CompareChangesTreeProvider implements vscode.TreeDataProvider<Tre
 	protected async getRawGitHubData(gitHubRepository: GitHubRepository) {
 		const { octokit, remote } = await gitHubRepository.ensure();
 
-		const { data } = await octokit.call(octokit.api.repos.compareCommits, {
-			repo: remote.repositoryName,
-			owner: remote.owner,
-			base: `${this.baseOwner}:${this.baseBranchName}`,
-			head: `${this.compareOwner}:${this.compareBranchName}`,
-		});
+		try {
+			const { data } = await octokit.call(octokit.api.repos.compareCommits, {
+				repo: remote.repositoryName,
+				owner: remote.owner,
+				base: `${this.baseOwner}:${this.baseBranchName}`,
+				head: `${this.compareOwner}:${this.compareBranchName}`,
+			});
 
-		const rawFiles = data.files;
-		const rawCommits = data.commits;
+			const rawFiles = data.files;
+			const rawCommits = data.commits;
 
-		if (!rawFiles?.length || !rawCommits?.length) {
-			(this.view as vscode.TreeView2<TreeNode>).message = new vscode.MarkdownString(vscode.l10n.t('There are no commits between the base `{0}` branch and the comparing `{1}` branch', this.baseBranchName, this.compareBranchName));
+			if (!rawFiles?.length || !rawCommits?.length) {
+				(this.view as vscode.TreeView2<TreeNode>).message = new vscode.MarkdownString(vscode.l10n.t('There are no commits between the base `{0}` branch and the comparing `{1}` branch', this.baseBranchName, this.compareBranchName));
+				return {};
+			} else if (this._isDisposed) {
+				return {};
+			} else {
+				this.view.message = undefined;
+			}
+
+			return { rawFiles, rawCommits, octokit, remote, mergeBase: data.merge_base_commit.sha };
+		} catch (e) {
+			if ('name' in e && e.name === 'HttpError' && e.status === 404) {
+				(this.view as vscode.TreeView2<TreeNode>).message = new vscode.MarkdownString(vscode.l10n.t('The upstream branch `{0}` does not exist on GitHub', this.baseBranchName));
+			}
 			return {};
-		} else if (this._isDisposed) {
-			return {};
-		} else {
-			this.view.message = undefined;
 		}
-
-		return { rawFiles, rawCommits, octokit, remote, mergeBase: data.merge_base_commit.sha };
 	}
 
 	protected abstract getGitHubChildren(gitHubRepository: GitHubRepository, element?: TreeNode);
