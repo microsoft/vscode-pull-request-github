@@ -62,6 +62,13 @@ export class PRCommentControllerRegistry implements vscode.CommentingRangeProvid
 		return toggleReaction(comment, reaction);
 	}
 
+	public unregisterCommentController(prNumber: number): void {
+		if (this._prCommentHandlers[prNumber]) {
+			this._prCommentHandlers[prNumber].dispose();
+			delete this._prCommentHandlers[prNumber];
+		}
+	}
+
 	public registerCommentController(prNumber: number, pullRequestModel: PullRequestModel, folderRepositoryManager: FolderRepositoryManager): vscode.Disposable {
 		if (this._prCommentHandlers[prNumber]) {
 			this._prCommentHandlers[prNumber].refCount += 1;

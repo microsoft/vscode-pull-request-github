@@ -294,6 +294,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		if (pullRequest) {
 			pullRequest.isActive = true;
+			pullRequest.githubRepository.commentsHandler?.unregisterCommentController(pullRequest.number);
 		}
 		const newNumber = pullRequest?.number;
 
