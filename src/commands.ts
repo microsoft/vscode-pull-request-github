@@ -40,6 +40,7 @@ import {
 	RemoteFileChangeNode,
 } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
+import { RepositoryChangesNode } from './view/treeNodes/repositoryChangesNode';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
 export const onDidUpdatePR: vscode.Event<PullRequest | void> = _onDidUpdatePR.event;
@@ -64,12 +65,16 @@ export async function openDescription(
 	pullRequestModel: PullRequestModel,
 	descriptionNode: DescriptionNode | undefined,
 	folderManager: FolderRepositoryManager,
+	revealNode: boolean,
+	preserveFocus: boolean = true,
 	notificationProvider?: NotificationProvider
 ) {
 	const pullRequest = ensurePR(folderManager, pullRequestModel);
-	descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
+	if (revealNode) {
+		descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
+	}
 	// Create and show a new webview
-	await PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest);
+	await PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest, undefined, preserveFocus);
 
 	if (notificationProvider?.hasNotification(pullRequest)) {
 		notificationProvider.markPrNotificationsAsRead(pullRequest);
@@ -784,7 +789,7 @@ export function registerCommands(
 					descriptionNode = reviewManager.changesInPrDataProvider.getDescriptionNode(folderManager);
 				}
 
-				await openDescription(context, telemetry, pullRequestModel, descriptionNode, folderManager, tree.notificationProvider);
+				await openDescription(context, telemetry, pullRequestModel, descriptionNode, folderManager, !(argument instanceof DescriptionNode), !(argument instanceof RepositoryChangesNode), tree.notificationProvider);
 			},
 		),
 	);
