@@ -49,7 +49,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
 		issue: PullRequestModel,
-		toTheSide: Boolean = false,
+		toTheSide: boolean = false,
+		preserveFocus: boolean = true
 	) {
 		const activeColumn = toTheSide
 			? vscode.ViewColumn.Beside
@@ -60,7 +61,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		// If we already have a panel, show it.
 		// Otherwise, create a new panel.
 		if (PullRequestOverviewPanel.currentPanel) {
-			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
+			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, preserveFocus);
 		} else {
 			const title = `Pull Request #${issue.number.toString()}`;
 			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(

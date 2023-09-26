@@ -1076,6 +1076,7 @@ export class ReviewManager {
 					createdPR,
 					descriptionNode,
 					this._folderRepoManager,
+					true
 				);
 			} else if (postCreate === 'checkoutDefaultBranch') {
 				const defaultBranch = await this._folderRepoManager.getPullRequestRepositoryDefaultBranch(createdPR);
@@ -1103,6 +1104,7 @@ export class ReviewManager {
 			pullRequest,
 			descriptionNode,
 			this._folderRepoManager,
+			true
 		);
 	}
 
