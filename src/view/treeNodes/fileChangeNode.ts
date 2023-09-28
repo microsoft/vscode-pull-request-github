@@ -446,7 +446,7 @@ export class GitHubFileChangeNode extends TreeNode implements vscode.TreeItem {
 		});
 
 		let parentURI = vscode.Uri.file(fileName).with({
-			scheme: Schemes.GithubPr,
+			scheme,
 			query: JSON.stringify({ fileName, branch: baseBranch }),
 		});
 		let headURI = vscode.Uri.file(fileName).with({
@@ -456,14 +456,14 @@ export class GitHubFileChangeNode extends TreeNode implements vscode.TreeItem {
 		switch (status) {
 			case GitChangeType.ADD:
 				parentURI = vscode.Uri.file(fileName).with({
-					scheme: Schemes.GithubPr,
+					scheme,
 					query: JSON.stringify({ fileName, branch: baseBranch, isEmpty: true }),
 				});
 				break;
 
 			case GitChangeType.RENAME:
 				parentURI = vscode.Uri.file(previousFileName!).with({
-					scheme: Schemes.GithubPr,
+					scheme,
 					query: JSON.stringify({ fileName: previousFileName, branch: baseBranch, isEmpty: true }),
 				});
 				break;
