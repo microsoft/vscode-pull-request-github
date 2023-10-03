@@ -195,8 +195,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	public set showChangesSinceReview(isChangesSinceReview: boolean) {
-		this._showChangesSinceReview = isChangesSinceReview;
-		this._onDidChangeChangesSinceReview.fire();
+		if (this._showChangesSinceReview !== isChangesSinceReview) {
+			this._showChangesSinceReview = isChangesSinceReview;
+			this._fileChanges.clear();
+			this._onDidChangeChangesSinceReview.fire();
+		}
 	}
 
 	get comments(): readonly IComment[] {

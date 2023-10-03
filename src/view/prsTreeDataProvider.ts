@@ -271,8 +271,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		}
 
 		if (
-			this._reposManager.folderManagers.filter(manager => manager.repository.state.remotes.length > 0).length ===
-			0
+			this._reposManager.folderManagers.filter(manager => manager.repository.state.remotes.length > 0).length === 0
 		) {
 			return Promise.resolve([new PRCategoryActionNode(this, PRCategoryActionType.Empty)]);
 		}
