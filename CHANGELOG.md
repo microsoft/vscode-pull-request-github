@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.74.0
+
+### Changes
+
+- Accessibility for reviewing PRs has been improved. See https://github.com/microsoft/vscode-pull-request-github/issues/5225 and https://github.com/microsoft/vscode/issues/192377 for a complete list of improvements.
+- Commits are shown in the Create view even when the branch hasn't been published.
+- The "Commits" node in the "Changes in Pull Request" tree now shows more than 30 commits.
+
+### Fixes
+
+- Using "Create an Issue" a 2nd time does not create a new issue, but a NewIssue.md with tons of numbers. https://github.com/microsoft/vscode-pull-request-github/issues/5253
+- Add +/- to added/deleted lines in PR description. https://github.com/microsoft/vscode-pull-request-github/issues/5224
+- Duplicate @mention suggestions. https://github.com/microsoft/vscode-pull-request-github/issues/5222
+- Don't require commit message for "Rebase and Merge". https://github.com/microsoft/vscode-pull-request-github/issues/5221
+- Focus in list of changes resets when opening file. https://github.com/microsoft/vscode-pull-request-github/issues/5173
+
+**_Thank You_**
+
+* [@hsfzxjy (hsfzxjy)](https://github.com/hsfzxjy): Add a refresh button in the header of comment thread [PR #5229](https://github.com/microsoft/vscode-pull-request-github/pull/5229)
+
 ## 0.72.0
 
 ### Changes
