@@ -53,6 +53,10 @@ export class CreatePRContextNew {
 		return false;
 	}
 
+	public initialize = async (): Promise<void> => {
+		this.postMessage({ command: 'pr.requestInitialize' });
+	};
+
 	public cancelCreate = (): Promise<void> => {
 		const args = this.copyParams();
 		vscode.setState(defaultCreateParams);
