@@ -1038,32 +1038,37 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		options: IPullRequestsPagingOptions = { fetchNextPage: false },
 		includeIssuesWithoutMilestone: boolean = false,
 	): Promise<ItemsResponseResult<MilestoneModel>> {
-		const milestones: ItemsResponseResult<MilestoneModel> = await this.fetchPagedData<MilestoneModel>(
-			options,
-			'milestoneIssuesKey',
-			PagedDataType.Milestones,
-			PRType.All
-		);
-		if (includeIssuesWithoutMilestone) {
-			const additionalIssues: ItemsResponseResult<Issue> = await this.fetchPagedData<Issue>(
+		try {
+			const milestones: ItemsResponseResult<MilestoneModel> = await this.fetchPagedData<MilestoneModel>(
 				options,
-				'noMilestoneIssuesKey',
-				PagedDataType.IssuesWithoutMilestone,
+				'milestoneIssuesKey',
+				PagedDataType.Milestones,
 				PRType.All
 			);
-			milestones.items.push({
-				milestone: {
-					createdAt: new Date(0).toDateString(),
-					id: '',
-					title: NO_MILESTONE,
-				},
-				issues: await Promise.all(additionalIssues.items.map(async (issue) => {
-					const githubRepository = await this.getRepoForIssue(issue);
-					return new IssueModel(githubRepository, githubRepository.remote, issue);
-				})),
-			});
+			if (includeIssuesWithoutMilestone) {
+				const additionalIssues: ItemsResponseResult<Issue> = await this.fetchPagedData<Issue>(
+					options,
+					'noMilestoneIssuesKey',
+					PagedDataType.IssuesWithoutMilestone,
+					PRType.All
+				);
+				milestones.items.push({
+					milestone: {
+						createdAt: new Date(0).toDateString(),
+						id: '',
+						title: NO_MILESTONE,
+					},
+					issues: await Promise.all(additionalIssues.items.map(async (issue) => {
+						const githubRepository = await this.getRepoForIssue(issue);
+						return new IssueModel(githubRepository, githubRepository.remote, issue);
+					})),
+				});
+			}
+			return milestones;
+		} catch (e) {
+			Logger.error(`Error fetching milestone issues: ${e instanceof Error ? e.message : e}`, FolderRepositoryManager.ID);
+			return { hasMorePages: false, hasUnsearchedRepositories: false, items: [] };
 		}
-		return milestones;
 	}
 
 	async createMilestone(repository: GitHubRepository, milestoneTitle: string): Promise<IMilestone | undefined> {
@@ -1102,17 +1107,22 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	async getIssues(
 		query?: string,
 	): Promise<ItemsResponseResult<IssueModel>> {
-		const data = await this.fetchPagedData<Issue>({ fetchNextPage: false, fetchOnePagePerRepo: false }, `issuesKey${query}`, PagedDataType.IssueSearch, PRType.All, query);
-		const mappedData: ItemsResponseResult<IssueModel> = {
-			items: [],
-			hasMorePages: data.hasMorePages,
-			hasUnsearchedRepositories: data.hasUnsearchedRepositories
-		};
-		for (const issue of data.items) {
-			const githubRepository = await this.getRepoForIssue(issue);
-			mappedData.items.push(new IssueModel(githubRepository, githubRepository.remote, issue));
+		try {
+			const data = await this.fetchPagedData<Issue>({ fetchNextPage: false, fetchOnePagePerRepo: false }, `issuesKey${query}`, PagedDataType.IssueSearch, PRType.All, query);
+			const mappedData: ItemsResponseResult<IssueModel> = {
+				items: [],
+				hasMorePages: data.hasMorePages,
+				hasUnsearchedRepositories: data.hasUnsearchedRepositories
+			};
+			for (const issue of data.items) {
+				const githubRepository = await this.getRepoForIssue(issue);
+				mappedData.items.push(new IssueModel(githubRepository, githubRepository.remote, issue));
+			}
+			return mappedData;
+		} catch (e) {
+			Logger.error(`Error fetching issues with query ${query}: ${e instanceof Error ? e.message : e}`, FolderRepositoryManager.ID);
+			return { hasMorePages: false, hasUnsearchedRepositories: false, items: [] };
 		}
-		return mappedData;
 	}
 
 	async getMaxIssue(): Promise<number> {
