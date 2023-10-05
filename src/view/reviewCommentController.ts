@@ -521,7 +521,10 @@ export class ReviewCommentController
 						return this._repository.diffWith(this._repository.state.HEAD.commit, fileName);
 					}
 				}
-				vscode.window.showErrorMessage(vscode.l10n.t('Unable to get comment locations for commit {0}. This commit is not available locally and there is no remote branch.', this._reposManager.activePullRequest.head.sha));
+				if (this._reposManager.activePullRequest.isOpen) {
+					vscode.window.showErrorMessage(vscode.l10n.t('Unable to get comment locations for commit {0}. This commit is not available locally and there is no remote branch.', this._reposManager.activePullRequest.head.sha));
+				}
+				Logger.warn(`Unable to get comment locations for commit ${this._reposManager.activePullRequest.head.sha}. This commit is not available locally and there is no remote branch.`, ReviewCommentController.ID);
 			}
 			throw e;
 		}
