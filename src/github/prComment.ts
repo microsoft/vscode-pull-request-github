@@ -340,16 +340,21 @@ ${lineContents}
 		});
 	}
 
+	private replaceNewlines(body: string) {
+		return body.replace(/(?<!\s)(\r\n|\n)/g, '  \n');
+	}
+
 	private async replaceBody(body: string | vscode.MarkdownString): Promise<string> {
 		if (body instanceof vscode.MarkdownString) {
 			const permalinkReplaced = await this.replacePermalink(body.value);
 			return this.replaceSuggestion(permalinkReplaced);
 		}
+		const newLinesReplaced = this.replaceNewlines(body);
 		const documentLanguage = (await vscode.workspace.openTextDocument(this.parent.uri)).languageId;
 		// Replace user
-		const linkified = body.replace(/([^\[`]|^)\@([^\s`]+)/g, (substring, _1, _2, offset) => {
+		const linkified = newLinesReplaced.replace(/([^\[`]|^)\@([^\s`]+)/g, (substring, _1, _2, offset) => {
 			// Do not try to replace user if there's a code block.
-			if ((body.substring(0, offset).match(/```/g)?.length ?? 0) % 2 === 1) {
+			if ((newLinesReplaced.substring(0, offset).match(/```/g)?.length ?? 0) % 2 === 1) {
 				return substring;
 			}
 			const username = substring.substring(substring.startsWith('@') ? 1 : 2);
