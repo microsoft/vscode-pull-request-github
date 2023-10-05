@@ -7,7 +7,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { getGitChangeType } from '../../common/diffHunk';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
-import { toReviewUri } from '../../common/uri';
+import { DataUri, toReviewUri } from '../../common/uri';
 import { OctokitCommon } from '../../github/common';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
@@ -33,20 +33,11 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		this.label = commit.commit.message;
 		this.sha = commit.sha;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
-		let userIconUri: vscode.Uri | undefined;
-		try {
-			if (commit.author && commit.author.avatar_url) {
-				userIconUri = vscode.Uri.parse(`${commit.author.avatar_url}&s=${64}`);
-			}
-		} catch (_) {
-			// no-op
-		}
-
-		this.iconPath = userIconUri;
 		this.contextValue = 'commit';
 	}
 
-	getTreeItem(): vscode.TreeItem {
+	async getTreeItem(): Promise<vscode.TreeItem> {
+		this.iconPath = await DataUri.avatarCircleAsImageDataUri(this.pullRequest.author, 16, 16);
 		return this;
 	}
 
