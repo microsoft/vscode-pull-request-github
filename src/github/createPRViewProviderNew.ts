@@ -252,10 +252,9 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			// First clear all state ASAP
 			this._postMessage({ command: 'reset' });
 		}
-		await this.doInitializeParams(reset);
 	}
 
-	private async doInitializeParams(reset: boolean = false): Promise<CreateParamsNew> {
+	private async doInitializeParams(): Promise<CreateParamsNew> {
 		if (!this.defaultCompareBranch) {
 			throw new DetachedHeadError(this._folderRepositoryManager.repository);
 		}
@@ -337,7 +336,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		this._baseRemote = defaultBaseRemote;
 
 		this._postMessage({
-			command: reset ? 'reset' : 'pr.initialize',
+			command: 'pr.initialize',
 			params,
 		});
 		return params;
@@ -858,6 +857,9 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		}
 
 		switch (message.command) {
+			case 'pr.requestInitialize':
+				return this.doInitializeParams();
+
 			case 'pr.cancelCreate':
 				return this.cancel(message);
 

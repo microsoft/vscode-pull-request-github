@@ -162,6 +162,10 @@ export function main() {
 					}
 				}
 
+				if (!ctx.initialized) {
+					ctx.initialize();
+				}
+
 				return <div className='group-main' data-vscode-context='{"preventDefaultContextMenuItems": true}'>
 					<div className='group-branches'>
 						<div className='input-label base'>
