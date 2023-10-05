@@ -55,6 +55,11 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		this.registerSinceReviewChange();
 		this.registerConfigurationChange();
 		this._disposables.push(this.pullRequestModel.onDidInvalidate(() => this.refresh(this)));
+		this._disposables.push(this._folderReposManager.onDidChangeActivePullRequest(e => {
+			if (e.new === this.pullRequestModel.number || e.old === this.pullRequestModel.number) {
+				this.refresh(this);
+			}
+		}));
 	}
 
 	// #region Tree
@@ -127,9 +132,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 	protected registerSinceReviewChange() {
 		this._disposables.push(
 			this.pullRequestModel.onDidChangeChangesSinceReview(_ => {
-				if (!this.pullRequestModel.isActive) {
-					this.refresh();
-				}
+				this.refresh(this);
 			})
 		);
 	}
@@ -236,11 +239,10 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		// URIs that will cause the review comment controller to be used.
 		const rawChanges: (SlimFileChange | InMemFileChange)[] = [];
 		const isCurrentPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
-		if (isCurrentPR && this._folderReposManager.activePullRequest !== undefined) {
+		if (isCurrentPR && (this._folderReposManager.activePullRequest !== undefined) && (this._folderReposManager.activePullRequest.fileChanges.size > 0)) {
 			this.pullRequestModel = this._folderReposManager.activePullRequest;
 			rawChanges.push(...this._folderReposManager.activePullRequest.fileChanges.values());
-		}
-		else {
+		} else {
 			rawChanges.push(...await this.pullRequestModel.getFileChangesInfo());
 		}
 

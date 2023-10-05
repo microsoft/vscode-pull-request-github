@@ -404,7 +404,6 @@ export class ReviewManager {
 
 		const hasPushedChanges = branch.commit !== oldLastCommitSha && branch.ahead === 0 && branch.behind === 0;
 		if (previousPrNumber === pr.number && !hasPushedChanges && (this._isShowingLastReviewChanges === pr.showChangesSinceReview)) {
-			vscode.commands.executeCommand('pr.refreshList');
 			this._validateStatusInProgress = undefined;
 			return;
 		}
@@ -480,9 +479,8 @@ export class ReviewManager {
 			title: vscode.l10n.t('View Pull Request Description'),
 			arguments: [pr],
 		};
-		Logger.appendLine(`Display pull request status bar indicator and refresh pull request tree view.`, ReviewManager.ID);
+		Logger.appendLine(`Display pull request status bar indicator.`, ReviewManager.ID);
 		this.statusBarItem.show();
-		vscode.commands.executeCommand('pr.refreshList');
 
 		this.layout(pr, updateLayout, silent);
 
