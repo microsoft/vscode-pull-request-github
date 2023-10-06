@@ -39,6 +39,7 @@ import { getGitHubFileContent } from './gitHubContentProvider';
 import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from './inMemPRContentProvider';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { ProgressHelper } from './progress';
+import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { RemoteQuickPickItem } from './quickpick';
 import { ReviewCommentController } from './reviewCommentController';
 import { ReviewModel } from './reviewModel';
@@ -94,6 +95,7 @@ export class ReviewManager {
 		private _folderRepoManager: FolderRepositoryManager,
 		private _telemetry: ITelemetry,
 		public changesInPrDataProvider: PullRequestChangesTreeDataProvider,
+		private _pullRequestsTree: PullRequestsTreeDataProvider,
 		private _showPullRequest: ShowPullRequest,
 		private readonly _activePrViewCoordinator: WebviewViewCoordinator,
 		private _createPullRequestHelper: CreatePullRequestHelper,
@@ -1079,7 +1081,9 @@ export class ReviewManager {
 			} else if (postCreate === 'checkoutDefaultBranch') {
 				const defaultBranch = await this._folderRepoManager.getPullRequestRepositoryDefaultBranch(createdPR);
 				if (defaultBranch) {
+					await vscode.commands.executeCommand('pr:github.focus');
 					await this._folderRepoManager.checkoutDefaultBranch(defaultBranch);
+					await this._pullRequestsTree.expandPullRequest(createdPR);
 				}
 			}
 			await this.updateState(false, false);
