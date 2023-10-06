@@ -25,7 +25,7 @@ import {
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, fromReviewUri, KnownMediaExtensions, PRUriParams, Schemes, toReviewUri } from '../common/uri';
-import { formatError, groupBy, onceEvent } from '../common/utils';
+import { formatError, groupBy, isPreRelease, onceEvent } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -267,9 +267,40 @@ export class ReviewManager {
 		}
 	}
 
+	private hasShownLogRequest: boolean = false;
 	private async validateStatueAndSetContext(silent: boolean, updateLayout: boolean) {
-		await this.validateState(silent, updateLayout);
-		await vscode.commands.executeCommand('setContext', 'github:stateValidated', true);
+		// TODO @alexr00: There's a bug where validateState never returns sometimes. It's not clear what's causing this.
+		// This is a temporary workaround to ensure that the validateStatueAndSetContext promise always resolves.
+		// Additional logs have been added, and the issue is being tracked here: https://github.com/microsoft/vscode-pull-request-git/issues/5277
+		let timeout: NodeJS.Timeout | undefined;
+		const timeoutPromise = new Promise<void>(resolve => {
+			timeout = setTimeout(() => {
+				if (timeout) {
+					clearTimeout(timeout);
+					timeout = undefined;
+					Logger.error('Timeout occurred while validating state.', ReviewManager.ID);
+					if (!this.hasShownLogRequest && isPreRelease(this._context)) {
+						this.hasShownLogRequest = true;
+						vscode.window.showErrorMessage(vscode.l10n.t('A known error has occurred refreshing the repository state. Please share logs from "GitHub Pull Request" in the [tracking issue]({0}).', 'https://github.com/microsoft/vscode-pull-request-github/issues/5277'));
+					}
+				}
+				resolve();
+			}, 1000 * 60 * 2);
+		});
+
+		const validatePromise = new Promise<void>(resolve => {
+			this.validateState(silent, updateLayout).then(() => {
+				vscode.commands.executeCommand('setContext', 'github:stateValidated', true).then(() => {
+					if (timeout) {
+						clearTimeout(timeout);
+						timeout = undefined;
+					}
+					resolve();
+				});
+			});
+		});
+
+		return Promise.race([validatePromise, timeoutPromise]);
 	}
 
 	private async offerIgnoreBranch(currentBranchName): Promise<boolean> {
@@ -388,8 +419,10 @@ export class ReviewManager {
 		const previousPrNumber = this._prNumber;
 		let pr = await this.resolvePullRequest(matchingPullRequestMetadata);
 		if (!pr) {
+			Logger.appendLine(`Unable to resolve PR #${matchingPullRequestMetadata.prNumber}`, ReviewManager.ID);
 			return;
 		}
+		Logger.appendLine(`Resolved PR #${matchingPullRequestMetadata.prNumber}, state is ${pr.state}`, ReviewManager.ID);
 
 		// Check if the PR is open, if not, check if there's another PR from the same branch on GitHub
 		if (pr.state !== GithubItemStateEnum.Open) {
@@ -416,14 +449,14 @@ export class ReviewManager {
 			.get<{ merged: boolean, closed: boolean }>(USE_REVIEW_MODE, { merged: true, closed: false });
 
 		if (pr.isClosed && !useReviewConfiguration.closed) {
-			await this.clear(true);
 			Logger.appendLine('This PR is closed', ReviewManager.ID);
+			await this.clear(true);
 			return;
 		}
 
 		if (pr.isMerged && !useReviewConfiguration.merged) {
-			await this.clear(true);
 			Logger.appendLine('This PR is merged', ReviewManager.ID);
+			await this.clear(true);
 			return;
 		}
 
@@ -471,6 +504,7 @@ export class ReviewManager {
 				this._changesSinceLastReviewProgress.endProgress();
 			})
 		);
+		Logger.appendLine(`Register in memory content provider`, ReviewManager.ID);
 		await this.registerGitHubInMemContentProvider();
 
 		this.statusBarItem.text = '$(git-pull-request) ' + vscode.l10n.t('Pull Request #{0}', pr.number);
