@@ -780,7 +780,7 @@ export interface GetChecksResponse {
 							};
 						};
 					};
-				}[];
+				}[] | undefined;
 			};
 		};
 	};

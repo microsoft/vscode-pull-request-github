@@ -1229,6 +1229,11 @@ export class GitHubRepository implements vscode.Disposable {
 			throw e;
 		}
 
+		if (result.data.repository.pullRequest.commits.nodes === undefined) {
+			Logger.error(`Unable to fetch PR checks: ${result.errors?.map(error => error.message).join(', ')}`, GitHubRepository.ID);
+			return [null, null];
+		}
+
 		// We always fetch the status checks for only the last commit, so there should only be one node present
 		const statusCheckRollup = result.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup;
 
