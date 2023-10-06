@@ -117,6 +117,7 @@ interface PageInformation {
 }
 
 export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
+	protected children: (PRNode | PRCategoryActionNode)[] | undefined = undefined;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public prs: PullRequestModel[];
 	public fetchNextPage: boolean = false;
@@ -128,7 +129,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		public parent: TreeNodeParent,
 		private _folderRepoManager: FolderRepositoryManager,
 		private _telemetry: ITelemetry,
-		private _type: PRType,
+		public readonly type: PRType,
 		private _notificationProvider: NotificationProvider,
 		expandedQueries: Set<string>,
 		private _prsTreeModel: PrsTreeModel,
@@ -139,7 +140,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		this.prs = [];
 
-		switch (_type) {
+		switch (this.type) {
 			case PRType.All:
 				this.label = vscode.l10n.t('All Open');
 				break;
@@ -156,7 +157,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		this.id = parent instanceof TreeNode ? `${parent.id ?? parent.label}/${this.label}` : this.label;
 
-		if ((expandedQueries.size === 0) && (_type === PRType.All)) {
+		if ((expandedQueries.size === 0) && (this.type === PRType.All)) {
 			this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 		} else {
 			this.collapsibleState =
@@ -245,6 +246,29 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 	}
 
+	public async expandPullRequest(pullRequest: PullRequestModel, retry: boolean = true): Promise<boolean> {
+		if (!this.children && retry) {
+			await this.getChildren();
+			retry = false;
+		}
+		if (this.children) {
+			for (const child of this.children) {
+				if (child instanceof PRNode) {
+					if (child.pullRequestModel.equals(pullRequest)) {
+						this.reveal(child, { expand: true, select: true });
+						return true;
+					}
+				}
+			}
+			// If we didn't find the PR, we might need to re-run the query
+			if (retry) {
+				await this.getChildren();
+				return await this.expandPullRequest(pullRequest, false);
+			}
+		}
+		return false;
+	}
+
 	async editQuery() {
 		const config = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE);
 		const inspect = config.inspect<{ label: string; query: string }[]>(QUERIES);
@@ -286,7 +310,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		let hasMorePages = false;
 		let hasUnsearchedRepositories = false;
 		let needLogin = false;
-		if (this._type === PRType.LocalPullRequest) {
+		if (this.type === PRType.LocalPullRequest) {
 			try {
 				this.prs = await this._prsTreeModel.getLocalPullRequests(this._folderRepoManager);
 			} catch (e) {
@@ -296,7 +320,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		} else {
 			try {
 				let response: ItemsResponseResult<PullRequestModel>;
-				switch (this._type) {
+				switch (this.type) {
 					case PRType.All:
 						response = await this._prsTreeModel.getAllPullRequests(this._folderRepoManager, this.fetchNextPage);
 						break;
@@ -320,8 +344,8 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (this.prs && this.prs.length) {
-			const nodes: TreeNode[] = this.prs.map(
-				prItem => new PRNode(this, this._folderRepoManager, prItem, this._type === PRType.LocalPullRequest, this._notificationProvider),
+			const nodes: (PRNode | PRCategoryActionNode)[] = this.prs.map(
+				prItem => new PRNode(this, this._folderRepoManager, prItem, this.type === PRType.LocalPullRequest, this._notificationProvider),
 			);
 			if (hasMorePages) {
 				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.More, this));

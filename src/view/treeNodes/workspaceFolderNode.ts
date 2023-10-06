@@ -10,6 +10,7 @@ import { ITelemetry } from '../../common/telemetry';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
 import { NotificationProvider } from '../../github/notifications';
+import { PullRequestModel } from '../../github/pullRequestModel';
 import { PrsTreeModel } from '../prsTreeModel';
 import { CategoryTreeNode } from './categoryNode';
 import { EXPANDED_QUERIES_STATE, TreeNode, TreeNodeParent } from './treeNode';
@@ -20,6 +21,7 @@ export interface IQueryInfo {
 }
 
 export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
+	protected children: CategoryTreeNode[] | undefined = undefined;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public iconPath?: { light: string | vscode.Uri; dark: string | vscode.Uri };
 
@@ -37,6 +39,17 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 		this.label = path.basename(uri.fsPath);
 		this.id = folderManager.repository.rootUri.toString();
+	}
+
+	public async expandPullRequest(pullRequest: PullRequestModel): Promise<boolean> {
+		if (this.children) {
+			for (const child of this.children) {
+				if (child.type === PRType.All) {
+					return child.expandPullRequest(pullRequest);
+				}
+			}
+		}
+		return false;
 	}
 
 	private static getQueries(folderManager: FolderRepositoryManager): IQueryInfo[] {

@@ -11,7 +11,9 @@ import { ITelemetry } from '../common/telemetry';
 import { EXTENSION_ID } from '../constants';
 import { CredentialStore } from '../github/credentials';
 import { ReposManagerState } from '../github/folderRepositoryManager';
+import { PRType } from '../github/interface';
 import { NotificationProvider } from '../github/notifications';
+import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { findDotComAndEnterpriseRemotes } from '../github/utils';
 import { PRStatusDecorationProvider } from './prStatusDecorationProvider';
@@ -31,7 +33,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		return this._onDidChange.event;
 	}
 	private _disposables: vscode.Disposable[];
-	private _childrenDisposables: TreeNode[];
+	private _children: WorkspaceFolderNode[] | CategoryTreeNode[];
 	private _view: vscode.TreeView<TreeNode>;
 	private _reposManager: RepositoriesManager | undefined;
 	private _initialized: boolean = false;
@@ -66,7 +68,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		});
 
 		this._disposables.push(this._view);
-		this._childrenDisposables = [];
+		this._children = [];
 
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.configurePRViewlet', async () => {
@@ -125,6 +127,23 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 				expandedQueries.delete(element.id);
 			}
 			this._context.workspaceState.update(EXPANDED_QUERIES_STATE, Array.from(expandedQueries.keys()));
+		}
+	}
+
+	public async expandPullRequest(pullRequest: PullRequestModel) {
+		if (this._children.length === 0) {
+			await this.getChildren();
+		}
+		for (const child of this._children) {
+			if (child instanceof WorkspaceFolderNode) {
+				if (child.expandPullRequest(pullRequest)) {
+					return;
+				}
+			} else if (child.type === PRType.All) {
+				if (await child.expandPullRequest(pullRequest)) {
+					return;
+				}
+			}
 		}
 	}
 
@@ -214,9 +233,9 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		return actions;
 	}
 
-	async cachedChildren(element?: TreeNode): Promise<TreeNode[]> {
+	async cachedChildren(element?: WorkspaceFolderNode | CategoryTreeNode): Promise<TreeNode[]> {
 		if (!element) {
-			return this._childrenDisposables;
+			return this._children;
 		}
 		return element.cachedChildren();
 	}
@@ -237,11 +256,11 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		}
 
 		if (!element) {
-			if (this._childrenDisposables && this._childrenDisposables.length) {
-				this._childrenDisposables.forEach(dispose => dispose.dispose());
+			if (this._children && this._children.length) {
+				this._children.forEach(dispose => dispose.dispose());
 			}
 
-			let result: TreeNode[];
+			let result: WorkspaceFolderNode[] | CategoryTreeNode[];
 			if (this._reposManager.folderManagers.length === 1) {
 				result = WorkspaceFolderNode.getCategoryTreeNodes(
 					this._reposManager.folderManagers[0],
@@ -266,8 +285,8 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 				);
 			}
 
-			this._childrenDisposables = result;
-			return Promise.resolve(result);
+			this._children = result;
+			return result;
 		}
 
 		if (
