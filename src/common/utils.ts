@@ -8,7 +8,7 @@ import { sep } from 'path';
 import dayjs from 'dayjs';
 import * as relativeTime from 'dayjs/plugin/relativeTime';
 import * as updateLocale from 'dayjs/plugin/updateLocale';
-import type { Disposable, Event, Uri } from 'vscode';
+import type { Disposable, Event, ExtensionContext, Uri } from 'vscode';
 // TODO: localization for webview needed
 
 dayjs.extend(relativeTime.default, {
@@ -708,6 +708,19 @@ export class UriIterator implements IKeyIterator<Uri> {
 		}
 		throw new Error();
 	}
+}
+
+export function isPreRelease(context: ExtensionContext): boolean {
+	const uri = context.extensionUri;
+	const path = uri.path;
+	const lastIndexOfDot = path.lastIndexOf('.');
+	if (lastIndexOfDot === -1) {
+		return false;
+	}
+	const patchVersion = path.substr(lastIndexOfDot + 1);
+	// The patch version of release versions should never be more than 1 digit since it is only used for recovery releases.
+	// The patch version of pre-release is the date + time. 
+	return patchVersion.length > 1;
 }
 
 class TernarySearchTreeNode<K, V> {
