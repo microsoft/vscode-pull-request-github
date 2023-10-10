@@ -63,8 +63,8 @@ export class CreatePRContextNew {
 		return this.postMessage({ command: 'pr.cancelCreate', args });
 	};
 
-	public updateState = (params: Partial<CreateParamsNew>): void => {
-		this.createParams = { ...this.createParams, ...params };
+	public updateState = (params: Partial<CreateParamsNew>, reset: boolean = false): void => {
+		this.createParams = reset ? { ...defaultCreateParams, ...params } : { ...this.createParams, ...params };
 		vscode.setState(this.createParams);
 		if (this.onchange) {
 			this.onchange(this.createParams);
@@ -226,7 +226,7 @@ export class CreatePRContextNew {
 
 			case 'reset':
 				if (!message.params) {
-					this.updateState(defaultCreateParams);
+					this.updateState(defaultCreateParams, true);
 					return;
 				}
 				message.params.pendingTitle = message.params.defaultTitle ?? this.createParams.pendingTitle;
