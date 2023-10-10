@@ -35,12 +35,14 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	 */
 	private _closedEditorCachedThreads: Set<string> = new Set();
 	private _disposables: vscode.Disposable[] = [];
+	private readonly _context: vscode.ExtensionContext;
 
 	constructor(
 		private pullRequestModel: PullRequestModel,
 		private _folderReposManager: FolderRepositoryManager,
 		private _commentController: vscode.CommentController,
 	) {
+		this._context = _folderReposManager.context;
 		this._commentHandlerId = uuid();
 		registerCommentHandler(this._commentHandlerId, this);
 
@@ -157,6 +159,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 						const range = thread.subjectType === SubjectType.FILE ? undefined : threadRange(thread.startLine - 1, endLine, editor.document.lineAt(endLine).range.end.character);
 
 						return createVSCodeCommentThreadForReviewThread(
+							this._context,
 							editor.document.uri,
 							range,
 							thread,
@@ -231,8 +234,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			if (index > -1) {
 				newThread = this._pendingCommentThreadAdds[index];
 				newThread.gitHubThreadId = thread.id;
-				newThread.comments = thread.comments.map(c => new GHPRComment(c, newThread!, this.pullRequestModel.githubRepository));
-				updateThreadWithRange(newThread, thread, this.pullRequestModel.githubRepository);
+				newThread.comments = thread.comments.map(c => new GHPRComment(this._context, c, newThread!, this.pullRequestModel.githubRepository));
+				updateThreadWithRange(this._context, newThread, thread, this.pullRequestModel.githubRepository);
 				this._pendingCommentThreadAdds.splice(index, 1);
 			} else {
 				const openPREditors = this.getPREditors(vscode.window.visibleTextEditors);
@@ -249,6 +252,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 					const range = thread.subjectType === SubjectType.FILE ? undefined : threadRange(thread.startLine - 1, endLine, matchingEditor.document.lineAt(endLine).range.end.character);
 
 					newThread = createVSCodeCommentThreadForReviewThread(
+						this._context,
 						matchingEditor.document.uri,
 						range,
 						thread,
@@ -275,7 +279,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			const index = this._commentThreadCache[key] ? this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id) : -1;
 			if (index > -1) {
 				const matchingThread = this._commentThreadCache[key][index];
-				updateThread(matchingThread, thread, this.pullRequestModel.githubRepository);
+				updateThread(this._context, matchingThread, thread, this.pullRequestModel.githubRepository);
 			}
 		});
 
@@ -406,7 +410,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 				thread.comments = thread.comments.map(c => {
 					if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-						return new GHPRComment(comment.rawComment, thread);
+						return new GHPRComment(this._context, comment.rawComment, thread);
 					}
 
 					return c;

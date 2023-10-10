@@ -75,6 +75,12 @@ export interface ISuggestedReviewer extends IAccount {
 	isCommenter: boolean;
 }
 
+export function isSuggestedReviewer(
+	reviewer: IAccount | ISuggestedReviewer | ITeam
+): reviewer is ISuggestedReviewer {
+	return 'isAuthor' in reviewer && 'isCommenter' in reviewer;
+}
+
 export interface IMilestone {
 	title: string;
 	dueOn?: string | null;

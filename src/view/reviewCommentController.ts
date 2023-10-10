@@ -55,6 +55,7 @@ export class ReviewCommentController
 	protected _visibleNormalTextEditors: vscode.TextEditor[] = [];
 
 	private _pendingCommentThreadAdds: GHPRCommentThread[] = [];
+	private readonly _context: vscode.ExtensionContext;
 
 	constructor(
 		private _reviewManager: ReviewManager,
@@ -62,6 +63,7 @@ export class ReviewCommentController
 		private _repository: Repository,
 		private _reviewModel: ReviewModel,
 	) {
+		this._context = this._reposManager.context;
 		this._commentController = vscode.comments.createCommentController(
 			`github-review-${_reposManager.activePullRequest!.number}`,
 			_reposManager.activePullRequest!.title,
@@ -103,7 +105,7 @@ export class ReviewCommentController
 		);
 
 		const range = thread.subjectType === SubjectType.FILE ? undefined : threadRange(thread.originalStartLine - 1, thread.originalEndLine - 1);
-		return createVSCodeCommentThreadForReviewThread(reviewUri, range, thread, this._commentController, (await this._reposManager.getCurrentUser()).login, this._reposManager.activePullRequest?.githubRepository);
+		return createVSCodeCommentThreadForReviewThread(this._context, reviewUri, range, thread, this._commentController, (await this._reposManager.getCurrentUser()).login, this._reposManager.activePullRequest?.githubRepository);
 	}
 
 	/**
@@ -136,7 +138,7 @@ export class ReviewCommentController
 			}
 			range = threadRange(adjustedStartLine, adjustedEndLine);
 		}
-		return createVSCodeCommentThreadForReviewThread(uri, range, thread, this._commentController, (await this._reposManager.getCurrentUser()).login, this._reposManager.activePullRequest?.githubRepository);
+		return createVSCodeCommentThreadForReviewThread(this._context, uri, range, thread, this._commentController, (await this._reposManager.getCurrentUser()).login, this._reposManager.activePullRequest?.githubRepository);
 	}
 
 	/**
@@ -162,7 +164,7 @@ export class ReviewCommentController
 		);
 
 		const range = thread.subjectType === SubjectType.FILE ? undefined : threadRange(thread.startLine - 1, thread.endLine - 1);
-		return createVSCodeCommentThreadForReviewThread(reviewUri, range, thread, this._commentController, (await this._reposManager.getCurrentUser()).login, this._reposManager.activePullRequest?.githubRepository);
+		return createVSCodeCommentThreadForReviewThread(this._context, reviewUri, range, thread, this._commentController, (await this._reposManager.getCurrentUser()).login, this._reposManager.activePullRequest?.githubRepository);
 	}
 
 	private async doInitializeCommentThreads(reviewThreads: IReviewThread[]): Promise<void> {
@@ -266,8 +268,8 @@ export class ReviewCommentController
 					if (index > -1) {
 						newThread = this._pendingCommentThreadAdds[index];
 						newThread.gitHubThreadId = thread.id;
-						newThread.comments = thread.comments.map(c => new GHPRComment(c, newThread, activePullRequest.githubRepository));
-						updateThreadWithRange(newThread, thread, activePullRequest.githubRepository);
+						newThread.comments = thread.comments.map(c => new GHPRComment(this._context, c, newThread, activePullRequest.githubRepository));
+						updateThreadWithRange(this._context, newThread, thread, activePullRequest.githubRepository);
 						this._pendingCommentThreadAdds.splice(index, 1);
 					} else {
 						const fullPath = nodePath.join(this._repository.rootUri.path, path).replace(/\\/g, '/');
@@ -306,7 +308,7 @@ export class ReviewCommentController
 					const index = threadMap[thread.path] ? threadMap[thread.path].findIndex(t => t.gitHubThreadId === thread.id) : -1;
 					if (index > -1) {
 						const matchingThread = threadMap[thread.path][index];
-						updateThread(matchingThread, thread, activePullRequest.githubRepository);
+						updateThread(this._context, matchingThread, thread, activePullRequest.githubRepository);
 					}
 				});
 
@@ -343,7 +345,7 @@ export class ReviewCommentController
 				const commentThreads = threads[path];
 				for (const commentThread of commentThreads) {
 					const reviewThread = reviewThreadsForPath.get(commentThread.gitHubThreadId)!;
-					updateThread(commentThread, reviewThread, activePullRequest.githubRepository, expand);
+					updateThread(this._context, commentThread, reviewThread, activePullRequest.githubRepository, expand);
 				}
 			}
 		}
@@ -817,7 +819,7 @@ export class ReviewCommentController
 
 				thread.comments = thread.comments.map(c => {
 					if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-						return new GHPRComment(comment.rawComment, thread);
+						return new GHPRComment(this._context, comment.rawComment, thread);
 					}
 
 					return c;

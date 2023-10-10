@@ -200,7 +200,7 @@ export class GHPRComment extends CommentBase {
 	private _rawBody: string | vscode.MarkdownString;
 	private replacedBody: string;
 
-	constructor(comment: IComment, parent: GHPRCommentThread, private readonly githubRepository?: GitHubRepository) {
+	constructor(context: vscode.ExtensionContext, comment: IComment, parent: GHPRCommentThread, private readonly githubRepository?: GitHubRepository) {
 		super(parent);
 		this.rawComment = comment;
 		this.body = comment.body;
@@ -210,8 +210,8 @@ export class GHPRComment extends CommentBase {
 			iconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined,
 		};
 		if (comment.user) {
-			DataUri.avatarCircleAsImageDataUri(comment.user, 28, 28).then(avatarUri => {
-				this.author.iconPath = avatarUri;
+			DataUri.avatarCirclesAsImageDataUris(context, [comment.user], 28, 28).then(avatarUris => {
+				this.author.iconPath = avatarUris[0];
 				this.refresh();
 			});
 		}

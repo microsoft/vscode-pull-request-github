@@ -187,8 +187,8 @@ describe('GitHub Pull Requests view', function () {
 				return Promise.resolve(gitHubRepository);
 			});
 			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
-			sinon.stub(DataUri, 'avatarCircleAsImageDataUri').callsFake((user: IAccount | ITeam, _height: number, _width: number) => {
-				return Promise.resolve(user.avatarUrl ? vscode.Uri.parse(user.avatarUrl) : undefined);
+			sinon.stub(DataUri, 'avatarCirclesAsImageDataUris').callsFake((context: vscode.ExtensionContext, users: (IAccount | ITeam)[], height: number, width: number, localOnly?: boolean) => {
+				return Promise.resolve(users.map(user => user.avatarUrl ? vscode.Uri.parse(user.avatarUrl) : undefined));
 			});
 			await manager.updateRepositories();
 			provider.initialize(reposManager, [], credentialStore);

@@ -89,7 +89,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 
 	async getTreeItem(): Promise<vscode.TreeItem> {
 		this.label = this._pullRequest.title;
-		this.iconPath = await DataUri.avatarCircleAsImageDataUri(this._pullRequest.author, 16, 16);
+		this.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this._pullRequestManager.context, [this._pullRequest.author], 16, 16))[0];
 		this.updateContextValue();
 		return this;
 	}
