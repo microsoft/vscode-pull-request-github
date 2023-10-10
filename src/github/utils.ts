@@ -89,6 +89,7 @@ export function threadRange(startLine: number, endLine: number, endCharacter?: n
 }
 
 export function createVSCodeCommentThreadForReviewThread(
+	context: vscode.ExtensionContext,
 	uri: vscode.Uri,
 	range: vscode.Range | undefined,
 	thread: IReviewThread,
@@ -100,7 +101,7 @@ export function createVSCodeCommentThreadForReviewThread(
 
 	(vscodeThread as GHPRCommentThread).gitHubThreadId = thread.id;
 
-	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(comment, vscodeThread as GHPRCommentThread, githubRepository));
+	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(context, comment, vscodeThread as GHPRCommentThread, githubRepository));
 	vscodeThread.state = isResolvedToResolvedState(thread.isResolved);
 
 	if (thread.viewerCanResolve && !thread.isResolved) {
@@ -136,7 +137,7 @@ export function getCommentCollapsibleState(thread: IReviewThread, expand?: boole
 }
 
 
-export function updateThreadWithRange(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepository: GitHubRepository, expand?: boolean) {
+export function updateThreadWithRange(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepository: GitHubRepository, expand?: boolean) {
 	if (!vscodeThread.range) {
 		return;
 	}
@@ -145,13 +146,13 @@ export function updateThreadWithRange(vscodeThread: GHPRCommentThread, reviewThr
 		if (editor.document.uri.toString() === vscodeThread.uri.toString()) {
 			const endLine = editor.document.lineAt(vscodeThread.range.end.line);
 			const range = new vscode.Range(vscodeThread.range.start.line, 0, vscodeThread.range.end.line, endLine.text.length);
-			updateThread(vscodeThread, reviewThread, githubRepository, expand, range);
+			updateThread(context, vscodeThread, reviewThread, githubRepository, expand, range);
 			break;
 		}
 	}
 }
 
-export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepository: GitHubRepository, expand?: boolean, range?: vscode.Range) {
+export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepository: GitHubRepository, expand?: boolean, range?: vscode.Range) {
 	if (reviewThread.viewerCanResolve && !reviewThread.isResolved) {
 		vscodeThread.contextValue = 'canResolve';
 	} else if (reviewThread.viewerCanUnresolve && reviewThread.isResolved) {
@@ -176,7 +177,7 @@ export function updateThread(vscodeThread: GHPRCommentThread, reviewThread: IRev
 			index++;
 		}
 	} else {
-		vscodeThread.comments = reviewThread.comments.map(c => new GHPRComment(c, vscodeThread, githubRepository));
+		vscodeThread.comments = reviewThread.comments.map(c => new GHPRComment(context, c, vscodeThread, githubRepository));
 	}
 	updateCommentThreadLabel(vscodeThread);
 }

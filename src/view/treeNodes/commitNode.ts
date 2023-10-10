@@ -37,7 +37,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getTreeItem(): Promise<vscode.TreeItem> {
-		this.iconPath = await DataUri.avatarCircleAsImageDataUri(this.pullRequest.author, 16, 16);
+		this.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.pullRequestManager.context, [this.pullRequest.author], 16, 16))[0];
 		return this;
 	}
 

@@ -13,6 +13,7 @@ import { Repository } from '../api/api';
 import { IAccount, ITeam, reviewerId } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { GitChangeType } from './file';
+import Logger from './logger';
 import { TemporaryState } from './temporaryState';
 
 export interface ReviewUriParams {
@@ -156,53 +157,121 @@ export async function asTempStorageURI(uri: vscode.Uri, repository: Repository):
 }
 
 export namespace DataUri {
+	const iconsFolder = 'userIcons';
+
+	function iconFilename(user: IAccount | ITeam): string {
+		return `${reviewerId(user)}.jpg`;
+	}
+
+	function cacheLocation(context: vscode.ExtensionContext): vscode.Uri {
+		return vscode.Uri.joinPath(context.globalStorageUri, iconsFolder);
+	}
+
+	function fileCacheUri(context: vscode.ExtensionContext, user: IAccount | ITeam): vscode.Uri {
+		return vscode.Uri.joinPath(cacheLocation(context), iconFilename(user));
+	}
+
+	function cacheLogUri(context: vscode.ExtensionContext): vscode.Uri {
+		return vscode.Uri.joinPath(cacheLocation(context), 'cache.log');
+	}
+
+	async function writeAvatarToCache(context: vscode.ExtensionContext, user: IAccount | ITeam, contents: Uint8Array): Promise<vscode.Uri> {
+		await vscode.workspace.fs.createDirectory(cacheLocation(context));
+		const file = fileCacheUri(context, user);
+		await vscode.workspace.fs.writeFile(file, contents);
+		return file;
+	}
+
+	async function readAvatarFromCache(context: vscode.ExtensionContext, user: IAccount | ITeam): Promise<Uint8Array | undefined> {
+		try {
+			const file = fileCacheUri(context, user);
+			return vscode.workspace.fs.readFile(file);
+		} catch (e) {
+			return;
+		}
+	}
+
 	export function asImageDataURI(contents: Buffer): vscode.Uri {
 		return vscode.Uri.parse(
 			`data:image/svg+xml;size:${contents.byteLength};base64,${contents.toString('base64')}`
 		);
 	}
 
-	export async function avatarCircleAsImageDataUri(user: IAccount | ITeam, height: number, width: number, localOnly?: boolean): Promise<vscode.Uri | undefined> {
-		const imageSourceUrl = user.avatarUrl;
-		if (imageSourceUrl === undefined) {
-			return undefined;
-		}
-		const iconsFolder = 'userIcons';
-		const iconFilename = `${reviewerId(user)}.jpg`;
-		let innerImageContents: Buffer | undefined;
+	export async function avatarCirclesAsImageDataUris(context: vscode.ExtensionContext, users: (IAccount | ITeam)[], height: number, width: number, localOnly?: boolean): Promise<(vscode.Uri | undefined)[]> {
+		let cacheLogOrder: string[];
+		const cacheLog = cacheLogUri(context);
 		try {
-			const fileContents = await TemporaryState.read(iconsFolder, iconFilename);
-			if (!fileContents) {
-				throw new Error('Temporary state not initialized');
-			}
-			innerImageContents = Buffer.from(fileContents);
+			const log = await vscode.workspace.fs.readFile(cacheLog);
+			cacheLogOrder = JSON.parse(log.toString());
 		} catch (e) {
-			if (localOnly) {
-				return;
+			cacheLogOrder = [];
+		}
+		const startingCacheSize = cacheLogOrder.length;
+
+		const results = await Promise.all(users.map(async (user) => {
+
+			const imageSourceUrl = user.avatarUrl;
+			if (imageSourceUrl === undefined) {
+				return undefined;
 			}
-			const doFetch = async () => {
-				const response = await fetch(imageSourceUrl.toString());
-				const buffer = await response.arrayBuffer();
-				await TemporaryState.write(iconsFolder, iconFilename, new Uint8Array(buffer), true);
-				innerImageContents = Buffer.from(buffer);
-			};
+			let innerImageContents: Buffer | undefined;
+			let cacheMiss: boolean = false;
 			try {
-				await doFetch();
+				const fileContents = await readAvatarFromCache(context, user);
+				if (!fileContents) {
+					throw new Error('Temporary state not initialized');
+				}
+				innerImageContents = Buffer.from(fileContents);
 			} catch (e) {
-				// We retry once.
-				await doFetch();
+				if (localOnly) {
+					return;
+				}
+				cacheMiss = true;
+				const doFetch = async () => {
+					const response = await fetch(imageSourceUrl.toString());
+					const buffer = await response.arrayBuffer();
+					await writeAvatarToCache(context, user, new Uint8Array(buffer));
+					innerImageContents = Buffer.from(buffer);
+				};
+				try {
+					await doFetch();
+				} catch (e) {
+					// We retry once.
+					await doFetch();
+				}
 			}
-		}
-		if (!innerImageContents) {
-			return undefined;
-		}
-		const innerImageEncoded = `data:image/jpeg;size:${innerImageContents.byteLength};base64,${innerImageContents.toString('base64')}`;
-		const contentsString = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+			if (!innerImageContents) {
+				return undefined;
+			}
+			if (cacheMiss) {
+				const icon = iconFilename(user);
+				cacheLogOrder.push(icon);
+			}
+			const innerImageEncoded = `data:image/jpeg;size:${innerImageContents.byteLength};base64,${innerImageContents.toString('base64')}`;
+			const contentsString = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 		<image href="${innerImageEncoded}" width="${width}" height="${height}" style="clip-path: inset(0 0 0 0 round 50%);"/>
 		</svg>`;
-		const contents = Buffer.from(contentsString);
-		const finalDataUri = asImageDataURI(contents);
-		return finalDataUri;
+			const contents = Buffer.from(contentsString);
+			const finalDataUri = asImageDataURI(contents);
+			return finalDataUri;
+		}));
+
+		const maxCacheSize = Math.max(users.length, 200);
+		if (cacheLogOrder.length > startingCacheSize && startingCacheSize > 0 && cacheLogOrder.length > maxCacheSize) {
+			// The cache is getting big, we should clean it up.
+			const toDelete = cacheLogOrder.splice(0, 50);
+			await Promise.all(toDelete.map(async (id) => {
+				try {
+					await vscode.workspace.fs.delete(vscode.Uri.joinPath(cacheLocation(context), id));
+				} catch (e) {
+					Logger.error(`Failed to delete avatar from cache: ${e}`);
+				}
+			}));
+		}
+
+		await vscode.workspace.fs.writeFile(cacheLog, Buffer.from(JSON.stringify(cacheLogOrder)));
+
+		return results;
 	}
 }
 

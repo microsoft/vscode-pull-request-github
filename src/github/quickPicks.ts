@@ -12,8 +12,40 @@ import { DataUri } from '../common/uri';
 import { formatError } from '../common/utils';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
-import { IAccount, ILabel, IMilestone, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
+import { IAccount, ILabel, IMilestone, isSuggestedReviewer, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
+
+async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context: vscode.ExtensionContext, skipList: Set<string>, users: T[], picked: boolean, tooManyAssignable: boolean = false): Promise<(vscode.QuickPickItem & { assignee?: T })[]> {
+	const alreadyAssignedItems: (vscode.QuickPickItem & { assignee?: T })[] = [];
+	const avatars = await DataUri.avatarCirclesAsImageDataUris(context, users, 16, 16, tooManyAssignable);
+	for (let i = 0; i < users.length; i++) {
+		const user = users[i];
+		if (skipList.has(reviewerId(user))) {
+			continue;
+		}
+
+		let detail: string | undefined;
+		if (isSuggestedReviewer(user)) {
+			detail = user.isAuthor && user.isCommenter
+				? vscode.l10n.t('Recently edited and reviewed changes to these files')
+				: user.isAuthor
+					? vscode.l10n.t('Recently edited these files')
+					: user.isCommenter
+						? vscode.l10n.t('Recently reviewed changes to these files')
+						: vscode.l10n.t('Suggested reviewer');
+		}
+
+		alreadyAssignedItems.push({
+			label: isTeam(user) ? `${user.org}/${user.slug}` : (user as IAccount).login,
+			description: user.name,
+			assignee: user,
+			picked,
+			detail,
+			iconPath: avatars[i] ?? userThemeIcon(user)
+		});
+	}
+	return alreadyAssignedItems;
+};
 
 export async function getAssigneesQuickPickItems(folderRepositoryManager: FolderRepositoryManager, remoteName: string, alreadyAssigned: IAccount[], item?: PullRequestModel):
 	Promise<(vscode.QuickPickItem & { assignee?: IAccount })[]> {
@@ -32,80 +64,44 @@ export async function getAssigneesQuickPickItems(folderRepositoryManager: Folder
 	// e.g. author, existing and already added reviewers
 	const skipList: Set<string> = new Set([...(alreadyAssigned.map(assignee => assignee.login) ?? [])]);
 
-	const assignees: Promise<(vscode.QuickPickItem & { assignee?: IAccount })>[] = [];
-	// Start will all currently assigned so they show at the top
-	for (const current of (alreadyAssigned ?? [])) {
-		assignees.push(DataUri.avatarCircleAsImageDataUri(current, 16, 16).then(avatarUrl => {
-			return {
-				label: current.login,
-				description: current.name,
-				assignee: current,
-				picked: true,
-				iconPath: avatarUrl
-			};
-		}));
+	const assigneePromises: Promise<(vscode.QuickPickItem & { assignee?: IAccount })[]>[] = [];
+
+	// Start with all currently assigned so they show at the top
+	if (alreadyAssigned.length) {
+		assigneePromises.push(getItems<IAccount>(folderRepositoryManager.context, skipList, alreadyAssigned ?? [], true));
 	}
 
 	// Check if the viewer is allowed to be assigned to the PR
 	if (viewer && !skipList.has(viewer.login) && (assignableUsers.findIndex((assignableUser: IAccount) => assignableUser.login === viewer.login) !== -1)) {
-		assignees.push(DataUri.avatarCircleAsImageDataUri(viewer, 16, 16).then(avatarUrl => {
-			return {
-				label: viewer.login,
-				description: viewer.name,
-				assignee: viewer,
-				iconPath: avatarUrl
-			};
-		}));
-		skipList.add(viewer.login);
+		assigneePromises.push(getItems<IAccount>(folderRepositoryManager.context, skipList, [viewer], false));
 	}
 
-	for (const suggestedReviewer of participants) {
-		if (skipList.has(suggestedReviewer.login)) {
-			continue;
-		}
-
-		assignees.push(DataUri.avatarCircleAsImageDataUri(suggestedReviewer, 16, 16).then(avatarUrl => {
-			return {
-				label: suggestedReviewer.login,
-				description: suggestedReviewer.name,
-				assignee: suggestedReviewer,
-				iconPath: avatarUrl
-			};
-		}));
-		// this user shouldn't be added later from assignable users list
-		skipList.add(suggestedReviewer.login);
+	// Suggested reviewers
+	if (participants.length) {
+		assigneePromises.push(getItems<IAccount>(folderRepositoryManager.context, skipList, participants, false));
 	}
 
-	if (assignees.length !== 0) {
-		assignees.unshift(Promise.resolve({
+	if (assigneePromises.length !== 0) {
+		assigneePromises.unshift(Promise.resolve([{
 			kind: vscode.QuickPickItemKind.Separator,
 			label: vscode.l10n.t('Suggestions')
-		}));
+		}]));
 	}
 
-	const tooManyAssignable = assignableUsers.length > 80;
-	for (const user of assignableUsers) {
-		if (skipList.has(user.login)) {
-			continue;
-		}
-
-		assignees.push(DataUri.avatarCircleAsImageDataUri(user, 16, 16, tooManyAssignable).then(avatarUrl => {
-			return {
-				label: user.login,
-				description: user.name,
-				assignee: user,
-				iconPath: avatarUrl ?? userThemeIcon(user)
-			};
-		}));
+	if (assignableUsers.length) {
+		const tooManyAssignable = assignableUsers.length > 80;
+		assigneePromises.push(getItems<IAccount>(folderRepositoryManager.context, skipList, assignableUsers, false, tooManyAssignable));
 	}
+
+	const assignees = (await Promise.all(assigneePromises)).flat();
 
 	if (assignees.length === 0) {
-		assignees.push(Promise.resolve({
+		assignees.push({
 			label: vscode.l10n.t('No assignees available for this repository')
-		}));
+		});
 	}
 
-	return Promise.all(assignees);
+	return assignees;
 }
 
 function userThemeIcon(user: IAccount | ITeam) {
@@ -134,71 +130,28 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 		}),
 	]);
 
-	const reviewers: Promise<(vscode.QuickPickItem & { reviewer?: IAccount | ITeam })>[] = [];
-	// Start will all existing reviewers so they show at the top
-	for (const reviewer of existingReviewers) {
-		reviewers.push(DataUri.avatarCircleAsImageDataUri(reviewer.reviewer, 16, 16).then(avatarUrl => {
-			return {
-				label: isTeam(reviewer.reviewer) ? `${reviewer.reviewer.org}/${reviewer.reviewer.slug}` : reviewer.reviewer.login,
-				description: reviewer.reviewer.name,
-				reviewer: reviewer.reviewer,
-				picked: true,
-				iconPath: avatarUrl ?? userThemeIcon(reviewer.reviewer)
-			};
-		}));
+	const reviewersPromises: Promise<(vscode.QuickPickItem & { reviewer?: IAccount | ITeam })[]>[] = [];
+
+	// Start with all existing reviewers so they show at the top
+	if (existingReviewers.length) {
+		reviewersPromises.push(getItems<IAccount | ITeam>(folderRepositoryManager.context, skipList, existingReviewers.map(reviewer => reviewer.reviewer), true));
 	}
 
-	for (const user of suggestedReviewers) {
-		const { login, name, isAuthor, isCommenter } = user;
-		if (skipList.has(login)) {
-			continue;
-		}
+	// Suggested reviewers
+	reviewersPromises.push(getItems<ISuggestedReviewer>(folderRepositoryManager.context, skipList, suggestedReviewers, false));
 
-		const suggestionReason: string =
-			isAuthor && isCommenter
-				? vscode.l10n.t('Recently edited and reviewed changes to these files')
-				: isAuthor
-					? vscode.l10n.t('Recently edited these files')
-					: isCommenter
-						? vscode.l10n.t('Recently reviewed changes to these files')
-						: vscode.l10n.t('Suggested reviewer');
+	const tooManyAssignable = assignableUsers.length > 60;
+	reviewersPromises.push(getItems<IAccount | ITeam>(folderRepositoryManager.context, skipList, assignableUsers, false, tooManyAssignable));
 
-		reviewers.push(DataUri.avatarCircleAsImageDataUri(user, 16, 16).then(avatarUrl => {
-			return {
-				label: login,
-				description: name,
-				detail: suggestionReason,
-				reviewer: user,
-				iconPath: avatarUrl ?? userThemeIcon(user)
-			};
-		}));
-		// this user shouldn't be added later from assignable users list
-		skipList.add(login);
-	}
-
-	const tooManyAssignable = assignableUsers.length > 80;
-	for (const user of assignableUsers) {
-		if (skipList.has(reviewerId(user))) {
-			continue;
-		}
-
-		reviewers.push(DataUri.avatarCircleAsImageDataUri(user, 16, 16, tooManyAssignable).then(avatarUrl => {
-			return {
-				label: isTeam(user) ? `${user.org}/${user.slug}` : user.login,
-				description: user.name,
-				reviewer: user,
-				iconPath: avatarUrl ?? userThemeIcon(user)
-			};
-		}));
-	}
+	const reviewers = (await Promise.all(reviewersPromises)).flat();
 
 	if (reviewers.length === 0) {
-		reviewers.push(Promise.resolve({
+		reviewers.push({
 			label: vscode.l10n.t('No reviewers available for this repository')
-		}));
+		});
 	}
 
-	return Promise.all(reviewers);
+	return reviewers;
 }
 
 export async function reviewersQuickPick(folderRepositoryManager: FolderRepositoryManager, remoteName: string, isInOrganization: boolean, teamsCount: number, author: IAccount, existingReviewers: ReviewState[],
