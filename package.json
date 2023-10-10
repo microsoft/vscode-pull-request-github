@@ -334,14 +334,18 @@
 					"enum": [
 						"none",
 						"openOverview",
-						"checkoutDefaultBranch"
+						"checkoutDefaultBranch",
+						"checkoutDefaultBranchAndShow",
+						"checkoutDefaultBranchAndCopy"
 					],
 					"description": "%githubPullRequests.postCreate.description%",
 					"default": "openOverview",
 					"enumDescriptions": [
 						"%githubPullRequests.postCreate.none%",
 						"%githubPullRequests.postCreate.openOverview%",
-						"%githubPullRequests.postCreate.checkoutDefaultBranch%"
+						"%githubPullRequests.postCreate.checkoutDefaultBranch%",
+						"%githubPullRequests.postCreate.checkoutDefaultBranchAndShow%",
+						"%githubPullRequests.postCreate.checkoutDefaultBranchAndCopy%"
 					]
 				},
 				"githubPullRequests.defaultCommentType": {
