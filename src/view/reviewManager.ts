@@ -1101,7 +1101,7 @@ export class ReviewManager {
 
 	public async createPullRequest(compareBranch?: string): Promise<void> {
 		const disposable = this._createPullRequestHelper.onDidCreate(async createdPR => {
-			const postCreate = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'none' | 'openOverview' | 'checkoutDefaultBranch'>(POST_CREATE, 'openOverview');
+			const postCreate = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'none' | 'openOverview' | 'checkoutDefaultBranch' | 'checkoutDefaultBranchAndShow' | 'checkoutDefaultBranchAndCopy'>(POST_CREATE, 'openOverview');
 			if (postCreate === 'openOverview') {
 				const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(this._folderRepoManager);
 				await openDescription(
@@ -1112,12 +1112,21 @@ export class ReviewManager {
 					this._folderRepoManager,
 					true
 				);
-			} else if (postCreate === 'checkoutDefaultBranch') {
+			} else if (postCreate.startsWith('checkoutDefaultBranch')) {
 				const defaultBranch = await this._folderRepoManager.getPullRequestRepositoryDefaultBranch(createdPR);
 				if (defaultBranch) {
-					await vscode.commands.executeCommand('pr:github.focus');
-					await this._folderRepoManager.checkoutDefaultBranch(defaultBranch);
-					await this._pullRequestsTree.expandPullRequest(createdPR);
+					if (postCreate === 'checkoutDefaultBranch') {
+						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch);
+					} if (postCreate === 'checkoutDefaultBranchAndShow') {
+						await vscode.commands.executeCommand('pr:github.focus');
+						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch);
+						await this._pullRequestsTree.expandPullRequest(createdPR);
+					} else if (postCreate === 'checkoutDefaultBranchAndCopy') {
+						await Promise.all([
+							this._folderRepoManager.checkoutDefaultBranch(defaultBranch),
+							vscode.env.clipboard.writeText(createdPR.html_url)
+						]);
+					}
 				}
 			}
 			await this.updateState(false, false);

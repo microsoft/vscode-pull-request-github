@@ -64,6 +64,8 @@
 	"githubPullRequests.postCreate.none": "No action",
 	"githubPullRequests.postCreate.openOverview": "Open the overview page of the pull request",
 	"githubPullRequests.postCreate.checkoutDefaultBranch": "Checkout the default branch of the repository",
+	"githubPullRequests.postCreate.checkoutDefaultBranchAndShow": "Checkout the default branch of the repository and show the pull request in the Pull Requests view",
+	"githubPullRequests.postCreate.checkoutDefaultBranchAndCopy": "Checkout the default branch of the repository and copy a link to the pull request to the clipboard",
 	"githubPullRequests.defaultCommentType.description": "The default comment type to use when submitting a comment and there is no active review",
 	"githubPullRequests.defaultCommentType.single": "Submits the comment as a single comment that will be immediately visible to other users",
 	"githubPullRequests.defaultCommentType.review": "Submits the comment as a review comment that will be visible to other users once the review is submitted",
