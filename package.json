@@ -1957,11 +1957,6 @@
 					"when": "view == prStatus:github && viewItem =~ /commit/"
 				},
 				{
-					"command": "pr.openDescriptionToTheSide",
-					"group": "inline",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description/"
-				},
-				{
 					"command": "pr.showDiffSinceLastReview",
 					"group": "inline",
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:(active|nonactive):hasChangesSinceReview:showingAllChanges/"
