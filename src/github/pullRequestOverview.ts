@@ -356,25 +356,25 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async changeReviewers(message: IRequestMessage<void>): Promise<void> {
 		let quickPick: vscode.QuickPick<vscode.QuickPickItem & {
-			reviewer?: IAccount | ITeam | undefined;
+			user?: IAccount | ITeam | undefined;
 		}> | undefined;
 
 		try {
 			quickPick = await reviewersQuickPick(this._folderRepositoryManager, this._item.remote.remoteName, this._item.base.isInOrganization, this._teamsCount, this._item.author, this._existingReviewers, this._item.suggestedReviewers);
 			quickPick.busy = false;
 			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
-				return quickPick!.selectedItems.filter(item => item.reviewer) as (vscode.QuickPickItem & { reviewer: IAccount | ITeam })[] | undefined;
+				return quickPick!.selectedItems.filter(item => item.user) as (vscode.QuickPickItem & { user: IAccount | ITeam })[] | undefined;
 			});
 			const hidePromise = asPromise<void>(quickPick.onDidHide);
-			const allReviewers = await Promise.race<(vscode.QuickPickItem & { reviewer: IAccount | ITeam })[] | void>([acceptPromise, hidePromise]);
+			const allReviewers = await Promise.race<(vscode.QuickPickItem & { user: IAccount | ITeam })[] | void>([acceptPromise, hidePromise]);
 			quickPick.busy = true;
 
 			if (allReviewers) {
 				const newUserReviewers: string[] = [];
 				const newTeamReviewers: string[] = [];
 				allReviewers.forEach(reviewer => {
-					const newReviewers = isTeam(reviewer.reviewer) ? newTeamReviewers : newUserReviewers;
-					newReviewers.push(reviewer.reviewer.id);
+					const newReviewers = isTeam(reviewer.user) ? newTeamReviewers : newUserReviewers;
+					newReviewers.push(reviewer.user.id);
 				});
 
 				const removedUserReviewers: string[] = [];
@@ -391,7 +391,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				await this._item.deleteReviewRequest(removedUserReviewers, removedTeamReviewers);
 				const addedReviewers: ReviewState[] = allReviewers.map(selected => {
 					return {
-						reviewer: selected.reviewer,
+						reviewer: selected.user,
 						state: 'REQUESTED',
 					};
 				});
@@ -434,7 +434,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async changeAssignees(message: IRequestMessage<void>): Promise<void> {
-		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { assignee?: IAccount }>();
+		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { user?: IAccount }>();
 
 		try {
 			quickPick.busy = true;
@@ -446,14 +446,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			quickPick.busy = false;
 			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
-				return quickPick.selectedItems.filter(item => item.assignee) as (vscode.QuickPickItem & { assignee: IAccount })[] | undefined;
+				return quickPick.selectedItems.filter(item => item.user) as (vscode.QuickPickItem & { user: IAccount })[] | undefined;
 			});
 			const hidePromise = asPromise<void>(quickPick.onDidHide);
-			const allAssignees = await Promise.race<(vscode.QuickPickItem & { assignee: IAccount })[] | void>([acceptPromise, hidePromise]);
+			const allAssignees = await Promise.race<(vscode.QuickPickItem & { user: IAccount })[] | void>([acceptPromise, hidePromise]);
 			quickPick.busy = true;
 
 			if (allAssignees) {
-				const newAssignees: IAccount[] = allAssignees.map(item => item.assignee);
+				const newAssignees: IAccount[] = allAssignees.map(item => item.user);
 				const removeAssignees: IAccount[] = this._item.assignees?.filter(currentAssignee => !newAssignees.find(newAssignee => newAssignee.login === currentAssignee.login)) ?? [];
 				this._item.assignees = newAssignees;
 

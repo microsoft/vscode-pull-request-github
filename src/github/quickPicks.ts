@@ -15,14 +15,21 @@ import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
 import { IAccount, ILabel, IMilestone, isSuggestedReviewer, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 
-async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context: vscode.ExtensionContext, skipList: Set<string>, users: T[], picked: boolean, tooManyAssignable: boolean = false): Promise<(vscode.QuickPickItem & { assignee?: T })[]> {
-	const alreadyAssignedItems: (vscode.QuickPickItem & { assignee?: T })[] = [];
-	const avatars = await DataUri.avatarCirclesAsImageDataUris(context, users, 16, 16, tooManyAssignable);
-	for (let i = 0; i < users.length; i++) {
-		const user = users[i];
-		if (skipList.has(reviewerId(user))) {
-			continue;
+async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context: vscode.ExtensionContext, skipList: Set<string>, users: T[], picked: boolean, tooManyAssignable: boolean = false): Promise<(vscode.QuickPickItem & { user?: T })[]> {
+	const alreadyAssignedItems: (vscode.QuickPickItem & { user?: T })[] = [];
+	// Address skip list before first await
+	const filteredUsers: T[] = [];
+	for (const user of users) {
+		const id = reviewerId(user);
+		if (!skipList.has(id)) {
+			filteredUsers.push(user);
+			skipList.add(id);
 		}
+	}
+
+	const avatars = await DataUri.avatarCirclesAsImageDataUris(context, filteredUsers, 16, 16, tooManyAssignable);
+	for (let i = 0; i < filteredUsers.length; i++) {
+		const user = filteredUsers[i];
 
 		let detail: string | undefined;
 		if (isSuggestedReviewer(user)) {
@@ -38,7 +45,7 @@ async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context
 		alreadyAssignedItems.push({
 			label: isTeam(user) ? `${user.org}/${user.slug}` : (user as IAccount).login,
 			description: user.name,
-			assignee: user,
+			user,
 			picked,
 			detail,
 			iconPath: avatars[i] ?? userThemeIcon(user)
@@ -48,7 +55,7 @@ async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context
 };
 
 export async function getAssigneesQuickPickItems(folderRepositoryManager: FolderRepositoryManager, remoteName: string, alreadyAssigned: IAccount[], item?: PullRequestModel):
-	Promise<(vscode.QuickPickItem & { assignee?: IAccount })[]> {
+	Promise<(vscode.QuickPickItem & { user?: IAccount })[]> {
 
 	const [allAssignableUsers, participantsAndViewer] = await Promise.all([
 		folderRepositoryManager.getAssignableUsers(),
@@ -62,7 +69,7 @@ export async function getAssigneesQuickPickItems(folderRepositoryManager: Folder
 	assignableUsers = assignableUsers ?? [];
 	// used to track logins that shouldn't be added to pick list
 	// e.g. author, existing and already added reviewers
-	const skipList: Set<string> = new Set([...(alreadyAssigned.map(assignee => assignee.login) ?? [])]);
+	const skipList: Set<string> = new Set();
 
 	const assigneePromises: Promise<(vscode.QuickPickItem & { assignee?: IAccount })[]>[] = [];
 
@@ -110,7 +117,7 @@ function userThemeIcon(user: IAccount | ITeam) {
 
 async function getReviewersQuickPickItems(folderRepositoryManager: FolderRepositoryManager, remoteName: string, isInOrganization: boolean, author: IAccount, existingReviewers: ReviewState[],
 	suggestedReviewers: ISuggestedReviewer[] | undefined, refreshKind: TeamReviewerRefreshKind,
-): Promise<(vscode.QuickPickItem & { reviewer?: IAccount | ITeam })[]> {
+): Promise<(vscode.QuickPickItem & { user?: IAccount | ITeam })[]> {
 	if (!suggestedReviewers) {
 		return [];
 	}
@@ -124,10 +131,7 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 	// used to track logins that shouldn't be added to pick list
 	// e.g. author, existing and already added reviewers
 	const skipList: Set<string> = new Set([
-		author.login,
-		...existingReviewers.map(reviewer => {
-			return reviewerId(reviewer.reviewer);
-		}),
+		author.login
 	]);
 
 	const reviewersPromises: Promise<(vscode.QuickPickItem & { reviewer?: IAccount | ITeam })[]>[] = [];
@@ -156,9 +160,9 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 
 export async function reviewersQuickPick(folderRepositoryManager: FolderRepositoryManager, remoteName: string, isInOrganization: boolean, teamsCount: number, author: IAccount, existingReviewers: ReviewState[],
 	suggestedReviewers: ISuggestedReviewer[] | undefined): Promise<vscode.QuickPick<vscode.QuickPickItem & {
-		reviewer?: IAccount | ITeam | undefined;
+		user?: IAccount | ITeam | undefined;
 	}>> {
-	const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { reviewer?: IAccount | ITeam }>();
+	const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { user?: IAccount | ITeam }>();
 	// The quick-max is used to show the "update reviewers" button. If the number of teams is less than the quick-max, then they'll be automatically updated when the quick pick is opened.
 	const quickMaxTeamReviewers = 100;
 	const defaultPlaceholder = vscode.l10n.t('Add reviewers');
