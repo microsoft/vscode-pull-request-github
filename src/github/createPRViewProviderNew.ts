@@ -588,7 +588,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	private reviewers: (IAccount | ITeam)[] = [];
 	public async addReviewers(): Promise<void> {
 		let quickPick: vscode.QuickPick<vscode.QuickPickItem & {
-			reviewer?: IAccount | ITeam | undefined;
+			user?: IAccount | ITeam | undefined;
 		}> | undefined;
 		const remote = await this.getRemote();
 		try {
@@ -597,14 +597,14 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			quickPick = await reviewersQuickPick(this._folderRepositoryManager, remote.remoteName, !!metadata?.organization, teamsCount, author, this.reviewers.map(reviewer => { return { reviewer, state: 'REQUESTED' }; }), []);
 			quickPick.busy = false;
 			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
-				return quickPick!.selectedItems.filter(item => item.reviewer) as (vscode.QuickPickItem & { reviewer: IAccount | ITeam })[] | undefined;
+				return quickPick!.selectedItems.filter(item => item.user) as (vscode.QuickPickItem & { user: IAccount | ITeam })[] | undefined;
 			});
 			const hidePromise = asPromise<void>(quickPick.onDidHide);
-			const allReviewers = await Promise.race<(vscode.QuickPickItem & { reviewer: IAccount | ITeam })[] | void>([acceptPromise, hidePromise]);
+			const allReviewers = await Promise.race<(vscode.QuickPickItem & { user: IAccount | ITeam })[] | void>([acceptPromise, hidePromise]);
 			quickPick.busy = true;
 
 			if (allReviewers) {
-				this.reviewers = allReviewers.map(item => item.reviewer);
+				this.reviewers = allReviewers.map(item => item.user);
 				this._postMessage({
 					command: 'set-reviewers',
 					params: { reviewers: this.reviewers }
@@ -625,7 +625,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		const assigneesToAdd = await vscode.window.showQuickPick(getAssigneesQuickPickItems(this._folderRepositoryManager, remote.remoteName, this.assignees),
 			{ canPickMany: true, placeHolder: vscode.l10n.t('Add assignees') });
 		if (assigneesToAdd) {
-			const addedAssignees = assigneesToAdd.map(assignee => assignee.assignee).filter<IAccount>((assignee): assignee is IAccount => !!assignee);
+			const addedAssignees = assigneesToAdd.map(assignee => assignee.user).filter<IAccount>((assignee): assignee is IAccount => !!assignee);
 			this.assignees = addedAssignees;
 			this._postMessage({
 				command: 'set-assignees',
