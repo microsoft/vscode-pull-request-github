@@ -445,6 +445,14 @@ export interface UpdatePullRequestResponse {
 	};
 }
 
+export interface AddPullRequestToProjectResponse {
+	addProjectV2ItemById: {
+		item: {
+			id: string;
+		};
+	};
+}
+
 export interface GetBranchResponse {
 	repository: {
 		ref: {
@@ -547,6 +555,15 @@ export interface PullRequest {
 	viewerCanDisableAutoMerge: boolean;
 	isDraft?: boolean;
 	suggestedReviewers: SuggestedReviewerResponse[];
+	projectItems?: {
+		nodes: {
+			project: {
+				id: string;
+				title: string;
+			},
+			id: string
+		}[];
+	};
 	milestone?: {
 		title: string;
 		dueOn?: string;
@@ -588,6 +605,17 @@ export interface IssuesSearchResponse {
 		}[];
 	};
 	rateLimit: RateLimit;
+}
+
+export interface RepoProjectsResponse {
+	repository: {
+		projectsV2: {
+			nodes: {
+				title: string;
+				id: string;
+			}[];
+		}
+	}
 }
 
 export interface MilestoneIssuesResponse {

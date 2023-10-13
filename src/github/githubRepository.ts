@@ -32,12 +32,14 @@ import {
 	PullRequestParticipantsResponse,
 	PullRequestResponse,
 	PullRequestsResponse,
+	RepoProjectsResponse,
 	ViewerPermissionResponse,
 } from './graphql';
 import {
 	CheckState,
 	IAccount,
 	IMilestone,
+	IProject,
 	Issue,
 	ITeam,
 	PullRequest,
@@ -49,6 +51,8 @@ import { IssueModel } from './issueModel';
 import { LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
 import defaultSchema from './queries.gql';
+import * as limitedSchema from './queriesLimited.gql';
+import * as sharedSchema from './queriesShared.gql';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	getAvatarWithEnterpriseFallback,
@@ -121,6 +125,7 @@ export class GitHubRepository implements vscode.Disposable {
 	public commentsController?: vscode.CommentController;
 	public commentsHandler?: PRCommentControllerRegistry;
 	private _pullRequestModels = new Map<number, PullRequestModel>();
+	private _queriesSchema: any;
 
 	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = new vscode.EventEmitter();
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
@@ -181,6 +186,7 @@ export class GitHubRepository implements vscode.Disposable {
 		private readonly _telemetry: ITelemetry,
 		silent: boolean = false
 	) {
+		this._queriesSchema = this.mergeQuerySchemaWithShared(defaultSchema as any);
 		// kick off the comments controller early so that the Comments view is visible and doesn't pop up later in an way that's jarring
 		if (!silent) {
 			this.ensureCommentsController();
@@ -268,7 +274,7 @@ export class GitHubRepository implements vscode.Disposable {
 	};
 
 	get schema() {
-		return defaultSchema as any;
+		return this._queriesSchema;
 	}
 
 	async getMetadata(): Promise<IMetadata> {
@@ -307,38 +313,47 @@ export class GitHubRepository implements vscode.Disposable {
 		return true;
 	}
 
-	async ensure(): Promise<GitHubRepository> {
-		this._initialized = true;
+	private mergeQuerySchemaWithShared(schema: { [key: string]: any, definitions: any[] }) {
+		const sharedSchemaDefinitions = sharedSchema.default.definitions;
+		const schemaDefinitions = schema.definitions;
+		const mergedDefinitions = schemaDefinitions.concat(sharedSchemaDefinitions);
+		return {
+			...schema,
+			...sharedSchema.default,
+			definitions: mergedDefinitions
+		};
+	}
 
+	async ensure(additionalScopes: boolean = false): Promise<GitHubRepository> {
+		this._initialized = true;
+		const oldHub = this._hub;
 		if (!this._credentialStore.isAuthenticated(this.remote.authProviderId)) {
 			// We need auth now. (ex., a PR is already checked out)
 			// We can no longer wait until later for login to be done
-			await this._credentialStore.create();
+			await this._credentialStore.create(undefined, additionalScopes);
 			if (!this._credentialStore.isAuthenticated(this.remote.authProviderId)) {
 				this._hub = await this._credentialStore.showSignInNotification(this.remote.authProviderId);
 			}
 		} else {
-			this._hub = this._credentialStore.getHub(this.remote.authProviderId);
+			if (additionalScopes) {
+				this._hub = await this._credentialStore.getHubEnsureAdditionalScopes(this.remote.authProviderId);
+			} else {
+				this._hub = this._credentialStore.getHub(this.remote.authProviderId);
+			}
 		}
 
+		if (oldHub !== this._hub) {
+			if (this._credentialStore.areScopesOld(this.remote.authProviderId)) {
+				this._queriesSchema = this.mergeQuerySchemaWithShared(limitedSchema.default as any);
+			} else {
+				this._queriesSchema = this.mergeQuerySchemaWithShared(defaultSchema as any);
+			}
+		}
 		return this;
 	}
 
 	async ensureAdditionalScopes(): Promise<GitHubRepository> {
-		this._initialized = true;
-
-		if (!this._credentialStore.isAuthenticated(this.remote.authProviderId)) {
-			// We need auth now. (ex., a PR is already checked out)
-			// We can no longer wait until later for login to be done
-			await this._credentialStore.create(undefined, true);
-			if (!this._credentialStore.isAuthenticated(this.remote.authProviderId)) {
-				this._hub = await this._credentialStore.showSignInNotification(this.remote.authProviderId);
-			}
-		} else {
-			this._hub = await this._credentialStore.getHubEnsureAdditionalScopes(this.remote.authProviderId);
-		}
-
-		return this;
+		return this.ensure(true);
 	}
 
 	async getDefaultBranch(): Promise<string> {
@@ -487,6 +502,38 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 
 		return undefined;
+	}
+
+	async getProjects(): Promise<IProject[] | undefined> {
+		try {
+			Logger.debug(`Fetch projects - enter`, GitHubRepository.ID);
+			let { query, remote, schema } = await this.ensure();
+			if (!schema.GetRepoProjects) {
+				const additional = await this.ensureAdditionalScopes();
+				query = additional.query;
+				remote = additional.remote;
+				schema = additional.schema;
+			}
+			const { data } = await query<RepoProjectsResponse>({
+				query: schema.GetRepoProjects,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+				},
+			});
+			Logger.debug(`Fetch projects - done`, GitHubRepository.ID);
+
+			const projects: IProject[] = [];
+			if (data && data.repository.projectsV2 && data.repository.projectsV2.nodes) {
+				data.repository.projectsV2.nodes.forEach(raw => {
+					projects.push(raw);
+				});
+			}
+			return projects;
+		} catch (e) {
+			Logger.error(`Unable to fetch projects: ${e}`, GitHubRepository.ID);
+			return;
+		}
 	}
 
 	async getMilestones(includeClosed: boolean = false): Promise<IMilestone[] | undefined> {

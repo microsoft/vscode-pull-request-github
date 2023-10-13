@@ -9,6 +9,7 @@ import {
 	IAccount,
 	ILabel,
 	IMilestone,
+	IProjectItem,
 	MergeMethod,
 	MergeMethodsAvailability,
 	PullRequestChecks,
@@ -43,6 +44,7 @@ export interface PullRequest {
 	labels: ILabel[];
 	assignees: IAccount[];
 	commitsCount: number;
+	projectItems: IProjectItem[] | undefined;
 	milestone: IMilestone | undefined;
 	repositoryDefaultBranch: string;
 	/**
@@ -76,4 +78,8 @@ export interface PullRequest {
 
 	lastReviewType?: ReviewType;
 	busy?: boolean;
+}
+
+export interface ProjectItemsReply {
+	projectItems: IProjectItem[];
 }

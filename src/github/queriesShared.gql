@@ -1,0 +1,1403 @@
+# /*---------------------------------------------------------------------------------------------
+#  *  Copyright (c) Microsoft Corporation. All rights reserved.
+#  *  Licensed under the MIT License. See License.txt in the project root for license information.
+#  *--------------------------------------------------------------------------------------------*/
+
+fragment RateLimit on RateLimit {
+	limit
+	cost
+	remaining
+	resetAt
+}
+
+fragment Merged on MergedEvent {
+	id
+	actor {
+		login
+		avatarUrl
+		url
+	}
+	createdAt
+	mergeRef {
+		name
+	}
+	commit {
+		oid
+		commitUrl
+	}
+	url
+}
+
+fragment HeadRefDeleted on HeadRefDeletedEvent {
+	id
+	actor {
+		login
+		avatarUrl
+		url
+	}
+	createdAt
+	headRefName
+}
+
+fragment Ref on Ref {
+	name
+	repository {
+		owner {
+			login
+		}
+		url
+	}
+	target {
+		oid
+	}
+}
+
+fragment Comment on IssueComment {
+	id
+	databaseId
+	authorAssociation
+	author {
+		login
+		avatarUrl
+		url
+		... on User {
+			email
+			id
+		}
+		... on Organization {
+			email
+			id
+		}
+	}
+	url
+	body
+	bodyHTML
+	updatedAt
+	createdAt
+	viewerCanUpdate
+	viewerCanReact
+	viewerCanDelete
+}
+
+fragment Commit on PullRequestCommit {
+	id
+	commit {
+		author {
+			user {
+				login
+				avatarUrl
+				id
+				url
+				email
+			}
+		}
+		committer {
+			avatarUrl
+			name
+		}
+		oid
+		message
+		authoredDate
+	}
+	url
+}
+
+fragment AssignedEvent on AssignedEvent {
+	id
+	actor {
+		login
+		avatarUrl
+		url
+	}
+	user {
+		login
+		avatarUrl
+		id
+		url
+	}
+}
+
+fragment Review on PullRequestReview {
+	id
+	databaseId
+	authorAssociation
+	url
+	author {
+		login
+		avatarUrl
+		url
+		... on User {
+			email
+			id
+		}
+		... on Organization {
+			email
+			id
+		}
+	}
+	state
+	body
+	bodyHTML
+	submittedAt
+	updatedAt
+	createdAt
+}
+
+fragment Reactable on Reactable {
+	reactionGroups {
+		content
+		viewerHasReacted
+		users {
+			totalCount
+		}
+	}
+}
+
+
+fragment ReviewThread on PullRequestReviewThread {
+	id
+	isResolved
+	viewerCanResolve
+	viewerCanUnresolve
+	path
+	diffSide
+	line
+	startLine
+	originalStartLine
+	originalLine
+	isOutdated
+	subjectType
+	comments(first: 100) {
+		nodes {
+			...ReviewComment
+		}
+	}
+}
+
+fragment LegacyReviewThread on PullRequestReviewThread {
+	id
+	isResolved
+	viewerCanResolve
+	viewerCanUnresolve
+	path
+	diffSide
+	line
+	startLine
+	originalStartLine
+	originalLine
+	isOutdated
+	comments(first: 100) {
+		nodes {
+			...ReviewComment
+		}
+	}
+}
+
+
+query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 150) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			timelineItems(last: $last) {
+				nodes {
+					__typename
+					...Merged
+					...Comment
+					...Review
+					...Commit
+					...AssignedEvent
+					...HeadRefDeleted
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 150) {
+	repository(owner: $owner, name: $name) {
+		pullRequest: issue(number: $number) {
+			timelineItems(last: $last) {
+				nodes {
+					__typename
+					...Comment
+					...AssignedEvent
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query LatestReviewCommit($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			viewerLatestReview {
+				commit {
+					oid
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query LatestReviews($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			latestReviews (first: 10) {
+				nodes {
+					state
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query GetOrganizationTeamsCount($login: String!) {
+	organization(login: $login) {
+		teams(first: 0, privacy: VISIBLE) {
+			totalCount
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query GetOrganizationTeams($login: String!, $after: String, $repoName: String!) {
+	organization(login: $login) {
+		teams(first: 100, after: $after, privacy: VISIBLE) {
+			nodes {
+				name
+				avatarUrl
+				url
+				repositories(first: 5, query: $repoName) {
+					nodes {
+						name
+					}
+				}
+				slug
+				id
+			}
+			totalCount
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query GetReviewRequestsAdditionalScopes($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			reviewRequests(first: 100) {
+				nodes {
+					requestedReviewer {
+						... on User {
+							login
+							avatarUrl
+							id
+							url
+							email
+							name
+						}
+						... on Team {
+							name
+							avatarUrl
+							url
+							slug
+							id
+						}
+					}
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query GetReviewRequests($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			reviewRequests(first: 100) {
+				nodes {
+					requestedReviewer {
+						... on User {
+							login
+							avatarUrl
+							id
+							url
+							email
+							name
+						}
+					}
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+fragment ReviewComment on PullRequestReviewComment {
+	id
+	databaseId
+	url
+	author {
+		login
+		avatarUrl
+		url
+		... on User {
+			email
+			id
+		}
+		... on Organization {
+			email
+			id
+		}
+	}
+	path
+	originalPosition
+	body
+	bodyHTML
+	diffHunk
+	position
+	state
+	pullRequestReview {
+		databaseId
+	}
+	commit {
+		oid
+	}
+	replyTo {
+		databaseId
+	}
+	createdAt
+	originalCommit {
+		oid
+	}
+	reactionGroups {
+		content
+		viewerHasReacted
+		users {
+			totalCount
+		}
+	}
+	viewerCanUpdate
+	viewerCanDelete
+}
+
+query GetParticipants($owner: String!, $name: String!, $number: Int!, $first: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			participants(first: $first) {
+				nodes {
+					login
+					avatarUrl
+					id
+					name
+					url
+					email
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
+	node(id: $pullRequestId) {
+		... on PullRequest {
+			reviews(first: 1, author: $author, states: [PENDING]) {
+				nodes {
+					id
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query PullRequestComments($owner: String!, $name: String!, $number: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			reviewThreads(first: 100, after: $after) {
+				nodes {
+					id
+					isResolved
+					viewerCanResolve
+					viewerCanUnresolve
+					path
+					diffSide
+					startLine
+					line
+					originalStartLine
+					originalLine
+					isOutdated
+					subjectType
+					comments(first: 100) {
+						edges {
+							node {
+								pullRequestReview {
+									databaseId
+								}
+							}
+						}
+						nodes {
+							...ReviewComment
+						}
+					}
+				}
+				pageInfo {
+					hasNextPage
+					endCursor
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query LegacyPullRequestComments($owner: String!, $name: String!, $number: Int!, $first: Int = 100) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			reviewThreads(first: $first) {
+				nodes {
+					id
+					isResolved
+					viewerCanResolve
+					viewerCanUnresolve
+					path
+					diffSide
+					startLine
+					line
+					originalStartLine
+					originalLine
+					isOutdated
+					comments(first: 100) {
+						edges {
+							node {
+								pullRequestReview {
+									databaseId
+								}
+							}
+						}
+						nodes {
+							...ReviewComment
+						}
+					}
+				}
+				pageInfo {
+					hasNextPage
+					endCursor
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query Viewer {
+	viewer {
+		login
+		avatarUrl
+		id
+		name
+		url
+		email
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query PullRequestFiles($owner: String!, $name: String!, $number: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			files(first: 100, after: $after) {
+				nodes {
+					path
+					viewerViewedState
+				}
+				pageInfo {
+					hasNextPage
+					endCursor
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query Issue($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest: issue(number: $number) {
+			number
+			url
+			state
+			body
+			bodyHTML
+			title
+			author {
+				login
+				url
+				avatarUrl
+				... on User {
+					email
+					id
+				}
+				... on Organization {
+					email
+					id
+				}
+			}
+			createdAt
+			updatedAt
+			labels(first: 50) {
+				nodes {
+					name
+					color
+				}
+			}
+			id
+			databaseId
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest: issue(number: $number) {
+			number
+			url
+			state
+			body
+			bodyHTML
+			title
+			author {
+				login
+				url
+				avatarUrl
+				... on User {
+					email
+					id
+				}
+				... on Organization {
+					email
+					id
+				}
+			}
+			createdAt
+			updatedAt
+			labels(first: 50) {
+				nodes {
+					name
+					color
+				}
+			}
+			id
+			databaseId
+			comments(first: 50) {
+				nodes {
+					author {
+						login
+						url
+						avatarUrl
+						... on User {
+							email
+							id
+						}
+						... on Organization {
+							email
+							id
+						}
+					}
+					body
+					databaseId
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query GetUser($login: String!) {
+	user(login: $login) {
+		login
+		avatarUrl(size: 50)
+		id
+		bio
+		name
+		company
+		location
+		contributionsCollection {
+			commitContributionsByRepository(maxRepositories: 50) {
+				contributions(first: 1) {
+					nodes {
+						occurredAt
+					}
+				}
+				repository {
+					nameWithOwner
+				}
+			}
+		}
+		url
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query PullRequestMergeability($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			mergeable
+			mergeStateStatus
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query PullRequestState($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			title
+			number
+			state
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+mutation AddComment($input: AddPullRequestReviewCommentInput!) {
+	addPullRequestReviewComment(input: $input) {
+		comment {
+			...ReviewComment
+		}
+	}
+}
+
+mutation AddReviewThread($input: AddPullRequestReviewThreadInput!) {
+	addPullRequestReviewThread(input: $input) {
+		thread {
+			...ReviewThread
+		}
+	}
+}
+
+mutation LegacyAddReviewThread($input: AddPullRequestReviewThreadInput!) {
+	addPullRequestReviewThread(input: $input) {
+		thread {
+			...LegacyReviewThread
+		}
+	}
+}
+
+mutation AddReviewers($input: RequestReviewsInput!) {
+	requestReviews(input: $input) {
+		pullRequest {
+			id
+		}
+	}
+}
+
+mutation EditComment($input: UpdatePullRequestReviewCommentInput!) {
+	updatePullRequestReviewComment(input: $input) {
+		pullRequestReviewComment {
+			...ReviewComment
+		}
+	}
+}
+
+mutation ReadyForReview($input: MarkPullRequestReadyForReviewInput!) {
+	markPullRequestReadyForReview(input: $input) {
+		pullRequest {
+			isDraft
+		}
+	}
+}
+
+mutation StartReview($input: AddPullRequestReviewInput!) {
+	addPullRequestReview(input: $input) {
+		pullRequestReview {
+			id
+		}
+	}
+}
+
+mutation SubmitReview($id: ID!, $event: PullRequestReviewEvent!, $body: String) {
+	submitPullRequestReview(input: { event: $event, pullRequestReviewId: $id, body: $body }) {
+		pullRequestReview {
+			comments(first: 100) {
+				nodes {
+					...ReviewComment
+				}
+			}
+			...Review
+		}
+	}
+}
+
+mutation DeleteReview($input: DeletePullRequestReviewInput!) {
+	deletePullRequestReview(input: $input) {
+		pullRequestReview {
+			databaseId
+			comments(first: 100) {
+				nodes {
+					...ReviewComment
+				}
+			}
+		}
+	}
+}
+
+mutation AddReaction($input: AddReactionInput!) {
+	addReaction(input: $input) {
+		reaction {
+			content
+		}
+		subject {
+			...Reactable
+		}
+	}
+}
+
+mutation DeleteReaction($input: RemoveReactionInput!) {
+	removeReaction(input: $input) {
+		reaction {
+			content
+		}
+		subject {
+			...Reactable
+		}
+	}
+}
+
+mutation UpdatePullRequest($input: UpdatePullRequestInput!) {
+	updatePullRequest(input: $input) {
+		pullRequest {
+			body
+			bodyHTML
+			title
+			titleHTML
+		}
+	}
+}
+
+mutation AddIssueComment($input: AddCommentInput!) {
+	addComment(input: $input) {
+		commentEdge {
+			node {
+				...Comment
+			}
+		}
+	}
+}
+
+mutation EditIssueComment($input: UpdateIssueCommentInput!) {
+	updateIssueComment(input: $input) {
+		issueComment {
+			...Comment
+		}
+	}
+}
+
+query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		mentionableUsers(first: $first, after: $after) {
+			nodes {
+				login
+				avatarUrl
+				name
+				url
+				email
+				id
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query GetAssignableUsers($owner: String!, $name: String!, $first: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		assignableUsers(first: $first, after: $after) {
+			nodes {
+				login
+				avatarUrl
+				name
+				url
+				email
+				id
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query GetBranch($owner: String!, $name: String!, $qualifiedName: String!) {
+	repository(owner: $owner, name: $name) {
+		ref(qualifiedName: $qualifiedName) {
+			target {
+				oid
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		refs(first: $first, after: $after, refPrefix: "refs/heads/") {
+			nodes {
+				name
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query IssuesWithoutMilestone($owner: String!, $name: String!, $assignee: String!) {
+	repository(owner: $owner, name: $name) {
+		issues(
+			first: 100
+			states: OPEN
+			filterBy: { assignee: $assignee, milestone: null }
+			orderBy: { direction: DESC, field: UPDATED_AT }
+		) {
+			edges {
+				node {
+					... on Issue {
+						number
+						url
+						state
+						body
+						bodyHTML
+						title
+						assignees(first: 10) {
+							nodes {
+								login
+								url
+								email
+							}
+						}
+						author {
+							login
+							url
+							avatarUrl(size: 50)
+							... on User {
+								email
+							}
+							... on Organization {
+								email
+							}
+						}
+						createdAt
+						updatedAt
+						labels(first: 50) {
+							nodes {
+								name
+								color
+							}
+						}
+						id
+						databaseId
+						milestone {
+							title
+							dueOn
+						}
+					}
+				}
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query MaxIssue($owner: String!, $name: String!) {
+	repository(owner: $owner, name: $name) {
+		issues(first: 1, orderBy: { direction: DESC, field: CREATED_AT }) {
+			edges {
+				node {
+					... on Issue {
+						number
+					}
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query GetMilestones($owner: String!, $name: String!, $states: [MilestoneState!]!) {
+	repository(owner: $owner, name: $name) {
+		milestones(first: 100, orderBy: { direction: DESC, field: DUE_DATE }, states: $states) {
+			nodes {
+				dueOn
+				title
+				createdAt
+				id
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query GetMilestonesWithIssues($owner: String!, $name: String!, $assignee: String!) {
+	repository(owner: $owner, name: $name) {
+		milestones(first: 12, orderBy: { direction: DESC, field: DUE_DATE }, states: OPEN) {
+			nodes {
+				dueOn
+				title
+				createdAt
+				id
+				issues(
+					first: 100
+					filterBy: { assignee: $assignee }
+					orderBy: { direction: DESC, field: UPDATED_AT }
+					states: OPEN
+				) {
+					edges {
+						node {
+							... on Issue {
+								number
+								url
+								state
+								body
+								bodyHTML
+								title
+								assignees(first: 10) {
+									nodes {
+										avatarUrl
+										email
+										login
+										url
+										id
+									}
+								}
+								author {
+									login
+									url
+									avatarUrl(size: 50)
+									... on User {
+										email
+										id
+									}
+									... on Organization {
+										email
+										id
+									}
+								}
+								createdAt
+								updatedAt
+								labels(first: 50) {
+									nodes {
+										name
+										color
+									}
+								}
+								id
+								databaseId
+								milestone {
+									title
+									dueOn
+								}
+							}
+						}
+					}
+				}
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query Issues($query: String!) {
+	search(first: 100, type: ISSUE, query: $query) {
+		issueCount
+		pageInfo {
+			hasNextPage
+			endCursor
+		}
+		edges {
+			node {
+				... on Issue {
+					number
+					url
+					state
+					body
+					bodyHTML
+					title
+					assignees(first: 10) {
+						nodes {
+							avatarUrl
+							email
+							login
+							url
+							id
+						}
+					}
+					author {
+						login
+						url
+						avatarUrl(size: 50)
+						... on User {
+							email
+							id
+						}
+						... on Organization {
+							email
+							id
+						}
+					}
+					createdAt
+					updatedAt
+					labels(first: 50) {
+						nodes {
+							name
+							color
+						}
+					}
+					id
+					databaseId
+					milestone {
+						title
+						dueOn
+						id
+						createdAt
+					}
+					repository {
+						name
+						owner {
+							login
+						}
+						url
+					}
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query GetViewerPermission($owner: String!, $name: String!) {
+	repository(owner: $owner, name: $name) {
+		viewerPermission
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query GetRepositoryForkDetails($owner: String!, $name: String!) {
+	repository(owner: $owner, name: $name) {
+		isFork
+		parent {
+			name
+			owner {
+				login
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query GetChecks($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			url
+			latestReviews (first: 10) {
+				nodes {
+					authorAssociation
+					authorCanPushToRepository
+					state
+					author {
+						login
+					}
+				}
+			}
+			reviewsRequestingChanges: reviews (last: 5, states: [CHANGES_REQUESTED]) {
+				nodes {
+					authorAssociation
+					authorCanPushToRepository
+					state
+					author {
+						login
+					}
+				}
+			}
+			baseRef {
+				refUpdateRule {
+					requiredApprovingReviewCount
+					requiredStatusCheckContexts
+					requiresCodeOwnerReviews
+					viewerCanPush
+				}
+			}
+			commits(last: 1) {
+				nodes {
+					commit {
+						statusCheckRollup {
+							state
+							contexts(first: 100) {
+								nodes {
+									__typename
+									... on StatusContext {
+										id
+										state
+										targetUrl
+										description
+										context
+										avatarUrl
+										isRequired(pullRequestNumber: $number)
+									}
+									... on CheckRun {
+										id
+										conclusion
+										title
+										detailsUrl
+										name
+										resourcePath
+										isRequired(pullRequestNumber: $number)
+										checkSuite {
+											app {
+												logoUrl
+												url
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query GetChecksWithoutSuite($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			url
+			latestReviews (first: 10) {
+				nodes {
+					authorAssociation
+					authorCanPushToRepository
+					state
+					author {
+						login
+					}
+				}
+			}
+			reviewsRequestingChanges: reviews (last: 5, states: [CHANGES_REQUESTED]) {
+				nodes {
+					authorAssociation
+					authorCanPushToRepository
+					state
+					author {
+						login
+					}
+				}
+			}
+			baseRef {
+				refUpdateRule {
+					requiredApprovingReviewCount
+					requiredStatusCheckContexts
+					requiresCodeOwnerReviews
+					viewerCanPush
+				}
+			}
+			commits(last: 1) {
+				nodes {
+					commit {
+						statusCheckRollup {
+							state
+							contexts(first: 100) {
+								nodes {
+									__typename
+									... on StatusContext {
+										id
+										state
+										targetUrl
+										description
+										context
+										avatarUrl
+										isRequired(pullRequestNumber: $number)
+									}
+									... on CheckRun {
+										id
+										conclusion
+										title
+										detailsUrl
+										name
+										resourcePath
+										isRequired(pullRequestNumber: $number)
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query GetFileContent($owner: String!, $name: String!, $expression: String!) {
+	repository(owner: $owner, name: $name) {
+		object(expression: $expression) {
+			... on Blob {
+				text
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+mutation ResolveReviewThread($input: ResolveReviewThreadInput!) {
+	resolveReviewThread(input: $input) {
+		thread {
+			...ReviewThread
+		}
+	}
+}
+
+mutation LegacyResolveReviewThread($input: ResolveReviewThreadInput!) {
+	resolveReviewThread(input: $input) {
+		thread {
+			...LegacyReviewThread
+		}
+	}
+}
+
+mutation UnresolveReviewThread($input: UnresolveReviewThreadInput!) {
+	unresolveReviewThread(input: $input) {
+		thread {
+			...ReviewThread
+		}
+	}
+}
+
+mutation LegacyUnresolveReviewThread($input: UnresolveReviewThreadInput!) {
+	unresolveReviewThread(input: $input) {
+		thread {
+			...LegacyReviewThread
+		}
+	}
+}
+
+mutation EnablePullRequestAutoMerge($input: EnablePullRequestAutoMergeInput!) {
+	enablePullRequestAutoMerge(input: $input) {
+		pullRequest {
+			id
+		}
+	}
+}
+
+mutation DisablePullRequestAutoMerge($input: DisablePullRequestAutoMergeInput!) {
+	disablePullRequestAutoMerge(input: $input) {
+		pullRequest {
+			id
+		}
+	}
+}
+
+mutation MarkFileAsViewed($input: MarkFileAsViewedInput!) {
+	markFileAsViewed(input: $input) {
+		pullRequest {
+			id
+		}
+	}
+}
+
+mutation UnmarkFileAsViewed($input: UnmarkFileAsViewedInput!) {
+	unmarkFileAsViewed(input: $input) {
+		pullRequest {
+			id
+		}
+	}
+}

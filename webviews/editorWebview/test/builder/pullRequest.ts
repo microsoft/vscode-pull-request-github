@@ -44,6 +44,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	isDraft: { default: false },
 	isIssue: { default: false },
 	assignees: { default: [] },
+	projectItems: { default: undefined },
 	milestone: { default: undefined },
 	continueOnGitHub: { default: false },
 	currentUserReviewState: { default: 'REQUESTED' },

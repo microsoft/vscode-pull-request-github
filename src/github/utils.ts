@@ -29,6 +29,7 @@ import {
 	IGitHubRef,
 	ILabel,
 	IMilestone,
+	IProjectItem,
 	Issue,
 	ISuggestedReviewer,
 	ITeam,
@@ -318,6 +319,7 @@ export function convertRESTPullRequestToRawPullRequest(
 		labels: labels.map<ILabel>(l => ({ name: '', color: '', ...l })),
 		isDraft: draft,
 		suggestedReviewers: [], // suggested reviewers only available through GraphQL API
+		projectItems: [], // projects only available through GraphQL API
 	};
 
 	// mergeable is not included in the list response, will need to fetch later
@@ -367,7 +369,8 @@ export function convertRESTIssueToRawPullRequest(
 		labels: labels.map<ILabel>(l =>
 			typeof l === 'string' ? { name: l, color: '' } : { name: l.name ?? '', color: l.color ?? '', description: l.description ?? undefined },
 		),
-		suggestedReviewers: [], // suggested reviewers only available through GraphQL API
+		suggestedReviewers: [], // suggested reviewers only available through GraphQL API,
+		projectItems: [], // projects only available through GraphQL API
 	};
 
 	return item;
@@ -576,6 +579,18 @@ function parseActor(
 	}
 }
 
+export function parseProjectItems(projects: { id: string; project: { id: string; title: string; } }[] | undefined): IProjectItem[] {
+	if (!projects) {
+		return [];
+	}
+	return projects.map(project => {
+		return {
+			id: project.id,
+			project: project.project
+		};
+	});
+}
+
 export function parseMilestone(
 	milestone: { title: string; dueOn?: string; createdAt: string; id: string } | undefined,
 ): IMilestone | undefined {
@@ -652,6 +667,7 @@ export function parseGraphQLPullRequest(
 		isDraft: graphQLPullRequest.isDraft,
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
 		comments: parseComments(graphQLPullRequest.comments?.nodes, githubRepository),
+		projectItems: parseProjectItems(graphQLPullRequest.projectItems?.nodes),
 		milestone: parseMilestone(graphQLPullRequest.milestone),
 		assignees: graphQLPullRequest.assignees?.nodes.map(assignee => parseAuthor(assignee, githubRepository)),
 	};
@@ -696,6 +712,7 @@ export function parseGraphQLIssue(issue: GraphQL.PullRequest, githubRepository: 
 		repositoryName: issue.repository?.name ?? githubRepository.remote.repositoryName,
 		repositoryOwner: issue.repository?.owner.login ?? githubRepository.remote.owner,
 		repositoryUrl: issue.repository?.url ?? githubRepository.remote.url,
+		projectItems: parseProjectItems(issue.projectItems?.nodes),
 	};
 }
 

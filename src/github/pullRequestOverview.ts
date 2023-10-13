@@ -17,6 +17,8 @@ import {
 	GithubItemStateEnum,
 	IAccount,
 	IMilestone,
+	IProject,
+	IProjectItem,
 	isTeam,
 	ITeam,
 	MergeMethod,
@@ -28,8 +30,9 @@ import {
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
-import { getAssigneesQuickPickItems, getMilestoneFromQuickPick, reviewersQuickPick } from './quickPicks';
+import { getAssigneesQuickPickItems, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
 import { isInCodespaces, parseReviewers, vscodeDevPrLink } from './utils';
+import { ProjectItemsReply, PullRequest } from './views';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -210,58 +213,61 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 				const isCrossRepository =
 					pullRequest.base &&
-					pullRequest.head &&
+					!!pullRequest.head &&
 					!pullRequest.base.repositoryCloneUrl.equals(pullRequest.head.repositoryCloneUrl);
 
 				const continueOnGitHub = isCrossRepository && isInCodespaces();
 				const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
 				Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
+				const context: Partial<PullRequest> = {
+					number: pullRequest.number,
+					title: pullRequest.title,
+					titleHTML: pullRequest.titleHTML,
+					url: pullRequest.html_url,
+					createdAt: pullRequest.createdAt,
+					body: pullRequest.body,
+					bodyHTML: pullRequest.bodyHTML,
+					labels: pullRequest.item.labels,
+					author: {
+						id: pullRequest.author.id,
+						login: pullRequest.author.login,
+						name: pullRequest.author.name,
+						avatarUrl: pullRequest.userAvatar,
+						url: pullRequest.author.url,
+					},
+					state: pullRequest.state,
+					events: timelineEvents,
+					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
+					isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
+					base: pullRequest.base.label,
+					isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
+					isLocalHeadDeleted: !branchInfo,
+					head: pullRequest.head?.label ?? '',
+					repositoryDefaultBranch: defaultBranch,
+					canEdit: canEdit,
+					hasWritePermission,
+					status: status[0],
+					reviewRequirement: status[1],
+					mergeable: pullRequest.item.mergeable,
+					reviewers: this._existingReviewers,
+					isDraft: pullRequest.isDraft,
+					mergeMethodsAvailability,
+					defaultMergeMethod,
+					autoMerge: pullRequest.autoMerge,
+					allowAutoMerge: pullRequest.allowAutoMerge,
+					autoMergeMethod: pullRequest.autoMergeMethod,
+					isIssue: false,
+					projectItems: pullRequest.item.projectItems,
+					milestone: pullRequest.milestone,
+					assignees: pullRequest.assignees,
+					continueOnGitHub,
+					isAuthor: currentUser.login === pullRequest.author.login,
+					currentUserReviewState: reviewState,
+					isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
+				};
 				this._postMessage({
 					command: 'pr.initialize',
-					pullrequest: {
-						number: pullRequest.number,
-						title: pullRequest.title,
-						titleHTML: pullRequest.titleHTML,
-						url: pullRequest.html_url,
-						createdAt: pullRequest.createdAt,
-						body: pullRequest.body,
-						bodyHTML: pullRequest.bodyHTML,
-						labels: pullRequest.item.labels,
-						author: {
-							login: pullRequest.author.login,
-							name: pullRequest.author.name,
-							avatarUrl: pullRequest.userAvatar,
-							url: pullRequest.author.url,
-						},
-						state: pullRequest.state,
-						events: timelineEvents,
-						isCurrentlyCheckedOut: isCurrentlyCheckedOut,
-						isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
-						base: pullRequest.base.label,
-						isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
-						isLocalHeadDeleted: !branchInfo,
-						head: pullRequest.head?.label ?? '',
-						repositoryDefaultBranch: defaultBranch,
-						canEdit: canEdit,
-						hasWritePermission,
-						status: status[0],
-						reviewRequirement: status[1],
-						mergeable: pullRequest.item.mergeable,
-						reviewers: this._existingReviewers,
-						isDraft: pullRequest.isDraft,
-						mergeMethodsAvailability,
-						defaultMergeMethod,
-						autoMerge: pullRequest.autoMerge,
-						allowAutoMerge: pullRequest.allowAutoMerge,
-						autoMergeMethod: pullRequest.autoMergeMethod,
-						isIssue: false,
-						milestone: pullRequest.milestone,
-						assignees: pullRequest.assignees,
-						continueOnGitHub,
-						isAuthor: currentUser.login === pullRequest.author.login,
-						currentUserReviewState: reviewState,
-						isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
-					},
+					pullrequest: context
 				});
 				if (pullRequest.isResolved()) {
 					this._folderRepositoryManager.checkBranchUpToDate(pullRequest, true);
@@ -329,6 +335,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.removeMilestone(message);
 			case 'pr.add-milestone':
 				return this.addMilestone(message);
+			case 'pr.change-projects':
+				return this.changeProjects(message);
+			case 'pr.remove-project':
+				return this.removeProject(message);
 			case 'pr.change-assignees':
 				return this.changeAssignees(message);
 			case 'pr.add-assignee-yourself':
@@ -431,6 +441,25 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}
+	}
+
+	private async changeProjects(message: IRequestMessage<void>): Promise<void> {
+		return getProjectFromQuickPick(this._item.githubRepository, this._item.item.projectItems, (project) => this.updateProjects(project, message));
+	}
+
+	private async updateProjects(projects: IProject[] | undefined, message: IRequestMessage<void>) {
+		if (projects) {
+			const newProjects = await this._item.updateProjects(projects);
+			const projectItemsReply: ProjectItemsReply = {
+				projectItems: newProjects,
+			};
+			return this._replyMessage(message, projectItemsReply);
+		}
+	}
+
+	private async removeProject(message: IRequestMessage<IProjectItem>): Promise<void> {
+		await this._item.removeProjects([message.args]);
+		return this._replyMessage(message, {});
 	}
 
 	private async changeAssignees(message: IRequestMessage<void>): Promise<void> {

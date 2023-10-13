@@ -12,7 +12,7 @@ import { DataUri } from '../common/uri';
 import { formatError } from '../common/utils';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
-import { IAccount, ILabel, IMilestone, isSuggestedReviewer, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
+import { IAccount, ILabel, IMilestone, IProject, IProjectItem, isSuggestedReviewer, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 
 async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context: vscode.ExtensionContext, skipList: Set<string>, users: T[], picked: boolean, tooManyAssignable: boolean = false): Promise<(vscode.QuickPickItem & { user?: T })[]> {
@@ -196,6 +196,61 @@ export async function reviewersQuickPick(folderRepositoryManager: FolderReposito
 		});
 	});
 	return quickPick;
+}
+
+type ProjectQuickPickItem = vscode.QuickPickItem & { id: string; project: IProject };
+
+function isProjectQuickPickItem(x: vscode.QuickPickItem | ProjectQuickPickItem): x is ProjectQuickPickItem {
+	return !!(x as ProjectQuickPickItem).id && !!(x as ProjectQuickPickItem).project;
+}
+
+export async function getProjectFromQuickPick(githubRepository: GitHubRepository, currentProjects: IProjectItem[] | undefined, callback: (projects: IProject[]) => Promise<void>): Promise<void> {
+	try {
+		let selectedItems: vscode.QuickPickItem[] = [];
+		async function getProjectOptions(): Promise<(ProjectQuickPickItem | vscode.QuickPickItem)[]> {
+			const projects = await githubRepository.getProjects();
+			if (!projects || !projects.length) {
+				return [
+					{
+						label: vscode.l10n.t('No projects created for this repository.'),
+					},
+				];
+			}
+
+			const projectItems: (ProjectQuickPickItem | vscode.QuickPickItem)[] = projects.map(result => {
+				const item = {
+					iconPath: new vscode.ThemeIcon('project'),
+					label: result.title,
+					id: result.id,
+					project: result
+				};
+				if (currentProjects && currentProjects.find(project => project.project.id === result.id)) {
+					selectedItems.push(item);
+				}
+				return item;
+			});
+			return projectItems;
+		}
+
+		const quickPick = vscode.window.createQuickPick();
+		quickPick.busy = true;
+		quickPick.canSelectMany = true;
+		quickPick.title = vscode.l10n.t('Set Project');
+		quickPick.show();
+		quickPick.items = await getProjectOptions();
+		quickPick.selectedItems = selectedItems;
+		quickPick.busy = false;
+
+		quickPick.onDidAccept(async () => {
+			quickPick.hide();
+			const projectsToAdd = quickPick.selectedItems.map(item => isProjectQuickPickItem(item) ? item.project : undefined).filter(project => project !== undefined) as IProject[];
+			if (projectsToAdd) {
+				await callback(projectsToAdd);
+			}
+		});
+	} catch (e) {
+		vscode.window.showErrorMessage(`Failed to add project: ${formatError(e)}`);
+	}
 }
 
 type MilestoneQuickPickItem = vscode.QuickPickItem & { id: string; milestone: IMilestone };
