@@ -2589,7 +2589,7 @@
 		"test:preprocess": "yarn run compile:test && yarn run test:preprocess-gql && yarn run test:preprocess-svg",
 		"browsertest:preprocess": "tsc ./src/test/browser/runTests.ts --outDir ./dist/browser/test --rootDir ./src/test/browser --target es6 --module commonjs",
 		"browsertest": "yarn run browsertest:preprocess && node ./dist/browser/test/runTests.js",
-		"test:preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/src/github/queries.gql",
+		"test:preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/src/github/queries.gql && node scripts/preprocess-gql --in src/github/queriesShared.gql --out out/src/github/queriesShared.gql && node scripts/preprocess-gql --in src/github/queriesLimited.gql --out out/src/github/queriesLimited.gql",
 		"test:preprocess-svg": "node scripts/preprocess-svg --in ../resources/ --out out/resources",
 		"update-dts": "cd \"src/@types\" && npx vscode-dts main && npx vscode-dts dev",
 		"watch": "webpack --watch --mode development --env esbuild",

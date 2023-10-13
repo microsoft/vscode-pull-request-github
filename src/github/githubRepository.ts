@@ -11,7 +11,7 @@ import { Protocol } from '../common/protocol';
 import { GitHubRemote, parseRemote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
-import { OctokitCommon } from './common';
+import { mergeQuerySchemaWithShared, OctokitCommon } from './common';
 import { CredentialStore, GitHub } from './credentials';
 import {
 	AssignableUsersResponse,
@@ -186,7 +186,7 @@ export class GitHubRepository implements vscode.Disposable {
 		private readonly _telemetry: ITelemetry,
 		silent: boolean = false
 	) {
-		this._queriesSchema = this.mergeQuerySchemaWithShared(defaultSchema as any);
+		this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, defaultSchema as any);
 		// kick off the comments controller early so that the Comments view is visible and doesn't pop up later in an way that's jarring
 		if (!silent) {
 			this.ensureCommentsController();
@@ -313,17 +313,6 @@ export class GitHubRepository implements vscode.Disposable {
 		return true;
 	}
 
-	private mergeQuerySchemaWithShared(schema: { [key: string]: any, definitions: any[] }) {
-		const sharedSchemaDefinitions = sharedSchema.default.definitions;
-		const schemaDefinitions = schema.definitions;
-		const mergedDefinitions = schemaDefinitions.concat(sharedSchemaDefinitions);
-		return {
-			...schema,
-			...sharedSchema.default,
-			definitions: mergedDefinitions
-		};
-	}
-
 	async ensure(additionalScopes: boolean = false): Promise<GitHubRepository> {
 		this._initialized = true;
 		const oldHub = this._hub;
@@ -344,9 +333,9 @@ export class GitHubRepository implements vscode.Disposable {
 
 		if (oldHub !== this._hub) {
 			if (this._credentialStore.areScopesOld(this.remote.authProviderId)) {
-				this._queriesSchema = this.mergeQuerySchemaWithShared(limitedSchema.default as any);
+				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, limitedSchema.default as any);
 			} else {
-				this._queriesSchema = this.mergeQuerySchemaWithShared(defaultSchema as any);
+				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, defaultSchema as any);
 			}
 		}
 		return this;

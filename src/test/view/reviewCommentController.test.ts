@@ -36,7 +36,8 @@ import { GitFileChangeModel } from '../../view/fileChangeModel';
 import { WebviewViewCoordinator } from '../../view/webviewViewCoordinator';
 import { GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
-const schema = require('../../github/queries.gql');
+import { mergeQuerySchemaWithShared } from '../../github/common';
+const schema = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 const protocol = new Protocol('https://github.com/github/test.git');
 const remote = new GitHubRemote('test', 'github/test', protocol, GitHubServerType.GitHubDotCom);
