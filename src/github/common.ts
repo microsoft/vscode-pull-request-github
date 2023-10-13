@@ -47,7 +47,7 @@ export namespace OctokitCommon {
 	export type CompareCommits = Endpoints['GET /repos/{owner}/{repo}/compare/{base}...{head}']['response']['data'];
 }
 
-export function mergeQuerySchemaWithShared(sharedSchema: { [key: string]: any, definitions: any[] }, schema: { [key: string]: any, definitions: any[] }) {
+export function mergeQuerySchemaWithShared(sharedSchema: { [key: string]: any, definitions: any[]; }, schema: { [key: string]: any, definitions: any[]; }) {
 	const sharedSchemaDefinitions = sharedSchema.definitions;
 	const schemaDefinitions = schema.definitions;
 	const mergedDefinitions = schemaDefinitions.concat(sharedSchemaDefinitions);
