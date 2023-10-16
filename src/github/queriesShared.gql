@@ -1000,6 +1000,7 @@ query GetMilestones($owner: String!, $name: String!, $states: [MilestoneState!]!
 				title
 				createdAt
 				id
+				number
 			}
 		}
 	}

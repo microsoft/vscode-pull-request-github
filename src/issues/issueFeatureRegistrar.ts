@@ -26,13 +26,14 @@ import { CurrentIssue } from './currentIssue';
 import { IssueCompletionProvider } from './issueCompletionProvider';
 import {
 	ASSIGNEES,
-	extractIssueOriginFromQuery,
+	extractMetadataFromFile,
 	IssueFileSystemProvider,
-	LabelCompletionProvider,
 	LABELS,
+	MILESTONE,
 	NEW_ISSUE_FILE,
 	NEW_ISSUE_SCHEME,
 	NewIssueCache,
+	NewIssueFileCompletionProvider,
 } from './issueFile';
 import { IssueHoverProvider } from './issueHoverProvider';
 import { openCodeLink } from './issueLinkLookup';
@@ -87,7 +88,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(
 			vscode.languages.registerCompletionItemProvider(
 				{ scheme: NEW_ISSUE_SCHEME },
-				new LabelCompletionProvider(this.manager),
+				new NewIssueFileCompletionProvider(this.manager),
 				' ',
 				',',
 			),
@@ -623,73 +624,21 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	async createIssueFromFile() {
-		let text: string;
-		if (
-			!vscode.window.activeTextEditor ||
-			vscode.window.activeTextEditor.document.uri.scheme !== NEW_ISSUE_SCHEME
-		) {
-			return;
-		}
-		text = vscode.window.activeTextEditor.document.getText();
-		const indexOfEmptyLineWindows = text.indexOf('\r\n\r\n');
-		const indexOfEmptyLineOther = text.indexOf('\n\n');
-		let indexOfEmptyLine: number;
-		if (indexOfEmptyLineWindows < 0 && indexOfEmptyLineOther < 0) {
-			return;
-		} else {
-			if (indexOfEmptyLineWindows < 0) {
-				indexOfEmptyLine = indexOfEmptyLineOther;
-			} else if (indexOfEmptyLineOther < 0) {
-				indexOfEmptyLine = indexOfEmptyLineWindows;
-			} else {
-				indexOfEmptyLine = Math.min(indexOfEmptyLineWindows, indexOfEmptyLineOther);
-			}
-		}
-		const title = text.substring(0, indexOfEmptyLine);
-		let assignees: string[] | undefined;
-		text = text.substring(indexOfEmptyLine + 2).trim();
-		if (text.startsWith(ASSIGNEES)) {
-			const lines = text.split(/\r\n|\n/, 1);
-			if (lines.length === 1) {
-				assignees = lines[0]
-					.substring(ASSIGNEES.length)
-					.split(',')
-					.map(value => {
-						value = value.trim();
-						if (value.startsWith('@')) {
-							value = value.substring(1);
-						}
-						return value;
-					});
-				text = text.substring(lines[0].length).trim();
-			}
-		}
-		let labels: string[] | undefined;
-		if (text.startsWith(LABELS)) {
-			const lines = text.split(/\r\n|\n/, 1);
-			if (lines.length === 1) {
-				labels = lines[0]
-					.substring(LABELS.length)
-					.split(',')
-					.map(value => value.trim())
-					.filter(label => label);
-				text = text.substring(lines[0].length).trim();
-			}
-		}
-		const body = text ?? '';
-		if (!title) {
+		const metadata = await extractMetadataFromFile(this.manager);
+		if (!metadata || !vscode.window.activeTextEditor) {
 			return;
 		}
 		const createSucceeded = await this.doCreateIssue(
 			this.createIssueInfo?.document,
 			this.createIssueInfo?.newIssue,
-			title,
-			body,
-			assignees,
-			labels,
+			metadata.title,
+			metadata.body,
+			metadata.assignees,
+			metadata.labels,
+			metadata.milestone,
 			this.createIssueInfo?.lineNumber,
 			this.createIssueInfo?.insertIndex,
-			extractIssueOriginFromQuery(vscode.window.activeTextEditor.document.uri),
+			metadata.originUri
 		);
 		this.createIssueInfo = undefined;
 		if (createSucceeded) {
@@ -966,7 +915,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			title = quickInput.value;
 			if (title) {
 				quickInput.busy = true;
-				await this.doCreateIssue(document, newIssue, title, body, assignee, undefined, lineNumber, insertIndex);
+				await this.doCreateIssue(document, newIssue, title, body, assignee, undefined, undefined, lineNumber, insertIndex);
 				quickInput.busy = false;
 			}
 			quickInput.hide();
@@ -1004,10 +953,12 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		const assigneeLine = `${ASSIGNEES} ${assignees && assignees.length > 0 ? assignees.map(value => '@' + value).join(', ') + ' ' : ''
 			}`;
 		const labelLine = `${LABELS} `;
+		const milestoneLine = `${MILESTONE} `;
 		const cached = this._newIssueCache.get();
 		const text = (cached && cached !== '') ? cached : `${title ?? vscode.l10n.t('Issue Title')}\n
 ${assigneeLine}
-${labelLine}\n
+${labelLine}
+${milestoneLine}\n
 ${body ?? ''}\n
 <!-- ${vscode.l10n.t('Edit the body of your new issue then click the ✓ \"Create Issue\" button in the top right of the editor. The first line will be the issue title. Assignees and Labels follow after a blank line. Leave an empty line before beginning the body of the issue.')} -->`;
 		await vscode.workspace.fs.writeFile(bodyPath, this.stringToUint8Array(text));
@@ -1135,6 +1086,7 @@ ${body ?? ''}\n
 		issueBody: string | undefined,
 		assignees: string[] | undefined,
 		labels: string[] | undefined,
+		milestone: number | undefined,
 		lineNumber: number | undefined,
 		insertIndex: number | undefined,
 		originUri?: vscode.Uri,
@@ -1171,6 +1123,7 @@ ${body ?? ''}\n
 			body,
 			assignees,
 			labels,
+			milestone
 		};
 		if (!(await this.verifyLabels(folderManager, createParams))) {
 			return false;

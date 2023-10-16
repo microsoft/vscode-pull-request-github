@@ -592,7 +592,7 @@ export function parseProjectItems(projects: { id: string; project: { id: string;
 }
 
 export function parseMilestone(
-	milestone: { title: string; dueOn?: string; createdAt: string; id: string } | undefined,
+	milestone: { title: string; dueOn?: string; createdAt: string; id: string, number: number } | undefined,
 ): IMilestone | undefined {
 	if (!milestone) {
 		return undefined;
@@ -602,6 +602,7 @@ export function parseMilestone(
 		dueOn: milestone.dueOn,
 		createdAt: milestone.createdAt,
 		id: milestone.id,
+		number: milestone.number
 	};
 }
 
