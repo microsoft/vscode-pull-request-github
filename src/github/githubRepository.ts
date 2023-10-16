@@ -126,6 +126,7 @@ export class GitHubRepository implements vscode.Disposable {
 	public commentsHandler?: PRCommentControllerRegistry;
 	private _pullRequestModels = new Map<number, PullRequestModel>();
 	private _queriesSchema: any;
+	private _areQueriesLimited: boolean = false;
 
 	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = new vscode.EventEmitter();
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
@@ -226,8 +227,15 @@ export class GitHubRepository implements vscode.Disposable {
 				return this.query(query, ignoreSamlErrors);
 			}
 
-			// Some queries just result in SAML errors, and some queries we may not want to retry because it will be too disruptive.
-			if (!ignoreSamlErrors && (e.message as string | undefined)?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
+			if (e.graphQLErrors && e.graphQLErrors.length && e.graphQLErrors[0].extensions.code === 'undefinedField' && !this._areQueriesLimited) {
+				// We're running against a GitHub server that doesn't support the query we're trying to run.
+				// Switch to the limited schema and try again.
+				this._areQueriesLimited = true;
+				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, limitedSchema.default as any);
+				query.query = this.schema[(query.query.definitions[0] as { name: { value: string } }).name.value];
+				rsp = await gql.query<T>(query);
+			} else if (!ignoreSamlErrors && (e.message as string | undefined)?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
+				// Some queries just result in SAML errors, and some queries we may not want to retry because it will be too disruptive.
 				await this._credentialStore.recreate();
 				rsp = await gql.query<T>(query);
 			} else if ((e.message as string | undefined)?.includes('401 Unauthorized')) {
@@ -333,6 +341,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 		if (oldHub !== this._hub) {
 			if (this._credentialStore.areScopesOld(this.remote.authProviderId)) {
+				this._areQueriesLimited = true;
 				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, limitedSchema.default as any);
 			} else {
 				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, defaultSchema as any);
