@@ -10,6 +10,7 @@ import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from '../../common/settingKey
 import { DataUri, toReviewUri } from '../../common/uri';
 import { OctokitCommon } from '../../github/common';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { IAccount } from '../../github/interface';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { GitFileChangeModel } from '../fileChangeModel';
 import { DirectoryTreeNode } from './directoryTreeNode';
@@ -37,7 +38,10 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getTreeItem(): Promise<vscode.TreeItem> {
-		this.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.pullRequestManager.context, [this.pullRequest.author], 16, 16))[0];
+		if (this.commit.author) {
+			const author: IAccount = { id: this.commit.author.node_id, login: this.commit.author.login, url: this.commit.author.url, avatarUrl: this.commit.author.avatar_url };
+			this.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.pullRequestManager.context, [author], 16, 16))[0];
+		}
 		return this;
 	}
 
