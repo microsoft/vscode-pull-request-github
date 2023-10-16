@@ -74,6 +74,7 @@ fragment PullRequestFragment on PullRequest {
 		dueOn
 		createdAt
 		id
+		number
 	}
 	assignees(first: 10) {
 		nodes {

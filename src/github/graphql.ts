@@ -569,6 +569,7 @@ export interface PullRequest {
 		dueOn?: string;
 		id: string;
 		createdAt: string;
+		number: number;
 	};
 	repository?: {
 		name: string;
@@ -626,6 +627,7 @@ export interface MilestoneIssuesResponse {
 				createdAt: string;
 				title: string;
 				id: string;
+				number: number
 				issues: {
 					edges: {
 						node: PullRequest;

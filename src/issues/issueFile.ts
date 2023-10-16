@@ -4,12 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { RepositoriesManager } from '../github/repositoriesManager';
 
 export const NEW_ISSUE_SCHEME = 'newIssue';
 export const NEW_ISSUE_FILE = 'NewIssue.md';
 export const ASSIGNEES = vscode.l10n.t('Assignees:');
 export const LABELS = vscode.l10n.t('Labels:');
+export const MILESTONE = vscode.l10n.t('Milestone:');
 
 const NEW_ISSUE_CACHE = 'newIssue.cache';
 
@@ -79,7 +81,7 @@ export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 	rename(_oldUri: vscode.Uri, _newUri: vscode.Uri, _options: { overwrite: boolean }): void | Thenable<void> { }
 }
 
-export class LabelCompletionProvider implements vscode.CompletionItemProvider {
+export class NewIssueFileCompletionProvider implements vscode.CompletionItemProvider {
 	constructor(private manager: RepositoriesManager) { }
 
 	async provideCompletionItems(
@@ -88,7 +90,8 @@ export class LabelCompletionProvider implements vscode.CompletionItemProvider {
 		_token: vscode.CancellationToken,
 		_context: vscode.CompletionContext,
 	): Promise<vscode.CompletionItem[]> {
-		if (!document.lineAt(position.line).text.startsWith(LABELS)) {
+		const line = document.lineAt(position.line).text;
+		if (!line.startsWith(LABELS) && !line.startsWith(MILESTONE)) {
 			return [];
 		}
 		const originFile = extractIssueOriginFromQuery(document.uri);
@@ -100,10 +103,30 @@ export class LabelCompletionProvider implements vscode.CompletionItemProvider {
 			return [];
 		}
 		const defaults = await folderManager.getPullRequestDefaults();
+
+		if (line.startsWith(LABELS)) {
+			return this.provideLabelCompletionItems(folderManager, defaults);
+		} else if (line.startsWith(MILESTONE)) {
+			return this.provideMilestoneCompletionItems(folderManager);
+		} else {
+			return [];
+		}
+	}
+
+	private async provideLabelCompletionItems(folderManager: FolderRepositoryManager, defaults: PullRequestDefaults): Promise<vscode.CompletionItem[]> {
 		const labels = await folderManager.getLabels(undefined, defaults);
 		return labels.map(label => {
 			const item = new vscode.CompletionItem(label.name, vscode.CompletionItemKind.Color);
 			item.documentation = `#${label.color}`;
+			item.commitCharacters = [' ', ','];
+			return item;
+		});
+	}
+
+	private async provideMilestoneCompletionItems(folderManager: FolderRepositoryManager): Promise<vscode.CompletionItem[]> {
+		const milestones = await (await folderManager.getPullRequestDefaultRepo())?.getMilestones() ?? [];
+		return milestones.map(milestone => {
+			const item = new vscode.CompletionItem(milestone.title, vscode.CompletionItemKind.Event);
 			item.commitCharacters = [' ', ','];
 			return item;
 		});
@@ -129,4 +152,86 @@ export class NewIssueCache {
 			return new TextDecoder().decode(content);
 		}
 	}
+}
+
+export async function extractMetadataFromFile(repositoriesManager: RepositoriesManager): Promise<{ labels: string[] | undefined, milestone: number | undefined, assignees: string[] | undefined, title: string, body: string | undefined, originUri: vscode.Uri } | undefined> {
+	let text: string;
+	if (
+		!vscode.window.activeTextEditor ||
+		vscode.window.activeTextEditor.document.uri.scheme !== NEW_ISSUE_SCHEME
+	) {
+		return;
+	}
+	const originUri = extractIssueOriginFromQuery(vscode.window.activeTextEditor.document.uri);
+	if (!originUri) {
+		return;
+	}
+	const folderManager = repositoriesManager.getManagerForFile(originUri);
+	if (!folderManager) {
+		return;
+	}
+	const repo = await folderManager.getPullRequestDefaultRepo();
+	text = vscode.window.activeTextEditor.document.getText();
+	const indexOfEmptyLineWindows = text.indexOf('\r\n\r\n');
+	const indexOfEmptyLineOther = text.indexOf('\n\n');
+	let indexOfEmptyLine: number;
+	if (indexOfEmptyLineWindows < 0 && indexOfEmptyLineOther < 0) {
+		return;
+	} else {
+		if (indexOfEmptyLineWindows < 0) {
+			indexOfEmptyLine = indexOfEmptyLineOther;
+		} else if (indexOfEmptyLineOther < 0) {
+			indexOfEmptyLine = indexOfEmptyLineWindows;
+		} else {
+			indexOfEmptyLine = Math.min(indexOfEmptyLineWindows, indexOfEmptyLineOther);
+		}
+	}
+	const title = text.substring(0, indexOfEmptyLine);
+	if (!title) {
+		return;
+	}
+	let assignees: string[] | undefined;
+	text = text.substring(indexOfEmptyLine + 2).trim();
+	if (text.startsWith(ASSIGNEES)) {
+		const lines = text.split(/\r\n|\n/, 1);
+		if (lines.length === 1) {
+			assignees = lines[0]
+				.substring(ASSIGNEES.length)
+				.split(',')
+				.map(value => {
+					value = value.trim();
+					if (value.startsWith('@')) {
+						value = value.substring(1);
+					}
+					return value;
+				});
+			text = text.substring(lines[0].length).trim();
+		}
+	}
+	let labels: string[] | undefined;
+	if (text.startsWith(LABELS)) {
+		const lines = text.split(/\r\n|\n/, 1);
+		if (lines.length === 1) {
+			labels = lines[0]
+				.substring(LABELS.length)
+				.split(',')
+				.map(value => value.trim())
+				.filter(label => label);
+			text = text.substring(lines[0].length).trim();
+		}
+	}
+	let milestone: number | undefined;
+	if (text.startsWith(MILESTONE)) {
+		const lines = text.split(/\r\n|\n/, 1);
+		if (lines.length === 1) {
+			const milestoneTitle = lines[0].substring(MILESTONE.length).trim();
+			if (milestoneTitle) {
+				const repoMilestones = await repo.getMilestones();
+				milestone = repoMilestones?.find(milestone => milestone.title === milestoneTitle)?.number;
+			}
+			text = text.substring(lines[0].length).trim();
+		}
+	}
+	const body = text ?? '';
+	return { labels, milestone, assignees, title, body, originUri };
 }

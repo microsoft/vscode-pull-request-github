@@ -1057,6 +1057,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						createdAt: new Date(0).toDateString(),
 						id: '',
 						title: NO_MILESTONE,
+						number: -1
 					},
 					issues: await Promise.all(additionalIssues.items.map(async (issue) => {
 						const githubRepository = await this.getRepoForIssue(issue);
@@ -1083,6 +1084,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				dueOn: data.due_on,
 				createdAt: data.created_at,
 				id: data.node_id,
+				number: data.number
 			};
 		}
 		catch (e) {
@@ -1200,6 +1202,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			repo: parent.name,
 			base: getOverrideBranch() ?? parent.default_branch,
 		};
+	}
+
+	async getPullRequestDefaultRepo(): Promise<GitHubRepository> {
+		const defaults = await this.getPullRequestDefaults();
+		return this.findRepo(repo => repo.remote.owner === defaults.owner && repo.remote.repositoryName === defaults.repo) || this._githubRepositories[0];
 	}
 
 	async getMetadata(remote: string): Promise<any> {

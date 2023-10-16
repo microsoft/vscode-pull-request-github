@@ -96,6 +96,7 @@ export interface IMilestone {
 	dueOn?: string | null;
 	createdAt: string;
 	id: string;
+	number: number;
 }
 
 export interface MergePullRequest {
