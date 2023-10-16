@@ -126,7 +126,9 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 	const allTeamReviewers = isInOrganization ? await folderRepositoryManager.getTeamReviewers(refreshKind) : [];
 	const teamReviewers: ITeam[] = allTeamReviewers[remoteName] ?? [];
 	const assignableUsers: (IAccount | ITeam)[] = [...teamReviewers];
-	assignableUsers.push(...allAssignableUsers[remoteName]);
+	if (allAssignableUsers[remoteName]) {
+		assignableUsers.push(...allAssignableUsers[remoteName]);
+	}
 
 	// used to track logins that shouldn't be added to pick list
 	// e.g. author, existing and already added reviewers
