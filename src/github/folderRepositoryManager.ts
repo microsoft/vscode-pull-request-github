@@ -12,7 +12,7 @@ import { AuthProvider, GitHubServerType } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
-import { GitHubRemote, parseRepositoryRemotes, Remote } from '../common/remote';
+import { GitHubRemote, parseRemote, parseRepositoryRemotes, Remote } from '../common/remote';
 import {
 	AUTO_STASH,
 	DEFAULT_MERGE_METHOD,
@@ -1925,16 +1925,62 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return matchingPullRequestMetadata;
 	}
 
-	async getMatchingPullRequestMetadataFromGitHub(remoteName?: string, upstreamBranchName?: string): Promise<
+	async getMatchingPullRequestMetadataFromGitHub(branch: Branch, remoteName?: string, remoteUrl?: string, upstreamBranchName?: string): Promise<
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
-		if (!remoteName || !upstreamBranchName) {
+		if (remoteName) {
+			return this.getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName, upstreamBranchName);
+		}
+		return this.getMatchingPullRequestMetadataFromGitHubWithUrl(branch, remoteUrl, upstreamBranchName);
+	}
+
+	async getMatchingPullRequestMetadataFromGitHubWithUrl(branch: Branch, remoteUrl?: string, upstreamBranchName?: string): Promise<
+		(PullRequestMetadata & { model: PullRequestModel }) | null
+	> {
+		if (!remoteUrl) {
+			return null;
+		}
+		let headGitHubRepo = this.gitHubRepositories.find(repo => repo.remote.url.toLowerCase() === remoteUrl.toLowerCase());
+		let protocol: Protocol | undefined;
+		if (!headGitHubRepo && this.gitHubRepositories.length > 0) {
+			protocol = new Protocol(remoteUrl);
+			const remote = parseRemote(protocol.repositoryName, remoteUrl, protocol);
+			if (remote) {
+				headGitHubRepo = await this.createGitHubRepository(remote, this.credentialStore, true, true);
+			}
+		}
+		const matchingPR = await this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName);
+		if (matchingPR && (branch.upstream === undefined) && protocol && headGitHubRepo && branch.name) {
+			const newRemote = await PullRequestGitHelper.createRemote(this.repository, headGitHubRepo?.remote, protocol);
+			const trackedBranchName = `refs/remotes/${newRemote}/${matchingPR.model.head?.name}`;
+			await this.repository.fetch({ remote: newRemote, ref: matchingPR.model.head?.name });
+			await this.repository.setBranchUpstream(branch.name, trackedBranchName);
+		}
+
+		return matchingPR;
+	}
+
+	async getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName?: string, upstreamBranchName?: string): Promise<
+		(PullRequestMetadata & { model: PullRequestModel }) | null
+	> {
+		if (!remoteName) {
 			return null;
 		}
 
 		const headGitHubRepo = this.gitHubRepositories.find(
 			repo => repo.remote.remoteName === remoteName,
 		);
+
+		return this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName);
+	}
+
+	private async doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo?: GitHubRepository, upstreamBranchName?: string): Promise<
+		(PullRequestMetadata & { model: PullRequestModel }) | null
+	> {
+		if (!headGitHubRepo || !upstreamBranchName) {
+			return null;
+		}
+
 		const headRepoMetadata = await headGitHubRepo?.getMetadata();
 		if (!headRepoMetadata?.owner) {
 			return null;
