@@ -81,6 +81,16 @@ export function isSuggestedReviewer(
 	return 'isAuthor' in reviewer && 'isCommenter' in reviewer;
 }
 
+export interface IProject {
+	title: string;
+	id: string;
+}
+
+export interface IProjectItem {
+	id: string;
+	project: IProject;
+}
+
 export interface IMilestone {
 	title: string;
 	dueOn?: string | null;
@@ -130,6 +140,7 @@ export interface Issue {
 	updatedAt: string;
 	user: IAccount;
 	labels: ILabel[];
+	projectItems: IProjectItem[];
 	milestone?: IMilestone;
 	repositoryOwner?: string;
 	repositoryName?: string;

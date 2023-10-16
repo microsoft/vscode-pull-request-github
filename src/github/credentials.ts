@@ -28,8 +28,8 @@ const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
 
 // If the scopes are changed, make sure to notify all interested parties to make sure this won't cause problems.
 const SCOPES_OLD = ['read:user', 'user:email', 'repo'];
-const SCOPES = ['read:user', 'user:email', 'repo', 'workflow'];
-const SCOPES_WITH_ADDITIONAL = ['read:user', 'user:email', 'repo', 'workflow', 'read:org'];
+const SCOPES = ['read:user', 'user:email', 'repo', 'workflow', 'project'];
+const SCOPES_WITH_ADDITIONAL = ['read:user', 'user:email', 'repo', 'workflow', 'project', 'read:org'];
 
 const LAST_USED_SCOPES_GITHUB_KEY = 'githubPullRequest.lastUsedScopes';
 const LAST_USED_SCOPES_ENTERPRISE_KEY = 'githubPullRequest.lastUsedScopesEnterprise';
@@ -80,6 +80,10 @@ export class CredentialStore implements vscode.Disposable {
 				}
 			}),
 		);
+	}
+
+	private allScopesIncluded(actualScopes: string[], requiredScopes: string[]) {
+		return requiredScopes.every(scope => actualScopes.includes(scope));
 	}
 
 	private setScopesFromState() {
@@ -217,9 +221,9 @@ export class CredentialStore implements vscode.Disposable {
 
 	public isAuthenticatedWithAdditionalScopes(authProviderId: AuthProvider): boolean {
 		if (!isEnterprise(authProviderId)) {
-			return !!this._githubAPI && this._scopes.length == SCOPES_WITH_ADDITIONAL.length;
+			return !!this._githubAPI && this.allScopesIncluded(this._scopes, SCOPES_WITH_ADDITIONAL);
 		}
-		return !!this._githubEnterpriseAPI && this._scopesEnterprise.length == SCOPES_WITH_ADDITIONAL.length;
+		return !!this._githubEnterpriseAPI && this.allScopesIncluded(this._scopesEnterprise, SCOPES_WITH_ADDITIONAL);
 	}
 
 	public getHub(authProviderId: AuthProvider): GitHub | undefined {
@@ -227,6 +231,13 @@ export class CredentialStore implements vscode.Disposable {
 			return this._githubAPI;
 		}
 		return this._githubEnterpriseAPI;
+	}
+
+	public areScopesOld(authProviderId: AuthProvider): boolean {
+		if (!isEnterprise(authProviderId)) {
+			return !this.allScopesIncluded(this._scopes, SCOPES);
+		}
+		return !this.allScopesIncluded(this._scopesEnterprise, SCOPES);
 	}
 
 	public async getHubEnsureAdditionalScopes(authProviderId: AuthProvider): Promise<GitHub | undefined> {

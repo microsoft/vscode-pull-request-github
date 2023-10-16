@@ -19,7 +19,8 @@ import { NetworkStatus } from 'apollo-client';
 import { Resource } from '../../common/resources';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { GitHubServerType } from '../../common/authentication';
-const queries = require('../../github/queries.gql');
+import { mergeQuerySchemaWithShared } from '../../github/common';
+const queries = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 const telemetry = new MockTelemetry();
 const protocol = new Protocol('https://github.com/github/test.git');

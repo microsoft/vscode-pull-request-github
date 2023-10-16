@@ -13,11 +13,12 @@ import { OctokitCommon } from './common';
 import { GitHubRepository } from './githubRepository';
 import {
 	AddIssueCommentResponse,
+	AddPullRequestToProjectResponse,
 	EditIssueCommentResponse,
 	TimelineEventsResponse,
 	UpdatePullRequestResponse,
 } from './graphql';
-import { GithubItemStateEnum, IAccount, IMilestone, IPullRequestEditData, Issue } from './interface';
+import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, IPullRequestEditData, Issue } from './interface';
 import { parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
 
 export class IssueModel<TItem extends Issue = Issue> {
@@ -274,6 +275,54 @@ export class IssueModel<TItem extends Issue = Issue> {
 			issue_number: this.number,
 			name: label,
 		});
+	}
+
+	public async removeProjects(projectItems: IProjectItem[]): Promise<void> {
+		const { mutate, schema } = await this.githubRepository.ensure();
+
+		try {
+			await Promise.all(projectItems.map(project =>
+				mutate<void>({
+					mutation: schema.RemovePullRequestFromProject,
+					variables: {
+						input: {
+							itemId: project.id,
+							projectId: project.project.id
+						},
+					},
+				})));
+			this.item.projectItems = this.item.projectItems.filter(project => !projectItems.find(p => p.project.id === project.project.id));
+		} catch (err) {
+			Logger.error(err, IssueModel.ID);
+		}
+	}
+
+	private async addProjects(projects: IProject[]): Promise<void> {
+		const { mutate, schema } = await this.githubRepository.ensure();
+
+		try {
+			const itemIds = await Promise.all(projects.map(project =>
+				mutate<AddPullRequestToProjectResponse>({
+					mutation: schema.AddPullRequestToProject,
+					variables: {
+						input: {
+							contentId: this.item.graphNodeId,
+							projectId: project.id
+						},
+					},
+				})));
+			this.item.projectItems.push(...projects.map((project, index) => { return { project, id: itemIds[index].data!.addProjectV2ItemById.item.id }; }));
+		} catch (err) {
+			Logger.error(err, IssueModel.ID);
+		}
+	}
+
+	async updateProjects(projects: IProject[]): Promise<IProjectItem[]> {
+		const projectsToAdd: IProject[] = projects.filter(project => !this.item.projectItems.find(p => p.project.id === project.id));
+		const projectsToRemove: IProjectItem[] = this.item.projectItems?.filter(project => !projects.find(p => p.id === project.project.id)) ?? [];
+		await this.removeProjects(projectsToRemove);
+		await this.addProjects(projectsToAdd);
+		return this.item.projectItems;
 	}
 
 	async getIssueTimelineEvents(): Promise<TimelineEvent[]> {

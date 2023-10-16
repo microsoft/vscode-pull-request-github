@@ -5,7 +5,7 @@
 
 import React, { useContext } from 'react';
 import { gitHubLabelColor } from '../../src/common/utils';
-import { IMilestone, reviewerId } from '../../src/github/interface';
+import { IMilestone, IProject, IProjectItem, reviewerId } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Label } from '../common/label';
@@ -13,13 +13,14 @@ import { AuthorLink, Avatar } from '../components/user';
 import { closeIcon, settingsIcon } from './icon';
 import { Reviewer } from './reviewer';
 
-export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, milestone, assignees }: PullRequest) {
+export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, projectItems: projects, milestone, assignees }: PullRequest) {
 	const {
 		addReviewers,
 		addAssignees,
 		addAssigneeYourself,
 		addLabels,
 		removeLabel,
+		changeProjects,
 		addMilestone,
 		updatePR,
 		pr,
@@ -128,6 +129,26 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					<div className="section-placeholder">None yet</div>
 				)}
 			</div>
+			<div id="project" className="section">
+				<div className="section-header" onClick={async () => {
+					const newProjects = await changeProjects();
+					updatePR({ ...newProjects });
+				}}>
+					<div className="section-title">Project</div>
+					{hasWritePermission ? (
+						<button
+							className="icon-button"
+							title="Add Project">
+							{settingsIcon}
+						</button>
+					) : null}
+				</div>
+				{(projects && projects.length > 0) ? projects.map(project => (
+					<Project key={project.project.title} {...project} canDelete={hasWritePermission} />
+				)) : (
+					<div className="section-placeholder">None Yet</div>
+				)}
+			</div>
 			<div id="milestone" className="section">
 				<div className="section-header" onClick={async () => {
 					const newMilestone = await addMilestone();
@@ -175,7 +196,41 @@ function Milestone(milestone: IMilestone & { canDelete: boolean }) {
 						className="icon-button"
 						onClick={async () => {
 							await removeMilestone();
-							updatePR({ milestone: null });
+							updatePR({ milestone: undefined });
+						}}
+					>
+						{closeIcon}️
+					</button>
+				) : null}
+			</div>
+		</div>
+	);
+}
+
+function Project(project: IProjectItem & { canDelete: boolean }) {
+	const { removeProject, updatePR, pr } = useContext(PullRequestContext);
+	const backgroundBadgeColor = getComputedStyle(document.documentElement).getPropertyValue(
+		'--vscode-badge-foreground',
+	);
+	const labelColor = gitHubLabelColor(backgroundBadgeColor, pr.isDarkTheme, false);
+	const { canDelete } = project;
+	return (
+		<div className="labels-list">
+			<div
+				className="section-item label"
+				style={{
+					backgroundColor: labelColor.backgroundColor,
+					color: labelColor.textColor,
+					borderColor: `${labelColor.borderColor}`,
+				}}
+			>
+				{project.project.title}
+				{canDelete ? (
+					<button
+						className="icon-button"
+						onClick={async () => {
+							await removeProject(project);
+							updatePR({ projectItems: pr.projectItems?.filter(x => x.id !== project.id) });
 						}}
 					>
 						{closeIcon}️

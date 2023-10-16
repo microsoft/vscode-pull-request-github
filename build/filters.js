@@ -56,7 +56,7 @@ module.exports.copyrightFilter = [
 	'!.github/**/*',
 	'!.husky/**/*',
 	'!tsfmt.json',
-	'!**/queries.gql',
+	'!**/queries*.gql',
 	'!**/*.yml',
 	'!**/*.md',
 	'!package.nls.json',
