@@ -579,9 +579,9 @@ function parseActor(
 	}
 }
 
-export function parseProjectItems(projects: { id: string; project: { id: string; title: string; } }[] | undefined): IProjectItem[] {
+export function parseProjectItems(projects: { id: string; project: { id: string; title: string; } }[] | undefined): IProjectItem[] | undefined {
 	if (!projects) {
-		return [];
+		return undefined;
 	}
 	return projects.map(project => {
 		return {

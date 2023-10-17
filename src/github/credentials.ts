@@ -54,11 +54,14 @@ export class CredentialStore implements vscode.Disposable {
 	private _isInitialized: boolean = false;
 	private _onDidInitialize: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidInitialize: vscode.Event<void> = this._onDidInitialize.event;
-	private _scopes: string[] = SCOPES;
+	private _scopes: string[] = SCOPES_OLD;
 	private _scopesEnterprise: string[] = SCOPES_OLD;
 
 	private _onDidGetSession: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidGetSession = this._onDidGetSession.event;
+
+	private _onDidUpgradeSession: vscode.EventEmitter<void> = new vscode.EventEmitter();
+	public readonly onDidUpgradeSession = this._onDidUpgradeSession.event;
 
 	constructor(private readonly _telemetry: ITelemetry, private readonly context: vscode.ExtensionContext) {
 		this.setScopesFromState();
@@ -88,8 +91,8 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	private setScopesFromState() {
-		this._scopes = this.context.globalState.get(LAST_USED_SCOPES_GITHUB_KEY, SCOPES);
-		this._scopesEnterprise = this.context.globalState.get(LAST_USED_SCOPES_ENTERPRISE_KEY, SCOPES);
+		this._scopes = this.context.globalState.get(LAST_USED_SCOPES_GITHUB_KEY, SCOPES_OLD);
+		this._scopesEnterprise = this.context.globalState.get(LAST_USED_SCOPES_ENTERPRISE_KEY, SCOPES_OLD);
 	}
 
 	private async saveScopesInState() {
@@ -111,7 +114,7 @@ export class CredentialStore implements vscode.Disposable {
 
 		let session: vscode.AuthenticationSession | undefined = undefined;
 		let isNew: boolean = false;
-		let usedScopes: string[] | undefined = SCOPES;
+		let usedScopes: string[] | undefined = SCOPES_OLD;
 		const oldScopes = this._scopes;
 		const oldEnterpriseScopes = this._scopesEnterprise;
 		const authResult: AuthResult = { canceled: false };
@@ -243,6 +246,9 @@ export class CredentialStore implements vscode.Disposable {
 	public async getHubEnsureAdditionalScopes(authProviderId: AuthProvider): Promise<GitHub | undefined> {
 		const hasScopesAlready = this.isAuthenticatedWithAdditionalScopes(authProviderId);
 		await this.initialize(authProviderId, { createIfNone: !hasScopesAlready }, SCOPES_WITH_ADDITIONAL, true);
+		if (!hasScopesAlready) {
+			this._onDidUpgradeSession.fire();
+		}
 		return this.getHub(authProviderId);
 	}
 
@@ -355,8 +361,8 @@ export class CredentialStore implements vscode.Disposable {
 			return { session: existingSession.session, isNew: false, scopes: existingSession.scopes };
 		}
 
-		const session = await vscode.authentication.getSession(authProviderId, requireScopes ? scopes : SCOPES, getAuthSessionOptions);
-		return { session, isNew: !!session, scopes: requireScopes ? scopes : SCOPES };
+		const session = await vscode.authentication.getSession(authProviderId, requireScopes ? scopes : SCOPES_OLD, getAuthSessionOptions);
+		return { session, isNew: !!session, scopes: requireScopes ? scopes : SCOPES_OLD };
 	}
 
 	private async findExistingScopes(authProviderId: AuthProvider): Promise<{ session: vscode.AuthenticationSession, scopes: string[] } | undefined> {

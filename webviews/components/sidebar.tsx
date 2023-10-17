@@ -25,6 +25,12 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 		updatePR,
 		pr,
 	} = useContext(PullRequestContext);
+
+	const updateProjects = async () => {
+		const newProjects = await changeProjects();
+		updatePR({ ...newProjects });
+	};
+
 	return (
 		<div id="sidebar">
 			{!isIssue ? (
@@ -130,10 +136,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				)}
 			</div>
 			<div id="project" className="section">
-				<div className="section-header" onClick={async () => {
-					const newProjects = await changeProjects();
-					updatePR({ ...newProjects });
-				}}>
+				<div className="section-header" onClick={updateProjects}>
 					<div className="section-title">Project</div>
 					{hasWritePermission ? (
 						<button
@@ -143,11 +146,14 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 						</button>
 					) : null}
 				</div>
-				{(projects && projects.length > 0) ? projects.map(project => (
-					<Project key={project.project.title} {...project} canDelete={hasWritePermission} />
-				)) : (
-					<div className="section-placeholder">None Yet</div>
-				)}
+				{!projects ?
+					<a onClick={updateProjects}>Sign in with more permissions to see projects</a>
+					: (projects.length > 0)
+						? projects.map(project => (
+							<Project key={project.project.title} {...project} canDelete={hasWritePermission} />
+						)) :
+						<div className="section-placeholder">None Yet</div>
+				}
 			</div>
 			<div id="milestone" className="section">
 				<div className="section-header" onClick={async () => {

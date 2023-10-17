@@ -81,5 +81,5 @@ export interface PullRequest {
 }
 
 export interface ProjectItemsReply {
-	projectItems: IProjectItem[];
+	projectItems: IProjectItem[] | undefined;
 }
