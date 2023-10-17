@@ -10,6 +10,7 @@ import { CreatePullRequestViewProviderNew } from '../github/createPRViewProvider
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { CompareChanges } from './compareChangesTreeDataProvider';
+import { CreatePullRequestDataModel } from './createPullRequestDataModel';
 
 export class CreatePullRequestHelper implements vscode.Disposable {
 	private _disposables: vscode.Disposable[] = [];
@@ -191,13 +192,8 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 
 			const compareOrigin = await folderRepoManager.getOrigin(branch);
 			this._treeView = new CompareChanges(
-				folderRepoManager.repository,
-				pullRequestDefaults.owner,
-				pullRequestDefaults.base,
-				compareOrigin.remote.owner,
-				branch.name!,
-				!!branch.upstream,
 				folderRepoManager,
+				new CreatePullRequestDataModel(folderRepoManager, pullRequestDefaults.owner, pullRequestDefaults.base, compareOrigin.remote.owner, branch.name!)
 			);
 
 			this.registerListeners(folderRepoManager.repository, !compareBranch);
