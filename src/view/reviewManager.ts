@@ -347,13 +347,18 @@ export class ReviewManager {
 		if (branch.upstream) {
 			return { remoteName: branch.upstream.remote, branchName: branch.upstream.name, url: undefined };
 		} else {
-			const url = await this.repository.getConfig(`branch.${branch.name}.remote`);
-			const upstreamBranch = await this.repository.getConfig(`branch.${branch.name}.merge`);
-			let branchName: string | undefined;
-			if (upstreamBranch) {
-				branchName = upstreamBranch.substring('refs/heads/'.length);
+			try {
+				const url = await this.repository.getConfig(`branch.${branch.name}.remote`);
+				const upstreamBranch = await this.repository.getConfig(`branch.${branch.name}.merge`);
+				let branchName: string | undefined;
+				if (upstreamBranch) {
+					branchName = upstreamBranch.substring('refs/heads/'.length);
+				}
+				return { url, branchName, remoteName: undefined };
+			} catch (e) {
+				Logger.appendLine(`Failed to get upstream for branch ${branch.name} from git config.`, ReviewManager.ID);
+				return { url: undefined, branchName: undefined, remoteName: undefined };
 			}
-			return { url, branchName, remoteName: undefined };
 		}
 	}
 

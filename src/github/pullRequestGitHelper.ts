@@ -451,9 +451,13 @@ export class PullRequestGitHelper {
 		pullRequest: PullRequestModel,
 		branchName: string,
 	) {
-		Logger.appendLine(`associate ${branchName} with Pull Request #${pullRequest.number}`, PullRequestGitHelper.ID);
-		const prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
-		await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
+		try {
+			Logger.appendLine(`associate ${branchName} with Pull Request #${pullRequest.number}`, PullRequestGitHelper.ID);
+			const prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
+			await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
+		} catch (e) {
+			Logger.appendLine(`associate ${branchName} with Pull Request #${pullRequest.number} failed`, PullRequestGitHelper.ID);
+		}
 	}
 
 	static async associateBaseBranchWithBranch(
