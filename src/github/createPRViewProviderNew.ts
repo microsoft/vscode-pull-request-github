@@ -21,6 +21,7 @@ import {
 import { asPromise, compareIgnoreCase, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { PREVIOUS_CREATE_METHOD } from '../extensionState';
+import { CreatePullRequestDataModel } from '../view/createPullRequestDataModel';
 import {
 	byRemoteName,
 	DetachedHeadError,
@@ -64,6 +65,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	private _firstLoad: boolean = true;
 
 	constructor(
+		private readonly model: CreatePullRequestDataModel,
 		extensionUri: vscode.Uri,
 		private readonly _folderRepositoryManager: FolderRepositoryManager,
 		private readonly _pullRequestDefaults: PullRequestDefaults,
@@ -326,6 +328,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			labels: this.labels,
 			isDraftDefault,
 			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
+			canGenerateTitleAndDescription: this._folderRepositoryManager.getTitleAndDescriptionProvider() !== undefined,
 			creating: false
 		};
 
@@ -672,6 +675,23 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		});
 	}
 
+	private async generateTitleAndDescription(message: IRequestMessage<void>): Promise<void> {
+		let commits: string[];
+		let patches: string[];
+		if (this.model.compareHasUpstream) {
+			commits = (await this.model.gitHubCommits()).map(commit => commit.commit.message);
+			patches = (await this.model.gitHubFiles()).map(file => file.patch ?? '');
+		} else {
+			commits = (await this.model.gitCommits()).map(commit => commit.message);
+			patches = await Promise.all((await this.model.gitFiles()).map(async (file) => {
+				return this._folderRepositoryManager.repository.diffBetween(this.model.baseBranch, this.model.getCompareBranch(), file.uri.fsPath);
+			}));
+		}
+		const generated = await this._folderRepositoryManager.getTitleAndDescriptionProvider()?.provideTitleAndDescription(commits, patches);
+
+		return this._replyMessage(message, { title: generated?.title, description: generated?.description });
+	}
+
 	private async pushUpstream(compareOwner: string, compareRepositoryName: string, compareBranchName: string): Promise<{ compareUpstream: GitHubRemote, repo: GitHubRepository | undefined } | undefined> {
 		let createdPushRemote: GitHubRemote | undefined;
 		const pushRemote = this._folderRepositoryManager.repository.state.remotes.find(localRemote => {
@@ -886,6 +906,9 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 
 			case 'pr.removeLabel':
 				return this.removeLabel(message);
+
+			case 'pr.generateTitleAndDescription':
+				return this.generateTitleAndDescription(message);
 
 			default:
 				// Log error

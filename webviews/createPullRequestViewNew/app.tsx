@@ -11,7 +11,7 @@ import { isTeam, MergeMethod } from '../../src/github/interface';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
-import { assigneeIcon, chevronDownIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon } from '../components/icon';
+import { assigneeIcon, chevronDownIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon, sparkleIcon } from '../components/icon';
 import { Avatar } from '../components/user';
 
 type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'create-automerge-rebase' | 'create-automerge-merge';
@@ -162,6 +162,12 @@ export function main() {
 					}
 				}
 
+				async function generateTitle() {
+					setBusy(true);
+					await ctx.generateTitle();
+					setBusy(false);
+				}
+
 				if (!ctx.initialized) {
 					ctx.initialize();
 				}
@@ -212,6 +218,8 @@ export function main() {
 							data-vscode-context='{"preventDefaultContextMenuItems": false}'
 							disabled={!ctx.initialized || isBusy}>
 						</input>
+						{ctx.createParams.canGenerateTitleAndDescription ?
+							<span className='title-action' onClick={generateTitle}>{sparkleIcon}</span> : null}
 						<div id='title-error' className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required</div>
 					</div>
 

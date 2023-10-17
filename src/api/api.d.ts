@@ -237,6 +237,10 @@ export interface IGit {
 	registerPostCommitCommandsProvider?(provider: PostCommitCommandsProvider): Disposable;
 }
 
+export interface TitleAndDescriptionProvider {
+	provideTitleAndDescription(commitMessages: string[], patches: string[]): Promise<{ title: string, description: string }>;
+}
+
 export interface API {
 	/**
 	 * Register a [git provider](#IGit)
@@ -250,4 +254,9 @@ export interface API {
 	 * @return A git provider or `undefined`
 	 */
 	getGitProvider(uri: Uri): IGit | undefined;
+
+	/**
+	 * Register a PR title and description provider.
+	 */
+	registerTitleAndDescriptionProvider(provider: TitleAndDescriptionProvider): Disposable;
 }

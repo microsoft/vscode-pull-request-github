@@ -182,18 +182,19 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 				await folderRepoManager.getPullRequestDefaults(branch),
 			);
 
-
+			const compareOrigin = await folderRepoManager.getOrigin(branch);
+			const model = new CreatePullRequestDataModel(folderRepoManager, pullRequestDefaults.owner, pullRequestDefaults.base, compareOrigin.remote.owner, branch.name!);
 			this._createPRViewProvider = new CreatePullRequestViewProviderNew(
+				model,
 				extensionUri,
 				folderRepoManager,
 				pullRequestDefaults,
 				branch
 			);
 
-			const compareOrigin = await folderRepoManager.getOrigin(branch);
 			this._treeView = new CompareChanges(
 				folderRepoManager,
-				new CreatePullRequestDataModel(folderRepoManager, pullRequestDefaults.owner, pullRequestDefaults.base, compareOrigin.remote.owner, branch.name!)
+				model
 			);
 
 			this.registerListeners(folderRepoManager.repository, !compareBranch);

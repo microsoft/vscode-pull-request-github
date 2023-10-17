@@ -2350,6 +2350,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 	}
 
+	public getTitleAndDescriptionProvider() {
+		return this._git.getTitleAndDescriptionProvider();
+	}
+
 	dispose() {
 		this._subs.forEach(sub => sub.dispose());
 		this._onDidDispose.fire();

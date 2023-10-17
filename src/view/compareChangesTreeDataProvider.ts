@@ -254,7 +254,7 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 
 	protected async getGitChildren(element?: TreeNode) {
 		if (!element) {
-			const diff = await this.folderRepoManager.repository.diffBetween(this.model.baseBranch, this.model.getCompareBranch());
+			const diff = await this.model.gitFiles();
 			if (diff.length === 0) {
 				(this.view as vscode.TreeView2<TreeNode>).message = new vscode.MarkdownString(vscode.l10n.t('There are no commits between the base `{0}` branch and the comparing `{1}` branch', this.model.baseBranch, this.model.getCompareBranch()));
 				return [];

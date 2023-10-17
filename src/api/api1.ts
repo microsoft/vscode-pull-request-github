@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { APIState, PublishEvent } from '../@types/git';
 import Logger from '../common/logger';
 import { TernarySearchTree } from '../common/utils';
-import { API, IGit, PostCommitCommandsProvider, Repository } from './api';
+import { API, IGit, PostCommitCommandsProvider, Repository, TitleAndDescriptionProvider } from './api';
 
 export const enum RefType {
 	Head,
@@ -191,4 +191,19 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 	dispose() {
 		this._disposables.forEach(disposable => disposable.dispose());
 	}
+
+	private _titleAndDescriptionProviders: Set<TitleAndDescriptionProvider> = new Set();
+	registerTitleAndDescriptionProvider(provider: TitleAndDescriptionProvider): vscode.Disposable {
+		this._titleAndDescriptionProviders.add(provider);
+		const disposable = {
+			dispose: () => this._titleAndDescriptionProviders.delete(provider)
+		};
+		this._disposables.push(disposable);
+		return disposable;
+	}
+
+	getTitleAndDescriptionProvider(): TitleAndDescriptionProvider | undefined {
+		return this._titleAndDescriptionProviders.size > 0 ? this._titleAndDescriptionProviders.values().next().value : undefined;
+	}
+
 }
