@@ -451,9 +451,13 @@ export class PullRequestGitHelper {
 		pullRequest: PullRequestModel,
 		branchName: string,
 	) {
-		Logger.appendLine(`associate ${branchName} with Pull Request #${pullRequest.number}`, PullRequestGitHelper.ID);
-		const prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
-		await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
+		try {
+			Logger.appendLine(`associate ${branchName} with Pull Request #${pullRequest.number}`, PullRequestGitHelper.ID);
+			const prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
+			await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
+		} catch (e) {
+			Logger.error(`associate ${branchName} with Pull Request #${pullRequest.number} failed`, PullRequestGitHelper.ID);
+		}
 	}
 
 	static async associateBaseBranchWithBranch(
@@ -463,8 +467,12 @@ export class PullRequestGitHelper {
 		repo: string,
 		baseBranch: string
 	) {
-		Logger.appendLine(`associate ${branch} with base branch ${owner}/${repo}#${baseBranch}`, PullRequestGitHelper.ID);
-		const prConfigKey = `branch.${branch}.${BaseBranchMetadataKey}`;
-		await repository.setConfig(prConfigKey, PullRequestGitHelper.buildBaseBranchMetadata(owner, repo, baseBranch));
+		try {
+			Logger.appendLine(`associate ${branch} with base branch ${owner}/${repo}#${baseBranch}`, PullRequestGitHelper.ID);
+			const prConfigKey = `branch.${branch}.${BaseBranchMetadataKey}`;
+			await repository.setConfig(prConfigKey, PullRequestGitHelper.buildBaseBranchMetadata(owner, repo, baseBranch));
+		} catch (e) {
+			Logger.error(`associate ${branch} with base branch ${owner}/${repo}#${baseBranch} failed`, PullRequestGitHelper.ID);
+		}
 	}
 }
