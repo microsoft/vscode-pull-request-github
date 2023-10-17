@@ -45,6 +45,8 @@ export namespace OctokitCommon {
 	export type ReposListBranchesResponseData = Endpoints['GET /repos/{owner}/{repo}/branches']['response']['data'];
 	export type SearchReposResponseItem = Endpoints['GET /search/repositories']['response']['data']['items'][0];
 	export type CompareCommits = Endpoints['GET /repos/{owner}/{repo}/compare/{base}...{head}']['response']['data'];
+	export type Commit = CompareCommits['commits'][0];
+	export type CommitFile = CompareCommits['files'][0];
 }
 
 export function mergeQuerySchemaWithShared(sharedSchema: { [key: string]: any, definitions: any[]; }, schema: { [key: string]: any, definitions: any[]; }) {
