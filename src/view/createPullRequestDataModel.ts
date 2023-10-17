@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Commit } from '../api/api';
+import { Change, Commit } from '../api/api';
 import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
@@ -19,6 +19,7 @@ export class CreatePullRequestDataModel {
 	private _gitHubRepository: GitHubRepository | undefined;
 
 	private _gitLog: Promise<Commit[]> | undefined;
+	private _gitFiles: Change[] | undefined;
 	private _compareHasUpstream: boolean = false;
 
 	private _gitHubMergeBase: string | undefined;
@@ -113,6 +114,7 @@ export class CreatePullRequestDataModel {
 
 	private update() {
 		this._gitLog = undefined;
+		this._gitFiles = undefined;
 		this._gitHubLog = undefined;
 		this._gitHubFiles = undefined;
 		this._onDidChange.fire();
@@ -123,6 +125,13 @@ export class CreatePullRequestDataModel {
 			this._gitLog = this.folderRepositoryManager.repository.log({ range: `${this._baseBranch}..${this._compareBranch}` });
 		}
 		return this._gitLog;
+	}
+
+	public async gitFiles(): Promise<Change[]> {
+		if (this._gitFiles === undefined) {
+			this._gitFiles = await this.folderRepositoryManager.repository.diffBetween(this._baseBranch, this._compareBranch);
+		}
+		return this._gitFiles;
 	}
 
 	public async gitHubCommits(): Promise<OctokitCommon.Commit[]> {

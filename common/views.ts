@@ -107,6 +107,7 @@ export interface CreateParamsNew {
 	reviewers?: (IAccount | ITeam)[];
 	milestone?: IMilestone;
 	isDarkTheme?: boolean;
+	canGenerateTitleAndDescription: boolean;
 
 	validate?: boolean;
 	showTitleValidationError?: boolean;
@@ -143,6 +144,11 @@ export interface ChooseCompareRemoteAndBranchResult {
 	compareRemote: RemoteInfo;
 	compareBranch: string;
 	defaultCompareBranch: string;
+}
+
+export interface TitleAndDescriptionResult {
+	title: string | undefined;
+	description: string | undefined;
 }
 
 // #endregion

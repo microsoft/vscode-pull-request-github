@@ -110,6 +110,18 @@ textarea:disabled {
 
 /* Title, Description */
 
+.group-title {
+	position: relative;
+	display: flex;
+}
+
+.group-title .title-action {
+	position: absolute;
+	top: 5px;
+	right: 5px;
+	cursor: pointer;
+}
+
 .group-description {
 	flex-grow: 1;
 	margin-top: 10px;
