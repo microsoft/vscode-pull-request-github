@@ -291,7 +291,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 						},
 					},
 				})));
-			this.item.projectItems = this.item.projectItems.filter(project => !projectItems.find(p => p.project.id === project.project.id));
+			this.item.projectItems = this.item.projectItems?.filter(project => !projectItems.find(p => p.project.id === project.project.id));
 		} catch (err) {
 			Logger.error(err, IssueModel.ID);
 		}
@@ -311,14 +311,17 @@ export class IssueModel<TItem extends Issue = Issue> {
 						},
 					},
 				})));
+			if (!this.item.projectItems) {
+				this.item.projectItems = [];
+			}
 			this.item.projectItems.push(...projects.map((project, index) => { return { project, id: itemIds[index].data!.addProjectV2ItemById.item.id }; }));
 		} catch (err) {
 			Logger.error(err, IssueModel.ID);
 		}
 	}
 
-	async updateProjects(projects: IProject[]): Promise<IProjectItem[]> {
-		const projectsToAdd: IProject[] = projects.filter(project => !this.item.projectItems.find(p => p.project.id === project.id));
+	async updateProjects(projects: IProject[]): Promise<IProjectItem[] | undefined> {
+		const projectsToAdd: IProject[] = projects.filter(project => !this.item.projectItems?.find(p => p.project.id === project.id));
 		const projectsToRemove: IProjectItem[] = this.item.projectItems?.filter(project => !projects.find(p => p.id === project.project.id)) ?? [];
 		await this.removeProjects(projectsToRemove);
 		await this.addProjects(projectsToAdd);

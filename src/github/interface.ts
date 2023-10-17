@@ -141,7 +141,7 @@ export interface Issue {
 	updatedAt: string;
 	user: IAccount;
 	labels: ILabel[];
-	projectItems: IProjectItem[];
+	projectItems?: IProjectItem[];
 	milestone?: IMilestone;
 	repositoryOwner?: string;
 	repositoryName?: string;

@@ -126,6 +126,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				});
 			}),
 		);
+		this._disposables.push(folderRepositoryManager.credentialStore.onDidUpgradeSession(() => {
+			this.updatePullRequest(this._item);
+		}));
 	}
 
 	registerPrListeners() {
