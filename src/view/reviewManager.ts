@@ -363,7 +363,6 @@ export class ReviewManager {
 	}
 
 	private async checkGitHubForPrBranch(branch: Branch): Promise<(PullRequestMetadata & { model: PullRequestModel }) | undefined> {
-		Logger.appendLine(`Review> no matching pull request metadata found for current branch ${branch.name}`);
 		const { url, branchName, remoteName } = await this.getUpstreamUrlAndName(this._repository.state.HEAD!);
 		const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub(branch, remoteName, url, branchName);
 		if (metadataFromGithub) {
@@ -426,6 +425,7 @@ export class ReviewManager {
 			await this.clear(true);
 			return;
 		}
+		Logger.appendLine(`Found matching pull request metadata for current branch ${branch.name}. Repo: ${matchingPullRequestMetadata.owner}/${matchingPullRequestMetadata.repositoryName} PR: ${matchingPullRequestMetadata.prNumber}`, ReviewManager.ID);
 
 		const remote = branch.upstream ? branch.upstream.remote : null;
 		if (!remote) {
