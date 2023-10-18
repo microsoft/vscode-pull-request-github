@@ -141,6 +141,12 @@ export class CreatePRContextNew {
 		this.updateState(updateValues);
 	};
 
+	public cancelGenerateTitle = async (): Promise<void> => {
+		return this.postMessage({
+			command: 'pr.cancelGenerateTitleAndDescription'
+		});
+	};
+
 	public validate = (): boolean => {
 		let isValid = true;
 		if (!this.createParams.pendingTitle) {

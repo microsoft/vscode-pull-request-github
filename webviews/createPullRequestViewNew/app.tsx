@@ -11,7 +11,7 @@ import { isTeam, MergeMethod } from '../../src/github/interface';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
-import { assigneeIcon, chevronDownIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon, sparkleIcon } from '../components/icon';
+import { assigneeIcon, chevronDownIcon, closeIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon, sparkleIcon } from '../components/icon';
 import { Avatar } from '../components/user';
 
 type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'create-automerge-rebase' | 'create-automerge-merge';
@@ -39,6 +39,7 @@ export function main() {
 			{(params: CreateParamsNew) => {
 				const ctx = useContext(PullRequestContextNew);
 				const [isBusy, setBusy] = useState(params.creating);
+				const [isGeneratingTitle, setGeneratingTitle] = useState(false);
 				function createMethodLabel(isDraft?: boolean, autoMerge?: boolean, autoMergeMethod?: MergeMethod): { value: CreateMethod, label: string } {
 					let value: CreateMethod;
 					let label: string;
@@ -164,7 +165,9 @@ export function main() {
 
 				async function generateTitle() {
 					setBusy(true);
+					setGeneratingTitle(true);
 					await ctx.generateTitle();
+					setGeneratingTitle(false);
 					setBusy(false);
 				}
 
@@ -219,7 +222,9 @@ export function main() {
 							disabled={!ctx.initialized || isBusy}>
 						</input>
 						{ctx.createParams.generateTitleAndDescriptionTitle ?
-							<span title={ctx.createParams.generateTitleAndDescriptionTitle} className='title-action' onClick={generateTitle}>{sparkleIcon}</span> : null}
+							isGeneratingTitle ?
+								<span title='Cancel' className='title-action' onClick={ctx.cancelGenerateTitle}>{closeIcon}</span>
+								: <span title={ctx.createParams.generateTitleAndDescriptionTitle} className='title-action' onClick={generateTitle}>{sparkleIcon}</span> : null}
 						<div id='title-error' className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required</div>
 					</div>
 
