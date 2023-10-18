@@ -229,6 +229,7 @@ async function init(
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<GitApiImpl> {
+	Logger.appendLine(`Extension version: ${vscode.extensions.getExtension(EXTENSION_ID)?.packageJSON.version}`, 'Activation');
 	// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 	// @ts-ignore
 	if (EXTENSION_ID === 'GitHub.vscode-pull-request-github-insiders') {
