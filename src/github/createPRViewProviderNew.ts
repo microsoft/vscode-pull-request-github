@@ -328,7 +328,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			labels: this.labels,
 			isDraftDefault,
 			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
-			canGenerateTitleAndDescription: this._folderRepositoryManager.getTitleAndDescriptionProvider() !== undefined,
+			generateTitleAndDescriptionTitle: this._folderRepositoryManager.getTitleAndDescriptionProvider()?.title,
 			creating: false
 		};
 
@@ -687,7 +687,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				return this._folderRepositoryManager.repository.diffBetween(this.model.baseBranch, this.model.getCompareBranch(), file.uri.fsPath);
 			}));
 		}
-		const generated = await this._folderRepositoryManager.getTitleAndDescriptionProvider()?.provideTitleAndDescription(commits, patches);
+		const generated = await this._folderRepositoryManager.getTitleAndDescriptionProvider()?.provider?.provideTitleAndDescription(commits, patches, new vscode.CancellationTokenSource().token);
 
 		return this._replyMessage(message, { title: generated?.title, description: generated?.description });
 	}

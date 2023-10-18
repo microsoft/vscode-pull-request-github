@@ -218,8 +218,8 @@ export function main() {
 							data-vscode-context='{"preventDefaultContextMenuItems": false}'
 							disabled={!ctx.initialized || isBusy}>
 						</input>
-						{ctx.createParams.canGenerateTitleAndDescription ?
-							<span className='title-action' onClick={generateTitle}>{sparkleIcon}</span> : null}
+						{ctx.createParams.generateTitleAndDescriptionTitle ?
+							<span title={ctx.createParams.generateTitleAndDescriptionTitle} className='title-action' onClick={generateTitle}>{sparkleIcon}</span> : null}
 						<div id='title-error' className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required</div>
 					</div>
 

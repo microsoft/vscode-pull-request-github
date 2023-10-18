@@ -192,17 +192,18 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 		this._disposables.forEach(disposable => disposable.dispose());
 	}
 
-	private _titleAndDescriptionProviders: Set<TitleAndDescriptionProvider> = new Set();
-	registerTitleAndDescriptionProvider(provider: TitleAndDescriptionProvider): vscode.Disposable {
-		this._titleAndDescriptionProviders.add(provider);
+	private _titleAndDescriptionProviders: Set<{ title: string, provider: TitleAndDescriptionProvider }> = new Set();
+	registerTitleAndDescriptionProvider(title: string, provider: TitleAndDescriptionProvider): vscode.Disposable {
+		const registeredValue = { title, provider };
+		this._titleAndDescriptionProviders.add(registeredValue);
 		const disposable = {
-			dispose: () => this._titleAndDescriptionProviders.delete(provider)
+			dispose: () => this._titleAndDescriptionProviders.delete(registeredValue)
 		};
 		this._disposables.push(disposable);
 		return disposable;
 	}
 
-	getTitleAndDescriptionProvider(): TitleAndDescriptionProvider | undefined {
+	getTitleAndDescriptionProvider(): { title: string, provider: TitleAndDescriptionProvider } | undefined {
 		return this._titleAndDescriptionProviders.size > 0 ? this._titleAndDescriptionProviders.values().next().value : undefined;
 	}
 

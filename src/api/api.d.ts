@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, Event, Uri } from 'vscode';
+import { CancellationToken, Disposable, Event, Uri } from 'vscode';
 import { APIState, PublishEvent } from '../@types/git';
 
 export interface InputBox {
@@ -238,7 +238,7 @@ export interface IGit {
 }
 
 export interface TitleAndDescriptionProvider {
-	provideTitleAndDescription(commitMessages: string[], patches: string[]): Promise<{ title: string, description: string }>;
+	provideTitleAndDescription(commitMessages: string[], patches: string[], token: CancellationToken): Promise<{ title: string, description?: string } | undefined>;
 }
 
 export interface API {
@@ -258,5 +258,5 @@ export interface API {
 	/**
 	 * Register a PR title and description provider.
 	 */
-	registerTitleAndDescriptionProvider(provider: TitleAndDescriptionProvider): Disposable;
+	registerTitleAndDescriptionProvider(title: string, provider: TitleAndDescriptionProvider): Disposable;
 }
