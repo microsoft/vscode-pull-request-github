@@ -107,7 +107,7 @@ export interface CreateParamsNew {
 	reviewers?: (IAccount | ITeam)[];
 	milestone?: IMilestone;
 	isDarkTheme?: boolean;
-	canGenerateTitleAndDescription: boolean;
+	generateTitleAndDescriptionTitle: string | undefined;
 
 	validate?: boolean;
 	showTitleValidationError?: boolean;
