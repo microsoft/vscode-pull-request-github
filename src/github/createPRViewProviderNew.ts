@@ -675,21 +675,54 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		});
 	}
 
-	private async generateTitleAndDescription(message: IRequestMessage<void>): Promise<void> {
-		let commits: string[];
-		let patches: string[];
-		if (this.model.compareHasUpstream) {
-			commits = (await this.model.gitHubCommits()).map(commit => commit.commit.message);
-			patches = (await this.model.gitHubFiles()).map(file => file.patch ?? '');
-		} else {
-			commits = (await this.model.gitCommits()).map(commit => commit.message);
-			patches = await Promise.all((await this.model.gitFiles()).map(async (file) => {
-				return this._folderRepositoryManager.repository.diffBetween(this.model.baseBranch, this.model.getCompareBranch(), file.uri.fsPath);
-			}));
-		}
-		const generated = await this._folderRepositoryManager.getTitleAndDescriptionProvider()?.provider?.provideTitleAndDescription(commits, patches, new vscode.CancellationTokenSource().token);
+	private async getTitleAndDescriptionFromProvider(token: vscode.CancellationToken) {
+		return vscode.window.withProgress({ location: { viewId: 'github:createPullRequestWebview' } }, async () => {
+			try {
+				let commits: string[];
+				let patches: string[];
+				if (this.model.compareHasUpstream) {
+					commits = (await this.model.gitHubCommits()).map(commit => commit.commit.message);
+					patches = (await this.model.gitHubFiles()).map(file => file.patch ?? '');
+				} else {
+					commits = (await this.model.gitCommits()).map(commit => commit.message);
+					patches = await Promise.all((await this.model.gitFiles()).map(async (file) => {
+						return this._folderRepositoryManager.repository.diffBetween(this.model.baseBranch, this.model.getCompareBranch(), file.uri.fsPath);
+					}));
+				}
 
+				return this._folderRepositoryManager.getTitleAndDescriptionProvider()?.provider?.provideTitleAndDescription(commits, patches, token);
+			} catch (e) {
+				Logger.error(`Error while generating title and description: ${e}`, CreatePullRequestViewProviderNew.ID);
+				return undefined;
+			}
+		});
+	}
+
+	private generatingCancellationToken: vscode.CancellationTokenSource | undefined;
+	private async generateTitleAndDescription(message: IRequestMessage<void>): Promise<void> {
+		if (this.generatingCancellationToken) {
+			this.generatingCancellationToken.cancel();
+		}
+		this.generatingCancellationToken = new vscode.CancellationTokenSource();
+
+
+		const result = await Promise.race([this.getTitleAndDescriptionFromProvider(this.generatingCancellationToken.token),
+		new Promise<true>(resolve => this.generatingCancellationToken?.token.onCancellationRequested(() => resolve(true)))]);
+
+		this.generatingCancellationToken = undefined;
+
+		const generated: { title: string | undefined, description: string | undefined } = { title: undefined, description: undefined };
+		if (result !== true) {
+			generated.title = result?.title;
+			generated.description = result?.description;
+		}
 		return this._replyMessage(message, { title: generated?.title, description: generated?.description });
+	}
+
+	private async cancelGenerateTitleAndDescription(): Promise<void> {
+		if (this.generatingCancellationToken) {
+			this.generatingCancellationToken.cancel();
+		}
 	}
 
 	private async pushUpstream(compareOwner: string, compareRepositoryName: string, compareBranchName: string): Promise<{ compareUpstream: GitHubRemote, repo: GitHubRepository | undefined } | undefined> {
@@ -909,6 +942,9 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 
 			case 'pr.generateTitleAndDescription':
 				return this.generateTitleAndDescription(message);
+
+			case 'pr.cancelGenerateTitleAndDescription':
+				return this.cancelGenerateTitleAndDescription();
 
 			default:
 				// Log error
