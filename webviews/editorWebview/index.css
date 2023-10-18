@@ -1076,6 +1076,7 @@ code {
 		column-gap: 20px;
 		grid-template-columns: 50% 50%;
 		padding: 0;
+		padding-bottom: 24px;
 	}
 
 	.section-content {
