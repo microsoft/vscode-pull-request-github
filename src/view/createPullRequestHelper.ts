@@ -16,9 +16,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 	private _disposables: vscode.Disposable[] = [];
 	private _createPRViewProvider: CreatePullRequestViewProviderNew | undefined;
 	private _treeView: CompareChanges | undefined;
-
-	private _onDidCreate = new vscode.EventEmitter<PullRequestModel>();
-	readonly onDidCreate: vscode.Event<PullRequestModel> = this._onDidCreate.event;
+	private _postCreateCallback: ((pullRequestModel: PullRequestModel) => Promise<void>) | undefined;
 
 	constructor() { }
 
@@ -26,7 +24,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 		this._disposables.push(
 			this._createPRViewProvider!.onDone(async createdPR => {
 				if (createdPR) {
-					this._onDidCreate.fire(createdPR);
+					await this._postCreateCallback?.(createdPR);
 				}
 				this.dispose();
 			}),
@@ -166,9 +164,11 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 		extensionUri: vscode.Uri,
 		folderRepoManager: FolderRepositoryManager,
 		compareBranch: string | undefined,
+		callback: (pullRequestModel: PullRequestModel) => Promise<void>,
 	) {
 		this.reset();
 
+		this._postCreateCallback = callback;
 		await folderRepoManager.loginAndUpdate();
 		vscode.commands.executeCommand('setContext', 'github:createPullRequest', true);
 
@@ -218,6 +218,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 
 		this._treeView?.dispose();
 		this._treeView = undefined;
+		this._postCreateCallback = undefined;
 
 		dispose(this._disposables);
 	}

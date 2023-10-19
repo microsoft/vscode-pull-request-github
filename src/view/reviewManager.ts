@@ -1120,7 +1120,7 @@ export class ReviewManager {
 	}
 
 	public async createPullRequest(compareBranch?: string): Promise<void> {
-		const disposable = this._createPullRequestHelper.onDidCreate(async createdPR => {
+		const postCreate = async (createdPR: PullRequestModel) => {
 			const postCreate = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'none' | 'openOverview' | 'checkoutDefaultBranch' | 'checkoutDefaultBranchAndShow' | 'checkoutDefaultBranchAndCopy'>(POST_CREATE, 'openOverview');
 			if (postCreate === 'openOverview') {
 				const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(this._folderRepoManager);
@@ -1150,10 +1150,9 @@ export class ReviewManager {
 				}
 			}
 			await this.updateState(false, false);
-			disposable.dispose();
-		});
+		};
 
-		return this._createPullRequestHelper.create(this._context.extensionUri, this._folderRepoManager, compareBranch);
+		return this._createPullRequestHelper.create(this._context.extensionUri, this._folderRepoManager, compareBranch, postCreate);
 	}
 
 	public async openDescription(): Promise<void> {
