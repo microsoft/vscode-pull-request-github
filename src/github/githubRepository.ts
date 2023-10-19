@@ -1274,7 +1274,7 @@ export class GitHubRepository implements vscode.Disposable {
 			throw e;
 		}
 
-		if (result.data.repository.pullRequest.commits.nodes === undefined) {
+		if (result.data.repository.pullRequest.commits.nodes === undefined || result.data.repository.pullRequest.commits.nodes.length === 0) {
 			Logger.error(`Unable to fetch PR checks: ${result.errors?.map(error => error.message).join(', ')}`, GitHubRepository.ID);
 			return [null, null];
 		}
