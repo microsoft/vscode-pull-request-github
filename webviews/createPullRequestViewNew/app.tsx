@@ -89,11 +89,16 @@ export function main() {
 					isCreateable = false;
 				}
 
-				const onKeyDown = useCallback(
-					e => {
+				const onKeyDown = useCallback((isTitle: boolean, e) => {
 						if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
 							e.preventDefault();
 							create();
+						} else if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+							if (isTitle) {
+								ctx.popTitle();
+							} else {
+								ctx.popDescription();
+							}
 						}
 					},
 					[create],
@@ -217,7 +222,7 @@ export function main() {
 							title='Required'
 							required
 							onChange={(e) => updateTitle(e.currentTarget.value)}
-							onKeyDown={onKeyDown}
+							onKeyDown={(e) => onKeyDown(true, e)}
 							data-vscode-context='{"preventDefaultContextMenuItems": false}'
 							disabled={!ctx.initialized || isBusy}>
 						</input>
@@ -300,7 +305,7 @@ export function main() {
 							aria-label='Description'
 							value={params.pendingDescription}
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
-							onKeyDown={onKeyDown}
+							onKeyDown={(e) => onKeyDown(false, e)}
 							data-vscode-context='{"preventDefaultContextMenuItems": false}'
 							disabled={!ctx.initialized || isBusy}></textarea>
 					</div>

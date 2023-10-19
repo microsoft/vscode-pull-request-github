@@ -30,6 +30,8 @@ const defaultCreateParams: CreateParamsNew = {
 
 export class CreatePRContextNew {
 	public createParams: CreateParamsNew;
+	private _titleStack: string[] = [];
+	private _descriptionStack: string[] = [];
 
 	constructor(
 		public onchange: ((ctx: CreateParamsNew) => void) | null = null,
@@ -138,6 +140,12 @@ export class CreatePRContextNew {
 		if (response.description) {
 			updateValues.pendingDescription = response.description;
 		}
+		if (updateValues.pendingTitle && this.createParams.pendingTitle && this.createParams.pendingTitle !== updateValues.pendingTitle) {
+			this._titleStack.push(this.createParams.pendingTitle);
+		}
+		if (updateValues.pendingDescription && this.createParams.pendingDescription && this.createParams.pendingDescription !== updateValues.pendingDescription) {
+			this._descriptionStack.push(this.createParams.pendingDescription);
+		}
 		this.updateState(updateValues);
 	};
 
@@ -146,6 +154,18 @@ export class CreatePRContextNew {
 			command: 'pr.cancelGenerateTitleAndDescription'
 		});
 	};
+
+	public popTitle = (): void => {
+		if (this._titleStack.length > 0) {
+			this.updateState({ pendingTitle: this._titleStack.pop() });
+		}
+	};
+
+	public popDescription = (): void => {
+		if (this._descriptionStack.length > 0) {
+			this.updateState({ pendingDescription: this._descriptionStack.pop() });
+		}
+	}
 
 	public validate = (): boolean => {
 		let isValid = true;
