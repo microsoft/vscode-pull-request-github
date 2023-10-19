@@ -456,6 +456,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	}
 
 	private async changeRemoteAndBranch(message: IRequestMessage<ChooseRemoteAndBranchArgs>, isBase: boolean): Promise<void> {
+		this.cancelGenerateTitleAndDescription();
 		const quickPick = vscode.window.createQuickPick<(vscode.QuickPickItem & { remote?: RemoteInfo, branch?: string })>();
 		let githubRepository = this._folderRepositoryManager.findRepo(
 			repo => message.args.currentRemote?.owner === repo.remote.owner && message.args.currentRemote.repositoryName === repo.remote.repositoryName,

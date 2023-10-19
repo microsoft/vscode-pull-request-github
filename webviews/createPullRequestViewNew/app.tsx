@@ -11,7 +11,7 @@ import { isTeam, MergeMethod } from '../../src/github/interface';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
-import { assigneeIcon, chevronDownIcon, closeIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon, sparkleIcon } from '../components/icon';
+import { assigneeIcon, chevronDownIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon, sparkleIcon, stopIcon } from '../components/icon';
 import { Avatar } from '../components/user';
 
 type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'create-automerge-rebase' | 'create-automerge-merge';
@@ -164,11 +164,9 @@ export function main() {
 				}
 
 				async function generateTitle() {
-					setBusy(true);
 					setGeneratingTitle(true);
 					await ctx.generateTitle();
 					setGeneratingTitle(false);
-					setBusy(false);
 				}
 
 				if (!ctx.initialized) {
@@ -219,11 +217,11 @@ export function main() {
 							onChange={(e) => updateTitle(e.currentTarget.value)}
 							onKeyDown={onKeyDown}
 							data-vscode-context='{"preventDefaultContextMenuItems": false}'
-							disabled={!ctx.initialized || isBusy}>
+							disabled={!ctx.initialized || isBusy || isGeneratingTitle}>
 						</input>
 						{ctx.createParams.generateTitleAndDescriptionTitle ?
 							isGeneratingTitle ?
-								<span title='Cancel' className='title-action' onClick={ctx.cancelGenerateTitle}>{closeIcon}</span>
+								<span title='Cancel' className='title-action' onClick={ctx.cancelGenerateTitle}>{stopIcon}</span>
 								: <span title={ctx.createParams.generateTitleAndDescriptionTitle} className='title-action' onClick={generateTitle}>{sparkleIcon}</span> : null}
 						<div id='title-error' className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required</div>
 					</div>
@@ -302,7 +300,7 @@ export function main() {
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
 							onKeyDown={onKeyDown}
 							data-vscode-context='{"preventDefaultContextMenuItems": false}'
-							disabled={!ctx.initialized || isBusy}></textarea>
+							disabled={!ctx.initialized || isBusy || isGeneratingTitle}></textarea>
 					</div>
 
 					<div className={params.validate && !!params.createError ? 'wrapper validation-error' : 'hidden'} aria-live='assertive'>
@@ -316,12 +314,12 @@ export function main() {
 							Cancel
 						</button>
 						<div className='create-button'>
-							<button className='split-left' disabled={isBusy || !isCreateable || !ctx.initialized} onClick={onCreateButton} value={createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).value}
+							<button className='split-left' disabled={isBusy || isGeneratingTitle || !isCreateable || !ctx.initialized} onClick={onCreateButton} value={createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).value}
 								title={createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).label}>
 								{createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).label}
 							</button>
 							<div className='split'></div>
-							<button className='split-right' title='Create with Option' disabled={isBusy || !isCreateable || !ctx.initialized} onClick={(e) => {
+							<button className='split-right' title='Create with Option' disabled={isBusy || isGeneratingTitle || !isCreateable || !ctx.initialized} onClick={(e) => {
 								e.preventDefault();
 								const rect = (e.target as HTMLElement).getBoundingClientRect();
 								const x = rect.left;
