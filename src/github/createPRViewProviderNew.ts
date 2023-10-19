@@ -865,10 +865,10 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				} finally {
 					let completeMessage: string;
 					if (createdPR) {
-						await this._replyMessage(message, {});
 						this._onDone.fire(createdPR);
 						completeMessage = vscode.l10n.t('Pull request created');
 					} else {
+						await this._replyMessage(message, {});
 						completeMessage = vscode.l10n.t('Unable to create pull request');
 					}
 					progress.report({ message: completeMessage, increment: 100 - totalIncrement });
