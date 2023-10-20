@@ -65,27 +65,27 @@ describe('PullRequestManager', function () {
 });
 
 describe('titleAndBodyFrom', function () {
-	it('separates title and body', function () {
-		const message = 'title\n\ndescription 1\n\ndescription 2\n';
+	it('separates title and body', async function () {
+		const message = Promise.resolve('title\n\ndescription 1\n\ndescription 2\n');
 
-		const { title, body } = titleAndBodyFrom(message);
-		assert.strictEqual(title, 'title');
-		assert.strictEqual(body, 'description 1\n\ndescription 2');
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, 'description 1\n\ndescription 2');
 	});
 
-	it('returns only title with no body', function () {
-		const message = 'title';
+	it('returns only title with no body', async function () {
+		const message = Promise.resolve('title');
 
-		const { title, body } = titleAndBodyFrom(message);
-		assert.strictEqual(title, 'title');
-		assert.strictEqual(body, '');
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '');
 	});
 
-	it('returns only title when body contains only whitespace', function () {
-		const message = 'title\n\n';
+	it('returns only title when body contains only whitespace', async function () {
+		const message = Promise.resolve('title\n\n');
 
-		const { title, body } = titleAndBodyFrom(message);
-		assert.strictEqual(title, 'title');
-		assert.strictEqual(body, '');
+		const result = await titleAndBodyFrom(message);
+		assert.strictEqual(result?.title, 'title');
+		assert.strictEqual(result?.body, '');
 	});
 });
