@@ -110,16 +110,25 @@ textarea:disabled {
 
 /* Title, Description */
 
+#title {
+	padding-right: 23px;
+}
+
 .group-title {
 	position: relative;
 	display: flex;
 }
 
+.group-title .title-action:focus,
+.group-title .title-action:hover,
 .group-title .title-action {
 	position: absolute;
-	top: 5px;
+	top: 6px;
 	right: 5px;
-	cursor: pointer;
+	background: unset;
+	padding: unset;
+	margin: unset;
+	height: 16px;
 }
 
 .group-description {
