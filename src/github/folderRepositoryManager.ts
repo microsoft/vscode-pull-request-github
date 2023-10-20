@@ -1224,15 +1224,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return '';
 	}
 
-	async getTipCommitMessage(branch: string): Promise<string> {
+	async getTipCommitMessage(branch: string): Promise<string | undefined> {
+		Logger.debug(`Git tip message for branch ${branch} - enter`, FolderRepositoryManager.ID);
 		const { repository } = this;
 		const { commit } = await repository.getBranch(branch);
+		let message: string = '';
 		if (commit) {
-			const { message } = await repository.getCommit(commit);
-			return message;
+			message = (await repository.getCommit(commit))?.message;
 		}
 
-		return '';
+		Logger.debug(`Git tip message for branch ${branch} - done`, FolderRepositoryManager.ID);
+		return message;
 	}
 
 	async getOrigin(branch?: Branch): Promise<GitHubRepository> {
@@ -2385,7 +2387,11 @@ const ownedByMe: Predicate<GitHubRepository> = repo => {
 export const byRemoteName = (name: string): Predicate<GitHubRepository> => ({ remote: { remoteName } }) =>
 	remoteName === name;
 
-export const titleAndBodyFrom = (message: string): { title: string; body: string } => {
+export const titleAndBodyFrom = async (promise: Promise<string | undefined>): Promise<{ title: string; body: string } | undefined> => {
+	const message = await promise;
+	if (!message) {
+		return;
+	}
 	const idxLineBreak = message.indexOf('\n');
 	return {
 		title: idxLineBreak === -1 ? message : message.substr(0, idxLineBreak),

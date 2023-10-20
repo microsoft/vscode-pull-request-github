@@ -226,6 +226,12 @@ export async function asPromise<T>(event: Event<T>): Promise<T> {
 	});
 }
 
+export async function promiseWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T | undefined> {
+	return Promise.race([promise, new Promise<undefined>(resolve => {
+		setTimeout(() => resolve(undefined), ms);
+	})]);
+}
+
 export function dateFromNow(date: Date | string): string {
 	const djs = dayjs(date);
 
@@ -719,7 +725,7 @@ export function isPreRelease(context: ExtensionContext): boolean {
 	}
 	const patchVersion = path.substr(lastIndexOfDot + 1);
 	// The patch version of release versions should never be more than 1 digit since it is only used for recovery releases.
-	// The patch version of pre-release is the date + time. 
+	// The patch version of pre-release is the date + time.
 	return patchVersion.length > 1;
 }
 
