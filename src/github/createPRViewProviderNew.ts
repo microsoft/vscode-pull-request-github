@@ -18,7 +18,7 @@ import {
 	PULL_REQUEST_DESCRIPTION,
 	PUSH_BRANCH
 } from '../common/settingKeys';
-import { asPromise, compareIgnoreCase, formatError } from '../common/utils';
+import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { PREVIOUS_CREATE_METHOD } from '../extensionState';
 import { CreatePullRequestDataModel } from '../view/createPullRequestDataModel';
@@ -169,7 +169,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			const name = compareBranch.name;
 			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
 				this.getTotalGitHubCommits(compareBranch, baseBranch),
-				name ? titleAndBodyFrom(await this._folderRepositoryManager.getTipCommitMessage(name)) : undefined,
+				name ? titleAndBodyFrom(promiseWithTimeout(this._folderRepositoryManager.getTipCommitMessage(name), 5000)) : undefined,
 				useTemplate ? await this.getPullRequestTemplate() : undefined
 			]);
 
@@ -220,18 +220,20 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	}
 
 	private async getPullRequestTemplate(): Promise<string | undefined> {
+		Logger.debug(`Pull request template - enter`, CreatePullRequestViewProviderNew.ID);
 		const templateUris = await this._folderRepositoryManager.getPullRequestTemplates();
+		let template: string | undefined;
 		if (templateUris[0]) {
 			try {
 				const templateContent = await vscode.workspace.fs.readFile(templateUris[0]);
-				return new TextDecoder('utf-8').decode(templateContent);
+				template = new TextDecoder('utf-8').decode(templateContent);
 			} catch (e) {
 				Logger.warn(`Reading pull request template failed: ${e}`);
 				return undefined;
 			}
 		}
-
-		return undefined;
+		Logger.debug(`Pull request template - done`, CreatePullRequestViewProviderNew.ID);
+		return template;
 	}
 
 	private async getMergeConfiguration(owner: string, name: string, refetch: boolean = false): Promise<RepoAccessAndMergeMethods> {
