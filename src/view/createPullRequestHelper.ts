@@ -24,7 +24,9 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 		this._disposables.push(
 			this._createPRViewProvider!.onDone(async createdPR => {
 				if (createdPR) {
-					await this._postCreateCallback?.(createdPR);
+					await CreatePullRequestViewProviderNew.withProgress(async () => {
+						return this._postCreateCallback?.(createdPR);
+					});
 				}
 				this.dispose();
 			}),
