@@ -14,6 +14,7 @@ export class CreatePullRequestDataModel {
 	private _baseBranch: string;
 	private _compareOwner: string;
 	private _compareBranch: string;
+	private _constructed: Promise<void>;
 	private readonly _onDidChange: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
 	public readonly onDidChange = this._onDidChange.event;
 	private _gitHubRepository: GitHubRepository | undefined;
@@ -29,7 +30,7 @@ export class CreatePullRequestDataModel {
 	constructor(private readonly folderRepositoryManager: FolderRepositoryManager, baseOwner: string, baseBranch: string, compareOwner: string, compareBranch: string) {
 		this._baseOwner = baseOwner;
 		this._baseBranch = baseBranch;
-		this.setCompareBranch(compareBranch);
+		this._constructed = new Promise<void>(resolve => this.setCompareBranch(compareBranch).then(resolve));
 		this.compareOwner = compareOwner;
 	}
 
@@ -121,6 +122,7 @@ export class CreatePullRequestDataModel {
 	}
 
 	public async gitCommits(): Promise<Commit[]> {
+		await this._constructed;
 		if (this._gitLog === undefined) {
 			this._gitLog = this.folderRepositoryManager.repository.log({ range: `${this._baseBranch}..${this._compareBranch}` });
 		}
@@ -128,6 +130,7 @@ export class CreatePullRequestDataModel {
 	}
 
 	public async gitFiles(): Promise<Change[]> {
+		await this._constructed;
 		if (this._gitFiles === undefined) {
 			this._gitFiles = await this.folderRepositoryManager.repository.diffBetween(this._baseBranch, this._compareBranch);
 		}
@@ -135,6 +138,7 @@ export class CreatePullRequestDataModel {
 	}
 
 	public async gitHubCommits(): Promise<OctokitCommon.Commit[]> {
+		await this._constructed;
 		if (!this._gitHubRepository) {
 			return [];
 		}
@@ -155,6 +159,7 @@ export class CreatePullRequestDataModel {
 	}
 
 	public async gitHubFiles(): Promise<OctokitCommon.CommitFile[]> {
+		await this._constructed;
 		if (this._gitHubFiles === undefined) {
 			await this.gitHubCommits();
 		}
@@ -162,6 +167,7 @@ export class CreatePullRequestDataModel {
 	}
 
 	public async gitHubMergeBase(): Promise<string> {
+		await this._constructed;
 		if (this._gitHubMergeBase === undefined) {
 			await this.gitHubCommits();
 		}

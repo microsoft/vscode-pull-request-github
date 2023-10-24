@@ -133,6 +133,10 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		super.show();
 	}
 
+	public static withProgress<R>(task: (progress: vscode.Progress<{ message?: string; increment?: number }>, token: vscode.CancellationToken) => Thenable<R>) {
+		return vscode.window.withProgress({ location: { viewId: 'github:createPullRequestWebview' } }, task);
+	}
+
 	private async getTotalGitHubCommits(compareBranch: Branch, baseBranchName: string): Promise<number | undefined> {
 		const origin = await this._folderRepositoryManager.getOrigin(compareBranch);
 
@@ -679,7 +683,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	}
 
 	private async getTitleAndDescriptionFromProvider(token: vscode.CancellationToken) {
-		return vscode.window.withProgress({ location: { viewId: 'github:createPullRequestWebview' } }, async () => {
+		return CreatePullRequestViewProviderNew.withProgress(async () => {
 			try {
 				let commits: string[];
 				let patches: string[];
@@ -779,7 +783,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				this.setMilestone(createdPR, message.args.milestone)]);
 		};
 
-		vscode.window.withProgress({ location: { viewId: 'github:createPullRequestWebview' } }, () => {
+		CreatePullRequestViewProviderNew.withProgress(() => {
 			return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async progress => {
 				let totalIncrement = 0;
 				progress.report({ message: vscode.l10n.t('Checking for upstream branch'), increment: totalIncrement });
