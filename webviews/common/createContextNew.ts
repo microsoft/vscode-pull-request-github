@@ -56,8 +56,12 @@ export class CreatePRContextNew {
 		return false;
 	}
 
+	private _requestedInitialize = false;
 	public initialize = async (): Promise<void> => {
-		this.postMessage({ command: 'pr.requestInitialize' });
+		if (!this._requestedInitialize) {
+			this._requestedInitialize = true;
+			this.postMessage({ command: 'pr.requestInitialize' });
+		}
 	};
 
 	public cancelCreate = (): Promise<void> => {
