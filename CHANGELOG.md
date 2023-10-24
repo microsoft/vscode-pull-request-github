@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.74.1
+
+### Fixes
+
+- Unable to Add Comments in PR on fork using GitHub Pull Requests Extension in VSCode. https://github.com/microsoft/vscode-pull-request-github/issues/5317
+
 ## 0.74.0
 
 ### Changes
