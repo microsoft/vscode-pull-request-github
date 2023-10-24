@@ -264,9 +264,10 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		}
 
 		const defaultCompareBranch = this.defaultCompareBranch.name ?? '';
-		const [detectedBaseMetadata, remotes] = await Promise.all([
+		const [detectedBaseMetadata, remotes, defaultOrigin] = await Promise.all([
 			PullRequestGitHelper.getMatchingBaseBranchMetadataForBranch(this._folderRepositoryManager.repository, defaultCompareBranch),
-			this._folderRepositoryManager.getGitHubRemotes()]);
+			this._folderRepositoryManager.getGitHubRemotes(),
+			this._folderRepositoryManager.getOrigin(this.defaultCompareBranch)]);
 
 		const defaultBaseRemote: RemoteInfo = {
 			owner: detectedBaseMetadata?.owner ?? this._pullRequestDefaults.owner,
@@ -276,7 +277,6 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			this._onDidChangeBaseRemote.fire(defaultBaseRemote);
 		}
 
-		const defaultOrigin = await this._folderRepositoryManager.getOrigin(this.defaultCompareBranch);
 		const defaultCompareRemote: RemoteInfo = {
 			owner: defaultOrigin.remote.owner,
 			repositoryName: defaultOrigin.remote.repositoryName,
@@ -290,7 +290,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		const [defaultTitleAndDescription, mergeConfiguration, viewerPermission] = await Promise.all([
 			this.getTitleAndDescription(this.defaultCompareBranch, defaultBaseBranch),
 			this.getMergeConfiguration(defaultBaseRemote.owner, defaultBaseRemote.repositoryName),
-			await defaultOrigin.getViewerPermission()
+			defaultOrigin.getViewerPermission()
 		]);
 
 		const defaultCreateOption = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'lastUsed' | 'create' | 'createDraft' | 'createAutoMerge'>(DEFAULT_CREATE_OPTION, 'lastUsed');
