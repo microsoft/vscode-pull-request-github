@@ -260,6 +260,18 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			// First clear all state ASAP
 			this._postMessage({ command: 'reset' });
 		}
+		await this.initializeParamsPromise();
+	}
+
+	private _alreadyInitializing: Promise<CreateParamsNew> | undefined;
+	private async initializeParamsPromise(): Promise<CreateParamsNew> {
+		if (!this._alreadyInitializing) {
+			this._alreadyInitializing = this.doInitializeParams();
+			this._alreadyInitializing.then(() => {
+				this._alreadyInitializing = undefined;
+			});
+		}
+		return this._alreadyInitializing;
 	}
 
 	private async doInitializeParams(): Promise<CreateParamsNew> {
@@ -918,7 +930,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 
 		switch (message.command) {
 			case 'pr.requestInitialize':
-				return this.doInitializeParams();
+				return this.initializeParamsPromise();
 
 			case 'pr.cancelCreate':
 				return this.cancel(message);
