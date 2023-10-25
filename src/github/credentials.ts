@@ -365,7 +365,7 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	private async findExistingScopes(authProviderId: AuthProvider): Promise<{ session: vscode.AuthenticationSession, scopes: string[] } | undefined> {
-		const scopesInPreferenceOrder = [SCOPES_WITH_ADDITIONAL, SCOPES, SCOPES_OLD, SCOPES_OLDEST];
+		const scopesInPreferenceOrder = [SCOPES_WITH_ADDITIONAL, SCOPES_OLD, SCOPES_OLDEST];
 		for (const scopes of scopesInPreferenceOrder) {
 			const session = await vscode.authentication.getSession(authProviderId, scopes, { silent: true });
 			if (session) {
