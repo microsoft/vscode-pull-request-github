@@ -266,7 +266,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					continueOnGitHub,
 					isAuthor: currentUser.login === pullRequest.author.login,
 					currentUserReviewState: reviewState,
-					isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
+					isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
+					isEnterprise: pullRequest.githubRepository.remote.isEnterprise
 				};
 				this._postMessage({
 					command: 'pr.initialize',

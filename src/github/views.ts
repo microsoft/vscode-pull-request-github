@@ -74,6 +74,7 @@ export interface PullRequest {
 	continueOnGitHub: boolean;
 	currentUserReviewState: string;
 	isDarkTheme: boolean;
+	isEnterprise: boolean;
 	hasReviewDraft: boolean;
 
 	lastReviewType?: ReviewType;
