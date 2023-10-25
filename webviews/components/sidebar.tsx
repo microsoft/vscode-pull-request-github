@@ -135,26 +135,28 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					<div className="section-placeholder">None yet</div>
 				)}
 			</div>
-			<div id="project" className="section">
-				<div className="section-header" onClick={updateProjects}>
-					<div className="section-title">Project</div>
-					{hasWritePermission ? (
-						<button
-							className="icon-button"
-							title="Add Project">
-							{settingsIcon}
-						</button>
-					) : null}
+			{pr.isEnterprise ? null :
+				<div id="project" className="section">
+					<div className="section-header" onClick={updateProjects}>
+						<div className="section-title">Project</div>
+						{hasWritePermission ? (
+							<button
+								className="icon-button"
+								title="Add Project">
+								{settingsIcon}
+							</button>
+						) : null}
+					</div>
+					{!projects ?
+						<a onClick={updateProjects}>Sign in with more permissions to see projects</a>
+						: (projects.length > 0)
+							? projects.map(project => (
+								<Project key={project.project.title} {...project} canDelete={hasWritePermission} />
+							)) :
+							<div className="section-placeholder">None Yet</div>
+					}
 				</div>
-				{!projects ?
-					<a onClick={updateProjects}>Sign in with more permissions to see projects</a>
-					: (projects.length > 0)
-						? projects.map(project => (
-							<Project key={project.project.title} {...project} canDelete={hasWritePermission} />
-						)) :
-						<div className="section-placeholder">None Yet</div>
-				}
-			</div>
+			}
 			<div id="milestone" className="section">
 				<div className="section-header" onClick={async () => {
 					const newMilestone = await addMilestone();
