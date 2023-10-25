@@ -13,7 +13,7 @@ import { getCommentingRanges } from '../common/commentingRanges';
 import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPositionMapping';
 import { GitChangeType } from '../common/file';
 import Logger from '../common/logger';
-import { PR_SETTINGS_NAMESPACE, PULL_PR_BRANCH_BEFORE_CHECKOUT } from '../common/settingKeys';
+import { PR_SETTINGS_NAMESPACE, PULL_BRANCH, PULL_PR_BRANCH_BEFORE_CHECKOUT } from '../common/settingKeys';
 import { fromReviewUri, ReviewUriParams, Schemes, toReviewUri } from '../common/uri';
 import { dispose, formatError, groupBy, uniqBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -511,7 +511,7 @@ export class ReviewCommentController
 			Logger.error(`Failed to get content diff. ${formatError(e)}`);
 			if ((e.stderr as string | undefined)?.includes('bad object')) {
 				if (this._repository.state.HEAD?.upstream && retry) {
-					const pullSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(PULL_PR_BRANCH_BEFORE_CHECKOUT, true);
+					const pullSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(PULL_PR_BRANCH_BEFORE_CHECKOUT, true) && (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'never' | 'prompt' | 'always'>(PULL_BRANCH, 'prompt') === 'always');
 					if (pullSetting) {
 						try {
 							await this._repository.pull();
@@ -519,7 +519,7 @@ export class ReviewCommentController
 						} catch (e) {
 							// No remote branch
 						}
-					} else if (!pullSetting && this._repository.state.HEAD?.commit) {
+					} else if (this._repository.state.HEAD?.commit) {
 						return this._repository.diffWith(this._repository.state.HEAD.commit, fileName);
 					}
 				}
