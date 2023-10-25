@@ -1079,6 +1079,10 @@ code {
 		padding-bottom: 24px;
 	}
 
+	#project a {
+		cursor: pointer;
+	}
+
 	.section-content {
 		display: flex;
 		flex-wrap: wrap;

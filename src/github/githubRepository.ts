@@ -228,7 +228,7 @@ export class GitHubRepository implements vscode.Disposable {
 				return this.query(query, ignoreSamlErrors);
 			}
 
-			if (e.graphQLErrors && e.graphQLErrors.length && e.graphQLErrors[0].extensions.code === 'undefinedField' && !this._areQueriesLimited) {
+			if (e.graphQLErrors && e.graphQLErrors.length && (e.graphQLErrors[0].extensions && e.graphQLErrors[0].extensions.code === 'undefinedField') && !this._areQueriesLimited) {
 				// We're running against a GitHub server that doesn't support the query we're trying to run.
 				// Switch to the limited schema and try again.
 				this._areQueriesLimited = true;

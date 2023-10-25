@@ -237,9 +237,9 @@ export class CredentialStore implements vscode.Disposable {
 
 	public areScopesOld(authProviderId: AuthProvider): boolean {
 		if (!isEnterprise(authProviderId)) {
-			return !this.allScopesIncluded(this._scopes, SCOPES_OLD);
+			return !this.allScopesIncluded(this._scopes, SCOPES_WITH_ADDITIONAL);
 		}
-		return !this.allScopesIncluded(this._scopesEnterprise, SCOPES_OLD);
+		return !this.allScopesIncluded(this._scopesEnterprise, SCOPES_WITH_ADDITIONAL);
 	}
 
 	public async getHubEnsureAdditionalScopes(authProviderId: AuthProvider): Promise<GitHub | undefined> {
