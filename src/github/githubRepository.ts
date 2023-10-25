@@ -29,6 +29,7 @@ import {
 	MilestoneIssuesResponse,
 	OrganizationTeamsCountResponse,
 	OrganizationTeamsResponse,
+	OrgProjectsResponse,
 	PullRequestParticipantsResponse,
 	PullRequestResponse,
 	PullRequestsResponse,
@@ -502,6 +503,35 @@ export class GitHubRepository implements vscode.Disposable {
 		return undefined;
 	}
 
+	private async getOrgProjects(): Promise<IProject[]> {
+		Logger.debug(`Fetch org projects - enter`, GitHubRepository.ID);
+		let { query, remote, schema } = await this.ensure();
+		const projects: IProject[] = [];
+
+		try {
+			const { data } = await query<OrgProjectsResponse>({
+				query: schema.GetOrgProjects,
+				variables: {
+					owner: remote.owner,
+					after: null,
+				}
+			});
+
+			if (data && data.organization.projectsV2 && data.organization.projectsV2.nodes) {
+				data.organization.projectsV2.nodes.forEach(raw => {
+					projects.push(raw);
+				});
+			}
+
+		} catch (e) {
+			Logger.error(`Unable to fetch org projects: ${e}`, GitHubRepository.ID);
+			return projects;
+		}
+		Logger.debug(`Fetch org projects - done`, GitHubRepository.ID);
+
+		return projects;
+	}
+
 	async getProjects(): Promise<IProject[] | undefined> {
 		try {
 			Logger.debug(`Fetch projects - enter`, GitHubRepository.ID);
@@ -512,21 +542,25 @@ export class GitHubRepository implements vscode.Disposable {
 				remote = additional.remote;
 				schema = additional.schema;
 			}
-			const { data } = await query<RepoProjectsResponse>({
-				query: schema.GetRepoProjects,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-				},
-			});
+			const [{ data: repoData }, orgProjects] = await Promise.all([
+				query<RepoProjectsResponse>({
+					query: schema.GetRepoProjects,
+					variables: {
+						owner: remote.owner,
+						name: remote.repositoryName,
+					},
+				}),
+				this.getOrgProjects()
+			]);
 			Logger.debug(`Fetch projects - done`, GitHubRepository.ID);
 
 			const projects: IProject[] = [];
-			if (data && data.repository.projectsV2 && data.repository.projectsV2.nodes) {
-				data.repository.projectsV2.nodes.forEach(raw => {
+			if (repoData && repoData.repository.projectsV2 && repoData.repository.projectsV2.nodes) {
+				repoData.repository.projectsV2.nodes.forEach(raw => {
 					projects.push(raw);
 				});
 			}
+			projects.push(...orgProjects);
 			return projects;
 		} catch (e) {
 			Logger.error(`Unable to fetch projects: ${e}`, GitHubRepository.ID);
