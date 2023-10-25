@@ -156,6 +156,21 @@ query GetRepoProjects($owner: String!, $name: String!) {
 	}
 }
 
+query GetOrgProjects($owner: String!, $after: String) {
+	organization(login: $owner) {
+		projectsV2(first: 100, after: $after, query: "state:OPEN", orderBy: { field: UPDATED_AT, direction: DESC }) {
+			nodes {
+				title
+				id
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+}
+
 mutation AddPullRequestToProject($input: AddProjectV2ItemByIdInput!) {
 	addProjectV2ItemById(input: $input) {
 		item {

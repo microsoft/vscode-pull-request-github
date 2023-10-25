@@ -619,6 +619,18 @@ export interface RepoProjectsResponse {
 	}
 }
 
+export interface OrgProjectsResponse {
+	organization: {
+		projectsV2: {
+			nodes: {
+				title: string;
+				id: string;
+			}[];
+			pageInfo: PageInfo;
+		}
+	}
+}
+
 export interface MilestoneIssuesResponse {
 	repository: {
 		milestones: {

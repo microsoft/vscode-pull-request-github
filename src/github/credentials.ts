@@ -29,7 +29,6 @@ const PROMPT_FOR_SIGN_IN_STORAGE_KEY = 'login';
 // If the scopes are changed, make sure to notify all interested parties to make sure this won't cause problems.
 const SCOPES_OLDEST = ['read:user', 'user:email', 'repo'];
 const SCOPES_OLD = ['read:user', 'user:email', 'repo', 'workflow'];
-const SCOPES = ['read:user', 'user:email', 'repo', 'workflow', 'project'];
 const SCOPES_WITH_ADDITIONAL = ['read:user', 'user:email', 'repo', 'workflow', 'project', 'read:org'];
 
 const LAST_USED_SCOPES_GITHUB_KEY = 'githubPullRequest.lastUsedScopes';
@@ -238,9 +237,9 @@ export class CredentialStore implements vscode.Disposable {
 
 	public areScopesOld(authProviderId: AuthProvider): boolean {
 		if (!isEnterprise(authProviderId)) {
-			return !this.allScopesIncluded(this._scopes, SCOPES);
+			return !this.allScopesIncluded(this._scopes, SCOPES_OLD);
 		}
-		return !this.allScopesIncluded(this._scopesEnterprise, SCOPES);
+		return !this.allScopesIncluded(this._scopesEnterprise, SCOPES_OLD);
 	}
 
 	public async getHubEnsureAdditionalScopes(authProviderId: AuthProvider): Promise<GitHub | undefined> {
@@ -366,7 +365,7 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	private async findExistingScopes(authProviderId: AuthProvider): Promise<{ session: vscode.AuthenticationSession, scopes: string[] } | undefined> {
-		const scopesInPreferenceOrder = [SCOPES_WITH_ADDITIONAL, SCOPES, SCOPES_OLD, SCOPES_OLDEST];
+		const scopesInPreferenceOrder = [SCOPES_WITH_ADDITIONAL, SCOPES_OLD, SCOPES_OLDEST];
 		for (const scopes of scopesInPreferenceOrder) {
 			const session = await vscode.authentication.getSession(authProviderId, scopes, { silent: true });
 			if (session) {
