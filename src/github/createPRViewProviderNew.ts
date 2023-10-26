@@ -225,7 +225,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 
 	private async getPullRequestTemplate(): Promise<string | undefined> {
 		Logger.debug(`Pull request template - enter`, CreatePullRequestViewProviderNew.ID);
-		const templateUris = await this._folderRepositoryManager.getPullRequestTemplates();
+		const templateUris = await this._folderRepositoryManager.getPullRequestTemplatesWithCache();
 		let template: string | undefined;
 		if (templateUris[0]) {
 			try {

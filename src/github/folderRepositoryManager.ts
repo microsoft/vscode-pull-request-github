@@ -118,6 +118,8 @@ enum PagedDataType {
 	IssueSearch,
 }
 
+const CACHED_TEMPLATE_URI = 'templateUri';
+
 export class FolderRepositoryManager implements vscode.Disposable {
 	static ID = 'FolderRepositoryManager';
 
@@ -1142,7 +1144,29 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return max;
 	}
 
-	async getPullRequestTemplates(): Promise<vscode.Uri[]> {
+	async getPullRequestTemplatesWithCache(): Promise<vscode.Uri[]> {
+		const findTemplate = this.getPullRequestTemplates().then((templates) => {
+			//update cache
+			if (templates.length > 0) {
+				this.context.workspaceState.update(CACHED_TEMPLATE_URI, templates[0].toString());
+			} else {
+				this.context.workspaceState.update(CACHED_TEMPLATE_URI, null);
+			}
+			return templates;
+		});
+		const hasCachedTemplate = this.context.workspaceState.keys().includes(CACHED_TEMPLATE_URI);
+		const cachedTemplateLocation = this.context.workspaceState.get<string | null>(CACHED_TEMPLATE_URI);
+		if (hasCachedTemplate) {
+			if (cachedTemplateLocation === null) {
+				return [];
+			} else if (cachedTemplateLocation) {
+				return [vscode.Uri.parse(cachedTemplateLocation)];
+			}
+		}
+		return findTemplate;
+	}
+
+	private async getPullRequestTemplates(): Promise<vscode.Uri[]> {
 		/**
 		 * Places a PR template can be:
 		 * - At the root, the docs folder, or the.github folder, named pull_request_template.md or PULL_REQUEST_TEMPLATE.md
@@ -1180,7 +1204,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		const allResults = await Promise.all([templatesPattern1, templatesPattern2, templatesPattern3, templatesPattern4, templatesPattern5, templatesPattern6]);
 
-		return [...allResults[0], ...allResults[1], ...allResults[2], ...allResults[3], ...allResults[4], ...allResults[5]];
+		const result = [...allResults[0], ...allResults[1], ...allResults[2], ...allResults[3], ...allResults[4], ...allResults[5]];
+		return result;
 	}
 
 	async getPullRequestDefaults(branch?: Branch): Promise<PullRequestDefaults> {
