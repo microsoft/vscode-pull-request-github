@@ -78,11 +78,13 @@
 					"type": "string",
 					"enum": [
 						"template",
-						"commit"
+						"commit",
+						"none"
 					],
 					"enumDescriptions": [
 						"%githubPullRequests.pullRequestDescription.template%",
-						"%githubPullRequests.pullRequestDescription.commit%"
+						"%githubPullRequests.pullRequestDescription.commit%",
+						"%githubPullRequests.pullRequestDescription.none%"
 					],
 					"default": "template",
 					"description": "%githubPullRequests.pullRequestDescription.description%"
