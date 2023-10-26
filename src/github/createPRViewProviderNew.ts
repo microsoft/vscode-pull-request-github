@@ -158,14 +158,15 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	private async getTitleAndDescription(compareBranch: Branch, baseBranch: string): Promise<{ title: string, description: string }> {
 		let title: string = '';
 		let description: string = '';
+		const descrptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none'>(PULL_REQUEST_DESCRIPTION);
+		if (descrptionSource === 'none') {
+			return { title, description };
+		}
 
 		// Use same default as GitHub, if there is only one commit, use the commit, otherwise use the branch name, as long as it is not the default branch.
 		// By default, the base branch we use for comparison is the base branch of origin. Compare this to the
 		// compare branch if it has a GitHub remote.
 		const origin = await this._folderRepositoryManager.getOrigin(compareBranch);
-		const useTemplate =
-			vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(PULL_REQUEST_DESCRIPTION) ===
-			'template';
 
 		let useBranchName = this._pullRequestDefaults.base === compareBranch.name;
 		Logger.debug(`Compare branch name: ${compareBranch.name}, Base branch name: ${this._pullRequestDefaults.base}`, CreatePullRequestViewProviderNew.ID);
@@ -174,7 +175,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
 				this.getTotalGitHubCommits(compareBranch, baseBranch),
 				name ? titleAndBodyFrom(promiseWithTimeout(this._folderRepositoryManager.getTipCommitMessage(name), 5000)) : undefined,
-				useTemplate ? await this.getPullRequestTemplate() : undefined
+				descrptionSource === 'template' ? await this.getPullRequestTemplate() : undefined
 			]);
 
 			Logger.debug(`Total commits: ${totalCommits}`, CreatePullRequestViewProviderNew.ID);
@@ -225,7 +226,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 
 	private async getPullRequestTemplate(): Promise<string | undefined> {
 		Logger.debug(`Pull request template - enter`, CreatePullRequestViewProviderNew.ID);
-		const templateUris = await this._folderRepositoryManager.getPullRequestTemplates();
+		const templateUris = await this._folderRepositoryManager.getPullRequestTemplatesWithCache();
 		let template: string | undefined;
 		if (templateUris[0]) {
 			try {
