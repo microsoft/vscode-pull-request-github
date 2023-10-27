@@ -31,6 +31,10 @@
 	grid-row: 2;
 }
 
+#project a {
+	cursor: pointer;
+}
+
 a:focus,
 input:focus,
 select:focus,
@@ -1077,10 +1081,6 @@ code {
 		grid-template-columns: 50% 50%;
 		padding: 0;
 		padding-bottom: 24px;
-	}
-
-	#project a {
-		cursor: pointer;
 	}
 
 	.section-content {
