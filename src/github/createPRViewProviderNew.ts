@@ -699,7 +699,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			try {
 				let commits: string[];
 				let patches: string[];
-				if (this.model.compareHasUpstream) {
+				if (await this.model.getCompareHasUpstream()) {
 					commits = (await this.model.gitHubCommits()).map(commit => commit.commit.message);
 					patches = (await this.model.gitHubFiles()).map(file => file.patch ?? '');
 				} else {
