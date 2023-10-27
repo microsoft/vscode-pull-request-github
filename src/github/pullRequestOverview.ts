@@ -507,11 +507,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async addAssigneeYourself(message: IRequestMessage<void>): Promise<void> {
 		try {
 			const currentUser = await this._folderRepositoryManager.getCurrentUser();
-
-			this._item.assignees = this._item.assignees?.concat(currentUser);
-
-			await this._item.addAssignees([currentUser.login]);
-
+			const alreadyAssigned = this._item.assignees?.find(user => user.login === currentUser.login);
+			if (!alreadyAssigned) {
+				this._item.assignees = this._item.assignees?.concat(currentUser);
+				await this._item.addAssignees([currentUser.login]);
+			}
 			this._replyMessage(message, {
 				assignees: this._item.assignees,
 			});
