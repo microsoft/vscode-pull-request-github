@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { GitFileChangeNode, InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
-export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem2 {
+export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public children: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode | DirectoryTreeNode)[] = [];
 	private pathToChild: Map<string, DirectoryTreeNode> = new Map();
