@@ -178,7 +178,7 @@ abstract class CompareChangesTreeProvider implements vscode.TreeDataProvider<Tre
 
 	async getChildren(element?: TreeNode) {
 		try {
-			if (this.model.compareHasUpstream) {
+			if (await this.model.getCompareHasUpstream()) {
 				return this.getGitHubChildren(element);
 			} else {
 				return this.getGitChildren(element);
@@ -258,7 +258,7 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 			if (diff.length === 0) {
 				(this.view as vscode.TreeView2<TreeNode>).message = new vscode.MarkdownString(vscode.l10n.t('There are no commits between the base `{0}` branch and the comparing `{1}` branch', this.model.baseBranch, this.model.getCompareBranch()));
 				return [];
-			} else if (!this.model.compareHasUpstream) {
+			} else if (!(await this.model.getCompareHasUpstream())) {
 				const message = new vscode.MarkdownString(vscode.l10n.t({ message: 'Branch `{0}` has not been pushed yet. [Publish branch](command:git.publish) to see all changes.', args: [this.model.getCompareBranch()], comment: "{Locked='](command:git.publish)'}" }));
 				message.isTrusted = { enabledCommands: ['git.publish'] };
 				(this.view as vscode.TreeView2<TreeNode>).message = message;

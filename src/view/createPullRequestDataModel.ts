@@ -105,7 +105,8 @@ export class CreatePullRequestDataModel {
 		return this._compareHasUpstream;
 	}
 
-	public get compareHasUpstream(): boolean {
+	public async getCompareHasUpstream(): Promise<boolean> {
+		await this._constructed;
 		return this._compareHasUpstream;
 	}
 
