@@ -25,7 +25,7 @@ import {
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, fromReviewUri, KnownMediaExtensions, PRUriParams, Schemes, toReviewUri } from '../common/uri';
-import { formatError, groupBy, isPreRelease, onceEvent } from '../common/utils';
+import { dispose, formatError, groupBy, isPreRelease, onceEvent } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -50,6 +50,7 @@ export class ReviewManager {
 	public static ID = 'Review';
 	private _localToDispose: vscode.Disposable[] = [];
 	private _disposables: vscode.Disposable[];
+	private _activePrDisposables: vscode.Disposable[] = [];
 
 	private _reviewModel: ReviewModel = new ReviewModel();
 	private _lastCommitSha?: string;
@@ -186,6 +187,7 @@ export class ReviewManager {
 		this._disposables.push(this._folderRepoManager.onDidChangeActivePullRequest(_ => {
 			this.updateFocusedViewMode();
 			this.registerQuickDiff();
+			this.registerActivePrEvents();
 		}));
 
 		GitHubCreatePullRequestLinkProvider.registerProvider(this._disposables, this, this._folderRepoManager);
@@ -223,6 +225,15 @@ export class ReviewManager {
 				}
 			}, label, this.repository.rootUri));
 		}
+	}
+
+	private registerActivePrEvents() {
+		dispose(this._activePrDisposables);
+		this._activePrDisposables = [];
+		if (!this._folderRepoManager.activePullRequest) {
+			return;
+		}
+		this._activePrDisposables.push(this._folderRepoManager.activePullRequest.onDidChangeComments(() => this._pullRequestsTree.refresh()));
 	}
 
 	get statusBarItem() {
@@ -1285,9 +1296,8 @@ export class ReviewManager {
 
 	dispose() {
 		this.clear(true);
-		this._disposables.forEach(d => {
-			d.dispose();
-		});
+		dispose(this._disposables);
+		dispose(this._activePrDisposables);
 	}
 
 	static getReviewManagerForRepository(
