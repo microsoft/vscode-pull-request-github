@@ -25,7 +25,7 @@ import {
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, fromReviewUri, KnownMediaExtensions, PRUriParams, Schemes, toReviewUri } from '../common/uri';
-import { formatError, groupBy, isPreRelease, onceEvent } from '../common/utils';
+import { formatError, groupBy, onceEvent } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -257,52 +257,21 @@ export class ReviewManager {
 		}
 		if (!this._validateStatusInProgress) {
 			Logger.appendLine('Validate state in progress', ReviewManager.ID);
-			this._validateStatusInProgress = this.validateStatueAndSetContext(silent, updateLayout);
+			this._validateStatusInProgress = this.validateStateAndSetContext(silent, updateLayout);
 			return this._validateStatusInProgress;
 		} else {
 			Logger.appendLine('Queuing additional validate state', ReviewManager.ID);
 			this._validateStatusInProgress = this._validateStatusInProgress.then(async _ => {
-				return await this.validateStatueAndSetContext(silent, updateLayout);
+				return await this.validateStateAndSetContext(silent, updateLayout);
 			});
 
 			return this._validateStatusInProgress;
 		}
 	}
 
-	private hasShownLogRequest: boolean = false;
-	private async validateStatueAndSetContext(silent: boolean, updateLayout: boolean) {
-		// TODO @alexr00: There's a bug where validateState never returns sometimes. It's not clear what's causing this.
-		// This is a temporary workaround to ensure that the validateStatueAndSetContext promise always resolves.
-		// Additional logs have been added, and the issue is being tracked here: https://github.com/microsoft/vscode-pull-request-git/issues/5277
-		let timeout: NodeJS.Timeout | undefined;
-		const timeoutPromise = new Promise<void>(resolve => {
-			timeout = setTimeout(() => {
-				if (timeout) {
-					clearTimeout(timeout);
-					timeout = undefined;
-					Logger.error('Timeout occurred while validating state.', ReviewManager.ID);
-					if (!this.hasShownLogRequest && isPreRelease(this._context)) {
-						this.hasShownLogRequest = true;
-						vscode.window.showErrorMessage(vscode.l10n.t('A known error has occurred refreshing the repository state. Please share logs from "GitHub Pull Request" in the [tracking issue]({0}).', 'https://github.com/microsoft/vscode-pull-request-github/issues/5277'));
-					}
-				}
-				resolve();
-			}, 1000 * 60 * 2);
-		});
-
-		const validatePromise = new Promise<void>(resolve => {
-			this.validateState(silent, updateLayout).then(() => {
-				vscode.commands.executeCommand('setContext', 'github:stateValidated', true).then(() => {
-					if (timeout) {
-						clearTimeout(timeout);
-						timeout = undefined;
-					}
-					resolve();
-				});
-			});
-		});
-
-		return Promise.race([validatePromise, timeoutPromise]);
+	private async validateStateAndSetContext(silent: boolean, updateLayout: boolean) {
+		await this.validateState(silent, updateLayout);
+		await vscode.commands.executeCommand('setContext', 'github:stateValidated', true);
 	}
 
 	private async offerIgnoreBranch(currentBranchName): Promise<boolean> {
