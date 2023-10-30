@@ -6,7 +6,7 @@
 
 - Integration with the GitHub Copilot Chat extension provides PR title and description generation.
 
-![GitHub Copilot Chat integration](/documentation/changelog/0.76.0/copilot-chat.png)
+![GitHub Copilot Chat integration](/documentation/changelog/0.76.0/github-copilot-title-description.gif)
 
 - "Project" can be set from the PR description webview.
 
