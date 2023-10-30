@@ -6,14 +6,14 @@
 
 - Integration with the GitHub Copilot Chat extension provides PR title and description generation.
 
-![GitHub Copilot Chat integration](/documentation/changelog/0.76.0/github-copilot-title-description.gif)
+   ![GitHub Copilot Chat integration](/documentation/changelog/0.76.0/github-copilot-title-description.gif)
 
 - "Project" can be set from the PR description webview.
 
-![Project shown in PR description](/documentation/changelog/0.76.0/project-in-description.png)
+   ![Project shown in PR description](/documentation/changelog/0.76.0/project-in-description.png)
 
 - Pull requests checked out using the GitHub CLI (`gh pr checkout`) are now recognized.
-- The new `"none"` value for the setting `"githubPullRequests.pullRequestDescription"` will cause the title and description of the "Create" view to be empty by default.
+- The new `"none"` value for the setting `"githubPullRequests.pullRequestDescription"` will cause the title and description of the **Create** view to be empty by default.
 
 ### Fixes
 
