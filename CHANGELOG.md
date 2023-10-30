@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.76.0
+
+### Changes
+
+- Integration with the GitHub Copilot Chat extension provides PR title and description generation.
+
+![GitHub Copilot Chat integration](/documentation/changelog/0.76.0/github-copilot-title-description.gif)
+
+- "Project" can be set from the PR description webview.
+
+![Project shown in PR description](/documentation/changelog/0.76.0/project-in-description.png)
+
+- Pull requests checked out using the GitHub CLI (`gh pr checkout`) are now recognized.
+- The new `"none"` value for the setting `"githubPullRequests.pullRequestDescription"` will cause the title and description of the "Create" view to be empty by default.
+
+### Fixes
+
+- Could "Create a Pull Request" make fields within the create-pr view available faster?. https://github.com/microsoft/vscode-pull-request-github/issues/5399
+- Commits view is showing a commit with wrong author. https://github.com/microsoft/vscode-pull-request-github/issues/5352
+- Reviewer dropdown never hits cache. https://github.com/microsoft/vscode-pull-request-github/issues/5316
+- Settings option Pull Branch not honored. https://github.com/microsoft/vscode-pull-request-github/issues/5307
+- Comment locations error messages after deleting PR branch. https://github.com/microsoft/vscode-pull-request-github/issues/5281
+
 ## 0.74.1
 
 ### Fixes
