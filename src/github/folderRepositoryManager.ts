@@ -2377,8 +2377,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 	}
 
-	public getTitleAndDescriptionProvider() {
-		return this._git.getTitleAndDescriptionProvider();
+	public getTitleAndDescriptionProvider(searchTerm?: string) {
+		return this._git.getTitleAndDescriptionProvider(searchTerm);
 	}
 
 	dispose() {

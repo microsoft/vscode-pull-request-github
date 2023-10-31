@@ -108,6 +108,7 @@ export interface CreateParamsNew {
 	milestone?: IMilestone;
 	isDarkTheme?: boolean;
 	generateTitleAndDescriptionTitle: string | undefined;
+	initializeWithGeneratedTitleAndDescription: boolean;
 
 	validate?: boolean;
 	showTitleValidationError?: boolean;
@@ -144,6 +145,10 @@ export interface ChooseCompareRemoteAndBranchResult {
 	compareRemote: RemoteInfo;
 	compareBranch: string;
 	defaultCompareBranch: string;
+}
+
+export interface TitleAndDescriptionArgs {
+	useCopilot: boolean;
 }
 
 export interface TitleAndDescriptionResult {
