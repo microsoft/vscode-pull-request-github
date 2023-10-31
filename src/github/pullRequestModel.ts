@@ -485,8 +485,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			});
 
-			return data.repository.pullRequest.viewerLatestReview ? {
-				sha: data.repository.pullRequest.viewerLatestReview.commit.oid,
+			if (data.repository === null) {
+				Logger.error('Unexpected null repository while getting last review commit', PullRequestModel.ID);
+			}
+
+			return data.repository?.pullRequest.viewerLatestReview ? {
+				sha: data.repository?.pullRequest.viewerLatestReview.commit.oid,
 			} : undefined;
 		}
 		catch (e) {
@@ -783,6 +787,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			},
 		});
 
+		if (data.repository === null) {
+			Logger.error('Unexpected null repository while getting review requests', PullRequestModel.ID);
+			return [];
+		}
+
 		const reviewers: (IAccount | ITeam)[] = [];
 		for (const reviewer of data.repository.pullRequest.reviewRequests.nodes) {
 			if (reviewer.requestedReviewer?.login) {
@@ -1049,8 +1058,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				this.getReviewThreads()
 			]);
 
-			const ret = data.repository.pullRequest.timelineItems.nodes;
-			const events = parseGraphQLTimelineEvents(ret, this.githubRepository);
+			if (data.repository === null) {
+				Logger.error('Unexpected null repository when fetching timeline', PullRequestModel.ID);
+			}
+
+			const ret = data.repository?.pullRequest.timelineItems.nodes;
+			const events = ret ? parseGraphQLTimelineEvents(ret, this.githubRepository) : [];
 
 			this.addReviewTimelineEventComments(events, reviewThreads);
 			insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, this.head);
@@ -1354,8 +1367,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					number: this.number,
 				},
 			});
+			if (data.repository === null) {
+				Logger.error('Unexpected null repository while getting mergeability', PullRequestModel.ID);
+			}
+
 			Logger.debug(`Fetch pull request mergeability ${this.number} - done`, PullRequestModel.ID);
-			const mergeability = parseMergeability(data.repository.pullRequest.mergeable, data.repository.pullRequest.mergeStateStatus);
+			const mergeability = parseMergeability(data.repository?.pullRequest.mergeable, data.repository?.pullRequest.mergeStateStatus);
 			this.item.mergeable = mergeability;
 			return mergeability;
 		} catch (e) {

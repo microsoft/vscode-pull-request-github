@@ -614,10 +614,11 @@ function parseMergeMethod(mergeMethod: 'MERGE' | 'SQUASH' | 'REBASE' | undefined
 	}
 }
 
-export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFLICTING',
-	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE'): PullRequestMergeability {
+export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFLICTING' | undefined,
+	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE' | undefined): PullRequestMergeability {
 	let parsed: PullRequestMergeability;
 	switch (mergeability) {
+		case undefined:
 		case 'UNKNOWN':
 			parsed = PullRequestMergeability.Unknown;
 			break;
@@ -1020,7 +1021,7 @@ export function getRelatedUsersFromTimelineEvents(
 export function parseGraphQLViewerPermission(
 	viewerPermissionResponse: GraphQL.ViewerPermissionResponse,
 ): ViewerPermission {
-	if (viewerPermissionResponse && viewerPermissionResponse.repository.viewerPermission) {
+	if (viewerPermissionResponse && viewerPermissionResponse.repository?.viewerPermission) {
 		if (
 			(Object.values(ViewerPermission) as string[]).includes(viewerPermissionResponse.repository.viewerPermission)
 		) {
