@@ -342,6 +342,11 @@ export class IssueModel<TItem extends Issue = Issue> {
 					number: this.number,
 				},
 			});
+
+			if (data.repository === null) {
+				Logger.error('Unexpected null repository when getting issue timeline events', IssueModel.ID);
+				return [];
+			}
 			const ret = data.repository.pullRequest.timelineItems.nodes;
 			const events = parseGraphQLTimelineEvents(ret, githubRepository);
 

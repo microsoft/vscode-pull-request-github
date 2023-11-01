@@ -480,7 +480,7 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 			Logger.debug(`Fetch pull requests for branch - done`, GitHubRepository.ID);
 
-			if (data?.repository.pullRequests.nodes.length > 0) {
+			if (data?.repository && data.repository.pullRequests.nodes.length > 0) {
 				const prs = data.repository.pullRequests.nodes.map(node => parseGraphQLPullRequest(node, this)).filter(pr => pr.head?.repo.owner === headOwner);
 				if (prs.length === 0) {
 					return undefined;
@@ -555,7 +555,7 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug(`Fetch projects - done`, GitHubRepository.ID);
 
 			const projects: IProject[] = [];
-			if (repoData && repoData.repository.projectsV2 && repoData.repository.projectsV2.nodes) {
+			if (repoData && repoData.repository?.projectsV2 && repoData.repository.projectsV2.nodes) {
 				repoData.repository.projectsV2.nodes.forEach(raw => {
 					projects.push(raw);
 				});
@@ -587,7 +587,7 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug(`Fetch milestones - done`, GitHubRepository.ID);
 
 			const milestones: IMilestone[] = [];
-			if (data && data.repository.milestones && data.repository.milestones.nodes) {
+			if (data && data.repository?.milestones && data.repository.milestones.nodes) {
 				data.repository.milestones.nodes.forEach(raw => {
 					const milestone = parseMilestone(raw);
 					if (milestone) {
@@ -614,7 +614,7 @@ export class GitHubRepository implements vscode.Disposable {
 			}
 		});
 
-		if (!data.repository.object.text) {
+		if (!data.repository?.object.text) {
 			return undefined;
 		}
 
@@ -636,7 +636,7 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug(`Fetch all issues - done`, GitHubRepository.ID);
 
 			const milestones: { milestone: IMilestone; issues: IssueModel[] }[] = [];
-			if (data && data.repository.milestones && data.repository.milestones.nodes) {
+			if (data && data.repository?.milestones && data.repository.milestones.nodes) {
 				data.repository.milestones.nodes.forEach(raw => {
 					const milestone = parseMilestone(raw);
 					if (milestone) {
@@ -650,7 +650,7 @@ export class GitHubRepository implements vscode.Disposable {
 			}
 			return {
 				items: milestones,
-				hasMorePages: data.repository.milestones.pageInfo.hasNextPage,
+				hasMorePages: !!data.repository?.milestones.pageInfo.hasNextPage,
 			};
 		} catch (e) {
 			Logger.error(`Unable to fetch issues: ${e}`, GitHubRepository.ID);
@@ -673,7 +673,7 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug(`Fetch issues without milestone - done`, GitHubRepository.ID);
 
 			const issues: Issue[] = [];
-			if (data && data.repository.issues.edges) {
+			if (data && data.repository?.issues.edges) {
 				data.repository.issues.edges.forEach(raw => {
 					if (raw.node.id) {
 						issues.push(parseGraphQLIssue(raw.node, this));
@@ -682,7 +682,7 @@ export class GitHubRepository implements vscode.Disposable {
 			}
 			return {
 				items: issues,
-				hasMorePages: data.repository.issues.pageInfo.hasNextPage,
+				hasMorePages: !!data.repository?.issues.pageInfo.hasNextPage,
 			};
 		} catch (e) {
 			Logger.error(`Unable to fetch issues without milestone: ${e}`, GitHubRepository.ID);
@@ -733,7 +733,7 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 			Logger.debug(`Fetch max issue - done`, GitHubRepository.ID);
 
-			if (data && data.repository.issues.edges.length === 1) {
+			if (data?.repository && data.repository.issues.edges.length === 1) {
 				return data.repository.issues.edges[0].node.number;
 			}
 			return;
@@ -832,7 +832,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 			const pullRequests = pullRequestResponses
 				.map(response => {
-					if (!response.repository.pullRequest.headRef) {
+					if (!response.repository?.pullRequest.headRef) {
 						Logger.appendLine('The remote branch for this PR was already deleted.', GitHubRepository.ID);
 						return null;
 					}
@@ -920,6 +920,11 @@ export class GitHubRepository implements vscode.Disposable {
 					number: id,
 				},
 			}, true);
+			if (data.repository === null) {
+				Logger.error('Unexpected null repository when getting PR', GitHubRepository.ID);
+				return;
+			}
+
 			Logger.debug(`Fetch pull request ${id} - done`, GitHubRepository.ID);
 			return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data.repository.pullRequest, this));
 		} catch (e) {
@@ -940,7 +945,12 @@ export class GitHubRepository implements vscode.Disposable {
 					name: remote.repositoryName,
 					number: id,
 				},
-			}, true); // Don't retry on SAML errors as it's too distruptive for this query.
+			}, true); // Don't retry on SAML errors as it's too disruptive for this query.
+
+			if (data.repository === null) {
+				Logger.error('Unexpected null repository when getting issue', GitHubRepository.ID);
+				return undefined;
+			}
 			Logger.debug(`Fetch issue ${id} - done`, GitHubRepository.ID);
 
 			return new IssueModel(this, remote, parseGraphQLIssue(data.repository.pullRequest, this));
@@ -962,7 +972,7 @@ export class GitHubRepository implements vscode.Disposable {
 			}
 		});
 
-		return data.repository.ref !== null;
+		return data.repository?.ref !== null;
 	}
 
 	async listBranches(owner: string, repositoryName: string): Promise<string[]> {
@@ -1042,6 +1052,11 @@ export class GitHubRepository implements vscode.Disposable {
 					},
 				});
 
+				if (result.data.repository === null) {
+					Logger.error('Unexpected null repository when getting mentionable users', GitHubRepository.ID);
+					return [];
+				}
+
 				ret.push(
 					...result.data.repository.mentionableUsers.nodes.map(node => {
 						return {
@@ -1085,6 +1100,11 @@ export class GitHubRepository implements vscode.Disposable {
 						after: after,
 					},
 				}, true); // we ignore SAML errors here because this query can happen at startup
+
+				if (result.data.repository === null) {
+					Logger.error('Unexpected null repository when getting assignable users', GitHubRepository.ID);
+					return [];
+				}
 
 				ret.push(
 					...result.data.repository.assignableUsers.nodes.map(node => {
@@ -1223,6 +1243,10 @@ export class GitHubRepository implements vscode.Disposable {
 					first: 18
 				},
 			});
+			if (result.data.repository === null) {
+				Logger.error('Unexpected null repository when fetching participants', GitHubRepository.ID);
+				return [];
+			}
 
 			ret.push(
 				...result.data.repository.pullRequest.participants.nodes.map(node => {
@@ -1309,7 +1333,7 @@ export class GitHubRepository implements vscode.Disposable {
 			throw e;
 		}
 
-		if (result.data.repository.pullRequest.commits.nodes === undefined || result.data.repository.pullRequest.commits.nodes.length === 0) {
+		if ((result.data.repository === null) || (result.data.repository.pullRequest.commits.nodes === undefined) || (result.data.repository.pullRequest.commits.nodes.length === 0)) {
 			Logger.error(`Unable to fetch PR checks: ${result.errors?.map(error => error.message).join(', ')}`, GitHubRepository.ID);
 			return [null, null];
 		}

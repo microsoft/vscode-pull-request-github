@@ -1630,7 +1630,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						},
 					});
 
-					action.legacy = data.repository.pullRequest.state !== 'OPEN';
+					action.legacy = data.repository?.pullRequest.state !== 'OPEN';
 				} catch { }
 
 				return action;
