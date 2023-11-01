@@ -1338,6 +1338,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return !!this.item.allowAutoMerge;
 	}
 
+	get mergeCommitMeta(): { title: string; description: string } | undefined {
+		return this.item.mergeCommitMeta;
+	}
+
+	get squashCommitMeta(): { title: string; description: string } | undefined {
+		return this.item.squashCommitMeta;
+	}
+
 	/**
 	 * Get the current mergeability of the pull request.
 	 */

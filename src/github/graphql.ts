@@ -481,6 +481,14 @@ export interface RefRepository {
 	};
 	url: string;
 }
+
+export interface BaseRefRepository extends RefRepository {
+	squashMergeCommitTitle: DefaultCommitTitle;
+	squashMergeCommitMessage: DefaultCommitMessage;
+	mergeCommitMessage: DefaultCommitMessage;
+	mergeCommitTitle: DefaultCommitTitle;
+}
+
 export interface Ref {
 	name: string;
 	repository: RefRepository;
@@ -526,6 +534,13 @@ export interface PullRequest {
 		avatarUrl: string;
 		id: string;
 	};
+	commits: {
+		nodes: {
+			commit: {
+				message: string;
+			};
+		}[];
+	};
 	comments?: {
 		nodes: AbbreviatedIssueComment[];
 	};
@@ -538,7 +553,7 @@ export interface PullRequest {
 	baseRef?: Ref;
 	baseRefName: string;
 	baseRefOid: string;
-	baseRepository: RefRepository;
+	baseRepository: BaseRefRepository;
 	labels: {
 		nodes: {
 			name: string;
@@ -578,6 +593,19 @@ export interface PullRequest {
 		};
 		url: string;
 	};
+}
+
+export enum DefaultCommitTitle {
+	prTitle = 'PR_TITLE',
+	commitOrPrTitle = 'COMMIT_OR_PR_TITLE',
+	mergeMessage = 'MERGE_MESSAGE'
+}
+
+export enum DefaultCommitMessage {
+	prBody = 'PR_BODY',
+	commitMessages = 'COMMIT_MESSAGES',
+	blank = 'BLANK',
+	prTitle = 'PR_TITLE'
 }
 
 export interface PullRequestResponse {

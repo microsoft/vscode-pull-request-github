@@ -320,6 +320,7 @@ export function convertRESTPullRequestToRawPullRequest(
 		isDraft: draft,
 		suggestedReviewers: [], // suggested reviewers only available through GraphQL API
 		projectItems: [], // projects only available through GraphQL API
+		commits: [], // commits only available through GraphQL API
 	};
 
 	// mergeable is not included in the list response, will need to fetch later
@@ -371,6 +372,7 @@ export function convertRESTIssueToRawPullRequest(
 		),
 		suggestedReviewers: [], // suggested reviewers only available through GraphQL API,
 		projectItems: [], // projects only available through GraphQL API
+		commits: [], // commits only available through GraphQL API
 	};
 
 	return item;
@@ -642,7 +644,7 @@ export function parseGraphQLPullRequest(
 	graphQLPullRequest: GraphQL.PullRequest,
 	githubRepository: GitHubRepository,
 ): PullRequest {
-	return {
+	const pr: PullRequest = {
 		id: graphQLPullRequest.databaseId,
 		graphNodeId: graphQLPullRequest.id,
 		url: graphQLPullRequest.url,
@@ -671,7 +673,58 @@ export function parseGraphQLPullRequest(
 		projectItems: parseProjectItems(graphQLPullRequest.projectItems?.nodes),
 		milestone: parseMilestone(graphQLPullRequest.milestone),
 		assignees: graphQLPullRequest.assignees?.nodes.map(assignee => parseAuthor(assignee, githubRepository)),
+		commits: parseCommits(graphQLPullRequest.commits.nodes),
 	};
+	pr.mergeCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.mergeCommitTitle, graphQLPullRequest.baseRepository.mergeCommitMessage, pr);
+	pr.squashCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.squashMergeCommitTitle, graphQLPullRequest.baseRepository.squashMergeCommitMessage, pr);
+	return pr;
+}
+
+function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle, descriptionSource: GraphQL.DefaultCommitMessage, pullRequest: PullRequest): { title: string, description: string } {
+	let title = '';
+	let description = '';
+
+	switch (titleSource) {
+		case GraphQL.DefaultCommitTitle.prTitle: {
+			title = `${pullRequest.title} (#${pullRequest.number})`;
+			break;
+		}
+		case GraphQL.DefaultCommitTitle.mergeMessage: {
+			title = `Merge pull request #${pullRequest.number} from ${pullRequest.head?.label ?? ''}`;
+			break;
+		}
+		case GraphQL.DefaultCommitTitle.commitOrPrTitle: {
+			if (pullRequest.commits.length === 1) {
+				title = pullRequest.commits[0].message;
+			} else {
+				title = pullRequest.title;
+			}
+			break;
+		}
+	}
+	switch (descriptionSource) {
+		case GraphQL.DefaultCommitMessage.prBody: {
+			description = pullRequest.body;
+			break;
+		}
+		case GraphQL.DefaultCommitMessage.commitMessages: {
+			description = pullRequest.commits.map(commit => `* ${commit.message}`).join('\n\n');
+			break;
+		}
+		case GraphQL.DefaultCommitMessage.prTitle: {
+			description = pullRequest.title;
+			break;
+		}
+	}
+	return { title, description };
+}
+
+function parseCommits(commits: { commit: { message: string; }; }[]): { message: string; }[] {
+	return commits.map(commit => {
+		return {
+			message: commit.commit.message
+		};
+	});
 }
 
 function parseComments(comments: GraphQL.AbbreviatedIssueComment[] | undefined, githubRepository: GitHubRepository) {

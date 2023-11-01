@@ -390,16 +390,23 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 function getDefaultTitleText(mergeMethod: string, pr: PullRequest) {
 	switch (mergeMethod) {
 		case 'merge':
-			return `Merge pull request #${pr.number} from ${pr.head}`;
+			return pr.mergeCommitMeta?.title ?? `Merge pull request #${pr.number} from ${pr.head}`;
 		case 'squash':
-			return `${pr.title} (#${pr.number})`;
+			return pr.squashCommitMeta?.title ?? `${pr.title} (#${pr.number})`;
 		default:
 			return '';
 	}
 }
 
 function getDefaultDescriptionText(mergeMethod: string, pr: PullRequest) {
-	return mergeMethod === 'merge' ? pr.title : '';
+	switch (mergeMethod) {
+		case 'merge':
+			return pr.mergeCommitMeta?.description ?? pr.title;
+		case 'squash':
+			return pr.squashCommitMeta?.description ?? '';
+		default:
+			return '';
+	}
 }
 
 const MERGE_METHODS = {
