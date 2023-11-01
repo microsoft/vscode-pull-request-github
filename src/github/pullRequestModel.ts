@@ -1686,7 +1686,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	private setFileViewedState(fileSubpath: string, viewedState: ViewedState, event: boolean) {
 		const uri = vscode.Uri.joinPath(this.githubRepository.rootUri, fileSubpath);
-		const filePath = ((vscode.env.uiKind === vscode.UIKind.Web) && (this.githubRepository.rootUri.scheme !== Schemes.File)) ? uri.path : uri.fsPath;
+		const filePath = (this.githubRepository.rootUri.scheme === Schemes.VscodeVfs) ? uri.path : uri.fsPath;
 		switch (viewedState) {
 			case ViewedState.DISMISSED: {
 				this._viewedFiles.delete(filePath);
