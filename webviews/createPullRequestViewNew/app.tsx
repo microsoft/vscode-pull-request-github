@@ -168,14 +168,19 @@ export function main() {
 					}
 				}
 
-				async function generateTitle() {
+				async function generateTitle(useCopilot?: boolean) {
 					setGeneratingTitle(true);
-					await ctx.generateTitle();
+					await ctx.generateTitle(!!useCopilot);
 					setGeneratingTitle(false);
 				}
 
 				if (!ctx.initialized) {
 					ctx.initialize();
+				}
+
+				if (ctx.createParams.initializeWithGeneratedTitleAndDescription) {
+					ctx.createParams.initializeWithGeneratedTitleAndDescription = false;
+					generateTitle(true);
 				}
 
 				return <div className='group-main' data-vscode-context='{"preventDefaultContextMenuItems": true}'>
@@ -227,7 +232,7 @@ export function main() {
 						{ctx.createParams.generateTitleAndDescriptionTitle ?
 							isGeneratingTitle ?
 								<button title='Cancel' className='title-action' onClick={ctx.cancelGenerateTitle} disabled={isBusy || !ctx.initialized}>{stopIcon}</button>
-								: <button title={ctx.createParams.generateTitleAndDescriptionTitle} className='title-action' onClick={generateTitle} disabled={isBusy || !ctx.initialized}>{sparkleIcon}</button> : null}
+								: <button title={ctx.createParams.generateTitleAndDescriptionTitle} className='title-action' onClick={() => generateTitle()} disabled={isBusy || !ctx.initialized}>{sparkleIcon}</button> : null}
 						<div id='title-error' className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required</div>
 					</div>
 

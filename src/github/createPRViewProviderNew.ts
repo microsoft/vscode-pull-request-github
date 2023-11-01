@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, RemoteInfo } from '../../common/views';
+import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, RemoteInfo, TitleAndDescriptionArgs } from '../../common/views';
 import type { Branch, Ref } from '../api/api';
 import { GitHubServerType } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
@@ -158,7 +158,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	private async getTitleAndDescription(compareBranch: Branch, baseBranch: string): Promise<{ title: string, description: string }> {
 		let title: string = '';
 		let description: string = '';
-		const descrptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none'>(PULL_REQUEST_DESCRIPTION);
+		const descrptionSource = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION);
 		if (descrptionSource === 'none') {
 			return { title, description };
 		}
@@ -331,6 +331,8 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		}
 		commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 
+		const useCopilot: boolean = !!this._folderRepositoryManager.getTitleAndDescriptionProvider('GitHub Copilot') && (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION) === 'Copilot');
+
 		const params: CreateParamsNew = {
 			defaultBaseRemote,
 			defaultBaseBranch,
@@ -348,7 +350,8 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			isDraftDefault,
 			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
 			generateTitleAndDescriptionTitle: this._folderRepositoryManager.getTitleAndDescriptionProvider()?.title,
-			creating: false
+			creating: false,
+			initializeWithGeneratedTitleAndDescription: useCopilot
 		};
 
 		Logger.appendLine(`Initializing "create" view: ${JSON.stringify(params)}`, CreatePullRequestViewProviderNew.ID);
@@ -695,7 +698,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		});
 	}
 
-	private async getTitleAndDescriptionFromProvider(token: vscode.CancellationToken) {
+	private async getTitleAndDescriptionFromProvider(token: vscode.CancellationToken, searchTerm?: string) {
 		return CreatePullRequestViewProviderNew.withProgress(async () => {
 			try {
 				let commits: string[];
@@ -710,7 +713,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 					}));
 				}
 
-				return this._folderRepositoryManager.getTitleAndDescriptionProvider()?.provider?.provideTitleAndDescription(commits, patches, token);
+				return this._folderRepositoryManager.getTitleAndDescriptionProvider(searchTerm)?.provider?.provideTitleAndDescription(commits, patches, token);
 			} catch (e) {
 				Logger.error(`Error while generating title and description: ${e}`, CreatePullRequestViewProviderNew.ID);
 				return undefined;
@@ -719,14 +722,14 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	}
 
 	private generatingCancellationToken: vscode.CancellationTokenSource | undefined;
-	private async generateTitleAndDescription(message: IRequestMessage<void>): Promise<void> {
+	private async generateTitleAndDescription(message: IRequestMessage<TitleAndDescriptionArgs>): Promise<void> {
 		if (this.generatingCancellationToken) {
 			this.generatingCancellationToken.cancel();
 		}
 		this.generatingCancellationToken = new vscode.CancellationTokenSource();
 
 
-		const result = await Promise.race([this.getTitleAndDescriptionFromProvider(this.generatingCancellationToken.token),
+		const result = await Promise.race([this.getTitleAndDescriptionFromProvider(this.generatingCancellationToken.token, message.args.useCopilot ? 'GitHub Copilot' : undefined),
 		new Promise<true>(resolve => this.generatingCancellationToken?.token.onCancellationRequested(() => resolve(true)))]);
 
 		this.generatingCancellationToken = undefined;

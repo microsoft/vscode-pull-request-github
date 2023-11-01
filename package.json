@@ -79,12 +79,14 @@
 					"enum": [
 						"template",
 						"commit",
-						"none"
+						"none",
+						"Copilot"
 					],
 					"enumDescriptions": [
 						"%githubPullRequests.pullRequestDescription.template%",
 						"%githubPullRequests.pullRequestDescription.commit%",
-						"%githubPullRequests.pullRequestDescription.none%"
+						"%githubPullRequests.pullRequestDescription.none%",
+						"%githubPullRequests.pullRequestDescription.copilot%"
 					],
 					"default": "template",
 					"description": "%githubPullRequests.pullRequestDescription.description%"
