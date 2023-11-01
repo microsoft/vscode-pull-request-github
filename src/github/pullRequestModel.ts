@@ -1143,7 +1143,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		const pathSegments = comment.path!.split('/');
-		this.openDiff(folderManager, pullRequestModel, change, pathSegments[pathSegments.length - 1]);
+		const line = (comment.diffHunks && comment.diffHunks.length > 0) ? comment.diffHunks[0].newLineNumber : undefined;
+		this.openDiff(folderManager, pullRequestModel, change, pathSegments[pathSegments.length - 1], line);
 	}
 
 	static async openFirstDiff(
@@ -1163,10 +1164,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		folderManager: FolderRepositoryManager,
 		pullRequestModel: PullRequestModel,
 		change: SlimFileChange | InMemFileChange,
-		diffTitle: string
+		diffTitle: string,
+		line?: number
 	): Promise<void> {
-
-
 		let headUri, baseUri: vscode.Uri;
 		if (!pullRequestModel.equals(folderManager.activePullRequest)) {
 			const headCommit = pullRequestModel.head!.sha;
@@ -1224,7 +1224,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			baseUri,
 			headUri,
 			`${diffTitle} (Pull Request)`,
-			{},
+			line ? { selection: { start: { line, character: 0 }, end: { line, character: 0 } } } : {},
 		);
 	}
 
