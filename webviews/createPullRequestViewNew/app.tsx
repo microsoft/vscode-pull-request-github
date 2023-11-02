@@ -11,6 +11,7 @@ import { isTeam, MergeMethod } from '../../src/github/interface';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
+import { ContextDropdown } from '../components/contextDropdown';
 import { assigneeIcon, chevronDownIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon, sparkleIcon, stopIcon } from '../components/icon';
 import { Avatar } from '../components/user';
 
@@ -323,6 +324,8 @@ export function main() {
 						<button disabled={isBusy} className='secondary' onClick={() => ctx.cancelCreate()}>
 							Cancel
 						</button>
+
+						<ContextDropdown optionsContext={makeCrea}
 						<div className='create-button'>
 							<button className='split-left' disabled={isBusy || isGeneratingTitle || !isCreateable || !ctx.initialized} onClick={onCreateButton} value={createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).value}
 								title={createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).label}>
