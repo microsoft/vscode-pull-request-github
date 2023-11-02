@@ -69,6 +69,12 @@ export function main() {
 					}
 				}
 
+				useEffect(() => {
+					if (ctx.initialized) {
+						titleInput.current?.focus();
+					}
+				}, [ctx.initialized]);
+
 				async function create(): Promise<void> {
 					setBusy(true);
 					const hasValidTitle = ctx.validate();
