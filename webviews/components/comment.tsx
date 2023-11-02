@@ -328,7 +328,7 @@ export function AddComment({
 		[submit, approve, requestChanges, close],
 	);
 
-	let currentSelection: string = lastReviewType ?? 'comment';
+	let currentSelection: string = lastReviewType ?? (currentUserReviewState === 'APPROVED' ? 'approve' : (currentUserReviewState === 'CHANGES_REQUESTED' ? 'requestChanges' : 'comment'));
 
 	async function submitAction(): Promise<void> {
 		const { value } = textareaRef.current!;
@@ -437,7 +437,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 	const { updatePR, requestChanges, approve, submit, openOnGitHub } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>();
-	let currentSelection: string = pr.lastReviewType ?? 'comment';
+	let currentSelection: string = pr.lastReviewType ?? (pr.currentUserReviewState === 'APPROVED' ? 'approve' : (pr.currentUserReviewState === 'CHANGES_REQUESTED' ? 'requestChanges' : 'comment'));
 
 	async function submitAction(): Promise<void> {
 		const { value } = textareaRef.current!;
