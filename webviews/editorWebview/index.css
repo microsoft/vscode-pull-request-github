@@ -737,6 +737,10 @@ textarea {
 	margin-left: 0;
 }
 
+.primary-split-button {
+	flex-grow: unset;
+}
+
 .form-actions {
 	display: flex;
 	justify-content: flex-end;

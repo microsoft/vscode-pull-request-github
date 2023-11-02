@@ -11,6 +11,7 @@ import { isTeam, MergeMethod } from '../../src/github/interface';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
+import { ContextDropdown } from '../components/contextDropdown';
 import { assigneeIcon, chevronDownIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon, sparkleIcon, stopIcon } from '../components/icon';
 import { Avatar } from '../components/user';
 
@@ -329,23 +330,15 @@ export function main() {
 						<button disabled={isBusy} className='secondary' onClick={() => ctx.cancelCreate()}>
 							Cancel
 						</button>
-						<div className='create-button'>
-							<button className='split-left' disabled={isBusy || isGeneratingTitle || !isCreateable || !ctx.initialized} onClick={onCreateButton} value={createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).value}
-								title={createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).label}>
-								{createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).label}
-							</button>
-							<div className='split'></div>
-							<button className='split-right' title='Create with Option' disabled={isBusy || isGeneratingTitle || !isCreateable || !ctx.initialized} onClick={(e) => {
-								e.preventDefault();
-								const rect = (e.target as HTMLElement).getBoundingClientRect();
-								const x = rect.left;
-								const y = rect.bottom;
-								e.target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: x, clientY: y }));
-								e.stopPropagation();
-							}} data-vscode-context={makeCreateMenuContext(params)}>
-								{chevronDownIcon}
-							</button>
-						</div>
+
+						<ContextDropdown optionsContext={() => makeCreateMenuContext(params)}
+							defaultAction={onCreateButton}
+							defaultOptionLabel={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).label}
+							defaultOptionValue={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).value}
+							optionsTitle='Create with Option'
+							disabled={isBusy || isGeneratingTitle || !isCreateable || !ctx.initialized}
+						/>
+
 					</div>
 				</div>;
 			}}

@@ -11,9 +11,6 @@ import PullRequestContext from '../common/context';
 import { Overview } from './overview';
 
 export function main() {
-	window.addEventListener('contextmenu', e => {
-		e.stopImmediatePropagation();
-	}, true);
 	render(<Root>{pr => <Overview {...pr} />}</Root>, document.getElementById('app'));
 }
 
