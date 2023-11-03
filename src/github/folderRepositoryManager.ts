@@ -34,7 +34,7 @@ import { OctokitCommon } from './common';
 import { CredentialStore } from './credentials';
 import { GitHubRepository, ItemsData, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
 import { PullRequestState, UserResponse } from './graphql';
-import { IAccount, ILabel, IMilestone, IPullRequestsPagingOptions, Issue, ITeam, PRType, RepoAccessAndMergeMethods, User } from './interface';
+import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, PRType, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
 import { MilestoneModel } from './milestoneModel';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
@@ -540,7 +540,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return undefined;
 	}
 
-	private async getUsersFromGlobalState<T extends IAccount | ITeam>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers'): Promise<{ [key: string]: T[] } | undefined> {
+	private async getCachedFromGlobalState<T>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects'): Promise<{ [key: string]: T[] } | undefined> {
 		Logger.appendLine(`Trying to use globalState for ${userKind}.`);
 
 		const usersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, userKind);
@@ -584,7 +584,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return undefined;
 	}
 
-	private async saveUsersInGlobalState<T extends IAccount | ITeam>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers', cache: { [key: string]: T[] }): Promise<void> {
+	private async saveInGlobalState<T>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects', cache: { [key: string]: T[] }): Promise<void> {
 		const cacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, userKind);
 		await Promise.all(this._githubRepositories.map(async (repo) => {
 			const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
@@ -605,7 +605,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			Promise.all(promises).then(() => {
 				this._mentionableUsers = cache;
 				this._fetchMentionableUsersPromise = undefined;
-				this.saveUsersInGlobalState('mentionableUsers', cache)
+				this.saveInGlobalState('mentionableUsers', cache)
 					.then(() => resolve(cache));
 			});
 		});
@@ -621,7 +621,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return this._mentionableUsers;
 		}
 
-		const globalStateMentionableUsers = await this.getUsersFromGlobalState<IAccount>('mentionableUsers');
+		const globalStateMentionableUsers = await this.getCachedFromGlobalState<IAccount>('mentionableUsers');
 
 		if (!this._fetchMentionableUsersPromise) {
 			this._fetchMentionableUsersPromise = this.createFetchMentionableUsersPromise();
@@ -641,7 +641,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return this._assignableUsers;
 		}
 
-		const globalStateAssignableUsers = await this.getUsersFromGlobalState<IAccount>('assignableUsers');
+		const globalStateAssignableUsers = await this.getCachedFromGlobalState<IAccount>('assignableUsers');
 
 		if (!this._fetchAssignableUsersPromise) {
 			const cache: { [key: string]: IAccount[] } = {};
@@ -657,7 +657,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				Promise.all(promises).then(() => {
 					this._assignableUsers = cache;
 					this._fetchAssignableUsersPromise = undefined;
-					this.saveUsersInGlobalState('assignableUsers', cache);
+					this.saveInGlobalState('assignableUsers', cache);
 					resolve(cache);
 					this._onDidChangeAssignableUsers.fire(allAssignableUsers);
 				});
@@ -678,7 +678,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return this._teamReviewers;
 		}
 
-		const globalStateTeamReviewers = (refreshKind === TeamReviewerRefreshKind.Force) ? undefined : await this.getUsersFromGlobalState<ITeam>('teamReviewers');
+		const globalStateTeamReviewers = (refreshKind === TeamReviewerRefreshKind.Force) ? undefined : await this.getCachedFromGlobalState<ITeam>('teamReviewers');
 		if (globalStateTeamReviewers) {
 			this._teamReviewers = globalStateTeamReviewers;
 			return globalStateTeamReviewers || {};
@@ -705,12 +705,44 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 				this._teamReviewers = cache;
 				this._fetchTeamReviewersPromise = undefined;
-				this.saveUsersInGlobalState('teamReviewers', cache);
+				this.saveInGlobalState('teamReviewers', cache);
 				resolve(cache);
 			}));
 		}
 
 		return this._fetchTeamReviewersPromise;
+	}
+
+	private createFetchOrgProjectsPromise(): Promise<{ [key: string]: IProject[] }> {
+		const cache: { [key: string]: IProject[] } = {};
+		return new Promise<{ [key: string]: IProject[] }>(async resolve => {
+			// Keep track of the org teams we have already gotten so we don't make duplicate calls
+			const orgProjects: Map<string, IProject[]> = new Map();
+			// Go through one github repo at a time so that we don't make overlapping auth calls
+			for (const githubRepository of this._githubRepositories) {
+				if (!orgProjects.has(githubRepository.remote.owner)) {
+					try {
+						const data = await githubRepository.getOrgProjects();
+						orgProjects.set(githubRepository.remote.owner, data);
+					} catch (e) {
+						break;
+					}
+				}
+				cache[githubRepository.remote.remoteName] = orgProjects.get(githubRepository.remote.owner) ?? [];
+			}
+
+			await this.saveInGlobalState('orgProjects', cache);
+			resolve(cache);
+		});
+	}
+
+	async getOrgProjects(clearCache?: boolean): Promise<{ [key: string]: IProject[] }> {
+		if (clearCache) {
+			return this.createFetchOrgProjectsPromise();
+		}
+
+		const globalStateProjects = await this.getCachedFromGlobalState<IProject>('orgProjects');
+		return globalStateProjects ?? this.createFetchOrgProjectsPromise();
 	}
 
 	async getOrgTeamsCount(repository: GitHubRepository): Promise<number> {

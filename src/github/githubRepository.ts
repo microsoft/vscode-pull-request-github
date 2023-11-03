@@ -503,7 +503,7 @@ export class GitHubRepository implements vscode.Disposable {
 		return undefined;
 	}
 
-	private async getOrgProjects(): Promise<IProject[]> {
+	async getOrgProjects(): Promise<IProject[]> {
 		Logger.debug(`Fetch org projects - enter`, GitHubRepository.ID);
 		let { query, remote, schema } = await this.ensure();
 		const projects: IProject[] = [];
@@ -542,25 +542,21 @@ export class GitHubRepository implements vscode.Disposable {
 				remote = additional.remote;
 				schema = additional.schema;
 			}
-			const [{ data: repoData }, orgProjects] = await Promise.all([
-				query<RepoProjectsResponse>({
-					query: schema.GetRepoProjects,
-					variables: {
-						owner: remote.owner,
-						name: remote.repositoryName,
-					},
-				}),
-				this.getOrgProjects()
-			]);
+			const { data } = await query<RepoProjectsResponse>({
+				query: schema.GetRepoProjects,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+				},
+			});
 			Logger.debug(`Fetch projects - done`, GitHubRepository.ID);
 
 			const projects: IProject[] = [];
-			if (repoData && repoData.repository?.projectsV2 && repoData.repository.projectsV2.nodes) {
-				repoData.repository.projectsV2.nodes.forEach(raw => {
+			if (data && data.repository?.projectsV2 && data.repository.projectsV2.nodes) {
+				data.repository.projectsV2.nodes.forEach(raw => {
 					projects.push(raw);
 				});
 			}
-			projects.push(...orgProjects);
 			return projects;
 		} catch (e) {
 			Logger.error(`Unable to fetch projects: ${e}`, GitHubRepository.ID);
