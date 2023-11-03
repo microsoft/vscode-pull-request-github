@@ -178,7 +178,16 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		this._prDisposables.push(pullRequestModel.onDidChangePendingReviewState(() => this.updatePullRequest(pullRequestModel)));
 	}
 
+	private _updatePendingVisibility: vscode.Disposable | undefined = undefined;
 	public async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
+		if (this._view && !this._view.visible) {
+			this._updatePendingVisibility?.dispose();
+			this._updatePendingVisibility = this._view.onDidChangeVisibility(async () => {
+				this.updatePullRequest(pullRequestModel);
+				this._updatePendingVisibility?.dispose();
+			});
+		}
+
 		if ((this._prDisposables === undefined) || (pullRequestModel.number !== this._item.number)) {
 			this.registerPrSpecificListeners(pullRequestModel);
 		}
