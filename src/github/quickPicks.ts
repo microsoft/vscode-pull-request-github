@@ -206,11 +206,12 @@ function isProjectQuickPickItem(x: vscode.QuickPickItem | ProjectQuickPickItem):
 	return !!(x as ProjectQuickPickItem).id && !!(x as ProjectQuickPickItem).project;
 }
 
-export async function getProjectFromQuickPick(githubRepository: GitHubRepository, currentProjects: IProjectItem[] | undefined, callback: (projects: IProject[]) => Promise<void>): Promise<void> {
+export async function getProjectFromQuickPick(folderRepoManager: FolderRepositoryManager, githubRepository: GitHubRepository, remoteName: string, isInOrganization: boolean, currentProjects: IProjectItem[] | undefined, callback: (projects: IProject[]) => Promise<void>): Promise<void> {
 	try {
 		let selectedItems: vscode.QuickPickItem[] = [];
 		async function getProjectOptions(): Promise<(ProjectQuickPickItem | vscode.QuickPickItem)[]> {
-			const projects = await githubRepository.getProjects();
+			const [repoProjects, orgProjects] = (await Promise.all([githubRepository.getProjects(), (isInOrganization ? folderRepoManager.getOrgProjects() : undefined)]));
+			const projects = [...(repoProjects ?? []), ...(orgProjects ? orgProjects[remoteName] : [])];
 			if (!projects || !projects.length) {
 				return [
 					{
@@ -243,6 +244,8 @@ export async function getProjectFromQuickPick(githubRepository: GitHubRepository
 		quickPick.selectedItems = selectedItems;
 		quickPick.busy = false;
 
+		// Kick off a cache refresh
+		folderRepoManager.getOrgProjects(true);
 		quickPick.onDidAccept(async () => {
 			quickPick.hide();
 			const projectsToAdd = quickPick.selectedItems.map(item => isProjectQuickPickItem(item) ? item.project : undefined).filter(project => project !== undefined) as IProject[];
