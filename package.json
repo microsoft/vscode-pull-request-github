@@ -111,7 +111,7 @@
 				"githubPullRequests.createDraft": {
 					"type": "boolean",
 					"default": false,
-					"deprecationMessage": "Use the setting 'githubPullRequests.defaultCreateMethod' instead.",
+					"deprecationMessage": "Use the setting 'githubPullRequests.defaultCreateOption' instead.",
 					"description": "%githubPullRequests.createDraft%"
 				},
 				"githubPullRequests.logLevel": {
@@ -373,7 +373,7 @@
 				"githubPullRequests.setAutoMerge": {
 					"type": "boolean",
 					"description": "%githubPullRequests.setAutoMerge.description%",
-					"deprecationMessage": "Use the setting 'githubPullRequests.defaultCreateMethod' instead.",
+					"deprecationMessage": "Use the setting 'githubPullRequests.defaultCreateOption' instead.",
 					"default": false
 				},
 				"githubPullRequests.pullPullRequestBranchBeforeCheckout": {
