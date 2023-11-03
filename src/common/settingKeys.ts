@@ -11,6 +11,7 @@ export const FILE_LIST_LAYOUT = 'fileListLayout';
 export const ASSIGN_TO = 'assignCreated';
 export const PUSH_BRANCH = 'pushBranch';
 export const IGNORE_PR_BRANCHES = 'ignoredPullRequestBranches';
+export const NEVER_IGNORE_DEFAULT_BRANCH = 'neverIgnoreDefaultBranch';
 export const OVERRIDE_DEFAULT_BRANCH = 'overrideDefaultBranch';
 export const PULL_BRANCH = 'pullBranch';
 export const PULL_REQUEST_DESCRIPTION = 'pullRequestDescription';

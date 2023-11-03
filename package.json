@@ -329,6 +329,10 @@
 					},
 					"description": "%githubPullRequests.ignoredPullRequestBranches.description%"
 				},
+				"githubPullRequests.neverIgnoreDefaultBranch": {
+					"type": "boolean",
+					"description": "%githubPullRequests.neverIgnoreDefaultBranch.description%"
+				},
 				"githubPullRequests.overrideDefaultBranch": {
 					"type": "string",
 					"description": "%githubPullRequests.overrideDefaultBranch.description%"
