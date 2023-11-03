@@ -148,8 +148,9 @@ async function init(
 	context.subscriptions.push(activePrViewCoordinator);
 	const createPrHelper = new CreatePullRequestHelper();
 	context.subscriptions.push(createPrHelper);
+	let reviewManagerIndex = 0;
 	const reviewManagers = reposManager.folderManagers.map(
-		folderManager => new ReviewManager(context, folderManager.repository, folderManager, telemetry, changesTree, tree, showPRController, activePrViewCoordinator, createPrHelper, git),
+		folderManager => new ReviewManager(reviewManagerIndex++, context, folderManager.repository, folderManager, telemetry, changesTree, tree, showPRController, activePrViewCoordinator, createPrHelper, git),
 	);
 	context.subscriptions.push(new FileTypeDecorationProvider(reposManager));
 
@@ -169,9 +170,10 @@ async function init(
 				Logger.appendLine(`Repo ${repo.rootUri} has already been setup.`);
 				return;
 			}
-			const newFolderManager = new FolderRepositoryManager(context, repo, telemetry, git, credentialStore);
+			const newFolderManager = new FolderRepositoryManager(reposManager.folderManagers.length, context, repo, telemetry, git, credentialStore);
 			reposManager.insertFolderManager(newFolderManager);
 			const newReviewManager = new ReviewManager(
+				reviewManagerIndex++,
 				context,
 				newFolderManager.repository,
 				newFolderManager,
@@ -362,8 +364,9 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	const repositories = apiImpl.repositories;
 	Logger.appendLine(`Found ${repositories.length} repositories during activation`);
 
+	let folderManagerIndex = 0;
 	const folderManagers = repositories.map(
-		repository => new FolderRepositoryManager(context, repository, telemetry, apiImpl, credentialStore),
+		repository => new FolderRepositoryManager(folderManagerIndex++, context, repository, telemetry, apiImpl, credentialStore),
 	);
 	context.subscriptions.push(...folderManagers);
 

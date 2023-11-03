@@ -35,7 +35,7 @@ describe('PullRequestManager', function () {
 		const repository = new MockRepository();
 		const context = new MockExtensionContext();
 		const credentialStore = new CredentialStore(telemetry, context);
-		manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore);
+		manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore);
 	});
 
 	afterEach(function () {
