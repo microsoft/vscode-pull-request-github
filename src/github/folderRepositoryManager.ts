@@ -163,6 +163,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	readonly onDidDispose: vscode.Event<void> = this._onDidDispose.event;
 
 	constructor(
+		private _id: number,
 		public context: vscode.ExtensionContext,
 		private _repository: Repository,
 		public readonly telemetry: ITelemetry,
@@ -202,6 +203,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				this.context.globalState.update(REPO_KEYS, reposState);
 			}
 		}
+	}
+
+	private get id(): string {
+		return `${FolderRepositoryManager.ID}+${this._id}`;
 	}
 
 	get gitHubRepositories(): GitHubRepository[] {
@@ -265,10 +270,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		if (missingRemotes.length === remotesSetting.length) {
 			Logger.warn(`No remotes found. The following remotes are missing: ${missingRemotes.join(', ')}`);
 		} else {
-			Logger.debug(`Not all remotes found. The following remotes are missing: ${missingRemotes.join(', ')}`, FolderRepositoryManager.ID);
+			Logger.debug(`Not all remotes found. The following remotes are missing: ${missingRemotes.join(', ')}`, this.id);
 		}
 
-		Logger.debug(`Displaying configured remotes: ${remotesSetting.join(', ')}`, FolderRepositoryManager.ID);
+		Logger.debug(`Displaying configured remotes: ${remotesSetting.join(', ')}`, this.id);
 
 		return remotesSetting
 			.map(remote => allGitHubRemotes.find(repo => repo.remoteName === remote))
@@ -1069,7 +1074,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 			return milestones;
 		} catch (e) {
-			Logger.error(`Error fetching milestone issues: ${e instanceof Error ? e.message : e}`, FolderRepositoryManager.ID);
+			Logger.error(`Error fetching milestone issues: ${e instanceof Error ? e.message : e}`, this.id);
 			return { hasMorePages: false, hasUnsearchedRepositories: false, items: [] };
 		}
 	}
@@ -1124,7 +1129,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 			return mappedData;
 		} catch (e) {
-			Logger.error(`Error fetching issues with query ${query}: ${e instanceof Error ? e.message : e}`, FolderRepositoryManager.ID);
+			Logger.error(`Error fetching issues with query ${query}: ${e instanceof Error ? e.message : e}`, this.id);
 			return { hasMorePages: false, hasUnsearchedRepositories: false, items: [] };
 		}
 	}
@@ -1250,7 +1255,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	async getTipCommitMessage(branch: string): Promise<string | undefined> {
-		Logger.debug(`Git tip message for branch ${branch} - enter`, FolderRepositoryManager.ID);
+		Logger.debug(`Git tip message for branch ${branch} - enter`, this.id);
 		const { repository } = this;
 		const { commit } = await repository.getBranch(branch);
 		let message: string = '';
@@ -1258,7 +1263,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			message = (await repository.getCommit(commit))?.message;
 		}
 
-		Logger.debug(`Git tip message for branch ${branch} - done`, FolderRepositoryManager.ID);
+		Logger.debug(`Git tip message for branch ${branch} - done`, this.id);
 		return message;
 	}
 
@@ -1371,7 +1376,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				}
 			}
 
-			Logger.error(`Creating pull requests failed: ${e}`, FolderRepositoryManager.ID);
+			Logger.error(`Creating pull requests failed: ${e}`, this.id);
 
 			/* __GDPR__
 				"pr.create.failure" : {
@@ -1414,7 +1419,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			this.telemetry.sendTelemetryEvent('issue.create.success');
 			return issueModel;
 		} catch (e) {
-			Logger.error(` Creating issue failed: ${e}`, FolderRepositoryManager.ID);
+			Logger.error(` Creating issue failed: ${e}`, this.id);
 
 			/* __GDPR__
 				"issue.create.failure" : {}
@@ -1453,7 +1458,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			*/
 			this.telemetry.sendTelemetryEvent('issue.assign.success');
 		} catch (e) {
-			Logger.error(`Assigning issue failed: ${e}`, FolderRepositoryManager.ID);
+			Logger.error(`Assigning issue failed: ${e}`, this.id);
 
 			/* __GDPR__
 				"issue.assign.failure" : {
@@ -1651,17 +1656,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	public async cleanupAfterPullRequest(branchName: string, pullRequest: PullRequestModel) {
 		const defaults = await this.getPullRequestDefaults();
 		if (branchName === defaults.base) {
-			Logger.debug('Not cleaning up default branch.', FolderRepositoryManager.ID);
+			Logger.debug('Not cleaning up default branch.', this.id);
 			return;
 		}
 		if (pullRequest.author.login === (await this.getCurrentUser()).login) {
-			Logger.debug('Not cleaning up user\'s branch.', FolderRepositoryManager.ID);
+			Logger.debug('Not cleaning up user\'s branch.', this.id);
 			return;
 		}
 		const branch = await this.repository.getBranch(branchName);
 		const remote = branch.upstream?.remote;
 		try {
-			Logger.debug(`Cleaning up branch ${branchName}`, FolderRepositoryManager.ID);
+			Logger.debug(`Cleaning up branch ${branchName}`, this.id);
 			await this.repository.deleteBranch(branchName);
 		} catch (e) {
 			// The branch probably had unpushed changes and cannot be deleted.
@@ -1672,7 +1677,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 		const remotes = await this.getDeleatableRemotes(undefined);
 		if (remotes.has(remote) && remotes.get(remote)!.createdForPullRequest) {
-			Logger.debug(`Cleaning up remote ${remote}`, FolderRepositoryManager.ID);
+			Logger.debug(`Cleaning up remote ${remote}`, this.id);
 			this.repository.removeRemote(remote);
 		}
 	}
@@ -1849,7 +1854,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				return;
 			}
 
-			Logger.debug(`Fulfill pull request missing info - start`, FolderRepositoryManager.ID);
+			Logger.debug(`Fulfill pull request missing info - start`, this.id);
 			const githubRepository = pullRequest.githubRepository;
 			const { octokit, remote } = await githubRepository.ensure();
 
@@ -1875,7 +1880,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Fetching Pull Request merge base failed: {0}', formatError(e)));
 		}
-		Logger.debug(`Fulfill pull request missing info - done`, FolderRepositoryManager.ID);
+		Logger.debug(`Fulfill pull request missing info - done`, this.id);
 	}
 
 	//#region Git related APIs
@@ -1926,7 +1931,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	async resolveUser(owner: string, repositoryName: string, login: string): Promise<User | undefined> {
-		Logger.debug(`Fetch user ${login}`, FolderRepositoryManager.ID);
+		Logger.debug(`Fetch user ${login}`, this.id);
 		const githubRepository = await this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
 		const { query, schema } = await githubRepository.ensure();
 
@@ -2193,7 +2198,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 							vscode.window.showErrorMessage(vscode.l10n.t('An error occurred when fetching the repository: {0}', e.stderr));
 						}
 					}
-					Logger.error(`Error when fetching: ${e.stderr ?? e}`, FolderRepositoryManager.ID);
+					Logger.error(`Error when fetching: ${e.stderr ?? e}`, this.id);
 				}
 				const pullBranchConfiguration = await this.pullBranchConfiguration();
 				if (branch.behind !== undefined && branch.behind > 0) {
