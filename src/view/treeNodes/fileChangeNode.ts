@@ -65,7 +65,7 @@ async function openDiffCommand(
 /**
  * File change node whose content is stored in memory and resolved when being revealed.
  */
-export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
+export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public iconPath?:
 		| string
 		| vscode.Uri

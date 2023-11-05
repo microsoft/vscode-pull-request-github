@@ -34,7 +34,7 @@ import { OctokitCommon } from './common';
 import { CredentialStore } from './credentials';
 import { GitHubRepository, ItemsData, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
 import { PullRequestState, UserResponse } from './graphql';
-import { IAccount, ILabel, IMilestone, IPullRequestsPagingOptions, Issue, ITeam, PRType, RepoAccessAndMergeMethods, User } from './interface';
+import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, PRType, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
 import { MilestoneModel } from './milestoneModel';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
@@ -163,6 +163,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	readonly onDidDispose: vscode.Event<void> = this._onDidDispose.event;
 
 	constructor(
+		private _id: number,
 		public context: vscode.ExtensionContext,
 		private _repository: Repository,
 		public readonly telemetry: ITelemetry,
@@ -202,6 +203,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				this.context.globalState.update(REPO_KEYS, reposState);
 			}
 		}
+	}
+
+	private get id(): string {
+		return `${FolderRepositoryManager.ID}+${this._id}`;
 	}
 
 	get gitHubRepositories(): GitHubRepository[] {
@@ -265,10 +270,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		if (missingRemotes.length === remotesSetting.length) {
 			Logger.warn(`No remotes found. The following remotes are missing: ${missingRemotes.join(', ')}`);
 		} else {
-			Logger.debug(`Not all remotes found. The following remotes are missing: ${missingRemotes.join(', ')}`, FolderRepositoryManager.ID);
+			Logger.debug(`Not all remotes found. The following remotes are missing: ${missingRemotes.join(', ')}`, this.id);
 		}
 
-		Logger.debug(`Displaying configured remotes: ${remotesSetting.join(', ')}`, FolderRepositoryManager.ID);
+		Logger.debug(`Displaying configured remotes: ${remotesSetting.join(', ')}`, this.id);
 
 		return remotesSetting
 			.map(remote => allGitHubRemotes.find(repo => repo.remoteName === remote))
@@ -535,7 +540,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return undefined;
 	}
 
-	private async getUsersFromGlobalState<T extends IAccount | ITeam>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers'): Promise<{ [key: string]: T[] } | undefined> {
+	private async getCachedFromGlobalState<T>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects'): Promise<{ [key: string]: T[] } | undefined> {
 		Logger.appendLine(`Trying to use globalState for ${userKind}.`);
 
 		const usersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, userKind);
@@ -579,7 +584,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return undefined;
 	}
 
-	private async saveUsersInGlobalState<T extends IAccount | ITeam>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers', cache: { [key: string]: T[] }): Promise<void> {
+	private async saveInGlobalState<T>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects', cache: { [key: string]: T[] }): Promise<void> {
 		const cacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, userKind);
 		await Promise.all(this._githubRepositories.map(async (repo) => {
 			const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
@@ -600,7 +605,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			Promise.all(promises).then(() => {
 				this._mentionableUsers = cache;
 				this._fetchMentionableUsersPromise = undefined;
-				this.saveUsersInGlobalState('mentionableUsers', cache)
+				this.saveInGlobalState('mentionableUsers', cache)
 					.then(() => resolve(cache));
 			});
 		});
@@ -616,7 +621,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return this._mentionableUsers;
 		}
 
-		const globalStateMentionableUsers = await this.getUsersFromGlobalState<IAccount>('mentionableUsers');
+		const globalStateMentionableUsers = await this.getCachedFromGlobalState<IAccount>('mentionableUsers');
 
 		if (!this._fetchMentionableUsersPromise) {
 			this._fetchMentionableUsersPromise = this.createFetchMentionableUsersPromise();
@@ -636,7 +641,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return this._assignableUsers;
 		}
 
-		const globalStateAssignableUsers = await this.getUsersFromGlobalState<IAccount>('assignableUsers');
+		const globalStateAssignableUsers = await this.getCachedFromGlobalState<IAccount>('assignableUsers');
 
 		if (!this._fetchAssignableUsersPromise) {
 			const cache: { [key: string]: IAccount[] } = {};
@@ -652,7 +657,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				Promise.all(promises).then(() => {
 					this._assignableUsers = cache;
 					this._fetchAssignableUsersPromise = undefined;
-					this.saveUsersInGlobalState('assignableUsers', cache);
+					this.saveInGlobalState('assignableUsers', cache);
 					resolve(cache);
 					this._onDidChangeAssignableUsers.fire(allAssignableUsers);
 				});
@@ -673,7 +678,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return this._teamReviewers;
 		}
 
-		const globalStateTeamReviewers = (refreshKind === TeamReviewerRefreshKind.Force) ? undefined : await this.getUsersFromGlobalState<ITeam>('teamReviewers');
+		const globalStateTeamReviewers = (refreshKind === TeamReviewerRefreshKind.Force) ? undefined : await this.getCachedFromGlobalState<ITeam>('teamReviewers');
 		if (globalStateTeamReviewers) {
 			this._teamReviewers = globalStateTeamReviewers;
 			return globalStateTeamReviewers || {};
@@ -700,12 +705,44 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 				this._teamReviewers = cache;
 				this._fetchTeamReviewersPromise = undefined;
-				this.saveUsersInGlobalState('teamReviewers', cache);
+				this.saveInGlobalState('teamReviewers', cache);
 				resolve(cache);
 			}));
 		}
 
 		return this._fetchTeamReviewersPromise;
+	}
+
+	private createFetchOrgProjectsPromise(): Promise<{ [key: string]: IProject[] }> {
+		const cache: { [key: string]: IProject[] } = {};
+		return new Promise<{ [key: string]: IProject[] }>(async resolve => {
+			// Keep track of the org teams we have already gotten so we don't make duplicate calls
+			const orgProjects: Map<string, IProject[]> = new Map();
+			// Go through one github repo at a time so that we don't make overlapping auth calls
+			for (const githubRepository of this._githubRepositories) {
+				if (!orgProjects.has(githubRepository.remote.owner)) {
+					try {
+						const data = await githubRepository.getOrgProjects();
+						orgProjects.set(githubRepository.remote.owner, data);
+					} catch (e) {
+						break;
+					}
+				}
+				cache[githubRepository.remote.remoteName] = orgProjects.get(githubRepository.remote.owner) ?? [];
+			}
+
+			await this.saveInGlobalState('orgProjects', cache);
+			resolve(cache);
+		});
+	}
+
+	async getOrgProjects(clearCache?: boolean): Promise<{ [key: string]: IProject[] }> {
+		if (clearCache) {
+			return this.createFetchOrgProjectsPromise();
+		}
+
+		const globalStateProjects = await this.getCachedFromGlobalState<IProject>('orgProjects');
+		return globalStateProjects ?? this.createFetchOrgProjectsPromise();
 	}
 
 	async getOrgTeamsCount(repository: GitHubRepository): Promise<number> {
@@ -1069,7 +1106,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 			return milestones;
 		} catch (e) {
-			Logger.error(`Error fetching milestone issues: ${e instanceof Error ? e.message : e}`, FolderRepositoryManager.ID);
+			Logger.error(`Error fetching milestone issues: ${e instanceof Error ? e.message : e}`, this.id);
 			return { hasMorePages: false, hasUnsearchedRepositories: false, items: [] };
 		}
 	}
@@ -1124,7 +1161,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 			return mappedData;
 		} catch (e) {
-			Logger.error(`Error fetching issues with query ${query}: ${e instanceof Error ? e.message : e}`, FolderRepositoryManager.ID);
+			Logger.error(`Error fetching issues with query ${query}: ${e instanceof Error ? e.message : e}`, this.id);
 			return { hasMorePages: false, hasUnsearchedRepositories: false, items: [] };
 		}
 	}
@@ -1250,7 +1287,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	async getTipCommitMessage(branch: string): Promise<string | undefined> {
-		Logger.debug(`Git tip message for branch ${branch} - enter`, FolderRepositoryManager.ID);
+		Logger.debug(`Git tip message for branch ${branch} - enter`, this.id);
 		const { repository } = this;
 		const { commit } = await repository.getBranch(branch);
 		let message: string = '';
@@ -1258,7 +1295,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			message = (await repository.getCommit(commit))?.message;
 		}
 
-		Logger.debug(`Git tip message for branch ${branch} - done`, FolderRepositoryManager.ID);
+		Logger.debug(`Git tip message for branch ${branch} - done`, this.id);
 		return message;
 	}
 
@@ -1371,7 +1408,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				}
 			}
 
-			Logger.error(`Creating pull requests failed: ${e}`, FolderRepositoryManager.ID);
+			Logger.error(`Creating pull requests failed: ${e}`, this.id);
 
 			/* __GDPR__
 				"pr.create.failure" : {
@@ -1414,7 +1451,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			this.telemetry.sendTelemetryEvent('issue.create.success');
 			return issueModel;
 		} catch (e) {
-			Logger.error(` Creating issue failed: ${e}`, FolderRepositoryManager.ID);
+			Logger.error(` Creating issue failed: ${e}`, this.id);
 
 			/* __GDPR__
 				"issue.create.failure" : {}
@@ -1453,7 +1490,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			*/
 			this.telemetry.sendTelemetryEvent('issue.assign.success');
 		} catch (e) {
-			Logger.error(`Assigning issue failed: ${e}`, FolderRepositoryManager.ID);
+			Logger.error(`Assigning issue failed: ${e}`, this.id);
 
 			/* __GDPR__
 				"issue.assign.failure" : {
@@ -1630,7 +1667,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						},
 					});
 
-					action.legacy = data.repository.pullRequest.state !== 'OPEN';
+					action.legacy = data.repository?.pullRequest.state !== 'OPEN';
 				} catch { }
 
 				return action;
@@ -1651,17 +1688,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	public async cleanupAfterPullRequest(branchName: string, pullRequest: PullRequestModel) {
 		const defaults = await this.getPullRequestDefaults();
 		if (branchName === defaults.base) {
-			Logger.debug('Not cleaning up default branch.', FolderRepositoryManager.ID);
+			Logger.debug('Not cleaning up default branch.', this.id);
 			return;
 		}
 		if (pullRequest.author.login === (await this.getCurrentUser()).login) {
-			Logger.debug('Not cleaning up user\'s branch.', FolderRepositoryManager.ID);
+			Logger.debug('Not cleaning up user\'s branch.', this.id);
 			return;
 		}
 		const branch = await this.repository.getBranch(branchName);
 		const remote = branch.upstream?.remote;
 		try {
-			Logger.debug(`Cleaning up branch ${branchName}`, FolderRepositoryManager.ID);
+			Logger.debug(`Cleaning up branch ${branchName}`, this.id);
 			await this.repository.deleteBranch(branchName);
 		} catch (e) {
 			// The branch probably had unpushed changes and cannot be deleted.
@@ -1672,7 +1709,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 		const remotes = await this.getDeleatableRemotes(undefined);
 		if (remotes.has(remote) && remotes.get(remote)!.createdForPullRequest) {
-			Logger.debug(`Cleaning up remote ${remote}`, FolderRepositoryManager.ID);
+			Logger.debug(`Cleaning up remote ${remote}`, this.id);
 			this.repository.removeRemote(remote);
 		}
 	}
@@ -1849,7 +1886,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				return;
 			}
 
-			Logger.debug(`Fulfill pull request missing info - start`, FolderRepositoryManager.ID);
+			Logger.debug(`Fulfill pull request missing info - start`, this.id);
 			const githubRepository = pullRequest.githubRepository;
 			const { octokit, remote } = await githubRepository.ensure();
 
@@ -1875,7 +1912,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Fetching Pull Request merge base failed: {0}', formatError(e)));
 		}
-		Logger.debug(`Fulfill pull request missing info - done`, FolderRepositoryManager.ID);
+		Logger.debug(`Fulfill pull request missing info - done`, this.id);
 	}
 
 	//#region Git related APIs
@@ -1926,7 +1963,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	async resolveUser(owner: string, repositoryName: string, login: string): Promise<User | undefined> {
-		Logger.debug(`Fetch user ${login}`, FolderRepositoryManager.ID);
+		Logger.debug(`Fetch user ${login}`, this.id);
 		const githubRepository = await this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
 		const { query, schema } = await githubRepository.ensure();
 
@@ -2193,7 +2230,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 							vscode.window.showErrorMessage(vscode.l10n.t('An error occurred when fetching the repository: {0}', e.stderr));
 						}
 					}
-					Logger.error(`Error when fetching: ${e.stderr ?? e}`, FolderRepositoryManager.ID);
+					Logger.error(`Error when fetching: ${e.stderr ?? e}`, this.id);
 				}
 				const pullBranchConfiguration = await this.pullBranchConfiguration();
 				if (branch.behind !== undefined && branch.behind > 0) {
@@ -2377,8 +2414,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 	}
 
-	public getTitleAndDescriptionProvider() {
-		return this._git.getTitleAndDescriptionProvider();
+	public getTitleAndDescriptionProvider(searchTerm?: string) {
+		return this._git.getTitleAndDescriptionProvider(searchTerm);
 	}
 
 	dispose() {

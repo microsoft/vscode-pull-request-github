@@ -485,8 +485,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			});
 
-			return data.repository.pullRequest.viewerLatestReview ? {
-				sha: data.repository.pullRequest.viewerLatestReview.commit.oid,
+			if (data.repository === null) {
+				Logger.error('Unexpected null repository while getting last review commit', PullRequestModel.ID);
+			}
+
+			return data.repository?.pullRequest.viewerLatestReview ? {
+				sha: data.repository?.pullRequest.viewerLatestReview.commit.oid,
 			} : undefined;
 		}
 		catch (e) {
@@ -783,6 +787,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			},
 		});
 
+		if (data.repository === null) {
+			Logger.error('Unexpected null repository while getting review requests', PullRequestModel.ID);
+			return [];
+		}
+
 		const reviewers: (IAccount | ITeam)[] = [];
 		for (const reviewer of data.repository.pullRequest.reviewRequests.nodes) {
 			if (reviewer.requestedReviewer?.login) {
@@ -1049,8 +1058,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				this.getReviewThreads()
 			]);
 
-			const ret = data.repository.pullRequest.timelineItems.nodes;
-			const events = parseGraphQLTimelineEvents(ret, this.githubRepository);
+			if (data.repository === null) {
+				Logger.error('Unexpected null repository when fetching timeline', PullRequestModel.ID);
+			}
+
+			const ret = data.repository?.pullRequest.timelineItems.nodes;
+			const events = ret ? parseGraphQLTimelineEvents(ret, this.githubRepository) : [];
 
 			this.addReviewTimelineEventComments(events, reviewThreads);
 			insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, this.head);
@@ -1143,7 +1156,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		const pathSegments = comment.path!.split('/');
-		this.openDiff(folderManager, pullRequestModel, change, pathSegments[pathSegments.length - 1]);
+		const line = (comment.diffHunks && comment.diffHunks.length > 0) ? comment.diffHunks[0].newLineNumber : undefined;
+		this.openDiff(folderManager, pullRequestModel, change, pathSegments[pathSegments.length - 1], line);
 	}
 
 	static async openFirstDiff(
@@ -1163,10 +1177,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		folderManager: FolderRepositoryManager,
 		pullRequestModel: PullRequestModel,
 		change: SlimFileChange | InMemFileChange,
-		diffTitle: string
+		diffTitle: string,
+		line?: number
 	): Promise<void> {
-
-
 		let headUri, baseUri: vscode.Uri;
 		if (!pullRequestModel.equals(folderManager.activePullRequest)) {
 			const headCommit = pullRequestModel.head!.sha;
@@ -1224,7 +1237,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			baseUri,
 			headUri,
 			`${diffTitle} (Pull Request)`,
-			{},
+			line ? { selection: { start: { line, character: 0 }, end: { line, character: 0 } } } : {},
 		);
 	}
 
@@ -1338,6 +1351,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return !!this.item.allowAutoMerge;
 	}
 
+	get mergeCommitMeta(): { title: string; description: string } | undefined {
+		return this.item.mergeCommitMeta;
+	}
+
+	get squashCommitMeta(): { title: string; description: string } | undefined {
+		return this.item.squashCommitMeta;
+	}
+
 	/**
 	 * Get the current mergeability of the pull request.
 	 */
@@ -1354,8 +1375,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					number: this.number,
 				},
 			});
+			if (data.repository === null) {
+				Logger.error('Unexpected null repository while getting mergeability', PullRequestModel.ID);
+			}
+
 			Logger.debug(`Fetch pull request mergeability ${this.number} - done`, PullRequestModel.ID);
-			const mergeability = parseMergeability(data.repository.pullRequest.mergeable, data.repository.pullRequest.mergeStateStatus);
+			const mergeability = parseMergeability(data.repository?.pullRequest.mergeable, data.repository?.pullRequest.mergeStateStatus);
 			this.item.mergeable = mergeability;
 			return mergeability;
 		} catch (e) {
@@ -1686,7 +1711,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	private setFileViewedState(fileSubpath: string, viewedState: ViewedState, event: boolean) {
 		const uri = vscode.Uri.joinPath(this.githubRepository.rootUri, fileSubpath);
-		const filePath = ((vscode.env.uiKind === vscode.UIKind.Web) && (this.githubRepository.rootUri.scheme !== Schemes.File)) ? uri.path : uri.fsPath;
+		const filePath = (this.githubRepository.rootUri.scheme === Schemes.VscodeVfs) ? uri.path : uri.fsPath;
 		switch (viewedState) {
 			case ViewedState.DISMISSED: {
 				this._viewedFiles.delete(filePath);

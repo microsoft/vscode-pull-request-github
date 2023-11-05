@@ -24,7 +24,7 @@
 		"readonlyMessage",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.74.1",
+	"version": "0.76.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.83.0"
@@ -79,12 +79,14 @@
 					"enum": [
 						"template",
 						"commit",
-						"none"
+						"none",
+						"Copilot"
 					],
 					"enumDescriptions": [
 						"%githubPullRequests.pullRequestDescription.template%",
 						"%githubPullRequests.pullRequestDescription.commit%",
-						"%githubPullRequests.pullRequestDescription.none%"
+						"%githubPullRequests.pullRequestDescription.none%",
+						"%githubPullRequests.pullRequestDescription.copilot%"
 					],
 					"default": "template",
 					"description": "%githubPullRequests.pullRequestDescription.description%"
@@ -109,7 +111,7 @@
 				"githubPullRequests.createDraft": {
 					"type": "boolean",
 					"default": false,
-					"deprecationMessage": "Use the setting 'githubPullRequests.defaultCreateMethod' instead.",
+					"deprecationMessage": "Use the setting 'githubPullRequests.defaultCreateOption' instead.",
 					"description": "%githubPullRequests.createDraft%"
 				},
 				"githubPullRequests.logLevel": {
@@ -371,7 +373,7 @@
 				"githubPullRequests.setAutoMerge": {
 					"type": "boolean",
 					"description": "%githubPullRequests.setAutoMerge.description%",
-					"deprecationMessage": "Use the setting 'githubPullRequests.defaultCreateMethod' instead.",
+					"deprecationMessage": "Use the setting 'githubPullRequests.defaultCreateOption' instead.",
 					"default": false
 				},
 				"githubPullRequests.pullPullRequestBranchBeforeCheckout": {
@@ -1056,6 +1058,31 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "review.approveDescription",
+				"title": "%command.review.approve.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "review.commentDescription",
+				"title": "%command.review.comment.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "review.requestChangesDescription",
+				"title": "%command.review.requestChanges.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "review.approveOnDotComDescription",
+				"title": "%command.review.approveOnDotCom.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "review.requestChangesOnDotComDescription",
+				"title": "%command.review.requestChangesOnDotCom.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.createPrMenuCreate",
 				"title": "%command.pr.createPrMenuCreate.title%",
 				"category": "%command.pull.request.category%"
@@ -1512,6 +1539,26 @@
 				},
 				{
 					"command": "review.requestChangesOnDotCom",
+					"when": "false"
+				},
+				{
+					"command": "review.approveDescription",
+					"when": "false"
+				},
+				{
+					"command": "review.commentDescription",
+					"when": "false"
+				},
+				{
+					"command": "review.requestChangesDescription",
+					"when": "false"
+				},
+				{
+					"command": "review.approveOnDotComDescription",
+					"when": "false"
+				},
+				{
+					"command": "review.requestChangesOnDotComDescription",
 					"when": "false"
 				},
 				{
@@ -2476,6 +2523,26 @@
 				{
 					"command": "review.requestChangesOnDotCom",
 					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentRequestChangesOnDotCom"
+				},
+				{
+					"command": "review.approveDescription",
+					"when": "activeWebviewPanelId == 'PullRequestOverview' && github:reviewCommentMenu && github:reviewCommentApprove"
+				},
+				{
+					"command": "review.commentDescription",
+					"when": "activeWebviewPanelId == 'PullRequestOverview' && github:reviewCommentMenu && github:reviewCommentComment"
+				},
+				{
+					"command": "review.requestChangesDescription",
+					"when": "activeWebviewPanelId == 'PullRequestOverview' && github:reviewCommentMenu && github:reviewCommentRequestChanges"
+				},
+				{
+					"command": "review.approveOnDotComDescription",
+					"when": "activeWebviewPanelId == 'PullRequestOverview' && github:reviewCommentMenu && github:reviewCommentApproveOnDotCom"
+				},
+				{
+					"command": "review.requestChangesOnDotComDescription",
+					"when": "activeWebviewPanelId == 'PullRequestOverview' && github:reviewCommentMenu && github:reviewCommentRequestChangesOnDotCom"
 				}
 			]
 		},

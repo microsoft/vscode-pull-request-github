@@ -203,8 +203,16 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 		return disposable;
 	}
 
-	getTitleAndDescriptionProvider(): { title: string, provider: TitleAndDescriptionProvider } | undefined {
-		return this._titleAndDescriptionProviders.size > 0 ? this._titleAndDescriptionProviders.values().next().value : undefined;
+	getTitleAndDescriptionProvider(searchTerm?: string): { title: string, provider: TitleAndDescriptionProvider } | undefined {
+		if (!searchTerm) {
+			return this._titleAndDescriptionProviders.size > 0 ? this._titleAndDescriptionProviders.values().next().value : undefined;
+		} else {
+			for (const provider of this._titleAndDescriptionProviders) {
+				if (provider.title.toLowerCase().includes(searchTerm.toLowerCase())) {
+					return provider;
+				}
+			}
+		}
 	}
 
 }

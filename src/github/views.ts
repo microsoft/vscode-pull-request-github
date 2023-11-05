@@ -67,6 +67,8 @@ export interface PullRequest {
 	autoMerge?: boolean;
 	allowAutoMerge: boolean;
 	autoMergeMethod?: MergeMethod;
+	mergeCommitMeta?: { title: string, description: string };
+	squashCommitMeta?: { title: string, description: string };
 	reviewers: ReviewState[];
 	isDraft?: boolean;
 	isIssue: boolean;

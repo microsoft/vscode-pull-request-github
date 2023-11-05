@@ -11,7 +11,7 @@ import { dispose, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { ReviewManager } from '../view/reviewManager';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, isTeam, reviewerId, ReviewEvent, ReviewState } from './interface';
+import { GithubItemStateEnum, IAccount, isTeam, reviewerId, ReviewEvent, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
@@ -162,6 +162,12 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		await this.updatePullRequest(this._item);
 	}
 
+	private getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount): string | undefined {
+		const review = reviewers.find(r => reviewerId(r.reviewer) === currentUser.login);
+		// There will always be a review. If not then the PR shouldn't have been or fetched/shown for the current user
+		return review?.state;
+	}
+
 	private _prDisposables: vscode.Disposable[] | undefined = undefined;
 	private registerPrSpecificListeners(pullRequestModel: PullRequestModel) {
 		if (this._prDisposables !== undefined) {
@@ -172,7 +178,16 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		this._prDisposables.push(pullRequestModel.onDidChangePendingReviewState(() => this.updatePullRequest(pullRequestModel)));
 	}
 
+	private _updatePendingVisibility: vscode.Disposable | undefined = undefined;
 	public async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
+		if (this._view && !this._view.visible) {
+			this._updatePendingVisibility?.dispose();
+			this._updatePendingVisibility = this._view.onDidChangeVisibility(async () => {
+				this.updatePullRequest(pullRequestModel);
+				this._updatePendingVisibility?.dispose();
+			});
+		}
+
 		if ((this._prDisposables === undefined) || (pullRequestModel.number !== this._item.number)) {
 			this.registerPrSpecificListeners(pullRequestModel);
 		}
@@ -229,6 +244,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					!pullRequest.base.repositoryCloneUrl.equals(pullRequest.head.repositoryCloneUrl);
 
 				const continueOnGitHub = !!(isCrossRepository && isInCodespaces());
+				const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
 
 				const context: Partial<PullRequest> = {
 					number: pullRequest.number,
@@ -269,7 +285,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					continueOnGitHub,
 					isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
 					isEnterprise: pullRequest.githubRepository.remote.isEnterprise,
-					hasReviewDraft
+					hasReviewDraft,
+					currentUserReviewState: reviewState
 				};
 
 				this._postMessage({

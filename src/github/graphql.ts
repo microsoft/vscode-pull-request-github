@@ -225,7 +225,7 @@ export interface TimelineEventsResponse {
 				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent)[];
 			};
 		};
-	};
+	} | null;
 	rateLimit: RateLimit;
 }
 
@@ -238,7 +238,7 @@ export interface LatestReviewCommitResponse {
 				}
 			};
 		};
-	};
+	} | null;
 }
 
 export interface PendingReviewIdResponse {
@@ -270,7 +270,7 @@ export interface GetReviewRequestsResponse {
 				}[];
 			};
 		};
-	};
+	} | null;
 };
 
 export interface PullRequestState {
@@ -280,7 +280,7 @@ export interface PullRequestState {
 			number: number;
 			state: 'OPEN' | 'CLOSED' | 'MERGED';
 		};
-	};
+	} | null;
 }
 
 export interface PullRequestCommentsResponse {
@@ -291,7 +291,7 @@ export interface PullRequestCommentsResponse {
 				pageInfo: PageInfo;
 			};
 		};
-	};
+	} | null;
 }
 
 export interface MentionableUsersResponse {
@@ -300,7 +300,7 @@ export interface MentionableUsersResponse {
 			nodes: Account[];
 			pageInfo: PageInfo;
 		};
-	};
+	} | null;
 	rateLimit: RateLimit;
 }
 
@@ -310,7 +310,7 @@ export interface AssignableUsersResponse {
 			nodes: Account[];
 			pageInfo: PageInfo;
 		};
-	};
+	} | null;
 	rateLimit: RateLimit;
 }
 
@@ -340,7 +340,7 @@ export interface PullRequestParticipantsResponse {
 				nodes: Account[];
 			};
 		};
-	};
+	} | null;
 }
 
 export interface CreatePullRequestResponse {
@@ -460,7 +460,7 @@ export interface GetBranchResponse {
 				oid: string;
 			}
 		}
-	}
+	} | null;
 }
 
 export interface ListBranchesResponse {
@@ -471,7 +471,7 @@ export interface ListBranchesResponse {
 			}[];
 			pageInfo: PageInfo;
 		};
-	};
+	} | null;
 }
 
 export interface RefRepository {
@@ -481,6 +481,14 @@ export interface RefRepository {
 	};
 	url: string;
 }
+
+export interface BaseRefRepository extends RefRepository {
+	squashMergeCommitTitle: DefaultCommitTitle;
+	squashMergeCommitMessage: DefaultCommitMessage;
+	mergeCommitMessage: DefaultCommitMessage;
+	mergeCommitTitle: DefaultCommitTitle;
+}
+
 export interface Ref {
 	name: string;
 	repository: RefRepository;
@@ -526,6 +534,13 @@ export interface PullRequest {
 		avatarUrl: string;
 		id: string;
 	};
+	commits: {
+		nodes: {
+			commit: {
+				message: string;
+			};
+		}[];
+	};
 	comments?: {
 		nodes: AbbreviatedIssueComment[];
 	};
@@ -538,7 +553,7 @@ export interface PullRequest {
 	baseRef?: Ref;
 	baseRefName: string;
 	baseRefOid: string;
-	baseRepository: RefRepository;
+	baseRepository: BaseRefRepository;
 	labels: {
 		nodes: {
 			name: string;
@@ -580,10 +595,23 @@ export interface PullRequest {
 	};
 }
 
+export enum DefaultCommitTitle {
+	prTitle = 'PR_TITLE',
+	commitOrPrTitle = 'COMMIT_OR_PR_TITLE',
+	mergeMessage = 'MERGE_MESSAGE'
+}
+
+export enum DefaultCommitMessage {
+	prBody = 'PR_BODY',
+	commitMessages = 'COMMIT_MESSAGES',
+	blank = 'BLANK',
+	prTitle = 'PR_TITLE'
+}
+
 export interface PullRequestResponse {
 	repository: {
 		pullRequest: PullRequest;
-	};
+	} | null;
 	rateLimit: RateLimit;
 }
 
@@ -593,7 +621,7 @@ export interface PullRequestMergabilityResponse {
 			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 			mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
 		};
-	};
+	} | null;
 	rateLimit: RateLimit;
 }
 
@@ -616,7 +644,7 @@ export interface RepoProjectsResponse {
 				id: string;
 			}[];
 		}
-	}
+	} | null;
 }
 
 export interface OrgProjectsResponse {
@@ -648,7 +676,7 @@ export interface MilestoneIssuesResponse {
 			}[];
 			pageInfo: PageInfo;
 		};
-	};
+	} | null;
 }
 
 export interface IssuesResponse {
@@ -659,7 +687,7 @@ export interface IssuesResponse {
 			}[];
 			pageInfo: PageInfo;
 		};
-	};
+	} | null;
 }
 
 export interface PullRequestsResponse {
@@ -667,7 +695,7 @@ export interface PullRequestsResponse {
 		pullRequests: {
 			nodes: PullRequest[]
 		}
-	}
+	} | null;
 }
 
 export interface MaxIssueResponse {
@@ -679,13 +707,13 @@ export interface MaxIssueResponse {
 				};
 			}[];
 		};
-	};
+	} | null;
 }
 
 export interface ViewerPermissionResponse {
 	repository: {
 		viewerPermission: string;
-	};
+	} | null;
 }
 
 export interface ForkDetailsResponse {
@@ -734,7 +762,7 @@ export interface FileContentResponse {
 		object: {
 			text: string | undefined;
 		}
-	}
+	} | null;
 }
 
 export interface StartReviewResponse {
@@ -825,7 +853,7 @@ export interface GetChecksResponse {
 				}[] | undefined;
 			};
 		};
-	};
+	} | null;
 }
 
 export interface ResolveReviewThreadResponse {
@@ -854,5 +882,5 @@ export interface PullRequestFilesResponse {
 				};
 			}
 		}
-	}
+	} | null;
 }

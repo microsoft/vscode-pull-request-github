@@ -159,11 +159,16 @@ export interface PullRequest extends Issue {
 	head?: IGitHubRef;
 	isRemoteBaseDeleted?: boolean;
 	base?: IGitHubRef;
+	commits: {
+		message: string;
+	}[];
 	merged?: boolean;
 	mergeable?: PullRequestMergeability;
 	autoMerge?: boolean;
 	autoMergeMethod?: MergeMethod;
 	allowAutoMerge?: boolean;
+	mergeCommitMeta?: { title: string, description: string };
+	squashCommitMeta?: { title: string, description: string };
 	suggestedReviewers?: ISuggestedReviewer[];
 }
 
