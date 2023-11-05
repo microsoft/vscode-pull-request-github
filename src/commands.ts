@@ -1346,16 +1346,20 @@ ${contents}
 		}
 
 		// Find the next diff in the current file to scroll to
-		const visibleRange = editor.visibleRanges[0];
+		const cursorPosition = editor.selection.active;
 		const iterateThroughDiffs = next ? diffs : diffs.reverse();
 		for (const diff of iterateThroughDiffs) {
 			const practicalModifiedEndLineNumber = (diff.modifiedEndLineNumber > diff.modifiedStartLineNumber) ? diff.modifiedEndLineNumber : diff.modifiedStartLineNumber as number + 1;
 			const diffRange = new vscode.Range(diff.modifiedStartLineNumber ? diff.modifiedStartLineNumber - 1 : diff.modifiedStartLineNumber, 0, practicalModifiedEndLineNumber, 0);
-			if (next && (visibleRange.end.line < practicalModifiedEndLineNumber) && (visibleRange.end.line !== (editor.document.lineCount - 1))) {
+
+			// cursorPosition.line is 0-based, diff.modifiedStartLineNumber is 1-based
+			if (next && cursorPosition.line + 1 < diff.modifiedStartLineNumber) {
 				editor.revealRange(diffRange);
+				editor.selection = new vscode.Selection(diffRange.start, diffRange.start);
 				return;
-			} else if (!next && (visibleRange.start.line > diff.modifiedStartLineNumber) && (visibleRange.start.line !== 0)) {
+			} else if (!next && cursorPosition.line + 1 > diff.modifiedStartLineNumber) {
 				editor.revealRange(diffRange);
+				editor.selection = new vscode.Selection(diffRange.start, diffRange.start);
 				return;
 			}
 		}
