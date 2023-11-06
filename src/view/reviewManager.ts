@@ -1172,7 +1172,7 @@ export class ReviewManager {
 			await this.updateState(false, false);
 		};
 
-		return this._createPullRequestHelper.create(this._context.extensionUri, this._folderRepoManager, compareBranch, postCreate);
+		return this._createPullRequestHelper.create(this._telemetry, this._context.extensionUri, this._folderRepoManager, compareBranch, postCreate);
 	}
 
 	public async openDescription(): Promise<void> {
