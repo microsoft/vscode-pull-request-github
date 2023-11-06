@@ -17,6 +17,7 @@ import {
 	COMMENTS,
 	FOCUSED_MODE,
 	IGNORE_PR_BRANCHES,
+	NEVER_IGNORE_DEFAULT_BRANCH,
 	OPEN_VIEW,
 	POST_CREATE,
 	PR_SETTINGS_NAMESPACE,
@@ -498,8 +499,11 @@ export class ReviewManager {
 			return;
 		}
 
-		// Do not await the result of offering to ignore the branch.
-		this.offerIgnoreBranch(branch.name);
+		const neverIgnoreDefaultBranch = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(NEVER_IGNORE_DEFAULT_BRANCH, false);
+		if (!neverIgnoreDefaultBranch) {
+			// Do not await the result of offering to ignore the branch.
+			this.offerIgnoreBranch(branch.name);
+		}
 
 		const previousActive = this._folderRepoManager.activePullRequest;
 		this._folderRepoManager.activePullRequest = pr;
