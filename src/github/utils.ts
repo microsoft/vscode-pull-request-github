@@ -681,7 +681,11 @@ export function parseGraphQLPullRequest(
 	return pr;
 }
 
-function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle, descriptionSource: GraphQL.DefaultCommitMessage, pullRequest: PullRequest): { title: string, description: string } {
+function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle | undefined, descriptionSource: GraphQL.DefaultCommitMessage | undefined, pullRequest: PullRequest): { title: string, description: string } | undefined {
+	if (titleSource === undefined || descriptionSource === undefined) {
+		return undefined;
+	}
+
 	let title = '';
 	let description = '';
 

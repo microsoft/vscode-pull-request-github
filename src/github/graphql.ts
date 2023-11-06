@@ -483,10 +483,10 @@ export interface RefRepository {
 }
 
 export interface BaseRefRepository extends RefRepository {
-	squashMergeCommitTitle: DefaultCommitTitle;
-	squashMergeCommitMessage: DefaultCommitMessage;
-	mergeCommitMessage: DefaultCommitMessage;
-	mergeCommitTitle: DefaultCommitTitle;
+	squashMergeCommitTitle?: DefaultCommitTitle;
+	squashMergeCommitMessage?: DefaultCommitMessage;
+	mergeCommitMessage?: DefaultCommitMessage;
+	mergeCommitTitle?: DefaultCommitTitle;
 }
 
 export interface Ref {

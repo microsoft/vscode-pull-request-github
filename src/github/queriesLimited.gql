@@ -58,10 +58,6 @@ fragment PullRequestFragment on PullRequest {
 			login
 		}
 		url
-		squashMergeCommitTitle
-		squashMergeCommitMessage
-		mergeCommitMessage
-		mergeCommitTitle
 	}
 	labels(first: 50) {
 		nodes {
