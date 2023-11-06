@@ -1328,7 +1328,7 @@ ${contents}
 			return vscode.commands.executeCommand('vscode.diff', headURI, fileChangeNode.resourceUri, `${fileName} (Pull Request Compare Head with Local)`);
 		}));
 
-	function goToNextPrevDiff(diffs: vscode.LineChange[], next: boolean) {
+	async function goToNextPrevDiff(diffs: vscode.LineChange[], next: boolean) {
 		const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
 		const input = tab?.input;
 		if (!(input instanceof vscode.TabInputTextDiff)) {
@@ -1385,7 +1385,21 @@ ${contents}
 			if (localFileChange.changeModel.filePath.toString() === editorUri.toString()) {
 				const nextIndex = next ? index + 1 : index - 1;
 				if (reviewManager.reviewModel.localFileChanges.length > nextIndex) {
-					return reviewManager.reviewModel.localFileChanges[nextIndex].openDiff(folderManager);
+					await reviewManager.reviewModel.localFileChanges[nextIndex].openDiff(folderManager);
+					// if going backwards, we now need to go to the last diff in the file
+					if (!next) {
+						const editor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === reviewManager.reviewModel.localFileChanges[nextIndex].changeModel.filePath.toString());
+						if (editor) {
+							const diffs = await reviewManager.reviewModel.localFileChanges[nextIndex].changeModel.diffHunks();
+							const diff = diffs[diffs.length - 1];
+							const diffNewEndLine = diff.newLineNumber + diff.newLength;
+							const practicalModifiedEndLineNumber = (diffNewEndLine > diff.newLineNumber) ? diffNewEndLine : diff.newLineNumber as number + 1;
+							const diffRange = new vscode.Range(diff.newLineNumber ? diff.newLineNumber - 1 : diff.newLineNumber, 0, practicalModifiedEndLineNumber, 0);
+							editor.revealRange(diffRange);
+							editor.selection = new vscode.Selection(diffRange.start, diffRange.start);
+						}
+					}
+					return;
 				}
 			}
 		}
