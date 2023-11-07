@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.76.1
+
+### Changes
+
+- Telemetry for the generated PR title and description so that we can potentially understand if the generated text is useful.
+
 ## 0.76.0
 
 ### Changes
