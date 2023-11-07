@@ -4,7 +4,7 @@
 
 ### Changes
 
-- Telemetry for the generated PR title and description so that we can potentially understand if the generated text is useful.
+- Added telemetry for the acceptance rate of the generated PR title and description.
 
 ## 0.76.0
 
