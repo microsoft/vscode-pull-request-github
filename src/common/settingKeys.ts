@@ -47,6 +47,7 @@ export const ISSUE_COMPLETION_FORMAT_SCM = 'issueCompletionFormatScm';
 export const CREATE_ISSUE_TRIGGERS = 'createIssueTriggers';
 export const DEFAULT = 'default';
 export const IGNORE_MILESTONES = 'ignoreMilestones';
+export const ALLOW_FETCH = 'allowFetch';
 
 // git
 export const GIT = 'git';

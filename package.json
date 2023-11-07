@@ -320,6 +320,11 @@
 					],
 					"description": "%githubPullRequests.pullBranch.description%"
 				},
+				"githubPullRequests.allowFetch": {
+					"type": "boolean",
+					"default": true,
+					"description": "%githubPullRequests.allowFetch.description%"
+				},
 				"githubPullRequests.ignoredPullRequestBranches": {
 					"type": "array",
 					"default": [],

@@ -14,6 +14,7 @@ import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
 import { GitHubRemote, parseRemote, parseRepositoryRemotes, Remote } from '../common/remote';
 import {
+	ALLOW_FETCH,
 	AUTO_STASH,
 	DEFAULT_MERGE_METHOD,
 	GIT,
@@ -2219,7 +2220,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const remoteBranch = branch.upstream ? branch.upstream.name : branch.name;
 			if (remote) {
 				try {
-					if (shouldFetch) {
+					if (shouldFetch && vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(ALLOW_FETCH, true)) {
 						await this._repository.fetch(remote, remoteBranch);
 					}
 				} catch (e) {
