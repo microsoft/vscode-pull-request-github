@@ -59,6 +59,7 @@
 	"githubPullRequests.pullBranch.prompt": "Prompt to pull a PR branch when changes are detected in the PR.",
 	"githubPullRequests.pullBranch.never": "Never pull a PR branch when changes are detected in the PR.",
 	"githubPullRequests.pullBranch.always": "Always pull a PR branch when changes are detected in the PR. When `\"git.autoStash\": true` this will instead `prompt` to prevent unexpected file changes.",
+	"githubPullRequests.allowFetch.description": "Allows `git fetch` to be run for checked-out pull request branches when checking for updates to the pull request.",
 	"githubPullRequests.ignoredPullRequestBranches.description": "Prevents branches that are associated with a pull request from being automatically detected. This will prevent review mode from being entered on these branches.",
 	"githubPullRequests.ignoredPullRequestBranches.items": "Branch name",
 	"githubPullRequests.neverIgnoreDefaultBranch.description": "Never offer to ignore a pull request associated with the default branch of a repository.",
