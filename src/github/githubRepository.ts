@@ -59,6 +59,7 @@ import {
 	getAvatarWithEnterpriseFallback,
 	getOverrideBranch,
 	getPRFetchQuery,
+	isInCodespaces,
 	parseGraphQLIssue,
 	parseGraphQLPullRequest,
 	parseGraphQLViewerPermission,
@@ -206,6 +207,22 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
+	private codespacesTokenError(action: QueryOptions | MutationOptions) {
+		if (isInCodespaces() && this._metadata?.fork) {
+			// :( https://github.com/microsoft/vscode-pull-request-github/issues/5325#issuecomment-1798243852
+			/* __GDPR__
+				"pr.codespacesTokenError" : {
+					"action": { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				}
+			*/
+			this._telemetry.sendTelemetryErrorEvent('pr.codespacesTokenError', {
+				action: action.context
+			});
+
+			throw new Error(vscode.l10n.t('This action cannot be completed in a GitHub Codespace on a fork.'));
+		}
+	}
+
 	query = async <T>(query: QueryOptions, ignoreSamlErrors: boolean = false, legacyFallback?: { query: DocumentNode }): Promise<ApolloQueryResult<T>> => {
 		const gql = this.authMatchesServer && this.hub && this.hub.graphql;
 		if (!gql) {
@@ -243,6 +260,9 @@ export class GitHubRepository implements vscode.Disposable {
 				await this._credentialStore.recreate(vscode.l10n.t('Your authentication session has lost authorization. You need to sign in again to regain authorization.'));
 				rsp = await gql.query<T>(query);
 			} else {
+				if (e.graphQLErrors && e.graphQLErrors.length && e.graphQLErrors[0].message === 'Resource not accessible by integration') {
+					this.codespacesTokenError(query);
+				}
 				throw e;
 			}
 		}
@@ -275,6 +295,8 @@ export class GitHubRepository implements vscode.Disposable {
 					}
 				}
 				return this.mutate(mutation);
+			} else if (e.graphQLErrors && e.graphQLErrors.length && e.graphQLErrors[0].message === 'Resource not accessible by integration') {
+				this.codespacesTokenError(mutation);
 			}
 			throw e;
 		}
