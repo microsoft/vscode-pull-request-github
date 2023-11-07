@@ -218,6 +218,8 @@ export class GitHubRepository implements vscode.Disposable {
 			this._telemetry.sendTelemetryErrorEvent('pr.codespacesTokenError', {
 				action: action.context
 			});
+
+			throw new Error(vscode.l10n.t('This action cannot be completed in a GitHub Codespace on a fork.'));
 		}
 	}
 
