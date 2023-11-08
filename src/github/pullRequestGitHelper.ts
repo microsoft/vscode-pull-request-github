@@ -68,7 +68,7 @@ export class PullRequestGitHelper {
 		await repository.checkout(localBranchName);
 		// set remote tracking branch for the local branch
 		await repository.setBranchUpstream(localBranchName, `refs/remotes/${remoteName}/${pullRequest.head.ref}`);
-		// Don't await unshallow as the whole point of unshallowing and only fetching to depth 1 above is so that we can unshallow without slowwing down checkout later.
+		// Don't await unshallow as the whole point of unshallowing and only fetching to depth 1 above is so that we can unshallow without slowing down checkout later.
 		this.unshallow(repository);
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, localBranchName);
 	}
@@ -131,7 +131,7 @@ export class PullRequestGitHelper {
 			await repository.createBranch(branchName, true, trackedBranch.commit);
 			await repository.setBranchUpstream(branchName, trackedBranchName);
 
-			// Don't await unshallow as the whole point of unshallowing and only fetching to depth 1 above is so that we can unshallow without slowwing down checkout later.
+			// Don't await unshallow as the whole point of unshallowing and only fetching to depth 1 above is so that we can unshallow without slowing down checkout later.
 			this.unshallow(repository);
 		}
 
