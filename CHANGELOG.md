@@ -301,7 +301,7 @@
 - JSDoc hover for @return shows GHPRI username hover. https://github.com/microsoft/vscode-pull-request-github/issues/4344
 - Some text is not visible in high contrast mode. https://github.com/microsoft/vscode-pull-request-github/issues/4287
 - Empty diff view after reloading. https://github.com/microsoft/vscode-pull-request-github/issues/4293
-- Error signing in to GitHub. Try Again doesn't try again. https://github.com/microsoft/vscode-pull-request-github/issues/4148
+- Error signing into GitHub. Try Again doesn't try again. https://github.com/microsoft/vscode-pull-request-github/issues/4148
 - Other accessibility fixes. https://github.com/microsoft/vscode-pull-request-github/issues/4237
 
 **_Thank You_**
@@ -617,7 +617,7 @@
 
 ### Fixes
 
-- Every time I open a new instance of vscode I'm being prompted to sign in to GitHub. https://github.com/microsoft/vscode-pull-request-github/issues/3165
+- Every time I open a new instance of vscode I'm being prompted to sign into GitHub. https://github.com/microsoft/vscode-pull-request-github/issues/3165
 - Comments disappearing after exiting review mode. https://github.com/microsoft/vscode-pull-request-github/issues/3173
 
 ## 0.34.0

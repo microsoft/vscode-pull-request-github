@@ -120,7 +120,7 @@ export class StateManager {
 		if (!this.initializePromise) {
 			this.initializePromise = new Promise(resolve => {
 				if (!this.manager.credentialStore.isAnyAuthenticated()) {
-					// We don't wait for sign in to finish initializing.
+					// We don't wait for sign into finish initializing.
 					const disposable = this.manager.credentialStore.onDidGetSession(() => {
 						disposable.dispose();
 						this.doInitialize();

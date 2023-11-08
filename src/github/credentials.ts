@@ -264,7 +264,7 @@ export class CredentialStore implements vscode.Disposable {
 		}
 
 		const result = await vscode.window.showInformationMessage(
-			vscode.l10n.t('In order to use the Pull Requests functionality, you must sign in to GitHub{0}', getGitHubSuffix(authProviderId)),
+			vscode.l10n.t('In order to use the Pull Requests functionality, you must sign into GitHub{0}', getGitHubSuffix(authProviderId)),
 			SIGNIN_COMMAND,
 			IGNORE_COMMAND,
 		);
@@ -288,7 +288,7 @@ export class CredentialStore implements vscode.Disposable {
 		*/
 		this._telemetry.sendTelemetryEvent('auth.start');
 
-		const errorPrefix = vscode.l10n.t('Error signing in to GitHub{0}', getGitHubSuffix(authProviderId));
+		const errorPrefix = vscode.l10n.t('Error signing into GitHub{0}', getGitHubSuffix(authProviderId));
 		let retry: boolean = true;
 		let octokit: GitHub | undefined = undefined;
 		const sessionOptions: vscode.AuthenticationGetSessionOptions = { createIfNone: true };
