@@ -235,7 +235,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 			return [];
 		}
 
-		// If this PR is the the current PR, then we should be careful to use
+		// If this PR is the current PR, then we should be careful to use
 		// URIs that will cause the review comment controller to be used.
 		const rawChanges: (SlimFileChange | InMemFileChange)[] = [];
 		const isCurrentPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);

@@ -654,7 +654,7 @@
 
 ## 0.33.*
 
-- **This is a pre-release version** that uses VS Code's built-in pre-release extension support. The old nightly build (GitHub Pull Requests Nightly) is being deprecated in favor of the this built-in support. Users of the the old nightly build will be automatically upgraded to the new pre-release version; however, extension state will not be migrated. Thank you for helping make GitHub Pull Requests and Issues better!
+- **This is a pre-release version** that uses VS Code's built-in pre-release extension support. The old nightly build (GitHub Pull Requests Nightly) is being deprecated in favor of the this built-in support. Users of the old nightly build will be automatically upgraded to the new pre-release version; however, extension state will not be migrated. Thank you for helping make GitHub Pull Requests and Issues better!
 
 ## 0.32.0
 
