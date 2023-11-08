@@ -856,7 +856,7 @@
   ![Split activity bar views](documentation/changelog/0.24.0/activity_bar_viewlets.png)
 
 - The focused mode view has actions to refresh the view and open the description page.
-  ![Focused mode acions](documentation/changelog/0.24.0/focused_mode_actions.png)
+  ![Focused mode actions](documentation/changelog/0.24.0/focused_mode_actions.png)
 
 - Thanks to @TanushN and @rohanshiva, assignees and the milestone are displayed on the description page.
   ![View assignees and milestone](documentation/changelog/0.24.0/assignees_and_milestone.png)
