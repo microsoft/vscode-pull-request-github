@@ -324,7 +324,7 @@ export class CompareChanges implements vscode.Disposable {
 	private _commitsView: vscode.TreeView<TreeNode>;
 	private _commitsDataProvider: CompareChangesCommitsTreeProvider;
 
-	private _gitHubcontentProvider: GitHubContentProvider | undefined;
+	private _gitHubContentProvider: GitHubContentProvider | undefined;
 	private _gitcontentProvider: GitContentProvider | undefined;
 
 	private _disposables: vscode.Disposable[] = [];
@@ -373,12 +373,12 @@ export class CompareChanges implements vscode.Disposable {
 			return;
 		}
 
-		if (!this._gitHubcontentProvider) {
+		if (!this._gitHubContentProvider) {
 			try {
-				this._gitHubcontentProvider = new GitHubContentProvider(this.model.gitHubRepository);
+				this._gitHubContentProvider = new GitHubContentProvider(this.model.gitHubRepository);
 				this._gitcontentProvider = new GitContentProvider(this.folderRepoManager);
 				this._disposables.push(
-					vscode.workspace.registerFileSystemProvider(Schemes.GithubPr, this._gitHubcontentProvider, {
+					vscode.workspace.registerFileSystemProvider(Schemes.GithubPr, this._gitHubContentProvider, {
 						isReadonly: true,
 					}),
 				);
@@ -398,7 +398,7 @@ export class CompareChanges implements vscode.Disposable {
 
 	dispose() {
 		this._disposables.forEach(d => d.dispose());
-		this._gitHubcontentProvider = undefined;
+		this._gitHubContentProvider = undefined;
 		this._gitcontentProvider = undefined;
 		this._filesView.dispose();
 	}
