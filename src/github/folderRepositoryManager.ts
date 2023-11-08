@@ -1708,14 +1708,14 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		if (!remote) {
 			return;
 		}
-		const remotes = await this.getDeleatableRemotes(undefined);
+		const remotes = await this.getDeletableRemotes(undefined);
 		if (remotes.has(remote) && remotes.get(remote)!.createdForPullRequest) {
 			Logger.debug(`Cleaning up remote ${remote}`, this.id);
 			this.repository.removeRemote(remote);
 		}
 	}
 
-	private async getDeleatableRemotes(nonExistantBranches?: Set<string>) {
+	private async getDeletableRemotes(nonExistantBranches?: Set<string>) {
 		const newConfigs = await this.repository.getConfigs();
 		const remoteInfos: Map<
 			string,
@@ -1768,7 +1768,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	private async getRemoteDeletionItems(nonExistantBranches: Set<string>) {
 		// check if there are remotes that should be cleaned
-		const remoteInfos = await this.getDeleatableRemotes(nonExistantBranches);
+		const remoteInfos = await this.getDeletableRemotes(nonExistantBranches);
 		const remoteItems: (vscode.QuickPickItem & { remote: string })[] = [];
 
 		remoteInfos.forEach((value, key) => {
