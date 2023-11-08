@@ -255,13 +255,13 @@ export class NotificationProvider implements vscode.Disposable {
 		return { data: data, headers: headers };
 	}
 
-	private async markNotificationThreadAsRead(thredId) {
+	private async markNotificationThreadAsRead(threadId) {
 		const github = this.getGitHub();
 		if (!github) {
 			return;
 		}
 		await github.octokit.call(github.octokit.api.activity.markThreadAsRead, {
-			thread_id: thredId
+			thread_id: threadId
 		});
 	}
 
