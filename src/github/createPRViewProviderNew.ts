@@ -18,6 +18,7 @@ import {
 	PULL_REQUEST_DESCRIPTION,
 	PUSH_BRANCH
 } from '../common/settingKeys';
+import { ITelemetry } from '../common/telemetry';
 import { asPromise, compareIgnoreCase, formatError, promiseWithTimeout } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { PREVIOUS_CREATE_METHOD } from '../extensionState';
@@ -65,6 +66,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	private _firstLoad: boolean = true;
 
 	constructor(
+		private readonly telemetry: ITelemetry,
 		private readonly model: CreatePullRequestDataModel,
 		extensionUri: vscode.Uri,
 		private readonly _folderRepositoryManager: FolderRepositoryManager,
@@ -331,6 +333,16 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		}
 		commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 
+		const defaultTitleAndDescriptionProvider = this._folderRepositoryManager.getTitleAndDescriptionProvider()?.title;
+		if (defaultTitleAndDescriptionProvider) {
+			/* __GDPR__
+				"pr.defaultTitleAndDescriptionProvider" : {
+					"providerTitle" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
+			*/
+			this.telemetry.sendTelemetryEvent('pr.defaultTitleAndDescriptionProvider', { providerTitle: defaultTitleAndDescriptionProvider });
+		}
+
 		const params: CreateParamsNew = {
 			defaultBaseRemote,
 			defaultBaseBranch,
@@ -347,7 +359,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			labels: this.labels,
 			isDraftDefault,
 			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
-			generateTitleAndDescriptionTitle: this._folderRepositoryManager.getTitleAndDescriptionProvider()?.title,
+			generateTitleAndDescriptionTitle: defaultTitleAndDescriptionProvider,
 			creating: false
 		};
 
@@ -695,6 +707,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		});
 	}
 
+	private lastGeneratedTitleAndDescription: { title?: string, description?: string, providerTitle: string } | undefined;
 	private async getTitleAndDescriptionFromProvider(token: vscode.CancellationToken) {
 		return CreatePullRequestViewProviderNew.withProgress(async () => {
 			try {
@@ -710,7 +723,19 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 					}));
 				}
 
-				return this._folderRepositoryManager.getTitleAndDescriptionProvider()?.provider?.provideTitleAndDescription(commits, patches, token);
+				const provider = this._folderRepositoryManager.getTitleAndDescriptionProvider();
+				const result = await provider?.provider.provideTitleAndDescription(commits, patches, token);
+
+				if (provider) {
+					this.lastGeneratedTitleAndDescription = { ...result, providerTitle: provider.title };
+					/* __GDPR__
+						"pr.generatedTitleAndDescription" : {
+							"providerTitle" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+						}
+					*/
+					this.telemetry.sendTelemetryEvent('pr.generatedTitleAndDescription', { providerTitle: provider?.title });
+				}
+				return result;
 			} catch (e) {
 				Logger.error(`Error while generating title and description: ${e}`, CreatePullRequestViewProviderNew.ID);
 				return undefined;
@@ -778,6 +803,22 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			command: 'create',
 			params
 		});
+	}
+
+	private checkGeneratedTitleAndDescription(title: string, description: string) {
+		if (!this.lastGeneratedTitleAndDescription) {
+			return;
+		}
+		const usedGeneratedTitle: boolean = !!this.lastGeneratedTitleAndDescription.title && ((this.lastGeneratedTitleAndDescription.title === title) || this.lastGeneratedTitleAndDescription.title?.includes(title) || title?.includes(this.lastGeneratedTitleAndDescription.title));
+		const usedGeneratedDescription: boolean = !!this.lastGeneratedTitleAndDescription.description && ((this.lastGeneratedTitleAndDescription.description === description) || this.lastGeneratedTitleAndDescription.description?.includes(description) || description?.includes(this.lastGeneratedTitleAndDescription.description));
+		/* __GDPR__
+			"pr.usedGeneratedTitleAndDescription" : {
+				"providerTitle" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"usedGeneratedTitle" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"usedGeneratedDescription" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		this.telemetry.sendTelemetryEvent('pr.usedGeneratedTitleAndDescription', { providerTitle: this.lastGeneratedTitleAndDescription.providerTitle, usedGeneratedTitle: usedGeneratedTitle.toString(), usedGeneratedDescription: usedGeneratedDescription.toString() });
 	}
 
 	private async create(message: IRequestMessage<CreatePullRequestNew>): Promise<void> {
@@ -858,6 +899,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 					progress.report({ message: vscode.l10n.t('Creating pull request'), increment: 70 - totalIncrement });
 					totalIncrement += 70 - totalIncrement;
 					const head = `${headRepo.remote.owner}:${compareBranchName}`;
+					this.checkGeneratedTitleAndDescription(message.args.title, message.args.body);
 					createdPR = await this._folderRepositoryManager.createPullRequest({ ...message.args, head });
 
 					// Create was cancelled
