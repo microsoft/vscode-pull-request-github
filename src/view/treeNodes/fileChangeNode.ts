@@ -233,7 +233,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 }
 
 /**
- * File change node whose content can not be resolved locally and we direct users to GitHub.
+ * File change node whose content cannot be resolved locally and we direct users to GitHub.
  */
 export class RemoteFileChangeNode extends FileChangeNode implements vscode.TreeItem {
 	get description(): string {

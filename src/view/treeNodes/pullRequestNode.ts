@@ -355,7 +355,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		)?.changeModel;
 
 		if (!fileChange) {
-			Logger.appendLine(`Can not find content for document ${uri.toString()}`, 'PR');
+			Logger.appendLine(`Cannot find content for document ${uri.toString()}`, 'PR');
 			return '';
 		}
 

@@ -37,8 +37,8 @@ describe('utils', () => {
 		});
 
 		it('should format an error with submessages that are strings', () => {
-			const error = new HookError('Validation Failed', ['Can not approve your own pull request']);
-			assert.strictEqual(utils.formatError(error), 'Can not approve your own pull request');
+			const error = new HookError('Validation Failed', ['Cannot approve your own pull request']);
+			assert.strictEqual(utils.formatError(error), 'Cannot approve your own pull request');
 		});
 
 		it('should format an error with field errors', () => {
