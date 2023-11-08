@@ -917,7 +917,7 @@
 
 - Clicking on a comment link on the pull request description page now always opens the associated file.
 
-- Thanks to @KaiSforza, the `The remote <remoteName> is not a GitHub repository.` error is now surpressed for remotes outside of those set in `githubPullRequests.remotes`.
+- Thanks to @KaiSforza, the `The remote <remoteName> is not a GitHub repository.` error is now suppressed for remotes outside of those set in `githubPullRequests.remotes`.
 
 ## 0.21.4
 
