@@ -1428,7 +1428,7 @@ As part of this release, we have begun adopting GitHub's GraphQL API in some pla
 ## 0.1.5
 
 - Fix for [#449](https://github.com/Microsoft/vscode-pull-request-github/issues/449), authentication blocked when `docs-article-templates` extension is installed
-- Fix for [#429](https://github.com/Microsoft/vscode-pull-request-github/issues/429), avoid unneccessary refreshes of the tree view
+- Fix for [#429](https://github.com/Microsoft/vscode-pull-request-github/issues/429), avoid unnecessary refreshes of the tree view
 
 ## 0.1.4
 
