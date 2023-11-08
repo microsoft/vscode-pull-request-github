@@ -165,7 +165,7 @@
 - My vscode workspace sometimes shows a PR from vscode-cpptools. https://github.com/microsoft/vscode-pull-request-github/issues/4842
 - Improper `@mentions` in comments. https://github.com/microsoft/vscode-pull-request-github/issues/4810
 - Duplicated issues in tree. https://github.com/microsoft/vscode-pull-request-github/issues/4781
-- Element with id Local Pull Request Brancheshttps... is already registered. https://github.com/microsoft/vscode-pull-request-github/issues/4642
+- Element with id Local Pull Request Branches https... is already registered. https://github.com/microsoft/vscode-pull-request-github/issues/4642
 
 **_Thank You_**
 
