@@ -102,7 +102,7 @@
 
 ### Fixes
 
-- Github Enterprise Doesn't Show Comments. https://github.com/microsoft/vscode-pull-request-github/issues/4995
+- GitHub Enterprise Doesn't Show Comments. https://github.com/microsoft/vscode-pull-request-github/issues/4995
 - Buffer is not defined when adding labels. https://github.com/microsoft/vscode-pull-request-github/issues/5009
 
 ## 0.68.0
@@ -301,7 +301,7 @@
 - JSDoc hover for @return shows GHPRI username hover. https://github.com/microsoft/vscode-pull-request-github/issues/4344
 - Some text is not visible in high contrast mode. https://github.com/microsoft/vscode-pull-request-github/issues/4287
 - Empty diff view after reloading. https://github.com/microsoft/vscode-pull-request-github/issues/4293
-- Error signing in to Github. Try Again doesn't try again. https://github.com/microsoft/vscode-pull-request-github/issues/4148
+- Error signing in to GitHub. Try Again doesn't try again. https://github.com/microsoft/vscode-pull-request-github/issues/4148
 - Other accessibility fixes. https://github.com/microsoft/vscode-pull-request-github/issues/4237
 
 **_Thank You_**
@@ -520,7 +520,7 @@
 
 **_Thank You_**
 
-* [@hoontae24](https://github.com/hoontae24): Support the copied permalink for Github Enterprise URL [PR #3460](https://github.com/microsoft/vscode-pull-request-github/pull/3460)
+* [@hoontae24](https://github.com/hoontae24): Support the copied permalink for GitHub Enterprise URL [PR #3460](https://github.com/microsoft/vscode-pull-request-github/pull/3460)
 
 ## 0.40.0
 
@@ -546,7 +546,7 @@
 
 - "We couldn't find an open repository for...". https://github.com/microsoft/vscode-pull-request-github/issues/3242
 - Placeholder title when creating a PR does not behave like GitHub website. https://github.com/microsoft/vscode-pull-request-github/issues/2988
-- Github.dev: Weird Default Description When Creating PR. https://github.com/microsoft/vscode-pull-request-github/issues/3316
+- GitHub.dev: Weird Default Description When Creating PR. https://github.com/microsoft/vscode-pull-request-github/issues/3316
 - New pull requests on branches off master try to merge into a wrong branch. https://github.com/microsoft/vscode-pull-request-github/issues/3303
 
 ## 0.36.2
