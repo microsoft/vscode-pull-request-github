@@ -22,7 +22,7 @@ export async function getGitHubFileContent(gitHubRepository: GitHubRepository, f
 	)) as any;
 	let contents = fileContent.data.content ?? '';
 
-	// Empty contents and 'none' encoding indcates that the file has been truncated and we should get the blob.
+	// Empty contents and 'none' encoding indicates that the file has been truncated and we should get the blob.
 	if (contents === '' && fileContent.data.encoding === 'none') {
 		const fileSha = fileContent.data.sha;
 		fileContent = await octokit.call(octokit.api.git.getBlob, {
