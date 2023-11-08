@@ -201,7 +201,7 @@
 
 * [@Balastrong (Leonardo Montini)](https://github.com/Balastrong)
   * Add x button to remove a label from a new PR [PR #4649](https://github.com/microsoft/vscode-pull-request-github/pull/4649)
-  * Change file mode for execute husky hook on MacOS [PR #4695](https://github.com/microsoft/vscode-pull-request-github/pull/4695)
+  * Change file mode for execute husky hook on macOS [PR #4695](https://github.com/microsoft/vscode-pull-request-github/pull/4695)
 * [@eastwood (Clinton Ryan)](https://github.com/eastwood): Gracefully handle errors where the SSH configuration file is corrupt or malformed [PR #4644](https://github.com/microsoft/vscode-pull-request-github/pull/4644)
 * [@kabel (Kevin Abel)](https://github.com/kabel)
   * Fix status checks rendering [PR #4542](https://github.com/microsoft/vscode-pull-request-github/pull/4542)
