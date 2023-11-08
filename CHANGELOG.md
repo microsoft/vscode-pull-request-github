@@ -512,7 +512,7 @@
 ### Fixes
 
 - Invisible Button/Input Text in High Contrast Themes. https://github.com/microsoft/vscode-pull-request-github/issues/3342
-- Create PR icon dissapears from Source Control view. https://github.com/microsoft/vscode-pull-request-github/issues/3410
+- Create PR icon disappears from Source Control view. https://github.com/microsoft/vscode-pull-request-github/issues/3410
 - Don't make potentially expensive getObjectDetails and detectObjectType calls for known file extensions. https://github.com/microsoft/vscode-pull-request-github/issues/3446
 - Web: Broken state for deleting branch in repo that deletes on merge. https://github.com/microsoft/vscode-pull-request-github/issues/3453
 - Can't leave a comment in PR webviewview without a pending review. https://github.com/microsoft/vscode-pull-request-github/issues/3480
