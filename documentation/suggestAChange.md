@@ -1,6 +1,6 @@
 # Suggest a Change
 
-The "Suggest a Change" feature uses GitHub.com's mechanism for suggestion a change (as apposed to the old "Suggest an Edit" feature which used git patches to leave suggestsions).
+The "Suggest a Change" feature uses GitHub.com's mechanism for suggestion a change (as apposed to the old "Suggest an Edit" feature which used git patches to leave suggestions).
 
 ## Making a suggestion
 
