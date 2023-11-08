@@ -235,7 +235,6 @@ export class GitHubRepository implements vscode.Disposable {
 			} as any;
 		}
 
-		Logger.trace(`Request: ${JSON.stringify(query, null, 2)}`, GRAPHQL_COMPONENT_ID);
 		let rsp;
 		try {
 			rsp = await gql.query<T>(query);
@@ -266,7 +265,6 @@ export class GitHubRepository implements vscode.Disposable {
 				throw e;
 			}
 		}
-		Logger.trace(`Response: ${JSON.stringify(rsp, null, 2)}`, GRAPHQL_COMPONENT_ID);
 		return rsp;
 	};
 
@@ -282,7 +280,6 @@ export class GitHubRepository implements vscode.Disposable {
 			} as any;
 		}
 
-		Logger.trace(`Request: ${JSON.stringify(mutation, null, 2)}`, GRAPHQL_COMPONENT_ID);
 		let rsp;
 		try {
 			rsp = await gql.mutate<T>(mutation);
@@ -300,7 +297,6 @@ export class GitHubRepository implements vscode.Disposable {
 			}
 			throw e;
 		}
-		Logger.trace(`Response: ${JSON.stringify(rsp, null, 2)}`, GRAPHQL_COMPONENT_ID);
 		return rsp;
 	};
 
