@@ -282,7 +282,7 @@
 
 - The setting `githubPullRequests.defaultCommentType` controls whether the default comment type is a single comment or a review comment.
 - `"githubPullRequests.postCreate": "checkoutDefaultBranch"` will cause the default branch to be checked out after creating a PR.
-- Section headings (assignees, reviewers, lables, and milestones) are clickable in the PR overview.
+- Section headings (assignees, reviewers, labels, and milestones) are clickable in the PR overview.
 - The commands pr.openModifiedFile pr.openDiffView can be executed with a keyboard shortcut on the active file.
 - GitHub handles in comments are now linkified.
 - Setting `"githubPullRequests.createDraft": true` will make created PRs default to drafts.
