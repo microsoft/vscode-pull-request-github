@@ -418,7 +418,7 @@
 
 ### Fixes
 
-- Fails to load Pull Requests on older GitHub Enterprise verisons https://github.com/microsoft/vscode-pull-request-github/issues/3829
+- Fails to load Pull Requests on older GitHub Enterprise versions https://github.com/microsoft/vscode-pull-request-github/issues/3829
 - Copy GitHub Permalink in LHS of a PR diff generates a link to the RHS. https://github.com/microsoft/vscode-pull-request-github/issues/3801
 - User and issue suggestions don't always show for some languages. https://github.com/microsoft/vscode-pull-request-github/issues/3874
 - Comment rendering distorted / missing linebreaks. https://github.com/microsoft/vscode-pull-request-github/issues/3776
