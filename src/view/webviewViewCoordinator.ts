@@ -61,17 +61,17 @@ export class WebviewViewCoordinator implements vscode.Disposable {
 		}
 	}
 
-	public removePullRequest(pullReqestModel: PullRequestModel) {
+	public removePullRequest(pullRequestModel: PullRequestModel) {
 		const oldHead = Array.from(this._pullRequestModel.keys())[0];
-		this._pullRequestModel.delete(pullReqestModel);
+		this._pullRequestModel.delete(pullRequestModel);
 		const newHead = Array.from(this._pullRequestModel.keys())[0];
 		if (newHead !== oldHead) {
 			this.updatePullRequest();
 		}
 	}
 
-	public show(pullReqestModel: PullRequestModel) {
-		if (this._webviewViewProvider && (this._pullRequestModel.size > 0) && (Array.from(this._pullRequestModel.keys())[0] === pullReqestModel)) {
+	public show(pullRequestModel: PullRequestModel) {
+		if (this._webviewViewProvider && (this._pullRequestModel.size > 0) && (Array.from(this._pullRequestModel.keys())[0] === pullRequestModel)) {
 			this._webviewViewProvider.show();
 		}
 	}
