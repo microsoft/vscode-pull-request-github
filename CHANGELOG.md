@@ -454,7 +454,7 @@
 - Use the setting `"githubPullRequests.ignoredPullRequestBranches"` to ignore branches for pull requests.
 - The setting `"githubPullRequests.overrideDefaultBranch"` lets you override the default branch from github.com locally.
 - The "Publish branch?" dialog can be skipped when creating a PR using the setting `"githubPullRequests.pushBranch"`.
-- The auto-merge checkbox is availabe in the "Overview" editor.
+- The auto-merge checkbox is available in the "Overview" editor.
 
 	![Auto-merge in the overview](documentation/changelog/0.46.0/automerge-overview.png)
 
