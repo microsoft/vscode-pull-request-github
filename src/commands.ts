@@ -522,19 +522,19 @@ export function registerCommands(
 		if (uri?.scheme !== Schemes.Pr) {
 			return;
 		}
-		const prUriPropserties = fromPRUri(uri);
-		if (prUriPropserties === undefined) {
+		const prUriProperties = fromPRUri(uri);
+		if (prUriProperties === undefined) {
 			return;
 		}
 		let githubRepository: GitHubRepository | undefined;
 		const folderManager = reposManager.folderManagers.find(folderManager => {
-			githubRepository = folderManager.gitHubRepositories.find(githubRepo => githubRepo.remote.remoteName === prUriPropserties.remoteName);
+			githubRepository = folderManager.gitHubRepositories.find(githubRepo => githubRepo.remote.remoteName === prUriProperties.remoteName);
 			return !!githubRepository;
 		});
 		if (!folderManager || !githubRepository) {
 			return;
 		}
-		const prModel = await vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, () => folderManager.fetchById(githubRepository!, Number(prUriPropserties.prNumber)));
+		const prModel = await vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, () => folderManager.fetchById(githubRepository!, Number(prUriProperties.prNumber)));
 		if (prModel && !isCheckingOutFromReadonlyFile) {
 			isCheckingOutFromReadonlyFile = true;
 			try {
