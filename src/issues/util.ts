@@ -578,7 +578,7 @@ export function encodeURIComponentExceptSlashes(path: string) {
 	// There may be special characters like # and whitespace in the path.
 	// These characters are not escaped by encodeURI(), so it is not sufficient to
 	// feed the full URI to encodeURI().
-	// Additonally, if we feed the full path into encodeURIComponent(),
+	// Additionally, if we feed the full path into encodeURIComponent(),
 	// this will also encode the path separators, leading to an invalid path.
 	// Therefore, split on the path separator and encode each segment individually.
 	return path.split('/').map((segment) => encodeURIComponent(segment)).join('/');
