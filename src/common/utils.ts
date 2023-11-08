@@ -123,7 +123,7 @@ export function isDescendant(parent: string, descendant: string): boolean {
 		parent += sep;
 	}
 
-	// Windows is case insensitive
+	// Windows is case-insensitive
 	if (isWindowsPath(parent)) {
 		parent = parent.toLowerCase();
 		descendant = descendant.toLowerCase();

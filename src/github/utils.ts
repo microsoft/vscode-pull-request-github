@@ -797,19 +797,19 @@ function parseSuggestedReviewers(
 }
 
 /**
- * Used for case insensitive sort by login
+ * Used for case-insensitive sort by login
  */
 export function loginComparator(a: IAccount, b: IAccount) {
-	// sensitivity: 'accent' allows case insensitive comparison
+	// sensitivity: 'accent' allows case-insensitive comparison
 	return a.login.localeCompare(b.login, 'en', { sensitivity: 'accent' });
 }
 /**
- * Used for case insensitive sort by team name
+ * Used for case-insensitive sort by team name
  */
 export function teamComparator(a: ITeam, b: ITeam) {
 	const aKey = a.name ?? a.slug;
 	const bKey = b.name ?? b.slug;
-	// sensitivity: 'accent' allows case insensitive comparison
+	// sensitivity: 'accent' allows case-insensitive comparison
 	return aKey.localeCompare(bKey, 'en', { sensitivity: 'accent' });
 }
 
