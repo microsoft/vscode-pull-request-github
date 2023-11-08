@@ -394,6 +394,6 @@ export class NotificationProvider implements vscode.Disposable {
 		if (this._pollingHandler) {
 			clearInterval(this._pollingHandler);
 		}
-		this.disposables.forEach(displosable => displosable.dispose());
+		this.disposables.forEach(disposable => disposable.dispose());
 	}
 }
