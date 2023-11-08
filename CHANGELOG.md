@@ -723,7 +723,7 @@
 ![Collapse all comments UI button](documentation/changelog/0.30.0/comments-collapse-all.png)
 - All comments can be expanded and collapsed via the commands **GitHub Pull Requests: Expand All Comments** and **GitHub Pull Requests: Collapse All Comments**.
 - The expand/collapse state of pull request comments can be set with the setting `githubPullRequests.commentExpandState`.
-- Adopted the new multiling string support for settings.
+- Adopted the new multiline string support for settings.
 
 ![Multiline setting](documentation/changelog/0.30.0/multiline-setting.png)
 - Improved the language on the sidebar view to better indicate that you can submit a review.
