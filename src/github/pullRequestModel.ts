@@ -35,7 +35,7 @@ import {
 	PendingReviewIdResponse,
 	PullRequestCommentsResponse,
 	PullRequestFilesResponse,
-	PullRequestMergabilityResponse,
+	PullRequestMergeabilityResponse,
 	ReactionGroup,
 	ResolveReviewThreadResponse,
 	StartReviewResponse,
@@ -1367,7 +1367,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			Logger.debug(`Fetch pull request mergeability ${this.number} - enter`, PullRequestModel.ID);
 			const { query, remote, schema } = await this.githubRepository.ensure();
 
-			const { data } = await query<PullRequestMergabilityResponse>({
+			const { data } = await query<PullRequestMergeabilityResponse>({
 				query: schema.PullRequestMergeability,
 				variables: {
 					owner: remote.owner,

@@ -615,7 +615,7 @@ export interface PullRequestResponse {
 	rateLimit: RateLimit;
 }
 
-export interface PullRequestMergabilityResponse {
+export interface PullRequestMergeabilityResponse {
 	repository: {
 		pullRequest: {
 			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
