@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.76.1
+
+### Changes
+
+- Added telemetry for the acceptance rate of the generated PR title and description.
+
 ## 0.76.0
 
 ### Changes
