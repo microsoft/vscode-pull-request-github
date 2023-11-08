@@ -131,11 +131,11 @@ export class CredentialStore implements vscode.Disposable {
 		} catch (e) {
 			this._scopes = oldScopes;
 			this._scopesEnterprise = oldEnterpriseScopes;
-			const userCanceld = (e.message === 'User did not consent to login.');
-			if (userCanceld) {
+			const userCanceled = (e.message === 'User did not consent to login.');
+			if (userCanceled) {
 				authResult.canceled = true;
 			}
-			if (getAuthSessionOptions.forceNewSession && userCanceld) {
+			if (getAuthSessionOptions.forceNewSession && userCanceled) {
 				// There are cases where a forced login may not be 100% needed, so just continue as usual if
 				// the user didn't consent to the login prompt.
 			} else {
