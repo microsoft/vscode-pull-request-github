@@ -862,7 +862,7 @@
   ![View assignees and milestone](documentation/changelog/0.24.0/assignees_and_milestone.png)
 
 - Resolved conversations are rendered as collapsed on the description page.
-  ![Resolved conserversations](documentation/changelog/0.24.0/resolved_conversations.png)
+  ![Resolved conversations](documentation/changelog/0.24.0/resolved_conversations.png)
 
 ## 0.23.1
 
