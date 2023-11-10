@@ -65,8 +65,8 @@ export class ReviewCommentController
 	) {
 		this._context = this._reposManager.context;
 		this._commentController = vscode.comments.createCommentController(
-			`github-review-${_reposManager.activePullRequest!.number}`,
-			_reposManager.activePullRequest!.title,
+			`github-review-${_reposManager.activePullRequest?.remote.owner}-${_reposManager.activePullRequest?.remote.owner}-${_reposManager.activePullRequest!.number}`,
+			vscode.l10n.t('Pull Request ({0})', _reposManager.activePullRequest!.title),
 		);
 		this._commentController.commentingRangeProvider = this as vscode.CommentingRangeProvider;
 		this._commentController.reactionHandler = this.toggleReaction.bind(this);
