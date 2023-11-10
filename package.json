@@ -1996,7 +1996,7 @@
 				},
 				{
 					"command": "pr.openChanges",
-					"when": "view == pr:github && viewItem =~ /description/",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description/",
 					"group": "inline"
 				},
 				{
