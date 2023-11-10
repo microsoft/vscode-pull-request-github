@@ -538,7 +538,7 @@ export function registerCommands(
 				return;
 			}
 			const isCurrentPR = folderReposManager.activePullRequest?.number === pullRequestModel.number;
-			const changes = await pullRequestModel.getFileChangesInfo();
+			const changes = pullRequestModel.fileChanges.size > 0 ? pullRequestModel.fileChanges.values() : await pullRequestModel.getFileChangesInfo();
 			const args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
 
 			for (const change of changes) {
