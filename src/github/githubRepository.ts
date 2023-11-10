@@ -212,7 +212,7 @@ export class GitHubRepository implements vscode.Disposable {
 			// :( https://github.com/microsoft/vscode-pull-request-github/issues/5325#issuecomment-1798243852
 			/* __GDPR__
 				"pr.codespacesTokenError" : {
-					"action": { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+					"action": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
 				}
 			*/
 			this._telemetry.sendTelemetryErrorEvent('pr.codespacesTokenError', {
