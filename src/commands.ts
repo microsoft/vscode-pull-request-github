@@ -10,6 +10,7 @@ import { Repository } from './api/api';
 import { GitErrorCodes } from './api/api1';
 import { CommentReply, resolveCommentHandler } from './commentHandlerResolver';
 import { IComment } from './common/comment';
+import { SlimFileChange } from './common/file';
 import Logger from './common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { ITelemetry } from './common/telemetry';
@@ -21,10 +22,11 @@ import { GitHubRepository } from './github/githubRepository';
 import { PullRequest } from './github/interface';
 import { NotificationProvider } from './github/notifications';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
-import { PullRequestModel } from './github/pullRequestModel';
+import { IResolvedPullRequestModel, PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, vscodeDevPrLink } from './github/utils';
+import { InMemFileChangeModel, RemoteFileChangeModel } from './view/fileChangeModel';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewCommentController } from './view/reviewCommentController';
 import { ReviewManager } from './view/reviewManager';
@@ -513,6 +515,46 @@ export function registerCommands(
 					)?.switch(pullRequestModel);
 				},
 			);
+		}),
+	);
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.openChanges', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
+			if (pr === undefined) {
+				// This is unexpected, but has happened a few times.
+				Logger.error('Unexpectedly received undefined when picking a PR.');
+				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
+			}
+
+			let pullRequestModel: PullRequestModel;
+
+			if (pr instanceof PRNode || pr instanceof DescriptionNode) {
+				pullRequestModel = pr.pullRequestModel;
+			} else {
+				pullRequestModel = pr;
+			}
+
+			const folderReposManager = reposManager.getManagerForIssueModel(pullRequestModel);
+			if (!folderReposManager) {
+				return;
+			}
+			const isCurrentPR = folderReposManager.activePullRequest?.number === pullRequestModel.number;
+			const changes = await pullRequestModel.getFileChangesInfo();
+			const args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
+
+			for (const change of changes) {
+				let changeModel;
+				if (change instanceof SlimFileChange) {
+					changeModel = new RemoteFileChangeModel(folderReposManager, change, pullRequestModel);
+				} else {
+					changeModel = new InMemFileChangeModel(folderReposManager, pullRequestModel as (PullRequestModel & IResolvedPullRequestModel), change, isCurrentPR, pullRequestModel.mergeBase!);
+				}
+				args.push([changeModel.filePath, changeModel.parentFilePath, changeModel.filePath]);
+			}
+			/* __GDPR__
+				"pr.openChanges" : {}
+			*/
+			telemetry.sendTelemetryEvent('pr.openChanges');
+			vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
 		}),
 	);
 

@@ -678,6 +678,12 @@
 				"icon": "$(arrow-right)"
 			},
 			{
+				"command": "pr.openChanges",
+				"title": "%command.pr.openChanges.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(tasklist)"
+			},
+			{
 				"command": "pr.pickOnVscodeDev",
 				"title": "%command.pr.pickOnVscodeDev.title%",
 				"category": "%command.pull.request.category%",
@@ -1427,6 +1433,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.openChanges",
+					"when": "false"
+				},
+				{
 					"command": "pr.pickOnVscodeDev",
 					"when": "false"
 				},
@@ -1982,6 +1992,11 @@
 				{
 					"command": "pr.pick",
 					"when": "view == pr:github && viewItem =~ /description:nonactive/",
+					"group": "inline"
+				},
+				{
+					"command": "pr.openChanges",
+					"when": "view == pr:github && viewItem =~ /description/",
 					"group": "inline"
 				},
 				{
