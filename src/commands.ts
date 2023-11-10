@@ -547,7 +547,6 @@ export function registerCommands(
 					changeModel = new RemoteFileChangeModel(folderReposManager, change, pullRequestModel);
 				} else {
 					changeModel = new InMemFileChangeModel(folderReposManager, pullRequestModel as (PullRequestModel & IResolvedPullRequestModel), change, isCurrentPR, pullRequestModel.mergeBase!);
-					args.push([changeModel.filePath, changeModel.parentFilePath, changeModel.filePath]);
 				}
 				args.push([changeModel.filePath, changeModel.parentFilePath, changeModel.filePath]);
 			}
