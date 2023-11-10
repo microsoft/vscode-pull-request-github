@@ -2000,10 +2000,15 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	async getMatchingPullRequestMetadataFromGitHub(branch: Branch, remoteName?: string, remoteUrl?: string, upstreamBranchName?: string): Promise<
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
-		if (remoteName) {
-			return this.getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName, upstreamBranchName);
+		try {
+			if (remoteName) {
+				return this.getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName, upstreamBranchName);
+			}
+			return this.getMatchingPullRequestMetadataFromGitHubWithUrl(branch, remoteUrl, upstreamBranchName);
+		} catch (e) {
+			Logger.error(`Unable to get matching pull request metadata from GitHub: ${e}`, this.id);
+			return null;
 		}
-		return this.getMatchingPullRequestMetadataFromGitHubWithUrl(branch, remoteUrl, upstreamBranchName);
 	}
 
 	async getMatchingPullRequestMetadataFromGitHubWithUrl(branch: Branch, remoteUrl?: string, upstreamBranchName?: string): Promise<
