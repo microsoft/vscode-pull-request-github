@@ -10,7 +10,6 @@ import { Repository } from './api/api';
 import { GitErrorCodes } from './api/api1';
 import { CommentReply, resolveCommentHandler } from './commentHandlerResolver';
 import { IComment } from './common/comment';
-import { SlimFileChange } from './common/file';
 import Logger from './common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { ITelemetry } from './common/telemetry';
@@ -22,11 +21,10 @@ import { GitHubRepository } from './github/githubRepository';
 import { PullRequest } from './github/interface';
 import { NotificationProvider } from './github/notifications';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
-import { IResolvedPullRequestModel, PullRequestModel } from './github/pullRequestModel';
+import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, vscodeDevPrLink } from './github/utils';
-import { InMemFileChangeModel, RemoteFileChangeModel } from './view/fileChangeModel';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewCommentController } from './view/reviewCommentController';
 import { ReviewManager } from './view/reviewManager';
@@ -537,24 +535,7 @@ export function registerCommands(
 			if (!folderReposManager) {
 				return;
 			}
-			const isCurrentPR = folderReposManager.activePullRequest?.number === pullRequestModel.number;
-			const changes = pullRequestModel.fileChanges.size > 0 ? pullRequestModel.fileChanges.values() : await pullRequestModel.getFileChangesInfo();
-			const args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
-
-			for (const change of changes) {
-				let changeModel;
-				if (change instanceof SlimFileChange) {
-					changeModel = new RemoteFileChangeModel(folderReposManager, change, pullRequestModel);
-				} else {
-					changeModel = new InMemFileChangeModel(folderReposManager, pullRequestModel as (PullRequestModel & IResolvedPullRequestModel), change, isCurrentPR, pullRequestModel.mergeBase!);
-				}
-				args.push([changeModel.filePath, changeModel.parentFilePath, changeModel.filePath]);
-			}
-			/* __GDPR__
-				"pr.openChanges" : {}
-			*/
-			telemetry.sendTelemetryEvent('pr.openChanges');
-			vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
+			return PullRequestModel.openChanges(folderReposManager, pullRequestModel);
 		}),
 	);
 

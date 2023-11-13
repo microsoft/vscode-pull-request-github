@@ -18,6 +18,7 @@ import { ITelemetry } from '../common/telemetry';
 import { ReviewEvent as CommonReviewEvent, EventType, TimelineEvent } from '../common/timelineEvent';
 import { resolvePath, Schemes, toPRUri, toReviewUri } from '../common/uri';
 import { formatError } from '../common/utils';
+import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
 import { OctokitCommon } from './common';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -1140,6 +1141,28 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async getStatusChecks(): Promise<[PullRequestChecks | null, PullRequestReviewRequirement | null]> {
 		return this.githubRepository.getStatusChecks(this.number);
+	}
+
+	static async openChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel) {
+		const isCurrentPR = folderManager.activePullRequest?.number === pullRequestModel.number;
+		const changes = pullRequestModel.fileChanges.size > 0 ? pullRequestModel.fileChanges.values() : await pullRequestModel.getFileChangesInfo();
+		const args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
+
+		for (const change of changes) {
+			let changeModel;
+			if (change instanceof SlimFileChange) {
+				changeModel = new RemoteFileChangeModel(folderManager, change, pullRequestModel);
+			} else {
+				changeModel = new InMemFileChangeModel(folderManager, pullRequestModel as (PullRequestModel & IResolvedPullRequestModel), change, isCurrentPR, pullRequestModel.mergeBase!);
+			}
+			args.push([changeModel.filePath, changeModel.parentFilePath, changeModel.filePath]);
+		}
+
+		/* __GDPR__
+			"pr.openChanges" : {}
+		*/
+		folderManager.telemetry.sendTelemetryEvent('pr.openChanges');
+		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
 	}
 
 	static async openDiffFromComment(

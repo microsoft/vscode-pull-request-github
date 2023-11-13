@@ -561,6 +561,7 @@
 					"enum": [
 						"firstDiff",
 						"overview",
+						"multiDiff",
 						false
 					],
 					"default": "firstDiff",

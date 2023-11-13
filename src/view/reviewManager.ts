@@ -531,7 +531,6 @@ export class ReviewManager {
 			this.justSwitchedToReviewMode,
 			this._changesSinceLastReviewProgress
 		);
-		this.justSwitchedToReviewMode = false;
 
 		Logger.appendLine(`Register comments provider`, this.id);
 		await this.registerCommentController();
@@ -558,7 +557,8 @@ export class ReviewManager {
 		Logger.appendLine(`Display pull request status bar indicator.`, this.id);
 		this.statusBarItem.show();
 
-		this.layout(pr, updateLayout, silent);
+		this.layout(pr, updateLayout, this.justSwitchedToReviewMode ? false : silent);
+		this.justSwitchedToReviewMode = false;
 
 		this._validateStatusInProgress = undefined;
 	}
@@ -638,7 +638,7 @@ export class ReviewManager {
 		}
 		this._activePrViewCoordinator.show(pr);
 		if (updateLayout) {
-			const focusedMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'firstDiff' | 'overview' | false>(FOCUSED_MODE);
+			const focusedMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'firstDiff' | 'overview' | 'multiDiff' | false>(FOCUSED_MODE);
 			if (focusedMode === 'firstDiff') {
 				if (this._reviewModel.localFileChanges.length) {
 					this.openDiff();
@@ -650,6 +650,8 @@ export class ReviewManager {
 				}
 			} else if (focusedMode === 'overview') {
 				return this.openDescription();
+			} else if (focusedMode === 'multiDiff') {
+				return PullRequestModel.openChanges(this._folderRepoManager, pr);
 			}
 		}
 	}
