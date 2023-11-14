@@ -34,6 +34,8 @@ import {
 	ISuggestedReviewer,
 	ITeam,
 	MergeMethod,
+	MergeQueueEntry,
+	MergeQueueState,
 	PullRequest,
 	PullRequestMergeability,
 	reviewerId,
@@ -608,6 +610,36 @@ export function parseMilestone(
 	};
 }
 
+function parseMergeQueueEntry(mergeQueueEntry?: GraphQL.MergeQueueEntry): MergeQueueEntry | undefined {
+	if (!mergeQueueEntry) {
+		return;
+	}
+	let state: MergeQueueState;
+	switch (mergeQueueEntry.state) {
+		case 'AWAITING_CHECKS': {
+			state = MergeQueueState.AwaitingChecks;
+			break;
+		}
+		case 'LOCKED': {
+			state = MergeQueueState.Locked;
+			break;
+		}
+		case 'QUEUED': {
+			state = MergeQueueState.Queued;
+			break;
+		}
+		case 'MERGEABLE': {
+			state = MergeQueueState.Mergeable;
+			break;
+		}
+		case 'UNMERGEABLE': {
+			state = MergeQueueState.Unmergeable;
+			break;
+		}
+	}
+	return { position: mergeQueueEntry.position, state, url: mergeQueueEntry.mergeQueue.url };
+}
+
 function parseMergeMethod(mergeMethod: 'MERGE' | 'SQUASH' | 'REBASE' | undefined): MergeMethod | undefined {
 	switch (mergeMethod) {
 		case 'MERGE': return 'merge';
@@ -664,6 +696,7 @@ export function parseGraphQLPullRequest(
 		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
 		mergeable: parseMergeability(graphQLPullRequest.mergeable, graphQLPullRequest.mergeStateStatus),
+		mergeQueueEntry: parseMergeQueueEntry(graphQLPullRequest.mergeQueueEntry),
 		autoMerge: !!graphQLPullRequest.autoMergeRequest,
 		autoMergeMethod: parseMergeMethod(graphQLPullRequest.autoMergeRequest?.mergeMethod),
 		allowAutoMerge: graphQLPullRequest.viewerCanEnableAutoMerge || graphQLPullRequest.viewerCanDisableAutoMerge,

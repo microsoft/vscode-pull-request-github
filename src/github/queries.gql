@@ -73,6 +73,13 @@ fragment PullRequestFragment on PullRequest {
 	}
 	merged
 	mergeable
+	mergeQueueEntry {
+		position
+		state
+		mergeQueue {
+			url
+		}
+	}
 	mergeStateStatus
 	autoMergeRequest {
 		mergeMethod
@@ -155,6 +162,16 @@ mutation CreatePullRequest($input: CreatePullRequestInput!) {
 }
 
 # Queries that only exist in this file
+
+query MergeQueueForBranch($owner: String!, $name: String!, $branch: String!) {
+	repository(owner: $owner, name: $name) {
+		mergeQueue(branch: $branch) {
+			configuration {
+				mergeMethod
+			}
+		}
+	}
+}
 
 query GetRepoProjects($owner: String!, $name: String!) {
 	repository(owner: $owner, name: $name) {

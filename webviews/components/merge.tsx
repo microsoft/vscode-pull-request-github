@@ -25,7 +25,7 @@ import {
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Reviewer } from '../components/reviewer';
-import { AutoMerge } from './automergeSelect';
+import { AutoMerge, QueuedToMerge } from './automergeSelect';
 import { Dropdown } from './dropdown';
 import { alertIcon, checkIcon, closeIcon, mergeIcon, pendingIcon, requestChanges, skipIcon } from './icon';
 import { nbsp } from './space';
@@ -254,7 +254,7 @@ export const Merge = (pr: PullRequest) => {
 
 	return (
 		<div className="automerge-section wrapper">
-			<button onClick={() => selectMethod(select.current.value as MergeMethod)}>Merge Pull Request</button>
+			<button onClick={() => selectMethod(select.current!.value as MergeMethod)}>Merge Pull Request</button>
 			{nbsp}using method{nbsp}
 			<MergeSelect ref={select} {...pr} />
 		</div>
@@ -273,7 +273,7 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 
 	if (mergeable === PullRequestMergeability.Mergeable && hasWritePermission) {
 		return isSimple ? <MergeSimple {...pr} /> : <Merge {...pr} />;
-	} else if (hasWritePermission) {
+	} else if (hasWritePermission && !pr.mergeQueueEntry) {
 		const ctx = useContext(PullRequestContext);
 		return (
 			<AutoMerge
@@ -284,6 +284,8 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 				defaultMergeMethod={pr.autoMergeMethod ?? pr.defaultMergeMethod}
 			/>
 		);
+	} else if (pr.mergeQueueEntry) {
+		return <QueuedToMerge mergeQueueEntry={pr.mergeQueueEntry} />;
 	}
 
 	return null;

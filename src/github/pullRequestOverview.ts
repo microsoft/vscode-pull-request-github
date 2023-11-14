@@ -189,8 +189,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
 			this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
 			pullRequestModel.canEdit(),
-			this._folderRepositoryManager.getOrgTeamsCount(pullRequestModel.githubRepository)
-		])
+			this._folderRepositoryManager.getOrgTeamsCount(pullRequestModel.githubRepository),
+			this._folderRepositoryManager.hasMergeQueueForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName)])
 			.then(result => {
 				const [
 					pullRequest,
@@ -202,7 +202,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					branchInfo,
 					currentUser,
 					viewerCanEdit,
-					orgTeamsCount
+					orgTeamsCount,
+					baseHasMergeQueue
 				] = result;
 				if (!pullRequest) {
 					throw new Error(
@@ -269,6 +270,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					autoMerge: pullRequest.autoMerge,
 					allowAutoMerge: pullRequest.allowAutoMerge,
 					autoMergeMethod: pullRequest.autoMergeMethod,
+					baseHasMergeQueue: baseHasMergeQueue,
+					mergeQueueEntry: pullRequest.mergeQueueEntry,
 					mergeCommitMeta: pullRequest.mergeCommitMeta,
 					squashCommitMeta: pullRequest.squashCommitMeta,
 					isIssue: false,

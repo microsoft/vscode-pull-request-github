@@ -213,6 +213,7 @@ body img.avatar {
 .section-icon.approved svg path {
 	fill: var(--vscode-issues-open);
 }
+
 .reviewer-icons {
 	display: flex;
 	gap: 4px;
@@ -236,6 +237,7 @@ body img.avatar {
 	display: flex;
 }
 
+.merge-queue,
 #status-checks .automerge-section {
 	align-items: center;
 	padding: 16px;
@@ -258,6 +260,20 @@ body img.avatar {
 .automerge-checkbox-label {
 	min-width: 80px;
 }
+
+.merge-queue-title .merge-queue-pending {
+	color: var(--vscode-list-warningForeground);
+}
+
+.merge-queue-title .merge-queue-blocked {
+	color: var(--vscode-list-errorForeground);
+}
+
+.merge-queue-title {
+	font-weight: bold;
+	font-size: larger;
+}
+
 /** Theming */
 
 .vscode-high-contrast button:not(.secondary):not(.icon-button) {
@@ -324,7 +340,8 @@ button.split-left {
 }
 
 .split {
-	width: 1px; height: 100%;
+	width: 1px;
+	height: 100%;
 	background-color: var(--vscode-button-background);
 	opacity: 0.5;
 }
@@ -332,7 +349,8 @@ button.split-left {
 button.split-right {
 	border-radius: 0 2px 2px 0;
 	cursor: pointer;
-	width: 24px; height: 28px;
+	width: 24px;
+	height: 28px;
 	position: relative;
 }
 
@@ -343,7 +361,8 @@ button.split-right:disabled {
 button.split-right .icon {
 	pointer-events: none;
 	position: absolute;
-	top: 6px; right: 4px;
+	top: 6px;
+	right: 4px;
 }
 
 button.split-right .icon svg path {

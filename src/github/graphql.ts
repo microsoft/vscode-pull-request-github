@@ -173,6 +173,14 @@ export interface AssignedEvent {
 	};
 }
 
+export interface MergeQueueEntry {
+	position: number,
+	state: MergeQueueState;
+	mergeQueue: {
+		url: string;
+	}
+}
+
 export interface Review {
 	__typename: string;
 	id: string;
@@ -389,6 +397,16 @@ export interface MarkPullRequestReadyForReviewResponse {
 	};
 }
 
+export interface MergeQueueForBranchResponse {
+	repository: {
+		mergeQueue: {
+			configuration: {
+				mergeMethod: MergeMethod;
+			}
+		}
+	}
+}
+
 export interface SubmittedReview extends Review {
 	comments: {
 		nodes: ReviewComment[];
@@ -509,6 +527,9 @@ export interface SuggestedReviewerResponse {
 	};
 }
 
+type MergeMethod = 'MERGE' | 'REBASE' | 'SQUASH';
+export type MergeQueueState = 'AWAITING_CHECKS' | 'LOCKED' | 'MERGEABLE' | 'QUEUED' | 'UNMERGEABLE';
+
 export interface PullRequest {
 	id: string;
 	databaseId: number;
@@ -562,9 +583,10 @@ export interface PullRequest {
 	};
 	merged: boolean;
 	mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+	mergeQueueEntry?: MergeQueueEntry;
 	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
 	autoMergeRequest?: {
-		mergeMethod: 'MERGE' | 'REBASE' | 'SQUASH'
+		mergeMethod: MergeMethod;
 	};
 	viewerCanEnableAutoMerge: boolean;
 	viewerCanDisableAutoMerge: boolean;
