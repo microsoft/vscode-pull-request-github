@@ -427,7 +427,7 @@ function getFileAndPosition(context: LinkContext, positionInfo?: NewIssue): { ur
 	} else {
 		return { uri: undefined, range: undefined };
 	}
-	Logger.debug(`got file and position: ${uri.fsPath} ${range?.start.toString()}`, PERMALINK_COMPONENT);
+	Logger.debug(`got file and position: ${uri.fsPath} ${range?.start ? (range.start instanceof vscode.Position ? `${range.start.line}:${range.start.character}` : range.start) : 'unknown'}`, PERMALINK_COMPONENT);
 	return { uri, range };
 }
 

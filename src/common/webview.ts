@@ -50,7 +50,7 @@ export class WebviewBase {
 	public initialize(): void {
 		const disposable = this._webview?.onDidReceiveMessage(
 			async message => {
-				await this._onDidReceiveMessage(message);
+				await this._onDidReceiveMessage(message as IRequestMessage<any>);
 			},
 			null,
 			this._disposables,

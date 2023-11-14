@@ -49,7 +49,8 @@ export namespace OctokitCommon {
 	export type CommitFile = CompareCommits['files'][0];
 }
 
-export function mergeQuerySchemaWithShared(sharedSchema: { [key: string]: any, definitions: any[]; }, schema: { [key: string]: any, definitions: any[]; }) {
+export type Schema = { [key: string]: any, definitions: any[]; };
+export function mergeQuerySchemaWithShared(sharedSchema: Schema, schema: Schema) {
 	const sharedSchemaDefinitions = sharedSchema.definitions;
 	const schemaDefinitions = schema.definitions;
 	const mergedDefinitions = schemaDefinitions.concat(sharedSchemaDefinitions);

@@ -37,7 +37,7 @@ export abstract class RepositoryFileSystemProvider extends ReadonlyFileSystemPro
 			clearTimeout(timeout);
 		}
 		if (eventDisposable) {
-			eventDisposable!.dispose();
+			(eventDisposable as vscode.Disposable).dispose();
 		}
 	}
 

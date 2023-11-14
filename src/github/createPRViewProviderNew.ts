@@ -918,12 +918,12 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 						}
 						this._throwError(message, errorMessage);
 					} else {
-						if (e.message === 'GraphQL error: ["Pull request Pull request is in unstable status"]') {
+						if ((e as Error).message === 'GraphQL error: ["Pull request Pull request is in unstable status"]') {
 							// This error can happen if the PR isn't fully created by the time we try to set properties on it. Try again.
 							await postCreate(createdPR);
 						}
 						// All of these errors occur after the PR is created, so the error is not critical.
-						vscode.window.showErrorMessage(vscode.l10n.t('There was an error creating the pull request: {0}', e.message));
+						vscode.window.showErrorMessage(vscode.l10n.t('There was an error creating the pull request: {0}', (e as Error).message));
 					}
 				} finally {
 					let completeMessage: string;

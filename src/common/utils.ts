@@ -91,12 +91,12 @@ export function anyEvent<T>(...events: Event<T>[]): Event<T> {
 }
 
 export function filterEvent<T>(event: Event<T>, filter: (e: T) => boolean): Event<T> {
-	return (listener, thisArgs = null, disposables?) =>
+	return (listener, thisArgs = null, disposables?: Disposable[]) =>
 		event(e => filter(e) && listener.call(thisArgs, e), null, disposables);
 }
 
 export function onceEvent<T>(event: Event<T>): Event<T> {
-	return (listener, thisArgs = null, disposables?) => {
+	return (listener, thisArgs = null, disposables?: Disposable[]) => {
 		const result = event(
 			e => {
 				result.dispose();

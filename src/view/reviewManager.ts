@@ -564,7 +564,7 @@ export class ReviewManager {
 	}
 
 	private layout(pr: PullRequestModel, updateLayout: boolean, silent: boolean) {
-		const isFocusMode = this._context.workspaceState.get(FOCUS_REVIEW_MODE);
+		const isFocusMode = this._context.workspaceState.get<boolean>(FOCUS_REVIEW_MODE);
 
 		Logger.appendLine(`Using focus mode = ${isFocusMode}.`, this.id);
 		Logger.appendLine(`State validation silent = ${silent}.`, this.id);

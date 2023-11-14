@@ -11,7 +11,7 @@ import { Protocol } from '../common/protocol';
 import { GitHubRemote, parseRemote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
-import { mergeQuerySchemaWithShared, OctokitCommon } from './common';
+import { mergeQuerySchemaWithShared, OctokitCommon, Schema } from './common';
 import { CredentialStore, GitHub } from './credentials';
 import {
 	AssignableUsersResponse,
@@ -189,7 +189,7 @@ export class GitHubRepository implements vscode.Disposable {
 		private readonly _telemetry: ITelemetry,
 		silent: boolean = false
 	) {
-		this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, defaultSchema as any);
+		this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as unknown as Schema, defaultSchema as unknown as Schema);
 		// kick off the comments controller early so that the Comments view is visible and doesn't pop up later in an way that's jarring
 		if (!silent) {
 			this.ensureCommentsController();
@@ -226,7 +226,8 @@ export class GitHubRepository implements vscode.Disposable {
 	query = async <T>(query: QueryOptions, ignoreSamlErrors: boolean = false, legacyFallback?: { query: DocumentNode }): Promise<ApolloQueryResult<T>> => {
 		const gql = this.authMatchesServer && this.hub && this.hub.graphql;
 		if (!gql) {
-			Logger.debug(`Not available for query: ${query}`, GRAPHQL_COMPONENT_ID);
+			const logValue = (query.query.definitions[0] as { name: { value: string } | undefined }).name?.value;
+			Logger.debug(`Not available for query: ${logValue ?? 'unknown'}`, GRAPHQL_COMPONENT_ID);
 			return {
 				data: null,
 				loading: false,
@@ -271,7 +272,7 @@ export class GitHubRepository implements vscode.Disposable {
 	mutate = async <T>(mutation: MutationOptions<T>, legacyFallback?: { mutation: DocumentNode, deleteProps: string[] }): Promise<FetchResult<T>> => {
 		const gql = this.authMatchesServer && this.hub && this.hub.graphql;
 		if (!gql) {
-			Logger.debug(`Not available for query: ${mutation}`, GRAPHQL_COMPONENT_ID);
+			Logger.debug(`Not available for query: ${mutation.context as string}`, GRAPHQL_COMPONENT_ID);
 			return {
 				data: null,
 				loading: false,

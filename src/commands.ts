@@ -323,7 +323,7 @@ export function registerCommands(
 			}
 			return fileChangeNode.openDiff(folderManager);
 		} else if (fileChangeNode || vscode.window.activeTextEditor) {
-			const editor = fileChangeNode ? vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === fileChangeNode.toString())! : vscode.window.activeTextEditor!;
+			const editor = fileChangeNode instanceof vscode.Uri ? vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === fileChangeNode.toString())! : vscode.window.activeTextEditor!;
 			const visibleRanges = editor.visibleRanges;
 			const folderManager = reposManager.getManagerForFile(editor.document.uri);
 			if (!folderManager?.activePullRequest) {
