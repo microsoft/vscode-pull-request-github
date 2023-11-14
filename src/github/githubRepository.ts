@@ -26,6 +26,7 @@ import {
 	ListBranchesResponse,
 	MaxIssueResponse,
 	MentionableUsersResponse,
+	MergeQueueForBranchResponse,
 	MilestoneIssuesResponse,
 	OrganizationTeamsCountResponse,
 	OrganizationTeamsResponse,
@@ -427,6 +428,34 @@ export class GitHubRepository implements vscode.Disposable {
 			},
 			viewerCanAutoMerge: false
 		};
+	}
+
+	private _branchHasMergeQueue: Map<string, boolean> = new Map();
+	async hasMergeQueueForBranch(branch: string): Promise<boolean> {
+		if (this._branchHasMergeQueue.has(branch)) {
+			return this._branchHasMergeQueue.get(branch)!;
+		}
+		try {
+			Logger.debug('Fetch branch has merge queue - enter', GitHubRepository.ID);
+			const { query, remote, schema } = await this.ensure();
+			if (!schema.MergeQueueForBranch) {
+				return false;
+			}
+			const result = await query<MergeQueueForBranchResponse>({
+				query: schema.MergeQueueForBranch,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					branch
+				}
+			});
+
+			Logger.debug('Fetch branch has merge queue - done', GitHubRepository.ID);
+			return !!result.data.repository.mergeQueue.configuration;
+		} catch (e) {
+			Logger.error(`GitHubRepository> Fetching branch has merge queue failed: ${e}`);
+		}
+		return false;
 	}
 
 	async getAllPullRequests(page?: number): Promise<PullRequestData | undefined> {

@@ -1881,6 +1881,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return mergeOptions;
 	}
 
+	async hasMergeQueueForBranch(branch: string, owner: string, repoName: string): Promise<boolean> {
+		return !!(await this.gitHubRepositories.find(repository => repository.remote.owner === owner && repository.remote.repositoryName === repoName)?.hasMergeQueueForBranch(branch));
+	}
+
 	async fulfillPullRequestMissingInfo(pullRequest: PullRequestModel): Promise<void> {
 		try {
 			if (!pullRequest.isResolved()) {

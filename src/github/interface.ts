@@ -29,6 +29,14 @@ export enum PullRequestMergeability {
 	Behind,
 }
 
+export enum MergeQueueState {
+	AwaitingChecks,
+	Locked,
+	Mergeable,
+	Queued,
+	Unmergeable
+}
+
 export interface ReviewState {
 	reviewer: IAccount | ITeam;
 	state: string;
@@ -56,6 +64,12 @@ export interface ITeam {
 	slug: string;
 	org: string;
 	id: string;
+}
+
+export interface MergeQueueEntry {
+	position: number;
+	state: MergeQueueState;
+	url: string;
 }
 
 export function reviewerId(reviewer: ITeam | IAccount): string {
@@ -164,6 +178,7 @@ export interface PullRequest extends Issue {
 	}[];
 	merged?: boolean;
 	mergeable?: PullRequestMergeability;
+	mergeQueueEntry?: MergeQueueEntry;
 	autoMerge?: boolean;
 	autoMergeMethod?: MergeMethod;
 	allowAutoMerge?: boolean;

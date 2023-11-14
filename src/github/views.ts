@@ -12,6 +12,7 @@ import {
 	IProjectItem,
 	MergeMethod,
 	MergeMethodsAvailability,
+	MergeQueueState,
 	PullRequestChecks,
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
@@ -67,6 +68,12 @@ export interface PullRequest {
 	autoMerge?: boolean;
 	allowAutoMerge: boolean;
 	autoMergeMethod?: MergeMethod;
+	baseHasMergeQueue: boolean;
+	mergeQueueEntry?: {
+		url: string;
+		position: number;
+		state: MergeQueueState;
+	};
 	mergeCommitMeta?: { title: string, description: string };
 	squashCommitMeta?: { title: string, description: string };
 	reviewers: ReviewState[];

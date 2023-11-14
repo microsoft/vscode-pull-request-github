@@ -52,6 +52,7 @@ import {
 	ISuggestedReviewer,
 	ITeam,
 	MergeMethod,
+	MergeQueueEntry,
 	PullRequest,
 	PullRequestChecks,
 	PullRequestMergeability,
@@ -103,6 +104,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public isDraft?: boolean;
 	public localBranchName?: string;
 	public mergeBase?: string;
+	public mergeQueueEntry?: MergeQueueEntry;
 	public suggestedReviewers?: ISuggestedReviewer[];
 	public hasChangesSinceLastReview?: boolean;
 	private _showChangesSinceReview: boolean;
@@ -248,6 +250,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 		if (item.base) {
 			this.base = new GitHubRef(item.base.ref, item.base!.label, item.base!.sha, item.base!.repo.cloneUrl, item.base.repo.owner, item.base.repo.name, item.base.repo.isInOrganization);
+		}
+		if (item.mergeQueueEntry) {
+			this.mergeQueueEntry = item.mergeQueueEntry;
 		}
 	}
 
