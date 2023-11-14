@@ -136,7 +136,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		}
 		for (const child of this._children) {
 			if (child instanceof WorkspaceFolderNode) {
-				if (child.expandPullRequest(pullRequest)) {
+				if (await child.expandPullRequest(pullRequest)) {
 					return;
 				}
 			} else if (child.type === PRType.All) {

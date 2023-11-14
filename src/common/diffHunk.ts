@@ -97,7 +97,7 @@ export function* LineReader(text: string): IterableIterator<string> {
 }
 
 export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk> {
-	const lineReader = LineReader(diffHunkPatch);
+	const lineReader: Iterator<string, string> = LineReader(diffHunkPatch);
 
 	let itr = lineReader.next();
 	let diffHunk: DiffHunk | undefined = undefined;

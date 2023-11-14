@@ -53,9 +53,9 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			});
 		}));
 
-		this._disposables.push(vscode.commands.registerCommand('review.approve', (e) => this.approvePullRequestCommand(e)));
-		this._disposables.push(vscode.commands.registerCommand('review.comment', (e) => this.submitReviewCommand(e)));
-		this._disposables.push(vscode.commands.registerCommand('review.requestChanges', (e) => this.requestChangesCommand(e)));
+		this._disposables.push(vscode.commands.registerCommand('review.approve', (e: { body: string }) => this.approvePullRequestCommand(e)));
+		this._disposables.push(vscode.commands.registerCommand('review.comment', (e: { body: string }) => this.submitReviewCommand(e)));
+		this._disposables.push(vscode.commands.registerCommand('review.requestChanges', (e: { body: string }) => this.requestChangesCommand(e)));
 		this._disposables.push(vscode.commands.registerCommand('review.approveOnDotCom', () => {
 			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 		}));

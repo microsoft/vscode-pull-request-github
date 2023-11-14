@@ -88,7 +88,7 @@ export class IssuesTreeData
 				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
 				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed'));
 			if (this.stateManager.currentIssue(element.uri)?.issue.number === element.number) {
-				treeItem.label = `✓ ${treeItem.label!}`;
+				treeItem.label = `✓ ${treeItem.label as string}`;
 				treeItem.contextValue = 'currentissue';
 			} else {
 				const savedState = this.stateManager.getSavedIssueState(element.number);
