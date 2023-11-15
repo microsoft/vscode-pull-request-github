@@ -68,7 +68,7 @@ export interface PullRequest {
 	autoMerge?: boolean;
 	allowAutoMerge: boolean;
 	autoMergeMethod?: MergeMethod;
-	baseHasMergeQueue: boolean;
+	mergeQueueMethod: MergeMethod | undefined;
 	mergeQueueEntry?: {
 		url: string;
 		position: number;

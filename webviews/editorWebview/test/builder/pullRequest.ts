@@ -41,7 +41,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	mergeMethodsAvailability: { default: { merge: true, squash: true, rebase: true } },
 	allowAutoMerge: { default: false },
 	mergeQueueEntry: { default: undefined },
-	baseHasMergeQueue: { default: false },
+	mergeQueueMethod: { default: undefined },
 	reviewers: { default: [] },
 	isDraft: { default: false },
 	isIssue: { default: false },

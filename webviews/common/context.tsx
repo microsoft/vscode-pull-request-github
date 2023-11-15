@@ -6,7 +6,7 @@
 import { createContext } from 'react';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, TimelineEvent } from '../../src/common/timelineEvent';
-import { IProject, IProjectItem, MergeMethod, ReviewState } from '../../src/github/interface';
+import { IProjectItem, MergeMethod, ReviewState } from '../../src/github/interface';
 import { ProjectItemsReply, PullRequest } from '../../src/github/views';
 import { getState, setState, updateState } from './cache';
 import { getMessageHandler, MessageHandler } from './message';
@@ -179,6 +179,24 @@ export class PRContext {
 		const state = this.pr;
 		state.autoMerge = response.autoMerge;
 		state.autoMergeMethod = response.autoMergeMethod;
+		this.updatePR(state);
+	}
+
+	public dequeue = async () => {
+		const isDequeued = await this.postMessage({ command: 'pr.dequeue' });
+		const state = this.pr;
+		if (isDequeued) {
+			state.mergeQueueEntry = undefined;
+		}
+		this.updatePR(state);
+	}
+
+	public enqueue = async () => {
+		const result = await this.postMessage({ command: 'pr.enqueue' });
+		const state = this.pr;
+		if (result.mergeQueueEntry) {
+			state.mergeQueueEntry = result.mergeQueueEntry;
+		}
 		this.updatePR(state);
 	}
 

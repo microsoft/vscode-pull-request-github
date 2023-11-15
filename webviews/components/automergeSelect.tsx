@@ -5,6 +5,7 @@
 
 import * as React from 'react';
 import { MergeMethod, MergeMethodsAvailability, MergeQueueEntry, MergeQueueState } from '../../src/github/interface';
+import PullRequestContext from '../common/context';
 import { MergeSelect } from './merge';
 
 const AutoMergeLabel = ({ busy, baseHasMergeQueue }: { busy: boolean, baseHasMergeQueue: boolean }) => {
@@ -78,6 +79,7 @@ export const AutoMerge = ({
 };
 
 export const QueuedToMerge = ({ mergeQueueEntry }: { mergeQueueEntry: MergeQueueEntry }) => {
+	const ctx = React.useContext(PullRequestContext);
 	let message;
 	let title;
 	switch (mergeQueueEntry.state) {
@@ -86,7 +88,7 @@ export const QueuedToMerge = ({ mergeQueueEntry }: { mergeQueueEntry: MergeQueue
 		case (MergeQueueState.Queued): {
 			title = <span className="merge-queue-pending">Queued to merge...</span>;
 			if (mergeQueueEntry.position === 1) {
-				message = <span>This pull request is as the head of the <a href={mergeQueueEntry.url}>merge queue</a>.</span>;
+				message = <span>This pull request is at the head of the <a href={mergeQueueEntry.url}>merge queue</a>.</span>;
 			} else {
 				message = <span>This pull request is in the <a href={mergeQueueEntry.url}>merge queue</a>.</span>;
 			}
@@ -102,11 +104,15 @@ export const QueuedToMerge = ({ mergeQueueEntry }: { mergeQueueEntry: MergeQueue
 			message = <span>There are conflicts with the base branch.</span>;
 			break;
 		}
-
 	}
-	return <div className="merge-queue">
-		<div className="merge-queue-icon"></div>
-		<div className="merge-queue-title">{title}</div>
-		{message}
+	return <div className="merge-queue-container">
+		<div className="merge-queue">
+			<div className="merge-queue-icon"></div>
+			<div className="merge-queue-title">{title}</div>
+			{message}
+		</div>
+		<div className='button-container'>
+			<button onClick={ctx.dequeue}>Remove from queue</button>
+		</div>
 	</div>;
 };

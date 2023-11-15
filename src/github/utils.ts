@@ -610,9 +610,9 @@ export function parseMilestone(
 	};
 }
 
-function parseMergeQueueEntry(mergeQueueEntry?: GraphQL.MergeQueueEntry): MergeQueueEntry | undefined {
+export function parseMergeQueueEntry(mergeQueueEntry: GraphQL.MergeQueueEntry | null | undefined): MergeQueueEntry | undefined | null {
 	if (!mergeQueueEntry) {
-		return;
+		return null;
 	}
 	let state: MergeQueueState;
 	switch (mergeQueueEntry.state) {
@@ -640,7 +640,7 @@ function parseMergeQueueEntry(mergeQueueEntry?: GraphQL.MergeQueueEntry): MergeQ
 	return { position: mergeQueueEntry.position, state, url: mergeQueueEntry.mergeQueue.url };
 }
 
-function parseMergeMethod(mergeMethod: 'MERGE' | 'SQUASH' | 'REBASE' | undefined): MergeMethod | undefined {
+export function parseMergeMethod(mergeMethod: GraphQL.MergeMethod | undefined): MergeMethod | undefined {
 	switch (mergeMethod) {
 		case 'MERGE': return 'merge';
 		case 'REBASE': return 'rebase';

@@ -245,8 +245,17 @@ export const ReadyForReview = ({ isSimple }: { isSimple: boolean }) => {
 };
 
 export const Merge = (pr: PullRequest) => {
+	const ctx = useContext(PullRequestContext);
 	const select = useRef<HTMLSelectElement>();
 	const [selectedMethod, selectMethod] = useState<MergeMethod | null>(null);
+
+	if (pr.mergeQueueMethod) {
+		return <div>
+			<div id='merge-comment-form'>
+				<button onClick={() => ctx.enqueue()}>Add to Merge Queue</button>
+			</div>
+		</div>;
+	}
 
 	if (selectedMethod) {
 		return <ConfirmMerge pr={pr} method={selectedMethod} cancel={() => selectMethod(null)} />;
@@ -271,7 +280,7 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 		return canEdit ? <ReadyForReview isSimple={isSimple} /> : null;
 	}
 
-	if (mergeable === PullRequestMergeability.Mergeable && hasWritePermission) {
+	if (mergeable === PullRequestMergeability.Mergeable && hasWritePermission && !pr.mergeQueueEntry) {
 		return isSimple ? <MergeSimple {...pr} /> : <Merge {...pr} />;
 	} else if (hasWritePermission && !pr.mergeQueueEntry) {
 		const ctx = useContext(PullRequestContext);
@@ -281,6 +290,7 @@ export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean
 					return ctx.updateAutoMerge(params);
 				}}
 				{...pr}
+				baseHasMergeQueue={!!pr.mergeQueueMethod}
 				defaultMergeMethod={pr.autoMergeMethod ?? pr.defaultMergeMethod}
 			/>
 		);

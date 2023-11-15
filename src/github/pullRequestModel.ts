@@ -29,7 +29,9 @@ import {
 	AddReviewThreadResponse,
 	DeleteReactionResponse,
 	DeleteReviewResponse,
+	DequeuePullRequestResponse,
 	EditCommentResponse,
+	EnqueuePullRequestResponse,
 	GetReviewRequestsResponse,
 	LatestReviewCommitResponse,
 	MarkPullRequestReadyForReviewResponse,
@@ -72,6 +74,7 @@ import {
 	parseGraphQLReviewThread,
 	parseGraphQLTimelineEvents,
 	parseMergeability,
+	parseMergeQueueEntry,
 	restPaginate,
 } from './utils';
 
@@ -251,8 +254,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		if (item.base) {
 			this.base = new GitHubRef(item.base.ref, item.base!.label, item.base!.sha, item.base!.repo.cloneUrl, item.base.repo.owner, item.base.repo.name, item.base.repo.isInOrganization);
 		}
-		if (item.mergeQueueEntry) {
-			this.mergeQueueEntry = item.mergeQueueEntry;
+		if (item.mergeQueueEntry !== undefined) {
+			this.mergeQueueEntry = item.mergeQueueEntry ?? undefined;
 		}
 	}
 
@@ -1660,6 +1663,55 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			} else {
 				throw e;
 			}
+		}
+	}
+
+	async dequeuePullRequest(): Promise<boolean> {
+		Logger.debug(`Dequeue pull request ${this.number} - enter`, GitHubRepository.ID);
+		const { mutate, schema } = await this.githubRepository.ensure();
+		if (!schema.DequeuePullRequest) {
+			return false;
+		}
+		try {
+			await mutate<DequeuePullRequestResponse>({
+				mutation: schema.DequeuePullRequest,
+				variables: {
+					input: {
+						id: this.graphNodeId
+					}
+				}
+			});
+
+			Logger.debug(`Dequeue pull request ${this.number} - done`, GitHubRepository.ID);
+			this.mergeQueueEntry = undefined;
+			return true;
+		} catch (e) {
+			Logger.error(`Dequeueing pull request failed: ${e}`, GitHubRepository.ID);
+			return false;
+		}
+	}
+
+	async enqueuePullRequest(): Promise<MergeQueueEntry | undefined> {
+		Logger.debug(`Enqueue pull request ${this.number} - enter`, GitHubRepository.ID);
+		const { mutate, schema } = await this.githubRepository.ensure();
+		if (!schema.EnqueuePullRequest) {
+			return;
+		}
+		try {
+			const { data } = await mutate<EnqueuePullRequestResponse>({
+				mutation: schema.EnqueuePullRequest,
+				variables: {
+					input: {
+						pullRequestId: this.graphNodeId
+					}
+				}
+			});
+
+			Logger.debug(`Enqueue pull request ${this.number} - done`, GitHubRepository.ID);
+			const temp = parseMergeQueueEntry(data?.enqueuePullRequest.mergeQueueEntry) ?? undefined;
+			return temp;
+		} catch (e) {
+			Logger.error(`Enqueuing pull request failed: ${e}`, GitHubRepository.ID);
 		}
 	}
 

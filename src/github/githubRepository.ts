@@ -44,6 +44,7 @@ import {
 	IProject,
 	Issue,
 	ITeam,
+	MergeMethod,
 	PullRequest,
 	PullRequestChecks,
 	PullRequestReviewRequirement,
@@ -64,6 +65,7 @@ import {
 	parseGraphQLIssue,
 	parseGraphQLPullRequest,
 	parseGraphQLViewerPermission,
+	parseMergeMethod,
 	parseMilestone,
 } from './utils';
 
@@ -430,8 +432,8 @@ export class GitHubRepository implements vscode.Disposable {
 		};
 	}
 
-	private _branchHasMergeQueue: Map<string, boolean> = new Map();
-	async hasMergeQueueForBranch(branch: string): Promise<boolean> {
+	private _branchHasMergeQueue: Map<string, MergeMethod> = new Map();
+	async mergeQueueMethodForBranch(branch: string): Promise<MergeMethod | undefined> {
 		if (this._branchHasMergeQueue.has(branch)) {
 			return this._branchHasMergeQueue.get(branch)!;
 		}
@@ -439,7 +441,7 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug('Fetch branch has merge queue - enter', GitHubRepository.ID);
 			const { query, remote, schema } = await this.ensure();
 			if (!schema.MergeQueueForBranch) {
-				return false;
+				return undefined;
 			}
 			const result = await query<MergeQueueForBranchResponse>({
 				query: schema.MergeQueueForBranch,
@@ -451,11 +453,14 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 
 			Logger.debug('Fetch branch has merge queue - done', GitHubRepository.ID);
-			return !!result.data.repository.mergeQueue.configuration;
+			const mergeMethod = parseMergeMethod(result.data.repository.mergeQueue.configuration?.mergeMethod);
+			if (mergeMethod) {
+				this._branchHasMergeQueue.set(branch, mergeMethod);
+			}
+			return mergeMethod;
 		} catch (e) {
-			Logger.error(`GitHubRepository> Fetching branch has merge queue failed: ${e}`);
+			Logger.error(`Fetching branch has merge queue failed: ${e}`, GitHubRepository.ID);
 		}
-		return false;
 	}
 
 	async getAllPullRequests(page?: number): Promise<PullRequestData | undefined> {

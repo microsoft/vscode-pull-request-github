@@ -7,6 +7,14 @@
 
 # Queries that are also in the limit file, but are not limited (by scope or API availability) here
 
+fragment MergeQueueEntryFragment on MergeQueueEntry {
+	position
+	state
+	mergeQueue {
+		url
+	}
+}
+
 fragment PullRequestFragment on PullRequest {
 	number
 	url
@@ -74,11 +82,7 @@ fragment PullRequestFragment on PullRequest {
 	merged
 	mergeable
 	mergeQueueEntry {
-		position
-		state
-		mergeQueue {
-			url
-		}
+		...MergeQueueEntryFragment
 	}
 	mergeStateStatus
 	autoMergeRequest {
@@ -210,5 +214,21 @@ mutation AddPullRequestToProject($input: AddProjectV2ItemByIdInput!) {
 mutation RemovePullRequestFromProject($input: DeleteProjectV2ItemInput!) {
 	deleteProjectV2Item(input: $input) {
 		deletedItemId
+	}
+}
+
+mutation DequeuePullRequest($input: DequeuePullRequestInput!) {
+	dequeuePullRequest(input: $input) {
+		mergeQueueEntry {
+			...MergeQueueEntryFragment
+		}
+	}
+}
+
+mutation EnqueuePullRequest($input: EnqueuePullRequestInput!) {
+	enqueuePullRequest(input: $input) {
+		mergeQueueEntry {
+			...MergeQueueEntryFragment
+		}
 	}
 }
