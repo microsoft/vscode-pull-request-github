@@ -31,8 +31,8 @@ const SCOPES_OLDEST = ['read:user', 'user:email', 'repo'];
 const SCOPES_OLD = ['read:user', 'user:email', 'repo', 'workflow'];
 const SCOPES_WITH_ADDITIONAL = ['read:user', 'user:email', 'repo', 'workflow', 'project', 'read:org'];
 
-const LAST_USED_SCOPES_GITHUB_KEY = 'githubPullRequest.lastUsedScopesfd';
-const LAST_USED_SCOPES_ENTERPRISE_KEY = 'githubPullRequest.lastUsedScopesEnterprisefd';
+const LAST_USED_SCOPES_GITHUB_KEY = 'githubPullRequest.lastUsedScopes';
+const LAST_USED_SCOPES_ENTERPRISE_KEY = 'githubPullRequest.lastUsedScopesEnterprise';
 
 export interface GitHub {
 	octokit: LoggingOctokit;
