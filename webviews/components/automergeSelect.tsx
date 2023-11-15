@@ -58,7 +58,7 @@ export const AutoMerge = ({
 					}}
 				></input>
 			</div>
-			<AutoMergeLabel busy={isBusy} baseHasMergeQueue />
+			<AutoMergeLabel busy={isBusy} baseHasMergeQueue={baseHasMergeQueue} />
 			{baseHasMergeQueue ? null :
 				<div className="merge-select-container">
 					<MergeSelect
