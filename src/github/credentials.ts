@@ -31,8 +31,8 @@ const SCOPES_OLDEST = ['read:user', 'user:email', 'repo'];
 const SCOPES_OLD = ['read:user', 'user:email', 'repo', 'workflow'];
 const SCOPES_WITH_ADDITIONAL = ['read:user', 'user:email', 'repo', 'workflow', 'project', 'read:org'];
 
-const LAST_USED_SCOPES_GITHUB_KEY = 'githubPullRequest.lastUsedScopes';
-const LAST_USED_SCOPES_ENTERPRISE_KEY = 'githubPullRequest.lastUsedScopesEnterprise';
+const LAST_USED_SCOPES_GITHUB_KEY = 'githubPullRequest.lastUsedScopesfd';
+const LAST_USED_SCOPES_ENTERPRISE_KEY = 'githubPullRequest.lastUsedScopesEnterprisefd';
 
 export interface GitHub {
 	octokit: LoggingOctokit;
@@ -237,9 +237,16 @@ export class CredentialStore implements vscode.Disposable {
 
 	public areScopesOld(authProviderId: AuthProvider): boolean {
 		if (!isEnterprise(authProviderId)) {
-			return !this.allScopesIncluded(this._scopes, SCOPES_WITH_ADDITIONAL);
+			return !this.allScopesIncluded(this._scopes, SCOPES_OLD);
 		}
-		return !this.allScopesIncluded(this._scopesEnterprise, SCOPES_WITH_ADDITIONAL);
+		return !this.allScopesIncluded(this._scopesEnterprise, SCOPES_OLD);
+	}
+
+	public areScopesExtra(authProviderId: AuthProvider): boolean {
+		if (!isEnterprise(authProviderId)) {
+			return this.allScopesIncluded(this._scopes, SCOPES_WITH_ADDITIONAL);
+		}
+		return this.allScopesIncluded(this._scopesEnterprise, SCOPES_WITH_ADDITIONAL);
 	}
 
 	public async getHubEnsureAdditionalScopes(authProviderId: AuthProvider): Promise<GitHub | undefined> {

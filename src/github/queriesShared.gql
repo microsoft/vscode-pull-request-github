@@ -193,6 +193,13 @@ fragment LegacyReviewThread on PullRequestReviewThread {
 	}
 }
 
+fragment MergeQueueEntryFragment on MergeQueueEntry {
+	position
+	state
+	mergeQueue {
+		url
+	}
+}
 
 query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 150) {
 	repository(owner: $owner, name: $name) {
@@ -1323,6 +1330,16 @@ query GetChecksWithoutSuite($owner: String!, $name: String!, $number: Int!) {
 	}
 	rateLimit {
 		...RateLimit
+	}
+}
+
+query MergeQueueForBranch($owner: String!, $name: String!, $branch: String!) {
+	repository(owner: $owner, name: $name) {
+		mergeQueue(branch: $branch) {
+			configuration {
+				mergeMethod
+			}
+		}
 	}
 }
 
