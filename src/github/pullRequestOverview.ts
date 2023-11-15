@@ -190,7 +190,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
 			pullRequestModel.canEdit(),
 			this._folderRepositoryManager.getOrgTeamsCount(pullRequestModel.githubRepository),
-			this._folderRepositoryManager.hasMergeQueueForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName)])
+			this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName)])
 			.then(result => {
 				const [
 					pullRequest,
@@ -203,7 +203,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					currentUser,
 					viewerCanEdit,
 					orgTeamsCount,
-					baseHasMergeQueue
+					mergeQueueMethod
 				] = result;
 				if (!pullRequest) {
 					throw new Error(
@@ -270,7 +270,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					autoMerge: pullRequest.autoMerge,
 					allowAutoMerge: pullRequest.allowAutoMerge,
 					autoMergeMethod: pullRequest.autoMergeMethod,
-					baseHasMergeQueue: baseHasMergeQueue,
+					mergeQueueMethod: mergeQueueMethod,
 					mergeQueueEntry: pullRequest.mergeQueueEntry,
 					mergeCommitMeta: pullRequest.mergeCommitMeta,
 					squashCommitMeta: pullRequest.squashCommitMeta,
@@ -370,6 +370,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 			case 'pr.update-automerge':
 				return this.updateAutoMerge(message);
+			case 'pr.dequeue':
+				return this.dequeue(message);
+			case 'pr.enqueue':
+				return this.enqueue(message);
 			case 'pr.gotoChangesSinceReview':
 				this.gotoChangesSinceReview();
 				break;
@@ -798,6 +802,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			replyMessage = { autoMerge: this._item.autoMerge, autoMergeMethod: this._item.autoMergeMethod };
 		}
 		this._replyMessage(message, replyMessage);
+	}
+
+	private async dequeue(message: IRequestMessage<void>): Promise<void> {
+		const result = await this._item.dequeuePullRequest();
+		this._replyMessage(message, result);
+	}
+
+	private async enqueue(message: IRequestMessage<void>): Promise<void> {
+		const result = await this._item.enqueuePullRequest();
+		this._replyMessage(message, { mergeQueueEntry: result });
 	}
 
 	protected editCommentPromise(comment: IComment, text: string): Promise<IComment> {

@@ -454,7 +454,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				vscode.commands.executeCommand('pr.refreshList');
 
 				if (!result.merged) {
-					vscode.window.showErrorMessage(vscode.l10n.t('Merging PR failed: {0}', result.message));
+					vscode.window.showErrorMessage(vscode.l10n.t('Merging PR failed: {0}', result?.message ?? ''));
 				}
 
 				this._replyMessage(message, {

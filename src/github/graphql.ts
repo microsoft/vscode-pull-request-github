@@ -407,6 +407,16 @@ export interface MergeQueueForBranchResponse {
 	}
 }
 
+export interface DequeuePullRequestResponse {
+	mergeQueueEntry: MergeQueueEntry;
+}
+
+export interface EnqueuePullRequestResponse {
+	enqueuePullRequest: {
+		mergeQueueEntry: MergeQueueEntry;
+	}
+}
+
 export interface SubmittedReview extends Review {
 	comments: {
 		nodes: ReviewComment[];
@@ -527,7 +537,7 @@ export interface SuggestedReviewerResponse {
 	};
 }
 
-type MergeMethod = 'MERGE' | 'REBASE' | 'SQUASH';
+export type MergeMethod = 'MERGE' | 'REBASE' | 'SQUASH';
 export type MergeQueueState = 'AWAITING_CHECKS' | 'LOCKED' | 'MERGEABLE' | 'QUEUED' | 'UNMERGEABLE';
 
 export interface PullRequest {
@@ -583,7 +593,7 @@ export interface PullRequest {
 	};
 	merged: boolean;
 	mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
-	mergeQueueEntry?: MergeQueueEntry;
+	mergeQueueEntry?: MergeQueueEntry | null;
 	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
 	autoMergeRequest?: {
 		mergeMethod: MergeMethod;

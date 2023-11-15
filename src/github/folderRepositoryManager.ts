@@ -35,7 +35,7 @@ import { OctokitCommon } from './common';
 import { CredentialStore } from './credentials';
 import { GitHubRepository, ItemsData, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
 import { PullRequestState, UserResponse } from './graphql';
-import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, PRType, RepoAccessAndMergeMethods, User } from './interface';
+import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
 import { MilestoneModel } from './milestoneModel';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
@@ -1514,7 +1514,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		title?: string,
 		description?: string,
 		method?: 'merge' | 'squash' | 'rebase',
-	): Promise<any> {
+	): Promise<{ merged: boolean, message: string }> {
 		const { octokit, remote } = await pullRequest.githubRepository.ensure();
 
 		const activePRSHA = this.activePullRequest && this.activePullRequest.head && this.activePullRequest.head.sha;
@@ -1561,7 +1561,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 		}
 
-		return await octokit.call(octokit.api.pulls.merge, {
+		return octokit.call(octokit.api.pulls.merge, {
 			commit_message: description,
 			commit_title: title,
 			merge_method:
@@ -1881,8 +1881,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return mergeOptions;
 	}
 
-	async hasMergeQueueForBranch(branch: string, owner: string, repoName: string): Promise<boolean> {
-		return !!(await this.gitHubRepositories.find(repository => repository.remote.owner === owner && repository.remote.repositoryName === repoName)?.hasMergeQueueForBranch(branch));
+	async mergeQueueMethodForBranch(branch: string, owner: string, repoName: string): Promise<MergeMethod | undefined> {
+		return (await this.gitHubRepositories.find(repository => repository.remote.owner === owner && repository.remote.repositoryName === repoName)?.mergeQueueMethodForBranch(branch));
 	}
 
 	async fulfillPullRequestMissingInfo(pullRequest: PullRequestModel): Promise<void> {

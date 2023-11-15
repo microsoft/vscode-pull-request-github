@@ -223,6 +223,7 @@ body .comment-container .review-comment-header {
 	margin: 0;
 }
 
+.merge-queue-container,
 .ready-for-review-container {
 	padding: 16px;
 	background-color: var(--vscode-editorWidget-background);
@@ -334,6 +335,7 @@ body .diff .diffPath {
 
 .comment-container form, #merge-comment-form {
 	padding: 16px;
+	background-color: var(--vscode-editorWidget-background);
 }
 
 body .comment-container .comment-body,

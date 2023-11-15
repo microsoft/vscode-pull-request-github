@@ -24,9 +24,11 @@ export function Root({ children }) {
 	window.onscroll = debounce(() => {
 		ctx.postMessage({
 			command: 'scroll',
-			scrollPosition: {
-				x: window.scrollX,
-				y: window.scrollY
+			args: {
+				scrollPosition: {
+					x: window.scrollX,
+					y: window.scrollY
+				}
 			}
 		});
 	}, 200);
