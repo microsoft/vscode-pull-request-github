@@ -119,11 +119,11 @@ textarea:disabled {
 	display: flex;
 }
 
+.group-title .title-action:focus,
 .group-title .title-action:hover {
 	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
-.group-title .title-action:focus,
 .group-title .title-action {
 	position: absolute;
 	top: 6px;
