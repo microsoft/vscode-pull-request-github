@@ -394,19 +394,23 @@ export class ReviewManager {
 	}
 
 	private async resolvePullRequest(metadata: PullRequestMetadata): Promise<(PullRequestModel & IResolvedPullRequestModel) | undefined> {
-		this._prNumber = metadata.prNumber;
+		try {
+			this._prNumber = metadata.prNumber;
 
-		const { owner, repositoryName } = metadata;
-		Logger.appendLine('Review> Resolving pull request');
-		const pr = await this._folderRepoManager.resolvePullRequest(owner, repositoryName, metadata.prNumber);
+			const { owner, repositoryName } = metadata;
+			Logger.appendLine('Resolving pull request', this.id);
+			const pr = await this._folderRepoManager.resolvePullRequest(owner, repositoryName, metadata.prNumber);
 
-		if (!pr || !pr.isResolved()) {
-			await this.clear(true);
-			this._prNumber = undefined;
-			Logger.appendLine('Review> This PR is no longer valid');
-			return;
+			if (!pr || !pr.isResolved()) {
+				await this.clear(true);
+				this._prNumber = undefined;
+				Logger.appendLine('This PR is no longer valid', this.id);
+				return;
+			}
+			return pr;
+		} catch (e) {
+			Logger.appendLine(`Pull request cannot be resolved: ${e.message}`, this.id);
 		}
-		return pr;
 	}
 
 	private async validateState(silent: boolean, updateLayout: boolean) {

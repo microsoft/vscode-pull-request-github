@@ -551,11 +551,8 @@ export class GitHubRepository implements vscode.Disposable {
 				vscode.window.showWarningMessage(
 					`Fetching pull requests for remote '${this.remote.remoteName}' failed, please check if the url ${this.remote.url} is valid.`,
 				);
-			} else {
-				throw e;
 			}
 		}
-
 		return undefined;
 	}
 
