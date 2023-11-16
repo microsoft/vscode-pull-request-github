@@ -54,6 +54,7 @@ import { IssueModel } from './issueModel';
 import { LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
 import defaultSchema from './queries.gql';
+import * as extraSchema from './queriesExtra.gql';
 import * as limitedSchema from './queriesLimited.gql';
 import * as sharedSchema from './queriesShared.gql';
 import {
@@ -363,7 +364,9 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 
 		if (oldHub !== this._hub) {
-			if (this._credentialStore.areScopesOld(this.remote.authProviderId)) {
+			if (this._credentialStore.areScopesExtra(this.remote.authProviderId)) {
+				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, extraSchema.default as any);
+			} else if (this._credentialStore.areScopesOld(this.remote.authProviderId)) {
 				this._areQueriesLimited = true;
 				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, limitedSchema.default as any);
 			} else {
