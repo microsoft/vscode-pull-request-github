@@ -978,7 +978,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		try {
 			Logger.debug(`Fetch commits of PR #${this.number} - enter`, PullRequestModel.ID);
 			const { remote, octokit } = await this.githubRepository.ensure();
-			const commitData = await octokit.api.paginate(octokit.api.pulls.listCommits, {
+			const commitData = await restPaginate<typeof octokit.api.pulls.listCommits, OctokitCommon.PullsListCommitsResponseData[0]>(octokit.api.pulls.listCommits, {
 				pull_number: this.number,
 				owner: remote.owner,
 				repo: remote.repositoryName,
