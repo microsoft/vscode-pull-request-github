@@ -456,7 +456,7 @@ export class GitHubRepository implements vscode.Disposable {
 			});
 
 			Logger.debug('Fetch branch has merge queue - done', GitHubRepository.ID);
-			const mergeMethod = parseMergeMethod(result.data.repository.mergeQueue.configuration?.mergeMethod);
+			const mergeMethod = parseMergeMethod(result.data.repository.mergeQueue?.configuration?.mergeMethod);
 			if (mergeMethod) {
 				this._branchHasMergeQueue.set(branch, mergeMethod);
 			}

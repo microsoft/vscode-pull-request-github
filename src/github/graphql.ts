@@ -399,8 +399,8 @@ export interface MarkPullRequestReadyForReviewResponse {
 
 export interface MergeQueueForBranchResponse {
 	repository: {
-		mergeQueue: {
-			configuration: {
+		mergeQueue?: {
+			configuration?: {
 				mergeMethod: MergeMethod;
 			}
 		}
