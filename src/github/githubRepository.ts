@@ -1010,6 +1010,7 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	async hasBranch(branchName: string): Promise<boolean> {
+		Logger.appendLine(`Fetch branch ${branchName} - enter`, GitHubRepository.ID);
 		const { query, remote, schema } = await this.ensure();
 
 		const { data } = await query<GetBranchResponse>({
@@ -1020,7 +1021,7 @@ export class GitHubRepository implements vscode.Disposable {
 				qualifiedName: `refs/heads/${branchName}`,
 			}
 		});
-
+		Logger.appendLine(`Fetch branch ${branchName} - done: ${data.repository?.ref !== null}`, GitHubRepository.ID);
 		return data.repository?.ref !== null;
 	}
 

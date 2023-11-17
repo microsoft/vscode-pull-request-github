@@ -1931,6 +1931,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		});
 
 		if (!githubRepo) {
+			Logger.appendLine(`GitHubRepository not found: ${owner}/${repositoryName}`, this.id);
 			// try to create the repository
 			githubRepo = await this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
 		}
@@ -1943,8 +1944,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		pullRequestNumber: number,
 	): Promise<PullRequestModel | undefined> {
 		const githubRepo = await this.resolveItem(owner, repositoryName);
+		Logger.appendLine(`Found GitHub repo for pr #${pullRequestNumber}: ${githubRepo ? 'yes' : 'no'}`, this.id);
 		if (githubRepo) {
 			const pr = await githubRepo.getPullRequest(pullRequestNumber);
+			Logger.appendLine(`Found GitHub pr repo for pr #${pullRequestNumber}: ${pr ? 'yes' : 'no'}`, this.id);
 			if (pr) {
 				if (await githubRepo.hasBranch(pr.base.name)) {
 					return pr;
