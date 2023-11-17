@@ -2565,23 +2565,23 @@
 				},
 				{
 					"command": "review.approveDescription",
-					"when": "activeWebviewPanelId == 'PullRequestOverview' && github:reviewCommentMenu && github:reviewCommentApprove"
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentApprove"
 				},
 				{
 					"command": "review.commentDescription",
-					"when": "activeWebviewPanelId == 'PullRequestOverview' && github:reviewCommentMenu && github:reviewCommentComment"
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentComment"
 				},
 				{
 					"command": "review.requestChangesDescription",
-					"when": "activeWebviewPanelId == 'PullRequestOverview' && github:reviewCommentMenu && github:reviewCommentRequestChanges"
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentRequestChanges"
 				},
 				{
 					"command": "review.approveOnDotComDescription",
-					"when": "activeWebviewPanelId == 'PullRequestOverview' && github:reviewCommentMenu && github:reviewCommentApproveOnDotCom"
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentApproveOnDotCom"
 				},
 				{
 					"command": "review.requestChangesOnDotComDescription",
-					"when": "activeWebviewPanelId == 'PullRequestOverview' && github:reviewCommentMenu && github:reviewCommentRequestChangesOnDotCom"
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentRequestChangesOnDotCom"
 				}
 			]
 		},
