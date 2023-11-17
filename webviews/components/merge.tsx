@@ -139,9 +139,9 @@ export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimpl
 };
 
 export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
-	if (isSimple && pr.state !== GithubItemStateEnum.Open) {
-		const { create } = useContext(PullRequestContext);
+	const { create, checkMergeability } = useContext(PullRequestContext);
 
+	if (isSimple && pr.state !== GithubItemStateEnum.Open) {
 		const string = 'Create New Pull Request...';
 		return (
 			<div className="branch-status-container">
@@ -162,7 +162,6 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 	if ((_mergeable !== mergeable) && (_mergeable !== PullRequestMergeability.Unknown)) {
 		setMergeability(_mergeable);
 	}
-	const { checkMergeability } = useContext(PullRequestContext);
 
 	useEffect(() => {
 		const handle = setInterval(async () => {
