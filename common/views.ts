@@ -120,6 +120,7 @@ export interface CreateParamsNew {
 	allowAutoMerge?: boolean;
 	defaultMergeMethod?: MergeMethod;
 	mergeMethodsAvailability?: MergeMethodsAvailability;
+	baseHasMergeQueue: boolean;
 
 	creating: boolean;
 }
@@ -137,6 +138,7 @@ export interface ChooseBaseRemoteAndBranchResult {
 	allowAutoMerge: boolean;
 	mergeMethodsAvailability: MergeMethodsAvailability;
 	autoMergeDefault: boolean;
+	baseHasMergeQueue: boolean;
 	defaultTitle: string;
 	defaultDescription: string;
 }

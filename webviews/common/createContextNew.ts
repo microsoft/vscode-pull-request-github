@@ -26,7 +26,8 @@ const defaultCreateParams: CreateParamsNew = {
 	pendingDescription: undefined,
 	creating: false,
 	generateTitleAndDescriptionTitle: undefined,
-	initializeWithGeneratedTitleAndDescription: false
+	initializeWithGeneratedTitleAndDescription: false,
+	baseHasMergeQueue: false
 };
 
 export class CreatePRContextNew {
@@ -99,6 +100,7 @@ export class CreatePRContextNew {
 			updateValues.allowAutoMerge = response.allowAutoMerge;
 			updateValues.mergeMethodsAvailability = response.mergeMethodsAvailability;
 			updateValues.autoMergeDefault = response.autoMergeDefault;
+			updateValues.baseHasMergeQueue = response.baseHasMergeQueue;
 			if (!this.createParams.allowAutoMerge && updateValues.allowAutoMerge) {
 				updateValues.autoMerge = this.createParams.isDraft ? false : updateValues.autoMergeDefault;
 			}

@@ -13,7 +13,7 @@ const AutoMergeLabel = ({ busy, baseHasMergeQueue }: { busy: boolean, baseHasMer
 		return <label htmlFor="automerge-checkbox" className="automerge-checkbox-label">Setting...</label>;
 	} else {
 		return <label htmlFor="automerge-checkbox" className="automerge-checkbox-label">
-			{baseHasMergeQueue ? 'Add to merge queue when ready' : 'Auto-merge'}
+			{baseHasMergeQueue ? 'Merge when ready' : 'Auto-merge'}
 		</label>;
 	}
 };
@@ -41,6 +41,10 @@ export const AutoMerge = ({
 	const select: React.MutableRefObject<HTMLSelectElement> = React.useRef<HTMLSelectElement>() as React.MutableRefObject<HTMLSelectElement>;
 
 	const [isBusy, setBusy] = React.useState(false);
+	const selectedMethod = (): MergeMethod => {
+		const value: string = select.current?.value ?? 'merge';
+		return value as MergeMethod;
+	};
 
 	return (
 		<div className="automerge-section">
@@ -53,7 +57,7 @@ export const AutoMerge = ({
 					disabled={!allowAutoMerge || isDraft || isBusy}
 					onChange={async () => {
 						setBusy(true);
-						await updateState({ autoMerge: !autoMerge, autoMergeMethod: select.current?.value as MergeMethod });
+						await updateState({ autoMerge: !autoMerge, autoMergeMethod: selectedMethod() });
 						setBusy(false);
 					}}
 				></input>
@@ -67,7 +71,7 @@ export const AutoMerge = ({
 						mergeMethodsAvailability={mergeMethodsAvailability}
 						onChange={async () => {
 							setBusy(true);
-							await updateState({ autoMergeMethod: select.current?.value as MergeMethod });
+							await updateState({ autoMergeMethod: selectedMethod() });
 							setBusy(false);
 						}}
 						disabled={isBusy}
