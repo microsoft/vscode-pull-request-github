@@ -334,7 +334,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		}
 		commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 
-		const useCopilot: boolean = !!this._folderRepositoryManager.getTitleAndDescriptionProvider('GitHub Copilot') && (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION) === 'Copilot');
+		const useCopilot: boolean = !!this._folderRepositoryManager.getTitleAndDescriptionProvider('Copilot') && (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'commit' | 'template' | 'none' | 'Copilot'>(PULL_REQUEST_DESCRIPTION) === 'Copilot');
 		const defaultTitleAndDescriptionProvider = this._folderRepositoryManager.getTitleAndDescriptionProvider()?.title;
 		if (defaultTitleAndDescriptionProvider) {
 			/* __GDPR__
@@ -759,7 +759,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		this.generatingCancellationToken = new vscode.CancellationTokenSource();
 
 
-		const result = await Promise.race([this.getTitleAndDescriptionFromProvider(this.generatingCancellationToken.token, message.args.useCopilot ? 'GitHub Copilot' : undefined),
+		const result = await Promise.race([this.getTitleAndDescriptionFromProvider(this.generatingCancellationToken.token, message.args.useCopilot ? 'Copilot' : undefined),
 		new Promise<true>(resolve => this.generatingCancellationToken?.token.onCancellationRequested(() => resolve(true)))]);
 
 		this.generatingCancellationToken = undefined;
