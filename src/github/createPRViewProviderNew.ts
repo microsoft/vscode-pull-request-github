@@ -306,10 +306,11 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			this._onDidChangeBaseBranch.fire(defaultBaseBranch);
 		}
 
-		const [defaultTitleAndDescription, mergeConfiguration, viewerPermission] = await Promise.all([
+		const [defaultTitleAndDescription, mergeConfiguration, viewerPermission, mergeQueueMethodForBranch] = await Promise.all([
 			this.getTitleAndDescription(this.defaultCompareBranch, defaultBaseBranch),
 			this.getMergeConfiguration(defaultBaseRemote.owner, defaultBaseRemote.repositoryName),
-			defaultOrigin.getViewerPermission()
+			defaultOrigin.getViewerPermission(),
+			this._folderRepositoryManager.mergeQueueMethodForBranch(defaultBaseBranch, defaultBaseRemote.owner, defaultBaseRemote.repositoryName)
 		]);
 
 		const defaultCreateOption = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'lastUsed' | 'create' | 'createDraft' | 'createAutoMerge'>(DEFAULT_CREATE_OPTION, 'lastUsed');
@@ -352,6 +353,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			defaultTitle: defaultTitleAndDescription.title,
 			defaultDescription: defaultTitleAndDescription.description,
 			defaultMergeMethod,
+			baseHasMergeQueue: !!mergeQueueMethodForBranch,
 			remoteCount: remotes.length,
 			allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
 			mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
@@ -438,7 +440,10 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			this._baseBranch = result.branch;
 			this._baseRemote = result.remote;
 			const compareBranch = await this._folderRepositoryManager.repository.getBranch(this._compareBranch);
-			const [mergeConfiguration, titleAndDescription] = await Promise.all([this.getMergeConfiguration(result.remote.owner, result.remote.repositoryName), this.getTitleAndDescription(compareBranch, this._baseBranch)]);
+			const [mergeConfiguration, titleAndDescription, mergeQueueMethodForBranch] = await Promise.all([
+				this.getMergeConfiguration(result.remote.owner, result.remote.repositoryName),
+				this.getTitleAndDescription(compareBranch, this._baseBranch),
+				this._folderRepositoryManager.mergeQueueMethodForBranch(this._baseBranch, this._baseRemote.owner, this._baseRemote.repositoryName)]);
 			let autoMergeDefault = false;
 			if (mergeConfiguration.viewerCanAutoMerge) {
 				const defaultCreateOption = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'lastUsed' | 'create' | 'createDraft' | 'createAutoMerge'>(DEFAULT_CREATE_OPTION, 'lastUsed');
@@ -452,6 +457,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				defaultBaseBranch: defaultBranch,
 				defaultMergeMethod: getDefaultMergeMethod(mergeConfiguration.mergeMethodsAvailability),
 				allowAutoMerge: mergeConfiguration.viewerCanAutoMerge,
+				baseHasMergeQueue: !!mergeQueueMethodForBranch,
 				mergeMethodsAvailability: mergeConfiguration.mergeMethodsAvailability,
 				autoMergeDefault,
 				defaultTitle: titleAndDescription.title,
@@ -794,11 +800,11 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		}
 	}
 
-	public async createFromCommand(isDraft: boolean, autoMerge: boolean, autoMergeMethod: MergeMethod | undefined) {
+	public async createFromCommand(isDraft: boolean, autoMerge: boolean, autoMergeMethod: MergeMethod | undefined, mergeWhenReady?: boolean) {
 		const params: Partial<CreateParamsNew> = {
 			isDraft,
 			autoMerge,
-			autoMergeMethod,
+			autoMergeMethod: mergeWhenReady ? 'merge' : autoMergeMethod,
 			creating: true
 		};
 		return this._postMessage({

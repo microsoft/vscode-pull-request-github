@@ -41,14 +41,16 @@ export function main() {
 				const ctx = useContext(PullRequestContextNew);
 				const [isBusy, setBusy] = useState(params.creating);
 				const [isGeneratingTitle, setGeneratingTitle] = useState(false);
-				function createMethodLabel(isDraft?: boolean, autoMerge?: boolean, autoMergeMethod?: MergeMethod): { value: CreateMethod, label: string } {
+				function createMethodLabel(isDraft?: boolean, autoMerge?: boolean, autoMergeMethod?: MergeMethod, baseHasMergeQueue?: boolean): { value: CreateMethod, label: string } {
 					let value: CreateMethod;
 					let label: string;
-					if (autoMerge && autoMergeMethod) {
+					if (autoMerge && baseHasMergeQueue) {
+						value = 'create-automerge-merge';
+						label = 'Merge When Ready';
+					} else if (autoMerge && autoMergeMethod) {
 						value = `create-automerge-${autoMergeMethod}` as CreateMethod;
 						const mergeMethodLabel = autoMergeMethod.charAt(0).toUpperCase() + autoMergeMethod.slice(1);
 						label = `Create + Auto-${mergeMethodLabel}`;
-
 					} else if (isDraft) {
 						value = 'create-draft';
 						label = 'Create Draft';
@@ -147,14 +149,18 @@ export function main() {
 						'github:createPrMenu': true,
 						'github:createPrMenuDraft': true
 					};
-					if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability && createParams.mergeMethodsAvailability['merge']) {
-						createMenuContexts['github:createPrMenuMerge'] = true;
-					}
-					if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability && createParams.mergeMethodsAvailability['squash']) {
-						createMenuContexts['github:createPrMenuSquash'] = true;
-					}
-					if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability && createParams.mergeMethodsAvailability['rebase']) {
-						createMenuContexts['github:createPrMenuRebase'] = true;
+					if (createParams.baseHasMergeQueue) {
+						createMenuContexts['github:createPrMenuMergeWhenReady'] = true;
+					} else {
+						if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability && createParams.mergeMethodsAvailability['merge']) {
+							createMenuContexts['github:createPrMenuMerge'] = true;
+						}
+						if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability && createParams.mergeMethodsAvailability['squash']) {
+							createMenuContexts['github:createPrMenuSquash'] = true;
+						}
+						if (createParams.allowAutoMerge && createParams.mergeMethodsAvailability && createParams.mergeMethodsAvailability['rebase']) {
+							createMenuContexts['github:createPrMenuRebase'] = true;
+						}
 					}
 					const stringified = JSON.stringify(createMenuContexts);
 					return stringified;
@@ -333,8 +339,8 @@ export function main() {
 
 						<ContextDropdown optionsContext={() => makeCreateMenuContext(params)}
 							defaultAction={onCreateButton}
-							defaultOptionLabel={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).label}
-							defaultOptionValue={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod).value}
+							defaultOptionLabel={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).label}
+							defaultOptionValue={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).value}
 							optionsTitle='Create with Option'
 							disabled={isBusy || isGeneratingTitle || !isCreateable || !ctx.initialized}
 						/>

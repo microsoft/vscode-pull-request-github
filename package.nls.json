@@ -217,6 +217,7 @@
 	"command.pr.createPrMenuCreate.title": "Create",
 	"command.pr.createPrMenuDraft.title": "Create Draft",
 	"command.pr.createPrMenuSquash.title": "Create + Auto-Squash",
+	"command.pr.createPrMenuMergeWhenReady.title": "Create + Merge When Ready",
 	"command.pr.createPrMenuMerge.title": "Create + Auto-Merge",
 	"command.pr.createPrMenuRebase.title": "Create + Auto-Rebase",
 	"command.pr.refreshComments.title": "Refresh Pull Request Comments",

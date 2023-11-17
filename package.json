@@ -1109,6 +1109,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.createPrMenuMergeWhenReady",
+				"title": "%command.pr.createPrMenuMergeWhenReady.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.createPrMenuMerge",
 				"title": "%command.pr.createPrMenuMerge.title%",
 				"category": "%command.pull.request.category%"
@@ -1731,6 +1736,10 @@
 				},
 				{
 					"command": "pr.createPrMenuDraft",
+					"when": "false"
+				},
+				{
+					"command": "pr.createPrMenuMergeWhenReady",
 					"when": "false"
 				},
 				{
@@ -2513,6 +2522,11 @@
 					"command": "pr.createPrMenuDraft",
 					"when": "webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuDraft",
 					"group": "0_create@1"
+				},
+				{
+					"command": "pr.createPrMenuMergeWhenReady",
+					"when": "webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuMergeWhenReady",
+					"group": "1_create@0"
 				},
 				{
 					"command": "pr.createPrMenuMerge",
