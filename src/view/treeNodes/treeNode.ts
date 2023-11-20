@@ -10,6 +10,7 @@ import { dispose } from '../../common/utils';
 export interface BaseTreeNode {
 	reveal(element: TreeNode, options?: { select?: boolean; focus?: boolean; expand?: boolean | number }): Thenable<void>;
 	refresh(treeNode?: TreeNode): void;
+	children: TreeNode[] | undefined;
 	view: vscode.TreeView<TreeNode>;
 }
 

@@ -17,7 +17,7 @@ import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { CreatePullRequestDataModel } from './createPullRequestDataModel';
 import { GitContentProvider, GitHubContentProvider } from './gitHubContentProvider';
 import { GitHubFileChangeNode } from './treeNodes/fileChangeNode';
-import { TreeNode } from './treeNodes/treeNode';
+import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 
 export function getGitChangeTypeFromApi(status: Status): GitChangeType {
 	switch (status) {
@@ -112,9 +112,9 @@ class GitCommitNode extends TreeNode {
 	}
 }
 
-abstract class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeNode> {
+abstract class CompareChangesTreeProvider implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
 	private _view: vscode.TreeView<TreeNode>;
-
+	private _children: TreeNode[] | undefined;
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
@@ -172,21 +172,26 @@ abstract class CompareChangesTreeProvider implements vscode.TreeDataProvider<Tre
 		}
 	}
 
-	protected abstract getGitHubChildren(element?: TreeNode);
+	protected abstract getGitHubChildren(element?: TreeNode): Promise<TreeNode[] | undefined>;
 
-	protected abstract getGitChildren(element?: TreeNode);
+	protected abstract getGitChildren(element?: TreeNode): Promise<TreeNode[] | undefined>;
+
+	get children(): TreeNode[] | undefined {
+		return this._children;
+	}
 
 	async getChildren(element?: TreeNode) {
 		try {
 			if (await this.model.getCompareHasUpstream()) {
-				return this.getGitHubChildren(element);
+				this._children = await this.getGitHubChildren(element);
 			} else {
-				return this.getGitChildren(element);
+				this._children = await this.getGitChildren(element);
 			}
 		} catch (e) {
 			Logger.error(`Comparing changes failed: ${e}`);
 			return [];
 		}
+		return this._children;
 	}
 
 	protected _isDisposed: boolean = false;
