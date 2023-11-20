@@ -211,7 +211,3 @@ button.split-right .icon {
 	position: absolute;
 	top: 6px; right: 4px;
 }
-
-button.split-right .icon svg path {
-	fill: var(--vscode-button-foreground);
-}
