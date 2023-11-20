@@ -25,6 +25,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 	private _pullRequestManagerMap: Map<FolderRepositoryManager, RepositoryChangesNode> = new Map();
 	private _view: vscode.TreeView<TreeNode>;
+	private _children: TreeNode[] | undefined;
 
 	public get view(): vscode.TreeView<TreeNode> {
 		return this._view;
@@ -163,15 +164,19 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		}
 	}
 
+	get children(): TreeNode[] | undefined {
+		return this._children;
+	}
+
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
 		if (!element) {
-			const result: TreeNode[] = [];
+			this._children = [];
 			if (this._pullRequestManagerMap.size >= 1) {
 				for (const item of this._pullRequestManagerMap.values()) {
-					result.push(item);
+					this._children.push(item);
 				}
 			}
-			return result;
+			return this._children;
 		} else {
 			return await element.getChildren();
 		}

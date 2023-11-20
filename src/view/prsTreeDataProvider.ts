@@ -34,6 +34,9 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	}
 	private _disposables: vscode.Disposable[];
 	private _children: WorkspaceFolderNode[] | CategoryTreeNode[];
+	get children() {
+		return this._children;
+	}
 	private _view: vscode.TreeView<TreeNode>;
 	private _reposManager: RepositoriesManager | undefined;
 	private _initialized: boolean = false;
