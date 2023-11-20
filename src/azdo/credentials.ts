@@ -2,6 +2,7 @@ import * as azdev from 'azure-devops-node-api';
 import { IRequestHandler } from 'azure-devops-node-api/interfaces/common/VsoBaseInterfaces';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 import * as vscode from 'vscode';
+import { AuthenticationOptions, AuthenticationScopes } from '../authentication/configuration';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { SETTINGS_NAMESPACE } from '../constants';
@@ -73,13 +74,11 @@ export class CredentialStore implements vscode.Disposable {
 	private async requestPersonalAccessToken(): Promise<string | undefined> {
 		// Based on https://github.com/microsoft/azure-repos-vscode/blob/6bc90f0853086623486d0e527e9fe5a577370e9b/src/team-extension.ts#L74
 
-		Logger.debug(`Manual personal access token option chosen.`, CREDENTIALS_COMPONENT_ID);
-		const token = await vscode.window.showInputBox({
-			value: '',
-			prompt: 'Please provide PAT',
-			placeHolder: '',
-			password: true,
-		});
+		const session = await vscode.authentication.getSession('microsoft', AuthenticationScopes, AuthenticationOptions);
+		const token = session.accessToken;
+
+		vscode.window.showInformationMessage('Successfully authorized extension in DevOps');
+
 		if (token) {
 			this._telemetry.sendTelemetryEvent('auth.manual');
 		}

@@ -5,6 +5,12 @@ export interface IHostConfiguration {
 	token: string | undefined;
 }
 
+export const AuthenticationScopes = ['499b84ac-1321-427f-aa17-267ca6975798/.default', 'offline_access'];
+
+export const AuthenticationOptions: vscode.AuthenticationGetSessionOptions = {
+	createIfNone: true,
+};
+
 let USE_TEST_SERVER = false;
 
 export const HostHelper = class {
