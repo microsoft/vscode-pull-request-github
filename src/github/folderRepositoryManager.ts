@@ -1183,17 +1183,19 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	async getPullRequestTemplatesWithCache(): Promise<vscode.Uri[]> {
+		const cacheLocation = `${CACHED_TEMPLATE_URI}+${this.repository.rootUri.toString()}`;
+
 		const findTemplate = this.getPullRequestTemplates().then((templates) => {
 			//update cache
 			if (templates.length > 0) {
-				this.context.workspaceState.update(CACHED_TEMPLATE_URI, templates[0].toString());
+				this.context.workspaceState.update(cacheLocation, templates[0].toString());
 			} else {
-				this.context.workspaceState.update(CACHED_TEMPLATE_URI, null);
+				this.context.workspaceState.update(cacheLocation, null);
 			}
 			return templates;
 		});
-		const hasCachedTemplate = this.context.workspaceState.keys().includes(CACHED_TEMPLATE_URI);
-		const cachedTemplateLocation = this.context.workspaceState.get<string | null>(CACHED_TEMPLATE_URI);
+		const hasCachedTemplate = this.context.workspaceState.keys().includes(cacheLocation);
+		const cachedTemplateLocation = this.context.workspaceState.get<string | null>(cacheLocation);
 		if (hasCachedTemplate) {
 			if (cachedTemplateLocation === null) {
 				return [];
