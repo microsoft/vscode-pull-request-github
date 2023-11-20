@@ -335,7 +335,7 @@ export class ReviewCommentController
 		);
 	}
 
-	private visibleEditorsEqual(a: vscode.TextEditor[], b: vscode.TextEditor[]): boolean {
+	private visibleEditorsEqual(a: vscode.TextEditor[], b: readonly vscode.TextEditor[]): boolean {
 		a = a.filter(ed => ed.document.uri.scheme !== 'comment');
 		b = b.filter(ed => ed.document.uri.scheme !== 'comment');
 

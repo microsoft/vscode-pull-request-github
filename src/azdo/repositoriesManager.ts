@@ -177,7 +177,7 @@ export class RepositoriesManager implements vscode.Disposable {
 
 	async authenticate(): Promise<boolean> {
 		// return !!(await this._credentialStore.login());
-		await this._credentialStore.initialize();
+		await this._credentialStore.reset();
 		if (this._credentialStore.getHub() !== undefined) {
 			return true;
 		}

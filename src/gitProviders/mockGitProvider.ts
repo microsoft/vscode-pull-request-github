@@ -6,14 +6,16 @@
 import * as vscode from 'vscode';
 import { APIState, GitAPI, GitExtension, PublishEvent } from '../@types/git';
 import { IGit, Repository } from '../api/api';
+import { MockRepository } from './mockRepository';
 
-export class BuiltinGitProvider implements IGit, vscode.Disposable {
+export class MockGitProvider implements IGit, vscode.Disposable {
+	private _mockRepository: MockRepository;
 	get repositories(): Repository[] {
-		return this._gitAPI.repositories as any[];
+		return [this._mockRepository];
 	}
 
 	get state(): APIState {
-		return this._gitAPI.state;
+		return 'initialized';
 	}
 
 	private _onDidOpenRepository = new vscode.EventEmitter<Repository>();
@@ -25,34 +27,14 @@ export class BuiltinGitProvider implements IGit, vscode.Disposable {
 	private _onDidPublish = new vscode.EventEmitter<PublishEvent>();
 	readonly onDidPublish: vscode.Event<PublishEvent> = this._onDidPublish.event;
 
-	private _gitAPI: GitAPI;
 	private _disposables: vscode.Disposable[];
 
-	private constructor(extension: vscode.Extension<GitExtension>) {
-		const gitExtension = extension.exports;
-		try {
-			this._gitAPI = gitExtension.getAPI(1);
-		} catch (e) {
-			// The git extension will throw if a git model cannot be found, i.e. if git is not installed.
-			vscode.window.showErrorMessage(
-				'Activating the AzDO Pull Requests extension failed. Please make sure you have git installed.',
-			);
-			throw e;
-		}
+	public constructor() {
 		this._disposables = [];
-		this._disposables.push(this._gitAPI.onDidCloseRepository(e => this._onDidCloseRepository.fire(e as any)));
-		this._disposables.push(this._gitAPI.onDidOpenRepository(e => this._onDidOpenRepository.fire(e as any)));
-		this._disposables.push(this._gitAPI.onDidChangeState(e => this._onDidChangeState.fire(e)));
-		this._disposables.push(this._gitAPI.onDidPublish(e => this._onDidPublish.fire(e)));
-	}
-
-	static async createProvider(): Promise<BuiltinGitProvider | undefined> {
-		const extension = vscode.extensions.getExtension<GitExtension>('vscode.git');
-		if (extension) {
-			await extension.activate();
-			return new BuiltinGitProvider(extension);
-		}
-		return undefined;
+		this._mockRepository = new MockRepository();
+		this._mockRepository.addRemote('origin', 'https://anksinha@dev.azure.com/anksinha/test/_git/test');
+		this._onDidCloseRepository.fire(this._mockRepository);
+		this._onDidOpenRepository.fire(this._mockRepository);
 	}
 
 	dispose() {

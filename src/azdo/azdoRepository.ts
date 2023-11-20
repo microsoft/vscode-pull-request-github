@@ -1,4 +1,9 @@
-import { GitPullRequestSearchCriteria, GitRepository, PullRequestStatus } from 'azure-devops-node-api/interfaces/GitInterfaces';
+import {
+	GitPullRequest,
+	GitPullRequestSearchCriteria,
+	GitRepository,
+	PullRequestStatus,
+} from 'azure-devops-node-api/interfaces/GitInterfaces';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 import * as vscode from 'vscode';
 import Logger from '../common/logger';
@@ -146,6 +151,19 @@ export class AzdoRepository implements vscode.Disposable {
 
 	async getPullRequestForBranch(branch: string): Promise<PullRequestModel[]> {
 		return await this.getPullRequests({ sourceRefName: branch });
+	}
+
+	async createPullRequest(pullRequest: GitPullRequest): Promise<PullRequestModel> {
+		Logger.debug(`Creating pull request`, AzdoRepository.ID);
+		try {
+			const metadata = await this.getMetadata();
+			const gitApi = await this._hub?.connection?.getGitApi();
+			const pullRequestModel = await gitApi?.createPullRequest(pullRequest, metadata?.id);
+			Logger.debug(`Created pull request`, AzdoRepository.ID);
+			return new PullRequestModel(this._telemetry, this, this.remote, pullRequestModel);
+		} catch (e) {
+			Logger.appendLine(`AzdoRepository> Creating pull request failed: ${e}`);
+		}
 	}
 
 	async getPullRequests(search: GitPullRequestSearchCriteria): Promise<PullRequestModel[]> {

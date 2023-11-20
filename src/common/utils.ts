@@ -8,7 +8,7 @@ import { sep } from 'path';
 import moment from 'moment';
 import { Disposable, Event } from 'vscode';
 
-export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
+export function uniqBy<T>(arr: (T[] | readonly T[]), fn: (el: T) => string): T[] {
 	const seen = Object.create(null);
 
 	return arr.filter(el => {

@@ -354,3 +354,4 @@ preview-src
 .eslintcache
 .eslintcache.browser
 *.tsbuildinfo
+.vscode-test-web

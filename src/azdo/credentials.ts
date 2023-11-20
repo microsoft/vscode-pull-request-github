@@ -2,7 +2,6 @@ import * as azdev from 'azure-devops-node-api';
 import { IRequestHandler } from 'azure-devops-node-api/interfaces/common/VsoBaseInterfaces';
 import { Identity } from 'azure-devops-node-api/interfaces/IdentitiesInterfaces';
 import * as vscode from 'vscode';
-import { AuthenticationOptions, AuthenticationScopes } from '../authentication/configuration';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { SETTINGS_NAMESPACE } from '../constants';
@@ -10,6 +9,9 @@ import { SETTINGS_NAMESPACE } from '../constants';
 const CREDENTIALS_COMPONENT_ID = 'azdo_component';
 const PROJECT_SETTINGS = 'projectName';
 const ORGURL_SETTINGS = 'orgUrl';
+const TRY_AGAIN = vscode.l10n.t('Try again?');
+const CANCEL = vscode.l10n.t('Cancel');
+const ERROR = vscode.l10n.t('Error signing in to Azure DevOps');
 
 export class Azdo {
 	private _authHandler: IRequestHandler;
@@ -17,7 +19,8 @@ export class Azdo {
 	public authenticatedUser: Identity | undefined;
 
 	constructor(public orgUrl: string, public projectName: string, token: string) {
-		this._authHandler = azdev.getPersonalAccessTokenHandler(token, true);
+		this._authHandler = azdev.getBearerHandler(token, true);
+		// this._authHandler = azdev.getPersonalAccessTokenHandler(token, true);
 		this.connection = this.getNewWebApiClient(this.orgUrl);
 	}
 
@@ -33,22 +36,15 @@ export class CredentialStore implements vscode.Disposable {
 	private _disposables: vscode.Disposable[];
 	private _onDidInitialize: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidInitialize: vscode.Event<void> = this._onDidInitialize.event;
-
-	private static PAT_TOKEN_KEY = 'azdoRepo.pat.';
+	private _sessionId: string | undefined;
+	private _sessionOptions: vscode.AuthenticationGetSessionOptions = { createIfNone: true };
 
 	constructor(private readonly _telemetry: ITelemetry, private readonly _secretStore: vscode.SecretStorage) {
 		this._disposables = [];
-		// this._disposables.push(vscode.authentication.onDidChangeSessions(() => {
-		// 	if (!this.isAuthenticated()) {
-		// 		return this.initialize();
-		// 	}
-		// }));
-
 		this._disposables.push(
-			_secretStore.onDidChange(e => {
-				const tokenKey = this.getTokenKey();
-				if (e.key === tokenKey && !this.isAuthenticated()) {
-					return this.initialize();
+			vscode.authentication.onDidChangeSessions(async () => {
+				if (!this.isAuthenticated()) {
+					return await this.initialize();
 				}
 			}),
 		);
@@ -59,7 +55,9 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public async reset() {
-		this._azdoAPI = undefined;
+		this._sessionOptions.forceNewSession = true;
+		this._sessionOptions.createIfNone = false;
+		this._sessionOptions.clearSessionPreference = true;
 		await this.initialize();
 	}
 
@@ -71,35 +69,11 @@ export class CredentialStore implements vscode.Disposable {
 		return this._azdoAPI;
 	}
 
-	private async requestPersonalAccessToken(): Promise<string | undefined> {
-		// Based on https://github.com/microsoft/azure-repos-vscode/blob/6bc90f0853086623486d0e527e9fe5a577370e9b/src/team-extension.ts#L74
-
-		const session = await vscode.authentication.getSession('microsoft', AuthenticationScopes, AuthenticationOptions);
-		const token = session.accessToken;
-
-		vscode.window.showInformationMessage('Successfully authorized extension in DevOps');
-
-		if (token) {
-			this._telemetry.sendTelemetryEvent('auth.manual');
-		}
-		return token;
-	}
-
 	public async logout(): Promise<void> {
-		// if (this._sessionId) {
-		// 	vscode.authentication.logout('github', this._sessionId);
-		// }
-
-		await this._secretStore.delete(this.getTokenKey(this._orgUrl ?? ''));
 		this._azdoAPI = undefined;
-	}
-
-	public getTokenKey(orgUrl?: string): string {
-		let url = this._orgUrl ?? '';
-		if (!!orgUrl) {
-			url = orgUrl;
-		}
-		return CredentialStore.PAT_TOKEN_KEY.concat(url);
+		this._sessionOptions.forceNewSession = true;
+		this._sessionOptions.createIfNone = false;
+		this._sessionOptions.clearSessionPreference = true;
 	}
 
 	public async login(): Promise<Azdo | undefined> {
@@ -124,39 +98,69 @@ export class CredentialStore implements vscode.Disposable {
 		}
 		Logger.appendLine(`orgUrl is ${this._orgUrl}`, CredentialStore.ID);
 
-		const tokenKey = this.getTokenKey(this._orgUrl);
-		const token = await this.getToken(tokenKey);
+		let retry: boolean = true;
 
-		if (!token) {
-			Logger.appendLine('PAT token is not provided');
-			this._telemetry.sendTelemetryEvent('auth.failed');
-			return undefined;
-		}
+		while (retry) {
+			try
+			{
+				const session = await this.getSession(this._sessionOptions);
+				if (!session) {
+					Logger.appendLine('Auth> Unable to get session', CredentialStore.ID);
+					this._telemetry.sendTelemetryEvent('auth.failed');
+					return undefined;
+				}
+				this._sessionId = session.id;
+				const token = await this.getToken(session);
 
-		try {
-			const azdo = new Azdo(this._orgUrl, projectName, token);
-			azdo.authenticatedUser = (await azdo.connection.connect()).authenticatedUser;
+				if (!token) {
+					Logger.appendLine('Auth> Unable to get token', CredentialStore.ID);
+					this._telemetry.sendTelemetryEvent('auth.failed');
+					return undefined;
+				}
 
-			Logger.debug(`Auth> Successful: Logged userid: ${azdo?.authenticatedUser?.id}`, CredentialStore.ID);
-			this._telemetry.sendTelemetryEvent('auth.success');
+				const azdo = new Azdo(this._orgUrl, projectName, token);
+				azdo.authenticatedUser = (await azdo.connection.connect()).authenticatedUser;
 
-			return azdo;
-		} catch (e) {
-			await this._secretStore.delete(tokenKey);
-			vscode.window.showErrorMessage('Unable to authenticate. Signout and try again.');
-			return undefined;
+				Logger.debug(`Auth> Successful: Logged userid: ${azdo?.authenticatedUser?.id}`, CredentialStore.ID);
+				this._telemetry.sendTelemetryEvent('auth.success');
+				this._sessionOptions.forceNewSession = false;
+				this._sessionOptions.createIfNone = true;
+				this._sessionOptions.clearSessionPreference = false;
+
+				return azdo;
+			} catch (e) {
+				Logger.appendLine(`Auth> Failed: ${e.message}`, CredentialStore.ID);
+				this._telemetry.sendTelemetryEvent('auth.failed');
+				if (e instanceof Error && e.stack) {
+					Logger.appendLine(e.stack);
+				}
+				if (e.message === 'User canceled authentication') {
+					return undefined;
+				}
+			}
+
+			retry = (await vscode.window.showErrorMessage(ERROR, TRY_AGAIN, CANCEL)) === TRY_AGAIN;
+			if (retry) {
+				this._sessionOptions.forceNewSession = true;
+				this._sessionOptions.createIfNone = false;
+				this._sessionOptions.clearSessionPreference = true;
+			}
 		}
 	}
 
-	private async getToken(tokenKey: string): Promise<string | undefined> {
-		let token = await this._secretStore.get(tokenKey);
-		if (!token) {
-			token = await this.requestPersonalAccessToken();
-			if (!!token) {
-				this._secretStore.store(tokenKey, token);
-			}
-		}
-		return token;
+	private async getSession(sessionOptions: vscode.AuthenticationGetSessionOptions): Promise<vscode.AuthenticationSession> {
+		return await vscode.authentication.getSession(
+			// Specifies the Microsoft Auth Provider
+			'microsoft',
+			// This GUID is the Azure DevOps GUID and you basically ask for a token that can be used to interact with AzDO. This is publicly documented all over
+			['499b84ac-1321-427f-aa17-267ca6975798/.default', 'offline_access'],
+			sessionOptions
+		);
+	}
+
+
+	private async getToken(session: vscode.AuthenticationSession): Promise<string | undefined> {
+		return session?.accessToken;
 	}
 
 	public getAuthenticatedUser(): Identity | undefined {

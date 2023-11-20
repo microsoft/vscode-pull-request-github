@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable, Event, Uri } from 'vscode';
-import { APIState } from '../@types/git';
+import { APIState, PublishEvent } from '../@types/git';
 
 export interface InputBox {
 	value: string;
@@ -223,6 +223,7 @@ export interface IGit {
 	readonly repositories: Repository[];
 	readonly onDidOpenRepository: Event<Repository>;
 	readonly onDidCloseRepository: Event<Repository>;
+	readonly onDidPublish?: Event<PublishEvent>;
 
 	// Used by the actual git extension to indicate it has finished initializing state information
 	readonly state?: APIState;

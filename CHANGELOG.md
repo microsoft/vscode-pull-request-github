@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.2.0
+- Fixed [#68](https://github.com/ankitbko/vscode-pull-request-azdo/issues/68) - Changed the authentication mechanism from PAT to OAuth using vscode provided authentication session. This will require users to re-authenticate.
+
 ## 0.0.25
 
 - Removed explicit check of azdo url to resolve [#55](https://github.com/ankitbko/vscode-pull-request-azdo/issues/55)

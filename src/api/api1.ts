@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { APIState } from '../@types/git';
+import { APIState, PublishEvent } from '../@types/git';
+import Logger from '../common/logger';
 import { TernarySearchTree } from '../common/utils';
 import { API, IGit, Repository } from './api';
 
@@ -83,21 +84,41 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 	readonly onDidCloseRepository: vscode.Event<Repository> = this._onDidCloseRepository.event;
 	private _onDidChangeState = new vscode.EventEmitter<APIState>();
 	readonly onDidChangeState: vscode.Event<APIState> = this._onDidChangeState.event;
+	private _onDidPublish = new vscode.EventEmitter<PublishEvent>();
+	readonly onDidPublish: vscode.Event<PublishEvent> = this._onDidPublish.event;
 
 	private _disposables: vscode.Disposable[];
 	constructor() {
 		this._disposables = [];
 	}
 
+	private _updateReposContext() {
+		const reposCount = Array.from(this._providers.values()).reduce((prev, current) => {
+			return prev + current.repositories.length;
+		}, 0);
+		vscode.commands.executeCommand('setContext', 'azdoOpenRepositoryCount', reposCount);
+	}
+
 	registerGitProvider(provider: IGit): vscode.Disposable {
+		Logger.appendLine(`Registering git provider`);
 		const handler = this._nextHandle();
 		this._providers.set(handler, provider);
 
 		this._disposables.push(provider.onDidCloseRepository(e => this._onDidCloseRepository.fire(e)));
-		this._disposables.push(provider.onDidOpenRepository(e => this._onDidOpenRepository.fire(e)));
+		this._disposables.push(
+			provider.onDidOpenRepository(e => {
+				Logger.appendLine(`Repository ${e.rootUri} has been opened`);
+				this._updateReposContext();
+				this._onDidOpenRepository.fire(e);
+			}),
+		);
 		if (provider.onDidChangeState) {
 			this._disposables.push(provider.onDidChangeState(e => this._onDidChangeState.fire(e)));
 		}
+		if (provider.onDidPublish) {
+			this._disposables.push(provider.onDidPublish(e => this._onDidPublish.fire(e)));
+		}
+		this._updateReposContext();
 
 		provider.repositories.forEach(repository => {
 			this._onDidOpenRepository.fire(repository);

@@ -12,10 +12,10 @@
 	},
 	"enableProposedApi": false,
 	"preview": true,
-	"version": "0.0.25",
+	"version": "0.2.0",
 	"publisher": "ankitbko",
 	"engines": {
-		"vscode": "^1.53.0"
+		"vscode": "^1.79.0"
 	},
 	"categories": [
 		"Other"
@@ -29,7 +29,8 @@
 	"capabilities": {
 		"untrustedWorkspaces": {
 			"supported": true
-		}
+		},
+		"virtualWorkspaces": true
 	},
 	"contributes": {
 		"configuration": {
@@ -732,6 +733,8 @@
 	"scripts": {
 		"postinstall": "yarn update-dts",
 		"vscode:prepublish": "yarn run bundle",
+		"browsertest:preprocess": "yarn run compile && tsc ./src/test/browser/runTests.ts --outDir ./dist/browser/test --rootDir ./src/test/browser --target es6 --module commonjs",
+		"browsertest": "yarn run browsertest:preprocess && node ./dist/browser/test/runTests.js",
 		"bundle": "webpack --mode production --env esbuild",
 		"bundle:node": "webpack --mode production --config-name extension:node --config-name webviews",
 		"bundle:web": "webpack --mode production --config-name extension:webworker --config-name webviews",
@@ -763,12 +766,17 @@
 		"@types/sinon": "7.0.11",
 		"@types/temp": "0.8.34",
 		"@types/uuid": "^8.3.0",
+		"@types/vscode": "1.79.0",
+		"@types/webpack-env": "^1.16.0",
 		"@typescript-eslint/eslint-plugin": "4.18.0",
 		"@typescript-eslint/parser": "4.18.0",
+		"@vscode/test-electron": "^1.6.1",
+		"@vscode/test-web": "^0.0.8",
 		"assert": "2.0.0",
 		"browserify-zlib": "0.2.0",
-		"buffer": "6.0.3",
+		"buffer": "^6.0.3",
 		"chai": "^4.2.0",
+		"constants-browserify": "^1.0.0",
 		"crypto-browserify": "3.12.0",
 		"css-loader": "5.1.3",
 		"dotenv": "^8.2.0",
@@ -779,7 +787,7 @@
 		"eslint-plugin-import": "2.22.1",
 		"fork-ts-checker-webpack-plugin": "6.1.1",
 		"glob": "7.1.6",
-		"https-browserify": "1.0.0",
+		"https-browserify": "^1.0.0",
 		"jsdom": "16.4.0",
 		"jsdom-global": "3.0.2",
 		"json5": "2.2.0",
@@ -791,13 +799,14 @@
 		"mocha-multi-reporters": "1.1.7",
 		"path-browserify": "1.0.1",
 		"prettier": "2.2.1",
+		"process": "^0.11.10",
 		"raw-loader": "4.0.2",
 		"react-testing-library": "7.0.1",
 		"remark-gfm": "^1.0.0",
 		"sinon": "9.0.0",
 		"source-map-support": "0.5.19",
 		"stream-browserify": "^3.0.0",
-		"stream-http": "3.1.1",
+		"stream-http": "^3.2.0",
 		"style-loader": "2.0.0",
 		"svg-inline-loader": "^0.8.2",
 		"temp": "0.9.4",
@@ -807,6 +816,7 @@
 		"tty": "1.0.1",
 		"ttypescript": "^1.5.12",
 		"typescript": "4.2.3",
+		"url": "^0.11.0",
 		"util": "0.12.3",
 		"vsce": "1.87.0",
 		"vscode-test": "^1.5.1",
@@ -831,6 +841,7 @@
 		"moment": "^2.22.1",
 		"node-emoji": "^1.8.1",
 		"node-fetch": "3.0.0-beta.9",
+		"os-browserify": "^0.3.0",
 		"query-string": "^6.2.0",
 		"react": "^16.12.0",
 		"react-dom": "^16.12.0",

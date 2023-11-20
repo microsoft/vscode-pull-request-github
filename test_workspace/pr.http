@@ -42,3 +42,11 @@ Authorization: Basic {{user}} {{$dotenv pat}}
 ###
 OPTIONS https://vsaex.dev.azure.com/anksinha/_apis/MemberEntitlementManagement
 Authorization: Basic {{user}} {{$dotenv pat}}
+
+###
+GET https://dev.azure.com/anksinha/_apis/projects/{{projectName}}/teams?$mine=True&api-version=6.1-preview.3
+Authorization: Basic {{user}} {{$dotenv pat}}
+
+###
+GET https://dev.azure.com/anksinha/_apis/git/repositories/{{reposiory}}/pullrequests?searchCriteria.reviewerId=63f938a9-93f3-4991-aef2-11b73f5ceda4&api-version=6.1-preview.1
+Authorization: Basic {{user}} {{$dotenv pat}}

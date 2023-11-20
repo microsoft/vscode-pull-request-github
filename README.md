@@ -28,22 +28,12 @@ It's easy to get started with Azure Devops Pull Requests for Visual Studio Code.
 1. Reload VS Code after the installation (click the reload button next to the extension).
 1. Open your desired Azure Devops repository.
 1. You will need to configure the `azdoPullRequests.projectName` and `azdoPullRequests.orgUrl` setting. You can configure it in workspace settings and commit it so others in your team wouldn't need to do this configuration again. (Look at the next section to understand the format of these settings).
-1. You will need to configure [PAT token in Azure Devops](https://docs.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate?view=azure-devops&tabs=preview-page) to login. Click on _show all scopes_ and select the following scopes for the token - `Code: Read & Write`, `Pull Request Threads: Read & Write`, `Work Items: Read & Write`, `Member Entitlement Management: Read`. Read more about these scope in next section.
-1. A new tab would have appeared on the activity bar on the left. Open it and click on `Sign in` button. Enter the PAT token and press enter.
+1. Signin to VS Code using same Microsoft account that you use to signin to Azure Devops. Authentication will work automatically. **PAT token is no longer required**.
 1. You should be good to go!
 
 ## Features
 
 Learn all about different features of the extension in the [wiki](https://github.com/ankitbko/vscode-pull-request-azdo/wiki).
-
-### Scopes required by PAT Token
-
-- **Minimum**: These scopes are required for extension to access Pull Requests and Threads. Without these scopes the extension will not even start.
-  - `Code: Read & Write`: Required to access repository metadata and pull requests.
-  - `Pull Request Threads: Read & Write`: Access Pull Request comment threads.
-- **Additional**: These scopes are required to experience the extension in its completeness. Without these some functionality of extension may not work or the extension may cause errors.
-  - `Work Items: Read & Write`: Allow to read and associate work items to a PR.
-  - `Member Entitlement Management: Read`: Used to search for users when adding reviewers to PR.
 
 ## Configuring the extension
 
