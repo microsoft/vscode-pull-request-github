@@ -36,7 +36,7 @@ import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, reviewersQuickPick } from './quickPicks';
-import { ISSUE_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
+import { getIssueNumberLabelFromParsed, ISSUE_EXPRESSION, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
 
 const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
 
@@ -715,24 +715,53 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		});
 	}
 
+	private async findIssueContext(commits: string[]): Promise<{ content: string, reference: string }[] | undefined> {
+		const issues: Promise<{ content: string, reference: string } | undefined>[] = [];
+		for (const commit of commits) {
+			const tryParse = parseIssueExpressionOutput(commit.match(ISSUE_OR_URL_EXPRESSION));
+			if (tryParse) {
+				const owner = tryParse.owner ?? this._baseRemote.owner;
+				const name = tryParse.name ?? this._baseRemote.repositoryName;
+				issues.push(new Promise(resolve => {
+					this._folderRepositoryManager.resolveIssue(owner, name, tryParse.issueNumber).then(issue => {
+						if (issue) {
+							resolve({ content: `${issue.title}\n${issue.body}`, reference: getIssueNumberLabelFromParsed(tryParse) });
+						} else {
+							resolve(undefined);
+						}
+					});
+
+				}));
+			}
+		}
+		if (issues.length) {
+			return (await Promise.all(issues)).filter(issue => !!issue) as { content: string, reference: string }[];
+		}
+		return undefined;
+	}
+
 	private lastGeneratedTitleAndDescription: { title?: string, description?: string, providerTitle: string } | undefined;
 	private async getTitleAndDescriptionFromProvider(token: vscode.CancellationToken, searchTerm?: string) {
 		return CreatePullRequestViewProviderNew.withProgress(async () => {
 			try {
-				let commits: string[];
+				let commitMessages: string[];
 				let patches: string[];
 				if (await this.model.getCompareHasUpstream()) {
-					commits = (await this.model.gitHubCommits()).map(commit => commit.commit.message);
-					patches = (await this.model.gitHubFiles()).map(file => file.patch ?? '');
+					[commitMessages, patches] = await Promise.all([
+						this.model.gitHubCommits().then(rawCommits => rawCommits.map(commit => commit.commit.message)),
+						this.model.gitHubFiles().then(rawPatches => rawPatches.map(file => file.patch ?? ''))]);
 				} else {
-					commits = (await this.model.gitCommits()).map(commit => commit.message);
-					patches = await Promise.all((await this.model.gitFiles()).map(async (file) => {
-						return this._folderRepositoryManager.repository.diffBetween(this.model.baseBranch, this.model.getCompareBranch(), file.uri.fsPath);
-					}));
+					[commitMessages, patches] = await Promise.all([
+						this.model.gitCommits().then(rawCommits => rawCommits.map(commit => commit.message)),
+						Promise.all((await this.model.gitFiles()).map(async (file) => {
+							return this._folderRepositoryManager.repository.diffBetween(this.model.baseBranch, this.model.getCompareBranch(), file.uri.fsPath);
+						}))]);
 				}
 
+				const issues = await this.findIssueContext(commitMessages);
+
 				const provider = this._folderRepositoryManager.getTitleAndDescriptionProvider(searchTerm);
-				const result = await provider?.provider.provideTitleAndDescription(commits, patches, token);
+				const result = await provider?.provider.provideTitleAndDescription({ commitMessages, patches, issues }, token);
 
 				if (provider) {
 					this.lastGeneratedTitleAndDescription = { ...result, providerTitle: provider.title };
