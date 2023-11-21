@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.2.1
+- Fixed continuous popup for authentication.
+
 ## 0.2.0
 - Fixed [#68](https://github.com/ankitbko/vscode-pull-request-azdo/issues/68) - Changed the authentication mechanism from PAT to OAuth using vscode provided authentication session. This will require users to re-authenticate.
 

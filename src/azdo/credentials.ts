@@ -55,6 +55,13 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public async reset() {
+		this._sessionOptions.forceNewSession = false;
+		this._sessionOptions.createIfNone = false;
+		this._sessionOptions.clearSessionPreference = false;
+		await this.initialize();
+	}
+
+	public async forceAuthentication() {
 		this._sessionOptions.forceNewSession = true;
 		this._sessionOptions.createIfNone = false;
 		this._sessionOptions.clearSessionPreference = true;
@@ -71,9 +78,6 @@ export class CredentialStore implements vscode.Disposable {
 
 	public async logout(): Promise<void> {
 		this._azdoAPI = undefined;
-		this._sessionOptions.forceNewSession = true;
-		this._sessionOptions.createIfNone = false;
-		this._sessionOptions.clearSessionPreference = true;
 	}
 
 	public async login(): Promise<Azdo | undefined> {
@@ -157,7 +161,6 @@ export class CredentialStore implements vscode.Disposable {
 			sessionOptions
 		);
 	}
-
 
 	private async getToken(session: vscode.AuthenticationSession): Promise<string | undefined> {
 		return session?.accessToken;
