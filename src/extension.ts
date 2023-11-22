@@ -165,7 +165,7 @@ async function init(
 	git.onDidOpenRepository(repo => {
 		function addRepo() {
 			// Make sure we don't already have a folder manager for this repo.
-			const existing = reposManager.getManagerForFile(repo.rootUri);
+			const existing = reposManager.folderManagers.find(manager => manager.repository.rootUri.toString() === repo.rootUri.toString());
 			if (existing) {
 				Logger.appendLine(`Repo ${repo.rootUri} has already been setup.`);
 				return;
