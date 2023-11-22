@@ -1128,10 +1128,15 @@ export function isFileInRepo(repository: Repository, file: vscode.Uri): boolean 
 }
 
 export function getRepositoryForFile(gitAPI: GitApiImpl, file: vscode.Uri): Repository | undefined {
-	for (const repository of gitAPI.repositories) {
+	const foundRepos: Repository[] = [];
+	for (const repository of gitAPI.repositories.reverse()) {
 		if (isFileInRepo(repository, file)) {
-			return repository;
+			foundRepos.push(repository);
 		}
+	}
+	if (foundRepos.length > 0) {
+		foundRepos.sort((a, b) => b.rootUri.path.length - a.rootUri.path.length);
+		return foundRepos[0];
 	}
 	return undefined;
 }
