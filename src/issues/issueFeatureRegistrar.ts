@@ -614,12 +614,17 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	async createIssue() {
-		let uri = vscode.window.activeTextEditor?.document.uri;
+		const folderManager = await this.chooseRepo(vscode.l10n.t('Select the repo to create the issue in.'));
+		const uri = folderManager?.repository.rootUri;
 		if (!uri) {
-			uri = (await this.chooseRepo(vscode.l10n.t('Select the repo to create the issue in.')))?.repository.rootUri;
+			return;
 		}
-		if (uri) {
-			return this.makeNewIssueFile(uri);
+		const template = await this.chooseTemplate(folderManager);
+		this._newIssueCache.clear();
+		if (template) {
+			this.makeNewIssueFile(uri, template.title, template.body);
+		} else {
+			this.makeNewIssueFile(uri);
 		}
 	}
 
@@ -1077,6 +1082,52 @@ ${body ?? ''}\n
 
 		const choice = await vscode.window.showQuickPick(choices, { placeHolder: prompt });
 		return choice?.repo;
+	}
+
+	private async chooseTemplate(folderManager: FolderRepositoryManager):Promise<{ title: string | undefined, body: string | undefined } | undefined> {
+		if (!folderManager) {
+			return undefined;
+		}
+
+		interface IssueChoice extends vscode.QuickPickItem {
+			uri: vscode.Uri;
+		}
+		const templateUris = await folderManager.getIssueTemplates();
+		if (templateUris.length === 0) {
+			return undefined;
+		}
+
+		const choices: IssueChoice[] = templateUris.map(uri => {
+			return {
+				label: uri.path.split('/').pop() ?? uri.path,
+				uri: uri,
+			};
+		});
+		const selectedUriChoice = await vscode.window.showQuickPick(choices, {
+			placeHolder: vscode.l10n.t('Select a template for the new issue.'),
+		});
+		if (!selectedUriChoice) {
+			return undefined;
+		}
+
+		let text: string | undefined = undefined;
+		try {
+			const templateContent = await vscode.workspace.fs.readFile(selectedUriChoice.uri);
+			text = new TextDecoder('utf-8').decode(templateContent);
+		} catch (e) {
+			Logger.warn(`Reading issue template failed: ${e}`);
+			return undefined;
+		}
+
+		const template = this.getDataFromTemplate(text);
+
+		return template;
+	}
+
+	private getDataFromTemplate(template: string): { title: string | undefined, body: string | undefined } {
+		const title = template.match(/title:\s*(.*)/)?.[1];
+		const body = template.match(/---([\s\S]*)---([\s\S]*)/)?.[2];
+		return { title, body };
 	}
 
 	private async doCreateIssue(
