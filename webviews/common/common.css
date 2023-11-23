@@ -363,3 +363,7 @@ button.split-right .icon {
 	top: 6px;
 	right: 4px;
 }
+
+button.split-right .icon svg path {
+	fill: unset;
+}
