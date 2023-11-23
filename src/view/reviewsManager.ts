@@ -55,8 +55,8 @@ export class ReviewsManager {
 					}
 
 					this._prsTreeDataProvider.dispose();
-					this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry, this._context);
-					this._prsTreeDataProvider.initialize(this._reposManager, this._reviewManagers.map(manager => manager.reviewModel), this._credentialStore);
+					this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry, this._context, this._reposManager);
+					this._prsTreeDataProvider.initialize(this._reviewManagers.map(manager => manager.reviewModel), this._credentialStore);
 					this._disposables.push(this._prsTreeDataProvider);
 				}
 			}),

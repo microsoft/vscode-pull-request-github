@@ -51,7 +51,6 @@ export class ReviewManager {
 	public static ID = 'Review';
 	private _localToDispose: vscode.Disposable[] = [];
 	private _disposables: vscode.Disposable[];
-	private _activePrDisposables: vscode.Disposable[] = [];
 
 	private _reviewModel: ReviewModel = new ReviewModel();
 	private _lastCommitSha?: string;
@@ -189,7 +188,6 @@ export class ReviewManager {
 		this._disposables.push(this._folderRepoManager.onDidChangeActivePullRequest(_ => {
 			this.updateFocusedViewMode();
 			this.registerQuickDiff();
-			this.registerActivePrEvents();
 		}));
 
 		GitHubCreatePullRequestLinkProvider.registerProvider(this._disposables, this, this._folderRepoManager);
@@ -229,14 +227,6 @@ export class ReviewManager {
 		}
 	}
 
-	private registerActivePrEvents() {
-		dispose(this._activePrDisposables);
-		this._activePrDisposables = [];
-		if (!this._folderRepoManager.activePullRequest) {
-			return;
-		}
-		this._activePrDisposables.push(this._folderRepoManager.activePullRequest.onDidChangeComments(() => this._pullRequestsTree.refresh()));
-	}
 
 	get statusBarItem() {
 		if (!this._statusBarItem) {
@@ -1235,7 +1225,6 @@ export class ReviewManager {
 				this._statusBarItem.hide();
 			}
 
-			vscode.commands.executeCommand('pr.refreshList');
 			this._updateMessageShown = false;
 			this._reviewModel.clear();
 
@@ -1316,7 +1305,6 @@ export class ReviewManager {
 	dispose() {
 		this.clear(true);
 		dispose(this._disposables);
-		dispose(this._activePrDisposables);
 	}
 
 	static getReviewManagerForRepository(

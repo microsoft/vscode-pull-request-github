@@ -295,6 +295,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	set activePullRequest(pullRequest: PullRequestModel | undefined) {
+		if (pullRequest === this._activePullRequest) {
+			return;
+		}
 		const oldNumber = this._activePullRequest?.number;
 		if (this._activePullRequest) {
 			this._activePullRequest.isActive = false;

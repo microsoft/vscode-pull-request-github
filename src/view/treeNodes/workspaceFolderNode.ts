@@ -28,7 +28,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 	constructor(
 		parent: TreeNodeParent,
 		uri: vscode.Uri,
-		private folderManager: FolderRepositoryManager,
+		public readonly folderManager: FolderRepositoryManager,
 		private telemetry: ITelemetry,
 		private notificationProvider: NotificationProvider,
 		private context: vscode.ExtensionContext,
