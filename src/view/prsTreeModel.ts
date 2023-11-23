@@ -11,6 +11,7 @@ import { dispose } from '../common/utils';
 import { FolderRepositoryManager, ItemsResponseResult } from '../github/folderRepositoryManager';
 import { CheckState, PRType, PullRequestChecks, PullRequestReviewRequirement } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { RepositoriesManager } from '../github/repositoriesManager';
 
 export enum UnsatisfiedChecks {
 	None = 0,
@@ -27,18 +28,60 @@ interface PRStatusChange {
 
 export class PrsTreeModel implements vscode.Disposable {
 	private readonly _disposables: vscode.Disposable[] = [];
+	private _activePRDisposables: Map<FolderRepositoryManager, vscode.Disposable[]> = new Map();
 	private readonly _onDidChangePrStatus: vscode.EventEmitter<string[]> = new vscode.EventEmitter();
 	public readonly onDidChangePrStatus = this._onDidChangePrStatus.event;
+	private readonly _onDidChangeData: vscode.EventEmitter<FolderRepositoryManager | void> = new vscode.EventEmitter();
+	public readonly onDidChangeData = this._onDidChangeData.event;
 
 	// Key is identifier from createPRNodeUri
 	private readonly _queriedPullRequests: Map<string, PRStatusChange> = new Map();
 
-	constructor(private _telemetry: ITelemetry) {
+	private _cachedPRs: Map<FolderRepositoryManager, Map<string | PRType.LocalPullRequest | PRType.All, ItemsResponseResult<PullRequestModel>>> = new Map();
 
+	constructor(private _telemetry: ITelemetry, private readonly _reposManager: RepositoriesManager) {
+		const repoEvents = (manager: FolderRepositoryManager) => {
+			return [
+				manager.onDidChangeActivePullRequest(() => {
+					this.clearRepo(manager);
+					if (this._activePRDisposables.has(manager)) {
+						dispose(this._activePRDisposables.get(manager)!);
+						this._activePRDisposables.delete(manager);
+					}
+					if (manager.activePullRequest) {
+						this._activePRDisposables.set(manager, [
+							manager.activePullRequest.onDidChangeComments(() => {
+								this.clearRepo(manager);
+							})]);
+					}
+				})];
+		};
+
+		this._disposables.push(
+			...(this._reposManager.folderManagers.map(manager => {
+				return repoEvents(manager);
+			}).flat()),
+		);
+		this._disposables.push(this._reposManager.onDidChangeFolderRepositories((changed) => {
+			if (changed.added) {
+				this._disposables.push(...repoEvents(changed.added));
+				this._onDidChangeData.fire(changed.added);
+			}
+		}));
 	}
 
 	public cachedPRStatus(identifier: string): PRStatusChange | undefined {
 		return this._queriedPullRequests.get(identifier);
+	}
+
+	public clearCache() {
+		this._cachedPRs.clear();
+		this._onDidChangeData.fire();
+	}
+
+	public clearRepo(folderRepoManager: FolderRepositoryManager) {
+		this._cachedPRs.delete(folderRepoManager);
+		this._onDidChangeData.fire(folderRepoManager);
 	}
 
 	private async _getChecks(pullRequests: PullRequestModel[]) {
@@ -93,12 +136,27 @@ export class PrsTreeModel implements vscode.Disposable {
 		this._onDidChangePrStatus.fire(changedStatuses);
 	}
 
-	async getLocalPullRequests(folderRepoManager: FolderRepositoryManager) {
+	private getFolderCache(folderRepoManager: FolderRepositoryManager): Map<string | PRType.LocalPullRequest | PRType.All, ItemsResponseResult<PullRequestModel>> {
+		let cache = this._cachedPRs.get(folderRepoManager);
+		if (!cache) {
+			cache = new Map();
+			this._cachedPRs.set(folderRepoManager, cache);
+		}
+		return cache;
+	}
+
+	async getLocalPullRequests(folderRepoManager: FolderRepositoryManager, update?: boolean) {
+		const cache = this.getFolderCache(folderRepoManager);
+		if (!update && cache.has(PRType.LocalPullRequest)) {
+			return cache.get(PRType.LocalPullRequest)!;
+		}
+
 		const useReviewConfiguration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)
 			.get<{ merged: boolean, closed: boolean }>(USE_REVIEW_MODE, { merged: true, closed: false });
 
 		const prs = (await folderRepoManager.getLocalPullRequests())
 			.filter(pr => pr.isOpen || (pr.isClosed && useReviewConfiguration.closed) || (pr.isMerged && useReviewConfiguration.merged));
+		cache.set(PRType.LocalPullRequest, { hasMorePages: false, hasUnsearchedRepositories: false, items: prs });
 
 		/* __GDPR__
 			"pr.expand.local" : {}
@@ -106,15 +164,22 @@ export class PrsTreeModel implements vscode.Disposable {
 		this._telemetry.sendTelemetryEvent('pr.expand.local');
 		// Don't await this._getChecks. It fires an event that will be listened to.
 		this._getChecks(prs);
-		return prs;
+		return { hasMorePages: false, hasUnsearchedRepositories: false, items: prs };
 	}
 
-	async getPullRequestsForQuery(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, query: string): Promise<ItemsResponseResult<PullRequestModel>> {
+	async getPullRequestsForQuery(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, query: string, update?: boolean): Promise<ItemsResponseResult<PullRequestModel>> {
+		const cache = this.getFolderCache(folderRepoManager);
+		if (!update && cache.has(query)) {
+			return cache.get(query)!;
+		}
+
 		const prs = await folderRepoManager.getPullRequests(
 			PRType.Query,
 			{ fetchNextPage },
 			query,
 		);
+		cache.set(query, prs);
+
 		/* __GDPR__
 			"pr.expand.query" : {}
 		*/
@@ -124,11 +189,17 @@ export class PrsTreeModel implements vscode.Disposable {
 		return prs;
 	}
 
-	async getAllPullRequests(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean): Promise<ItemsResponseResult<PullRequestModel>> {
+	async getAllPullRequests(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, update?: boolean): Promise<ItemsResponseResult<PullRequestModel>> {
+		const cache = this.getFolderCache(folderRepoManager);
+		if (!update && cache.has(PRType.All) && !fetchNextPage) {
+			return cache.get(PRType.All)!;
+		}
+
 		const prs = await folderRepoManager.getPullRequests(
 			PRType.All,
 			{ fetchNextPage }
 		);
+		cache.set(PRType.All, prs);
 
 		/* __GDPR__
 			"pr.expand.all" : {}
@@ -141,6 +212,7 @@ export class PrsTreeModel implements vscode.Disposable {
 
 	dispose() {
 		dispose(this._disposables);
+		dispose(Array.from(this._activePRDisposables.values()).flat());
 	}
 
 }

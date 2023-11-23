@@ -312,7 +312,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		let needLogin = false;
 		if (this.type === PRType.LocalPullRequest) {
 			try {
-				this.prs = await this._prsTreeModel.getLocalPullRequests(this._folderRepoManager);
+				this.prs = (await this._prsTreeModel.getLocalPullRequests(this._folderRepoManager)).items;
 			} catch (e) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Fetching local pull requests failed: {0}', formatError(e)));
 				needLogin = e instanceof AuthenticationError;

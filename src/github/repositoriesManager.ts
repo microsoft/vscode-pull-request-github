@@ -31,12 +31,13 @@ export interface PullRequestDefaults {
 export class RepositoriesManager implements vscode.Disposable {
 	static ID = 'RepositoriesManager';
 
+	private _folderManagers: FolderRepositoryManager[] = [];
 	private _subs: Map<FolderRepositoryManager, vscode.Disposable[]>;
 
 	private _onDidChangeState = new vscode.EventEmitter<void>();
 	readonly onDidChangeState: vscode.Event<void> = this._onDidChangeState.event;
 
-	private _onDidChangeFolderRepositories = new vscode.EventEmitter<void>();
+	private _onDidChangeFolderRepositories = new vscode.EventEmitter<{ added?: FolderRepositoryManager }>();
 	readonly onDidChangeFolderRepositories = this._onDidChangeFolderRepositories.event;
 
 	private _onDidLoadAnyRepositories = new vscode.EventEmitter<void>();
@@ -45,17 +46,11 @@ export class RepositoriesManager implements vscode.Disposable {
 	private _state: ReposManagerState = ReposManagerState.Initializing;
 
 	constructor(
-		private _folderManagers: FolderRepositoryManager[],
 		private _credentialStore: CredentialStore,
 		private _telemetry: ITelemetry,
 	) {
 		this._subs = new Map();
 		vscode.commands.executeCommand('setContext', ReposManagerStateContext, this._state);
-
-		this.updateActiveReviewCount();
-		for (const folderManager of this._folderManagers) {
-			this.registerFolderListeners(folderManager);
-		}
 	}
 
 	private updateActiveReviewCount() {
@@ -99,13 +94,13 @@ export class RepositoriesManager implements vscode.Disposable {
 				this._folderManagers.push(folderManager);
 				this._folderManagers.push(...arrayEnd);
 				this.updateActiveReviewCount();
-				this._onDidChangeFolderRepositories.fire();
+				this._onDidChangeFolderRepositories.fire({ added: folderManager });
 				return;
 			}
 		}
 		this._folderManagers.push(folderManager);
 		this.updateActiveReviewCount();
-		this._onDidChangeFolderRepositories.fire();
+		this._onDidChangeFolderRepositories.fire({ added: folderManager });
 	}
 
 	removeRepo(repo: Repository) {
@@ -119,7 +114,7 @@ export class RepositoriesManager implements vscode.Disposable {
 			this._folderManagers.splice(existingFolderManagerIndex);
 			folderManager.dispose();
 			this.updateActiveReviewCount();
-			this._onDidChangeFolderRepositories.fire();
+			this._onDidChangeFolderRepositories.fire({});
 		}
 	}
 

@@ -36,6 +36,7 @@ describe('GitHub Pull Requests view', function () {
 	let telemetry: MockTelemetry;
 	let provider: PullRequestsTreeDataProvider;
 	let credentialStore: CredentialStore;
+	let reposManager: RepositoriesManager;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -44,7 +45,11 @@ describe('GitHub Pull Requests view', function () {
 		context = new MockExtensionContext();
 
 		telemetry = new MockTelemetry();
-		provider = new PullRequestsTreeDataProvider(telemetry, context);
+		reposManager = new RepositoriesManager(
+			credentialStore,
+			telemetry,
+		);
+		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager);
 		credentialStore = new CredentialStore(telemetry, context);
 
 		// For tree view unit tests, we don't test the authentication flow, so `showSignInNotification` returns
@@ -91,12 +96,8 @@ describe('GitHub Pull Requests view', function () {
 	it('has no children when repositories have not yet been initialized', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
-		const manager = new RepositoriesManager(
-			[new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore)],
-			credentialStore,
-			telemetry,
-		);
-		provider.initialize(manager, [], credentialStore);
+		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore));
+		provider.initialize([], credentialStore);
 
 		const rootNodes = await provider.getChildren();
 		assert.strictEqual(rootNodes.length, 0);
@@ -105,16 +106,10 @@ describe('GitHub Pull Requests view', function () {
 	it('opens the viewlet and displays the default categories', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
-
-		const manager = new RepositoriesManager(
-			[new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore)],
-			credentialStore,
-			telemetry,
-		);
-
+		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore));
 		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
-		await manager.folderManagers[0].updateRepositories();
-		provider.initialize(manager, [], credentialStore);
+		await reposManager.folderManagers[0].updateRepositories();
+		provider.initialize([], credentialStore);
 
 		const rootNodes = await provider.getChildren();
 
@@ -180,7 +175,7 @@ describe('GitHub Pull Requests view', function () {
 			await repository.createBranch('non-pr-branch', false);
 
 			const manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore);
-			const reposManager = new RepositoriesManager([manager], credentialStore, telemetry);
+			reposManager.insertFolderManager(manager);
 			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
 				assert.deepStrictEqual(r, remote);
 				assert.strictEqual(cs, credentialStore);
@@ -191,7 +186,7 @@ describe('GitHub Pull Requests view', function () {
 				return Promise.resolve(users.map(user => user.avatarUrl ? vscode.Uri.parse(user.avatarUrl) : undefined));
 			});
 			await manager.updateRepositories();
-			provider.initialize(reposManager, [], credentialStore);
+			provider.initialize([], credentialStore);
 			manager.activePullRequest = pullRequest1;
 
 			const rootNodes = await provider.getChildren();

@@ -186,7 +186,6 @@ async function init(
 				git
 			);
 			reviewsManager.addReviewManager(newReviewManager);
-			tree.refresh();
 		}
 		addRepo();
 		tree.notificationProvider.refreshOrLaunchPolling();
@@ -201,10 +200,9 @@ async function init(
 		reposManager.removeRepo(repo);
 		reviewsManager.removeReviewManager(repo);
 		tree.notificationProvider.refreshOrLaunchPolling();
-		tree.refresh();
 	});
 
-	tree.initialize(reposManager, reviewsManager.reviewManagers.map(manager => manager.reviewModel), credentialStore);
+	tree.initialize(reviewsManager.reviewManagers.map(manager => manager.reviewModel), credentialStore);
 
 	context.subscriptions.push(new PRNotificationDecorationProvider(tree.notificationProvider));
 
@@ -358,7 +356,10 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	context.subscriptions.push(apiImpl);
 
 	Logger.debug('Creating tree view.', 'Activation');
-	const prTree = new PullRequestsTreeDataProvider(telemetry, context);
+	const reposManager = new RepositoriesManager(credentialStore, telemetry);
+	context.subscriptions.push(reposManager);
+
+	const prTree = new PullRequestsTreeDataProvider(telemetry, context, reposManager);
 	context.subscriptions.push(prTree);
 	Logger.appendLine('Looking for git repository');
 	const repositories = apiImpl.repositories;
@@ -369,9 +370,10 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 		repository => new FolderRepositoryManager(folderManagerIndex++, context, repository, telemetry, apiImpl, credentialStore),
 	);
 	context.subscriptions.push(...folderManagers);
+	for (const folderManager of folderManagers) {
+		reposManager.insertFolderManager(folderManager);
+	}
 
-	const reposManager = new RepositoriesManager(folderManagers, credentialStore, telemetry);
-	context.subscriptions.push(reposManager);
 	const inMemPRFileSystemProvider = getInMemPRFileSystemProvider({ reposManager, gitAPI: apiImpl, credentialStore })!;
 	const readOnlyMessage = new vscode.MarkdownString(vscode.l10n.t('Cannot edit this pull request file. [Check out](command:pr.checkoutFromReadonlyFile) this pull request to edit.'));
 	readOnlyMessage.isTrusted = { enabledCommands: ['pr.checkoutFromReadonlyFile'] };
