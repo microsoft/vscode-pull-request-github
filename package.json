@@ -497,7 +497,7 @@
 						"%githubIssues.useBranchForIssues.prompt%"
 					],
 					"default": "on",
-					"description": "%githubIssues.useBranchForIssues.description%"
+					"markdownDescription": "%githubIssues.useBranchForIssues.markdownDescription%"
 				},
 				"githubIssues.issueCompletionFormatScm": {
 					"type": "string",
