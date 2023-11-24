@@ -95,7 +95,7 @@
 			"Do not translate what's inside of the '${..}'. It is an internal syntax for the extension"
 		]
 	},
-	"githubIssues.useBranchForIssues.description": {
+	"githubIssues.useBranchForIssues.markdownDescription": {
 		"message": "Determines whether a branch should be checked out when working on an issue. To configure the name of the branch, set `#githubIssues.issueBranchTitle#`.",
 		"comment": [
 			"{Locked='`#githubIssues.issueBranchTitle#`'}",
