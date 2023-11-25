@@ -1090,7 +1090,7 @@ ${body ?? ''}\n
 		}
 
 		interface IssueChoice extends vscode.QuickPickItem {
-			uri: vscode.Uri;
+			uri?: vscode.Uri;
 		}
 		const templateUris = await folderManager.getIssueTemplates();
 		if (templateUris.length === 0) {
@@ -1103,10 +1103,13 @@ ${body ?? ''}\n
 				uri: uri,
 			};
 		});
+		choices.push({
+			label: vscode.l10n.t('Blank issue'),
+		});
 		const selectedUriChoice = await vscode.window.showQuickPick(choices, {
 			placeHolder: vscode.l10n.t('Select a template for the new issue.'),
 		});
-		if (!selectedUriChoice) {
+		if (!selectedUriChoice?.uri) {
 			return undefined;
 		}
 
