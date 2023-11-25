@@ -1133,9 +1133,9 @@ ${body ?? ''}\n
 	}
 
 	private getDataFromTemplate(template: string): IssueTemplate {
-		const title = template.match(/title:\s*(.*)/)?.[1];
-		const name = template.match(/name:\s*(.*)/)?.[1];
-		const about = template.match(/about:\s*(.*)/)?.[1];
+		const title = template.match(/title:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');;
+		const name = template.match(/name:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');;
+		const about = template.match(/about:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');;
 		const body = template.match(/---([\s\S]*)---([\s\S]*)/)?.[2];
 		return { title, name, about, body };
 	}
