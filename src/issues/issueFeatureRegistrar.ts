@@ -47,6 +47,7 @@ import {
 	createGitHubLink,
 	createGithubPermalink,
 	getIssue,
+	IssueTemplate,
 	LinkContext,
 	NewIssue,
 	PERMALINK_COMPONENT,
@@ -1089,48 +1090,54 @@ ${body ?? ''}\n
 			return undefined;
 		}
 
-		interface IssueChoice extends vscode.QuickPickItem {
-			uri?: vscode.Uri;
-		}
 		const templateUris = await folderManager.getIssueTemplates();
 		if (templateUris.length === 0) {
 			return undefined;
 		}
 
-		const choices: IssueChoice[] = templateUris.map(uri => {
+		interface IssueChoice extends vscode.QuickPickItem {
+			template: IssueTemplate | undefined;
+		}
+		const templates = await Promise.all(
+			templateUris
+				.map(async uri => {
+					try {
+						const content = await vscode.workspace.fs.readFile(uri);
+						const text = new TextDecoder('utf-8').decode(content);
+						const template = this.getDataFromTemplate(text);
+
+						return template;
+					} catch (e) {
+						Logger.warn(`Reading issue template failed: ${e}`);
+						return undefined;
+					}
+				})
+			);
+		const choices: IssueChoice[] = templates.filter(template => !!template && !!template?.name).map(template => {
 			return {
-				label: uri.path.split('/').pop() ?? uri.path,
-				uri: uri,
+				label: template!.name!,
+				description: template!.about,
+				template: template,
 			};
 		});
 		choices.push({
 			label: vscode.l10n.t('Blank issue'),
+			template: undefined
 		});
-		const selectedUriChoice = await vscode.window.showQuickPick(choices, {
+
+		const selectedTemplate = await vscode.window.showQuickPick(choices, {
 			placeHolder: vscode.l10n.t('Select a template for the new issue.'),
 		});
-		if (!selectedUriChoice?.uri) {
-			return undefined;
-		}
 
-		let text: string | undefined = undefined;
-		try {
-			const templateContent = await vscode.workspace.fs.readFile(selectedUriChoice.uri);
-			text = new TextDecoder('utf-8').decode(templateContent);
-		} catch (e) {
-			Logger.warn(`Reading issue template failed: ${e}`);
-			return undefined;
-		}
-
-		const template = this.getDataFromTemplate(text);
-
-		return template;
+		return selectedTemplate?.template;
 	}
 
-	private getDataFromTemplate(template: string): { title: string | undefined, body: string | undefined } {
+	private getDataFromTemplate(template: string): IssueTemplate {
 		const title = template.match(/title:\s*(.*)/)?.[1];
+		const name = template.match(/name:\s*(.*)/)?.[1];
+		const about = template.match(/about:\s*(.*)/)?.[1];
 		const body = template.match(/---([\s\S]*)---([\s\S]*)/)?.[2];
-		return { title, body };
+		return { title, name, about, body };
 	}
 
 	private async doCreateIssue(
