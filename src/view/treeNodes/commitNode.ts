@@ -100,7 +100,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 		if (layout === 'tree') {
 			// tree view
-			const dirNode = new DirectoryTreeNode(this, '');
+			const dirNode = new DirectoryTreeNode(this, '', this.pullRequest);
 			fileChangeNodes.forEach(f => dirNode.addFile(f));
 			dirNode.finalize();
 			if (dirNode.label === '') {

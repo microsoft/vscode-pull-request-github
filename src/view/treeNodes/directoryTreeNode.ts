@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import type { PullRequestModel } from '../../github/pullRequestModel';
 import { GitFileChangeNode, InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
@@ -13,7 +14,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 	private pathToChild: Map<string, DirectoryTreeNode> = new Map();
 	public checkboxState?: { state: vscode.TreeItemCheckboxState, tooltip: string, accessibilityInformation: vscode.AccessibilityInformation };
 
-	constructor(public parent: TreeNodeParent, public label: string) {
+	constructor(public parent: TreeNodeParent, public label: string, public pullRequestModel: PullRequestModel) {
 		super();
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 	}
@@ -109,7 +110,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		let node = this.pathToChild.get(dir);
 		if (!node) {
-			node = new DirectoryTreeNode(this, dir);
+			node = new DirectoryTreeNode(this, dir, this.pullRequestModel);
 			this.pathToChild.set(dir, node);
 			this.children.push(node);
 		}

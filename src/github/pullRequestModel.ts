@@ -6,6 +6,7 @@
 import * as buffer from 'buffer';
 import * as path from 'path';
 import equals from 'fast-deep-equal';
+import gql from 'graphql-tag';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
@@ -1751,42 +1752,56 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	async markFileAsViewed(filePathOrSubpath: string, event: boolean): Promise<void> {
-		const { mutate, schema } = await this.githubRepository.ensure();
-		const fileName = filePathOrSubpath.startsWith(this.githubRepository.rootUri.path) ?
-			filePathOrSubpath.substring(this.githubRepository.rootUri.path.length + 1) : filePathOrSubpath;
-		await mutate<void>({
-			mutation: schema.MarkFileAsViewed,
-			variables: {
-				input: {
-					path: fileName,
-					pullRequestId: this.graphNodeId,
-				},
-			},
-		});
+	async markFilesAsViewed(filePathOrSubpaths: string[], event: boolean): Promise<void> {
+		const { mutate } = await this.githubRepository.ensure();
+		const pullRequestId = this.graphNodeId;
 
-		this.setFileViewedState(fileName, ViewedState.VIEWED, event);
+		const filenames = filePathOrSubpaths
+			.map((f) =>
+				f.startsWith(this.githubRepository.rootUri.path)
+					? f.substring(this.githubRepository.rootUri.path.length + 1)
+					: f
+			);
+
+		const mutation = gql`mutation BatchMarkFileAsViewedInline {
+			${filenames.map((path) =>
+				`${path.split('/').join('')}: markFileAsViewed(
+					input: {path: "${path}", pullRequestId: "${pullRequestId}"}
+				) { clientMutationId }
+				`
+			)}
+		}`;
+		await mutate<void>({ mutation });
+
+		filePathOrSubpaths.forEach(path => this.setFileViewedState(path, ViewedState.VIEWED, event));
 	}
 
-	async unmarkFileAsViewed(filePathOrSubpath: string, event: boolean): Promise<void> {
-		const { mutate, schema } = await this.githubRepository.ensure();
-		const fileName = filePathOrSubpath.startsWith(this.githubRepository.rootUri.path) ?
-			filePathOrSubpath.substring(this.githubRepository.rootUri.path.length + 1) : filePathOrSubpath;
-		await mutate<void>({
-			mutation: schema.UnmarkFileAsViewed,
-			variables: {
-				input: {
-					path: fileName,
-					pullRequestId: this.graphNodeId,
-				},
-			},
-		});
+	async unmarkFilesAsViewed(filePathOrSubpaths: string[], event: boolean): Promise<void> {
+		const { mutate } = await this.githubRepository.ensure();
+		const pullRequestId = this.graphNodeId;
 
-		this.setFileViewedState(fileName, ViewedState.UNVIEWED, event);
+		const filenames = filePathOrSubpaths
+			.map((f) =>
+				f.startsWith(this.githubRepository.rootUri.path)
+					? f.substring(this.githubRepository.rootUri.path.length + 1)
+					: f
+			);
+
+		const mutation = gql`mutation BatchUnmarkFileAsViewedInline {
+			${filenames.map((path) =>
+				`${path.split('/').join('')}: unmarkFileAsViewed(
+					input: {path: "${path}", pullRequestId: "${pullRequestId}"}
+				) { clientMutationId }
+				`
+			)}
+		}`;
+		await mutate<void>({ mutation });
+
+		filePathOrSubpaths.forEach(path => this.setFileViewedState(path, ViewedState.UNVIEWED, event));
 	}
 
 	async unmarkAllFilesAsViewed(): Promise<void[]> {
-		return Promise.all(Array.from(this.fileChanges.keys()).map(change => this.unmarkFileAsViewed(change, true)));
+		return Promise.all(Array.from(this.fileChanges.keys()).map(change => this.unmarkFilesAsViewed([change], true)));
 	}
 
 	private setFileViewedState(fileSubpath: string, viewedState: ViewedState, event: boolean) {
