@@ -5,7 +5,7 @@
 
 import React, { useContext } from 'react';
 import { gitHubLabelColor } from '../../src/common/utils';
-import { IMilestone, IProject, IProjectItem, reviewerId } from '../../src/github/interface';
+import { IMilestone, IProjectItem, reviewerId } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Label } from '../common/label';
