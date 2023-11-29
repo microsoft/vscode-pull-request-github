@@ -2,7 +2,7 @@ steps:
   - task: NodeTool@0
     displayName: Upgrade Node
     inputs:
-      versionSpec: '14.x'
+      versionSpec: '16.x'
 
   - script: yarn install --frozen-lockfile --check-files
     displayName: Install dependencies
