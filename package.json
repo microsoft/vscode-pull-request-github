@@ -682,7 +682,7 @@
 				"command": "pr.openChanges",
 				"title": "%command.pr.openChanges.title%",
 				"category": "%command.pull.request.category%",
-				"icon": "$(tasklist)"
+				"icon": "$(diff-multiple)"
 			},
 			{
 				"command": "pr.pickOnVscodeDev",
