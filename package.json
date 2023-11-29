@@ -2720,7 +2720,7 @@
 		"@types/webpack-env": "^1.16.0",
 		"@typescript-eslint/eslint-plugin": "6.10.0",
 		"@typescript-eslint/parser": "6.10.0",
-		"@vscode/test-electron": "^2.1.5",
+		"@vscode/test-electron": "^2.3.8",
 		"@vscode/test-web": "^0.0.29",
 		"assert": "^2.0.0",
 		"buffer": "^6.0.3",
