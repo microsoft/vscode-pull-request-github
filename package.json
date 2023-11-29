@@ -2002,12 +2002,27 @@
 				{
 					"command": "pr.pick",
 					"when": "view == pr:github && viewItem =~ /description:nonactive/",
-					"group": "inline"
+					"group": "inline@0"
 				},
 				{
 					"command": "pr.openChanges",
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description/ && config.multiDiffEditor.experimental.enabled",
-					"group": "inline"
+					"group": "inline@1"
+				},
+				{
+					"command": "pr.showDiffSinceLastReview",
+					"group": "inline@1",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:(active|nonactive):hasChangesSinceReview:showingAllChanges/"
+				},
+				{
+					"command": "pr.showDiffAll",
+					"group": "inline@1",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:(active|nonactive):hasChangesSinceReview:showingChangesSinceReview/"
+				},
+				{
+					"command": "pr.openDescriptionToTheSide",
+					"group": "inline@2",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description/"
 				},
 				{
 					"command": "pr.exit",
@@ -2042,21 +2057,6 @@
 				{
 					"command": "pr.copyCommitHash",
 					"when": "view == prStatus:github && viewItem =~ /commit/"
-				},
-				{
-					"command": "pr.openDescriptionToTheSide",
-					"group": "inline",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description/"
-				},
-				{
-					"command": "pr.showDiffSinceLastReview",
-					"group": "inline",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:(active|nonactive):hasChangesSinceReview:showingAllChanges/"
-				},
-				{
-					"command": "pr.showDiffAll",
-					"group": "inline",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:(active|nonactive):hasChangesSinceReview:showingChangesSinceReview/"
 				},
 				{
 					"command": "review.openFile",
