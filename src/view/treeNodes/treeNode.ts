@@ -64,8 +64,7 @@ export abstract class TreeNode implements vscode.Disposable {
 		return [];
 	}
 
-	updateFromCheckboxChanged(_newState: vscode.TreeItemCheckboxState, _performMutation = false): void { }
-
+	updateFromCheckboxChanged(_newState: vscode.TreeItemCheckboxState): void { }
 
 	dispose(): void {
 		if (this.childrenDisposables) {
