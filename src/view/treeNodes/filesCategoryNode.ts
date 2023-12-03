@@ -19,7 +19,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 	constructor(
 		public parent: TreeNodeParent,
 		private _reviewModel: ReviewModel,
-		private _pullRequestModel: PullRequestModel
+		_pullRequestModel: PullRequestModel
 	) {
 		super();
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
