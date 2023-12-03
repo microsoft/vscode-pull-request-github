@@ -179,12 +179,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	updateFromCheckboxChanged(newState: vscode.TreeItemCheckboxState) {
 		const viewed = newState === vscode.TreeItemCheckboxState.Checked ? ViewedState.VIEWED : ViewedState.UNVIEWED;
 		this.updateViewed(viewed);
-
-		if (newState === vscode.TreeItemCheckboxState.Checked) {
-			this.markFileAsViewed();
-		} else {
-			this.unmarkFileAsViewed();
-		}
 	}
 
 	updateShowOptions() {
