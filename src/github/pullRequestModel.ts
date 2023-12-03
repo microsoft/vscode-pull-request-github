@@ -1766,15 +1766,16 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			);
 
 		const mutationName = state === 'viewed'
-			? 'unmarkFileAsViewed'
-			: 'markFileAsViewed';
-
+			? 'markFileAsViewed'
+			: 'unmarkFileAsViewed';
 
 		// We only ever send 100 mutations at once. Any more than this and
 		// we risk a timeout from GitHub.
 		for (let i = 0; i < allFilenames.length; i += this.BATCH_SIZE) {
 			const batch = allFilenames.slice(i, i + this.BATCH_SIZE);
-			const mutation = gql`mutation BatchUnmarkFileAsViewedInline {
+			// See below for an example of what a mutation produced by this
+			// will look like
+			const mutation = gql`mutation Batch${mutationName}{
 				${batch.map((filename, i) =>
 					`alias${i}: ${mutationName}(
 						input: {path: "${filename}", pullRequestId: "${pullRequestId}"}
@@ -1784,6 +1785,19 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			}`;
 			await mutate<void>({ mutation });
 		}
+
+		// mutation BatchUnmarkFileAsViewedInline {
+		// 	alias0: unmarkFileAsViewed(
+		// 	  input: { path: "some_folder/subfolder/A.txt", pullRequestId: "PR_someid" }
+		// 	) {
+		// 	  clientMutationId
+		// 	}
+		// 	alias1: unmarkFileAsViewed(
+		// 	  input: { path: "some_folder/subfolder/B.txt", pullRequestId: "PR_someid" }
+		// 	) {
+		// 	  clientMutationId
+		// 	}
+		// }
 
 		filePathOrSubpaths.forEach(path => this.setFileViewedState(path, state === 'viewed' ? ViewedState.VIEWED : ViewedState.UNVIEWED, event));
 	}
