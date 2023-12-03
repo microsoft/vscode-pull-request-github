@@ -53,13 +53,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 			}),
 		);
 
-		this._disposables.push(this._view.onDidChangeCheckboxState(checkboxUpdates => {
-			checkboxUpdates.items.forEach(checkboxUpdate => {
-				const node = checkboxUpdate[0];
-				const newState = checkboxUpdate[1];
-				node.updateFromCheckboxChanged(newState, true);
-			});
-		}));
+		this._disposables.push(this._view.onDidChangeCheckboxState(TreeNode.processCheckboxUpdates));
 	}
 
 	refresh(treeNode?: TreeNode) {
