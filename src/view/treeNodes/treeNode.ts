@@ -92,8 +92,8 @@ export abstract class TreeNode implements vscode.Disposable {
 			prModel.markFilesAsViewed(filenames, true);
 		}
 		if (uncheckedNodes.length > 0) {
-			const prModel = checkedNodes[0].pullRequest;
-			const filenames = checkedNodes.map(n => n.fileName);
+			const prModel = uncheckedNodes[0].pullRequest;
+			const filenames = uncheckedNodes.map(n => n.fileName);
 			prModel.unmarkFilesAsViewed(filenames, true);
 		}
 	}
