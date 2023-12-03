@@ -63,7 +63,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 		let nodes: TreeNode[];
 		const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 
-		const dirNode = new DirectoryTreeNode(this, '', this._pullRequestModel);
+		const dirNode = new DirectoryTreeNode(this, '');
 		this._reviewModel.localFileChanges.forEach(f => dirNode.addFile(f));
 		dirNode.finalize();
 		if (dirNode.label === '') {
