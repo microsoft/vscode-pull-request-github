@@ -68,34 +68,34 @@ export abstract class TreeNode implements vscode.Disposable {
 	updateFromCheckboxChanged(_newState: vscode.TreeItemCheckboxState): void { }
 
 	static processCheckboxUpdates(checkboxUpdates: vscode.TreeCheckboxChangeEvent<TreeNode>) {
-			const checkedNodes: FileChangeNode[] = [];
-			const uncheckedNodes: FileChangeNode[] = [];
+		const checkedNodes: FileChangeNode[] = [];
+		const uncheckedNodes: FileChangeNode[] = [];
 
-			checkboxUpdates.items.forEach(checkboxUpdate => {
-				const node = checkboxUpdate[0];
-				const newState = checkboxUpdate[1];
+		checkboxUpdates.items.forEach(checkboxUpdate => {
+			const node = checkboxUpdate[0];
+			const newState = checkboxUpdate[1];
 
-				if (node instanceof FileChangeNode) {
-					if (newState == vscode.TreeItemCheckboxState.Checked) {
-						checkedNodes.push(node);
-					} else {
-						uncheckedNodes.push(node);
-					}
+			if (node instanceof FileChangeNode) {
+				if (newState == vscode.TreeItemCheckboxState.Checked) {
+					checkedNodes.push(node);
+				} else {
+					uncheckedNodes.push(node);
 				}
-
-				node.updateFromCheckboxChanged(newState);
-			});
-
-			if (checkedNodes.length > 0) {
-				const prModel = checkedNodes[0].pullRequest;
-				const filenames = checkedNodes.map(n => n.fileName);
-				prModel.markFilesAsViewed(filenames, true);
 			}
-			if (uncheckedNodes.length > 0) {
-				const prModel = checkedNodes[0].pullRequest;
-				const filenames = checkedNodes.map(n => n.fileName);
-				prModel.unmarkFilesAsViewed(filenames, true);
-			}
+
+			node.updateFromCheckboxChanged(newState);
+		});
+
+		if (checkedNodes.length > 0) {
+			const prModel = checkedNodes[0].pullRequest;
+			const filenames = checkedNodes.map(n => n.fileName);
+			prModel.markFilesAsViewed(filenames, true);
+		}
+		if (uncheckedNodes.length > 0) {
+			const prModel = checkedNodes[0].pullRequest;
+			const filenames = checkedNodes.map(n => n.fileName);
+			prModel.unmarkFilesAsViewed(filenames, true);
+		}
 	}
 
 	dispose(): void {
