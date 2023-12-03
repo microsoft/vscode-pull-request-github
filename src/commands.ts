@@ -1184,7 +1184,7 @@ ${contents}
 					treeNode.unmarkFileAsViewed(false);
 				} else if (treeNode) {
 					const manager = reposManager.getManagerForFile(treeNode);
-					await manager?.activePullRequest?.markFiles([treeNode.path], true, 'viewed');
+					await manager?.activePullRequest?.markFiles([treeNode.path], true, 'unviewed');
 					manager?.setFileViewedContext();
 				}
 			} catch (e) {
