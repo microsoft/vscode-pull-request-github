@@ -1163,7 +1163,7 @@ ${contents}
 						}
 					}
 					const manager = reposManager.getManagerForFile(treeNode);
-					await manager?.activePullRequest?.markFilesAsViewed([treeNode.path], true);
+					await manager?.activePullRequest?.markFiles([treeNode.path], true, 'viewed');
 					manager?.setFileViewedContext();
 				}
 			} catch (e) {
@@ -1184,7 +1184,7 @@ ${contents}
 					treeNode.unmarkFileAsViewed(false);
 				} else if (treeNode) {
 					const manager = reposManager.getManagerForFile(treeNode);
-					await manager?.activePullRequest?.unmarkFilesAsViewed([treeNode.path], true);
+					await manager?.activePullRequest?.markFiles([treeNode.path], true, 'viewed');
 					manager?.setFileViewedContext();
 				}
 			} catch (e) {
