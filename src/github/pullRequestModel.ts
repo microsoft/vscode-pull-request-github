@@ -1764,9 +1764,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			);
 
 		const mutation = gql`mutation BatchMarkFileAsViewedInline {
-			${filenames.map((path) =>
-				`${path.split('/').join('')}: markFileAsViewed(
-					input: {path: "${path}", pullRequestId: "${pullRequestId}"}
+			${filenames.map((filename) =>
+				`${filename.split(path.sep).join('')}: markFileAsViewed(
+					input: {path: "${filename}", pullRequestId: "${pullRequestId}"}
 				) { clientMutationId }
 				`
 			)}
@@ -1788,9 +1788,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			);
 
 		const mutation = gql`mutation BatchUnmarkFileAsViewedInline {
-			${filenames.map((path) =>
-				`${path.split('/').join('')}: unmarkFileAsViewed(
-					input: {path: "${path}", pullRequestId: "${pullRequestId}"}
+			${filenames.map((filename) =>
+				`${filename.split(path.sep).join('')}: unmarkFileAsViewed(
+					input: {path: "${filename}", pullRequestId: "${pullRequestId}"}
 				) { clientMutationId }
 				`
 			)}
