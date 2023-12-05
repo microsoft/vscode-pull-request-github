@@ -121,13 +121,35 @@ textarea:disabled {
 	display: flex;
 }
 
-.group-title .title-action:focus,
 .group-title .title-action:hover {
+	outline-style: none;
+	cursor: pointer;
 	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.group-title .title-action:focus {
+	outline-style: none;
+}
+
+.group-title .title-action:focus-visible {
+	outline-width: 1px;
+	outline-style: solid;
+	outline-offset: -1px;
+	outline-color: var(--vscode-focusBorder);
+	background: unset;
+}
+
+.group-title .title-action.disabled {
+	cursor: default;
+	background-color: unset;
 }
 
 .group-title .title-action svg {
 	padding: 2px;
+}
+
+.group-title .title-action.disabled svg path  {
+	fill: var(--vscode-disabledForeground);
 }
 
 .group-title .title-action {
