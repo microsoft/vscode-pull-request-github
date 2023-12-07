@@ -124,6 +124,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 	public contextValue: string;
 	public readonly id: string = '';
+	private _firstLoad: boolean = true;
 
 	constructor(
 		public parent: TreeNodeParent,
@@ -305,8 +306,16 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
-		super.getChildren();
+		await super.getChildren();
+		if (this._firstLoad) {
+			this._firstLoad = false;
+			this.doGetChildren().then(() => this.refresh(this));
+			return [];
+		}
+		return this.doGetChildren();
+	}
 
+	private async doGetChildren(): Promise<TreeNode[]> {
 		let hasMorePages = false;
 		let hasUnsearchedRepositories = false;
 		let needLogin = false;
