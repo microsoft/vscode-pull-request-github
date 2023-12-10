@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.78.0
+
+### Changes
+
+- Merge queues are now supported in the PR description and create view.
+
+   ![Merge queues in PR description](/documentation/changelog/0.78.0/merge-queue.png)
+
+- The new setting `"githubPullRequests.allowFetch": false` will prevent `fetch` from being run.
+- Projects are now cached for quicker assignment from the PR description.
+- Merge commit message uses the message configured in the GitHub repository settings.
+- Clicking on the filename of a comment in the PR description will open at the correct line.
+- The repository name is shown in the "Changes in PR" view when there are PRs from multiple repositories shown in the view.
+
+   ![Repository name in "Changes in PR" view](/documentation/changelog/0.78.0/repo-name-changes-view.png)
+
+### Fixes
+
+- Copy permalink uses wrong repository for submodules. https://github.com/microsoft/vscode-pull-request-github/issues/5181
+- Unable to select a repository when submodules are present. https://github.com/microsoft/vscode-pull-request-github/issues/3950.
+- "We couldn't find commit" when submodules exist. https://github.com/microsoft/vscode-pull-request-github/issues/1499
+- Uses PR template from the wrong repo in multi-root workspace. https://github.com/microsoft/vscode-pull-request-github/issues/5489
+- At high contrast mode "Create with option" arrow button is not visible. https://github.com/microsoft/vscode-pull-request-github/issues/5480
+- Remove PR from "Waiting For My Review" list after I review it. https://github.com/microsoft/vscode-pull-request-github/issues/5379
+
+**_Thank You_**
+
+* [@flpcury (Felipe Cury)](https://github.com/flpcury): Fix deprecation messages for createDraft and setAutoMerge [PR #5429](https://github.com/microsoft/vscode-pull-request-github/pull/5429)
+* [@gjsjohnmurray (John Murray)](https://github.com/gjsjohnmurray): Treat `githubIssues.useBranchForIssues` setting description as markdown (fix #5506) [PR #5508](https://github.com/microsoft/vscode-pull-request-github/pull/5508)
+* [@kurowski (Brandt Kurowski)](https://github.com/kurowski): add setting to never offer ignoring default branch pr [PR #5435](https://github.com/microsoft/vscode-pull-request-github/pull/5435)
+* [@ThomsonTan (Tom Tan)](https://github.com/ThomsonTan): Iterate the diffs in each active PR in order [PR #5437](https://github.com/microsoft/vscode-pull-request-github/pull/5437)
+
 ## 0.76.1
 
 ### Changes

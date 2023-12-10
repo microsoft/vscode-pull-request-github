@@ -46,7 +46,7 @@ export function main() {
 					let label: string;
 					if (autoMerge && baseHasMergeQueue) {
 						value = 'create-automerge-merge';
-						label = 'Merge When Ready';
+						label = 'Create + Merge When Ready';
 					} else if (autoMerge && autoMergeMethod) {
 						value = `create-automerge-${autoMergeMethod}` as CreateMethod;
 						const mergeMethodLabel = autoMergeMethod.charAt(0).toUpperCase() + autoMergeMethod.slice(1);
