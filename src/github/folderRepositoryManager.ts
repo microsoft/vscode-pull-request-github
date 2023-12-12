@@ -1185,6 +1185,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return max;
 	}
 
+	async getIssueTemplates(): Promise<vscode.Uri[]> {
+		const pattern = '{docs,.github}/ISSUE_TEMPLATE/*.md';
+		return vscode.workspace.findFiles(
+			new vscode.RelativePattern(this._repository.rootUri, pattern), null
+		);
+	}
+
 	async getPullRequestTemplatesWithCache(): Promise<vscode.Uri[]> {
 		const cacheLocation = `${CACHED_TEMPLATE_URI}+${this.repository.rootUri.toString()}`;
 

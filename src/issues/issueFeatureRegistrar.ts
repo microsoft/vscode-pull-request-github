@@ -47,6 +47,7 @@ import {
 	createGitHubLink,
 	createGithubPermalink,
 	getIssue,
+	IssueTemplate,
 	LinkContext,
 	NewIssue,
 	PERMALINK_COMPONENT,
@@ -615,11 +616,21 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 
 	async createIssue() {
 		let uri = vscode.window.activeTextEditor?.document.uri;
-		if (!uri) {
-			uri = (await this.chooseRepo(vscode.l10n.t('Select the repo to create the issue in.')))?.repository.rootUri;
+		let folderManager: FolderRepositoryManager | undefined = uri ? this.manager.getManagerForFile(uri) : undefined;
+		if (!folderManager) {
+			folderManager = await this.chooseRepo(vscode.l10n.t('Select the repo to create the issue in.'));
+			uri = folderManager?.repository.rootUri;
 		}
-		if (uri) {
-			return this.makeNewIssueFile(uri);
+		if (!folderManager || !uri) {
+			return;
+		}
+
+		const template = await this.chooseTemplate(folderManager);
+		this._newIssueCache.clear();
+		if (template) {
+			this.makeNewIssueFile(uri, template.title, template.body);
+		} else {
+			this.makeNewIssueFile(uri);
 		}
 	}
 
@@ -1077,6 +1088,57 @@ ${body ?? ''}\n
 
 		const choice = await vscode.window.showQuickPick(choices, { placeHolder: prompt });
 		return choice?.repo;
+	}
+
+	private async chooseTemplate(folderManager: FolderRepositoryManager): Promise<{ title: string | undefined, body: string | undefined } | undefined> {
+		const templateUris = await folderManager.getIssueTemplates();
+		if (templateUris.length === 0) {
+			return undefined;
+		}
+
+		interface IssueChoice extends vscode.QuickPickItem {
+			template: IssueTemplate | undefined;
+		}
+		const templates = await Promise.all(
+			templateUris
+				.map(async uri => {
+					try {
+						const content = await vscode.workspace.fs.readFile(uri);
+						const text = new TextDecoder('utf-8').decode(content);
+						const template = this.getDataFromTemplate(text);
+
+						return template;
+					} catch (e) {
+						Logger.warn(`Reading issue template failed: ${e}`);
+						return undefined;
+					}
+				})
+		);
+		const choices: IssueChoice[] = templates.filter(template => !!template && !!template?.name).map(template => {
+			return {
+				label: template!.name!,
+				description: template!.about,
+				template: template,
+			};
+		});
+		choices.push({
+			label: vscode.l10n.t('Blank issue'),
+			template: undefined
+		});
+
+		const selectedTemplate = await vscode.window.showQuickPick(choices, {
+			placeHolder: vscode.l10n.t('Select a template for the new issue.'),
+		});
+
+		return selectedTemplate?.template;
+	}
+
+	private getDataFromTemplate(template: string): IssueTemplate {
+		const title = template.match(/title:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');;
+		const name = template.match(/name:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');;
+		const about = template.match(/about:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');;
+		const body = template.match(/---([\s\S]*)---([\s\S]*)/)?.[2];
+		return { title, name, about, body };
 	}
 
 	private async doCreateIssue(

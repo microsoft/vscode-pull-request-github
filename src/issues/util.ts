@@ -302,6 +302,13 @@ export interface NewIssue {
 	range: vscode.Range | vscode.Selection;
 }
 
+export interface IssueTemplate {
+	name: string | undefined,
+	about: string | undefined,
+	title: string | undefined,
+	body: string | undefined
+}
+
 const HEAD = 'HEAD';
 const UPSTREAM = 1;
 const UPS = 2;
