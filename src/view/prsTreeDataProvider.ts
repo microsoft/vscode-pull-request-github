@@ -24,6 +24,7 @@ import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
 import { BaseTreeNode, EXPANDED_QUERIES_STATE, TreeNode } from './treeNodes/treeNode';
 import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
+import { TreeUtils } from './treeNodes/treeUtils';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
@@ -107,7 +108,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 			}),
 		);
 
-		this._disposables.push(this._view.onDidChangeCheckboxState(TreeNode.processCheckboxUpdates));
+		this._disposables.push(this._view.onDidChangeCheckboxState(TreeUtils.processCheckboxUpdates));
 
 		this._disposables.push(this._view.onDidExpandElement(expanded => {
 			this._updateExpandedQueries(expanded.element, true);

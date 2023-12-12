@@ -102,6 +102,8 @@ export interface FileViewedStateChangeEvent {
 
 export type FileViewedState = { [key: string]: ViewedState };
 
+const BATCH_SIZE = 100;
+
 export class PullRequestModel extends IssueModel<PullRequest> implements IPullRequestModel {
 	static ID = 'PullRequestModel';
 
@@ -1752,8 +1754,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	private readonly BATCH_SIZE = 100;
-
 	async markFiles(filePathOrSubpaths: string[], event: boolean, state: 'viewed' | 'unviewed'): Promise<void> {
 		const { mutate } = await this.githubRepository.ensure();
 		const pullRequestId = this.graphNodeId;
@@ -1771,17 +1771,17 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		// We only ever send 100 mutations at once. Any more than this and
 		// we risk a timeout from GitHub.
-		for (let i = 0; i < allFilenames.length; i += this.BATCH_SIZE) {
-			const batch = allFilenames.slice(i, i + this.BATCH_SIZE);
+		for (let i = 0; i < allFilenames.length; i += BATCH_SIZE) {
+			const batch = allFilenames.slice(i, i + BATCH_SIZE);
 			// See below for an example of what a mutation produced by this
 			// will look like
 			const mutation = gql`mutation Batch${mutationName}{
 				${batch.map((filename, i) =>
-					`alias${i}: ${mutationName}(
+				`alias${i}: ${mutationName}(
 						input: {path: "${filename}", pullRequestId: "${pullRequestId}"}
 					) { clientMutationId }
 					`
-				)}
+			)}
 			}`;
 			await mutate<void>({ mutation });
 		}
