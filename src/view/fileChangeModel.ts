@@ -85,7 +85,11 @@ export class GitFileChangeModel extends FileChangeModel {
 		this._filePath = filePath;
 		this._parentFilePath = parentFilePath;
 		if (preload) {
-			this.showBase();
+			try {
+				this.showBase();
+			} catch (e) {
+				Logger.warn(`Unable to preload file content for ${filePath.fsPath} at commit ${sha}`);
+			}
 		}
 	}
 
