@@ -244,8 +244,8 @@ export function main() {
 						</input>
 						{ctx.createParams.generateTitleAndDescriptionTitle ?
 							isGeneratingTitle ?
-								<button title='Cancel' className='title-action' onClick={ctx.cancelGenerateTitle} disabled={isBusy || !ctx.initialized}>{stopIcon}</button>
-								: <button title={ctx.createParams.generateTitleAndDescriptionTitle} className='title-action' onClick={() => generateTitle()} disabled={isBusy || !ctx.initialized}>{sparkleIcon}</button> : null}
+								<a title='Cancel' className={`title-action icon-button${isBusy || !ctx.initialized ? ' disabled' : ''}`} onClick={ctx.cancelGenerateTitle} tabIndex={0}>{stopIcon}</a>
+								: <a title={ctx.createParams.generateTitleAndDescriptionTitle} className={`title-action icon-button${isBusy || !ctx.initialized ? ' disabled' : ''}`} onClick={() => generateTitle()} tabIndex={0}>{sparkleIcon}</a> : null}
 						<div id='title-error' className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required</div>
 					</div>
 
