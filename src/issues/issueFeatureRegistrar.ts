@@ -615,11 +615,16 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	}
 
 	async createIssue() {
-		const folderManager = await this.chooseRepo(vscode.l10n.t('Select the repo to create the issue in.'));
-		const uri = folderManager?.repository.rootUri;
-		if (!uri) {
+		let uri = vscode.window.activeTextEditor?.document.uri;
+		let folderManager: FolderRepositoryManager | undefined = uri ? this.manager.getManagerForFile(uri) : undefined;
+		if (!folderManager) {
+			folderManager = await this.chooseRepo(vscode.l10n.t('Select the repo to create the issue in.'));
+			uri = folderManager?.repository.rootUri;
+		}
+		if (!folderManager || !uri) {
 			return;
 		}
+
 		const template = await this.chooseTemplate(folderManager);
 		this._newIssueCache.clear();
 		if (template) {
@@ -1085,11 +1090,7 @@ ${body ?? ''}\n
 		return choice?.repo;
 	}
 
-	private async chooseTemplate(folderManager: FolderRepositoryManager):Promise<{ title: string | undefined, body: string | undefined } | undefined> {
-		if (!folderManager) {
-			return undefined;
-		}
-
+	private async chooseTemplate(folderManager: FolderRepositoryManager): Promise<{ title: string | undefined, body: string | undefined } | undefined> {
 		const templateUris = await folderManager.getIssueTemplates();
 		if (templateUris.length === 0) {
 			return undefined;
@@ -1112,7 +1113,7 @@ ${body ?? ''}\n
 						return undefined;
 					}
 				})
-			);
+		);
 		const choices: IssueChoice[] = templates.filter(template => !!template && !!template?.name).map(template => {
 			return {
 				label: template!.name!,
