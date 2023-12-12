@@ -194,6 +194,8 @@ describe('GitHub Pull Requests view', function () {
 			const localNode = rootNodes.find((_node, index) => rootTreeItems[index].label === 'Local Pull Request Branches');
 			assert(localNode);
 
+			// Need to call getChildren twice to get past the quick render with an empty list
+			await localNode!.getChildren();
 			const localChildren = await localNode!.getChildren();
 			assert.strictEqual(localChildren.length, 2);
 			const [localItem0, localItem1] = await Promise.all(localChildren.map(node => node.getTreeItem()));
