@@ -125,7 +125,15 @@ export class CreatePullRequestDataModel {
 	public async gitCommits(): Promise<Commit[]> {
 		await this._constructed;
 		if (this._gitLog === undefined) {
-			this._gitLog = this.folderRepositoryManager.repository.log({ range: `${this._baseBranch}..${this._compareBranch}` });
+			const startBase = this._baseBranch;
+			const startCompare = this._compareBranch;
+			const result = this.folderRepositoryManager.repository.log({ range: `${this._baseBranch}..${this._compareBranch}` });
+			if (startBase !== this._baseBranch || startCompare !== this._compareBranch) {
+				// The branches have changed while we were waiting for the log. We can use the result, but we shouldn't save it
+				return result;
+			} else {
+				this._gitLog = result;
+			}
 		}
 		return this._gitLog;
 	}
@@ -133,7 +141,15 @@ export class CreatePullRequestDataModel {
 	public async gitFiles(): Promise<Change[]> {
 		await this._constructed;
 		if (this._gitFiles === undefined) {
-			this._gitFiles = await this.folderRepositoryManager.repository.diffBetween(this._baseBranch, this._compareBranch);
+			const startBase = this._baseBranch;
+			const startCompare = this._compareBranch;
+			const result = await this.folderRepositoryManager.repository.diffBetween(this._baseBranch, this._compareBranch);
+			if (startBase !== this._baseBranch || startCompare !== this._compareBranch) {
+				// The branches have changed while we were waiting for the diff. We can use the result, but we shouldn't save it
+				return result;
+			} else {
+				this._gitFiles = result;
+			}
 		}
 		return this._gitFiles;
 	}
