@@ -265,7 +265,9 @@ if (require.main === module) {
 						.catch((err) => {
 							console.error();
 							console.error(err);
-							process.exit(1);
+							if (err.code !== 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') {
+								process.exit(1);
+							}
 						});
 				}
 			}
