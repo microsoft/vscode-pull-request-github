@@ -12,7 +12,7 @@ import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
 import { ContextDropdown } from '../components/contextDropdown';
-import { assigneeIcon, chevronDownIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon, sparkleIcon, stopIcon } from '../components/icon';
+import { assigneeIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon, sparkleIcon, stopIcon } from '../components/icon';
 import { Avatar } from '../components/user';
 
 type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'create-automerge-rebase' | 'create-automerge-merge';
