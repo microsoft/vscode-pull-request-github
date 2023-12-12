@@ -17,6 +17,7 @@ import { DescriptionNode } from './treeNodes/descriptionNode';
 import { GitFileChangeNode } from './treeNodes/fileChangeNode';
 import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
+import { TreeUtils } from './treeNodes/treeUtils';
 
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
@@ -53,13 +54,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 			}),
 		);
 
-		this._disposables.push(this._view.onDidChangeCheckboxState(checkboxUpdates => {
-			checkboxUpdates.items.forEach(checkboxUpdate => {
-				const node = checkboxUpdate[0];
-				const newState = checkboxUpdate[1];
-				node.updateFromCheckboxChanged(newState);
-			});
-		}));
+		this._disposables.push(this._view.onDidChangeCheckboxState(TreeUtils.processCheckboxUpdates));
 	}
 
 	refresh(treeNode?: TreeNode) {
