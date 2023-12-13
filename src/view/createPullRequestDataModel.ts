@@ -125,15 +125,7 @@ export class CreatePullRequestDataModel {
 	public async gitCommits(): Promise<Commit[]> {
 		await this._constructed;
 		if (this._gitLog === undefined) {
-			const startBase = this._baseBranch;
-			const startCompare = this._compareBranch;
-			const result = this.folderRepositoryManager.repository.log({ range: `${this._baseBranch}..${this._compareBranch}` });
-			if (startBase !== this._baseBranch || startCompare !== this._compareBranch) {
-				// The branches have changed while we were waiting for the log. We can use the result, but we shouldn't save it
-				return result;
-			} else {
-				this._gitLog = result;
-			}
+			this._gitLog = this.folderRepositoryManager.repository.log({ range: `${this._baseBranch}..${this._compareBranch}` });
 		}
 		return this._gitLog;
 	}
