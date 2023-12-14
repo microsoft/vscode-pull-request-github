@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.78.1
+
+### Fixes
+
+- Files changed doesn't properly reflect changes against non base branch. https://github.com/microsoft/vscode-pull-request-github/issues/5545
+- Cannot review PRs with 0.78.0 / VSCode 1.85.0, "GraphQL error: Field 'mergeQueueEntry' doesn't exist. https://github.com/microsoft/vscode-pull-request-github/issues/5544
+
 ## 0.78.0
 
 ### Changes
