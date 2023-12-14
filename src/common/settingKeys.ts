@@ -31,6 +31,7 @@ export const REMOTES = 'remotes';
 export const PULL_PR_BRANCH_BEFORE_CHECKOUT = 'pullPullRequestBranchBeforeCheckout';
 export const UPSTREAM_REMOTE = 'upstreamRemote';
 export const DEFAULT_CREATE_OPTION = 'defaultCreateOption';
+export const CREATE_BASE_BRANCH = 'createDefaultBaseBranch';
 
 export const ISSUES_SETTINGS_NAMESPACE = 'githubIssues';
 export const ASSIGN_WHEN_WORKING = 'assignWhenWorking';
