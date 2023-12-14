@@ -403,6 +403,16 @@
 					],
 					"default": "add"
 				},
+				"githubPullRequests.createDefaultBaseBranch": {
+					"type": "string",
+					"enum": ["repositoryDefault", "createdFromBranch"],
+					"markdownEnumDescriptions": [
+						"%githubPullRequests.createDefaultBaseBranch.repositoryDefault%",
+						"%githubPullRequests.createDefaultBaseBranch.createdFromBranch%"
+					],
+					"default": "createdFromBranch",
+					"markdownDescription": "%githubPullRequests.createDefaultBaseBranch.description%"
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],

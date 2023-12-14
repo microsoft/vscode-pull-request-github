@@ -13,6 +13,7 @@ import { Protocol } from '../common/protocol';
 import { GitHubRemote } from '../common/remote';
 import {
 	ASSIGN_TO,
+	CREATE_BASE_BRANCH,
 	DEFAULT_CREATE_OPTION,
 	PR_SETTINGS_NAMESPACE,
 	PULL_REQUEST_DESCRIPTION,
@@ -284,7 +285,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 
 		const defaultCompareBranch = this.defaultCompareBranch.name ?? '';
 		const [detectedBaseMetadata, remotes, defaultOrigin] = await Promise.all([
-			PullRequestGitHelper.getMatchingBaseBranchMetadataForBranch(this._folderRepositoryManager.repository, defaultCompareBranch),
+			vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'repositoryDefault' | 'createdFromBranch'>(CREATE_BASE_BRANCH) === 'createdFromBranch' ? PullRequestGitHelper.getMatchingBaseBranchMetadataForBranch(this._folderRepositoryManager.repository, defaultCompareBranch) : undefined,
 			this._folderRepositoryManager.getGitHubRemotes(),
 			this._folderRepositoryManager.getOrigin(this.defaultCompareBranch)]);
 
