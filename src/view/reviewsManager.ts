@@ -94,7 +94,7 @@ export class ReviewsManager {
 		const reviewManagerIndex = this._reviewManagers.findIndex(
 			manager => manager.repository.rootUri.toString() === repo.rootUri.toString(),
 		);
-		if (reviewManagerIndex) {
+		if (reviewManagerIndex >= 0) {
 			const manager = this._reviewManagers[reviewManagerIndex];
 			this._reviewManagers.splice(reviewManagerIndex);
 			manager.dispose();
