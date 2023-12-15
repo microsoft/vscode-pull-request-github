@@ -311,8 +311,17 @@ ${args[2] ?? ''}
 		});
 	}
 
+	private async createLocalFilePath(rootUri: vscode.Uri, fileSubPath: string, startLine: number, endLine: number): Promise<string | undefined> {
+		const localFile = vscode.Uri.joinPath(rootUri, fileSubPath);
+		const stat = await vscode.workspace.fs.stat(localFile);
+		if (stat.type === vscode.FileType.File) {
+			return `${localFile.with({ fragment: `${startLine}-${endLine}` }).toString()}`;
+		}
+	}
+
 	private async replacePermalink(body: string): Promise<string> {
-		if (!this.githubRepository) {
+		const githubRepository = this.githubRepository;
+		if (!githubRepository) {
 			return body;
 		}
 
@@ -323,14 +332,15 @@ ${args[2] ?? ''}
 			}
 			const startLine = parseInt(start);
 			const endLine = end ? parseInt(end) : startLine + 1;
-			const lineContents = await this.githubRepository!.getLines(sha, file, startLine, endLine);
+			const lineContents = await githubRepository.getLines(sha, file, startLine, endLine);
 			if (!lineContents) {
 				return match;
 			}
+			const localFile = await this.createLocalFilePath(githubRepository.rootUri, file, startLine, endLine);
 			const lineMessage = end ? `Lines ${startLine} to ${endLine} in \`${sha.substring(0, 7)}\`` : `Line ${startLine} in \`${sha.substring(0, 7)}\``;
 			return `
 ***
-[${file}](${match})
+[${file}](${localFile ?? match})${localFile ? ` ([view on GitHub](${match}))` : ''}
 
 ${lineMessage}
 \`\`\`
