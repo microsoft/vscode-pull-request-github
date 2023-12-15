@@ -140,7 +140,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		return vscode.window.withProgress({ location: { viewId: 'github:createPullRequestWebview' } }, task);
 	}
 
-	private async getTotalGitHubCommits(compareBranch: Branch, baseBranchName: string): Promise<number | undefined> {
+	private async getTotalGitHubCommits(compareBranch: Branch, baseBranchName: string): Promise<{ commit: { message: string }; parents: { sha: string }[] }[] | undefined> {
 		const origin = await this._folderRepositoryManager.getOrigin(compareBranch);
 
 		if (compareBranch.upstream) {
@@ -151,7 +151,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				const baseBranch = `${this._pullRequestDefaults.owner}:${baseBranchName}`;
 				const compareResult = await origin.compareCommits(baseBranch, headBranch);
 
-				return compareResult?.total_commits;
+				return compareResult?.commits;
 			}
 		}
 
@@ -180,12 +180,13 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				name ? titleAndBodyFrom(promiseWithTimeout(this._folderRepositoryManager.getTipCommitMessage(name), 5000)) : undefined,
 				descrptionSource === 'template' ? await this.getPullRequestTemplate() : undefined
 			]);
+			const totalNonMergeCommits = totalCommits?.filter(commit => commit.parents.length < 2);
 
-			Logger.debug(`Total commits: ${totalCommits}`, CreatePullRequestViewProviderNew.ID);
-			if (totalCommits === undefined) {
+			Logger.debug(`Total commits: ${totalNonMergeCommits?.length}`, CreatePullRequestViewProviderNew.ID);
+			if (totalNonMergeCommits === undefined) {
 				// There is no upstream branch. Use the last commit as the title and description.
 				useBranchName = false;
-			} else if (totalCommits > 1) {
+			} else if (totalNonMergeCommits && totalNonMergeCommits.length > 1) {
 				const defaultBranch = await origin.getDefaultBranch();
 				useBranchName = defaultBranch !== compareBranch.name;
 			}

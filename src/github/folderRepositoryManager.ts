@@ -5,7 +5,7 @@
 
 import { bulkhead } from 'cockatiel';
 import * as vscode from 'vscode';
-import type { Branch, Repository, UpstreamRef } from '../api/api';
+import type { Branch, Commit, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl, GitErrorCodes } from '../api/api1';
 import { GitHubManager } from '../authentication/githubServer';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
@@ -1302,11 +1302,22 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	async getTipCommitMessage(branch: string): Promise<string | undefined> {
 		Logger.debug(`Git tip message for branch ${branch} - enter`, this.id);
 		const { repository } = this;
-		const { commit } = await repository.getBranch(branch);
+		let { commit } = await repository.getBranch(branch);
 		let message: string = '';
-		if (commit) {
-			message = (await repository.getCommit(commit))?.message;
-		}
+		let count = 0;
+		do {
+			if (commit) {
+				let fullCommit: Commit = await repository.getCommit(commit);
+				if (fullCommit.parents.length <= 1) {
+					message = fullCommit.message;
+					break;
+				} else {
+					commit = fullCommit.parents[0];
+				}
+			}
+			count++;
+		} while (message === '' && commit && count < 5)
+
 
 		Logger.debug(`Git tip message for branch ${branch} - done`, this.id);
 		return message;
