@@ -320,7 +320,7 @@ const REMOTE_CONVENTIONS = new Map([
 	['origin', ORIGIN],
 ]);
 
-async function getUpstream(repositoriesManager: RepositoriesManager, repository: Repository, commit: Commit): Promise<Remote | undefined> {
+async function getUpstream(repositoriesManager: RepositoriesManager, repository: Repository, commitHash: string): Promise<Remote | undefined> {
 	const currentRemoteName: string | undefined =
 		repository.state.HEAD?.upstream && !REMOTE_CONVENTIONS.has(repository.state.HEAD.upstream.remote)
 			? repository.state.HEAD.upstream.remote
@@ -375,7 +375,7 @@ async function getUpstream(repositoriesManager: RepositoriesManager, repository:
 			try {
 				const remotes = (
 					await repository.getBranches({
-						contains: commit.hash,
+						contains: commitHash,
 						remote: true,
 						pattern: `remotes/${remoteNames[remoteIndex].name}/${branchNames[branchIndex]}`,
 						count: 1,
@@ -454,13 +454,13 @@ export function getSimpleUpstream(repository: Repository) {
 	}
 }
 
-export async function getBestPossibleUpstream(repositoriesManager: RepositoriesManager, repository: Repository, commit: Commit | undefined): Promise<Remote | undefined> {
+export async function getBestPossibleUpstream(repositoriesManager: RepositoriesManager, repository: Repository, commitHash: string | undefined): Promise<Remote | undefined> {
 	const fallbackUpstream = new Promise<Remote | undefined>(resolve => {
 		resolve(getSimpleUpstream(repository));
 	});
 
-	let upstream: Remote | undefined = commit ? await Promise.race([
-		getUpstream(repositoriesManager, repository, commit),
+	let upstream: Remote | undefined = commitHash ? await Promise.race([
+		getUpstream(repositoriesManager, repository, commitHash),
 		new Promise<Remote | undefined>(resolve => {
 			setTimeout(() => {
 				resolve(fallbackUpstream);
@@ -509,7 +509,6 @@ export async function createGithubPermalink(
 		return { permalink: undefined, error: vscode.l10n.t('The current file isn\'t part of repository.'), originalFile: uri };
 	}
 
-	let commit: Commit | undefined;
 	let commitHash: string | undefined;
 	if (uri.scheme === Schemes.Review) {
 		commitHash = fromReviewUri(uri.query).commit;
@@ -523,12 +522,10 @@ export async function createGithubPermalink(
 			}
 			// Now that we know that the file existed at some point in the repo, use the head commit to construct the URI.
 			if (repository.state.HEAD?.commit && (log[0].hash !== repository.state.HEAD?.commit)) {
-				commit = await repository.getCommit(repository.state.HEAD.commit);
+				commitHash = repository.state.HEAD.commit;
+			} else {
+				commitHash = log[0].hash;
 			}
-			if (!commit) {
-				commit = log[0];
-			}
-			commitHash = commit.hash;
 		} catch (e) {
 			commitHash = repository.state.HEAD?.commit;
 		}
@@ -536,7 +533,7 @@ export async function createGithubPermalink(
 
 	Logger.debug(`commit hash: ${commitHash}`, PERMALINK_COMPONENT);
 
-	const rawUpstream = await getBestPossibleUpstream(repositoriesManager, repository, commit);
+	const rawUpstream = await getBestPossibleUpstream(repositoriesManager, repository, commitHash);
 	if (!rawUpstream || !rawUpstream.fetchUrl) {
 		return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri };
 	}
