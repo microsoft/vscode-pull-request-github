@@ -198,7 +198,7 @@ export class GitHubPermalinkShareProvider extends AbstractShareProvider implemen
 	}
 
 	protected async getUpstream(repository: Repository, commit: string): Promise<Remote | undefined> {
-		return getBestPossibleUpstream(this.repositoryManager, repository, await repository.getCommit(commit));
+		return getBestPossibleUpstream(this.repositoryManager, repository, (await repository.getCommit(commit)).hash);
 	}
 }
 
