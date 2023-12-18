@@ -80,7 +80,7 @@ export class NotificationProvider implements vscode.Disposable {
 					this.refreshOrLaunchPolling();
 				})
 			);
-		};
+		}
 
 		this.disposables.push(
 			gitHubPrsTree.onDidChangeTreeData((node) => {

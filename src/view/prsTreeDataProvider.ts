@@ -23,8 +23,8 @@ import { DecorationProvider } from './treeDecorationProvider';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
 import { BaseTreeNode, EXPANDED_QUERIES_STATE, TreeNode } from './treeNodes/treeNode';
-import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
 import { TreeUtils } from './treeNodes/treeUtils';
+import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
 
 export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode, vscode.Disposable {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();

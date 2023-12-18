@@ -325,7 +325,7 @@ ${args[2] ?? ''}
 			return body;
 		}
 
-		const expression = new RegExp(`https://github.com/${this.githubRepository.remote.owner}/${this.githubRepository.remote.repositoryName}/blob/([0-9a-f]{40})/(.*)#L([0-9]+)(-L([0-9]+))?`, 'g');
+		const expression = new RegExp(`https://github.com/${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}/blob/([0-9a-f]{40})/(.*)#L([0-9]+)(-L([0-9]+))?`, 'g');
 		return stringReplaceAsync(body, expression, async (match: string, sha: string, file: string, start: string, _endGroup?: string, end?: string, index?: number) => {
 			if (index && (index > 0) && (body.charAt(index - 1) === '(')) {
 				return match;

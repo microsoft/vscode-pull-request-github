@@ -1316,7 +1316,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				}
 			}
 			count++;
-		} while (message === '' && commit && count < 5)
+		} while (message === '' && commit && count < 5);
 
 
 		Logger.debug(`Git tip message for branch ${branch} - done`, this.id);
