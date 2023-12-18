@@ -103,7 +103,7 @@ export class RateLogger {
 }
 
 export class LoggingApolloClient {
-	constructor(private readonly _graphql: ApolloClient<NormalizedCacheObject>, private _rateLogger: RateLogger) { };
+	constructor(private readonly _graphql: ApolloClient<NormalizedCacheObject>, private _rateLogger: RateLogger) { }
 
 	query<T = any, TVariables = OperationVariables>(options: QueryOptions<TVariables>): Promise<ApolloQueryResult<T>> {
 		const logInfo = (options.query.definitions[0] as { name: { value: string } | undefined }).name?.value;
@@ -127,7 +127,7 @@ export class LoggingApolloClient {
 }
 
 export class LoggingOctokit {
-	constructor(public readonly api: Octokit, private _rateLogger: RateLogger) { };
+	constructor(public readonly api: Octokit, private _rateLogger: RateLogger) { }
 
 	async call<T, U>(api: (T) => Promise<U>, args: T): Promise<U> {
 		const logInfo = (api as unknown as { endpoint: { DEFAULTS: { url: string } | undefined } | undefined }).endpoint?.DEFAULTS?.url;

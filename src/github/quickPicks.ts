@@ -52,7 +52,7 @@ async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context
 		});
 	}
 	return alreadyAssignedItems;
-};
+}
 
 export async function getAssigneesQuickPickItems(folderRepositoryManager: FolderRepositoryManager, remoteName: string, alreadyAssigned: IAccount[], item?: PullRequestModel):
 	Promise<(vscode.QuickPickItem & { user?: IAccount })[]> {

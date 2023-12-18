@@ -285,7 +285,7 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 
 	async resolve(): Promise<void> {
 		if (this.status === GitChangeType.ADD) {
-			this.command = await openFileCommand(this.changeModel.filePath);
+			this.command = openFileCommand(this.changeModel.filePath);
 		} else {
 			this.command = await openDiffCommand(
 				this.folderRepositoryManager,

@@ -9,7 +9,7 @@ import * as marked from 'marked';
 import 'url-search-params-polyfill';
 import * as vscode from 'vscode';
 import { gitHubLabelColor } from '../../src/common/utils';
-import { Commit, Ref, Remote, Repository, UpstreamRef } from '../api/api';
+import { Ref, Remote, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';

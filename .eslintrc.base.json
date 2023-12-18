@@ -8,7 +8,7 @@
 		"plugin:@typescript-eslint/recommended-requiring-type-checking",
 		"plugin:import/errors",
 		"plugin:import/warnings",
-		"plugin:import/typescript",
+		"plugin:import/typescript"
 	],
 	"parser": "@typescript-eslint/parser",
 	"parserOptions": {

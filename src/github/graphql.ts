@@ -279,7 +279,7 @@ export interface GetReviewRequestsResponse {
 			};
 		};
 	} | null;
-};
+}
 
 export interface PullRequestState {
 	repository: {
