@@ -70,7 +70,10 @@ export interface IssueComment extends AbbreviatedIssueComment {
 export interface ReactionGroup {
 	content: string;
 	viewerHasReacted: boolean;
-	users: {
+	reactors: {
+		nodes: {
+			login: string;
+		}[]
 		totalCount: number;
 	};
 }
