@@ -293,6 +293,7 @@ export function AddComment({
 	hasWritePermission,
 	isIssue,
 	isAuthor,
+	isDraft,
 	continueOnGitHub,
 	currentUserReviewState,
 	lastReviewType,
@@ -351,7 +352,7 @@ export function AddComment({
 		updatePR({ pendingCommentText: '', pendingReviewType: undefined });
 	}
 
-	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = isAuthor
+	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = isAuthor || isDraft
 		? { comment: 'Comment' }
 		: continueOnGitHub
 			? {
@@ -391,7 +392,7 @@ export function AddComment({
 					defaultAction={submitAction}
 					defaultOptionLabel={() => availableActions[currentSelection]}
 					defaultOptionValue={() => currentSelection}
-					optionsTitle='Submit pull request'
+					optionsTitle='Submit pull request review'
 					disabled={isBusy || busy}
 					hasSingleAction={Object.keys(availableActions).length === 1}
 				/>
@@ -475,7 +476,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 		[submitAction],
 	);
 
-	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = pr.isAuthor
+	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = pr.isAuthor || pr.isDraft
 		? { comment: 'Comment' }
 		: pr.continueOnGitHub
 			? {
@@ -503,7 +504,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 					defaultAction={submitAction}
 					defaultOptionLabel={() => availableActions[currentSelection]}
 					defaultOptionValue={() => currentSelection}
-					optionsTitle='Submit pull request'
+					optionsTitle='Submit pull request review'
 					disabled={isBusy || pr.busy}
 					hasSingleAction={Object.keys(availableActions).length === 1}
 				/>
