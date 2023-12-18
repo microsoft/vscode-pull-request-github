@@ -204,7 +204,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			case 'pr.comment':
 				return this.createComment(message);
 			case 'scroll':
-				this._scrollPosition = message.args;
+				this._scrollPosition = message.args.scrollPosition;
 				return;
 			case 'pr.edit-comment':
 				return this.editComment(message);
