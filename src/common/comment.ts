@@ -23,6 +23,7 @@ export interface Reaction {
 	count: number;
 	icon?: vscode.Uri;
 	viewerHasReacted: boolean;
+	reactors: readonly string[];
 }
 
 export enum SubjectType {
