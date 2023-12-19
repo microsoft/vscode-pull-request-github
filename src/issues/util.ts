@@ -499,58 +499,61 @@ export async function createGithubPermalink(
 	positionInfo?: NewIssue,
 	context?: LinkContext
 ): Promise<PermalinkInfo> {
-	const { uri, range } = getFileAndPosition(context, positionInfo);
-	if (!uri) {
-		return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined };
-	}
-
-	const repository = getRepositoryForFile(gitAPI, uri);
-	if (!repository) {
-		return { permalink: undefined, error: vscode.l10n.t('The current file isn\'t part of repository.'), originalFile: uri };
-	}
-
-	let commitHash: string | undefined;
-	if (uri.scheme === Schemes.Review) {
-		commitHash = fromReviewUri(uri.query).commit;
-	}
-
-	if (!commitHash) {
-		try {
-			const log = await repository.log({ maxEntries: 1, path: uri.fsPath });
-			if (log.length === 0) {
-				return { permalink: undefined, error: vscode.l10n.t('No branch on a remote contains the most recent commit for the file.'), originalFile: uri };
-			}
-			// Now that we know that the file existed at some point in the repo, use the head commit to construct the URI.
-			if (repository.state.HEAD?.commit && (log[0].hash !== repository.state.HEAD?.commit)) {
-				commitHash = repository.state.HEAD.commit;
-			} else {
-				commitHash = log[0].hash;
-			}
-		} catch (e) {
-			commitHash = repository.state.HEAD?.commit;
+	return vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, async (progress) => {
+		progress.report({ message: vscode.l10n.t('Creating permalink...') });
+		const { uri, range } = getFileAndPosition(context, positionInfo);
+		if (!uri) {
+			return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined };
 		}
-	}
 
-	Logger.debug(`commit hash: ${commitHash}`, PERMALINK_COMPONENT);
+		const repository = getRepositoryForFile(gitAPI, uri);
+		if (!repository) {
+			return { permalink: undefined, error: vscode.l10n.t('The current file isn\'t part of repository.'), originalFile: uri };
+		}
 
-	const rawUpstream = await getBestPossibleUpstream(repositoriesManager, repository, commitHash);
-	if (!rawUpstream || !rawUpstream.fetchUrl) {
-		return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri };
-	}
-	const upstream: Remote & { fetchUrl: string } = rawUpstream as any;
+		let commitHash: string | undefined;
+		if (uri.scheme === Schemes.Review) {
+			commitHash = fromReviewUri(uri.query).commit;
+		}
 
-	Logger.debug(`upstream: ${upstream.fetchUrl}`, PERMALINK_COMPONENT);
+		if (!commitHash) {
+			try {
+				const log = await repository.log({ maxEntries: 1, path: uri.fsPath });
+				if (log.length === 0) {
+					return { permalink: undefined, error: vscode.l10n.t('No branch on a remote contains the most recent commit for the file.'), originalFile: uri };
+				}
+				// Now that we know that the file existed at some point in the repo, use the head commit to construct the URI.
+				if (repository.state.HEAD?.commit && (log[0].hash !== repository.state.HEAD?.commit)) {
+					commitHash = repository.state.HEAD.commit;
+				} else {
+					commitHash = log[0].hash;
+				}
+			} catch (e) {
+				commitHash = repository.state.HEAD?.commit;
+			}
+		}
 
-	const encodedPathSegment = encodeURIComponentExceptSlashes(uri.path.substring(repository.rootUri.path.length));
-	const originOfFetchUrl = getUpstreamOrigin(rawUpstream).replace(/\/$/, '');
-	const result = {
-		permalink: (`${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
-			}${includeFile ? `${encodedPathSegment}${includeRange ? rangeString(range) : ''}` : ''}`),
-		error: undefined,
-		originalFile: uri
-	};
-	Logger.debug(`permalink generated: ${result.permalink}`, PERMALINK_COMPONENT);
-	return result;
+		Logger.debug(`commit hash: ${commitHash}`, PERMALINK_COMPONENT);
+
+		const rawUpstream = await getBestPossibleUpstream(repositoriesManager, repository, commitHash);
+		if (!rawUpstream || !rawUpstream.fetchUrl) {
+			return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri };
+		}
+		const upstream: Remote & { fetchUrl: string } = rawUpstream as any;
+
+		Logger.debug(`upstream: ${upstream.fetchUrl}`, PERMALINK_COMPONENT);
+
+		const encodedPathSegment = encodeURIComponentExceptSlashes(uri.path.substring(repository.rootUri.path.length));
+		const originOfFetchUrl = getUpstreamOrigin(rawUpstream).replace(/\/$/, '');
+		const result = {
+			permalink: (`${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
+				}${includeFile ? `${encodedPathSegment}${includeRange ? rangeString(range) : ''}` : ''}`),
+			error: undefined,
+			originalFile: uri
+		};
+		Logger.debug(`permalink generated: ${result.permalink}`, PERMALINK_COMPONENT);
+		return result;
+	});
 }
 
 export function getUpstreamOrigin(upstream: Remote, resultHost: string = 'github.com') {
