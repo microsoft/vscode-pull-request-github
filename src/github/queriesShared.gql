@@ -147,12 +147,7 @@ fragment Reactable on Reactable {
 	reactionGroups {
 		content
 		viewerHasReacted
-		reactors(first: 10) {
-			nodes {
-				... on User {
-					login
-				}
-			}
+		users {
 			totalCount
 		}
 	}
@@ -404,7 +399,13 @@ fragment ReviewComment on PullRequestReviewComment {
 	originalCommit {
 		oid
 	}
-	...Reactable
+	reactionGroups {
+		content
+		viewerHasReacted
+		users {
+			totalCount
+		}
+	}
 	viewerCanUpdate
 	viewerCanDelete
 }
