@@ -185,6 +185,8 @@ export class ReviewManager {
 			}),
 		);
 
+
+
 		this._disposables.push(this._folderRepoManager.onDidChangeActivePullRequest(_ => {
 			this.updateFocusedViewMode();
 			this.registerQuickDiff();

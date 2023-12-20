@@ -9,3 +9,4 @@ export const VSLS_GIT_PR_SESSION_NAME = 'ghpr';
 export const VSLS_REPOSITORY_INITIALIZATION_NAME = 'initialize';
 export const VSLS_STATE_CHANGE_NOTIFY_NAME = 'statechange';
 export const FOCUS_REVIEW_MODE = 'github:focusedReview';
+export const FAKE_CONSt = 'not a real value';
