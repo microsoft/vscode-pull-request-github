@@ -667,10 +667,18 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	private assignees: IAccount[] = [];
 	public async addAssignees(): Promise<void> {
 		const remote = await this.getRemote();
-		const assigneesToAdd = await vscode.window.showQuickPick(getAssigneesQuickPickItems(this._folderRepositoryManager, remote.remoteName, this.assignees),
+		const currentRepo = this._folderRepositoryManager.gitHubRepositories.find(repo => repo.remote.owner === remote.owner && repo.remote.repositoryName === remote.repositoryName);
+		const assigneesToAdd = await vscode.window.showQuickPick(getAssigneesQuickPickItems(this._folderRepositoryManager, currentRepo, remote.remoteName, this.assignees, undefined, true),
 			{ canPickMany: true, placeHolder: vscode.l10n.t('Add assignees') });
 		if (assigneesToAdd) {
-			const addedAssignees = assigneesToAdd.map(assignee => assignee.user).filter<IAccount>((assignee): assignee is IAccount => !!assignee);
+			const seenNewAssignees = new Set<string>();
+			const addedAssignees = assigneesToAdd.map(assignee => assignee.user).filter<IAccount>((assignee): assignee is IAccount => {
+				if (assignee && !seenNewAssignees.has(assignee.login)) {
+					seenNewAssignees.add(assignee.login);
+					return true;
+				}
+				return false;
+			});
 			this.assignees = addedAssignees;
 			this._postMessage({
 				command: 'set-assignees',

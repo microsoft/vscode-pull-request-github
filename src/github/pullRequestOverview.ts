@@ -493,7 +493,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			quickPick.canSelectMany = true;
 			quickPick.matchOnDescription = true;
 			quickPick.show();
-			quickPick.items = await getAssigneesQuickPickItems(this._folderRepositoryManager, this._item.remote.remoteName, this._item.assignees ?? [], this._item);
+			quickPick.items = await getAssigneesQuickPickItems(this._folderRepositoryManager, undefined, this._item.remote.remoteName, this._item.assignees ?? [], this._item);
 			quickPick.selectedItems = quickPick.items.filter(item => item.picked);
 
 			quickPick.busy = false;
