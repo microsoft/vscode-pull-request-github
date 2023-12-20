@@ -320,14 +320,11 @@ export function AddComment({
 		[submit],
 	);
 
-	const onClick = useCallback(
-		e => {
-			e.preventDefault();
-			const { command } = e.target.dataset;
-			submit({ approve, requestChanges, close }[command]);
-		},
-		[submit, approve, requestChanges, close],
-	);
+	const closeButton = e => {
+		e.preventDefault();
+		const { value } = textareaRef.current!;
+		close(value);
+	};
 
 	let currentSelection: string = lastReviewType ?? (currentUserReviewState === 'APPROVED' ? 'approve' : (currentUserReviewState === 'CHANGES_REQUESTED' ? 'requestChanges' : 'comment'));
 
@@ -379,7 +376,7 @@ export function AddComment({
 						id="close"
 						className="secondary"
 						disabled={isBusy || state !== GithubItemStateEnum.Open}
-						onClick={onClick}
+						onClick={closeButton}
 						data-command="close"
 					>
 						Close Pull Request
