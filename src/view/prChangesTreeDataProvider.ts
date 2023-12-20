@@ -113,14 +113,14 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	private async setReviewModeContexts() {
 		await commands.setContext(contexts.IN_REVIEW_MODE, this._pullRequestManagerMap.size > 0);
 
-		const rootUrisNotInReviewMode: string[] = [];
-		const rootUrisInReviewMode: string[] = [];
+		const rootUrisNotInReviewMode: vscode.Uri[] = [];
+		const rootUrisInReviewMode: vscode.Uri[] = [];
 		this._git.repositories.forEach(repo => {
 			const folderManager = this._reposManager.getManagerForFile(repo.rootUri);
 			if (folderManager && !this._pullRequestManagerMap.has(folderManager)) {
-				rootUrisNotInReviewMode.push(repo.rootUri.toString());
+				rootUrisNotInReviewMode.push(repo.rootUri);
 			} else if (folderManager) {
-				rootUrisInReviewMode.push(repo.rootUri.toString());
+				rootUrisInReviewMode.push(repo.rootUri);
 			}
 		});
 		await commands.setContext(contexts.REPOS_NOT_IN_REVIEW_MODE, rootUrisNotInReviewMode);
