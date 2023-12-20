@@ -10,7 +10,6 @@ import Logger from '../common/logger';
 import { asPromise, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
-import { OctokitCommon } from './common';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { ILabel } from './interface';
 import { IssueModel } from './issueModel';
@@ -347,9 +346,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			});
 	}
 
-	private close(message: IRequestMessage<string>): void {
+	private close(message: IRequestMessage<string>) {
 		vscode.commands
-			.executeCommand<OctokitCommon.PullsGetResponseData>('pr.close', this._item, message.args)
+			.executeCommand<IComment>('pr.close', this._item, message.args)
 			.then(comment => {
 				if (comment) {
 					this._replyMessage(message, {

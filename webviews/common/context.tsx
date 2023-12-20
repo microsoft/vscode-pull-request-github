@@ -132,7 +132,13 @@ export class PRContext {
 
 	public close = async (body?: string) => {
 		try {
-			this.appendReview(await this.postMessage({ command: 'pr.close', args: body }));
+			const result = await this.postMessage({ command: 'pr.close', args: body });
+			const newComment = result.value;
+			newComment.event = EventType.Commented;
+			this.updatePR({
+				events: [...this.pr.events, newComment],
+				pendingCommentText: '',
+			});
 		} catch (_) {
 			// Ignore
 		}
