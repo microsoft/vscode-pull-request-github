@@ -54,7 +54,7 @@ async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context
 	return alreadyAssignedItems;
 }
 
-export async function getAssigneesQuickPickItems(folderRepositoryManager: FolderRepositoryManager, remoteName: string, alreadyAssigned: IAccount[], item?: PullRequestModel):
+export async function getAssigneesQuickPickItems(folderRepositoryManager: FolderRepositoryManager, gitHubRepository: GitHubRepository | undefined, remoteName: string, alreadyAssigned: IAccount[], item?: PullRequestModel, assignYourself?: boolean):
 	Promise<(vscode.QuickPickItem & { user?: IAccount })[]> {
 
 	const [allAssignableUsers, participantsAndViewer] = await Promise.all([
@@ -71,7 +71,7 @@ export async function getAssigneesQuickPickItems(folderRepositoryManager: Folder
 	// e.g. author, existing and already added reviewers
 	const skipList: Set<string> = new Set();
 
-	const assigneePromises: Promise<(vscode.QuickPickItem & { assignee?: IAccount })[]>[] = [];
+	const assigneePromises: Promise<(vscode.QuickPickItem & { user?: IAccount })[]>[] = [];
 
 	// Start with all currently assigned so they show at the top
 	if (alreadyAssigned.length) {
@@ -106,6 +106,14 @@ export async function getAssigneesQuickPickItems(folderRepositoryManager: Folder
 		assignees.push({
 			label: vscode.l10n.t('No assignees available for this repository')
 		});
+	}
+
+	if (assignYourself) {
+		const currentUser = viewer ?? await folderRepositoryManager.getCurrentUser(gitHubRepository);
+		if (assignees.length !== 0) {
+			assignees.unshift({ kind: vscode.QuickPickItemKind.Separator, label: vscode.l10n.t('Users') });
+		}
+		assignees.unshift({ label: vscode.l10n.t('Assign yourself'), user: currentUser });
 	}
 
 	return assignees;
