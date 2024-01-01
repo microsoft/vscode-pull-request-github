@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Repository } from '../api/api';
-import { AuthProvider } from '../github/credentials';
-import { getEnterpriseUri } from '../github/utils';
+import { getEnterpriseUri, isEnterprise } from '../github/utils';
+import { AuthProvider, GitHubServerType } from './authentication';
 import { Protocol } from './protocol';
 
 export class Remote {
@@ -25,14 +25,18 @@ export class Remote {
 	}
 
 	public get authProviderId(): AuthProvider {
-		return this.host === getEnterpriseUri()?.authority ? AuthProvider['github-enterprise'] : AuthProvider.github;
+		return this.host === getEnterpriseUri()?.authority ? AuthProvider.githubEnterprise : AuthProvider.github;
+	}
+
+	public get isEnterprise(): boolean {
+		return isEnterprise(this.authProviderId);
 	}
 
 	constructor(
 		public readonly remoteName: string,
 		public readonly url: string,
 		public readonly gitProtocol: Protocol,
-	) {}
+	) { }
 
 	equals(remote: Remote): boolean {
 		if (this.remoteName !== remote.remoteName) {
@@ -41,10 +45,10 @@ export class Remote {
 		if (this.host !== remote.host) {
 			return false;
 		}
-		if (this.owner !== remote.owner) {
+		if (this.owner.toLocaleLowerCase() !== remote.owner.toLocaleLowerCase()) {
 			return false;
 		}
-		if (this.repositoryName !== remote.repositoryName) {
+		if (this.repositoryName.toLocaleLowerCase() !== remote.repositoryName.toLocaleLowerCase()) {
 			return false;
 		}
 
@@ -73,7 +77,7 @@ export function parseRemote(remoteName: string, url: string, originalProtocol?: 
 export function parseRepositoryRemotes(repository: Repository): Remote[] {
 	const remotes: Remote[] = [];
 	for (const r of repository.state.remotes) {
-		const urls: string[] =[];
+		const urls: string[] = [];
 		if (r.fetchUrl) {
 			urls.push(r.fetchUrl);
 		}
@@ -88,4 +92,19 @@ export function parseRepositoryRemotes(repository: Repository): Remote[] {
 		});
 	}
 	return remotes;
+}
+
+export class GitHubRemote extends Remote {
+	static remoteAsGitHub(remote: Remote, githubServerType: GitHubServerType): GitHubRemote {
+		return new GitHubRemote(remote.remoteName, remote.url, remote.gitProtocol, githubServerType);
+	}
+
+	constructor(
+		remoteName: string,
+		url: string,
+		gitProtocol: Protocol,
+		public readonly githubServerType: GitHubServerType
+	) {
+		super(remoteName, url, gitProtocol);
+	}
 }

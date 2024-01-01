@@ -6,6 +6,8 @@
 import * as vscode from 'vscode';
 import { commands } from './executeCommands';
 
+export const PULL_REQUEST_OVERVIEW_VIEW_TYPE = 'PullRequestOverview';
+
 export interface IRequestMessage<T> {
 	req: string;
 	command: string;
@@ -48,7 +50,7 @@ export class WebviewBase {
 	public initialize(): void {
 		const disposable = this._webview?.onDidReceiveMessage(
 			async message => {
-				await this._onDidReceiveMessage(message);
+				await this._onDidReceiveMessage(message as IRequestMessage<any>);
 			},
 			null,
 			this._disposables,
@@ -85,9 +87,9 @@ export class WebviewBase {
 		this._webview?.postMessage(reply);
 	}
 
-	protected async _throwError(originalMessage: IRequestMessage<any>, error: any) {
+	protected async _throwError(originalMessage: IRequestMessage<any> | undefined, error: any) {
 		const reply: IReplyMessage = {
-			seq: originalMessage.req,
+			seq: originalMessage?.req,
 			err: error,
 		};
 		this._webview?.postMessage(reply);

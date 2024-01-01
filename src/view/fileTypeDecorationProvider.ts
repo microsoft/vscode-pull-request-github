@@ -3,14 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as path from 'path';
 import * as vscode from 'vscode';
-import { ViewedState } from '../common/comment';
 import { GitChangeType } from '../common/file';
-import { fromFileChangeNodeUri, fromPRUri, toResourceUri } from '../common/uri';
+import { FileChangeNodeUriParams, fromFileChangeNodeUri, fromPRUri, PRUriParams, Schemes, toResourceUri } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { ReviewManager } from './reviewManager';
 
 export class FileTypeDecorationProvider implements vscode.FileDecorationProvider {
 	private _disposables: vscode.Disposable[] = [];
@@ -24,7 +23,7 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 	onDidChangeFileDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeFileDecorations.event;
 
 
-	constructor(private _repositoriesManager: RepositoriesManager, private _reviewManagers: ReviewManager[]) {
+	constructor(private _repositoriesManager: RepositoriesManager) {
 		this._disposables.push(vscode.window.registerFileDecorationProvider(this));
 		this._registerListeners();
 	}
@@ -35,10 +34,10 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 				const uri = vscode.Uri.joinPath(folderManager.repository.rootUri, change.fileName);
 				const fileChange = model.fileChanges.get(change.fileName);
 				if (fileChange) {
-					const fileChangeUri = toResourceUri(uri, model.number, change.fileName, fileChange.status);
+					const fileChangeUri = toResourceUri(uri, model.number, change.fileName, fileChange.status, fileChange.previousFileName);
 					this._onDidChangeFileDecorations.fire(fileChangeUri);
 					this._onDidChangeFileDecorations.fire(fileChangeUri.with({ scheme: folderManager.repository.rootUri.scheme }));
-					this._onDidChangeFileDecorations.fire(fileChangeUri.with({ scheme: 'pr', authority: '' }));
+					this._onDidChangeFileDecorations.fire(fileChangeUri.with({ scheme: Schemes.Pr, authority: '' }));
 				}
 			});
 		});
@@ -77,17 +76,6 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 
 	}
 
-	private getViewedState(number: number, fileName: string, uri: vscode.Uri) {
-		const gitHubRepositories = this._repositoriesManager.getManagerForFile(uri)?.gitHubRepositories ?? [];
-		for (const gitHubRepo of gitHubRepositories) {
-			const prModel = gitHubRepo.pullRequestModels.get(number);
-			if (prModel) {
-				return prModel.fileChangeViewedState[fileName] ?? ViewedState.UNVIEWED;
-			}
-		}
-		return ViewedState.UNVIEWED;
-	}
-
 	provideFileDecoration(
 		uri: vscode.Uri,
 		_token: vscode.CancellationToken,
@@ -98,11 +86,11 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 
 		const fileChangeUriParams = fromFileChangeNodeUri(uri);
 		if (fileChangeUriParams && fileChangeUriParams.status !== undefined) {
-			const viewedState = this.getViewedState(fileChangeUriParams.prNumber, fileChangeUriParams.fileName, uri);
 			return {
 				propagate: false,
-				badge: this.letter(fileChangeUriParams.status, viewedState),
-				color: this.color(fileChangeUriParams.status, viewedState)
+				badge: this.letter(fileChangeUriParams.status),
+				color: this.color(fileChangeUriParams.status),
+				tooltip: this.tooltip(fileChangeUriParams)
 			};
 		}
 
@@ -112,46 +100,54 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 			return {
 				propagate: false,
 				badge: this.letter(prParams.status),
-				color: this.color(prParams.status)
+				color: this.color(prParams.status),
+				tooltip: this.tooltip(prParams)
 			};
 		}
 
 		return undefined;
 	}
 
-	color(status: GitChangeType, viewedState?: ViewedState): vscode.ThemeColor | undefined {
-		if (viewedState === ViewedState.VIEWED) {
-			return undefined;
-		}
-
-		let color: string | undefined;
+	gitColors(status: GitChangeType): string | undefined {
 		switch (status) {
 			case GitChangeType.MODIFY:
-				color = 'gitDecoration.modifiedResourceForeground';
-				break;
+				return 'gitDecoration.modifiedResourceForeground';
 			case GitChangeType.ADD:
-				color = 'gitDecoration.addedResourceForeground';
-				break;
+				return 'gitDecoration.addedResourceForeground';
 			case GitChangeType.DELETE:
-				color = 'gitDecoration.deletedResourceForeground';
-				break;
+				return 'gitDecoration.deletedResourceForeground';
 			case GitChangeType.RENAME:
-				color = 'gitDecoration.renamedResourceForeground';
-				break;
+				return 'gitDecoration.renamedResourceForeground';
 			case GitChangeType.UNKNOWN:
-				color = undefined;
-				break;
+				return undefined;
 			case GitChangeType.UNMERGED:
-				color = 'gitDecoration.conflictingResourceForeground';
-				break;
+				return 'gitDecoration.conflictingResourceForeground';
 		}
+	}
+
+	remoteReposColors(status: GitChangeType): string | undefined {
+		switch (status) {
+			case GitChangeType.MODIFY:
+				return 'remoteHub.decorations.modifiedForegroundColor';
+			case GitChangeType.ADD:
+				return 'remoteHub.decorations.addedForegroundColor';
+			case GitChangeType.DELETE:
+				return 'remoteHub.decorations.deletedForegroundColor';
+			case GitChangeType.RENAME:
+				return 'remoteHub.decorations.incomingRenamedForegroundColor';
+			case GitChangeType.UNKNOWN:
+				return undefined;
+			case GitChangeType.UNMERGED:
+				return 'remoteHub.decorations.conflictForegroundColor';
+		}
+	}
+
+	color(status: GitChangeType): vscode.ThemeColor | undefined {
+		let color: string | undefined = vscode.extensions.getExtension('vscode.git') ? this.gitColors(status) : this.remoteReposColors(status);
 		return color ? new vscode.ThemeColor(color) : undefined;
 	}
 
-	letter(status: GitChangeType, viewedState?: ViewedState): string {
-		if (viewedState === ViewedState.VIEWED) {
-			return '✓';
-		}
+	letter(status: GitChangeType): string {
 
 		switch (status) {
 			case GitChangeType.MODIFY:
@@ -169,6 +165,12 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 		}
 
 		return '';
+	}
+
+	tooltip(change: FileChangeNodeUriParams | PRUriParams) {
+		if ((change.status === GitChangeType.RENAME) && change.previousFileName) {
+			return `Renamed ${change.previousFileName} to ${path.basename(change.fileName)}`;
+		}
 	}
 
 	dispose() {

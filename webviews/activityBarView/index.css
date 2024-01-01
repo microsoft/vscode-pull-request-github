@@ -10,6 +10,7 @@ body {
 textarea {
 	min-height: 80px;
 	max-height: 500px;
+	border-radius: 2px;
 }
 
 .form-actions {
@@ -22,30 +23,46 @@ textarea {
 	width: 16px;
 }
 
+.reviewer-icons .icon svg {
+	margin-right: 0px;
+}
+
+.reviewer-icons {
+	margin-left: 20px;
+}
+
 #status-checks {
-	padding-top: 20px;
-	padding-bottom: 10px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 16px 0;
+}
+
+.comment-form {
+	padding-bottom: 16px;
 }
 
 .status-section {
+	padding-bottom: 16px;
+}
+
+.ready-for-review-container {
 	display: flex;
-	padding: 10px 0;
+	flex-direction: column;
+	gap: 12px;
+	padding-bottom: 16px;
+}
+
+.ready-for-review-heading,
+.status-section p {
+	line-height: 1.5em;
+	margin: 0;
 }
 
 .select-container {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
-	min-width: 155px;
-}
-
-.ready-for-review-button {
-	width: 100%;
-}
-
-.ready-for-review-container,
-.select-control {
-	padding-bottom: 10px;
 }
 
 .select-control,
@@ -89,6 +106,7 @@ input[type='submit']:focus {
 }
 
 .select-control button,
+.branch-status-container button,
 input[type='submit'] {
 	min-height: 31px;
 	white-space: normal;
@@ -115,6 +133,7 @@ button .icon svg {
 	background-color: var(--vscode-dropdown-background);
 	color: var(--vscode-dropdown-foreground);
 	text-align: start;
+	white-space: break-spaces;
 }
 
 .options-select button:hover,
@@ -153,4 +172,46 @@ button .icon svg {
 #status-checks .branch-status-icon {
 	display: flex;
 	padding-top: 1px;
+}
+
+.comment-button {
+	display: flex;
+	flex-grow: 1;
+	min-width: 0;
+}
+
+button.split-left {
+	border-radius: 2px 0 0 2px;
+	flex-grow: 1;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+
+.split {
+	width: 1px; height: 100%;
+	background-color: var(--vscode-button-background);
+	opacity: 0.5;
+}
+
+button.split-right {
+	border-radius: 0 2px 2px 0;
+	cursor: pointer;
+	width: 24px; height: 28px;
+	position: relative;
+}
+
+button.split-right:disabled {
+	cursor: default;
+}
+
+button.split-right .icon {
+	pointer-events: none;
+	position: absolute;
+	top: 6px; right: 4px;
+}
+
+button.split-right .icon svg path {
+	fill: unset;
 }

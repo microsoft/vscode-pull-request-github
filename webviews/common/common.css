@@ -10,12 +10,12 @@ body a {
 body a:hover {
 	text-decoration: underline;
 }
+
 button,
 input[type='submit'] {
-	background-color: var(--vscode-button-background);
 	color: var(--vscode-button-foreground);
 	font-family: var(--vscode-font-family);
-	border-radius: 0px;
+	border-radius: 2px;
 	border: 1px solid transparent;
 	outline: none;
 	padding: 4px 12px;
@@ -25,10 +25,29 @@ input[type='submit'] {
 	user-select: none;
 }
 
+button:not(.icon-button),
+input[type='submit'] {
+	background-color: var(--vscode-button-background);
+}
+
+input.select-left {
+	border-radius: 2px 0 0 2px;
+}
+
+button.select-right {
+	border-radius: 0 2px 2px 0;
+}
+
 button:focus,
 input[type='submit']:focus {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: 2px;
+}
+
+button:focus-within,
+input[type='submit']:focus-within {
+	border: 1px solid transparent;
+	outline: 1px solid transparent;
 }
 
 button:hover:enabled,
@@ -60,6 +79,7 @@ input[type='text'] {
 	background-color: var(--vscode-input-background);
 	color: var(--vscode-input-foreground);
 	font-family: var(--vscode-font-family);
+	border-radius: 2px;
 }
 
 textarea::placeholder,
@@ -71,7 +91,7 @@ select {
 	display: block;
 	box-sizing: border-box;
 	padding: 4px 8px;
-	border-radius: 0;
+	border-radius: 2px;
 	font-size: 13px;
 	border: 1px solid var(--vscode-dropdown-border);
 	background-color: var(--vscode-dropdown-background);
@@ -112,8 +132,8 @@ body .hidden {
 
 body img.avatar,
 body span.avatar-icon svg {
-	width: 24px;
-	height: 24px;
+	width: 20px;
+	height: 20px;
 	border-radius: 50%;
 }
 
@@ -122,7 +142,38 @@ body img.avatar {
 }
 
 .avatar-link {
-	flex-shrink: 0;;
+	flex-shrink: 0;
+}
+
+.icon-button {
+	display: flex;
+	padding: 2px;
+	background: transparent;
+	border-radius: 4px;
+	line-height: 0;
+}
+
+.icon-button:hover,
+.section .icon-button:hover,
+.section .icon-button:focus {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.icon-button:focus,
+.section .icon-button:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: unset;
+}
+
+.label .icon-button:hover,
+.label .icon-button:focus {
+	background-color: transparent;
+}
+
+.section-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
 }
 
 .section-item .avatar-link {
@@ -138,36 +189,104 @@ body img.avatar {
 	flex-shrink: 0;
 }
 
-.section-item {
-	margin-bottom: 8px;
-	display: flex;
-	align-items: center;
+.section-item img.avatar {
+	width: 20px;
+	height: 20px;
 }
 
-.section-item img.avatar {
-	width: 18px;
-	height: 18px;
+.section-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 3px;
+}
+
+.section-icon.changes svg path {
+	fill: var(--vscode-list-errorForeground);
+}
+
+.section-icon.commented svg path,
+.section-icon.requested svg path {
+	fill: var(--vscode-list-warningForeground);
+}
+
+.section-icon.approved svg path {
+	fill: var(--vscode-issues-open);
+}
+
+.reviewer-icons {
+	display: flex;
+	gap: 4px;
 }
 
 .push-right {
 	margin-left: auto;
 }
 
+.avatar-with-author {
+	display: flex;
+	align-items: center;
+}
+
 .author-link {
-	font-weight: bolder;
+	font-weight: 600;
 	color: var(--vscode-editor-foreground);
 }
 
-.section-item {
-	margin-right: 8px;
+.automerge-section {
+	display: flex;
+}
+
+#status-checks .automerge-section {
+	align-items: center;
+	padding: 16px;
+	background: var(--vscode-editorHoverWidget-background);
+	border-bottom-left-radius: 3px;
+	border-bottom-right-radius: 3px;
+}
+
+.automerge-section .merge-select-container {
+	margin-left: 8px;
+}
+
+.automerge-checkbox-wrapper,
+.automerge-checkbox-label {
+	display: flex;
+	align-items: center;
+	margin-right: 4px;
+}
+
+.automerge-checkbox-label {
+	min-width: 80px;
+}
+
+.merge-queue-title .merge-queue-pending {
+	color: var(--vscode-list-warningForeground);
+}
+
+.merge-queue-title .merge-queue-blocked {
+	color: var(--vscode-list-errorForeground);
+}
+
+.merge-queue-title {
+	font-weight: bold;
+	font-size: larger;
 }
 
 /** Theming */
 
-.vscode-high-contrast button,
+.vscode-high-contrast button:not(.secondary):not(.icon-button) {
+	background: var(--vscode-button-background);
+}
+
+.vscode-high-contrast button {
+	outline: none;
+	border: 1px solid var(--vscode-contrastBorder);
+}
+
 .vscode-high-contrast input {
 	outline: none;
-	background: none !important;
+	background: var(--vscode-input-background);
 	border: 1px solid var(--vscode-contrastBorder);
 }
 
@@ -181,4 +300,70 @@ body img.avatar {
 
 ::-webkit-scrollbar-corner {
 	display: none;
+}
+
+.labels-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.label {
+	display: flex;
+	justify-content: normal;
+	padding: 0 8px;
+	border-radius: 20px;
+	border-style: solid;
+	border-width: 1px;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	font-size: 11px;
+	line-height: 18px;
+	font-weight: 600;
+}
+
+/* split button */
+
+.primary-split-button {
+	display: flex;
+	flex-grow: 1;
+	min-width: 0;
+}
+
+button.split-left {
+	border-radius: 2px 0 0 2px;
+	flex-grow: 1;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.split {
+	width: 1px;
+	height: 100%;
+	background-color: var(--vscode-button-background);
+	opacity: 0.5;
+}
+
+button.split-right {
+	border-radius: 0 2px 2px 0;
+	cursor: pointer;
+	width: 24px;
+	height: 28px;
+	position: relative;
+}
+
+button.split-right:disabled {
+	cursor: default;
+}
+
+button.split-right .icon {
+	pointer-events: none;
+	position: absolute;
+	top: 6px;
+	right: 4px;
+}
+
+button.split-right .icon svg path {
+	fill: unset;
 }

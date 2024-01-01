@@ -4,50 +4,48 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useContext, useRef, useState } from 'react';
-
 import { IComment } from '../../src/common/comment';
 import {
 	AssignEvent,
 	CommentEvent,
 	CommitEvent,
+	EventType,
 	HeadRefDeleteEvent,
-	isAssignEvent,
-	isCommentEvent,
-	isCommitEvent,
-	isHeadDeleteEvent,
-	isMergedEvent,
-	isReviewEvent,
 	MergedEvent,
 	ReviewEvent,
 	TimelineEvent,
 } from '../../src/common/timelineEvent';
-import { groupBy } from '../../src/common/utils';
+import { groupBy, UnreachableCaseError } from '../../src/common/utils';
 import PullRequestContext from '../common/context';
-import { CommentBody, CommentView } from './comment';
+import {  CommentView } from './comment';
 import Diff from './diff';
-import { commitIcon, mergeIcon } from './icon';
-import { nbsp, Spaced } from './space';
+import { commitIcon, mergeIcon, plusIcon } from './icon';
+import { nbsp } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
 
 export const Timeline = ({ events }: { events: TimelineEvent[] }) => (
 	<>
-		{events.map(event =>
-			// TODO: Maybe make TimelineEvent a tagged union type?
-			isCommitEvent(event) ? (
-				<CommitEventView key={event.id} {...event} />
-			) : isReviewEvent(event) ? (
-				<ReviewEventView key={event.id} {...event} />
-			) : isCommentEvent(event) ? (
-				<CommentEventView key={event.id} {...event} />
-			) : isMergedEvent(event) ? (
-				<MergedEventView key={event.id} {...event} />
-			) : isAssignEvent(event) ? (
-				<AssignEventView key={event.id} {...event} />
-			) : isHeadDeleteEvent(event) ? (
-				<HeadDeleteEventView key={event.id} {...event} />
-			) : null,
-		)}
+	{events.map(event => {
+		switch (event.event) {
+			case EventType.Committed:
+				return <CommitEventView key={`commit${event.id}`} {...event} />;
+			case EventType.Reviewed:
+				return <ReviewEventView key={`review${event.id}`} {...event} />;
+			case EventType.Commented:
+				return <CommentEventView key={`comment${event.id}`} {...event} />;
+			case EventType.Merged:
+				return <MergedEventView key={`merged${event.id}`} {...event} />;
+			case EventType.Assigned:
+				return <AssignEventView key={`assign${event.id}`} {...event} />;
+			case EventType.HeadRefDeleted:
+				return <HeadDeleteEventView key={`head${event.id}`} {...event} />;
+			case EventType.NewCommitsSinceReview:
+				return <NewCommitsSinceReviewEventView key={`newCommits${event.id}`} />;
+			default:
+				throw new UnreachableCaseError(event);
+		}
+	})}
 	</>
 );
 
@@ -62,24 +60,40 @@ const CommitEventView = (event: CommitEvent) => (
 				<Avatar for={event.author} />
 			</div>
 			<AuthorLink for={event.author} />
-			<a className="message" href={event.htmlUrl} title={event.htmlUrl}>
-				{event.message}
-			</a>
+			<div className="message-container">
+				<a className="message" href={event.htmlUrl} title={event.htmlUrl}>
+					{event.message.substr(0, event.message.indexOf('\n') > -1 ? event.message.indexOf('\n') : event.message.length)}
+				</a>
+			</div>
 		</div>
-		<a className="sha" href={event.htmlUrl} title={event.htmlUrl}>
-			{event.sha.slice(0, 7)}
-		</a>
-		{nbsp}
-		<Timestamp date={event.authoredDate} />
+		<div className="sha-with-timestamp">
+			<a className="sha" href={event.htmlUrl} title={event.htmlUrl}>
+				{event.sha.slice(0, 7)}
+			</a>
+			<Timestamp date={event.authoredDate} />
+		</div>
 	</div>
 );
 
-const association = ({ authorAssociation }: ReviewEvent, format = (assoc: string) => `(${assoc.toLowerCase()})`) =>
-	authorAssociation.toLowerCase() === 'user'
-		? format('you')
-		: authorAssociation && authorAssociation !== 'NONE'
-		? format(authorAssociation)
-		: null;
+const NewCommitsSinceReviewEventView = () => {
+	const { gotoChangesSinceReview } = useContext(PullRequestContext);
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				{plusIcon}
+				{nbsp}
+				<span style={{ fontWeight: 'bold' }}>New changes since your last Review</span>
+			</div>
+			<button
+				aria-live="polite"
+				title="View the changes since your last review"
+				onClick={() => gotoChangesSinceReview()}
+			>
+				View Changes
+			</button>
+		</div>
+	);
+};
 
 const positionKey = (comment: IComment) =>
 	comment.position !== null ? `pos:${comment.position}` : `ori:${comment.originalPosition}`;
@@ -87,57 +101,46 @@ const positionKey = (comment: IComment) =>
 const groupCommentsByPath = (comments: IComment[]) =>
 	groupBy(comments, comment => comment.path + ':' + positionKey(comment));
 
-const DESCRIPTORS = {
-	PENDING: 'will review',
-	COMMENTED: 'reviewed',
-	CHANGES_REQUESTED: 'requested changes',
-	APPROVED: 'approved',
-};
-
-const reviewDescriptor = (state: string) => DESCRIPTORS[state] || 'reviewed';
-
 const ReviewEventView = (event: ReviewEvent) => {
 	const comments = groupCommentsByPath(event.comments);
 	const reviewIsPending = event.state.toLocaleUpperCase() === 'PENDING';
 	return (
-		<div id={reviewIsPending ? 'pending-review' : null} className="comment-container comment">
-			<div className="review-comment-container">
-				<div className="review-comment-header">
-					<Spaced>
-						<Avatar for={event.user} />
-						<AuthorLink for={event.user} />
-						{association(event)}
-						{reviewIsPending ? (
-							<em>review pending</em>
-						) : (
-							<>
-								{reviewDescriptor(event.state)}
-								{nbsp}
-								<Timestamp href={event.htmlUrl} date={event.submittedAt} />
-							</>
-						)}
-					</Spaced>
-				</div>
-				{event.state !== 'PENDING' && event.body ? (
-					<CommentBody body={event.body} bodyHTML={event.bodyHTML} />
+		<CommentView comment={event} allowEmpty={true}>
+				{/* Don't show the empty comment body unless a comment has been written. Shows diffs and suggested changes. */}
+				{event.comments.length ? (
+					<div className="comment-body review-comment-body">
+						{Object.entries(comments).map(([key, thread]) => {
+							return <CommentThread key={key} thread={thread} event={event} />;
+						})}
+					</div>
 				) : null}
-				<div className="comment-body review-comment-body">
-					{Object.entries(comments).map(([key, thread]) => {
-						return <CommentThread key={key} thread={thread} eventId={event.id} />;
-					})}
-				</div>
+
 				{reviewIsPending ? <AddReviewSummaryComment /> : null}
-			</div>
-		</div>
+		</CommentView>
 	);
 };
 
-function CommentThread({ thread, eventId }: { thread: IComment[]; eventId: number }) {
+function CommentThread({ thread, event }: { thread: IComment[]; event: ReviewEvent }) {
 	const comment = thread[0];
 	const [revealed, setRevealed] = useState(!comment.isResolved);
-	const { openDiff } = useContext(PullRequestContext);
+	const [resolved, setResolved] = useState(!!comment.isResolved);
+	const { openDiff, toggleResolveComment } = useContext(PullRequestContext);
+	const resolvePermission =
+		event.reviewThread &&
+		((event.reviewThread.canResolve && !event.reviewThread.isResolved) ||
+			(event.reviewThread.canUnresolve && event.reviewThread.isResolved));
+
+	const toggleResolve = () => {
+		if (event.reviewThread) {
+			const newResolved = !resolved;
+			setRevealed(!newResolved);
+			setResolved(newResolved);
+			toggleResolveComment(event.reviewThread.threadId, thread, newResolved);
+		}
+	};
+
 	return (
-		<div key={eventId} className="diff-container">
+		<div key={event.id} className="diff-container">
 			<div className="resolved-container">
 				<div>
 					{comment.position === null ? (
@@ -150,19 +153,25 @@ function CommentThread({ thread, eventId }: { thread: IComment[]; eventId: numbe
 							{comment.path}
 						</a>
 					)}
+					{!resolved && !revealed ? <span className="unresolvedLabel">Unresolved</span> : null}
 				</div>
-				{comment.isResolved ? (
-					<button className="secondary" onClick={() => setRevealed(!revealed)}>
-						{revealed ? 'Hide resolved' : 'Show resolved'}
-					</button>
-				) : null}
+				<button className="secondary" onClick={() => setRevealed(!revealed)}>
+					{revealed ? 'Hide' : 'Show'}
+				</button>
 			</div>
 			{revealed ? (
 				<div>
-					<Diff hunks={comment.diffHunks} />
+					<Diff hunks={comment.diffHunks ?? []} />
 					{thread.map(c => (
-						<CommentView key={c.id} {...c} pullRequestReviewId={eventId} />
+						<CommentView key={c.id} comment={c} />
 					))}
+					{resolvePermission ? (
+						<div className="resolve-comment-row">
+							<button className="secondary comment-resolve" onClick={() => toggleResolve()}>
+								{resolved ? 'Unresolve Conversation' : 'Resolve Conversation'}
+							</button>
+						</div>
+					) : null}
 				</div>
 			) : null}
 		</div>
@@ -174,28 +183,44 @@ function AddReviewSummaryComment() {
 	const { isAuthor } = pr;
 	const comment = useRef<HTMLTextAreaElement>();
 	return (
-		<div className="comment-form">
+		<form>
 			<textarea ref={comment} placeholder="Leave a review summary comment"></textarea>
 			<div className="form-actions">
 				{isAuthor ? null : (
-					<button id="request-changes" className="push-right" onClick={() => requestChanges(comment.current.value)}>
+					<button
+						id="request-changes"
+						className='secondary'
+						onClick={(event) => {
+							event.preventDefault();
+							requestChanges(comment.current!.value);
+						}}
+					>
 						Request Changes
 					</button>
 				)}
 				{isAuthor ? null : (
-					<button id="approve" onClick={() => approve(comment.current.value)}>
+					<button
+						id="approve" className='secondary'
+						onClick={(event) => {
+							event.preventDefault();
+							approve(comment.current!.value);
+						}}
+					>
 						Approve
 					</button>
 				)}
-				<button id="submit" className={isAuthor ? 'push-right' : ''} onClick={() => submit(comment.current.value)}>
-					Submit Review
-				</button>
+				<button
+					onClick={(event) => {
+						event.preventDefault();
+						submit(comment.current!.value);
+					}}
+				>Submit Review</button>
 			</div>
-		</div>
+		</form>
 	);
 }
 
-const CommentEventView = (event: CommentEvent) => <CommentView headerInEditMode {...event} />;
+const CommentEventView = (event: CommentEvent) => <CommentView headerInEditMode comment={event} />;
 
 const MergedEventView = (event: MergedEvent) => (
 	<div className="comment-container commit">

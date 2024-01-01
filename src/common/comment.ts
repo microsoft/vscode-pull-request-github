@@ -25,17 +25,26 @@ export interface Reaction {
 	viewerHasReacted: boolean;
 }
 
+export enum SubjectType {
+	LINE = 'LINE',
+	FILE = 'FILE'
+}
+
 export interface IReviewThread {
 	id: string;
+	prReviewDatabaseId?: number;
 	isResolved: boolean;
 	viewerCanResolve: boolean;
 	viewerCanUnresolve: boolean;
 	path: string;
 	diffSide: DiffSide;
-	line: number;
-	originalLine: number;
+	startLine: number;
+	endLine: number;
+	originalStartLine: number;
+	originalEndLine: number;
 	isOutdated: boolean;
 	comments: IComment[];
+	subjectType: SubjectType;
 }
 
 export interface IComment {

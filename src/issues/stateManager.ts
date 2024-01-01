@@ -7,8 +7,15 @@ import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
+import { AuthProvider } from '../common/authentication';
 import { parseRepositoryRemotes } from '../common/remote';
-import { AuthProvider } from '../github/credentials';
+import {
+	DEFAULT,
+	IGNORE_MILESTONES,
+	ISSUES_SETTINGS_NAMESPACE,
+	QUERIES,
+	USE_BRANCH_FOR_ISSUES,
+} from '../common/settingKeys';
 import {
 	FolderRepositoryManager,
 	NO_MILESTONE,
@@ -19,23 +26,14 @@ import { IAccount } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { MilestoneModel } from '../github/milestoneModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { getIssueNumberLabel, variableSubstitution } from '../github/utils';
 import { CurrentIssue } from './currentIssue';
-import {
-	BRANCH_CONFIGURATION,
-	DEFAULT_QUERY_CONFIGURATION,
-	getIssueNumberLabel,
-	ISSUES_CONFIGURATION,
-	QUERIES_CONFIGURATION,
-	variableSubstitution,
-} from './util';
 
 // TODO: make exclude from date words configurable
 const excludeFromDate: string[] = ['Recovery'];
 const CURRENT_ISSUE_KEY = 'currentIssue';
 
 const ISSUES_KEY = 'issues';
-
-const IGNORE_MILESTONES_CONFIGURATION = 'ignoreMilestones';
 
 export interface IssueState {
 	branch?: string;
@@ -51,7 +49,7 @@ interface IssuesState {
 	branches: Record<string, { owner: string; repositoryName: string; number: number }>;
 }
 
-const DEFAULT_QUERY_CONFIGURATION_VALUE = [{ label: 'My Issues', query: 'default' }];
+const DEFAULT_QUERY_CONFIGURATION_VALUE = [{ label: vscode.l10n.t('My Issues'), query: 'default' }];
 
 export interface MilestoneItem extends MilestoneModel {
 	uri: vscode.Uri;
@@ -99,11 +97,7 @@ export class StateManager {
 		readonly gitAPI: GitApiImpl,
 		private manager: RepositoriesManager,
 		private context: vscode.ExtensionContext,
-	) {
-		manager.folderManagers.forEach(folderManager => {
-			this.context.subscriptions.push(folderManager.onDidChangeRepositories(() => this.refresh()));
-		});
-	}
+	) { }
 
 	private getOrCreateSingleRepoState(uri: vscode.Uri, folderManager?: FolderRepositoryManager): SingleRepoState {
 		let state = this._singleRepoStates.get(uri.path);
@@ -168,10 +162,10 @@ export class StateManager {
 			) {
 				if (newBranch) {
 					if (state.folderManager) {
-						await that.setCurrentIssueFromBranch(state, newBranch);
+						await that.setCurrentIssueFromBranch(state, newBranch, true);
 					}
 				} else {
-					await that.setCurrentIssue(state, undefined);
+					await that.setCurrentIssue(state, undefined, true);
 				}
 			}
 			state.lastHead = repository.state.HEAD ? repository.state.HEAD.commit : undefined;
@@ -206,19 +200,19 @@ export class StateManager {
 	private async doInitialize() {
 		this.cleanIssueState();
 		this._queries = vscode.workspace
-			.getConfiguration(ISSUES_CONFIGURATION)
-			.get(QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION_VALUE);
+			.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null)
+			.get(QUERIES, DEFAULT_QUERY_CONFIGURATION_VALUE);
 		if (this._queries.length === 0) {
 			this._queries = DEFAULT_QUERY_CONFIGURATION_VALUE;
 		}
 		this.context.subscriptions.push(
 			vscode.workspace.onDidChangeConfiguration(change => {
-				if (change.affectsConfiguration(`${ISSUES_CONFIGURATION}.${QUERIES_CONFIGURATION}`)) {
+				if (change.affectsConfiguration(`${ISSUES_SETTINGS_NAMESPACE}.${QUERIES}`)) {
 					this._queries = vscode.workspace
-						.getConfiguration(ISSUES_CONFIGURATION)
-						.get(QUERIES_CONFIGURATION, DEFAULT_QUERY_CONFIGURATION_VALUE);
+						.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null)
+						.get(QUERIES, DEFAULT_QUERY_CONFIGURATION_VALUE);
 					this._onRefreshCacheNeeded.fire();
-				} else if (change.affectsConfiguration(`${ISSUES_CONFIGURATION}.${IGNORE_MILESTONES_CONFIGURATION}`)) {
+				} else if (change.affectsConfiguration(`${ISSUES_SETTINGS_NAMESPACE}.${IGNORE_MILESTONES}`)) {
 					this._onRefreshCacheNeeded.fire();
 				}
 			}),
@@ -230,7 +224,10 @@ export class StateManager {
 				await this.refresh();
 			}),
 		);
+
 		for (const folderManager of this.manager.folderManagers) {
+			this.context.subscriptions.push(folderManager.onDidChangeRepositories(() => this.refresh()));
+
 			const singleRepoState: SingleRepoState = this.getOrCreateSingleRepoState(
 				folderManager.repository.rootUri,
 				folderManager,
@@ -241,7 +238,7 @@ export class StateManager {
 			this._singleRepoStates.set(folderManager.repository.rootUri.path, singleRepoState);
 			const branch = folderManager.repository.state.HEAD?.name;
 			if (!singleRepoState.currentIssue && branch) {
-				await this.setCurrentIssueFromBranch(singleRepoState, branch);
+				await this.setCurrentIssueFromBranch(singleRepoState, branch, true);
 			}
 		}
 	}
@@ -284,7 +281,7 @@ export class StateManager {
 	}
 
 	private async getCurrentUser(authProviderId: AuthProvider): Promise<string | undefined> {
-		return this.manager.credentialStore.getCurrentUser(authProviderId)?.login;
+		return (await this.manager.credentialStore.getCurrentUser(authProviderId))?.login;
 	}
 
 	private async setAllIssueData() {
@@ -298,7 +295,7 @@ export class StateManager {
 		let user: string | undefined;
 		for (const query of this._queries) {
 			let items: Promise<IssueItem[] | MilestoneItem[]>;
-			if (query.query === DEFAULT_QUERY_CONFIGURATION) {
+			if (query.query === DEFAULT) {
 				items = this.setMilestones(folderManager);
 			} else {
 				if (!defaults) {
@@ -310,13 +307,14 @@ export class StateManager {
 				}
 				if (!user) {
 					const enterpriseRemotes = parseRepositoryRemotes(folderManager.repository).filter(
-						remote => remote.authProviderId === AuthProvider['github-enterprise']
+						remote => remote.isEnterprise
 					);
-					user = await this.getCurrentUser(enterpriseRemotes.length ? AuthProvider['github-enterprise'] : AuthProvider.github);
+					user = await this.getCurrentUser(enterpriseRemotes.length ? AuthProvider.githubEnterprise : AuthProvider.github);
 				}
 				items = this.setIssues(
 					folderManager,
-					await variableSubstitution(query.query, undefined, defaults, user),
+					// Do not resolve pull request defaults as they will get resolved in the query later per repository
+					await variableSubstitution(query.query, undefined, undefined, user),
 				);
 			}
 			singleRepoState.issueCollection.set(query.label, items);
@@ -328,7 +326,7 @@ export class StateManager {
 
 	private setIssues(folderManager: FolderRepositoryManager, query: string): Promise<IssueItem[]> {
 		return new Promise(async resolve => {
-			const issues = await folderManager.getIssues({ fetchNextPage: false }, query);
+			const issues = await folderManager.getIssues(query);
 			this._onDidChangeIssueData.fire();
 			resolve(
 				issues.items.map(item => {
@@ -340,10 +338,10 @@ export class StateManager {
 		});
 	}
 
-	private async setCurrentIssueFromBranch(singleRepoState: SingleRepoState, branchName: string) {
+	private async setCurrentIssueFromBranch(singleRepoState: SingleRepoState, branchName: string, silent: boolean = false) {
 		const createBranchConfig = vscode.workspace
-			.getConfiguration(ISSUES_CONFIGURATION)
-			.get<string>(BRANCH_CONFIGURATION);
+			.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
+			.get<string>(USE_BRANCH_FOR_ISSUES);
 		if (createBranchConfig === 'off') {
 			return;
 		}
@@ -356,7 +354,7 @@ export class StateManager {
 			return;
 		}
 		if (branchName === defaults.base) {
-			await this.setCurrentIssue(singleRepoState, undefined);
+			await this.setCurrentIssue(singleRepoState, undefined, false);
 			return;
 		}
 
@@ -376,6 +374,8 @@ export class StateManager {
 					await this.setCurrentIssue(
 						singleRepoState,
 						new CurrentIssue(issueModel, singleRepoState.folderManager, this),
+						false,
+						silent
 					);
 				}
 				return;
@@ -387,9 +387,9 @@ export class StateManager {
 		return new Promise(async resolve => {
 			const now = new Date();
 			const skipMilestones: string[] = vscode.workspace
-				.getConfiguration(ISSUES_CONFIGURATION)
-				.get(IGNORE_MILESTONES_CONFIGURATION, []);
-			const milestones = await folderManager.getMilestones(
+				.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
+				.get(IGNORE_MILESTONES, []);
+			const milestones = await folderManager.getMilestoneIssues(
 				{ fetchNextPage: false },
 				skipMilestones.indexOf(NO_MILESTONE) < 0,
 			);
@@ -457,7 +457,7 @@ export class StateManager {
 	}
 
 	private isSettingIssue: boolean = false;
-	async setCurrentIssue(repoState: SingleRepoState | FolderRepositoryManager, issue: CurrentIssue | undefined) {
+	async setCurrentIssue(repoState: SingleRepoState | FolderRepositoryManager, issue: CurrentIssue | undefined, checkoutDefaultBranch: boolean, silent: boolean = false) {
 		if (this.isSettingIssue && issue === undefined) {
 			return;
 		}
@@ -474,13 +474,13 @@ export class StateManager {
 				return;
 			}
 			if (repoState.currentIssue) {
-				await repoState.currentIssue.stopWorking();
+				await repoState.currentIssue.stopWorking(checkoutDefaultBranch);
 			}
 			if (issue) {
 				this.context.subscriptions.push(issue.onDidChangeCurrentIssueState(() => this.updateStatusBar()));
 			}
 			this.context.workspaceState.update(CURRENT_ISSUE_KEY, issue?.issue.number);
-			if (!issue || (await issue.startWorking())) {
+			if (!issue || (await issue.startWorking(silent))) {
 				repoState.currentIssue = issue;
 				this.updateStatusBar();
 			}
@@ -505,12 +505,12 @@ export class StateManager {
 		}
 		if (shouldShowStatusBarItem && !this.statusBarItem) {
 			this.statusBarItem = vscode.window.createStatusBarItem('github.issues.status', vscode.StatusBarAlignment.Left, 0);
-			this.statusBarItem.name = 'GitHub Active Issue';
+			this.statusBarItem.name = vscode.l10n.t('GitHub Active Issue');
 		}
 		const statusBarItem = this.statusBarItem!;
-		statusBarItem.text = `$(issues) Issue ${currentIssues
+		statusBarItem.text = vscode.l10n.t('{0} Issue {1}', '$(issues)', currentIssues
 			.map(issue => getIssueNumberLabel(issue.issue, issue.repoDefaults))
-			.join(', ')}`;
+			.join(', '));
 		statusBarItem.tooltip = currentIssues.map(issue => issue.issue.title).join(', ');
 		statusBarItem.command = 'issue.statusBar';
 		statusBarItem.show();

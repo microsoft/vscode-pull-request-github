@@ -1,10 +1,15 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { default as assert } from 'assert';
 import { MockCommandRegistry } from '../mocks/mockCommandRegistry';
 import { CredentialStore } from '../../github/credentials';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { GithubItemStateEnum } from '../../github/interface';
 import { Protocol } from '../../common/protocol';
-import { Remote } from '../../common/remote';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { SinonSandbox, createSandbox } from 'sinon';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
@@ -13,11 +18,13 @@ import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { NetworkStatus } from 'apollo-client';
 import { Resource } from '../../common/resources';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
-const queries = require('../../github/queries.gql');
+import { GitHubServerType } from '../../common/authentication';
+import { mergeQuerySchemaWithShared } from '../../github/common';
+const queries = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 const telemetry = new MockTelemetry();
 const protocol = new Protocol('https://github.com/github/test.git');
-const remote = new Remote('test', 'github/test', protocol);
+const remote = new GitHubRemote('test', 'github/test', protocol, GitHubServerType.GitHubDotCom);
 
 const reviewThreadResponse = {
 	id: '1',
@@ -25,7 +32,9 @@ const reviewThreadResponse = {
 	viewerCanResolve: true,
 	path: 'README.md',
 	diffSide: 'RIGHT',
+	startLine: null,
 	line: 4,
+	originalStartLine: null,
 	originalLine: 4,
 	isOutdated: false,
 	comments: {
@@ -54,9 +63,9 @@ describe('PullRequestModel', function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 
-		credentials = new CredentialStore(telemetry);
-		repo = new MockGitHubRepository(remote, credentials, telemetry, sinon);
 		context = new MockExtensionContext();
+		credentials = new CredentialStore(telemetry, context);
+		repo = new MockGitHubRepository(remote, credentials, telemetry, sinon);
 		Resource.initialize(context);
 	});
 
@@ -69,21 +78,21 @@ describe('PullRequestModel', function () {
 
 	it('should return `state` properly as `open`', function () {
 		const pr = new PullRequestBuilder().state('open').build();
-		const open = new PullRequestModel(telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		const open = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		assert.strictEqual(open.state, GithubItemStateEnum.Open);
 	});
 
 	it('should return `state` properly as `closed`', function () {
 		const pr = new PullRequestBuilder().state('closed').build();
-		const open = new PullRequestModel(telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		const open = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		assert.strictEqual(open.state, GithubItemStateEnum.Closed);
 	});
 
 	it('should return `state` properly as `merged`', function () {
 		const pr = new PullRequestBuilder().merged(true).state('closed').build();
-		const open = new PullRequestModel(telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
+		const open = new PullRequestModel(credentials, telemetry, repo, remote, convertRESTPullRequestToRawPullRequest(pr, repo));
 
 		assert.strictEqual(open.state, GithubItemStateEnum.Merged);
 	});
@@ -92,6 +101,7 @@ describe('PullRequestModel', function () {
 		it('should update the cache when then cache is initialized', async function () {
 			const pr = new PullRequestBuilder().build();
 			const model = new PullRequestModel(
+				credentials,
 				telemetry,
 				repo,
 				remote,
@@ -115,6 +125,9 @@ describe('PullRequestModel', function () {
 									nodes: [
 										reviewThreadResponse
 									],
+									pageInfo: {
+										hasNextPage: false
+									}
 								},
 							},
 						},

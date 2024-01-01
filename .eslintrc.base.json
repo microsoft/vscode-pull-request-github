@@ -8,8 +8,7 @@
 		"plugin:@typescript-eslint/recommended-requiring-type-checking",
 		"plugin:import/errors",
 		"plugin:import/warnings",
-		"plugin:import/typescript",
-		"prettier"
+		"plugin:import/typescript"
 	],
 	"parser": "@typescript-eslint/parser",
 	"parserOptions": {
@@ -221,11 +220,14 @@
 		"@typescript-eslint/no-namespace": "off",
 		"@typescript-eslint/no-non-null-assertion": "off",
 		"@typescript-eslint/no-parameter-properties": "off",
+		"@typescript-eslint/no-redundant-type-constituents": "off",
 		"@typescript-eslint/no-this-alias": "off",
 		"@typescript-eslint/no-unnecessary-condition": "off",
 		"@typescript-eslint/no-unnecessary-type-assertion": "off", // TODO@eamodio revisit
+		"@typescript-eslint/no-unsafe-argument": "off",
 		"@typescript-eslint/no-unsafe-assignment": "off", // TODO@eamodio revisit
 		"@typescript-eslint/no-unsafe-call": "off", // TODO@eamodio revisit
+		"@typescript-eslint/no-unsafe-enum-comparison": "off",
 		"@typescript-eslint/no-unsafe-member-access": "off", // TODO@eamodio revisit
 		"@typescript-eslint/no-unsafe-return": "off", // TODO@eamodio revisit
 		"@typescript-eslint/no-unused-expressions": ["warn", { "allowShortCircuit": true }],

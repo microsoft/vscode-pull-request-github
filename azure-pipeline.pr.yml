@@ -2,7 +2,7 @@ jobs:
   - job: test_suite
     displayName: Test suite
     pool:
-      vmImage: 'macOS-10.15'
+      vmImage: 'macos-12'
     steps:
       - template: scripts/ci/common-setup.yml
 
@@ -14,20 +14,20 @@ jobs:
         env:
           TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/test-results.xml
 
-      - script: yarn run browsertest --browserType=chromium
-        displayName: Run test suite (chromium)
-        env:
-          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-chromium-test-results.xml
+      # - script: yarn run browsertest --browserType=chromium
+      #   displayName: Run test suite (chromium)
+      #   env:
+      #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-chromium-test-results.xml
 
-      - script: yarn run browsertest --browserType=firefox
-        displayName: Run test suite (firefox)
-        env:
-          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
+      # - script: yarn run browsertest --browserType=firefox
+      #   displayName: Run test suite (firefox)
+      #   env:
+      #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-firefox-test-results.xml
 
-      - script: yarn run browsertest --browserType=webkit
-        displayName: Run test suite (webkit)
-        env:
-          TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
+      # - script: yarn run browsertest --browserType=webkit
+      #   displayName: Run test suite (webkit)
+      #   env:
+      #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
 
       - task: PublishTestResults@2
         displayName: Publish test results

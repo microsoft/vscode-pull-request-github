@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ISSUE_OR_URL_EXPRESSION, ISSUES_CONFIGURATION, MAX_LINE_LENGTH } from './util';
+import { CREATE_ISSUE_TRIGGERS, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { ISSUE_OR_URL_EXPRESSION } from '../github/utils';
+import { MAX_LINE_LENGTH } from './util';
 
 export class IssueTodoProvider implements vscode.CodeActionProvider {
 	private expression: RegExp | undefined;
@@ -19,7 +21,7 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 	}
 
 	private updateTriggers() {
-		const triggers = vscode.workspace.getConfiguration(ISSUES_CONFIGURATION).get('createIssueTriggers', []);
+		const triggers = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get(CREATE_ISSUE_TRIGGERS, []);
 		this.expression = triggers.length > 0 ? new RegExp(triggers.join('|')) : undefined;
 	}
 
@@ -42,7 +44,7 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 				const search = truncatedLine.search(this.expression);
 				if (search >= 0) {
 					const codeAction: vscode.CodeAction = new vscode.CodeAction(
-						'Create GitHub Issue',
+						vscode.l10n.t('Create GitHub Issue'),
 						vscode.CodeActionKind.QuickFix,
 					);
 					const indexOfWhiteSpace = truncatedLine.substring(search).search(/\s/);
@@ -50,7 +52,7 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 						search +
 						(indexOfWhiteSpace > 0 ? indexOfWhiteSpace : truncatedLine.match(this.expression)![0].length);
 					codeAction.command = {
-						title: 'Create GitHub Issue',
+						title: vscode.l10n.t('Create GitHub Issue'),
 						command: 'issue.createIssueFromSelection',
 						arguments: [{ document, lineNumber, line, insertIndex, range }],
 					};

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, Event, Uri } from 'vscode';
+import { CancellationToken, Disposable, Event, Uri } from 'vscode';
 import { APIState, PublishEvent } from '../@types/git';
 
 export interface InputBox {
@@ -53,27 +53,7 @@ export interface Remote {
 	readonly isReadOnly: boolean;
 }
 
-export const enum Status {
-	INDEX_MODIFIED,
-	INDEX_ADDED,
-	INDEX_DELETED,
-	INDEX_RENAMED,
-	INDEX_COPIED,
-
-	MODIFIED,
-	DELETED,
-	UNTRACKED,
-	IGNORED,
-	INTENT_TO_ADD,
-
-	ADDED_BY_US,
-	ADDED_BY_THEM,
-	DELETED_BY_US,
-	DELETED_BY_THEM,
-	BOTH_ADDED,
-	BOTH_DELETED,
-	BOTH_MODIFIED,
-}
+export { Status } from './api1';
 
 export interface Change {
 	/**
@@ -89,7 +69,6 @@ export interface Change {
 
 export interface RepositoryState {
 	readonly HEAD: Branch | undefined;
-	readonly refs: Ref[];
 	readonly remotes: Remote[];
 	readonly submodules: Submodule[];
 	readonly rebaseCommit: Commit | undefined;
@@ -122,11 +101,15 @@ export interface FetchOptions {
 	depth?: number;
 }
 
-export interface BranchQuery {
-	readonly remote?: boolean;
-	readonly pattern?: string;
-	readonly count?: number;
+export interface RefQuery {
 	readonly contains?: string;
+	readonly count?: number;
+	readonly pattern?: string;
+	readonly sort?: 'alphabetically' | 'committerdate';
+}
+
+export interface BranchQuery extends RefQuery {
+	readonly remote?: boolean;
 }
 
 export interface Repository {
@@ -201,6 +184,8 @@ export interface Repository {
 	getBranch(name: string): Promise<Branch>;
 	getBranches(query: BranchQuery): Promise<Ref[]>;
 	setBranchUpstream(name: string, upstream: string): Promise<void>;
+	getRefs(query: RefQuery, cancellationToken?: CancellationToken): Promise<Ref[]>;
+
 	getMergeBase(ref1: string, ref2: string): Promise<string>;
 
 	status(): Promise<void>;
@@ -219,6 +204,7 @@ export interface Repository {
 	log(options?: LogOptions): Promise<Commit[]>;
 
 	commit(message: string, opts?: CommitOptions): Promise<void>;
+	add(paths: string[]): Promise<void>;
 }
 
 /**
@@ -228,6 +214,12 @@ export interface LogOptions {
 	/** Max number of log entries to retrieve. If not specified, the default is 32. */
 	readonly maxEntries?: number;
 	readonly path?: string;
+	/** A commit range, such as "0a47c67f0fb52dd11562af48658bc1dff1d75a38..0bb4bdea78e1db44d728fd6894720071e303304f" */
+	readonly range?: string;
+}
+
+export interface PostCommitCommandsProvider {
+	getCommands(repository: Repository): Command[];
 }
 
 export { GitErrorCodes } from './api1';
@@ -241,6 +233,13 @@ export interface IGit {
 	readonly state?: APIState;
 	readonly onDidChangeState?: Event<APIState>;
 	readonly onDidPublish?: Event<PublishEvent>;
+
+	registerPostCommitCommandsProvider?(provider: PostCommitCommandsProvider): Disposable;
+}
+
+export interface TitleAndDescriptionProvider {
+	provideTitleAndDescription(commitMessages: string[], patches: string[], token: CancellationToken): Promise<{ title: string, description?: string } | undefined>;
+	provideTitleAndDescription(context: { commitMessages: string[], patches: string[], issues?: { reference: string, content: string }[] }, token: CancellationToken): Promise<{ title: string, description?: string } | undefined>;
 }
 
 export interface API {
@@ -256,4 +255,9 @@ export interface API {
 	 * @return A git provider or `undefined`
 	 */
 	getGitProvider(uri: Uri): IGit | undefined;
+
+	/**
+	 * Register a PR title and description provider.
+	 */
+	registerTitleAndDescriptionProvider(title: string, provider: TitleAndDescriptionProvider): Disposable;
 }

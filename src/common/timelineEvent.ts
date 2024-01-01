@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IAccount } from '../github/interface';
+import { IAccount, IActor } from '../github/interface';
 import { IComment } from './comment';
 
 export enum EventType {
@@ -12,6 +12,7 @@ export enum EventType {
 	Subscribed,
 	Commented,
 	Reviewed,
+	NewCommitsSinceReview,
 	Labeled,
 	Milestoned,
 	Assigned,
@@ -28,19 +29,28 @@ export interface Committer {
 
 export interface CommentEvent {
 	id: number;
+	graphNodeId: string;
 	htmlUrl: string;
 	body: string;
 	bodyHTML?: string;
 	user: IAccount;
-	event: EventType;
+	event: EventType.Commented;
 	canEdit?: boolean;
 	canDelete?: boolean;
 	createdAt: string;
 }
 
+export interface ReviewResolveInfo {
+	threadId: string;
+	canResolve: boolean;
+	canUnresolve: boolean;
+	isResolved: boolean;
+}
+
 export interface ReviewEvent {
 	id: number;
-	event: EventType;
+	reviewThread?: ReviewResolveInfo
+	event: EventType.Reviewed;
 	comments: IComment[];
 	submittedAt: string;
 	body: string;
@@ -54,7 +64,7 @@ export interface ReviewEvent {
 export interface CommitEvent {
 	id: string;
 	author: IAccount;
-	event: EventType;
+	event: EventType.Committed;
 	sha: string;
 	htmlUrl: string;
 	message: string;
@@ -62,55 +72,36 @@ export interface CommitEvent {
 	authoredDate: Date;
 }
 
+export interface NewCommitsSinceReviewEvent {
+	id: string;
+	event: EventType.NewCommitsSinceReview;
+}
+
 export interface MergedEvent {
 	id: string;
 	graphNodeId: string;
-	user: IAccount;
+	user: IActor;
 	createdAt: string;
 	mergeRef: string;
 	sha: string;
 	commitUrl: string;
-	event: EventType;
+	event: EventType.Merged;
 	url: string;
 }
 
 export interface AssignEvent {
 	id: number;
-	event: EventType;
+	event: EventType.Assigned;
 	user: IAccount;
-	actor: IAccount;
+	actor: IActor;
 }
 
 export interface HeadRefDeleteEvent {
 	id: string;
-	event: EventType;
-	actor: IAccount;
+	event: EventType.HeadRefDeleted;
+	actor: IActor;
 	createdAt: string;
 	headRef: string;
 }
 
-export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent;
-
-export function isReviewEvent(event: TimelineEvent): event is ReviewEvent {
-	return event.event === EventType.Reviewed;
-}
-
-export function isCommitEvent(event: TimelineEvent): event is CommitEvent {
-	return event.event === EventType.Committed;
-}
-
-export function isCommentEvent(event: TimelineEvent): event is CommentEvent {
-	return event.event === EventType.Commented;
-}
-
-export function isMergedEvent(event: TimelineEvent): event is MergedEvent {
-	return event.event === EventType.Merged;
-}
-
-export function isAssignEvent(event: TimelineEvent): event is AssignEvent {
-	return event.event === EventType.Assigned;
-}
-
-export function isHeadDeleteEvent(event: TimelineEvent): event is HeadRefDeleteEvent {
-	return event.event === EventType.HeadRefDeleted;
-}
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent;

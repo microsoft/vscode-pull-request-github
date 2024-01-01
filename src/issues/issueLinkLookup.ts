@@ -38,7 +38,7 @@ export async function findCodeLinkLocally(
 	let linkFolderManager: FolderRepositoryManager | undefined;
 
 	for (const folderManager of repositoriesManager.folderManagers) {
-		const remotes = folderManager.getGitHubRemotes();
+		const remotes = await folderManager.getGitHubRemotes();
 		for (const remote of remotes) {
 			if (
 				owner.toLowerCase() === remote.owner.toLowerCase() &&
@@ -73,7 +73,7 @@ export async function findCodeLinkLocally(
 export async function openCodeLink(issueModel: IssueModel, repositoriesManager: RepositoriesManager) {
 	const issueLink = findCodeLink(issueModel.body);
 	if (!issueLink) {
-		vscode.window.showInformationMessage('Issue has no link.');
+		vscode.window.showInformationMessage(vscode.l10n.t('Issue has no link.'));
 		return;
 	}
 	const codeLink = await findCodeLinkLocally(issueLink, repositoriesManager, false);

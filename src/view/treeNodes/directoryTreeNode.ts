@@ -11,6 +11,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public children: (RemoteFileChangeNode | InMemFileChangeNode | GitFileChangeNode | DirectoryTreeNode)[] = [];
 	private pathToChild: Map<string, DirectoryTreeNode> = new Map();
+	public checkboxState?: { state: vscode.TreeItemCheckboxState, tooltip: string, accessibilityInformation: vscode.AccessibilityInformation };
 
 	constructor(public parent: TreeNodeParent, public label: string) {
 		super();
@@ -58,6 +59,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 			this.label = this.label.substr(1);
 		}
 		this.children = child.children;
+		this.children.forEach(child => { child.parent = this; });
 	}
 
 	private sort(): void {
@@ -87,7 +89,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	public addFile(file: GitFileChangeNode | RemoteFileChangeNode | InMemFileChangeNode): void {
-		const paths = file.fileName.split('/');
+		const paths = file.changeModel.fileName.split('/');
 		this.addPathRecc(paths, file);
 	}
 
@@ -97,6 +99,7 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 		}
 
 		if (paths.length === 1) {
+			file.parent = this;
 			this.children.push(file);
 			return;
 		}
@@ -114,7 +117,27 @@ export class DirectoryTreeNode extends TreeNode implements vscode.TreeItem {
 		node.addPathRecc(tail, file);
 	}
 
+	public allChildrenViewed(): boolean {
+		for (const child of this.children) {
+			if (child instanceof DirectoryTreeNode) {
+				if (!child.allChildrenViewed()) {
+					return false;
+				}
+			} else if (child.checkboxState.state !== vscode.TreeItemCheckboxState.Checked) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private setCheckboxState(isChecked: boolean) {
+		this.checkboxState = isChecked ?
+			{ state: vscode.TreeItemCheckboxState.Checked, tooltip: vscode.l10n.t('Mark all files unviewed'), accessibilityInformation: { label: vscode.l10n.t('Mark all files in folder {0} as unviewed', this.label) } } :
+			{ state: vscode.TreeItemCheckboxState.Unchecked, tooltip: vscode.l10n.t('Mark all files viewed'), accessibilityInformation: { label: vscode.l10n.t('Mark all files in folder {0} as viewed', this.label) } };
+	}
+
 	getTreeItem(): vscode.TreeItem {
+		this.setCheckboxState(this.allChildrenViewed());
 		return this;
 	}
 }

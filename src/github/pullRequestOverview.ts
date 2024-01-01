@@ -4,34 +4,35 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { onDidUpdatePR, openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
+import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
-import { formatError } from '../common/utils';
-import { IRequestMessage } from '../common/webview';
+import { asPromise, dispose, formatError } from '../common/utils';
+import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
 	GithubItemStateEnum,
 	IAccount,
 	IMilestone,
-	ISuggestedReviewer,
+	IProject,
+	IProjectItem,
+	isTeam,
+	ITeam,
 	MergeMethod,
 	MergeMethodsAvailability,
+	reviewerId,
 	ReviewEvent,
 	ReviewState,
 } from './interface';
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestModel } from './pullRequestModel';
-import { isInCodespaces, parseReviewers } from './utils';
-
-type MilestoneQuickPickItem = vscode.QuickPickItem & { id: string; milestone: IMilestone };
-
-function isMilestoneQuickPickItem(x: vscode.QuickPickItem | MilestoneQuickPickItem): x is MilestoneQuickPickItem {
-	return !!(x as MilestoneQuickPickItem).id && !!(x as MilestoneQuickPickItem).milestone;
-}
+import { PullRequestView } from './pullRequestOverviewCommon';
+import { getAssigneesQuickPickItems, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
+import { isInCodespaces, parseReviewers, vscodeDevPrLink } from './utils';
+import { ProjectItemsReply, PullRequest, ReviewType } from './views';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -40,29 +41,30 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 */
 	public static currentPanel?: PullRequestOverviewPanel;
 
-	protected static readonly _viewType: string = 'PullRequestOverview';
-
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[] = [];
+	private _teamsCount = 0;
 
-	private _changeActivePullRequestListener: vscode.Disposable | undefined;
+	private _prListeners: vscode.Disposable[] = [];
+	private _isUpdating: boolean = false;
 
 	public static async createOrShow(
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
 		issue: PullRequestModel,
-		toTheSide: Boolean = false,
+		toTheSide: boolean = false,
+		preserveFocus: boolean = true
 	) {
 		const activeColumn = toTheSide
 			? vscode.ViewColumn.Beside
 			: vscode.window.activeTextEditor
-			? vscode.window.activeTextEditor.viewColumn
-			: vscode.ViewColumn.One;
+				? vscode.window.activeTextEditor.viewColumn
+				: vscode.ViewColumn.One;
 
 		// If we already have a panel, show it.
 		// Otherwise, create a new panel.
 		if (PullRequestOverviewPanel.currentPanel) {
-			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, true);
+			PullRequestOverviewPanel.currentPanel._panel.reveal(activeColumn, preserveFocus);
 		} else {
 			const title = `Pull Request #${issue.number.toString()}`;
 			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(
@@ -98,10 +100,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		title: string,
 		folderRepositoryManager: FolderRepositoryManager,
 	) {
-		super(extensionUri, column, title, folderRepositoryManager, PullRequestOverviewPanel._viewType);
+		super(extensionUri, column, title, folderRepositoryManager, PULL_REQUEST_OVERVIEW_VIEW_TYPE);
 
-		this.registerFolderRepositoryListener();
-
+		this.registerPrListeners();
 		onDidUpdatePR(
 			pr => {
 				if (pr) {
@@ -125,10 +126,25 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				});
 			}),
 		);
+		this._disposables.push(folderRepositoryManager.credentialStore.onDidUpgradeSession(() => {
+			this.updatePullRequest(this._item);
+		}));
+
+		this._disposables.push(vscode.commands.registerCommand('review.approveDescription', (e) => this.approvePullRequestCommand(e)));
+		this._disposables.push(vscode.commands.registerCommand('review.commentDescription', (e) => this.submitReviewCommand(e)));
+		this._disposables.push(vscode.commands.registerCommand('review.requestChangesDescription', (e) => this.requestChangesCommand(e)));
+		this._disposables.push(vscode.commands.registerCommand('review.approveOnDotComDescription', () => {
+			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+		}));
+		this._disposables.push(vscode.commands.registerCommand('review.requestChangesOnDotComDescription', () => {
+			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+		}));
 	}
 
-	registerFolderRepositoryListener() {
-		this._changeActivePullRequestListener = this._folderRepositoryManager.onDidChangeActivePullRequest(_ => {
+	registerPrListeners() {
+		dispose(this._prListeners);
+		this._prListeners = [];
+		this._prListeners.push(this._folderRepositoryManager.onDidChangeActivePullRequest(_ => {
 			if (this._folderRepositoryManager && this._item) {
 				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
 				this._postMessage({
@@ -136,7 +152,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					isCurrentlyCheckedOut,
 				});
 			}
-		});
+		}));
+
+		if (this._item) {
+			this._prListeners.push(this._item.onDidChangeComments(() => {
+				if (!this._isUpdating) {
+					this.refreshPanel();
+				}
+			}));
+		}
 	}
 
 	/**
@@ -145,12 +169,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 * @param pullRequestModel Model of the PR
 	 */
 	private getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount): string | undefined {
-		const review = reviewers.find(r => r.reviewer.login === currentUser.login);
+		const review = reviewers.find(r => reviewerId(r.reviewer) === currentUser.login);
 		// There will always be a review. If not then the PR shouldn't have been or fetched/shown for the current user
 		return review?.state;
 	}
 
-	public async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
+	private async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
 		return Promise.all([
 			this._folderRepositoryManager.resolvePullRequest(
 				pullRequestModel.remote.owner,
@@ -163,7 +187,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			pullRequestModel.getReviewRequests(),
 			this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
 			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
-		])
+			this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
+			pullRequestModel.canEdit(),
+			this._folderRepositoryManager.getOrgTeamsCount(pullRequestModel.githubRepository),
+			this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName)])
 			.then(result => {
 				const [
 					pullRequest,
@@ -173,6 +200,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					requestedReviewers,
 					repositoryAccess,
 					branchInfo,
+					currentUser,
+					viewerCanEdit,
+					orgTeamsCount,
+					mergeQueueMethod
 				] = result;
 				if (!pullRequest) {
 					throw new Error(
@@ -181,69 +212,85 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				}
 
 				this._item = pullRequest;
+				this.registerPrListeners();
 				this._repositoryDefaultBranch = defaultBranch!;
-				this._panel.title = `Pull Request #${pullRequestModel.number.toString()}`;
+				this._teamsCount = orgTeamsCount;
+				this.setPanelTitle(`Pull Request #${pullRequestModel.number.toString()}`);
 
 				const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
 				const hasWritePermission = repositoryAccess!.hasWritePermission;
 				const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
-				const canEdit = hasWritePermission || this._item.canEdit();
-				const preferredMergeMethod = vscode.workspace
-					.getConfiguration('githubPullRequests')
-					.get<MergeMethod>('defaultMergeMethod');
-				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
+				const canEdit = hasWritePermission || viewerCanEdit;
+
+				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
 				this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
-				const currentUser = this._folderRepositoryManager.getCurrentUser(this._item);
 
 				const isCrossRepository =
 					pullRequest.base &&
-					pullRequest.head &&
+					!!pullRequest.head &&
 					!pullRequest.base.repositoryCloneUrl.equals(pullRequest.head.repositoryCloneUrl);
 
 				const continueOnGitHub = isCrossRepository && isInCodespaces();
 				const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
 				Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
+				const context: Partial<PullRequest> = {
+					number: pullRequest.number,
+					title: pullRequest.title,
+					titleHTML: pullRequest.titleHTML,
+					url: pullRequest.html_url,
+					createdAt: pullRequest.createdAt,
+					body: pullRequest.body,
+					bodyHTML: pullRequest.bodyHTML,
+					labels: pullRequest.item.labels,
+					author: {
+						id: pullRequest.author.id,
+						login: pullRequest.author.login,
+						name: pullRequest.author.name,
+						avatarUrl: pullRequest.userAvatar,
+						url: pullRequest.author.url,
+					},
+					state: pullRequest.state,
+					events: timelineEvents,
+					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
+					isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
+					base: pullRequest.base.label,
+					isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
+					isLocalHeadDeleted: !branchInfo,
+					head: pullRequest.head?.label ?? '',
+					repositoryDefaultBranch: defaultBranch,
+					canEdit: canEdit,
+					hasWritePermission,
+					status: status[0],
+					reviewRequirement: status[1],
+					mergeable: pullRequest.item.mergeable,
+					reviewers: this._existingReviewers,
+					isDraft: pullRequest.isDraft,
+					mergeMethodsAvailability,
+					defaultMergeMethod,
+					autoMerge: pullRequest.autoMerge,
+					allowAutoMerge: pullRequest.allowAutoMerge,
+					autoMergeMethod: pullRequest.autoMergeMethod,
+					mergeQueueMethod: mergeQueueMethod,
+					mergeQueueEntry: pullRequest.mergeQueueEntry,
+					mergeCommitMeta: pullRequest.mergeCommitMeta,
+					squashCommitMeta: pullRequest.squashCommitMeta,
+					isIssue: false,
+					projectItems: pullRequest.item.projectItems,
+					milestone: pullRequest.milestone,
+					assignees: pullRequest.assignees,
+					continueOnGitHub,
+					isAuthor: currentUser.login === pullRequest.author.login,
+					currentUserReviewState: reviewState,
+					isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
+					isEnterprise: pullRequest.githubRepository.remote.isEnterprise
+				};
 				this._postMessage({
 					command: 'pr.initialize',
-					pullrequest: {
-						number: pullRequest.number,
-						title: pullRequest.title,
-						url: pullRequest.html_url,
-						createdAt: pullRequest.createdAt,
-						body: pullRequest.body,
-						bodyHTML: pullRequest.bodyHTML,
-						labels: pullRequest.item.labels,
-						author: {
-							login: pullRequest.author.login,
-							name: pullRequest.author.name,
-							avatarUrl: pullRequest.userAvatar,
-							url: pullRequest.author.url,
-						},
-						state: pullRequest.state,
-						events: timelineEvents,
-						isCurrentlyCheckedOut: isCurrentlyCheckedOut,
-						isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
-						base: pullRequest.base.label,
-						isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
-						isLocalHeadDeleted: !branchInfo,
-						head: pullRequest.head?.label ?? '',
-						repositoryDefaultBranch: defaultBranch,
-						canEdit: canEdit,
-						hasWritePermission,
-						status: status ? status : { statuses: [] },
-						mergeable: pullRequest.item.mergeable,
-						reviewers: this._existingReviewers,
-						isDraft: pullRequest.isDraft,
-						mergeMethodsAvailability,
-						defaultMergeMethod,
-						isIssue: false,
-						milestone: pullRequest.milestone,
-						assignees: pullRequest.assignees,
-						continueOnGitHub,
-						isAuthor: currentUser.login === pullRequest.author.login,
-						currentUserReviewState: reviewState
-					},
+					pullrequest: context
 				});
+				if (pullRequest.isResolved()) {
+					this._folderRepositoryManager.checkBranchUpToDate(pullRequest, true);
+				}
 			})
 			.catch(e => {
 				vscode.window.showErrorMessage(formatError(e));
@@ -256,11 +303,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	): Promise<void> {
 		if (this._folderRepositoryManager !== folderRepositoryManager) {
 			this._folderRepositoryManager = folderRepositoryManager;
-			if (this._changeActivePullRequestListener) {
-				this._changeActivePullRequestListener.dispose();
-				this._changeActivePullRequestListener = undefined;
-				this.registerFolderRepositoryListener();
-			}
+			this.registerPrListeners();
 		}
 
 		this._postMessage({
@@ -268,7 +311,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			scrollPosition: this._scrollPosition,
 		});
 
-		this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.number.toString());
+		if (!this._item || (this._item.number !== pullRequestModel.number) || !this._panel.webview.html) {
+			this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.number.toString());
+		}
 
 		return this.updatePullRequest(pullRequestModel);
 	}
@@ -288,228 +333,128 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			case 'pr.readyForReview':
 				return this.setReadyForReview(message);
 			case 'pr.approve':
-				return this.approvePullRequest(message);
+				return this.approvePullRequestMessage(message);
 			case 'pr.request-changes':
-				return this.requestChanges(message);
+				return this.requestChangesMessage(message);
 			case 'pr.submit':
-				return this.submitReview(message);
+				return this.submitReviewMessage(message);
 			case 'pr.checkout-default-branch':
 				return this.checkoutDefaultBranch(message);
 			case 'pr.apply-patch':
 				return this.applyPatch(message);
 			case 'pr.open-diff':
 				return this.openDiff(message);
+			case 'pr.resolve-comment-thread':
+				return this.resolveCommentThread(message);
 			case 'pr.checkMergeability':
 				return this._replyMessage(message, await this._item.getMergeability());
-			case 'pr.add-reviewers':
-				return this.addReviewers(message);
+			case 'pr.change-reviewers':
+				return this.changeReviewers(message);
 			case 'pr.remove-milestone':
 				return this.removeMilestone(message);
 			case 'pr.add-milestone':
 				return this.addMilestone(message);
-			case 'pr.add-assignees':
-				return this.addAssignees(message);
-			case 'pr.remove-reviewer':
-				return this.removeReviewer(message);
-			case 'pr.remove-assignee':
-				return this.removeAssignee(message);
+			case 'pr.change-projects':
+				return this.changeProjects(message);
+			case 'pr.remove-project':
+				return this.removeProject(message);
+			case 'pr.change-assignees':
+				return this.changeAssignees(message);
+			case 'pr.add-assignee-yourself':
+				return this.addAssigneeYourself(message);
 			case 'pr.copy-prlink':
 				return this.copyPrLink();
+			case 'pr.copy-vscodedevlink':
+				return this.copyVscodeDevLink();
 			case 'pr.openOnGitHub':
 				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+			case 'pr.update-automerge':
+				return this.updateAutoMerge(message);
+			case 'pr.dequeue':
+				return this.dequeue(message);
+			case 'pr.enqueue':
+				return this.enqueue(message);
+			case 'pr.gotoChangesSinceReview':
+				this.gotoChangesSinceReview();
+				break;
+			case 'pr.re-request-review':
+				this.reRequestReview(message);
+				break;
 		}
 	}
 
-	private async getReviewersQuickPickItems(
-		suggestedReviewers: ISuggestedReviewer[] | undefined,
-	): Promise<(vscode.QuickPickItem & { reviewer?: IAccount })[]> {
-		if (!suggestedReviewers) {
-			return [];
-		}
-
-		const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
-		const assignableUsers = allAssignableUsers[this._item.remote.remoteName] ?? [];
-
-		// used to track logins that shouldn't be added to pick list
-		// e.g. author, existing and already added reviewers
-		const skipList: Set<string> = new Set([
-			this._item.author.login,
-			...this._existingReviewers.map(reviewer => reviewer.reviewer.login),
-		]);
-
-		const reviewers: (vscode.QuickPickItem & { reviewer?: IAccount })[] = [];
-		for (const user of suggestedReviewers) {
-			const { login, name, isAuthor, isCommenter } = user;
-			if (skipList.has(login)) {
-				continue;
-			}
-
-			const suggestionReason: string =
-				isAuthor && isCommenter
-					? 'Recently edited and reviewed changes to these files'
-					: isAuthor
-					? 'Recently edited these files'
-					: isCommenter
-					? 'Recently reviewed changes to these files'
-					: 'Suggested reviewer';
-
-			reviewers.push({
-				label: login,
-				description: name,
-				detail: suggestionReason,
-				reviewer: user,
-			});
-			// this user shouldn't be added later from assignable users list
-			skipList.add(login);
-		}
-
-		for (const user of assignableUsers) {
-			if (skipList.has(user.login)) {
-				continue;
-			}
-
-			reviewers.push({
-				label: user.login,
-				description: user.name,
-				reviewer: user,
-			});
-		}
-
-		if (reviewers.length === 0) {
-			reviewers.push({
-				label: 'No reviewers available for this repository'
-			});
-		}
-
-		return reviewers;
-	}
-	private getAssigneesQuickPickItems(
-		assignableUsers: IAccount[] | undefined,
-		suggestedReviewers: ISuggestedReviewer[] | undefined,
-	): (vscode.QuickPickItem & { assignee?: IAccount })[] {
-		if (!suggestedReviewers) {
-			return [];
-		}
-		assignableUsers = assignableUsers ?? [];
-		// used to track logins that shouldn't be added to pick list
-		// e.g. author, existing and already added reviewers
-		const skipList: Set<string> = new Set([...(this._item.assignees?.map(assignee => assignee.login) ?? [])]);
-
-		const assignees: (vscode.QuickPickItem & { assignee?: IAccount })[] = [];
-		for (const suggestedReviewer of suggestedReviewers) {
-			const { login, name, isAuthor, isCommenter } = suggestedReviewer;
-			if (skipList.has(login)) {
-				continue;
-			}
-
-			const suggestionReason: string =
-				isAuthor && isCommenter
-					? 'Recently edited and reviewed changes to these files'
-					: isAuthor
-					? 'Recently edited these files'
-					: isCommenter
-					? 'Recently reviewed changes to these files'
-					: 'Suggested reviewer';
-
-			assignees.push({
-				label: login,
-				description: name,
-				detail: suggestionReason,
-				assignee: suggestedReviewer,
-			});
-			// this user shouldn't be added later from assignable users list
-			skipList.add(login);
-		}
-
-		for (const user of assignableUsers) {
-			if (skipList.has(user.login)) {
-				continue;
-			}
-
-			assignees.push({
-				label: user.login,
-				description: user.name,
-				assignee: user,
-			});
-		}
-
-		if (assignees.length === 0) {
-			assignees.push({
-				label: 'No assignees available for this repository'
-			});
-		}
-
-		return assignees;
+	private gotoChangesSinceReview() {
+		this._item.showChangesSinceReview = true;
 	}
 
-	private async addReviewers(message: IRequestMessage<void>): Promise<void> {
+	private async changeReviewers(message: IRequestMessage<void>): Promise<void> {
+		let quickPick: vscode.QuickPick<vscode.QuickPickItem & {
+			user?: IAccount | ITeam | undefined;
+		}> | undefined;
+
 		try {
-			const reviewersToAdd: (vscode.QuickPickItem & { reviewer: IAccount })[] | undefined = (await vscode.window.showQuickPick(
-				this.getReviewersQuickPickItems(this._item.suggestedReviewers),
-				{
-					canPickMany: true,
-					matchOnDescription: true,
-				},
-			))?.filter(item => item.reviewer) as (vscode.QuickPickItem & { reviewer: IAccount })[] | undefined;
+			quickPick = await reviewersQuickPick(this._folderRepositoryManager, this._item.remote.remoteName, this._item.base.isInOrganization, this._teamsCount, this._item.author, this._existingReviewers, this._item.suggestedReviewers);
+			quickPick.busy = false;
+			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
+				return quickPick!.selectedItems.filter(item => item.user) as (vscode.QuickPickItem & { user: IAccount | ITeam })[] | undefined;
+			});
+			const hidePromise = asPromise<void>(quickPick.onDidHide);
+			const allReviewers = await Promise.race<(vscode.QuickPickItem & { user: IAccount | ITeam })[] | void>([acceptPromise, hidePromise]);
+			quickPick.busy = true;
 
-			if (reviewersToAdd) {
-				await this._item.requestReview(reviewersToAdd.map(r => r.label));
-				const addedReviewers: ReviewState[] = reviewersToAdd.map(selected => {
+			if (allReviewers) {
+				const newUserReviewers: string[] = [];
+				const newTeamReviewers: string[] = [];
+				allReviewers.forEach(reviewer => {
+					const newReviewers = isTeam(reviewer.user) ? newTeamReviewers : newUserReviewers;
+					newReviewers.push(reviewer.user.id);
+				});
+
+				const removedUserReviewers: string[] = [];
+				const removedTeamReviewers: string[] = [];
+				this._existingReviewers.forEach(existing => {
+					let newReviewers: string[] = isTeam(existing.reviewer) ? newTeamReviewers : newUserReviewers;
+					let removedReviewers: string[] = isTeam(existing.reviewer) ? removedTeamReviewers : removedUserReviewers;
+					if (!newReviewers.find(newTeamReviewer => newTeamReviewer === existing.reviewer.id)) {
+						removedReviewers.push(existing.reviewer.id);
+					}
+				});
+
+				await this._item.requestReview(newUserReviewers, newTeamReviewers);
+				await this._item.deleteReviewRequest(removedUserReviewers, removedTeamReviewers);
+				const addedReviewers: ReviewState[] = allReviewers.map(selected => {
 					return {
-						reviewer: selected.reviewer,
+						reviewer: selected.user,
 						state: 'REQUESTED',
 					};
 				});
 
-				this._existingReviewers = this._existingReviewers.concat(addedReviewers);
-				this._replyMessage(message, {
-					added: addedReviewers,
+				this._existingReviewers = addedReviewers;
+				await this._replyMessage(message, {
+					reviewers: addedReviewers,
 				});
 			}
 		} catch (e) {
+			Logger.error(formatError(e));
 			vscode.window.showErrorMessage(formatError(e));
+		} finally {
+			quickPick?.hide();
+			quickPick?.dispose();
 		}
 	}
 
 	private async addMilestone(message: IRequestMessage<void>): Promise<void> {
-		try {
-			async function getMilestoneOptions(
-				folderRepoManager: FolderRepositoryManager,
-			): Promise<(MilestoneQuickPickItem | vscode.QuickPickItem)[]> {
-				const milestones = await folderRepoManager.getMilestones();
-				if (!milestones.items.length) {
-					return [
-						{
-							label: 'No milestones created for this repository.',
-						},
-					];
-				}
+		return getMilestoneFromQuickPick(this._folderRepositoryManager, this._item.githubRepository, this._item.milestone, (milestone) => this.updateMilestone(milestone, message));
+	}
 
-				return milestones.items.map(result => {
-					return {
-						label: result.milestone.title,
-						id: result.milestone.id,
-						milestone: result.milestone,
-					};
-				});
-			}
-
-			const milestoneToAdd = await vscode.window.showQuickPick(
-				getMilestoneOptions(this._folderRepositoryManager),
-				{
-					canPickMany: false,
-				},
-			);
-
-			if (milestoneToAdd && isMilestoneQuickPickItem(milestoneToAdd)) {
-				await this._item.updateMilestone(milestoneToAdd.id);
-				this._replyMessage(message, {
-					added: milestoneToAdd.milestone,
-				});
-			}
-		} catch (e) {
-			vscode.window.showErrorMessage(formatError(e));
+	private async updateMilestone(milestone: IMilestone | undefined, message: IRequestMessage<void>) {
+		if (!milestone) {
+			return this.removeMilestone(message);
 		}
+		await this._item.updateMilestone(milestone.id);
+		this._replyMessage(message, {
+			added: milestone,
+		});
 	}
 
 	private async removeMilestone(message: IRequestMessage<void>): Promise<void> {
@@ -521,55 +466,74 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async addAssignees(message: IRequestMessage<void>): Promise<void> {
+	private async changeProjects(message: IRequestMessage<void>): Promise<void> {
+		return getProjectFromQuickPick(this._folderRepositoryManager, this._item.githubRepository, this._item.remote.remoteName, this._item.base.isInOrganization, this._item.item.projectItems, (project) => this.updateProjects(project, message));
+	}
+
+	private async updateProjects(projects: IProject[] | undefined, message: IRequestMessage<void>) {
+		if (projects) {
+			const newProjects = await this._item.updateProjects(projects);
+			const projectItemsReply: ProjectItemsReply = {
+				projectItems: newProjects,
+			};
+			return this._replyMessage(message, projectItemsReply);
+		}
+	}
+
+	private async removeProject(message: IRequestMessage<IProjectItem>): Promise<void> {
+		await this._item.removeProjects([message.args]);
+		return this._replyMessage(message, {});
+	}
+
+	private async changeAssignees(message: IRequestMessage<void>): Promise<void> {
+		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { user?: IAccount }>();
+
 		try {
-			const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
-			const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
+			quickPick.busy = true;
+			quickPick.canSelectMany = true;
+			quickPick.matchOnDescription = true;
+			quickPick.show();
+			quickPick.items = await getAssigneesQuickPickItems(this._folderRepositoryManager, undefined, this._item.remote.remoteName, this._item.assignees ?? [], this._item);
+			quickPick.selectedItems = quickPick.items.filter(item => item.picked);
 
-			const assigneesToAdd = (await vscode.window.showQuickPick(
-				this.getAssigneesQuickPickItems(assignableUsers, []),
-				{
-					canPickMany: true,
-					matchOnDescription: true,
-				},
-			))?.filter(item => item.assignee) as (vscode.QuickPickItem & { assignee: IAccount })[] | undefined;;
+			quickPick.busy = false;
+			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
+				return quickPick.selectedItems.filter(item => item.user) as (vscode.QuickPickItem & { user: IAccount })[] | undefined;
+			});
+			const hidePromise = asPromise<void>(quickPick.onDidHide);
+			const allAssignees = await Promise.race<(vscode.QuickPickItem & { user: IAccount })[] | void>([acceptPromise, hidePromise]);
+			quickPick.busy = true;
 
-			if (assigneesToAdd) {
-				const addedAssignees: IAccount[] = assigneesToAdd.map(item => item.assignee);
-				this._item.assignees = this._item.assignees?.concat(addedAssignees);
+			if (allAssignees) {
+				const newAssignees: IAccount[] = allAssignees.map(item => item.user);
+				const removeAssignees: IAccount[] = this._item.assignees?.filter(currentAssignee => !newAssignees.find(newAssignee => newAssignee.login === currentAssignee.login)) ?? [];
+				this._item.assignees = newAssignees;
 
-				await this._item.updateAssignees(addedAssignees.map(assignee => assignee.login));
-
-				this._replyMessage(message, {
-					added: addedAssignees,
+				await this._item.addAssignees(newAssignees.map(assignee => assignee.login));
+				await this._item.deleteAssignees(removeAssignees.map(assignee => assignee.login));
+				await this._replyMessage(message, {
+					assignees: newAssignees,
 				});
 			}
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
+		} finally {
+			quickPick.hide();
+			quickPick.dispose();
 		}
 	}
 
-	private async removeReviewer(message: IRequestMessage<string>): Promise<void> {
+	private async addAssigneeYourself(message: IRequestMessage<void>): Promise<void> {
 		try {
-			await this._item.deleteReviewRequest(message.args);
-
-			const index = this._existingReviewers.findIndex(reviewer => reviewer.reviewer.login === message.args);
-			this._existingReviewers.splice(index, 1);
-
-			this._replyMessage(message, {});
-		} catch (e) {
-			vscode.window.showErrorMessage(formatError(e));
-		}
-	}
-
-	private async removeAssignee(message: IRequestMessage<string>): Promise<void> {
-		try {
-			await this._item.deleteAssignees(message.args);
-
-			const index = this._item.assignees?.findIndex(assignee => assignee.login === message.args) ?? -1;
-			this._item.assignees?.splice(index, 1);
-
-			this._replyMessage(message, {});
+			const currentUser = await this._folderRepositoryManager.getCurrentUser();
+			const alreadyAssigned = this._item.assignees?.find(user => user.login === currentUser.login);
+			if (!alreadyAssigned) {
+				this._item.assignees = this._item.assignees?.concat(currentUser);
+				await this._item.addAssignees([currentUser.login]);
+			}
+			this._replyMessage(message, {
+				assignees: this._item.assignees,
+			});
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}
@@ -581,20 +545,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const regex = /```diff\n([\s\S]*)\n```/g;
 			const matches = regex.exec(comment.body);
 
-			const tempFilePath = path.join(
-				this._folderRepositoryManager.repository.rootUri.path,
-				'.git',
-				`${comment.id}.diff`,
-			);
+			const tempUri = vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, '.git', `${comment.id}.diff`);
 
 			const encoder = new TextEncoder();
-			const tempUri = vscode.Uri.parse(tempFilePath);
 
 			await vscode.workspace.fs.writeFile(tempUri, encoder.encode(matches![1]));
-			await this._folderRepositoryManager.repository.apply(tempFilePath, true);
+			await this._folderRepositoryManager.repository.apply(tempUri.fsPath);
 			await vscode.workspace.fs.delete(tempUri);
+			vscode.window.showInformationMessage('Patch applied!');
 		} catch (e) {
-			Logger.appendLine(`Applying patch failed: ${e}`);
+			Logger.error(`Applying patch failed: ${e}`, PullRequestOverviewPanel.ID);
 			vscode.window.showErrorMessage(`Applying patch failed: ${formatError(e)}`);
 		}
 	}
@@ -604,7 +564,23 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const comment = message.args.comment;
 			return PullRequestModel.openDiffFromComment(this._folderRepositoryManager, this._item, comment);
 		} catch (e) {
-			Logger.appendLine(`Open diff view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+			Logger.error(`Open diff view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+		}
+	}
+
+	private async resolveCommentThread(message: IRequestMessage<{ threadId: string, toResolve: boolean, thread: IComment[] }>) {
+		try {
+			if (message.args.toResolve) {
+				await this._item.resolveReviewThread(message.args.threadId);
+			}
+			else {
+				await this._item.unresolveReviewThread(message.args.threadId);
+			}
+			const timelineEvents = await this._item.getTimelineEvents();
+			this._replyMessage(message, timelineEvents);
+		} catch (e) {
+			vscode.window.showErrorMessage(e);
+			this._replyMessage(message, undefined);
 		}
 	}
 
@@ -622,7 +598,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private mergePullRequest(
-		message: IRequestMessage<{ title: string; description: string; method: 'merge' | 'squash' | 'rebase' }>,
+		message: IRequestMessage<{ title: string | undefined; description: string | undefined; method: 'merge' | 'squash' | 'rebase' }>,
 	): void {
 		const { title, description, method } = message.args;
 		this._folderRepositoryManager
@@ -645,120 +621,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async deleteBranch(message: IRequestMessage<any>) {
-		const branchInfo = await this._folderRepositoryManager.getBranchNameForPullRequest(this._item);
-		const actions: (vscode.QuickPickItem & { type: 'upstream' | 'local' | 'remote' | 'suspend' })[] = [];
-
-		if (this._item.isResolved()) {
-			const branchHeadRef = this._item.head.ref;
-
-			const isDefaultBranch = this._repositoryDefaultBranch === this._item.head.ref;
-			if (!isDefaultBranch && !this._item.isRemoteHeadDeleted) {
-				actions.push({
-					label: `Delete remote branch ${this._item.remote.remoteName}/${branchHeadRef}`,
-					description: `${this._item.remote.normalizedHost}/${this._item.remote.owner}/${this._item.remote.repositoryName}`,
-					type: 'upstream',
-					picked: true,
-				});
-			}
-		}
-
-		if (branchInfo) {
-			const preferredLocalBranchDeletionMethod = vscode.workspace
-				.getConfiguration('githubPullRequests')
-				.get<boolean>('defaultDeletionMethod.selectLocalBranch');
-			actions.push({
-				label: `Delete local branch ${branchInfo.branch}`,
-				type: 'local',
-				picked: !!preferredLocalBranchDeletionMethod,
-			});
-
-			const preferredRemoteDeletionMethod = vscode.workspace
-				.getConfiguration('githubPullRequests')
-				.get<boolean>('defaultDeletionMethod.selectRemote');
-
-			if (branchInfo.remote && branchInfo.createdForPullRequest && !branchInfo.remoteInUse) {
-				actions.push({
-					label: `Delete remote ${branchInfo.remote}, which is no longer used by any other branch`,
-					type: 'remote',
-					picked: !!preferredRemoteDeletionMethod,
-				});
-			}
-		}
-
-		if (vscode.env.remoteName === 'codespaces') {
-			actions.push({
-				label: 'Suspend Codespace',
-				type: 'suspend'
-			});
-		}
-
-		if (!actions.length) {
-			vscode.window.showWarningMessage(
-				`There is no longer an upstream or local branch for Pull Request #${this._item.number}`,
-			);
-			this._replyMessage(message, {
-				cancelled: true,
-			});
-
-			return;
-		}
-
-		const selectedActions = await vscode.window.showQuickPick(actions, {
-			canPickMany: true,
-			ignoreFocusOut: true,
-		});
-
-		const deletedBranchTypes: string[] = [];
-
-		if (selectedActions) {
-			const isBranchActive = this._item.equals(this._folderRepositoryManager.activePullRequest);
-
-			const promises = selectedActions.map(async action => {
-				switch (action.type) {
-					case 'upstream':
-						await this._folderRepositoryManager.deleteBranch(this._item);
-						deletedBranchTypes.push(action.type);
-						return this._folderRepositoryManager.repository.fetch({ prune: true });
-					case 'local':
-						if (isBranchActive) {
-							if (this._folderRepositoryManager.repository.state.workingTreeChanges.length) {
-								const response = await vscode.window.showWarningMessage(
-									`Your local changes will be lost, do you want to continue?`,
-									{ modal: true },
-									'Yes',
-								);
-								if (response === 'Yes') {
-									await vscode.commands.executeCommand('git.cleanAll');
-								} else {
-									return;
-								}
-							}
-							await this._folderRepositoryManager.repository.checkout(this._repositoryDefaultBranch);
-						}
-						await this._folderRepositoryManager.repository.deleteBranch(branchInfo!.branch, true);
-						return deletedBranchTypes.push(action.type);
-					case 'remote':
-						deletedBranchTypes.push(action.type);
-						return this._folderRepositoryManager.repository.removeRemote(branchInfo!.remote!);
-					case 'suspend':
-						deletedBranchTypes.push(action.type);
-						return vscode.commands.executeCommand('github.codespaces.disconnectSuspend');
-				}
-			});
-
-			await Promise.all(promises);
-
-			this.refreshPanel();
-			vscode.commands.executeCommand('pr.refreshList');
-
-			this._postMessage({
-				command: 'pr.deleteBranch',
-				branchTypes: deletedBranchTypes
-			});
+		const result = await PullRequestView.deleteBranch(this._folderRepositoryManager, this._item);
+		if (result.isReply) {
+			this._replyMessage(message, result.message);
 		} else {
-			this._replyMessage(message, {
-				cancelled: true,
-			});
+			this.refreshPanel();
+			this._postMessage(result.message);
 		}
 	}
 
@@ -778,7 +646,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async checkoutDefaultBranch(message: IRequestMessage<string>): Promise<void> {
 		try {
+			const prBranch = this._folderRepositoryManager.repository.state.HEAD?.name;
 			await this._folderRepositoryManager.checkoutDefaultBranch(message.args);
+			if (prBranch) {
+				await this._folderRepositoryManager.cleanupAfterPullRequest(prBranch, this._item);
+			}
 		} finally {
 			// Complete webview promise so that button becomes enabled again
 			this._replyMessage(message, {});
@@ -788,7 +660,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private updateReviewers(review?: CommonReviewEvent): void {
 		if (review) {
 			const existingReviewer = this._existingReviewers.find(
-				reviewer => review.user.login === reviewer.reviewer.login,
+				reviewer => review.user.login === (reviewer.reviewer as IAccount).login,
 			);
 			if (existingReviewer) {
 				existingReviewer.state = review.state;
@@ -801,60 +673,145 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private approvePullRequest(message: IRequestMessage<string>): void {
-		this._item.approve(message.args).then(
-			review => {
-				this.updateReviewers(review);
-				this._replyMessage(message, {
-					review: review,
-					reviewers: this._existingReviewers,
-				});
-				//refresh the pr list as this one is approved
-				vscode.commands.executeCommand('pr.refreshList');
-			},
-			e => {
-				vscode.window.showErrorMessage(`Approving pull request failed. ${formatError(e)}`);
-
-				this._throwError(message, `${formatError(e)}`);
-			},
-		);
+	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<CommonReviewEvent>) {
+		const submittingMessage = {
+			command: 'pr.submitting-review',
+			lastReviewType: reviewType
+		};
+		this._postMessage(submittingMessage);
+		try {
+			const review = await action(context.body);
+			this.updateReviewers(review);
+			const reviewMessage = {
+				command: 'pr.append-review',
+				review,
+				reviewers: this._existingReviewers
+			};
+			await this._postMessage(reviewMessage);
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
+			this._throwError(undefined, `${formatError(e)}`);
+		} finally {
+			this._postMessage({ command: 'pr.append-review' });
+		}
 	}
 
-	private requestChanges(message: IRequestMessage<string>): void {
-		this._item.requestChanges(message.args).then(
-			review => {
-				this.updateReviewers(review);
-				this._replyMessage(message, {
-					review: review,
-					reviewers: this._existingReviewers,
-				});
-			},
-			e => {
-				vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
-				this._throwError(message, `${formatError(e)}`);
-			},
-		);
+	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<CommonReviewEvent>) {
+		try {
+			const review = await action(message.args);
+			this.updateReviewers(review);
+			this._replyMessage(message, {
+				review: review,
+				reviewers: this._existingReviewers,
+			});
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
+			this._throwError(message, `${formatError(e)}`);
+		}
 	}
 
-	private submitReview(message: IRequestMessage<string>): void {
-		this._item.submitReview(ReviewEvent.Comment, message.args).then(
-			review => {
-				this.updateReviewers(review);
-				this._replyMessage(message, {
-					review: review,
-					reviewers: this._existingReviewers,
-				});
-			},
-			e => {
-				vscode.window.showErrorMessage(`Submitting review failed. ${formatError(e)}`);
-				this._throwError(message, `${formatError(e)}`);
-			},
-		);
+	private approvePullRequest(body: string): Promise<CommonReviewEvent> {
+		return this._item.approve(this._folderRepositoryManager.repository, body);
+	}
+
+	private approvePullRequestMessage(message: IRequestMessage<string>): Promise<void> {
+		return this.doReviewMessage(message, (body) => this.approvePullRequest(body));
+	}
+
+	private approvePullRequestCommand(context: { body: string }): Promise<void> {
+		return this.doReviewCommand(context, ReviewType.Approve, (body) => this.approvePullRequest(body));
+	}
+
+	private requestChanges(body: string): Promise<CommonReviewEvent> {
+		return this._item.requestChanges(body);
+	}
+
+	private requestChangesCommand(context: { body: string }): Promise<void> {
+		return this.doReviewCommand(context, ReviewType.RequestChanges, (body) => this.requestChanges(body));
+	}
+
+	private requestChangesMessage(message: IRequestMessage<string>): Promise<void> {
+		return this.doReviewMessage(message, (body) => this.requestChanges(body));
+	}
+
+	private submitReview(body: string): Promise<CommonReviewEvent> {
+		return this._item.submitReview(ReviewEvent.Comment, body);
+	}
+
+	private submitReviewCommand(context: { body: string }) {
+		return this.doReviewCommand(context, ReviewType.Comment, (body) => this.submitReview(body));
+	}
+
+	private submitReviewMessage(message: IRequestMessage<string>) {
+		return this.doReviewMessage(message, (body) => this.submitReview(body));
+	}
+
+	private reRequestReview(message: IRequestMessage<string>): void {
+		let targetReviewer: ReviewState | undefined;
+		const userReviewers: string[] = [];
+		const teamReviewers: string[] = [];
+
+		for (const reviewer of this._existingReviewers) {
+			let id: string | undefined;
+			let reviewerArray: string[] | undefined;
+			if (reviewer && isTeam(reviewer.reviewer)) {
+				id = reviewer.reviewer.id;
+				reviewerArray = teamReviewers;
+			} else if (reviewer && !isTeam(reviewer.reviewer)) {
+				id = reviewer.reviewer.id;
+				reviewerArray = userReviewers;
+			}
+			if (reviewerArray && id && ((reviewer.state === 'REQUESTED') || (id === message.args))) {
+				reviewerArray.push(id);
+				if (id === message.args) {
+					targetReviewer = reviewer;
+				}
+			}
+		}
+
+		this._item.requestReview(userReviewers, teamReviewers).then(() => {
+			if (targetReviewer) {
+				targetReviewer.state = 'REQUESTED';
+			}
+			this._replyMessage(message, {
+				reviewers: this._existingReviewers,
+			});
+		});
 	}
 
 	private async copyPrLink(): Promise<void> {
-		await vscode.env.clipboard.writeText(this._item.html_url);
-		vscode.window.showInformationMessage(`Copied link to PR ${this._item.title}!`);
+		return vscode.env.clipboard.writeText(this._item.html_url);
+	}
+
+	private async copyVscodeDevLink(): Promise<void> {
+		return vscode.env.clipboard.writeText(vscodeDevPrLink(this._item));
+	}
+
+	private async updateAutoMerge(message: IRequestMessage<{ autoMerge?: boolean, autoMergeMethod: MergeMethod }>): Promise<void> {
+		let replyMessage: { autoMerge: boolean, autoMergeMethod?: MergeMethod };
+		if (!message.args.autoMerge && !this._item.autoMerge) {
+			replyMessage = { autoMerge: false };
+		} else if ((message.args.autoMerge === false) && this._item.autoMerge) {
+			await this._item.disableAutoMerge();
+			replyMessage = { autoMerge: this._item.autoMerge };
+		} else {
+			if (this._item.autoMerge && message.args.autoMergeMethod !== this._item.autoMergeMethod) {
+				await this._item.disableAutoMerge();
+			}
+			await this._item.enableAutoMerge(message.args.autoMergeMethod);
+			replyMessage = { autoMerge: this._item.autoMerge, autoMergeMethod: this._item.autoMergeMethod };
+		}
+		this._replyMessage(message, replyMessage);
+	}
+
+	private async dequeue(message: IRequestMessage<void>): Promise<void> {
+		const result = await this._item.dequeuePullRequest();
+		this._replyMessage(message, result);
+	}
+
+	private async enqueue(message: IRequestMessage<void>): Promise<void> {
+		const result = await this._item.enqueuePullRequest();
+		this._replyMessage(message, { mergeQueueEntry: result });
 	}
 
 	protected editCommentPromise(comment: IComment, text: string): Promise<IComment> {
@@ -867,22 +824,19 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	dispose() {
 		super.dispose();
-
-		if (this._changeActivePullRequestListener) {
-			this._changeActivePullRequestListener.dispose();
-		}
+		dispose(this._prListeners);
 	}
 }
 
 export function getDefaultMergeMethod(
 	methodsAvailability: MergeMethodsAvailability,
-	userPreferred: MergeMethod | undefined,
 ): MergeMethod {
+	const userPreferred = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<MergeMethod>(DEFAULT_MERGE_METHOD);
 	// Use default merge method specified by user if it is available
 	if (userPreferred && methodsAvailability.hasOwnProperty(userPreferred) && methodsAvailability[userPreferred]) {
 		return userPreferred;
 	}
 	const methods: MergeMethod[] = ['merge', 'squash', 'rebase'];
-	// GitHub requires to have at leas one merge method to be enabled; use first available as default
+	// GitHub requires to have at least one merge method to be enabled; use first available as default
 	return methods.find(method => methodsAvailability[method])!;
 }

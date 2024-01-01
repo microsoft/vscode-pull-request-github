@@ -25,8 +25,8 @@ const Hunk = ({ hunk, maxLines = 8 }: { hunk: DiffHunk; maxLines?: number }) => 
 			<div key={keyForDiffLine(line)} className={`diffLine ${getDiffChangeClass(line.type)}`}>
 				<LineNumber num={line.oldLineNumber} />
 				<LineNumber num={line.newLineNumber} />
-				<span className="diffTypeSign">{(line as any)._raw.substr(0, 1)}</span>
-				<span className="lineContent">{(line as any)._raw.substr(1)}</span>
+				<div className="diffTypeSign">{(line as any)._raw.substr(0, 1)}</div>
+				<div className="lineContent">{(line as any)._raw.substr(1)}</div>
 			</div>
 		))}
 	</>
@@ -34,6 +34,6 @@ const Hunk = ({ hunk, maxLines = 8 }: { hunk: DiffHunk; maxLines?: number }) => 
 
 const keyForDiffLine = (diffLine: DiffLine) => `${diffLine.oldLineNumber}->${diffLine.newLineNumber}`;
 
-const LineNumber = ({ num }: { num: number }) => <span className="lineNumber">{num > 0 ? num : ' '}</span>;
+const LineNumber = ({ num }: { num: number }) => <div className="lineNumber">{num > 0 ? num : ' '}</div>;
 
 const getDiffChangeClass = (type: DiffChangeType) => DiffChangeType[type].toLowerCase();

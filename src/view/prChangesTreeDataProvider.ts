@@ -4,15 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import Logger from '../common/logger';
-import { FILE_LIST_LAYOUT } from '../common/settingKeys';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../github/folderRepositoryManager';
+import { GitApiImpl } from '../api/api1';
+import { commands, contexts } from '../common/executeCommands';
+import Logger, { PR_TREE } from '../common/logger';
+import { FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { RepositoriesManager } from '../github/repositoriesManager';
+import { ProgressHelper } from './progress';
 import { ReviewModel } from './reviewModel';
 import { DescriptionNode } from './treeNodes/descriptionNode';
 import { GitFileChangeNode } from './treeNodes/fileChangeNode';
 import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
+import { TreeUtils } from './treeNodes/treeUtils';
 
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
@@ -21,12 +26,13 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 	private _pullRequestManagerMap: Map<FolderRepositoryManager, RepositoryChangesNode> = new Map();
 	private _view: vscode.TreeView<TreeNode>;
+	private _children: TreeNode[] | undefined;
 
 	public get view(): vscode.TreeView<TreeNode> {
 		return this._view;
 	}
 
-	constructor(private _context: vscode.ExtensionContext) {
+	constructor(private _context: vscode.ExtensionContext, private _git: GitApiImpl, private _reposManager: RepositoriesManager) {
 		super(() => this.dispose());
 		this._view = vscode.window.createTreeView('prStatus:github', {
 			treeDataProvider: this,
@@ -36,17 +42,19 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 		this._disposables.push(
 			vscode.workspace.onDidChangeConfiguration(async e => {
-				if (e.affectsConfiguration(`${SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)) {
+				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)) {
 					this._onDidChangeTreeData.fire();
 					const layout = vscode.workspace
-						.getConfiguration(`${SETTINGS_NAMESPACE}`)
+						.getConfiguration(PR_SETTINGS_NAMESPACE)
 						.get<string>(FILE_LIST_LAYOUT);
 					await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
-				} else if (e.affectsConfiguration('git.openDiffOnClick')) {
+				} else if (e.affectsConfiguration(`${GIT}.${OPEN_DIFF_ON_CLICK}`)) {
 					this._onDidChangeTreeData.fire();
 				}
 			}),
 		);
+
+		this._disposables.push(this._view.onDidChangeCheckboxState(TreeUtils.processCheckboxUpdates));
 	}
 
 	refresh(treeNode?: TreeNode) {
@@ -63,8 +71,8 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		}
 
 		this._view.title = pullRequestNumber
-			? `Changes in Pull Request #${pullRequestNumber}`
-			: 'Changes in Pull Request';
+			? vscode.l10n.t('Changes in Pull Request #{0}', pullRequestNumber)
+			: (this._pullRequestManagerMap.size > 1 ? vscode.l10n.t('Changes in Pull Requests') : vscode.l10n.t('Changes in Pull Request'));
 	}
 
 	async addPrToView(
@@ -72,10 +80,13 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		pullRequestModel: PullRequestModel,
 		reviewModel: ReviewModel,
 		shouldReveal: boolean,
+		progress: ProgressHelper
 	) {
+		Logger.appendLine(`Adding PR #${pullRequestModel.number} to tree`, PR_TREE);
 		if (this._pullRequestManagerMap.has(pullRequestManager)) {
 			const existingNode = this._pullRequestManagerMap.get(pullRequestManager);
 			if (existingNode && (existingNode.pullRequestModel === pullRequestModel)) {
+				Logger.appendLine(`PR #${pullRequestModel.number} already exists in tree`, PR_TREE);
 				return;
 			} else {
 				existingNode?.dispose();
@@ -85,12 +96,13 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 			this,
 			pullRequestModel,
 			pullRequestManager,
-			reviewModel
+			reviewModel,
+			progress
 		);
 		this._pullRequestManagerMap.set(pullRequestManager, node);
 		this.updateViewTitle();
 
-		await vscode.commands.executeCommand('setContext', 'github:inReviewMode', true);
+		await this.setReviewModeContexts();
 		this._onDidChangeTreeData.fire();
 
 		if (shouldReveal) {
@@ -98,19 +110,34 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		}
 	}
 
+	private async setReviewModeContexts() {
+		await commands.setContext(contexts.IN_REVIEW_MODE, this._pullRequestManagerMap.size > 0);
+
+		const rootUrisNotInReviewMode: vscode.Uri[] = [];
+		const rootUrisInReviewMode: vscode.Uri[] = [];
+		this._git.repositories.forEach(repo => {
+			const folderManager = this._reposManager.getManagerForFile(repo.rootUri);
+			if (folderManager && !this._pullRequestManagerMap.has(folderManager)) {
+				rootUrisNotInReviewMode.push(repo.rootUri);
+			} else if (folderManager) {
+				rootUrisInReviewMode.push(repo.rootUri);
+			}
+		});
+		await commands.setContext(contexts.REPOS_NOT_IN_REVIEW_MODE, rootUrisNotInReviewMode);
+		await commands.setContext(contexts.REPOS_IN_REVIEW_MODE, rootUrisInReviewMode);
+	}
+
 	async removePrFromView(pullRequestManager: FolderRepositoryManager) {
 		const oldPR = this._pullRequestManagerMap.has(pullRequestManager) ? this._pullRequestManagerMap.get(pullRequestManager) : undefined;
+		if (oldPR) {
+			Logger.appendLine(`Removing PR #${oldPR.pullRequestModel.number} from tree`, PR_TREE);
+		}
 		oldPR?.dispose();
 		this._pullRequestManagerMap.delete(pullRequestManager);
 		this.updateViewTitle();
-		if (this._pullRequestManagerMap.size === 0) {
-			this.hide();
-		}
-		this._onDidChangeTreeData.fire();
-	}
 
-	async hide() {
-		await vscode.commands.executeCommand('setContext', 'github:inReviewMode', false);
+		await this.setReviewModeContexts();
+		this._onDidChangeTreeData.fire();
 	}
 
 	getTreeItem(element: TreeNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
@@ -128,19 +155,23 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		try {
 			await this._view.reveal(element, options);
 		} catch (e) {
-			Logger.appendLine(e, 'PullRequestChangesTreeDataProvider');
+			Logger.error(e, PR_TREE);
 		}
 	}
 
-	async getChildren(element?: GitFileChangeNode): Promise<TreeNode[]> {
+	get children(): TreeNode[] | undefined {
+		return this._children;
+	}
+
+	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
 		if (!element) {
-			const result: TreeNode[] = [];
+			this._children = [];
 			if (this._pullRequestManagerMap.size >= 1) {
 				for (const item of this._pullRequestManagerMap.values()) {
-					result.push(item);
+					this._children.push(item);
 				}
 			}
-			return result;
+			return this._children;
 		} else {
 			return await element.getChildren();
 		}

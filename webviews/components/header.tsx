@@ -5,11 +5,11 @@
 
 import React, { useContext, useState } from 'react';
 import { GithubItemStateEnum } from '../../src/github/interface';
-import { PullRequest } from '../common/cache';
+import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
-import { checkIcon, copyIcon, editIcon } from './icon';
-import { Timestamp } from './timestamp';
+import { checkIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
+import { nbsp } from './space';
 import { AuthorLink, Avatar } from './user';
 
 export function Header({
@@ -18,46 +18,51 @@ export function Header({
 	head,
 	base,
 	title,
+	titleHTML,
 	number,
 	url,
-	createdAt,
 	author,
 	isCurrentlyCheckedOut,
 	isDraft,
 	isIssue,
+	repositoryDefaultBranch,
 }: PullRequest) {
+	const [currentTitle, setCurrentTitle] = useStateProp(title);
+	const [inEditMode, setEditMode] = useState(false);
+
 	return (
 		<>
-			<Title {...{ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }} />
-			<div className="subtitle">
-				<div id="status">{getStatus(state, isDraft)}</div>
-				{!isIssue ? <Avatar for={author} /> : null}
-				<span className="author">
-					{!isIssue ? (
-						<div>
-							<AuthorLink for={author} /> {getActionText(state)} into <code> {base} </code> from <code> {head} </code>
-						</div>
-					) : null}
-				</span>
-				<span className="created-at">
-					Created <Timestamp date={createdAt} href={url} />
-				</span>
-			</div>
+			<Title
+				title={currentTitle}
+				titleHTML={titleHTML}
+				number={number}
+				url={url}
+				inEditMode={inEditMode}
+				setEditMode={setEditMode}
+				setCurrentTitle={setCurrentTitle}
+			/>
+			<Subtitle state={state} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} />
+			<ButtonGroup
+				isCurrentlyCheckedOut={isCurrentlyCheckedOut}
+				isIssue={isIssue}
+				canEdit={canEdit}
+				repositoryDefaultBranch={repositoryDefaultBranch}
+				setEditMode={setEditMode}
+			/>
 		</>
 	);
 }
 
-function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: Partial<PullRequest>) {
-	const [inEditMode, setEditMode] = useState(false);
-	const [currentTitle, setCurrentTitle] = useStateProp(title);
-	const { setTitle, refresh, copyPrLink } = useContext(PullRequestContext);
-	const editableTitle = inEditMode ? (
+function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle }) {
+	const { setTitle } = useContext(PullRequestContext);
+
+	const titleForm = (
 		<form
 			className="editing-form title-editing-form"
 			onSubmit={async evt => {
 				evt.preventDefault();
 				try {
-					const txt = (evt.target as any).text.value;
+					const txt = (evt.target as any)[0].value;
 					await setTitle(txt);
 					setCurrentTitle(txt);
 				} finally {
@@ -65,56 +70,81 @@ function Title({ title, number, url, canEdit, isCurrentlyCheckedOut, isIssue }: 
 				}
 			}}
 		>
-			<textarea name="text" style={{ width: '100%' }} defaultValue={currentTitle}></textarea>
+			<input type="text" style={{ width: '100%' }} defaultValue={title} ></input>
 			<div className="form-actions">
-				<button className="secondary" onClick={() => setEditMode(false)}>
+				<button type="button" className="secondary" onClick={() => setEditMode(false)}>
 					Cancel
 				</button>
-				<input type="submit" value="Update" />
+				<button type="submit">Update</button>
 			</div>
 		</form>
-	) : (
-		<h2>
-			{currentTitle} <a href={url} title={url}>#{number}</a>
-		</h2>
 	);
 
-	return (
+	const displayTitle = (
 		<div className="overview-title">
-			<div className="title-and-edit">
-				{editableTitle}
-				<div className="block-select">
-					{/*
-				For whatever reason, triple click on a block element in MacOS will select everything in that element, *and* every `user-select: false` block adjacent to that element.
-				Add an empty selectable div here to block triple click on title from selecting the following buttons. Issue #628.
-				*/}
-				</div>
-				{canEdit && !inEditMode ? (
-					<div className="flex-action-bar comment-actions">
-						{
-							<button title="Edit" onClick={() => setEditMode(true)}>
-								{editIcon}
-							</button>
-						}
-						{
-							<button title="Copy Link" onClick={copyPrLink}>
-								{copyIcon}
-							</button>
-						}
-					</div>
-				) : (
-					<div className="flex-action-bar comment-actions"></div>
-				)}
+			<h2>
+				<span dangerouslySetInnerHTML={{ __html: titleHTML }} />
+				{' '}
+				<a href={url} title={url}>
+					#{number}
+				</a>
+			</h2>
+		</div>
+	);
+
+	const editableTitle = inEditMode ? titleForm : displayTitle;
+	return editableTitle;
+}
+
+function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaultBranch, setEditMode }) {
+	const { refresh, copyPrLink, copyVscodeDevLink } = useContext(PullRequestContext);
+
+	return (
+		<div className="button-group">
+			<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
+			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary small-button">
+				Refresh
+			</button>
+			{canEdit && (
+				<>
+					<button title="Rename" onClick={setEditMode} className="secondary small-button">
+						Rename
+					</button>
+					<button title="Copy GitHub pull request link" onClick={copyPrLink} className="secondary small-button">
+						Copy Link
+					</button>
+					<button title="Copy vscode.dev link for viewing this pull request in VS Code for the Web" onClick={copyVscodeDevLink} className="secondary small-button">
+						Copy vscode.dev Link
+					</button>
+				</>
+			)}
+		</div>
+	);
+}
+
+function Subtitle({ state, isDraft, isIssue, author, base, head }) {
+	const { text, color, icon } = getStatus(state, isDraft);
+
+	return (
+		<div className="subtitle">
+			<div id="status" className={`status-badge-${color}`}>
+				<span className='icon'>{isIssue ? null : icon}</span>
+				<span>{text}</span>
 			</div>
-			<div className="button-group">
-				<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue }} />
-				<button onClick={refresh}>Refresh</button>
+			<div className="author">
+				{!isIssue ? <Avatar for={author} /> : null}
+				{!isIssue ? (
+					<div className="merge-branches">
+						<AuthorLink for={author} /> {getActionText(state)} into{' '}
+						<code className="branch-tag">{base}</code> from <code className="branch-tag">{head}</code>
+					</div>
+				) : null}
 			</div>
 		</div>
 	);
 }
 
-const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue }) => {
+const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }) => {
 	const { exitReviewMode, checkout } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 
@@ -140,17 +170,29 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue }) => {
 	if (isCurrentlyCheckedOut) {
 		return (
 			<>
-				<button aria-live="polite" className="checkedOut" disabled>
-					{checkIcon} Checked Out
+				<button aria-live="polite" className="checkedOut small-button" disabled>
+					{checkIcon}{nbsp} Checked Out
 				</button>
-				<button aria-live="polite" title="Switch to a different branch than this pull request branch"disabled={isBusy} onClick={() => onClick('exitReviewMode')}>
-					Exit Review Mode
+				<button
+					aria-live="polite"
+					title="Switch to a different branch than this pull request branch"
+					disabled={isBusy}
+					className='small-button'
+					onClick={() => onClick('exitReviewMode')}
+				>
+					Checkout '{repositoryDefaultBranch}'
 				</button>
 			</>
 		);
 	} else if (!isIssue) {
 		return (
-			<button aria-live="polite" title="Checkout a local copy of this pull request branch to verify or edit changes" disabled={isBusy} onClick={() => onClick('checkout')}>
+			<button
+				aria-live="polite"
+				title="Checkout a local copy of this pull request branch to verify or edit changes"
+				disabled={isBusy}
+				className='small-button'
+				onClick={() => onClick('checkout')}
+			>
 				Checkout
 			</button>
 		);
@@ -161,11 +203,11 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue }) => {
 
 export function getStatus(state: GithubItemStateEnum, isDraft: boolean) {
 	if (state === GithubItemStateEnum.Merged) {
-		return 'Merged';
+		return { text: 'Merged', color: 'merged', icon: mergeIcon };
 	} else if (state === GithubItemStateEnum.Open) {
-		return isDraft ? 'Draft' : 'Open';
+		return isDraft ? { text: 'Draft', color: 'draft', icon: prDraftIcon } : { text: 'Open', color: 'open', icon: prOpenIcon };
 	} else {
-		return 'Closed';
+		return { text: 'Closed', color: 'closed', icon: prClosedIcon };
 	}
 }
 

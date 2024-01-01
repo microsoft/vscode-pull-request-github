@@ -8,7 +8,8 @@ import { sep } from 'path';
 import dayjs from 'dayjs';
 import * as relativeTime from 'dayjs/plugin/relativeTime';
 import * as updateLocale from 'dayjs/plugin/updateLocale';
-import { Disposable, Event, Uri } from 'vscode';
+import type { Disposable, Event, ExtensionContext, Uri } from 'vscode';
+// TODO: localization for webview needed
 
 dayjs.extend(relativeTime.default, {
 	thresholds: [
@@ -90,12 +91,12 @@ export function anyEvent<T>(...events: Event<T>[]): Event<T> {
 }
 
 export function filterEvent<T>(event: Event<T>, filter: (e: T) => boolean): Event<T> {
-	return (listener, thisArgs = null, disposables?) =>
+	return (listener, thisArgs = null, disposables?: Disposable[]) =>
 		event(e => filter(e) && listener.call(thisArgs, e), null, disposables);
 }
 
 export function onceEvent<T>(event: Event<T>): Event<T> {
-	return (listener, thisArgs = null, disposables?) => {
+	return (listener, thisArgs = null, disposables?: Disposable[]) => {
 		const result = event(
 			e => {
 				result.dispose();
@@ -137,6 +138,12 @@ export function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[
 		result[key] = [...(result[key] || []), el];
 		return result;
 	}, Object.create(null));
+}
+
+export class UnreachableCaseError extends Error {
+	constructor(val: never) {
+		super(`Unreachable case: ${val}`);
+	}
 }
 
 interface HookError extends Error {
@@ -185,6 +192,8 @@ export function formatError(e: HookError | any): string {
 				return `Value "${error.value}" cannot be set for field ${error.field} (code: ${error.code})`;
 			})
 			.join(', ');
+	} else if (e.message.startsWith('Validation Failed:')) {
+		return e.message;
 	} else if (isHookError(e) && e.errors) {
 		return e.errors
 			.map((error: any) => {
@@ -207,43 +216,20 @@ export interface PromiseAdapter<T, U> {
 	(value: T, resolve: (value?: U | PromiseLike<U>) => void, reject: (reason: any) => void): any;
 }
 
-const passthrough = (value: any, resolve: (value?: any) => void) => resolve(value);
+// Copied from https://github.com/microsoft/vscode/blob/cfd9d25826b5b5bc3b06677521660b4f1ba6639a/extensions/vscode-api-tests/src/utils.ts#L135-L136
+export async function asPromise<T>(event: Event<T>): Promise<T> {
+	return new Promise<T>((resolve) => {
+		const sub = event(e => {
+			sub.dispose();
+			resolve(e);
+		});
+	});
+}
 
-/**
- * Return a promise that resolves with the next emitted event, or with some future
- * event as decided by an adapter.
- *
- * If specified, the adapter is a function that will be called with
- * `(event, resolve, reject)`. It will be called once per event until it resolves or
- * rejects.
- *
- * The default adapter is the passthrough function `(value, resolve) => resolve(value)`.
- *
- * @param {Event<T>} event the event
- * @param {PromiseAdapter<T, U>?} adapter controls resolution of the returned promise
- * @returns {Promise<U>} a promise that resolves or rejects as specified by the adapter
- */
-export async function promiseFromEvent<T, U>(event: Event<T>, adapter: PromiseAdapter<T, U> = passthrough): Promise<U> {
-	let subscription: Disposable;
-	return new Promise<U>(
-		(resolve, reject) =>
-		(subscription = event((value: T) => {
-			try {
-				Promise.resolve<U>(adapter(value, resolve as any, reject)).catch(reject);
-			} catch (error) {
-				reject(error);
-			}
-		})),
-	).then(
-		(result: U) => {
-			subscription.dispose();
-			return result;
-		},
-		error => {
-			subscription.dispose();
-			throw error;
-		},
-	);
+export async function promiseWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T | undefined> {
+	return Promise.race([promise, new Promise<undefined>(resolve => {
+		setTimeout(() => resolve(undefined), ms);
+	})]);
 }
 
 export function dateFromNow(date: Date | string): string {
@@ -258,6 +244,138 @@ export function dateFromNow(date: Date | string): string {
 		return `on ${djs.format('MMM D')}`;
 	}
 	return `on ${djs.format('MMM D, YYYY')}`;
+}
+
+
+export function gitHubLabelColor(hexColor: string, isDark: boolean, markDown: boolean = false): { textColor: string, backgroundColor: string, borderColor: string } {
+	if (hexColor.startsWith('#')) {
+		hexColor = hexColor.substring(1);
+	}
+	const rgbColor = hexToRgb(hexColor);
+
+	if (isDark) {
+		const hslColor = rgbToHsl(rgbColor.r, rgbColor.g, rgbColor.b);
+
+		const lightnessThreshold = 0.6;
+		const backgroundAlpha = 0.18;
+		const borderAlpha = 0.3;
+
+		const perceivedLightness = (rgbColor.r * 0.2126 + rgbColor.g * 0.7152 + rgbColor.b * 0.0722) / 255;
+		const lightnessSwitch = Math.max(0, Math.min((perceivedLightness - lightnessThreshold) * -1000, 1));
+
+		const lightenBy = (lightnessThreshold - perceivedLightness) * 100 * lightnessSwitch;
+		const rgbBorder = hexToRgb(hslToHex(hslColor.h, hslColor.s, hslColor.l + lightenBy));
+
+		const textColor = `#${hslToHex(hslColor.h, hslColor.s, hslColor.l + lightenBy)}`;
+		const backgroundColor = !markDown ?
+			`rgba(${rgbColor.r},${rgbColor.g},${rgbColor.b},${backgroundAlpha})` :
+			`#${rgbToHex({ ...rgbColor, a: backgroundAlpha })}`;
+		const borderColor = !markDown ?
+			`rgba(${rgbBorder.r},${rgbBorder.g},${rgbBorder.b},${borderAlpha})` :
+			`#${rgbToHex({ ...rgbBorder, a: borderAlpha })}`;
+
+		return { textColor: textColor, backgroundColor: backgroundColor, borderColor: borderColor };
+	}
+	else {
+		return { textColor: `#${contrastColor(rgbColor)}`, backgroundColor: `#${hexColor}`, borderColor: `#${hexColor}` };
+	}
+}
+
+const rgbToHex = (color: { r: number, g: number, b: number, a?: number }) => {
+	const colors = [color.r, color.g, color.b];
+	if (color.a) {
+		colors.push(Math.floor(color.a * 255));
+	}
+	return colors.map((digit) => {
+		return digit.toString(16).padStart(2, '0');
+	}).join('');
+};
+
+function hexToRgb(color: string) {
+	const result = /^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color);
+
+	if (result) {
+		return {
+			r: parseInt(result[1], 16),
+			g: parseInt(result[2], 16),
+			b: parseInt(result[3], 16),
+		};
+	}
+	return {
+		r: 0,
+		g: 0,
+		b: 0,
+	};
+}
+
+function rgbToHsl(r: number, g: number, b: number) {
+	// Source: https://css-tricks.com/converting-color-spaces-in-javascript/
+	// Make r, g, and b fractions of 1
+	r /= 255;
+	g /= 255;
+	b /= 255;
+
+	// Find greatest and smallest channel values
+	let cmin = Math.min(r, g, b),
+		cmax = Math.max(r, g, b),
+		delta = cmax - cmin,
+		h = 0,
+		s = 0,
+		l = 0;
+
+	// Calculate hue
+	// No difference
+	if (delta == 0)
+		h = 0;
+	// Red is max
+	else if (cmax == r)
+		h = ((g - b) / delta) % 6;
+	// Green is max
+	else if (cmax == g)
+		h = (b - r) / delta + 2;
+	// Blue is max
+	else
+		h = (r - g) / delta + 4;
+
+	h = Math.round(h * 60);
+
+	// Make negative hues positive behind 360 deg
+	if (h < 0)
+		h += 360;
+
+	// Calculate lightness
+	l = (cmax + cmin) / 2;
+
+	// Calculate saturation
+	s = delta == 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+
+	// Multiply l and s by 100
+	s = +(s * 100).toFixed(1);
+	l = +(l * 100).toFixed(1);
+
+	return { h: h, s: s, l: l };
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+	// source https://www.jameslmilner.com/posts/converting-rgb-hex-hsl-colors/
+	const hDecimal = l / 100;
+	const a = (s * Math.min(hDecimal, 1 - hDecimal)) / 100;
+	const f = (n: number) => {
+		const k = (n + h / 30) % 12;
+		const color = hDecimal - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+
+		// Convert to Hex and prefix with "0" if required
+		return Math.round(255 * color)
+			.toString(16)
+			.padStart(2, '0');
+	};
+	return `${f(0)}${f(8)}${f(4)}`;
+}
+
+function contrastColor(rgbColor: { r: number, g: number, b: number }) {
+	// Color algorithm from https://stackoverflow.com/questions/1855884/determine-font-color-based-on-background-color
+	const luminance = (0.299 * rgbColor.r + 0.587 * rgbColor.g + 0.114 * rgbColor.b) / 255;
+	return luminance > 0.5 ? '000000' : 'ffffff';
 }
 
 export interface Predicate<T> {
@@ -598,6 +716,19 @@ export class UriIterator implements IKeyIterator<Uri> {
 	}
 }
 
+export function isPreRelease(context: ExtensionContext): boolean {
+	const uri = context.extensionUri;
+	const path = uri.path;
+	const lastIndexOfDot = path.lastIndexOf('.');
+	if (lastIndexOfDot === -1) {
+		return false;
+	}
+	const patchVersion = path.substr(lastIndexOfDot + 1);
+	// The patch version of release versions should never be more than 1 digit since it is only used for recovery releases.
+	// The patch version of pre-release is the date + time.
+	return patchVersion.length > 1;
+}
+
 class TernarySearchTreeNode<K, V> {
 	segment!: string;
 	value: V | undefined;
@@ -853,4 +984,16 @@ export class TernarySearchTree<K, V> {
 			yield* this._entries(node.right);
 		}
 	}
+}
+
+export async function stringReplaceAsync(str: string, regex: RegExp, asyncFn: (substring: string, ...args: any[]) => Promise<string>): Promise<string> {
+	const promises: Promise<string>[] = [];
+	str.replace(regex, (match, ...args) => {
+		const promise = asyncFn(match, ...args);
+		promises.push(promise);
+		return '';
+	});
+	const data = await Promise.all(promises);
+	let offset = 0;
+	return str.replace(regex, () => data[offset++]);
 }

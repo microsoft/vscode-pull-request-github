@@ -12,47 +12,24 @@ import Logger from '../common/logger';
 import { fromReviewUri } from '../common/uri';
 import { CredentialStore } from '../github/credentials';
 import { getRepositoryForFile } from '../github/utils';
-import { ReadonlyFileSystemProvider } from './readonlyFileSystemProvider';
+import { RepositoryFileSystemProvider } from './repositoryFileSystemProvider';
+import { ReviewManager } from './reviewManager';
 
-export class GitContentFileSystemProvider extends ReadonlyFileSystemProvider {
+export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
 	private _fallback?: (uri: vscode.Uri) => Promise<string>;
 
-	constructor(private gitAPI: GitApiImpl, private credentialStore: CredentialStore) {
-		super();
+	constructor(gitAPI: GitApiImpl, credentialStore: CredentialStore, private readonly reviewManagers: ReviewManager[]) {
+		super(gitAPI, credentialStore);
 	}
 
-	private async waitForRepos(milliseconds: number): Promise<void> {
-		Logger.appendLine('Waiting for repositories.', 'GitContentFileSystemProvider');
-		let eventDisposable: vscode.Disposable | undefined = undefined;
-		const openPromise = new Promise<void>(resolve => {
-			eventDisposable = this.gitAPI.onDidOpenRepository(() => {
-				Logger.appendLine('Found at least one repository.', 'GitContentFileSystemProvider');
-				eventDisposable?.dispose();
-				eventDisposable = undefined;
-				resolve();
-			});
-		});
-		let timeout: NodeJS.Timeout | undefined;
-		const timeoutPromise = new Promise<void>(resolve => {
-			timeout = setTimeout(() => {
-				Logger.appendLine('Timed out while waiting for repositories.', 'GitContentFileSystemProvider');
-				resolve();
-			}, milliseconds);
-		});
-		await Promise.race([openPromise, timeoutPromise]);
-		if (timeout) {
-			clearTimeout(timeout);
+	private getChangeModelForFile(file: vscode.Uri) {
+		for (const manager of this.reviewManagers) {
+			for (const change of manager.reviewModel.localFileChanges) {
+				if ((change.changeModel.filePath.authority === file.authority) && (change.changeModel.filePath.path === file.path)) {
+					return change.changeModel;
+				}
+			}
 		}
-		if (eventDisposable) {
-			eventDisposable!.dispose();
-		}
-	}
-
-	private async waitForAuth(): Promise<void> {
-		if (this.credentialStore.isAnyAuthenticated()) {
-			return;
-		}
-		return new Promise(resolve => this.credentialStore.onDidGetSession(() => resolve()));
 	}
 
 	private async getRepositoryForFile(file: vscode.Uri): Promise<Repository | undefined> {
@@ -82,14 +59,19 @@ export class GitContentFileSystemProvider extends ReadonlyFileSystemProvider {
 		}
 
 		const absolutePath = pathLib.join(repository.rootUri.fsPath, path).replace(/\\/g, '/');
-		let content: string;
+		let content: string | undefined;
 		try {
-			Logger.appendLine(`Getting repository (${repository.rootUri}) content for commit ${commit} and path ${absolutePath}`, 'GitContentFileSystemProvider');
-			content = await repository.show(commit, absolutePath);
+			Logger.appendLine(`Getting change model (${repository.rootUri}) content for commit ${commit} and path ${absolutePath}`, 'GitContentFileSystemProvider');
+			content = await this.getChangeModelForFile(uri)?.showBase();
+			if (!content) {
+				Logger.appendLine(`Getting repository (${repository.rootUri}) content for commit ${commit} and path ${absolutePath}`, 'GitContentFileSystemProvider');
+				content = await repository.show(commit, absolutePath);
+			}
 			if (!content) {
 				throw new Error();
 			}
 		} catch (_) {
+			Logger.appendLine('Using fallback content provider.', 'GitContentFileSystemProvider');
 			content = await this._fallback(uri);
 			if (!content) {
 				// Content does not exist for the base or modified file for a file deletion or addition.
@@ -98,6 +80,7 @@ export class GitContentFileSystemProvider extends ReadonlyFileSystemProvider {
 				try {
 					await repository.getCommit(commit);
 				} catch (err) {
+					Logger.error(err);
 					vscode.window.showErrorMessage(
 						`We couldn't find commit ${commit} locally. You may want to sync the branch with remote. Sometimes commits can disappear after a force-push`,
 					);

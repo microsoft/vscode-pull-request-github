@@ -24,20 +24,64 @@ export enum GithubItemStateEnum {
 export enum PullRequestMergeability {
 	Mergeable,
 	NotMergeable,
+	Conflict,
 	Unknown,
+	Behind,
+}
+
+export enum MergeQueueState {
+	AwaitingChecks,
+	Locked,
+	Mergeable,
+	Queued,
+	Unmergeable
 }
 
 export interface ReviewState {
-	reviewer: IAccount;
+	reviewer: IAccount | ITeam;
 	state: string;
 }
 
-export interface IAccount {
+export interface IActor {
 	login: string;
+	avatarUrl?: string;
+	url: string;
+}
+
+export interface IAccount extends IActor {
+	login: string;
+	id: string;
 	name?: string;
 	avatarUrl?: string;
 	url: string;
 	email?: string;
+}
+
+export interface ITeam {
+	name?: string;
+	avatarUrl?: string;
+	url: string;
+	slug: string;
+	org: string;
+	id: string;
+}
+
+export interface MergeQueueEntry {
+	position: number;
+	state: MergeQueueState;
+	url: string;
+}
+
+export function reviewerId(reviewer: ITeam | IAccount): string {
+	return isTeam(reviewer) ? reviewer.id : reviewer.login;
+}
+
+export function reviewerLabel(reviewer: ITeam | IAccount | IActor): string {
+	return isTeam(reviewer) ? (reviewer.name ?? reviewer.slug) : reviewer.login;
+}
+
+export function isTeam(reviewer: ITeam | IAccount | IActor): reviewer is ITeam {
+	return 'org' in reviewer;
 }
 
 export interface ISuggestedReviewer extends IAccount {
@@ -45,11 +89,28 @@ export interface ISuggestedReviewer extends IAccount {
 	isCommenter: boolean;
 }
 
+export function isSuggestedReviewer(
+	reviewer: IAccount | ISuggestedReviewer | ITeam
+): reviewer is ISuggestedReviewer {
+	return 'isAuthor' in reviewer && 'isCommenter' in reviewer;
+}
+
+export interface IProject {
+	title: string;
+	id: string;
+}
+
+export interface IProjectItem {
+	id: string;
+	project: IProject;
+}
+
 export interface IMilestone {
 	title: string;
 	dueOn?: string | null;
 	createdAt: string;
 	id: string;
+	number: number;
 }
 
 export interface MergePullRequest {
@@ -61,6 +122,9 @@ export interface MergePullRequest {
 
 export interface IRepository {
 	cloneUrl: string;
+	isInOrganization: boolean;
+	owner: string;
+	name: string;
 }
 
 export interface IGitHubRef {
@@ -73,6 +137,7 @@ export interface IGitHubRef {
 export interface ILabel {
 	name: string;
 	color: string;
+	description?: string;
 }
 
 export interface Issue {
@@ -84,11 +149,13 @@ export interface Issue {
 	body: string;
 	bodyHTML?: string;
 	title: string;
+	titleHTML: string;
 	assignees?: IAccount[];
 	createdAt: string;
 	updatedAt: string;
 	user: IAccount;
 	labels: ILabel[];
+	projectItems?: IProjectItem[];
 	milestone?: IMilestone;
 	repositoryOwner?: string;
 	repositoryName?: string;
@@ -106,8 +173,17 @@ export interface PullRequest extends Issue {
 	head?: IGitHubRef;
 	isRemoteBaseDeleted?: boolean;
 	base?: IGitHubRef;
+	commits: {
+		message: string;
+	}[];
 	merged?: boolean;
 	mergeable?: PullRequestMergeability;
+	mergeQueueEntry?: MergeQueueEntry | null;
+	autoMerge?: boolean;
+	autoMergeMethod?: MergeMethod;
+	allowAutoMerge?: boolean;
+	mergeCommitMeta?: { title: string, description: string };
+	squashCommitMeta?: { title: string, description: string };
 	suggestedReviewers?: ISuggestedReviewer[];
 }
 
@@ -125,6 +201,7 @@ export interface IRawFileChange {
 
 export interface IPullRequestsPagingOptions {
 	fetchNextPage: boolean;
+	fetchOnePagePerRepo?: boolean;
 }
 
 export interface IPullRequestEditData {
@@ -141,6 +218,7 @@ export type MergeMethodsAvailability = {
 export type RepoAccessAndMergeMethods = {
 	hasWritePermission: boolean;
 	mergeMethodsAvailability: MergeMethodsAvailability;
+	viewerCanAutoMerge: boolean;
 };
 
 export interface User extends IAccount {
@@ -153,15 +231,33 @@ export interface User extends IAccount {
 	}[];
 }
 
+export enum CheckState {
+	Success = 'success',
+	Failure = 'failure',
+	Neutral = 'neutral',
+	Pending = 'pending',
+	Unknown = 'unknown'
+}
+
+export interface PullRequestCheckStatus {
+	id: string;
+	url: string | undefined;
+	avatarUrl: string | undefined;
+	state: CheckState;
+	description: string | null;
+	targetUrl: string | null;
+	context: string;
+	isRequired: boolean;
+}
+
 export interface PullRequestChecks {
-	state: string;
-	statuses: {
-		id: string;
-		url?: string;
-		avatar_url?: string;
-		state?: string;
-		description?: string;
-		target_url?: string;
-		context: string;
-	}[];
+	state: CheckState;
+	statuses: PullRequestCheckStatus[];
+}
+
+export interface PullRequestReviewRequirement {
+	count: number;
+	state: CheckState;
+	approvals: string[];
+	requestedChanges: string[];
 }

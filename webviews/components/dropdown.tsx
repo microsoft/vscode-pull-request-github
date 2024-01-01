@@ -13,7 +13,7 @@ const enum KEYCODES {
 	up = 38,
 }
 
-export const Dropdown = ({ options, defaultOption, submitAction }) => {
+export const Dropdown = ({ options, defaultOption, disabled, submitAction, changeAction }: { options: { [key: string]: string }, defaultOption: string, disabled?: boolean, submitAction: (string) => Promise<void>, changeAction?: (string) => Promise<void> }) => {
 	const [selectedMethod, selectMethod] = useState<string>(defaultOption);
 	const [areOptionsVisible, setOptionsVisible] = useState<boolean>(false);
 
@@ -28,7 +28,10 @@ export const Dropdown = ({ options, defaultOption, submitAction }) => {
 		selectMethod(e.target.value);
 		setOptionsVisible(false);
 		const primaryButton = document.getElementById(`confirm-button${dropdownId}`);
-		primaryButton.focus();
+		primaryButton?.focus();
+		if (changeAction) {
+			changeAction(e.target.value);
+		}
 	};
 
 	const onKeyDown = e => {
@@ -39,39 +42,39 @@ export const Dropdown = ({ options, defaultOption, submitAction }) => {
 				case KEYCODES.esc:
 					setOptionsVisible(false);
 					const expandOptionsButton = document.getElementById(EXPAND_OPTIONS_BUTTON);
-					expandOptionsButton.focus();
+					expandOptionsButton?.focus();
 					break;
 
 				case KEYCODES.down:
-					if (!currentElement.id || currentElement.id === EXPAND_OPTIONS_BUTTON) {
+					if (!currentElement?.id || currentElement.id === EXPAND_OPTIONS_BUTTON) {
 						const firstOptionButton = document.getElementById(`${dropdownId}option0`);
-						firstOptionButton.focus();
+						firstOptionButton?.focus();
 					} else {
 						const regex = new RegExp(`${dropdownId}option([0-9])`);
 						const result = currentElement.id.match(regex);
-						if (result.length) {
+						if (result?.length) {
 							const index = parseInt(result[1]);
 							if (index < Object.entries(options).length - 1) {
 								const nextOption = document.getElementById(`${dropdownId}option${index + 1}`);
-								nextOption.focus();
+								nextOption?.focus();
 							}
 						}
 					}
 					break;
 
 				case KEYCODES.up:
-					if (!currentElement.id || currentElement.id === EXPAND_OPTIONS_BUTTON) {
+					if (!currentElement?.id || currentElement.id === EXPAND_OPTIONS_BUTTON) {
 						const lastIndex = Object.entries(options).length - 1;
 						const lastOptionButton = document.getElementById(`${dropdownId}option${lastIndex}`);
-						lastOptionButton.focus();
+						lastOptionButton?.focus();
 					} else {
 						const regex = new RegExp(`${dropdownId}option([0-9])`);
 						const result = currentElement.id.match(regex);
-						if (result.length) {
+						if (result?.length) {
 							const index = parseInt(result[1]);
 							if (index > 0) {
 								const nextOption = document.getElementById(`${dropdownId}option${index - 1}`);
-								nextOption.focus();
+								nextOption?.focus();
 							}
 						}
 					}
@@ -87,11 +90,14 @@ export const Dropdown = ({ options, defaultOption, submitAction }) => {
 			<div className="select-control">
 				<Confirm
 					dropdownId={dropdownId}
+					className={Object.keys(options).length > 1 ? 'select-left' : ''}
 					options={options}
 					selected={selectedMethod}
 					submitAction={submitAction}
+					disabled={!!disabled}
 				/>
-				<button id={EXPAND_OPTIONS_BUTTON} className={expandButtonClass} onClick={onClick}>
+				<div className='split'></div>
+				<button id={EXPAND_OPTIONS_BUTTON} className={'select-right ' + expandButtonClass} aria-label='Expand button options' onClick={onClick}>
 					{chevronIcon}
 				</button>
 			</div>
@@ -108,13 +114,17 @@ export const Dropdown = ({ options, defaultOption, submitAction }) => {
 
 function Confirm({
 	dropdownId,
+	className,
 	options,
 	selected,
+	disabled,
 	submitAction,
 }: {
 	dropdownId: string;
+	className: string;
 	options: { [key: string]: string };
 	selected: string;
+	disabled: boolean;
 	submitAction: (selected: string) => Promise<void>;
 }) {
 	const [isBusy, setBusy] = useState(false);
@@ -132,7 +142,7 @@ function Confirm({
 
 	return (
 		<form onSubmit={onSubmit}>
-			<input disabled={isBusy} type="submit" id={`confirm-button${dropdownId}`} value={options[selected]} />
+			<input disabled={isBusy || disabled} type="submit" className={className} id={`confirm-button${dropdownId}`} value={options[selected]} />
 		</form>
 	);
 }

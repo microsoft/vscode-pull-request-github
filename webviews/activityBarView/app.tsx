@@ -5,7 +5,7 @@
 
 import React, { useContext, useEffect, useState } from 'react';
 import { render } from 'react-dom';
-import { PullRequest } from '../common/cache';
+import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Overview } from './overview';
 

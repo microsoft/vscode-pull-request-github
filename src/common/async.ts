@@ -37,10 +37,12 @@ export function throttle<T>(fn: () => Promise<T>): () => Promise<T> {
 }
 
 export function debounce(fn: () => any, delay: number): () => void {
-	let timer: any;
+	let timer: NodeJS.Timeout | undefined;
 
 	return () => {
-		clearTimeout(timer);
+		if (timer) {
+			clearTimeout(timer);
+		}
 		timer = setTimeout(() => fn(), delay);
 	};
 }

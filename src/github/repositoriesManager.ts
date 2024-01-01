@@ -3,57 +3,23 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as path from 'path';
 import * as vscode from 'vscode';
-import { Repository, UpstreamRef } from '../api/api';
-import { ISessionState } from '../common/sessionState';
+import { Repository } from '../api/api';
+import { AuthProvider } from '../common/authentication';
+import { commands, contexts } from '../common/executeCommands';
+import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
-import { compareIgnoreCase } from '../common/utils';
-import { AuthProvider, CredentialStore } from './credentials';
+import { compareIgnoreCase, dispose } from '../common/utils';
+import { CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
 import { IssueModel } from './issueModel';
-import { hasEnterpriseUri } from './utils';
+import { findDotComAndEnterpriseRemotes, getEnterpriseUri, hasEnterpriseUri, setEnterpriseUri } from './utils';
 
 export interface ItemsResponseResult<T> {
 	items: T[];
 	hasMorePages: boolean;
 	hasUnsearchedRepositories: boolean;
-}
-
-export class NoGitHubReposError extends Error {
-	constructor(public repository: Repository) {
-		super();
-	}
-
-	get message() {
-		return `${this.repository.rootUri.toString()} has no GitHub remotes`;
-	}
-}
-
-export class DetachedHeadError extends Error {
-	constructor(public repository: Repository) {
-		super();
-	}
-
-	get message() {
-		return `${this.repository.rootUri.toString()} has a detached HEAD (create a branch first)`;
-	}
-}
-
-export class BadUpstreamError extends Error {
-	constructor(public branchName: string, public upstreamRef: UpstreamRef, public problem: string) {
-		super();
-	}
-
-	get message() {
-		const {
-			upstreamRef: { remote, name },
-			branchName,
-			problem,
-		} = this;
-		return `The upstream ref ${remote}/${name} for branch ${branchName} ${problem}.`;
-	}
 }
 
 export interface PullRequestDefaults {
@@ -62,43 +28,59 @@ export interface PullRequestDefaults {
 	base: string;
 }
 
-export const NO_MILESTONE: string = 'No Milestone';
-
 export class RepositoriesManager implements vscode.Disposable {
 	static ID = 'RepositoriesManager';
 
-	private _subs: vscode.Disposable[];
+	private _folderManagers: FolderRepositoryManager[] = [];
+	private _subs: Map<FolderRepositoryManager, vscode.Disposable[]>;
 
 	private _onDidChangeState = new vscode.EventEmitter<void>();
 	readonly onDidChangeState: vscode.Event<void> = this._onDidChangeState.event;
 
-	private _onDidChangeFolderRepositories = new vscode.EventEmitter<void>();
+	private _onDidChangeFolderRepositories = new vscode.EventEmitter<{ added?: FolderRepositoryManager }>();
 	readonly onDidChangeFolderRepositories = this._onDidChangeFolderRepositories.event;
+
+	private _onDidLoadAnyRepositories = new vscode.EventEmitter<void>();
+	readonly onDidLoadAnyRepositories = this._onDidLoadAnyRepositories.event;
 
 	private _state: ReposManagerState = ReposManagerState.Initializing;
 
 	constructor(
-		private _folderManagers: FolderRepositoryManager[],
 		private _credentialStore: CredentialStore,
 		private _telemetry: ITelemetry,
-		private readonly _sessionState: ISessionState
 	) {
-		this._subs = [];
+		this._subs = new Map();
 		vscode.commands.executeCommand('setContext', ReposManagerStateContext, this._state);
+	}
 
-		this._subs.push(
-			..._folderManagers.map(folderManager => {
-				return folderManager.onDidLoadRepositories(state => (this.state = state));
-			}),
-		);
+	private updateActiveReviewCount() {
+		let count = 0;
+		for (const folderManager of this._folderManagers) {
+			if (folderManager.activePullRequest) {
+				count++;
+			}
+		}
+		commands.setContext(contexts.ACTIVE_PR_COUNT, count);
 	}
 
 	get folderManagers(): FolderRepositoryManager[] {
 		return this._folderManagers;
 	}
 
+	private registerFolderListeners(folderManager: FolderRepositoryManager) {
+		const disposables = [
+			folderManager.onDidLoadRepositories(state => {
+				this.state = state;
+				this._onDidLoadAnyRepositories.fire();
+			}),
+			folderManager.onDidChangeActivePullRequest(() => this.updateActiveReviewCount()),
+			folderManager.onDidDispose(() => this.removeRepo(folderManager.repository))
+		];
+		this._subs.set(folderManager, disposables);
+	}
+
 	insertFolderManager(folderManager: FolderRepositoryManager) {
-		this._subs.push(folderManager.onDidLoadRepositories(state => (this.state = state)));
+		this.registerFolderListeners(folderManager);
 
 		// Try to insert the new repository in workspace folder order
 		const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -111,12 +93,14 @@ export class RepositoriesManager implements vscode.Disposable {
 				this._folderManagers = this._folderManagers.slice(0, index);
 				this._folderManagers.push(folderManager);
 				this._folderManagers.push(...arrayEnd);
-				this._onDidChangeFolderRepositories.fire();
+				this.updateActiveReviewCount();
+				this._onDidChangeFolderRepositories.fire({ added: folderManager });
 				return;
 			}
 		}
 		this._folderManagers.push(folderManager);
-		this._onDidChangeFolderRepositories.fire();
+		this.updateActiveReviewCount();
+		this._onDidChangeFolderRepositories.fire({ added: folderManager });
 	}
 
 	removeRepo(repo: Repository) {
@@ -125,9 +109,12 @@ export class RepositoriesManager implements vscode.Disposable {
 		);
 		if (existingFolderManagerIndex > -1) {
 			const folderManager = this._folderManagers[existingFolderManagerIndex];
+			dispose(this._subs.get(folderManager)!);
+			this._subs.delete(folderManager);
 			this._folderManagers.splice(existingFolderManagerIndex);
 			folderManager.dispose();
-			this._onDidChangeFolderRepositories.fire();
+			this.updateActiveReviewCount();
+			this._onDidChangeFolderRepositories.fire({});
 		}
 	}
 
@@ -135,15 +122,12 @@ export class RepositoriesManager implements vscode.Disposable {
 		if (issueModel === undefined) {
 			return undefined;
 		}
-		const issueRemoteUrl = issueModel.remote.url.substring(
-			0,
-			issueModel.remote.url.length - path.extname(issueModel.remote.url).length,
-		);
+		const issueRemoteUrl = `${issueModel.remote.owner.toLowerCase()}/${issueModel.remote.repositoryName.toLowerCase()}`;
 		for (const folderManager of this._folderManagers) {
 			if (
 				folderManager.gitHubRepositories
 					.map(repo =>
-						repo.remote.url.substring(0, repo.remote.url.length - path.extname(repo.remote.url).length),
+						`${repo.remote.owner.toLowerCase()}/${repo.remote.repositoryName.toLowerCase()}`
 					)
 					.includes(issueRemoteUrl)
 			) {
@@ -158,7 +142,12 @@ export class RepositoriesManager implements vscode.Disposable {
 			return this._folderManagers[0];
 		}
 
-		for (const folderManager of this._folderManagers) {
+		// Prioritize longest path first to handle nested workspaces
+		const folderManagers = this._folderManagers
+			.slice()
+			.sort((a, b) => b.repository.rootUri.path.length - a.repository.rootUri.path.length);
+
+		for (const folderManager of folderManagers) {
 			const managerPath = folderManager.repository.rootUri.path;
 			const testUriRelativePath = uri.path.substring(
 				managerPath.length > 1 ? managerPath.length + 1 : managerPath.length,
@@ -192,17 +181,60 @@ export class RepositoriesManager implements vscode.Disposable {
 		this.state = ReposManagerState.Initializing;
 	}
 
-	async authenticate(): Promise<boolean> {
-		const github = await this._credentialStore.login(AuthProvider.github);
+	async authenticate(enterprise?: boolean): Promise<boolean> {
+		if (enterprise === false) {
+			return !!this._credentialStore.login(AuthProvider.github);
+		}
+		const { dotComRemotes, enterpriseRemotes, unknownRemotes } = await findDotComAndEnterpriseRemotes(this.folderManagers);
+		const yes = vscode.l10n.t('Yes');
+
+		if (enterprise) {
+			const remoteToUse = getEnterpriseUri()?.toString() ?? (enterpriseRemotes.length ? enterpriseRemotes[0].normalizedHost : (unknownRemotes.length ? unknownRemotes[0].normalizedHost : undefined));
+			if (enterpriseRemotes.length === 0 && unknownRemotes.length === 0) {
+				Logger.appendLine(`Enterprise login selected, but no possible enterprise remotes discovered (${dotComRemotes.length} .com)`);
+			}
+			if (remoteToUse) {
+				const promptResult = await vscode.window.showInformationMessage(vscode.l10n.t('Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server {0}?', remoteToUse),
+					{ modal: true }, yes, vscode.l10n.t('No, manually set {0}', 'github-enterprise.uri'));
+				if (promptResult === yes) {
+					await setEnterpriseUri(remoteToUse);
+				} else {
+					return false;
+				}
+			} else {
+				const setEnterpriseUriPrompt = await vscode.window.showInputBox({ placeHolder: vscode.l10n.t('Set a GitHub Enterprise server URL'), ignoreFocusOut: true });
+				if (setEnterpriseUriPrompt) {
+					await setEnterpriseUri(setEnterpriseUriPrompt);
+				} else {
+					return false;
+				}
+			}
+		}
+		// If we have no github.com remotes, but we do have github remotes, then we likely have github enterprise remotes.
+		else if (!hasEnterpriseUri() && (dotComRemotes.length === 0) && (enterpriseRemotes.length > 0)) {
+			const promptResult = await vscode.window.showInformationMessage(vscode.l10n.t('It looks like you might be using GitHub Enterprise. Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server {0}?', enterpriseRemotes[0].normalizedHost),
+				{ modal: true }, yes, vscode.l10n.t('No, use GitHub.com'));
+			if (promptResult === yes) {
+				await setEnterpriseUri(enterpriseRemotes[0].normalizedHost);
+			} else if (promptResult === undefined) {
+				return false;
+			}
+		}
+
 		let githubEnterprise;
-		if (hasEnterpriseUri()) {
-			githubEnterprise = await this._credentialStore.login(AuthProvider['github-enterprise']);
+		const hasNonDotComRemote = (enterpriseRemotes.length > 0) || (unknownRemotes.length > 0);
+		if ((hasEnterpriseUri() || (dotComRemotes.length === 0)) && hasNonDotComRemote) {
+			githubEnterprise = await this._credentialStore.login(AuthProvider.githubEnterprise);
+		}
+		let github;
+		if (!githubEnterprise && (!hasEnterpriseUri() || enterpriseRemotes.length === 0)) {
+			github = await this._credentialStore.login(AuthProvider.github);
 		}
 		return !!github || !!githubEnterprise;
 	}
 
 	dispose() {
-		this._subs.forEach(sub => sub.dispose());
+		this._subs.forEach(sub => dispose(sub));
 	}
 }
 

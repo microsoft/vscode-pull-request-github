@@ -20,22 +20,27 @@ import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { Protocol } from '../../common/protocol';
-import { Remote } from '../../common/remote';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { GHPRCommentThread } from '../../github/prComment';
 import { DiffLine } from '../../common/diffHunk';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
 import { GitApiImpl } from '../../api/api1';
-import { DiffSide } from '../../common/comment';
+import { DiffSide, SubjectType } from '../../common/comment';
 import { ReviewManager, ShowPullRequest } from '../../view/reviewManager';
 import { PullRequestChangesTreeDataProvider } from '../../view/prChangesTreeDataProvider';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
-import { MockSessionState } from '../mocks/mockSessionState';
 import { ReviewModel } from '../../view/reviewModel';
 import { Resource } from '../../common/resources';
-const schema = require('../../github/queries.gql');
+import { RepositoriesManager } from '../../github/repositoriesManager';
+import { GitFileChangeModel } from '../../view/fileChangeModel';
+import { WebviewViewCoordinator } from '../../view/webviewViewCoordinator';
+import { GitHubServerType } from '../../common/authentication';
+import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
+import { mergeQuerySchemaWithShared } from '../../github/common';
+const schema = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 const protocol = new Protocol('https://github.com/github/test.git');
-const remote = new Remote('test', 'github/test', protocol);
+const remote = new GitHubRemote('test', 'github/test', protocol, GitHubServerType.GitHubDotCom);
 
 class TestReviewCommentController extends ReviewCommentController {
 	public workspaceFileChangeCommentThreads() {
@@ -53,25 +58,30 @@ describe('ReviewCommentController', function () {
 	let activePullRequest: PullRequestModel;
 	let githubRepo: MockGitHubRepository;
 	let reviewManager: ReviewManager;
+	let reposManager: RepositoriesManager;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
 
 		telemetry = new MockTelemetry();
-		credentialStore = new CredentialStore(telemetry);
+		const context = new MockExtensionContext();
+		credentialStore = new CredentialStore(telemetry, context);
 
 		repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
-
-		provider = new PullRequestsTreeDataProvider(telemetry);
-		const context = new MockExtensionContext();
+		reposManager = new RepositoriesManager(credentialStore, telemetry);
+		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager);
+		const activePrViewCoordinator = new WebviewViewCoordinator(context);
+		const createPrHelper = new CreatePullRequestHelper();
 		Resource.initialize(context);
-		manager = new FolderRepositoryManager(context, repository, telemetry, new GitApiImpl(), credentialStore, new MockSessionState());
-		const tree = new PullRequestChangesTreeDataProvider(context);
-		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree, new ShowPullRequest(), new MockSessionState());
+		const gitApiImpl = new GitApiImpl();
+		manager = new FolderRepositoryManager(0, context, repository, telemetry, gitApiImpl, credentialStore);
+		reposManager.insertFolderManager(manager);
+		const tree = new PullRequestChangesTreeDataProvider(context, gitApiImpl, reposManager);
+		reviewManager = new ReviewManager(0, context, repository, manager, telemetry, tree, provider, new ShowPullRequest(), activePrViewCoordinator, createPrHelper, gitApiImpl);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
-			return new MockGitHubRepository(r, cStore, telemetry, sinon);
+			return Promise.resolve(new MockGitHubRepository(GitHubRemote.remoteAsGitHub(r, GitHubServerType.GitHubDotCom), cStore, telemetry, sinon));
 		});
 		sinon.stub(credentialStore, 'isAuthenticated').returns(false);
 		await manager.updateRepositories();
@@ -79,6 +89,7 @@ describe('ReviewCommentController', function () {
 		const pr = new PullRequestBuilder().build();
 		githubRepo = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
 		activePullRequest = new PullRequestModel(
+			credentialStore,
 			telemetry,
 			githubRepo,
 			remote,
@@ -93,8 +104,7 @@ describe('ReviewCommentController', function () {
 	});
 
 	function createLocalFileChange(uri: vscode.Uri, fileName: string, rootUri: vscode.Uri): GitFileChangeNode {
-		return new GitFileChangeNode(
-			provider,
+		const gitFileChangeModel = new GitFileChangeModel(
 			manager,
 			activePullRequest,
 			{
@@ -102,33 +112,40 @@ describe('ReviewCommentController', function () {
 				fileName,
 				blobUrl: 'https://example.com',
 				diffHunks:
-				[
-					{
-						oldLineNumber: 22,
-						oldLength: 5,
-						newLineNumber: 22,
-						newLength: 11,
-						positionInHunk: 0,
-						diffLines: [
-							new DiffLine(3, -1, -1, 0, '@@ -22,5 +22,11 @@', true),
-							new DiffLine(0, 22, 22, 1, "     'title': 'Papayas',", true),
-							new DiffLine(0, 23, 23, 2, "     'title': 'Papayas',", true),
-							new DiffLine(0, 24, 24, 3, "     'title': 'Papayas',", true),
-							new DiffLine(1, -1, 25, 4, '+  {', true),
-							new DiffLine(1, -1, 26, 5, '+  {', true),
-							new DiffLine(1, -1, 27, 6, '+  {', true),
-							new DiffLine(1, -1, 28, 7, '+  {', true),
-							new DiffLine(1, -1, 29, 8, '+  {', true),
-							new DiffLine(1, -1, 30, 9, '+  {', true),
-							new DiffLine(0, 25, 31, 10, '+  {', true),
-							new DiffLine(0, 26, 32, 11, '+  {', true),
-						],
-					},
-				]
+					[
+						{
+							oldLineNumber: 22,
+							oldLength: 5,
+							newLineNumber: 22,
+							newLength: 11,
+							positionInHunk: 0,
+							diffLines: [
+								new DiffLine(3, -1, -1, 0, '@@ -22,5 +22,11 @@', true),
+								new DiffLine(0, 22, 22, 1, "     'title': 'Papayas',", true),
+								new DiffLine(0, 23, 23, 2, "     'title': 'Papayas',", true),
+								new DiffLine(0, 24, 24, 3, "     'title': 'Papayas',", true),
+								new DiffLine(1, -1, 25, 4, '+  {', true),
+								new DiffLine(1, -1, 26, 5, '+  {', true),
+								new DiffLine(1, -1, 27, 6, '+  {', true),
+								new DiffLine(1, -1, 28, 7, '+  {', true),
+								new DiffLine(1, -1, 29, 8, '+  {', true),
+								new DiffLine(1, -1, 30, 9, '+  {', true),
+								new DiffLine(0, 25, 31, 10, '+  {', true),
+								new DiffLine(0, 26, 32, 11, '+  {', true),
+							],
+						},
+					]
 			},
 			uri,
 			toReviewUri(uri, fileName, undefined, '1', false, { base: true }, rootUri),
-			'abcd',
+			'abcd'
+		);
+
+		return new GitFileChangeNode(
+			provider,
+			manager,
+			activePullRequest,
+			gitFileChangeModel
 		);
 	}
 
@@ -140,9 +157,9 @@ describe('ReviewCommentController', function () {
 			comments: [],
 			collapsibleState: vscode.CommentThreadCollapsibleState.Expanded,
 			label: 'Start discussion',
-			isResolved: false,
+			state: vscode.CommentThreadState.Unresolved,
 			canReply: false,
-			dispose: () => {},
+			dispose: () => { },
 		};
 	}
 
@@ -152,7 +169,7 @@ describe('ReviewCommentController', function () {
 		const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
 		const reviewModel = new ReviewModel();
 		reviewModel.localFileChanges = localFileChanges;
-		const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, reviewModel, new MockSessionState());
+		const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, reviewModel);
 
 		sinon.stub(activePullRequest, 'validateDraftMode').returns(Promise.resolve(false));
 		sinon.stub(activePullRequest, 'getReviewThreads').returns(
@@ -164,8 +181,10 @@ describe('ReviewCommentController', function () {
 					viewerCanUnresolve: false,
 					path: fileName,
 					diffSide: DiffSide.RIGHT,
-					line: 372,
-					originalLine: 372,
+					startLine: 372,
+					endLine: 372,
+					originalStartLine: 372,
+					originalEndLine: 372,
 					isOutdated: false,
 					comments: [
 						{
@@ -178,14 +197,16 @@ describe('ReviewCommentController', function () {
 							graphNodeId: '',
 						}
 					],
+					subjectType: SubjectType.LINE
 				},
 			]),
 		);
 
-		sinon.stub(manager, 'getCurrentUser').returns({
+		sinon.stub(manager, 'getCurrentUser').returns(Promise.resolve({
 			login: 'rmacfarlane',
 			url: 'https://github.com/rmacfarlane',
-		});
+			id: '123'
+		}));
 
 		sinon.stub(vscode.workspace, 'getWorkspaceFolder').returns({
 			uri: repository.rootUri,
@@ -213,7 +234,6 @@ describe('ReviewCommentController', function () {
 				manager,
 				repository,
 				reviewModel,
-				new MockSessionState()
 			);
 			const thread = createGHPRCommentThread('review-1.1', uri);
 
@@ -221,10 +241,11 @@ describe('ReviewCommentController', function () {
 			sinon.stub(activePullRequest, 'getReviewThreads').returns(Promise.resolve([]));
 			sinon.stub(activePullRequest, 'getPendingReviewId').returns(Promise.resolve(undefined));
 
-			sinon.stub(manager, 'getCurrentUser').returns({
+			sinon.stub(manager, 'getCurrentUser').returns(Promise.resolve({
 				login: 'rmacfarlane',
 				url: 'https://github.com/rmacfarlane',
-			});
+				id: '123'
+			}));
 
 			sinon.stub(vscode.workspace, 'getWorkspaceFolder').returns({
 				uri: repository.rootUri,
@@ -252,8 +273,10 @@ describe('ReviewCommentController', function () {
 							body: 'hello world',
 							pullRequestId: activePullRequest.graphNodeId,
 							pullRequestReviewId: undefined,
+							startLine: undefined,
 							line: 22,
-							side: 'RIGHT'
+							side: 'RIGHT',
+							subjectType: 'LINE'
 						}
 					}
 				},
@@ -266,9 +289,12 @@ describe('ReviewCommentController', function () {
 								viewCanResolve: true,
 								path: fileName,
 								line: 22,
+								startLine: null,
+								originalStartLine: null,
 								originalLine: 22,
 								diffSide: 'RIGHT',
 								isOutdated: false,
+								subjectType: 'LINE',
 								comments: {
 									nodes: [
 										{

@@ -1,9 +1,14 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { SinonSandbox } from 'sinon';
 import { QueryOptions, ApolloQueryResult, FetchResult, MutationOptions, NetworkStatus, OperationVariables } from 'apollo-boost';
 
 import { GitHubRepository } from '../../github/githubRepository';
 import { QueryProvider } from './queryProvider';
-import { Remote } from '../../common/remote';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { CredentialStore } from '../../github/credentials';
 import { RepositoryBuilder } from '../builders/rest/repoBuilder';
 import { UserBuilder } from '../builders/rest/userBuilder';
@@ -13,19 +18,21 @@ import {
 	ManagedPullRequest,
 } from '../builders/managedPullRequestBuilder';
 import { MockTelemetry } from './mockTelemetry';
-import { MockSessionState } from './mockSessionState';
-const queries = require('../../github/queries.gql');
+import { Uri } from 'vscode';
+import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
+import { mergeQuerySchemaWithShared } from '../../github/common';
+const queries = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 export class MockGitHubRepository extends GitHubRepository {
 	readonly queryProvider: QueryProvider;
 
-	constructor(remote: Remote, credentialStore: CredentialStore, telemetry: MockTelemetry, sinon: SinonSandbox) {
-		super(remote, credentialStore, telemetry, new MockSessionState());
+	constructor(remote: GitHubRemote, credentialStore: CredentialStore, telemetry: MockTelemetry, sinon: SinonSandbox) {
+		super(remote, Uri.file('C:\\users\\test\\repo'), credentialStore, telemetry);
 
 		this.queryProvider = new QueryProvider(sinon);
 
 		this._hub = {
-			octokit: this.queryProvider.octokit,
+			octokit: new LoggingOctokit(this.queryProvider.octokit, new RateLogger(new MockTelemetry(), true)),
 			graphql: null,
 		};
 
@@ -88,6 +95,18 @@ export class MockGitHubRepository extends GitHubRepository {
 			},
 			{ data: responses.timelineEvents, loading: false, stale: false, networkStatus: NetworkStatus.ready },
 		);
+
+		this.queryProvider.expectGraphQLQuery(
+			{
+				query: queries.LatestReviewCommit,
+				variables: {
+					owner: this.remote.owner,
+					name: this.remote.repositoryName,
+					number: prNumber,
+				}
+			},
+			{ data: responses.latestReviewCommit, loading: false, stale: false, networkStatus: NetworkStatus.ready },
+		)
 
 		this._addPullRequestCommon(prNumber, headRef && headRef.target.oid, responses);
 

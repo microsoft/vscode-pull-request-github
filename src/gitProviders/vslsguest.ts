@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { LiveShare, SharedServiceProxy } from 'vsls/vscode.js';
-import { Branch, Change, Commit, Ref, Remote, RepositoryState, Submodule } from '../@types/git';
+import { Branch, Change, Commit, Remote, RepositoryState, Submodule } from '../@types/git';
 import { IGit, Repository } from '../api/api';
 import {
 	VSLS_GIT_PR_SESSION_NAME,
@@ -129,7 +129,7 @@ export class VSLSGuest implements IGit, vscode.Disposable {
 }
 
 class LiveShareRepositoryProxyHandler {
-	constructor() {}
+	constructor() { }
 
 	get(obj: any, prop: any) {
 		if (prop in obj) {
@@ -144,7 +144,6 @@ class LiveShareRepositoryProxyHandler {
 
 class LiveShareRepositoryState implements RepositoryState {
 	HEAD: Branch | undefined;
-	refs: Ref[];
 	remotes: Remote[];
 	submodules: Submodule[] = [];
 	rebaseCommit: Commit | undefined;
@@ -157,13 +156,11 @@ class LiveShareRepositoryState implements RepositoryState {
 	constructor(state: RepositoryState) {
 		this.HEAD = state.HEAD;
 		this.remotes = state.remotes;
-		this.refs = state.refs;
 	}
 
 	public update(state: RepositoryState) {
 		this.HEAD = state.HEAD;
 		this.remotes = state.remotes;
-		this.refs = state.refs;
 
 		this._onDidChange.fire();
 	}
@@ -173,7 +170,7 @@ class LiveShareRepository {
 	rootUri: vscode.Uri | undefined;
 	state: LiveShareRepositoryState | undefined;
 
-	constructor(public workspaceFolder: vscode.WorkspaceFolder, public proxy: SharedServiceProxy) {}
+	constructor(public workspaceFolder: vscode.WorkspaceFolder, public proxy: SharedServiceProxy) { }
 
 	public async initialize() {
 		const result = await this.proxy.request(VSLS_REQUEST_NAME, [

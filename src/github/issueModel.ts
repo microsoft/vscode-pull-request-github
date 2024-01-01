@@ -13,11 +13,12 @@ import { OctokitCommon } from './common';
 import { GitHubRepository } from './githubRepository';
 import {
 	AddIssueCommentResponse,
+	AddPullRequestToProjectResponse,
 	EditIssueCommentResponse,
 	TimelineEventsResponse,
 	UpdatePullRequestResponse,
 } from './graphql';
-import { GithubItemStateEnum, IAccount, IMilestone, IPullRequestEditData, Issue } from './interface';
+import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, IPullRequestEditData, Issue } from './interface';
 import { parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
 
 export class IssueModel<TItem extends Issue = Issue> {
@@ -26,6 +27,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 	public graphNodeId: string;
 	public number: number;
 	public title: string;
+	public titleHTML: string;
 	public html_url: string;
 	public state: GithubItemStateEnum = GithubItemStateEnum.Open;
 	public author: IAccount;
@@ -115,7 +117,12 @@ export class IssueModel<TItem extends Issue = Issue> {
 		this.graphNodeId = issue.graphNodeId;
 		this.number = issue.number;
 		this.title = issue.title;
-		this.bodyHTML = issue.bodyHTML;
+		if (issue.titleHTML) {
+			this.titleHTML = issue.titleHTML;
+		}
+		if (!this.bodyHTML || (issue.body !== this.body)) {
+			this.bodyHTML = issue.bodyHTML;
+		}
 		this.html_url = issue.url;
 		this.author = issue.user;
 		this.milestone = issue.milestone;
@@ -147,7 +154,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 		return true;
 	}
 
-	async edit(toEdit: IPullRequestEditData): Promise<{ body: string; bodyHTML: string; title: string }> {
+	async edit(toEdit: IPullRequestEditData): Promise<{ body: string; bodyHTML: string; title: string; titleHTML: string }> {
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
@@ -165,6 +172,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 				this.item.body = data.updatePullRequest.pullRequest.body;
 				this.bodyHTML = data.updatePullRequest.pullRequest.bodyHTML;
 				this.title = data.updatePullRequest.pullRequest.title;
+				this.titleHTML = data.updatePullRequest.pullRequest.titleHTML;
 				this.invalidate();
 			}
 			return data!.updatePullRequest.pullRequest;
@@ -173,7 +181,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 		}
 	}
 
-	canEdit(): boolean {
+	canEdit(): Promise<boolean> {
 		const username = this.author && this.author.login;
 		return this.githubRepository.isCurrentUser(username);
 	}
@@ -182,7 +190,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 		Logger.debug(`Fetch issue comments of PR #${this.number} - enter`, IssueModel.ID);
 		const { octokit, remote } = await this.githubRepository.ensure();
 
-		const promise = await octokit.issues.listComments({
+		const promise = await octokit.call(octokit.api.issues.listComments, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
@@ -205,7 +213,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 			},
 		});
 
-		return parseGraphQlIssueComment(data!.addComment.commentEdge.node);
+		return parseGraphQlIssueComment(data!.addComment.commentEdge.node, this.githubRepository);
 	}
 
 	async editIssueComment(comment: IComment, text: string): Promise<IComment> {
@@ -222,7 +230,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 				},
 			});
 
-			return parseGraphQlIssueComment(data!.updateIssueComment.issueComment);
+			return parseGraphQlIssueComment(data!.updateIssueComment.issueComment, this.githubRepository);
 		} catch (e) {
 			throw new Error(formatError(e));
 		}
@@ -232,7 +240,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 		try {
 			const { octokit, remote } = await this.githubRepository.ensure();
 
-			await octokit.issues.deleteComment({
+			await octokit.call(octokit.api.issues.deleteComment, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				comment_id: Number(commentId),
@@ -242,24 +250,82 @@ export class IssueModel<TItem extends Issue = Issue> {
 		}
 	}
 
-	async addLabels(labels: string[]): Promise<void> {
+	async setLabels(labels: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.issues.addLabels({
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			issue_number: this.number,
-			labels,
-		});
+		try {
+			await octokit.call(octokit.api.issues.setLabels, {
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				issue_number: this.number,
+				labels,
+			});
+		} catch (e) {
+			// We don't get a nice error message from the API when setting labels fails.
+			// Since adding labels isn't a critical part of the PR creation path it's safe to catch all errors that come from setting labels.
+			Logger.error(`Failed to add labels to PR #${this.number}`, IssueModel.ID);
+			vscode.window.showWarningMessage(vscode.l10n.t('Some, or all, labels could not be added to the pull request.'));
+		}
 	}
 
 	async removeLabel(label: string): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.issues.removeLabel({
+		await octokit.call(octokit.api.issues.removeLabel, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
 			name: label,
 		});
+	}
+
+	public async removeProjects(projectItems: IProjectItem[]): Promise<void> {
+		const { mutate, schema } = await this.githubRepository.ensure();
+
+		try {
+			await Promise.all(projectItems.map(project =>
+				mutate<void>({
+					mutation: schema.RemovePullRequestFromProject,
+					variables: {
+						input: {
+							itemId: project.id,
+							projectId: project.project.id
+						},
+					},
+				})));
+			this.item.projectItems = this.item.projectItems?.filter(project => !projectItems.find(p => p.project.id === project.project.id));
+		} catch (err) {
+			Logger.error(err, IssueModel.ID);
+		}
+	}
+
+	private async addProjects(projects: IProject[]): Promise<void> {
+		const { mutate, schema } = await this.githubRepository.ensure();
+
+		try {
+			const itemIds = await Promise.all(projects.map(project =>
+				mutate<AddPullRequestToProjectResponse>({
+					mutation: schema.AddPullRequestToProject,
+					variables: {
+						input: {
+							contentId: this.item.graphNodeId,
+							projectId: project.id
+						},
+					},
+				})));
+			if (!this.item.projectItems) {
+				this.item.projectItems = [];
+			}
+			this.item.projectItems.push(...projects.map((project, index) => { return { project, id: itemIds[index].data!.addProjectV2ItemById.item.id }; }));
+		} catch (err) {
+			Logger.error(err, IssueModel.ID);
+		}
+	}
+
+	async updateProjects(projects: IProject[]): Promise<IProjectItem[] | undefined> {
+		const projectsToAdd: IProject[] = projects.filter(project => !this.item.projectItems?.find(p => p.project.id === project.id));
+		const projectsToRemove: IProjectItem[] = this.item.projectItems?.filter(project => !projects.find(p => p.id === project.project.id)) ?? [];
+		await this.removeProjects(projectsToRemove);
+		await this.addProjects(projectsToAdd);
+		return this.item.projectItems;
 	}
 
 	async getIssueTimelineEvents(): Promise<TimelineEvent[]> {
@@ -276,6 +342,11 @@ export class IssueModel<TItem extends Issue = Issue> {
 					number: this.number,
 				},
 			});
+
+			if (data.repository === null) {
+				Logger.error('Unexpected null repository when getting issue timeline events', IssueModel.ID);
+				return [];
+			}
 			const ret = data.repository.pullRequest.timelineItems.nodes;
 			const events = parseGraphQLTimelineEvents(ret, githubRepository);
 

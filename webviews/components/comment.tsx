@@ -5,24 +5,41 @@
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { IComment } from '../../src/common/comment';
+import { CommentEvent, ReviewEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum } from '../../src/github/interface';
-import { PullRequest, ReviewType } from '../common/cache';
+import { PullRequest, ReviewType } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import emitter from '../common/events';
 import { useStateProp } from '../common/hooks';
-import { Dropdown } from './dropdown';
+import { ContextDropdown } from './contextDropdown';
 import { commentIcon, deleteIcon, editIcon } from './icon';
 import { nbsp, Spaced } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
 
-export type Props = Partial<IComment & PullRequest> & {
+export type Props = {
 	headerInEditMode?: boolean;
 	isPRDescription?: boolean;
+	children?: any;
+	comment: IComment | ReviewEvent | PullRequest | CommentEvent;
+	allowEmpty?: boolean;
 };
 
-export function CommentView(comment: Props) {
-	const { id, pullRequestReviewId, canEdit, canDelete, bodyHTML, body, isPRDescription } = comment;
+const association = ({ authorAssociation }: ReviewEvent, format = (assoc: string) => `(${assoc.toLowerCase()})`) =>
+	authorAssociation.toLowerCase() === 'user'
+		? format('you')
+		: authorAssociation && authorAssociation !== 'NONE'
+			? format(authorAssociation)
+			: null;
+
+export function CommentView(commentProps: Props) {
+	const { isPRDescription, children, comment, headerInEditMode } = commentProps;
+	const { bodyHTML, body } = comment;
+	const id = ('id' in comment) ? comment.id : -1;
+	const canEdit = ('canEdit' in comment) ? comment.canEdit : false;
+	const canDelete = ('canDelete' in comment) ? comment.canDelete : false;
+
+	const pullRequestReviewId = (comment as IComment).pullRequestReviewId;
 	const [bodyMd, setBodyMd] = useStateProp(body);
 	const [bodyHTMLState, setBodyHtml] = useStateProp(bodyHTML);
 	const { deleteComment, editComment, setDescription, pr } = useContext(PullRequestContext);
@@ -31,9 +48,10 @@ export function CommentView(comment: Props) {
 	const [showActionBar, setShowActionBar] = useState(false);
 
 	if (inEditMode) {
-		return React.cloneElement(comment.headerInEditMode ? <CommentBox for={comment} /> : <></>, {}, [
+		return React.cloneElement(headerInEditMode ? <CommentBox for={comment} /> : <></>, {}, [
 			<EditComment
 				id={id}
+				key={`editComment${id}`}
 				body={currentDraft || bodyMd}
 				onCancel={() => {
 					if (pr.pendingCommentDrafts) {
@@ -62,49 +80,85 @@ export function CommentView(comment: Props) {
 			for={comment}
 			onMouseEnter={() => setShowActionBar(true)}
 			onMouseLeave={() => setShowActionBar(false)}
+			onFocus={() => setShowActionBar(true)}
 		>
-			{showActionBar ? (
-				<div className="action-bar comment-actions">
-					<button title="Quote reply" onClick={() => emitter.emit('quoteReply', bodyMd)}>
-						{commentIcon}
+			<div className="action-bar comment-actions" style={{ display: showActionBar ? 'flex' : 'none' }}>
+				<button
+					title="Quote reply"
+					className="icon-button"
+					onClick={() => emitter.emit('quoteReply', bodyMd)}
+				>
+					{commentIcon}
+				</button>
+				{canEdit ? (
+					<button title="Edit comment" className="icon-button" onClick={() => setEditMode(true)}>
+						{editIcon}
 					</button>
-					{canEdit ? (
-						<button title="Edit comment" onClick={() => setEditMode(true)}>
-							{editIcon}
-						</button>
-					) : null}
-					{canDelete ? (
-						<button title="Delete comment" onClick={() => deleteComment({ id, pullRequestReviewId })}>
-							{deleteIcon}
-						</button>
-					) : null}
-				</div>
-			) : null}
-			<CommentBody comment={comment as IComment} bodyHTML={bodyHTMLState} body={bodyMd} />
+				) : null}
+				{canDelete ? (
+					<button
+						title="Delete comment"
+						className="icon-button"
+						onClick={() => deleteComment({ id, pullRequestReviewId })}
+					>
+						{deleteIcon}
+					</button>
+				) : null}
+			</div>
+			<CommentBody
+				comment={comment as IComment}
+				bodyHTML={bodyHTMLState}
+				body={bodyMd}
+				canApplyPatch={pr.isCurrentlyCheckedOut}
+				allowEmpty={!!commentProps.allowEmpty}
+			/>
+			{children}
 		</CommentBox>
 	);
 }
 
 type CommentBoxProps = {
-	for: Partial<IComment & PullRequest>;
+	for: IComment | ReviewEvent | PullRequest | CommentEvent;
 	header?: React.ReactChild;
+	onFocus?: any;
 	onMouseEnter?: any;
 	onMouseLeave?: any;
 	children?: any;
 };
 
-function CommentBox({ for: comment, onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
-	const { user, author, createdAt, htmlUrl, isDraft } = comment;
+function isReviewEvent(comment: IComment | ReviewEvent | PullRequest | CommentEvent): comment is ReviewEvent {
+	return (comment as ReviewEvent).authorAssociation !== undefined;
+}
+
+const DESCRIPTORS = {
+	PENDING: 'will review',
+	COMMENTED: 'reviewed',
+	CHANGES_REQUESTED: 'requested changes',
+	APPROVED: 'approved',
+};
+
+const reviewDescriptor = (state: string) => DESCRIPTORS[state] || 'reviewed';
+
+function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
+	const htmlUrl = ('htmlUrl' in comment) ? comment.htmlUrl : (comment as PullRequest).url;
+	const isDraft = (comment as IComment).isDraft ?? (isReviewEvent(comment) && (comment.state.toLocaleUpperCase() === 'PENDING'));
+	const author = ('user' in comment) ? comment.user! : (comment as PullRequest).author!;
+	const createdAt = ('createdAt' in comment) ? comment.createdAt : (comment as ReviewEvent).submittedAt;
+
 	return (
-		<div className="comment-container comment review-comment" {...{ onMouseEnter, onMouseLeave }}>
+		<div className="comment-container comment review-comment" {...{ onFocus, onMouseEnter, onMouseLeave }}>
 			<div className="review-comment-container">
 				<div className="review-comment-header">
 					<Spaced>
-						<Avatar for={user || author} />
-						<AuthorLink for={user || author} />
+						<Avatar for={author} />
+						<AuthorLink for={author} />
+						{isReviewEvent(comment) ? association(comment) : null}
+
+
 						{createdAt ? (
 							<>
-								commented{nbsp}
+								{isReviewEvent(comment) ? reviewDescriptor(comment.state) : 'commented'}
+								{nbsp}
 								<Timestamp href={htmlUrl} date={createdAt} />
 							</>
 						) : (
@@ -150,7 +204,7 @@ function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 	}, [draftComment]);
 
 	const submit = useCallback(async () => {
-		const { markdown, submitButton }: FormInputSet = form.current;
+		const { markdown, submitButton }: FormInputSet = form.current!;
 		submitButton.disabled = true;
 		try {
 			await onSave(markdown.value);
@@ -186,13 +240,13 @@ function EditComment({ id, body, onCancel, onSave }: EditCommentProps) {
 	);
 
 	return (
-		<form ref={form} onSubmit={onSubmit}>
+		<form ref={form as React.MutableRefObject<HTMLFormElement>} onSubmit={onSubmit}>
 			<textarea name="markdown" defaultValue={body} onKeyDown={onKeyDown} onInput={onInput} />
 			<div className="form-actions">
 				<button className="secondary" onClick={onCancel}>
 					Cancel
 				</button>
-				<input type="submit" name="submitButton" value="Save" />
+				<button type="submit" name="submitButton">Save</button>
 			</div>
 		</form>
 	);
@@ -202,10 +256,15 @@ export interface Embodied {
 	comment?: IComment;
 	bodyHTML?: string;
 	body?: string;
+	canApplyPatch: boolean;
+	allowEmpty: boolean
 }
 
-export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
+export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty }: Embodied) => {
 	if (!body && !bodyHTML) {
+		if (allowEmpty) {
+			return null;
+		}
 		return (
 			<div className="comment-body">
 				<em>No description provided.</em>
@@ -214,14 +273,11 @@ export const CommentBody = ({ comment, bodyHTML, body }: Embodied) => {
 	}
 
 	const { applyPatch } = useContext(PullRequestContext);
-	const renderedBody = <div dangerouslySetInnerHTML={{ __html: bodyHTML }} />;
+	const renderedBody = <div dangerouslySetInnerHTML={{ __html: bodyHTML ?? '' }} />;
 
-	const containsSuggestion = (body || bodyHTML).indexOf('```diff') > -1;
-	const applyPatchButton = containsSuggestion ? (
-		<button onClick={() => applyPatch(comment)}>Apply Patch</button>
-	) : (
-		<></>
-	);
+	const containsSuggestion = ((body || bodyHTML)?.indexOf('```diff') ?? -1) > -1;
+	const applyPatchButton =
+		containsSuggestion && canApplyPatch && comment ? <button onClick={() => applyPatch(comment)}>Apply Patch</button> : <></>;
 
 	return (
 		<div className="comment-body">
@@ -237,10 +293,13 @@ export function AddComment({
 	hasWritePermission,
 	isIssue,
 	isAuthor,
+	isDraft,
 	continueOnGitHub,
-	currentUserReviewState
+	currentUserReviewState,
+	lastReviewType,
+	busy,
 }: PullRequest) {
-	const { updatePR, comment, requestChanges, approve, close, openOnGitHub } = useContext(PullRequestContext);
+	const { updatePR, requestChanges, approve, close, openOnGitHub, submit } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 	const form = useRef<HTMLFormElement>();
 	const textareaRef = useRef<HTMLTextAreaElement>();
@@ -248,129 +307,35 @@ export function AddComment({
 	emitter.addListener('quoteReply', (message: string) => {
 		const quoted = message.replace(/\n\n/g, '\n\n> ');
 		updatePR({ pendingCommentText: `> ${quoted} \n\n` });
-		textareaRef.current.scrollIntoView();
-		textareaRef.current.focus();
+		textareaRef.current?.scrollIntoView();
+		textareaRef.current?.focus();
 	});
-
-	const submit = useCallback(
-		async (command: (body: string) => Promise<any> = comment) => {
-			try {
-				setBusy(true);
-				const { body }: FormInputSet = form.current;
-				if (continueOnGitHub && command !== comment) {
-					await openOnGitHub();
-				} else {
-					await command(body.value);
-					updatePR({ pendingCommentText: '' });
-				}
-			} finally {
-				setBusy(false);
-			}
-		},
-		[comment, updatePR, setBusy],
-	);
-
-	const onSubmit = useCallback(
-		e => {
-			e.preventDefault();
-			submit();
-		},
-		[submit],
-	);
 
 	const onKeyDown = useCallback(
 		e => {
 			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-				submit();
+				submit(textareaRef.current?.value ?? '');
 			}
 		},
 		[submit],
 	);
 
-	const onClick = useCallback(
-		e => {
-			e.preventDefault();
-			const { command } = e.target.dataset;
-			submit({ approve, requestChanges, close }[command]);
-		},
-		[submit, approve, requestChanges, close],
-	);
+	const closeButton = e => {
+		e.preventDefault();
+		const { value } = textareaRef.current!;
+		close(value);
+	};
 
-	return (
-		<form id="comment-form" ref={form} className="comment-form main-comment-form" onSubmit={onSubmit}>
-			<textarea
-				id="comment-textarea"
-				name="body"
-				ref={textareaRef}
-				onInput={({ target }) => updatePR({ pendingCommentText: (target as any).value })}
-				onKeyDown={onKeyDown}
-				value={pendingCommentText}
-				placeholder="Leave a comment"
-			/>
-			<div className="form-actions">
-				{hasWritePermission && !isIssue ? (
-					<button
-						id="close"
-						className="secondary"
-						disabled={isBusy || state !== GithubItemStateEnum.Open}
-						onClick={onClick}
-						data-command="close"
-					>
-						Close Pull Request
-					</button>
-				) : null}
-				{!isIssue && !isAuthor ? (
-					<button
-						id="request-changes"
-						disabled={isBusy || !pendingCommentText}
-						className="secondary"
-						onClick={onClick}
-						data-command="requestChanges"
-					>
-						{continueOnGitHub ? 'Request changes on github.com' : 'Request Changes'}
-					</button>
-				) : null}
-				{!isIssue && !isAuthor ? (
-					<button
-						id="approve"
-						className="secondary"
-						disabled={isBusy || currentUserReviewState === 'APPROVED'}
-						onClick={onClick}
-						data-command="approve"
-					>
-						{continueOnGitHub ? 'Approve on github.com' : 'Approve'}
-					</button>
-				) : null}
-				<input
-					id="reply"
-					value="Comment"
-					type="submit"
-					className="secondary"
-					disabled={isBusy || !pendingCommentText}
-				/>
-			</div>
-		</form>
-	);
-}
+	let currentSelection: string = lastReviewType ?? (currentUserReviewState === 'APPROVED' ? 'approve' : (currentUserReviewState === 'CHANGES_REQUESTED' ? 'requestChanges' : 'comment'));
 
-const COMMENT_METHODS = {
-	comment: 'Comment and Submit',
-	approve: 'Approve and Submit',
-	requestChanges: 'Request Changes and Submit',
-};
-
-export const AddCommentSimple = (pr: PullRequest) => {
-	const { updatePR, requestChanges, approve, submit, openOnGitHub } = useContext(PullRequestContext);
-	const textareaRef = useRef<HTMLTextAreaElement>();
-
-	async function submitAction(selected: string): Promise<void> {
-		const { value } = textareaRef.current;
-		if (pr.continueOnGitHub && selected !== ReviewType.Comment) {
+	async function submitAction(): Promise<void> {
+		const { value } = textareaRef.current!;
+		if (continueOnGitHub && currentSelection !== ReviewType.Comment) {
 			await openOnGitHub();
 			return;
 		}
-
-		switch (selected) {
+		setBusy(true);
+		switch (currentSelection) {
 			case ReviewType.RequestChanges:
 				await requestChanges(value);
 				break;
@@ -380,6 +345,116 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			default:
 				await submit(value);
 		}
+		setBusy(false);
+		updatePR({ pendingCommentText: '', pendingReviewType: undefined });
+	}
+
+	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = isAuthor || isDraft
+		? { comment: 'Comment' }
+		: continueOnGitHub
+			? {
+				comment: 'Comment',
+				approve: 'Approve on github.com',
+				requestChanges: 'Request changes on github.com',
+			}
+			: COMMENT_METHODS;
+
+	return (
+		<form id="comment-form" ref={form as React.MutableRefObject<HTMLFormElement>} className="comment-form main-comment-form" onSubmit={() => submit(textareaRef.current?.value ?? '')}>
+			<textarea
+				id="comment-textarea"
+				name="body"
+				ref={textareaRef as React.MutableRefObject<HTMLTextAreaElement>}
+				onInput={({ target }) => updatePR({ pendingCommentText: (target as any).value })}
+				onKeyDown={onKeyDown}
+				value={pendingCommentText}
+				placeholder="Leave a comment"
+			/>
+			<div className="form-actions">
+				{(hasWritePermission || isAuthor) && !isIssue ? (
+					<button
+						id="close"
+						className="secondary"
+						disabled={isBusy || state !== GithubItemStateEnum.Open}
+						onClick={closeButton}
+						data-command="close"
+					>
+						Close Pull Request
+					</button>
+				) : null}
+
+
+				<ContextDropdown
+					optionsContext={() => makeCommentMenuContext(availableActions, pendingCommentText)}
+					defaultAction={submitAction}
+					defaultOptionLabel={() => availableActions[currentSelection]}
+					defaultOptionValue={() => currentSelection}
+					optionsTitle='Submit pull request review'
+					disabled={isBusy || busy}
+					hasSingleAction={Object.keys(availableActions).length === 1}
+				/>
+			</div>
+		</form>
+	);
+}
+
+const COMMENT_METHODS = {
+	comment: 'Comment',
+	approve: 'Approve',
+	requestChanges: 'Request Changes',
+};
+
+const makeCommentMenuContext = (availableActions: { comment?: string, approve?: string, requestChanges?: string }, pendingCommentText: string | undefined) => {
+	const createMenuContexts = {
+		'preventDefaultContextMenuItems': true,
+		'github:reviewCommentMenu': true,
+	};
+	if (availableActions.approve) {
+		if (availableActions.approve === COMMENT_METHODS.approve) {
+			createMenuContexts['github:reviewCommentApprove'] = true;
+		} else {
+			createMenuContexts['github:reviewCommentApproveOnDotCom'] = true;
+		}
+	}
+	if (availableActions.comment) {
+		createMenuContexts['github:reviewCommentComment'] = true;
+	}
+	if (availableActions.requestChanges) {
+		if (availableActions.requestChanges === COMMENT_METHODS.requestChanges) {
+			createMenuContexts['github:reviewCommentRequestChanges'] = true;
+		} else {
+			createMenuContexts['github:reviewCommentRequestChangesOnDotCom'] = true;
+		}
+	}
+	createMenuContexts['body'] = pendingCommentText ?? '';
+	const stringified = JSON.stringify(createMenuContexts);
+	return stringified;
+};
+
+export const AddCommentSimple = (pr: PullRequest) => {
+	const { updatePR, requestChanges, approve, submit, openOnGitHub } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(false);
+	const textareaRef = useRef<HTMLTextAreaElement>();
+	let currentSelection: string = pr.lastReviewType ?? (pr.currentUserReviewState === 'APPROVED' ? 'approve' : (pr.currentUserReviewState === 'CHANGES_REQUESTED' ? 'requestChanges' : 'comment'));
+
+	async function submitAction(): Promise<void> {
+		const { value } = textareaRef.current!;
+		if (pr.continueOnGitHub && currentSelection !== ReviewType.Comment) {
+			await openOnGitHub();
+			return;
+		}
+		setBusy(true);
+		switch (currentSelection) {
+			case ReviewType.RequestChanges:
+				await requestChanges(value);
+				break;
+			case ReviewType.Approve:
+				await approve(value);
+				break;
+			default:
+				await submit(value);
+		}
+		setBusy(false);
 		updatePR({ pendingCommentText: '', pendingReviewType: undefined });
 	}
 
@@ -387,23 +462,50 @@ export const AddCommentSimple = (pr: PullRequest) => {
 		updatePR({ pendingCommentText: e.target.value });
 	};
 
-	const availableActions = pr.isAuthor
-		? { comment: 'Comment and Submit' }
+	const onKeyDown = useCallback(
+		e => {
+			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+
+				e.preventDefault();
+				submitAction();
+			}
+		},
+		[submitAction],
+	);
+
+	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = pr.isAuthor || pr.isDraft
+		? { comment: 'Comment' }
 		: pr.continueOnGitHub
-		? { comment: 'Comment and Submit', approve: 'Approve on github.com', requestChanges: 'Request changes on github.com' }
-		: COMMENT_METHODS;
+			? {
+				comment: 'Comment',
+				approve: 'Approve on github.com',
+				requestChanges: 'Request changes on github.com',
+			}
+			: COMMENT_METHODS;
 
 	return (
-		<span>
+		<span className="comment-form">
 			<textarea
 				id="comment-textarea"
 				name="body"
 				placeholder="Leave a comment"
-				ref={textareaRef}
+				ref={textareaRef as React.MutableRefObject<HTMLTextAreaElement>}
 				value={pr.pendingCommentText}
 				onChange={onChangeTextarea}
+				onKeyDown={onKeyDown}
+				disabled={isBusy || pr.busy}
 			/>
-			<Dropdown options={availableActions} defaultOption="comment" submitAction={submitAction} />
+			<div className='comment-button'>
+				<ContextDropdown
+					optionsContext={() => makeCommentMenuContext(availableActions, pr.pendingCommentText)}
+					defaultAction={submitAction}
+					defaultOptionLabel={() => availableActions[currentSelection]}
+					defaultOptionValue={() => currentSelection}
+					optionsTitle='Submit pull request review'
+					disabled={isBusy || pr.busy}
+					hasSingleAction={Object.keys(availableActions).length === 1}
+				/>
+			</div>
 		</span>
 	);
 };

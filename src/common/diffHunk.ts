@@ -7,7 +7,6 @@
  * Inspired by and includes code from GitHub/VisualStudio project, obtained from  https://github.com/github/VisualStudio/blob/master/src/GitHub.Exports/Models/DiffLine.cs
  */
 
-import { Repository } from '../api/api';
 import { IRawFileChange } from '../github/interface';
 import { GitChangeType, InMemFileChange, SlimFileChange } from './file';
 
@@ -98,7 +97,7 @@ export function* LineReader(text: string): IterableIterator<string> {
 }
 
 export function* parseDiffHunk(diffHunkPatch: string): IterableIterator<DiffHunk> {
-	const lineReader = LineReader(diffHunkPatch);
+	const lineReader: Iterator<string, string> = LineReader(diffHunkPatch);
 
 	let itr = lineReader.next();
 	let diffHunk: DiffHunk | undefined = undefined;
@@ -262,7 +261,6 @@ export function getGitChangeType(status: string): GitChangeType {
 
 export async function parseDiff(
 	reviews: IRawFileChange[],
-	repository: Repository,
 	parentCommit: string,
 ): Promise<(InMemFileChange | SlimFileChange)[]> {
 	const fileChanges: (InMemFileChange | SlimFileChange)[] = [];
@@ -271,7 +269,9 @@ export async function parseDiff(
 		const review = reviews[i];
 		const gitChangeType = getGitChangeType(review.status);
 
-		if (!review.patch) {
+		if (!review.patch &&
+			// We don't need to make a SlimFileChange for empty file adds.
+			!((gitChangeType === GitChangeType.ADD) && (review.additions === 0))) {
 			fileChanges.push(
 				new SlimFileChange(
 					parentCommit,
@@ -284,30 +284,7 @@ export async function parseDiff(
 			continue;
 		}
 
-		let originalFileExist = false;
-
-		switch (gitChangeType) {
-			case GitChangeType.DELETE:
-			case GitChangeType.MODIFY:
-				try {
-					await repository.getObjectDetails(parentCommit, review.filename);
-					originalFileExist = true;
-				} catch (err) {
-					/* noop */
-				}
-				break;
-			case GitChangeType.RENAME:
-				try {
-					await repository.getObjectDetails(parentCommit, review.previous_filename!);
-					originalFileExist = true;
-				} catch (err) {
-					/* noop */
-				}
-				break;
-		}
-
-		const diffHunks = parsePatch(review.patch);
-		const isPartial = !originalFileExist && gitChangeType !== GitChangeType.ADD;
+		const diffHunks = review.patch ? parsePatch(review.patch) : [];
 		fileChanges.push(
 			new InMemFileChange(
 				parentCommit,
@@ -316,7 +293,6 @@ export async function parseDiff(
 				review.previous_filename,
 				review.patch,
 				diffHunks,
-				isPartial,
 				review.blob_url,
 			),
 		);

@@ -53,6 +53,9 @@ async function getWebviewConfig(mode, env, entry) {
 	 * @type WebpackConfig['plugins'] | any
 	 */
 	const plugins = [
+		new webpack.optimize.LimitChunkCountPlugin({
+			maxChunks: 1
+		}),
 		new ForkTsCheckerPlugin({
 			async: false,
 			eslint: {
@@ -159,6 +162,9 @@ async function getExtensionConfig(target, mode, env) {
 	 * @type WebpackConfig['plugins'] | any
 	 */
 	const plugins = [
+		new webpack.optimize.LimitChunkCountPlugin({
+			maxChunks: 1
+		}),
 		new ForkTsCheckerPlugin({
 			async: false,
 			eslint: {
@@ -270,7 +276,7 @@ async function getExtensionConfig(target, mode, env) {
 				// //
 				// // We should either fix or remove that package, then remove this rule,
 				// // which introduces nonstandard behavior for mjs files, which are
-				// // terrible. This is all terrible. Everything is terrible.👇🏾
+				// // terrible. This is all terrible. Everything is terrible.
 				// {
 				// 	test: /\.mjs$/,
 				// 	include: /node_modules/,
@@ -339,6 +345,8 @@ async function getExtensionConfig(target, mode, env) {
 			// 'encoding': 'encoding',
 			'applicationinsights-native-metrics': 'applicationinsights-native-metrics',
 			'@opentelemetry/tracing': '@opentelemetry/tracing',
+			'@opentelemetry/instrumentation': '@opentelemetry/instrumentation',
+			'@azure/opentelemetry-instrumentation-azure-sdk': '@azure/opentelemetry-instrumentation-azure-sdk',
 			'fs': 'fs',
 		},
 		plugins: plugins,
@@ -374,7 +382,7 @@ module.exports =
 			getWebviewConfig(mode, env, {
 				'webview-pr-description': './webviews/editorWebview/index.ts',
 				'webview-open-pr-view': './webviews/activityBarView/index.ts',
-				'webview-create-pr-view': './webviews/createPullRequestView/index.ts',
+				'webview-create-pr-view-new': './webviews/createPullRequestViewNew/index.ts',
 			}),
 		]);
 	};

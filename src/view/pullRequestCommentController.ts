@@ -7,10 +7,8 @@ import * as path from 'path';
 import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
-import { DiffSide, IComment } from '../common/comment';
-import Logger from '../common/logger';
-import { ISessionState } from '../common/sessionState';
-import { fromPRUri } from '../common/uri';
+import { DiffSide, IComment, SubjectType } from '../common/comment';
+import { fromPRUri, Schemes } from '../common/uri';
 import { groupBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
@@ -19,9 +17,11 @@ import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import {
 	CommentReactionHandler,
 	createVSCodeCommentThreadForReviewThread,
+	threadRange,
 	updateCommentReviewState,
 	updateCommentThreadLabel,
 	updateThread,
+	updateThreadWithRange,
 } from '../github/utils';
 
 export class PullRequestCommentController implements CommentHandler, CommentReactionHandler {
@@ -35,23 +35,25 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	 */
 	private _closedEditorCachedThreads: Set<string> = new Set();
 	private _disposables: vscode.Disposable[] = [];
+	private readonly _context: vscode.ExtensionContext;
 
 	constructor(
 		private pullRequestModel: PullRequestModel,
 		private _folderReposManager: FolderRepositoryManager,
 		private _commentController: vscode.CommentController,
-		private readonly _sessionState: ISessionState
 	) {
+		this._context = _folderReposManager.context;
 		this._commentHandlerId = uuid();
 		registerCommentHandler(this._commentHandlerId, this);
 
 		if (this.pullRequestModel.reviewThreadsCacheReady) {
-			this.initializeThreadsInOpenEditors();
-			this.registerListeners();
+			this.initializeThreadsInOpenEditors().then(() => {
+				this.registerListeners();
+			});
 		} else {
-			const reviewThreadsDisposable = this.pullRequestModel.onDidChangeReviewThreads(() => {
+			const reviewThreadsDisposable = this.pullRequestModel.onDidChangeReviewThreads(async () => {
 				reviewThreadsDisposable.dispose();
-				this.initializeThreadsInOpenEditors();
+				await this.initializeThreadsInOpenEditors();
 				this.registerListeners();
 			});
 		}
@@ -62,7 +64,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 		this._disposables.push(
 			vscode.window.onDidChangeVisibleTextEditors(async e => {
-				this.onDidChangeOpenEditors(e);
+				return this.onDidChangeOpenEditors(e);
 			}),
 		);
 
@@ -81,23 +83,6 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				this.refreshContextKey(e);
 			}),
 		);
-
-		this._disposables.push(
-			this._sessionState.onDidChangeCommentsExpandState(expand => {
-				for (const reviewThread of this.pullRequestModel.reviewThreadsCache) {
-					const key = this.getCommentThreadCacheKey(reviewThread.path, reviewThread.diffSide === DiffSide.LEFT);
-					const cachedThread = this._commentThreadCache[key];
-					if (!cachedThread) {
-						Logger.appendLine(`PullRequestCommentController> Thread with ID ${key} is no longer in cache`);
-						continue;
-					}
-					const index = cachedThread.findIndex(t => t.gitHubThreadId === reviewThread.id);
-					if (index > -1) {
-						const matchingThread = cachedThread[index];
-						updateThread(matchingThread, reviewThread, expand);
-					}
-				}
-			}));
 	}
 
 	private refreshContextKey(editor: vscode.TextEditor | undefined): void {
@@ -106,7 +91,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		}
 
 		const editorUri = editor.document.uri;
-		if (editorUri.scheme !== 'pr') {
+		if (editorUri.scheme !== Schemes.Pr) {
 			return;
 		}
 
@@ -118,9 +103,9 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		this.setContextKey(this.pullRequestModel.hasPendingReview);
 	}
 
-	private getPREditors(editors: vscode.TextEditor[]): vscode.TextEditor[] {
+	private getPREditors(editors: readonly vscode.TextEditor[]): vscode.TextEditor[] {
 		return editors.filter(editor => {
-			if (editor.document.uri.scheme !== 'pr') {
+			if (editor.document.uri.scheme !== Schemes.Pr) {
 				return false;
 			}
 
@@ -154,10 +139,11 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		return uncachedEditors;
 	}
 
-	private addThreadsForEditors(newEditors: vscode.TextEditor[]): void {
+	private async addThreadsForEditors(newEditors: vscode.TextEditor[]): Promise<void> {
 		const editors = this.tryUsedCachedEditor(newEditors);
 		const reviewThreads = this.pullRequestModel.reviewThreadsCache;
 		const threadsByPath = groupBy(reviewThreads, thread => thread.path);
+		const currentUser = await this._folderReposManager.getCurrentUser();
 		editors.forEach(editor => {
 			const { fileName, isBase } = fromPRUri(editor.document.uri)!;
 			if (threadsByPath[fileName]) {
@@ -165,30 +151,31 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 					.filter(
 						thread =>
 							((thread.diffSide === DiffSide.LEFT && isBase) ||
-							(thread.diffSide === DiffSide.RIGHT && !isBase))
-							&& (thread.line !== null),
+								(thread.diffSide === DiffSide.RIGHT && !isBase))
+							&& (thread.endLine !== null),
 					)
 					.map(thread => {
-						const range = new vscode.Range(
-							new vscode.Position(thread.line - 1, 0),
-							new vscode.Position(thread.line - 1, 0),
-						);
+						const endLine = thread.endLine - 1;
+						const range = thread.subjectType === SubjectType.FILE ? undefined : threadRange(thread.startLine - 1, endLine, editor.document.lineAt(endLine).range.end.character);
 
 						return createVSCodeCommentThreadForReviewThread(
+							this._context,
 							editor.document.uri,
 							range,
 							thread,
 							this._commentController,
+							currentUser.login,
+							this.pullRequestModel.githubRepository
 						);
 					});
 			}
 		});
 	}
 
-	private initializeThreadsInOpenEditors(): void {
+	private async initializeThreadsInOpenEditors(): Promise<void> {
 		const prEditors = this.getPREditors(vscode.window.visibleTextEditors);
 		this._openPREditors = prEditors;
-		this.addThreadsForEditors(prEditors);
+		return this.addThreadsForEditors(prEditors);
 	}
 
 	private cleanCachedEditors() {
@@ -221,7 +208,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		});
 	}
 
-	private onDidChangeOpenEditors(editors: vscode.TextEditor[]): void {
+	private async onDidChangeOpenEditors(editors: readonly vscode.TextEditor[]): Promise<void> {
 		const prEditors = this.getPREditors(editors);
 		const removed = this._openPREditors.filter(x => !prEditors.includes(x));
 		this.addCachedEditors(removed);
@@ -230,16 +217,16 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		const added = prEditors.filter(x => !this._openPREditors.includes(x));
 		this._openPREditors = prEditors;
 		if (added.length) {
-			this.addThreadsForEditors(added);
+			await this.addThreadsForEditors(added);
 		}
 	}
 
 	private onDidChangeReviewThreads(e: ReviewThreadChangeEvent): void {
-		e.added.forEach(thread => {
+		e.added.forEach(async (thread) => {
 			const fileName = thread.path;
 			const index = this._pendingCommentThreadAdds.findIndex(t => {
 				const samePath = this.gitRelativeRootPath(t.uri.path) === thread.path;
-				const sameLine = t.range.start.line + 1 === thread.line;
+				const sameLine = (t.range === undefined && thread.subjectType === SubjectType.FILE) || (t.range && t.range.end.line + 1 === thread.endLine);
 				return samePath && sameLine;
 			});
 
@@ -247,7 +234,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			if (index > -1) {
 				newThread = this._pendingCommentThreadAdds[index];
 				newThread.gitHubThreadId = thread.id;
-				newThread.comments = thread.comments.map(c => new GHPRComment(c, newThread!));
+				newThread.comments = thread.comments.map(c => new GHPRComment(this._context, c, newThread!, this.pullRequestModel.githubRepository));
+				updateThreadWithRange(this._context, newThread, thread, this.pullRequestModel.githubRepository);
 				this._pendingCommentThreadAdds.splice(index, 1);
 			} else {
 				const openPREditors = this.getPREditors(vscode.window.visibleTextEditors);
@@ -260,16 +248,17 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				});
 
 				if (matchingEditor) {
-					const range = new vscode.Range(
-						new vscode.Position(thread.line - 1, 0),
-						new vscode.Position(thread.line - 1, 0),
-					);
+					const endLine = thread.endLine - 1;
+					const range = thread.subjectType === SubjectType.FILE ? undefined : threadRange(thread.startLine - 1, endLine, matchingEditor.document.lineAt(endLine).range.end.character);
 
 					newThread = createVSCodeCommentThreadForReviewThread(
+						this._context,
 						matchingEditor.document.uri,
 						range,
 						thread,
 						this._commentController,
+						(await this._folderReposManager.getCurrentUser()).login,
+						this.pullRequestModel.githubRepository
 					);
 				}
 			}
@@ -287,10 +276,10 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 		e.changed.forEach(thread => {
 			const key = this.getCommentThreadCacheKey(thread.path, thread.diffSide === DiffSide.LEFT);
-			const index = this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id);
+			const index = this._commentThreadCache[key] ? this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id) : -1;
 			if (index > -1) {
 				const matchingThread = this._commentThreadCache[key][index];
-				updateThread(matchingThread, thread);
+				updateThread(this._context, matchingThread, thread, this.pullRequestModel.githubRepository);
 			}
 		});
 
@@ -306,7 +295,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	}
 
 	hasCommentThread(thread: GHPRCommentThread): boolean {
-		if (thread.uri.scheme !== 'pr') {
+		if (thread.uri.scheme !== Schemes.Pr) {
 			return false;
 		}
 
@@ -334,9 +323,9 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		const isDraft = isSingleComment
 			? false
 			: inDraft !== undefined
-			? inDraft
-			: this.pullRequestModel.hasPendingReview;
-		const temporaryCommentId = this.optimisticallyAddComment(thread, input, isDraft);
+				? inDraft
+				: this.pullRequestModel.hasPendingReview;
+		const temporaryCommentId = await this.optimisticallyAddComment(thread, input, isDraft);
 
 		try {
 			if (hasExistingComments) {
@@ -348,7 +337,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				await this.pullRequestModel.createReviewThread(
 					input,
 					fileName,
-					thread.range.start.line + 1,
+					thread.range ? (thread.range.start.line + 1) : undefined,
+					thread.range ? (thread.range.end.line + 1) : undefined,
 					side,
 					isSingleComment,
 				);
@@ -380,15 +370,15 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	private reply(thread: GHPRCommentThread, input: string, isSingleComment: boolean): Promise<IComment | undefined> {
 		const replyingTo = thread.comments[0];
 		if (replyingTo instanceof GHPRComment) {
-			return this.pullRequestModel.createCommentReply(input, replyingTo._rawComment.graphNodeId, isSingleComment);
+			return this.pullRequestModel.createCommentReply(input, replyingTo.rawComment.graphNodeId, isSingleComment);
 		} else {
 			// TODO can we do better?
 			throw new Error('Cannot respond to temporary comment');
 		}
 	}
 
-	private optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): number {
-		const currentUser = this._folderReposManager.getCurrentUser(this.pullRequestModel);
+	private async optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): Promise<number> {
+		const currentUser = await this._folderReposManager.getCurrentUser(this.pullRequestModel.githubRepository);
 		const temporaryComment = new TemporaryComment(
 			thread,
 			comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
@@ -409,10 +399,10 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 	public async editComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void> {
 		if (comment instanceof GHPRComment) {
-			const temporaryCommentId = this.optimisticallyEditComment(thread, comment);
+			const temporaryCommentId = await this.optimisticallyEditComment(thread, comment);
 			try {
 				await this.pullRequestModel.editReviewComment(
-					comment._rawComment,
+					comment.rawComment,
 					comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
 				);
 			} catch (e) {
@@ -420,7 +410,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 				thread.comments = thread.comments.map(c => {
 					if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
-						return new GHPRComment(comment._rawComment, thread);
+						return new GHPRComment(this._context, comment.rawComment, thread);
 					}
 
 					return c;
@@ -454,14 +444,14 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	// #region Review
 	public async startReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		const hasExistingComments = thread.comments.length;
-		const temporaryCommentId = this.optimisticallyAddComment(thread, input, true);
+		const temporaryCommentId = await this.optimisticallyAddComment(thread, input, true);
 
 		try {
 			if (!hasExistingComments) {
 				const fileName = this.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
 				this._pendingCommentThreadAdds.push(thread);
-				await this.pullRequestModel.createReviewThread(input, fileName, thread.range.start.line + 1, side);
+				await this.pullRequestModel.createReviewThread(input, fileName, thread.range ? (thread.range.start.line + 1) : undefined, thread.range ? (thread.range.end.line + 1) : undefined, side);
 			} else {
 				await this.reply(thread, input, false);
 			}
@@ -491,8 +481,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 		this._folderReposManager.telemetry.sendTelemetryEvent('pr.openDescription');
 	}
 
-	private optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): number {
-		const currentUser = this._folderReposManager.getCurrentUser(this.pullRequestModel);
+	private async optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): Promise<number> {
+		const currentUser = await this._folderReposManager.getCurrentUser(this.pullRequestModel.githubRepository);
 		const comment = new TemporaryComment(thread, input, inDraft, currentUser);
 		this.updateCommentThreadComments(thread, [...thread.comments, comment]);
 		return comment.id;
@@ -533,7 +523,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	}
 
 	public async toggleReaction(comment: GHPRComment, reaction: vscode.CommentReaction): Promise<void> {
-		if (comment.parent!.uri.scheme !== 'pr') {
+		if (comment.parent!.uri.scheme !== Schemes.Pr) {
 			return;
 		}
 
@@ -542,9 +532,9 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			!comment.reactions.find(ret => ret.label === reaction.label && !!ret.authorHasReacted)
 		) {
 			// add reaction
-			await this.pullRequestModel.addCommentReaction(comment._rawComment.graphNodeId, reaction);
+			await this.pullRequestModel.addCommentReaction(comment.rawComment.graphNodeId, reaction);
 		} else {
-			await this.pullRequestModel.deleteCommentReaction(comment._rawComment.graphNodeId, reaction);
+			await this.pullRequestModel.deleteCommentReaction(comment.rawComment.graphNodeId, reaction);
 		}
 	}
 

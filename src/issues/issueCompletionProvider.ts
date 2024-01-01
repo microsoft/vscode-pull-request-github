@@ -4,20 +4,23 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import {
+	IGNORE_COMPLETION_TRIGGER,
+	ISSUE_COMPLETION_FORMAT_SCM,
+	ISSUES_SETTINGS_NAMESPACE,
+} from '../common/settingKeys';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IMilestone } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { MilestoneModel } from '../github/milestoneModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { getIssueNumberLabel, variableSubstitution } from '../github/utils';
 import { extractIssueOriginFromQuery, NEW_ISSUE_SCHEME } from './issueFile';
 import { StateManager } from './stateManager';
 import {
-	getIssueNumberLabel,
 	getRootUriFromScmInputUri,
 	isComment,
 	issueMarkdown,
-	ISSUES_CONFIGURATION,
-	variableSubstitution,
 } from './util';
 
 class IssueCompletionItem extends vscode.CompletionItem {
@@ -31,7 +34,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		private stateManager: StateManager,
 		private repositoriesManager: RepositoriesManager,
 		private context: vscode.ExtensionContext,
-	) {}
+	) { }
 
 	async provideCompletionItems(
 		document: vscode.TextDocument,
@@ -39,13 +42,25 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		token: vscode.CancellationToken,
 		context: vscode.CompletionContext,
 	): Promise<vscode.CompletionItem[]> {
+		let wordRange = document.getWordRangeAtPosition(position);
+		let wordAtPos = wordRange ? document.getText(wordRange) : undefined;
+		if (!wordRange || wordAtPos?.charAt(0) !== '#') {
+			const start = wordRange?.start ?? position;
+			const testWordRange = new vscode.Range(start.translate(undefined, start.character ? -1 : 0), position);
+			const testWord = document.getText(testWordRange);
+			if (testWord.charAt(0) === '#') {
+				wordRange = testWordRange;
+				wordAtPos = testWord;
+			}
+		}
+
 		// If the suggest was not triggered by the trigger character, require that the previous character be the trigger character
 		if (
 			document.languageId !== 'scminput' &&
 			document.uri.scheme !== 'comment' &&
 			position.character > 0 &&
 			context.triggerKind === vscode.CompletionTriggerKind.Invoke &&
-			!document.getText(document.getWordRangeAtPosition(position)).match(/#[0-9]*$/)
+			!wordAtPos?.match(/#[0-9]*$/)
 		) {
 			return [];
 		}
@@ -64,26 +79,42 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		if (
 			context.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter &&
 			vscode.workspace
-				.getConfiguration(ISSUES_CONFIGURATION)
-				.get<string[]>('ignoreCompletionTrigger', [])
+				.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
+				.get<string[]>(IGNORE_COMPLETION_TRIGGER, [])
 				.find(value => value === document.languageId)
 		) {
 			return [];
 		}
 
-		if (document.languageId !== 'scminput' && !(await isComment(document, position))) {
+		if ((document.languageId !== 'scminput') && (document.languageId !== 'git-commit') && !(await isComment(document, position))) {
 			return [];
 		}
 
 		let range: vscode.Range = new vscode.Range(position, position);
 		if (position.character - 1 >= 0) {
-			const wordAtPos = document.getText(new vscode.Range(position.translate(0, -1), position));
-			if (wordAtPos === '#') {
-				range = new vscode.Range(position.translate(0, -1), position);
+			if (wordRange && ((wordAtPos?.charAt(0) === '#') || (document.languageId === 'scminput') || (document.languageId === 'git-commit'))) {
+				range = wordRange;
 			}
 		}
 
-		await this.stateManager.tryInitializeAndWait();
+		// Check for owner/repo preceding the #
+		let filterOwnerAndRepo: { owner: string; repo: string } | undefined;
+		if (wordAtPos === '#' && wordRange) {
+			if (wordRange.start.character >= 3) {
+				const ownerRepoRange = new vscode.Range(
+					wordRange.start.with(undefined, 0),
+					wordRange.start
+				);
+				const ownerRepo = document.getText(ownerRepoRange);
+				const ownerRepoMatch = ownerRepo.match(/([^\s]+)\/([^\s]+)/);
+				if (ownerRepoMatch) {
+					filterOwnerAndRepo = {
+						owner: ownerRepoMatch[1],
+						repo: ownerRepoMatch[2],
+					};
+				}
+			}
+		}
 
 		const completionItems: Map<string, vscode.CompletionItem> = new Map();
 		const now = new Date();
@@ -103,9 +134,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		} else {
 			uri = document.uri.scheme === NEW_ISSUE_SCHEME
 				? extractIssueOriginFromQuery(document.uri) ?? document.uri
-				: document.languageId === 'scminput'
-					? getRootUriFromScmInputUri(document.uri)
-					: document.uri;
+				: document.uri;
 		}
 		if (!uri) {
 			return [];
@@ -141,6 +170,9 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			if (issuesOrMilestones[0] instanceof IssueModel) {
 				let index = 0;
 				for (const issue of issuesOrMilestones) {
+					if (filterOwnerAndRepo && ((issue as IssueModel).remote.owner !== filterOwnerAndRepo.owner || (issue as IssueModel).remote.repositoryName !== filterOwnerAndRepo.repo)) {
+						continue;
+					}
 					completionItems.set(
 						getIssueNumberLabel(issue as IssueModel),
 						await this.completionItemFromIssue(repo, issue as IssueModel, now, range, document, index++, totalIssues),
@@ -150,6 +182,9 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 				for (let index = 0; index < issuesOrMilestones.length; index++) {
 					const value: MilestoneModel = issuesOrMilestones[index] as MilestoneModel;
 					for (const issue of value.issues) {
+						if (filterOwnerAndRepo && ((issue as IssueModel).remote.owner !== filterOwnerAndRepo.owner || (issue as IssueModel).remote.repositoryName !== filterOwnerAndRepo.repo)) {
+							continue;
+						}
 						completionItems.set(
 							getIssueNumberLabel(issue),
 							await this.completionItemFromIssue(
@@ -185,9 +220,9 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			item.insertText = `[${getIssueNumberLabel(issue, repo)}](${issue.html_url})`;
 		} else {
 			const configuration = vscode.workspace
-				.getConfiguration(ISSUES_CONFIGURATION)
-				.get('issueCompletionFormatScm');
-			if (document.uri.path.match(/scm\/git\/scm\d\/input/) && typeof configuration === 'string') {
+				.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
+				.get(ISSUE_COMPLETION_FORMAT_SCM);
+			if (document.uri.path.match(/git\/scm\d\/input/) && typeof configuration === 'string') {
 				item.insertText = await variableSubstitution(configuration, issue, repo);
 			} else {
 				item.insertText = `${getIssueNumberLabel(issue, repo)}`;
@@ -209,7 +244,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			item.documentation = await issueMarkdown(item.issue, this.context, this.repositoriesManager);
 			item.command = {
 				command: 'issues.issueCompletion',
-				title: 'Issue Completion Chose,',
+				title: vscode.l10n.t('Issue Completion Choose,'),
 			};
 		}
 		return item;

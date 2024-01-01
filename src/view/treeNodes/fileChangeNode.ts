@@ -6,23 +6,22 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { IComment, ViewedState } from '../../common/comment';
-import { DiffHunk, parsePatch } from '../../common/diffHunk';
-import { GitChangeType, InMemFileChange, SimpleFileChange } from '../../common/file';
-import Logger from '../../common/logger';
-import { FILE_LIST_LAYOUT } from '../../common/settingKeys';
-import { asImageDataURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, toResourceUri } from '../../common/uri';
+import { GitChangeType, InMemFileChange } from '../../common/file';
+import { FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
+import { asTempStorageURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, Schemes, toResourceUri } from '../../common/uri';
 import { groupBy } from '../../common/utils';
-import { FolderRepositoryManager, SETTINGS_NAMESPACE } from '../../github/folderRepositoryManager';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
-import { FILECHANGE_FILE_SCHEME, GITHUB_FILE_SCHEME } from '../compareChangesTreeDataProvider';
+import { FileChangeModel, GitFileChangeModel, InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { DecorationProvider } from '../treeDecorationProvider';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
-export function openFileCommand(uri: vscode.Uri): vscode.Command {
+export function openFileCommand(uri: vscode.Uri, inputOpts: vscode.TextDocumentShowOptions = {}): vscode.Command {
 	const activeTextEditor = vscode.window.activeTextEditor;
-	const opts: vscode.TextDocumentShowOptions = {
-		preserveFocus: true,
-		viewColumn: vscode.ViewColumn.Active,
+	const opts = {
+		...inputOpts, ...{
+			viewColumn: vscode.ViewColumn.Active,
+		}
 	};
 
 	// Check if active text editor has same path as other editor. we cannot compare via
@@ -44,8 +43,8 @@ async function openDiffCommand(
 	opts: vscode.TextDocumentShowOptions | undefined,
 	status: GitChangeType,
 ): Promise<vscode.Command> {
-	let parentURI = (await asImageDataURI(parentFilePath, folderManager.repository)) || parentFilePath;
-	let headURI = (await asImageDataURI(filePath, folderManager.repository)) || filePath;
+	let parentURI = (await asTempStorageURI(parentFilePath, folderManager.repository)) || parentFilePath;
+	let headURI = (await asTempStorageURI(filePath, folderManager.repository)) || filePath;
 	if (parentURI.scheme === 'data' || headURI.scheme === 'data') {
 		if (status === GitChangeType.ADD) {
 			parentURI = EMPTY_IMAGE_URI;
@@ -64,81 +63,6 @@ async function openDiffCommand(
 }
 
 /**
- * File change node whose content can not be resolved locally and we direct users to GitHub.
- */
-export class RemoteFileChangeNode extends TreeNode implements vscode.TreeItem {
-	public description: string;
-	public iconPath?:
-		| string
-		| vscode.Uri
-		| { light: string | vscode.Uri; dark: string | vscode.Uri }
-		| vscode.ThemeIcon;
-	public command: vscode.Command;
-	public fileChangeResourceUri: vscode.Uri;
-	public contextValue: string;
-	public childrenDisposables: vscode.Disposable[] = [];
-	private _viewed: ViewedState;
-
-	constructor(
-		public readonly parent: TreeNodeParent,
-		public readonly pullRequest: PullRequestModel,
-		public readonly status: GitChangeType,
-		public readonly fileName: string,
-		public readonly previousFileName: string | undefined,
-		public readonly blobUrl: string,
-		public readonly filePath: vscode.Uri,
-		public readonly parentFilePath: vscode.Uri,
-	) {
-		super();
-		const viewed = this.pullRequest.fileChangeViewedState[fileName] ?? ViewedState.UNVIEWED;
-		this.contextValue = `${FILECHANGE_FILE_SCHEME}:${GitChangeType[status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
-			}`;
-		this.label = path.basename(fileName);
-		this.description = vscode.workspace.asRelativePath(path.dirname(fileName), false);
-		if (this.description === '.') {
-			this.description = '';
-		}
-		this.iconPath = vscode.ThemeIcon.File;
-		this.fileChangeResourceUri = toResourceUri(vscode.Uri.parse(this.blobUrl), pullRequest.number, fileName, status);
-		this.updateViewed(viewed);
-		this.command = {
-			command: 'pr.openFileOnGitHub',
-			title: 'Open File on GitHub',
-			arguments: [this],
-		};
-
-		this.childrenDisposables.push(
-			this.pullRequest.onDidChangeFileViewedState(e => {
-				const matchingChange = e.changed.find(viewStateChange => viewStateChange.fileName === this.fileName);
-				if (matchingChange) {
-					this.updateViewed(matchingChange.viewed);
-					this.refresh(this);
-				}
-			}),
-		);
-		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link' };
-	}
-
-	get resourceUri(): vscode.Uri {
-		return this.filePath.with({ query: this.fileChangeResourceUri.query });
-	}
-
-	updateViewed(viewed: ViewedState) {
-		if (this._viewed === viewed) {
-			return;
-		}
-
-		this._viewed = viewed;
-		this.contextValue = `${FILECHANGE_FILE_SCHEME}:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
-			}`;
-	}
-
-	getTreeItem(): vscode.TreeItem {
-		return this;
-	}
-}
-
-/**
  * File change node whose content is stored in memory and resolved when being revealed.
  */
 export class FileChangeNode extends TreeNode implements vscode.TreeItem {
@@ -148,73 +72,60 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		| { light: string | vscode.Uri; dark: string | vscode.Uri }
 		| vscode.ThemeIcon;
 	public fileChangeResourceUri: vscode.Uri;
-	public parentSha: string;
 	public contextValue: string;
 	public command: vscode.Command;
 	public opts: vscode.TextDocumentShowOptions;
 
+	public checkboxState: { state: vscode.TreeItemCheckboxState; tooltip?: string; accessibilityInformation: vscode.AccessibilityInformation };
+
 	public childrenDisposables: vscode.Disposable[] = [];
-	private _viewed: ViewedState;
 
 	get status(): GitChangeType {
-		return this.change.status;
+		return this.changeModel.status;
 	}
 
 	get fileName(): string {
-		return this.change.fileName;
+		return this.changeModel.fileName;
 	}
 
 	get blobUrl(): string | undefined {
-		return this.change.blobUrl;
+		return this.changeModel.blobUrl;
 	}
 
-	async diffHunks(): Promise<DiffHunk[]> {
-		let diffHunks: DiffHunk[] = [];
+	get sha(): string | undefined {
+		return this.changeModel.sha;
+	}
 
-		if (this.change instanceof InMemFileChange) {
-			diffHunks = this.change.diffHunks;
-		} else if (this.status !== GitChangeType.RENAME) {
-			try {
-				const commit = this.sha ?? this.pullRequest.head.sha;
-				const patch = await this.pullRequestManager.repository.diffBetween(this.pullRequest.base.sha, commit, this.change.fileName);
-				diffHunks = parsePatch(patch);
-			} catch (e) {
-				Logger.appendLine(`Failed to parse patch for outdated comments: ${e}`);
-			}
-		}
-		return diffHunks;
+	get tooltip(): string {
+		return this.resourceUri.fsPath;
 	}
 
 	constructor(
-		public readonly parent: TreeNodeParent,
+		public parent: TreeNodeParent,
 		protected readonly pullRequestManager: FolderRepositoryManager,
 		public readonly pullRequest: PullRequestModel & IResolvedPullRequestModel,
-		protected readonly change: SimpleFileChange,
-		public readonly filePath: vscode.Uri,
-		public readonly parentFilePath: vscode.Uri,
-		public readonly sha?: string,
+		public readonly changeModel: FileChangeModel
 	) {
 		super();
-		const viewed = this.pullRequest.fileChangeViewedState[this.fileName] ?? ViewedState.UNVIEWED;
-		this.contextValue = `${FILECHANGE_FILE_SCHEME}:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
+		const viewed = this.pullRequest.fileChangeViewedState[this.changeModel.fileName] ?? ViewedState.UNVIEWED;
+		this.contextValue = `${Schemes.FileChange}:${GitChangeType[this.changeModel.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
-		this.label = path.basename(this.fileName);
+		this.label = path.basename(this.changeModel.fileName);
 		this.iconPath = vscode.ThemeIcon.File;
-		this.opts = {
-			preserveFocus: true,
-		};
+		this.opts = {};
 		this.updateShowOptions();
 		this.fileChangeResourceUri = toResourceUri(
-			vscode.Uri.file(this.fileName),
+			vscode.Uri.file(this.changeModel.fileName),
 			this.pullRequest.number,
-			this.fileName,
-			this.status,
+			this.changeModel.fileName,
+			this.changeModel.status,
+			this.changeModel.change instanceof InMemFileChange ? this.changeModel.change.previousFileName : undefined
 		);
 		this.updateViewed(viewed);
 
 		this.childrenDisposables.push(
 			this.pullRequest.onDidChangeReviewThreads(e => {
-				if ([...e.added, ...e.removed].some(thread => thread.path === this.fileName)) {
+				if ([...e.added, ...e.removed].some(thread => thread.path === this.changeModel.fileName)) {
 					this.updateShowOptions();
 				}
 			}),
@@ -222,7 +133,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 
 		this.childrenDisposables.push(
 			this.pullRequest.onDidChangeFileViewedState(e => {
-				const matchingChange = e.changed.find(viewStateChange => viewStateChange.fileName === this.fileName);
+				const matchingChange = e.changed.find(viewStateChange => viewStateChange.fileName === this.changeModel.fileName);
 				if (matchingChange) {
 					this.updateViewed(matchingChange.viewed);
 					this.refresh(this);
@@ -230,16 +141,15 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 			}),
 		);
 
-
 		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link' };
 	}
 
 	get resourceUri(): vscode.Uri {
-		return this.filePath.with({ query: this.fileChangeResourceUri.query });
+		return this.changeModel.filePath.with({ query: this.fileChangeResourceUri.query });
 	}
 
 	get description(): string | true {
-		const layout = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
+		const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 		if (layout === 'flat') {
 			return true;
 		} else {
@@ -248,30 +158,46 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	updateViewed(viewed: ViewedState) {
-		if (this._viewed === viewed) {
-			return;
-		}
-
-		this._viewed = viewed;
-		this.contextValue = `${FILECHANGE_FILE_SCHEME}:${GitChangeType[this.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
+		this.changeModel.updateViewed(viewed);
+		this.contextValue = `${Schemes.FileChange}:${GitChangeType[this.changeModel.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
+		this.checkboxState = viewed === ViewedState.VIEWED ?
+			{ state: vscode.TreeItemCheckboxState.Checked, tooltip: vscode.l10n.t('Mark file as unviewed'), accessibilityInformation: { label: vscode.l10n.t('Mark file {0} as unviewed', this.label ?? '') } } :
+			{ state: vscode.TreeItemCheckboxState.Unchecked, tooltip: vscode.l10n.t('Mark file as viewed'), accessibilityInformation: { label: vscode.l10n.t('Mark file {0} as viewed', this.label ?? '') } };
+	}
+
+	public async markFileAsViewed(fromCheckboxChanged: boolean = true) {
+		await this.pullRequest.markFiles([this.fileName], !fromCheckboxChanged, 'viewed');
+		this.pullRequestManager.setFileViewedContext();
+	}
+
+	public async unmarkFileAsViewed(fromCheckboxChanged: boolean = true) {
+		await this.pullRequest.markFiles([this.fileName], !fromCheckboxChanged, 'unviewed');
+		this.pullRequestManager.setFileViewedContext();
+	}
+
+	updateFromCheckboxChanged(newState: vscode.TreeItemCheckboxState) {
+		const viewed = newState === vscode.TreeItemCheckboxState.Checked ? ViewedState.VIEWED : ViewedState.UNVIEWED;
+		this.updateViewed(viewed);
 	}
 
 	updateShowOptions() {
 		const reviewThreads = this.pullRequest.reviewThreadsCache;
 		const reviewThreadsByFile = groupBy(reviewThreads, thread => thread.path);
-		const reviewThreadsForNode = (reviewThreadsByFile[this.fileName] || []).filter(thread => !thread.isOutdated);
+		const reviewThreadsForNode = (reviewThreadsByFile[this.changeModel.fileName] || []).filter(thread => !thread.isOutdated);
 
 		DecorationProvider.updateFileComments(
 			this.fileChangeResourceUri,
 			this.pullRequest.number,
-			this.fileName,
+			this.changeModel.fileName,
 			reviewThreadsForNode.length > 0,
 		);
 
 		if (reviewThreadsForNode.length) {
-			reviewThreadsForNode.sort((a, b) => a.line - b.line);
-			this.opts.selection = new vscode.Range(reviewThreadsForNode[0].line, 0, reviewThreadsForNode[0].line, 0);
+			reviewThreadsForNode.sort((a, b) => a.endLine - b.endLine);
+			const startLine = reviewThreadsForNode[0].startLine ?? reviewThreadsForNode[0].originalStartLine;
+			const endLine = reviewThreadsForNode[0].endLine ?? reviewThreadsForNode[0].originalEndLine;
+			this.opts.selection = new vscode.Range(startLine, 0, endLine, 0);
 		} else {
 			delete this.opts.selection;
 		}
@@ -282,21 +208,57 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	openFileCommand(): vscode.Command {
-		return openFileCommand(this.filePath);
+		return openFileCommand(this.changeModel.filePath);
 	}
 
 	async openDiff(folderManager: FolderRepositoryManager, opts?: vscode.TextDocumentShowOptions): Promise<void> {
 		const command = await openDiffCommand(
 			folderManager,
-			this.parentFilePath,
-			this.filePath,
+			this.changeModel.parentFilePath,
+			this.changeModel.filePath,
 			{
 				...this.opts,
 				...opts,
 			},
-			this.status,
+			this.changeModel.status,
 		);
-		vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
+		return vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));
+	}
+}
+
+/**
+ * File change node whose content can not be resolved locally and we direct users to GitHub.
+ */
+export class RemoteFileChangeNode extends FileChangeNode implements vscode.TreeItem {
+	get description(): string {
+		let description = vscode.workspace.asRelativePath(path.dirname(this.changeModel.fileName), false);
+		if (description === '.') {
+			description = '';
+		}
+		return description;
+	}
+
+	constructor(
+		public parent: TreeNodeParent,
+		folderRepositoryManager: FolderRepositoryManager,
+		pullRequest: PullRequestModel & IResolvedPullRequestModel,
+		changeModel: RemoteFileChangeModel
+	) {
+		super(parent, folderRepositoryManager, pullRequest, changeModel);
+		this.fileChangeResourceUri = toResourceUri(vscode.Uri.parse(changeModel.blobUrl), changeModel.pullRequest.number, changeModel.fileName, changeModel.status, changeModel.previousFileName);
+		this.command = {
+			command: 'pr.openFileOnGitHub',
+			title: 'Open File on GitHub',
+			arguments: [this],
+		};
+	}
+
+	async openDiff(): Promise<void> {
+		return vscode.commands.executeCommand(this.command.command);
+	}
+
+	openFileCommand(): vscode.Command {
+		return this.command;
 	}
 }
 
@@ -306,21 +268,15 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeItem {
 	constructor(
 		private readonly folderRepositoryManager: FolderRepositoryManager,
-		public readonly parent: TreeNodeParent,
+		public parent: TreeNodeParent,
 		public readonly pullRequest: PullRequestModel & IResolvedPullRequestModel,
-		change: SimpleFileChange,
-		public readonly previousFileName: string | undefined,
-		public readonly filePath: vscode.Uri,
-		public readonly parentFilePath: vscode.Uri,
-		public isPartial: boolean,
-		public readonly patch: string,
-		public readonly sha?: string,
+		public readonly changeModel: InMemFileChangeModel
 	) {
-		super(parent, folderRepositoryManager, pullRequest, change, filePath, parentFilePath, sha);
+		super(parent, folderRepositoryManager, pullRequest, changeModel);
 	}
 
 	get comments(): IComment[] {
-		return this.pullRequest.comments.filter(comment => (comment.path === this.change.fileName) && (comment.position !== null));
+		return this.pullRequest.comments.filter(comment => (comment.path === this.changeModel.fileName) && (comment.position !== null));
 	}
 
 	getTreeItem(): vscode.TreeItem {
@@ -328,13 +284,17 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 	}
 
 	async resolve(): Promise<void> {
-		this.command = await openDiffCommand(
-			this.folderRepositoryManager,
-			this.parentFilePath,
-			this.filePath,
-			undefined,
-			this.status,
-		);
+		if (this.status === GitChangeType.ADD) {
+			this.command = openFileCommand(this.changeModel.filePath);
+		} else {
+			this.command = await openDiffCommand(
+				this.folderRepositoryManager,
+				this.changeModel.parentFilePath,
+				this.changeModel.filePath,
+				undefined,
+				this.changeModel.status,
+			);
+		}
 	}
 }
 
@@ -343,17 +303,14 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
  */
 export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem {
 	constructor(
-		public readonly parent: TreeNodeParent,
+		public parent: TreeNodeParent,
 		pullRequestManager: FolderRepositoryManager,
 		public readonly pullRequest: PullRequestModel & IResolvedPullRequestModel,
-		change: SimpleFileChange,
-		public readonly filePath: vscode.Uri,
-		public readonly parentFilePath: vscode.Uri,
-		public readonly sha?: string,
+		public readonly changeModel: GitFileChangeModel,
 		private isCurrent?: boolean,
 		private _comments?: IComment[]
 	) {
-		super(parent, pullRequestManager, pullRequest, change, filePath, parentFilePath, sha);
+		super(parent, pullRequestManager, pullRequest, changeModel);
 	}
 
 	get comments(): IComment[] {
@@ -363,9 +320,9 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		// if there's a commit sha, then the comment must belong to the commit.
 		return this.pullRequest.comments.filter(comment => {
 			if (!this.sha || this.sha === this.pullRequest.head.sha) {
-				return comment.position && (comment.path === this.change.fileName);
+				return comment.position && (comment.path === this.changeModel.fileName);
 			} else {
-				return (comment.path === this.change.fileName) && (comment.originalCommitId === this.sha);
+				return (comment.path === this.changeModel.fileName) && (comment.originalCommitId === this.sha);
 			}
 		});
 	}
@@ -378,7 +335,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 	private async alternateCommand(): Promise<vscode.Command> {
 		if (this.status === GitChangeType.DELETE || this.status === GitChangeType.ADD) {
 			// create an empty `review` uri without any path/commit info.
-			const emptyFileUri = this.parentFilePath.with({
+			const emptyFileUri = this.changeModel.parentFilePath.with({
 				query: JSON.stringify({
 					path: null,
 					commit: null,
@@ -389,14 +346,14 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 				command: 'vscode.diff',
 				arguments:
 					this.status === GitChangeType.DELETE
-						? [this.parentFilePath, emptyFileUri, `${this.fileName}`, { preserveFocus: true }]
-						: [emptyFileUri, this.parentFilePath, `${this.fileName}`, { preserveFocus: true }],
+						? [this.changeModel.parentFilePath, emptyFileUri, `${this.fileName}`, {}]
+						: [emptyFileUri, this.changeModel.parentFilePath, `${this.fileName}`, {}],
 				title: 'Open Diff',
 			};
 		}
 
 		// Show the file change in a diff view.
-		const { path: filePath, ref, commit, rootPath } = fromReviewUri(this.filePath.query);
+		const { path: filePath, ref, commit, rootPath } = fromReviewUri(this.changeModel.filePath.query);
 		const previousCommit = `${commit}^`;
 		const query: ReviewUriParams = {
 			path: filePath,
@@ -406,26 +363,24 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 			isOutdated: true,
 			rootPath,
 		};
-		const previousFileUri = this.filePath.with({ query: JSON.stringify(query) });
-		let currentFilePath = this.filePath;
+		const previousFileUri = this.changeModel.filePath.with({ query: JSON.stringify(query) });
+		let currentFilePath = this.changeModel.filePath;
 		// If the commit is the most recent/current commit, then we just use the current file for the right.
 		// This is so that comments display properly.
 		if (this.isCurrent) {
 			currentFilePath = this.pullRequestManager.repository.rootUri.with({ path: path.posix.join(query.rootPath, query.path) });
 		}
 
-		const options: vscode.TextDocumentShowOptions = {
-			preserveFocus: true,
-		};
+		const options: vscode.TextDocumentShowOptions = {};
 
 		const reviewThreads = this.pullRequest.reviewThreadsCache;
 		const reviewThreadsByFile = groupBy(reviewThreads, t => t.path);
 		const reviewThreadsForNode = (reviewThreadsByFile[this.fileName] || [])
 			.filter(thread => thread.isOutdated)
-			.sort((a, b) => a.line - b.line);
+			.sort((a, b) => a.endLine - b.endLine);
 
 		if (reviewThreadsForNode.length) {
-			options.selection = new vscode.Range(reviewThreadsForNode[0].originalLine, 0, reviewThreadsForNode[0].originalLine, 0);
+			options.selection = new vscode.Range(reviewThreadsForNode[0].originalStartLine, 0, reviewThreadsForNode[0].originalEndLine, 0);
 		}
 
 		return {
@@ -444,12 +399,12 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 		if (this._useViewChangesCommand) {
 			this.command = await this.alternateCommand();
 		} else {
-			const openDiff = vscode.workspace.getConfiguration().get('git.openDiffOnClick', true);
-			if (openDiff) {
+			const openDiff = vscode.workspace.getConfiguration(GIT, this.pullRequestManager.repository.rootUri).get(OPEN_DIFF_ON_CLICK, true);
+			if (openDiff && this.status !== GitChangeType.ADD) {
 				this.command = await openDiffCommand(
 					this.pullRequestManager,
-					this.parentFilePath,
-					this.filePath,
+					this.changeModel.parentFilePath,
+					this.changeModel.filePath,
 					this.opts,
 					this.status,
 				);
@@ -477,41 +432,43 @@ export class GitHubFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly status: GitChangeType,
 		public readonly baseBranch: string,
 		public readonly headBranch: string,
+		public readonly isLocal: boolean
 	) {
 		super();
+		const scheme = isLocal ? Schemes.GitPr : Schemes.GithubPr;
 		this.label = fileName;
 		this.iconPath = vscode.ThemeIcon.File;
 		this.fileChangeResourceUri = vscode.Uri.file(fileName).with({
-			scheme: GITHUB_FILE_SCHEME,
+			scheme,
 			query: JSON.stringify({ status, fileName }),
 		});
 
 		let parentURI = vscode.Uri.file(fileName).with({
-			scheme: GITHUB_FILE_SCHEME,
+			scheme,
 			query: JSON.stringify({ fileName, branch: baseBranch }),
 		});
 		let headURI = vscode.Uri.file(fileName).with({
-			scheme: GITHUB_FILE_SCHEME,
+			scheme,
 			query: JSON.stringify({ fileName, branch: headBranch }),
 		});
 		switch (status) {
 			case GitChangeType.ADD:
 				parentURI = vscode.Uri.file(fileName).with({
-					scheme: GITHUB_FILE_SCHEME,
+					scheme,
 					query: JSON.stringify({ fileName, branch: baseBranch, isEmpty: true }),
 				});
 				break;
 
 			case GitChangeType.RENAME:
 				parentURI = vscode.Uri.file(previousFileName!).with({
-					scheme: GITHUB_FILE_SCHEME,
+					scheme,
 					query: JSON.stringify({ fileName: previousFileName, branch: baseBranch, isEmpty: true }),
 				});
 				break;
 
 			case GitChangeType.DELETE:
 				headURI = vscode.Uri.file(fileName).with({
-					scheme: GITHUB_FILE_SCHEME,
+					scheme,
 					query: JSON.stringify({ fileName, branch: headBranch, isEmpty: true }),
 				});
 				break;

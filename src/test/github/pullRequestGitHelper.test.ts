@@ -1,10 +1,15 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { default as assert } from 'assert';
 
 import { MockRepository } from '../mocks/mockRepository';
 import { PullRequestGitHelper } from '../../github/pullRequestGitHelper';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { MockGitHubRepository } from '../mocks/mockGitHubRepository';
-import { Remote } from '../../common/remote';
+import { GitHubRemote, Remote } from '../../common/remote';
 import { Protocol } from '../../common/protocol';
 import { CredentialStore } from '../../github/credentials';
 import { MockTelemetry } from '../mocks/mockTelemetry';
@@ -14,12 +19,15 @@ import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { RefType } from '../../api/api1';
 import { RepositoryBuilder } from '../builders/rest/repoBuilder';
+import { MockExtensionContext } from '../mocks/mockExtensionContext';
+import { GitHubServerType } from '../../common/authentication';
 
 describe('PullRequestGitHelper', function () {
 	let sinon: SinonSandbox;
 	let repository: MockRepository;
 	let telemetry: MockTelemetry;
 	let credentialStore: CredentialStore;
+	let context: MockExtensionContext;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -28,7 +36,8 @@ describe('PullRequestGitHelper', function () {
 
 		repository = new MockRepository();
 		telemetry = new MockTelemetry();
-		credentialStore = new CredentialStore(telemetry);
+		context = new MockExtensionContext();
+		credentialStore = new CredentialStore(telemetry, context);
 	});
 
 	afterEach(function () {
@@ -38,7 +47,7 @@ describe('PullRequestGitHelper', function () {
 	describe('checkoutFromFork', function () {
 		it('fetches, checks out, and configures a branch from a fork', async function () {
 			const url = 'git@github.com:owner/name.git';
-			const remote = new Remote('elsewhere', url, new Protocol(url));
+			const remote = new GitHubRemote('elsewhere', url, new Protocol(url), GitHubServerType.GitHubDotCom);
 			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
 
 			const prItem = convertRESTPullRequestToRawPullRequest(
@@ -59,13 +68,13 @@ describe('PullRequestGitHelper', function () {
 			repository.expectFetch('you', 'my-branch:pr/me/100', 1);
 			repository.expectPull(true);
 
-			const pullRequest = new PullRequestModel(telemetry, gitHubRepository, remote, prItem);
+			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
 
 			if (!pullRequest.isResolved()) {
 				assert(false, 'pull request head not resolved successfully');
 			}
 
-			await PullRequestGitHelper.checkoutFromFork(repository, pullRequest, undefined);
+			await PullRequestGitHelper.checkoutFromFork(repository, pullRequest, undefined, { report: () => undefined });
 
 			assert.deepStrictEqual(repository.state.remotes, [
 				{

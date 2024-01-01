@@ -28,6 +28,12 @@ export interface CommentReply {
 	text: string;
 }
 
+export namespace CommentReply {
+	export function is(commentReply: any): commentReply is CommentReply {
+		return commentReply && commentReply.thread && (commentReply.text !== undefined);
+	}
+}
+
 const commentHandlers = new Map<string, CommentHandler>();
 
 export function registerCommentHandler(key: string, commentHandler: CommentHandler) {
@@ -45,7 +51,7 @@ export function resolveCommentHandler(commentThread: GHPRCommentThread): Comment
 		}
 	}
 
-	Logger.appendLine(`Unable to find handler for comment thread ${commentThread.gitHubThreadId}`);
+	Logger.warn(`Unable to find handler for comment thread ${commentThread.gitHubThreadId}`);
 
 	return;
 }

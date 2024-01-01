@@ -5,23 +5,27 @@
 
 import { createContext } from 'react';
 import { IComment } from '../../src/common/comment';
-import { EventType, isReviewEvent, ReviewEvent } from '../../src/common/timelineEvent';
-import { MergeMethod, ReviewState } from '../../src/github/interface';
-import { getState, PullRequest, setState, updateState } from './cache';
+import { EventType, ReviewEvent, TimelineEvent } from '../../src/common/timelineEvent';
+import { IProjectItem, MergeMethod, ReviewState } from '../../src/github/interface';
+import { ProjectItemsReply, PullRequest } from '../../src/github/views';
+import { getState, setState, updateState } from './cache';
 import { getMessageHandler, MessageHandler } from './message';
 
 export class PRContext {
 	constructor(
 		public pr: PullRequest = getState(),
 		public onchange: ((ctx: PullRequest) => void) | null = null,
-		private _handler: MessageHandler = null,
+		private _handler: MessageHandler | null = null,
 	) {
 		if (!_handler) {
 			this._handler = getMessageHandler(this.handleMessage);
 		}
 	}
 
-	public setTitle = (title: string) => this.postMessage({ command: 'pr.edit-title', args: { text: title } });
+	public setTitle = async (title: string) => {
+		const result = await this.postMessage({ command: 'pr.edit-title', args: { text: title } });
+		this.updatePR({ titleHTML: result.titleHTML });
+	};
 
 	public setDescription = (description: string) =>
 		this.postMessage({ command: 'pr.edit-description', args: { text: description } });
@@ -29,6 +33,8 @@ export class PRContext {
 	public checkout = () => this.postMessage({ command: 'pr.checkout' });
 
 	public copyPrLink = () => this.postMessage({ command: 'pr.copy-prlink' });
+
+	public copyVscodeDevLink = () => this.postMessage({ command: 'pr.copy-vscodedevlink' });
 
 	public exitReviewMode = async () => {
 		if (!this.pr) {
@@ -40,11 +46,13 @@ export class PRContext {
 		});
 	};
 
+	public gotoChangesSinceReview = () => this.postMessage({ command: 'pr.gotoChangesSinceReview' });
+
 	public refresh = () => this.postMessage({ command: 'pr.refresh' });
 
 	public checkMergeability = () => this.postMessage({ command: 'pr.checkMergeability' });
 
-	public merge = (args: { title: string; description: string; method: MergeMethod }) =>
+	public merge = (args: { title: string | undefined; description: string | undefined; method: MergeMethod }) =>
 		this.postMessage({ command: 'pr.merge', args });
 
 	public openOnGitHub = () => this.postMessage({ command: 'pr.openOnGitHub' });
@@ -63,11 +71,15 @@ export class PRContext {
 		});
 	};
 
-	public addReviewers = () => this.postMessage({ command: 'pr.add-reviewers' });
+	public addReviewers = () => this.postMessage({ command: 'pr.change-reviewers' });
+	public changeProjects = (): Promise<ProjectItemsReply> => this.postMessage({ command: 'pr.change-projects' });
+	public removeProject = (project: IProjectItem) => this.postMessage({ command: 'pr.remove-project', args: project });
 	public addMilestone = () => this.postMessage({ command: 'pr.add-milestone' });
 	public removeMilestone = () => this.postMessage({ command: 'pr.remove-milestone' });
-	public addAssignees = () => this.postMessage({ command: 'pr.add-assignees' });
+	public addAssignees = () => this.postMessage({ command: 'pr.change-assignees' });
+	public addAssigneeYourself = () => this.postMessage({ command: 'pr.add-assignee-yourself' });
 	public addLabels = () => this.postMessage({ command: 'pr.add-labels' });
+	public create = () => this.postMessage({ command: 'pr.open-create' });
 
 	public deleteComment = async (args: { id: number; pullRequestReviewId?: number }) => {
 		await this.postMessage({ command: 'pr.delete-comment', args });
@@ -120,22 +132,16 @@ export class PRContext {
 
 	public close = async (body?: string) => {
 		try {
-			this.appendReview(await this.postMessage({ command: 'pr.close', args: body }));
+			const result = await this.postMessage({ command: 'pr.close', args: body });
+			const newComment = result.value;
+			newComment.event = EventType.Commented;
+			this.updatePR({
+				events: [...this.pr.events, newComment],
+				pendingCommentText: '',
+			});
 		} catch (_) {
 			// Ignore
 		}
-	};
-
-	public removeReviewer = async (login: string) => {
-		await this.postMessage({ command: 'pr.remove-reviewer', args: login });
-		const reviewers = this.pr.reviewers.filter(r => r.reviewer.login !== login);
-		this.updatePR({ reviewers });
-	};
-
-	public removeAssignee = async (login: string) => {
-		await this.postMessage({ command: 'pr.remove-assignee', args: login });
-		const assignees = this.pr.assignees.filter(a => a.login !== login);
-		this.updatePR({ assignees });
 	};
 
 	public removeLabel = async (label: string) => {
@@ -148,21 +154,73 @@ export class PRContext {
 		this.postMessage({ command: 'pr.apply-patch', args: { comment } });
 	};
 
-	private appendReview({ review, reviewers }: {review: ReviewEvent, reviewers: ReviewState[]}) {
+	private appendReview({ review, reviewers }: { review?: ReviewEvent, reviewers?: ReviewState[] }) {
 		const state = this.pr;
-		const events = state.events.filter(e => !isReviewEvent(e) || e.state.toLowerCase() !== 'pending');
+		state.busy = false;
+		if (!review || !reviewers) {
+			this.updatePR(state);
+			return;
+		}
+		const events = state.events.filter(e => e.event !== EventType.Reviewed || e.state.toLowerCase() !== 'pending');
 		events.forEach(event => {
-			if (isReviewEvent(event)) {
+			if (event.event === EventType.Reviewed) {
 				event.comments.forEach(c => (c.isDraft = false));
 			}
 		});
 		state.reviewers = reviewers;
-		state.events = [...state.events.filter(e => (isReviewEvent(e) ? e.state !== 'PENDING' : e)), review];
+		state.events = [...state.events.filter(e => (e.event === EventType.Reviewed ? e.state !== 'PENDING' : e)), review];
 		state.currentUserReviewState = review.state;
 		this.updatePR(state);
 	}
 
+	public reRequestReview = async (reviewerId: string) => {
+		const { reviewers } = await this.postMessage({ command: 'pr.re-request-review', args: reviewerId });
+		const state = this.pr;
+		state.reviewers = reviewers;
+		this.updatePR(state);
+	}
+
+	public async updateAutoMerge({ autoMerge, autoMergeMethod }: { autoMerge?: boolean, autoMergeMethod?: MergeMethod }) {
+		const response: { autoMerge: boolean, autoMergeMethod?: MergeMethod } = await this.postMessage({ command: 'pr.update-automerge', args: { autoMerge, autoMergeMethod } });
+		const state = this.pr;
+		state.autoMerge = response.autoMerge;
+		state.autoMergeMethod = response.autoMergeMethod;
+		this.updatePR(state);
+	}
+
+	public dequeue = async () => {
+		const isDequeued = await this.postMessage({ command: 'pr.dequeue' });
+		const state = this.pr;
+		if (isDequeued) {
+			state.mergeQueueEntry = undefined;
+		}
+		this.updatePR(state);
+	}
+
+	public enqueue = async () => {
+		const result = await this.postMessage({ command: 'pr.enqueue' });
+		const state = this.pr;
+		if (result.mergeQueueEntry) {
+			state.mergeQueueEntry = result.mergeQueueEntry;
+		}
+		this.updatePR(state);
+	}
+
 	public openDiff = (comment: IComment) => this.postMessage({ command: 'pr.open-diff', args: { comment } });
+
+	public toggleResolveComment = (threadId: string, thread: IComment[], newResolved: boolean) => {
+		this.postMessage({
+			command: 'pr.resolve-comment-thread',
+			args: { threadId: threadId, toResolve: newResolved, thread }
+		}).then((timelineEvents: TimelineEvent[] | undefined) => {
+			if (timelineEvents) {
+				this.updatePR({ events: timelineEvents });
+			}
+			else {
+				this.refresh();
+			}
+		});
+	};
 
 	setPR = (pr: PullRequest) => {
 		this.pr = pr;
@@ -183,7 +241,7 @@ export class PRContext {
 	};
 
 	postMessage(message: any) {
-		return this._handler.postMessage(message);
+		return (this._handler?.postMessage(message) ?? Promise.resolve(undefined));
 	}
 
 	handleMessage = (message: any) => {
@@ -199,8 +257,7 @@ export class PRContext {
 				message.branchTypes && message.branchTypes.map((branchType: string) => {
 					if (branchType === 'local') {
 						stateChange.isLocalHeadDeleted = true;
-					}
-					else if (branchType === 'remote') {
+					} else if ((branchType === 'remote') || (branchType === 'upstream')) {
 						stateChange.isRemoteHeadDeleted = true;
 					}
 				});
@@ -216,6 +273,10 @@ export class PRContext {
 					pendingReview.scrollIntoView();
 				}
 				return;
+			case 'pr.submitting-review':
+				return this.updatePR({ busy: true, lastReviewType: message.lastReviewType });
+			case 'pr.append-review':
+				return this.appendReview(message);
 		}
 	};
 

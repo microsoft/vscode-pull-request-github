@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { APIState, PublishEvent } from '../@types/git';
 import Logger from '../common/logger';
 import { TernarySearchTree } from '../common/utils';
-import { API, IGit, Repository } from './api';
+import { API, IGit, PostCommitCommandsProvider, Repository, TitleAndDescriptionProvider } from './api';
 
 export const enum RefType {
 	Head,
@@ -48,6 +48,28 @@ export const enum GitErrorCodes {
 	CantLockRef = 'CantLockRef',
 	CantRebaseMultipleBranches = 'CantRebaseMultipleBranches',
 	PatchDoesNotApply = 'PatchDoesNotApply',
+}
+
+export const enum Status {
+	INDEX_MODIFIED,
+	INDEX_ADDED,
+	INDEX_DELETED,
+	INDEX_RENAMED,
+	INDEX_COPIED,
+
+	MODIFIED,
+	DELETED,
+	UNTRACKED,
+	IGNORED,
+	INTENT_TO_ADD,
+
+	ADDED_BY_US,
+	ADDED_BY_THEM,
+	DELETED_BY_US,
+	DELETED_BY_THEM,
+	BOTH_ADDED,
+	BOTH_DELETED,
+	BOTH_MODIFIED,
 }
 
 export class GitApiImpl implements API, IGit, vscode.Disposable {
@@ -150,6 +172,18 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 		return foldersMap.findSubstr(uri);
 	}
 
+	registerPostCommitCommandsProvider(provider: PostCommitCommandsProvider): vscode.Disposable {
+		const disposables = Array.from(this._providers.values()).map(gitProvider => {
+			if (gitProvider.registerPostCommitCommandsProvider) {
+				return gitProvider.registerPostCommitCommandsProvider(provider);
+			}
+			return { dispose: () => { } };
+		});
+		return {
+			dispose: () => disposables.forEach(disposable => disposable.dispose())
+		};
+	}
+
 	private _nextHandle(): number {
 		return GitApiImpl._handlePool++;
 	}
@@ -157,4 +191,28 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 	dispose() {
 		this._disposables.forEach(disposable => disposable.dispose());
 	}
+
+	private _titleAndDescriptionProviders: Set<{ title: string, provider: TitleAndDescriptionProvider }> = new Set();
+	registerTitleAndDescriptionProvider(title: string, provider: TitleAndDescriptionProvider): vscode.Disposable {
+		const registeredValue = { title, provider };
+		this._titleAndDescriptionProviders.add(registeredValue);
+		const disposable = {
+			dispose: () => this._titleAndDescriptionProviders.delete(registeredValue)
+		};
+		this._disposables.push(disposable);
+		return disposable;
+	}
+
+	getTitleAndDescriptionProvider(searchTerm?: string): { title: string, provider: TitleAndDescriptionProvider } | undefined {
+		if (!searchTerm) {
+			return this._titleAndDescriptionProviders.size > 0 ? this._titleAndDescriptionProviders.values().next().value : undefined;
+		} else {
+			for (const provider of this._titleAndDescriptionProviders) {
+				if (provider.title.toLowerCase().includes(searchTerm.toLowerCase())) {
+					return provider;
+				}
+			}
+		}
+	}
+
 }

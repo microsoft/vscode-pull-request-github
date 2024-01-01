@@ -1,3 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 const fs = require('fs');
 const argv = require('minimist')(process.argv.slice(2));
 
@@ -15,6 +20,7 @@ function prependZero(number) {
 
 // update name, publisher and description
 // calculate version
+// If the format of the patch version is ever changed, the isPreRelease utility function should be updated.
 let patch = argv['v'];
 if (typeof patch !== 'string') {
 	const date = new Date();

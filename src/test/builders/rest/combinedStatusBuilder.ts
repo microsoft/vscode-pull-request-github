@@ -1,6 +1,11 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { createBuilderClass } from '../base';
 import { OctokitCommon } from '../../../github/common';
-import { PullRequestChecks } from '../../../github/interface';
+import { CheckState, PullRequestChecks } from '../../../github/interface';
 
 export const StatusItemBuilder = createBuilderClass<OctokitCommon.ReposGetCombinedStatusForRefResponseStatusesItem>()({
 	url: {
@@ -20,7 +25,7 @@ export const StatusItemBuilder = createBuilderClass<OctokitCommon.ReposGetCombin
 export type StatusItemBuilder = InstanceType<typeof StatusItemBuilder>;
 
 export const CombinedStatusBuilder = createBuilderClass<PullRequestChecks>()({
-	state: { default: 'success' },
+	state: { default: CheckState.Success },
 	statuses: { default: [] },
 });
 

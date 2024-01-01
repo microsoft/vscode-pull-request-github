@@ -7,13 +7,13 @@
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
-import { formatError } from '../common/utils';
+import { asPromise, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
-import { OctokitCommon } from './common';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { ILabel } from './interface';
 import { IssueModel } from './issueModel';
+import { getLabelOptions } from './quickPicks';
 
 export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends WebviewBase {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -22,7 +22,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	 */
 	public static currentPanel?: IssueOverviewPanel;
 
-	protected static readonly _viewType: string = 'IssueOverview';
+	private static readonly _viewType: string = 'IssueOverview';
 
 	protected readonly _panel: vscode.WebviewPanel;
 	protected _disposables: vscode.Disposable[] = [];
@@ -63,6 +63,15 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	public static refresh(): void {
 		if (this.currentPanel) {
 			this.currentPanel.refreshPanel();
+		}
+	}
+
+	protected setPanelTitle(title: string): void {
+		try {
+			this._panel.title = title;
+		} catch (e) {
+			// The webview can be disposed at the time that we try to set the title if the user has closed
+			// it while it's still loading.
 		}
 	}
 
@@ -133,7 +142,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				}
 
 				this._item = issue as TItem;
-				this._panel.title = `Pull Request #${issueModel.number.toString()}`;
+				this.setPanelTitle(`Pull Request #${issueModel.number.toString()}`);
 
 				Logger.debug('pr.initialize', IssueOverviewPanel.ID);
 				this._postMessage({
@@ -159,6 +168,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 						// TODO@eamodio What is status?
 						status: /*status ? status :*/ { statuses: [] },
 						isIssue: true,
+						isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
 					},
 				});
 			})
@@ -193,7 +203,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			case 'pr.comment':
 				return this.createComment(message);
 			case 'scroll':
-				this._scrollPosition = message.args;
+				this._scrollPosition = message.args.scrollPosition;
 				return;
 			case 'pr.edit-comment':
 				return this.editComment(message);
@@ -218,39 +228,42 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	private async addLabels(message: IRequestMessage<void>): Promise<void> {
+		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem>();
 		try {
 			let newLabels: ILabel[] = [];
-			async function getLabelOptions(
-				folderRepoManager: FolderRepositoryManager,
-				issue: IssueModel,
-			): Promise<vscode.QuickPickItem[]> {
-				const allLabels = await folderRepoManager.getLabels(issue);
-				newLabels = allLabels.filter(l => !issue.item.labels.some(label => label.name === l.name));
 
-				return newLabels.map(label => {
-					return {
-						label: label.name,
-					};
-				});
-			}
+			quickPick.busy = true;
+			quickPick.canSelectMany = true;
+			quickPick.show();
+			quickPick.items = await (getLabelOptions(this._folderRepositoryManager, this._item.item.labels, this._item.remote).then(options => {
+				newLabels = options.newLabels;
+				return options.labelPicks;
+			}));
+			quickPick.selectedItems = quickPick.items.filter(item => item.picked);
 
-			const labelsToAdd = await vscode.window.showQuickPick(
-				getLabelOptions(this._folderRepositoryManager, this._item),
-				{ canPickMany: true },
-			);
+			quickPick.busy = false;
+			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
+				return quickPick.selectedItems;
+			});
+			const hidePromise = asPromise<void>(quickPick.onDidHide);
+			const labelsToAdd = await Promise.race<readonly vscode.QuickPickItem[] | void>([acceptPromise, hidePromise]);
+			quickPick.busy = true;
 
-			if (labelsToAdd && labelsToAdd.length) {
-				await this._item.addLabels(labelsToAdd.map(r => r.label));
+			if (labelsToAdd) {
+				await this._item.setLabels(labelsToAdd.map(r => r.label));
 				const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
 
-				this._item.item.labels = this._item.item.labels.concat(...addedLabels);
+				this._item.item.labels = addedLabels;
 
-				this._replyMessage(message, {
+				await this._replyMessage(message, {
 					added: addedLabels,
 				});
 			}
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
+		} finally {
+			quickPick.hide();
+			quickPick.dispose();
 		}
 	}
 
@@ -283,10 +296,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			});
 	}
 	private editTitle(message: IRequestMessage<{ text: string }>) {
-		this._item
+		return this._item
 			.edit({ title: message.args.text })
 			.then(result => {
-				this._replyMessage(message, { text: result.title });
+				return this._replyMessage(message, { titleHTML: result.titleHTML });
 			})
 			.catch(e => {
 				this._throwError(message, e);
@@ -318,7 +331,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	private deleteComment(message: IRequestMessage<IComment>) {
 		vscode.window
-			.showWarningMessage('Are you sure you want to delete this comment?', { modal: true }, 'Delete')
+			.showWarningMessage(vscode.l10n.t('Are you sure you want to delete this comment?'), { modal: true }, 'Delete')
 			.then(value => {
 				if (value === 'Delete') {
 					this.deleteCommentPromise(message.args)
@@ -333,9 +346,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			});
 	}
 
-	private close(message: IRequestMessage<string>): void {
+	private close(message: IRequestMessage<string>) {
 		vscode.commands
-			.executeCommand<OctokitCommon.PullsGetResponseData>('pr.close', this._item, message.args)
+			.executeCommand<IComment>('pr.close', this._item, message.args)
 			.then(comment => {
 				if (comment) {
 					this._replyMessage(message, {
