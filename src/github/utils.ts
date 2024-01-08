@@ -217,6 +217,7 @@ export function updateCommentReactions(comment: vscode.Comment, reactions: React
 				authorHasReacted: matchedReaction.viewerHasReacted,
 				count: matchedReaction.count,
 				iconPath: reaction.icon || '',
+				reactors: matchedReaction.reactors
 			};
 		} else {
 			newReaction = { label: reaction.label, authorHasReacted: false, count: 0, iconPath: reaction.icon || '' };
@@ -511,13 +512,14 @@ export function parseGraphQLReaction(reactionGroups: GraphQL.ReactionGroup[]): R
 	}, {} as { [key: string]: { title: string; label: string; icon?: vscode.Uri } });
 
 	const reactions = reactionGroups
-		.filter(group => group.users.totalCount > 0)
+		.filter(group => group.reactors.totalCount > 0)
 		.map(group => {
 			const reaction: Reaction = {
 				label: reactionContentEmojiMapping[group.content].label,
-				count: group.users.totalCount,
+				count: group.reactors.totalCount,
 				icon: reactionContentEmojiMapping[group.content].icon,
 				viewerHasReacted: group.viewerHasReacted,
+				reactors: group.reactors.nodes.map(node => node.login)
 			};
 
 			return reaction;
