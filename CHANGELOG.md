@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2
+- Reintroduced PAT token.
+- Fixed [#63](https://github.com/ankitbko/vscode-pull-request-azdo/issues/63)
+
 ## 0.2.1
 - Fixed continuous popup for authentication.
 
