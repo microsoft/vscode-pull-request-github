@@ -334,6 +334,13 @@ export class GitHubRepository implements vscode.Disposable {
 
 	async getMetadata(): Promise<IMetadata> {
 		Logger.debug(`Fetch metadata - enter`, GitHubRepository.ID);
+		if (this._metadata) {
+			Logger.debug(
+				`Fetch metadata ${this._metadata.owner?.login}/${this._metadata.name} - done`,
+				GitHubRepository.ID,
+			);
+			return this._metadata;
+		}
 		const { remote } = await this.ensure();
 		this._metadata = await this.getMetadataForRepo(remote.owner, remote.repositoryName);
 		Logger.debug(`Fetch metadata ${remote.owner}/${remote.repositoryName} - done`, GitHubRepository.ID);
