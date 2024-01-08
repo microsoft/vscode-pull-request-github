@@ -1,0 +1,9 @@
+branchName: full
+silent: false
+autoCloseIssue: true
+
+branches:
+  - label: enhancement
+    prefix: feature/
+  - label: bug
+    prefix: bugfix/

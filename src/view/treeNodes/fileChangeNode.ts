@@ -166,7 +166,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 
 	updateShowOptions() {
 		const reviewThreads = this.pullRequest.reviewThreadsCache;
-		const reviewThreadsForNode = reviewThreads.filter(thread => !thread.isDeleted && thread.path === this.fileName);
+		let reviewThreadsForNode = reviewThreads.filter(thread => !thread.isDeleted && thread.path === this.fileName);
 
 		DecorationProvider.updateFileComments(
 			this.resourceUri,
@@ -174,6 +174,8 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 			this.fileName,
 			reviewThreadsForNode.length > 0,
 		);
+		/* Some comments are attached to the file and have not reference/selection in the content. Need to be removed here. */
+		reviewThreadsForNode = reviewThreadsForNode.filter((thread) => thread.line !== undefined);
 
 		if (reviewThreadsForNode.length) {
 			reviewThreadsForNode.sort((a, b) => a.line - b.line);
