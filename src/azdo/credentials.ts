@@ -6,9 +6,9 @@ import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { SETTINGS_NAMESPACE } from '../constants';
 
-const CREDENTIALS_COMPONENT_ID = 'azdo_component';
 const PROJECT_SETTINGS = 'projectName';
 const ORGURL_SETTINGS = 'orgUrl';
+const PATTOKEN_SETTINGS = 'patToken';
 const TRY_AGAIN = vscode.l10n.t('Try again?');
 const CANCEL = vscode.l10n.t('Cancel');
 const ERROR = vscode.l10n.t('Error signing in to Azure DevOps');
@@ -18,9 +18,12 @@ export class Azdo {
 	public connection: azdev.WebApi;
 	public authenticatedUser: Identity | undefined;
 
-	constructor(public orgUrl: string, public projectName: string, token: string) {
-		this._authHandler = azdev.getBearerHandler(token, true);
-		// this._authHandler = azdev.getPersonalAccessTokenHandler(token, true);
+	constructor(public orgUrl: string, public projectName: string, token: string, isPatTokenAuth: boolean = false) {
+		if (isPatTokenAuth) {
+			this._authHandler = azdev.getPersonalAccessTokenHandler(token, true);
+		} else {
+			this._authHandler = azdev.getBearerHandler(token, true);
+		}
 		this.connection = this.getNewWebApiClient(this.orgUrl);
 	}
 
@@ -107,22 +110,30 @@ export class CredentialStore implements vscode.Disposable {
 		while (retry) {
 			try
 			{
-				const session = await this.getSession(this._sessionOptions);
-				if (!session) {
-					Logger.appendLine('Auth> Unable to get session', CredentialStore.ID);
-					this._telemetry.sendTelemetryEvent('auth.failed');
-					return undefined;
-				}
-				this._sessionId = session.id;
-				const token = await this.getToken(session);
+				let isPatTokenAuth = true;
+				let token = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get<string | undefined>(PATTOKEN_SETTINGS);
 
-				if (!token) {
-					Logger.appendLine('Auth> Unable to get token', CredentialStore.ID);
-					this._telemetry.sendTelemetryEvent('auth.failed');
-					return undefined;
+				if(token === undefined || token === null || token === '') {
+					const session = await this.getSession(this._sessionOptions);
+					if (!session) {
+						Logger.appendLine('Auth> Unable to get session', CredentialStore.ID);
+						this._telemetry.sendTelemetryEvent('auth.failed');
+						return undefined;
+					}
+
+					this._sessionId = session.id;
+					token = await this.getToken(session);
+
+					if (!token) {
+						Logger.appendLine('Auth> Unable to get token', CredentialStore.ID);
+						this._telemetry.sendTelemetryEvent('auth.failed');
+						return undefined;
+					}
+
+					isPatTokenAuth = false;
 				}
 
-				const azdo = new Azdo(this._orgUrl, projectName, token);
+				const azdo = new Azdo(this._orgUrl, projectName, token, isPatTokenAuth);
 				azdo.authenticatedUser = (await azdo.connection.connect()).authenticatedUser;
 
 				Logger.debug(`Auth> Successful: Logged userid: ${azdo?.authenticatedUser?.id}`, CredentialStore.ID);

@@ -43,6 +43,11 @@
 				"azdoPullRequests.orgUrl": {
 					"type": "string"
 				},
+				"azdoPullRequests.patToken": {
+					"type": "string",
+					"default": "",
+					"description": "Personal Access Token for Azure Devops"
+				},
 				"azdoPullRequests.telemetry.enabled": {
 					"type": "boolean",
 					"default": true,

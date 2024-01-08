@@ -65,6 +65,12 @@ Learn all about different features of the extension in the [wiki](https://github
 - _default_: mergebase
 - _Description_: The commit to use to get diff against the PR branch's HEAD. Read more about different options in [wiki](https://github.com/ankitbko/vscode-pull-request-azdo/wiki/Diff-Options-HEAD-vs-Merge-Base)
 
+#### azdoPullRequests.patToken
+- _type_: string
+- _required_: false
+- _default_: ""
+- _Description_: The PAT Token from Azure DevOps, if provided extension will not prompt for Microsoft login instead it will login using provided PAT
+
 ## Known Major Issues
 
 1. Mentions in comments are not resolved to user and no hover support
