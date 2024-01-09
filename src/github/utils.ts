@@ -1274,7 +1274,7 @@ export function generateGravatarUrl(gravatarId: string | undefined, size: number
 
 export function getAvatarWithEnterpriseFallback(avatarUrl: string, email: string | undefined, isEnterpriseRemote: boolean): string | undefined {
 	return !isEnterpriseRemote ? avatarUrl : (email ? generateGravatarUrl(
-		crypto.createHash('md5').update(email?.trim()?.toLowerCase()).digest('hex')) : undefined);
+		crypto.createHash('sha256').update(email?.trim()?.toLowerCase()).digest('hex')) : undefined);
 }
 
 export function getPullsUrl(repo: GitHubRepository) {
