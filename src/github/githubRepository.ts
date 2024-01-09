@@ -315,6 +315,23 @@ export class GitHubRepository implements vscode.Disposable {
 		return this._queriesSchema;
 	}
 
+	private async getMetadataForRepo(owner: string, repo: string): Promise<IMetadata> {
+		Logger.debug(`Fetch metadata for repo - enter`, GitHubRepository.ID);
+
+		if (this._metadata && this._metadata.owner?.login === owner && this._metadata.name === repo) {
+			Logger.debug(`Fetch metadata ${owner}/${repo} - done`, GitHubRepository.ID);
+			return this._metadata;
+		}
+
+		const { octokit } = await this.ensure();
+		const result = await octokit.call(octokit.api.repos.get, {
+			owner,
+			repo
+		});
+		Logger.debug(`Fetch metadata ${owner}/${repo} - done`, GitHubRepository.ID);
+		return ({ ...result.data, currentUser: (octokit as any).currentUser } as unknown) as IMetadata;
+	}
+
 	async getMetadata(): Promise<IMetadata> {
 		Logger.debug(`Fetch metadata - enter`, GitHubRepository.ID);
 		if (this._metadata) {
@@ -324,13 +341,9 @@ export class GitHubRepository implements vscode.Disposable {
 			);
 			return this._metadata;
 		}
-		const { octokit, remote } = await this.ensure();
-		const result = await octokit.call(octokit.api.repos.get, {
-			owner: remote.owner,
-			repo: remote.repositoryName,
-		});
+		const { remote } = await this.ensure();
+		this._metadata = await this.getMetadataForRepo(remote.owner, remote.repositoryName);
 		Logger.debug(`Fetch metadata ${remote.owner}/${remote.repositoryName} - done`, GitHubRepository.ID);
-		this._metadata = ({ ...result.data, currentUser: (octokit as any).currentUser } as unknown) as IMetadata;
 		return this._metadata;
 	}
 
@@ -1038,6 +1051,7 @@ export class GitHubRepository implements vscode.Disposable {
 		let after: string | null = null;
 		let hasNextPage = false;
 		const branches: string[] = [];
+		const defaultBranch = (await this.getMetadataForRepo(owner, repositoryName)).default_branch;
 		const startingTime = new Date().getTime();
 
 		do {
@@ -1066,6 +1080,9 @@ export class GitHubRepository implements vscode.Disposable {
 		} while (hasNextPage);
 
 		Logger.debug(`List branches for ${owner}/${repositoryName} - done`, GitHubRepository.ID);
+		if (!branches.includes(defaultBranch)) {
+			branches.unshift(defaultBranch);
+		}
 		return branches;
 	}
 
