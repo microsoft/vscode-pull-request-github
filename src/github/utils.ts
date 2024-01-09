@@ -217,7 +217,7 @@ export function updateCommentReactions(comment: vscode.Comment, reactions: React
 				authorHasReacted: matchedReaction.viewerHasReacted,
 				count: matchedReaction.count,
 				iconPath: reaction.icon || '',
-				reactors: matchedReaction.reactors
+				reactors: matchedReaction.reactors.map(reactor => ({ name: reactor }))
 			};
 		} else {
 			newReaction = { label: reaction.label, authorHasReacted: false, count: 0, iconPath: reaction.icon || '' };
