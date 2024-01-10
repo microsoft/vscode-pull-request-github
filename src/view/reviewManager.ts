@@ -22,8 +22,8 @@ import {
 	POST_CREATE,
 	PR_SETTINGS_NAMESPACE,
 	QUICK_DIFF,
-	USE_REVIEW_MODE,
 } from '../common/settingKeys';
+import { getReviewMode } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, fromReviewUri, KnownMediaExtensions, PRUriParams, Schemes, toReviewUri } from '../common/uri';
 import { dispose, formatError, groupBy, isPreRelease, onceEvent } from '../common/utils';
@@ -478,8 +478,7 @@ export class ReviewManager {
 			this.clear(false);
 		}
 
-		const useReviewConfiguration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)
-			.get<{ merged: boolean, closed: boolean }>(USE_REVIEW_MODE, { merged: true, closed: false });
+		const useReviewConfiguration = getReviewMode();
 
 		if (pr.isClosed && !useReviewConfiguration.closed) {
 			Logger.appendLine('This PR is closed', this.id);
