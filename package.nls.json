@@ -42,7 +42,7 @@
 	"githubPullRequests.commentExpandState.description": "Controls whether comments are expanded when a document with comments is opened.",
 	"githubPullRequests.commentExpandState.expandUnresolved": "All unresolved comments will be expanded.",
 	"githubPullRequests.commentExpandState.collapseAll": "All comments will be collapsed",
-	"githubPullRequests.useReviewMode.description": "Choose which pull request states will use review mode. \"Open\" pull requests will always use review mode.",
+	"githubPullRequests.useReviewMode.description": "Choose which pull request states will use review mode. \"Open\" pull requests will always use review mode. Setting to \"auto\" will use review mode for open, closed, and merged pull requests in web, but only open pull requests on desktop.",
 	"githubPullRequests.useReviewMode.merged": "Use review mode for merged pull requests.",
 	"githubPullRequests.useReviewMode.closed": "Use review mode for closed pull requests. Merged pull requests are not considered \"closed\".",
 	"githubPullRequests.assignCreated.description": {

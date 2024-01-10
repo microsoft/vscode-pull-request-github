@@ -265,29 +265,36 @@
 					"description": "%githubPullRequests.commentExpandState.description%"
 				},
 				"githubPullRequests.useReviewMode": {
-					"type": "object",
 					"description": "%githubPullRequests.useReviewMode.description%",
-					"additionalProperties": false,
-					"properties": {
-						"merged": {
-							"type": "boolean",
-							"description": "%githubPullRequests.useReviewMode.merged%",
-							"default": false
+					"oneOf": [
+						{
+							"type": "object",
+							"additionalProperties": false,
+							"properties": {
+								"merged": {
+									"type": "boolean",
+									"description": "%githubPullRequests.useReviewMode.merged%",
+									"default": false
+								},
+								"closed": {
+									"type": "boolean",
+									"description": "%githubPullRequests.useReviewMode.closed%",
+									"default": false
+								}
+							},
+							"required": [
+								"merged",
+								"closed"
+							]
 						},
-						"closed": {
-							"type": "boolean",
-							"description": "%githubPullRequests.useReviewMode.closed%",
-							"default": false
+						{
+							"type": "string",
+							"enum": [
+								"auto"
+							]
 						}
-					},
-					"required": [
-						"merged",
-						"closed"
 					],
-					"default": {
-						"merged": false,
-						"closed": false
-					}
+					"default": "auto"
 				},
 				"githubPullRequests.assignCreated": {
 					"type": "string",
