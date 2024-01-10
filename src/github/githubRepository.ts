@@ -123,7 +123,7 @@ export interface IMetadata extends OctokitCommon.ReposGetResponseData {
 }
 
 interface GraphQLError {
-	extensions: {
+	extensions?: {
 		code: string;
 	};
 }
@@ -255,7 +255,7 @@ export class GitHubRepository implements vscode.Disposable {
 				return this.query(query, ignoreSamlErrors);
 			}
 
-			if (e.graphQLErrors && e.graphQLErrors.length && ((e.graphQLErrors as GraphQLError[]).some(error => error.extensions.code === 'undefinedField')) && !this._areQueriesLimited) {
+			if (e.graphQLErrors && e.graphQLErrors.length && ((e.graphQLErrors as GraphQLError[]).some(error => error.extensions?.code === 'undefinedField')) && !this._areQueriesLimited) {
 				// We're running against a GitHub server that doesn't support the query we're trying to run.
 				// Switch to the limited schema and try again.
 				this._areQueriesLimited = true;
