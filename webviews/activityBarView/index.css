@@ -100,10 +100,6 @@ form button {
 	fill: var(--vscode-button-foreground);
 }
 
-button:focus,
-input[type='submit']:focus {
-	outline-offset: -1px;
-}
 
 .select-control button,
 .branch-status-container button,
