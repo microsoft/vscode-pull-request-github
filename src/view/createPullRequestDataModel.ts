@@ -34,6 +34,11 @@ export class CreatePullRequestDataModel {
 		this.compareOwner = compareOwner;
 	}
 
+	private get baseRemoteName(): string {
+		const findValue = `/${this._baseOwner.toLowerCase()}/`;
+		return this.folderRepositoryManager.repository.state.remotes.find(remote => remote.fetchUrl?.toLowerCase().includes(findValue))?.name ?? 'origin';
+	}
+
 	public get baseOwner(): string {
 		return this._baseOwner;
 	}
@@ -127,7 +132,7 @@ export class CreatePullRequestDataModel {
 		if (this._gitLog === undefined) {
 			const startBase = this._baseBranch;
 			const startCompare = this._compareBranch;
-			const result = this.folderRepositoryManager.repository.log({ range: `${this._baseBranch}..${this._compareBranch}` });
+			const result = this.folderRepositoryManager.repository.log({ range: `${this.baseRemoteName}/${this._baseBranch}..${this._compareBranch}` });
 			if (startBase !== this._baseBranch || startCompare !== this._compareBranch) {
 				// The branches have changed while we were waiting for the log. We can use the result, but we shouldn't save it
 				return result;
@@ -143,7 +148,7 @@ export class CreatePullRequestDataModel {
 		if (this._gitFiles === undefined) {
 			const startBase = this._baseBranch;
 			const startCompare = this._compareBranch;
-			const result = await this.folderRepositoryManager.repository.diffBetween(this._baseBranch, this._compareBranch);
+			const result = await this.folderRepositoryManager.repository.diffBetween(`${this.baseRemoteName}/${this._baseBranch}`, this._compareBranch);
 			if (startBase !== this._baseBranch || startCompare !== this._compareBranch) {
 				// The branches have changed while we were waiting for the diff. We can use the result, but we shouldn't save it
 				return result;

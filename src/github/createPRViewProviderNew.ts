@@ -762,7 +762,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 						this.model.gitHubFiles().then(rawPatches => rawPatches.map(file => file.patch ?? ''))]);
 				} else {
 					[commitMessages, patches] = await Promise.all([
-						this.model.gitCommits().then(rawCommits => rawCommits.map(commit => commit.message)),
+						this.model.gitCommits().then(rawCommits => rawCommits.filter(commit => commit.parents.length === 1).map(commit => commit.message)),
 						Promise.all((await this.model.gitFiles()).map(async (file) => {
 							return this._folderRepositoryManager.repository.diffBetween(this.model.baseBranch, this.model.getCompareBranch(), file.uri.fsPath);
 						}))]);
