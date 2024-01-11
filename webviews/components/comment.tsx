@@ -148,7 +148,7 @@ function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, childre
 	return (
 		<div className="comment-container comment review-comment" {...{ onFocus, onMouseEnter, onMouseLeave }}>
 			<div className="review-comment-container">
-				<div className="review-comment-header">
+				<h3 className="review-comment-header">
 					<Spaced>
 						<Avatar for={author} />
 						<AuthorLink for={author} />
@@ -170,7 +170,7 @@ function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, childre
 							</>
 						) : null}
 					</Spaced>
-				</div>
+				</h3>
 				{children}
 			</div>
 		</div>

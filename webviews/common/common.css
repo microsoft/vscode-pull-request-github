@@ -7,6 +7,16 @@ body a {
 	text-decoration: none;
 }
 
+h3 {
+	display: unset;
+	font-size: unset;
+	margin-block-start: unset;
+	margin-block-end: unset;
+	margin-inline-start: unset;
+	margin-inline-end: unset;
+	font-weight: unset;
+}
+
 body a:hover {
 	text-decoration: underline;
 }
