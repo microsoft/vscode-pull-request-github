@@ -355,7 +355,6 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
 			this._throwError(undefined, `${formatError(e)}`);
-		} finally {
 			this._postMessage({ command: 'pr.append-review' });
 		}
 	}

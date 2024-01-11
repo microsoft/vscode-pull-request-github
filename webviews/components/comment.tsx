@@ -5,9 +5,10 @@
 
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { IComment } from '../../src/common/comment';
-import { CommentEvent, ReviewEvent } from '../../src/common/timelineEvent';
+import { CommentEvent, EventType, ReviewEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum } from '../../src/github/interface';
 import { PullRequest, ReviewType } from '../../src/github/views';
+import { ariaAnnouncementForReview } from '../common/aria';
 import PullRequestContext from '../common/context';
 import emitter from '../common/events';
 import { useStateProp } from '../common/hooks';
@@ -75,6 +76,9 @@ export function CommentView(commentProps: Props) {
 		]);
 	}
 
+	const ariaAnnouncement = ((comment as CommentEvent | ReviewEvent).event === EventType.Commented || (comment as CommentEvent | ReviewEvent).event === EventType.Reviewed)
+		? ariaAnnouncementForReview(comment as (CommentEvent | ReviewEvent)) : undefined;
+
 	return (
 		<CommentBox
 			for={comment}
@@ -82,6 +86,7 @@ export function CommentView(commentProps: Props) {
 			onMouseLeave={() => setShowActionBar(false)}
 			onFocus={() => setShowActionBar(true)}
 		>
+			{ariaAnnouncement ? <div role='alert' aria-label={ariaAnnouncement}/> : null}
 			<div className="action-bar comment-actions" style={{ display: showActionBar ? 'flex' : 'none' }}>
 				<button
 					title="Quote reply"
@@ -346,7 +351,6 @@ export function AddComment({
 				await submit(value);
 		}
 		setBusy(false);
-		updatePR({ pendingCommentText: '', pendingReviewType: undefined });
 	}
 
 	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = isAuthor || isDraft
@@ -455,7 +459,6 @@ export const AddCommentSimple = (pr: PullRequest) => {
 				await submit(value);
 		}
 		setBusy(false);
-		updatePR({ pendingCommentText: '', pendingReviewType: undefined });
 	}
 
 	const onChangeTextarea = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {

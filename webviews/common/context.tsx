@@ -61,16 +61,6 @@ export class PRContext {
 
 	public readyForReview = () => this.postMessage({ command: 'pr.readyForReview' });
 
-	public comment = async (args: string) => {
-		const result = await this.postMessage({ command: 'pr.comment', args });
-		const newComment = result.value;
-		newComment.event = EventType.Commented;
-		this.updatePR({
-			events: [...this.pr.events, newComment],
-			pendingCommentText: '',
-		});
-	};
-
 	public addReviewers = () => this.postMessage({ command: 'pr.change-reviewers' });
 	public changeProjects = (): Promise<ProjectItemsReply> => this.postMessage({ command: 'pr.change-projects' });
 	public removeProject = (project: IProjectItem) => this.postMessage({ command: 'pr.remove-project', args: project });
@@ -170,6 +160,8 @@ export class PRContext {
 		state.reviewers = reviewers;
 		state.events = [...state.events.filter(e => (e.event === EventType.Reviewed ? e.state !== 'PENDING' : e)), review];
 		state.currentUserReviewState = review.state;
+		state.pendingCommentText = '';
+		state.pendingReviewType = undefined;
 		this.updatePR(state);
 	}
 
