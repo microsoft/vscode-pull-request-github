@@ -12,6 +12,7 @@ import React, {
 	useRef,
 	useState,
 } from 'react';
+import { EventType, ReviewEvent } from '../../src/common/timelineEvent';
 import { groupBy } from '../../src/common/utils';
 import {
 	CheckState,
@@ -21,6 +22,7 @@ import {
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
 	reviewerId,
+	ReviewState,
 } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
@@ -105,16 +107,38 @@ const RequiredReviewers = ({ pr }: { pr: PullRequest }) => {
 };
 
 const InlineReviewers = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
-	return isSimple && pr.state === GithubItemStateEnum.Open ? (
-		pr.reviewers ? (
+	if (!isSimple || pr.state !== GithubItemStateEnum.Open || pr.reviewers.length === 0) {
+		return null;
+	}
+
+	// match an event to each reviewer
+	// Use events as the outer loop as there are likely to be more events than reviewers
+	const reviewInfos: {event: ReviewEvent, reviewState: ReviewState}[] = [];
+	const remainingReviewers = new Set(pr.reviewers);
+	let eventIndex = pr.events.length - 1;
+	while (eventIndex >= 0 && remainingReviewers.size > 0) {
+		const event = pr.events[eventIndex];
+		if (event.event === EventType.Reviewed) {
+			for (const reviewState of remainingReviewers) {
+				if (event.user.id === reviewState.reviewer.id) {
+					reviewInfos.push({event, reviewState});
+					remainingReviewers.delete(reviewState);
+					break;
+				}
+			}
+		}
+		eventIndex--;
+	}
+
+	return  (
 			<div className="section">
 				{' '}
-				{pr.reviewers.map(state => (
-					<Reviewer key={reviewerId(state.reviewer)} {...state} />
-				))}
+				{reviewInfos.map(reviewerInfo => {
+
+					return <Reviewer key={reviewerId(reviewerInfo.reviewState.reviewer)} {...reviewerInfo} />;
+				})}
 			</div>
-		) : null
-	) : null;
+	);
 };
 
 export const StatusChecksSection = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {

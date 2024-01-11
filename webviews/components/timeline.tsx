@@ -103,7 +103,7 @@ const groupCommentsByPath = (comments: IComment[]) =>
 
 const ReviewEventView = (event: ReviewEvent) => {
 	const comments = groupCommentsByPath(event.comments);
-	const reviewIsPending = event.state.toLocaleUpperCase() === 'PENDING';
+	const reviewIsPending = event.state === 'PENDING';
 	return (
 		<CommentView comment={event} allowEmpty={true}>
 				{/* Don't show the empty comment body unless a comment has been written. Shows diffs and suggested changes. */}
