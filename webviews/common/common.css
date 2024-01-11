@@ -17,7 +17,6 @@ input[type='submit'] {
 	font-family: var(--vscode-font-family);
 	border-radius: 2px;
 	border: 1px solid transparent;
-	outline: none;
 	padding: 4px 12px;
 	font-size: 13px;
 	line-height: 18px;
@@ -279,10 +278,6 @@ body img.avatar {
 	background: var(--vscode-button-background);
 }
 
-.vscode-high-contrast button {
-	outline: none;
-	border: 1px solid var(--vscode-contrastBorder);
-}
 
 .vscode-high-contrast input {
 	outline: none;
