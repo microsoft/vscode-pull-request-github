@@ -42,6 +42,7 @@ import {
 	PullRequestMergabilityResponse,
 	ReactionGroup,
 	ResolveReviewThreadResponse,
+	ReviewThread,
 	StartReviewResponse,
 	SubmitReviewResponse,
 	TimelineEventsResponse,
@@ -903,11 +904,32 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		});
 	}
 
-	async getReviewThreads(): Promise<IReviewThread[]> {
+	async initializeReviewThreadCacheAndReviewComments(): Promise<void> {
+		const { remote } = await this.githubRepository.ensure();
+		const raw = await this.getRawReviewComments();
+
+		this.setReviewThreadCacheFromRaw(raw);
+
+		this.comments = raw.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved, this.githubRepository), remote))
+			.reduce((prev, curr) => prev.concat(curr), [])
+			.sort((a: IComment, b: IComment) => {
+				return a.createdAt > b.createdAt ? 1 : -1;
+			});
+	}
+
+	private setReviewThreadCacheFromRaw(raw: ReviewThread[]): IReviewThread[] {
+		const reviewThreads: IReviewThread[] = raw.map(thread => parseGraphQLReviewThread(thread, this.githubRepository));
+		const oldReviewThreads = this._reviewThreadsCache;
+		this._reviewThreadsCache = reviewThreads;
+		this.diffThreads(oldReviewThreads, reviewThreads);
+		return reviewThreads;
+	}
+
+	private async getRawReviewComments(): Promise<ReviewThread[]> {
 		const { remote, query, schema } = await this.githubRepository.ensure();
 		let after: string | null = null;
 		let hasNextPage = false;
-		const reviewThreads: IReviewThread[] = [];
+		const reviewThreads: ReviewThread[] = [];
 		try {
 			do {
 				const { data } = await query<PullRequestCommentsResponse>({
@@ -920,17 +942,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					},
 				}, false, { query: schema.LegacyPullRequestComments });
 
-				reviewThreads.push(...data.repository.pullRequest.reviewThreads.nodes.map(node => {
-					return parseGraphQLReviewThread(node, this.githubRepository);
-				}));
+				reviewThreads.push(...data.repository.pullRequest.reviewThreads.nodes);
 
 				hasNextPage = data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage;
 				after = data.repository.pullRequest.reviewThreads.pageInfo.endCursor;
 			} while (hasNextPage && reviewThreads.length < 1000);
 
-			const oldReviewThreads = this._reviewThreadsCache;
-			this._reviewThreadsCache = reviewThreads;
-			this.diffThreads(oldReviewThreads, reviewThreads);
 			return reviewThreads;
 		} catch (e) {
 			Logger.error(`Failed to get pull request review comments: ${e}`, PullRequestModel.ID);
@@ -938,40 +955,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	/**
-	 * Get all review comments.
-	 */
-	async initializeReviewComments(): Promise<void> {
-		const { remote, query, schema } = await this.githubRepository.ensure();
-		let after: string | null = null;
-		let hasNextPage = false;
-		const comments: IComment[] = [];
-		try {
-			do {
-				const { data } = await query<PullRequestCommentsResponse>({
-					query: schema.PullRequestComments,
-					variables: {
-						owner: remote.owner,
-						name: remote.repositoryName,
-						number: this.number,
-						after,
-					},
-				}, false, { query: schema.LegacyPullRequestComments });
-
-				comments.push(...data.repository.pullRequest.reviewThreads.nodes
-					.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved, this.githubRepository), remote))
-					.reduce((prev, curr) => prev.concat(curr), [])
-					.sort((a: IComment, b: IComment) => {
-						return a.createdAt > b.createdAt ? 1 : -1;
-					}));
-
-				hasNextPage = data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage;
-				after = data.repository.pullRequest.reviewThreads.pageInfo.endCursor;
-			} while (hasNextPage && comments.length < 1000);
-			this.comments = comments;
-		} catch (e) {
-			Logger.error(`Failed to get pull request review comments: ${e}`, PullRequestModel.ID);
-		}
+	async getReviewThreads(): Promise<IReviewThread[]> {
+		const raw = await this.getRawReviewComments();
+		return this.setReviewThreadCacheFromRaw(raw);
 	}
 
 	/**
