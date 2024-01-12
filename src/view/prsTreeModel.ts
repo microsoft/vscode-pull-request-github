@@ -12,6 +12,10 @@ import { FolderRepositoryManager, ItemsResponseResult } from '../github/folderRe
 import { CheckState, PRType, PullRequestChecks, PullRequestReviewRequirement } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { CategoryTreeNode } from './treeNodes/categoryNode';
+import { TreeNode } from './treeNodes/treeNode';
+
+export const EXPANDED_QUERIES_STATE = 'expandedQueries';
 
 export enum UnsatisfiedChecks {
 	None = 0,
@@ -33,13 +37,14 @@ export class PrsTreeModel implements vscode.Disposable {
 	public readonly onDidChangePrStatus = this._onDidChangePrStatus.event;
 	private readonly _onDidChangeData: vscode.EventEmitter<FolderRepositoryManager | void> = new vscode.EventEmitter();
 	public readonly onDidChangeData = this._onDidChangeData.event;
+	private _expandedQueries: Set<string> = new Set();
 
 	// Key is identifier from createPRNodeUri
 	private readonly _queriedPullRequests: Map<string, PRStatusChange> = new Map();
 
 	private _cachedPRs: Map<FolderRepositoryManager, Map<string | PRType.LocalPullRequest | PRType.All, ItemsResponseResult<PullRequestModel>>> = new Map();
 
-	constructor(private _telemetry: ITelemetry, private readonly _reposManager: RepositoriesManager) {
+	constructor(private _telemetry: ITelemetry, private readonly _reposManager: RepositoriesManager, private readonly _context: vscode.ExtensionContext) {
 		const repoEvents = (manager: FolderRepositoryManager) => {
 			return [
 				manager.onDidChangeActivePullRequest(() => {
@@ -68,6 +73,26 @@ export class PrsTreeModel implements vscode.Disposable {
 				this._onDidChangeData.fire(changed.added);
 			}
 		}));
+
+		this._expandedQueries = new Set(this._context.workspaceState.get(EXPANDED_QUERIES_STATE, [] as string[]));
+	}
+
+	public updateExpandedQueries(element: TreeNode, isExpanded: boolean) {
+		if (element instanceof CategoryTreeNode) {
+			if (isExpanded) {
+				this._expandedQueries.add(element.id);
+			} else {
+				this._expandedQueries.delete(element.id);
+			}
+			this._context.workspaceState.update(EXPANDED_QUERIES_STATE, Array.from(this._expandedQueries.keys()));
+		}
+	}
+
+	get expandedQueries(): Set<string> {
+		if (this._reposManager.folderManagers.length > 3 && this._expandedQueries.size > 0) {
+			return new Set();
+		}
+		return this._expandedQueries;
 	}
 
 	public cachedPRStatus(identifier: string): PRStatusChange | undefined {
