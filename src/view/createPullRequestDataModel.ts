@@ -97,16 +97,8 @@ export class CreatePullRequestDataModel {
 	}
 
 	private async updateHasUpstream(branch: string): Promise<boolean> {
-		// Currently, the list of selectable compare branches it those on GitHub,
-		// plus the current branch which may not be published yet. Check the
-		// status of the current branch using local git, otherwise assume it is from
-		// GitHub.
-		if (this.folderRepositoryManager.repository.state.HEAD?.name === branch) {
-			const compareBranch = await this.folderRepositoryManager.repository.getBranch(branch);
-			this._compareHasUpstream = !!compareBranch.upstream;
-		} else {
-			this._compareHasUpstream = true;
-		}
+		const compareBranch = await this.folderRepositoryManager.repository.getBranch(branch);
+		this._compareHasUpstream = !!compareBranch.upstream;
 		return this._compareHasUpstream;
 	}
 
