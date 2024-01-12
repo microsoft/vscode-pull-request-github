@@ -53,7 +53,7 @@ export class RateLogger {
 	}
 
 	public async logRateLimit(info: string | undefined, result: Promise<{ data: { rateLimit: RateLimit | undefined } | undefined } | undefined>, isRest: boolean = false) {
-		let rateLimitInfo;
+		let rateLimitInfo: { limit: number, remaining: number, cost: number } | undefined;
 		try {
 			const resolvedResult = await result;
 			rateLimitInfo = resolvedResult?.data?.rateLimit;
@@ -65,11 +65,11 @@ export class RateLogger {
 		if ((rateLimitInfo?.limit ?? 5000) < 5000) {
 			if (!isSearch) {
 				Logger.appendLine(`Unexpectedly low rate limit: ${rateLimitInfo?.limit}`, RateLogger.ID);
-			} else if (rateLimitInfo.limit < 30) {
+			} else if ((rateLimitInfo?.limit ?? 30) < 30) {
 				Logger.appendLine(`Unexpectedly low SEARCH rate limit: ${rateLimitInfo?.limit}`, RateLogger.ID);
 			}
 		}
-		const remaining = `${isRest ? 'REST' : 'GraphQL'} Rate limit remaining: ${rateLimitInfo?.remaining}, ${info}`;
+		const remaining = `${isRest ? 'REST' : 'GraphQL'} Rate limit remaining: ${rateLimitInfo?.remaining}, cost: ${rateLimitInfo?.cost}, ${info}`;
 		if (((rateLimitInfo?.remaining ?? 1000) < 1000) && !isSearch) {
 			if (!this.hasLoggedLowRateLimit) {
 				/* __GDPR__
