@@ -22,7 +22,7 @@ import { ReviewModel } from './reviewModel';
 import { DecorationProvider } from './treeDecorationProvider';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
-import { BaseTreeNode, EXPANDED_QUERIES_STATE, TreeNode } from './treeNodes/treeNode';
+import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 import { TreeUtils } from './treeNodes/treeUtils';
 import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
 
@@ -49,7 +49,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 	constructor(private _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager) {
 		this._disposables = [];
-		this._prsTreeModel = new PrsTreeModel(this._telemetry, this._reposManager);
+		this._prsTreeModel = new PrsTreeModel(this._telemetry, this._reposManager, _context);
 		this._disposables.push(this._prsTreeModel);
 		this._disposables.push(this._prsTreeModel.onDidChangeData(folderManager => folderManager ? this.refreshRepo(folderManager) : this.refresh()));
 		this._disposables.push(new PRStatusDecorationProvider(this._prsTreeModel));
@@ -111,23 +111,11 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		this._disposables.push(this._view.onDidChangeCheckboxState(TreeUtils.processCheckboxUpdates));
 
 		this._disposables.push(this._view.onDidExpandElement(expanded => {
-			this._updateExpandedQueries(expanded.element, true);
+			this._prsTreeModel.updateExpandedQueries(expanded.element, true);
 		}));
 		this._disposables.push(this._view.onDidCollapseElement(collapsed => {
-			this._updateExpandedQueries(collapsed.element, false);
+			this._prsTreeModel.updateExpandedQueries(collapsed.element, false);
 		}));
-	}
-
-	private _updateExpandedQueries(element: TreeNode, isExpanded: boolean) {
-		if (element instanceof CategoryTreeNode) {
-			const expandedQueries = new Set<string>(this._context.workspaceState.get(EXPANDED_QUERIES_STATE, []) as string[]);
-			if (isExpanded) {
-				expandedQueries.add(element.id);
-			} else {
-				expandedQueries.delete(element.id);
-			}
-			this._context.workspaceState.update(EXPANDED_QUERIES_STATE, Array.from(expandedQueries.keys()));
-		}
 	}
 
 	public async expandPullRequest(pullRequest: PullRequestModel) {
