@@ -23,12 +23,13 @@
 		"shareProvider",
 		"quickDiffProvider",
 		"readonlyMessage",
+		"tabInputTextMerge",
 		"treeViewMarkdownMessage"
 	],
 	"version": "0.78.1",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.85.0"
+		"vscode": "^1.86.0"
 	},
 	"categories": [
 		"Other"

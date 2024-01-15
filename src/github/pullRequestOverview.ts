@@ -5,6 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { GitErrorCodes } from '../api/api1';
 import { onDidUpdatePR, openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
@@ -12,6 +13,7 @@ import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKe
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { asPromise, dispose, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
+import { ConflictGuide } from './conflictGuide';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
 	GithubItemStateEnum,
@@ -23,6 +25,7 @@ import {
 	ITeam,
 	MergeMethod,
 	MergeMethodsAvailability,
+	PullRequestMergeability,
 	reviewerId,
 	ReviewEvent,
 	ReviewState,
@@ -262,6 +265,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					hasWritePermission,
 					status: status[0],
 					reviewRequirement: status[1],
+					canUpdateBranch: pullRequest.item.canUpdateBranch,
 					mergeable: pullRequest.item.mergeable,
 					reviewers: this._existingReviewers,
 					isDraft: pullRequest.isDraft,
@@ -374,6 +378,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.dequeue(message);
 			case 'pr.enqueue':
 				return this.enqueue(message);
+			case 'pr.update-branch':
+				return this.updateBranch(message);
 			case 'pr.gotoChangesSinceReview':
 				this.gotoChangesSinceReview();
 				break;
@@ -812,6 +818,36 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async enqueue(message: IRequestMessage<void>): Promise<void> {
 		const result = await this._item.enqueuePullRequest();
 		this._replyMessage(message, { mergeQueueEntry: result });
+	}
+
+	private async updateBranch(message: IRequestMessage<string>): Promise<void> {
+		if (this._folderRepositoryManager.repository.state.workingTreeChanges.length > 0 || this._folderRepositoryManager.repository.state.indexChanges.length > 0) {
+			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
+			return this._replyMessage(message, {});
+		}
+		const qualifiedUpstream = `${this._item.remote.remoteName}/${this._item.base.ref}`;
+		await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async (progress) => {
+			progress.report({ message: vscode.l10n.t('Fetching branch') });
+			await this._folderRepositoryManager.repository.fetch({ ref: this._item.base.ref, remote: this._item.remote.remoteName });
+			progress.report({ message: vscode.l10n.t('Merging branch') });
+			try {
+				await this._folderRepositoryManager.repository.merge(qualifiedUpstream);
+			} catch (e) {
+				if (e.gitErrorCode !== GitErrorCodes.Conflict) {
+					throw e;
+				}
+			}
+		});
+
+		if (this._item.item.mergeable === PullRequestMergeability.Conflict) {
+			const wizard = await ConflictGuide.begin(this._folderRepositoryManager.repository, this._item.base.ref, this._folderRepositoryManager.repository.state.HEAD!.name!);
+			await wizard?.finished();
+			wizard?.dispose();
+		} else {
+			await this._folderRepositoryManager.repository.push();
+		}
+
+		this._replyMessage(message, {});
 	}
 
 	protected editCommentPromise(comment: IComment, text: string): Promise<IComment> {

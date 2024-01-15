@@ -242,6 +242,11 @@ body img.avatar {
 	color: var(--vscode-editor-foreground);
 }
 
+.status-item button {
+	margin-left: auto;
+	margin-right: 0;
+}
+
 .automerge-section {
 	display: flex;
 }

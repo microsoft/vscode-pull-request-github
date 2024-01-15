@@ -62,6 +62,7 @@ export interface PullRequest {
 	pendingReviewType?: ReviewType;
 	status: PullRequestChecks | null;
 	reviewRequirement: PullRequestReviewRequirement | null;
+	canUpdateBranch: boolean;
 	mergeable: PullRequestMergeability;
 	defaultMergeMethod: MergeMethod;
 	mergeMethodsAvailability: MergeMethodsAvailability;

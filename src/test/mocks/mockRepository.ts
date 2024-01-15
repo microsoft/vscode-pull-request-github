@@ -319,4 +319,12 @@ export class MockRepository implements Repository {
 	expectPush(remoteName?: string, branchName?: string, setUpstream?: boolean) {
 		this._expectedPushes.push({ remoteName, branchName, setUpstream });
 	}
+
+	merge(ref: string): Promise<void> {
+		return Promise.reject(new Error(`Unexpected merge(${ref})`));
+	}
+
+	mergeAbort(): Promise<void> {
+		return Promise.reject(new Error(`Unexpected mergeAbort`));
+	}
 }

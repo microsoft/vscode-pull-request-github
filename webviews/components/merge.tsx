@@ -199,7 +199,8 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 
 	return (
 		<div>
-			<MergeStatus mergeable={mergeable} isSimple={isSimple} />
+			<MergeStatus mergeable={mergeable} isSimple={isSimple} isCurrentlyCheckedOut={pr.isCurrentlyCheckedOut} canUpdateBranch={pr.canUpdateBranch} />
+			<OfferToUpdate mergeable={mergeable} isSimple={isSimple} isCurrentlyCheckedOut={pr.isCurrentlyCheckedOut} canUpdateBranch={pr.canUpdateBranch} />
 			<PrActions pr={{ ...pr, mergeable }} isSimple={isSimple} />
 		</div>
 	);
@@ -207,21 +208,26 @@ export const MergeStatusAndActions = ({ pr, isSimple }: { pr: PullRequest; isSim
 
 export default StatusChecksSection;
 
-export const MergeStatus = ({ mergeable, isSimple }: { mergeable: PullRequestMergeability; isSimple: boolean }) => {
+export const MergeStatus = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpdateBranch }: { mergeable: PullRequestMergeability; isSimple: boolean; isCurrentlyCheckedOut: boolean, canUpdateBranch: boolean }) => {
+	const { updateBranch } = useContext(PullRequestContext);
+
 	let icon: JSX.Element | null = pendingIcon;
 	let summary: string = 'Checking if this branch can be merged...';
+	let action: string | null = null;
 	if (mergeable === PullRequestMergeability.Mergeable) {
 		icon = checkIcon;
 		summary = 'This branch has no conflicts with the base branch.';
 	} else if (mergeable === PullRequestMergeability.Conflict) {
 		icon = closeIcon;
 		summary = 'This branch has conflicts that must be resolved.';
+		action = 'Resolve conflicts';
 	} else if (mergeable === PullRequestMergeability.NotMergeable) {
 		icon = closeIcon;
 		summary = 'Branch protection policy must be fulfilled before merging.';
 	} else if (mergeable === PullRequestMergeability.Behind) {
-		icon = alertIcon;
+		icon = closeIcon;
 		summary = 'This branch is out-of-date with the base branch.';
+		action = 'Update with merge commit';
 	}
 
 	if (isSimple) {
@@ -233,8 +239,24 @@ export const MergeStatus = ({ mergeable, isSimple }: { mergeable: PullRequestMer
 			<p>
 				{summary}
 			</p>
+			{(action && !isSimple && canUpdateBranch && isCurrentlyCheckedOut) ? <button className="secondary" onClick={updateBranch} >{action}</button> : null}
 		</div>
 	);
+};
+
+export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpdateBranch }: { mergeable: PullRequestMergeability; isSimple: boolean; isCurrentlyCheckedOut: boolean, canUpdateBranch: boolean }) => {
+	const { updateBranch } = useContext(PullRequestContext);
+	if (!canUpdateBranch || !isCurrentlyCheckedOut || isSimple || mergeable === PullRequestMergeability.Behind || mergeable === PullRequestMergeability.Conflict || mergeable === PullRequestMergeability.Unknown) {
+		return null;
+	}
+	return (
+		<div className="status-item status-section">
+			{alertIcon}
+			<p>This branch is out-of-date with the base branch.</p>
+			<button className="secondary" onClick={updateBranch} >Update with merge commit</button>
+		</div>
+	);
+
 };
 
 export const ReadyForReview = ({ isSimple }: { isSimple: boolean }) => {
