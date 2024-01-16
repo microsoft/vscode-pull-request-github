@@ -2625,6 +2625,16 @@
 				"description": "The color used for indicating that an issue is open."
 			},
 			{
+				"id": "issues.open.foreground",
+				"defaults": {
+					"dark": "#E1FFD9",
+					"light": "#E1FFD9",
+					"highContrast": "editor.background",
+					"highContrastLight": "editor.background"
+				},
+				"description": "The foreground color of badges used for indicating that an issue is open."
+			},
+			{
 				"id": "issues.closed",
 				"defaults": {
 					"dark": "#cb2431",
@@ -2633,6 +2643,16 @@
 					"highContrastLight": "editor.foreground"
 				},
 				"description": "The color used for indicating that an issue is closed."
+			},
+			{
+				"id": "issues.closed.foreground",
+				"defaults": {
+					"dark": "#FFD9D9",
+					"light": "#FFD9D9",
+					"highContrast": "editor.background",
+					"highContrastLight": "editor.background"
+				},
+				"description": "The foreground color of badges used for indicating that an issue is closed."
 			},
 			{
 				"id": "pullRequests.merged",
@@ -2645,6 +2665,16 @@
 				"description": "The color used for indicating that a pull request is merged."
 			},
 			{
+				"id": "pullRequests.merged.foreground",
+				"defaults": {
+					"dark": "#FFD9FE",
+					"light": "#FFD9FE",
+					"highContrast": "editor.foreground",
+					"highContrastLight": "editor.foreground"
+				},
+				"description": "The badge foreground color used for indicating that a pull request is merged."
+			},
+			{
 				"id": "pullRequests.draft",
 				"defaults": {
 					"dark": "#6e7681",
@@ -2653,6 +2683,16 @@
 					"highContrastLight": "editor.background"
 				},
 				"description": "The color used for indicating that a pull request is a draft."
+			},
+			{
+				"id": "pullRequests.draft.foreground",
+				"defaults": {
+					"dark": "#EEEEEE",
+					"light": "#EEEEEE",
+					"highContrast": "editor.foreground",
+					"highContrastLight": "editor.foreground"
+				},
+				"description": "The badge foreground color used for indicating that a pull request is draft."
 			},
 			{
 				"id": "pullRequests.open",
@@ -2665,6 +2705,16 @@
 				"description": "The color used for indicating that a pull request is open."
 			},
 			{
+				"id": "pullRequests.open.foreground",
+				"defaults": {
+					"dark": "issues.open.foreground",
+					"light": "issues.open.foreground",
+					"highContrast": "editor.foreground",
+					"highContrastLight": "editor.foreground"
+				},
+				"description": "The foreground color of badges used for indicating that a pull request is open."
+			},
+			{
 				"id": "pullRequests.closed",
 				"defaults": {
 					"dark": "issues.closed",
@@ -2673,6 +2723,16 @@
 					"highContrastLight": "editor.background"
 				},
 				"description": "The color used for indicating that a pull request is closed."
+			},
+			{
+				"id": "pullRequests.closed.foreground",
+				"defaults": {
+					"dark": "issues.closed.foreground",
+					"light": "issues.closed.foreground",
+					"highContrast": "editor.foreground",
+					"highContrastLight": "editor.foreground"
+				},
+				"description": "The foreground color of badges used for indicating that a pull request is closed."
 			},
 			{
 				"id": "pullRequests.notification",
