@@ -2625,16 +2625,6 @@
 				"description": "The color used for indicating that an issue is open."
 			},
 			{
-				"id": "issues.open.foreground",
-				"defaults": {
-					"dark": "#E1FFD9",
-					"light": "#E1FFD9",
-					"highContrast": "editor.background",
-					"highContrastLight": "editor.background"
-				},
-				"description": "The foreground color of badges used for indicating that an issue is open."
-			},
-			{
 				"id": "issues.closed",
 				"defaults": {
 					"dark": "#cb2431",
@@ -2643,16 +2633,6 @@
 					"highContrastLight": "editor.foreground"
 				},
 				"description": "The color used for indicating that an issue is closed."
-			},
-			{
-				"id": "issues.closed.foreground",
-				"defaults": {
-					"dark": "#FFD9D9",
-					"light": "#FFD9D9",
-					"highContrast": "editor.background",
-					"highContrastLight": "editor.background"
-				},
-				"description": "The foreground color of badges used for indicating that an issue is closed."
 			},
 			{
 				"id": "pullRequests.merged",
@@ -2707,12 +2687,12 @@
 			{
 				"id": "pullRequests.open.foreground",
 				"defaults": {
-					"dark": "issues.open.foreground",
-					"light": "issues.open.foreground",
-					"highContrast": "editor.foreground",
-					"highContrastLight": "editor.foreground"
+					"dark": "#E1FFD9",
+					"light": "#E1FFD9",
+					"highContrast": "editor.background",
+					"highContrastLight": "editor.background"
 				},
-				"description": "The foreground color of badges used for indicating that a pull request is open."
+				"description": "The foreground color of badges used for indicating that an pull request is open."
 			},
 			{
 				"id": "pullRequests.closed",
@@ -2727,12 +2707,12 @@
 			{
 				"id": "pullRequests.closed.foreground",
 				"defaults": {
-					"dark": "issues.closed.foreground",
-					"light": "issues.closed.foreground",
-					"highContrast": "editor.foreground",
-					"highContrastLight": "editor.foreground"
+					"dark": "#FFD9D9",
+					"light": "#FFD9D9",
+					"highContrast": "editor.background",
+					"highContrastLight": "editor.background"
 				},
-				"description": "The foreground color of badges used for indicating that a pull request is closed."
+				"description": "The foreground color of badges used for indicating that an pull requests is closed."
 			},
 			{
 				"id": "pullRequests.notification",
