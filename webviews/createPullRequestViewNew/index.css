@@ -183,6 +183,7 @@ textarea {
 	padding: 5px;
 	border: 1px solid var(--vscode-inputValidation-errorBorder);
 	background-color: var(--vscode-inputValidation-errorBackground);
+	color: var(--vscode-inputValidation-errorForeground);
 }
 
 .below-input-error {
