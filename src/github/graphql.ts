@@ -603,7 +603,7 @@ export interface PullRequest {
 	};
 	viewerCanEnableAutoMerge: boolean;
 	viewerCanDisableAutoMerge: boolean;
-	viewerCanUpdateBranch: boolean;
+	viewerCanUpdate: boolean;
 	isDraft?: boolean;
 	suggestedReviewers: SuggestedReviewerResponse[];
 	projectItems?: {

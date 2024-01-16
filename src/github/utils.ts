@@ -701,7 +701,7 @@ export function parseGraphQLPullRequest(
 		autoMerge: !!graphQLPullRequest.autoMergeRequest,
 		autoMergeMethod: parseMergeMethod(graphQLPullRequest.autoMergeRequest?.mergeMethod),
 		allowAutoMerge: graphQLPullRequest.viewerCanEnableAutoMerge || graphQLPullRequest.viewerCanDisableAutoMerge,
-		canUpdateBranch: graphQLPullRequest.viewerCanUpdateBranch,
+		canUpdateBranch: graphQLPullRequest.viewerCanUpdate,
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),

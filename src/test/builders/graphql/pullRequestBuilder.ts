@@ -94,7 +94,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 			suggestedReviewers: { default: [] },
 			viewerCanEnableAutoMerge: { default: false },
 			viewerCanDisableAutoMerge: { default: false },
-			viewerCanUpdateBranch: { default: false },
+			viewerCanUpdate: { default: false },
 			commits: createLink<CommitsConn>()({
 				nodes: {
 					default: [

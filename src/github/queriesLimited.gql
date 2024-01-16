@@ -73,7 +73,7 @@ fragment PullRequestFragment on PullRequest {
 	}
 	viewerCanEnableAutoMerge
 	viewerCanDisableAutoMerge
-	viewerCanUpdateBranch
+	viewerCanUpdate
 	id
 	databaseId
 	isDraft
