@@ -5,7 +5,6 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { GitErrorCodes } from '../api/api1';
 import { onDidUpdatePR, openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
@@ -13,7 +12,6 @@ import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKe
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { asPromise, dispose, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
-import { ConflictModel } from './conflictGuide';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
 	GithubItemStateEnum,
@@ -25,7 +23,6 @@ import {
 	ITeam,
 	MergeMethod,
 	MergeMethodsAvailability,
-	PullRequestMergeability,
 	reviewerId,
 	ReviewEvent,
 	ReviewState,
@@ -827,27 +824,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
 			return this._replyMessage(message, {});
 		}
-		const qualifiedUpstream = `${this._item.remote.remoteName}/${this._item.base.ref}`;
-		await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async (progress) => {
-			progress.report({ message: vscode.l10n.t('Fetching branch') });
-			await this._folderRepositoryManager.repository.fetch({ ref: this._item.base.ref, remote: this._item.remote.remoteName });
-			progress.report({ message: vscode.l10n.t('Merging branch') });
-			try {
-				await this._folderRepositoryManager.repository.merge(qualifiedUpstream);
-			} catch (e) {
-				if (e.gitErrorCode !== GitErrorCodes.Conflict) {
-					throw e;
-				}
-			}
-		});
-
-		if (this._item.item.mergeable === PullRequestMergeability.Conflict) {
-			const wizard = await ConflictModel.begin(this._folderRepositoryManager.repository, this._item.base.ref, this._folderRepositoryManager.repository.state.HEAD!.name!);
-			await wizard?.finished();
-			wizard?.dispose();
-		} else {
-			await this._folderRepositoryManager.repository.push();
-		}
+		await this._folderRepositoryManager.tryMergeBaseIntoHead(this._item);
 
 		this._replyMessage(message, {});
 	}
