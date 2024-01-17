@@ -8,21 +8,19 @@ import { Change, Repository } from '../api/api';
 import { commands } from '../common/executeCommands';
 import { asPromise, dispose } from '../common/utils';
 
-export class ConflictGuide implements vscode.Disposable {
-	private _progress: vscode.Progress<{ message?: string; increment?: number }> | undefined;
-	private readonly _startingConflictsCount: number;
-	private readonly _oneProgressIncrement: number;
+export class ConflictModel implements vscode.Disposable {
+	public readonly startingConflictsCount: number;
 	private _lastReportedRemainingCount: number;
 	private _disposables: vscode.Disposable[] = [];
+	private _onConflictCountChanged: vscode.EventEmitter<number> = new vscode.EventEmitter();
+	public readonly onConflictCountChanged: vscode.Event<number> = this._onConflictCountChanged.event; // reports difference in number of conflicts
 	private _finishedCommit: vscode.EventEmitter<boolean> = new vscode.EventEmitter();
-	private _finishedConflicts: vscode.EventEmitter<boolean> = new vscode.EventEmitter();
-	private _message: string;
+	public readonly message: string;
 
 	constructor(private readonly _repository: Repository, private readonly _upstream: string, private readonly _into: string) {
-		this._startingConflictsCount = this.remainingConflicts.length;
-		this._lastReportedRemainingCount = this._startingConflictsCount;
-		this._oneProgressIncrement = 100 / this._startingConflictsCount;
-		this._repository.inputBox.value = this._message = `Merge branch '${this._upstream}' into ${this._into}`;
+		this.startingConflictsCount = this.remainingConflicts.length;
+		this._lastReportedRemainingCount = this.startingConflictsCount;
+		this._repository.inputBox.value = this.message = `Merge branch '${this._upstream}' into ${this._into}`;
 		this._watchForRemainingConflictsChange();
 	}
 
@@ -37,35 +35,18 @@ export class ConflictGuide implements vscode.Disposable {
 
 	private _reportProgress() {
 		const remainingCount = this.remainingConflicts.length;
-		if (this._progress) {
-			const increment = (this._lastReportedRemainingCount - remainingCount) * this._oneProgressIncrement;
-			this._progress.report({ message: vscode.l10n.t('Use the Source Control view to resolve conflicts, {0} of {0} remaining', remainingCount, this._startingConflictsCount), increment });
+		if (this._lastReportedRemainingCount !== remainingCount) {
 			this._lastReportedRemainingCount = remainingCount;
+			this._onConflictCountChanged.fire(this._lastReportedRemainingCount - remainingCount);
 		}
 		if (remainingCount === 0) {
-			this._finishedConflicts.fire(true);
-			this.commit();
+			this.listenForCommit();
 		}
 	}
 
-	private async commitFromNotification(): Promise<boolean> {
-		const commit = vscode.l10n.t('Commit');
-		const cancel = vscode.l10n.t('Abort Merge');
-		const result = await vscode.window.showInformationMessage(vscode.l10n.t('All conflicts resolved. Commit and push the resolution to continue.'), commit, cancel);
-		if (result === commit) {
-			await this._repository.commit(this._message);
-			this._repository.inputBox.value = '';
-			await this._repository.push();
-			return true;
-		} else {
-			await this.abort();
-			return false;
-		}
-	}
-
-	private async commit() {
+	private async listenForCommit() {
 		let localDisposable: vscode.Disposable | undefined;
-		const scmCommit = new Promise<boolean>(resolve => {
+		const result = await new Promise<boolean>(resolve => {
 			const startingCommit = this._repository.state.HEAD?.commit;
 			localDisposable = this._repository.state.onDidChange(() => {
 				if (this._repository.state.HEAD?.commit !== startingCommit && this._repository.state.indexChanges.length === 0 && this._repository.state.mergeChanges.length === 0) {
@@ -75,9 +56,6 @@ export class ConflictGuide implements vscode.Disposable {
 			this._disposables.push(localDisposable);
 		});
 
-		const notificationCommit = this.commitFromNotification();
-
-		const result = await Promise.race([scmCommit, notificationCommit]);
 		localDisposable?.dispose();
 		this._finishedCommit.fire(result);
 	}
@@ -96,7 +74,7 @@ export class ConflictGuide implements vscode.Disposable {
 		}
 	}
 
-	private async abort(): Promise<void> {
+	public async abort(): Promise<void> {
 		this._repository.inputBox.value = '';
 		// set up an event to listen for when we are all out of merge changes before closing the merge editors.
 		// Just waiting for the merge doesn't cut it
@@ -112,36 +90,72 @@ export class ConflictGuide implements vscode.Disposable {
 		this._finishedCommit.fire(false);
 	}
 
-	private async first(progress: vscode.Progress<{ message?: string; increment?: number }>, cancellationToken: vscode.CancellationToken): Promise<void> {
-		this._progress = progress;
+	private async first(): Promise<void> {
 		if (this.remainingConflicts.length === 0) {
 			return;
 		}
 		await commands.focusView('workbench.scm');
 		this._reportProgress();
-		const change = this.remainingConflicts[0];
-		this._disposables.push(cancellationToken.onCancellationRequested(() => this.abort()));
-		await commands.executeCommand('git.openMergeEditor', change.uri);
+		await Promise.all(this.remainingConflicts.map(conflict => commands.executeCommand('git.openMergeEditor', conflict.uri)));
 	}
 
-	public static async begin(repository: Repository, upstream: string, into: string): Promise<ConflictGuide | undefined> {
-		const wizard = new ConflictGuide(repository, upstream, into);
-		if (wizard.remainingConflicts.length === 0) {
+	public static async begin(repository: Repository, upstream: string, into: string): Promise<ConflictModel | undefined> {
+		const model = new ConflictModel(repository, upstream, into);
+		if (model.remainingConflicts.length === 0) {
 			return undefined;
 		}
-		vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, cancellable: true }, async (progress, token) => {
-			wizard.first(progress, token);
-			return wizard.finishedConflicts();
-		});
-		return wizard;
-	}
-
-	private finishedConflicts(): Promise<boolean> {
-		return asPromise(this._finishedConflicts.event);
+		const notification = new ConflictNotification(model, repository);
+		model._disposables.push(notification);
+		model.first();
+		return model;
 	}
 
 	public finished(): Promise<boolean> {
 		return asPromise(this._finishedCommit.event);
+	}
+
+	dispose() {
+		dispose(this._disposables);
+	}
+}
+
+class ConflictNotification implements vscode.Disposable {
+	private _disposables: vscode.Disposable[] = [];
+
+	constructor(private readonly _conflictModel: ConflictModel, private readonly _repository: Repository) {
+		vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, cancellable: true }, async (progress, token) => {
+			const report = (increment: number) => {
+				progress.report({ message: vscode.l10n.t('Use the Source Control view to resolve conflicts, {0} of {0} remaining', this._conflictModel.remainingConflicts.length, this._conflictModel.startingConflictsCount), increment });
+			};
+			report(0);
+			return new Promise<boolean>((resolve) => {
+				this._disposables.push(this._conflictModel.onConflictCountChanged((conflictsChangedBy) => {
+					const increment = conflictsChangedBy * (100 / this._conflictModel.startingConflictsCount);
+					report(increment);
+					if (this._conflictModel.remainingConflicts.length === 0) {
+						resolve(true);
+					}
+				}));
+				this._disposables.push(token.onCancellationRequested(() => {
+					this._conflictModel.abort();
+					resolve(false);
+				}));
+			});
+		}).then(async (result) => {
+			if (result) {
+				const commit = vscode.l10n.t('Commit');
+				const cancel = vscode.l10n.t('Abort Merge');
+				const result = await vscode.window.showInformationMessage(vscode.l10n.t('All conflicts resolved. Commit and push the resolution to continue.'), commit, cancel);
+				if (result === commit) {
+					await this._repository.commit(this._conflictModel.message);
+					await this._repository.push();
+					return true;
+				} else {
+					await this._conflictModel.abort();
+					return false;
+				}
+			}
+		});
 	}
 
 	dispose() {

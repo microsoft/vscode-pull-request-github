@@ -13,7 +13,7 @@ import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKe
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { asPromise, dispose, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
-import { ConflictGuide } from './conflictGuide';
+import { ConflictModel } from './conflictGuide';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
 	GithubItemStateEnum,
@@ -840,7 +840,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		});
 
 		if (this._item.item.mergeable === PullRequestMergeability.Conflict) {
-			const wizard = await ConflictGuide.begin(this._folderRepositoryManager.repository, this._item.base.ref, this._folderRepositoryManager.repository.state.HEAD!.name!);
+			const wizard = await ConflictModel.begin(this._folderRepositoryManager.repository, this._item.base.ref, this._folderRepositoryManager.repository.state.HEAD!.name!);
 			await wizard?.finished();
 			wizard?.dispose();
 		} else {
