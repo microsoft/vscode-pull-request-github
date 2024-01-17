@@ -22,6 +22,7 @@
 		"contribCommentEditorActionsMenu",
 		"shareProvider",
 		"quickDiffProvider",
+		"tabInputTextMerge",
 		"treeViewMarkdownMessage"
 	],
 	"version": "0.78.1",

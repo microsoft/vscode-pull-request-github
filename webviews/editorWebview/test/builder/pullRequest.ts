@@ -42,6 +42,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	allowAutoMerge: { default: false },
 	mergeQueueEntry: { default: undefined },
 	mergeQueueMethod: { default: undefined },
+	canUpdateBranch: { default: false },
 	reviewers: { default: [] },
 	isDraft: { default: false },
 	isIssue: { default: false },

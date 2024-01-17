@@ -317,6 +317,7 @@ export function convertRESTPullRequestToRawPullRequest(
 			: undefined,
 		createdAt: created_at,
 		updatedAt: updated_at,
+		viewerCanUpdate: false,
 		head: head.repo ? convertRESTHeadToIGitHubRef(head as OctokitCommon.PullsListResponseItemHead) : undefined,
 		base: convertRESTHeadToIGitHubRef(base),
 		labels: labels.map<ILabel>(l => ({ name: '', color: '', ...l })),
@@ -339,7 +340,7 @@ export function convertRESTPullRequestToRawPullRequest(
 export function convertRESTIssueToRawPullRequest(
 	pullRequest: OctokitCommon.IssuesCreateResponseData,
 	githubRepository: GitHubRepository,
-): PullRequest {
+): Issue {
 	const {
 		number,
 		body,
@@ -355,7 +356,7 @@ export function convertRESTIssueToRawPullRequest(
 		id,
 	} = pullRequest;
 
-	const item: PullRequest = {
+	const item: Issue = {
 		id,
 		graphNodeId: node_id,
 		number,
@@ -373,9 +374,7 @@ export function convertRESTIssueToRawPullRequest(
 		labels: labels.map<ILabel>(l =>
 			typeof l === 'string' ? { name: l, color: '' } : { name: l.name ?? '', color: l.color ?? '', description: l.description ?? undefined },
 		),
-		suggestedReviewers: [], // suggested reviewers only available through GraphQL API,
 		projectItems: [], // projects only available through GraphQL API
-		commits: [], // commits only available through GraphQL API
 	};
 
 	return item;
@@ -702,6 +701,7 @@ export function parseGraphQLPullRequest(
 		autoMerge: !!graphQLPullRequest.autoMergeRequest,
 		autoMergeMethod: parseMergeMethod(graphQLPullRequest.autoMergeRequest?.mergeMethod),
 		allowAutoMerge: graphQLPullRequest.viewerCanEnableAutoMerge || graphQLPullRequest.viewerCanDisableAutoMerge,
+		viewerCanUpdate: graphQLPullRequest.viewerCanUpdate,
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
