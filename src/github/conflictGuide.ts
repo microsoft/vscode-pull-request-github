@@ -36,8 +36,8 @@ export class ConflictModel implements vscode.Disposable {
 	private _reportProgress() {
 		const remainingCount = this.remainingConflicts.length;
 		if (this._lastReportedRemainingCount !== remainingCount) {
-			this._lastReportedRemainingCount = remainingCount;
 			this._onConflictCountChanged.fire(this._lastReportedRemainingCount - remainingCount);
+			this._lastReportedRemainingCount = remainingCount;
 		}
 		if (remainingCount === 0) {
 			this.listenForCommit();
@@ -86,6 +86,7 @@ export class ConflictModel implements vscode.Disposable {
 				disposable.dispose();
 			}
 		});
+		this._disposables.push(disposable);
 		await this._repository.mergeAbort();
 		this._finishedCommit.fire(false);
 	}

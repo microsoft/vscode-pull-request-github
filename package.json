@@ -20,10 +20,10 @@
 		"codiconDecoration",
 		"diffCommand",
 		"contribCommentEditorActionsMenu",
+		"tabInputTextMerge",
 		"shareProvider",
 		"quickDiffProvider",
 		"readonlyMessage",
-		"tabInputTextMerge",
 		"treeViewMarkdownMessage"
 	],
 	"version": "0.78.1",
