@@ -394,9 +394,14 @@
 					"default": false
 				},
 				"githubPullRequests.pullPullRequestBranchBeforeCheckout": {
-					"type": "boolean",
+					"type": "string",
 					"description": "%githubPullRequests.pullPullRequestBranchBeforeCheckout.description%",
-					"default": true
+					"enum": [
+						"never",
+						"pull",
+						"pullAndUpdateBase"
+					],
+					"default": "pull"
 				},
 				"githubPullRequests.upstreamRemote": {
 					"type": "string",
