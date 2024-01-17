@@ -193,7 +193,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
 			pullRequestModel.canEdit(),
 			this._folderRepositoryManager.getOrgTeamsCount(pullRequestModel.githubRepository),
-			this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName)])
+			this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName),
+			this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel)])
 			.then(result => {
 				const [
 					pullRequest,
@@ -206,7 +207,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					currentUser,
 					viewerCanEdit,
 					orgTeamsCount,
-					mergeQueueMethod
+					mergeQueueMethod,
+					isBranchUpToDateWithBase
 				] = result;
 				if (!pullRequest) {
 					throw new Error(
@@ -265,7 +267,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					hasWritePermission,
 					status: status[0],
 					reviewRequirement: status[1],
-					canUpdateBranch: pullRequest.item.canUpdateBranch,
+					canUpdateBranch: pullRequest.item.viewerCanUpdate && !isBranchUpToDateWithBase,
 					mergeable: pullRequest.item.mergeable,
 					reviewers: this._existingReviewers,
 					isDraft: pullRequest.isDraft,

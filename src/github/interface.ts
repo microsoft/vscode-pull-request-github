@@ -179,7 +179,7 @@ export interface PullRequest extends Issue {
 	merged?: boolean;
 	mergeable?: PullRequestMergeability;
 	mergeQueueEntry?: MergeQueueEntry | null;
-	canUpdateBranch: boolean;
+	viewerCanUpdate: boolean;
 	autoMerge?: boolean;
 	autoMergeMethod?: MergeMethod;
 	allowAutoMerge?: boolean;

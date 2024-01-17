@@ -2132,6 +2132,40 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return this.repository.checkout(branchName);
 	}
 
+	async isHeadUpToDateWithBase(pullRequestModel: PullRequestModel): Promise<boolean> {
+		if (!pullRequestModel.head) {
+			return false;
+		}
+		let baseRemote: string | undefined;
+		let headRemote: string | undefined;
+		const targetRepo = pullRequestModel.base.repositoryCloneUrl.repositoryName.toLowerCase();
+		const targetBaseOwner = pullRequestModel.base?.owner.toLowerCase();
+		const targetHeadOwner = pullRequestModel.head?.owner.toLowerCase();
+		for (const remote of this.repository.state.remotes) {
+			if (baseRemote && headRemote) {
+				break;
+			}
+			const url = remote.fetchUrl ?? remote.pushUrl;
+			if (!url) {
+				return false;
+			}
+			const parsedRemote = parseRemote(remote.name, url);
+			const parsedOwner = parsedRemote?.owner.toLowerCase();
+			const parsedRepo = parsedRemote?.repositoryName.toLowerCase();
+			if (!baseRemote && parsedOwner === targetBaseOwner && parsedRepo === targetRepo) {
+				baseRemote = remote.name;
+			}
+			if (!headRemote && parsedOwner === targetHeadOwner && parsedRepo === targetRepo) {
+				headRemote = remote.name;
+			}
+		}
+		if (!baseRemote || !headRemote) {
+			return false;
+		}
+		const log = await this.repository.log({ range: `${headRemote}/${pullRequestModel.head.ref}..${baseRemote}/${pullRequestModel.base.ref}` });
+		return log.length === 0;
+	}
+
 	async fetchById(githubRepo: GitHubRepository, id: number): Promise<PullRequestModel | undefined> {
 		const pullRequest = await githubRepo.getPullRequest(id);
 		if (pullRequest) {
