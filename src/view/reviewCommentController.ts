@@ -512,7 +512,8 @@ export class ReviewCommentController
 			if ((e.stderr as string | undefined)?.includes('bad object')) {
 				if (this._repository.state.HEAD?.upstream && retry) {
 					const pullBeforeCheckoutSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<PullPRBranchVariants>(PULL_PR_BRANCH_BEFORE_CHECKOUT, 'pull');
-					const pullSetting = (pullBeforeCheckoutSetting === 'pull' || pullBeforeCheckoutSetting === 'pullAndUpdateBase' || pullBeforeCheckoutSetting === true) && (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'never' | 'prompt' | 'always'>(PULL_BRANCH, 'prompt') === 'always');
+					const pullSetting = (pullBeforeCheckoutSetting === 'pull' || pullBeforeCheckoutSetting === 'pullAndMergeBase' || pullBeforeCheckoutSetting === 'pullAndUpdateBase' || pullBeforeCheckoutSetting === true)
+						&& (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'never' | 'prompt' | 'always'>(PULL_BRANCH, 'prompt') === 'always');
 					if (pullSetting) {
 						try {
 							await this._repository.pull();

@@ -199,7 +199,7 @@ export class PullRequestGitHelper {
 
 			// respect the git setting to fetch before checkout
 			const settingValue = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<PullPRBranchVariants>(PULL_PR_BRANCH_BEFORE_CHECKOUT, 'pull');
-			if (settingValue === 'pull' || settingValue === 'pullAndUpdateBase' || settingValue === true) {
+			if (settingValue === 'pull' || settingValue === 'pullAndMergeBase' || settingValue === 'pullAndUpdateBase' || settingValue === true) {
 				const remote = readConfig(`branch.${branchName}.remote`);
 				const ref = readConfig(`branch.${branchName}.merge`);
 				progress.report({ message: vscode.l10n.t('Fetching branch {0}', branchName) });

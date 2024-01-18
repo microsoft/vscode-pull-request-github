@@ -2134,7 +2134,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return this.repository.checkout(branchName);
 	}
 
-	async tryMergeBaseIntoHead(pullRequest: PullRequestModel): Promise<void> {
+	async tryMergeBaseIntoHead(pullRequest: PullRequestModel, push: boolean): Promise<void> {
 		if (await this.isHeadUpToDateWithBase(pullRequest)) {
 			return;
 		}
@@ -2149,9 +2149,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 		const qualifiedUpstream = `${baseRemote}/${pullRequest.base.ref}`;
 		await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async (progress) => {
-			progress.report({ message: vscode.l10n.t('Fetching branch') });
+			progress.report({ message: vscode.l10n.t('Fetching branch {0}', qualifiedUpstream) });
 			await this.repository.fetch({ ref: pullRequest.base.ref, remote: baseRemote });
-			progress.report({ message: vscode.l10n.t('Merging branch') });
+			progress.report({ message: vscode.l10n.t('Merging branch {0} into {1}', qualifiedUpstream, this.repository.state.HEAD!.name!) });
 			try {
 				await this.repository.merge(qualifiedUpstream);
 			} catch (e) {
@@ -2162,13 +2162,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		});
 
 		if (pullRequest.item.mergeable === PullRequestMergeability.Conflict) {
-			const wizard = await ConflictModel.begin(this.repository, pullRequest.base.ref, this.repository.state.HEAD!.name!);
+			const wizard = await ConflictModel.begin(this.repository, pullRequest.base.ref, this.repository.state.HEAD!.name!, push);
 			await wizard?.finished();
 			wizard?.dispose();
 		} else {
 			await this.repository.push();
 		}
-		return;
 	}
 
 	async isHeadUpToDateWithBase(pullRequestModel: PullRequestModel): Promise<boolean> {

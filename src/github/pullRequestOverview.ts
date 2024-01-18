@@ -824,7 +824,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
 			return this._replyMessage(message, {});
 		}
-		await this._folderRepositoryManager.tryMergeBaseIntoHead(this._item);
+		await this._folderRepositoryManager.tryMergeBaseIntoHead(this._item, true);
 
 		this._replyMessage(message, {});
 	}

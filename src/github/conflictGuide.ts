@@ -17,7 +17,7 @@ export class ConflictModel implements vscode.Disposable {
 	private _finishedCommit: vscode.EventEmitter<boolean> = new vscode.EventEmitter();
 	public readonly message: string;
 
-	constructor(private readonly _repository: Repository, private readonly _upstream: string, private readonly _into: string) {
+	constructor(private readonly _repository: Repository, private readonly _upstream: string, private readonly _into: string, public readonly push: boolean) {
 		this.startingConflictsCount = this.remainingConflicts.length;
 		this._lastReportedRemainingCount = this.startingConflictsCount;
 		this._repository.inputBox.value = this.message = `Merge branch '${this._upstream}' into ${this._into}`;
@@ -57,6 +57,9 @@ export class ConflictModel implements vscode.Disposable {
 		});
 
 		localDisposable?.dispose();
+		if (result && this.push) {
+			this._repository.push();
+		}
 		this._finishedCommit.fire(result);
 	}
 
@@ -100,8 +103,8 @@ export class ConflictModel implements vscode.Disposable {
 		await Promise.all(this.remainingConflicts.map(conflict => commands.executeCommand('git.openMergeEditor', conflict.uri)));
 	}
 
-	public static async begin(repository: Repository, upstream: string, into: string): Promise<ConflictModel | undefined> {
-		const model = new ConflictModel(repository, upstream, into);
+	public static async begin(repository: Repository, upstream: string, into: string, push: boolean): Promise<ConflictModel | undefined> {
+		const model = new ConflictModel(repository, upstream, into, push);
 		if (model.remainingConflicts.length === 0) {
 			return undefined;
 		}
@@ -146,10 +149,15 @@ class ConflictNotification implements vscode.Disposable {
 			if (result) {
 				const commit = vscode.l10n.t('Commit');
 				const cancel = vscode.l10n.t('Abort Merge');
-				const result = await vscode.window.showInformationMessage(vscode.l10n.t('All conflicts resolved. Commit and push the resolution to continue.'), commit, cancel);
+				let message: string;
+				if (this._conflictModel.push) {
+					message = vscode.l10n.t('All conflicts resolved. Commit and push the resolution to continue.');
+				} else {
+					message = vscode.l10n.t('All conflicts resolved. Commit the resolution to continue.');
+				}
+				const result = await vscode.window.showInformationMessage(message, commit, cancel);
 				if (result === commit) {
 					await this._repository.commit(this._conflictModel.message);
-					await this._repository.push();
 					return true;
 				} else {
 					await this._conflictModel.abort();
