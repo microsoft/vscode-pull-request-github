@@ -399,6 +399,7 @@
 					"enum": [
 						"never",
 						"pull",
+						"pullAndMergeBase",
 						"pullAndUpdateBase"
 					],
 					"default": "pull"

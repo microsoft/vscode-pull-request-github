@@ -924,9 +924,9 @@ export class ReviewManager {
 					await this._folderRepoManager.fetchAndCheckout(pr, progress);
 				}
 			});
-			const updateBaseSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<PullPRBranchVariants>(PULL_PR_BRANCH_BEFORE_CHECKOUT, 'pull') === 'pullAndUpdateBase';
-			if (updateBaseSetting) {
-				await this._folderRepoManager.tryMergeBaseIntoHead(pr);
+			const updateBaseSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<PullPRBranchVariants>(PULL_PR_BRANCH_BEFORE_CHECKOUT, 'pull');
+			if (updateBaseSetting === 'pullAndMergeBase' || updateBaseSetting === 'pullAndUpdateBase') {
+				await this._folderRepoManager.tryMergeBaseIntoHead(pr, updateBaseSetting === 'pullAndUpdateBase');
 			}
 
 		} catch (e) {
