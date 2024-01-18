@@ -488,22 +488,22 @@ body button .icon {
 
 .status-badge-merged {
 	background-color: var(--vscode-pullRequests-merged);
-	color: var(--vscode-pullRequests-merged-foreground)
+	color: var(--vscode-pullRequests-status-merged-foreground);
 }
 
 .status-badge-open {
 	background-color: var(--vscode-pullRequests-open);
-	color: var(--vscode-pullRequests-open-foreground)
+	color: var(--vscode-pullRequests-status-open-foreground);
 }
 
 .status-badge-closed {
 	background-color: var(--vscode-pullRequests-closed);
-	color: var(--vscode-pullRequests-closed-foreground)
+	color: var(--vscode-pullRequests-status-closed-foreground);
 }
 
 .status-badge-draft {
 	background-color: var(--vscode-pullRequests-draft);
-	color: var(--vscode-pullRequests-draft-foreground)
+	color: var(--vscode-pullRequests-status-draft-foreground);
 }
 
 .section {
