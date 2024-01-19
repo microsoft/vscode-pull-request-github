@@ -10,6 +10,7 @@ import { GitApiImpl, GitErrorCodes } from '../api/api1';
 import { GitHubManager } from '../authentication/githubServer';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
+import { findLocalRepoRemoteFromGitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
 import { GitHubRemote, parseRemote, parseRepositoryRemotes, Remote } from '../common/remote';
@@ -32,10 +33,11 @@ import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
 import { OctokitCommon } from './common';
+import { ConflictModel } from './conflictGuide';
 import { CredentialStore } from './credentials';
 import { GitHubRepository, ItemsData, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
 import { PullRequestState, UserResponse } from './graphql';
-import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, RepoAccessAndMergeMethods, User } from './interface';
+import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
 import { MilestoneModel } from './milestoneModel';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
@@ -2130,6 +2132,55 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	async checkout(branchName: string): Promise<void> {
 		return this.repository.checkout(branchName);
+	}
+
+	async tryMergeBaseIntoHead(pullRequest: PullRequestModel, push: boolean): Promise<void> {
+		if (await this.isHeadUpToDateWithBase(pullRequest)) {
+			return;
+		}
+
+		if (this.repository.state.workingTreeChanges.length > 0 || this.repository.state.indexChanges.length > 0) {
+			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
+			return;
+		}
+		const baseRemote = findLocalRepoRemoteFromGitHubRef(this.repository, pullRequest.base)?.name;
+		if (!baseRemote) {
+			return;
+		}
+		const qualifiedUpstream = `${baseRemote}/${pullRequest.base.ref}`;
+		await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async (progress) => {
+			progress.report({ message: vscode.l10n.t('Fetching branch {0}', qualifiedUpstream) });
+			await this.repository.fetch({ ref: pullRequest.base.ref, remote: baseRemote });
+			progress.report({ message: vscode.l10n.t('Merging branch {0} into {1}', qualifiedUpstream, this.repository.state.HEAD!.name!) });
+			try {
+				await this.repository.merge(qualifiedUpstream);
+			} catch (e) {
+				if (e.gitErrorCode !== GitErrorCodes.Conflict) {
+					throw e;
+				}
+			}
+		});
+
+		if (pullRequest.item.mergeable === PullRequestMergeability.Conflict) {
+			const wizard = await ConflictModel.begin(this.repository, pullRequest.base.ref, this.repository.state.HEAD!.name!, push);
+			await wizard?.finished();
+			wizard?.dispose();
+		} else {
+			await this.repository.push();
+		}
+	}
+
+	async isHeadUpToDateWithBase(pullRequestModel: PullRequestModel): Promise<boolean> {
+		if (!pullRequestModel.head) {
+			return false;
+		}
+		const baseRemote = findLocalRepoRemoteFromGitHubRef(this.repository, pullRequestModel.base)?.name;
+		const headRemote = findLocalRepoRemoteFromGitHubRef(this.repository, pullRequestModel.head)?.name;
+		if (!baseRemote || !headRemote) {
+			return false;
+		}
+		const log = await this.repository.log({ range: `${headRemote}/${pullRequestModel.head.ref}..${baseRemote}/${pullRequestModel.base.ref}` });
+		return log.length === 0;
 	}
 
 	async fetchById(githubRepo: GitHubRepository, id: number): Promise<PullRequestModel | undefined> {

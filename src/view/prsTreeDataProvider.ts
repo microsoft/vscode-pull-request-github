@@ -41,7 +41,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 	private _view: vscode.TreeView<TreeNode>;
 	private _initialized: boolean = false;
 	public notificationProvider: NotificationProvider;
-	private _prsTreeModel: PrsTreeModel;
+	public readonly prsTreeModel: PrsTreeModel;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
@@ -49,14 +49,14 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 
 	constructor(private _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager) {
 		this._disposables = [];
-		this._prsTreeModel = new PrsTreeModel(this._telemetry, this._reposManager, _context);
-		this._disposables.push(this._prsTreeModel);
-		this._disposables.push(this._prsTreeModel.onDidChangeData(folderManager => folderManager ? this.refreshRepo(folderManager) : this.refresh()));
-		this._disposables.push(new PRStatusDecorationProvider(this._prsTreeModel));
+		this.prsTreeModel = new PrsTreeModel(this._telemetry, this._reposManager, _context);
+		this._disposables.push(this.prsTreeModel);
+		this._disposables.push(this.prsTreeModel.onDidChangeData(folderManager => folderManager ? this.refreshRepo(folderManager) : this.refresh()));
+		this._disposables.push(new PRStatusDecorationProvider(this.prsTreeModel));
 		this._disposables.push(vscode.window.registerFileDecorationProvider(DecorationProvider));
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.refreshList', _ => {
-				this._prsTreeModel.clearCache();
+				this.prsTreeModel.clearCache();
 				this._onDidChangeTreeData.fire();
 			}),
 		);
@@ -111,10 +111,10 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		this._disposables.push(this._view.onDidChangeCheckboxState(TreeUtils.processCheckboxUpdates));
 
 		this._disposables.push(this._view.onDidExpandElement(expanded => {
-			this._prsTreeModel.updateExpandedQueries(expanded.element, true);
+			this.prsTreeModel.updateExpandedQueries(expanded.element, true);
 		}));
 		this._disposables.push(this._view.onDidCollapseElement(collapsed => {
-			this._prsTreeModel.updateExpandedQueries(collapsed.element, false);
+			this.prsTreeModel.updateExpandedQueries(collapsed.element, false);
 		}));
 	}
 
@@ -263,7 +263,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 					this,
 					this.notificationProvider,
 					this._context,
-					this._prsTreeModel
+					this.prsTreeModel
 				);
 			} else {
 				result = this._reposManager.folderManagers.map(
@@ -275,7 +275,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 							this._telemetry,
 							this.notificationProvider,
 							this._context,
-							this._prsTreeModel
+							this.prsTreeModel
 						),
 				);
 			}

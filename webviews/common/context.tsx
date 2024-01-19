@@ -180,6 +180,10 @@ export class PRContext {
 		this.updatePR(state);
 	}
 
+	public updateBranch = async () => {
+		return this.postMessage({ command: 'pr.update-branch' });
+	}
+
 	public dequeue = async () => {
 		const isDequeued = await this.postMessage({ command: 'pr.dequeue' });
 		const state = this.pr;

@@ -38,6 +38,9 @@ export class PrsTreeModel implements vscode.Disposable {
 	private readonly _onDidChangeData: vscode.EventEmitter<FolderRepositoryManager | void> = new vscode.EventEmitter();
 	public readonly onDidChangeData = this._onDidChangeData.event;
 	private _expandedQueries: Set<string> = new Set();
+	private _hasLoaded: boolean = false;
+	private _onLoaded: vscode.EventEmitter<void> = new vscode.EventEmitter();
+	public readonly onLoaded = this._onLoaded.event;
 
 	// Key is identifier from createPRNodeUri
 	private readonly _queriedPullRequests: Map<string, PRStatusChange> = new Map();
@@ -93,6 +96,15 @@ export class PrsTreeModel implements vscode.Disposable {
 			return new Set();
 		}
 		return this._expandedQueries;
+	}
+
+	get hasLoaded(): boolean {
+		return this._hasLoaded;
+	}
+
+	private set hasLoaded(value: boolean) {
+		this._hasLoaded = value;
+		this._onLoaded.fire();
 	}
 
 	public cachedPRStatus(identifier: string): PRStatusChange | undefined {
@@ -188,6 +200,7 @@ export class PrsTreeModel implements vscode.Disposable {
 		this._telemetry.sendTelemetryEvent('pr.expand.local');
 		// Don't await this._getChecks. It fires an event that will be listened to.
 		this._getChecks(prs);
+		this.hasLoaded = true;
 		return { hasMorePages: false, hasUnsearchedRepositories: false, items: prs };
 	}
 
@@ -210,6 +223,7 @@ export class PrsTreeModel implements vscode.Disposable {
 		this._telemetry.sendTelemetryEvent('pr.expand.query');
 		// Don't await this._getChecks. It fires an event that will be listened to.
 		this._getChecks(prs.items);
+		this.hasLoaded = true;
 		return prs;
 	}
 
@@ -231,6 +245,7 @@ export class PrsTreeModel implements vscode.Disposable {
 		this._telemetry.sendTelemetryEvent('pr.expand.all');
 		// Don't await this._getChecks. It fires an event that will be listened to.
 		this._getChecks(prs.items);
+		this.hasLoaded = true;
 		return prs;
 	}
 

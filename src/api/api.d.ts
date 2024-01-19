@@ -205,6 +205,8 @@ export interface Repository {
 
 	commit(message: string, opts?: CommitOptions): Promise<void>;
 	add(paths: string[]): Promise<void>;
+	merge(ref: string): Promise<void>;
+	mergeAbort(): Promise<void>;
 }
 
 /**

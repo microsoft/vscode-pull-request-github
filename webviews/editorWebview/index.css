@@ -463,6 +463,7 @@ body button .icon {
 #status {
 	box-sizing: border-box;
 	line-height: 18px;
+	color: var(--vscode-button-foreground);
 	border-radius: 18px;
 	padding: 4px 12px;
 	margin-right: 10px;
@@ -487,22 +488,18 @@ body button .icon {
 
 .status-badge-merged {
 	background-color: var(--vscode-pullRequests-merged);
-	color: var(--vscode-pullRequests-statusMergedForeground);
 }
 
 .status-badge-open {
 	background-color: var(--vscode-pullRequests-open);
-	color: var(--vscode-pullRequests-statusOpenForeground);
 }
 
 .status-badge-closed {
 	background-color: var(--vscode-pullRequests-closed);
-	color: var(--vscode-pullRequests-statusClosedForeground);
 }
 
 .status-badge-draft {
 	background-color: var(--vscode-pullRequests-draft);
-	color: var(--vscode-pullRequests-statusDraftForeground);
 }
 
 .section {

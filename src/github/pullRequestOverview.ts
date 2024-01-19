@@ -190,7 +190,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
 			pullRequestModel.canEdit(),
 			this._folderRepositoryManager.getOrgTeamsCount(pullRequestModel.githubRepository),
-			this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName)])
+			this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName),
+			this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel)])
 			.then(result => {
 				const [
 					pullRequest,
@@ -203,7 +204,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					currentUser,
 					viewerCanEdit,
 					orgTeamsCount,
-					mergeQueueMethod
+					mergeQueueMethod,
+					isBranchUpToDateWithBase
 				] = result;
 				if (!pullRequest) {
 					throw new Error(
@@ -262,6 +264,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					hasWritePermission,
 					status: status[0],
 					reviewRequirement: status[1],
+					canUpdateBranch: pullRequest.item.viewerCanUpdate && !isBranchUpToDateWithBase,
 					mergeable: pullRequest.item.mergeable,
 					reviewers: this._existingReviewers,
 					isDraft: pullRequest.isDraft,
@@ -374,6 +377,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.dequeue(message);
 			case 'pr.enqueue':
 				return this.enqueue(message);
+			case 'pr.update-branch':
+				return this.updateBranch(message);
 			case 'pr.gotoChangesSinceReview':
 				this.gotoChangesSinceReview();
 				break;
@@ -812,6 +817,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async enqueue(message: IRequestMessage<void>): Promise<void> {
 		const result = await this._item.enqueuePullRequest();
 		this._replyMessage(message, { mergeQueueEntry: result });
+	}
+
+	private async updateBranch(message: IRequestMessage<string>): Promise<void> {
+		if (this._folderRepositoryManager.repository.state.workingTreeChanges.length > 0 || this._folderRepositoryManager.repository.state.indexChanges.length > 0) {
+			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
+			return this._replyMessage(message, {});
+		}
+		await this._folderRepositoryManager.tryMergeBaseIntoHead(this._item, true);
+
+		this._replyMessage(message, {});
 	}
 
 	protected editCommentPromise(comment: IComment, text: string): Promise<IComment> {

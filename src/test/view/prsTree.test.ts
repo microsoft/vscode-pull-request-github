@@ -29,6 +29,7 @@ import { LoggingOctokit, RateLogger } from '../../github/loggingOctokit';
 import { GitHubServerType } from '../../common/authentication';
 import { DataUri } from '../../common/uri';
 import { IAccount, ITeam } from '../../github/interface';
+import { asPromise } from '../../common/utils';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -196,6 +197,7 @@ describe('GitHub Pull Requests view', function () {
 
 			// Need to call getChildren twice to get past the quick render with an empty list
 			await localNode!.getChildren();
+			await asPromise(provider.prsTreeModel.onLoaded);
 			const localChildren = await localNode!.getChildren();
 			assert.strictEqual(localChildren.length, 2);
 			const [localItem0, localItem1] = await Promise.all(localChildren.map(node => node.getTreeItem()));
