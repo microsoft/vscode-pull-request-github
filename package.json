@@ -2687,8 +2687,8 @@
 			{
 				"id": "pullRequests.statusOpenForeground",
 				"defaults": {
-					"dark": "#000000",
-					"light": "#ffffff",
+					"dark": "#ffffff",
+					"light": "#000000",
 					"highContrast": "editor.foreground",
 					"highContrastLight": "editor.foreground"
 				},
