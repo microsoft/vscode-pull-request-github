@@ -43,7 +43,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
-		super.getChildren();
+		super.getChildren(false);
 
 		Logger.appendLine(`Getting children for Files node`, PR_TREE);
 		if (!this._reviewModel.hasLocalFileChanges) {

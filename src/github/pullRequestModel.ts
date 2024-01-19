@@ -1785,7 +1785,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		// 	}
 		// }
 
-		filePathOrSubpaths.forEach(path => this.setFileViewedState(path, state === 'viewed' ? ViewedState.VIEWED : ViewedState.UNVIEWED, event));
+		allFilenames.forEach(path => this.setFileViewedState(path, state === 'viewed' ? ViewedState.VIEWED : ViewedState.UNVIEWED, event));
 	}
 
 	async unmarkAllFilesAsViewed(): Promise<void> {
