@@ -2331,13 +2331,15 @@
 			"comments/commentThread/comment/context": [
 				{
 					"command": "pr.resolveReviewThread",
-					"group": "inline@3",
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
 				},
 				{
 					"command": "pr.unresolveReviewThread",
-					"group": "inline@3",
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+				},
+				{
+					"command": "pr.applySuggestion",
+					"when": "commentController =~ /^github-review/ && comment =~ /hasSuggestion/"
 				}
 			],
 			"comments/comment/title": [
