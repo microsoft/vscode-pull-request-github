@@ -546,6 +546,21 @@
 							"query": {
 								"type": "string",
 								"markdownDescription": "%githubIssues.queries.query%"
+							},
+							"groupBy": {
+								"type": "array",
+								"markdownDescription": "%githubIssues.queries.groupBy%",
+								"items": {
+									"type": "string",
+									"enum": [
+										"repository",
+										"milestone"
+									],
+									"enumDescriptions": [
+										"%githubIssues.queries.groupBy.milestone%",
+										"%githubIssues.queries.groupBy.repository%"
+									]
+								}
 							}
 						}
 					},

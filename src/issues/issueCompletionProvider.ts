@@ -16,7 +16,7 @@ import { MilestoneModel } from '../github/milestoneModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getIssueNumberLabel, variableSubstitution } from '../github/utils';
 import { extractIssueOriginFromQuery, NEW_ISSUE_SCHEME } from './issueFile';
-import { StateManager } from './stateManager';
+import { IssueQueryResult, StateManager } from './stateManager';
 import {
 	getRootUriFromScmInputUri,
 	isComment,
@@ -152,24 +152,18 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		// Count up total number of issues. The number of queries is expected to be small.
 		let totalIssues = 0;
 		for (const issueQuery of issueData) {
-			const issuesOrMilestones: IssueModel[] | MilestoneModel[] = (await issueQuery[1]) ?? [];
-			if (issuesOrMilestones[0] instanceof IssueModel) {
-				totalIssues += issuesOrMilestones.length;
-			} else {
-				for (const milestone of issuesOrMilestones) {
-					totalIssues += (milestone as MilestoneModel).issues.length;
-				}
-			}
+			const issuesOrMilestones: IssueQueryResult = await issueQuery[1];
+			totalIssues += issuesOrMilestones.issues.length;
 		}
 
 		for (const issueQuery of issueData) {
-			const issuesOrMilestones: IssueModel[] | MilestoneModel[] = (await issueQuery[1]) ?? [];
-			if (issuesOrMilestones.length === 0) {
+			const issuesOrMilestones: IssueQueryResult = await issueQuery[1];
+			if (issuesOrMilestones.issues.length === 0) {
 				continue;
 			}
 			if (issuesOrMilestones[0] instanceof IssueModel) {
 				let index = 0;
-				for (const issue of issuesOrMilestones) {
+				for (const issue of issuesOrMilestones.issues) {
 					if (filterOwnerAndRepo && ((issue as IssueModel).remote.owner !== filterOwnerAndRepo.owner || (issue as IssueModel).remote.repositoryName !== filterOwnerAndRepo.repo)) {
 						continue;
 					}
@@ -179,7 +173,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 					);
 				}
 			} else {
-				for (let index = 0; index < issuesOrMilestones.length; index++) {
+				for (let index = 0; index < issuesOrMilestones.issues.length; index++) {
 					const value: MilestoneModel = issuesOrMilestones[index] as MilestoneModel;
 					for (const issue of value.issues) {
 						if (filterOwnerAndRepo && ((issue as IssueModel).remote.owner !== filterOwnerAndRepo.owner || (issue as IssueModel).remote.repositoryName !== filterOwnerAndRepo.repo)) {
