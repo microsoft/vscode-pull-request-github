@@ -49,7 +49,8 @@ interface IssuesState {
 	branches: Record<string, { owner: string; repositoryName: string; number: number }>;
 }
 
-const DEFAULT_QUERY_CONFIGURATION_VALUE = [{ label: vscode.l10n.t('My Issues'), query: 'default' }];
+// eslint-disable-next-line no-template-curly-in-string
+const DEFAULT_QUERY_CONFIGURATION_VALUE: { label: string, query: string, groupBy: QueryGroup[] }[] = [{ label: vscode.l10n.t('My Issues'), query: 'is:open assignee:@me repo:${owner}/${repository}', groupBy: ['milestone'] }];
 
 export interface MilestoneItem extends MilestoneModel {
 	uri: vscode.Uri;
@@ -63,10 +64,17 @@ interface SingleRepoState {
 	lastHead?: string;
 	lastBranch?: string;
 	currentIssue?: CurrentIssue;
-	issueCollection: Map<string, Promise<MilestoneItem[] | IssueItem[]>>;
+	issueCollection: Map<string, Promise<IssueQueryResult>>;
 	maxIssueNumber: number;
 	userMap?: Promise<Map<string, IAccount>>;
 	folderManager: FolderRepositoryManager;
+}
+
+export type QueryGroup = 'repository' | 'milestone';
+
+export interface IssueQueryResult {
+	groupBy: QueryGroup[];
+	issues: IssueItem[];
 }
 
 export class StateManager {
@@ -76,14 +84,14 @@ export class StateManager {
 	public onRefreshCacheNeeded: vscode.Event<void> = this._onRefreshCacheNeeded.event;
 	private _onDidChangeIssueData: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public onDidChangeIssueData: vscode.Event<void> = this._onDidChangeIssueData.event;
-	private _queries: { label: string; query: string }[] = [];
+	private _queries: { label: string; query: string, groupBy?: QueryGroup[] }[] = [];
 
 	private _onDidChangeCurrentIssue: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidChangeCurrentIssue: vscode.Event<void> = this._onDidChangeCurrentIssue.event;
 	private initializePromise: Promise<void> | undefined;
 	private statusBarItem?: vscode.StatusBarItem;
 
-	getIssueCollection(uri: vscode.Uri): Map<string, Promise<MilestoneItem[] | IssueItem[]>> {
+	getIssueCollection(uri: vscode.Uri): Map<string, Promise<IssueQueryResult>> {
 		let collection = this._singleRepoStates.get(uri.path)?.issueCollection;
 		if (collection) {
 			return collection;
@@ -291,33 +299,26 @@ export class StateManager {
 	private async setIssueData(folderManager: FolderRepositoryManager) {
 		const singleRepoState = this.getOrCreateSingleRepoState(folderManager.repository.rootUri, folderManager);
 		singleRepoState.issueCollection.clear();
-		let defaults: PullRequestDefaults | undefined;
-		let user: string | undefined;
-		for (const query of this._queries) {
-			let items: Promise<IssueItem[] | MilestoneItem[]>;
+		const enterpriseRemotes = parseRepositoryRemotes(folderManager.repository).filter(
+			remote => remote.isEnterprise
+		);
+		const user = await this.getCurrentUser(enterpriseRemotes.length ? AuthProvider.githubEnterprise : AuthProvider.github);
+
+		for (let query of this._queries) {
+			let items: Promise<IssueQueryResult> | undefined;
 			if (query.query === DEFAULT) {
-				items = this.setMilestones(folderManager);
-			} else {
-				if (!defaults) {
-					try {
-						defaults = await folderManager.getPullRequestDefaults();
-					} catch (e) {
-						// leave defaults undefined
-					}
-				}
-				if (!user) {
-					const enterpriseRemotes = parseRepositoryRemotes(folderManager.repository).filter(
-						remote => remote.isEnterprise
-					);
-					user = await this.getCurrentUser(enterpriseRemotes.length ? AuthProvider.githubEnterprise : AuthProvider.github);
-				}
-				items = this.setIssues(
-					folderManager,
-					// Do not resolve pull request defaults as they will get resolved in the query later per repository
-					await variableSubstitution(query.query, undefined, undefined, user),
-				);
+				query = DEFAULT_QUERY_CONFIGURATION_VALUE[0];
 			}
-			singleRepoState.issueCollection.set(query.label, items);
+
+			items = this.setIssues(
+				folderManager,
+				// Do not resolve pull request defaults as they will get resolved in the query later per repository
+				await variableSubstitution(query.query, undefined, undefined, user),
+			).then(issues => ({ groupBy: query.groupBy ?? [], issues }));
+
+			if (items) {
+				singleRepoState.issueCollection.set(query.label, items);
+			}
 		}
 		singleRepoState.maxIssueNumber = await folderManager.getMaxIssue();
 		singleRepoState.lastHead = folderManager.repository.state.HEAD?.commit;
