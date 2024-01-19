@@ -1137,6 +1137,22 @@ ${contents}
 		}),
 	);
 
+	const findPrFromUri = (manager: FolderRepositoryManager | undefined, treeNode: vscode.Uri): PullRequestModel | undefined => {
+		if (treeNode.scheme === Schemes.Pr) {
+			const prQuery = fromPRUri(treeNode);
+			if (prQuery) {
+				for (const githubRepos of (manager?.gitHubRepositories ?? [])) {
+					const prNumber = Number(prQuery.prNumber);
+					if (githubRepos.pullRequestModels.has(prNumber)) {
+						return githubRepos.pullRequestModels.get(prNumber);
+					}
+				}
+			}
+		} else {
+			return manager?.activePullRequest;
+		}
+	};
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.markFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri | undefined) => {
 			try {
@@ -1162,8 +1178,10 @@ ${contents}
 							vscode.window.tabGroups.close(tab);
 						}
 					}
+
 					const manager = reposManager.getManagerForFile(treeNode);
-					await manager?.activePullRequest?.markFiles([treeNode.path], true, 'viewed');
+					const pullRequest = findPrFromUri(manager, treeNode);
+					await pullRequest?.markFiles([treeNode.path], true, 'viewed');
 					manager?.setFileViewedContext();
 				}
 			} catch (e) {
@@ -1184,7 +1202,8 @@ ${contents}
 					treeNode.unmarkFileAsViewed(false);
 				} else if (treeNode) {
 					const manager = reposManager.getManagerForFile(treeNode);
-					await manager?.activePullRequest?.markFiles([treeNode.path], true, 'unviewed');
+					const pullRequest = findPrFromUri(manager, treeNode);
+					await pullRequest?.markFiles([treeNode.path], true, 'unviewed');
 					manager?.setFileViewedContext();
 				}
 			} catch (e) {

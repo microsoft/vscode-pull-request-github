@@ -16,7 +16,7 @@ export interface BaseTreeNode {
 
 export type TreeNodeParent = TreeNode | BaseTreeNode;
 
-export abstract class TreeNode implements vscode.Disposable {
+export abstract class TreeNode {
 	protected children: TreeNode[] | undefined;
 	childrenDisposables: vscode.Disposable[];
 	parent: TreeNodeParent;
@@ -54,8 +54,8 @@ export abstract class TreeNode implements vscode.Disposable {
 		return this.getChildren();
 	}
 
-	async getChildren(): Promise<TreeNode[]> {
-		if (this.children && this.children.length) {
+	async getChildren(shouldDispose: boolean = true): Promise<TreeNode[]> {
+		if (this.children && this.children.length && shouldDispose) {
 			dispose(this.children);
 			this.children = [];
 		}
