@@ -2668,6 +2668,16 @@
 				"description": "The color used for indicating that a pull request is merged."
 			},
 			{
+				"id": "pullRequests.statusMergedForeground",
+				"defaults": {
+					"dark": "pullRequests.statusOpenForeground",
+					"light": "pullRequests.statusOpenForeground",
+					"highContrast": "editor.foreground",
+					"highContrastLight": "editor.foreground"
+				},
+				"description": "The foreground color used for the status badge indicating that a pull request is merged."
+			},
+			{
 				"id": "pullRequests.draft",
 				"defaults": {
 					"dark": "#6e7681",
@@ -2676,6 +2686,16 @@
 					"highContrastLight": "editor.background"
 				},
 				"description": "The color used for indicating that a pull request is a draft."
+			},
+			{
+				"id": "pullRequests.statusDraftForeground",
+				"defaults": {
+					"dark": "pullRequests.statusOpenForeground",
+					"light": "pullRequests.statusOpenForeground",
+					"highContrast": "editor.foreground",
+					"highContrastLight": "editor.foreground"
+				},
+				"description": "The foreground color used for the status badge indicating that a pull request is draft."
 			},
 			{
 				"id": "pullRequests.open",
@@ -2688,6 +2708,16 @@
 				"description": "The color used for indicating that a pull request is open."
 			},
 			{
+				"id": "pullRequests.statusOpenForeground",
+				"defaults": {
+					"dark": "#ffffff",
+					"light": "#000000",
+					"highContrast": "editor.foreground",
+					"highContrastLight": "editor.foreground"
+				},
+				"description": "The foreground color used for the status badge indicating that a pull request is open."
+			},
+			{
 				"id": "pullRequests.closed",
 				"defaults": {
 					"dark": "issues.closed",
@@ -2696,6 +2726,16 @@
 					"highContrastLight": "editor.background"
 				},
 				"description": "The color used for indicating that a pull request is closed."
+			},
+			{
+				"id": "pullRequests.statusClosedForeground",
+				"defaults": {
+					"dark": "pullRequests.statusOpenForeground",
+					"light": "pullRequests.statusOpenForeground",
+					"highContrast": "editor.foreground",
+					"highContrastLight": "editor.foreground"
+				},
+				"description": "The foreground color used for the status badge indicating that a pull request is closed."
 			},
 			{
 				"id": "pullRequests.notification",
