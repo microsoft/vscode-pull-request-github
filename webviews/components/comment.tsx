@@ -493,7 +493,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 				name="body"
 				placeholder="Leave a comment"
 				ref={textareaRef as React.MutableRefObject<HTMLTextAreaElement>}
-				value={pr.pendingCommentText}
+				value={pr.pendingCommentText ?? ''}
 				onChange={onChangeTextarea}
 				onKeyDown={onKeyDown}
 				disabled={isBusy || pr.busy}
