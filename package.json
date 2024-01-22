@@ -569,7 +569,8 @@
 					"default": [
 						{
 							"label": "%githubIssues.queries.default.myIssues%",
-							"query": "default"
+							"query": "is:open assignee:${user} repo:${owner}/${repository}",
+							"groupBy": ["milestone"]
 						},
 						{
 							"label": "%githubIssues.queries.default.createdIssues%",

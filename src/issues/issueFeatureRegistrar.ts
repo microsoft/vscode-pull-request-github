@@ -37,7 +37,7 @@ import {
 } from './issueFile';
 import { IssueHoverProvider } from './issueHoverProvider';
 import { openCodeLink } from './issueLinkLookup';
-import { IssuesTreeData, IssueUriTreeItem, updateExpandedQueries } from './issuesView';
+import { IssuesTreeData, QueryNode, updateExpandedQueries } from './issuesView';
 import { IssueTodoProvider } from './issueTodoProvider';
 import { ShareProviderManager } from './shareProviders';
 import { StateManager } from './stateManager';
@@ -418,7 +418,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(
 			vscode.commands.registerCommand(
 				'issue.editQuery',
-				(query: IssueUriTreeItem) => {
+				(query: QueryNode) => {
 					/* __GDPR__
 				"issue.editQuery" : {}
 			*/
@@ -658,7 +658,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		}
 	}
 
-	async editQuery(query: IssueUriTreeItem) {
+	async editQuery(query: QueryNode) {
 		const config = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null);
 		const inspect = config.inspect<{ label: string; query: string }[]>(QUERIES);
 		let command: string;
@@ -675,7 +675,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		const editor = vscode.window.activeTextEditor;
 		if (editor) {
 			const text = editor.document.getText();
-			const search = text.search(query.labelAsString!);
+			const search = text.search(query.queryLabel);
 			if (search >= 0) {
 				const position = editor.document.positionAt(search);
 				editor.revealRange(new vscode.Range(position, position));

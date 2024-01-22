@@ -13,21 +13,7 @@ import { issueBodyHasLink } from './issueLinkLookup';
 import { IssueItem, QueryGroup, StateManager } from './stateManager';
 import { issueMarkdown } from './util';
 
-export class IssueUriTreeItem extends vscode.TreeItem {
-	constructor(
-		public readonly repoRootUri: vscode.Uri | undefined,
-		label: string,
-		collapsibleState?: vscode.TreeItemCollapsibleState,
-	) {
-		super(label, collapsibleState);
-	}
-
-	get labelAsString(): string | undefined {
-		return typeof this.label === 'string' ? this.label : this.label?.label;
-	}
-}
-
-class QueryNode {
+export class QueryNode {
 	constructor(
 		public readonly repoRootUri: vscode.Uri,
 		public readonly queryLabel: string,
