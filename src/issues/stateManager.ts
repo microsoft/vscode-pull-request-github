@@ -18,19 +18,15 @@ import {
 } from '../common/settingKeys';
 import {
 	FolderRepositoryManager,
-	NO_MILESTONE,
 	PullRequestDefaults,
 	ReposManagerState,
 } from '../github/folderRepositoryManager';
 import { IAccount } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
-import { MilestoneModel } from '../github/milestoneModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getIssueNumberLabel, variableSubstitution } from '../github/utils';
 import { CurrentIssue } from './currentIssue';
 
-// TODO: make exclude from date words configurable
-const excludeFromDate: string[] = ['Recovery'];
 const CURRENT_ISSUE_KEY = 'currentIssue';
 
 const ISSUES_KEY = 'issues';
@@ -51,10 +47,6 @@ interface IssuesState {
 
 // eslint-disable-next-line no-template-curly-in-string
 const DEFAULT_QUERY_CONFIGURATION_VALUE: { label: string, query: string, groupBy: QueryGroup[] }[] = [{ label: vscode.l10n.t('My Issues'), query: 'is:open assignee:@me repo:${owner}/${repository}', groupBy: ['milestone'] }];
-
-export interface MilestoneItem extends MilestoneModel {
-	uri: vscode.Uri;
-}
 
 export class IssueItem extends IssueModel {
 	uri: vscode.Uri;
@@ -382,65 +374,6 @@ export class StateManager {
 				return;
 			}
 		}
-	}
-
-	private setMilestones(folderManager: FolderRepositoryManager): Promise<MilestoneItem[]> {
-		return new Promise(async resolve => {
-			const now = new Date();
-			const skipMilestones: string[] = vscode.workspace
-				.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
-				.get(IGNORE_MILESTONES, []);
-			const milestones = await folderManager.getMilestoneIssues(
-				{ fetchNextPage: false },
-				skipMilestones.indexOf(NO_MILESTONE) < 0,
-			);
-			let mostRecentPastTitleTime: Date | undefined = undefined;
-			const milestoneDateMap: Map<string, Date> = new Map();
-			const milestonesToUse: MilestoneItem[] = [];
-
-			// The number of milestones is expected to be very low, so two passes through is negligible
-			for (let i = 0; i < milestones.items.length; i++) {
-				const item: MilestoneItem = milestones.items[i] as MilestoneItem;
-				item.uri = folderManager.repository.rootUri;
-				const milestone = milestones.items[i].milestone;
-				if ((item.issues && item.issues.length <= 0) || skipMilestones.indexOf(milestone.title) >= 0) {
-					continue;
-				}
-
-				milestonesToUse.push(item);
-				let milestoneDate = milestone.dueOn ? new Date(milestone.dueOn) : undefined;
-				if (!milestoneDate) {
-					milestoneDate = new Date(this.removeDateExcludeStrings(milestone.title));
-					if (isNaN(milestoneDate.getTime())) {
-						milestoneDate = new Date(milestone.createdAt!);
-					}
-				}
-				if (
-					milestoneDate < now &&
-					(mostRecentPastTitleTime === undefined || milestoneDate > mostRecentPastTitleTime)
-				) {
-					mostRecentPastTitleTime = milestoneDate;
-				}
-				milestoneDateMap.set(milestone.id ? milestone.id : milestone.title, milestoneDate);
-			}
-
-			milestonesToUse.sort((a: MilestoneModel, b: MilestoneModel): number => {
-				const dateA = milestoneDateMap.get(a.milestone.id ? a.milestone.id : a.milestone.title)!;
-				const dateB = milestoneDateMap.get(b.milestone.id ? b.milestone.id : b.milestone.title)!;
-				if (mostRecentPastTitleTime && dateA >= mostRecentPastTitleTime && dateB >= mostRecentPastTitleTime) {
-					return dateA <= dateB ? -1 : 1;
-				} else {
-					return dateA >= dateB ? -1 : 1;
-				}
-			});
-			this._onDidChangeIssueData.fire();
-			resolve(milestonesToUse);
-		});
-	}
-
-	private removeDateExcludeStrings(possibleDate: string): string {
-		excludeFromDate.forEach(exclude => (possibleDate = possibleDate.replace(exclude, '')));
-		return possibleDate;
 	}
 
 	currentIssue(uri: vscode.Uri): CurrentIssue | undefined {

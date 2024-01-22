@@ -21,7 +21,6 @@ import {
 	GetBranchResponse,
 	GetChecksResponse,
 	isCheckRun,
-	IssuesResponse,
 	IssuesSearchResponse,
 	ListBranchesResponse,
 	MaxIssueResponse,
@@ -687,75 +686,6 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 
 		return data.repository.object.text.split('\n').slice(lineStart - 1, lineEnd).join('\n');
-	}
-
-	async getIssuesForUserByMilestone(_page?: number): Promise<MilestoneData | undefined> {
-		try {
-			Logger.debug(`Fetch all issues - enter`, GitHubRepository.ID);
-			const { query, remote, schema } = await this.ensure();
-			const { data } = await query<MilestoneIssuesResponse>({
-				query: schema.GetMilestonesWithIssues,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					assignee: (await this._credentialStore.getCurrentUser(remote.authProviderId))?.login,
-				},
-			});
-			Logger.debug(`Fetch all issues - done`, GitHubRepository.ID);
-
-			const milestones: { milestone: IMilestone; issues: IssueModel[] }[] = [];
-			if (data && data.repository?.milestones && data.repository.milestones.nodes) {
-				data.repository.milestones.nodes.forEach(raw => {
-					const milestone = parseMilestone(raw);
-					if (milestone) {
-						const issues: IssueModel[] = [];
-						raw.issues.edges.forEach(issue => {
-							issues.push(new IssueModel(this, this.remote, parseGraphQLIssue(issue.node, this)));
-						});
-						milestones.push({ milestone, issues });
-					}
-				});
-			}
-			return {
-				items: milestones,
-				hasMorePages: !!data.repository?.milestones.pageInfo.hasNextPage,
-			};
-		} catch (e) {
-			Logger.error(`Unable to fetch issues: ${e}`, GitHubRepository.ID);
-			return;
-		}
-	}
-
-	async getIssuesWithoutMilestone(_page?: number): Promise<IssueData | undefined> {
-		try {
-			Logger.debug(`Fetch issues without milestone- enter`, GitHubRepository.ID);
-			const { query, remote, schema } = await this.ensure();
-			const { data } = await query<IssuesResponse>({
-				query: schema.IssuesWithoutMilestone,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					assignee: (await this._credentialStore.getCurrentUser(remote.authProviderId))?.login,
-				},
-			});
-			Logger.debug(`Fetch issues without milestone - done`, GitHubRepository.ID);
-
-			const issues: Issue[] = [];
-			if (data && data.repository?.issues.edges) {
-				data.repository.issues.edges.forEach(raw => {
-					if (raw.node.id) {
-						issues.push(parseGraphQLIssue(raw.node, this));
-					}
-				});
-			}
-			return {
-				items: issues,
-				hasMorePages: !!data.repository?.issues.pageInfo.hasNextPage,
-			};
-		} catch (e) {
-			Logger.error(`Unable to fetch issues without milestone: ${e}`, GitHubRepository.ID);
-			return;
-		}
 	}
 
 	async getIssues(page?: number, queryString?: string): Promise<IssueData | undefined> {

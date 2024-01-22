@@ -39,7 +39,6 @@ import { GitHubRepository, ItemsData, PullRequestData, TeamReviewerRefreshKind, 
 import { PullRequestState, UserResponse } from './graphql';
 import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
-import { MilestoneModel } from './milestoneModel';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
 import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel';
 import {
@@ -112,12 +111,8 @@ export interface PullRequestDefaults {
 	base: string;
 }
 
-export const NO_MILESTONE: string = 'No Milestone';
-
 enum PagedDataType {
 	PullRequest,
-	Milestones,
-	IssuesWithoutMilestone,
 	IssueSearch,
 }
 
@@ -1008,12 +1003,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 							return githubRepository.getPullRequestsForCategory(resolvedQuery || '', pageNumber);
 						}
 					}
-					case PagedDataType.Milestones: {
-						return githubRepository.getIssuesForUserByMilestone(pageInformation.pullRequestPage);
-					}
-					case PagedDataType.IssuesWithoutMilestone: {
-						return githubRepository.getIssuesWithoutMilestone(pageInformation.pullRequestPage);
-					}
 					case PagedDataType.IssueSearch: {
 						return githubRepository.getIssues(pageInformation.pullRequestPage, resolvedQuery);
 					}
@@ -1077,44 +1066,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	): Promise<ItemsResponseResult<PullRequestModel>> {
 		const queryId = type.toString() + (query || '');
 		return this.fetchPagedData<PullRequestModel>(options, queryId, PagedDataType.PullRequest, type, query);
-	}
-
-	async getMilestoneIssues(
-		options: IPullRequestsPagingOptions = { fetchNextPage: false },
-		includeIssuesWithoutMilestone: boolean = false,
-	): Promise<ItemsResponseResult<MilestoneModel>> {
-		try {
-			const milestones: ItemsResponseResult<MilestoneModel> = await this.fetchPagedData<MilestoneModel>(
-				options,
-				'milestoneIssuesKey',
-				PagedDataType.Milestones,
-				PRType.All
-			);
-			if (includeIssuesWithoutMilestone) {
-				const additionalIssues: ItemsResponseResult<Issue> = await this.fetchPagedData<Issue>(
-					options,
-					'noMilestoneIssuesKey',
-					PagedDataType.IssuesWithoutMilestone,
-					PRType.All
-				);
-				milestones.items.push({
-					milestone: {
-						createdAt: new Date(0).toDateString(),
-						id: '',
-						title: NO_MILESTONE,
-						number: -1
-					},
-					issues: await Promise.all(additionalIssues.items.map(async (issue) => {
-						const githubRepository = await this.getRepoForIssue(issue);
-						return new IssueModel(githubRepository, githubRepository.remote, issue);
-					})),
-				});
-			}
-			return milestones;
-		} catch (e) {
-			Logger.error(`Error fetching milestone issues: ${e instanceof Error ? e.message : e}`, this.id);
-			return { hasMorePages: false, hasUnsearchedRepositories: false, items: [] };
-		}
 	}
 
 	async createMilestone(repository: GitHubRepository, milestoneTitle: string): Promise<IMilestone | undefined> {

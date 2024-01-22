@@ -12,7 +12,6 @@ import {
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IMilestone } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
-import { MilestoneModel } from '../github/milestoneModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getIssueNumberLabel, variableSubstitution } from '../github/utils';
 import { extractIssueOriginFromQuery, NEW_ISSUE_SCHEME } from './issueFile';
@@ -161,7 +160,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			if (issuesOrMilestones.issues.length === 0) {
 				continue;
 			}
-			if (issuesOrMilestones[0] instanceof IssueModel) {
+			if (issuesOrMilestones[0]) {
 				let index = 0;
 				for (const issue of issuesOrMilestones.issues) {
 					if (filterOwnerAndRepo && ((issue as IssueModel).remote.owner !== filterOwnerAndRepo.owner || (issue as IssueModel).remote.repositoryName !== filterOwnerAndRepo.repo)) {
@@ -171,28 +170,6 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 						getIssueNumberLabel(issue as IssueModel),
 						await this.completionItemFromIssue(repo, issue as IssueModel, now, range, document, index++, totalIssues),
 					);
-				}
-			} else {
-				for (let index = 0; index < issuesOrMilestones.issues.length; index++) {
-					const value: MilestoneModel = issuesOrMilestones[index] as MilestoneModel;
-					for (const issue of value.issues) {
-						if (filterOwnerAndRepo && ((issue as IssueModel).remote.owner !== filterOwnerAndRepo.owner || (issue as IssueModel).remote.repositoryName !== filterOwnerAndRepo.repo)) {
-							continue;
-						}
-						completionItems.set(
-							getIssueNumberLabel(issue),
-							await this.completionItemFromIssue(
-								repo,
-								issue,
-								now,
-								range,
-								document,
-								index,
-								totalIssues,
-								value.milestone,
-							),
-						);
-					}
 				}
 			}
 		}
