@@ -18,7 +18,6 @@ import { fromReviewUri, ReviewUriParams, Schemes, toReviewUri } from '../common/
 import { dispose, formatError, groupBy, uniqBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
-import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import {
 	CommentReactionHandler,
@@ -30,12 +29,13 @@ import {
 	updateThread,
 	updateThreadWithRange,
 } from '../github/utils';
+import { CommentControllerBase } from './commentControllBase';
 import { RemoteFileChangeModel } from './fileChangeModel';
 import { ReviewManager } from './reviewManager';
 import { ReviewModel } from './reviewModel';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 
-export class ReviewCommentController
+export class ReviewCommentController extends CommentControllerBase
 	implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider2, CommentReactionHandler {
 	private static readonly ID = 'ReviewCommentController';
 	private _localToDispose: vscode.Disposable[] = [];
@@ -59,14 +59,15 @@ export class ReviewCommentController
 
 	constructor(
 		private _reviewManager: ReviewManager,
-		private _reposManager: FolderRepositoryManager,
+		folderRepoManager: FolderRepositoryManager,
 		private _repository: Repository,
 		private _reviewModel: ReviewModel,
 	) {
-		this._context = this._reposManager.context;
+		super(folderRepoManager);
+		this._context = this._folderRepoManager.context;
 		this._commentController = vscode.comments.createCommentController(
-			`github-review-${_reposManager.activePullRequest?.remote.owner}-${_reposManager.activePullRequest?.remote.owner}-${_reposManager.activePullRequest!.number}`,
-			vscode.l10n.t('Pull Request ({0})', _reposManager.activePullRequest!.title),
+			`github-review-${folderRepoManager.activePullRequest?.remote.owner}-${folderRepoManager.activePullRequest?.remote.owner}-${folderRepoManager.activePullRequest!.number}`,
+			vscode.l10n.t('Pull Request ({0})', folderRepoManager.activePullRequest!.title),
 		);
 		this._commentController.commentingRangeProvider = this as vscode.CommentingRangeProvider;
 		this._commentController.reactionHandler = this.toggleReaction.bind(this);
@@ -80,7 +81,7 @@ export class ReviewCommentController
 		this._visibleNormalTextEditors = vscode.window.visibleTextEditors.filter(
 			ed => ed.document.uri.scheme !== 'comment',
 		);
-		await this._reposManager.activePullRequest!.validateDraftMode();
+		await this._folderRepoManager.activePullRequest!.validateDraftMode();
 		await this.initializeCommentThreads();
 		await this.registerListeners();
 	}
@@ -105,7 +106,7 @@ export class ReviewCommentController
 		);
 
 		const range = thread.subjectType === SubjectType.FILE ? undefined : threadRange(thread.originalStartLine - 1, thread.originalEndLine - 1);
-		return createVSCodeCommentThreadForReviewThread(this._context, reviewUri, range, thread, this._commentController, (await this._reposManager.getCurrentUser()).login, this._reposManager.activePullRequest?.githubRepository);
+		return createVSCodeCommentThreadForReviewThread(this._context, reviewUri, range, thread, this._commentController, (await this._folderRepoManager.getCurrentUser()).login, this.githubReposForPullRequest(this._folderRepoManager.activePullRequest));
 	}
 
 	/**
@@ -138,7 +139,7 @@ export class ReviewCommentController
 			}
 			range = threadRange(adjustedStartLine, adjustedEndLine);
 		}
-		return createVSCodeCommentThreadForReviewThread(this._context, uri, range, thread, this._commentController, (await this._reposManager.getCurrentUser()).login, this._reposManager.activePullRequest?.githubRepository);
+		return createVSCodeCommentThreadForReviewThread(this._context, uri, range, thread, this._commentController, (await this._folderRepoManager.getCurrentUser()).login, this.githubReposForPullRequest(this._folderRepoManager.activePullRequest));
 	}
 
 	/**
@@ -150,21 +151,21 @@ export class ReviewCommentController
 	 * @returns A GHPRCommentThread that has been created on an editor.
 	 */
 	private async createReviewCommentThread(uri: vscode.Uri, path: string, thread: IReviewThread): Promise<GHPRCommentThread> {
-		if (!this._reposManager.activePullRequest?.mergeBase) {
+		if (!this._folderRepoManager.activePullRequest?.mergeBase) {
 			throw new Error('Cannot create review comment thread without an active pull request base.');
 		}
 		const reviewUri = toReviewUri(
 			uri,
 			path,
 			undefined,
-			this._reposManager.activePullRequest.mergeBase,
+			this._folderRepoManager.activePullRequest.mergeBase,
 			false,
 			{ base: true },
 			this._repository.rootUri,
 		);
 
 		const range = thread.subjectType === SubjectType.FILE ? undefined : threadRange(thread.startLine - 1, thread.endLine - 1);
-		return createVSCodeCommentThreadForReviewThread(this._context, reviewUri, range, thread, this._commentController, (await this._reposManager.getCurrentUser()).login, this._reposManager.activePullRequest?.githubRepository);
+		return createVSCodeCommentThreadForReviewThread(this._context, reviewUri, range, thread, this._commentController, (await this._folderRepoManager.getCurrentUser()).login, this.githubReposForPullRequest(this._folderRepoManager.activePullRequest));
 	}
 
 	private async doInitializeCommentThreads(reviewThreads: IReviewThread[]): Promise<void> {
@@ -217,7 +218,7 @@ export class ReviewCommentController
 	}
 
 	private async initializeCommentThreads(): Promise<void> {
-		const activePullRequest = this._reposManager.activePullRequest;
+		const activePullRequest = this._folderRepoManager.activePullRequest;
 		if (!activePullRequest || !activePullRequest.isResolved()) {
 			return;
 		}
@@ -225,7 +226,7 @@ export class ReviewCommentController
 	}
 
 	private async registerListeners(): Promise<void> {
-		const activePullRequest = this._reposManager.activePullRequest;
+		const activePullRequest = this._folderRepoManager.activePullRequest;
 		if (!activePullRequest) {
 			return;
 		}
@@ -249,6 +250,7 @@ export class ReviewCommentController
 
 		this._localToDispose.push(
 			activePullRequest.onDidChangeReviewThreads(e => {
+				const githubRepositories = this.githubReposForPullRequest(this._folderRepoManager.activePullRequest);
 				e.added.forEach(async thread => {
 					const { path } = thread;
 
@@ -268,8 +270,8 @@ export class ReviewCommentController
 					if (index > -1) {
 						newThread = this._pendingCommentThreadAdds[index];
 						newThread.gitHubThreadId = thread.id;
-						newThread.comments = thread.comments.map(c => new GHPRComment(this._context, c, newThread, activePullRequest.githubRepository));
-						updateThreadWithRange(this._context, newThread, thread, activePullRequest.githubRepository);
+						newThread.comments = thread.comments.map(c => new GHPRComment(this._context, c, newThread, githubRepositories));
+						updateThreadWithRange(this._context, newThread, thread, githubRepositories);
 						this._pendingCommentThreadAdds.splice(index, 1);
 					} else {
 						const fullPath = nodePath.join(this._repository.rootUri.path, path).replace(/\\/g, '/');
@@ -308,7 +310,7 @@ export class ReviewCommentController
 					const index = threadMap[thread.path] ? threadMap[thread.path].findIndex(t => t.gitHubThreadId === thread.id) : -1;
 					if (index > -1) {
 						const matchingThread = threadMap[thread.path][index];
-						updateThread(this._context, matchingThread, thread, activePullRequest.githubRepository);
+						updateThread(this._context, matchingThread, thread, githubRepositories);
 					}
 				});
 
@@ -331,12 +333,12 @@ export class ReviewCommentController
 	}
 
 	public updateCommentExpandState(expand: boolean) {
-		const activePullRequest = this._reposManager.activePullRequest;
+		const activePullRequest = this._folderRepoManager.activePullRequest;
 		if (!activePullRequest) {
 			return undefined;
 		}
-
-		function updateThreads(activePullRequest: PullRequestModel, threads: { [key: string]: GHPRCommentThread[] }, reviewThreads: Map<string, Map<string, IReviewThread>>) {
+		const githubRepositories = this.githubReposForPullRequest(activePullRequest);
+		function updateThreads(threads: { [key: string]: GHPRCommentThread[] }, reviewThreads: Map<string, Map<string, IReviewThread>>) {
 			if (reviewThreads.size === 0) {
 				return;
 			}
@@ -345,7 +347,7 @@ export class ReviewCommentController
 				const commentThreads = threads[path];
 				for (const commentThread of commentThreads) {
 					const reviewThread = reviewThreadsForPath.get(commentThread.gitHubThreadId)!;
-					updateThread(this._context, commentThread, reviewThread, activePullRequest.githubRepository, expand);
+					updateThread(this._context, commentThread, reviewThread, githubRepositories, expand);
 				}
 			}
 		}
@@ -369,9 +371,9 @@ export class ReviewCommentController
 			}
 			mapToUse.get(reviewThread.path)!.set(reviewThread.id, reviewThread);
 		}
-		updateThreads(activePullRequest, this._obsoleteFileChangeCommentThreads, obsoleteReviewThreads);
-		updateThreads(activePullRequest, this._reviewSchemeFileChangeCommentThreads, reviewSchemeReviewThreads);
-		updateThreads(activePullRequest, this._workspaceFileChangeCommentThreads, workspaceFileReviewThreads);
+		updateThreads(this._obsoleteFileChangeCommentThreads, obsoleteReviewThreads);
+		updateThreads(this._reviewSchemeFileChangeCommentThreads, reviewSchemeReviewThreads);
+		updateThreads(this._workspaceFileChangeCommentThreads, workspaceFileReviewThreads);
 	}
 
 	private visibleEditorsEqual(a: vscode.TextEditor[], b: vscode.TextEditor[]): boolean {
@@ -436,7 +438,7 @@ export class ReviewCommentController
 		}
 
 		if (document.uri.scheme === this._repository.rootUri.scheme) {
-			if (!this._reposManager.activePullRequest!.isResolved()) {
+			if (!this._folderRepoManager.activePullRequest!.isResolved()) {
 				Logger.debug('No commenting ranges: Active PR has not been resolved.', ReviewCommentController.ID);
 				return;
 			}
@@ -487,7 +489,7 @@ export class ReviewCommentController
 		const matchedEditor = vscode.window.visibleTextEditors.find(
 			editor => editor.document.uri.toString() === uri.toString(),
 		);
-		if (!this._reposManager.activePullRequest?.head) {
+		if (!this._folderRepoManager.activePullRequest?.head) {
 			Logger.error('Failed to get content diff. Cannot get content diff without an active pull request head.');
 			throw new Error('Cannot get content diff without an active pull request head.');
 		}
@@ -496,7 +498,7 @@ export class ReviewCommentController
 			if (matchedEditor && matchedEditor.document.isDirty) {
 				const documentText = matchedEditor.document.getText();
 				const details = await this._repository.getObjectDetails(
-					this._reposManager.activePullRequest.head.sha,
+					this._folderRepoManager.activePullRequest.head.sha,
 					fileName,
 				);
 				const idAtLastCommit = details.object;
@@ -505,7 +507,7 @@ export class ReviewCommentController
 				// git diff <blobid> <blobid>
 				return await this._repository.diffBlobs(idAtLastCommit, idOfCurrentText);
 			} else {
-				return await this._repository.diffWith(this._reposManager.activePullRequest.head.sha, fileName);
+				return await this._repository.diffWith(this._folderRepoManager.activePullRequest.head.sha, fileName);
 			}
 		} catch (e) {
 			Logger.error(`Failed to get content diff. ${formatError(e)}`);
@@ -525,10 +527,10 @@ export class ReviewCommentController
 						return this._repository.diffWith(this._repository.state.HEAD.commit, fileName);
 					}
 				}
-				if (this._reposManager.activePullRequest.isOpen) {
-					vscode.window.showErrorMessage(vscode.l10n.t('Unable to get comment locations for commit {0}. This commit is not available locally and there is no remote branch.', this._reposManager.activePullRequest.head.sha));
+				if (this._folderRepoManager.activePullRequest.isOpen) {
+					vscode.window.showErrorMessage(vscode.l10n.t('Unable to get comment locations for commit {0}. This commit is not available locally and there is no remote branch.', this._folderRepoManager.activePullRequest.head.sha));
 				}
-				Logger.warn(`Unable to get comment locations for commit ${this._reposManager.activePullRequest.head.sha}. This commit is not available locally and there is no remote branch.`, ReviewCommentController.ID);
+				Logger.warn(`Unable to get comment locations for commit ${this._folderRepoManager.activePullRequest.head.sha}. This commit is not available locally and there is no remote branch.`, ReviewCommentController.ID);
 			}
 			throw e;
 		}
@@ -622,11 +624,11 @@ export class ReviewCommentController
 					endLine++;
 				}
 
-				await this._reposManager.activePullRequest!.createReviewThread(input, fileName, startLine, endLine, side);
+				await this._folderRepoManager.activePullRequest!.createReviewThread(input, fileName, startLine, endLine, side);
 			} else {
 				const comment = thread.comments[0];
 				if (comment instanceof GHPRComment) {
-					await this._reposManager.activePullRequest!.createCommentReply(
+					await this._folderRepoManager.activePullRequest!.createCommentReply(
 						input,
 						comment.rawComment.graphNodeId,
 						false,
@@ -655,7 +657,7 @@ export class ReviewCommentController
 
 	// #endregion
 	private async optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): Promise<number> {
-		const currentUser = await this._reposManager.getCurrentUser();
+		const currentUser = await this._folderRepoManager.getCurrentUser();
 		const comment = new TemporaryComment(thread, input, inDraft, currentUser);
 		this.updateCommentThreadComments(thread, [...thread.comments, comment]);
 		return comment.id;
@@ -667,7 +669,7 @@ export class ReviewCommentController
 	}
 
 	private async optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): Promise<number> {
-		const currentUser = await this._reposManager.getCurrentUser();
+		const currentUser = await this._folderRepoManager.getCurrentUser();
 		const temporaryComment = new TemporaryComment(
 			thread,
 			comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
@@ -693,7 +695,7 @@ export class ReviewCommentController
 		isSingleComment: boolean,
 		inDraft?: boolean,
 	): Promise<void> {
-		if (!this._reposManager.activePullRequest) {
+		if (!this._folderRepoManager.activePullRequest) {
 			throw new Error('Cannot create comment without an active pull request.');
 		}
 
@@ -702,7 +704,7 @@ export class ReviewCommentController
 			? false
 			: inDraft !== undefined
 				? inDraft
-				: this._reposManager.activePullRequest.hasPendingReview;
+				: this._folderRepoManager.activePullRequest.hasPendingReview;
 		const temporaryCommentId = await this.optimisticallyAddComment(thread, input, isDraft);
 
 		try {
@@ -727,7 +729,7 @@ export class ReviewCommentController
 					startLine++;
 					endLine++;
 				}
-				await this._reposManager.activePullRequest.createReviewThread(
+				await this._folderRepoManager.activePullRequest.createReviewThread(
 					input,
 					fileName,
 					startLine,
@@ -738,7 +740,7 @@ export class ReviewCommentController
 			} else {
 				const comment = thread.comments[0];
 				if (comment instanceof GHPRComment) {
-					await this._reposManager.activePullRequest.createCommentReply(
+					await this._folderRepoManager.activePullRequest.createCommentReply(
 						input,
 						comment.rawComment.graphNodeId,
 						isSingleComment,
@@ -749,7 +751,7 @@ export class ReviewCommentController
 			}
 
 			if (isSingleComment) {
-				await this._reposManager.activePullRequest.submitReview();
+				await this._folderRepoManager.activePullRequest.submitReview();
 			}
 		} catch (e) {
 			if (e.graphQLErrors?.length && e.graphQLErrors[0].type === 'NOT_FOUND') {
@@ -773,10 +775,10 @@ export class ReviewCommentController
 	}
 
 	private async createCommentOnResolve(thread: GHPRCommentThread, input: string): Promise<void> {
-		if (!this._reposManager.activePullRequest) {
+		if (!this._folderRepoManager.activePullRequest) {
 			throw new Error('Cannot create comment on resolve without an active pull request.');
 		}
-		const pendingReviewId = await this._reposManager.activePullRequest.getPendingReviewId();
+		const pendingReviewId = await this._folderRepoManager.activePullRequest.getPendingReviewId();
 		await this.createOrReplyComment(thread, input, !pendingReviewId);
 	}
 
@@ -786,7 +788,7 @@ export class ReviewCommentController
 				await this.createCommentOnResolve(thread, input);
 			}
 
-			await this._reposManager.activePullRequest!.resolveReviewThread(thread.gitHubThreadId);
+			await this._folderRepoManager.activePullRequest!.resolveReviewThread(thread.gitHubThreadId);
 		} catch (e) {
 			vscode.window.showErrorMessage(`Resolving conversation failed: ${e}`);
 		}
@@ -798,7 +800,7 @@ export class ReviewCommentController
 				await this.createCommentOnResolve(thread, input);
 			}
 
-			await this._reposManager.activePullRequest!.unresolveReviewThread(thread.gitHubThreadId);
+			await this._folderRepoManager.activePullRequest!.unresolveReviewThread(thread.gitHubThreadId);
 		} catch (e) {
 			vscode.window.showErrorMessage(`Unresolving conversation failed: ${e}`);
 		}
@@ -808,11 +810,11 @@ export class ReviewCommentController
 		if (comment instanceof GHPRComment) {
 			const temporaryCommentId = await this.optimisticallyEditComment(thread, comment);
 			try {
-				if (!this._reposManager.activePullRequest) {
+				if (!this._folderRepoManager.activePullRequest) {
 					throw new Error('Unable to find active pull request');
 				}
 
-				await this._reposManager.activePullRequest.editReviewComment(
+				await this._folderRepoManager.activePullRequest.editReviewComment(
 					comment.rawComment,
 					comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
 				);
@@ -832,12 +834,12 @@ export class ReviewCommentController
 
 	async deleteComment(thread: GHPRCommentThread, comment: GHPRComment | TemporaryComment): Promise<void> {
 		try {
-			if (!this._reposManager.activePullRequest) {
+			if (!this._folderRepoManager.activePullRequest) {
 				throw new Error('Unable to find active pull request');
 			}
 
 			if (comment instanceof GHPRComment) {
-				await this._reposManager.activePullRequest.deleteReviewComment(comment.commentId);
+				await this._folderRepoManager.activePullRequest.deleteReviewComment(comment.commentId);
 			} else {
 				thread.comments = thread.comments.filter(c => !(c instanceof TemporaryComment && c.id === comment.id));
 			}
@@ -848,9 +850,9 @@ export class ReviewCommentController
 				updateCommentThreadLabel(thread);
 			}
 
-			const inDraftMode = await this._reposManager.activePullRequest.validateDraftMode();
-			if (inDraftMode !== this._reposManager.activePullRequest.hasPendingReview) {
-				this._reposManager.activePullRequest.hasPendingReview = inDraftMode;
+			const inDraftMode = await this._folderRepoManager.activePullRequest.validateDraftMode();
+			if (inDraftMode !== this._folderRepoManager.activePullRequest.hasPendingReview) {
+				this._folderRepoManager.activePullRequest.hasPendingReview = inDraftMode;
 			}
 
 			this.update();
@@ -863,14 +865,14 @@ export class ReviewCommentController
 
 	// #region Incremental update comments
 	public async update(): Promise<void> {
-		await this._reposManager.activePullRequest!.validateDraftMode();
+		await this._folderRepoManager.activePullRequest!.validateDraftMode();
 	}
 	// #endregion
 
 	// #region Reactions
 	async toggleReaction(comment: GHPRComment, reaction: vscode.CommentReaction): Promise<void> {
 		try {
-			if (!this._reposManager.activePullRequest) {
+			if (!this._folderRepoManager.activePullRequest) {
 				throw new Error('Unable to find active pull request');
 			}
 
@@ -878,12 +880,12 @@ export class ReviewCommentController
 				comment.reactions &&
 				!comment.reactions.find(ret => ret.label === reaction.label && !!ret.authorHasReacted)
 			) {
-				await this._reposManager.activePullRequest.addCommentReaction(
+				await this._folderRepoManager.activePullRequest.addCommentReaction(
 					comment.rawComment.graphNodeId,
 					reaction,
 				);
 			} else {
-				await this._reposManager.activePullRequest.deleteCommentReaction(
+				await this._folderRepoManager.activePullRequest.deleteCommentReaction(
 					comment.rawComment.graphNodeId,
 					reaction,
 				);

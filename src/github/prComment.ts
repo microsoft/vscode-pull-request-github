@@ -200,7 +200,7 @@ export class GHPRComment extends CommentBase {
 	private _rawBody: string | vscode.MarkdownString;
 	private replacedBody: string;
 
-	constructor(context: vscode.ExtensionContext, comment: IComment, parent: GHPRCommentThread, private readonly githubRepository?: GitHubRepository) {
+	constructor(context: vscode.ExtensionContext, comment: IComment, parent: GHPRCommentThread, private readonly githubRepositories?: GitHubRepository[]) {
 		super(parent);
 		this.rawComment = comment;
 		this.body = comment.body;
@@ -320,14 +320,18 @@ ${args[2] ?? ''}
 	}
 
 	private async replacePermalink(body: string): Promise<string> {
-		const githubRepository = this.githubRepository;
-		if (!githubRepository) {
+		const githubRepositories = this.githubRepositories;
+		if (!githubRepositories || githubRepositories.length === 0) {
 			return body;
 		}
 
-		const expression = new RegExp(`https://github.com/${githubRepository.remote.owner}/${githubRepository.remote.repositoryName}/blob/([0-9a-f]{40})/(.*)#L([0-9]+)(-L([0-9]+))?`, 'g');
-		return stringReplaceAsync(body, expression, async (match: string, sha: string, file: string, start: string, _endGroup?: string, end?: string, index?: number) => {
+		const expression = new RegExp(`https://github.com/(.+)/${githubRepositories[0].remote.repositoryName}/blob/([0-9a-f]{40})/(.*)#L([0-9]+)(-L([0-9]+))?`, 'g');
+		return stringReplaceAsync(body, expression, async (match: string, owner: string, sha: string, file: string, start: string, _endGroup?: string, end?: string, index?: number) => {
 			if (index && (index > 0) && (body.charAt(index - 1) === '(')) {
+				return match;
+			}
+			const githubRepository = githubRepositories.find(repository => repository.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase());
+			if (!githubRepository) {
 				return match;
 			}
 			const startLine = parseInt(start);
