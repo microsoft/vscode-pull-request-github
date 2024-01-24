@@ -179,6 +179,15 @@
 						}
 					]
 				},
+				"githubPullRequests.pullRequestLabels": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"description": "%githubPullRequests.pullRequestLabels.label.description%"
+					},
+					"default": [],
+					"description": "%githubPullRequests.pullRequestLabels.description%"
+				},
 				"githubPullRequests.defaultMergeMethod": {
 					"type": "string",
 					"enum": [
