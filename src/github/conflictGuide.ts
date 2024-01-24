@@ -165,10 +165,8 @@ class ConflictNotification implements vscode.Disposable {
 				const result = await vscode.window.showInformationMessage(message, commit, cancel);
 				if (result === commit) {
 					await this._repository.commit(this._conflictModel.message);
-					return true;
-				} else {
+				} else if (result === cancel) {
 					await this._conflictModel.abort();
-					return false;
 				}
 			}
 		});
