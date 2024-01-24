@@ -159,10 +159,11 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		return undefined;
 	}
 
-	private async getPullRequestDefaultLabelsAndSetIntoView(): Promise<ILabel[]> {
+	private async getPullRequestDefaultLabels(defaultBaseRemote: RemoteInfo): Promise<ILabel[]> {
 
 		const defaultLabelValues = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get(PULL_REQUEST_LABELS) as Array<string>;
 
+		// Return early if no config present
 		if (!defaultLabelValues || defaultLabelValues.length === 0) {
 			return [];
 		}
@@ -170,7 +171,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		// Fetch labels from the repo and filter with case-sensitive comparison to be safe,
 		// dropping any labels that don't exist on the repo.
 		// TODO: @alexr00 - Add a cache for this.
-		const labels = await this._folderRepositoryManager.getLabels();
+		const labels = await this._folderRepositoryManager.getLabels(undefined, { owner: defaultBaseRemote.owner, repo: defaultBaseRemote.repositoryName });
 		const defaultLabels = labels.filter(label => defaultLabelValues.includes(label.name));
 
 		return defaultLabels;
@@ -365,7 +366,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			this.telemetry.sendTelemetryEvent('pr.defaultTitleAndDescriptionProvider', { providerTitle: defaultTitleAndDescriptionProvider });
 		}
 
-		this.labels = await this.getPullRequestDefaultLabelsAndSetIntoView();
+		this.labels = await this.getPullRequestDefaultLabels(defaultBaseRemote);
 
 		const params: CreateParamsNew = {
 			defaultBaseRemote,
