@@ -31,15 +31,22 @@ export class ConflictModel implements vscode.Disposable {
 				this._reportProgress();
 			}
 		}));
+		this._disposables.push(this._repository.state.onDidChange(async () => {
+			this._reportProgress();
+		}));
 	}
 
 	private _reportProgress() {
+		if (this._lastReportedRemainingCount === 0) {
+			// Already done.
+			return;
+		}
 		const remainingCount = this.remainingConflicts.length;
 		if (this._lastReportedRemainingCount !== remainingCount) {
 			this._onConflictCountChanged.fire(this._lastReportedRemainingCount - remainingCount);
 			this._lastReportedRemainingCount = remainingCount;
 		}
-		if (remainingCount === 0) {
+		if (this._lastReportedRemainingCount === 0) {
 			this.listenForCommit();
 		}
 	}
