@@ -169,11 +169,15 @@ export class IssuesTreeData
 		return this.getIssueGroupsForGroupIndex(queryNode.repoRootUri, queryNode.queryLabel, queryNode.isFirst, issueQueryResult.groupBy, 0, issueQueryResult.issues);
 	}
 
-	private getIssueGroupsForGroupIndex(repoRootUri: vscode.Uri, queryLabel: string, isFirst: boolean, groupByOrder: QueryGroup[], index: number, issues: IssueItem[]): IssueGroupNode[] | IssueItem[] {
-		if (groupByOrder.length <= index) {
+	private getIssueGroupsForGroupIndex(repoRootUri: vscode.Uri, queryLabel: string, isFirst: boolean, groupByOrder: QueryGroup[], indexInGroupByOrder: number, issues: IssueItem[]): IssueGroupNode[] | IssueItem[] {
+		if (groupByOrder.length <= indexInGroupByOrder) {
 			return issues;
 		}
-		const groupByValue = groupByOrder[index];
+		const groupByValue = groupByOrder[indexInGroupByOrder];
+		if ((groupByValue !== 'milestone' && groupByValue !== 'repository') || groupByOrder.findIndex(groupBy => groupBy === groupByValue) !== indexInGroupByOrder) {
+			return this.getIssueGroupsForGroupIndex(repoRootUri, queryLabel, isFirst, groupByOrder, indexInGroupByOrder + 1, issues);
+		}
+
 		const groups = groupBy(issues, issue => {
 			if (groupByValue === 'repository') {
 				return `${issue.remote.owner}/${issue.remote.repositoryName}`;
@@ -183,7 +187,7 @@ export class IssuesTreeData
 		});
 		const nodes: IssueGroupNode[] = [];
 		for (const group in groups) {
-			nodes.push(new IssueGroupNode(repoRootUri, queryLabel, isFirst, index, group, groupByOrder, groups[group]));
+			nodes.push(new IssueGroupNode(repoRootUri, queryLabel, isFirst, indexInGroupByOrder, group, groupByOrder, groups[group]));
 		}
 		return nodes;
 	}
