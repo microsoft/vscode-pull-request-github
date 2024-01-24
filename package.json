@@ -402,7 +402,13 @@
 						"pullAndMergeBase",
 						"pullAndUpdateBase"
 					],
-					"default": "pull"
+					"default": "pull",
+					"enumDescriptions": [
+						"%githubPullRequests.pullPullRequestBranchBeforeCheckout.never%",
+						"%githubPullRequests.pullPullRequestBranchBeforeCheckout.pull%",
+						"%githubPullRequests.pullPullRequestBranchBeforeCheckout.pullAndMergeBase%",
+						"%githubPullRequests.pullPullRequestBranchBeforeCheckout.pullAndUpdateBase%"
+					]
 				},
 				"githubPullRequests.upstreamRemote": {
 					"type": "string",
