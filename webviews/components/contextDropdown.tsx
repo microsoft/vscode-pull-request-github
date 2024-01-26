@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { chevronDownIcon } from './icon';
 
 interface ContextDropdownProps {
@@ -24,13 +24,16 @@ export const ContextDropdown = ({ optionsContext, defaultOptionLabel, defaultOpt
 		}
 		setExpanded(false);
 	};
-	document.onclick = (e) => {
-		onHideAction(e);
-	};
-
-	document.onkeydown = (e) => {
-		onHideAction(e);
-	};
+	useEffect(() => {
+		const onClickOrKey = (e) => onHideAction(e);
+		if (expanded) {
+			document.addEventListener('click', onClickOrKey);
+			document.addEventListener('keydown', onClickOrKey);
+		} else {
+			document.removeEventListener('click', onClickOrKey);
+			document.removeEventListener('keydown', onClickOrKey);
+		}
+	}, [expanded, setExpanded]);
 	return <div className='primary-split-button'>
 		<button className='split-left' disabled={disabled} onClick={defaultAction} value={defaultOptionValue()}
 			title={defaultOptionLabel()}>
