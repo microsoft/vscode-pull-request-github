@@ -160,18 +160,17 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			if (issuesOrMilestones.issues.length === 0) {
 				continue;
 			}
-			if (issuesOrMilestones[0]) {
-				let index = 0;
-				for (const issue of issuesOrMilestones.issues) {
-					if (filterOwnerAndRepo && ((issue as IssueModel).remote.owner !== filterOwnerAndRepo.owner || (issue as IssueModel).remote.repositoryName !== filterOwnerAndRepo.repo)) {
-						continue;
-					}
-					completionItems.set(
-						getIssueNumberLabel(issue as IssueModel),
-						await this.completionItemFromIssue(repo, issue as IssueModel, now, range, document, index++, totalIssues),
-					);
+			let index = 0;
+			for (const issue of issuesOrMilestones.issues) {
+				if (filterOwnerAndRepo && ((issue as IssueModel).remote.owner !== filterOwnerAndRepo.owner || (issue as IssueModel).remote.repositoryName !== filterOwnerAndRepo.repo)) {
+					continue;
 				}
+				completionItems.set(
+					getIssueNumberLabel(issue as IssueModel),
+					await this.completionItemFromIssue(repo, issue as IssueModel, now, range, document, index++, totalIssues),
+				);
 			}
+
 		}
 		return [...completionItems.values()];
 	}
