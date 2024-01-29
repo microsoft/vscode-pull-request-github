@@ -37,6 +37,10 @@
 	![Reaction hover](/documentation/changelog/0.80.0/reaction-hover.png)
 - Issue templates are now available when creating an issue.
 
+- Setting `"githubPullRequests.focusedMode": "multiDiff"` will open the multi-diff editor with all the files in the PR upon checkout.
+
+	![Multi-diff editor for a PR](/documentation/changelog/0.80.0/multi-diff-editor.png)
+
 ### Fixes
 
 - Comments for not-checked-out PRs should be removed from Comments view when no files from the PR are open. https://github.com/microsoft/vscode-pull-request-github/issues/5619
@@ -62,8 +66,8 @@
 * [@Balastrong (Leonardo Montini)](https://github.com/Balastrong): Create issue from markdown template [PR #5503](https://github.com/microsoft/vscode-pull-request-github/pull/5503)
 * [@joshuaobrien](https://github.com/joshuaobrien)
   * Batch mark/unmark files as viewed [PR #4700](https://github.com/microsoft/vscode-pull-request-github/pull/4700)
-  * Remove a few unused variables 🌱 [PR #5510](https://github.com/microsoft/vscode-pull-request-github/pull/5510)
-* [@pouyakary (Pouya Kary ✨)](https://github.com/pouyakary): Fixes #5620 [PR #5621](https://github.com/microsoft/vscode-pull-request-github/pull/5621)
+  * Remove a few unused variables [PR #5510](https://github.com/microsoft/vscode-pull-request-github/pull/5510)
+* [@pouyakary (Pouya Kary)](https://github.com/pouyakary): Fixes #5620 [PR #5621](https://github.com/microsoft/vscode-pull-request-github/pull/5621)
 
 ## 0.78.1
 
