@@ -119,7 +119,7 @@
 		]
 	},
 	"githubIssues.workingIssueFormatScm.markdownDescription": {
-		"message": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to `${issueTitle} \nFixes #${issueNumber}`",
+		"message": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to `${issueTitle} \nFixes ${issueNumberLabel}`",
 		"comment": [
 			"Do not translate what's inside of the ${...}. It is an internal syntax for the extension."
 		]
