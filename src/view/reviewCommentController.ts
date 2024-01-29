@@ -29,7 +29,7 @@ import {
 	updateThread,
 	updateThreadWithRange,
 } from '../github/utils';
-import { CommentControllerBase } from './commentControllBase';
+import { CommentControllerBase } from './commentControllerBase';
 import { RemoteFileChangeModel } from './fileChangeModel';
 import { ReviewManager } from './reviewManager';
 import { ReviewModel } from './reviewModel';

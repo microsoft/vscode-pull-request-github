@@ -24,7 +24,7 @@ import {
 	updateThread,
 	updateThreadWithRange,
 } from '../github/utils';
-import { CommentControllerBase } from './commentControllBase';
+import { CommentControllerBase } from './commentControllerBase';
 
 export class PullRequestCommentController extends CommentControllerBase implements CommentHandler, CommentReactionHandler {
 	private _pendingCommentThreadAdds: GHPRCommentThread[] = [];
