@@ -368,8 +368,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return activeRemotes;
 	}
 
-	private _updatingRepositories: Promise<void> | undefined;
-	async updateRepositories(silent: boolean = false): Promise<void> {
+	private _updatingRepositories: Promise<boolean> | undefined;
+	async updateRepositories(silent: boolean = false): Promise<boolean> {
 		if (this._updatingRepositories) {
 			await this._updatingRepositories;
 		}
@@ -402,11 +402,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return isAuthenticated;
 	}
 
-	private async doUpdateRepositories(silent: boolean): Promise<void> {
+	private async doUpdateRepositories(silent: boolean): Promise<boolean> {
 		if (this._git.state === 'uninitialized') {
 			Logger.appendLine('Cannot updates repositories as git is uninitialized');
 
-			return;
+			return false;
 		}
 
 		const activeRemotes = await this.getActiveRemotes();
@@ -415,7 +415,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const areAllNeverGitHub = (await this.computeAllUnknownRemotes()).every(remote => GitHubManager.isNeverGitHub(vscode.Uri.parse(remote.normalizedHost).authority));
 			if (areAllNeverGitHub) {
 				this._onDidLoadRepositories.fire(ReposManagerState.RepositoriesLoaded);
-				return;
+				return true;
 			}
 		}
 		const repositories: GitHubRepository[] = [];
@@ -441,7 +441,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				const result = await this._credentialStore.showSamlMessageAndAuth(missingSaml);
 				if (result.canceled) {
 					this.dispose();
-					return;
+					return true;
 				}
 			}
 
@@ -461,7 +461,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (this._githubRepositories.length && repositoriesChanged) {
 				if (await this.checkIfMissingUpstream()) {
 					this.updateRepositories(silent);
-					return;
+					return true;
 				}
 			}
 
@@ -478,7 +478,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (!silent) {
 				this._onDidChangeRepositories.fire();
 			}
-			return;
+			return true;
 		});
 	}
 

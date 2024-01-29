@@ -182,7 +182,7 @@ export class ReviewManager {
 			vscode.workspace.onDidChangeConfiguration(e => {
 				this.updateFocusedViewMode();
 				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${IGNORE_PR_BRANCHES}`)) {
-					this.validateState(true, false);
+					this.validateStateAndResetPromise(true, false);
 				}
 			}),
 		);
@@ -266,12 +266,12 @@ export class ReviewManager {
 		}
 		if (!this._validateStatusInProgress) {
 			Logger.appendLine('Validate state in progress', this.id);
-			this._validateStatusInProgress = this.validateStatueAndSetContext(silent, updateLayout);
+			this._validateStatusInProgress = this.validateStatusAndSetContext(silent, updateLayout);
 			return this._validateStatusInProgress;
 		} else {
 			Logger.appendLine('Queuing additional validate state', this.id);
 			this._validateStatusInProgress = this._validateStatusInProgress.then(async _ => {
-				return await this.validateStatueAndSetContext(silent, updateLayout);
+				return await this.validateStatusAndSetContext(silent, updateLayout);
 			});
 
 			return this._validateStatusInProgress;
@@ -279,7 +279,7 @@ export class ReviewManager {
 	}
 
 	private hasShownLogRequest: boolean = false;
-	private async validateStatueAndSetContext(silent: boolean, updateLayout: boolean) {
+	private async validateStatusAndSetContext(silent: boolean, updateLayout: boolean) {
 		// TODO @alexr00: There's a bug where validateState never returns sometimes. It's not clear what's causing this.
 		// This is a temporary workaround to ensure that the validateStatueAndSetContext promise always resolves.
 		// Additional logs have been added, and the issue is being tracked here: https://github.com/microsoft/vscode-pull-request-git/issues/5277
@@ -290,6 +290,13 @@ export class ReviewManager {
 					clearTimeout(timeout);
 					timeout = undefined;
 					Logger.error('Timeout occurred while validating state.', this.id);
+					/* __GDPR__
+						"pr.checkout" : {
+						{
+							"version" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth"
+						}
+					*/
+					this._telemetry.sendTelemetryErrorEvent('pr.validateStateTimeout', { version: this._context.extension.packageJSON.version });
 					if (!this.hasShownLogRequest && isPreRelease(this._context)) {
 						this.hasShownLogRequest = true;
 						vscode.window.showErrorMessage(vscode.l10n.t('A known error has occurred refreshing the repository state. Please share logs from "GitHub Pull Request" in the [tracking issue]({0}).', 'https://github.com/microsoft/vscode-pull-request-github/issues/5277'));
@@ -300,7 +307,7 @@ export class ReviewManager {
 		});
 
 		const validatePromise = new Promise<void>(resolve => {
-			this.validateState(silent, updateLayout).then(() => {
+			this.validateStateAndResetPromise(silent, updateLayout).then(() => {
 				vscode.commands.executeCommand('setContext', 'github:stateValidated', true).then(() => {
 					if (timeout) {
 						clearTimeout(timeout);
@@ -405,11 +412,19 @@ export class ReviewManager {
 		}
 	}
 
+	private async validateStateAndResetPromise(silent: boolean, updateLayout: boolean): Promise<void> {
+		return this.validateState(silent, updateLayout).then(() => {
+			this._validateStatusInProgress = undefined;
+		});
+	}
+
 	private async validateState(silent: boolean, updateLayout: boolean) {
 		Logger.appendLine('Validating state...', this.id);
 		const oldLastCommitSha = this._lastCommitSha;
 		this._lastCommitSha = undefined;
-		await this._folderRepoManager.updateRepositories(false);
+		if (!(await this._folderRepoManager.updateRepositories(false))) {
+			return;
+		}
 
 		if (!this._repository.state.HEAD) {
 			await this.clear(true);
@@ -472,7 +487,6 @@ export class ReviewManager {
 
 		const hasPushedChanges = branch.commit !== oldLastCommitSha && branch.ahead === 0 && branch.behind === 0;
 		if (previousPrNumber === pr.number && !hasPushedChanges && (this._isShowingLastReviewChanges === pr.showChangesSinceReview)) {
-			this._validateStatusInProgress = undefined;
 			return;
 		}
 		this._isShowingLastReviewChanges = pr.showChangesSinceReview;
@@ -554,8 +568,6 @@ export class ReviewManager {
 
 		this.layout(pr, updateLayout, this.justSwitchedToReviewMode ? false : silent);
 		this.justSwitchedToReviewMode = false;
-
-		this._validateStatusInProgress = undefined;
 	}
 
 	private layout(pr: PullRequestModel, updateLayout: boolean, silent: boolean) {
@@ -1240,7 +1252,6 @@ export class ReviewManager {
 			// so comments only needs to be emptied in this case.
 			activePullRequest?.clear();
 			this._folderRepoManager.setFileViewedContext();
-			this._validateStatusInProgress = undefined;
 		}
 
 		this._reviewCommentController?.dispose();
