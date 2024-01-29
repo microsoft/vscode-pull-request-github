@@ -12,6 +12,7 @@ import { RepositoriesManager } from '../github/repositoriesManager';
 import { issueBodyHasLink } from './issueLinkLookup';
 import { IssueItem, QueryGroup, StateManager } from './stateManager';
 import { issueMarkdown } from './util';
+import { IssueModel } from '../github/issueModel';
 
 export class QueryNode {
 	constructor(
@@ -121,7 +122,7 @@ export class IssuesTreeData
 		item: vscode.TreeItem,
 		element: FolderRepositoryManager | QueryNode | IssueGroupNode | IssueItem,
 	): Promise<vscode.TreeItem> {
-		if (element instanceof IssueItem) {
+		if (element instanceof IssueModel) {
 			item.tooltip = await issueMarkdown(element, this.context, this.manager);
 		}
 		return item;
