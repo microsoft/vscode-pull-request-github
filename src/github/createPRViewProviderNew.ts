@@ -33,7 +33,7 @@ import {
 } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
 import { IAccount, ILabel, IMilestone, isTeam, ITeam, MergeMethod, RepoAccessAndMergeMethods } from './interface';
-import { PullRequestGitHelper } from './pullRequestGitHelper';
+import { BaseBranchMetadata } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, reviewersQuickPick } from './quickPicks';
@@ -279,6 +279,28 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		return this._alreadyInitializing;
 	}
 
+	private async detectBaseMetadata(defaultCompareBranch: string): Promise<BaseBranchMetadata | undefined> {
+		if (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'repositoryDefault' | 'createdFromBranch'>(CREATE_BASE_BRANCH) !== 'createdFromBranch') {
+			return undefined;
+		}
+		try {
+			const baseFromProvider = await this._folderRepositoryManager.repository.getBranchBase(defaultCompareBranch);
+			if (baseFromProvider?.name) {
+				const repo = this._folderRepositoryManager.findRepo(repo => repo.remote.remoteName === baseFromProvider.remote);
+				if (repo) {
+					return {
+						branch: baseFromProvider.name,
+						owner: repo.remote.owner,
+						repositoryName: repo.remote.repositoryName
+					};
+				}
+			}
+		} catch (e) {
+			// Not all providers will support `getBranchBase`
+			return undefined;
+		}
+	}
+
 	private async doInitializeParams(): Promise<CreateParamsNew> {
 		if (!this.defaultCompareBranch) {
 			throw new DetachedHeadError(this._folderRepositoryManager.repository);
@@ -286,7 +308,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 
 		const defaultCompareBranch = this.defaultCompareBranch.name ?? '';
 		const [detectedBaseMetadata, remotes, defaultOrigin] = await Promise.all([
-			vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'repositoryDefault' | 'createdFromBranch'>(CREATE_BASE_BRANCH) === 'createdFromBranch' ? PullRequestGitHelper.getMatchingBaseBranchMetadataForBranch(this._folderRepositoryManager.repository, defaultCompareBranch) : undefined,
+			this.detectBaseMetadata(defaultCompareBranch),
 			this._folderRepositoryManager.getGitHubRemotes(),
 			this._folderRepositoryManager.getOrigin(this.defaultCompareBranch)]);
 

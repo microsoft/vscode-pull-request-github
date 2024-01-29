@@ -183,6 +183,7 @@ export interface Repository {
 	deleteBranch(name: string, force?: boolean): Promise<void>;
 	getBranch(name: string): Promise<Branch>;
 	getBranches(query: BranchQuery): Promise<Ref[]>;
+	getBranchBase(name: string): Promise<Branch | undefined>;
 	setBranchUpstream(name: string, upstream: string): Promise<void>;
 	getRefs(query: RefQuery, cancellationToken?: CancellationToken): Promise<Ref[]>;
 
