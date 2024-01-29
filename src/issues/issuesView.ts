@@ -8,11 +8,11 @@ import * as vscode from 'vscode';
 import { commands, contexts } from '../common/executeCommands';
 import { groupBy } from '../common/utils';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
+import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { issueBodyHasLink } from './issueLinkLookup';
 import { IssueItem, QueryGroup, StateManager } from './stateManager';
 import { issueMarkdown } from './util';
-import { IssueModel } from '../github/issueModel';
 
 export class QueryNode {
 	constructor(
