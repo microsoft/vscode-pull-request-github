@@ -73,9 +73,14 @@ export const PULL_REQUEST_PAGE_SIZE = 20;
 
 const GRAPHQL_COMPONENT_ID = 'GraphQL';
 
+export enum ItemsResponseError {
+	NotFound = 1
+}
+
 export interface ItemsData {
 	items: any[];
 	hasMorePages: boolean;
+	error?: ItemsResponseError;
 }
 
 export interface IssueData extends ItemsData {
@@ -529,15 +534,15 @@ export class GitHubRepository implements vscode.Disposable {
 		} catch (e) {
 			Logger.error(`Fetching all pull requests failed: ${e}`, GitHubRepository.ID);
 			if (e.code === 404) {
-				// not found
+				// not found, can also indicate that this is a private repo that the current user doesn't have access to.
 				vscode.window.showWarningMessage(
 					`Fetching pull requests for remote '${this.remote.remoteName}' failed, please check if the url ${this.remote.url} is valid.`,
 				);
+				return { items: [], hasMorePages: false, error: ItemsResponseError.NotFound };
 			} else {
 				throw e;
 			}
 		}
-		return undefined;
 	}
 
 	async getPullRequestForBranch(branch: string, headOwner: string): Promise<PullRequestModel | undefined> {

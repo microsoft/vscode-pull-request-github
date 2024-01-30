@@ -28,6 +28,12 @@ export interface PullRequestDefaults {
 	base: string;
 }
 
+export enum AuthenticationType {
+	GitHub = 1,
+	Enterprise = 2,
+	AlternateGitHub = 3
+}
+
 export class RepositoriesManager implements vscode.Disposable {
 	static ID = 'RepositoriesManager';
 
@@ -181,14 +187,14 @@ export class RepositoriesManager implements vscode.Disposable {
 		this.state = ReposManagerState.Initializing;
 	}
 
-	async authenticate(enterprise?: boolean): Promise<boolean> {
-		if (enterprise === false) {
-			return !!this._credentialStore.login(AuthProvider.github);
+	async authenticate(authenticationType: AuthenticationType = AuthenticationType.GitHub): Promise<boolean> {
+		if (authenticationType !== AuthenticationType.Enterprise) {
+			return !!(await this._credentialStore.login(AuthProvider.github, authenticationType === AuthenticationType.AlternateGitHub));
 		}
 		const { dotComRemotes, enterpriseRemotes, unknownRemotes } = await findDotComAndEnterpriseRemotes(this.folderManagers);
 		const yes = vscode.l10n.t('Yes');
 
-		if (enterprise) {
+		if (authenticationType === AuthenticationType.Enterprise) {
 			const remoteToUse = getEnterpriseUri()?.toString() ?? (enterpriseRemotes.length ? enterpriseRemotes[0].normalizedHost : (unknownRemotes.length ? unknownRemotes[0].normalizedHost : undefined));
 			if (enterpriseRemotes.length === 0 && unknownRemotes.length === 0) {
 				Logger.appendLine(`Enterprise login selected, but no possible enterprise remotes discovered (${dotComRemotes.length} .com)`);

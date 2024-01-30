@@ -289,7 +289,7 @@ export class CredentialStore implements vscode.Disposable {
 		}
 	}
 
-	public async login(authProviderId: AuthProvider): Promise<GitHub | undefined> {
+	public async login(authProviderId: AuthProvider, useAlternateAccount: boolean = false): Promise<GitHub | undefined> {
 		/* __GDPR__
 			"auth.start" : {}
 		*/
@@ -299,6 +299,11 @@ export class CredentialStore implements vscode.Disposable {
 		let retry: boolean = true;
 		let octokit: GitHub | undefined = undefined;
 		const sessionOptions: vscode.AuthenticationGetSessionOptions = { createIfNone: true };
+		if (useAlternateAccount) {
+			sessionOptions.clearSessionPreference = true;
+			sessionOptions.forceNewSession = true;
+			sessionOptions.createIfNone = undefined;
+		}
 		let isCanceled: boolean = false;
 		while (retry) {
 			try {

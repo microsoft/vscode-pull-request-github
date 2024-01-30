@@ -9,6 +9,7 @@ import { PR_SETTINGS_NAMESPACE, QUERIES } from '../../common/settingKeys';
 import { ITelemetry } from '../../common/telemetry';
 import { formatError } from '../../common/utils';
 import { FolderRepositoryManager, ItemsResponseResult } from '../../github/folderRepositoryManager';
+import { ItemsResponseError } from '../../github/githubRepository';
 import { PRType } from '../../github/interface';
 import { NotificationProvider } from '../../github/notifications';
 import { PullRequestModel } from '../../github/pullRequestModel';
@@ -25,6 +26,7 @@ export enum PRCategoryActionType {
 	NoRemotes,
 	NoMatchingRemotes,
 	ConfigureRemotes,
+	RepositoryNotFound
 }
 
 interface QueryInspect {
@@ -98,6 +100,14 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 				this.command = {
 					title: vscode.l10n.t('Configure remotes'),
 					command: 'pr.configureRemotes',
+					arguments: [],
+				};
+				break;
+			case PRCategoryActionType.RepositoryNotFound:
+				this.label = vscode.l10n.t('Repository not found. Try another account...');
+				this.command = {
+					title: vscode.l10n.t('Sign in'),
+					command: 'pr.signinAlternateAndRefreshList',
 					arguments: [],
 				};
 				break;
@@ -316,6 +326,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		let hasMorePages = false;
 		let hasUnsearchedRepositories = false;
 		let needLogin = false;
+		let repositoryNotFound = false;
 		if (this.type === PRType.LocalPullRequest) {
 			try {
 				this.prs = (await this._prsTreeModel.getLocalPullRequests(this._folderRepoManager)).items;
@@ -334,7 +345,9 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 						response = await this._prsTreeModel.getPullRequestsForQuery(this._folderRepoManager, this.fetchNextPage, this._categoryQuery!);
 						break;
 				}
-				if (!this.fetchNextPage) {
+				if (response.error === ItemsResponseError.NotFound) {
+					repositoryNotFound = true;
+				} else if (!this.fetchNextPage) {
 					this.prs = response.items;
 				} else {
 					this.prs = this.prs.concat(response.items);
@@ -362,7 +375,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			this.children = nodes;
 			return nodes;
 		} else {
-			const category = needLogin ? PRCategoryActionType.Login : PRCategoryActionType.Empty;
+			const category = needLogin ? PRCategoryActionType.Login : (repositoryNotFound ? PRCategoryActionType.RepositoryNotFound : PRCategoryActionType.Empty);
 			const result = [new PRCategoryActionNode(this, category)];
 
 			this.children = result;

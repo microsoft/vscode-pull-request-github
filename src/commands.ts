@@ -23,7 +23,7 @@ import { NotificationProvider } from './github/notifications';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
-import { RepositoriesManager } from './github/repositoriesManager';
+import { AuthenticationType, RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, vscodeDevPrLink } from './github/utils';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewCommentController } from './view/reviewCommentController';
@@ -864,13 +864,13 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.signinNoEnterprise', async () => {
-			await reposManager.authenticate(false);
+			await reposManager.authenticate(AuthenticationType.GitHub);
 		}),
 	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.signinenterprise', async () => {
-			await reposManager.authenticate(true);
+			await reposManager.authenticate(AuthenticationType.Enterprise);
 		}),
 	);
 
@@ -885,6 +885,14 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.signinAndRefreshList', async () => {
 			if (await reposManager.authenticate()) {
+				vscode.commands.executeCommand('pr.refreshList');
+			}
+		}),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.signinAlternateAndRefreshList', async () => {
+			if (await reposManager.authenticate(AuthenticationType.AlternateGitHub)) {
 				vscode.commands.executeCommand('pr.refreshList');
 			}
 		}),
