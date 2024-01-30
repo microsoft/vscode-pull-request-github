@@ -35,7 +35,7 @@ import { git } from '../gitProviders/gitCommands';
 import { OctokitCommon } from './common';
 import { ConflictModel } from './conflictGuide';
 import { CredentialStore } from './credentials';
-import { GitHubRepository, ItemsData, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
+import { GitHubRepository, ItemsData, ItemsResponseError, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
 import { PullRequestState, UserResponse } from './graphql';
 import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
@@ -60,6 +60,7 @@ export interface ItemsResponseResult<T> {
 	items: T[];
 	hasMorePages: boolean;
 	hasUnsearchedRepositories: boolean;
+	error?: ItemsResponseError;
 }
 
 export class NoGitHubReposError extends Error {
@@ -969,6 +970,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (page) {
 				itemData.items = itemData.items.concat(page.items);
 				itemData.hasMorePages = page.hasMorePages;
+				itemData.error = page.error ?? itemData.error;
 			}
 		};
 
@@ -1048,6 +1050,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					items: itemData.items,
 					hasMorePages: pageInformation.hasMorePages,
 					hasUnsearchedRepositories: i < githubRepositories.length - 1,
+					error: itemData.error
 				};
 			}
 		}
@@ -1056,6 +1059,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			items: itemData.items,
 			hasMorePages: false,
 			hasUnsearchedRepositories: false,
+			error: itemData.error
 		};
 	}
 

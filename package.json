@@ -976,6 +976,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.signinAlternateAndRefreshList",
+				"title": "%command.pr.signinAndRefreshList.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.configureRemotes",
 				"title": "%command.pr.configureRemotes.title%",
 				"category": "%command.pull.request.category%"
@@ -1662,6 +1667,10 @@
 				},
 				{
 					"command": "pr.signinAndRefreshList",
+					"when": "false"
+				},
+				{
+					"command": "pr.signinAlternateAndRefreshList",
 					"when": "false"
 				},
 				{
