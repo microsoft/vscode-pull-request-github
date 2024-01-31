@@ -133,7 +133,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 
 		this.childrenDisposables.push(
 			this.pullRequest.onDidChangeFileViewedState(e => {
-				const matchingChange = e.changed.find(viewStateChange => viewStateChange.fileName === this.changeModel.fileName);
+				const matchingChange = e.changed.find(viewStateChange => (viewStateChange.fileName === this.changeModel.fileName) && (viewStateChange.viewed !== this.changeModel.viewed));
 				if (matchingChange) {
 					this.updateViewed(matchingChange.viewed);
 					this.refresh(this);

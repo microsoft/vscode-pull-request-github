@@ -67,12 +67,15 @@ input[type='submit']:hover:enabled {
 	cursor: pointer;
 }
 
-body button.secondary {
+button.secondary {
 	background-color: var(--vscode-button-secondaryBackground);
 	color: var(--vscode-button-secondaryForeground);
 }
 
-body button.secondary:hover {
+button.secondary:hover:enabled,
+button.secondary:focus:enabled,
+input[type='submit'].secondary:focus:enabled,
+input[type='submit'].secondary:hover:enabled {
 	background-color: var(--vscode-button-secondaryHoverBackground);
 }
 

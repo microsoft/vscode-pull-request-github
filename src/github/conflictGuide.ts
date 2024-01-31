@@ -31,15 +31,22 @@ export class ConflictModel implements vscode.Disposable {
 				this._reportProgress();
 			}
 		}));
+		this._disposables.push(this._repository.state.onDidChange(async () => {
+			this._reportProgress();
+		}));
 	}
 
 	private _reportProgress() {
+		if (this._lastReportedRemainingCount === 0) {
+			// Already done.
+			return;
+		}
 		const remainingCount = this.remainingConflicts.length;
 		if (this._lastReportedRemainingCount !== remainingCount) {
 			this._onConflictCountChanged.fire(this._lastReportedRemainingCount - remainingCount);
 			this._lastReportedRemainingCount = remainingCount;
 		}
-		if (remainingCount === 0) {
+		if (this._lastReportedRemainingCount === 0) {
 			this.listenForCommit();
 		}
 	}
@@ -158,10 +165,8 @@ class ConflictNotification implements vscode.Disposable {
 				const result = await vscode.window.showInformationMessage(message, commit, cancel);
 				if (result === commit) {
 					await this._repository.commit(this._conflictModel.message);
-					return true;
-				} else {
+				} else if (result === cancel) {
 					await this._conflictModel.abort();
-					return false;
 				}
 			}
 		});

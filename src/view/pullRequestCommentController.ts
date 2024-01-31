@@ -11,6 +11,7 @@ import { DiffSide, IComment, SubjectType } from '../common/comment';
 import { fromPRUri, Schemes } from '../common/uri';
 import { dispose, groupBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
+import { GitHubRepository } from '../github/githubRepository';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
 import { PullRequestModel, ReviewThreadChangeEvent } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
@@ -23,20 +24,23 @@ import {
 	updateThread,
 	updateThreadWithRange,
 } from '../github/utils';
+import { CommentControllerBase } from './commentControllBase';
 
-export class PullRequestCommentController implements CommentHandler, CommentReactionHandler {
+export class PullRequestCommentController extends CommentControllerBase implements CommentHandler, CommentReactionHandler {
 	private _pendingCommentThreadAdds: GHPRCommentThread[] = [];
 	private _commentHandlerId: string;
 	private _commentThreadCache: { [key: string]: GHPRCommentThread[] } = {};
 	private _disposables: vscode.Disposable[] = [];
 	private readonly _context: vscode.ExtensionContext;
+	private readonly _githubRepositories: GitHubRepository[];
 
 	constructor(
-		private pullRequestModel: PullRequestModel,
-		private _folderReposManager: FolderRepositoryManager,
+		private readonly pullRequestModel: PullRequestModel,
+		folderRepoManager: FolderRepositoryManager,
 		private _commentController: vscode.CommentController,
 	) {
-		this._context = _folderReposManager.context;
+		super(folderRepoManager);
+		this._context = folderRepoManager.context;
 		this._commentHandlerId = uuid();
 		registerCommentHandler(this._commentHandlerId, this);
 
@@ -51,6 +55,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 				this.registerListeners();
 			});
 		}
+		this._githubRepositories = this.githubReposForPullRequest(pullRequestModel);
 	}
 
 	private registerListeners(): void {
@@ -130,7 +135,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	private async addThreadsForEditors(documents: vscode.TextDocument[]): Promise<void> {
 		const reviewThreads = this.pullRequestModel.reviewThreadsCache;
 		const threadsByPath = groupBy(reviewThreads, thread => thread.path);
-		const currentUser = await this._folderReposManager.getCurrentUser();
+		const currentUser = await this._folderRepoManager.getCurrentUser();
 		for (const document of documents) {
 			const { fileName, isBase } = fromPRUri(document.uri)!;
 			const cacheKey = this.getCommentThreadCacheKey(fileName, isBase);
@@ -156,7 +161,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 							thread,
 							this._commentController,
 							currentUser.login,
-							this.pullRequestModel.githubRepository
+							this._githubRepositories
 						);
 					});
 			}
@@ -209,8 +214,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			if (index > -1) {
 				newThread = this._pendingCommentThreadAdds[index];
 				newThread.gitHubThreadId = thread.id;
-				newThread.comments = thread.comments.map(c => new GHPRComment(this._context, c, newThread!, this.pullRequestModel.githubRepository));
-				updateThreadWithRange(this._context, newThread, thread, this.pullRequestModel.githubRepository);
+				newThread.comments = thread.comments.map(c => new GHPRComment(this._context, c, newThread!, this._githubRepositories));
+				updateThreadWithRange(this._context, newThread, thread, this._githubRepositories);
 				this._pendingCommentThreadAdds.splice(index, 1);
 			} else {
 				const openPREditors = await this.getPREditors(vscode.window.visibleTextEditors);
@@ -232,8 +237,8 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 						range,
 						thread,
 						this._commentController,
-						(await this._folderReposManager.getCurrentUser()).login,
-						this.pullRequestModel.githubRepository
+						(await this._folderRepoManager.getCurrentUser()).login,
+						this._githubRepositories
 					);
 				}
 			}
@@ -254,7 +259,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 			const index = this._commentThreadCache[key] ? this._commentThreadCache[key].findIndex(t => t.gitHubThreadId === thread.id) : -1;
 			if (index > -1) {
 				const matchingThread = this._commentThreadCache[key][index];
-				updateThread(this._context, matchingThread, thread, this.pullRequestModel.githubRepository);
+				updateThread(this._context, matchingThread, thread, this._githubRepositories);
 			}
 		});
 
@@ -353,7 +358,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 	}
 
 	private async optimisticallyEditComment(thread: GHPRCommentThread, comment: GHPRComment): Promise<number> {
-		const currentUser = await this._folderReposManager.getCurrentUser(this.pullRequestModel.githubRepository);
+		const currentUser = await this._folderRepoManager.getCurrentUser(this.pullRequestModel.githubRepository);
 		const temporaryComment = new TemporaryComment(
 			thread,
 			comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body,
@@ -413,7 +418,7 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 	private gitRelativeRootPath(comparePath: string) {
 		// get path relative to git root directory. Handles windows path by converting it to unix path.
-		return path.relative(this._folderReposManager.repository.rootUri.path, comparePath).replace(/\\/g, '/');
+		return path.relative(this._folderRepoManager.repository.rootUri.path, comparePath).replace(/\\/g, '/');
 	}
 
 	// #region Review
@@ -447,17 +452,17 @@ export class PullRequestCommentController implements CommentHandler, CommentReac
 
 
 	public async openReview(): Promise<void> {
-		await PullRequestOverviewPanel.createOrShow(this._folderReposManager.context.extensionUri, this._folderReposManager, this.pullRequestModel);
+		await PullRequestOverviewPanel.createOrShow(this._folderRepoManager.context.extensionUri, this._folderRepoManager, this.pullRequestModel);
 		PullRequestOverviewPanel.scrollToReview();
 
 		/* __GDPR__
 			"pr.openDescription" : {}
 		*/
-		this._folderReposManager.telemetry.sendTelemetryEvent('pr.openDescription');
+		this._folderRepoManager.telemetry.sendTelemetryEvent('pr.openDescription');
 	}
 
 	private async optimisticallyAddComment(thread: GHPRCommentThread, input: string, inDraft: boolean): Promise<number> {
-		const currentUser = await this._folderReposManager.getCurrentUser(this.pullRequestModel.githubRepository);
+		const currentUser = await this._folderRepoManager.getCurrentUser(this.pullRequestModel.githubRepository);
 		const comment = new TemporaryComment(thread, input, inDraft, currentUser);
 		this.updateCommentThreadComments(thread, [...thread.comments, comment]);
 		return comment.id;

@@ -1,5 +1,74 @@
 # Changelog
 
+## 0.80.0
+
+### Changes
+
+- Issue queries shown in the "Issues" view can be grouped by repository and milestone using the new `groupBy` property in the `githubIssues.queries` setting.
+	```json
+    "githubIssues.queries": [
+        {
+            "label": "Current",
+            "query": "assignee:alexr00 is:open sort:updated-desc milestone:\"February 2024\" sort:updated-desc",
+            "groupBy": [
+                "milestone",
+                "repository"
+            ]
+        }
+    ],
+	```
+
+   ![Group by repository and milestone](/documentation/changelog/0.80.0/group-by-milestone-repo.png)
+- The setting `githubPullRequests.createDefaultBaseBranch` can be used to set the default base branch when creating a PR. By default, the branch that the current branch was created from is used (so long as that branch exists on the remote). Setting `repositoryDefault` will cause the repository's default branch to be used instead.
+- Added files are opened in a regular editor instead of a diff editor when viewing changes in a PR.
+- Merge commits are skipped when choosing a default PR title and description. This is to avoid the case where the merge commit message is used as the PR title and description.
+- GitHub permalinks in comments for a checked out PR can now be opened in VS Code instead of just taking you to the browser.
+
+	![Open permalink locally](/documentation/changelog/0.80.0/open-link-locally.gif)
+- The base branch can be merged into a checked out PR branch from the Pull Request Description.
+
+	![Merge base branch into PR branch](/documentation/changelog/0.80.0/merge-base-into-pr.png)
+-The setting `githubPullRequests.pullPullRequestBranchBeforeCheckout` also has new options to automatically fetch the base and merge it into the PR branch at checkout time.
+- Merge conflicts can be resolved from the Pull Request Description when the PR is checked out.
+
+	![Resolve merge conflicts](/documentation/changelog/0.80.0/resolve-merge-conflicts.png)
+- The hover on reactions now shows who left the reaction.
+
+	![Reaction hover](/documentation/changelog/0.80.0/reaction-hover.png)
+- Issue templates are now available when creating an issue.
+
+- Setting `"githubPullRequests.focusedMode": "multiDiff"` will open the multi-diff editor with all the files in the PR upon checkout.
+
+	![Multi-diff editor for a PR](/documentation/changelog/0.80.0/multi-diff-editor.png)
+
+### Fixes
+
+- Comments for not-checked-out PRs should be removed from Comments view when no files from the PR are open. https://github.com/microsoft/vscode-pull-request-github/issues/5619
+- [Accessibility] No alert message is spoken to screen reader when completing a review. https://github.com/microsoft/vscode-pull-request-github/issues/5526
+- [Accessibility] Semantic heading tag is missing in issue and PR webview comments. https://github.com/microsoft/vscode-pull-request-github/issues/5524
+- Custom tree checkboxes have unexpected delayed reaction. https://github.com/microsoft/vscode-pull-request-github/issues/5676
+- Close Pull request Button is not working. https://github.com/microsoft/vscode-pull-request-github/issues/5598
+- Default Create Option: createDraft. https://github.com/microsoft/vscode-pull-request-github/issues/5584
+- collapses an open PR review tree on refresh. https://github.com/microsoft/vscode-pull-request-github/issues/5556
+- Queries apart from "All Open" don't work, output is full of rate limit errors. https://github.com/microsoft/vscode-pull-request-github/issues/5496
+- Opening multi-root workspace triggers rate-limiting error. https://github.com/microsoft/vscode-pull-request-github/issues/4351
+- Narrator is not announcing the state of Expanded/collapsed for "Create with Option" arrow button. https://github.com/microsoft/vscode-pull-request-github/issues/5483
+- Usabilty: At High contrast(Desert) mode for "Cancel,Create,Create with Option" button keyboard focus is not visible clearly.https://github.com/microsoft/vscode-pull-request-github/issues/5482
+- Create-PR view: sparkle icon doesn't visually indicate that it has focus. https://github.com/microsoft/vscode-pull-request-github/issues/5471
+- Unable to select default branch (main) on upstream repo, when working off a fork. https://github.com/microsoft/vscode-pull-request-github/issues/5470
+- Task list checkboxes aren't rendered. https://github.com/microsoft/vscode-pull-request-github/issues/5310
+- Copy Permalink fails frequently, seemingly on the first copy of the day. https://github.com/microsoft/vscode-pull-request-github/issues/5185
+- SCM title menu Create Pull Request action is unavailable when in a Remote window. https://github.com/microsoft/vscode-pull-request-github/issues/3911
+- Scroll position is not maintained. https://github.com/microsoft/vscode-pull-request-github/issues/1202
+
+**_Thank You_**
+
+* [@Balastrong (Leonardo Montini)](https://github.com/Balastrong): Create issue from markdown template [PR #5503](https://github.com/microsoft/vscode-pull-request-github/pull/5503)
+* [@joshuaobrien](https://github.com/joshuaobrien)
+  * Batch mark/unmark files as viewed [PR #4700](https://github.com/microsoft/vscode-pull-request-github/pull/4700)
+  * Remove a few unused variables [PR #5510](https://github.com/microsoft/vscode-pull-request-github/pull/5510)
+* [@pouyakary (Pouya Kary)](https://github.com/pouyakary): Fixes #5620 [PR #5621](https://github.com/microsoft/vscode-pull-request-github/pull/5621)
+
 ## 0.78.1
 
 ### Fixes

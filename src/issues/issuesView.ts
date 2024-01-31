@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { commands, contexts } from '../common/executeCommands';
 import { groupBy } from '../common/utils';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
+import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { issueBodyHasLink } from './issueLinkLookup';
 import { IssueItem, QueryGroup, StateManager } from './stateManager';
@@ -121,7 +122,7 @@ export class IssuesTreeData
 		item: vscode.TreeItem,
 		element: FolderRepositoryManager | QueryNode | IssueGroupNode | IssueItem,
 	): Promise<vscode.TreeItem> {
-		if (element instanceof IssueItem) {
+		if (element instanceof IssueModel) {
 			item.tooltip = await issueMarkdown(element, this.context, this.manager);
 		}
 		return item;
@@ -169,11 +170,15 @@ export class IssuesTreeData
 		return this.getIssueGroupsForGroupIndex(queryNode.repoRootUri, queryNode.queryLabel, queryNode.isFirst, issueQueryResult.groupBy, 0, issueQueryResult.issues);
 	}
 
-	private getIssueGroupsForGroupIndex(repoRootUri: vscode.Uri, queryLabel: string, isFirst: boolean, groupByOrder: QueryGroup[], index: number, issues: IssueItem[]): IssueGroupNode[] | IssueItem[] {
-		if (groupByOrder.length <= index) {
+	private getIssueGroupsForGroupIndex(repoRootUri: vscode.Uri, queryLabel: string, isFirst: boolean, groupByOrder: QueryGroup[], indexInGroupByOrder: number, issues: IssueItem[]): IssueGroupNode[] | IssueItem[] {
+		if (groupByOrder.length <= indexInGroupByOrder) {
 			return issues;
 		}
-		const groupByValue = groupByOrder[index];
+		const groupByValue = groupByOrder[indexInGroupByOrder];
+		if ((groupByValue !== 'milestone' && groupByValue !== 'repository') || groupByOrder.findIndex(groupBy => groupBy === groupByValue) !== indexInGroupByOrder) {
+			return this.getIssueGroupsForGroupIndex(repoRootUri, queryLabel, isFirst, groupByOrder, indexInGroupByOrder + 1, issues);
+		}
+
 		const groups = groupBy(issues, issue => {
 			if (groupByValue === 'repository') {
 				return `${issue.remote.owner}/${issue.remote.repositoryName}`;
@@ -183,7 +188,7 @@ export class IssuesTreeData
 		});
 		const nodes: IssueGroupNode[] = [];
 		for (const group in groups) {
-			nodes.push(new IssueGroupNode(repoRootUri, queryLabel, isFirst, index, group, groupByOrder, groups[group]));
+			nodes.push(new IssueGroupNode(repoRootUri, queryLabel, isFirst, indexInGroupByOrder, group, groupByOrder, groups[group]));
 		}
 		return nodes;
 	}
