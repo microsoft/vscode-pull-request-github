@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { commands, contexts } from '../common/executeCommands';
 import { groupBy } from '../common/utils';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
+import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { issueBodyHasLink } from './issueLinkLookup';
 import { IssueItem, QueryGroup, StateManager } from './stateManager';
@@ -121,7 +122,7 @@ export class IssuesTreeData
 		item: vscode.TreeItem,
 		element: FolderRepositoryManager | QueryNode | IssueGroupNode | IssueItem,
 	): Promise<vscode.TreeItem> {
-		if (element instanceof IssueItem) {
+		if (element instanceof IssueModel) {
 			item.tooltip = await issueMarkdown(element, this.context, this.manager);
 		}
 		return item;
