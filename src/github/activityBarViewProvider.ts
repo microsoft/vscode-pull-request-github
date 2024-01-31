@@ -16,7 +16,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { isInCodespaces, parseReviewers } from './utils';
-import { PullRequest, ReviewType } from './views';
+import { MergeArguments, PullRequest, ReviewType } from './views';
 
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public readonly viewType = 'github:activePullRequest';
@@ -433,7 +433,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private async mergePullRequest(
-		message: IRequestMessage<{ title: string; description: string; method: 'merge' | 'squash' | 'rebase' }>,
+		message: IRequestMessage<MergeArguments>,
 	): Promise<void> {
 		const { title, description, method } = message.args;
 		const yes = vscode.l10n.t('Yes');

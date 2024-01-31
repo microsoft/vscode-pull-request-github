@@ -215,6 +215,16 @@ body .comment-container .review-comment-header {
 	align-items: center;
 }
 
+.commit-association {
+	display: flex;
+	font-style: italic;
+	flex-direction: row-reverse;
+}
+
+.email {
+	font-weight: bold;
+}
+
 .status-item-detail-text {
 	display: flex;
 	gap: 8px;

@@ -32,7 +32,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { getAssigneesQuickPickItems, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
 import { isInCodespaces, parseReviewers, vscodeDevPrLink } from './utils';
-import { ProjectItemsReply, PullRequest, ReviewType } from './views';
+import { MergeArguments, ProjectItemsReply, PullRequest, ReviewType } from './views';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -282,6 +282,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					milestone: pullRequest.milestone,
 					assignees: pullRequest.assignees,
 					continueOnGitHub,
+					currentUserEmail: currentUser.email,
 					isAuthor: currentUser.login === pullRequest.author.login,
 					currentUserReviewState: reviewState,
 					isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
@@ -603,11 +604,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private mergePullRequest(
-		message: IRequestMessage<{ title: string | undefined; description: string | undefined; method: 'merge' | 'squash' | 'rebase' }>,
+		message: IRequestMessage<MergeArguments>,
 	): void {
-		const { title, description, method } = message.args;
+		const { title, description, method, email } = message.args;
 		this._folderRepositoryManager
-			.mergePullRequest(this._item, title, description, method)
+			.mergePullRequest(this._item, title, description, method, email)
 			.then(result => {
 				vscode.commands.executeCommand('pr.refreshList');
 

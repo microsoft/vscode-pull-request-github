@@ -57,6 +57,7 @@ export interface PullRequest {
 	 * edit title/description, assign reviewers/labels etc.
 	 */
 	hasWritePermission: boolean;
+	currentUserEmail: string;
 	pendingCommentText?: string;
 	pendingCommentDrafts?: { [key: string]: string };
 	pendingReviewType?: ReviewType;
@@ -93,4 +94,11 @@ export interface PullRequest {
 
 export interface ProjectItemsReply {
 	projectItems: IProjectItem[] | undefined;
+}
+
+export interface MergeArguments {
+	title: string | undefined;
+	description: string | undefined;
+	method: MergeMethod;
+	email?: string;
 }

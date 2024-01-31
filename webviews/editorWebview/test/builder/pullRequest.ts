@@ -51,6 +51,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	milestone: { default: undefined },
 	continueOnGitHub: { default: false },
 	currentUserReviewState: { default: 'REQUESTED' },
+	currentUserEmail: { default: 'email-address' },
 	isDarkTheme: { default: true },
 	isEnterprise: { default: false },
 	hasReviewDraft: { default: false },

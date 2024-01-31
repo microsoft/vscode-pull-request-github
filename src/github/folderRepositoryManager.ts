@@ -1490,6 +1490,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		title?: string,
 		description?: string,
 		method?: 'merge' | 'squash' | 'rebase',
+		email?: string,
 	): Promise<{ merged: boolean, message: string }> {
 		const { mutate, schema } = await pullRequest.githubRepository.ensure();
 
@@ -1542,6 +1543,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			commitHeadline: title,
 			commitBody: description,
 			expectedHeadOid,
+			authorEmail: email,
 			mergeMethod:
 				(method?.toUpperCase() ??
 					vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'merge' | 'squash' | 'rebase'>(DEFAULT_MERGE_METHOD, 'merge')?.toUpperCase()) as GraphQLMergeMethod,

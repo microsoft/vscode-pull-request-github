@@ -426,6 +426,7 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 							title: title?.value,
 							description: description?.value,
 							method,
+							email: pr.currentUserEmail
 						});
 						updatePR({ state });
 					} finally {
@@ -435,6 +436,11 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 			>
 				{method === 'rebase' ? null : (<input type="text" name="title" defaultValue={getDefaultTitleText(method, pr)} />)}
 				{method === 'rebase' ? null : (<textarea name="description" defaultValue={getDefaultDescriptionText(method, pr)} />)}
+				{method === 'rebase' ? null : (
+					<div className='commit-association'>
+						<span>Commit will be associated with <span className='email'>{pr.currentUserEmail}</span></span>
+					</div>
+				)}
 				<div className="form-actions" id={method === 'rebase' ? 'rebase-actions' : ''}>
 					<button className="secondary" onClick={cancel}>Cancel</button>
 					<button disabled={isBusy} type="submit" id="confirm-merge">{method === 'rebase' ? 'Confirm ' : ''}{MERGE_METHODS[method]}</button>
