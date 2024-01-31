@@ -920,3 +920,16 @@ export interface PullRequestFilesResponse {
 		}
 	} | null;
 }
+
+export interface MergePullRequestInput {
+	pullRequestId: string;
+	mergeMethod: MergeMethod;
+	authorEmail?: string;
+	commitBody?: string;
+	commitHeadline?: string;
+	expectedHeadOid?: string;
+}
+
+export interface MergePullRequestResponse {
+	pullRequest: PullRequest;
+}

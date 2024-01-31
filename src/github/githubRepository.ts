@@ -121,10 +121,16 @@ export interface IMetadata extends OctokitCommon.ReposGetResponseData {
 	currentUser: any;
 }
 
-interface GraphQLError {
+export enum GraphQLErrorType {
+	Unprocessable = 'UNPROCESSABLE',
+}
+
+export interface GraphQLError {
 	extensions?: {
 		code: string;
 	};
+	type?: GraphQLErrorType;
+	message?: string;
 }
 
 export class GitHubRepository implements vscode.Disposable {
