@@ -246,6 +246,11 @@ export const MergeStatus = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpd
 
 export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpdateBranch }: { mergeable: PullRequestMergeability; isSimple: boolean; isCurrentlyCheckedOut: boolean, canUpdateBranch: boolean }) => {
 	const { updateBranch } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(false);
+	const update = () => {
+		setBusy(true);
+		updateBranch().finally(() => setBusy(false));
+	}
 	if (!canUpdateBranch || !isCurrentlyCheckedOut || isSimple || mergeable === PullRequestMergeability.Behind || mergeable === PullRequestMergeability.Conflict || mergeable === PullRequestMergeability.Unknown) {
 		return null;
 	}
@@ -253,7 +258,7 @@ export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canU
 		<div className="status-item status-section">
 			{alertIcon}
 			<p>This branch is out-of-date with the base branch.</p>
-			<button className="secondary" onClick={updateBranch} >Update with merge commit</button>
+			<button className="secondary" onClick={update} disabled={isBusy} >Update with merge commit</button>
 		</div>
 	);
 

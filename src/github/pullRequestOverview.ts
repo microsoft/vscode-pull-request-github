@@ -825,6 +825,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			return this._replyMessage(message, {});
 		}
 		await this._folderRepositoryManager.tryMergeBaseIntoHead(this._item, true);
+		await this.refreshPanel();
 
 		this._replyMessage(message, {});
 	}
