@@ -210,6 +210,12 @@ export default StatusChecksSection;
 
 export const MergeStatus = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpdateBranch }: { mergeable: PullRequestMergeability; isSimple: boolean; isCurrentlyCheckedOut: boolean, canUpdateBranch: boolean }) => {
 	const { updateBranch } = useContext(PullRequestContext);
+	const [busy, setBusy] = useState(false);
+
+	const onClick = () => {
+		setBusy(true);
+		updateBranch().finally(() => setBusy(false));
+	};
 
 	let icon: JSX.Element | null = pendingIcon;
 	let summary: string = 'Checking if this branch can be merged...';
@@ -239,7 +245,7 @@ export const MergeStatus = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpd
 			<p>
 				{summary}
 			</p>
-			{(action && !isSimple && canUpdateBranch && isCurrentlyCheckedOut) ? <button className="secondary" onClick={updateBranch} >{action}</button> : null}
+			{(action && !isSimple && canUpdateBranch && isCurrentlyCheckedOut) ? <button className="secondary" onClick={onClick} disabled={busy} >{action}</button> : null}
 		</div>
 	);
 };
