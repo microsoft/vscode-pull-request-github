@@ -57,7 +57,7 @@ export interface PullRequest {
 	 * edit title/description, assign reviewers/labels etc.
 	 */
 	hasWritePermission: boolean;
-	currentUserEmail: string;
+	emailForCommit: string;
 	pendingCommentText?: string;
 	pendingCommentDrafts?: { [key: string]: string };
 	pendingReviewType?: ReviewType;

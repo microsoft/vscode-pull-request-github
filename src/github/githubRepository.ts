@@ -804,6 +804,19 @@ export class GitHubRepository implements vscode.Disposable {
 		return (await this._credentialStore.getCurrentUser(this.remote.authProviderId)).login;
 	}
 
+	async getAuthenticatedUserEmails(): Promise<string[]> {
+		try {
+			Logger.debug(`Fetch authenticated user emails - enter`, GitHubRepository.ID);
+			const { octokit } = await this.ensure();
+			const { data } = await octokit.call(octokit.api.users.listEmailsForAuthenticated, {});
+			Logger.debug(`Fetch authenticated user emails - done`, GitHubRepository.ID);
+			return data.map(email => email.email);
+		} catch (e) {
+			Logger.error(`Unable to fetch authenticated user emails: ${e}`, GitHubRepository.ID);
+			return [];
+		}
+	}
+
 	async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, GitHubRepository.ID);

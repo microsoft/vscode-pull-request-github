@@ -395,3 +395,18 @@ export async function getLabelOptions(
 	});
 	return { newLabels, labelPicks };
 }
+
+export async function pickEmail(githubRepository: GitHubRepository, current: string): Promise<string | undefined> {
+	async function getEmails(): Promise<(vscode.QuickPickItem)[]> {
+		const emails = await githubRepository.getAuthenticatedUserEmails();
+		return emails.map(email => {
+			return {
+				label: email,
+				picked: email.toLowerCase() === current.toLowerCase()
+			};
+		});
+	}
+
+	const result = await vscode.window.showQuickPick(getEmails(), { canPickMany: false, title: vscode.l10n.t('Choose an email') });
+	return result ? result.label : undefined;
+}

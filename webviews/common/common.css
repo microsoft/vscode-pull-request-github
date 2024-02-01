@@ -380,3 +380,30 @@ button.split-right .icon {
 button.split-right .icon svg path {
 	fill: unset;
 }
+button.input-box {
+	display: block;
+	height: 24px;
+	margin-top: -4px;
+	padding-top: 2px;
+	padding-left: 8px;
+	text-align: left;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	color: var(--vscode-input-foreground) !important;
+	background-color: var(--vscode-input-background) !important;
+}
+
+button.input-box:active,
+button.input-box:focus {
+	color: var(--vscode-inputOption-activeForeground) !important;
+	background-color: var(--vscode-inputOption-activeBackground) !important;
+}
+
+button.input-box:hover:not(:disabled) {
+	background-color: var(--vscode-inputOption-hoverBackground) !important;
+}
+
+button.input-box:focus {
+	border-color: var(--vscode-focusBorder) !important;
+}

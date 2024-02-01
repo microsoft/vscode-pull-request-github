@@ -52,6 +52,11 @@ export class PRContext {
 
 	public checkMergeability = () => this.postMessage({ command: 'pr.checkMergeability' });
 
+	public changeEmail = async (current: string) => {
+		const newEmail = await this.postMessage({ command: 'pr.change-email', args: current });
+		this.updatePR({ emailForCommit: newEmail });
+	};
+
 	public merge = (args: MergeArguments) =>
 		this.postMessage({ command: 'pr.merge', args });
 

@@ -410,7 +410,7 @@ export const DeleteBranch = (pr: PullRequest) => {
 };
 
 function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMethod; cancel: () => void }) {
-	const { merge, updatePR } = useContext(PullRequestContext);
+	const { merge, updatePR, changeEmail } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 
 	return (
@@ -426,7 +426,7 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 							title: title?.value,
 							description: description?.value,
 							method,
-							email: pr.currentUserEmail
+							email: pr.emailForCommit
 						});
 						updatePR({ state });
 					} finally {
@@ -438,7 +438,12 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 				{method === 'rebase' ? null : (<textarea name="description" defaultValue={getDefaultDescriptionText(method, pr)} />)}
 				{method === 'rebase' ? null : (
 					<div className='commit-association'>
-						<span>Commit will be associated with <span className='email'>{pr.currentUserEmail}</span></span>
+						<span>
+							Commit will be associated with <button className='input-box' title='Change email' aria-label='Change email' disabled={isBusy} onClick={() => {
+								setBusy(true);
+								changeEmail(pr.emailForCommit).finally(() => setBusy(false));
+							}}>{pr.emailForCommit}</button>
+						</span>
 					</div>
 				)}
 				<div className="form-actions" id={method === 'rebase' ? 'rebase-actions' : ''}>

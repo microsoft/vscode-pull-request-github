@@ -219,10 +219,19 @@ body .comment-container .review-comment-header {
 	display: flex;
 	font-style: italic;
 	flex-direction: row-reverse;
+	padding-top: 7px;
+}
+
+.commit-association span {
+	flex-direction: row;
 }
 
 .email {
 	font-weight: bold;
+}
+
+button.input-box {
+	float: right;
 }
 
 .status-item-detail-text {
