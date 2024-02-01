@@ -41,12 +41,14 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 			const truncatedLine = line.substring(0, MAX_LINE_LENGTH);
 			const matches = truncatedLine.match(ISSUE_OR_URL_EXPRESSION);
 			if (!matches) {
-				const search = truncatedLine.search(this.expression);
-				if (search >= 0) {
+				const match = truncatedLine.match(this.expression);
+				const search = match?.index ?? -1;
+				if (search >= 0 && match) {
 					const codeAction: vscode.CodeAction = new vscode.CodeAction(
 						vscode.l10n.t('Create GitHub Issue'),
 						vscode.CodeActionKind.QuickFix,
 					);
+					codeAction.ranges = [new vscode.Range(lineNumber, search, lineNumber, search + match[0].length)];
 					const indexOfWhiteSpace = truncatedLine.substring(search).search(/\s/);
 					const insertIndex =
 						search +
