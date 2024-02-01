@@ -259,7 +259,8 @@ export function convertRESTUserToAccount(
 		login: user.login,
 		url: user.html_url,
 		avatarUrl: githubRepository ? getAvatarWithEnterpriseFallback(user.avatar_url, user.gravatar_id ?? undefined, githubRepository.remote.isEnterprise) : user.avatar_url,
-		id: user.node_id
+		id: user.node_id,
+		email: user.email ?? undefined
 	};
 }
 

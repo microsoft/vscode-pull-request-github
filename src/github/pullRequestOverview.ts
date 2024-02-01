@@ -30,9 +30,9 @@ import {
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
-import { getAssigneesQuickPickItems, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
+import { getAssigneesQuickPickItems, getMilestoneFromQuickPick, getProjectFromQuickPick, pickEmail, reviewersQuickPick } from './quickPicks';
 import { isInCodespaces, parseReviewers, vscodeDevPrLink } from './utils';
-import { ProjectItemsReply, PullRequest, ReviewType } from './views';
+import { MergeArguments, ProjectItemsReply, PullRequest, ReviewType } from './views';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -282,6 +282,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					milestone: pullRequest.milestone,
 					assignees: pullRequest.assignees,
 					continueOnGitHub,
+					emailForCommit: currentUser.email,
 					isAuthor: currentUser.login === pullRequest.author.login,
 					currentUserReviewState: reviewState,
 					isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
@@ -331,6 +332,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.checkoutPullRequest(message);
 			case 'pr.merge':
 				return this.mergePullRequest(message);
+			case 'pr.change-email':
+				return this.changeEmail(message);
 			case 'pr.deleteBranch':
 				return this.deleteBranch(message);
 			case 'pr.readyForReview':
@@ -603,11 +606,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private mergePullRequest(
-		message: IRequestMessage<{ title: string | undefined; description: string | undefined; method: 'merge' | 'squash' | 'rebase' }>,
+		message: IRequestMessage<MergeArguments>,
 	): void {
-		const { title, description, method } = message.args;
+		const { title, description, method, email } = message.args;
 		this._folderRepositoryManager
-			.mergePullRequest(this._item, title, description, method)
+			.mergePullRequest(this._item, title, description, method, email)
 			.then(result => {
 				vscode.commands.executeCommand('pr.refreshList');
 
@@ -623,6 +626,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
 				this._throwError(message, {});
 			});
+	}
+
+	private async changeEmail(message: IRequestMessage<string>): Promise<void> {
+		const email = await pickEmail(this._item.githubRepository, message.args);
+		return this._replyMessage(message, email ?? message.args);
 	}
 
 	private async deleteBranch(message: IRequestMessage<any>) {

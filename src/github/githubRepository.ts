@@ -121,10 +121,16 @@ export interface IMetadata extends OctokitCommon.ReposGetResponseData {
 	currentUser: any;
 }
 
-interface GraphQLError {
+export enum GraphQLErrorType {
+	Unprocessable = 'UNPROCESSABLE',
+}
+
+export interface GraphQLError {
 	extensions?: {
 		code: string;
 	};
+	type?: GraphQLErrorType;
+	message?: string;
 }
 
 export class GitHubRepository implements vscode.Disposable {
@@ -796,6 +802,19 @@ export class GitHubRepository implements vscode.Disposable {
 
 	async getAuthenticatedUser(): Promise<string> {
 		return (await this._credentialStore.getCurrentUser(this.remote.authProviderId)).login;
+	}
+
+	async getAuthenticatedUserEmails(): Promise<string[]> {
+		try {
+			Logger.debug(`Fetch authenticated user emails - enter`, GitHubRepository.ID);
+			const { octokit } = await this.ensure();
+			const { data } = await octokit.call(octokit.api.users.listEmailsForAuthenticated, {});
+			Logger.debug(`Fetch authenticated user emails - done`, GitHubRepository.ID);
+			return data.map(email => email.email);
+		} catch (e) {
+			Logger.error(`Unable to fetch authenticated user emails: ${e}`, GitHubRepository.ID);
+			return [];
+		}
 	}
 
 	async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {

@@ -1280,3 +1280,11 @@ mutation UnmarkFileAsViewed($input: UnmarkFileAsViewedInput!) {
 		}
 	}
 }
+
+mutation MergePullRequest($input: MergePullRequestInput!) {
+	mergePullRequest(input: $input) {
+		pullRequest {
+			id
+		}
+	}
+}

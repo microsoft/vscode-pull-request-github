@@ -35,8 +35,8 @@ import { git } from '../gitProviders/gitCommands';
 import { OctokitCommon } from './common';
 import { ConflictModel } from './conflictGuide';
 import { CredentialStore } from './credentials';
-import { GitHubRepository, ItemsData, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
-import { PullRequestState, UserResponse } from './graphql';
+import { GitHubRepository, GraphQLError, GraphQLErrorType, ItemsData, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
+import { MergeMethod as GraphQLMergeMethod, MergePullRequestInput, MergePullRequestResponse, PullRequestState, UserResponse } from './graphql';
 import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
@@ -1490,17 +1490,19 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		title?: string,
 		description?: string,
 		method?: 'merge' | 'squash' | 'rebase',
+		email?: string,
 	): Promise<{ merged: boolean, message: string }> {
-		const { octokit, remote } = await pullRequest.githubRepository.ensure();
+		const { mutate, schema } = await pullRequest.githubRepository.ensure();
 
 		const activePRSHA = this.activePullRequest && this.activePullRequest.head && this.activePullRequest.head.sha;
 		const workingDirectorySHA = this.repository.state.HEAD && this.repository.state.HEAD.commit;
 		const mergingPRSHA = pullRequest.head && pullRequest.head.sha;
 		const workingDirectoryIsDirty = this.repository.state.workingTreeChanges.length > 0;
+		let expectedHeadOid: string | undefined = pullRequest.head?.sha;
 
 		if (activePRSHA === mergingPRSHA) {
 			// We're on the branch of the pr being merged.
-
+			expectedHeadOid = workingDirectorySHA;
 			if (workingDirectorySHA !== mergingPRSHA) {
 				// We are looking at different commit than what will be merged
 				const { ahead } = this.repository.state.HEAD!;
@@ -1515,7 +1517,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 					return {
 						merged: false,
-						message: 'unpushed changes',
+						message: vscode.l10n.t('unpushed changes'),
 					};
 				}
 			}
@@ -1531,36 +1533,47 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				) {
 					return {
 						merged: false,
-						message: 'uncommitted changes',
+						message: vscode.l10n.t('uncommitted changes'),
 					};
 				}
 			}
 		}
+		const input: MergePullRequestInput = {
+			pullRequestId: pullRequest.graphNodeId,
+			commitHeadline: title,
+			commitBody: description,
+			expectedHeadOid,
+			authorEmail: email,
+			mergeMethod:
+				(method?.toUpperCase() ??
+					vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'merge' | 'squash' | 'rebase'>(DEFAULT_MERGE_METHOD, 'merge')?.toUpperCase()) as GraphQLMergeMethod,
+		};
 
-		return octokit.call(octokit.api.pulls.merge, {
-			commit_message: description,
-			commit_title: title,
-			merge_method:
-				method ||
-				vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'merge' | 'squash' | 'rebase'>(DEFAULT_MERGE_METHOD),
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			pull_number: pullRequest.number,
+		return mutate<MergePullRequestResponse>({
+			mutation: schema.MergePullRequest,
+			variables: {
+				input
+			}
 		})
-			.then(x => {
+			.then(() => {
 				/* __GDPR__
 					"pr.merge.success" : {}
 				*/
 				this.telemetry.sendTelemetryEvent('pr.merge.success');
 				this._onDidMergePullRequest.fire();
-				return x.data;
+				return { merged: true, message: '' };
 			})
 			.catch(e => {
 				/* __GDPR__
 					"pr.merge.failure" : {}
 				*/
 				this.telemetry.sendTelemetryErrorEvent('pr.merge.failure');
-				throw e;
+				const graphQLErrors = e.graphQLErrors as GraphQLError[] | undefined;
+				if (graphQLErrors?.length && graphQLErrors.find(error => error.type === GraphQLErrorType.Unprocessable && error.message?.includes('Head branch was modified'))) {
+					return { merged: false, message: vscode.l10n.t('Head branch was modified. Pull, review, then try again.') };
+				} else {
+					throw e;
+				}
 			});
 	}
 
