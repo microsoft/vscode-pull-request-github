@@ -188,6 +188,10 @@ export class MockRepository implements Repository {
 		return [];
 	}
 
+	async getBranchBase(name: string): Promise<Branch | undefined> {
+		throw new Error(`Unexpected getBranchBase(${name})`);
+	}
+
 	async setBranchUpstream(name: string, upstream: string): Promise<void> {
 		const index = this._branches.findIndex(b => b.name === name);
 		if (index === -1) {

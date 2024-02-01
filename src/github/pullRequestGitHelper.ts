@@ -281,27 +281,8 @@ export class PullRequestGitHelper {
 		return undefined;
 	}
 
-	private static parseBaseBranchMetadata(value: string): BaseBranchMetadata | undefined {
-		if (value) {
-			const matches = /(.*)#(.*)#(.*)/g.exec(value);
-			if (matches && matches.length === 4) {
-				const [, owner, repo, branch] = matches;
-				return {
-					owner,
-					repositoryName: repo,
-					branch,
-				};
-			}
-		}
-		return undefined;
-	}
-
 	private static getMetadataKeyForBranch(branchName: string): string {
 		return `branch.${branchName}.${PullRequestMetadataKey}`;
-	}
-
-	private static getBaseBranchMetadataKeyForBranch(branchName: string): string {
-		return `branch.${branchName}.${BaseBranchMetadataKey}`;
 	}
 
 	static async getMatchingPullRequestMetadataForBranch(
@@ -312,19 +293,6 @@ export class PullRequestGitHelper {
 			const configKey = this.getMetadataKeyForBranch(branchName);
 			const configValue = await repository.getConfig(configKey);
 			return PullRequestGitHelper.parsePullRequestMetadata(configValue);
-		} catch (_) {
-			return;
-		}
-	}
-
-	static async getMatchingBaseBranchMetadataForBranch(
-		repository: Repository,
-		branchName: string,
-	): Promise<BaseBranchMetadata | undefined> {
-		try {
-			const configKey = this.getBaseBranchMetadataKeyForBranch(branchName);
-			const configValue = await repository.getConfig(configKey);
-			return PullRequestGitHelper.parseBaseBranchMetadata(configValue);
 		} catch (_) {
 			return;
 		}
