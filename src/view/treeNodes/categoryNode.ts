@@ -342,7 +342,16 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				hasMorePages = response.hasMorePages;
 				hasUnsearchedRepositories = response.hasUnsearchedRepositories;
 			} catch (e) {
-				vscode.window.showErrorMessage(vscode.l10n.t('Fetching pull requests failed: {0}', formatError(e)));
+				const error = formatError(e);
+				const actions: string[] = [];
+				if (error.includes('Bad credentials')) {
+					actions.push(vscode.l10n.t('Login again'));
+				}
+				vscode.window.showErrorMessage(vscode.l10n.t('Fetching pull requests failed: {0}', formatError(e)), ...actions).then(action => {
+					if (action === actions[0]) {
+						this._folderRepoManager.credentialStore.recreate(vscode.l10n.t('Your login session is no longer valid.'));
+					}
+				});
 				needLogin = e instanceof AuthenticationError;
 			} finally {
 				this.fetchNextPage = false;
