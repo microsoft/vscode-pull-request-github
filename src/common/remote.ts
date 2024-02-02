@@ -42,7 +42,7 @@ export class Remote {
 		if (this.remoteName !== remote.remoteName) {
 			return false;
 		}
-		if (this.host !== remote.host) {
+		if (!this.host.includes(remote.host) && !remote.host.includes(this.host)) {
 			return false;
 		}
 		if (this.owner.toLocaleLowerCase() !== remote.owner.toLocaleLowerCase()) {
