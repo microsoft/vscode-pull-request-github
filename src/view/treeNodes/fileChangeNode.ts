@@ -141,7 +141,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 			}),
 		);
 
-		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link' };
+		this.accessibilityInformation = { label: `${this.label} pull request diff`, role: 'link' };
 	}
 
 	get resourceUri(): vscode.Uri {
