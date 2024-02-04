@@ -179,14 +179,14 @@
 						}
 					]
 				},
-				"githubPullRequests.pullRequestLabels": {
+				"githubPullRequests.labelCreated": {
 					"type": "array",
 					"items": {
 						"type": "string",
-						"description": "%githubPullRequests.pullRequestLabels.label.description%"
+						"description": "%githubPullRequests.labelCreated.label.description%"
 					},
 					"default": [],
-					"description": "%githubPullRequests.pullRequestLabels.description%"
+					"description": "%githubPullRequests.labelCreated.description%"
 				},
 				"githubPullRequests.defaultMergeMethod": {
 					"type": "string",

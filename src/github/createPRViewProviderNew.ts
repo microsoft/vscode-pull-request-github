@@ -161,7 +161,20 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 
 	private async getPullRequestDefaultLabels(defaultBaseRemote: RemoteInfo): Promise<ILabel[]> {
 
-		const defaultLabelValues = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get(PULL_REQUEST_LABELS) as Array<string>;
+		const pullRequestLabelSettings = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).inspect<string[]>(PULL_REQUEST_LABELS);
+
+		if (!pullRequestLabelSettings) {
+			return [];
+		}
+
+		const defaultLabelValues = new Array<string>();
+
+		if (pullRequestLabelSettings.workspaceValue) {
+			defaultLabelValues.push(...pullRequestLabelSettings.workspaceValue);
+		}
+		if (pullRequestLabelSettings.globalValue) {
+			defaultLabelValues.push(...pullRequestLabelSettings.globalValue);
+		}
 
 		// Return early if no config present
 		if (!defaultLabelValues || defaultLabelValues.length === 0) {
