@@ -625,7 +625,7 @@
 			"activitybar": [
 				{
 					"id": "github-pull-requests",
-					"title": "GitHub",
+					"title": "%view.github.pull.requests.name%",
 					"icon": "$(github)"
 				},
 				{
