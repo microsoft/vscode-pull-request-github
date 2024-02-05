@@ -340,11 +340,12 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			this._onDidChangeBaseBranch.fire(defaultBaseBranch);
 		}
 
-		const [defaultTitleAndDescription, mergeConfiguration, viewerPermission, mergeQueueMethodForBranch] = await Promise.all([
+		const [defaultTitleAndDescription, mergeConfiguration, viewerPermission, mergeQueueMethodForBranch, labels] = await Promise.all([
 			this.getTitleAndDescription(this.defaultCompareBranch, defaultBaseBranch),
 			this.getMergeConfiguration(defaultBaseRemote.owner, defaultBaseRemote.repositoryName),
 			defaultOrigin.getViewerPermission(),
-			this._folderRepositoryManager.mergeQueueMethodForBranch(defaultBaseBranch, defaultBaseRemote.owner, defaultBaseRemote.repositoryName)
+			this._folderRepositoryManager.mergeQueueMethodForBranch(defaultBaseBranch, defaultBaseRemote.owner, defaultBaseRemote.repositoryName),
+			this.getPullRequestDefaultLabels(defaultBaseRemote)
 		]);
 
 		const defaultCreateOption = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'lastUsed' | 'create' | 'createDraft' | 'createAutoMerge'>(DEFAULT_CREATE_OPTION, 'lastUsed');
@@ -379,7 +380,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			this.telemetry.sendTelemetryEvent('pr.defaultTitleAndDescriptionProvider', { providerTitle: defaultTitleAndDescriptionProvider });
 		}
 
-		this.labels = await this.getPullRequestDefaultLabels(defaultBaseRemote);
+		this.labels = labels;
 
 		const params: CreateParamsNew = {
 			defaultBaseRemote,
