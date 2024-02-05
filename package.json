@@ -180,6 +180,15 @@
 						}
 					]
 				},
+				"githubPullRequests.labelCreated": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"description": "%githubPullRequests.labelCreated.label.description%"
+					},
+					"default": [],
+					"description": "%githubPullRequests.labelCreated.description%"
+				},
 				"githubPullRequests.defaultMergeMethod": {
 					"type": "string",
 					"enum": [

@@ -17,6 +17,7 @@ import {
 	DEFAULT_CREATE_OPTION,
 	PR_SETTINGS_NAMESPACE,
 	PULL_REQUEST_DESCRIPTION,
+	PULL_REQUEST_LABELS,
 	PUSH_BRANCH
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
@@ -156,6 +157,37 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		}
 
 		return undefined;
+	}
+
+	private async getPullRequestDefaultLabels(defaultBaseRemote: RemoteInfo): Promise<ILabel[]> {
+
+		const pullRequestLabelSettings = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).inspect<string[]>(PULL_REQUEST_LABELS);
+
+		if (!pullRequestLabelSettings) {
+			return [];
+		}
+
+		const defaultLabelValues = new Array<string>();
+
+		if (pullRequestLabelSettings.workspaceValue) {
+			defaultLabelValues.push(...pullRequestLabelSettings.workspaceValue);
+		}
+		if (pullRequestLabelSettings.globalValue) {
+			defaultLabelValues.push(...pullRequestLabelSettings.globalValue);
+		}
+
+		// Return early if no config present
+		if (!defaultLabelValues || defaultLabelValues.length === 0) {
+			return [];
+		}
+
+		// Fetch labels from the repo and filter with case-sensitive comparison to be safe,
+		// dropping any labels that don't exist on the repo.
+		// TODO: @alexr00 - Add a cache for this.
+		const labels = await this._folderRepositoryManager.getLabels(undefined, { owner: defaultBaseRemote.owner, repo: defaultBaseRemote.repositoryName });
+		const defaultLabels = labels.filter(label => defaultLabelValues.includes(label.name));
+
+		return defaultLabels;
 	}
 
 	private async getTitleAndDescription(compareBranch: Branch, baseBranch: string): Promise<{ title: string, description: string }> {
@@ -330,11 +362,12 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			this._onDidChangeBaseBranch.fire(defaultBaseBranch);
 		}
 
-		const [defaultTitleAndDescription, mergeConfiguration, viewerPermission, mergeQueueMethodForBranch] = await Promise.all([
+		const [defaultTitleAndDescription, mergeConfiguration, viewerPermission, mergeQueueMethodForBranch, labels] = await Promise.all([
 			this.getTitleAndDescription(this.defaultCompareBranch, defaultBaseBranch),
 			this.getMergeConfiguration(defaultBaseRemote.owner, defaultBaseRemote.repositoryName),
 			defaultOrigin.getViewerPermission(),
-			this._folderRepositoryManager.mergeQueueMethodForBranch(defaultBaseBranch, defaultBaseRemote.owner, defaultBaseRemote.repositoryName)
+			this._folderRepositoryManager.mergeQueueMethodForBranch(defaultBaseBranch, defaultBaseRemote.owner, defaultBaseRemote.repositoryName),
+			this.getPullRequestDefaultLabels(defaultBaseRemote)
 		]);
 
 		const defaultCreateOption = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'lastUsed' | 'create' | 'createDraft' | 'createAutoMerge'>(DEFAULT_CREATE_OPTION, 'lastUsed');
@@ -368,6 +401,8 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			*/
 			this.telemetry.sendTelemetryEvent('pr.defaultTitleAndDescriptionProvider', { providerTitle: defaultTitleAndDescriptionProvider });
 		}
+
+		this.labels = labels;
 
 		const params: CreateParamsNew = {
 			defaultBaseRemote,
