@@ -724,10 +724,11 @@ function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle | undefined, de
 
 	let title = '';
 	let description = '';
+	const prNumberPostfix = `(#${pullRequest.number})`;
 
 	switch (titleSource) {
 		case GraphQL.DefaultCommitTitle.prTitle: {
-			title = `${pullRequest.title} (#${pullRequest.number})`;
+			title = `${pullRequest.title} ${prNumberPostfix}`;
 			break;
 		}
 		case GraphQL.DefaultCommitTitle.mergeMessage: {
@@ -736,9 +737,9 @@ function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle | undefined, de
 		}
 		case GraphQL.DefaultCommitTitle.commitOrPrTitle: {
 			if (pullRequest.commits.length === 1) {
-				title = pullRequest.commits[0].message;
+				title = `${pullRequest.commits[0].message} ${prNumberPostfix}`;
 			} else {
-				title = pullRequest.title;
+				title = `${pullRequest.title} ${prNumberPostfix}`;
 			}
 			break;
 		}
