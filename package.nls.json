@@ -136,6 +136,8 @@
 	"githubIssues.assignWhenWorking.description": "Assigns the issue you're working on to you. Only applies when the issue you're working on is in a repo you currently have open.",
 	"githubPullRequests.focusedMode.description": "The layout to use when a pull request is checked out. Set to false to prevent layout changes.",
 	"githubPullRequests.showPullRequestNumberInTree.description": "Shows the pull request number in the tree view.",
+	"githubPullRequests.labelCreated.description": "Group of labels that you want to add to the pull request automatically. Labels that don't exist in the repository won't be added.",
+	"githubPullRequests.labelCreated.label.description": "Each string element is value of label that you want to add",
 	"view.github.pull.requests.name": "GitHub Pull Requests",
 	"view.github.pull.request.name": "GitHub Pull Request",
 	"view.github.login.name": "Login",

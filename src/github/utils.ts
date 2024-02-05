@@ -724,10 +724,11 @@ function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle | undefined, de
 
 	let title = '';
 	let description = '';
+	const prNumberPostfix = `(#${pullRequest.number})`;
 
 	switch (titleSource) {
 		case GraphQL.DefaultCommitTitle.prTitle: {
-			title = `${pullRequest.title} (#${pullRequest.number})`;
+			title = `${pullRequest.title} ${prNumberPostfix}`;
 			break;
 		}
 		case GraphQL.DefaultCommitTitle.mergeMessage: {
@@ -736,9 +737,9 @@ function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle | undefined, de
 		}
 		case GraphQL.DefaultCommitTitle.commitOrPrTitle: {
 			if (pullRequest.commits.length === 1) {
-				title = pullRequest.commits[0].message;
+				title = `${pullRequest.commits[0].message} ${prNumberPostfix}`;
 			} else {
-				title = pullRequest.title;
+				title = `${pullRequest.title} ${prNumberPostfix}`;
 			}
 			break;
 		}
@@ -1303,26 +1304,38 @@ export async function variableSubstitution(
 	user?: string,
 ): Promise<string> {
 	return value.replace(VARIABLE_PATTERN, (match: string, variable: string) => {
+		let result: string;
 		switch (variable) {
 			case 'user':
-				return user ? user : match;
+				result = user ? user : match;
+				break;
 			case 'issueNumber':
-				return issueModel ? `${issueModel.number}` : match;
+				result = issueModel ? `${issueModel.number}` : match;
+				break;
 			case 'issueNumberLabel':
-				return issueModel ? `${getIssueNumberLabel(issueModel, defaults)}` : match;
+				result = issueModel ? `${getIssueNumberLabel(issueModel, defaults)}` : match;
+				break;
 			case 'issueTitle':
-				return issueModel ? issueModel.title : match;
+				result = issueModel ? issueModel.title : match;
+				break;
 			case 'repository':
-				return defaults ? defaults.repo : match;
+				result = defaults ? defaults.repo : match;
+				break;
 			case 'owner':
-				return defaults ? defaults.owner : match;
+				result = defaults ? defaults.owner : match;
+				break;
 			case 'sanitizedIssueTitle':
-				return issueModel ? sanitizeIssueTitle(issueModel.title) : match; // check what characters are permitted
+				result = issueModel ? sanitizeIssueTitle(issueModel.title) : match; // check what characters are permitted
+				break;
 			case 'sanitizedLowercaseIssueTitle':
-				return issueModel ? sanitizeIssueTitle(issueModel.title).toLowerCase() : match;
+				result = issueModel ? sanitizeIssueTitle(issueModel.title).toLowerCase() : match;
+				break;
 			default:
-				return match;
+				result = match;
+				break;
 		}
+		Logger.debug(`${match} -> ${result}`, 'VariableSubstitution');
+		return result;
 	});
 }
 
