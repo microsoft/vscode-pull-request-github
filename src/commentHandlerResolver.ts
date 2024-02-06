@@ -55,3 +55,11 @@ export function resolveCommentHandler(commentThread: GHPRCommentThread): Comment
 
 	return;
 }
+
+export function findActiveHandler() {
+	for (const commentHandler of commentHandlers.values()) {
+		if (commentHandler.commentController?.activeThread) {
+			return commentHandler;
+		}
+	}
+}
