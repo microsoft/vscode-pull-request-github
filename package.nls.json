@@ -1,5 +1,5 @@
 {
-	"displayName": "GitHub Pull Requests and Issues",
+	"displayName": "GitHub Pull Requests",
 	"description": "Pull Request and Issue Provider for GitHub",
 	"githubPullRequests.pullRequestDescription.description": "The description used when creating pull requests.",
 	"githubPullRequests.pullRequestDescription.template": "Use a pull request template and commit description, or just use the commit description if no templates were found",
@@ -138,6 +138,7 @@
 	"githubPullRequests.showPullRequestNumberInTree.description": "Shows the pull request number in the tree view.",
 	"githubPullRequests.labelCreated.description": "Group of labels that you want to add to the pull request automatically. Labels that don't exist in the repository won't be added.",
 	"githubPullRequests.labelCreated.label.description": "Each string element is value of label that you want to add",
+	"view.github.pull.requests.name": "GitHub Pull Requests",
 	"view.github.pull.request.name": "GitHub Pull Request",
 	"view.github.login.name": "Login",
 	"view.pr.github.name": "Pull Requests",
