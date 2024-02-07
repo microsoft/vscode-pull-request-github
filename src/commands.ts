@@ -1002,7 +1002,7 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.makeSuggestion', async (reply: CommentReply | GHPRComment | undefined) => {
 			let potentialThread: GHPRCommentThread | undefined;
 			if (reply === undefined) {
-				potentialThread = findActiveHandler()?.commentController?.activeThread as GHPRCommentThread | undefined;
+				potentialThread = findActiveHandler()?.commentController.activeCommentThread as GHPRCommentThread | undefined;
 			} else {
 				potentialThread = reply instanceof GHPRComment ? reply.parent : reply?.thread;
 			}
