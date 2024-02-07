@@ -421,10 +421,10 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	private setReadyForReview(message: IRequestMessage<Record<string, unknown>>): void {
 		this._item
 			.setReadyForReview()
-			.then(isDraft => {
+			.then(result => {
 				vscode.commands.executeCommand('pr.refreshList');
 
-				this._replyMessage(message, { isDraft });
+				this._replyMessage(message, result);
 			})
 			.catch(e => {
 				vscode.window.showErrorMessage(vscode.l10n.t('Unable to set PR ready for review. {0}', formatError(e)));

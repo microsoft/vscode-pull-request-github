@@ -42,6 +42,12 @@ export interface ReviewState {
 	state: string;
 }
 
+export interface ReadyForReview {
+	isDraft: boolean;
+	mergeable: PullRequestMergeability;
+	allowAutoMerge: boolean;
+}
+
 export interface IActor {
 	login: string;
 	avatarUrl?: string;

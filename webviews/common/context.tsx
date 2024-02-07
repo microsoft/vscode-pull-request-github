@@ -6,7 +6,7 @@
 import { createContext } from 'react';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, TimelineEvent } from '../../src/common/timelineEvent';
-import { IProjectItem, MergeMethod, ReviewState } from '../../src/github/interface';
+import { IProjectItem, MergeMethod, ReadyForReview, ReviewState } from '../../src/github/interface';
 import { MergeArguments, ProjectItemsReply, PullRequest } from '../../src/github/views';
 import { getState, setState, updateState } from './cache';
 import { getMessageHandler, MessageHandler } from './message';
@@ -64,7 +64,7 @@ export class PRContext {
 
 	public deleteBranch = () => this.postMessage({ command: 'pr.deleteBranch' });
 
-	public readyForReview = () => this.postMessage({ command: 'pr.readyForReview' });
+	public readyForReview = (): Promise<ReadyForReview> => this.postMessage({ command: 'pr.readyForReview' });
 
 	public addReviewers = () => this.postMessage({ command: 'pr.change-reviewers' });
 	public changeProjects = (): Promise<ProjectItemsReply> => this.postMessage({ command: 'pr.change-projects' });

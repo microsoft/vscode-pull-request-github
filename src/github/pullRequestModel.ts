@@ -61,6 +61,7 @@ import {
 	PullRequestChecks,
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
+	ReadyForReview,
 	ReviewEvent,
 } from './interface';
 import { IssueModel } from './issueModel';
@@ -1412,7 +1413,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * Set a draft pull request as ready to be reviewed.
 	 */
-	async setReadyForReview(): Promise<any> {
+	async setReadyForReview(): Promise<ReadyForReview> {
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
@@ -1430,7 +1431,15 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			*/
 			this._telemetry.sendTelemetryEvent('pr.readyForReview.success');
 
-			return data!.markPullRequestReadyForReview.pullRequest.isDraft;
+			const result: ReadyForReview = {
+				isDraft: data!.markPullRequestReadyForReview.pullRequest.isDraft,
+				mergeable: parseMergeability(data!.markPullRequestReadyForReview.pullRequest.mergeable, data!.markPullRequestReadyForReview.pullRequest.mergeStateStatus),
+				allowAutoMerge: data!.markPullRequestReadyForReview.pullRequest.viewerCanEnableAutoMerge || data!.markPullRequestReadyForReview.pullRequest.viewerCanDisableAutoMerge
+			};
+			this.item.isDraft = result.isDraft;
+			this.item.mergeable = result.mergeable;
+			this.item.allowAutoMerge = result.allowAutoMerge;
+			return result;
 		} catch (e) {
 			/* __GDPR__
 				"pr.readyForReview.failure" : {}

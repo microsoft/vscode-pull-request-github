@@ -277,8 +277,8 @@ export const ReadyForReview = ({ isSimple }: { isSimple: boolean }) => {
 	const markReadyForReview = useCallback(async () => {
 		try {
 			setBusy(true);
-			await readyForReview();
-			updatePR({ isDraft: false });
+			const result = await readyForReview();
+			updatePR(result);
 		} finally {
 			setBusy(false);
 		}

@@ -396,6 +396,10 @@ export interface MarkPullRequestReadyForReviewResponse {
 	markPullRequestReadyForReview: {
 		pullRequest: {
 			isDraft: boolean;
+			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+			mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+			viewerCanEnableAutoMerge: boolean;
+			viewerCanDisableAutoMerge: boolean;
 		};
 	};
 }

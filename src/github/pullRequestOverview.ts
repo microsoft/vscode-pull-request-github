@@ -646,10 +646,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private setReadyForReview(message: IRequestMessage<{}>): void {
 		this._item
 			.setReadyForReview()
-			.then(isDraft => {
+			.then(result => {
 				vscode.commands.executeCommand('pr.refreshList');
 
-				this._replyMessage(message, { isDraft });
+				this._replyMessage(message, result);
 			})
 			.catch(e => {
 				vscode.window.showErrorMessage(`Unable to set PR ready for review. ${formatError(e)}`);
