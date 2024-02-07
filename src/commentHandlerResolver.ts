@@ -9,7 +9,7 @@ import Logger from './common/logger';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
 
 export interface CommentHandler {
-	commentController?: vscode.CommentController;
+	commentController: vscode.CommentController;
 	hasCommentThread(thread: GHPRCommentThread): boolean;
 
 	createOrReplyComment(thread: GHPRCommentThread, input: string, isSingleComment: boolean): Promise<void>;
@@ -58,7 +58,7 @@ export function resolveCommentHandler(commentThread: GHPRCommentThread): Comment
 
 export function findActiveHandler() {
 	for (const commentHandler of commentHandlers.values()) {
-		if (commentHandler.commentController?.activeThread) {
+		if (commentHandler.commentController.activeCommentThread) {
 			return commentHandler;
 		}
 	}

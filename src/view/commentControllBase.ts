@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -11,6 +12,12 @@ export abstract class CommentControllerBase {
 	constructor(
 		protected _folderRepoManager: FolderRepositoryManager
 	) { }
+
+	protected _commentController: vscode.CommentController;
+
+	public get commentController(): vscode.CommentController {
+		return this._commentController;
+	}
 
 	protected githubReposForPullRequest(pullRequest: undefined): undefined;
 	protected githubReposForPullRequest(pullRequest: PullRequestModel): GitHubRepository[];

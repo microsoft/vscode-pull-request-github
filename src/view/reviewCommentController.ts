@@ -41,12 +41,6 @@ export class ReviewCommentController extends CommentControllerBase
 	private _localToDispose: vscode.Disposable[] = [];
 	private _commentHandlerId: string;
 
-	private _commentController: vscode.CommentController;
-
-	public get commentController(): vscode.CommentController | undefined {
-		return this._commentController;
-	}
-
 	// Note: marked as protected so that tests can verify caches have been updated correctly without breaking type safety
 	protected _workspaceFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
 	protected _reviewSchemeFileChangeCommentThreads: { [key: string]: GHPRCommentThread[] } = {};
