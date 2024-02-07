@@ -58,7 +58,7 @@ export function resolveCommentHandler(commentThread: GHPRCommentThread): Comment
 
 export function findActiveHandler() {
 	for (const commentHandler of commentHandlers.values()) {
-		if (commentHandler.commentController.activeThread) {
+		if (commentHandler.commentController.activeCommentThread) {
 			return commentHandler;
 		}
 	}
