@@ -37,9 +37,10 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 	constructor(
 		private readonly pullRequestModel: PullRequestModel,
 		folderRepoManager: FolderRepositoryManager,
-		private _commentController: vscode.CommentController,
+		commentController: vscode.CommentController,
 	) {
 		super(folderRepoManager);
+		this._commentController = commentController;
 		this._context = folderRepoManager.context;
 		this._commentHandlerId = uuid();
 		registerCommentHandler(this._commentHandlerId, this);
