@@ -755,6 +755,10 @@ mutation ReadyForReview($input: MarkPullRequestReadyForReviewInput!) {
 	markPullRequestReadyForReview(input: $input) {
 		pullRequest {
 			isDraft
+			mergeable
+			mergeStateStatus
+			viewerCanEnableAutoMerge
+			viewerCanDisableAutoMerge
 		}
 	}
 }
