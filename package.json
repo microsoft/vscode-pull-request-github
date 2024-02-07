@@ -11,6 +11,7 @@
 		"url": "https://github.com/Microsoft/vscode-pull-request-github/issues"
 	},
 	"enabledApiProposals": [
+		"activeComment",
 		"tokenInformation",
 		"contribShareMenu",
 		"fileComments",
@@ -1474,6 +1475,12 @@
 				"mac": "cmd+enter",
 				"command": "issue.createIssueFromFile",
 				"when": "resourceScheme == newIssue"
+			},
+			{
+				"key": "ctrl+k m",
+				"mac": "cmd+k m",
+				"command": "pr.makeSuggestion",
+				"when": "commentEditorFocused"
 			}
 		],
 		"menus": {

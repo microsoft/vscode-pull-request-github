@@ -8,7 +8,7 @@ import * as pathLib from 'path';
 import * as vscode from 'vscode';
 import { Repository } from './api/api';
 import { GitErrorCodes } from './api/api1';
-import { CommentReply, resolveCommentHandler } from './commentHandlerResolver';
+import { CommentReply, findActiveHandler, resolveCommentHandler } from './commentHandlerResolver';
 import { IComment } from './common/comment';
 import Logger from './common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
@@ -999,11 +999,18 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.makeSuggestion', async (reply: CommentReply | GHPRComment) => {
-			const thread = reply instanceof GHPRComment ? reply.parent : reply.thread;
-			if (!thread.range) {
+		vscode.commands.registerCommand('pr.makeSuggestion', async (reply: CommentReply | GHPRComment | undefined) => {
+			let potentialThread: GHPRCommentThread | undefined;
+			if (reply === undefined) {
+				potentialThread = findActiveHandler()?.commentController?.activeThread as GHPRCommentThread | undefined;
+			} else {
+				potentialThread = reply instanceof GHPRComment ? reply.parent : reply?.thread;
+			}
+
+			if (!potentialThread?.range) {
 				return;
 			}
+			const thread: GHPRCommentThread & { range: vscode.Range } = potentialThread as GHPRCommentThread & { range: vscode.Range };
 			const commentEditor = vscode.window.activeTextEditor?.document.uri.scheme === Schemes.Comment ? vscode.window.activeTextEditor
 				: vscode.window.visibleTextEditors.find(visible => (visible.document.uri.scheme === Schemes.Comment) && (visible.document.uri.query === ''));
 			if (!commentEditor) {
