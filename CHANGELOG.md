@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.80.1
+
+### Fixes
+
+- Suggested changes are not easily distinguishable. https://github.com/microsoft/vscode-pull-request-github/issues/5667
+
 ## 0.80.0
 
 ### Changes
