@@ -58,6 +58,7 @@ describe('ReviewCommentController', function () {
 	let activePullRequest: PullRequestModel;
 	let githubRepo: MockGitHubRepository;
 	let reviewManager: ReviewManager;
+	let reposManager: RepositoriesManager;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
@@ -69,15 +70,16 @@ describe('ReviewCommentController', function () {
 
 		repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
-
-		provider = new PullRequestsTreeDataProvider(telemetry, context);
+		reposManager = new RepositoriesManager(credentialStore, telemetry);
+		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager);
 		const activePrViewCoordinator = new WebviewViewCoordinator(context);
 		const createPrHelper = new CreatePullRequestHelper();
 		Resource.initialize(context);
 		const gitApiImpl = new GitApiImpl();
-		manager = new FolderRepositoryManager(context, repository, telemetry, gitApiImpl, credentialStore);
-		const tree = new PullRequestChangesTreeDataProvider(context, gitApiImpl, new RepositoriesManager([manager], credentialStore, telemetry));
-		reviewManager = new ReviewManager(context, repository, manager, telemetry, tree, provider, new ShowPullRequest(), activePrViewCoordinator, createPrHelper, gitApiImpl);
+		manager = new FolderRepositoryManager(0, context, repository, telemetry, gitApiImpl, credentialStore);
+		reposManager.insertFolderManager(manager);
+		const tree = new PullRequestChangesTreeDataProvider(context, gitApiImpl, reposManager);
+		reviewManager = new ReviewManager(0, context, repository, manager, telemetry, tree, provider, new ShowPullRequest(), activePrViewCoordinator, createPrHelper, gitApiImpl);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
 			return Promise.resolve(new MockGitHubRepository(GitHubRemote.remoteAsGitHub(r, GitHubServerType.GitHubDotCom), cStore, telemetry, sinon));
 		});

@@ -17,6 +17,7 @@ import { DescriptionNode } from './treeNodes/descriptionNode';
 import { GitFileChangeNode } from './treeNodes/fileChangeNode';
 import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
+import { TreeUtils } from './treeNodes/treeUtils';
 
 export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
@@ -25,6 +26,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 
 	private _pullRequestManagerMap: Map<FolderRepositoryManager, RepositoryChangesNode> = new Map();
 	private _view: vscode.TreeView<TreeNode>;
+	private _children: TreeNode[] | undefined;
 
 	public get view(): vscode.TreeView<TreeNode> {
 		return this._view;
@@ -52,13 +54,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 			}),
 		);
 
-		this._disposables.push(this._view.onDidChangeCheckboxState(checkboxUpdates => {
-			checkboxUpdates.items.forEach(checkboxUpdate => {
-				const node = checkboxUpdate[0];
-				const newState = checkboxUpdate[1];
-				node.updateFromCheckboxChanged(newState);
-			});
-		}));
+		this._disposables.push(this._view.onDidChangeCheckboxState(TreeUtils.processCheckboxUpdates));
 	}
 
 	refresh(treeNode?: TreeNode) {
@@ -117,14 +113,14 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	private async setReviewModeContexts() {
 		await commands.setContext(contexts.IN_REVIEW_MODE, this._pullRequestManagerMap.size > 0);
 
-		const rootUrisNotInReviewMode: string[] = [];
-		const rootUrisInReviewMode: string[] = [];
+		const rootUrisNotInReviewMode: vscode.Uri[] = [];
+		const rootUrisInReviewMode: vscode.Uri[] = [];
 		this._git.repositories.forEach(repo => {
 			const folderManager = this._reposManager.getManagerForFile(repo.rootUri);
 			if (folderManager && !this._pullRequestManagerMap.has(folderManager)) {
-				rootUrisNotInReviewMode.push(repo.rootUri.toString());
+				rootUrisNotInReviewMode.push(repo.rootUri);
 			} else if (folderManager) {
-				rootUrisInReviewMode.push(repo.rootUri.toString());
+				rootUrisInReviewMode.push(repo.rootUri);
 			}
 		});
 		await commands.setContext(contexts.REPOS_NOT_IN_REVIEW_MODE, rootUrisNotInReviewMode);
@@ -163,15 +159,19 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		}
 	}
 
+	get children(): TreeNode[] | undefined {
+		return this._children;
+	}
+
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
 		if (!element) {
-			const result: TreeNode[] = [];
+			this._children = [];
 			if (this._pullRequestManagerMap.size >= 1) {
 				for (const item of this._pullRequestManagerMap.values()) {
-					result.push(item);
+					this._children.push(item);
 				}
 			}
-			return result;
+			return this._children;
 		} else {
 			return await element.getChildren();
 		}

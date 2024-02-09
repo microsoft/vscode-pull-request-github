@@ -27,27 +27,36 @@ class Log {
 		this._activePerfMarkers.delete(marker);
 	}
 
-	private logString(message: string, component?: string) {
+	private logString(message: any, component?: string): string {
+		if (typeof message !== 'string') {
+			if (message instanceof Error) {
+				message = message.message;
+			} else if ('toString' in message) {
+				message = message.toString();
+			} else {
+				message = JSON.stringify(message);
+			}
+		}
 		return component ? `${component}> ${message}` : message;
 	}
 
-	public trace(message: string, component: string) {
+	public trace(message: any, component: string) {
 		this._outputChannel.trace(this.logString(message, component));
 	}
 
-	public debug(message: string, component: string) {
+	public debug(message: any, component: string) {
 		this._outputChannel.debug(this.logString(message, component));
 	}
 
-	public appendLine(message: string, component?: string) {
+	public appendLine(message: any, component?: string) {
 		this._outputChannel.info(this.logString(message, component));
 	}
 
-	public warn(message: string, component?: string) {
+	public warn(message: any, component?: string) {
 		this._outputChannel.warn(this.logString(message, component));
 	}
 
-	public error(message: string, component?: string) {
+	public error(message: any, component?: string) {
 		this._outputChannel.error(this.logString(message, component));
 	}
 

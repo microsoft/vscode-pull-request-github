@@ -11,9 +11,12 @@
 		"url": "https://github.com/Microsoft/vscode-pull-request-github/issues"
 	},
 	"enabledApiProposals": [
+		"activeComment",
 		"tokenInformation",
 		"contribShareMenu",
 		"fileComments",
+		"codeActionRanges",
+		"commentReactor",
 		"contribCommentPeekContext",
 		"contribCommentThreadAdditionalMenu",
 		"codiconDecoration",
@@ -21,13 +24,13 @@
 		"contribCommentEditorActionsMenu",
 		"shareProvider",
 		"quickDiffProvider",
-		"readonlyMessage",
+		"tabInputTextMerge",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.74.1",
+	"version": "0.80.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.83.0"
+		"vscode": "^1.87.0"
 	},
 	"categories": [
 		"Other"
@@ -78,11 +81,15 @@
 					"type": "string",
 					"enum": [
 						"template",
-						"commit"
+						"commit",
+						"none",
+						"Copilot"
 					],
 					"enumDescriptions": [
 						"%githubPullRequests.pullRequestDescription.template%",
-						"%githubPullRequests.pullRequestDescription.commit%"
+						"%githubPullRequests.pullRequestDescription.commit%",
+						"%githubPullRequests.pullRequestDescription.none%",
+						"%githubPullRequests.pullRequestDescription.copilot%"
 					],
 					"default": "template",
 					"description": "%githubPullRequests.pullRequestDescription.description%"
@@ -107,7 +114,7 @@
 				"githubPullRequests.createDraft": {
 					"type": "boolean",
 					"default": false,
-					"deprecationMessage": "Use the setting 'githubPullRequests.defaultCreateMethod' instead.",
+					"deprecationMessage": "Use the setting 'githubPullRequests.defaultCreateOption' instead.",
 					"description": "%githubPullRequests.createDraft%"
 				},
 				"githubPullRequests.logLevel": {
@@ -173,6 +180,15 @@
 							"query": "is:open author:${user}"
 						}
 					]
+				},
+				"githubPullRequests.labelCreated": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"description": "%githubPullRequests.labelCreated.label.description%"
+					},
+					"default": [],
+					"description": "%githubPullRequests.labelCreated.description%"
 				},
 				"githubPullRequests.defaultMergeMethod": {
 					"type": "string",
@@ -260,29 +276,36 @@
 					"description": "%githubPullRequests.commentExpandState.description%"
 				},
 				"githubPullRequests.useReviewMode": {
-					"type": "object",
 					"description": "%githubPullRequests.useReviewMode.description%",
-					"additionalProperties": false,
-					"properties": {
-						"merged": {
-							"type": "boolean",
-							"description": "%githubPullRequests.useReviewMode.merged%",
-							"default": true
+					"oneOf": [
+						{
+							"type": "object",
+							"additionalProperties": false,
+							"properties": {
+								"merged": {
+									"type": "boolean",
+									"description": "%githubPullRequests.useReviewMode.merged%",
+									"default": false
+								},
+								"closed": {
+									"type": "boolean",
+									"description": "%githubPullRequests.useReviewMode.closed%",
+									"default": false
+								}
+							},
+							"required": [
+								"merged",
+								"closed"
+							]
 						},
-						"closed": {
-							"type": "boolean",
-							"description": "%githubPullRequests.useReviewMode.closed%",
-							"default": false
+						{
+							"type": "string",
+							"enum": [
+								"auto"
+							]
 						}
-					},
-					"required": [
-						"merged",
-						"closed"
 					],
-					"default": {
-						"merged": true,
-						"closed": false
-					}
+					"default": "auto"
 				},
 				"githubPullRequests.assignCreated": {
 					"type": "string",
@@ -316,6 +339,11 @@
 					],
 					"description": "%githubPullRequests.pullBranch.description%"
 				},
+				"githubPullRequests.allowFetch": {
+					"type": "boolean",
+					"default": true,
+					"description": "%githubPullRequests.allowFetch.description%"
+				},
 				"githubPullRequests.ignoredPullRequestBranches": {
 					"type": "array",
 					"default": [],
@@ -324,6 +352,10 @@
 						"description": "%githubPullRequests.ignoredPullRequestBranches.items%"
 					},
 					"description": "%githubPullRequests.ignoredPullRequestBranches.description%"
+				},
+				"githubPullRequests.neverIgnoreDefaultBranch": {
+					"type": "boolean",
+					"description": "%githubPullRequests.neverIgnoreDefaultBranch.description%"
 				},
 				"githubPullRequests.overrideDefaultBranch": {
 					"type": "string",
@@ -369,13 +401,25 @@
 				"githubPullRequests.setAutoMerge": {
 					"type": "boolean",
 					"description": "%githubPullRequests.setAutoMerge.description%",
-					"deprecationMessage": "Use the setting 'githubPullRequests.defaultCreateMethod' instead.",
+					"deprecationMessage": "Use the setting 'githubPullRequests.defaultCreateOption' instead.",
 					"default": false
 				},
 				"githubPullRequests.pullPullRequestBranchBeforeCheckout": {
-					"type": "boolean",
+					"type": "string",
 					"description": "%githubPullRequests.pullPullRequestBranchBeforeCheckout.description%",
-					"default": true
+					"enum": [
+						"never",
+						"pull",
+						"pullAndMergeBase",
+						"pullAndUpdateBase"
+					],
+					"default": "pull",
+					"enumDescriptions": [
+						"%githubPullRequests.pullPullRequestBranchBeforeCheckout.never%",
+						"%githubPullRequests.pullPullRequestBranchBeforeCheckout.pull%",
+						"%githubPullRequests.pullPullRequestBranchBeforeCheckout.pullAndMergeBase%",
+						"%githubPullRequests.pullPullRequestBranchBeforeCheckout.pullAndUpdateBase%"
+					]
 				},
 				"githubPullRequests.upstreamRemote": {
 					"type": "string",
@@ -389,6 +433,16 @@
 						"%githubPullRequests.upstreamRemote.never%"
 					],
 					"default": "add"
+				},
+				"githubPullRequests.createDefaultBaseBranch": {
+					"type": "string",
+					"enum": ["repositoryDefault", "createdFromBranch"],
+					"markdownEnumDescriptions": [
+						"%githubPullRequests.createDefaultBaseBranch.repositoryDefault%",
+						"%githubPullRequests.createDefaultBaseBranch.createdFromBranch%"
+					],
+					"default": "createdFromBranch",
+					"markdownDescription": "%githubPullRequests.createDefaultBaseBranch.description%"
 				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
@@ -484,7 +538,7 @@
 						"%githubIssues.useBranchForIssues.prompt%"
 					],
 					"default": "on",
-					"description": "%githubIssues.useBranchForIssues.description%"
+					"markdownDescription": "%githubIssues.useBranchForIssues.markdownDescription%"
 				},
 				"githubIssues.issueCompletionFormatScm": {
 					"type": "string",
@@ -509,6 +563,21 @@
 							"query": {
 								"type": "string",
 								"markdownDescription": "%githubIssues.queries.query%"
+							},
+							"groupBy": {
+								"type": "array",
+								"markdownDescription": "%githubIssues.queries.groupBy%",
+								"items": {
+									"type": "string",
+									"enum": [
+										"repository",
+										"milestone"
+									],
+									"enumDescriptions": [
+										"%githubIssues.queries.groupBy.milestone%",
+										"%githubIssues.queries.groupBy.repository%"
+									]
+								}
 							}
 						}
 					},
@@ -517,7 +586,8 @@
 					"default": [
 						{
 							"label": "%githubIssues.queries.default.myIssues%",
-							"query": "default"
+							"query": "is:open assignee:${user} repo:${owner}/${repository}",
+							"groupBy": ["milestone"]
 						},
 						{
 							"label": "%githubIssues.queries.default.createdIssues%",
@@ -548,6 +618,7 @@
 					"enum": [
 						"firstDiff",
 						"overview",
+						"multiDiff",
 						false
 					],
 					"default": "firstDiff",
@@ -564,7 +635,7 @@
 			"activitybar": [
 				{
 					"id": "github-pull-requests",
-					"title": "GitHub",
+					"title": "%view.github.pull.requests.name%",
 					"icon": "$(github)"
 				},
 				{
@@ -663,6 +734,12 @@
 				"title": "%command.pr.pick.title%",
 				"category": "%command.pull.request.category%",
 				"icon": "$(arrow-right)"
+			},
+			{
+				"command": "pr.openChanges",
+				"title": "%command.pr.openChanges.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(diff-multiple)"
 			},
 			{
 				"command": "pr.pickOnVscodeDev",
@@ -1054,6 +1131,31 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "review.approveDescription",
+				"title": "%command.review.approve.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "review.commentDescription",
+				"title": "%command.review.comment.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "review.requestChangesDescription",
+				"title": "%command.review.requestChanges.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "review.approveOnDotComDescription",
+				"title": "%command.review.approveOnDotCom.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "review.requestChangesOnDotComDescription",
+				"title": "%command.review.requestChangesOnDotCom.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.createPrMenuCreate",
 				"title": "%command.pr.createPrMenuCreate.title%",
 				"category": "%command.pull.request.category%"
@@ -1061,6 +1163,11 @@
 			{
 				"command": "pr.createPrMenuDraft",
 				"title": "%command.pr.createPrMenuDraft.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.createPrMenuMergeWhenReady",
+				"title": "%command.pr.createPrMenuMergeWhenReady.title%",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -1368,6 +1475,12 @@
 				"mac": "cmd+enter",
 				"command": "issue.createIssueFromFile",
 				"when": "resourceScheme == newIssue"
+			},
+			{
+				"key": "ctrl+k m",
+				"mac": "cmd+k m",
+				"command": "pr.makeSuggestion",
+				"when": "commentEditorFocused"
 			}
 		],
 		"menus": {
@@ -1386,6 +1499,10 @@
 				},
 				{
 					"command": "pr.pick",
+					"when": "false"
+				},
+				{
+					"command": "pr.openChanges",
 					"when": "false"
 				},
 				{
@@ -1510,6 +1627,26 @@
 				},
 				{
 					"command": "review.requestChangesOnDotCom",
+					"when": "false"
+				},
+				{
+					"command": "review.approveDescription",
+					"when": "false"
+				},
+				{
+					"command": "review.commentDescription",
+					"when": "false"
+				},
+				{
+					"command": "review.requestChangesDescription",
+					"when": "false"
+				},
+				{
+					"command": "review.approveOnDotComDescription",
+					"when": "false"
+				},
+				{
+					"command": "review.requestChangesOnDotComDescription",
 					"when": "false"
 				},
 				{
@@ -1662,6 +1799,10 @@
 				},
 				{
 					"command": "pr.createPrMenuDraft",
+					"when": "false"
+				},
+				{
+					"command": "pr.createPrMenuMergeWhenReady",
 					"when": "false"
 				},
 				{
@@ -1924,7 +2065,27 @@
 				{
 					"command": "pr.pick",
 					"when": "view == pr:github && viewItem =~ /description:nonactive/",
-					"group": "inline"
+					"group": "inline@0"
+				},
+				{
+					"command": "pr.openChanges",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description/ && config.multiDiffEditor.experimental.enabled",
+					"group": "inline@1"
+				},
+				{
+					"command": "pr.showDiffSinceLastReview",
+					"group": "inline@1",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:(active|nonactive):hasChangesSinceReview:showingAllChanges/"
+				},
+				{
+					"command": "pr.showDiffAll",
+					"group": "inline@1",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:(active|nonactive):hasChangesSinceReview:showingChangesSinceReview/"
+				},
+				{
+					"command": "pr.openDescriptionToTheSide",
+					"group": "inline@2",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description/"
 				},
 				{
 					"command": "pr.exit",
@@ -1959,21 +2120,6 @@
 				{
 					"command": "pr.copyCommitHash",
 					"when": "view == prStatus:github && viewItem =~ /commit/"
-				},
-				{
-					"command": "pr.openDescriptionToTheSide",
-					"group": "inline",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description/"
-				},
-				{
-					"command": "pr.showDiffSinceLastReview",
-					"group": "inline",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:(active|nonactive):hasChangesSinceReview:showingAllChanges/"
-				},
-				{
-					"command": "pr.showDiffAll",
-					"group": "inline",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:(active|nonactive):hasChangesSinceReview:showingChangesSinceReview/"
 				},
 				{
 					"command": "review.openFile",
@@ -2225,13 +2371,15 @@
 			"comments/commentThread/comment/context": [
 				{
 					"command": "pr.resolveReviewThread",
-					"group": "inline@3",
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
 				},
 				{
 					"command": "pr.unresolveReviewThread",
-					"group": "inline@3",
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+				},
+				{
+					"command": "pr.applySuggestion",
+					"when": "commentController =~ /^github-review/ && comment =~ /hasSuggestion/"
 				}
 			],
 			"comments/comment/title": [
@@ -2441,6 +2589,11 @@
 					"group": "0_create@1"
 				},
 				{
+					"command": "pr.createPrMenuMergeWhenReady",
+					"when": "webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuMergeWhenReady",
+					"group": "1_create@0"
+				},
+				{
 					"command": "pr.createPrMenuMerge",
 					"when": "webviewId == 'github:createPullRequestWebview' && github:createPrMenu && github:createPrMenuMerge",
 					"group": "1_create@0"
@@ -2474,6 +2627,26 @@
 				{
 					"command": "review.requestChangesOnDotCom",
 					"when": "webviewId == 'github:activePullRequest' && github:reviewCommentMenu && github:reviewCommentRequestChangesOnDotCom"
+				},
+				{
+					"command": "review.approveDescription",
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentApprove"
+				},
+				{
+					"command": "review.commentDescription",
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentComment"
+				},
+				{
+					"command": "review.requestChangesDescription",
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentRequestChanges"
+				},
+				{
+					"command": "review.approveOnDotComDescription",
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentApproveOnDotCom"
+				},
+				{
+					"command": "review.requestChangesOnDotComDescription",
+					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentRequestChangesOnDotCom"
 				}
 			]
 		},
@@ -2584,12 +2757,11 @@
 		"lint": "eslint --fix --cache --config .eslintrc.json --ignore-pattern src/env/browser/**/* \"{src,webviews}/**/*.{ts,tsx}\"",
 		"lint:browser": "eslint --fix --cache --cache-location .eslintcache.browser --config .eslintrc.browser.json --ignore-pattern src/env/node/**/* \"{src,webviews}/**/*.{ts,tsx}\"",
 		"package": "npx vsce package --yarn",
-		"pretty": "prettier --config .prettierrc --loglevel warn --write .",
 		"test": "yarn run test:preprocess && node ./out/src/test/runTests.js",
 		"test:preprocess": "yarn run compile:test && yarn run test:preprocess-gql && yarn run test:preprocess-svg",
 		"browsertest:preprocess": "tsc ./src/test/browser/runTests.ts --outDir ./dist/browser/test --rootDir ./src/test/browser --target es6 --module commonjs",
 		"browsertest": "yarn run browsertest:preprocess && node ./dist/browser/test/runTests.js",
-		"test:preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/src/github/queries.gql && node scripts/preprocess-gql --in src/github/queriesShared.gql --out out/src/github/queriesShared.gql && node scripts/preprocess-gql --in src/github/queriesLimited.gql --out out/src/github/queriesLimited.gql",
+		"test:preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/src/github/queries.gql && node scripts/preprocess-gql --in src/github/queriesExtra.gql --out out/src/github/queriesExtra.gql && node scripts/preprocess-gql --in src/github/queriesShared.gql --out out/src/github/queriesShared.gql && node scripts/preprocess-gql --in src/github/queriesLimited.gql --out out/src/github/queriesLimited.gql",
 		"test:preprocess-svg": "node scripts/preprocess-svg --in ../resources/ --out out/resources",
 		"update-dts": "cd \"src/@types\" && npx vscode-dts main && npx vscode-dts dev",
 		"watch": "webpack --watch --mode development --env esbuild",
@@ -2610,9 +2782,9 @@
 		"@types/temp": "0.8.34",
 		"@types/vscode": "1.79.0",
 		"@types/webpack-env": "^1.16.0",
-		"@typescript-eslint/eslint-plugin": "4.18.0",
-		"@typescript-eslint/parser": "4.18.0",
-		"@vscode/test-electron": "^2.1.5",
+		"@typescript-eslint/eslint-plugin": "6.10.0",
+		"@typescript-eslint/parser": "6.10.0",
+		"@vscode/test-electron": "^2.3.8",
 		"@vscode/test-web": "^0.0.29",
 		"assert": "^2.0.0",
 		"buffer": "^6.0.3",
@@ -2622,7 +2794,6 @@
 		"esbuild-loader": "2.10.0",
 		"eslint": "7.22.0",
 		"eslint-cli": "1.1.1",
-		"eslint-config-prettier": "8.1.0",
 		"eslint-plugin-import": "2.22.1",
 		"event-stream": "^4.0.1",
 		"fork-ts-checker-webpack-plugin": "6.1.1",
@@ -2643,7 +2814,6 @@
 		"os-browserify": "^0.3.0",
 		"p-all": "^1.0.0",
 		"path-browserify": "1.0.1",
-		"prettier": "2.2.1",
 		"process": "^0.11.10",
 		"raw-loader": "4.0.2",
 		"react-testing-library": "7.0.1",
@@ -2657,7 +2827,7 @@
 		"timers-browserify": "^2.0.12",
 		"ts-loader": "8.0.18",
 		"tty": "1.0.1",
-		"typescript": "4.2.3",
+		"typescript": "4.5.5",
 		"typescript-formatter": "^7.2.2",
 		"vinyl-fs": "^3.0.3",
 		"webpack": "5.76.0",
@@ -2683,7 +2853,7 @@
 		"tunnel": "0.0.6",
 		"url-search-params-polyfill": "^8.1.1",
 		"uuid": "8.3.2",
-		"vscode-tas-client": "^0.1.17",
+		"vscode-tas-client": "^0.1.75",
 		"vsls": "^0.3.967"
 	},
 	"license": "MIT"

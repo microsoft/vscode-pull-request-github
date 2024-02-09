@@ -28,6 +28,13 @@ fragment PullRequestFragment on PullRequest {
 			id
 		}
 	}
+	commits(first: 50) {
+		nodes {
+			commit {
+				message
+			}
+		}
+	}
 	createdAt
 	updatedAt
 	headRef {
@@ -53,6 +60,10 @@ fragment PullRequestFragment on PullRequest {
 			login
 		}
 		url
+		squashMergeCommitTitle
+		squashMergeCommitMessage
+		mergeCommitMessage
+		mergeCommitTitle
 	}
 	labels(first: 50) {
 		nodes {
@@ -62,24 +73,19 @@ fragment PullRequestFragment on PullRequest {
 	}
 	merged
 	mergeable
+	mergeQueueEntry {
+		...MergeQueueEntryFragment
+	}
 	mergeStateStatus
 	autoMergeRequest {
 		mergeMethod
 	}
 	viewerCanEnableAutoMerge
 	viewerCanDisableAutoMerge
+	viewerCanUpdate
 	id
 	databaseId
 	isDraft
-	projectItems(first: 100) {
-		nodes {
-			id
-			project {
-				title
-				id
-			}
-		}
-	}
 	milestone {
 		title
 		dueOn
@@ -143,44 +149,20 @@ mutation CreatePullRequest($input: CreatePullRequestInput!) {
 	}
 }
 
-# Queries that only exist in this file
+# Queries that only exist in this file and in extra
 
-query GetRepoProjects($owner: String!, $name: String!) {
-	repository(owner: $owner, name: $name) {
-		projectsV2(first: 100, query: "state:OPEN") {
-			nodes {
-				title
-				id
-			}
+mutation DequeuePullRequest($input: DequeuePullRequestInput!) {
+	dequeuePullRequest(input: $input) {
+		mergeQueueEntry {
+			...MergeQueueEntryFragment
 		}
 	}
 }
 
-query GetOrgProjects($owner: String!, $after: String) {
-	organization(login: $owner) {
-		projectsV2(first: 100, after: $after, query: "state:OPEN", orderBy: { field: UPDATED_AT, direction: DESC }) {
-			nodes {
-				title
-				id
-			}
-			pageInfo {
-				hasNextPage
-				endCursor
-			}
+mutation EnqueuePullRequest($input: EnqueuePullRequestInput!) {
+	enqueuePullRequest(input: $input) {
+		mergeQueueEntry {
+			...MergeQueueEntryFragment
 		}
-	}
-}
-
-mutation AddPullRequestToProject($input: AddProjectV2ItemByIdInput!) {
-	addProjectV2ItemById(input: $input) {
-		item {
-			id
-		}
-	}
-}
-
-mutation RemovePullRequestFromProject($input: DeleteProjectV2ItemInput!) {
-	deleteProjectV2Item(input: $input) {
-		deletedItemId
 	}
 }

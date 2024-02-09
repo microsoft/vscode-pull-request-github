@@ -37,7 +37,7 @@ import {
 } from './issueFile';
 import { IssueHoverProvider } from './issueHoverProvider';
 import { openCodeLink } from './issueLinkLookup';
-import { IssuesTreeData, IssueUriTreeItem, updateExpandedQueries } from './issuesView';
+import { IssuesTreeData, QueryNode, updateExpandedQueries } from './issuesView';
 import { IssueTodoProvider } from './issueTodoProvider';
 import { ShareProviderManager } from './shareProviders';
 import { StateManager } from './stateManager';
@@ -47,6 +47,7 @@ import {
 	createGitHubLink,
 	createGithubPermalink,
 	getIssue,
+	IssueTemplate,
 	LinkContext,
 	NewIssue,
 	PERMALINK_COMPONENT,
@@ -417,7 +418,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(
 			vscode.commands.registerCommand(
 				'issue.editQuery',
-				(query: IssueUriTreeItem) => {
+				(query: QueryNode) => {
 					/* __GDPR__
 				"issue.editQuery" : {}
 			*/
@@ -615,11 +616,21 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 
 	async createIssue() {
 		let uri = vscode.window.activeTextEditor?.document.uri;
-		if (!uri) {
-			uri = (await this.chooseRepo(vscode.l10n.t('Select the repo to create the issue in.')))?.repository.rootUri;
+		let folderManager: FolderRepositoryManager | undefined = uri ? this.manager.getManagerForFile(uri) : undefined;
+		if (!folderManager) {
+			folderManager = await this.chooseRepo(vscode.l10n.t('Select the repo to create the issue in.'));
+			uri = folderManager?.repository.rootUri;
 		}
-		if (uri) {
-			return this.makeNewIssueFile(uri);
+		if (!folderManager || !uri) {
+			return;
+		}
+
+		const template = await this.chooseTemplate(folderManager);
+		this._newIssueCache.clear();
+		if (template) {
+			this.makeNewIssueFile(uri, template.title, template.body);
+		} else {
+			this.makeNewIssueFile(uri);
 		}
 	}
 
@@ -647,7 +658,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		}
 	}
 
-	async editQuery(query: IssueUriTreeItem) {
+	async editQuery(query: QueryNode) {
 		const config = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null);
 		const inspect = config.inspect<{ label: string; query: string }[]>(QUERIES);
 		let command: string;
@@ -664,7 +675,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		const editor = vscode.window.activeTextEditor;
 		if (editor) {
 			const text = editor.document.getText();
-			const search = text.search(query.labelAsString!);
+			const search = text.search(query.queryLabel);
 			if (search >= 0) {
 				const position = editor.document.positionAt(search);
 				editor.revealRange(new vscode.Range(position, position));
@@ -1079,6 +1090,57 @@ ${body ?? ''}\n
 		return choice?.repo;
 	}
 
+	private async chooseTemplate(folderManager: FolderRepositoryManager): Promise<{ title: string | undefined, body: string | undefined } | undefined> {
+		const templateUris = await folderManager.getIssueTemplates();
+		if (templateUris.length === 0) {
+			return undefined;
+		}
+
+		interface IssueChoice extends vscode.QuickPickItem {
+			template: IssueTemplate | undefined;
+		}
+		const templates = await Promise.all(
+			templateUris
+				.map(async uri => {
+					try {
+						const content = await vscode.workspace.fs.readFile(uri);
+						const text = new TextDecoder('utf-8').decode(content);
+						const template = this.getDataFromTemplate(text);
+
+						return template;
+					} catch (e) {
+						Logger.warn(`Reading issue template failed: ${e}`);
+						return undefined;
+					}
+				})
+		);
+		const choices: IssueChoice[] = templates.filter(template => !!template && !!template?.name).map(template => {
+			return {
+				label: template!.name!,
+				description: template!.about,
+				template: template,
+			};
+		});
+		choices.push({
+			label: vscode.l10n.t('Blank issue'),
+			template: undefined
+		});
+
+		const selectedTemplate = await vscode.window.showQuickPick(choices, {
+			placeHolder: vscode.l10n.t('Select a template for the new issue.'),
+		});
+
+		return selectedTemplate?.template;
+	}
+
+	private getDataFromTemplate(template: string): IssueTemplate {
+		const title = template.match(/title:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');
+		const name = template.match(/name:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');
+		const about = template.match(/about:\s*(.*)/)?.[1]?.replace(/^["']|["']$/g, '');
+		const body = template.match(/---([\s\S]*)---([\s\S]*)/)?.[2];
+		return { title, name, about, body };
+	}
+
 	private async doCreateIssue(
 		document: vscode.TextDocument | undefined,
 		newIssue: NewIssue | undefined,
@@ -1102,61 +1164,65 @@ ${body ?? ''}\n
 			folderManager = await this.chooseRepo(vscode.l10n.t('Choose where to create the issue.'));
 		}
 
-		if (!folderManager) {
-			return false;
-		}
-		try {
-			origin = await folderManager.getPullRequestDefaults();
-		} catch (e) {
-			// There is no remote
-			vscode.window.showErrorMessage(vscode.l10n.t('There is no remote. Can\'t create an issue.'));
-			return false;
-		}
-		const body: string | undefined =
-			issueBody || newIssue?.document.isUntitled
-				? issueBody
-				: (await createGithubPermalink(this.manager, this.gitAPI, true, true, newIssue)).permalink;
-		const createParams: OctokitCommon.IssuesCreateParams = {
-			owner: origin.owner,
-			repo: origin.repo,
-			title,
-			body,
-			assignees,
-			labels,
-			milestone
-		};
-		if (!(await this.verifyLabels(folderManager, createParams))) {
-			return false;
-		}
-		const issue = await folderManager.createIssue(createParams);
-		if (issue) {
-			if (document !== undefined && insertIndex !== undefined && lineNumber !== undefined) {
-				const edit: vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
-				const insertText: string =
-					vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get(CREATE_INSERT_FORMAT, 'number') ===
-						'number'
-						? `#${issue.number}`
-						: issue.html_url;
-				edit.insert(document.uri, new vscode.Position(lineNumber, insertIndex), ` ${insertText}`);
-				await vscode.workspace.applyEdit(edit);
-			} else {
-				const copyIssueUrl = vscode.l10n.t('Copy Issue Link');
-				const openIssue = vscode.l10n.t({ message: 'Open Issue', comment: 'Open the issue description in the browser to see it\'s full contents.' });
-				vscode.window.showInformationMessage(vscode.l10n.t('Issue created'), copyIssueUrl, openIssue).then(async result => {
-					switch (result) {
-						case copyIssueUrl:
-							await vscode.env.clipboard.writeText(issue.html_url);
-							break;
-						case openIssue:
-							await vscode.env.openExternal(vscode.Uri.parse(issue.html_url));
-							break;
-					}
-				});
+		return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Creating issue') }, async (progress) => {
+			if (!folderManager) {
+				return false;
 			}
-			this._stateManager.refreshCacheNeeded();
-			return true;
-		}
-		return false;
+			progress.report({ message: vscode.l10n.t('Verifying that issue data is valid...') });
+			try {
+				origin = await folderManager.getPullRequestDefaults();
+			} catch (e) {
+				// There is no remote
+				vscode.window.showErrorMessage(vscode.l10n.t('There is no remote. Can\'t create an issue.'));
+				return false;
+			}
+			const body: string | undefined =
+				issueBody || newIssue?.document.isUntitled
+					? issueBody
+					: (await createGithubPermalink(this.manager, this.gitAPI, true, true, newIssue)).permalink;
+			const createParams: OctokitCommon.IssuesCreateParams = {
+				owner: origin.owner,
+				repo: origin.repo,
+				title,
+				body,
+				assignees,
+				labels,
+				milestone
+			};
+			if (!(await this.verifyLabels(folderManager, createParams))) {
+				return false;
+			}
+			progress.report({ message: vscode.l10n.t('Creating issue in {0}...', `${createParams.owner}/${createParams.repo}`) });
+			const issue = await folderManager.createIssue(createParams);
+			if (issue) {
+				if (document !== undefined && insertIndex !== undefined && lineNumber !== undefined) {
+					const edit: vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
+					const insertText: string =
+						vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get(CREATE_INSERT_FORMAT, 'number') ===
+							'number'
+							? `#${issue.number}`
+							: issue.html_url;
+					edit.insert(document.uri, new vscode.Position(lineNumber, insertIndex), ` ${insertText}`);
+					await vscode.workspace.applyEdit(edit);
+				} else {
+					const copyIssueUrl = vscode.l10n.t('Copy Issue Link');
+					const openIssue = vscode.l10n.t({ message: 'Open Issue', comment: 'Open the issue description in the browser to see it\'s full contents.' });
+					vscode.window.showInformationMessage(vscode.l10n.t('Issue created'), copyIssueUrl, openIssue).then(async result => {
+						switch (result) {
+							case copyIssueUrl:
+								await vscode.env.clipboard.writeText(issue.html_url);
+								break;
+							case openIssue:
+								await vscode.env.openExternal(vscode.Uri.parse(issue.html_url));
+								break;
+						}
+					});
+				}
+				this._stateManager.refreshCacheNeeded();
+				return true;
+			}
+			return false;
+		});
 	}
 
 	private async getPermalinkWithError(repositoriesManager: RepositoriesManager, includeRange: boolean, includeFile: boolean, context?: LinkContext): Promise<PermalinkInfo> {

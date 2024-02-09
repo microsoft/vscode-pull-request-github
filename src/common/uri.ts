@@ -134,7 +134,7 @@ export const EMPTY_IMAGE_URI = vscode.Uri.parse(
 
 export async function asTempStorageURI(uri: vscode.Uri, repository: Repository): Promise<vscode.Uri | undefined> {
 	try {
-		const { commit, baseCommit, headCommit, isBase, path } = JSON.parse(uri.query);
+		const { commit, baseCommit, headCommit, isBase, path }: { commit: string, baseCommit: string, headCommit: string, isBase: string, path: string } = JSON.parse(uri.query);
 		const ext = pathUtils.extname(path);
 		if (!KnownMediaExtensions.includes(ext)) {
 			return;

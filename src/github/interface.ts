@@ -29,9 +29,23 @@ export enum PullRequestMergeability {
 	Behind,
 }
 
+export enum MergeQueueState {
+	AwaitingChecks,
+	Locked,
+	Mergeable,
+	Queued,
+	Unmergeable
+}
+
 export interface ReviewState {
 	reviewer: IAccount | ITeam;
 	state: string;
+}
+
+export interface ReadyForReview {
+	isDraft: boolean;
+	mergeable: PullRequestMergeability;
+	allowAutoMerge: boolean;
 }
 
 export interface IActor {
@@ -56,6 +70,12 @@ export interface ITeam {
 	slug: string;
 	org: string;
 	id: string;
+}
+
+export interface MergeQueueEntry {
+	position: number;
+	state: MergeQueueState;
+	url: string;
 }
 
 export function reviewerId(reviewer: ITeam | IAccount): string {
@@ -159,11 +179,18 @@ export interface PullRequest extends Issue {
 	head?: IGitHubRef;
 	isRemoteBaseDeleted?: boolean;
 	base?: IGitHubRef;
+	commits: {
+		message: string;
+	}[];
 	merged?: boolean;
 	mergeable?: PullRequestMergeability;
+	mergeQueueEntry?: MergeQueueEntry | null;
+	viewerCanUpdate: boolean;
 	autoMerge?: boolean;
 	autoMergeMethod?: MergeMethod;
 	allowAutoMerge?: boolean;
+	mergeCommitMeta?: { title: string, description: string };
+	squashCommitMeta?: { title: string, description: string };
 	suggestedReviewers?: ISuggestedReviewer[];
 }
 

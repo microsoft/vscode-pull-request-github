@@ -147,7 +147,12 @@ fragment Reactable on Reactable {
 	reactionGroups {
 		content
 		viewerHasReacted
-		users {
+		reactors(first: 10) {
+			nodes {
+				... on User {
+					login
+				}
+			}
 			totalCount
 		}
 	}
@@ -193,6 +198,13 @@ fragment LegacyReviewThread on PullRequestReviewThread {
 	}
 }
 
+fragment MergeQueueEntryFragment on MergeQueueEntry {
+	position
+	state
+	mergeQueue {
+		url
+	}
+}
 
 query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int = 150) {
 	repository(owner: $owner, name: $name) {
@@ -392,13 +404,7 @@ fragment ReviewComment on PullRequestReviewComment {
 	originalCommit {
 		oid
 	}
-	reactionGroups {
-		content
-		viewerHasReacted
-		users {
-			totalCount
-		}
-	}
+	...Reactable
 	viewerCanUpdate
 	viewerCanDelete
 }
@@ -441,7 +447,7 @@ query GetPendingReviewId($pullRequestId: ID!, $author: String!) {
 query PullRequestComments($owner: String!, $name: String!, $number: Int!, $after: String) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
-			reviewThreads(first: 100, after: $after) {
+			reviewThreads(first: 20, after: $after) {
 				nodes {
 					id
 					isResolved
@@ -749,6 +755,10 @@ mutation ReadyForReview($input: MarkPullRequestReadyForReviewInput!) {
 	markPullRequestReadyForReview(input: $input) {
 		pullRequest {
 			isDraft
+			mergeable
+			mergeStateStatus
+			viewerCanEnableAutoMerge
+			viewerCanDisableAutoMerge
 		}
 	}
 }
@@ -912,69 +922,6 @@ query ListBranches($owner: String!, $name: String!, $first: Int!, $after: String
 	}
 }
 
-query IssuesWithoutMilestone($owner: String!, $name: String!, $assignee: String!) {
-	repository(owner: $owner, name: $name) {
-		issues(
-			first: 100
-			states: OPEN
-			filterBy: { assignee: $assignee, milestone: null }
-			orderBy: { direction: DESC, field: UPDATED_AT }
-		) {
-			edges {
-				node {
-					... on Issue {
-						number
-						url
-						state
-						body
-						bodyHTML
-						title
-						assignees(first: 10) {
-							nodes {
-								login
-								url
-								email
-							}
-						}
-						author {
-							login
-							url
-							avatarUrl(size: 50)
-							... on User {
-								email
-							}
-							... on Organization {
-								email
-							}
-						}
-						createdAt
-						updatedAt
-						labels(first: 50) {
-							nodes {
-								name
-								color
-							}
-						}
-						id
-						databaseId
-						milestone {
-							title
-							dueOn
-						}
-					}
-				}
-			}
-			pageInfo {
-				hasNextPage
-				endCursor
-			}
-		}
-	}
-	rateLimit {
-		...RateLimit
-	}
-}
-
 query MaxIssue($owner: String!, $name: String!) {
 	repository(owner: $owner, name: $name) {
 		issues(first: 1, orderBy: { direction: DESC, field: CREATED_AT }) {
@@ -1001,81 +948,6 @@ query GetMilestones($owner: String!, $name: String!, $states: [MilestoneState!]!
 				createdAt
 				id
 				number
-			}
-		}
-	}
-	rateLimit {
-		...RateLimit
-	}
-}
-
-query GetMilestonesWithIssues($owner: String!, $name: String!, $assignee: String!) {
-	repository(owner: $owner, name: $name) {
-		milestones(first: 12, orderBy: { direction: DESC, field: DUE_DATE }, states: OPEN) {
-			nodes {
-				dueOn
-				title
-				createdAt
-				id
-				issues(
-					first: 100
-					filterBy: { assignee: $assignee }
-					orderBy: { direction: DESC, field: UPDATED_AT }
-					states: OPEN
-				) {
-					edges {
-						node {
-							... on Issue {
-								number
-								url
-								state
-								body
-								bodyHTML
-								title
-								assignees(first: 10) {
-									nodes {
-										avatarUrl
-										email
-										login
-										url
-										id
-									}
-								}
-								author {
-									login
-									url
-									avatarUrl(size: 50)
-									... on User {
-										email
-										id
-									}
-									... on Organization {
-										email
-										id
-									}
-								}
-								createdAt
-								updatedAt
-								labels(first: 50) {
-									nodes {
-										name
-										color
-									}
-								}
-								id
-								databaseId
-								milestone {
-									title
-									dueOn
-								}
-							}
-						}
-					}
-				}
-			}
-			pageInfo {
-				hasNextPage
-				endCursor
 			}
 		}
 	}
@@ -1326,6 +1198,16 @@ query GetChecksWithoutSuite($owner: String!, $name: String!, $number: Int!) {
 	}
 }
 
+query MergeQueueForBranch($owner: String!, $name: String!, $branch: String!) {
+	repository(owner: $owner, name: $name) {
+		mergeQueue(branch: $branch) {
+			configuration {
+				mergeMethod
+			}
+		}
+	}
+}
+
 query GetFileContent($owner: String!, $name: String!, $expression: String!) {
 	repository(owner: $owner, name: $name) {
 		object(expression: $expression) {
@@ -1397,6 +1279,14 @@ mutation MarkFileAsViewed($input: MarkFileAsViewedInput!) {
 
 mutation UnmarkFileAsViewed($input: UnmarkFileAsViewedInput!) {
 	unmarkFileAsViewed(input: $input) {
+		pullRequest {
+			id
+		}
+	}
+}
+
+mutation MergePullRequest($input: MergePullRequestInput!) {
+	mergePullRequest(input: $input) {
 		pullRequest {
 			id
 		}

@@ -10,7 +10,6 @@ import Logger from '../common/logger';
 import { asPromise, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
-import { OctokitCommon } from './common';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { ILabel } from './interface';
 import { IssueModel } from './issueModel';
@@ -204,7 +203,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			case 'pr.comment':
 				return this.createComment(message);
 			case 'scroll':
-				this._scrollPosition = message.args;
+				this._scrollPosition = message.args.scrollPosition;
 				return;
 			case 'pr.edit-comment':
 				return this.editComment(message);
@@ -347,9 +346,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			});
 	}
 
-	private close(message: IRequestMessage<string>): void {
+	private close(message: IRequestMessage<string>) {
 		vscode.commands
-			.executeCommand<OctokitCommon.PullsGetResponseData>('pr.close', this._item, message.args)
+			.executeCommand<IComment>('pr.close', this._item, message.args)
 			.then(comment => {
 				if (comment) {
 					this._replyMessage(message, {
@@ -397,7 +396,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 <html lang="en">
 	<head>
 		<meta charset="UTF-8">
-		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
+		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; media-src https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
 
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<title>Pull Request #${number}</title>

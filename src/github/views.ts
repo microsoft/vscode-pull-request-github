@@ -12,6 +12,7 @@ import {
 	IProjectItem,
 	MergeMethod,
 	MergeMethodsAvailability,
+	MergeQueueState,
 	PullRequestChecks,
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
@@ -56,17 +57,27 @@ export interface PullRequest {
 	 * edit title/description, assign reviewers/labels etc.
 	 */
 	hasWritePermission: boolean;
+	emailForCommit: string;
 	pendingCommentText?: string;
 	pendingCommentDrafts?: { [key: string]: string };
 	pendingReviewType?: ReviewType;
 	status: PullRequestChecks | null;
 	reviewRequirement: PullRequestReviewRequirement | null;
+	canUpdateBranch: boolean;
 	mergeable: PullRequestMergeability;
 	defaultMergeMethod: MergeMethod;
 	mergeMethodsAvailability: MergeMethodsAvailability;
 	autoMerge?: boolean;
 	allowAutoMerge: boolean;
 	autoMergeMethod?: MergeMethod;
+	mergeQueueMethod: MergeMethod | undefined;
+	mergeQueueEntry?: {
+		url: string;
+		position: number;
+		state: MergeQueueState;
+	};
+	mergeCommitMeta?: { title: string, description: string };
+	squashCommitMeta?: { title: string, description: string };
 	reviewers: ReviewState[];
 	isDraft?: boolean;
 	isIssue: boolean;
@@ -83,4 +94,11 @@ export interface PullRequest {
 
 export interface ProjectItemsReply {
 	projectItems: IProjectItem[] | undefined;
+}
+
+export interface MergeArguments {
+	title: string | undefined;
+	description: string | undefined;
+	method: MergeMethod;
+	email?: string;
 }

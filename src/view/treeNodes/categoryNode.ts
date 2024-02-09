@@ -131,7 +131,6 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		private _telemetry: ITelemetry,
 		public readonly type: PRType,
 		private _notificationProvider: NotificationProvider,
-		expandedQueries: Set<string>,
 		private _prsTreeModel: PrsTreeModel,
 		_categoryLabel?: string,
 		private _categoryQuery?: string,
@@ -157,11 +156,11 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		this.id = parent instanceof TreeNode ? `${parent.id ?? parent.label}/${this.label}` : this.label;
 
-		if ((expandedQueries.size === 0) && (this.type === PRType.All)) {
+		if ((this._prsTreeModel.expandedQueries.size === 0) && (this.type === PRType.All)) {
 			this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 		} else {
 			this.collapsibleState =
-				expandedQueries.has(this.id)
+				this._prsTreeModel.expandedQueries.has(this.id)
 					? vscode.TreeItemCollapsibleState.Expanded
 					: vscode.TreeItemCollapsibleState.Collapsed;
 		}
@@ -305,14 +304,21 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	async getChildren(): Promise<TreeNode[]> {
-		super.getChildren();
+		await super.getChildren();
+		if (!this._prsTreeModel.hasLoaded) {
+			this.doGetChildren().then(() => this.refresh(this));
+			return [];
+		}
+		return this.doGetChildren();
+	}
 
+	private async doGetChildren(): Promise<TreeNode[]> {
 		let hasMorePages = false;
 		let hasUnsearchedRepositories = false;
 		let needLogin = false;
 		if (this.type === PRType.LocalPullRequest) {
 			try {
-				this.prs = await this._prsTreeModel.getLocalPullRequests(this._folderRepoManager);
+				this.prs = (await this._prsTreeModel.getLocalPullRequests(this._folderRepoManager)).items;
 			} catch (e) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Fetching local pull requests failed: {0}', formatError(e)));
 				needLogin = e instanceof AuthenticationError;
@@ -336,7 +342,16 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				hasMorePages = response.hasMorePages;
 				hasUnsearchedRepositories = response.hasUnsearchedRepositories;
 			} catch (e) {
-				vscode.window.showErrorMessage(vscode.l10n.t('Fetching pull requests failed: {0}', formatError(e)));
+				const error = formatError(e);
+				const actions: string[] = [];
+				if (error.includes('Bad credentials')) {
+					actions.push(vscode.l10n.t('Login again'));
+				}
+				vscode.window.showErrorMessage(vscode.l10n.t('Fetching pull requests failed: {0}', formatError(e)), ...actions).then(action => {
+					if (action === actions[0]) {
+						this._folderRepoManager.credentialStore.recreate(vscode.l10n.t('Your login session is no longer valid.'));
+					}
+				});
 				needLogin = e instanceof AuthenticationError;
 			} finally {
 				this.fetchNextPage = false;

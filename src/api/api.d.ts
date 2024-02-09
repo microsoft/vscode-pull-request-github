@@ -183,6 +183,7 @@ export interface Repository {
 	deleteBranch(name: string, force?: boolean): Promise<void>;
 	getBranch(name: string): Promise<Branch>;
 	getBranches(query: BranchQuery): Promise<Ref[]>;
+	getBranchBase(name: string): Promise<Branch | undefined>;
 	setBranchUpstream(name: string, upstream: string): Promise<void>;
 	getRefs(query: RefQuery, cancellationToken?: CancellationToken): Promise<Ref[]>;
 
@@ -205,6 +206,8 @@ export interface Repository {
 
 	commit(message: string, opts?: CommitOptions): Promise<void>;
 	add(paths: string[]): Promise<void>;
+	merge(ref: string): Promise<void>;
+	mergeAbort(): Promise<void>;
 }
 
 /**
@@ -239,6 +242,7 @@ export interface IGit {
 
 export interface TitleAndDescriptionProvider {
 	provideTitleAndDescription(commitMessages: string[], patches: string[], token: CancellationToken): Promise<{ title: string, description?: string } | undefined>;
+	provideTitleAndDescription(context: { commitMessages: string[], patches: string[], issues?: { reference: string, content: string }[] }, token: CancellationToken): Promise<{ title: string, description?: string } | undefined>;
 }
 
 export interface API {

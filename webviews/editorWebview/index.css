@@ -31,6 +31,10 @@
 	grid-row: 2;
 }
 
+#project a {
+	cursor: pointer;
+}
+
 a:focus,
 input:focus,
 select:focus,
@@ -64,6 +68,11 @@ textarea:focus,
 
 .comment-body li div {
 	display: inline;
+}
+
+.comment-body li div.Box,
+.comment-body li div.Box div {
+	display: block;
 }
 
 .comment-body code,
@@ -206,6 +215,25 @@ body .comment-container .review-comment-header {
 	align-items: center;
 }
 
+.commit-association {
+	display: flex;
+	font-style: italic;
+	flex-direction: row-reverse;
+	padding-top: 7px;
+}
+
+.commit-association span {
+	flex-direction: row;
+}
+
+.email {
+	font-weight: bold;
+}
+
+button.input-box {
+	float: right;
+}
+
 .status-item-detail-text {
 	display: flex;
 	gap: 8px;
@@ -219,6 +247,7 @@ body .comment-container .review-comment-header {
 	margin: 0;
 }
 
+.merge-queue-container,
 .ready-for-review-container {
 	padding: 16px;
 	background-color: var(--vscode-editorWidget-background);
@@ -330,6 +359,7 @@ body .diff .diffPath {
 
 .comment-container form, #merge-comment-form {
 	padding: 16px;
+	background-color: var(--vscode-editorWidget-background);
 }
 
 body .comment-container .comment-body,
@@ -733,6 +763,10 @@ textarea {
 	margin-left: 0;
 }
 
+.primary-split-button {
+	flex-grow: unset;
+}
+
 .form-actions {
 	display: flex;
 	justify-content: flex-end;
@@ -1077,10 +1111,6 @@ code {
 		grid-template-columns: 50% 50%;
 		padding: 0;
 		padding-bottom: 24px;
-	}
-
-	#project a {
-		cursor: pointer;
 	}
 
 	.section-content {

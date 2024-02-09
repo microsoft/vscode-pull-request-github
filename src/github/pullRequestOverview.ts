@@ -30,9 +30,9 @@ import {
 import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
-import { getAssigneesQuickPickItems, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
+import { getAssigneesQuickPickItems, getMilestoneFromQuickPick, getProjectFromQuickPick, pickEmail, reviewersQuickPick } from './quickPicks';
 import { isInCodespaces, parseReviewers, vscodeDevPrLink } from './utils';
-import { ProjectItemsReply, PullRequest } from './views';
+import { MergeArguments, ProjectItemsReply, PullRequest, ReviewType } from './views';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -129,6 +129,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this._disposables.push(folderRepositoryManager.credentialStore.onDidUpgradeSession(() => {
 			this.updatePullRequest(this._item);
 		}));
+
+		this._disposables.push(vscode.commands.registerCommand('review.approveDescription', (e) => this.approvePullRequestCommand(e)));
+		this._disposables.push(vscode.commands.registerCommand('review.commentDescription', (e) => this.submitReviewCommand(e)));
+		this._disposables.push(vscode.commands.registerCommand('review.requestChangesDescription', (e) => this.requestChangesCommand(e)));
+		this._disposables.push(vscode.commands.registerCommand('review.approveOnDotComDescription', () => {
+			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+		}));
+		this._disposables.push(vscode.commands.registerCommand('review.requestChangesOnDotComDescription', () => {
+			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
+		}));
 	}
 
 	registerPrListeners() {
@@ -179,8 +189,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
 			this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
 			pullRequestModel.canEdit(),
-			this._folderRepositoryManager.getOrgTeamsCount(pullRequestModel.githubRepository)
-		])
+			this._folderRepositoryManager.getOrgTeamsCount(pullRequestModel.githubRepository),
+			this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName),
+			this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel)])
 			.then(result => {
 				const [
 					pullRequest,
@@ -192,7 +203,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					branchInfo,
 					currentUser,
 					viewerCanEdit,
-					orgTeamsCount
+					orgTeamsCount,
+					mergeQueueMethod,
+					isBranchUpToDateWithBase
 				] = result;
 				if (!pullRequest) {
 					throw new Error(
@@ -251,6 +264,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					hasWritePermission,
 					status: status[0],
 					reviewRequirement: status[1],
+					canUpdateBranch: pullRequest.item.viewerCanUpdate && !isBranchUpToDateWithBase,
 					mergeable: pullRequest.item.mergeable,
 					reviewers: this._existingReviewers,
 					isDraft: pullRequest.isDraft,
@@ -259,11 +273,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					autoMerge: pullRequest.autoMerge,
 					allowAutoMerge: pullRequest.allowAutoMerge,
 					autoMergeMethod: pullRequest.autoMergeMethod,
+					mergeQueueMethod: mergeQueueMethod,
+					mergeQueueEntry: pullRequest.mergeQueueEntry,
+					mergeCommitMeta: pullRequest.mergeCommitMeta,
+					squashCommitMeta: pullRequest.squashCommitMeta,
 					isIssue: false,
 					projectItems: pullRequest.item.projectItems,
 					milestone: pullRequest.milestone,
 					assignees: pullRequest.assignees,
 					continueOnGitHub,
+					emailForCommit: currentUser.email,
 					isAuthor: currentUser.login === pullRequest.author.login,
 					currentUserReviewState: reviewState,
 					isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
@@ -313,16 +332,18 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.checkoutPullRequest(message);
 			case 'pr.merge':
 				return this.mergePullRequest(message);
+			case 'pr.change-email':
+				return this.changeEmail(message);
 			case 'pr.deleteBranch':
 				return this.deleteBranch(message);
 			case 'pr.readyForReview':
 				return this.setReadyForReview(message);
 			case 'pr.approve':
-				return this.approvePullRequest(message);
+				return this.approvePullRequestMessage(message);
 			case 'pr.request-changes':
-				return this.requestChanges(message);
+				return this.requestChangesMessage(message);
 			case 'pr.submit':
-				return this.submitReview(message);
+				return this.submitReviewMessage(message);
 			case 'pr.checkout-default-branch':
 				return this.checkoutDefaultBranch(message);
 			case 'pr.apply-patch':
@@ -330,7 +351,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			case 'pr.open-diff':
 				return this.openDiff(message);
 			case 'pr.resolve-comment-thread':
-				return this.resolveComentThread(message);
+				return this.resolveCommentThread(message);
 			case 'pr.checkMergeability':
 				return this._replyMessage(message, await this._item.getMergeability());
 			case 'pr.change-reviewers':
@@ -355,6 +376,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 			case 'pr.update-automerge':
 				return this.updateAutoMerge(message);
+			case 'pr.dequeue':
+				return this.dequeue(message);
+			case 'pr.enqueue':
+				return this.enqueue(message);
+			case 'pr.update-branch':
+				return this.updateBranch(message);
 			case 'pr.gotoChangesSinceReview':
 				this.gotoChangesSinceReview();
 				break;
@@ -448,7 +475,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async changeProjects(message: IRequestMessage<void>): Promise<void> {
-		return getProjectFromQuickPick(this._item.githubRepository, this._item.item.projectItems, (project) => this.updateProjects(project, message));
+		return getProjectFromQuickPick(this._folderRepositoryManager, this._item.githubRepository, this._item.remote.remoteName, this._item.base.isInOrganization, this._item.item.projectItems, (project) => this.updateProjects(project, message));
 	}
 
 	private async updateProjects(projects: IProject[] | undefined, message: IRequestMessage<void>) {
@@ -474,7 +501,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			quickPick.canSelectMany = true;
 			quickPick.matchOnDescription = true;
 			quickPick.show();
-			quickPick.items = await getAssigneesQuickPickItems(this._folderRepositoryManager, this._item.remote.remoteName, this._item.assignees ?? [], this._item);
+			quickPick.items = await getAssigneesQuickPickItems(this._folderRepositoryManager, undefined, this._item.remote.remoteName, this._item.assignees ?? [], this._item);
 			quickPick.selectedItems = quickPick.items.filter(item => item.picked);
 
 			quickPick.busy = false;
@@ -507,11 +534,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async addAssigneeYourself(message: IRequestMessage<void>): Promise<void> {
 		try {
 			const currentUser = await this._folderRepositoryManager.getCurrentUser();
-
-			this._item.assignees = this._item.assignees?.concat(currentUser);
-
-			await this._item.addAssignees([currentUser.login]);
-
+			const alreadyAssigned = this._item.assignees?.find(user => user.login === currentUser.login);
+			if (!alreadyAssigned) {
+				this._item.assignees = this._item.assignees?.concat(currentUser);
+				await this._item.addAssignees([currentUser.login]);
+			}
 			this._replyMessage(message, {
 				assignees: this._item.assignees,
 			});
@@ -549,7 +576,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async resolveComentThread(message: IRequestMessage<{ threadId: string, toResolve: boolean, thread: IComment[] }>) {
+	private async resolveCommentThread(message: IRequestMessage<{ threadId: string, toResolve: boolean, thread: IComment[] }>) {
 		try {
 			if (message.args.toResolve) {
 				await this._item.resolveReviewThread(message.args.threadId);
@@ -579,11 +606,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private mergePullRequest(
-		message: IRequestMessage<{ title: string | undefined; description: string | undefined; method: 'merge' | 'squash' | 'rebase' }>,
+		message: IRequestMessage<MergeArguments>,
 	): void {
-		const { title, description, method } = message.args;
+		const { title, description, method, email } = message.args;
 		this._folderRepositoryManager
-			.mergePullRequest(this._item, title, description, method)
+			.mergePullRequest(this._item, title, description, method, email)
 			.then(result => {
 				vscode.commands.executeCommand('pr.refreshList');
 
@@ -601,6 +628,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			});
 	}
 
+	private async changeEmail(message: IRequestMessage<string>): Promise<void> {
+		const email = await pickEmail(this._item.githubRepository, message.args);
+		return this._replyMessage(message, email ?? message.args);
+	}
+
 	private async deleteBranch(message: IRequestMessage<any>) {
 		const result = await PullRequestView.deleteBranch(this._folderRepositoryManager, this._item);
 		if (result.isReply) {
@@ -614,10 +646,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private setReadyForReview(message: IRequestMessage<{}>): void {
 		this._item
 			.setReadyForReview()
-			.then(isDraft => {
+			.then(result => {
 				vscode.commands.executeCommand('pr.refreshList');
 
-				this._replyMessage(message, { isDraft });
+				this._replyMessage(message, result);
 			})
 			.catch(e => {
 				vscode.window.showErrorMessage(`Unable to set PR ready for review. ${formatError(e)}`);
@@ -654,62 +686,77 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private approvePullRequest(message: IRequestMessage<string>): void {
-		this._item.approve(this._folderRepositoryManager.repository, message.args).then(
-			review => {
-				this.updateReviewers(review);
-				this._replyMessage(message, {
-					review: review,
-					reviewers: this._existingReviewers,
-				});
-				//refresh the pr list as this one is approved
-				vscode.commands.executeCommand('pr.refreshList');
-			},
-			e => {
-				vscode.window.showErrorMessage(`Approving pull request failed. ${formatError(e)}`);
-
-				this._throwError(message, `${formatError(e)}`);
-			},
-		);
+	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<CommonReviewEvent>) {
+		const submittingMessage = {
+			command: 'pr.submitting-review',
+			lastReviewType: reviewType
+		};
+		this._postMessage(submittingMessage);
+		try {
+			const review = await action(context.body);
+			this.updateReviewers(review);
+			const reviewMessage = {
+				command: 'pr.append-review',
+				review,
+				reviewers: this._existingReviewers
+			};
+			await this._postMessage(reviewMessage);
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
+			this._throwError(undefined, `${formatError(e)}`);
+		} finally {
+			this._postMessage({ command: 'pr.append-review' });
+		}
 	}
 
-	private requestChanges(message: IRequestMessage<string>): void {
-		this._isUpdating = true;
-		this._item.requestChanges(message.args).then(
-			review => {
-				this._isUpdating = false;
-				this.updateReviewers(review);
-				this._replyMessage(message, {
-					review: review,
-					reviewers: this._existingReviewers,
-				});
-			},
-			e => {
-				this._isUpdating = false;
-				vscode.window.showErrorMessage(`Requesting changes failed. ${formatError(e)}`);
-				this._throwError(message, `${formatError(e)}`);
-			},
-
-		);
+	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<CommonReviewEvent>) {
+		try {
+			const review = await action(message.args);
+			this.updateReviewers(review);
+			this._replyMessage(message, {
+				review: review,
+				reviewers: this._existingReviewers,
+			});
+		} catch (e) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
+			this._throwError(message, `${formatError(e)}`);
+		}
 	}
 
-	private submitReview(message: IRequestMessage<string>): void {
-		this._isUpdating = true;
-		this._item.submitReview(ReviewEvent.Comment, message.args).then(
-			review => {
-				this._isUpdating = false;
-				this.updateReviewers(review);
-				this._replyMessage(message, {
-					review: review,
-					reviewers: this._existingReviewers,
-				});
-			},
-			e => {
-				this._isUpdating = false;
-				vscode.window.showErrorMessage(`Submitting review failed. ${formatError(e)}`);
-				this._throwError(message, `${formatError(e)}`);
-			},
-		);
+	private approvePullRequest(body: string): Promise<CommonReviewEvent> {
+		return this._item.approve(this._folderRepositoryManager.repository, body);
+	}
+
+	private approvePullRequestMessage(message: IRequestMessage<string>): Promise<void> {
+		return this.doReviewMessage(message, (body) => this.approvePullRequest(body));
+	}
+
+	private approvePullRequestCommand(context: { body: string }): Promise<void> {
+		return this.doReviewCommand(context, ReviewType.Approve, (body) => this.approvePullRequest(body));
+	}
+
+	private requestChanges(body: string): Promise<CommonReviewEvent> {
+		return this._item.requestChanges(body);
+	}
+
+	private requestChangesCommand(context: { body: string }): Promise<void> {
+		return this.doReviewCommand(context, ReviewType.RequestChanges, (body) => this.requestChanges(body));
+	}
+
+	private requestChangesMessage(message: IRequestMessage<string>): Promise<void> {
+		return this.doReviewMessage(message, (body) => this.requestChanges(body));
+	}
+
+	private submitReview(body: string): Promise<CommonReviewEvent> {
+		return this._item.submitReview(ReviewEvent.Comment, body);
+	}
+
+	private submitReviewCommand(context: { body: string }) {
+		return this.doReviewCommand(context, ReviewType.Comment, (body) => this.submitReview(body));
+	}
+
+	private submitReviewMessage(message: IRequestMessage<string>) {
+		return this.doReviewMessage(message, (body) => this.submitReview(body));
 	}
 
 	private reRequestReview(message: IRequestMessage<string>): void {
@@ -768,6 +815,27 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			replyMessage = { autoMerge: this._item.autoMerge, autoMergeMethod: this._item.autoMergeMethod };
 		}
 		this._replyMessage(message, replyMessage);
+	}
+
+	private async dequeue(message: IRequestMessage<void>): Promise<void> {
+		const result = await this._item.dequeuePullRequest();
+		this._replyMessage(message, result);
+	}
+
+	private async enqueue(message: IRequestMessage<void>): Promise<void> {
+		const result = await this._item.enqueuePullRequest();
+		this._replyMessage(message, { mergeQueueEntry: result });
+	}
+
+	private async updateBranch(message: IRequestMessage<string>): Promise<void> {
+		if (this._folderRepositoryManager.repository.state.workingTreeChanges.length > 0 || this._folderRepositoryManager.repository.state.indexChanges.length > 0) {
+			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
+			return this._replyMessage(message, {});
+		}
+		await this._folderRepositoryManager.tryMergeBaseIntoHead(this._item, true);
+		await this.refreshPanel();
+
+		this._replyMessage(message, {});
 	}
 
 	protected editCommentPromise(comment: IComment, text: string): Promise<IComment> {

@@ -53,7 +53,7 @@ export class RateLogger {
 	}
 
 	public async logRateLimit(info: string | undefined, result: Promise<{ data: { rateLimit: RateLimit | undefined } | undefined } | undefined>, isRest: boolean = false) {
-		let rateLimitInfo;
+		let rateLimitInfo: { limit: number, remaining: number, cost: number } | undefined;
 		try {
 			const resolvedResult = await result;
 			rateLimitInfo = resolvedResult?.data?.rateLimit;
@@ -65,11 +65,11 @@ export class RateLogger {
 		if ((rateLimitInfo?.limit ?? 5000) < 5000) {
 			if (!isSearch) {
 				Logger.appendLine(`Unexpectedly low rate limit: ${rateLimitInfo?.limit}`, RateLogger.ID);
-			} else if (rateLimitInfo.limit < 30) {
+			} else if ((rateLimitInfo?.limit ?? 30) < 30) {
 				Logger.appendLine(`Unexpectedly low SEARCH rate limit: ${rateLimitInfo?.limit}`, RateLogger.ID);
 			}
 		}
-		const remaining = `${isRest ? 'REST' : 'GraphQL'} Rate limit remaining: ${rateLimitInfo?.remaining}, ${info}`;
+		const remaining = `${isRest ? 'REST' : 'GraphQL'} Rate limit remaining: ${rateLimitInfo?.remaining}, cost: ${rateLimitInfo?.cost}, ${info}`;
 		if (((rateLimitInfo?.remaining ?? 1000) < 1000) && !isSearch) {
 			if (!this.hasLoggedLowRateLimit) {
 				/* __GDPR__
@@ -103,7 +103,7 @@ export class RateLogger {
 }
 
 export class LoggingApolloClient {
-	constructor(private readonly _graphql: ApolloClient<NormalizedCacheObject>, private _rateLogger: RateLogger) { };
+	constructor(private readonly _graphql: ApolloClient<NormalizedCacheObject>, private _rateLogger: RateLogger) { }
 
 	query<T = any, TVariables = OperationVariables>(options: QueryOptions<TVariables>): Promise<ApolloQueryResult<T>> {
 		const logInfo = (options.query.definitions[0] as { name: { value: string } | undefined }).name?.value;
@@ -127,7 +127,7 @@ export class LoggingApolloClient {
 }
 
 export class LoggingOctokit {
-	constructor(public readonly api: Octokit, private _rateLogger: RateLogger) { };
+	constructor(public readonly api: Octokit, private _rateLogger: RateLogger) { }
 
 	async call<T, U>(api: (T) => Promise<U>, args: T): Promise<U> {
 		const logInfo = (api as unknown as { endpoint: { DEFAULTS: { url: string } | undefined } | undefined }).endpoint?.DEFAULTS?.url;

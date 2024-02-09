@@ -19,6 +19,7 @@ import { BaseTreeNode, TreeNode } from './treeNode';
 export class RepositoryChangesNode extends DescriptionNode implements vscode.TreeItem {
 	private _filesCategoryNode?: FilesCategoryNode;
 	private _commitsCategoryNode?: CommitsNode;
+	public description?: string;
 	readonly collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 
 	private _disposables: vscode.Disposable[] = [];
@@ -90,6 +91,21 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	async getTreeItem(): Promise<vscode.TreeItem> {
 		this.label = this._pullRequest.title;
 		this.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this._pullRequestManager.context, [this._pullRequest.author], 16, 16))[0];
+		this.description = undefined;
+		if (this.parent.children?.length && this.parent.children.length > 1) {
+			const allSameOwner = this.parent.children.every(child => {
+				return child instanceof RepositoryChangesNode && child.pullRequestModel.remote.owner === this.pullRequestModel.remote.owner;
+			});
+			if (allSameOwner) {
+				this.description = this._pullRequest.remote.repositoryName;
+			} else {
+				this.description = `${this._pullRequest.remote.owner}/${this._pullRequest.remote.repositoryName}`;
+			}
+			if (this.label.length > 35) {
+				this.tooltip = this.label;
+				this.label = `${this.label.substring(0, 35)}...`;
+			}
+		}
 		this.updateContextValue();
 		return this;
 	}

@@ -79,6 +79,7 @@ function getTargetPopulation(): TargetPopulation {
 
 class NullExperimentationService implements IExperimentationService {
 	readonly initializePromise: Promise<void> = Promise.resolve();
+	readonly initialFetch: Promise<void> = Promise.resolve();
 
 	isFlightEnabled(_flight: string): boolean {
 		return false;
@@ -110,17 +111,17 @@ export async function createExperimentationService(
 ): Promise<IExperimentationService> {
 	const id = context.extension.id;
 	const name = context.extension.packageJSON['name'];
-	const version = context.extension.packageJSON['version'];
+	const version: string = context.extension.packageJSON['version'];
 	const targetPopulation = getTargetPopulation();
 
 	// We only create a real experimentation service for the stable version of the extension, not insiders.
 	return name === 'vscode-pull-request-github'
 		? getExperimentationService(
-				id,
-				version,
-				targetPopulation,
-				experimentationTelemetry,
-				context.globalState,
-		  )
+			id,
+			version,
+			targetPopulation,
+			experimentationTelemetry,
+			context.globalState,
+		)
 		: new NullExperimentationService();
 }

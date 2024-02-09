@@ -55,8 +55,8 @@ export class ReviewsManager {
 					}
 
 					this._prsTreeDataProvider.dispose();
-					this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry, this._context);
-					this._prsTreeDataProvider.initialize(this._reposManager, this._reviewManagers.map(manager => manager.reviewModel), this._credentialStore);
+					this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry, this._context, this._reposManager);
+					this._prsTreeDataProvider.initialize(this._reviewManagers.map(manager => manager.reviewModel), this._credentialStore);
 					this._disposables.push(this._prsTreeDataProvider);
 				}
 			}),
@@ -94,7 +94,7 @@ export class ReviewsManager {
 		const reviewManagerIndex = this._reviewManagers.findIndex(
 			manager => manager.repository.rootUri.toString() === repo.rootUri.toString(),
 		);
-		if (reviewManagerIndex) {
+		if (reviewManagerIndex >= 0) {
 			const manager = this._reviewManagers[reviewManagerIndex];
 			this._reviewManagers.splice(reviewManagerIndex);
 			manager.dispose();

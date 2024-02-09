@@ -26,6 +26,13 @@ fragment PullRequestFragment on PullRequest {
 			id
 		}
 	}
+	commits(first: 50) {
+		nodes {
+			commit {
+				message
+			}
+		}
+	}
 	createdAt
 	updatedAt
 	headRef {
@@ -66,6 +73,7 @@ fragment PullRequestFragment on PullRequest {
 	}
 	viewerCanEnableAutoMerge
 	viewerCanDisableAutoMerge
+	viewerCanUpdate
 	id
 	databaseId
 	isDraft

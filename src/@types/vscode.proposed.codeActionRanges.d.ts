@@ -4,11 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 declare module 'vscode' {
-	export interface Comment {
+
+	export interface CodeAction {
 		/**
-		 * An optional timestamp that will be displayed in comments.
-		 * The date will be formatted according to the user's locale and settings.
+		 *
+		 * The range to which this Code Action applies to, which will be highlighted.
+		 *
+		 * Ex: A refactoring action will highlight the range of text that will be affected.
 		 */
-		timestamp?: Date;
+		ranges?: Range[];
 	}
 }

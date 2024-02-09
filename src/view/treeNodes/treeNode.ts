@@ -10,14 +10,13 @@ import { dispose } from '../../common/utils';
 export interface BaseTreeNode {
 	reveal(element: TreeNode, options?: { select?: boolean; focus?: boolean; expand?: boolean | number }): Thenable<void>;
 	refresh(treeNode?: TreeNode): void;
+	children: TreeNode[] | undefined;
 	view: vscode.TreeView<TreeNode>;
 }
 
 export type TreeNodeParent = TreeNode | BaseTreeNode;
 
-export const EXPANDED_QUERIES_STATE = 'expandedQueries';
-
-export abstract class TreeNode implements vscode.Disposable {
+export abstract class TreeNode {
 	protected children: TreeNode[] | undefined;
 	childrenDisposables: vscode.Disposable[];
 	parent: TreeNodeParent;
@@ -55,8 +54,8 @@ export abstract class TreeNode implements vscode.Disposable {
 		return this.getChildren();
 	}
 
-	async getChildren(): Promise<TreeNode[]> {
-		if (this.children && this.children.length) {
+	async getChildren(shouldDispose: boolean = true): Promise<TreeNode[]> {
+		if (this.children && this.children.length && shouldDispose) {
 			dispose(this.children);
 			this.children = [];
 		}
@@ -64,7 +63,6 @@ export abstract class TreeNode implements vscode.Disposable {
 	}
 
 	updateFromCheckboxChanged(_newState: vscode.TreeItemCheckboxState): void { }
-
 
 	dispose(): void {
 		if (this.childrenDisposables) {

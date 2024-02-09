@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
+import { ITelemetry } from '../common/telemetry';
 import { dispose } from '../common/utils';
 import { CreatePullRequestViewProviderNew } from '../github/createPRViewProviderNew';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
@@ -103,6 +104,13 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 			})
 		);
 		this._disposables.push(
+			vscode.commands.registerCommand('pr.createPrMenuMergeWhenReady', () => {
+				if (this._createPRViewProvider instanceof CreatePullRequestViewProviderNew) {
+					this._createPRViewProvider.createFromCommand(false, true, undefined, true);
+				}
+			})
+		);
+		this._disposables.push(
 			vscode.commands.registerCommand('pr.createPrMenuMerge', () => {
 				if (this._createPRViewProvider instanceof CreatePullRequestViewProviderNew) {
 					this._createPRViewProvider.createFromCommand(false, true, 'merge');
@@ -163,6 +171,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 	}
 
 	async create(
+		telemetry: ITelemetry,
 		extensionUri: vscode.Uri,
 		folderRepoManager: FolderRepositoryManager,
 		compareBranch: string | undefined,
@@ -187,6 +196,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 			const compareOrigin = await folderRepoManager.getOrigin(branch);
 			const model = new CreatePullRequestDataModel(folderRepoManager, pullRequestDefaults.owner, pullRequestDefaults.base, compareOrigin.remote.owner, branch.name!);
 			this._createPRViewProvider = new CreatePullRequestViewProviderNew(
+				telemetry,
 				model,
 				extensionUri,
 				folderRepoManager,

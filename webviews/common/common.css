@@ -7,6 +7,16 @@ body a {
 	text-decoration: none;
 }
 
+h3 {
+	display: unset;
+	font-size: unset;
+	margin-block-start: unset;
+	margin-block-end: unset;
+	margin-inline-start: unset;
+	margin-inline-end: unset;
+	font-weight: unset;
+}
+
 body a:hover {
 	text-decoration: underline;
 }
@@ -17,7 +27,6 @@ input[type='submit'] {
 	font-family: var(--vscode-font-family);
 	border-radius: 2px;
 	border: 1px solid transparent;
-	outline: none;
 	padding: 4px 12px;
 	font-size: 13px;
 	line-height: 18px;
@@ -58,12 +67,15 @@ input[type='submit']:hover:enabled {
 	cursor: pointer;
 }
 
-body button.secondary {
+button.secondary {
 	background-color: var(--vscode-button-secondaryBackground);
 	color: var(--vscode-button-secondaryForeground);
 }
 
-body button.secondary:hover {
+button.secondary:hover:enabled,
+button.secondary:focus:enabled,
+input[type='submit'].secondary:focus:enabled,
+input[type='submit'].secondary:hover:enabled {
 	background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
@@ -213,6 +225,7 @@ body img.avatar {
 .section-icon.approved svg path {
 	fill: var(--vscode-issues-open);
 }
+
 .reviewer-icons {
 	display: flex;
 	gap: 4px;
@@ -230,6 +243,11 @@ body img.avatar {
 .author-link {
 	font-weight: 600;
 	color: var(--vscode-editor-foreground);
+}
+
+.status-item button {
+	margin-left: auto;
+	margin-right: 0;
 }
 
 .automerge-section {
@@ -258,16 +276,26 @@ body img.avatar {
 .automerge-checkbox-label {
 	min-width: 80px;
 }
+
+.merge-queue-title .merge-queue-pending {
+	color: var(--vscode-list-warningForeground);
+}
+
+.merge-queue-title .merge-queue-blocked {
+	color: var(--vscode-list-errorForeground);
+}
+
+.merge-queue-title {
+	font-weight: bold;
+	font-size: larger;
+}
+
 /** Theming */
 
 .vscode-high-contrast button:not(.secondary):not(.icon-button) {
 	background: var(--vscode-button-background);
 }
 
-.vscode-high-contrast button {
-	outline: none;
-	border: 1px solid var(--vscode-contrastBorder);
-}
 
 .vscode-high-contrast input {
 	outline: none;
@@ -305,4 +333,77 @@ body img.avatar {
 	font-size: 11px;
 	line-height: 18px;
 	font-weight: 600;
+}
+
+/* split button */
+
+.primary-split-button {
+	display: flex;
+	flex-grow: 1;
+	min-width: 0;
+}
+
+button.split-left {
+	border-radius: 2px 0 0 2px;
+	flex-grow: 1;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.split {
+	width: 1px;
+	height: 100%;
+	background-color: var(--vscode-button-background);
+	opacity: 0.5;
+}
+
+button.split-right {
+	border-radius: 0 2px 2px 0;
+	cursor: pointer;
+	width: 24px;
+	height: 28px;
+	position: relative;
+}
+
+button.split-right:disabled {
+	cursor: default;
+}
+
+button.split-right .icon {
+	pointer-events: none;
+	position: absolute;
+	top: 6px;
+	right: 4px;
+}
+
+button.split-right .icon svg path {
+	fill: unset;
+}
+button.input-box {
+	display: block;
+	height: 24px;
+	margin-top: -4px;
+	padding-top: 2px;
+	padding-left: 8px;
+	text-align: left;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	color: var(--vscode-input-foreground) !important;
+	background-color: var(--vscode-input-background) !important;
+}
+
+button.input-box:active,
+button.input-box:focus {
+	color: var(--vscode-inputOption-activeForeground) !important;
+	background-color: var(--vscode-inputOption-activeBackground) !important;
+}
+
+button.input-box:hover:not(:disabled) {
+	background-color: var(--vscode-inputOption-hoverBackground) !important;
+}
+
+button.input-box:focus {
+	border-color: var(--vscode-focusBorder) !important;
 }

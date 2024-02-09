@@ -34,6 +34,8 @@ import {
 	ISuggestedReviewer,
 	ITeam,
 	MergeMethod,
+	MergeQueueEntry,
+	MergeQueueState,
 	PullRequest,
 	PullRequestMergeability,
 	reviewerId,
@@ -96,13 +98,13 @@ export function createVSCodeCommentThreadForReviewThread(
 	thread: IReviewThread,
 	commentController: vscode.CommentController,
 	currentUser: string,
-	githubRepository?: GitHubRepository
+	githubRepositories?: GitHubRepository[]
 ): GHPRCommentThread {
 	const vscodeThread = commentController.createCommentThread(uri, range, []);
 
 	(vscodeThread as GHPRCommentThread).gitHubThreadId = thread.id;
 
-	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(context, comment, vscodeThread as GHPRCommentThread, githubRepository));
+	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(context, comment, vscodeThread as GHPRCommentThread, githubRepositories));
 	vscodeThread.state = isResolvedToResolvedState(thread.isResolved);
 
 	if (thread.viewerCanResolve && !thread.isResolved) {
@@ -126,7 +128,7 @@ export const COMMENT_EXPAND_STATE_COLLAPSE_VALUE = 'collapseAll';
 export const COMMENT_EXPAND_STATE_EXPAND_VALUE = 'expandUnresolved';
 export function getCommentCollapsibleState(thread: IReviewThread, expand?: boolean, currentUser?: string) {
 	if (thread.isResolved
-		|| (currentUser && (thread.comments[thread.comments.length - 1].user?.login === currentUser) && thread.subjectType === SubjectType.LINE)) {
+		|| (currentUser && (thread.comments[thread.comments.length - 1].user?.login === currentUser))) {
 		return vscode.CommentThreadCollapsibleState.Collapsed;
 	}
 	if (expand === undefined) {
@@ -138,7 +140,7 @@ export function getCommentCollapsibleState(thread: IReviewThread, expand?: boole
 }
 
 
-export function updateThreadWithRange(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepository: GitHubRepository, expand?: boolean) {
+export function updateThreadWithRange(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepositories?: GitHubRepository[], expand?: boolean) {
 	if (!vscodeThread.range) {
 		return;
 	}
@@ -147,13 +149,13 @@ export function updateThreadWithRange(context: vscode.ExtensionContext, vscodeTh
 		if (editor.document.uri.toString() === vscodeThread.uri.toString()) {
 			const endLine = editor.document.lineAt(vscodeThread.range.end.line);
 			const range = new vscode.Range(vscodeThread.range.start.line, 0, vscodeThread.range.end.line, endLine.text.length);
-			updateThread(context, vscodeThread, reviewThread, githubRepository, expand, range);
+			updateThread(context, vscodeThread, reviewThread, githubRepositories, expand, range);
 			break;
 		}
 	}
 }
 
-export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepository: GitHubRepository, expand?: boolean, range?: vscode.Range) {
+export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHPRCommentThread, reviewThread: IReviewThread, githubRepositories?: GitHubRepository[], expand?: boolean, range?: vscode.Range) {
 	if (reviewThread.viewerCanResolve && !reviewThread.isResolved) {
 		vscodeThread.contextValue = 'canResolve';
 	} else if (reviewThread.viewerCanUnresolve && reviewThread.isResolved) {
@@ -178,7 +180,7 @@ export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHP
 			index++;
 		}
 	} else {
-		vscodeThread.comments = reviewThread.comments.map(c => new GHPRComment(context, c, vscodeThread, githubRepository));
+		vscodeThread.comments = reviewThread.comments.map(c => new GHPRComment(context, c, vscodeThread, githubRepositories));
 	}
 	updateCommentThreadLabel(vscodeThread);
 }
@@ -215,6 +217,7 @@ export function updateCommentReactions(comment: vscode.Comment, reactions: React
 				authorHasReacted: matchedReaction.viewerHasReacted,
 				count: matchedReaction.count,
 				iconPath: reaction.icon || '',
+				reactors: matchedReaction.reactors.map(reactor => ({ name: reactor }))
 			};
 		} else {
 			newReaction = { label: reaction.label, authorHasReacted: false, count: 0, iconPath: reaction.icon || '' };
@@ -256,7 +259,8 @@ export function convertRESTUserToAccount(
 		login: user.login,
 		url: user.html_url,
 		avatarUrl: githubRepository ? getAvatarWithEnterpriseFallback(user.avatar_url, user.gravatar_id ?? undefined, githubRepository.remote.isEnterprise) : user.avatar_url,
-		id: user.node_id
+		id: user.node_id,
+		email: user.email ?? undefined
 	};
 }
 
@@ -314,12 +318,14 @@ export function convertRESTPullRequestToRawPullRequest(
 			: undefined,
 		createdAt: created_at,
 		updatedAt: updated_at,
+		viewerCanUpdate: false,
 		head: head.repo ? convertRESTHeadToIGitHubRef(head as OctokitCommon.PullsListResponseItemHead) : undefined,
 		base: convertRESTHeadToIGitHubRef(base),
 		labels: labels.map<ILabel>(l => ({ name: '', color: '', ...l })),
 		isDraft: draft,
 		suggestedReviewers: [], // suggested reviewers only available through GraphQL API
 		projectItems: [], // projects only available through GraphQL API
+		commits: [], // commits only available through GraphQL API
 	};
 
 	// mergeable is not included in the list response, will need to fetch later
@@ -335,7 +341,7 @@ export function convertRESTPullRequestToRawPullRequest(
 export function convertRESTIssueToRawPullRequest(
 	pullRequest: OctokitCommon.IssuesCreateResponseData,
 	githubRepository: GitHubRepository,
-): PullRequest {
+): Issue {
 	const {
 		number,
 		body,
@@ -351,7 +357,7 @@ export function convertRESTIssueToRawPullRequest(
 		id,
 	} = pullRequest;
 
-	const item: PullRequest = {
+	const item: Issue = {
 		id,
 		graphNodeId: node_id,
 		number,
@@ -369,7 +375,6 @@ export function convertRESTIssueToRawPullRequest(
 		labels: labels.map<ILabel>(l =>
 			typeof l === 'string' ? { name: l, color: '' } : { name: l.name ?? '', color: l.color ?? '', description: l.description ?? undefined },
 		),
-		suggestedReviewers: [], // suggested reviewers only available through GraphQL API,
 		projectItems: [], // projects only available through GraphQL API
 	};
 
@@ -507,13 +512,14 @@ export function parseGraphQLReaction(reactionGroups: GraphQL.ReactionGroup[]): R
 	}, {} as { [key: string]: { title: string; label: string; icon?: vscode.Uri } });
 
 	const reactions = reactionGroups
-		.filter(group => group.users.totalCount > 0)
+		.filter(group => group.reactors.totalCount > 0)
 		.map(group => {
 			const reaction: Reaction = {
 				label: reactionContentEmojiMapping[group.content].label,
-				count: group.users.totalCount,
+				count: group.reactors.totalCount,
 				icon: reactionContentEmojiMapping[group.content].icon,
 				viewerHasReacted: group.viewerHasReacted,
+				reactors: group.reactors.nodes.map(node => node.login)
 			};
 
 			return reaction;
@@ -606,7 +612,37 @@ export function parseMilestone(
 	};
 }
 
-function parseMergeMethod(mergeMethod: 'MERGE' | 'SQUASH' | 'REBASE' | undefined): MergeMethod | undefined {
+export function parseMergeQueueEntry(mergeQueueEntry: GraphQL.MergeQueueEntry | null | undefined): MergeQueueEntry | undefined | null {
+	if (!mergeQueueEntry) {
+		return null;
+	}
+	let state: MergeQueueState;
+	switch (mergeQueueEntry.state) {
+		case 'AWAITING_CHECKS': {
+			state = MergeQueueState.AwaitingChecks;
+			break;
+		}
+		case 'LOCKED': {
+			state = MergeQueueState.Locked;
+			break;
+		}
+		case 'QUEUED': {
+			state = MergeQueueState.Queued;
+			break;
+		}
+		case 'MERGEABLE': {
+			state = MergeQueueState.Mergeable;
+			break;
+		}
+		case 'UNMERGEABLE': {
+			state = MergeQueueState.Unmergeable;
+			break;
+		}
+	}
+	return { position: mergeQueueEntry.position, state, url: mergeQueueEntry.mergeQueue.url };
+}
+
+export function parseMergeMethod(mergeMethod: GraphQL.MergeMethod | undefined): MergeMethod | undefined {
 	switch (mergeMethod) {
 		case 'MERGE': return 'merge';
 		case 'REBASE': return 'rebase';
@@ -614,10 +650,11 @@ function parseMergeMethod(mergeMethod: 'MERGE' | 'SQUASH' | 'REBASE' | undefined
 	}
 }
 
-export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFLICTING',
-	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE'): PullRequestMergeability {
+export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFLICTING' | undefined,
+	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE' | undefined): PullRequestMergeability {
 	let parsed: PullRequestMergeability;
 	switch (mergeability) {
+		case undefined:
 		case 'UNKNOWN':
 			parsed = PullRequestMergeability.Unknown;
 			break;
@@ -642,7 +679,7 @@ export function parseGraphQLPullRequest(
 	graphQLPullRequest: GraphQL.PullRequest,
 	githubRepository: GitHubRepository,
 ): PullRequest {
-	return {
+	const pr: PullRequest = {
 		id: graphQLPullRequest.databaseId,
 		graphNodeId: graphQLPullRequest.id,
 		url: graphQLPullRequest.url,
@@ -661,9 +698,11 @@ export function parseGraphQLPullRequest(
 		user: parseAuthor(graphQLPullRequest.author, githubRepository),
 		merged: graphQLPullRequest.merged,
 		mergeable: parseMergeability(graphQLPullRequest.mergeable, graphQLPullRequest.mergeStateStatus),
+		mergeQueueEntry: parseMergeQueueEntry(graphQLPullRequest.mergeQueueEntry),
 		autoMerge: !!graphQLPullRequest.autoMergeRequest,
 		autoMergeMethod: parseMergeMethod(graphQLPullRequest.autoMergeRequest?.mergeMethod),
 		allowAutoMerge: graphQLPullRequest.viewerCanEnableAutoMerge || graphQLPullRequest.viewerCanDisableAutoMerge,
+		viewerCanUpdate: graphQLPullRequest.viewerCanUpdate,
 		labels: graphQLPullRequest.labels.nodes,
 		isDraft: graphQLPullRequest.isDraft,
 		suggestedReviewers: parseSuggestedReviewers(graphQLPullRequest.suggestedReviewers),
@@ -671,7 +710,63 @@ export function parseGraphQLPullRequest(
 		projectItems: parseProjectItems(graphQLPullRequest.projectItems?.nodes),
 		milestone: parseMilestone(graphQLPullRequest.milestone),
 		assignees: graphQLPullRequest.assignees?.nodes.map(assignee => parseAuthor(assignee, githubRepository)),
+		commits: parseCommits(graphQLPullRequest.commits.nodes),
 	};
+	pr.mergeCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.mergeCommitTitle, graphQLPullRequest.baseRepository.mergeCommitMessage, pr);
+	pr.squashCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.squashMergeCommitTitle, graphQLPullRequest.baseRepository.squashMergeCommitMessage, pr);
+	return pr;
+}
+
+function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle | undefined, descriptionSource: GraphQL.DefaultCommitMessage | undefined, pullRequest: PullRequest): { title: string, description: string } | undefined {
+	if (titleSource === undefined || descriptionSource === undefined) {
+		return undefined;
+	}
+
+	let title = '';
+	let description = '';
+	const prNumberPostfix = `(#${pullRequest.number})`;
+
+	switch (titleSource) {
+		case GraphQL.DefaultCommitTitle.prTitle: {
+			title = `${pullRequest.title} ${prNumberPostfix}`;
+			break;
+		}
+		case GraphQL.DefaultCommitTitle.mergeMessage: {
+			title = `Merge pull request #${pullRequest.number} from ${pullRequest.head?.label ?? ''}`;
+			break;
+		}
+		case GraphQL.DefaultCommitTitle.commitOrPrTitle: {
+			if (pullRequest.commits.length === 1) {
+				title = `${pullRequest.commits[0].message} ${prNumberPostfix}`;
+			} else {
+				title = `${pullRequest.title} ${prNumberPostfix}`;
+			}
+			break;
+		}
+	}
+	switch (descriptionSource) {
+		case GraphQL.DefaultCommitMessage.prBody: {
+			description = pullRequest.body;
+			break;
+		}
+		case GraphQL.DefaultCommitMessage.commitMessages: {
+			description = pullRequest.commits.map(commit => `* ${commit.message}`).join('\n\n');
+			break;
+		}
+		case GraphQL.DefaultCommitMessage.prTitle: {
+			description = pullRequest.title;
+			break;
+		}
+	}
+	return { title, description };
+}
+
+function parseCommits(commits: { commit: { message: string; }; }[]): { message: string; }[] {
+	return commits.map(commit => {
+		return {
+			message: commit.commit.message
+		};
+	});
 }
 
 function parseComments(comments: GraphQL.AbbreviatedIssueComment[] | undefined, githubRepository: GitHubRepository) {
@@ -710,6 +805,7 @@ export function parseGraphQLIssue(issue: GraphQL.PullRequest, githubRepository: 
 		assignees: issue.assignees?.nodes.map(assignee => parseAuthor(assignee, githubRepository)),
 		user: parseAuthor(issue.author, githubRepository),
 		labels: issue.labels.nodes,
+		milestone: parseMilestone(issue.milestone),
 		repositoryName: issue.repository?.name ?? githubRepository.remote.repositoryName,
 		repositoryOwner: issue.repository?.owner.login ?? githubRepository.remote.owner,
 		repositoryUrl: issue.repository?.url ?? githubRepository.remote.url,
@@ -1020,7 +1116,7 @@ export function getRelatedUsersFromTimelineEvents(
 export function parseGraphQLViewerPermission(
 	viewerPermissionResponse: GraphQL.ViewerPermissionResponse,
 ): ViewerPermission {
-	if (viewerPermissionResponse && viewerPermissionResponse.repository.viewerPermission) {
+	if (viewerPermissionResponse && viewerPermissionResponse.repository?.viewerPermission) {
 		if (
 			(Object.values(ViewerPermission) as string[]).includes(viewerPermissionResponse.repository.viewerPermission)
 		) {
@@ -1037,10 +1133,15 @@ export function isFileInRepo(repository: Repository, file: vscode.Uri): boolean 
 }
 
 export function getRepositoryForFile(gitAPI: GitApiImpl, file: vscode.Uri): Repository | undefined {
-	for (const repository of gitAPI.repositories) {
+	const foundRepos: Repository[] = [];
+	for (const repository of gitAPI.repositories.reverse()) {
 		if (isFileInRepo(repository, file)) {
-			return repository;
+			foundRepos.push(repository);
 		}
+	}
+	if (foundRepos.length > 0) {
+		foundRepos.sort((a, b) => b.rootUri.path.length - a.rootUri.path.length);
+		return foundRepos[0];
 	}
 	return undefined;
 }
@@ -1178,7 +1279,7 @@ export function generateGravatarUrl(gravatarId: string | undefined, size: number
 
 export function getAvatarWithEnterpriseFallback(avatarUrl: string, email: string | undefined, isEnterpriseRemote: boolean): string | undefined {
 	return !isEnterpriseRemote ? avatarUrl : (email ? generateGravatarUrl(
-		crypto.createHash('md5').update(email?.trim()?.toLowerCase()).digest('hex')) : undefined);
+		crypto.createHash('sha256').update(email?.trim()?.toLowerCase()).digest('hex')) : undefined);
 }
 
 export function getPullsUrl(repo: GitHubRepository) {
@@ -1190,7 +1291,7 @@ export function getIssuesUrl(repo: GitHubRepository) {
 }
 
 export function sanitizeIssueTitle(title: string): string {
-	const regex = /[~^:;'".,~#?%*[\]@\\{}()/]|\/\//g;
+	const regex = /[~^:;'".,~#?%*&[\]@\\{}()/]|\/\//g;
 
 	return title.replace(regex, '').trim().substring(0, 150).replace(/\s+/g, '-');
 }
@@ -1203,26 +1304,38 @@ export async function variableSubstitution(
 	user?: string,
 ): Promise<string> {
 	return value.replace(VARIABLE_PATTERN, (match: string, variable: string) => {
+		let result: string;
 		switch (variable) {
 			case 'user':
-				return user ? user : match;
+				result = user ? user : match;
+				break;
 			case 'issueNumber':
-				return issueModel ? `${issueModel.number}` : match;
+				result = issueModel ? `${issueModel.number}` : match;
+				break;
 			case 'issueNumberLabel':
-				return issueModel ? `${getIssueNumberLabel(issueModel, defaults)}` : match;
+				result = issueModel ? `${getIssueNumberLabel(issueModel, defaults)}` : match;
+				break;
 			case 'issueTitle':
-				return issueModel ? issueModel.title : match;
+				result = issueModel ? issueModel.title : match;
+				break;
 			case 'repository':
-				return defaults ? defaults.repo : match;
+				result = defaults ? defaults.repo : match;
+				break;
 			case 'owner':
-				return defaults ? defaults.owner : match;
+				result = defaults ? defaults.owner : match;
+				break;
 			case 'sanitizedIssueTitle':
-				return issueModel ? sanitizeIssueTitle(issueModel.title) : match; // check what characters are permitted
+				result = issueModel ? sanitizeIssueTitle(issueModel.title) : match; // check what characters are permitted
+				break;
 			case 'sanitizedLowercaseIssueTitle':
-				return issueModel ? sanitizeIssueTitle(issueModel.title).toLowerCase() : match;
+				result = issueModel ? sanitizeIssueTitle(issueModel.title).toLowerCase() : match;
+				break;
 			default:
-				return match;
+				result = match;
+				break;
 		}
+		Logger.debug(`${match} -> ${result}`, 'VariableSubstitution');
+		return result;
 	});
 }
 

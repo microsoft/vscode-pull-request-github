@@ -6,6 +6,7 @@
 import * as buffer from 'buffer';
 import * as path from 'path';
 import equals from 'fast-deep-equal';
+import gql from 'graphql-tag';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
@@ -18,6 +19,7 @@ import { ITelemetry } from '../common/telemetry';
 import { ReviewEvent as CommonReviewEvent, EventType, TimelineEvent } from '../common/timelineEvent';
 import { resolvePath, Schemes, toPRUri, toReviewUri } from '../common/uri';
 import { formatError } from '../common/utils';
+import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
 import { OctokitCommon } from './common';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -28,7 +30,9 @@ import {
 	AddReviewThreadResponse,
 	DeleteReactionResponse,
 	DeleteReviewResponse,
+	DequeuePullRequestResponse,
 	EditCommentResponse,
+	EnqueuePullRequestResponse,
 	GetReviewRequestsResponse,
 	LatestReviewCommitResponse,
 	MarkPullRequestReadyForReviewResponse,
@@ -38,6 +42,7 @@ import {
 	PullRequestMergabilityResponse,
 	ReactionGroup,
 	ResolveReviewThreadResponse,
+	ReviewThread,
 	StartReviewResponse,
 	SubmitReviewResponse,
 	TimelineEventsResponse,
@@ -51,10 +56,12 @@ import {
 	ISuggestedReviewer,
 	ITeam,
 	MergeMethod,
+	MergeQueueEntry,
 	PullRequest,
 	PullRequestChecks,
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
+	ReadyForReview,
 	ReviewEvent,
 } from './interface';
 import { IssueModel } from './issueModel';
@@ -70,6 +77,7 @@ import {
 	parseGraphQLReviewThread,
 	parseGraphQLTimelineEvents,
 	parseMergeability,
+	parseMergeQueueEntry,
 	restPaginate,
 } from './utils';
 
@@ -96,12 +104,15 @@ export interface FileViewedStateChangeEvent {
 
 export type FileViewedState = { [key: string]: ViewedState };
 
+const BATCH_SIZE = 100;
+
 export class PullRequestModel extends IssueModel<PullRequest> implements IPullRequestModel {
 	static ID = 'PullRequestModel';
 
 	public isDraft?: boolean;
 	public localBranchName?: string;
 	public mergeBase?: string;
+	public mergeQueueEntry?: MergeQueueEntry;
 	public suggestedReviewers?: ISuggestedReviewer[];
 	public hasChangesSinceLastReview?: boolean;
 	private _showChangesSinceReview: boolean;
@@ -247,6 +258,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 		if (item.base) {
 			this.base = new GitHubRef(item.base.ref, item.base!.label, item.base!.sha, item.base!.repo.cloneUrl, item.base.repo.owner, item.base.repo.name, item.base.repo.isInOrganization);
+		}
+		if (item.mergeQueueEntry !== undefined) {
+			this.mergeQueueEntry = item.mergeQueueEntry ?? undefined;
 		}
 	}
 
@@ -485,8 +499,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				},
 			});
 
-			return data.repository.pullRequest.viewerLatestReview ? {
-				sha: data.repository.pullRequest.viewerLatestReview.commit.oid,
+			if (data.repository === null) {
+				Logger.error('Unexpected null repository while getting last review commit', PullRequestModel.ID);
+			}
+
+			return data.repository?.pullRequest.viewerLatestReview ? {
+				sha: data.repository?.pullRequest.viewerLatestReview.commit.oid,
 			} : undefined;
 		}
 		catch (e) {
@@ -783,6 +801,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			},
 		});
 
+		if (data.repository === null) {
+			Logger.error('Unexpected null repository while getting review requests', PullRequestModel.ID);
+			return [];
+		}
+
 		const reviewers: (IAccount | ITeam)[] = [];
 		for (const reviewer of data.repository.pullRequest.reviewRequests.nodes) {
 			if (reviewer.requestedReviewer?.login) {
@@ -882,11 +905,32 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		});
 	}
 
-	async getReviewThreads(): Promise<IReviewThread[]> {
+	async initializeReviewThreadCacheAndReviewComments(): Promise<void> {
+		const { remote } = await this.githubRepository.ensure();
+		const raw = await this.getRawReviewComments();
+
+		this.setReviewThreadCacheFromRaw(raw);
+
+		this.comments = raw.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved, this.githubRepository), remote))
+			.reduce((prev, curr) => prev.concat(curr), [])
+			.sort((a: IComment, b: IComment) => {
+				return a.createdAt > b.createdAt ? 1 : -1;
+			});
+	}
+
+	private setReviewThreadCacheFromRaw(raw: ReviewThread[]): IReviewThread[] {
+		const reviewThreads: IReviewThread[] = raw.map(thread => parseGraphQLReviewThread(thread, this.githubRepository));
+		const oldReviewThreads = this._reviewThreadsCache;
+		this._reviewThreadsCache = reviewThreads;
+		this.diffThreads(oldReviewThreads, reviewThreads);
+		return reviewThreads;
+	}
+
+	private async getRawReviewComments(): Promise<ReviewThread[]> {
 		const { remote, query, schema } = await this.githubRepository.ensure();
 		let after: string | null = null;
 		let hasNextPage = false;
-		const reviewThreads: IReviewThread[] = [];
+		const reviewThreads: ReviewThread[] = [];
 		try {
 			do {
 				const { data } = await query<PullRequestCommentsResponse>({
@@ -899,17 +943,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					},
 				}, false, { query: schema.LegacyPullRequestComments });
 
-				reviewThreads.push(...data.repository.pullRequest.reviewThreads.nodes.map(node => {
-					return parseGraphQLReviewThread(node, this.githubRepository);
-				}));
+				reviewThreads.push(...data.repository.pullRequest.reviewThreads.nodes);
 
 				hasNextPage = data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage;
 				after = data.repository.pullRequest.reviewThreads.pageInfo.endCursor;
 			} while (hasNextPage && reviewThreads.length < 1000);
 
-			const oldReviewThreads = this._reviewThreadsCache;
-			this._reviewThreadsCache = reviewThreads;
-			this.diffThreads(oldReviewThreads, reviewThreads);
 			return reviewThreads;
 		} catch (e) {
 			Logger.error(`Failed to get pull request review comments: ${e}`, PullRequestModel.ID);
@@ -917,40 +956,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	/**
-	 * Get all review comments.
-	 */
-	async initializeReviewComments(): Promise<void> {
-		const { remote, query, schema } = await this.githubRepository.ensure();
-		let after: string | null = null;
-		let hasNextPage = false;
-		const comments: IComment[] = [];
-		try {
-			do {
-				const { data } = await query<PullRequestCommentsResponse>({
-					query: schema.PullRequestComments,
-					variables: {
-						owner: remote.owner,
-						name: remote.repositoryName,
-						number: this.number,
-						after,
-					},
-				}, false, { query: schema.LegacyPullRequestComments });
-
-				comments.push(...data.repository.pullRequest.reviewThreads.nodes
-					.map(node => node.comments.nodes.map(comment => parseGraphQLComment(comment, node.isResolved, this.githubRepository), remote))
-					.reduce((prev, curr) => prev.concat(curr), [])
-					.sort((a: IComment, b: IComment) => {
-						return a.createdAt > b.createdAt ? 1 : -1;
-					}));
-
-				hasNextPage = data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage;
-				after = data.repository.pullRequest.reviewThreads.pageInfo.endCursor;
-			} while (hasNextPage && comments.length < 1000);
-			this.comments = comments;
-		} catch (e) {
-			Logger.error(`Failed to get pull request review comments: ${e}`, PullRequestModel.ID);
-		}
+	async getReviewThreads(): Promise<IReviewThread[]> {
+		const raw = await this.getRawReviewComments();
+		return this.setReviewThreadCacheFromRaw(raw);
 	}
 
 	/**
@@ -960,7 +968,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		try {
 			Logger.debug(`Fetch commits of PR #${this.number} - enter`, PullRequestModel.ID);
 			const { remote, octokit } = await this.githubRepository.ensure();
-			const commitData = await octokit.api.paginate(octokit.api.pulls.listCommits, {
+			const commitData = await restPaginate<typeof octokit.api.pulls.listCommits, OctokitCommon.PullsListCommitsResponseData[0]>(octokit.api.pulls.listCommits, {
 				pull_number: this.number,
 				owner: remote.owner,
 				repo: remote.repositoryName,
@@ -1049,8 +1057,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				this.getReviewThreads()
 			]);
 
-			const ret = data.repository.pullRequest.timelineItems.nodes;
-			const events = parseGraphQLTimelineEvents(ret, this.githubRepository);
+			if (data.repository === null) {
+				Logger.error('Unexpected null repository when fetching timeline', PullRequestModel.ID);
+			}
+
+			const ret = data.repository?.pullRequest.timelineItems.nodes;
+			const events = ret ? parseGraphQLTimelineEvents(ret, this.githubRepository) : [];
 
 			this.addReviewTimelineEventComments(events, reviewThreads);
 			insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, this.head);
@@ -1129,6 +1141,28 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return this.githubRepository.getStatusChecks(this.number);
 	}
 
+	static async openChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel) {
+		const isCurrentPR = folderManager.activePullRequest?.number === pullRequestModel.number;
+		const changes = pullRequestModel.fileChanges.size > 0 ? pullRequestModel.fileChanges.values() : await pullRequestModel.getFileChangesInfo();
+		const args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
+
+		for (const change of changes) {
+			let changeModel;
+			if (change instanceof SlimFileChange) {
+				changeModel = new RemoteFileChangeModel(folderManager, change, pullRequestModel);
+			} else {
+				changeModel = new InMemFileChangeModel(folderManager, pullRequestModel as (PullRequestModel & IResolvedPullRequestModel), change, isCurrentPR, pullRequestModel.mergeBase!);
+			}
+			args.push([changeModel.filePath, changeModel.parentFilePath, changeModel.filePath]);
+		}
+
+		/* __GDPR__
+			"pr.openChanges" : {}
+		*/
+		folderManager.telemetry.sendTelemetryEvent('pr.openChanges');
+		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
+	}
+
 	static async openDiffFromComment(
 		folderManager: FolderRepositoryManager,
 		pullRequestModel: PullRequestModel,
@@ -1143,7 +1177,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		const pathSegments = comment.path!.split('/');
-		this.openDiff(folderManager, pullRequestModel, change, pathSegments[pathSegments.length - 1]);
+		const line = (comment.diffHunks && comment.diffHunks.length > 0) ? comment.diffHunks[0].newLineNumber : undefined;
+		this.openDiff(folderManager, pullRequestModel, change, pathSegments[pathSegments.length - 1], line);
 	}
 
 	static async openFirstDiff(
@@ -1163,10 +1198,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		folderManager: FolderRepositoryManager,
 		pullRequestModel: PullRequestModel,
 		change: SlimFileChange | InMemFileChange,
-		diffTitle: string
+		diffTitle: string,
+		line?: number
 	): Promise<void> {
-
-
 		let headUri, baseUri: vscode.Uri;
 		if (!pullRequestModel.equals(folderManager.activePullRequest)) {
 			const headCommit = pullRequestModel.head!.sha;
@@ -1224,7 +1258,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			baseUri,
 			headUri,
 			`${diffTitle} (Pull Request)`,
-			{},
+			line ? { selection: { start: { line, character: 0 }, end: { line, character: 0 } } } : {},
 		);
 	}
 
@@ -1338,6 +1372,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return !!this.item.allowAutoMerge;
 	}
 
+	get mergeCommitMeta(): { title: string; description: string } | undefined {
+		return this.item.mergeCommitMeta;
+	}
+
+	get squashCommitMeta(): { title: string; description: string } | undefined {
+		return this.item.squashCommitMeta;
+	}
+
 	/**
 	 * Get the current mergeability of the pull request.
 	 */
@@ -1354,8 +1396,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					number: this.number,
 				},
 			});
+			if (data.repository === null) {
+				Logger.error('Unexpected null repository while getting mergeability', PullRequestModel.ID);
+			}
+
 			Logger.debug(`Fetch pull request mergeability ${this.number} - done`, PullRequestModel.ID);
-			const mergeability = parseMergeability(data.repository.pullRequest.mergeable, data.repository.pullRequest.mergeStateStatus);
+			const mergeability = parseMergeability(data.repository?.pullRequest.mergeable, data.repository?.pullRequest.mergeStateStatus);
 			this.item.mergeable = mergeability;
 			return mergeability;
 		} catch (e) {
@@ -1367,7 +1413,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * Set a draft pull request as ready to be reviewed.
 	 */
-	async setReadyForReview(): Promise<any> {
+	async setReadyForReview(): Promise<ReadyForReview> {
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
@@ -1385,7 +1431,15 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			*/
 			this._telemetry.sendTelemetryEvent('pr.readyForReview.success');
 
-			return data!.markPullRequestReadyForReview.pullRequest.isDraft;
+			const result: ReadyForReview = {
+				isDraft: data!.markPullRequestReadyForReview.pullRequest.isDraft,
+				mergeable: parseMergeability(data!.markPullRequestReadyForReview.pullRequest.mergeable, data!.markPullRequestReadyForReview.pullRequest.mergeStateStatus),
+				allowAutoMerge: data!.markPullRequestReadyForReview.pullRequest.viewerCanEnableAutoMerge || data!.markPullRequestReadyForReview.pullRequest.viewerCanDisableAutoMerge
+			};
+			this.item.isDraft = result.isDraft;
+			this.item.mergeable = result.mergeable;
+			this.item.allowAutoMerge = result.allowAutoMerge;
+			return result;
 		} catch (e) {
 			/* __GDPR__
 				"pr.readyForReview.failure" : {}
@@ -1610,6 +1664,55 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
+	async dequeuePullRequest(): Promise<boolean> {
+		Logger.debug(`Dequeue pull request ${this.number} - enter`, GitHubRepository.ID);
+		const { mutate, schema } = await this.githubRepository.ensure();
+		if (!schema.DequeuePullRequest) {
+			return false;
+		}
+		try {
+			await mutate<DequeuePullRequestResponse>({
+				mutation: schema.DequeuePullRequest,
+				variables: {
+					input: {
+						id: this.graphNodeId
+					}
+				}
+			});
+
+			Logger.debug(`Dequeue pull request ${this.number} - done`, GitHubRepository.ID);
+			this.mergeQueueEntry = undefined;
+			return true;
+		} catch (e) {
+			Logger.error(`Dequeueing pull request failed: ${e}`, GitHubRepository.ID);
+			return false;
+		}
+	}
+
+	async enqueuePullRequest(): Promise<MergeQueueEntry | undefined> {
+		Logger.debug(`Enqueue pull request ${this.number} - enter`, GitHubRepository.ID);
+		const { mutate, schema } = await this.githubRepository.ensure();
+		if (!schema.EnqueuePullRequest) {
+			return;
+		}
+		try {
+			const { data } = await mutate<EnqueuePullRequestResponse>({
+				mutation: schema.EnqueuePullRequest,
+				variables: {
+					input: {
+						pullRequestId: this.graphNodeId
+					}
+				}
+			});
+
+			Logger.debug(`Enqueue pull request ${this.number} - done`, GitHubRepository.ID);
+			const temp = parseMergeQueueEntry(data?.enqueuePullRequest.mergeQueueEntry) ?? undefined;
+			return temp;
+		} catch (e) {
+			Logger.error(`Enqueuing pull request failed: ${e}`, GitHubRepository.ID);
+		}
+	}
+
 	async initializePullRequestFileViewState(): Promise<void> {
 		const { query, schema, remote } = await this.githubRepository.ensure();
 
@@ -1646,47 +1749,61 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	async markFileAsViewed(filePathOrSubpath: string, event: boolean): Promise<void> {
-		const { mutate, schema } = await this.githubRepository.ensure();
-		const fileName = filePathOrSubpath.startsWith(this.githubRepository.rootUri.path) ?
-			filePathOrSubpath.substring(this.githubRepository.rootUri.path.length + 1) : filePathOrSubpath;
-		await mutate<void>({
-			mutation: schema.MarkFileAsViewed,
-			variables: {
-				input: {
-					path: fileName,
-					pullRequestId: this.graphNodeId,
-				},
-			},
-		});
+	async markFiles(filePathOrSubpaths: string[], event: boolean, state: 'viewed' | 'unviewed'): Promise<void> {
+		const { mutate } = await this.githubRepository.ensure();
+		const pullRequestId = this.graphNodeId;
 
-		this.setFileViewedState(fileName, ViewedState.VIEWED, event);
+		const allFilenames = filePathOrSubpaths
+			.map((f) =>
+				f.startsWith(this.githubRepository.rootUri.path)
+					? f.substring(this.githubRepository.rootUri.path.length + 1)
+					: f
+			);
+
+		const mutationName = state === 'viewed'
+			? 'markFileAsViewed'
+			: 'unmarkFileAsViewed';
+
+		// We only ever send 100 mutations at once. Any more than this and
+		// we risk a timeout from GitHub.
+		for (let i = 0; i < allFilenames.length; i += BATCH_SIZE) {
+			const batch = allFilenames.slice(i, i + BATCH_SIZE);
+			// See below for an example of what a mutation produced by this
+			// will look like
+			const mutation = gql`mutation Batch${mutationName}{
+				${batch.map((filename, i) =>
+				`alias${i}: ${mutationName}(
+						input: {path: "${filename}", pullRequestId: "${pullRequestId}"}
+					) { clientMutationId }
+					`
+			)}
+			}`;
+			await mutate<void>({ mutation });
+		}
+
+		// mutation BatchUnmarkFileAsViewedInline {
+		// 	alias0: unmarkFileAsViewed(
+		// 	  input: { path: "some_folder/subfolder/A.txt", pullRequestId: "PR_someid" }
+		// 	) {
+		// 	  clientMutationId
+		// 	}
+		// 	alias1: unmarkFileAsViewed(
+		// 	  input: { path: "some_folder/subfolder/B.txt", pullRequestId: "PR_someid" }
+		// 	) {
+		// 	  clientMutationId
+		// 	}
+		// }
+
+		allFilenames.forEach(path => this.setFileViewedState(path, state === 'viewed' ? ViewedState.VIEWED : ViewedState.UNVIEWED, event));
 	}
 
-	async unmarkFileAsViewed(filePathOrSubpath: string, event: boolean): Promise<void> {
-		const { mutate, schema } = await this.githubRepository.ensure();
-		const fileName = filePathOrSubpath.startsWith(this.githubRepository.rootUri.path) ?
-			filePathOrSubpath.substring(this.githubRepository.rootUri.path.length + 1) : filePathOrSubpath;
-		await mutate<void>({
-			mutation: schema.UnmarkFileAsViewed,
-			variables: {
-				input: {
-					path: fileName,
-					pullRequestId: this.graphNodeId,
-				},
-			},
-		});
-
-		this.setFileViewedState(fileName, ViewedState.UNVIEWED, event);
-	}
-
-	async unmarkAllFilesAsViewed(): Promise<void[]> {
-		return Promise.all(Array.from(this.fileChanges.keys()).map(change => this.unmarkFileAsViewed(change, true)));
+	async unmarkAllFilesAsViewed(): Promise<void> {
+		return this.markFiles(Array.from(this.fileChanges.keys()), true, 'unviewed');
 	}
 
 	private setFileViewedState(fileSubpath: string, viewedState: ViewedState, event: boolean) {
 		const uri = vscode.Uri.joinPath(this.githubRepository.rootUri, fileSubpath);
-		const filePath = ((vscode.env.uiKind === vscode.UIKind.Web) && (this.githubRepository.rootUri.scheme !== Schemes.File)) ? uri.path : uri.fsPath;
+		const filePath = (this.githubRepository.rootUri.scheme === Schemes.VscodeVfs) ? uri.path : uri.fsPath;
 		switch (viewedState) {
 			case ViewedState.DISMISSED: {
 				this._viewedFiles.delete(filePath);

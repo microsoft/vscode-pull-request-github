@@ -65,7 +65,7 @@ async function openDiffCommand(
 /**
  * File change node whose content is stored in memory and resolved when being revealed.
  */
-export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
+export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	public iconPath?:
 		| string
 		| vscode.Uri
@@ -133,7 +133,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 
 		this.childrenDisposables.push(
 			this.pullRequest.onDidChangeFileViewedState(e => {
-				const matchingChange = e.changed.find(viewStateChange => viewStateChange.fileName === this.changeModel.fileName);
+				const matchingChange = e.changed.find(viewStateChange => (viewStateChange.fileName === this.changeModel.fileName) && (viewStateChange.viewed !== this.changeModel.viewed));
 				if (matchingChange) {
 					this.updateViewed(matchingChange.viewed);
 					this.refresh(this);
@@ -141,7 +141,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 			}),
 		);
 
-		this.accessibilityInformation = { label: `View diffs and comments for file ${this.label}`, role: 'link' };
+		this.accessibilityInformation = { label: `${this.label} pull request diff`, role: 'link' };
 	}
 
 	get resourceUri(): vscode.Uri {
@@ -167,24 +167,18 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem2 {
 	}
 
 	public async markFileAsViewed(fromCheckboxChanged: boolean = true) {
-		await this.pullRequest.markFileAsViewed(this.fileName, !fromCheckboxChanged);
+		await this.pullRequest.markFiles([this.fileName], !fromCheckboxChanged, 'viewed');
 		this.pullRequestManager.setFileViewedContext();
 	}
 
 	public async unmarkFileAsViewed(fromCheckboxChanged: boolean = true) {
-		await this.pullRequest.unmarkFileAsViewed(this.fileName, !fromCheckboxChanged);
+		await this.pullRequest.markFiles([this.fileName], !fromCheckboxChanged, 'unviewed');
 		this.pullRequestManager.setFileViewedContext();
 	}
 
 	updateFromCheckboxChanged(newState: vscode.TreeItemCheckboxState) {
 		const viewed = newState === vscode.TreeItemCheckboxState.Checked ? ViewedState.VIEWED : ViewedState.UNVIEWED;
 		this.updateViewed(viewed);
-
-		if (newState === vscode.TreeItemCheckboxState.Checked) {
-			this.markFileAsViewed();
-		} else {
-			this.unmarkFileAsViewed();
-		}
 	}
 
 	updateShowOptions() {
@@ -290,13 +284,17 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
 	}
 
 	async resolve(): Promise<void> {
-		this.command = await openDiffCommand(
-			this.folderRepositoryManager,
-			this.changeModel.parentFilePath,
-			this.changeModel.filePath,
-			undefined,
-			this.changeModel.status,
-		);
+		if (this.status === GitChangeType.ADD) {
+			this.command = openFileCommand(this.changeModel.filePath);
+		} else {
+			this.command = await openDiffCommand(
+				this.folderRepositoryManager,
+				this.changeModel.parentFilePath,
+				this.changeModel.filePath,
+				undefined,
+				this.changeModel.status,
+			);
+		}
 	}
 }
 
@@ -402,7 +400,7 @@ export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem
 			this.command = await this.alternateCommand();
 		} else {
 			const openDiff = vscode.workspace.getConfiguration(GIT, this.pullRequestManager.repository.rootUri).get(OPEN_DIFF_ON_CLICK, true);
-			if (openDiff) {
+			if (openDiff && this.status !== GitChangeType.ADD) {
 				this.command = await openDiffCommand(
 					this.pullRequestManager,
 					this.changeModel.parentFilePath,

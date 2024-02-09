@@ -186,7 +186,7 @@ export class TemporaryComment extends CommentBase {
 	}
 }
 
-const SUGGESTION_EXPRESSION = /```suggestion(\r\n|\n)((?<suggestion>[\s\S]*?)(\r\n|\n))?```/;
+const SUGGESTION_EXPRESSION = /```suggestion(\u0020*(\r\n|\n))((?<suggestion>[\s\S]*?)(\r\n|\n))?```/;
 
 export class GHPRComment extends CommentBase {
 	public commentId: string;
@@ -200,7 +200,7 @@ export class GHPRComment extends CommentBase {
 	private _rawBody: string | vscode.MarkdownString;
 	private replacedBody: string;
 
-	constructor(context: vscode.ExtensionContext, comment: IComment, parent: GHPRCommentThread, private readonly githubRepository?: GitHubRepository) {
+	constructor(context: vscode.ExtensionContext, comment: IComment, parent: GHPRCommentThread, private readonly githubRepositories?: GitHubRepository[]) {
 		super(parent);
 		this.rawComment = comment;
 		this.body = comment.body;
@@ -291,7 +291,7 @@ export class GHPRComment extends CommentBase {
 	get suggestion(): string | undefined {
 		const match = this.rawComment.body.match(SUGGESTION_EXPRESSION);
 		const suggestionBody = match?.groups?.suggestion;
-		if (match?.length === 5) {
+		if (match) {
 			return suggestionBody ? `${suggestionBody}\n` : '';
 		}
 	}
@@ -305,32 +305,46 @@ export class GHPRComment extends CommentBase {
 			return `***
 Suggested change:
 \`\`\`
-${args[2] ?? ''}
+${args[3] ?? ''}
 \`\`\`
 ***`;
 		});
 	}
 
+	private async createLocalFilePath(rootUri: vscode.Uri, fileSubPath: string, startLine: number, endLine: number): Promise<string | undefined> {
+		const localFile = vscode.Uri.joinPath(rootUri, fileSubPath);
+		const stat = await vscode.workspace.fs.stat(localFile);
+		if (stat.type === vscode.FileType.File) {
+			return `${localFile.with({ fragment: `${startLine}-${endLine}` }).toString()}`;
+		}
+	}
+
 	private async replacePermalink(body: string): Promise<string> {
-		if (!this.githubRepository) {
+		const githubRepositories = this.githubRepositories;
+		if (!githubRepositories || githubRepositories.length === 0) {
 			return body;
 		}
 
-		const expression = new RegExp(`https://github.com/${this.githubRepository.remote.owner}/${this.githubRepository.remote.repositoryName}/blob/([0-9a-f]{40})/(.*)#L([0-9]+)(-L([0-9]+))?`, 'g');
-		return stringReplaceAsync(body, expression, async (match: string, sha: string, file: string, start: string, _endGroup?: string, end?: string, index?: number) => {
+		const expression = new RegExp(`https://github.com/(.+)/${githubRepositories[0].remote.repositoryName}/blob/([0-9a-f]{40})/(.*)#L([0-9]+)(-L([0-9]+))?`, 'g');
+		return stringReplaceAsync(body, expression, async (match: string, owner: string, sha: string, file: string, start: string, _endGroup?: string, end?: string, index?: number) => {
 			if (index && (index > 0) && (body.charAt(index - 1) === '(')) {
+				return match;
+			}
+			const githubRepository = githubRepositories.find(repository => repository.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase());
+			if (!githubRepository) {
 				return match;
 			}
 			const startLine = parseInt(start);
 			const endLine = end ? parseInt(end) : startLine + 1;
-			const lineContents = await this.githubRepository!.getLines(sha, file, startLine, endLine);
+			const lineContents = await githubRepository.getLines(sha, file, startLine, endLine);
 			if (!lineContents) {
 				return match;
 			}
+			const localFile = await this.createLocalFilePath(githubRepository.rootUri, file, startLine, endLine);
 			const lineMessage = end ? `Lines ${startLine} to ${endLine} in \`${sha.substring(0, 7)}\`` : `Line ${startLine} in \`${sha.substring(0, 7)}\``;
 			return `
 ***
-[${file}](${match})
+[${file}](${localFile ?? match})${localFile ? ` ([view on GitHub](${match}))` : ''}
 
 ${lineMessage}
 \`\`\`

@@ -34,7 +34,8 @@ textarea:disabled {
 	margin-bottom: 10px;
 }
 
-.base, .merge {
+.base,
+.merge {
 	display: block !important;
 }
 
@@ -46,38 +47,9 @@ textarea:disabled {
 	user-select: none;
 }
 
-.base button,
-.merge button {
-	display: block;
+button.input-box {
+	width: 100%;
 	float: left;
-	width: 100%; height: 24px;
-	margin-top: -4px;
-	padding-top: 2px;
-	padding-left: 8px;
-	text-align: left;
-	overflow: hidden;
-	white-space: nowrap;
-	text-overflow: ellipsis;
-	color: var(--vscode-input-foreground) !important;
-	background-color: var(--vscode-input-background) !important;
-}
-
-.base button:active,
-.base button:focus,
-.merge button:active,
-.merge button:focus {
-	color: var(--vscode-inputOption-activeForeground) !important;
-	background-color: var(--vscode-inputOption-activeBackground) !important;
-}
-
-.base button:hover:not(:disabled),
-.merge button:hover:not(:disabled) {
-	background-color: var(--vscode-inputOption-hoverBackground) !important;
-}
-
-.base button:focus,
-.merge button:focus {
-	border-color: var(--vscode-focusBorder) !important;
 }
 
 .merge {
@@ -120,10 +92,36 @@ textarea:disabled {
 }
 
 .group-title .title-action:hover {
+	outline-style: none;
+	cursor: pointer;
 	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
-.group-title .title-action:focus,
+.group-title .title-action:focus {
+	outline-style: none;
+}
+
+.group-title .title-action:focus-visible {
+	outline-width: 1px;
+	outline-style: solid;
+	outline-offset: -1px;
+	outline-color: var(--vscode-focusBorder);
+	background: unset;
+}
+
+.group-title .title-action.disabled {
+	cursor: default;
+	background-color: unset;
+}
+
+.group-title .title-action svg {
+	padding: 2px;
+}
+
+.group-title .title-action.disabled svg path  {
+	fill: var(--vscode-disabledForeground);
+}
+
 .group-title .title-action {
 	position: absolute;
 	top: 6px;
@@ -131,7 +129,8 @@ textarea:disabled {
 	background: unset;
 	padding: unset;
 	margin: unset;
-	height: 16px;
+	height: 20px;
+	margin-top: -2px;
 }
 
 .group-description {
@@ -154,6 +153,7 @@ textarea {
 	padding: 5px;
 	border: 1px solid var(--vscode-inputValidation-errorBorder);
 	background-color: var(--vscode-inputValidation-errorBackground);
+	color: var(--vscode-inputValidation-errorForeground);
 }
 
 .below-input-error {
@@ -203,7 +203,8 @@ textarea {
 .group-additions img.avatar,
 .group-additions img.avatar-icon {
 	margin-right: 4px;
-	width: 16px; height: 16px;
+	width: 16px;
+	height: 16px;
 }
 
 .group-additions ul {
@@ -248,45 +249,4 @@ textarea {
 	padding-top: 10px;
 	padding-bottom: 20px;
 	width: 100%;
-}
-
-.create-button {
-	display: flex;
-	flex-grow: 1;
-	min-width: 0;
-}
-
-button.split-left {
-	border-radius: 2px 0 0 2px;
-	flex-grow: 1;
-	overflow: hidden;
-	white-space: nowrap;
-	text-overflow: ellipsis;
-}
-
-.split {
-	width: 1px; height: 100%;
-	background-color: var(--vscode-button-background);
-	opacity: 0.5;
-}
-
-button.split-right {
-	border-radius: 0 2px 2px 0;
-	cursor: pointer;
-	width: 24px; height: 28px;
-	position: relative;
-}
-
-button.split-right:disabled {
-	cursor: default;
-}
-
-button.split-right .icon {
-	pointer-events: none;
-	position: absolute;
-	top: 6px; right: 4px;
-}
-
-button.split-right .icon svg path {
-	fill: var(--vscode-button-foreground);
 }

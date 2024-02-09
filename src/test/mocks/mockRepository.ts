@@ -188,6 +188,10 @@ export class MockRepository implements Repository {
 		return [];
 	}
 
+	async getBranchBase(name: string): Promise<Branch | undefined> {
+		throw new Error(`Unexpected getBranchBase(${name})`);
+	}
+
 	async setBranchUpstream(name: string, upstream: string): Promise<void> {
 		const index = this._branches.findIndex(b => b.name === name);
 		if (index === -1) {
@@ -318,5 +322,13 @@ export class MockRepository implements Repository {
 
 	expectPush(remoteName?: string, branchName?: string, setUpstream?: boolean) {
 		this._expectedPushes.push({ remoteName, branchName, setUpstream });
+	}
+
+	merge(ref: string): Promise<void> {
+		return Promise.reject(new Error(`Unexpected merge(${ref})`));
+	}
+
+	mergeAbort(): Promise<void> {
+		return Promise.reject(new Error(`Unexpected mergeAbort`));
 	}
 }

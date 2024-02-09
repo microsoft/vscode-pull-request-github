@@ -1,5 +1,142 @@
 # Changelog
 
+## 0.80.0
+
+### Changes
+
+- Issue queries shown in the "Issues" view can be grouped by repository and milestone using the new `groupBy` property in the `githubIssues.queries` setting.
+	```json
+    "githubIssues.queries": [
+        {
+            "label": "Current",
+            "query": "assignee:alexr00 is:open sort:updated-desc milestone:\"February 2024\" sort:updated-desc",
+            "groupBy": [
+                "milestone",
+                "repository"
+            ]
+        }
+    ],
+	```
+
+   ![Group by repository and milestone](/documentation/changelog/0.80.0/group-by-milestone-repo.png)
+- The setting `githubPullRequests.createDefaultBaseBranch` can be used to set the default base branch when creating a PR. By default, the branch that the current branch was created from is used (so long as that branch exists on the remote). Setting `repositoryDefault` will cause the repository's default branch to be used instead.
+- Added files are opened in a regular editor instead of a diff editor when viewing changes in a PR.
+- Merge commits are skipped when choosing a default PR title and description. This is to avoid the case where the merge commit message is used as the PR title and description.
+- GitHub permalinks in comments for a checked out PR can now be opened in VS Code instead of just taking you to the browser.
+
+	![Open permalink locally](/documentation/changelog/0.80.0/open-link-locally.gif)
+- The base branch can be merged into a checked out PR branch from the Pull Request Description.
+
+	![Merge base branch into PR branch](/documentation/changelog/0.80.0/merge-base-into-pr.png)
+-The setting `githubPullRequests.pullPullRequestBranchBeforeCheckout` also has new options to automatically fetch the base and merge it into the PR branch at checkout time.
+- Merge conflicts can be resolved from the Pull Request Description when the PR is checked out.
+
+	![Resolve merge conflicts](/documentation/changelog/0.80.0/resolve-merge-conflicts.png)
+- The hover on reactions now shows who left the reaction.
+
+	![Reaction hover](/documentation/changelog/0.80.0/reaction-hover.png)
+- Issue templates are now available when creating an issue.
+
+- Setting `"githubPullRequests.focusedMode": "multiDiff"` will open the multi-diff editor with all the files in the PR upon checkout.
+
+	![Multi-diff editor for a PR](/documentation/changelog/0.80.0/multi-diff-editor.png)
+
+### Fixes
+
+- Comments for not-checked-out PRs should be removed from Comments view when no files from the PR are open. https://github.com/microsoft/vscode-pull-request-github/issues/5619
+- [Accessibility] No alert message is spoken to screen reader when completing a review. https://github.com/microsoft/vscode-pull-request-github/issues/5526
+- [Accessibility] Semantic heading tag is missing in issue and PR webview comments. https://github.com/microsoft/vscode-pull-request-github/issues/5524
+- Custom tree checkboxes have unexpected delayed reaction. https://github.com/microsoft/vscode-pull-request-github/issues/5676
+- Close Pull request Button is not working. https://github.com/microsoft/vscode-pull-request-github/issues/5598
+- Default Create Option: createDraft. https://github.com/microsoft/vscode-pull-request-github/issues/5584
+- collapses an open PR review tree on refresh. https://github.com/microsoft/vscode-pull-request-github/issues/5556
+- Queries apart from "All Open" don't work, output is full of rate limit errors. https://github.com/microsoft/vscode-pull-request-github/issues/5496
+- Opening multi-root workspace triggers rate-limiting error. https://github.com/microsoft/vscode-pull-request-github/issues/4351
+- Narrator is not announcing the state of Expanded/collapsed for "Create with Option" arrow button. https://github.com/microsoft/vscode-pull-request-github/issues/5483
+- Usabilty: At High contrast(Desert) mode for "Cancel,Create,Create with Option" button keyboard focus is not visible clearly.https://github.com/microsoft/vscode-pull-request-github/issues/5482
+- Create-PR view: sparkle icon doesn't visually indicate that it has focus. https://github.com/microsoft/vscode-pull-request-github/issues/5471
+- Unable to select default branch (main) on upstream repo, when working off a fork. https://github.com/microsoft/vscode-pull-request-github/issues/5470
+- Task list checkboxes aren't rendered. https://github.com/microsoft/vscode-pull-request-github/issues/5310
+- Copy Permalink fails frequently, seemingly on the first copy of the day. https://github.com/microsoft/vscode-pull-request-github/issues/5185
+- SCM title menu Create Pull Request action is unavailable when in a Remote window. https://github.com/microsoft/vscode-pull-request-github/issues/3911
+- Scroll position is not maintained. https://github.com/microsoft/vscode-pull-request-github/issues/1202
+
+**_Thank You_**
+
+* [@Balastrong (Leonardo Montini)](https://github.com/Balastrong): Create issue from markdown template [PR #5503](https://github.com/microsoft/vscode-pull-request-github/pull/5503)
+* [@joshuaobrien](https://github.com/joshuaobrien)
+  * Batch mark/unmark files as viewed [PR #4700](https://github.com/microsoft/vscode-pull-request-github/pull/4700)
+  * Remove a few unused variables [PR #5510](https://github.com/microsoft/vscode-pull-request-github/pull/5510)
+* [@pouyakary (Pouya Kary)](https://github.com/pouyakary): Fixes #5620 [PR #5621](https://github.com/microsoft/vscode-pull-request-github/pull/5621)
+
+## 0.78.1
+
+### Fixes
+
+- Files changed doesn't properly reflect changes against non base branch. https://github.com/microsoft/vscode-pull-request-github/issues/5545
+- Cannot review PRs with 0.78.0 / VSCode 1.85.0, "GraphQL error: Field 'mergeQueueEntry' doesn't exist. https://github.com/microsoft/vscode-pull-request-github/issues/5544
+
+## 0.78.0
+
+### Changes
+
+- Merge queues are now supported in the PR description and create view.
+
+   ![Merge queues in PR description](/documentation/changelog/0.78.0/merge-queue.png)
+
+- The new setting `"githubPullRequests.allowFetch": false` will prevent `fetch` from being run.
+- Projects are now cached for quicker assignment from the PR description.
+- Merge commit message uses the message configured in the GitHub repository settings.
+- Clicking on the filename of a comment in the PR description will open at the correct line.
+- The repository name is shown in the "Changes in PR" view when there are PRs from multiple repositories shown in the view.
+
+   ![Repository name in "Changes in PR" view](/documentation/changelog/0.78.0/repo-name-changes-view.png)
+
+### Fixes
+
+- Copy permalink uses wrong repository for submodules. https://github.com/microsoft/vscode-pull-request-github/issues/5181
+- Unable to select a repository when submodules are present. https://github.com/microsoft/vscode-pull-request-github/issues/3950.
+- "We couldn't find commit" when submodules exist. https://github.com/microsoft/vscode-pull-request-github/issues/1499
+- Uses PR template from the wrong repo in multi-root workspace. https://github.com/microsoft/vscode-pull-request-github/issues/5489
+- At high contrast mode "Create with option" arrow button is not visible. https://github.com/microsoft/vscode-pull-request-github/issues/5480
+- Remove PR from "Waiting For My Review" list after I review it. https://github.com/microsoft/vscode-pull-request-github/issues/5379
+
+**_Thank You_**
+
+* [@flpcury (Felipe Cury)](https://github.com/flpcury): Fix deprecation messages for createDraft and setAutoMerge [PR #5429](https://github.com/microsoft/vscode-pull-request-github/pull/5429)
+* [@gjsjohnmurray (John Murray)](https://github.com/gjsjohnmurray): Treat `githubIssues.useBranchForIssues` setting description as markdown (fix #5506) [PR #5508](https://github.com/microsoft/vscode-pull-request-github/pull/5508)
+* [@kurowski (Brandt Kurowski)](https://github.com/kurowski): add setting to never offer ignoring default branch pr [PR #5435](https://github.com/microsoft/vscode-pull-request-github/pull/5435)
+* [@ThomsonTan (Tom Tan)](https://github.com/ThomsonTan): Iterate the diffs in each active PR in order [PR #5437](https://github.com/microsoft/vscode-pull-request-github/pull/5437)
+
+## 0.76.1
+
+### Changes
+
+- Added telemetry for the acceptance rate of the generated PR title and description.
+
+## 0.76.0
+
+### Changes
+
+- Integration with the GitHub Copilot Chat extension provides PR title and description generation.
+
+   ![GitHub Copilot Chat integration](/documentation/changelog/0.76.0/github-copilot-title-description.gif)
+
+- "Project" can be set from the PR description webview.
+
+   ![Project shown in PR description](/documentation/changelog/0.76.0/project-in-description.png)
+
+- Pull requests checked out using the GitHub CLI (`gh pr checkout`) are now recognized.
+- The new `"none"` value for the setting `"githubPullRequests.pullRequestDescription"` will cause the title and description of the **Create** view to be empty by default.
+
+### Fixes
+
+- Could "Create a Pull Request" make fields within the create-pr view available faster?. https://github.com/microsoft/vscode-pull-request-github/issues/5399
+- Commits view is showing a commit with wrong author. https://github.com/microsoft/vscode-pull-request-github/issues/5352
+- Reviewer dropdown never hits cache. https://github.com/microsoft/vscode-pull-request-github/issues/5316
+- Settings option Pull Branch not honored. https://github.com/microsoft/vscode-pull-request-github/issues/5307
+- Comment locations error messages after deleting PR branch. https://github.com/microsoft/vscode-pull-request-github/issues/5281
+
 ## 0.74.1
 
 ### Fixes

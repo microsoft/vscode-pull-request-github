@@ -8,11 +8,10 @@
  */
 import * as vscode from 'vscode';
 import { Branch, Repository } from '../api/api';
-import { GitErrorCodes } from '../api/api1';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
-import { PR_SETTINGS_NAMESPACE, PULL_PR_BRANCH_BEFORE_CHECKOUT } from '../common/settingKeys';
+import { PR_SETTINGS_NAMESPACE, PULL_PR_BRANCH_BEFORE_CHECKOUT, PullPRBranchVariants } from '../common/settingKeys';
 import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel';
 
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
@@ -62,14 +61,12 @@ export class PullRequestGitHelper {
 		const ref = `${pullRequest.head.ref}:${localBranchName}`;
 		Logger.debug(`Fetch ${remoteName}/${pullRequest.head.ref}:${localBranchName} - start`, PullRequestGitHelper.ID);
 		progress.report({ message: vscode.l10n.t('Fetching branch {0}', ref) });
-		await repository.fetch(remoteName, ref, 1);
+		await repository.fetch(remoteName, ref);
 		Logger.debug(`Fetch ${remoteName}/${pullRequest.head.ref}:${localBranchName} - done`, PullRequestGitHelper.ID);
 		progress.report({ message: vscode.l10n.t('Checking out {0}', ref) });
 		await repository.checkout(localBranchName);
 		// set remote tracking branch for the local branch
 		await repository.setBranchUpstream(localBranchName, `refs/remotes/${remoteName}/${pullRequest.head.ref}`);
-		// Don't await unshallow as the whole point of unshallowing and only fetching to depth 1 above is so that we can unshallow without slowwing down checkout later.
-		this.unshallow(repository);
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, localBranchName);
 	}
 
@@ -124,54 +121,15 @@ export class PullRequestGitHelper {
 			const trackedBranchName = `refs/remotes/${remoteName}/${branchName}`;
 			Logger.appendLine(`Fetch tracked branch ${trackedBranchName}`, PullRequestGitHelper.ID);
 			progress.report({ message: vscode.l10n.t('Fetching branch {0}', branchName) });
-			await repository.fetch(remoteName, branchName, 1);
+			await repository.fetch(remoteName, branchName);
 			const trackedBranch = await repository.getBranch(trackedBranchName);
 			// create branch
 			progress.report({ message: vscode.l10n.t('Creating and checking out branch {0}', branchName) });
 			await repository.createBranch(branchName, true, trackedBranch.commit);
 			await repository.setBranchUpstream(branchName, trackedBranchName);
-
-			// Don't await unshallow as the whole point of unshallowing and only fetching to depth 1 above is so that we can unshallow without slowwing down checkout later.
-			this.unshallow(repository);
 		}
 
 		await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, branchName);
-	}
-
-	/**
-	 * Attempt to unshallow the repository. If it has been unshallowed in the interim, running with `--unshallow`
-	 * will fail, so fall back to a normal pull.
-	 */
-	static async unshallow(repository: Repository): Promise<void> {
-		let error: Error & { gitErrorCode?: GitErrorCodes };
-		try {
-			await repository.pull(true);
-			return;
-		} catch (e) {
-			Logger.appendLine(`Unshallowing failed: ${e}.`);
-			if (e.stderr && (e.stderr as string).includes('would clobber existing tag')) {
-				// ignore this error
-				return;
-			}
-			error = e;
-		}
-		try {
-			if (error.gitErrorCode === GitErrorCodes.DirtyWorkTree) {
-				Logger.appendLine(`Getting status and trying unshallow again.`);
-				await repository.status();
-				await repository.pull(true);
-				return;
-			}
-		} catch (e) {
-			Logger.appendLine(`Unshallowing still failed: ${e}.`);
-		}
-		try {
-			Logger.appendLine(`Falling back to git pull.`);
-			await repository.pull(false);
-		} catch (e) {
-			Logger.error(`Pull after failed unshallow still failed: ${e}`);
-			throw e;
-		}
 	}
 
 	static async checkoutExistingPullRequestBranch(repository: Repository, pullRequest: PullRequestModel, progress: vscode.Progress<{ message?: string; increment?: number }>) {
@@ -198,7 +156,8 @@ export class PullRequestGitHelper {
 			await repository.checkout(branchName);
 
 			// respect the git setting to fetch before checkout
-			if (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(PULL_PR_BRANCH_BEFORE_CHECKOUT, true)) {
+			const settingValue = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<PullPRBranchVariants>(PULL_PR_BRANCH_BEFORE_CHECKOUT, 'pull');
+			if (settingValue === 'pull' || settingValue === 'pullAndMergeBase' || settingValue === 'pullAndUpdateBase' || settingValue === true) {
 				const remote = readConfig(`branch.${branchName}.remote`);
 				const ref = readConfig(`branch.${branchName}.merge`);
 				progress.report({ message: vscode.l10n.t('Fetching branch {0}', branchName) });
@@ -322,27 +281,8 @@ export class PullRequestGitHelper {
 		return undefined;
 	}
 
-	private static parseBaseBranchMetadata(value: string): BaseBranchMetadata | undefined {
-		if (value) {
-			const matches = /(.*)#(.*)#(.*)/g.exec(value);
-			if (matches && matches.length === 4) {
-				const [, owner, repo, branch] = matches;
-				return {
-					owner,
-					repositoryName: repo,
-					branch,
-				};
-			}
-		}
-		return undefined;
-	}
-
 	private static getMetadataKeyForBranch(branchName: string): string {
 		return `branch.${branchName}.${PullRequestMetadataKey}`;
-	}
-
-	private static getBaseBranchMetadataKeyForBranch(branchName: string): string {
-		return `branch.${branchName}.${BaseBranchMetadataKey}`;
 	}
 
 	static async getMatchingPullRequestMetadataForBranch(
@@ -353,19 +293,6 @@ export class PullRequestGitHelper {
 			const configKey = this.getMetadataKeyForBranch(branchName);
 			const configValue = await repository.getConfig(configKey);
 			return PullRequestGitHelper.parsePullRequestMetadata(configValue);
-		} catch (_) {
-			return;
-		}
-	}
-
-	static async getMatchingBaseBranchMetadataForBranch(
-		repository: Repository,
-		branchName: string,
-	): Promise<BaseBranchMetadata | undefined> {
-		try {
-			const configKey = this.getBaseBranchMetadataKeyForBranch(branchName);
-			const configValue = await repository.getConfig(configKey);
-			return PullRequestGitHelper.parseBaseBranchMetadata(configValue);
 		} catch (_) {
 			return;
 		}

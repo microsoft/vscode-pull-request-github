@@ -11,12 +11,12 @@ import { dispose, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { ReviewManager } from '../view/reviewManager';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, isTeam, reviewerId, ReviewEvent, ReviewState } from './interface';
+import { GithubItemStateEnum, IAccount, isTeam, reviewerId, ReviewEvent, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { isInCodespaces, parseReviewers } from './utils';
-import { PullRequest, ReviewType } from './views';
+import { MergeArguments, PullRequest, ReviewType } from './views';
 
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public readonly viewType = 'github:activePullRequest';
@@ -53,9 +53,9 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			});
 		}));
 
-		this._disposables.push(vscode.commands.registerCommand('review.approve', (e) => this.approvePullRequestCommand(e)));
-		this._disposables.push(vscode.commands.registerCommand('review.comment', (e) => this.submitReviewCommand(e)));
-		this._disposables.push(vscode.commands.registerCommand('review.requestChanges', (e) => this.requestChangesCommand(e)));
+		this._disposables.push(vscode.commands.registerCommand('review.approve', (e: { body: string }) => this.approvePullRequestCommand(e)));
+		this._disposables.push(vscode.commands.registerCommand('review.comment', (e: { body: string }) => this.submitReviewCommand(e)));
+		this._disposables.push(vscode.commands.registerCommand('review.requestChanges', (e: { body: string }) => this.requestChangesCommand(e)));
 		this._disposables.push(vscode.commands.registerCommand('review.approveOnDotCom', () => {
 			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 		}));
@@ -162,6 +162,12 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		await this.updatePullRequest(this._item);
 	}
 
+	private getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount): string | undefined {
+		const review = reviewers.find(r => reviewerId(r.reviewer) === currentUser.login);
+		// There will always be a review. If not then the PR shouldn't have been or fetched/shown for the current user
+		return review?.state;
+	}
+
 	private _prDisposables: vscode.Disposable[] | undefined = undefined;
 	private registerPrSpecificListeners(pullRequestModel: PullRequestModel) {
 		if (this._prDisposables !== undefined) {
@@ -172,7 +178,16 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		this._prDisposables.push(pullRequestModel.onDidChangePendingReviewState(() => this.updatePullRequest(pullRequestModel)));
 	}
 
+	private _updatePendingVisibility: vscode.Disposable | undefined = undefined;
 	public async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
+		if (this._view && !this._view.visible) {
+			this._updatePendingVisibility?.dispose();
+			this._updatePendingVisibility = this._view.onDidChangeVisibility(async () => {
+				this.updatePullRequest(pullRequestModel);
+				this._updatePendingVisibility?.dispose();
+			});
+		}
+
 		if ((this._prDisposables === undefined) || (pullRequestModel.number !== this._item.number)) {
 			this.registerPrSpecificListeners(pullRequestModel);
 		}
@@ -229,6 +244,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					!pullRequest.base.repositoryCloneUrl.equals(pullRequest.head.repositoryCloneUrl);
 
 				const continueOnGitHub = !!(isCrossRepository && isInCodespaces());
+				const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
 
 				const context: Partial<PullRequest> = {
 					number: pullRequest.number,
@@ -269,7 +285,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					continueOnGitHub,
 					isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
 					isEnterprise: pullRequest.githubRepository.remote.isEnterprise,
-					hasReviewDraft
+					hasReviewDraft,
+					currentUserReviewState: reviewState
 				};
 
 				this._postMessage({
@@ -338,7 +355,6 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
 			this._throwError(undefined, `${formatError(e)}`);
-		} finally {
 			this._postMessage({ command: 'pr.append-review' });
 		}
 	}
@@ -405,10 +421,10 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	private setReadyForReview(message: IRequestMessage<Record<string, unknown>>): void {
 		this._item
 			.setReadyForReview()
-			.then(isDraft => {
+			.then(result => {
 				vscode.commands.executeCommand('pr.refreshList');
 
-				this._replyMessage(message, { isDraft });
+				this._replyMessage(message, result);
 			})
 			.catch(e => {
 				vscode.window.showErrorMessage(vscode.l10n.t('Unable to set PR ready for review. {0}', formatError(e)));
@@ -417,7 +433,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private async mergePullRequest(
-		message: IRequestMessage<{ title: string; description: string; method: 'merge' | 'squash' | 'rebase' }>,
+		message: IRequestMessage<MergeArguments>,
 	): Promise<void> {
 		const { title, description, method } = message.args;
 		const yes = vscode.l10n.t('Yes');
@@ -437,7 +453,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				vscode.commands.executeCommand('pr.refreshList');
 
 				if (!result.merged) {
-					vscode.window.showErrorMessage(vscode.l10n.t('Merging PR failed: {0}', result.message));
+					vscode.window.showErrorMessage(vscode.l10n.t('Merging PR failed: {0}', result?.message ?? ''));
 				}
 
 				this._replyMessage(message, {

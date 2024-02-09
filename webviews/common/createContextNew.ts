@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createContext } from 'react';
-import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, RemoteInfo, ScrollPosition, TitleAndDescriptionResult } from '../../common/views';
+import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, RemoteInfo, ScrollPosition, TitleAndDescriptionArgs, TitleAndDescriptionResult } from '../../common/views';
 import { getMessageHandler, MessageHandler, vscode } from './message';
 
 const defaultCreateParams: CreateParamsNew = {
@@ -25,7 +25,9 @@ const defaultCreateParams: CreateParamsNew = {
 	defaultDescription: undefined,
 	pendingDescription: undefined,
 	creating: false,
-	generateTitleAndDescriptionTitle: undefined
+	generateTitleAndDescriptionTitle: undefined,
+	initializeWithGeneratedTitleAndDescription: false,
+	baseHasMergeQueue: false
 };
 
 export class CreatePRContextNew {
@@ -98,6 +100,7 @@ export class CreatePRContextNew {
 			updateValues.allowAutoMerge = response.allowAutoMerge;
 			updateValues.mergeMethodsAvailability = response.mergeMethodsAvailability;
 			updateValues.autoMergeDefault = response.autoMergeDefault;
+			updateValues.baseHasMergeQueue = response.baseHasMergeQueue;
 			if (!this.createParams.allowAutoMerge && updateValues.allowAutoMerge) {
 				updateValues.autoMerge = this.createParams.isDraft ? false : updateValues.autoMergeDefault;
 			}
@@ -133,9 +136,13 @@ export class CreatePRContextNew {
 		this.updateState(updateValues);
 	};
 
-	public generateTitle = async (): Promise<void> => {
+	public generateTitle = async (useCopilot: boolean): Promise<void> => {
+		const args: TitleAndDescriptionArgs = {
+			useCopilot
+		};
 		const response: TitleAndDescriptionResult = await this.postMessage({
-			command: 'pr.generateTitleAndDescription'
+			command: 'pr.generateTitleAndDescription',
+			args
 		});
 		const updateValues: { pendingTitle?: string, pendingDescription?: string } = {};
 		if (response.title) {
@@ -260,7 +267,9 @@ export class CreatePRContextNew {
 				if (this.createParams.autoMerge === undefined) {
 					message.params.autoMerge = message.params.autoMergeDefault;
 					message.params.autoMergeMethod = message.params.defaultMergeMethod;
-					message.params.isDraft = false;
+					if (message.params.autoMerge) {
+						message.params.isDraft = false;
+					}
 				} else {
 					message.params.autoMerge = this.createParams.autoMerge;
 					message.params.autoMergeMethod = this.createParams.autoMergeMethod;

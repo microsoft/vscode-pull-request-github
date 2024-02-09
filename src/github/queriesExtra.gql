@@ -1,0 +1,217 @@
+# /*---------------------------------------------------------------------------------------------
+#  *  Copyright (c) Microsoft Corporation. All rights reserved.
+#  *  Licensed under the MIT License. See License.txt in the project root for license information.
+#  *--------------------------------------------------------------------------------------------*/
+
+#import "./queriesShared.gql"
+
+# Queries that are only available with extra auth scopes
+
+fragment PullRequestFragment on PullRequest {
+	number
+	url
+	state
+	body
+	bodyHTML
+	titleHTML
+	title
+	author {
+		login
+		url
+		avatarUrl
+		... on User {
+			email
+			id
+		}
+		... on Organization {
+			email
+			id
+		}
+	}
+	commits(first: 50) {
+		nodes {
+			commit {
+				message
+			}
+		}
+	}
+	createdAt
+	updatedAt
+	headRef {
+		...Ref
+	}
+	headRefName
+	headRefOid
+	headRepository {
+		isInOrganization
+		owner {
+			login
+		}
+		url
+	}
+	baseRef {
+		...Ref
+	}
+	baseRefName
+	baseRefOid
+	baseRepository {
+		isInOrganization
+		owner {
+			login
+		}
+		url
+		squashMergeCommitTitle
+		squashMergeCommitMessage
+		mergeCommitMessage
+		mergeCommitTitle
+	}
+	labels(first: 50) {
+		nodes {
+			name
+			color
+		}
+	}
+	merged
+	mergeable
+	mergeQueueEntry {
+		...MergeQueueEntryFragment
+	}
+	mergeStateStatus
+	autoMergeRequest {
+		mergeMethod
+	}
+	viewerCanEnableAutoMerge
+	viewerCanDisableAutoMerge
+	viewerCanUpdate
+	id
+	databaseId
+	isDraft
+	projectItems(first: 100) {
+		nodes {
+			id
+			project {
+				title
+				id
+			}
+		}
+	}
+	milestone {
+		title
+		dueOn
+		createdAt
+		id
+		number
+	}
+	assignees(first: 10) {
+		nodes {
+			login
+			name
+			avatarUrl
+			id
+			url
+			email
+		}
+	}
+	suggestedReviewers {
+		isAuthor
+		isCommenter
+		reviewer {
+			login
+			avatarUrl
+			id
+			name
+			url
+		}
+	}
+}
+
+query PullRequest($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			...PullRequestFragment
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+
+query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!) {
+	repository(owner: $owner, name: $name) {
+		pullRequests(first: 3, headRefName: $headRefName, orderBy: { field: CREATED_AT, direction: DESC }) {
+			nodes {
+				...PullRequestFragment
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+mutation CreatePullRequest($input: CreatePullRequestInput!) {
+	createPullRequest(input: $input) {
+		pullRequest {
+			...PullRequestFragment
+		}
+	}
+}
+
+# Queries that only exist in this file
+
+query GetRepoProjects($owner: String!, $name: String!) {
+	repository(owner: $owner, name: $name) {
+		projectsV2(first: 100, query: "state:OPEN") {
+			nodes {
+				title
+				id
+			}
+		}
+	}
+}
+
+query GetOrgProjects($owner: String!, $after: String) {
+	organization(login: $owner) {
+		projectsV2(first: 100, after: $after, query: "state:OPEN", orderBy: { field: UPDATED_AT, direction: DESC }) {
+			nodes {
+				title
+				id
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+}
+
+mutation AddPullRequestToProject($input: AddProjectV2ItemByIdInput!) {
+	addProjectV2ItemById(input: $input) {
+		item {
+			id
+		}
+	}
+}
+
+mutation RemovePullRequestFromProject($input: DeleteProjectV2ItemInput!) {
+	deleteProjectV2Item(input: $input) {
+		deletedItemId
+	}
+}
+
+mutation DequeuePullRequest($input: DequeuePullRequestInput!) {
+	dequeuePullRequest(input: $input) {
+		mergeQueueEntry {
+			...MergeQueueEntryFragment
+		}
+	}
+}
+
+mutation EnqueuePullRequest($input: EnqueuePullRequestInput!) {
+	enqueuePullRequest(input: $input) {
+		mergeQueueEntry {
+			...MergeQueueEntryFragment
+		}
+	}
+}

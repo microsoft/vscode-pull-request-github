@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createBuilderClass, createLink } from '../base';
-import { PullRequestResponse, Ref, RefRepository } from '../../../github/graphql';
+import { BaseRefRepository, DefaultCommitMessage, DefaultCommitTitle, PullRequestResponse, Ref, RefRepository } from '../../../github/graphql';
 
 import { RateLimitBuilder } from './rateLimitBuilder';
 
@@ -14,6 +14,18 @@ const RefRepositoryBuilder = createBuilderClass<RefRepository>()({
 		login: { default: 'me' },
 	}),
 	url: { default: 'https://github.com/owner/repo' },
+});
+
+const BaseRefRepositoryBuilder = createBuilderClass<BaseRefRepository>()({
+	isInOrganization: { default: false },
+	owner: createLink<RefRepository['owner']>()({
+		login: { default: 'me' },
+	}),
+	url: { default: 'https://github.com/owner/repo' },
+	mergeCommitMessage: { default: DefaultCommitMessage.commitMessages },
+	mergeCommitTitle: { default: DefaultCommitTitle.mergeMessage },
+	squashMergeCommitMessage: { default: DefaultCommitMessage.prBody },
+	squashMergeCommitTitle: { default: DefaultCommitTitle.prTitle },
 });
 
 const RefBuilder = createBuilderClass<Ref>()({
@@ -28,6 +40,7 @@ type Repository = PullRequestResponse['repository'];
 type PullRequest = Repository['pullRequest'];
 type Author = PullRequest['author'];
 type AssigneesConn = PullRequest['assignees'];
+type CommitsConn = PullRequest['commits'];
 type LabelConn = PullRequest['labels'];
 
 export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
@@ -46,8 +59,8 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 				nodes: {
 					default: [
 						{
-							avatarUrl: undefined,
-							email: undefined,
+							avatarUrl: '',
+							email: '',
 							login: 'me',
 							url: 'https://github.com/me',
 							id: '123'
@@ -70,7 +83,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 			baseRef: { linked: RefBuilder },
 			baseRefName: { default: 'main' },
 			baseRefOid: { default: '0000000000000000000000000000000000000000' },
-			baseRepository: { linked: RefRepositoryBuilder },
+			baseRepository: { linked: BaseRefRepositoryBuilder },
 			labels: createLink<LabelConn>()({
 				nodes: { default: [] },
 			}),
@@ -80,8 +93,16 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 			isDraft: { default: false },
 			suggestedReviewers: { default: [] },
 			viewerCanEnableAutoMerge: { default: false },
-			viewerCanDisableAutoMerge: { default: false }
-		}),
+			viewerCanDisableAutoMerge: { default: false },
+			viewerCanUpdate: { default: false },
+			commits: createLink<CommitsConn>()({
+				nodes: {
+					default: [
+						{ commit: { message: 'commit 1' } },
+					]
+				}
+			})
+		})
 	}),
 	rateLimit: { linked: RateLimitBuilder },
 });

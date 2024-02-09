@@ -1,9 +1,11 @@
 {
-	"displayName": "GitHub Pull Requests and Issues",
+	"displayName": "GitHub Pull Requests",
 	"description": "Pull Request and Issue Provider for GitHub",
 	"githubPullRequests.pullRequestDescription.description": "The description used when creating pull requests.",
 	"githubPullRequests.pullRequestDescription.template": "Use a pull request template and commit description, or just use the commit description if no templates were found",
 	"githubPullRequests.pullRequestDescription.commit": "Use the latest commit message only",
+	"githubPullRequests.pullRequestDescription.none": "Do not have a default description",
+	"githubPullRequests.pullRequestDescription.copilot": "Generate a pull request title and description from GitHub Copilot. Requires that the GitHub Copilot extension is installed and authenticated. Will fall back to `commit` if Copilot is not set up.",
 	"githubPullRequests.defaultCreateOption.description": "The create option that the \"Create\" button will default to when creating a pull request.",
 	"githubPullRequests.defaultCreateOption.lastUsed": "The most recently used create option.",
 	"githubPullRequests.defaultCreateOption.create": "The pull request will be created.",
@@ -40,7 +42,7 @@
 	"githubPullRequests.commentExpandState.description": "Controls whether comments are expanded when a document with comments is opened.",
 	"githubPullRequests.commentExpandState.expandUnresolved": "All unresolved comments will be expanded.",
 	"githubPullRequests.commentExpandState.collapseAll": "All comments will be collapsed",
-	"githubPullRequests.useReviewMode.description": "Choose which pull request states will use review mode. \"Open\" pull requests will always use review mode.",
+	"githubPullRequests.useReviewMode.description": "Choose which pull request states will use review mode. \"Open\" pull requests will always use review mode. Setting to \"auto\" will use review mode for open, closed, and merged pull requests in web, but only open pull requests on desktop.",
 	"githubPullRequests.useReviewMode.merged": "Use review mode for merged pull requests.",
 	"githubPullRequests.useReviewMode.closed": "Use review mode for closed pull requests. Merged pull requests are not considered \"closed\".",
 	"githubPullRequests.assignCreated.description": {
@@ -57,8 +59,10 @@
 	"githubPullRequests.pullBranch.prompt": "Prompt to pull a PR branch when changes are detected in the PR.",
 	"githubPullRequests.pullBranch.never": "Never pull a PR branch when changes are detected in the PR.",
 	"githubPullRequests.pullBranch.always": "Always pull a PR branch when changes are detected in the PR. When `\"git.autoStash\": true` this will instead `prompt` to prevent unexpected file changes.",
+	"githubPullRequests.allowFetch.description": "Allows `git fetch` to be run for checked-out pull request branches when checking for updates to the pull request.",
 	"githubPullRequests.ignoredPullRequestBranches.description": "Prevents branches that are associated with a pull request from being automatically detected. This will prevent review mode from being entered on these branches.",
 	"githubPullRequests.ignoredPullRequestBranches.items": "Branch name",
+	"githubPullRequests.neverIgnoreDefaultBranch.description": "Never offer to ignore a pull request associated with the default branch of a repository.",
 	"githubPullRequests.overrideDefaultBranch.description": "The default branch for a repository is set on github.com. With this setting, you can override that default with another branch.",
 	"githubPullRequests.postCreate.description": "The action to take after creating a pull request.",
 	"githubPullRequests.postCreate.none": "No action",
@@ -70,10 +74,17 @@
 	"githubPullRequests.defaultCommentType.single": "Submits the comment as a single comment that will be immediately visible to other users",
 	"githubPullRequests.defaultCommentType.review": "Submits the comment as a review comment that will be visible to other users once the review is submitted",
 	"githubPullRequests.setAutoMerge.description": "Checks the \"Auto-merge\" checkbox in the \"Create Pull Request\" view.",
-	"githubPullRequests.pullPullRequestBranchBeforeCheckout.description": "Pulls pull request before checkout",
+	"githubPullRequests.pullPullRequestBranchBeforeCheckout.description": "Controls whether the pull request branch is pulled before checkout. Can also be set to additionally merge updates from the base branch.",
+	"githubPullRequests.pullPullRequestBranchBeforeCheckout.never": "Never pull the pull request branch before checkout.",
+	"githubPullRequests.pullPullRequestBranchBeforeCheckout.pull": "Pull the pull request branch before checkout.",
+	"githubPullRequests.pullPullRequestBranchBeforeCheckout.pullAndMergeBase": "Pull the pull request branch before checkout, fetch the base branch, and merge the base branch into the pull request branch.",
+	"githubPullRequests.pullPullRequestBranchBeforeCheckout.pullAndUpdateBase": "Pull the pull request branch before checkout, fetch the base branch, merge the base branch into the pull request branch, and finally push the pull request branch to the remote.",
 	"githubPullRequests.upstreamRemote.description": "Controls whether an `upstream` remote is automatically added for forks",
 	"githubPullRequests.upstreamRemote.add": "An `upstream` remote will be automatically added for forks",
 	"githubPullRequests.upstreamRemote.never": "An `upstream` remote will never be automatically added for forks",
+	"githubPullRequests.createDefaultBaseBranch.description": "Controls what the base branch picker defaults to when creating a pull request",
+	"githubPullRequests.createDefaultBaseBranch.repositoryDefault": "The default branch of the repository",
+	"githubPullRequests.createDefaultBaseBranch.createdFromBranch": "The branch that the current branch was created from, if known",
 	"githubIssues.ignoreMilestones.description": "An array of milestones titles to never show issues from.",
 	"githubIssues.createIssueTriggers.description": "Strings that will cause the 'Create issue from comment' code action to show.",
 	"githubIssues.createIssueTriggers.items": "String that enables the 'Create issue from comment' code action. Should not contain whitespace.",
@@ -91,7 +102,7 @@
 			"Do not translate what's inside of the '${..}'. It is an internal syntax for the extension"
 		]
 	},
-	"githubIssues.useBranchForIssues.description": {
+	"githubIssues.useBranchForIssues.markdownDescription": {
 		"message": "Determines whether a branch should be checked out when working on an issue. To configure the name of the branch, set `#githubIssues.issueBranchTitle#`.",
 		"comment": [
 			"{Locked='`#githubIssues.issueBranchTitle#`'}",
@@ -108,7 +119,7 @@
 		]
 	},
 	"githubIssues.workingIssueFormatScm.markdownDescription": {
-		"message": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to `${issueTitle} \nFixes #${issueNumber}`",
+		"message": "Sets the format of the commit message that is set in the SCM inputbox when you **Start Working on an Issue**. Defaults to `${issueTitle} \nFixes ${issueNumberLabel}`",
 		"comment": [
 			"Do not translate what's inside of the ${...}. It is an internal syntax for the extension."
 		]
@@ -116,12 +127,18 @@
 	"githubIssues.queries.markdownDescription": "Specifies what queries should be used in the GitHub issues tree using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax) with variables. The first query listed will be expanded in the Issues view. The \"default\" query includes issues assigned to you by Milestone. If you want to preserve these, make sure they are still in the array when you modify the setting.",
 	"githubIssues.queries.label": "The label to display for the query in the Issues tree.",
 	"githubIssues.queries.query": "The search query using [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax) with variables. The variable `${user}` can be used to specify the logged in user within a search. `${owner}` and `${repository}` can be used to specify the repository by using `repo:${owner}/${repository}`.",
+	"githubIssues.queries.groupBy": "The categories to group issues by when displaying them, in the order in which they should be grouped",
+	"githubIssues.queries.groupBy.repository": "Group issues by their repository.",
+	"githubIssues.queries.groupBy.milestone": "Group issues by their milestone.",
 	"githubIssues.queries.default.myIssues": "My Issues",
 	"githubIssues.queries.default.createdIssues": "Created Issues",
 	"githubIssues.queries.default.recentIssues": "Recent Issues",
 	"githubIssues.assignWhenWorking.description": "Assigns the issue you're working on to you. Only applies when the issue you're working on is in a repo you currently have open.",
 	"githubPullRequests.focusedMode.description": "The layout to use when a pull request is checked out. Set to false to prevent layout changes.",
 	"githubPullRequests.showPullRequestNumberInTree.description": "Shows the pull request number in the tree view.",
+	"githubPullRequests.labelCreated.description": "Group of labels that you want to add to the pull request automatically. Labels that don't exist in the repository won't be added.",
+	"githubPullRequests.labelCreated.label.description": "Each string element is value of label that you want to add",
+	"view.github.pull.requests.name": "GitHub Pull Requests",
 	"view.github.pull.request.name": "GitHub Pull Request",
 	"view.github.login.name": "Login",
 	"view.pr.github.name": "Pull Requests",
@@ -135,6 +152,7 @@
 	"command.pull.request.category": "GitHub Pull Requests",
 	"command.pr.create.title": "Create Pull Request",
 	"command.pr.pick.title": "Checkout Pull Request",
+	"command.pr.openChanges.title": "Open Changes",
 	"command.pr.pickOnVscodeDev.title": "Checkout Pull Request on vscode.dev",
 	"command.pr.exit.title": "Checkout Default Branch",
 	"command.pr.dismissNotification.title": "Dismiss Notification",
@@ -212,6 +230,7 @@
 	"command.pr.createPrMenuCreate.title": "Create",
 	"command.pr.createPrMenuDraft.title": "Create Draft",
 	"command.pr.createPrMenuSquash.title": "Create + Auto-Squash",
+	"command.pr.createPrMenuMergeWhenReady.title": "Create + Merge When Ready",
 	"command.pr.createPrMenuMerge.title": "Create + Auto-Merge",
 	"command.pr.createPrMenuRebase.title": "Create + Auto-Rebase",
 	"command.pr.refreshComments.title": "Refresh Pull Request Comments",

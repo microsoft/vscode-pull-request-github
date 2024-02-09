@@ -30,7 +30,7 @@ export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 		vscode.FileChangeEvent[]
 	>();
 
-	constructor(private readonly cache: NewIssueCache) { };
+	constructor(private readonly cache: NewIssueCache) { }
 	onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._onDidChangeFile.event;
 	watch(_uri: vscode.Uri, _options: { recursive: boolean; excludes: string[] }): vscode.Disposable {
 		const disposable = this.onDidChangeFile(e => {

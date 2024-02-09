@@ -108,6 +108,7 @@ export interface CreateParamsNew {
 	milestone?: IMilestone;
 	isDarkTheme?: boolean;
 	generateTitleAndDescriptionTitle: string | undefined;
+	initializeWithGeneratedTitleAndDescription: boolean;
 
 	validate?: boolean;
 	showTitleValidationError?: boolean;
@@ -119,6 +120,7 @@ export interface CreateParamsNew {
 	allowAutoMerge?: boolean;
 	defaultMergeMethod?: MergeMethod;
 	mergeMethodsAvailability?: MergeMethodsAvailability;
+	baseHasMergeQueue: boolean;
 
 	creating: boolean;
 }
@@ -136,6 +138,7 @@ export interface ChooseBaseRemoteAndBranchResult {
 	allowAutoMerge: boolean;
 	mergeMethodsAvailability: MergeMethodsAvailability;
 	autoMergeDefault: boolean;
+	baseHasMergeQueue: boolean;
 	defaultTitle: string;
 	defaultDescription: string;
 }
@@ -144,6 +147,10 @@ export interface ChooseCompareRemoteAndBranchResult {
 	compareRemote: RemoteInfo;
 	compareBranch: string;
 	defaultCompareBranch: string;
+}
+
+export interface TitleAndDescriptionArgs {
+	useCopilot: boolean;
 }
 
 export interface TitleAndDescriptionResult {

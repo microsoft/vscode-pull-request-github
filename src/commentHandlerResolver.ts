@@ -9,7 +9,7 @@ import Logger from './common/logger';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
 
 export interface CommentHandler {
-	commentController?: vscode.CommentController;
+	commentController: vscode.CommentController;
 	hasCommentThread(thread: GHPRCommentThread): boolean;
 
 	createOrReplyComment(thread: GHPRCommentThread, input: string, isSingleComment: boolean): Promise<void>;
@@ -54,4 +54,12 @@ export function resolveCommentHandler(commentThread: GHPRCommentThread): Comment
 	Logger.warn(`Unable to find handler for comment thread ${commentThread.gitHubThreadId}`);
 
 	return;
+}
+
+export function findActiveHandler() {
+	for (const commentHandler of commentHandlers.values()) {
+		if (commentHandler.commentController.activeCommentThread) {
+			return commentHandler;
+		}
+	}
 }

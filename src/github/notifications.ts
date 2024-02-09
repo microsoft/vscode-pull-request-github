@@ -41,6 +41,7 @@ export class Notification {
 }
 
 export class NotificationProvider implements vscode.Disposable {
+	private static ID = 'NotificationProvider';
 	private readonly _gitHubPrsTree: PullRequestsTreeDataProvider;
 	private readonly _credentialStore: CredentialStore;
 	private _authProvider: AuthProvider | undefined;
@@ -79,7 +80,7 @@ export class NotificationProvider implements vscode.Disposable {
 					this.refreshOrLaunchPolling();
 				})
 			);
-		};
+		}
 
 		this.disposables.push(
 			gitHubPrsTree.onDidChangeTreeData((node) => {
@@ -336,10 +337,14 @@ export class NotificationProvider implements vscode.Disposable {
 					},
 				});
 
+				if (data.repository === null) {
+					Logger.error('Unexpected null repository when getting notifications', NotificationProvider.ID);
+				}
+
 				// We only consider open PullRequests as these are displayed in the AllOpen PR category.
-				// Other categories could have querries with closed PRs, but its hard to figure out if a PR
-				// belongs to a querry without loading each PR of that querry.
-				if (data.repository.pullRequest.state === 'OPEN') {
+				// Other categories could have queries with closed PRs, but its hard to figure out if a PR
+				// belongs to a query without loading each PR of that query.
+				if (data.repository?.pullRequest.state === 'OPEN') {
 
 					const newNotification = new Notification(
 						identifier,

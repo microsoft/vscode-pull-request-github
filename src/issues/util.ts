@@ -9,7 +9,7 @@ import * as marked from 'marked';
 import 'url-search-params-polyfill';
 import * as vscode from 'vscode';
 import { gitHubLabelColor } from '../../src/common/utils';
-import { Commit, Ref, Remote, Repository, UpstreamRef } from '../api/api';
+import { Ref, Remote, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
@@ -302,6 +302,13 @@ export interface NewIssue {
 	range: vscode.Range | vscode.Selection;
 }
 
+export interface IssueTemplate {
+	name: string | undefined,
+	about: string | undefined,
+	title: string | undefined,
+	body: string | undefined
+}
+
 const HEAD = 'HEAD';
 const UPSTREAM = 1;
 const UPS = 2;
@@ -313,7 +320,7 @@ const REMOTE_CONVENTIONS = new Map([
 	['origin', ORIGIN],
 ]);
 
-async function getUpstream(repositoriesManager: RepositoriesManager, repository: Repository, commit: Commit): Promise<Remote | undefined> {
+async function getUpstream(repositoriesManager: RepositoriesManager, repository: Repository, commitHash: string): Promise<Remote | undefined> {
 	const currentRemoteName: string | undefined =
 		repository.state.HEAD?.upstream && !REMOTE_CONVENTIONS.has(repository.state.HEAD.upstream.remote)
 			? repository.state.HEAD.upstream.remote
@@ -368,7 +375,7 @@ async function getUpstream(repositoriesManager: RepositoriesManager, repository:
 			try {
 				const remotes = (
 					await repository.getBranches({
-						contains: commit.hash,
+						contains: commitHash,
 						remote: true,
 						pattern: `remotes/${remoteNames[remoteIndex].name}/${branchNames[branchIndex]}`,
 						count: 1,
@@ -427,7 +434,7 @@ function getFileAndPosition(context: LinkContext, positionInfo?: NewIssue): { ur
 	} else {
 		return { uri: undefined, range: undefined };
 	}
-	Logger.debug(`got file and position: ${uri.fsPath} ${range?.start.toString()}`, PERMALINK_COMPONENT);
+	Logger.debug(`got file and position: ${uri.fsPath} ${range?.start ? (range.start instanceof vscode.Position ? `${range.start.line}:${range.start.character}` : range.start) : 'unknown'}`, PERMALINK_COMPONENT);
 	return { uri, range };
 }
 
@@ -447,13 +454,13 @@ export function getSimpleUpstream(repository: Repository) {
 	}
 }
 
-export async function getBestPossibleUpstream(repositoriesManager: RepositoriesManager, repository: Repository, commit: Commit | undefined): Promise<Remote | undefined> {
+export async function getBestPossibleUpstream(repositoriesManager: RepositoriesManager, repository: Repository, commitHash: string | undefined): Promise<Remote | undefined> {
 	const fallbackUpstream = new Promise<Remote | undefined>(resolve => {
 		resolve(getSimpleUpstream(repository));
 	});
 
-	let upstream: Remote | undefined = commit ? await Promise.race([
-		getUpstream(repositoriesManager, repository, commit),
+	let upstream: Remote | undefined = commitHash ? await Promise.race([
+		getUpstream(repositoriesManager, repository, commitHash),
 		new Promise<Remote | undefined>(resolve => {
 			setTimeout(() => {
 				resolve(fallbackUpstream);
@@ -492,61 +499,61 @@ export async function createGithubPermalink(
 	positionInfo?: NewIssue,
 	context?: LinkContext
 ): Promise<PermalinkInfo> {
-	const { uri, range } = getFileAndPosition(context, positionInfo);
-	if (!uri) {
-		return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined };
-	}
-
-	const repository = getRepositoryForFile(gitAPI, uri);
-	if (!repository) {
-		return { permalink: undefined, error: vscode.l10n.t('The current file isn\'t part of repository.'), originalFile: uri };
-	}
-
-	let commit: Commit | undefined;
-	let commitHash: string | undefined;
-	if (uri.scheme === Schemes.Review) {
-		commitHash = fromReviewUri(uri.query).commit;
-	}
-
-	if (!commitHash) {
-		try {
-			const log = await repository.log({ maxEntries: 1, path: uri.fsPath });
-			if (log.length === 0) {
-				return { permalink: undefined, error: vscode.l10n.t('No branch on a remote contains the most recent commit for the file.'), originalFile: uri };
-			}
-			// Now that we know that the file existed at some point in the repo, use the head commit to construct the URI.
-			if (repository.state.HEAD?.commit && (log[0].hash !== repository.state.HEAD?.commit)) {
-				commit = await repository.getCommit(repository.state.HEAD.commit);
-			}
-			if (!commit) {
-				commit = log[0];
-			}
-			commitHash = commit.hash;
-		} catch (e) {
-			commitHash = repository.state.HEAD?.commit;
+	return vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, async (progress) => {
+		progress.report({ message: vscode.l10n.t('Creating permalink...') });
+		const { uri, range } = getFileAndPosition(context, positionInfo);
+		if (!uri) {
+			return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined };
 		}
-	}
 
-	Logger.debug(`commit hash: ${commitHash}`, PERMALINK_COMPONENT);
+		const repository = getRepositoryForFile(gitAPI, uri);
+		if (!repository) {
+			return { permalink: undefined, error: vscode.l10n.t('The current file isn\'t part of repository.'), originalFile: uri };
+		}
 
-	const rawUpstream = await getBestPossibleUpstream(repositoriesManager, repository, commit);
-	if (!rawUpstream || !rawUpstream.fetchUrl) {
-		return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri };
-	}
-	const upstream: Remote & { fetchUrl: string } = rawUpstream as any;
+		let commitHash: string | undefined;
+		if (uri.scheme === Schemes.Review) {
+			commitHash = fromReviewUri(uri.query).commit;
+		}
 
-	Logger.debug(`upstream: ${upstream.fetchUrl}`, PERMALINK_COMPONENT);
+		if (!commitHash) {
+			try {
+				const log = await repository.log({ maxEntries: 1, path: uri.fsPath });
+				if (log.length === 0) {
+					return { permalink: undefined, error: vscode.l10n.t('No branch on a remote contains the most recent commit for the file.'), originalFile: uri };
+				}
+				// Now that we know that the file existed at some point in the repo, use the head commit to construct the URI.
+				if (repository.state.HEAD?.commit && (log[0].hash !== repository.state.HEAD?.commit)) {
+					commitHash = repository.state.HEAD.commit;
+				} else {
+					commitHash = log[0].hash;
+				}
+			} catch (e) {
+				commitHash = repository.state.HEAD?.commit;
+			}
+		}
 
-	const encodedPathSegment = encodeURIComponentExceptSlashes(uri.path.substring(repository.rootUri.path.length));
-	const originOfFetchUrl = getUpstreamOrigin(rawUpstream).replace(/\/$/, '');
-	const result = {
-		permalink: (`${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
-			}${includeFile ? `${encodedPathSegment}${includeRange ? rangeString(range) : ''}` : ''}`),
-		error: undefined,
-		originalFile: uri
-	};
-	Logger.debug(`permalink generated: ${result.permalink}`, PERMALINK_COMPONENT);
-	return result;
+		Logger.debug(`commit hash: ${commitHash}`, PERMALINK_COMPONENT);
+
+		const rawUpstream = await getBestPossibleUpstream(repositoriesManager, repository, commitHash);
+		if (!rawUpstream || !rawUpstream.fetchUrl) {
+			return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri };
+		}
+		const upstream: Remote & { fetchUrl: string } = rawUpstream as any;
+
+		Logger.debug(`upstream: ${upstream.fetchUrl}`, PERMALINK_COMPONENT);
+
+		const encodedPathSegment = encodeURIComponentExceptSlashes(uri.path.substring(repository.rootUri.path.length));
+		const originOfFetchUrl = getUpstreamOrigin(rawUpstream).replace(/\/$/, '');
+		const result = {
+			permalink: (`${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
+				}${includeFile ? `${encodedPathSegment}${includeRange ? rangeString(range) : ''}` : ''}`),
+			error: undefined,
+			originalFile: uri
+		};
+		Logger.debug(`permalink generated: ${result.permalink}`, PERMALINK_COMPONENT);
+		return result;
+	});
 }
 
 export function getUpstreamOrigin(upstream: Remote, resultHost: string = 'github.com') {

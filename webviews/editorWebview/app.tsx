@@ -11,9 +11,6 @@ import PullRequestContext from '../common/context';
 import { Overview } from './overview';
 
 export function main() {
-	window.addEventListener('contextmenu', e => {
-		e.stopImmediatePropagation();
-	}, true);
 	render(<Root>{pr => <Overview {...pr} />}</Root>, document.getElementById('app'));
 }
 
@@ -27,9 +24,11 @@ export function Root({ children }) {
 	window.onscroll = debounce(() => {
 		ctx.postMessage({
 			command: 'scroll',
-			scrollPosition: {
-				x: window.scrollX,
-				y: window.scrollY
+			args: {
+				scrollPosition: {
+					x: window.scrollX,
+					y: window.scrollY
+				}
 			}
 		});
 	}, 200);

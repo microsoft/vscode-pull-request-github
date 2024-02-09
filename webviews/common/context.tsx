@@ -6,8 +6,8 @@
 import { createContext } from 'react';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, TimelineEvent } from '../../src/common/timelineEvent';
-import { IProject, IProjectItem, MergeMethod, ReviewState } from '../../src/github/interface';
-import { ProjectItemsReply, PullRequest } from '../../src/github/views';
+import { IProjectItem, MergeMethod, ReadyForReview, ReviewState } from '../../src/github/interface';
+import { MergeArguments, ProjectItemsReply, PullRequest } from '../../src/github/views';
 import { getState, setState, updateState } from './cache';
 import { getMessageHandler, MessageHandler } from './message';
 
@@ -52,24 +52,19 @@ export class PRContext {
 
 	public checkMergeability = () => this.postMessage({ command: 'pr.checkMergeability' });
 
-	public merge = (args: { title: string | undefined; description: string | undefined; method: MergeMethod }) =>
+	public changeEmail = async (current: string) => {
+		const newEmail = await this.postMessage({ command: 'pr.change-email', args: current });
+		this.updatePR({ emailForCommit: newEmail });
+	};
+
+	public merge = (args: MergeArguments) =>
 		this.postMessage({ command: 'pr.merge', args });
 
 	public openOnGitHub = () => this.postMessage({ command: 'pr.openOnGitHub' });
 
 	public deleteBranch = () => this.postMessage({ command: 'pr.deleteBranch' });
 
-	public readyForReview = () => this.postMessage({ command: 'pr.readyForReview' });
-
-	public comment = async (args: string) => {
-		const result = await this.postMessage({ command: 'pr.comment', args });
-		const newComment = result.value;
-		newComment.event = EventType.Commented;
-		this.updatePR({
-			events: [...this.pr.events, newComment],
-			pendingCommentText: '',
-		});
-	};
+	public readyForReview = (): Promise<ReadyForReview> => this.postMessage({ command: 'pr.readyForReview' });
 
 	public addReviewers = () => this.postMessage({ command: 'pr.change-reviewers' });
 	public changeProjects = (): Promise<ProjectItemsReply> => this.postMessage({ command: 'pr.change-projects' });
@@ -132,7 +127,13 @@ export class PRContext {
 
 	public close = async (body?: string) => {
 		try {
-			this.appendReview(await this.postMessage({ command: 'pr.close', args: body }));
+			const result = await this.postMessage({ command: 'pr.close', args: body });
+			const newComment = result.value;
+			newComment.event = EventType.Commented;
+			this.updatePR({
+				events: [...this.pr.events, newComment],
+				pendingCommentText: '',
+			});
 		} catch (_) {
 			// Ignore
 		}
@@ -164,6 +165,8 @@ export class PRContext {
 		state.reviewers = reviewers;
 		state.events = [...state.events.filter(e => (e.event === EventType.Reviewed ? e.state !== 'PENDING' : e)), review];
 		state.currentUserReviewState = review.state;
+		state.pendingCommentText = '';
+		state.pendingReviewType = undefined;
 		this.updatePR(state);
 	}
 
@@ -179,6 +182,28 @@ export class PRContext {
 		const state = this.pr;
 		state.autoMerge = response.autoMerge;
 		state.autoMergeMethod = response.autoMergeMethod;
+		this.updatePR(state);
+	}
+
+	public updateBranch = async () => {
+		return this.postMessage({ command: 'pr.update-branch' });
+	}
+
+	public dequeue = async () => {
+		const isDequeued = await this.postMessage({ command: 'pr.dequeue' });
+		const state = this.pr;
+		if (isDequeued) {
+			state.mergeQueueEntry = undefined;
+		}
+		this.updatePR(state);
+	}
+
+	public enqueue = async () => {
+		const result = await this.postMessage({ command: 'pr.enqueue' });
+		const state = this.pr;
+		if (result.mergeQueueEntry) {
+			state.mergeQueueEntry = result.mergeQueueEntry;
+		}
 		this.updatePR(state);
 	}
 

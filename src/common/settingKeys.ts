@@ -11,12 +11,14 @@ export const FILE_LIST_LAYOUT = 'fileListLayout';
 export const ASSIGN_TO = 'assignCreated';
 export const PUSH_BRANCH = 'pushBranch';
 export const IGNORE_PR_BRANCHES = 'ignoredPullRequestBranches';
+export const NEVER_IGNORE_DEFAULT_BRANCH = 'neverIgnoreDefaultBranch';
 export const OVERRIDE_DEFAULT_BRANCH = 'overrideDefaultBranch';
 export const PULL_BRANCH = 'pullBranch';
 export const PULL_REQUEST_DESCRIPTION = 'pullRequestDescription';
 export const NOTIFICATION_SETTING = 'notifications';
 export const POST_CREATE = 'postCreate';
 export const QUERIES = 'queries';
+export const PULL_REQUEST_LABELS = 'labelCreated';
 export const FOCUSED_MODE = 'focusedMode';
 export const CREATE_DRAFT = 'createDraft';
 export const QUICK_DIFF = 'quickDiff';
@@ -28,8 +30,10 @@ export const SELECT_LOCAL_BRANCH = 'selectLocalBranch';
 export const SELECT_REMOTE = 'selectRemote';
 export const REMOTES = 'remotes';
 export const PULL_PR_BRANCH_BEFORE_CHECKOUT = 'pullPullRequestBranchBeforeCheckout';
+export type PullPRBranchVariants = 'never' | 'pull' | 'pullAndMergeBase' | 'pullAndUpdateBase' | true | false;
 export const UPSTREAM_REMOTE = 'upstreamRemote';
 export const DEFAULT_CREATE_OPTION = 'defaultCreateOption';
+export const CREATE_BASE_BRANCH = 'createDefaultBaseBranch';
 
 export const ISSUES_SETTINGS_NAMESPACE = 'githubIssues';
 export const ASSIGN_WHEN_WORKING = 'assignWhenWorking';
@@ -46,6 +50,7 @@ export const ISSUE_COMPLETION_FORMAT_SCM = 'issueCompletionFormatScm';
 export const CREATE_ISSUE_TRIGGERS = 'createIssueTriggers';
 export const DEFAULT = 'default';
 export const IGNORE_MILESTONES = 'ignoreMilestones';
+export const ALLOW_FETCH = 'allowFetch';
 
 // git
 export const GIT = 'git';

@@ -96,6 +96,7 @@ export const Dropdown = ({ options, defaultOption, disabled, submitAction, chang
 					submitAction={submitAction}
 					disabled={!!disabled}
 				/>
+				<div className='split'></div>
 				<button id={EXPAND_OPTIONS_BUTTON} className={'select-right ' + expandButtonClass} aria-label='Expand button options' onClick={onClick}>
 					{chevronIcon}
 				</button>

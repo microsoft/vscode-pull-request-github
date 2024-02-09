@@ -8,7 +8,7 @@ import * as pathLib from 'path';
 import * as vscode from 'vscode';
 import { Repository } from './api/api';
 import { GitErrorCodes } from './api/api1';
-import { CommentReply, resolveCommentHandler } from './commentHandlerResolver';
+import { CommentReply, findActiveHandler, resolveCommentHandler } from './commentHandlerResolver';
 import { IComment } from './common/comment';
 import Logger from './common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
@@ -323,7 +323,7 @@ export function registerCommands(
 			}
 			return fileChangeNode.openDiff(folderManager);
 		} else if (fileChangeNode || vscode.window.activeTextEditor) {
-			const editor = fileChangeNode ? vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === fileChangeNode.toString())! : vscode.window.activeTextEditor!;
+			const editor = fileChangeNode instanceof vscode.Uri ? vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === fileChangeNode.toString())! : vscode.window.activeTextEditor!;
 			const visibleRanges = editor.visibleRanges;
 			const folderManager = reposManager.getManagerForFile(editor.document.uri);
 			if (!folderManager?.activePullRequest) {
@@ -515,6 +515,29 @@ export function registerCommands(
 			);
 		}),
 	);
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.openChanges', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
+			if (pr === undefined) {
+				// This is unexpected, but has happened a few times.
+				Logger.error('Unexpectedly received undefined when picking a PR.');
+				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
+			}
+
+			let pullRequestModel: PullRequestModel;
+
+			if (pr instanceof PRNode || pr instanceof DescriptionNode) {
+				pullRequestModel = pr.pullRequestModel;
+			} else {
+				pullRequestModel = pr;
+			}
+
+			const folderReposManager = reposManager.getManagerForIssueModel(pullRequestModel);
+			if (!folderReposManager) {
+				return;
+			}
+			return PullRequestModel.openChanges(folderReposManager, pullRequestModel);
+		}),
+	);
 
 	let isCheckingOutFromReadonlyFile = false;
 	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromReadonlyFile', async () => {
@@ -673,7 +696,7 @@ export function registerCommands(
 					let isDraft;
 					if (value === yes) {
 						try {
-							isDraft = await pullRequest.setReadyForReview();
+							isDraft = (await pullRequest.setReadyForReview()).isDraft;
 							vscode.commands.executeCommand('pr.refreshList');
 							return isDraft;
 						} catch (e) {
@@ -976,11 +999,18 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.makeSuggestion', async (reply: CommentReply | GHPRComment) => {
-			const thread = reply instanceof GHPRComment ? reply.parent : reply.thread;
-			if (!thread.range) {
+		vscode.commands.registerCommand('pr.makeSuggestion', async (reply: CommentReply | GHPRComment | undefined) => {
+			let potentialThread: GHPRCommentThread | undefined;
+			if (reply === undefined) {
+				potentialThread = findActiveHandler()?.commentController.activeCommentThread as GHPRCommentThread | undefined;
+			} else {
+				potentialThread = reply instanceof GHPRComment ? reply.parent : reply?.thread;
+			}
+
+			if (!potentialThread?.range) {
 				return;
 			}
+			const thread: GHPRCommentThread & { range: vscode.Range } = potentialThread as GHPRCommentThread & { range: vscode.Range };
 			const commentEditor = vscode.window.activeTextEditor?.document.uri.scheme === Schemes.Comment ? vscode.window.activeTextEditor
 				: vscode.window.visibleTextEditors.find(visible => (visible.document.uri.scheme === Schemes.Comment) && (visible.document.uri.query === ''));
 			if (!commentEditor) {
@@ -1114,6 +1144,22 @@ ${contents}
 		}),
 	);
 
+	const findPrFromUri = (manager: FolderRepositoryManager | undefined, treeNode: vscode.Uri): PullRequestModel | undefined => {
+		if (treeNode.scheme === Schemes.Pr) {
+			const prQuery = fromPRUri(treeNode);
+			if (prQuery) {
+				for (const githubRepos of (manager?.gitHubRepositories ?? [])) {
+					const prNumber = Number(prQuery.prNumber);
+					if (githubRepos.pullRequestModels.has(prNumber)) {
+						return githubRepos.pullRequestModels.get(prNumber);
+					}
+				}
+			}
+		} else {
+			return manager?.activePullRequest;
+		}
+	};
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.markFileAsViewed', async (treeNode: FileChangeNode | vscode.Uri | undefined) => {
 			try {
@@ -1139,8 +1185,10 @@ ${contents}
 							vscode.window.tabGroups.close(tab);
 						}
 					}
+
 					const manager = reposManager.getManagerForFile(treeNode);
-					await manager?.activePullRequest?.markFileAsViewed(treeNode.path, true);
+					const pullRequest = findPrFromUri(manager, treeNode);
+					await pullRequest?.markFiles([treeNode.path], true, 'viewed');
 					manager?.setFileViewedContext();
 				}
 			} catch (e) {
@@ -1161,7 +1209,8 @@ ${contents}
 					treeNode.unmarkFileAsViewed(false);
 				} else if (treeNode) {
 					const manager = reposManager.getManagerForFile(treeNode);
-					await manager?.activePullRequest?.unmarkFileAsViewed(treeNode.path, true);
+					const pullRequest = findPrFromUri(manager, treeNode);
+					await pullRequest?.markFiles([treeNode.path], true, 'unviewed');
 					manager?.setFileViewedContext();
 				}
 			} catch (e) {
@@ -1328,7 +1377,7 @@ ${contents}
 			return vscode.commands.executeCommand('vscode.diff', headURI, fileChangeNode.resourceUri, `${fileName} (Pull Request Compare Head with Local)`);
 		}));
 
-	function goToNextPrevDiff(diffs: vscode.LineChange[], next: boolean) {
+	async function goToNextPrevDiff(diffs: vscode.LineChange[], next: boolean) {
 		const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
 		const input = tab?.input;
 		if (!(input instanceof vscode.TabInputTextDiff)) {
@@ -1346,16 +1395,20 @@ ${contents}
 		}
 
 		// Find the next diff in the current file to scroll to
-		const visibleRange = editor.visibleRanges[0];
+		const cursorPosition = editor.selection.active;
 		const iterateThroughDiffs = next ? diffs : diffs.reverse();
 		for (const diff of iterateThroughDiffs) {
 			const practicalModifiedEndLineNumber = (diff.modifiedEndLineNumber > diff.modifiedStartLineNumber) ? diff.modifiedEndLineNumber : diff.modifiedStartLineNumber as number + 1;
 			const diffRange = new vscode.Range(diff.modifiedStartLineNumber ? diff.modifiedStartLineNumber - 1 : diff.modifiedStartLineNumber, 0, practicalModifiedEndLineNumber, 0);
-			if (next && (visibleRange.end.line < practicalModifiedEndLineNumber) && (visibleRange.end.line !== (editor.document.lineCount - 1))) {
+
+			// cursorPosition.line is 0-based, diff.modifiedStartLineNumber is 1-based
+			if (next && cursorPosition.line + 1 < diff.modifiedStartLineNumber) {
 				editor.revealRange(diffRange);
+				editor.selection = new vscode.Selection(diffRange.start, diffRange.start);
 				return;
-			} else if (!next && (visibleRange.start.line > diff.modifiedStartLineNumber) && (visibleRange.start.line !== 0)) {
+			} else if (!next && cursorPosition.line + 1 > diff.modifiedStartLineNumber) {
 				editor.revealRange(diffRange);
+				editor.selection = new vscode.Selection(diffRange.start, diffRange.start);
 				return;
 			}
 		}
@@ -1381,7 +1434,21 @@ ${contents}
 			if (localFileChange.changeModel.filePath.toString() === editorUri.toString()) {
 				const nextIndex = next ? index + 1 : index - 1;
 				if (reviewManager.reviewModel.localFileChanges.length > nextIndex) {
-					return reviewManager.reviewModel.localFileChanges[nextIndex].openDiff(folderManager);
+					await reviewManager.reviewModel.localFileChanges[nextIndex].openDiff(folderManager);
+					// if going backwards, we now need to go to the last diff in the file
+					if (!next) {
+						const editor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === reviewManager.reviewModel.localFileChanges[nextIndex].changeModel.filePath.toString());
+						if (editor) {
+							const diffs = await reviewManager.reviewModel.localFileChanges[nextIndex].changeModel.diffHunks();
+							const diff = diffs[diffs.length - 1];
+							const diffNewEndLine = diff.newLineNumber + diff.newLength;
+							const practicalModifiedEndLineNumber = (diffNewEndLine > diff.newLineNumber) ? diffNewEndLine : diff.newLineNumber as number + 1;
+							const diffRange = new vscode.Range(diff.newLineNumber ? diff.newLineNumber - 1 : diff.newLineNumber, 0, practicalModifiedEndLineNumber, 0);
+							editor.revealRange(diffRange);
+							editor.selection = new vscode.Selection(diffRange.start, diffRange.start);
+						}
+					}
+					return;
 				}
 			}
 		}
