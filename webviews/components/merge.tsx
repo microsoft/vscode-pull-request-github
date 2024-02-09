@@ -327,10 +327,7 @@ export const Merge = (pr: PullRequest) => {
 };
 
 export const PrActions = ({ pr, isSimple }: { pr: PullRequest; isSimple: boolean }) => {
-	const { hasWritePermission, canEdit, isDraft, mergeable, continueOnGitHub } = pr;
-	if (continueOnGitHub) {
-		return canEdit ? <MergeOnGitHub /> : null;
-	}
+	const { hasWritePermission, canEdit, isDraft, mergeable } = pr;
 	if (isDraft) {
 		// Only PR author and users with push rights can mark draft as ready for review
 		return canEdit ? <ReadyForReview isSimple={isSimple} /> : null;
