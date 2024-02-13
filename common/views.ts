@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IAccount, ILabel, IMilestone, ITeam, MergeMethod, MergeMethodsAvailability } from '../src/github/interface';
+import { IAccount, ILabel, IMilestone, IProject, ITeam, MergeMethod, MergeMethodsAvailability } from '../src/github/interface';
 
 export interface RemoteInfo {
 	owner: string;
@@ -79,6 +79,7 @@ export interface CreatePullRequestNew {
 	autoMerge: boolean;
 	autoMergeMethod?: MergeMethod;
 	labels: ILabel[];
+	projects: IProject[];
 	assignees: IAccount[];
 	reviewers: (IAccount | ITeam)[];
 	milestone?: IMilestone;
@@ -103,6 +104,7 @@ export interface CreateParamsNew {
 	isDraftDefault: boolean;
 	isDraft?: boolean;
 	labels?: ILabel[];
+	projects?: IProject[];
 	assignees?: IAccount[];
 	reviewers?: (IAccount | ITeam)[];
 	milestone?: IMilestone;

@@ -204,6 +204,7 @@ export class CreatePRContextNew {
 			autoMerge: !!this.createParams.autoMerge,
 			autoMergeMethod: this.createParams.autoMergeMethod,
 			labels: this.createParams.labels ?? [],
+			projects: this.createParams.projects ?? [],
 			assignees: this.createParams.assignees ?? [],
 			reviewers: this.createParams.reviewers ?? [],
 			milestone: this.createParams.milestone
@@ -308,6 +309,7 @@ export class CreatePRContextNew {
 			case 'set-labels':
 			case 'set-assignees':
 			case 'set-reviewers':
+			case 'set-projects':
 				if (!message.params) {
 					return;
 				}

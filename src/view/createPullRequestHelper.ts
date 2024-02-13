@@ -90,6 +90,14 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 		);
 
 		this._disposables.push(
+			vscode.commands.registerCommand('pr.addProjectsToNewPr', _ => {
+				if (this._createPRViewProvider instanceof CreatePullRequestViewProviderNew) {
+					return this._createPRViewProvider.addProjects();
+				}
+			}),
+		);
+
+		this._disposables.push(
 			vscode.commands.registerCommand('pr.createPrMenuCreate', () => {
 				if (this._createPRViewProvider instanceof CreatePullRequestViewProviderNew) {
 					this._createPRViewProvider.createFromCommand(false, false, undefined);

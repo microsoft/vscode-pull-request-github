@@ -475,7 +475,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async changeProjects(message: IRequestMessage<void>): Promise<void> {
-		return getProjectFromQuickPick(this._folderRepositoryManager, this._item.githubRepository, this._item.remote.remoteName, this._item.base.isInOrganization, this._item.item.projectItems, (project) => this.updateProjects(project, message));
+		return getProjectFromQuickPick(this._folderRepositoryManager, this._item.githubRepository, this._item.remote.remoteName, this._item.base.isInOrganization, this._item.item.projectItems?.map(item => item.project), (project) => this.updateProjects(project, message));
 	}
 
 	private async updateProjects(projects: IProject[] | undefined, message: IRequestMessage<void>) {

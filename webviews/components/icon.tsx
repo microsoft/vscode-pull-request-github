@@ -40,5 +40,6 @@ export const assigneeIcon = <Icon src={require('../../resources/icons/assignee.s
 export const reviewerIcon = <Icon src={require('../../resources/icons/reviewer.svg')} />;
 export const labelIcon = <Icon src={require('../../resources/icons/label.svg')} />;
 export const milestoneIcon = <Icon src={require('../../resources/icons/milestone.svg')} />;
+export const projectIcon = <Icon src={require('../../resources/icons/project.svg')} />;
 export const sparkleIcon = <Icon src={require('../../resources/icons/sparkle.svg')} />;
 export const stopIcon = <Icon src={require('../../resources/icons/stop.svg')} />;

@@ -220,6 +220,7 @@
 	"command.pr.addReviewersToNewPr.title": "Add Reviewers",
 	"command.pr.addLabelsToNewPr.title": "Apply Labels",
 	"command.pr.addMilestoneToNewPr.title": "Set Milestone",
+	"command.pr.addProjectsToNewPr.title": "Add Projects",
 	"command.pr.addFileComment.title": "Add File Comment",
 	"command.review.diffWithPrHead.title": "Compare Base With Pull Request Head (readonly)",
 	"command.review.diffLocalWithPrHead.title": "Compare Pull Request Head with Local",
