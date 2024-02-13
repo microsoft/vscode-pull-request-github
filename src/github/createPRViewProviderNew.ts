@@ -33,11 +33,11 @@ import {
 	titleAndBodyFrom,
 } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
-import { IAccount, ILabel, IMilestone, isTeam, ITeam, MergeMethod, RepoAccessAndMergeMethods } from './interface';
+import { IAccount, ILabel, IMilestone, IProject, isTeam, ITeam, MergeMethod, RepoAccessAndMergeMethods } from './interface';
 import { BaseBranchMetadata } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
-import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, reviewersQuickPick } from './quickPicks';
+import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
 import { getIssueNumberLabelFromParsed, ISSUE_EXPRESSION, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
 
 const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
@@ -663,14 +663,24 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		}
 	}
 
-	private setMilestone(pr: PullRequestModel, milestone: IMilestone | undefined): void {
+	private setMilestone(pr: PullRequestModel, milestone: IMilestone | undefined) {
 		if (milestone) {
-			pr.updateMilestone(milestone.id);
+			return pr.updateMilestone(milestone.id);
+		}
+	}
+
+	private setProjects(pr: PullRequestModel, projects: IProject[]) {
+		if (projects.length) {
+			return pr.updateProjects(projects);
 		}
 	}
 
 	private async getRemote(): Promise<GitHubRemote> {
 		return (await this._folderRepositoryManager.getGitHubRemotes()).find(remote => compareIgnoreCase(remote.owner, this._baseRemote.owner) === 0 && compareIgnoreCase(remote.repositoryName, this._baseRemote.repositoryName) === 0)!;
+	}
+
+	private getGitHubRepo(): GitHubRepository | undefined {
+		return this._folderRepositoryManager.gitHubRepositories.find(repo => compareIgnoreCase(repo.remote.owner, this._baseRemote.owner) === 0 && compareIgnoreCase(repo.remote.repositoryName, this._baseRemote.repositoryName) === 0);
 	}
 
 	private milestone: IMilestone | undefined;
@@ -742,6 +752,23 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				params: { assignees: this.assignees }
 			});
 		}
+	}
+	private projects: IProject[] = [];
+	public async addProjects(): Promise<void> {
+		const githubRepo = this.getGitHubRepo();
+		if (!githubRepo) {
+			return;
+		}
+		await new Promise<void>((resolve) => {
+			getProjectFromQuickPick(this._folderRepositoryManager, githubRepo, this.projects, async (projects) => {
+				this.projects = projects;
+				this._postMessage({
+					command: 'set-projects',
+					params: { projects: this.projects }
+				});
+				resolve();
+			});
+		});
 	}
 
 	private labels: ILabel[] = [];
@@ -938,7 +965,8 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				this.enableAutoMerge(createdPR, message.args.autoMerge, message.args.autoMergeMethod),
 				this.setAssignees(createdPR, message.args.assignees),
 				this.setReviewers(createdPR, message.args.reviewers),
-				this.setMilestone(createdPR, message.args.milestone)]);
+				this.setMilestone(createdPR, message.args.milestone),
+				this.setProjects(createdPR, message.args.projects)]);
 		};
 
 		CreatePullRequestViewProviderNew.withProgress(() => {
@@ -1102,6 +1130,9 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 
 			case 'pr.changeMilestone':
 				return this.addMilestone();
+
+			case 'pr.changeProjects':
+				return this.addProjects();
 
 			case 'pr.removeLabel':
 				return this.removeLabel(message);

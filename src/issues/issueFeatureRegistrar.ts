@@ -17,6 +17,7 @@ import {
 import { ITelemetry } from '../common/telemetry';
 import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
+import { IProject } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getRepositoryForFile, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../github/utils';
@@ -34,6 +35,7 @@ import {
 	NEW_ISSUE_SCHEME,
 	NewIssueCache,
 	NewIssueFileCompletionProvider,
+	PROJECTS,
 } from './issueFile';
 import { IssueHoverProvider } from './issueHoverProvider';
 import { openCodeLink } from './issueLinkLookup';
@@ -647,6 +649,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			metadata.assignees,
 			metadata.labels,
 			metadata.milestone,
+			metadata.projects,
 			this.createIssueInfo?.lineNumber,
 			this.createIssueInfo?.insertIndex,
 			metadata.originUri
@@ -926,7 +929,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			title = quickInput.value;
 			if (title) {
 				quickInput.busy = true;
-				await this.doCreateIssue(document, newIssue, title, body, assignee, undefined, undefined, lineNumber, insertIndex);
+				await this.doCreateIssue(document, newIssue, title, body, assignee, undefined, undefined, undefined, lineNumber, insertIndex);
 				quickInput.busy = false;
 			}
 			quickInput.hide();
@@ -965,11 +968,13 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			}`;
 		const labelLine = `${LABELS} `;
 		const milestoneLine = `${MILESTONE} `;
+		const projectsLine = `${PROJECTS} `;
 		const cached = this._newIssueCache.get();
 		const text = (cached && cached !== '') ? cached : `${title ?? vscode.l10n.t('Issue Title')}\n
 ${assigneeLine}
 ${labelLine}
-${milestoneLine}\n
+${milestoneLine}
+${projectsLine}\n
 ${body ?? ''}\n
 <!-- ${vscode.l10n.t('Edit the body of your new issue then click the ✓ \"Create Issue\" button in the top right of the editor. The first line will be the issue title. Assignees and Labels follow after a blank line. Leave an empty line before beginning the body of the issue.')} -->`;
 		await vscode.workspace.fs.writeFile(bodyPath, this.stringToUint8Array(text));
@@ -983,6 +988,13 @@ ${body ?? ''}\n
 		const labelsDecoration = vscode.window.createTextEditorDecorationType({
 			after: {
 				contentText: vscode.l10n.t(' Comma-separated labels.'),
+				fontStyle: 'italic',
+				color: new vscode.ThemeColor('issues.newIssueDecoration'),
+			},
+		});
+		const projectsDecoration = vscode.window.createTextEditorDecorationType({
+			after: {
+				contentText: vscode.l10n.t(' Comma-separated projects.'),
 				fontStyle: 'italic',
 				color: new vscode.ThemeColor('issues.newIssueDecoration'),
 			},
@@ -1002,6 +1014,12 @@ ${body ?? ''}\n
 				if (labelFullLine.text.startsWith(LABELS)) {
 					textEditor.setDecorations(labelsDecoration, [
 						new vscode.Range(new vscode.Position(3, 0), new vscode.Position(3, labelFullLine.text.length)),
+					]);
+				}
+				const projectsFullLine = textEditor.document.lineAt(5);
+				if (projectsFullLine.text.startsWith(PROJECTS)) {
+					textEditor.setDecorations(projectsDecoration, [
+						new vscode.Range(new vscode.Position(5, 0), new vscode.Position(5, projectsFullLine.text.length)),
 					]);
 				}
 			}
@@ -1149,6 +1167,7 @@ ${body ?? ''}\n
 		assignees: string[] | undefined,
 		labels: string[] | undefined,
 		milestone: number | undefined,
+		projects: IProject[] | undefined,
 		lineNumber: number | undefined,
 		insertIndex: number | undefined,
 		originUri?: vscode.Uri,
@@ -1189,12 +1208,16 @@ ${body ?? ''}\n
 				labels,
 				milestone
 			};
+
 			if (!(await this.verifyLabels(folderManager, createParams))) {
 				return false;
 			}
 			progress.report({ message: vscode.l10n.t('Creating issue in {0}...', `${createParams.owner}/${createParams.repo}`) });
 			const issue = await folderManager.createIssue(createParams);
 			if (issue) {
+				if (projects) {
+					await issue.updateProjects(projects);
+				}
 				if (document !== undefined && insertIndex !== undefined && lineNumber !== undefined) {
 					const edit: vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
 					const insertText: string =

@@ -12,7 +12,7 @@ import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
 import { ContextDropdown } from '../components/contextDropdown';
-import { assigneeIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, reviewerIcon, sparkleIcon, stopIcon } from '../components/icon';
+import { assigneeIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, projectIcon, reviewerIcon, sparkleIcon, stopIcon } from '../components/icon';
 import { Avatar } from '../components/user';
 
 type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'create-automerge-rebase' | 'create-automerge-merge';
@@ -307,6 +307,20 @@ export function main() {
 								>
 									<li>
 										{params.milestone.title}
+									</li>
+								</ul>
+							</div>
+							: null}
+
+						{params.projects && (params.projects.length > 0) ?
+							<div className='projects'>
+								<span title='Projects' aria-hidden='true'>{projectIcon}</span>
+								<ul aria-label='Project' tabIndex={0} role='button'
+									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeProjects')}
+									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeProjects')}
+								>
+									<li>
+										{params.projects.map(project => <span key={project.id}>{project.title}</span>)}
 									</li>
 								</ul>
 							</div>

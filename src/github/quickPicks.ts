@@ -12,7 +12,7 @@ import { DataUri } from '../common/uri';
 import { formatError } from '../common/utils';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
-import { IAccount, ILabel, IMilestone, IProject, IProjectItem, isSuggestedReviewer, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
+import { IAccount, ILabel, IMilestone, IProject, isSuggestedReviewer, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 
 async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context: vscode.ExtensionContext, skipList: Set<string>, users: T[], picked: boolean, tooManyAssignable: boolean = false): Promise<(vscode.QuickPickItem & { user?: T })[]> {
@@ -214,12 +214,11 @@ function isProjectQuickPickItem(x: vscode.QuickPickItem | ProjectQuickPickItem):
 	return !!(x as ProjectQuickPickItem).id && !!(x as ProjectQuickPickItem).project;
 }
 
-export async function getProjectFromQuickPick(folderRepoManager: FolderRepositoryManager, githubRepository: GitHubRepository, remoteName: string, isInOrganization: boolean, currentProjects: IProjectItem[] | undefined, callback: (projects: IProject[]) => Promise<void>): Promise<void> {
+export async function getProjectFromQuickPick(folderRepoManager: FolderRepositoryManager, githubRepository: GitHubRepository, currentProjects: IProject[] | undefined, callback: (projects: IProject[]) => Promise<void>): Promise<void> {
 	try {
 		let selectedItems: vscode.QuickPickItem[] = [];
 		async function getProjectOptions(): Promise<(ProjectQuickPickItem | vscode.QuickPickItem)[]> {
-			const [repoProjects, orgProjects] = (await Promise.all([githubRepository.getProjects(), (isInOrganization ? folderRepoManager.getOrgProjects() : undefined)]));
-			const projects = [...(repoProjects ?? []), ...(orgProjects ? orgProjects[remoteName] : [])];
+			const projects = await folderRepoManager.getAllProjects(githubRepository);
 			if (!projects || !projects.length) {
 				return [
 					{
@@ -235,7 +234,7 @@ export async function getProjectFromQuickPick(folderRepoManager: FolderRepositor
 					id: result.id,
 					project: result
 				};
-				if (currentProjects && currentProjects.find(project => project.project.id === result.id)) {
+				if (currentProjects && currentProjects.find(project => project.id === result.id)) {
 					selectedItems.push(item);
 				}
 				return item;

@@ -1085,6 +1085,12 @@
 				"icon": "$(milestone)"
 			},
 			{
+				"command": "pr.addProjectsToNewPr",
+				"title": "%command.pr.addProjectsToNewPr.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(project)"
+			},
+			{
 				"command": "pr.addFileComment",
 				"title": "%command.pr.addFileComment.title%",
 				"category": "%command.pull.request.category%",
@@ -1782,6 +1788,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.addProjectsToNewPr",
+					"when": "false"
+				},
+				{
 					"command": "pr.addFileComment",
 					"when": "false"
 				},
@@ -2049,6 +2059,11 @@
 					"command": "pr.addMilestoneToNewPr",
 					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions",
 					"group": "navigation@4"
+				},
+				{
+					"command": "pr.addProjectsToNewPr",
+					"when": "view == github:createPullRequestWebview && github:createPrPermissions != READ && github:createPrPermissions",
+					"group": "navigation@5"
 				},
 				{
 					"command": "pr.refreshComments",
