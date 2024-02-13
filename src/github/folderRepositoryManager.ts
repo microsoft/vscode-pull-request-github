@@ -746,6 +746,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return globalStateProjects ?? this.createFetchOrgProjectsPromise();
 	}
 
+	async getAllProjects(githubRepository: GitHubRepository, clearOrgCache?: boolean): Promise<IProject[]> {
+		const isInOrganization = !!(await githubRepository.getMetadata()).organization;
+		const [repoProjects, orgProjects] = (await Promise.all([githubRepository.getProjects(), (isInOrganization ? this.getOrgProjects(clearOrgCache) : undefined)]));
+		return [...(repoProjects ?? []), ...(orgProjects ? orgProjects[githubRepository.remote.remoteName] : [])];
+	}
+
 	async getOrgTeamsCount(repository: GitHubRepository): Promise<number> {
 		if ((await repository.getMetadata()).organization) {
 			return repository.getOrgTeamsCount();

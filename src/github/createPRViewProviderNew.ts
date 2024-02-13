@@ -759,9 +759,8 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		if (!githubRepo) {
 			return;
 		}
-		const isInOrganization = !!(await githubRepo.getMetadata()).organization;
 		await new Promise<void>((resolve) => {
-			getProjectFromQuickPick(this._folderRepositoryManager, githubRepo, githubRepo.remote.remoteName, isInOrganization, this.projects, async (projects) => {
+			getProjectFromQuickPick(this._folderRepositoryManager, githubRepo, this.projects, async (projects) => {
 				this.projects = projects;
 				this._postMessage({
 					command: 'set-projects',

@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
+import { IProject } from '../github/interface';
 import { RepositoriesManager } from '../github/repositoriesManager';
 
 export const NEW_ISSUE_SCHEME = 'newIssue';
@@ -12,6 +13,7 @@ export const NEW_ISSUE_FILE = 'NewIssue.md';
 export const ASSIGNEES = vscode.l10n.t('Assignees:');
 export const LABELS = vscode.l10n.t('Labels:');
 export const MILESTONE = vscode.l10n.t('Milestone:');
+export const PROJECTS = vscode.l10n.t('Projects:');
 
 const NEW_ISSUE_CACHE = 'newIssue.cache';
 
@@ -91,7 +93,7 @@ export class NewIssueFileCompletionProvider implements vscode.CompletionItemProv
 		_context: vscode.CompletionContext,
 	): Promise<vscode.CompletionItem[]> {
 		const line = document.lineAt(position.line).text;
-		if (!line.startsWith(LABELS) && !line.startsWith(MILESTONE)) {
+		if (!line.startsWith(LABELS) && !line.startsWith(MILESTONE) && !line.startsWith(PROJECTS)) {
 			return [];
 		}
 		const originFile = extractIssueOriginFromQuery(document.uri);
@@ -108,6 +110,8 @@ export class NewIssueFileCompletionProvider implements vscode.CompletionItemProv
 			return this.provideLabelCompletionItems(folderManager, defaults);
 		} else if (line.startsWith(MILESTONE)) {
 			return this.provideMilestoneCompletionItems(folderManager);
+		} else if (line.startsWith(PROJECTS)) {
+			return this.provideProjectCompletionItems(folderManager);
 		} else {
 			return [];
 		}
@@ -127,6 +131,15 @@ export class NewIssueFileCompletionProvider implements vscode.CompletionItemProv
 		const milestones = await (await folderManager.getPullRequestDefaultRepo())?.getMilestones() ?? [];
 		return milestones.map(milestone => {
 			const item = new vscode.CompletionItem(milestone.title, vscode.CompletionItemKind.Event);
+			item.commitCharacters = [' ', ','];
+			return item;
+		});
+	}
+
+	private async provideProjectCompletionItems(folderManager: FolderRepositoryManager): Promise<vscode.CompletionItem[]> {
+		const projects = await (await folderManager.getPullRequestDefaultRepo())?.getProjects() ?? [];
+		return projects.map(project => {
+			const item = new vscode.CompletionItem(project.title, vscode.CompletionItemKind.Event);
 			item.commitCharacters = [' ', ','];
 			return item;
 		});
@@ -154,7 +167,7 @@ export class NewIssueCache {
 	}
 }
 
-export async function extractMetadataFromFile(repositoriesManager: RepositoriesManager): Promise<{ labels: string[] | undefined, milestone: number | undefined, assignees: string[] | undefined, title: string, body: string | undefined, originUri: vscode.Uri } | undefined> {
+export async function extractMetadataFromFile(repositoriesManager: RepositoriesManager): Promise<{ labels: string[] | undefined, milestone: number | undefined, projects: IProject[] | undefined, assignees: string[] | undefined, title: string, body: string | undefined, originUri: vscode.Uri } | undefined> {
 	let text: string;
 	if (
 		!vscode.window.activeTextEditor ||
@@ -232,6 +245,22 @@ export async function extractMetadataFromFile(repositoriesManager: RepositoriesM
 			text = text.substring(lines[0].length).trim();
 		}
 	}
+	let projects: IProject[] | undefined;
+	if (text.startsWith(PROJECTS)) {
+		const lines = text.split(/\r\n|\n/, 1);
+		if (lines.length === 1) {
+			const repoProjects = await folderManager.getAllProjects(repo);
+			projects = lines[0].substring(PROJECTS.length)
+				.split(',')
+				.map(value => {
+					value = value.trim();
+					return repoProjects.find(project => project.title === value);
+				})
+				.filter<IProject>((project): project is IProject => !!project);
+
+			text = text.substring(lines[0].length).trim();
+		}
+	}
 	const body = text ?? '';
-	return { labels, milestone, assignees, title, body, originUri };
+	return { labels, milestone, projects, assignees, title, body, originUri };
 }
