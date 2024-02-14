@@ -1151,6 +1151,25 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		);
 	}
 
+	async getPullRequestTemplateBody(owner: string): Promise<string | undefined> {
+		// First try for a local template
+		const templates = await this.getPullRequestTemplatesWithCache();
+		if (templates.length > 0) {
+			const templateUri = templates[0];
+			if (templateUri) {
+				try {
+					const templateContent = await vscode.workspace.fs.readFile(templateUri);
+					return new TextDecoder('utf-8').decode(templateContent);
+				} catch (e) {
+					Logger.warn(`Reading pull request template failed: ${e}`);
+				}
+			}
+		}
+
+		// If there's no local template, look for a owner-wide template
+		return this.getOwnerPullRequestTemplates(owner);
+	}
+
 	async getPullRequestTemplatesWithCache(): Promise<vscode.Uri[]> {
 		const cacheLocation = `${CACHED_TEMPLATE_URI}+${this.repository.rootUri.toString()}`;
 
@@ -1173,6 +1192,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 		}
 		return findTemplate;
+	}
+
+	private async getOwnerPullRequestTemplates(owner: string): Promise<string | undefined> {
+		const githubRepository = await this.createGitHubRepositoryFromOwnerName(owner, '.github');
+		if (!githubRepository) {
+			return undefined;
+		}
+		const templates = await githubRepository.getOwnerPullRequestTemplates();
+		if (templates && templates?.length > 0) {
+			return templates[0];
+		}
 	}
 
 	private async getPullRequestTemplates(): Promise<vscode.Uri[]> {

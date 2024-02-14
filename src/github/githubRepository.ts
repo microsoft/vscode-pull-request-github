@@ -33,6 +33,7 @@ import {
 	PullRequestParticipantsResponse,
 	PullRequestResponse,
 	PullRequestsResponse,
+	PullRequestTemplatesResponse,
 	RepoProjectsResponse,
 	ViewerPermissionResponse,
 } from './graphql';
@@ -222,7 +223,7 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
-	private codespacesTokenError(action: QueryOptions | MutationOptions) {
+	private codespacesTokenError<T>(action: QueryOptions | MutationOptions<T>) {
 		if (isInCodespaces() && this._metadata?.fork) {
 			// :( https://github.com/microsoft/vscode-pull-request-github/issues/5325#issuecomment-1798243852
 			/* __GDPR__
@@ -420,6 +421,26 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 
 		return 'master';
+	}
+
+	async getOwnerPullRequestTemplates(): Promise<string[] | undefined> {
+		try {
+			Logger.debug('Fetch pull request templates - enter', GitHubRepository.ID);
+			const { query, remote, schema } = await this.ensure();
+
+			const result = await query<PullRequestTemplatesResponse>({
+				query: schema.PullRequestTemplates,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+				}
+			});
+
+			Logger.debug('Fetch pull request templates - done', GitHubRepository.ID);
+			return result.data.repository.pullRequestTemplates.map(template => template.body);
+		} catch (e) {
+			Logger.error(`Fetching pull request templates failed: ${e}`, GitHubRepository.ID);
+		}
 	}
 
 	private _repoAccessAndMergeMethods: RepoAccessAndMergeMethods | undefined;

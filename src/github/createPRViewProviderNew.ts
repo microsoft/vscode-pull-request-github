@@ -261,20 +261,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	}
 
 	private async getPullRequestTemplate(): Promise<string | undefined> {
-		Logger.debug(`Pull request template - enter`, CreatePullRequestViewProviderNew.ID);
-		const templateUris = await this._folderRepositoryManager.getPullRequestTemplatesWithCache();
-		let template: string | undefined;
-		if (templateUris[0]) {
-			try {
-				const templateContent = await vscode.workspace.fs.readFile(templateUris[0]);
-				template = new TextDecoder('utf-8').decode(templateContent);
-			} catch (e) {
-				Logger.warn(`Reading pull request template failed: ${e}`);
-				return undefined;
-			}
-		}
-		Logger.debug(`Pull request template - done`, CreatePullRequestViewProviderNew.ID);
-		return template;
+		return this._folderRepositoryManager.getPullRequestTemplateBody(this.model.baseOwner);
 	}
 
 	private async getMergeConfiguration(owner: string, name: string, refetch: boolean = false): Promise<RepoAccessAndMergeMethods> {

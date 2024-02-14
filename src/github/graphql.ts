@@ -294,6 +294,14 @@ export interface PullRequestState {
 	} | null;
 }
 
+export interface PullRequestTemplatesResponse {
+	repository: {
+		pullRequestTemplates: {
+			body: string;
+		}[]
+	}
+}
+
 export interface PullRequestCommentsResponse {
 	repository: {
 		pullRequest: {
