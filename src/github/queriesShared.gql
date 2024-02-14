@@ -711,6 +711,14 @@ query PullRequestState($owner: String!, $name: String!, $number: Int!) {
 	}
 }
 
+query PullRequestTemplates($owner: String!, $name: String!) {
+	repository(owner: $owner, name: $name) {
+		pullRequestTemplates {
+			body
+		}
+	}
+}
+
 mutation AddComment($input: AddPullRequestReviewCommentInput!) {
 	addPullRequestReviewComment(input: $input) {
 		comment {
