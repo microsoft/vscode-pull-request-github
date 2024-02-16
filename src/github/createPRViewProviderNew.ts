@@ -939,8 +939,35 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		this.telemetry.sendTelemetryEvent('pr.usedGeneratedTitleAndDescription', { providerTitle: this.lastGeneratedTitleAndDescription.providerTitle, usedGeneratedTitle: usedGeneratedTitle.toString(), usedGeneratedDescription: usedGeneratedDescription.toString() });
 	}
 
+	/**
+	 *
+	 * @returns true if the PR should be created immediately after
+	 */
+	private async checkForChanges(): Promise<boolean> {
+		if (await this.model.filesHaveChanges()) {
+			const apply = vscode.l10n.t('Commit');
+			const deleteChanges = vscode.l10n.t('Delete my changes');
+			const result = await vscode.window.showWarningMessage(vscode.l10n.t('You have made changes to the files in this pull request. Do you want to commit these changes to the pull request before creating it?'), { modal: true }, apply, deleteChanges);
+			if (result === apply) {
+				const commitMessage = await vscode.window.showInputBox({ prompt: vscode.l10n.t('Commit message for your changes') });
+				if (commitMessage) {
+					return this.model.applyChanges(commitMessage);
+				}
+			} else if (result !== deleteChanges) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	private async create(message: IRequestMessage<CreatePullRequestNew>): Promise<void> {
 		Logger.debug(`Creating pull request with args ${JSON.stringify(message.args)}`, CreatePullRequestViewProviderNew.ID);
+
+		if (!(await this.checkForChanges())) {
+			Logger.debug('Not continuing past checking for file changes.', CreatePullRequestViewProviderNew.ID);
+			await this._replyMessage(message, {});
+			return;
+		}
 
 		// Save create method
 		const createMethod: { autoMerge: boolean, mergeMethod: MergeMethod | undefined, isDraft: boolean } = { autoMerge: message.args.autoMerge, mergeMethod: message.args.autoMergeMethod, isDraft: message.args.draft };

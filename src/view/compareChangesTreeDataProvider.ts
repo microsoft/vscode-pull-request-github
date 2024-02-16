@@ -15,7 +15,6 @@ import { dateFromNow, toDisposable } from '../common/utils';
 import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { CreatePullRequestDataModel } from './createPullRequestDataModel';
-import { GitContentProvider, GitHubContentProvider } from './gitHubContentProvider';
 import { GitHubFileChangeNode } from './treeNodes/fileChangeNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 
@@ -329,9 +328,6 @@ export class CompareChanges implements vscode.Disposable {
 	private _commitsView: vscode.TreeView<TreeNode>;
 	private _commitsDataProvider: CompareChangesCommitsTreeProvider;
 
-	private _gitHubcontentProvider: GitHubContentProvider | undefined;
-	private _gitcontentProvider: GitContentProvider | undefined;
-
 	private _disposables: vscode.Disposable[] = [];
 
 	constructor(
@@ -378,33 +374,24 @@ export class CompareChanges implements vscode.Disposable {
 			return;
 		}
 
-		if (!this._gitHubcontentProvider) {
-			try {
-				this._gitHubcontentProvider = new GitHubContentProvider(this.model.gitHubRepository);
-				this._gitcontentProvider = new GitContentProvider(this.folderRepoManager);
-				this._disposables.push(
-					vscode.workspace.registerFileSystemProvider(Schemes.GithubPr, this._gitHubcontentProvider, {
-						isReadonly: true,
-					}),
-				);
-				this._disposables.push(
-					vscode.workspace.registerFileSystemProvider(Schemes.GitPr, this._gitcontentProvider, {
-						isReadonly: true,
-					}),
-				);
-				this._disposables.push(toDisposable(() => {
-					CompareChangesTreeProvider.closeTabs();
-				}));
-			} catch (e) {
-				// already registered
-			}
+		try {
+			this._disposables.push(
+				vscode.workspace.registerFileSystemProvider(Schemes.GithubPr, this.model.gitHubContentProvider),
+			);
+			this._disposables.push(
+				vscode.workspace.registerFileSystemProvider(Schemes.GitPr, this.model.gitContentProvider),
+			);
+			this._disposables.push(toDisposable(() => {
+				CompareChangesTreeProvider.closeTabs();
+			}));
+		} catch (e) {
+			// already registered
 		}
+
 	}
 
 	dispose() {
 		this._disposables.forEach(d => d.dispose());
-		this._gitHubcontentProvider = undefined;
-		this._gitcontentProvider = undefined;
 		this._filesView.dispose();
 	}
 

@@ -8,6 +8,7 @@ import { Change, Commit } from '../api/api';
 import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
+import { ChangesContentProvider, GitContentProvider, GitHubContentProvider } from './gitHubContentProvider';
 
 export class CreatePullRequestDataModel {
 	private _baseOwner: string;
@@ -27,11 +28,24 @@ export class CreatePullRequestDataModel {
 	private _gitHubLog: OctokitCommon.Commit[] | undefined;
 	private _gitHubFiles: OctokitCommon.CommitFile[] | undefined;
 
+	private _gitHubcontentProvider: GitHubContentProvider;
+	private _gitcontentProvider: GitContentProvider;
+
 	constructor(private readonly folderRepositoryManager: FolderRepositoryManager, baseOwner: string, baseBranch: string, compareOwner: string, compareBranch: string) {
 		this._baseOwner = baseOwner;
 		this._baseBranch = baseBranch;
+		this._gitcontentProvider = new GitContentProvider(this.folderRepositoryManager);
+		this._gitHubcontentProvider = new GitHubContentProvider(this.folderRepositoryManager, this.folderRepositoryManager.gitHubRepositories[0]);
 		this._constructed = new Promise<void>(resolve => this.setCompareBranch(compareBranch).then(resolve));
 		this.compareOwner = compareOwner;
+	}
+
+	get gitHubContentProvider(): GitHubContentProvider {
+		return this._gitHubcontentProvider;
+	}
+
+	get gitContentProvider(): GitContentProvider {
+		return this._gitcontentProvider;
 	}
 
 	private get baseRemoteName(): string {
@@ -71,7 +85,30 @@ export class CreatePullRequestDataModel {
 			this._gitHubRepository = this.folderRepositoryManager.gitHubRepositories.find(
 				repo => repo.remote.owner === this._compareOwner,
 			);
+			if (this._gitHubRepository) {
+				this._gitHubcontentProvider.gitHubRepository = this._gitHubRepository;
+			}
 			this.update();
+		}
+	}
+
+	private async getContentProvider(): Promise<ChangesContentProvider> {
+		if (await this.getCompareHasUpstream()) {
+			return this.gitHubContentProvider;
+		} else {
+			return this.gitContentProvider;
+		}
+	}
+
+	public async filesHaveChanges(): Promise<boolean> {
+		return this.getContentProvider().then(provider => provider.hasChanges());
+	}
+
+	public async applyChanges(commitMessage: string): Promise<boolean> {
+		if (await this.getCompareHasUpstream()) {
+			return this.gitHubContentProvider.applyChanges(commitMessage, this._compareBranch);
+		} else {
+			return this.gitContentProvider.applyChanges(commitMessage);
 		}
 	}
 
@@ -112,10 +149,12 @@ export class CreatePullRequestDataModel {
 	}
 
 	private update() {
+		// TODO: handle branch change in content providers
 		this._gitLog = undefined;
 		this._gitFiles = undefined;
 		this._gitHubLog = undefined;
 		this._gitHubFiles = undefined;
+		this.gitContentProvider.readonlyBranches = this._compareBranch === this.folderRepositoryManager.repository.state.HEAD?.name ? [this._baseBranch] : [this._baseBranch, this._compareBranch];
 		this._onDidChange.fire();
 	}
 
@@ -185,6 +224,7 @@ export class CreatePullRequestDataModel {
 		if (this._gitHubMergeBase === undefined) {
 			await this.gitHubCommits();
 		}
+		this.gitHubContentProvider.readonlyBranches = this._gitHubMergeBase ? [this._gitHubMergeBase] : [];
 		return this._gitHubMergeBase!;
 	}
 }
