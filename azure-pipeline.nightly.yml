@@ -83,5 +83,8 @@ extends:
       #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
 
     publishExtension: ${{ parameters.publishExtension }}
-    platformName: Windows
+    buildPlatforms:
+      - Windows
+        name: 'Windows'
+        target: ''
     signExtension: true
