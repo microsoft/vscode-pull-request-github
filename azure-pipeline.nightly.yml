@@ -29,6 +29,7 @@ extends:
   parameters:
     l10nSourcePaths: ./src
     customNPMRegistry: ''
+    buildPlatforms:
      - name: Windows
         packageArch: x64
         vsceTarget: win32-x64
