@@ -85,5 +85,4 @@ extends:
     publishExtension: ${{ parameters.publishExtension }}
     buildPlatforms:
       - Windows
-        vsceTarget: ''
     signExtension: true
