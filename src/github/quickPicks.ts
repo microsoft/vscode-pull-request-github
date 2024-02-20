@@ -229,7 +229,7 @@ export async function getProjectFromQuickPick(folderRepoManager: FolderRepositor
 
 			const projectItems: (ProjectQuickPickItem | vscode.QuickPickItem)[] = projects.map(result => {
 				const item = {
-					iconPath: new vscode.ThemeIcon('project'),
+					iconPath: new vscode.ThemeIcon('github-project'),
 					label: result.title,
 					id: result.id,
 					project: result
@@ -245,7 +245,7 @@ export async function getProjectFromQuickPick(folderRepoManager: FolderRepositor
 		const quickPick = vscode.window.createQuickPick();
 		quickPick.busy = true;
 		quickPick.canSelectMany = true;
-		quickPick.title = vscode.l10n.t('Set Project');
+		quickPick.title = vscode.l10n.t('Set projects');
 		quickPick.show();
 		quickPick.items = await getProjectOptions();
 		quickPick.selectedItems = selectedItems;

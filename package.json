@@ -1088,7 +1088,7 @@
 				"command": "pr.addProjectsToNewPr",
 				"title": "%command.pr.addProjectsToNewPr.title%",
 				"category": "%command.pull.request.category%",
-				"icon": "$(project)"
+				"icon": "$(github-project)"
 			},
 			{
 				"command": "pr.addFileComment",
