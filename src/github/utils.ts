@@ -737,7 +737,7 @@ function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle | undefined, de
 		}
 		case GraphQL.DefaultCommitTitle.commitOrPrTitle: {
 			if (pullRequest.commits.length === 1) {
-				title = `${pullRequest.commits[0].message} ${prNumberPostfix}`;
+				title = `${pullRequest.commits[0].message.split('\n')[0]} ${prNumberPostfix}`;
 			} else {
 				title = `${pullRequest.title} ${prNumberPostfix}`;
 			}
@@ -750,7 +750,12 @@ function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle | undefined, de
 			break;
 		}
 		case GraphQL.DefaultCommitMessage.commitMessages: {
-			description = pullRequest.commits.map(commit => `* ${commit.message}`).join('\n\n');
+			if ((pullRequest.commits.length === 1) && (titleSource === GraphQL.DefaultCommitTitle.commitOrPrTitle)) {
+				const split = pullRequest.commits[0].message.split('\n');
+				description = split.length > 1 ? split.slice(1).join('\n') : '';
+			} else {
+				description = pullRequest.commits.map(commit => `* ${commit.message}`).join('\n\n');
+			}
 			break;
 		}
 		case GraphQL.DefaultCommitMessage.prTitle: {
