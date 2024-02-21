@@ -256,6 +256,7 @@ export class GitHubRepository implements vscode.Disposable {
 		try {
 			rsp = await gql.query<T>(query);
 		} catch (e) {
+			Logger.error(`Error querying GraphQL API: ${e.message}`, GitHubRepository.ID);
 			if (legacyFallback) {
 				query.query = legacyFallback.query;
 				return this.query(query, ignoreSamlErrors);
