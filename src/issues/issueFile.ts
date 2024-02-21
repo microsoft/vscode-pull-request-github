@@ -137,7 +137,8 @@ export class NewIssueFileCompletionProvider implements vscode.CompletionItemProv
 	}
 
 	private async provideProjectCompletionItems(folderManager: FolderRepositoryManager): Promise<vscode.CompletionItem[]> {
-		const projects = await (await folderManager.getPullRequestDefaultRepo())?.getProjects() ?? [];
+		const repo = await folderManager.getPullRequestDefaultRepo();
+		const projects = await folderManager.getAllProjects(repo) ?? [];
 		return projects.map(project => {
 			const item = new vscode.CompletionItem(project.title, vscode.CompletionItemKind.Event);
 			item.commitCharacters = [' ', ','];
