@@ -256,7 +256,7 @@ export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canU
 	const update = () => {
 		setBusy(true);
 		updateBranch().finally(() => setBusy(false));
-	}
+	};
 	if (!canUpdateBranch || !isCurrentlyCheckedOut || isSimple || mergeable === PullRequestMergeability.Behind || mergeable === PullRequestMergeability.Conflict || mergeable === PullRequestMergeability.Unknown) {
 		return null;
 	}
@@ -420,7 +420,7 @@ export const DeleteBranch = (pr: PullRequest) => {
 function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMethod; cancel: () => void }) {
 	const { merge, updatePR, changeEmail } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
-
+	const emailForCommit = pr.emailForCommit;
 	return (
 		<div>
 			<form id='merge-comment-form'
@@ -434,7 +434,7 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 							title: title?.value,
 							description: description?.value,
 							method,
-							email: pr.emailForCommit
+							email: emailForCommit
 						});
 						updatePR({ state });
 					} finally {
@@ -444,13 +444,13 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 			>
 				{method === 'rebase' ? null : (<input type="text" name="title" defaultValue={getDefaultTitleText(method, pr)} />)}
 				{method === 'rebase' ? null : (<textarea name="description" defaultValue={getDefaultDescriptionText(method, pr)} />)}
-				{method === 'rebase' ? null : (
+				{(method === 'rebase' || !emailForCommit) ? null : (
 					<div className='commit-association'>
 						<span>
 							Commit will be associated with <button className='input-box' title='Change email' aria-label='Change email' disabled={isBusy} onClick={() => {
 								setBusy(true);
-								changeEmail(pr.emailForCommit).finally(() => setBusy(false));
-							}}>{pr.emailForCommit}</button>
+								changeEmail(emailForCommit).finally(() => setBusy(false));
+							}}>{emailForCommit}</button>
 						</span>
 					</div>
 				)}
