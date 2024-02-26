@@ -752,7 +752,7 @@ function parseCommitMeta(titleSource: GraphQL.DefaultCommitTitle | undefined, de
 		case GraphQL.DefaultCommitMessage.commitMessages: {
 			if ((pullRequest.commits.length === 1) && (titleSource === GraphQL.DefaultCommitTitle.commitOrPrTitle)) {
 				const split = pullRequest.commits[0].message.split('\n');
-				description = split.length > 1 ? split.slice(1).join('\n') : '';
+				description = split.length > 1 ? split.slice(1).join('\n').trim() : '';
 			} else {
 				description = pullRequest.commits.map(commit => `* ${commit.message}`).join('\n\n');
 			}
