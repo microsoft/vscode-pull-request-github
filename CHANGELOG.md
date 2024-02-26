@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.82.0
+
+### Changes
+
+- There is an option to choose which email to associate a merge or squash commit with.
+
+	![Commit associated with email](./documentation/changelog/0.82.0/email-for-commit.png)
+- The setting `githubPullRequests.labelCreated` can be used to configure the labels that are automatically added to PRs that are created.
+- When the cursor is in a comment widget input, the keybinding `ctrl+k m` or (`cmd+k m` on mac) can be used to insert a suggestion.
+- Video previews now show in the PR description.
+- The activity bar entry has been renamed from "GitHub" to "GitHub Pull Requests". The extension has been renamed from "GitHub Pull Requests and Issues" to "GitHub Pull Requests".
+- "Owner level" PR templates are now supported. This means that a PR template can be defined in the `.github` repository of an organization or user and it will be used for all repositories owned by that organization or user which do not have a repository-specific PR template.
+- Projects can be added to a PR from the "Create" view. Projects can also be added to new issues.
+
+### Fixes
+
+- [Accessibility] Remove redundant prefix-style info from PR change view. https://github.com/microsoft/vscode-pull-request-github/issues/5705
+- Append PR number to merge commit message. https://github.com/microsoft/vscode-pull-request-github/issues/5690
+- Update with merge commitbutton does not go away despite merging. https://github.com/microsoft/vscode-pull-request-github/issues/5661
+- "Bad credentials" with no additional information to help resolve. https://github.com/microsoft/vscode-pull-request-github/issues/5576
+
+**_Thank You_**
+
+* [@Malix-off (Malix)](https://github.com/Malix-off): Fix #5693 [PR #5694](https://github.com/microsoft/vscode-pull-request-github/pull/5694)
+* [@umakantv (Umakant Vashishtha)](https://github.com/umakantv): Feature: Auto Populate Labels  [PR #5679](https://github.com/microsoft/vscode-pull-request-github/pull/5679)
+
 ## 0.80.1
 
 ### Fixes
