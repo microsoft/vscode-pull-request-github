@@ -51,6 +51,9 @@ export class ReviewCommentController extends CommentControllerBase
 	private _pendingCommentThreadAdds: GHPRCommentThread[] = [];
 	private readonly _context: vscode.ExtensionContext;
 
+	private readonly _onDidChangeResourcesWithCommentingRanges: vscode.EventEmitter<{ schemes: string[]; resources: vscode.Uri[] }> = new vscode.EventEmitter();
+	readonly onDidChangeResourcesWithCommentingRanges = this._onDidChangeResourcesWithCommentingRanges.event;
+
 	constructor(
 		private _reviewManager: ReviewManager,
 		folderRepoManager: FolderRepositoryManager,
@@ -65,6 +68,8 @@ export class ReviewCommentController extends CommentControllerBase
 		);
 		this._commentController.commentingRangeProvider = this as vscode.CommentingRangeProvider;
 		this._commentController.reactionHandler = this.toggleReaction.bind(this);
+		this.updateResourcesWithCommentingRanges();
+		this._localToDispose.push(this._folderRepoManager.onDidChangeActivePullRequest(() => this.updateResourcesWithCommentingRanges()));
 		this._localToDispose.push(this._commentController);
 		this._commentHandlerId = uuid();
 		registerCommentHandler(this._commentHandlerId, this);
@@ -209,6 +214,16 @@ export class ReviewCommentController extends CommentControllerBase
 				this._obsoleteFileChangeCommentThreads[path] = outdatedCommentThreads;
 			}
 		});
+		this.updateResourcesWithCommentingRanges();
+	}
+
+	private updateResourcesWithCommentingRanges(): void {
+		const resources: vscode.Uri[] = [];
+		for (const file of (this._folderRepoManager.activePullRequest?.fileChanges.keys() ?? [])) {
+			const uri = vscode.Uri.joinPath(this._folderRepoManager.repository.rootUri, file);
+			resources.push(uri);
+		}
+		this._onDidChangeResourcesWithCommentingRanges.fire({ schemes: [Schemes.Review], resources });
 	}
 
 	private async initializeCommentThreads(): Promise<void> {
@@ -322,6 +337,8 @@ export class ReviewCommentController extends CommentControllerBase
 						matchingThread.dispose();
 					}
 				});
+
+				this.updateResourcesWithCommentingRanges();
 			}),
 		);
 	}
