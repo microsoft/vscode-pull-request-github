@@ -50,6 +50,7 @@ export class ReviewCommentController extends CommentControllerBase
 
 	private _pendingCommentThreadAdds: GHPRCommentThread[] = [];
 	private readonly _context: vscode.ExtensionContext;
+	public readonly resourceHints = { schemes: [Schemes.Review] };
 
 	constructor(
 		private _reviewManager: ReviewManager,
