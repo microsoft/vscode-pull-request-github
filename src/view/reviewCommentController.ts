@@ -51,9 +51,6 @@ export class ReviewCommentController extends CommentControllerBase
 	private _pendingCommentThreadAdds: GHPRCommentThread[] = [];
 	private readonly _context: vscode.ExtensionContext;
 
-	private readonly _onDidChangeResourcesWithCommentingRanges: vscode.EventEmitter<{ schemes: string[]; resources: vscode.Uri[] }> = new vscode.EventEmitter();
-	readonly onDidChangeResourcesWithCommentingRanges = this._onDidChangeResourcesWithCommentingRanges.event;
-
 	constructor(
 		private _reviewManager: ReviewManager,
 		folderRepoManager: FolderRepositoryManager,
@@ -217,13 +214,17 @@ export class ReviewCommentController extends CommentControllerBase
 		this.updateResourcesWithCommentingRanges();
 	}
 
+	/**
+	 * Causes pre-fetching of commenting ranges to occur for all files in the active PR
+	 */
 	private updateResourcesWithCommentingRanges(): void {
-		const resources: vscode.Uri[] = [];
-		for (const file of (this._folderRepoManager.activePullRequest?.fileChanges.keys() ?? [])) {
-			const uri = vscode.Uri.joinPath(this._folderRepoManager.repository.rootUri, file);
-			resources.push(uri);
+		// only prefetch for small PRs
+		if (this._folderRepoManager.activePullRequest && this._folderRepoManager.activePullRequest.fileChanges.size < 30) {
+			for (const file of (this._folderRepoManager.activePullRequest?.fileChanges.keys() ?? [])) {
+				const uri = vscode.Uri.joinPath(this._folderRepoManager.repository.rootUri, file);
+				vscode.workspace.openTextDocument(uri);
+			}
 		}
-		this._onDidChangeResourcesWithCommentingRanges.fire({ schemes: [Schemes.Review], resources });
 	}
 
 	private async initializeCommentThreads(): Promise<void> {

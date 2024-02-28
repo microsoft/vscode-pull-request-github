@@ -5,7 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { fromPRUri, Schemes } from '../common/uri';
+import { fromPRUri } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GHPRComment } from '../github/prComment';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -23,13 +23,9 @@ export class PRCommentControllerRegistry implements vscode.CommentingRangeProvid
 	private _prCommentingRangeProviders: { [key: number]: vscode.CommentingRangeProvider2 } = {};
 	private _activeChangeListeners: Map<FolderRepositoryManager, vscode.Disposable> = new Map();
 
-	private readonly _onDidChangeResourcesWithCommentingRanges: vscode.EventEmitter<{ schemes: string[]; resources: vscode.Uri[] }> = new vscode.EventEmitter();
-	readonly onDidChangeResourcesWithCommentingRanges = this._onDidChangeResourcesWithCommentingRanges.event;
-
 	constructor(public commentsController: vscode.CommentController) {
 		this.commentsController.commentingRangeProvider = this;
 		this.commentsController.reactionHandler = this.toggleReaction.bind(this);
-		this._onDidChangeResourcesWithCommentingRanges.fire({ schemes: [Schemes.Pr], resources: [] });
 	}
 
 	async provideCommentingRanges(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.Range[] | undefined> {
