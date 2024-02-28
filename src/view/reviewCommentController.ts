@@ -65,6 +65,8 @@ export class ReviewCommentController extends CommentControllerBase
 		);
 		this._commentController.commentingRangeProvider = this as vscode.CommentingRangeProvider;
 		this._commentController.reactionHandler = this.toggleReaction.bind(this);
+		this.updateResourcesWithCommentingRanges();
+		this._localToDispose.push(this._folderRepoManager.onDidChangeActivePullRequest(() => this.updateResourcesWithCommentingRanges()));
 		this._localToDispose.push(this._commentController);
 		this._commentHandlerId = uuid();
 		registerCommentHandler(this._commentHandlerId, this);
@@ -209,6 +211,20 @@ export class ReviewCommentController extends CommentControllerBase
 				this._obsoleteFileChangeCommentThreads[path] = outdatedCommentThreads;
 			}
 		});
+		this.updateResourcesWithCommentingRanges();
+	}
+
+	/**
+	 * Causes pre-fetching of commenting ranges to occur for all files in the active PR
+	 */
+	private updateResourcesWithCommentingRanges(): void {
+		// only prefetch for small PRs
+		if (this._folderRepoManager.activePullRequest && this._folderRepoManager.activePullRequest.fileChanges.size < 30) {
+			for (const file of (this._folderRepoManager.activePullRequest?.fileChanges.keys() ?? [])) {
+				const uri = vscode.Uri.joinPath(this._folderRepoManager.repository.rootUri, file);
+				vscode.workspace.openTextDocument(uri);
+			}
+		}
 	}
 
 	private async initializeCommentThreads(): Promise<void> {
@@ -322,6 +338,8 @@ export class ReviewCommentController extends CommentControllerBase
 						matchingThread.dispose();
 					}
 				});
+
+				this.updateResourcesWithCommentingRanges();
 			}),
 		);
 	}
