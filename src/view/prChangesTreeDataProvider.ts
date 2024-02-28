@@ -163,11 +163,37 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		return this._children;
 	}
 
+	private sortMap() {
+		const workspaceFolders = vscode.workspace.workspaceFolders;
+		const compareFolders = (a: vscode.Uri, b: vscode.Uri) => {
+			const aFolder = a.toString().toLowerCase();
+			const bFolder = b.toString().toLowerCase();
+			return aFolder.includes(bFolder) || bFolder.includes(aFolder);
+		};
+
+		return Array.from(this._pullRequestManagerMap.entries()).sort((a, b) => {
+			if (a[0].repository.rootUri.toString() === b[0].repository.rootUri.toString()) {
+				return 0;
+			}
+			if (!workspaceFolders) return 0;
+			const aIndex = workspaceFolders.findIndex(folder => compareFolders(folder.uri, a[0].repository.rootUri));
+			const bIndex = workspaceFolders.findIndex(folder => compareFolders(folder.uri, b[0].repository.rootUri));
+			if (aIndex === -1) {
+				return 1;
+			}
+			if (bIndex === -1) {
+				return -1;
+			}
+			return aIndex - bIndex;
+		}).map(([_, value]) => value);
+	}
+
 	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
 		if (!element) {
 			this._children = [];
 			if (this._pullRequestManagerMap.size >= 1) {
-				for (const item of this._pullRequestManagerMap.values()) {
+				const sortedValues = this.sortMap();
+				for (const item of sortedValues) {
 					this._children.push(item);
 				}
 			}
