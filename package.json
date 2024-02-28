@@ -12,7 +12,6 @@
 	},
 	"enabledApiProposals": [
 		"activeComment",
-		"commentingRangeResourcesChanged",
 		"tokenInformation",
 		"contribShareMenu",
 		"fileComments",
@@ -28,7 +27,7 @@
 		"tabInputTextMerge",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.82.0",
+	"version": "0.80.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.87.0"
