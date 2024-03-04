@@ -6,7 +6,6 @@
 
 import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
-import { RemoteInfo } from '../../common/views';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
 import { formatError } from '../common/utils';
@@ -378,9 +377,10 @@ export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderR
 export async function getLabelOptions(
 	folderRepoManager: FolderRepositoryManager,
 	labels: ILabel[],
-	base: RemoteInfo
+	baseOwner: string,
+	repositoryName: string
 ): Promise<{ newLabels: ILabel[], labelPicks: vscode.QuickPickItem[] }> {
-	const newLabels = await folderRepoManager.getLabels(undefined, { owner: base.owner, repo: base.repositoryName });
+	const newLabels = await folderRepoManager.getLabels(undefined, { owner: baseOwner, repo: repositoryName });
 
 	const labelPicks = newLabels.map(label => {
 		return {

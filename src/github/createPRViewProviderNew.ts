@@ -27,7 +27,6 @@ import { PREVIOUS_CREATE_METHOD } from '../extensionState';
 import { CreatePullRequestDataModel } from '../view/createPullRequestDataModel';
 import {
 	byRemoteName,
-	DetachedHeadError,
 	FolderRepositoryManager,
 	PullRequestDefaults,
 	titleAndBodyFrom,
@@ -49,21 +48,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	private _onDone = new vscode.EventEmitter<PullRequestModel | undefined>();
 	readonly onDone: vscode.Event<PullRequestModel | undefined> = this._onDone.event;
 
-	private _onDidChangeBaseRemote = new vscode.EventEmitter<RemoteInfo>();
-	readonly onDidChangeBaseRemote: vscode.Event<RemoteInfo> = this._onDidChangeBaseRemote.event;
-
-	private _onDidChangeBaseBranch = new vscode.EventEmitter<string>();
-	readonly onDidChangeBaseBranch: vscode.Event<string> = this._onDidChangeBaseBranch.event;
-
-	private _onDidChangeCompareRemote = new vscode.EventEmitter<RemoteInfo>();
-	readonly onDidChangeCompareRemote: vscode.Event<RemoteInfo> = this._onDidChangeCompareRemote.event;
-
-	private _onDidChangeCompareBranch = new vscode.EventEmitter<string>();
-	readonly onDidChangeCompareBranch: vscode.Event<string> = this._onDidChangeCompareBranch.event;
-
-	private _compareBranch: string;
-	private _baseBranch: string;
-	private _baseRemote: RemoteInfo;
+	private _defaultCompareBranch: string;
 
 	private _firstLoad: boolean = true;
 
@@ -73,11 +58,42 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		extensionUri: vscode.Uri,
 		private readonly _folderRepositoryManager: FolderRepositoryManager,
 		private readonly _pullRequestDefaults: PullRequestDefaults,
-		compareBranch: Branch,
 	) {
 		super(extensionUri);
+		this._defaultCompareBranch = this.model.compareBranch;
 
-		this._defaultCompareBranch = compareBranch;
+		this._disposables.push(this.model.onDidChange(async (e) => {
+			let baseRemote: RemoteInfo | undefined;
+			let baseBranch: string | undefined;
+			if (e.baseOwner) {
+				baseRemote = this._folderRepositoryManager.findRepo(repo => compareIgnoreCase(repo.remote.owner, e.baseOwner!) === 0 && compareIgnoreCase(repo.remote.repositoryName, this.model.repositoryName) === 0)?.remote;
+				baseBranch = this.model.baseBranch;
+			}
+			if (e.baseBranch) {
+				baseBranch = e.baseBranch;
+			}
+			let compareRemote: RemoteInfo | undefined;
+			let compareBranch: string | undefined;
+			if (e.compareOwner) {
+				compareRemote = this._folderRepositoryManager.findRepo(repo => compareIgnoreCase(repo.remote.owner, e.compareOwner!) === 0 && compareIgnoreCase(repo.remote.repositoryName, this.model.repositoryName) === 0)?.remote;
+				compareBranch = this.model.compareBranch;
+			}
+			if (e.compareBranch) {
+				compareBranch = e.compareBranch;
+			}
+			const params: Partial<CreateParamsNew> = {
+				baseRemote,
+				baseBranch,
+				compareRemote,
+				compareBranch
+			};
+			// TODO: consider updating title and description
+			return this._postMessage({
+				command: 'pr.initialize',
+				params,
+			});
+
+		}));
 	}
 
 	public resolveWebviewView(
@@ -97,17 +113,14 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		}
 	}
 
-	private _defaultCompareBranch: Branch;
-	get defaultCompareBranch() {
-		return this._defaultCompareBranch;
-	}
 
-	set defaultCompareBranch(compareBranch: Branch | undefined) {
-		const branchChanged = compareBranch && (compareBranch.name !== this._defaultCompareBranch.name);
-		const branchRemoteChanged = compareBranch && (compareBranch.upstream?.remote !== this._defaultCompareBranch.upstream?.remote);
-		const commitChanged = compareBranch && (compareBranch.commit !== this._defaultCompareBranch.commit);
-		if (branchChanged || branchRemoteChanged || commitChanged) {
-			this._defaultCompareBranch = compareBranch!;
+	public async setDefaultCompareBranch(compareBranch: Branch | undefined) {
+		const branchChanged = compareBranch && (compareBranch.name !== this.model.compareBranch);
+		const currentCompareRemote = this._folderRepositoryManager.gitHubRepositories.find(repo => repo.remote.owner === this.model.compareOwner)?.remote.remoteName;
+		const branchRemoteChanged = compareBranch && (compareBranch.upstream?.remote !== currentCompareRemote);
+		if (branchChanged || branchRemoteChanged) {
+			this._defaultCompareBranch = compareBranch!.name!;
+			this.model.setCompareBranch(compareBranch!.name);
 			this.changeBranch(compareBranch!.name!, false).then(titleAndDescription => {
 				const params: Partial<CreateParamsNew> = {
 					defaultTitle: titleAndDescription.title,
@@ -122,16 +135,12 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 					});
 				}
 			});
-
-			if (branchChanged) {
-				this._onDidChangeCompareBranch.fire(this._defaultCompareBranch.name!);
-			}
 		}
 	}
 
 	public show(compareBranch?: Branch): void {
 		if (compareBranch) {
-			this.defaultCompareBranch = compareBranch;
+			this.setDefaultCompareBranch(compareBranch); // don't await, view will be updated when the branch is changed
 		}
 
 		super.show();
@@ -321,23 +330,16 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	}
 
 	private async doInitializeParams(): Promise<CreateParamsNew> {
-		if (!this.defaultCompareBranch) {
-			throw new DetachedHeadError(this._folderRepositoryManager.repository);
-		}
-
-		const defaultCompareBranch = this.defaultCompareBranch.name ?? '';
+		const defaultCompareBranch = await this._folderRepositoryManager.repository.getBranch(this._defaultCompareBranch);
 		const [detectedBaseMetadata, remotes, defaultOrigin] = await Promise.all([
-			this.detectBaseMetadata(defaultCompareBranch),
+			this.detectBaseMetadata(defaultCompareBranch.name!),
 			this._folderRepositoryManager.getGitHubRemotes(),
-			this._folderRepositoryManager.getOrigin(this.defaultCompareBranch)]);
+			this._folderRepositoryManager.getOrigin(defaultCompareBranch)]);
 
 		const defaultBaseRemote: RemoteInfo = {
 			owner: detectedBaseMetadata?.owner ?? this._pullRequestDefaults.owner,
 			repositoryName: detectedBaseMetadata?.repositoryName ?? this._pullRequestDefaults.repo,
 		};
-		if (defaultBaseRemote.owner !== this._pullRequestDefaults.owner || defaultBaseRemote.repositoryName !== this._pullRequestDefaults.repo) {
-			this._onDidChangeBaseRemote.fire(defaultBaseRemote);
-		}
 
 		const defaultCompareRemote: RemoteInfo = {
 			owner: defaultOrigin.remote.owner,
@@ -345,12 +347,9 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		};
 
 		const defaultBaseBranch = detectedBaseMetadata?.branch ?? this._pullRequestDefaults.base;
-		if (defaultBaseBranch !== this._pullRequestDefaults.base) {
-			this._onDidChangeBaseBranch.fire(defaultBaseBranch);
-		}
 
 		const [defaultTitleAndDescription, mergeConfiguration, viewerPermission, mergeQueueMethodForBranch, labels] = await Promise.all([
-			this.getTitleAndDescription(this.defaultCompareBranch, defaultBaseBranch),
+			this.getTitleAndDescription(defaultCompareBranch, defaultBaseBranch),
 			this.getMergeConfiguration(defaultBaseRemote.owner, defaultBaseRemote.repositoryName),
 			defaultOrigin.getViewerPermission(),
 			this._folderRepositoryManager.mergeQueueMethodForBranch(defaultBaseBranch, defaultBaseRemote.owner, defaultBaseRemote.repositoryName),
@@ -395,7 +394,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			defaultBaseRemote,
 			defaultBaseBranch,
 			defaultCompareRemote,
-			defaultCompareBranch,
+			defaultCompareBranch: this._defaultCompareBranch,
 			defaultTitle: defaultTitleAndDescription.title,
 			defaultDescription: defaultTitleAndDescription.description,
 			defaultMergeMethod,
@@ -415,9 +414,8 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 
 		Logger.appendLine(`Initializing "create" view: ${JSON.stringify(params)}`, CreatePullRequestViewProviderNew.ID);
 
-		this._compareBranch = this.defaultCompareBranch.name ?? '';
-		this._baseBranch = defaultBaseBranch;
-		this._baseRemote = defaultBaseRemote;
+		this.model.baseOwner = defaultBaseRemote.owner;
+		this.model.baseBranch = defaultBaseBranch;
 
 		this._postMessage({
 			command: 'pr.initialize',
@@ -481,15 +479,15 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		commands.setContext(contexts.CREATE_PR_PERMISSIONS, viewerPermission);
 		let chooseResult: ChooseBaseRemoteAndBranchResult | ChooseCompareRemoteAndBranchResult;
 		if (isBase) {
-			const baseRemoteChanged = this._baseRemote !== result.remote;
-			const baseBranchChanged = baseRemoteChanged || this._baseBranch !== result.branch;
-			this._baseBranch = result.branch;
-			this._baseRemote = result.remote;
-			const compareBranch = await this._folderRepositoryManager.repository.getBranch(this._compareBranch);
+			const baseRemoteChanged = this.model.baseOwner !== result.remote.owner;
+			const baseBranchChanged = baseRemoteChanged || this.model.baseBranch !== result.branch;
+			this.model.baseOwner = result.remote.owner;
+			this.model.baseBranch = result.branch;
+			const compareBranch = await this._folderRepositoryManager.repository.getBranch(this.model.compareBranch);
 			const [mergeConfiguration, titleAndDescription, mergeQueueMethodForBranch] = await Promise.all([
 				this.getMergeConfiguration(result.remote.owner, result.remote.repositoryName),
-				this.getTitleAndDescription(compareBranch, this._baseBranch),
-				this._folderRepositoryManager.mergeQueueMethodForBranch(this._baseBranch, this._baseRemote.owner, this._baseRemote.repositoryName)]);
+				this.getTitleAndDescription(compareBranch, this.model.baseBranch),
+				this._folderRepositoryManager.mergeQueueMethodForBranch(this.model.baseBranch, this.model.baseOwner, this.model.repositoryName)]);
 			let autoMergeDefault = false;
 			if (mergeConfiguration.viewerCanAutoMerge) {
 				const defaultCreateOption = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'lastUsed' | 'create' | 'createDraft' | 'createAutoMerge'>(DEFAULT_CREATE_OPTION, 'lastUsed');
@@ -514,17 +512,15 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				"pr.create.changedBaseRemote" : {}
 				*/
 				this._folderRepositoryManager.telemetry.sendTelemetryEvent('pr.create.changedBaseRemote');
-				this._onDidChangeBaseRemote.fire(this._baseRemote);
 			}
 			if (baseBranchChanged) {
 				/* __GDPR__
 				"pr.create.changedBaseBranch" : {}
 				*/
 				this._folderRepositoryManager.telemetry.sendTelemetryEvent('pr.create.changedBaseBranch');
-				this._onDidChangeBaseBranch.fire(this._baseBranch);
 			}
 		} else {
-			this._compareBranch = result.branch;
+			await this.model.setCompareBranch(result.branch);
 			chooseResult = {
 				compareRemote: result.remote,
 				compareBranch: result.branch,
@@ -534,8 +530,6 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			"pr.create.changedCompare" : {}
 			*/
 			this._folderRepositoryManager.telemetry.sendTelemetryEvent('pr.create.changedCompare');
-			this._onDidChangeCompareRemote.fire(result.remote);
-			this._onDidChangeCompareBranch.fire(this._compareBranch);
 		}
 		return chooseResult;
 	}
@@ -662,17 +656,17 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		}
 	}
 
-	private async getRemote(): Promise<GitHubRemote> {
-		return (await this._folderRepositoryManager.getGitHubRemotes()).find(remote => compareIgnoreCase(remote.owner, this._baseRemote.owner) === 0 && compareIgnoreCase(remote.repositoryName, this._baseRemote.repositoryName) === 0)!;
+	private async getBaseRemote(): Promise<GitHubRemote> {
+		return (await this._folderRepositoryManager.getGitHubRemotes()).find(remote => compareIgnoreCase(remote.owner, this.model.baseOwner) === 0 && compareIgnoreCase(remote.repositoryName, this.model.repositoryName) === 0)!;
 	}
 
-	private getGitHubRepo(): GitHubRepository | undefined {
-		return this._folderRepositoryManager.gitHubRepositories.find(repo => compareIgnoreCase(repo.remote.owner, this._baseRemote.owner) === 0 && compareIgnoreCase(repo.remote.repositoryName, this._baseRemote.repositoryName) === 0);
+	private getBaseGitHubRepo(): GitHubRepository | undefined {
+		return this._folderRepositoryManager.gitHubRepositories.find(repo => compareIgnoreCase(repo.remote.owner, this.model.baseOwner) === 0 && compareIgnoreCase(repo.remote.repositoryName, this.model.repositoryName) === 0);
 	}
 
 	private milestone: IMilestone | undefined;
 	public async addMilestone(): Promise<void> {
-		const remote = await this.getRemote();
+		const remote = await this.getBaseRemote();
 		const repo = this._folderRepositoryManager.gitHubRepositories.find(repo => repo.remote.remoteName === remote.remoteName)!;
 
 		return getMilestoneFromQuickPick(this._folderRepositoryManager, repo, this.milestone, (milestone) => {
@@ -689,7 +683,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		let quickPick: vscode.QuickPick<vscode.QuickPickItem & {
 			user?: IAccount | ITeam | undefined;
 		}> | undefined;
-		const remote = await this.getRemote();
+		const remote = await this.getBaseRemote();
 		try {
 			const repo = this._folderRepositoryManager.gitHubRepositories.find(repo => repo.remote.remoteName === remote.remoteName)!;
 			const [metadata, author, teamsCount] = await Promise.all([repo?.getMetadata(), this._folderRepositoryManager.getCurrentUser(), this._folderRepositoryManager.getOrgTeamsCount(repo)]);
@@ -720,7 +714,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 
 	private assignees: IAccount[] = [];
 	public async addAssignees(): Promise<void> {
-		const remote = await this.getRemote();
+		const remote = await this.getBaseRemote();
 		const currentRepo = this._folderRepositoryManager.gitHubRepositories.find(repo => repo.remote.owner === remote.owner && repo.remote.repositoryName === remote.repositoryName);
 		const assigneesToAdd = await vscode.window.showQuickPick(getAssigneesQuickPickItems(this._folderRepositoryManager, currentRepo, remote.remoteName, this.assignees, undefined, true),
 			{ canPickMany: true, placeHolder: vscode.l10n.t('Add assignees') });
@@ -742,7 +736,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	}
 	private projects: IProject[] = [];
 	public async addProjects(): Promise<void> {
-		const githubRepo = this.getGitHubRepo();
+		const githubRepo = this.getBaseGitHubRepo();
 		if (!githubRepo) {
 			return;
 		}
@@ -763,7 +757,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		let newLabels: ILabel[] = [];
 
 		const labelsToAdd = await vscode.window.showQuickPick(
-			getLabelOptions(this._folderRepositoryManager, this.labels, this._baseRemote).then(options => {
+			getLabelOptions(this._folderRepositoryManager, this.labels, this.model.baseOwner, this.model.repositoryName).then(options => {
 				newLabels = options.newLabels;
 				return options.labelPicks;
 			}) as Promise<vscode.QuickPickItem[]>,
@@ -801,8 +795,8 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		for (const commit of commits) {
 			const tryParse = parseIssueExpressionOutput(commit.match(ISSUE_OR_URL_EXPRESSION));
 			if (tryParse) {
-				const owner = tryParse.owner ?? this._baseRemote.owner;
-				const name = tryParse.name ?? this._baseRemote.repositoryName;
+				const owner = tryParse.owner ?? this.model.baseOwner;
+				const name = tryParse.name ?? this.model.repositoryName;
 				issues.push(new Promise(resolve => {
 					this._folderRepositoryManager.resolveIssue(owner, name, tryParse.issueNumber).then(issue => {
 						if (issue) {
@@ -835,7 +829,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 					[commitMessages, patches] = await Promise.all([
 						this.model.gitCommits().then(rawCommits => rawCommits.filter(commit => commit.parents.length === 1).map(commit => commit.message)),
 						Promise.all((await this.model.gitFiles()).map(async (file) => {
-							return this._folderRepositoryManager.repository.diffBetween(this.model.baseBranch, this.model.getCompareBranch(), file.uri.fsPath);
+							return this._folderRepositoryManager.repository.diffBetween(this.model.baseBranch, this.model.compareBranch, file.uri.fsPath);
 						}))]);
 				}
 
@@ -939,8 +933,35 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		this.telemetry.sendTelemetryEvent('pr.usedGeneratedTitleAndDescription', { providerTitle: this.lastGeneratedTitleAndDescription.providerTitle, usedGeneratedTitle: usedGeneratedTitle.toString(), usedGeneratedDescription: usedGeneratedDescription.toString() });
 	}
 
+	/**
+	 *
+	 * @returns true if the PR should be created immediately after
+	 */
+	private async checkForChanges(): Promise<boolean> {
+		if (await this.model.filesHaveChanges()) {
+			const apply = vscode.l10n.t('Commit');
+			const deleteChanges = vscode.l10n.t('Delete my changes');
+			const result = await vscode.window.showWarningMessage(vscode.l10n.t('You have made changes to the files in this pull request. Do you want to commit these changes to the pull request before creating it?'), { modal: true }, apply, deleteChanges);
+			if (result === apply) {
+				const commitMessage = await vscode.window.showInputBox({ prompt: vscode.l10n.t('Commit message for your changes') });
+				if (commitMessage) {
+					return this.model.applyChanges(commitMessage);
+				}
+			} else if (result !== deleteChanges) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	private async create(message: IRequestMessage<CreatePullRequestNew>): Promise<void> {
 		Logger.debug(`Creating pull request with args ${JSON.stringify(message.args)}`, CreatePullRequestViewProviderNew.ID);
+
+		if (!(await this.checkForChanges())) {
+			Logger.debug('Not continuing past checking for file changes.', CreatePullRequestViewProviderNew.ID);
+			await this._replyMessage(message, {});
+			return;
+		}
 
 		// Save create method
 		const createMethod: { autoMerge: boolean, mergeMethod: MergeMethod | undefined, isDraft: boolean } = { autoMerge: message.args.autoMerge, mergeMethod: message.args.autoMergeMethod, isDraft: message.args.draft };
@@ -1060,20 +1081,18 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	private async changeBranch(newBranch: string, isBase: boolean): Promise<{ title: string, description: string }> {
 		let compareBranch: Branch | undefined;
 		if (isBase) {
-			this._baseBranch = newBranch;
-			this._onDidChangeBaseBranch.fire(newBranch);
+			this.model.baseBranch = newBranch;
 		} else {
 			try {
 				compareBranch = await this._folderRepositoryManager.repository.getBranch(newBranch);
-				this._compareBranch = newBranch;
-				this._onDidChangeCompareBranch.fire(compareBranch.name!);
+				this.model.setCompareBranch(newBranch);
 			} catch (e) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Branch does not exist locally.'));
 			}
 		}
 
-		compareBranch = compareBranch ?? await this._folderRepositoryManager.repository.getBranch(this._compareBranch);
-		return this.getTitleAndDescription(compareBranch, this._baseBranch);
+		compareBranch = compareBranch ?? await this._folderRepositoryManager.repository.getBranch(this.model.compareBranch);
+		return this.getTitleAndDescription(compareBranch, this.model.baseBranch);
 	}
 
 	private async cancel(message: IRequestMessage<CreatePullRequestNew>) {

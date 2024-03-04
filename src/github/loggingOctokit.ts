@@ -25,7 +25,7 @@ export class RateLogger {
 
 	constructor(private readonly telemetry: ITelemetry, private readonly errorOnFlood: boolean) { }
 
-	public logAndLimit(info: string | undefined, apiRequest: () => Promise<any>): Promise<any> | undefined {
+	public logAndLimit<T extends Promise<any>>(info: string | undefined, apiRequest: () => T): T | undefined {
 		if (this.bulkhead.executionSlots === 0) {
 			Logger.error('API call count has exceeded 140 concurrent calls.', RateLogger.ID);
 			// We have hit more than 140 concurrent API requests.
@@ -49,7 +49,7 @@ export class RateLogger {
 			Logger.debug(log, RateLogger.ID);
 		}
 
-		return this.bulkhead.execute(() => apiRequest());
+		return this.bulkhead.execute<T>(() => apiRequest()) as T;
 	}
 
 	public async logRateLimit(info: string | undefined, result: Promise<{ data: { rateLimit: RateLimit | undefined } | undefined } | undefined>, isRest: boolean = false) {
@@ -129,9 +129,9 @@ export class LoggingApolloClient {
 export class LoggingOctokit {
 	constructor(public readonly api: Octokit, private _rateLogger: RateLogger) { }
 
-	async call<T, U>(api: (T) => Promise<U>, args: T): Promise<U> {
+	call<T extends (...args: any[]) => Promise<any>>(api: T, ...args: Parameters<T>): ReturnType<T> {
 		const logInfo = (api as unknown as { endpoint: { DEFAULTS: { url: string } | undefined } | undefined }).endpoint?.DEFAULTS?.url;
-		const result = this._rateLogger.logAndLimit(logInfo, () => api(args));
+		const result = this._rateLogger.logAndLimit<ReturnType<T>>(logInfo, ((() => api(...args)) as () => ReturnType<T>));
 		if (result === undefined) {
 			throw new Error('API call count has exceeded a rate limit.');
 		}

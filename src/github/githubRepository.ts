@@ -512,6 +512,30 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 	}
 
+	async commit(branch: string, message: string, files: Map<string, Uint8Array>): Promise<boolean> {
+		Logger.debug(`Committing files to branch ${branch} - enter`, GitHubRepository.ID);
+		let success = false;
+		try {
+			const { octokit, remote } = await this.ensure();
+			const lastCommitSha = (await octokit.call(octokit.api.repos.getBranch, { owner: remote.owner, repo: remote.repositoryName, branch })).data.commit.sha;
+			const lastTreeSha = (await octokit.call(octokit.api.repos.getCommit, { owner: remote.owner, repo: remote.repositoryName, ref: lastCommitSha })).data.commit.tree.sha;
+			const treeItems: { path: string, mode: '100644', content: string }[] = [];
+			for (const [path, content] of files) {
+				treeItems.push({ path: path.substring(1), mode: '100644', content: content.toString() });
+			}
+			const newTreeSha = (await octokit.call(octokit.api.git.createTree, { owner: remote.owner, repo: remote.repositoryName, base_tree: lastTreeSha, tree: treeItems })).data.sha;
+			const newCommitSha = (await octokit.call(octokit.api.git.createCommit, { owner: remote.owner, repo: remote.repositoryName, message, tree: newTreeSha, parents: [lastCommitSha] })).data.sha;
+			await octokit.call(octokit.api.git.updateRef, { owner: remote.owner, repo: remote.repositoryName, ref: `heads/${branch}`, sha: newCommitSha });
+			success = true;
+		} catch (e) {
+			// not sure what kinds of errors to expect here
+			Logger.error(`Committing files to branch ${branch} failed: ${e}`, GitHubRepository.ID);
+		}
+		Logger.debug(`Committing files to branch ${branch} - done`, GitHubRepository.ID);
+
+		return success;
+	}
+
 	async getAllPullRequests(page?: number): Promise<PullRequestData | undefined> {
 		try {
 			Logger.debug(`Fetch all pull requests - enter`, GitHubRepository.ID);

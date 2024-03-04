@@ -34,32 +34,6 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 		);
 
 		this._disposables.push(
-			this._createPRViewProvider!.onDidChangeCompareBranch(compareBranch => {
-				this._treeView?.updateCompareBranch(compareBranch);
-			}),
-		);
-
-		this._disposables.push(
-			this._createPRViewProvider!.onDidChangeCompareRemote(compareRemote => {
-				if (this._treeView) {
-					this._treeView.compareOwner = compareRemote.owner;
-				}
-			}),
-		);
-
-		this._disposables.push(
-			this._createPRViewProvider!.onDidChangeBaseBranch(baseBranch => {
-				this._treeView?.updateBaseBranch(baseBranch);
-			}),
-		);
-
-		this._disposables.push(
-			this._createPRViewProvider!.onDidChangeBaseRemote(remoteInfo => {
-				this._treeView?.updateBaseOwner(remoteInfo.owner);
-			}),
-		);
-
-		this._disposables.push(
 			vscode.commands.registerCommand('pr.addAssigneesToNewPr', _ => {
 				if (this._createPRViewProvider instanceof CreatePullRequestViewProviderNew) {
 					return this._createPRViewProvider.addAssignees();
@@ -144,8 +118,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 			this._disposables.push(
 				repository.state.onDidChange(_ => {
 					if (this._createPRViewProvider && repository.state.HEAD) {
-						this._createPRViewProvider.defaultCompareBranch = repository.state.HEAD;
-						this._treeView?.updateCompareBranch();
+						this._createPRViewProvider.setDefaultCompareBranch(repository.state.HEAD);
 					}
 				}),
 			);
@@ -193,7 +166,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 
 		const branch =
 			((compareBranch ? await folderRepoManager.repository.getBranch(compareBranch) : undefined) ??
-				folderRepoManager.repository.state.HEAD)!;
+				folderRepoManager.repository.state.HEAD);
 
 		if (!this._createPRViewProvider) {
 			const pullRequestDefaults = await this.ensureDefaultsAreLocal(
@@ -202,14 +175,13 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 			);
 
 			const compareOrigin = await folderRepoManager.getOrigin(branch);
-			const model = new CreatePullRequestDataModel(folderRepoManager, pullRequestDefaults.owner, pullRequestDefaults.base, compareOrigin.remote.owner, branch.name!);
+			const model = new CreatePullRequestDataModel(folderRepoManager, pullRequestDefaults.owner, pullRequestDefaults.base, compareOrigin.remote.owner, branch?.name ?? pullRequestDefaults.base, compareOrigin.remote.repositoryName);
 			this._createPRViewProvider = new CreatePullRequestViewProviderNew(
 				telemetry,
 				model,
 				extensionUri,
 				folderRepoManager,
 				pullRequestDefaults,
-				branch
 			);
 
 			this._treeView = new CompareChanges(

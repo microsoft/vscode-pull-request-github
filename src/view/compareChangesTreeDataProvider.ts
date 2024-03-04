@@ -15,7 +15,6 @@ import { dateFromNow, toDisposable } from '../common/utils';
 import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { CreatePullRequestDataModel } from './createPullRequestDataModel';
-import { GitContentProvider, GitHubContentProvider } from './gitHubContentProvider';
 import { GitHubFileChangeNode } from './treeNodes/fileChangeNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 
@@ -155,7 +154,7 @@ abstract class CompareChangesTreeProvider implements vscode.TreeDataProvider<Tre
 			const mergeBase = await this.model.gitHubMergeBase();
 
 			if (!rawFiles?.length || !rawCommits?.length) {
-				(this.view as vscode.TreeView2<TreeNode>).message = new vscode.MarkdownString(vscode.l10n.t('There are no commits between the base `{0}` branch and the comparing `{1}` branch', this.model.baseBranch, this.model.getCompareBranch()));
+				(this.view as vscode.TreeView2<TreeNode>).message = new vscode.MarkdownString(vscode.l10n.t('There are no commits between the base `{0}` branch and the comparing `{1}` branch', this.model.baseBranch, this.model.compareBranch));
 				return {};
 			} else if (this._isDisposed) {
 				return {};
@@ -234,7 +233,7 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 					file.previous_filename,
 					getGitChangeType(file.status),
 					mergeBase,
-					this.model.getCompareBranch(),
+					this.model.compareBranch,
 					false,
 				);
 			});
@@ -251,7 +250,7 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 				previousFilename,
 				getGitChangeTypeFromApi(change.status),
 				this.model.baseBranch,
-				this.model.getCompareBranch(),
+				this.model.compareBranch,
 				true,
 			);
 		});
@@ -261,10 +260,10 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 		if (!element) {
 			const diff = await this.model.gitFiles();
 			if (diff.length === 0) {
-				(this.view as vscode.TreeView2<TreeNode>).message = new vscode.MarkdownString(vscode.l10n.t('There are no commits between the base `{0}` branch and the comparing `{1}` branch', this.model.baseBranch, this.model.getCompareBranch()));
+				(this.view as vscode.TreeView2<TreeNode>).message = new vscode.MarkdownString(vscode.l10n.t('There are no commits between the base `{0}` branch and the comparing `{1}` branch', this.model.baseBranch, this.model.compareBranch));
 				return [];
 			} else if (!(await this.model.getCompareHasUpstream())) {
-				const message = new vscode.MarkdownString(vscode.l10n.t({ message: 'Branch `{0}` has not been pushed yet. [Publish branch](command:git.publish) to see all changes.', args: [this.model.getCompareBranch()], comment: "{Locked='](command:git.publish)'}" }));
+				const message = new vscode.MarkdownString(vscode.l10n.t({ message: 'Branch `{0}` has not been pushed yet. [Publish branch](command:git.publish) to see all changes.', args: [this.model.compareBranch], comment: "{Locked='](command:git.publish)'}" }));
 				message.isTrusted = { enabledCommands: ['git.publish'] };
 				(this.view as vscode.TreeView2<TreeNode>).message = message;
 			} else if (this._isDisposed) {
@@ -309,7 +308,7 @@ class CompareChangesCommitsTreeProvider extends CompareChangesTreeProvider {
 
 		const log = await this.model.gitCommits();
 		if (log.length === 0) {
-			(this.view as vscode.TreeView2<TreeNode>).message = new vscode.MarkdownString(vscode.l10n.t('There are no commits between the base `{0}` branch and the comparing `{1}` branch', this.model.baseBranch, this.model.getCompareBranch()));
+			(this.view as vscode.TreeView2<TreeNode>).message = new vscode.MarkdownString(vscode.l10n.t('There are no commits between the base `{0}` branch and the comparing `{1}` branch', this.model.baseBranch, this.model.compareBranch));
 			return [];
 		} else if (this._isDisposed) {
 			return [];
@@ -328,9 +327,6 @@ export class CompareChanges implements vscode.Disposable {
 	private _filesDataProvider: CompareChangesFilesTreeProvider;
 	private _commitsView: vscode.TreeView<TreeNode>;
 	private _commitsDataProvider: CompareChangesCommitsTreeProvider;
-
-	private _gitHubcontentProvider: GitHubContentProvider | undefined;
-	private _gitcontentProvider: GitContentProvider | undefined;
 
 	private _disposables: vscode.Disposable[] = [];
 
@@ -357,18 +353,6 @@ export class CompareChanges implements vscode.Disposable {
 		this.initialize();
 	}
 
-	updateBaseBranch(branch: string): void {
-		this.model.baseBranch = branch;
-	}
-
-	updateBaseOwner(owner: string) {
-		this.model.baseOwner = owner;
-	}
-
-	async updateCompareBranch(branch?: string): Promise<void> {
-		this.model.setCompareBranch(branch);
-	}
-
 	set compareOwner(owner: string) {
 		this.model.compareOwner = owner;
 	}
@@ -378,33 +362,24 @@ export class CompareChanges implements vscode.Disposable {
 			return;
 		}
 
-		if (!this._gitHubcontentProvider) {
-			try {
-				this._gitHubcontentProvider = new GitHubContentProvider(this.model.gitHubRepository);
-				this._gitcontentProvider = new GitContentProvider(this.folderRepoManager);
-				this._disposables.push(
-					vscode.workspace.registerFileSystemProvider(Schemes.GithubPr, this._gitHubcontentProvider, {
-						isReadonly: true,
-					}),
-				);
-				this._disposables.push(
-					vscode.workspace.registerFileSystemProvider(Schemes.GitPr, this._gitcontentProvider, {
-						isReadonly: true,
-					}),
-				);
-				this._disposables.push(toDisposable(() => {
-					CompareChangesTreeProvider.closeTabs();
-				}));
-			} catch (e) {
-				// already registered
-			}
+		try {
+			this._disposables.push(
+				vscode.workspace.registerFileSystemProvider(Schemes.GithubPr, this.model.gitHubContentProvider),
+			);
+			this._disposables.push(
+				vscode.workspace.registerFileSystemProvider(Schemes.GitPr, this.model.gitContentProvider),
+			);
+			this._disposables.push(toDisposable(() => {
+				CompareChangesTreeProvider.closeTabs();
+			}));
+		} catch (e) {
+			// already registered
 		}
+
 	}
 
 	dispose() {
 		this._disposables.forEach(d => d.dispose());
-		this._gitHubcontentProvider = undefined;
-		this._gitcontentProvider = undefined;
 		this._filesView.dispose();
 	}
 

@@ -393,12 +393,12 @@ export function createPRNodeUri(
 
 export enum Schemes {
 	File = 'file',
-	Review = 'review',
-	Pr = 'pr',
+	Review = 'review', // File content for a checked out PR
+	Pr = 'pr', // File content from GitHub for non-checkout PR
 	PRNode = 'prnode',
-	FileChange = 'filechange',
-	GithubPr = 'githubpr',
-	GitPr = 'gitpr',
+	FileChange = 'filechange', // Tree items, for decorations
+	GithubPr = 'githubpr', // File content from GitHub in create flow
+	GitPr = 'gitpr', // File content from git in create flow
 	VscodeVfs = 'vscode-vfs', // Remote Repository
 	Comment = 'comment' // Comments from the VS Code comment widget
 }
