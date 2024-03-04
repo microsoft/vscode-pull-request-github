@@ -235,7 +235,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			quickPick.busy = true;
 			quickPick.canSelectMany = true;
 			quickPick.show();
-			quickPick.items = await (getLabelOptions(this._folderRepositoryManager, this._item.item.labels, this._item.remote).then(options => {
+			quickPick.items = await (getLabelOptions(this._folderRepositoryManager, this._item.item.labels, this._item.remote.owner, this._item.remote.repositoryName).then(options => {
 				newLabels = options.newLabels;
 				return options.labelPicks;
 			}));

@@ -55,9 +55,10 @@ export abstract class ChangesContentProvider implements Partial<vscode.FileSyste
 
 	public readonly changedFiles = new Map<string, FileData>(); // uri key
 
-	protected _readonlyBranches: string[] = [];
-	set readonlyBranches(value: string[]) {
-		this._readonlyBranches = value;
+	protected _editableBranch: string | undefined;
+	set editableBranch(value: string | undefined) {
+		this.changedFiles.clear();
+		this._editableBranch = value;
 	}
 
 	hasChanges(): boolean {
@@ -93,7 +94,7 @@ export abstract class ChangesContentProvider implements Partial<vscode.FileSyste
 			ctime: 0,
 			mtime: 0,
 			size: 0,
-			permissions: (params?.branch && this._readonlyBranches.includes(params.branch)) ? vscode.FilePermission.Readonly : undefined
+			permissions: (params?.branch && this._editableBranch === params.branch) ? undefined : vscode.FilePermission.Readonly
 		};
 	}
 
