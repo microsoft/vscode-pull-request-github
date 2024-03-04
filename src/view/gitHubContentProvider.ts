@@ -87,14 +87,14 @@ export abstract class ChangesContentProvider implements Partial<vscode.FileSyste
 	}
 
 	stat(uri: any): vscode.FileStat {
-		const params = fromGitHubURI(uri);
+		// const params = fromGitHubURI(uri);
 
 		return {
 			type: vscode.FileType.File,
 			ctime: 0,
 			mtime: 0,
 			size: 0,
-			permissions: (params?.branch && this._editableBranch === params.branch) ? undefined : vscode.FilePermission.Readonly
+			permissions: /* (params?.branch && this._editableBranch === params.branch) ? undefined : */ vscode.FilePermission.Readonly // For now, keep all files readonly. We can address later with https://github.com/microsoft/vscode-pull-request-github/issues/5163
 		};
 	}
 
