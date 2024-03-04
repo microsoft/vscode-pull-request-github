@@ -1215,47 +1215,56 @@
 			{
 				"command": "issue.copyGithubDevLinkWithoutRange",
 				"title": "%command.issue.copyGithubDevLink.title%",
-				"category": "%command.issues.category%"
+				"category": "%command.issues.category%",
+				"enablement": "!isInEmbeddedEditor"
 			},
 			{
 				"command": "issue.copyGithubDevLinkFile",
 				"title": "%command.issue.copyGithubDevLink.title%",
-				"category": "%command.issues.category%"
+				"category": "%command.issues.category%",
+				"enablement": "!isInEmbeddedEditor"
 			},
 			{
 				"command": "issue.copyGithubDevLink",
 				"title": "%command.issue.copyGithubDevLink.title%",
-				"category": "%command.issues.category%"
+				"category": "%command.issues.category%",
+				"enablement": "!isInEmbeddedEditor"
 			},
 			{
 				"command": "issue.copyGithubPermalink",
 				"title": "%command.issue.copyGithubPermalink.title%",
-				"category": "%command.issues.category%"
+				"category": "%command.issues.category%",
+				"enablement": "!isInEmbeddedEditor"
 			},
 			{
 				"command": "issue.copyGithubHeadLink",
 				"title": "%command.issue.copyGithubHeadLink.title%",
-				"category": "%command.issues.category%"
+				"category": "%command.issues.category%",
+				"enablement": "!isInEmbeddedEditor"
 			},
 			{
 				"command": "issue.copyGithubPermalinkWithoutRange",
 				"title": "%command.issue.copyGithubPermalink.title%",
-				"category": "%command.issues.category%"
+				"category": "%command.issues.category%",
+				"enablement": "!isInEmbeddedEditor"
 			},
 			{
 				"command": "issue.copyGithubHeadLinkWithoutRange",
 				"title": "%command.issue.copyGithubHeadLink.title%",
-				"category": "%command.issues.category%"
+				"category": "%command.issues.category%",
+				"enablement": "!isInEmbeddedEditor"
 			},
 			{
 				"command": "issue.copyMarkdownGithubPermalink",
 				"title": "%command.issue.copyMarkdownGithubPermalink.title%",
-				"category": "%command.issues.category%"
+				"category": "%command.issues.category%",
+				"enablement": "!isInEmbeddedEditor"
 			},
 			{
 				"command": "issue.copyMarkdownGithubPermalinkWithoutRange",
 				"title": "%command.issue.copyMarkdownGithubPermalink.title%",
-				"category": "%command.issues.category%"
+				"category": "%command.issues.category%",
+				"enablement": "!isInEmbeddedEditor"
 			},
 			{
 				"command": "issue.openGithubPermalink",
