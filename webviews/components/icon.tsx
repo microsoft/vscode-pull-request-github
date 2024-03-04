@@ -13,8 +13,8 @@ export const Icon = ({ className = '', src, title }: { className?: string; title
 export default Icon;
 
 export const alertIcon = <Icon src={require('../../resources/icons/alert.svg')} />;
-export const checkIcon = <Icon src={require('../../resources/icons/check.svg')} />;
-export const skipIcon = <Icon src={require('../../resources/icons/skip.svg')} />;
+export const checkIcon = <Icon src={require('../../resources/icons/check.svg')} className='check' />;
+export const skipIcon = <Icon src={require('../../resources/icons/skip.svg')} className='skip' />;
 export const chevronIcon = <Icon src={require('../../resources/icons/chevron.svg')} />;
 export const chevronDownIcon = <Icon src={require('../../resources/icons/chevron_down.svg')} />;
 export const commentIcon = <Icon src={require('../../resources/icons/comment.svg')} />;
@@ -31,7 +31,7 @@ export const plusIcon = <Icon src={require('../../resources/icons/plus.svg')} />
 export const pendingIcon = <Icon src={require('../../resources/icons/dot.svg')} />;
 export const requestChanges = <Icon src={require('../../resources/icons/request_changes.svg')} />;
 export const settingsIcon = <Icon src={require('../../resources/icons/settings.svg')} />;
-export const closeIcon = <Icon src={require('../../resources/icons/close.svg')} />;
+export const closeIcon = <Icon src={require('../../resources/icons/close.svg')} className='close' />;
 export const syncIcon = <Icon src={require('../../resources/icons/sync.svg')} />;
 export const prBaseIcon = <Icon src={require('../../resources/icons/pr_base.svg')} />;
 export const prMergeIcon = <Icon src={require('../../resources/icons/pr_merge.svg')} />;

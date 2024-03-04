@@ -247,6 +247,18 @@ button.input-box {
 	margin: 0;
 }
 
+.status-section .check svg path {
+	fill: var(--vscode-issues-open);
+}
+
+.status-section .close svg path {
+	fill: var(--vscode-errorForeground);
+}
+
+.status-section .skip svg path {
+	fill: var(--vscode-list-warningForeground);
+}
+
 .merge-queue-container,
 .ready-for-review-container {
 	padding: 16px;
