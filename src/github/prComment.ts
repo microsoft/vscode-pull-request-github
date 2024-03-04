@@ -115,12 +115,13 @@ abstract class CommentBase implements vscode.Comment {
 	}
 
 	protected abstract getCancelEditBody(): string | vscode.MarkdownString;
+	protected abstract doSetBody(body: string | vscode.MarkdownString, refresh: boolean): Promise<void>;
 
 	cancelEdit() {
 		this.parent.comments = this.parent.comments.map(cmt => {
 			if (cmt instanceof CommentBase && cmt.commentEditId() === this.commentEditId()) {
 				cmt.mode = vscode.CommentMode.Preview;
-				cmt.body = this.getCancelEditBody();
+				this.doSetBody(this.getCancelEditBody(), true);
 			}
 
 			return cmt;
@@ -167,10 +168,14 @@ export class TemporaryComment extends CommentBase {
 		this.id = TemporaryComment.idPool++;
 	}
 
-	set body(input: string | vscode.MarkdownString) {
+	protected async doSetBody(input: string | vscode.MarkdownString): Promise<void> {
 		if (typeof input === 'string') {
 			this.input = input;
 		}
+	}
+
+	set body(input: string | vscode.MarkdownString) {
+		this.doSetBody(input);
 	}
 
 	get body(): string | vscode.MarkdownString {
@@ -203,18 +208,20 @@ export class GHPRComment extends CommentBase {
 	constructor(context: vscode.ExtensionContext, comment: IComment, parent: GHPRCommentThread, private readonly githubRepositories?: GitHubRepository[]) {
 		super(parent);
 		this.rawComment = comment;
-		this.body = comment.body;
-		this.commentId = comment.id.toString();
 		this.author = {
 			name: comment.user!.login,
 			iconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined,
 		};
-		if (comment.user) {
-			DataUri.avatarCirclesAsImageDataUris(context, [comment.user], 28, 28).then(avatarUris => {
+
+		const avatarUrisPromise = comment.user ? DataUri.avatarCirclesAsImageDataUris(context, [comment.user], 28, 28) : Promise.resolve([]);
+		this.doSetBody(comment.body, !comment.user).then(async () => { // only refresh if there's no user. If there's a user, we'll refresh in the then.
+			const avatarUris = await avatarUrisPromise;
+			if (avatarUris.length > 0) {
 				this.author.iconPath = avatarUris[0];
-				this.refresh();
-			});
-		}
+			}
+			this.refresh();
+		});
+		this.commentId = comment.id.toString();
 
 		updateCommentReactions(this, comment.reactions);
 
@@ -273,7 +280,7 @@ export class GHPRComment extends CommentBase {
 
 		// Set the comment body last as it will trigger an update if set.
 		if (oldRawComment.body !== comment.body) {
-			this.body = comment.body;
+			this.doSetBody(comment.body, true);
 			refresh = false;
 		}
 
@@ -383,14 +390,20 @@ ${lineContents}
 		return this.replaceSuggestion(permalinkReplaced);
 	}
 
-	set body(body: string | vscode.MarkdownString) {
+	protected async doSetBody(body: string | vscode.MarkdownString, refresh: boolean) {
 		this._rawBody = body;
-		this.replaceBody(body).then(replacedBody => {
-			if (replacedBody !== this.replacedBody) {
-				this.replacedBody = replacedBody;
+		const replacedBody = await this.replaceBody(body);
+
+		if (replacedBody !== this.replacedBody) {
+			this.replacedBody = replacedBody;
+			if (refresh) {
 				this.refresh();
 			}
-		});
+		}
+	}
+
+	set body(body: string | vscode.MarkdownString) {
+		this.doSetBody(body, false);
 	}
 
 	get body(): string | vscode.MarkdownString {
