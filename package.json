@@ -12,6 +12,7 @@
 	},
 	"enabledApiProposals": [
 		"activeComment",
+		"commentingRangeHint",
 		"tokenInformation",
 		"contribShareMenu",
 		"fileComments",
@@ -30,7 +31,7 @@
 	"version": "0.82.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.87.0"
+		"vscode": "^1.88.0"
 	},
 	"categories": [
 		"Other"
