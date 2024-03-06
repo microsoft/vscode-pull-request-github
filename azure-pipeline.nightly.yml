@@ -28,7 +28,6 @@ extends:
   template: azure-pipelines/extension/pre-release.yml@templates
   parameters:
     l10nSourcePaths: ./src
-    customNPMRegistry: ''
 
     buildSteps:
       - script: yarn install --frozen-lockfile --check-files
@@ -81,5 +80,9 @@ extends:
       #   displayName: Run test suite (webkit)
       #   env:
       #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
+
+    tsa:
+      configFile: $(Build.SourcesDirectory)/tsaoptions.json
+      enabled: true
 
     publishExtension: ${{ parameters.publishExtension }}
