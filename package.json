@@ -13,6 +13,7 @@
 	"enabledApiProposals": [
 		"activeComment",
 		"commentingRangeHint",
+		"contribCommentsViewThreadMenus",
 		"tokenInformation",
 		"contribShareMenu",
 		"fileComments",
@@ -975,12 +976,14 @@
 			{
 				"command": "pr.resolveReviewThread",
 				"title": "%command.pr.resolveReviewThread.title%",
-				"category": "%command.pull.request.category%"
+				"category": "%command.pull.request.category%",
+				"icon": "$(check)"
 			},
 			{
 				"command": "pr.unresolveReviewThread",
 				"title": "%command.pr.unresolveReviewThread.title%",
-				"category": "%command.pull.request.category%"
+				"category": "%command.pull.request.category%",
+				"icon": "$(circle-slash)"
 			},
 			{
 				"command": "pr.signinAndRefreshList",
@@ -2274,6 +2277,26 @@
 				{
 					"command": "issue.editQuery",
 					"when": "view == issues:github && viewItem == query"
+				}
+			],
+			"commentsView/commentThread/context": [
+				{
+					"command": "pr.resolveReviewThread",
+					"group": "inline",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
+				},
+				{
+					"command": "pr.unresolveReviewThread",
+					"group": "inline",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+				},
+				{
+					"command": "pr.resolveReviewThread",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
+				},
+				{
+					"command": "pr.unresolveReviewThread",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
 				}
 			],
 			"editor/title": [
