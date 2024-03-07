@@ -60,7 +60,6 @@ module.exports.copyrightFilter = [
 	'!**/*.yml',
 	'!**/*.md',
 	'!package.nls.json',
-	'!tsaoptions.json',
 	'!**/*.svg',
 	'!src/integrations/gitlens/gitlens.d.ts'
 ];
