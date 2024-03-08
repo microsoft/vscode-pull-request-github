@@ -970,6 +970,31 @@ export function registerCommands(
 		}),
 	);
 
+	const localUriFromReviewUri = (reviewUri: vscode.Uri) => {
+		const { path, rootPath } = fromReviewUri(reviewUri.query);
+		return vscode.Uri.joinPath(vscode.Uri.file(rootPath), path);
+	};
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.diffOutdatedCommentWithHead', async (commentThread: GHPRCommentThread) => {
+			/* __GDPR__
+			"pr.diffOutdatedCommentWithHead" : {}
+			*/
+			telemetry.sendTelemetryEvent('pr.diffOutdatedCommentWithHead');
+			const options: vscode.TextDocumentShowOptions = {};
+			options.selection = commentThread.range;
+			const fileName = pathLib.basename(commentThread.uri.fsPath);
+			const { commit } = fromReviewUri(commentThread.uri.query);
+
+			vscode.commands.executeCommand('vscode.diff',
+				commentThread.uri,
+				localUriFromReviewUri(commentThread.uri),
+				`${fileName} from ${(commit || '').substr(0, 8)} diffed with HEAD`,
+				options,
+			);
+		}),
+	);
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.createComment', async (reply: CommentReply) => {
 			/* __GDPR__
@@ -1102,8 +1127,7 @@ ${contents}
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('review.openLocalFile', (value: vscode.Uri) => {
-			const { path, rootPath } = fromReviewUri(value.query);
-			const localUri = vscode.Uri.joinPath(vscode.Uri.file(rootPath), path);
+			const localUri = localUriFromReviewUri(value);
 			const editor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === value.toString());
 			const command = openFileCommand(localUri, editor ? { selection: editor.selection } : undefined);
 			vscode.commands.executeCommand(command.command, ...(command.arguments ?? []));

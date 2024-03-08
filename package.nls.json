@@ -201,6 +201,7 @@
 	"command.pr.deleteComment.title": "Delete Comment",
 	"command.pr.resolveReviewThread.title": "Resolve Conversation",
 	"command.pr.unresolveReviewThread.title": "Unresolve Conversation",
+	"command.pr.diffOutdatedCommentWithHead.title": "Diff Comment with HEAD",
 	"command.pr.signinAndRefreshList.title": "Sign in and Refresh",
 	"command.pr.configureRemotes.title": "Configure Remotes...",
 	"command.pr.refreshActivePullRequest.title": "Refresh",

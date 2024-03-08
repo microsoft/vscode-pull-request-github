@@ -986,6 +986,12 @@
 				"icon": "$(circle-slash)"
 			},
 			{
+				"command": "pr.diffOutdatedCommentWithHead",
+				"title": "%command.pr.diffOutdatedCommentWithHead.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(git-compare)"
+			},
+			{
 				"command": "pr.signinAndRefreshList",
 				"title": "%command.pr.signinAndRefreshList.title%",
 				"category": "%command.pull.request.category%"
@@ -2281,22 +2287,34 @@
 			],
 			"commentsView/commentThread/context": [
 				{
-					"command": "pr.resolveReviewThread",
-					"group": "inline",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
-				},
-				{
-					"command": "pr.unresolveReviewThread",
-					"group": "inline",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+					"command": "pr.diffOutdatedCommentWithHead",
+					"group": "inline@0",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /outdated/"
 				},
 				{
 					"command": "pr.resolveReviewThread",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
+					"group": "inline@1",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
 				},
 				{
 					"command": "pr.unresolveReviewThread",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+					"group": "inline@1",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
+				},
+				{
+					"command": "pr.diffOutdatedCommentWithHead",
+					"group": "context@0",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /outdated/"
+				},
+				{
+					"command": "pr.resolveReviewThread",
+					"group": "context@1",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
+				},
+				{
+					"command": "pr.unresolveReviewThread",
+					"group": "context@1",
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
 				}
 			],
 			"editor/title": [
@@ -2391,12 +2409,12 @@
 				{
 					"command": "pr.resolveReviewThread",
 					"group": "inline@1",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
 				},
 				{
 					"command": "pr.unresolveReviewThread",
 					"group": "inline@1",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
 				},
 				{
 					"command": "pr.openReview",
@@ -2408,22 +2426,22 @@
 				{
 					"command": "pr.resolveReviewThread",
 					"group": "inline@3",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
 				},
 				{
 					"command": "pr.unresolveReviewThread",
 					"group": "inline@3",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
 				}
 			],
 			"comments/commentThread/comment/context": [
 				{
 					"command": "pr.resolveReviewThread",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canResolve"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
 				},
 				{
 					"command": "pr.unresolveReviewThread",
-					"when": "commentController =~ /^github-(browse|review)/ && commentThread == canUnresolve"
+					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
 				},
 				{
 					"command": "pr.applySuggestion",
