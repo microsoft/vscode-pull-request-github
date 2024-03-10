@@ -10,6 +10,7 @@ import {
 	ILabel,
 	IMilestone,
 	IProjectItem,
+	Issue,
 	MergeMethod,
 	MergeMethodsAvailability,
 	MergeQueueState,
@@ -47,6 +48,7 @@ export interface PullRequest {
 	commitsCount: number;
 	projectItems: IProjectItem[] | undefined;
 	milestone: IMilestone | undefined;
+	issues: Partial<Issue>[];
 	repositoryDefaultBranch: string;
 	/**
 	 * User can edit PR title and description (author or user with push access)

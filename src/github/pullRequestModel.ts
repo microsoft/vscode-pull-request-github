@@ -53,6 +53,7 @@ import {
 	GithubItemStateEnum,
 	IAccount,
 	IRawFileChange,
+	Issue,
 	ISuggestedReviewer,
 	ITeam,
 	MergeMethod,
@@ -115,6 +116,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public mergeQueueEntry?: MergeQueueEntry;
 	public suggestedReviewers?: ISuggestedReviewer[];
 	public hasChangesSinceLastReview?: boolean;
+	public issues: Partial<Issue>[];
+
 	private _showChangesSinceReview: boolean;
 	private _hasPendingReview: boolean = false;
 	private _onDidChangePendingReviewState: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
@@ -137,7 +140,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _comments: readonly IComment[] | undefined;
 	private _onDidChangeComments: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidChangeComments: vscode.Event<void> = this._onDidChangeComments.event;
-
 	// Whether the pull request is currently checked out locally
 	private _isActive: boolean;
 	public get isActive(): boolean {
@@ -245,6 +247,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		super.update(item);
 		this.isDraft = item.isDraft;
 		this.suggestedReviewers = item.suggestedReviewers;
+		this.issues = item.closingIssuesReferences ?? [];
 
 		if (item.isRemoteHeadDeleted != null) {
 			this.isRemoteHeadDeleted = item.isRemoteHeadDeleted;

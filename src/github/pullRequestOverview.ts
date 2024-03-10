@@ -281,6 +281,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					projectItems: pullRequest.item.projectItems,
 					milestone: pullRequest.milestone,
 					assignees: pullRequest.assignees,
+					issues: pullRequest.issues,
 					continueOnGitHub,
 					emailForCommit: currentUser.email,
 					isAuthor: currentUser.login === pullRequest.author.login,

@@ -28,6 +28,15 @@ fragment PullRequestFragment on PullRequest {
 			id
 		}
 	}
+	closingIssuesReferences(first: 50) {
+		nodes {
+			id
+			databaseId
+			body
+			number
+			title
+		}
+	}
 	commits(first: 50) {
 		nodes {
 			commit {

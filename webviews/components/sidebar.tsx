@@ -13,7 +13,7 @@ import { AuthorLink, Avatar } from '../components/user';
 import { closeIcon, settingsIcon } from './icon';
 import { Reviewer } from './reviewer';
 
-export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, projectItems: projects, milestone, assignees }: PullRequest) {
+export default function Sidebar({ reviewers, labels, issues, hasWritePermission, isIssue, projectItems: projects, milestone, assignees }: PullRequest) {
 	const {
 		addReviewers,
 		addAssignees,
@@ -177,6 +177,30 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 					<div className="section-placeholder">No milestone</div>
 				)}
 			</div>
+			<div id="linked-issues" className="section">
+				<div className="section-header" onClick={async () => {
+					const newMilestone = await addMilestone();
+					updatePR({ milestone: newMilestone.added });
+				}}>
+					<div className="section-title">Linked issues</div>
+					{hasWritePermission ? (
+						<button
+							className="icon-button"
+							title="Link Issue">
+							{settingsIcon}
+						</button>
+					) : null}
+				</div>
+				{issues.length ? (
+					<div className="issues-list">
+						{issues.map(issue => (
+							<Issue key={issue.title} {...issue} />
+						))}
+					</div>
+				) : (
+					<div className="section-placeholder">None yet</div>
+				)}
+			</div>
 		</div>
 	);
 }
@@ -244,6 +268,19 @@ function Project(project: IProjectItem & { canDelete: boolean }) {
 						{closeIcon}️
 					</button>
 				) : null}
+			</div>
+		</div>
+	);
+}
+
+function Issue(issue: any) {
+	const {  updatePR, pr } = useContext(PullRequestContext);
+
+	return (
+		<div className="issues-list">
+			<div className="issue-item">
+				<h1>{issue.title}</h1>
+				{/* Add more details about the issue as needed */}
 			</div>
 		</div>
 	);
