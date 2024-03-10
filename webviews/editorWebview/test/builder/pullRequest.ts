@@ -57,4 +57,5 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	hasReviewDraft: { default: false },
 	busy: { default: undefined },
 	lastReviewType: { default: undefined },
+	issues: { default: [] },
 });
