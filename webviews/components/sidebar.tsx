@@ -274,8 +274,6 @@ function Project(project: IProjectItem & { canDelete: boolean }) {
 }
 
 function Issue(issue: any) {
-	const {  updatePR, pr } = useContext(PullRequestContext);
-
 	return (
 		<div className="issues-list">
 			<div className="issue-item">

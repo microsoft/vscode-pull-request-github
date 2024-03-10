@@ -714,6 +714,7 @@ export function parseGraphQLPullRequest(
 		milestone: parseMilestone(graphQLPullRequest.milestone),
 		assignees: graphQLPullRequest.assignees?.nodes.map(assignee => parseAuthor(assignee, githubRepository)),
 		commits: parseCommits(graphQLPullRequest.commits.nodes),
+		closingIssuesReferences: parseIssues(graphQLPullRequest.closingIssuesReferences?.nodes),
 	};
 	pr.mergeCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.mergeCommitTitle, graphQLPullRequest.baseRepository.mergeCommitMessage, pr);
 	pr.squashCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.squashMergeCommitTitle, graphQLPullRequest.baseRepository.squashMergeCommitMessage, pr);
@@ -795,6 +796,35 @@ function parseComments(comments: GraphQL.AbbreviatedIssueComment[] | undefined, 
 	}
 
 	return parsedComments;
+}
+
+function parseIssues(issues: Pick<GraphQL.PullRequest, 'id' | 'databaseId' | 'number' | 'title' | 'state'>[] | undefined): {
+	id: number;
+	number: number;
+	title: string;
+	state: 'OPEN' | 'CLOSED' | 'MERGED';
+}[] | undefined {
+	if (!issues) {
+		return undefined;
+	}
+
+	const parsedIssues: {
+		id: number;
+		number: number;
+		title: string;
+		state: 'OPEN' | 'CLOSED' | 'MERGED';
+	}[] = [];
+
+	for (const issue of issues) {
+		parsedIssues.push({
+			id: issue.databaseId,
+			number: issue.number,
+			title: issue.title,
+			state: issue.state,
+		});
+	}
+
+	return parsedIssues;
 }
 
 export function parseGraphQLIssue(issue: GraphQL.PullRequest, githubRepository: GitHubRepository): Issue {
