@@ -983,7 +983,7 @@
 				"command": "pr.unresolveReviewThread",
 				"title": "%command.pr.unresolveReviewThread.title%",
 				"category": "%command.pull.request.category%",
-				"icon": "$(circle-slash)"
+				"icon": "$(discard)"
 			},
 			{
 				"command": "pr.diffOutdatedCommentWithHead",
