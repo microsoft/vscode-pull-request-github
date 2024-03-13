@@ -580,6 +580,15 @@ export interface PullRequest {
 		avatarUrl: string;
 		id: string;
 	};
+	closingIssuesReferences?: {
+		nodes: {
+			id: string;
+			databaseId: number;
+			number: number;
+			title: string;
+			state: 'OPEN' | 'CLOSED' | 'MERGED';
+		}[];
+	};
 	commits: {
 		nodes: {
 			commit: {
