@@ -28,7 +28,7 @@ import {
 import { getReviewMode } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, fromReviewUri, KnownMediaExtensions, PRUriParams, Schemes, toReviewUri } from '../common/uri';
-import { dispose, formatError, groupBy, isPreRelease, onceEvent } from '../common/utils';
+import { dispose, formatError, groupBy, onceEvent } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -278,11 +278,8 @@ export class ReviewManager {
 		}
 	}
 
-	private hasShownLogRequest: boolean = false;
 	private async validateStatusAndSetContext(silent: boolean, updateLayout: boolean) {
-		// TODO @alexr00: There's a bug where validateState never returns sometimes. It's not clear what's causing this.
-		// This is a temporary workaround to ensure that the validateStatueAndSetContext promise always resolves.
-		// Additional logs have been added, and the issue is being tracked here: https://github.com/microsoft/vscode-pull-request-git/issues/5277
+		// Network errors can cause one of the GitHub API calls in validateState to never return.
 		let timeout: NodeJS.Timeout | undefined;
 		const timeoutPromise = new Promise<void>(resolve => {
 			timeout = setTimeout(() => {
@@ -297,10 +294,6 @@ export class ReviewManager {
 						}
 					*/
 					this._telemetry.sendTelemetryErrorEvent('pr.validateStateTimeout', { version: this._context.extension.packageJSON.version });
-					if (!this.hasShownLogRequest && isPreRelease(this._context)) {
-						this.hasShownLogRequest = true;
-						vscode.window.showErrorMessage(vscode.l10n.t('A known error has occurred refreshing the repository state. Please share logs from "GitHub Pull Request" in the [tracking issue]({0}).', 'https://github.com/microsoft/vscode-pull-request-github/issues/5277'));
-					}
 				}
 				resolve();
 			}, 1000 * 60 * 2);
