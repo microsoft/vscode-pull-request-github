@@ -105,7 +105,8 @@ export function createVSCodeCommentThreadForReviewThread(
 	(vscodeThread as GHPRCommentThread).gitHubThreadId = thread.id;
 
 	vscodeThread.comments = thread.comments.map(comment => new GHPRComment(context, comment, vscodeThread as GHPRCommentThread, githubRepositories));
-	vscodeThread.state = isResolvedToResolvedState(thread.isResolved);
+	const resolved = isResolvedToResolvedState(thread.isResolved);
+	let applicability = vscode.CommentThreadApplicability.Current;
 
 	if (thread.viewerCanResolve && !thread.isResolved) {
 		vscodeThread.contextValue = 'canResolve';
@@ -114,7 +115,9 @@ export function createVSCodeCommentThreadForReviewThread(
 	}
 	if (thread.isOutdated) {
 		vscodeThread.contextValue += 'outdated';
+		applicability = vscode.CommentThreadApplicability.Outdated;
 	}
+	vscodeThread.state = { resolved, applicability };
 
 	updateCommentThreadLabel(vscodeThread as GHPRCommentThread);
 	vscodeThread.collapsibleState = getCommentCollapsibleState(thread, undefined, currentUser);
@@ -166,8 +169,11 @@ export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHP
 	}
 
 	const newResolvedState = isResolvedToResolvedState(reviewThread.isResolved);
-	if (vscodeThread.state !== newResolvedState) {
-		vscodeThread.state = newResolvedState;
+	if (vscodeThread.state.resolved !== newResolvedState) {
+		vscodeThread.state = {
+			resolved: newResolvedState,
+			applicability: vscodeThread.state.applicability
+		};
 	}
 	vscodeThread.collapsibleState = getCommentCollapsibleState(reviewThread, expand);
 	if (range) {
@@ -189,7 +195,7 @@ export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHP
 }
 
 export function updateCommentThreadLabel(thread: GHPRCommentThread) {
-	if (thread.state === vscode.CommentThreadState.Resolved) {
+	if (thread.state.resolved === vscode.CommentThreadState.Resolved) {
 		thread.label = vscode.l10n.t('Marked as resolved');
 		return;
 	}

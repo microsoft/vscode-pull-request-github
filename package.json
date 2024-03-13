@@ -13,6 +13,7 @@
 	"enabledApiProposals": [
 		"activeComment",
 		"commentingRangeHint",
+		"commentThreadApplicability",
 		"contribCommentsViewThreadMenus",
 		"tokenInformation",
 		"contribShareMenu",
@@ -29,7 +30,7 @@
 		"tabInputTextMerge",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.82.0",
+	"version": "0.84.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.88.0"
@@ -983,7 +984,7 @@
 				"command": "pr.unresolveReviewThread",
 				"title": "%command.pr.unresolveReviewThread.title%",
 				"category": "%command.pull.request.category%",
-				"icon": "$(circle-slash)"
+				"icon": "$(discard)"
 			},
 			{
 				"command": "pr.diffOutdatedCommentWithHead",

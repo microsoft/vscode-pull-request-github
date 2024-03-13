@@ -16,7 +16,7 @@ import { IssueModel } from './issueModel';
 import { getLabelOptions } from './quickPicks';
 
 export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends WebviewBase {
-	public static ID: string = 'PullRequestOverviewPanel';
+	public static ID: string = 'IssueOverviewPanel';
 	/**
 	 * Track the currently panel. Only allow a single panel to exist at a time.
 	 */

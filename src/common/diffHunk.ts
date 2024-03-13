@@ -269,7 +269,7 @@ export async function parseDiff(
 		const review = reviews[i];
 		const gitChangeType = getGitChangeType(review.status);
 
-		if (!review.patch &&
+		if ((!review.patch && (gitChangeType !== GitChangeType.RENAME)) &&
 			// We don't need to make a SlimFileChange for empty file adds.
 			!((gitChangeType === GitChangeType.ADD) && (review.additions === 0))) {
 			fileChanges.push(
@@ -291,7 +291,7 @@ export async function parseDiff(
 				gitChangeType,
 				review.filename,
 				review.previous_filename,
-				review.patch,
+				review.patch ?? '',
 				diffHunks,
 				review.blob_url,
 			),
