@@ -279,8 +279,39 @@ export class ReviewManager {
 	}
 
 	private async validateStatusAndSetContext(silent: boolean, updateLayout: boolean) {
-		await this.validateState(silent, updateLayout);
-		await vscode.commands.executeCommand('setContext', 'github:stateValidated', true);
+		// Network errors can cause one of the GitHub API calls in validateState to never return.
+		let timeout: NodeJS.Timeout | undefined;
+		const timeoutPromise = new Promise<void>(resolve => {
+			timeout = setTimeout(() => {
+				if (timeout) {
+					clearTimeout(timeout);
+					timeout = undefined;
+					Logger.error('Timeout occurred while validating state.', this.id);
+					/* __GDPR__
+						"pr.checkout" : {
+						{
+							"version" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth"
+						}
+					*/
+					this._telemetry.sendTelemetryErrorEvent('pr.validateStateTimeout', { version: this._context.extension.packageJSON.version });
+				}
+				resolve();
+			}, 1000 * 60 * 2);
+		});
+
+		const validatePromise = new Promise<void>(resolve => {
+			this.validateStateAndResetPromise(silent, updateLayout).then(() => {
+				vscode.commands.executeCommand('setContext', 'github:stateValidated', true).then(() => {
+					if (timeout) {
+						clearTimeout(timeout);
+						timeout = undefined;
+					}
+					resolve();
+				});
+			});
+		});
+
+		return Promise.race([validatePromise, timeoutPromise]);
 	}
 
 	private async offerIgnoreBranch(currentBranchName): Promise<boolean> {
