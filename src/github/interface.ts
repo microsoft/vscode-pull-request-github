@@ -203,7 +203,7 @@ export interface IRawFileChange {
 	status: string;
 	raw_url: string;
 	blob_url: string;
-	patch: string;
+	patch: string | undefined;
 }
 
 export interface IPullRequestsPagingOptions {
