@@ -86,7 +86,7 @@ export abstract class ChangesContentProvider implements Partial<vscode.FileSyste
 		return { dispose: () => { } };
 	}
 
-	stat(uri: any): vscode.FileStat {
+	stat(_uri: any): vscode.FileStat {
 		// const params = fromGitHubURI(uri);
 
 		return {
