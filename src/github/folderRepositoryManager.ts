@@ -2174,13 +2174,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		if (!pullRequestModel.head) {
 			return false;
 		}
-		const baseRemote = findLocalRepoRemoteFromGitHubRef(this.repository, pullRequestModel.base)?.name;
-		const headRemote = findLocalRepoRemoteFromGitHubRef(this.repository, pullRequestModel.head)?.name;
-		if (!baseRemote || !headRemote) {
-			return false;
-		}
-		const log = await this.repository.log({ range: `${headRemote}/${pullRequestModel.head.ref}..${baseRemote}/${pullRequestModel.base.ref}` });
-		return log.length === 0;
+		const repo = this._githubRepositories.find(
+			r => r.remote.owner === pullRequestModel.remote.owner && r.remote.repositoryName === pullRequestModel.remote.repositoryName,
+		);
+		const headBranch = `${pullRequestModel.head.owner}:${pullRequestModel.head.ref}`;
+		const baseBranch = `${pullRequestModel.base.owner}:${pullRequestModel.base.ref}`;
+		const log = await repo?.compareCommits(baseBranch, headBranch);
+		return log?.behind_by === 0;
 	}
 
 	async fetchById(githubRepo: GitHubRepository, id: number): Promise<PullRequestModel | undefined> {
