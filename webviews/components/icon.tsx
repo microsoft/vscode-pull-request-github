@@ -28,7 +28,7 @@ export const prOpenIcon = <Icon src={require('../../resources/icons/pr.svg')} />
 export const prDraftIcon = <Icon src={require('../../resources/icons/pr_draft.svg')} />;
 export const editIcon = <Icon src={require('../../resources/icons/edit.svg')} />;
 export const plusIcon = <Icon src={require('../../resources/icons/plus.svg')} />;
-export const pendingIcon = <Icon src={require('../../resources/icons/dot.svg')} />;
+export const pendingIcon = <Icon src={require('../../resources/icons/dot.svg')} className='pending' />;
 export const requestChanges = <Icon src={require('../../resources/icons/request_changes.svg')} />;
 export const settingsIcon = <Icon src={require('../../resources/icons/settings.svg')} />;
 export const closeIcon = <Icon src={require('../../resources/icons/close.svg')} className='close' />;

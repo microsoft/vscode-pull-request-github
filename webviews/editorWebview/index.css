@@ -255,6 +255,7 @@ button.input-box {
 	fill: var(--vscode-errorForeground);
 }
 
+.status-section .pending svg path,
 .status-section .skip svg path {
 	fill: var(--vscode-list-warningForeground);
 }
