@@ -206,6 +206,19 @@ export interface IRawFileChange {
 	patch: string | undefined;
 }
 
+export interface IRawFileContent {
+	type: string;
+	size: number;
+	name: string;
+	path: string;
+	content?: string | undefined;
+	sha: string;
+	url: string;
+	git_url: string | null;
+	html_url: string | null;
+	download_url: string | null;
+}
+
 export interface IPullRequestsPagingOptions {
 	fetchNextPage: boolean;
 	fetchOnePagePerRepo?: boolean;

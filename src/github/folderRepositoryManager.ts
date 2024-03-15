@@ -2139,6 +2139,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return;
 		}
 
+		if (!pullRequest.isActive ||
+			((pullRequest.item.mergeable !== PullRequestMergeability.Conflict) && (vscode.env.appHost === 'vscode.dev' || vscode.env.appHost === 'github.dev'))) {
+			return pullRequest.updateBranch();
+		}
+
 		if (this.repository.state.workingTreeChanges.length > 0 || this.repository.state.indexChanges.length > 0) {
 			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
 			return;
