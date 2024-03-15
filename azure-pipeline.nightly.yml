@@ -28,7 +28,6 @@ extends:
   template: azure-pipelines/extension/pre-release.yml@templates
   parameters:
     l10nSourcePaths: ./src
-    customNPMRegistry: ''
 
     buildSteps:
       - script: yarn install --frozen-lockfile --check-files
@@ -80,5 +79,11 @@ extends:
       #   displayName: Run test suite (webkit)
       #   env:
       #     TEST_JUNIT_XML_PATH: $(Agent.HomeDirectory)/browser-webkit-test-results.xml
+
+    tsa:
+      config:
+        areaPath: 'Visual Studio Code Web Extensions'
+        serviceTreeID: '1788a767-5861-45fb-973b-c686b67c5541'
+      enabled: true
 
     publishExtension: ${{ parameters.publishExtension }}
