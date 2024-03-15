@@ -10,7 +10,7 @@ import gql from 'graphql-tag';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
-import { parseDiff } from '../common/diffHunk';
+import { getModifiedContentFromDiffHunk, parseDiff } from '../common/diffHunk';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
@@ -53,6 +53,7 @@ import {
 	GithubItemStateEnum,
 	IAccount,
 	IRawFileChange,
+	IRawFileContent,
 	ISuggestedReviewer,
 	ITeam,
 	MergeMethod,
@@ -783,6 +784,106 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		} catch (e) {
 			throw new Error(formatError(e));
 		}
+	}
+
+	private async getUpdateBranchFiles(head: GitHubRef, base: GitHubRef, baseCommitSha: string): Promise<IRawFileContent[]> {
+		const { octokit, remote } = await this.githubRepository.ensure();
+
+		// Get the files that would change as part of the merge
+		const compareData = await restPaginate<typeof octokit.api.repos.compareCommits, OctokitCommon.ReposCompareCommitsResponseData>(octokit.api.repos.compareCommits, {
+			repo: remote.repositoryName,
+			owner: head.owner,
+			base: `${head.owner}:${head.ref}`, // flip base and head because we are comparing for a merge to update the PR
+			head: `${base.owner}:${baseCommitSha}`,
+		});
+
+		const files: IRawFileContent[] = (await Promise.all(compareData.map(data => data.files).flat().map(async (file) => {
+			if (!file) {
+				return;
+			}
+			const { data: baseData }: { data: IRawFileContent } = await octokit.call(octokit.api.repos.getContent, {
+				owner: base.owner,
+				repo: remote.repositoryName,
+				path: file?.filename,
+				ref: baseCommitSha
+			}) as { data: IRawFileContent };
+			if ((!file.previous_filename || !this._fileChanges.has(file.previous_filename)) && !this._fileChanges.has(file.filename)) {
+				// File is not part of the PR, so we can use the content from the base branch
+				return baseData;
+			} else {
+				// File is part of the PR. We have to apply the patch of the base to the head content.
+				// NOTE THAT CONFLICTS ARE NOT YET HANDLED!!
+				const { data: headData }: { data: IRawFileContent } = await octokit.call(octokit.api.repos.getContent, {
+					owner: head.owner,
+					repo: remote.repositoryName,
+					path: file?.previous_filename ?? file.filename,
+					ref: head.ref
+				}) as { data: IRawFileContent };
+
+				if (file.status === 'modified' && file.patch && headData.content) {
+					const buff = buffer.Buffer.from(headData.content, 'base64');
+					const asString = new TextDecoder().decode(buff);
+					const modifiedContent = getModifiedContentFromDiffHunk(asString, file.patch);
+					const asBuff = new TextEncoder().encode(modifiedContent);
+					baseData.content = asBuff.toString();
+				} else {
+					// What would cause a modified file to not have a patch?
+					Logger.error(`File ${file.filename} has status ${file.status} and no patch`, GitHubRepository.ID);
+					// We don't want to commit something that's going to break, so throw
+					throw new Error(`File ${file.filename} has status ${file.status} and no patch`);
+				}
+				return baseData;
+			}
+		}))).filter<IRawFileContent>((file): file is IRawFileContent => file !== undefined);
+		return files;
+	}
+
+	/**
+	 * Should only be called if there are no conflicts!!
+	 */
+	async updateBranch(): Promise<void> {
+		if (this.item.mergeable === PullRequestMergeability.Conflict) {
+			Logger.error('Cannot update a branch with conflicts', GitHubRepository.ID);
+			throw new Error('Cannot update a branch with conflicts');
+		}
+
+		const head = this.head;
+		const base = this.base;
+		if (!head) {
+			return;
+		}
+		Logger.debug(`Updating branch ${head.ref} to ${base.ref} - enter`, GitHubRepository.ID);
+		try {
+			const { octokit, remote } = await this.githubRepository.ensure();
+			const baseCommitSha = (await octokit.call(octokit.api.repos.getBranch, { owner: remote.owner, repo: remote.repositoryName, branch: base.ref })).data.commit.sha;
+
+			const lastCommitSha = (await octokit.call(octokit.api.repos.getBranch, { owner: head.owner, repo: remote.repositoryName, branch: head.ref })).data.commit.sha;
+			const lastTreeSha = (await octokit.call(octokit.api.repos.getCommit, { owner: head.owner, repo: remote.repositoryName, ref: lastCommitSha })).data.commit.tree.sha;
+
+			const files: IRawFileContent[] = await this.getUpdateBranchFiles(head, base, baseCommitSha);
+
+			const treeItems: { path: string, mode: '100644', content: string }[] = [];
+			for (const file of files) {
+				if (file.content) {
+					const buff = buffer.Buffer.from(file.content, 'base64');
+					treeItems.push({ path: file.path, mode: '100644', content: buff.toString() });
+				}
+			}
+
+			const newTreeSha = (await octokit.call(octokit.api.git.createTree, { owner: head.owner, repo: remote.repositoryName, base_tree: lastTreeSha, tree: treeItems })).data.sha;
+			let message: string;
+			if (base.owner === head.owner) {
+				message = `Merge branch \`${base.ref}\` into ${head.ref}`;
+			} else {
+				message = `Merge branch \`${base.owner}:${base.ref}\` into ${head.ref}`;
+			}
+			const newCommitSha = (await octokit.call(octokit.api.git.createCommit, { owner: head.owner, repo: remote.repositoryName, message, tree: newTreeSha, parents: [lastCommitSha, baseCommitSha] })).data.sha;
+			await octokit.call(octokit.api.git.updateRef, { owner: head.owner, repo: remote.repositoryName, ref: `heads/${head.ref}`, sha: newCommitSha });
+
+		} catch (e) {
+			Logger.error(`Updating branch ${head.ref} to ${base.ref} failed: ${e}`, GitHubRepository.ID);
+		}
+		Logger.debug(`Updating branch ${head.ref} to ${base.ref} - done`, GitHubRepository.ID);
 	}
 
 	/**
