@@ -1126,7 +1126,11 @@ ${contents}
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('review.openLocalFile', (value: vscode.Uri) => {
+		vscode.commands.registerCommand('review.openLocalFile', (_value: vscode.Uri) => {
+			const value = _value ?? vscode.window.activeTextEditor?.document.uri;
+			if (!value) {
+				return;
+			}
 			const localUri = localUriFromReviewUri(value);
 			const editor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === value.toString());
 			const command = openFileCommand(localUri, editor ? { selection: editor.selection } : undefined);
