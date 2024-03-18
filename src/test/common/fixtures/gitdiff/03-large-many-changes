@@ -11,26 +11,9 @@
 		"url": "https://github.com/Microsoft/vscode-pull-request-github/issues"
 	},
 	"enabledApiProposals": [
-		"activeComment",
-		"commentingRangeHint",
-		"commentThreadApplicability",
-		"contribCommentsViewThreadMenus",
-		"tokenInformation",
-		"contribShareMenu",
-		"fileComments",
-		"codeActionRanges",
-		"commentReactor",
-		"contribCommentPeekContext",
-		"contribCommentThreadAdditionalMenu",
-		"codiconDecoration",
-		"diffCommand",
-		"contribCommentEditorActionsMenu",
-		"shareProvider",
-		"quickDiffProvider",
-		"tabInputTextMerge",
-		"treeViewMarkdownMessage"
+
 	],
-	"version": "0.84.0",
+	"version": "0.86.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.88.0"
@@ -232,7 +215,7 @@
 					"default": true,
 					"description": "%githubPullRequests.defaultDeletionMethod.selectLocalBranch.description%"
 				},
-				"githubPullRequests.defaultDeletionMethod.selectRemote": {
+				"githubPullRequests.defaulteletionMethod.selectRemote": {
 					"type": "boolean",
 					"default": true,
 					"description": "%githubPullRequests.defaultDeletionMethod.selectRemote.description%"
@@ -1150,6 +1133,11 @@
 			{
 				"command": "review.approveDescription",
 				"title": "%command.review.approve.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "review.commentDescription",
+				"title": "%command.review.comment.title%",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -2484,6 +2472,18 @@
 				}
 			],
 			"comments/comment/context": [
+				{
+					"command": "pr.saveComment",
+					"group": "inline@1",
+					"when": "commentController =~ /^github-(browse|review)/"
+				},
+				{
+					"command": "pr.cancelEditComment",
+					"group": "inline@2",
+					"when": "commentController =~ /^github-(browse|review)/"
+				}
+			],
+			"comments/comment2/context": [
 				{
 					"command": "pr.saveComment",
 					"group": "inline@1",

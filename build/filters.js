@@ -45,7 +45,8 @@ module.exports.indentationFilter = [
 	// except multiple specific files
 	'!**/package.json',
 	'!**/yarn.lock',
-	'!**/yarn-error.log'
+	'!**/yarn-error.log',
+	'!**/fixtures/**/*'
 ];
 
 module.exports.copyrightFilter = [
@@ -61,12 +62,14 @@ module.exports.copyrightFilter = [
 	'!**/*.md',
 	'!package.nls.json',
 	'!**/*.svg',
-	'!src/integrations/gitlens/gitlens.d.ts'
+	'!src/integrations/gitlens/gitlens.d.ts',
+	'!**/fixtures/**'
 ];
 
 module.exports.tsFormattingFilter = [
 	'src/**/*.ts',
 	'common/**/*.ts',
 	'webviews/**/*.ts',
+	'**/fixtures/**/*'
 ];
 

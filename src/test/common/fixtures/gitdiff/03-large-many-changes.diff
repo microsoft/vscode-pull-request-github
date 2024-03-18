@@ -1,0 +1,96 @@
+diff --git a/03-large b/03-large-many-changes
+index 51efe28a..4928a2ba 100644
+--- a/03-large
++++ b/03-large-many-changes
+@@ -11,26 +11,9 @@
+ 		"url": "https://github.com/Microsoft/vscode-pull-request-github/issues"
+ 	},
+ 	"enabledApiProposals": [
+-		"activeComment",
+-		"commentingRangeHint",
+-		"commentThreadApplicability",
+-		"contribCommentsViewThreadMenus",
+-		"tokenInformation",
+-		"contribShareMenu",
+-		"fileComments",
+-		"codeActionRanges",
+-		"commentReactor",
+-		"contribCommentPeekContext",
+-		"contribCommentThreadAdditionalMenu",
+-		"codiconDecoration",
+-		"diffCommand",
+-		"contribCommentEditorActionsMenu",
+-		"shareProvider",
+-		"quickDiffProvider",
+-		"tabInputTextMerge",
+-		"treeViewMarkdownMessage"
++
+ 	],
+-	"version": "0.84.0",
++	"version": "0.86.0",
+ 	"publisher": "GitHub",
+ 	"engines": {
+ 		"vscode": "^1.88.0"
+@@ -232,7 +215,7 @@
+ 					"default": true,
+ 					"description": "%githubPullRequests.defaultDeletionMethod.selectLocalBranch.description%"
+ 				},
+-				"githubPullRequests.defaultDeletionMethod.selectRemote": {
++				"githubPullRequests.defaulteletionMethod.selectRemote": {
+ 					"type": "boolean",
+ 					"default": true,
+ 					"description": "%githubPullRequests.defaultDeletionMethod.selectRemote.description%"
+@@ -1157,6 +1140,11 @@
+ 				"title": "%command.review.comment.title%",
+ 				"category": "%command.pull.request.category%"
+ 			},
++			{
++				"command": "review.commentDescription",
++				"title": "%command.review.comment.title%",
++				"category": "%command.pull.request.category%"
++			},
+ 			{
+ 				"command": "review.requestChangesDescription",
+ 				"title": "%command.review.requestChanges.title%",
+@@ -2495,6 +2483,18 @@
+ 					"when": "commentController =~ /^github-(browse|review)/"
+ 				}
+ 			],
++			"comments/comment2/context": [
++				{
++					"command": "pr.saveComment",
++					"group": "inline@1",
++					"when": "commentController =~ /^github-(browse|review)/"
++				},
++				{
++					"command": "pr.cancelEditComment",
++					"group": "inline@2",
++					"when": "commentController =~ /^github-(browse|review)/"
++				}
++			],
+ 			"editor/context/copy": [
+ 				{
+ 					"command": "issue.copyGithubPermalink",
+@@ -2825,11 +2825,12 @@
+ 		"lint:browser": "eslint --fix --cache --cache-location .eslintcache.browser --config .eslintrc.browser.json --ignore-pattern src/env/node/**/* \"{src,webviews}/**/*.{ts,tsx}\"",
+ 		"package": "npx vsce package --yarn",
+ 		"test": "yarn run test:preprocess && node ./out/src/test/runTests.js",
+-		"test:preprocess": "yarn run compile:test && yarn run test:preprocess-gql && yarn run test:preprocess-svg",
++		"test:preprocess": "yarn run compile:test && yarn run test:preprocess-gql && yarn run test:preprocess-svg && yarn run test:preprocess-fixtures",
+ 		"browsertest:preprocess": "tsc ./src/test/browser/runTests.ts --outDir ./dist/browser/test --rootDir ./src/test/browser --target es6 --module commonjs",
+ 		"browsertest": "yarn run browsertest:preprocess && node ./dist/browser/test/runTests.js",
+ 		"test:preprocess-gql": "node scripts/preprocess-gql --in src/github/queries.gql --out out/src/github/queries.gql && node scripts/preprocess-gql --in src/github/queriesExtra.gql --out out/src/github/queriesExtra.gql && node scripts/preprocess-gql --in src/github/queriesShared.gql --out out/src/github/queriesShared.gql && node scripts/preprocess-gql --in src/github/queriesLimited.gql --out out/src/github/queriesLimited.gql",
+ 		"test:preprocess-svg": "node scripts/preprocess-svg --in ../resources/ --out out/resources",
++		"test:preprocess-fixtures": "node scripts/preprocess-fixtures --in src --out out",
+ 		"update-dts": "cd \"src/@types\" && npx vscode-dts main && npx vscode-dts dev",
+ 		"watch": "webpack --watch --mode development --env esbuild",
+ 		"watch:web": "webpack --watch --mode development --config-name extension:webworker --config-name webviews",
+@@ -2842,7 +2843,7 @@
+ 		"@types/lru-cache": "^5.1.0",
+ 		"@types/marked": "^0.7.2",
+ 		"@types/mocha": "^8.2.2",
+-		"@types/node": "12.12.70",
++		"@types/node": "18.17.1",
+ 		"@types/react": "^16.8.4",
+ 		"@types/react-dom": "^16.8.2",
+ 		"@types/sinon": "7.0.11",

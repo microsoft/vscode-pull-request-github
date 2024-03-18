@@ -209,6 +209,7 @@ export function getModifiedContentFromDiffHunk(originalContent: string, patch: s
 
 	const right: string[] = [];
 	let lastCommonLine = 0;
+	let lastDiffLineEndsWithNewline = true;
 	while (!diffHunkIter.done) {
 		const diffHunk: DiffHunk = diffHunkIter.value;
 		diffHunks.push(diffHunk);
@@ -233,11 +234,24 @@ export function getModifiedContentFromDiffHunk(originalContent: string, patch: s
 		}
 
 		diffHunkIter = diffHunkReader.next();
+		if (diffHunkIter.done) {
+			// Find last line that wasn't a delete
+			for (let k = diffHunk.diffLines.length - 1; k >= 0; k--) {
+				if (diffHunk.diffLines[k].type !== DiffChangeType.Delete) {
+					lastDiffLineEndsWithNewline = diffHunk.diffLines[k].endwithLineBreak;
+					break;
+				}
+			}
+		}
 	}
 
-	if (lastCommonLine < left.length) {
-		for (let j = lastCommonLine + 1; j <= left.length; j++) {
-			right.push(left[j - 1]);
+	if (lastDiffLineEndsWithNewline) { // if this is false, then the patch has shortened the file
+		if (lastCommonLine < left.length) {
+			for (let j = lastCommonLine + 1; j <= left.length; j++) {
+				right.push(left[j - 1]);
+			}
+		} else {
+			right.push('');
 		}
 	}
 
