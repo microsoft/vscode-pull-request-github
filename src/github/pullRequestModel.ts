@@ -33,6 +33,7 @@ import {
 	DequeuePullRequestResponse,
 	EditCommentResponse,
 	EnqueuePullRequestResponse,
+	FileContentResponse,
 	GetReviewRequestsResponse,
 	LatestReviewCommitResponse,
 	MarkPullRequestReadyForReviewResponse,
@@ -52,6 +53,7 @@ import {
 import {
 	GithubItemStateEnum,
 	IAccount,
+	IGitTreeItem,
 	IRawFileChange,
 	IRawFileContent,
 	ISuggestedReviewer,
@@ -786,7 +788,28 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	private async getUpdateBranchFiles(head: GitHubRef, base: GitHubRef, baseCommitSha: string): Promise<IRawFileContent[]> {
+	private async getFileContent(owner: string, sha: string, file: string): Promise<string | undefined> {
+		Logger.debug(`Fetch file content - enter`, GitHubRepository.ID);
+		const { query, remote, schema } = await this.githubRepository.ensure();
+		const { data } = await query<FileContentResponse>({
+			query: schema.GetFileContent,
+			variables: {
+				owner,
+				name: remote.repositoryName,
+				expression: `${sha}:${file}`
+			}
+		});
+
+		if (!data.repository?.object.text) {
+			return undefined;
+		}
+
+		Logger.debug(`Fetch file content - end`, GitHubRepository.ID);
+
+		return data.repository.object.text;
+	}
+
+	private async getUpdateBranchFiles(head: GitHubRef, base: GitHubRef, baseCommitSha: string, headTreeSha: string): Promise<IGitTreeItem[]> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 
 		// Get the files that would change as part of the merge
@@ -797,44 +820,61 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			head: `${base.owner}:${baseCommitSha}`,
 		});
 
-		const files: IRawFileContent[] = (await Promise.all(compareData.map(data => data.files).flat().map(async (file) => {
+		const baseTreeSha = (await octokit.call(octokit.api.repos.getCommit, { owner: base.owner, repo: remote.repositoryName, ref: baseCommitSha })).data.commit.tree.sha;
+		const baseTree = await octokit.call(octokit.api.git.getTree, { owner: base.owner, repo: remote.repositoryName, tree_sha: baseTreeSha, recursive: 'true' });
+
+		const files: IGitTreeItem[] = (await Promise.all(compareData.map(data => data.files).flat().map(async (file) => {
 			if (!file) {
 				return;
 			}
-			const { data: baseData }: { data: IRawFileContent } = await octokit.call(octokit.api.repos.getContent, {
-				owner: base.owner,
-				repo: remote.repositoryName,
-				path: file?.filename,
-				ref: baseCommitSha
-			}) as { data: IRawFileContent };
-			if ((!file.previous_filename || !this._fileChanges.has(file.previous_filename)) && !this._fileChanges.has(file.filename)) {
-				// File is not part of the PR, so we can use the content from the base branch
-				return baseData;
-			} else {
-				// File is part of the PR. We have to apply the patch of the base to the head content.
-				// NOTE THAT CONFLICTS ARE NOT YET HANDLED!!
-				const { data: headData }: { data: IRawFileContent } = await octokit.call(octokit.api.repos.getContent, {
-					owner: head.owner,
-					repo: remote.repositoryName,
-					path: file?.previous_filename ?? file.filename,
-					ref: head.ref
-				}) as { data: IRawFileContent };
 
-				if (file.status === 'modified' && file.patch && headData.content) {
-					const buff = buffer.Buffer.from(headData.content, 'base64');
-					const asString = new TextDecoder().decode(buff);
-					const modifiedContent = getModifiedContentFromDiffHunk(asString, file.patch);
-					const asBuff = new TextEncoder().encode(modifiedContent);
-					baseData.content = asBuff.toString();
-				} else {
-					// What would cause a modified file to not have a patch?
-					Logger.error(`File ${file.filename} has status ${file.status} and no patch`, GitHubRepository.ID);
-					// We don't want to commit something that's going to break, so throw
-					throw new Error(`File ${file.filename} has status ${file.status} and no patch`);
-				}
-				return baseData;
+			// TODO (in upcoming PR): check existing resolutions for the file and return the resolution if it exists.
+			// If there are any conflicts that are more than just text file conflicts, then
+			// we will not support resolving here and should error out.
+
+			if (file.status === 'removed') {
+				// The file was removed so we use a null sha to indicate that (per GitHub's API).
+				// If we've made it this far, we already know that there are no conflicts in the file and it's safe to delete.
+				const headTree = await octokit.call(octokit.api.git.getTree, { owner: head.owner, repo: remote.repositoryName, tree_sha: headTreeSha, recursive: 'true' });
+				const headTreeData = headTree.data.tree.find(f => f.path === file.filename);
+				return { path: file.filename, sha: null, mode: headTreeData?.mode ?? '100644' };
 			}
-		}))).filter<IRawFileContent>((file): file is IRawFileContent => file !== undefined);
+
+			const baseTreeData = baseTree.data.tree.find(f => f.path === (file.previous_filename ?? file.filename));
+			const baseMode: '100644' | '100755' | '120000' = baseTreeData?.mode as any ?? '100644';
+			const treeItem: IGitTreeItem = {
+				path: file?.previous_filename ?? file.filename,
+				mode: baseMode
+			};
+
+			if ((!file.previous_filename || !this._fileChanges.has(file.previous_filename)) && !this._fileChanges.has(file.filename)) {
+				// File is not part of the PR, so we don't need to bother getting any content and can just use the sha
+				treeItem.sha = file.sha;
+				return treeItem;
+			}
+
+			// File is part of the PR. We have to apply the patch of the base to the head content.
+			const { data: headData }: { data: IRawFileContent } = await octokit.call(octokit.api.repos.getContent, {
+				owner: head.owner,
+				repo: remote.repositoryName,
+				path: file?.previous_filename ?? file.filename,
+				ref: head.ref
+			}) as { data: IRawFileContent };
+
+			if (file.status === 'modified' && file.patch && headData.content) {
+				const buff = buffer.Buffer.from(headData.content, 'base64');
+				const asString = new TextDecoder().decode(buff);
+				treeItem.content = getModifiedContentFromDiffHunk(asString, file.patch);
+			} else {
+				// binary file or file that otherwise doesn't have a patch
+				// This cannot be resolved by us and must manually be resolved by the user
+				Logger.error(`File ${file.filename} has status ${file.status} and can't be merged.`, GitHubRepository.ID);
+				// We don't want to commit something that's going to break, so throw
+				throw new Error(`File ${file.filename} has status ${file.status} and can't be merged,`);
+			}
+			return treeItem;
+
+		}))).filter<IGitTreeItem>((file): file is IGitTreeItem => file !== undefined);
 		return files;
 	}
 
@@ -860,15 +900,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			const lastCommitSha = (await octokit.call(octokit.api.repos.getBranch, { owner: head.owner, repo: remote.repositoryName, branch: head.ref })).data.commit.sha;
 			const lastTreeSha = (await octokit.call(octokit.api.repos.getCommit, { owner: head.owner, repo: remote.repositoryName, ref: lastCommitSha })).data.commit.tree.sha;
 
-			const files: IRawFileContent[] = await this.getUpdateBranchFiles(head, base, baseCommitSha);
-
-			const treeItems: { path: string, mode: '100644', content: string }[] = [];
-			for (const file of files) {
-				if (file.content) {
-					const buff = buffer.Buffer.from(file.content, 'base64');
-					treeItems.push({ path: file.path, mode: '100644', content: buff.toString() });
-				}
-			}
+			const treeItems: IGitTreeItem[] = await this.getUpdateBranchFiles(head, base, baseCommitSha, lastTreeSha);
 
 			const newTreeSha = (await octokit.call(octokit.api.git.createTree, { owner: head.owner, repo: remote.repositoryName, base_tree: lastTreeSha, tree: treeItems })).data.sha;
 			let message: string;
