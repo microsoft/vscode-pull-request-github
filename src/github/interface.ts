@@ -219,6 +219,14 @@ export interface IRawFileContent {
 	download_url: string | null;
 }
 
+export interface IGitTreeItem {
+	path: string;
+	mode: '100644' | '100755' | '120000';
+	// Must contain a content or a sha.
+	content?: string;
+	sha?: string | null;
+}
+
 export interface IPullRequestsPagingOptions {
 	fetchNextPage: boolean;
 	fetchOnePagePerRepo?: boolean;
