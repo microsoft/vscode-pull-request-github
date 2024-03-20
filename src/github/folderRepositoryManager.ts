@@ -28,7 +28,7 @@ import {
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
-import { formatError, Predicate } from '../common/utils';
+import { compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
@@ -491,8 +491,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				const parentUrl = new Protocol(metadata.parent.git_url);
 				const missingParentRemote = !this._githubRepositories.some(
 					repo =>
-						repo.remote.owner === parentUrl.owner &&
-						repo.remote.repositoryName === parentUrl.repositoryName,
+						(compareIgnoreCase(repo.remote.owner, parentUrl.owner) === 0) &&
+						(compareIgnoreCase(repo.remote.repositoryName, parentUrl.repositoryName) === 0),
 				);
 
 				if (missingParentRemote) {
