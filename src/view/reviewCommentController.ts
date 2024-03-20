@@ -612,9 +612,9 @@ export class ReviewCommentController extends CommentControllerBase
 
 	public async startReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		const hasExistingComments = thread.comments.length;
-		const temporaryCommentId = await this.optimisticallyAddComment(thread, input, true);
-
+		let temporaryCommentId: number | undefined = undefined;
 		try {
+			temporaryCommentId = await this.optimisticallyAddComment(thread, input, true);
 			if (!hasExistingComments) {
 				const fileName = this.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
@@ -651,7 +651,7 @@ export class ReviewCommentController extends CommentControllerBase
 				}
 			}
 		} catch (e) {
-			vscode.window.showErrorMessage(`Starting review failed: ${e}`);
+			vscode.window.showErrorMessage(`Starting review failed. Any review comments may be lost.`, { modal: true, detail: e?.message ?? e });
 
 			thread.comments = thread.comments.map(c => {
 				if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
