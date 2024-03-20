@@ -169,10 +169,10 @@ export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHP
 	}
 
 	const newResolvedState = isResolvedToResolvedState(reviewThread.isResolved);
-	if (vscodeThread.state.resolved !== newResolvedState) {
+	if (vscodeThread.state?.resolved !== newResolvedState) {
 		vscodeThread.state = {
 			resolved: newResolvedState,
-			applicability: vscodeThread.state.applicability
+			applicability: vscodeThread.state?.applicability
 		};
 	}
 	vscodeThread.collapsibleState = getCommentCollapsibleState(reviewThread, expand);
@@ -195,7 +195,7 @@ export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHP
 }
 
 export function updateCommentThreadLabel(thread: GHPRCommentThread) {
-	if (thread.state.resolved === vscode.CommentThreadState.Resolved) {
+	if (thread.state?.resolved === vscode.CommentThreadState.Resolved) {
 		thread.label = vscode.l10n.t('Marked as resolved');
 		return;
 	}

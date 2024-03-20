@@ -46,7 +46,7 @@ export interface GHPRCommentThread extends vscode.CommentThread2 {
 	/**
 	 * Whether the thread has been marked as resolved.
 	 */
-	state: { resolved: vscode.CommentThreadState; applicability: vscode.CommentThreadApplicability };
+	state?: { resolved: vscode.CommentThreadState; applicability?: vscode.CommentThreadApplicability };
 
 	dispose: () => void;
 }
