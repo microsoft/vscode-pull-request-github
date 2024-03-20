@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.82.1
+
+### Fixes
+
+- Failed to execute git thrown when attempting to view PR Description in "GitHub" tab. https://github.com/microsoft/vscode-pull-request-github/issues/5744
+
 ## 0.82.0
 
 ### Changes
