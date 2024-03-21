@@ -30,7 +30,7 @@
 		"tabInputTextMerge",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.82.0",
+	"version": "0.84.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.88.0"
