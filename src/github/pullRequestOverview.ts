@@ -174,6 +174,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return review?.state;
 	}
 
+	private isUpdateBranchWithGitHubEnabled(): boolean {
+		return this._item.isActive || vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get('experimentalUpdateBranchWithGitHub', false);
+	}
+
 	private async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
 		return Promise.all([
 			this._folderRepositoryManager.resolvePullRequest(
@@ -232,6 +236,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					!!pullRequest.head &&
 					!pullRequest.base.repositoryCloneUrl.equals(pullRequest.head.repositoryCloneUrl);
 
+				const isUpdateBranchWithGitHubEnabled: boolean = this.isUpdateBranchWithGitHubEnabled();
 				const continueOnGitHub = isCrossRepository && isInCodespaces();
 				const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
 				Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
@@ -264,7 +269,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					hasWritePermission,
 					status: status[0],
 					reviewRequirement: status[1],
-					canUpdateBranch: pullRequest.item.viewerCanUpdate && !isBranchUpToDateWithBase,
+					canUpdateBranch: pullRequest.item.viewerCanUpdate && !isBranchUpToDateWithBase && isUpdateBranchWithGitHubEnabled,
 					mergeable: pullRequest.item.mergeable,
 					reviewers: this._existingReviewers,
 					isDraft: pullRequest.isDraft,
@@ -828,6 +833,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async updateBranch(message: IRequestMessage<string>): Promise<void> {
+		if (!this.isUpdateBranchWithGitHubEnabled()) {
+			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch must be checked out to be updated.'), { modal: true });
+			return this._replyMessage(message, {});
+		}
+
 		if (this._folderRepositoryManager.repository.state.workingTreeChanges.length > 0 || this._folderRepositoryManager.repository.state.indexChanges.length > 0) {
 			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
 			return this._replyMessage(message, {});
