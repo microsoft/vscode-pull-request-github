@@ -820,23 +820,34 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		return CreatePullRequestViewProviderNew.withProgress(async () => {
 			try {
 				let commitMessages: string[];
-				let patches: string[];
+				let patches: ({ patch: string, fileUri: string, previousFileUri?: string } | undefined)[];
 				if (await this.model.getCompareHasUpstream()) {
 					[commitMessages, patches] = await Promise.all([
 						this.model.gitHubCommits().then(rawCommits => rawCommits.map(commit => commit.commit.message)),
-						this.model.gitHubFiles().then(rawPatches => rawPatches.map(file => file.patch ?? ''))]);
+						this.model.gitHubFiles().then(rawPatches => rawPatches.map(file => {
+							if (!file.patch) {
+								return;
+							}
+							const fileUri = vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, file.filename).toString();
+							const previousFileUri = file.previous_filename ? vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, file.previous_filename).toString() : undefined;
+							return { patch: file.patch, fileUri, previousFileUri };
+						}))]);
 				} else {
 					[commitMessages, patches] = await Promise.all([
 						this.model.gitCommits().then(rawCommits => rawCommits.filter(commit => commit.parents.length === 1).map(commit => commit.message)),
 						Promise.all((await this.model.gitFiles()).map(async (file) => {
-							return this._folderRepositoryManager.repository.diffBetween(this.model.baseBranch, this.model.compareBranch, file.uri.fsPath);
+							return {
+								patch: await this._folderRepositoryManager.repository.diffBetween(this.model.baseBranch, this.model.compareBranch, file.uri.fsPath),
+								fileUri: file.uri.toString(),
+							};
 						}))]);
 				}
-
+				const filteredPatches: { patch: string, fileUri: string, previousFileUri?: string }[] =
+					patches.filter<{ patch: string, fileUri: string, previousFileUri?: string }>((patch): patch is { patch: string, fileUri: string, previousFileUri?: string } => !!patch);
 				const issues = await this.findIssueContext(commitMessages);
 
 				const provider = this._folderRepositoryManager.getTitleAndDescriptionProvider(searchTerm);
-				const result = await provider?.provider.provideTitleAndDescription({ commitMessages, patches, issues }, token);
+				const result = await provider?.provider.provideTitleAndDescription({ commitMessages, patches: filteredPatches, issues }, token);
 
 				if (provider) {
 					this.lastGeneratedTitleAndDescription = { ...result, providerTitle: provider.title };

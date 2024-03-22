@@ -241,8 +241,7 @@ export interface IGit {
 }
 
 export interface TitleAndDescriptionProvider {
-	provideTitleAndDescription(commitMessages: string[], patches: string[], token: CancellationToken): Promise<{ title: string, description?: string } | undefined>;
-	provideTitleAndDescription(context: { commitMessages: string[], patches: string[], issues?: { reference: string, content: string }[] }, token: CancellationToken): Promise<{ title: string, description?: string } | undefined>;
+	provideTitleAndDescription(context: { commitMessages: string[], patches: string[] | { patch: string, fileUri: string, previousFileUri?: string }[], issues?: { reference: string, content: string }[] }, token: CancellationToken): Promise<{ title: string, description?: string } | undefined>;
 }
 
 export interface API {
