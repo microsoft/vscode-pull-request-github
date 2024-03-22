@@ -186,7 +186,11 @@ export class PRContext {
 	}
 
 	public updateBranch = async () => {
-		return this.postMessage({ command: 'pr.update-branch' });
+		const result: Partial<PullRequest> = await this.postMessage({ command: 'pr.update-branch' });
+		const state = this.pr;
+		state.events = result.events ?? state.events;
+		state.mergeable = result.mergeable ?? state.mergeable;
+		this.updatePR(state);
 	}
 
 	public dequeue = async () => {

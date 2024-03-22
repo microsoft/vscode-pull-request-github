@@ -59,12 +59,20 @@ export function fromPRNodeUri(uri: vscode.Uri): PRNodeUriParams | undefined {
 export interface GitHubUriParams {
 	fileName: string;
 	branch: string;
+	owner?: string;
 	isEmpty?: boolean;
 }
 export function fromGitHubURI(uri: vscode.Uri): GitHubUriParams | undefined {
 	try {
 		return JSON.parse(uri.query) as GitHubUriParams;
 	} catch (e) { }
+}
+
+export function toGitHubUri(fileUri: vscode.Uri, scheme: Schemes.GithubPr | Schemes.GitPr, params: GitHubUriParams): vscode.Uri {
+	return fileUri.with({
+		scheme,
+		query: JSON.stringify(params)
+	});
 }
 
 export interface GitUriOptions {
@@ -400,7 +408,8 @@ export enum Schemes {
 	GithubPr = 'githubpr', // File content from GitHub in create flow
 	GitPr = 'gitpr', // File content from git in create flow
 	VscodeVfs = 'vscode-vfs', // Remote Repository
-	Comment = 'comment' // Comments from the VS Code comment widget
+	Comment = 'comment', // Comments from the VS Code comment widget
+	MergeOutput = 'merge-output', // Merge output
 }
 
 export function resolvePath(from: vscode.Uri, to: string) {

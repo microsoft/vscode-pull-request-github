@@ -6,17 +6,18 @@
 import * as buffer from 'buffer';
 import * as vscode from 'vscode';
 import { fromGitHubURI, GitHubUriParams } from '../common/uri';
+import { compareIgnoreCase } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
 
-export async function getGitHubFileContent(gitHubRepository: GitHubRepository, fileName: string, branch: string): Promise<Uint8Array> {
+export async function getGitHubFileContent(gitHubRepository: GitHubRepository, fileName: string, ref: string): Promise<Uint8Array> {
 	const { octokit, remote } = await gitHubRepository.ensure();
 	let fileContent: { data: { content: string; encoding: string; sha: string } } = (await octokit.call(octokit.api.repos.getContent,
 		{
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			path: fileName,
-			ref: branch,
+			ref,
 		},
 	)) as any;
 	let contents = fileContent.data.content ?? '';
@@ -121,12 +122,19 @@ export abstract class ChangesContentProvider implements Partial<vscode.FileSyste
  * information in the document's query string.
  */
 export class GitHubContentProvider extends ChangesContentProvider implements vscode.FileSystemProvider {
-	constructor(private readonly folderRepositoryManager: FolderRepositoryManager, private _gitHubRepository: GitHubRepository) {
+	constructor(private _gitHubRepositories: GitHubRepository[]) {
 		super();
 	}
 
+	private gitHubRepositoryForOwner(owner?: string): GitHubRepository | undefined {
+		if (!owner) {
+			return this._gitHubRepositories[0];
+		}
+		return this._gitHubRepositories.find(repository => compareIgnoreCase(repository.remote.owner, owner) === 0);
+	}
+
 	set gitHubRepository(repository: GitHubRepository) {
-		this._gitHubRepository = repository;
+		this._gitHubRepositories = [repository];
 	}
 
 	async readFile(uri: vscode.Uri): Promise<Uint8Array> {
@@ -136,7 +144,11 @@ export class GitHubContentProvider extends ChangesContentProvider implements vsc
 			return tryReadFile;
 		}
 
-		const content = await getGitHubFileContent(this._gitHubRepository, asParams!.fileName, asParams!.branch);
+		const repo = this.gitHubRepositoryForOwner(asParams?.owner);
+		if (!repo) {
+			throw new Error(`No GitHub repository found for owner ${asParams!.owner}`);
+		}
+		const content = await getGitHubFileContent(repo, asParams!.fileName, asParams!.branch);
 		this.changedFiles.set(uri.toString(), { file: content, modified: false });
 		return this.changedFiles.get(uri.toString())!.file;
 	}
@@ -148,11 +160,7 @@ export class GitHubContentProvider extends ChangesContentProvider implements vsc
 				changes.set(vscode.Uri.parse(uri).path, fileData.file);
 			}
 		}
-		const result = await this._gitHubRepository.commit(branch, commitMessage, changes);
-		if (result && this.folderRepositoryManager.repository.state.HEAD?.name === branch) {
-			await this.folderRepositoryManager.repository.pull();
-		}
-		return result;
+		return this._gitHubRepositories[0].commit(branch, commitMessage, changes);
 	}
 }
 

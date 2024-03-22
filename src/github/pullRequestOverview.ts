@@ -23,6 +23,7 @@ import {
 	ITeam,
 	MergeMethod,
 	MergeMethodsAvailability,
+	PullRequestMergeability,
 	reviewerId,
 	ReviewEvent,
 	ReviewState,
@@ -842,10 +843,26 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
 			return this._replyMessage(message, {});
 		}
-		await this._folderRepositoryManager.tryMergeBaseIntoHead(this._item, true);
+		const mergeSucceeded = await this._folderRepositoryManager.tryMergeBaseIntoHead(this._item, true);
+		if (!mergeSucceeded) {
+			this._replyMessage(message, {});
+		}
+		// The mergability of the PR doesn't update immediately. Poll.
+		let mergability = PullRequestMergeability.Unknown;
+		let attemptsRemaining = 5;
+		do {
+			mergability = await this._item.getMergeability();
+			attemptsRemaining--;
+			await new Promise(c => setTimeout(c, 1000));
+		} while (attemptsRemaining > 0 && mergability === PullRequestMergeability.Unknown);
+
+		const result: Partial<PullRequest> = {
+			events: await this._item.getTimelineEvents(),
+			mergeable: mergability,
+		};
 		await this.refreshPanel();
 
-		this._replyMessage(message, {});
+		this._replyMessage(message, result);
 	}
 
 	protected editCommentPromise(comment: IComment, text: string): Promise<IComment> {

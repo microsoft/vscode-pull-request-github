@@ -43,7 +43,7 @@ export class CreatePullRequestDataModel {
 		this._baseBranch = baseBranch;
 		this._gitcontentProvider = new GitContentProvider(this.folderRepositoryManager);
 		this._compareGitHubRepository = this.folderRepositoryManager.gitHubRepositories.find(githubRepo => githubRepo.remote.owner === compareOwner && githubRepo.remote.repositoryName === repositoryName);
-		this._gitHubcontentProvider = new GitHubContentProvider(this.folderRepositoryManager, this.folderRepositoryManager.gitHubRepositories[0]);
+		this._gitHubcontentProvider = new GitHubContentProvider(this.folderRepositoryManager.gitHubRepositories);
 		this._constructed = new Promise<void>(resolve => this.setCompareBranch(compareBranch).then(resolve));
 		this.compareOwner = compareOwner;
 	}
