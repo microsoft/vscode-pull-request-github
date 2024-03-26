@@ -307,12 +307,18 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		return this._alreadyInitializing;
 	}
 
-	private async detectBaseMetadata(defaultCompareBranch: string): Promise<BaseBranchMetadata | undefined> {
-		if (vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'repositoryDefault' | 'createdFromBranch'>(CREATE_BASE_BRANCH) !== 'createdFromBranch') {
+	private async detectBaseMetadata(defaultCompareBranch: Branch, owner: string, repositoryName: string): Promise<BaseBranchMetadata | undefined> {
+		const settingValue = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'repositoryDefault' | 'createdFromBranch' | 'auto'>(CREATE_BASE_BRANCH);
+		if (!defaultCompareBranch.name || settingValue === 'repositoryDefault') {
 			return undefined;
 		}
+		const githubRepo = this._folderRepositoryManager.findRepo(repo => compareIgnoreCase(repo.remote.owner, owner) === 0 && compareIgnoreCase(repo.remote.repositoryName, repositoryName) === 0);
+		if (settingValue === 'auto' && (await githubRepo?.getMetadata())?.fork) {
+			return undefined;
+		}
+
 		try {
-			const baseFromProvider = await this._folderRepositoryManager.repository.getBranchBase(defaultCompareBranch);
+			const baseFromProvider = await this._folderRepositoryManager.repository.getBranchBase(defaultCompareBranch.name);
 			if (baseFromProvider?.name) {
 				const repo = this._folderRepositoryManager.findRepo(repo => repo.remote.remoteName === baseFromProvider.remote);
 				if (repo) {
@@ -332,7 +338,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	private async doInitializeParams(): Promise<CreateParamsNew> {
 		const defaultCompareBranch = await this._folderRepositoryManager.repository.getBranch(this._defaultCompareBranch);
 		const [detectedBaseMetadata, remotes, defaultOrigin] = await Promise.all([
-			this.detectBaseMetadata(defaultCompareBranch.name!),
+			this.detectBaseMetadata(defaultCompareBranch, this.model.compareOwner, this.model.repositoryName),
 			this._folderRepositoryManager.getGitHubRemotes(),
 			this._folderRepositoryManager.getOrigin(defaultCompareBranch)]);
 

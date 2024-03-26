@@ -439,12 +439,13 @@
 				},
 				"githubPullRequests.createDefaultBaseBranch": {
 					"type": "string",
-					"enum": ["repositoryDefault", "createdFromBranch"],
+					"enum": ["repositoryDefault", "createdFromBranch", "auto"],
 					"markdownEnumDescriptions": [
 						"%githubPullRequests.createDefaultBaseBranch.repositoryDefault%",
-						"%githubPullRequests.createDefaultBaseBranch.createdFromBranch%"
+						"%githubPullRequests.createDefaultBaseBranch.createdFromBranch%",
+						"%githubPullRequests.createDefaultBaseBranch.auto%"
 					],
-					"default": "createdFromBranch",
+					"default": "auto",
 					"markdownDescription": "%githubPullRequests.createDefaultBaseBranch.description%"
 				},
 				"githubIssues.ignoreMilestones": {
