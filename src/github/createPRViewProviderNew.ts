@@ -232,6 +232,9 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				useBranchName = defaultBranch !== compareBranch.name;
 			}
 
+			if (name && !lastCommit) {
+				Logger.appendLine('Timeout getting last commit message', CreatePullRequestViewProviderNew.ID);
+			}
 			// Set title
 			if (useBranchName && name) {
 				title = `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
