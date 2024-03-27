@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { IComment, ViewedState } from '../../common/comment';
 import { GitChangeType, InMemFileChange } from '../../common/file';
 import { FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
-import { asTempStorageURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, Schemes, toResourceUri } from '../../common/uri';
+import { asTempStorageURI, EMPTY_IMAGE_URI, fromReviewUri, ReviewUriParams, Schemes, toGitHubUri, toResourceUri } from '../../common/uri';
 import { groupBy } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
@@ -443,34 +443,19 @@ export class GitHubFileChangeNode extends TreeNode implements vscode.TreeItem {
 			query: JSON.stringify({ status, fileName }),
 		});
 
-		let parentURI = vscode.Uri.file(fileName).with({
-			scheme,
-			query: JSON.stringify({ fileName, branch: baseBranch }),
-		});
-		let headURI = vscode.Uri.file(fileName).with({
-			scheme,
-			query: JSON.stringify({ fileName, branch: headBranch }),
-		});
+		let parentURI = toGitHubUri(vscode.Uri.file(fileName), scheme, { fileName, branch: baseBranch });
+		let headURI = toGitHubUri(vscode.Uri.file(fileName), scheme, { fileName, branch: headBranch });
 		switch (status) {
 			case GitChangeType.ADD:
-				parentURI = vscode.Uri.file(fileName).with({
-					scheme,
-					query: JSON.stringify({ fileName, branch: baseBranch, isEmpty: true }),
-				});
+				parentURI = toGitHubUri(vscode.Uri.file(fileName), scheme, { fileName, branch: baseBranch, isEmpty: true });
 				break;
 
 			case GitChangeType.RENAME:
-				parentURI = vscode.Uri.file(previousFileName!).with({
-					scheme,
-					query: JSON.stringify({ fileName: previousFileName, branch: baseBranch, isEmpty: true }),
-				});
+				parentURI = toGitHubUri(vscode.Uri.file(previousFileName!), scheme, { fileName: previousFileName!, branch: baseBranch, isEmpty: true });
 				break;
 
 			case GitChangeType.DELETE:
-				headURI = vscode.Uri.file(fileName).with({
-					scheme,
-					query: JSON.stringify({ fileName, branch: headBranch, isEmpty: true }),
-				});
+				headURI = toGitHubUri(vscode.Uri.file(fileName), scheme, { fileName, branch: headBranch, isEmpty: true });
 				break;
 		}
 
