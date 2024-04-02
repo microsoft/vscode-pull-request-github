@@ -9,7 +9,7 @@
 
   ![Outdated comment in view](./documentation/changelog/0.86.0/outdated-comment.png)
 - Colors for checks and Xs on PR page. https://github.com/microsoft/vscode-pull-request-github/issues/5754
-- Comment threads in the Comments view now have inline actions and context menu actions.
+- Comment threads in the Comments view now have inline actions and context menu actions. Outdated comments have a "Diff Comment with HEAD" action which is particularly useful for understanding what changed on an outdated comment.
 
   ![Comment thread context menu](./documentation/changelog/0.86.0/context-menu-comment.png)
   ![Comment thread inline actions](./documentation/changelog/0.86.0/inline-action-comments-view.png)
