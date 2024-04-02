@@ -840,7 +840,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				return;
 			}
 
-			const baseTreeData = baseTree.data.tree.find(f => f.path === (file.previous_filename ?? file.filename));
+			const baseTreeData = baseTree.data.tree.find(f => f.path === file.filename);
 			const baseMode: '100644' | '100755' | '120000' = baseTreeData?.mode as any ?? '100644';
 
 			const headTree = await octokit.call(octokit.api.git.getTree, { owner: model.prHeadOwner, repo: model.repositoryName, tree_sha: headTreeSha, recursive: 'true' });
@@ -854,7 +854,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			}
 
 			const treeItem: IGitTreeItem = {
-				path: file?.previous_filename ?? file.filename,
+				path: file.filename,
 				mode: baseMode
 			};
 
