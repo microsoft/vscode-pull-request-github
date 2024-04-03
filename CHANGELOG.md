@@ -19,6 +19,11 @@
 - Trim leading whitespace in PR description. https://github.com/microsoft/vscode-pull-request-github/issues/5780
 - Flickering When Editing A Comment. https://github.com/microsoft/vscode-pull-request-github/issues/5762
 
+**_Thank You_**
+
+* [@ipcjs (ipcjs)](https://github.com/ipcjs): fix: make `review.openLocalFile` support triggering from the keyboard. [PR #5840](https://github.com/microsoft/vscode-pull-request-github/pull/5840)
+* [@mohamedamara1 (Mohamed Amara)](https://github.com/mohamedamara1): fixed ID of IssueOverviewPanel [PR #5822](https://github.com/microsoft/vscode-pull-request-github/pull/5822)
+
 ## 0.84.0
 
 - There is no extension version 0.84.0 because of a version increase mistake.
