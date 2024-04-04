@@ -89,6 +89,7 @@ button.input-box {
 .group-title {
 	position: relative;
 	display: flex;
+	flex-direction: column;
 }
 
 .group-title .title-action:hover {
