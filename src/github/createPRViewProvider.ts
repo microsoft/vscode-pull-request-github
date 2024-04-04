@@ -41,7 +41,7 @@ import { getIssueNumberLabelFromParsed, ISSUE_EXPRESSION, ISSUE_OR_URL_EXPRESSIO
 
 const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
 
-export class CreatePullRequestViewProviderNew extends WebviewViewBase implements vscode.WebviewViewProvider, vscode.Disposable {
+export class CreatePullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider, vscode.Disposable {
 	private static readonly ID = 'CreatePullRequestViewProvider';
 	public readonly viewType = 'github:createPullRequestWebview';
 
@@ -213,7 +213,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		const origin = await this._folderRepositoryManager.getOrigin(compareBranch);
 
 		let useBranchName = this._pullRequestDefaults.base === compareBranch.name;
-		Logger.debug(`Compare branch name: ${compareBranch.name}, Base branch name: ${this._pullRequestDefaults.base}`, CreatePullRequestViewProviderNew.ID);
+		Logger.debug(`Compare branch name: ${compareBranch.name}, Base branch name: ${this._pullRequestDefaults.base}`, CreatePullRequestViewProvider.ID);
 		try {
 			const name = compareBranch.name;
 			const [totalCommits, lastCommit, pullRequestTemplate] = await Promise.all([
@@ -223,7 +223,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			]);
 			const totalNonMergeCommits = totalCommits?.filter(commit => commit.parents.length < 2);
 
-			Logger.debug(`Total commits: ${totalNonMergeCommits?.length}`, CreatePullRequestViewProviderNew.ID);
+			Logger.debug(`Total commits: ${totalNonMergeCommits?.length}`, CreatePullRequestViewProvider.ID);
 			if (totalNonMergeCommits === undefined) {
 				// There is no upstream branch. Use the last commit as the title and description.
 				useBranchName = false;
@@ -233,7 +233,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			}
 
 			if (name && !lastCommit) {
-				Logger.appendLine('Timeout getting last commit message', CreatePullRequestViewProviderNew.ID);
+				Logger.appendLine('Timeout getting last commit message', CreatePullRequestViewProvider.ID);
 			}
 			// Set title
 			if (useBranchName && name) {
@@ -267,7 +267,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			}
 		} catch (e) {
 			// Ignore and fall back to commit message
-			Logger.debug(`Error while getting total commits: ${e}`, CreatePullRequestViewProviderNew.ID);
+			Logger.debug(`Error while getting total commits: ${e}`, CreatePullRequestViewProvider.ID);
 		}
 		return { title, description };
 	}
@@ -421,7 +421,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 			initializeWithGeneratedTitleAndDescription: useCopilot
 		};
 
-		Logger.appendLine(`Initializing "create" view: ${JSON.stringify(params)}`, CreatePullRequestViewProviderNew.ID);
+		Logger.appendLine(`Initializing "create" view: ${JSON.stringify(params)}`, CreatePullRequestViewProvider.ID);
 
 		this.model.baseOwner = defaultBaseRemote.owner;
 		this.model.baseBranch = defaultBaseBranch;
@@ -826,7 +826,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 
 	private lastGeneratedTitleAndDescription: { title?: string, description?: string, providerTitle: string } | undefined;
 	private async getTitleAndDescriptionFromProvider(token: vscode.CancellationToken, searchTerm?: string) {
-		return CreatePullRequestViewProviderNew.withProgress(async () => {
+		return CreatePullRequestViewProvider.withProgress(async () => {
 			try {
 				let commitMessages: string[];
 				let patches: ({ patch: string, fileUri: string, previousFileUri?: string } | undefined)[];
@@ -869,7 +869,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				}
 				return result;
 			} catch (e) {
-				Logger.error(`Error while generating title and description: ${e}`, CreatePullRequestViewProviderNew.ID);
+				Logger.error(`Error while generating title and description: ${e}`, CreatePullRequestViewProvider.ID);
 				return undefined;
 			}
 		});
@@ -917,7 +917,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 		});
 
 		if (pushRemote && createdPushRemote) {
-			Logger.appendLine(`Found push remote ${pushRemote.name} for ${compareOwner}/${compareRepositoryName} and branch ${compareBranchName}`, CreatePullRequestViewProviderNew.ID);
+			Logger.appendLine(`Found push remote ${pushRemote.name} for ${compareOwner}/${compareRepositoryName} and branch ${compareBranchName}`, CreatePullRequestViewProvider.ID);
 			await this._folderRepositoryManager.repository.push(pushRemote.name, compareBranchName, true);
 			await this._folderRepositoryManager.repository.status();
 			return { compareUpstream: createdPushRemote, repo: this._folderRepositoryManager.findRepo(byRemoteName(createdPushRemote.remoteName)) };
@@ -975,10 +975,10 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 	}
 
 	private async create(message: IRequestMessage<CreatePullRequestNew>): Promise<void> {
-		Logger.debug(`Creating pull request with args ${JSON.stringify(message.args)}`, CreatePullRequestViewProviderNew.ID);
+		Logger.debug(`Creating pull request with args ${JSON.stringify(message.args)}`, CreatePullRequestViewProvider.ID);
 
 		if (!(await this.checkForChanges())) {
-			Logger.debug('Not continuing past checking for file changes.', CreatePullRequestViewProviderNew.ID);
+			Logger.debug('Not continuing past checking for file changes.', CreatePullRequestViewProvider.ID);
 			await this._replyMessage(message, {});
 			return;
 		}
@@ -997,7 +997,7 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 				this.setProjects(createdPR, message.args.projects)]);
 		};
 
-		CreatePullRequestViewProviderNew.withProgress(() => {
+		CreatePullRequestViewProvider.withProgress(() => {
 			return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async progress => {
 				let totalIncrement = 0;
 				progress.report({ message: vscode.l10n.t('Checking for upstream branch'), increment: totalIncrement });
