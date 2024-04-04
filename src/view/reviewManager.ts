@@ -862,7 +862,7 @@ export class ReviewManager {
 
 			this._inMemGitHubContentProvider = getInMemPRFileSystemProvider()?.registerTextDocumentContentProvider(
 				pr.number,
-				async (uri: vscode.Uri): Promise<string> => {
+				async (uri: vscode.Uri): Promise<string | Uint8Array> => {
 					const params = fromPRUri(uri);
 					if (!params) {
 						return '';
@@ -877,7 +877,6 @@ export class ReviewManager {
 					}
 
 					return provideDocumentContentForChangeModel(this._folderRepoManager, pr, params, fileChange);
-
 				},
 			);
 		} catch (e) {

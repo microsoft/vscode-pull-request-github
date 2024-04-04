@@ -33,7 +33,6 @@ import {
 	DequeuePullRequestResponse,
 	EditCommentResponse,
 	EnqueuePullRequestResponse,
-	FileContentResponse,
 	GetReviewRequestsResponse,
 	LatestReviewCommitResponse,
 	MarkPullRequestReadyForReviewResponse,
@@ -788,27 +787,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	private async getFileContent(owner: string, sha: string, file: string): Promise<string | undefined> {
-		Logger.debug(`Fetch file content - enter`, GitHubRepository.ID);
-		const { query, remote, schema } = await this.githubRepository.ensure();
-		const { data } = await query<FileContentResponse>({
-			query: schema.GetFileContent,
-			variables: {
-				owner,
-				name: remote.repositoryName,
-				expression: `${sha}:${file}`
-			}
-		});
-
-		if (!data.repository?.object.text) {
-			return undefined;
-		}
-
-		Logger.debug(`Fetch file content - end`, GitHubRepository.ID);
-
-		return data.repository.object.text;
-	}
-
 	private async getUpdateBranchFiles(head: GitHubRef, base: GitHubRef, baseCommitSha: string, headTreeSha: string): Promise<IGitTreeItem[]> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 
@@ -1150,7 +1128,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param filePath The file path
 	 * @param commit The commit
 	 */
-	async getFile(filePath: string, commit: string) {
+	async getFile(filePath: string, commit: string): Promise<Uint8Array> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		const fileContent = await octokit.call(octokit.api.repos.getContent, {
 			owner: remote.owner,
@@ -1165,7 +1143,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		const contents = (fileContent.data as any).content ?? '';
 		const buff = buffer.Buffer.from(contents, (fileContent.data as any).encoding);
-		return buff.toString();
+		return buff;
 	}
 
 	/**
