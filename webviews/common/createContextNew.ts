@@ -185,7 +185,7 @@ export class CreatePRContextNew {
 			isValid = false;
 		}
 
-		this.updateState({ validate: true, createError: undefined });
+		this.updateState({ validate: true, createError: undefined, creating: false });
 
 		return isValid;
 	};
@@ -284,6 +284,7 @@ export class CreatePRContextNew {
 					this.updateState(defaultCreateParams, true);
 					return;
 				}
+				message.params.creating = message.params.creating ?? false;
 				message.params.pendingTitle = message.params.defaultTitle ?? this.createParams.pendingTitle;
 				message.params.pendingDescription = message.params.defaultDescription ?? this.createParams.pendingDescription;
 				message.params.baseRemote = message.params.defaultBaseRemote ?? this.createParams.baseRemote;
