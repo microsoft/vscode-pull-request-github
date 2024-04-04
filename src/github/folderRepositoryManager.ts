@@ -10,6 +10,7 @@ import { GitApiImpl, GitErrorCodes } from '../api/api1';
 import { GitHubManager } from '../authentication/githubServer';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
+import { InMemFileChange, SlimFileChange } from '../common/file';
 import { findLocalRepoRemoteFromGitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
@@ -66,16 +67,24 @@ async function createConflictResolutionModel(pullRequest: PullRequestModel): Pro
 	const potentialMergeConflicts: Conflict[] = [];
 	if (pullRequest.item.mergeable === PullRequestMergeability.Conflict) {
 		const mergeBaseIntoPrCompareData = await pullRequest.compareBaseBranchForMerge(prHeadOwner, prHeadRef, prBaseOwner, baseCommitSha);
+		const previousFilenames: Map<string, SlimFileChange | InMemFileChange> = new Map();
+		// We must also check all the previous file names of the files in the PR. Assemble a map with this info
+		for (const fileChange of pullRequest.fileChanges.values()) {
+			if (fileChange.previousFileName) {
+				previousFilenames.set(fileChange.previousFileName, fileChange);
+			}
+		}
 		for (const mergeFile of mergeBaseIntoPrCompareData) {
-			if (pullRequest.fileChanges.has(mergeFile.filename)) {
-				const prHeadFilePath = mergeFile.filename;
+			const fileChange = pullRequest.fileChanges.get(mergeFile.filename) ?? previousFilenames.get(mergeFile.filename);
+			if (fileChange) {
+				const prHeadFilePath = fileChange.fileName;
 				let contentsConflict = false;
 				let filePathConflict = false;
 				let modeConflict = false;
 				if (mergeFile.status === 'modified') {
 					contentsConflict = true;
 				}
-				if (mergeFile.previous_filename) {
+				if (mergeFile.previous_filename || fileChange.previousFileName) {
 					filePathConflict = true;
 				}
 				potentialMergeConflicts.push({ prHeadFilePath, contentsConflict, filePathConflict, modeConflict });
