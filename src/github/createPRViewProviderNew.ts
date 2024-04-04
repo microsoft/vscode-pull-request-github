@@ -234,6 +234,10 @@ export class CreatePullRequestViewProviderNew extends WebviewViewBase implements
 
 			if (name && !lastCommit) {
 				Logger.appendLine('Timeout getting last commit message', CreatePullRequestViewProviderNew.ID);
+				/* __GDPR__
+					"pr.create.getCommitTimeout" : {}
+				*/
+				this.telemetry.sendTelemetryEvent('pr.create.getCommitTimeout');
 			}
 			// Set title
 			if (useBranchName && name) {
