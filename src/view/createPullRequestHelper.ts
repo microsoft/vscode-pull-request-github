@@ -166,7 +166,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 
 		const branch =
 			((compareBranch ? await folderRepoManager.repository.getBranch(compareBranch) : undefined) ??
-				folderRepoManager.repository.state.HEAD);
+				folderRepoManager.repository.state.HEAD?.name ? folderRepoManager.repository.state.HEAD : undefined);
 
 		if (!this._createPRViewProvider) {
 			const pullRequestDefaults = await this.ensureDefaultsAreLocal(

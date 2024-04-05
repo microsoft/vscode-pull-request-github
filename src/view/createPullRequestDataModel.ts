@@ -41,6 +41,7 @@ export class CreatePullRequestDataModel {
 	constructor(private readonly folderRepositoryManager: FolderRepositoryManager, baseOwner: string, baseBranch: string, compareOwner: string, compareBranch: string, public readonly repositoryName: string) {
 		this._baseOwner = baseOwner;
 		this._baseBranch = baseBranch;
+		this._compareBranch = baseBranch;
 		this._gitcontentProvider = new GitContentProvider(this.folderRepositoryManager);
 		this._compareGitHubRepository = this.folderRepositoryManager.gitHubRepositories.find(githubRepo => githubRepo.remote.owner === compareOwner && githubRepo.remote.repositoryName === repositoryName);
 		this._gitHubcontentProvider = new GitHubContentProvider(this.folderRepositoryManager.gitHubRepositories);
