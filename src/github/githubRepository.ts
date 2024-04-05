@@ -397,7 +397,6 @@ export class GitHubRepository implements vscode.Disposable {
 				if (this._credentialStore.areScopesExtra(this.remote.authProviderId)) {
 					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, extraSchema.default as any);
 				} else {
-					this._areQueriesLimited = false;
 					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, defaultSchema as any);
 				}
 			}
