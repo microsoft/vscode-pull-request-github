@@ -985,7 +985,7 @@
 				"command": "pr.unresolveReviewThread",
 				"title": "%command.pr.unresolveReviewThread.title%",
 				"category": "%command.pull.request.category%",
-				"icon": "$(discard)"
+				"icon": "$(sync)"
 			},
 			{
 				"command": "pr.diffOutdatedCommentWithHead",
