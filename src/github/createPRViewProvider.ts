@@ -120,7 +120,6 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		const branchRemoteChanged = compareBranch && (compareBranch.upstream?.remote !== currentCompareRemote);
 		if (branchChanged || branchRemoteChanged) {
 			this._defaultCompareBranch = compareBranch!.name!;
-			this.model.setCompareBranch(compareBranch!.name);
 			this.changeBranch(compareBranch!.name!, false).then(titleAndDescription => {
 				const params: Partial<CreateParamsNew> = {
 					defaultTitle: titleAndDescription.title,
@@ -533,7 +532,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 				this._folderRepositoryManager.telemetry.sendTelemetryEvent('pr.create.changedBaseBranch');
 			}
 		} else {
-			await this.model.setCompareBranch(result.branch);
+			await this.changeBranch(result.branch, false);
 			chooseResult = {
 				compareRemote: result.remote,
 				compareBranch: result.branch,
@@ -1109,7 +1108,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		} else {
 			try {
 				compareBranch = await this._folderRepositoryManager.repository.getBranch(newBranch);
-				this.model.setCompareBranch(newBranch);
+				await this.model.setCompareBranch(newBranch);
 			} catch (e) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Branch does not exist locally.'));
 			}
