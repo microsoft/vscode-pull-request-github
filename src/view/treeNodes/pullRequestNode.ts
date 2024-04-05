@@ -344,7 +344,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 	}
 
 	// #region Document Content Provider
-	private async provideDocumentContent(uri: vscode.Uri): Promise<string> {
+	private async provideDocumentContent(uri: vscode.Uri): Promise<string | Uint8Array> {
 		const params = fromPRUri(uri);
 		if (!params) {
 			return '';

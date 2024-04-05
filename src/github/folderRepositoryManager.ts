@@ -1572,6 +1572,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		method?: 'merge' | 'squash' | 'rebase',
 		email?: string,
 	): Promise<{ merged: boolean, message: string }> {
+		Logger.debug(`Merging PR: ${pullRequest.number} method: ${method} for user: "${email}" - enter`, this.id);
 		const { mutate, schema } = await pullRequest.githubRepository.ensure();
 
 		const activePRSHA = this.activePullRequest && this.activePullRequest.head && this.activePullRequest.head.sha;
@@ -1636,6 +1637,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 		})
 			.then(() => {
+				Logger.debug(`Merging PR: ${pullRequest.number}} - done`, this.id);
+
 				/* __GDPR__
 					"pr.merge.success" : {}
 				*/

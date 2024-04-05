@@ -256,7 +256,7 @@ export class GitHubRepository implements vscode.Disposable {
 		try {
 			rsp = await gql.query<T>(query);
 		} catch (e) {
-			Logger.error(`Error querying GraphQL API: ${e.message}`, GitHubRepository.ID);
+			Logger.error(`Error querying GraphQL API: ${e.message}${e.graphQLErrors ? `. ${(e.graphQLErrors as GraphQLError[]).map(error => error.extensions?.code).join(',')}` : ''}`, GitHubRepository.ID);
 			if (legacyFallback) {
 				query.query = legacyFallback.query;
 				return this.query(query, ignoreSamlErrors);
@@ -390,13 +390,16 @@ export class GitHubRepository implements vscode.Disposable {
 		}
 
 		if (oldHub !== this._hub) {
-			if (this._credentialStore.areScopesExtra(this.remote.authProviderId)) {
-				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, extraSchema.default as any);
-			} else if (this._credentialStore.areScopesOld(this.remote.authProviderId)) {
+			if (this._areQueriesLimited || this._credentialStore.areScopesOld(this.remote.authProviderId)) {
 				this._areQueriesLimited = true;
 				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, limitedSchema.default as any);
 			} else {
-				this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, defaultSchema as any);
+				if (this._credentialStore.areScopesExtra(this.remote.authProviderId)) {
+					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, extraSchema.default as any);
+				} else {
+					this._areQueriesLimited = false;
+					this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as any, defaultSchema as any);
+				}
 			}
 		}
 		return this;

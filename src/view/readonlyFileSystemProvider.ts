@@ -9,11 +9,11 @@ export abstract class ReadonlyFileSystemProvider implements vscode.FileSystemPro
 	protected _onDidChangeFile = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
 	onDidChangeFile = this._onDidChangeFile.event;
 
-	constructor() {}
+	constructor() { }
 
 	watch(_uri: vscode.Uri, _options: { recursive: boolean; excludes: string[]; }): vscode.Disposable {
 		/** no op */
-		return { dispose: () => {} };
+		return { dispose: () => { } };
 	}
 
 	stat(_uri: any): vscode.FileStat {
@@ -21,7 +21,7 @@ export abstract class ReadonlyFileSystemProvider implements vscode.FileSystemPro
 		return {
 			type: vscode.FileType.File,
 			ctime: 0,
-			mtime: 0,
+			mtime: new Date().getTime(),
 			size: 0
 		};
 	}

@@ -31,7 +31,7 @@
 		"tokenInformation",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.84.0",
+	"version": "0.86.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.88.0"
@@ -440,12 +440,13 @@
 				},
 				"githubPullRequests.createDefaultBaseBranch": {
 					"type": "string",
-					"enum": ["repositoryDefault", "createdFromBranch"],
+					"enum": ["repositoryDefault", "createdFromBranch", "auto"],
 					"markdownEnumDescriptions": [
 						"%githubPullRequests.createDefaultBaseBranch.repositoryDefault%",
-						"%githubPullRequests.createDefaultBaseBranch.createdFromBranch%"
+						"%githubPullRequests.createDefaultBaseBranch.createdFromBranch%",
+						"%githubPullRequests.createDefaultBaseBranch.auto%"
 					],
-					"default": "createdFromBranch",
+					"default": "auto",
 					"markdownDescription": "%githubPullRequests.createDefaultBaseBranch.description%"
 				},
 				"githubIssues.ignoreMilestones": {
