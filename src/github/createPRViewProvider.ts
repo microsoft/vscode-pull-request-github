@@ -66,7 +66,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			let baseRemote: RemoteInfo | undefined;
 			let baseBranch: string | undefined;
 			if (e.baseOwner) {
-				baseRemote = this._folderRepositoryManager.findRepo(repo => compareIgnoreCase(repo.remote.owner, e.baseOwner!) === 0 && compareIgnoreCase(repo.remote.repositoryName, this.model.repositoryName) === 0)?.remote;
+				const gitHubRemote = this._folderRepositoryManager.findRepo(repo => compareIgnoreCase(repo.remote.owner, e.baseOwner!) === 0 && compareIgnoreCase(repo.remote.repositoryName, this.model.repositoryName) === 0)?.remote;
+				baseRemote = gitHubRemote ? serializeRemoteInfo(gitHubRemote) : undefined;
 				baseBranch = this.model.baseBranch;
 			}
 			if (e.baseBranch) {
@@ -75,7 +76,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			let compareRemote: RemoteInfo | undefined;
 			let compareBranch: string | undefined;
 			if (e.compareOwner) {
-				compareRemote = this._folderRepositoryManager.findRepo(repo => compareIgnoreCase(repo.remote.owner, e.compareOwner!) === 0 && compareIgnoreCase(repo.remote.repositoryName, this.model.repositoryName) === 0)?.remote;
+				const gitHubRemote = this._folderRepositoryManager.findRepo(repo => compareIgnoreCase(repo.remote.owner, e.compareOwner!) === 0 && compareIgnoreCase(repo.remote.repositoryName, this.model.repositoryName) === 0)?.remote;
+				compareRemote = gitHubRemote ? serializeRemoteInfo(gitHubRemote) : undefined;
 				compareBranch = this.model.compareBranch;
 			}
 			if (e.compareBranch) {
@@ -1203,4 +1205,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	</body>
 </html>`;
 	}
+}
+
+function serializeRemoteInfo(remote: { owner: string, repositoryName: string }) {
+	return { owner: remote.owner, repositoryName: remote.repositoryName };
 }
