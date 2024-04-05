@@ -36,7 +36,7 @@ export class ConflictResolutionTreeView implements vscode.TreeDataProvider<Confl
 					this._conflictResolutionModel.mergeOutputUri(element.conflict),
 					`Merge result for ${element.conflict.prHeadFilePath}`,
 				],
-				title: 'View Merge Result'
+				title: vscode.l10n.t('View Merge Result')
 			};
 		} else {
 			item.command = {
