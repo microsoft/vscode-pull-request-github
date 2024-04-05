@@ -245,7 +245,7 @@ export const MergeStatus = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpd
 			<p>
 				{summary}
 			</p>
-			{(action && !isSimple && canUpdateBranch && isCurrentlyCheckedOut) ? <button className="secondary" onClick={onClick} disabled={busy} >{action}</button> : null}
+			{(action && !isSimple && canUpdateBranch) ? <button className="secondary" onClick={onClick} disabled={busy} >{action}</button> : null}
 		</div>
 	);
 };

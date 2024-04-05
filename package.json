@@ -12,22 +12,23 @@
 	},
 	"enabledApiProposals": [
 		"activeComment",
-		"commentingRangeHint",
-		"commentThreadApplicability",
-		"contribCommentsViewThreadMenus",
-		"tokenInformation",
-		"contribShareMenu",
-		"fileComments",
+		"codiconDecoration",
 		"codeActionRanges",
+		"commentingRangeHint",
 		"commentReactor",
+		"commentThreadApplicability",
+		"contribCommentEditorActionsMenu",
 		"contribCommentPeekContext",
 		"contribCommentThreadAdditionalMenu",
-		"codiconDecoration",
+		"contribCommentsViewThreadMenus",
+		"contribEditorContentMenu",
+		"contribShareMenu",
 		"diffCommand",
-		"contribCommentEditorActionsMenu",
-		"shareProvider",
+		"fileComments",
 		"quickDiffProvider",
+		"shareProvider",
 		"tabInputTextMerge",
+		"tokenInformation",
 		"treeViewMarkdownMessage"
 	],
 	"version": "0.86.0",
@@ -660,14 +661,20 @@
 				{
 					"id": "pr:github",
 					"name": "%view.pr.github.name%",
-					"when": "ReposManagerStateContext != NeedsAuthentication",
+					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts",
 					"icon": "$(git-pull-request)"
 				},
 				{
 					"id": "issues:github",
 					"name": "%view.issues.github.name%",
-					"when": "ReposManagerStateContext != NeedsAuthentication",
+					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts",
 					"icon": "$(issues)"
+				},
+				{
+					"id": "github:conflictResolution",
+					"name": "%view.github.conflictResolution.name%",
+					"when": "github:resolvingConflicts",
+					"icon": "$(git-merge)"
 				}
 			],
 			"github-pull-request": [
@@ -1111,6 +1118,16 @@
 			{
 				"command": "pr.checkoutFromReadonlyFile",
 				"title": "%command.pr.pick.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.resolveConflict",
+				"title": "%command.pr.resolveConflict.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.acceptMerge",
+				"title": "%command.pr.acceptMerge.title%",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -1853,6 +1870,14 @@
 					"when": "gitHubOpenRepositoryCount != 0"
 				},
 				{
+					"command": "pr.resolveConflict",
+					"when": "false"
+				},
+				{
+					"command": "pr.acceptMerge",
+					"when": "isMergeResultEditor && mergeEditorBaseUri =~ /^(githubpr|gitpr):/"
+				},
+				{
 					"command": "issue.copyGithubPermalink",
 					"when": "github:hasGitHubRemotes"
 				},
@@ -2359,6 +2384,12 @@
 					"command": "pr.addFileComment",
 					"group": "navigation",
 					"when": "(resourceScheme == pr) || (resourcePath in github:viewedFiles) || (resourcePath in github:unviewedFiles)"
+				}
+			],
+			"editor/content": [
+				{
+					"command": "pr.acceptMerge",
+					"when": "isMergeResultEditor && mergeEditorBaseUri =~ /^(githubpr|gitpr):/"
 				}
 			],
 			"scm/title": [

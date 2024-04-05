@@ -10,6 +10,7 @@ import { GitApiImpl, GitErrorCodes } from '../api/api1';
 import { GitHubManager } from '../authentication/githubServer';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
+import { InMemFileChange, SlimFileChange } from '../common/file';
 import { findLocalRepoRemoteFromGitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
@@ -34,6 +35,8 @@ import { NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensio
 import { git } from '../gitProviders/gitCommands';
 import { OctokitCommon } from './common';
 import { ConflictModel } from './conflictGuide';
+import { ConflictResolutionCoordinator } from './conflictResolutionCoordinator';
+import { Conflict, ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
 import { GitHubRepository, GraphQLError, GraphQLErrorType, ItemsData, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
 import { MergeMethod as GraphQLMergeMethod, MergePullRequestInput, MergePullRequestResponse, PullRequestState, UserResponse } from './graphql';
@@ -50,6 +53,47 @@ import {
 	teamComparator,
 	variableSubstitution,
 } from './utils';
+
+async function createConflictResolutionModel(pullRequest: PullRequestModel): Promise<ConflictResolutionModel> {
+	const head = pullRequest.head;
+	if (!head) {
+		throw new Error('No head found for pull request');
+	}
+	const baseCommitSha = await pullRequest.getLatestBaseCommitSha();
+	const prBaseOwner = pullRequest.base.owner;
+	const prHeadOwner = head.owner;
+	const prHeadRef = head.ref;
+	const repositoryName = (await pullRequest.githubRepository.ensure()).remote.repositoryName;
+	const potentialMergeConflicts: Conflict[] = [];
+	if (pullRequest.item.mergeable === PullRequestMergeability.Conflict) {
+		const mergeBaseIntoPrCompareData = await pullRequest.compareBaseBranchForMerge(prHeadOwner, prHeadRef, prBaseOwner, baseCommitSha);
+		const previousFilenames: Map<string, SlimFileChange | InMemFileChange> = new Map();
+		// We must also check all the previous file names of the files in the PR. Assemble a map with this info
+		for (const fileChange of pullRequest.fileChanges.values()) {
+			if (fileChange.previousFileName) {
+				previousFilenames.set(fileChange.previousFileName, fileChange);
+			}
+		}
+		for (const mergeFile of mergeBaseIntoPrCompareData) {
+			const fileChange = pullRequest.fileChanges.get(mergeFile.filename) ?? previousFilenames.get(mergeFile.filename);
+			if (fileChange) {
+				const prHeadFilePath = fileChange.fileName;
+				let contentsConflict = false;
+				let filePathConflict = false;
+				let modeConflict = false;
+				if (mergeFile.status === 'modified') {
+					contentsConflict = true;
+				}
+				if (mergeFile.previous_filename || fileChange.previousFileName) {
+					filePathConflict = true;
+				}
+				potentialMergeConflicts.push({ prHeadFilePath, contentsConflict, filePathConflict, modeConflict });
+			}
+		}
+	}
+	return new ConflictResolutionModel(potentialMergeConflicts, repositoryName, prBaseOwner, baseCommitSha, prHeadOwner, prHeadRef,
+		pullRequest.base.ref, pullRequest.mergeBase!);
+}
 
 interface PageInformation {
 	pullRequestPage: number;
@@ -2137,23 +2181,33 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return this.repository.checkout(branchName);
 	}
 
-	async tryMergeBaseIntoHead(pullRequest: PullRequestModel, push: boolean): Promise<void> {
+	async tryMergeBaseIntoHead(pullRequest: PullRequestModel, push: boolean): Promise<boolean> {
 		if (await this.isHeadUpToDateWithBase(pullRequest)) {
-			return;
+			return true;
 		}
 
-		if (!pullRequest.isActive ||
-			((pullRequest.item.mergeable !== PullRequestMergeability.Conflict) && (vscode.env.appHost === 'vscode.dev' || vscode.env.appHost === 'github.dev'))) {
-			return pullRequest.updateBranch();
+		if (!pullRequest.isActive || (vscode.env.appHost === 'vscode.dev' || vscode.env.appHost === 'github.dev')) {
+			const conflictModel = await createConflictResolutionModel(pullRequest);
+			let continueWithMerge = true;
+			if (pullRequest.item.mergeable === PullRequestMergeability.Conflict) {
+				const coordinator = new ConflictResolutionCoordinator(conflictModel, this.gitHubRepositories.filter(repo => repo.remote.repositoryName === pullRequest.githubRepository.remote.repositoryName));
+				continueWithMerge = await coordinator.enterConflictResolutionAndWaitForExit();
+			}
+
+			if (continueWithMerge) {
+				return pullRequest.updateBranch(conflictModel);
+			} else {
+				return false;
+			}
 		}
 
 		if (this.repository.state.workingTreeChanges.length > 0 || this.repository.state.indexChanges.length > 0) {
 			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
-			return;
+			return false;
 		}
 		const baseRemote = findLocalRepoRemoteFromGitHubRef(this.repository, pullRequest.base)?.name;
 		if (!baseRemote) {
-			return;
+			return false;
 		}
 		const qualifiedUpstream = `${baseRemote}/${pullRequest.base.ref}`;
 		await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async (progress) => {
@@ -2176,6 +2230,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		} else {
 			await this.repository.push();
 		}
+		return true;
 	}
 
 	async isHeadUpToDateWithBase(pullRequestModel: PullRequestModel): Promise<boolean> {

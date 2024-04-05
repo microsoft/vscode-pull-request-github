@@ -195,15 +195,17 @@ export interface PullRequest extends Issue {
 }
 
 export interface IRawFileChange {
+	sha: string;
 	filename: string;
-	previous_filename?: string;
+	previous_filename?: string | undefined;
 	additions: number;
 	deletions: number;
 	changes: number;
-	status: string;
+	status: 'added' | 'removed' | 'modified' | 'renamed' | 'copied' | 'changed' | 'unchanged';
 	raw_url: string;
 	blob_url: string;
-	patch: string | undefined;
+	contents_url: string;
+	patch?: string | undefined;
 }
 
 export interface IRawFileContent {

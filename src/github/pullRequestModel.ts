@@ -21,6 +21,7 @@ import { resolvePath, Schemes, toPRUri, toReviewUri } from '../common/uri';
 import { formatError } from '../common/utils';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
 import { OctokitCommon } from './common';
+import { ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
@@ -33,6 +34,7 @@ import {
 	DequeuePullRequestResponse,
 	EditCommentResponse,
 	EnqueuePullRequestResponse,
+	FileContentResponse,
 	GetReviewRequestsResponse,
 	LatestReviewCommitResponse,
 	MarkPullRequestReadyForReviewResponse,
@@ -787,43 +789,91 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	private async getUpdateBranchFiles(head: GitHubRef, base: GitHubRef, baseCommitSha: string, headTreeSha: string): Promise<IGitTreeItem[]> {
+	private async getFileContent(owner: string, sha: string, file: string): Promise<string | undefined> {
+		Logger.debug(`Fetch file content - enter`, GitHubRepository.ID);
+		const { query, remote, schema } = await this.githubRepository.ensure();
+		const { data } = await query<FileContentResponse>({
+			query: schema.GetFileContent,
+			variables: {
+				owner,
+				name: remote.repositoryName,
+				expression: `${sha}:${file}`
+			}
+		});
+
+		if (!data.repository?.object.text) {
+			return undefined;
+		}
+
+		Logger.debug(`Fetch file content - end`, GitHubRepository.ID);
+
+		return data.repository.object.text;
+	}
+
+	public async compareBaseBranchForMerge(headOwner: string, headRef: string, baseOwner: string, baseRef: string): Promise<IRawFileChange[]> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 
 		// Get the files that would change as part of the merge
 		const compareData = await restPaginate<typeof octokit.api.repos.compareCommits, OctokitCommon.ReposCompareCommitsResponseData>(octokit.api.repos.compareCommits, {
 			repo: remote.repositoryName,
-			owner: head.owner,
-			base: `${head.owner}:${head.ref}`, // flip base and head because we are comparing for a merge to update the PR
-			head: `${base.owner}:${baseCommitSha}`,
+			owner: headOwner,
+			base: `${headOwner}:${headRef}`, // flip base and head because we are comparing for a merge to update the PR
+			head: `${baseOwner}:${baseRef}`,
 		});
 
-		const baseTreeSha = (await octokit.call(octokit.api.repos.getCommit, { owner: base.owner, repo: remote.repositoryName, ref: baseCommitSha })).data.commit.tree.sha;
-		const baseTree = await octokit.call(octokit.api.git.getTree, { owner: base.owner, repo: remote.repositoryName, tree_sha: baseTreeSha, recursive: 'true' });
+		return compareData.map(data => data.files).flat().filter<IRawFileChange>((change): change is IRawFileChange => change !== undefined);
+	}
 
-		const files: IGitTreeItem[] = (await Promise.all(compareData.map(data => data.files).flat().map(async (file) => {
+	private async getUpdateBranchFiles(baseCommitSha: string, headTreeSha: string, model: ConflictResolutionModel): Promise<IGitTreeItem[]> {
+		if (this.item.mergeable === PullRequestMergeability.Conflict && (!model.resolvedConflicts || model.resolvedConflicts.size === 0)) {
+			throw new Error('Pull Request has conflicts but no resolutions were provided.');
+		}
+		const { octokit } = await this.githubRepository.ensure();
+
+		// Get the files that would change as part of the merge
+		const compareData = await this.compareBaseBranchForMerge(model.prHeadOwner, model.prHeadBranchName, model.prBaseOwner, baseCommitSha);
+		const baseTreeSha = (await octokit.call(octokit.api.repos.getCommit, { owner: model.prBaseOwner, repo: model.repositoryName, ref: baseCommitSha })).data.commit.tree.sha;
+		const baseTree = await octokit.call(octokit.api.git.getTree, { owner: model.prBaseOwner, repo: model.repositoryName, tree_sha: baseTreeSha, recursive: 'true' });
+
+		const files: IGitTreeItem[] = (await Promise.all(compareData.map(async (file) => {
 			if (!file) {
 				return;
 			}
 
-			// TODO (in upcoming PR): check existing resolutions for the file and return the resolution if it exists.
-			// If there are any conflicts that are more than just text file conflicts, then
-			// we will not support resolving here and should error out.
+			const baseTreeData = baseTree.data.tree.find(f => f.path === file.filename);
+			const baseMode: '100644' | '100755' | '120000' = baseTreeData?.mode as any ?? '100644';
+
+			const headTree = await octokit.call(octokit.api.git.getTree, { owner: model.prHeadOwner, repo: model.repositoryName, tree_sha: headTreeSha, recursive: 'true' });
+			const headTreeData = headTree.data.tree.find(f => f.path === file.filename);
+			const headMode: '100644' | '100755' | '120000' = headTreeData?.mode as any ?? '100644';
 
 			if (file.status === 'removed') {
 				// The file was removed so we use a null sha to indicate that (per GitHub's API).
 				// If we've made it this far, we already know that there are no conflicts in the file and it's safe to delete.
-				const headTree = await octokit.call(octokit.api.git.getTree, { owner: head.owner, repo: remote.repositoryName, tree_sha: headTreeSha, recursive: 'true' });
-				const headTreeData = headTree.data.tree.find(f => f.path === file.filename);
 				return { path: file.filename, sha: null, mode: headTreeData?.mode ?? '100644' };
 			}
 
-			const baseTreeData = baseTree.data.tree.find(f => f.path === (file.previous_filename ?? file.filename));
-			const baseMode: '100644' | '100755' | '120000' = baseTreeData?.mode as any ?? '100644';
 			const treeItem: IGitTreeItem = {
-				path: file?.previous_filename ?? file.filename,
+				path: file.filename,
 				mode: baseMode
 			};
+
+			const resolvedConflict = model.resolvedConflicts.get(file.filename);
+			if (resolvedConflict?.resolvedContents !== undefined) {
+				if (file.status !== 'modified') {
+					throw new Error(`Only modified file are supported for conflict resolution ${file.filename}: ${file.status}`);
+				}
+
+				if (baseMode !== headMode) {
+					throw new Error(`Conflict resolution not supported for file with different modes ${file.filename}: ${baseMode} -> ${headMode}`);
+				}
+
+				if (file.previous_filename) {
+					throw new Error('Conflict resolution not supported for renamed files');
+				}
+				treeItem.content = resolvedConflict.resolvedContents;
+				return treeItem;
+			}
 
 			if ((!file.previous_filename || !this._fileChanges.has(file.previous_filename)) && !this._fileChanges.has(file.filename)) {
 				// File is not part of the PR, so we don't need to bother getting any content and can just use the sha
@@ -833,10 +883,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			// File is part of the PR. We have to apply the patch of the base to the head content.
 			const { data: headData }: { data: IRawFileContent } = await octokit.call(octokit.api.repos.getContent, {
-				owner: head.owner,
-				repo: remote.repositoryName,
+				owner: model.prHeadOwner,
+				repo: model.repositoryName,
 				path: file?.previous_filename ?? file.filename,
-				ref: head.ref
+				ref: model.prHeadBranchName
 			}) as { data: IRawFileContent };
 
 			if (file.status === 'modified' && file.patch && headData.content) {
@@ -856,44 +906,45 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return files;
 	}
 
-	/**
-	 * Should only be called if there are no conflicts!!
-	 */
-	async updateBranch(): Promise<void> {
-		if (this.item.mergeable === PullRequestMergeability.Conflict) {
-			Logger.error('Cannot update a branch with conflicts', GitHubRepository.ID);
-			throw new Error('Cannot update a branch with conflicts');
-		}
-
-		const head = this.head;
+	async getLatestBaseCommitSha(): Promise<string> {
 		const base = this.base;
-		if (!head) {
-			return;
+		if (!base) {
+			throw new Error('Base branch not yet set.');
 		}
-		Logger.debug(`Updating branch ${head.ref} to ${base.ref} - enter`, GitHubRepository.ID);
+		const { octokit, remote } = await this.githubRepository.ensure();
+		return (await octokit.call(octokit.api.repos.getBranch, { owner: remote.owner, repo: remote.repositoryName, branch: this.base.ref })).data.commit.sha;
+	}
+
+	async updateBranch(model: ConflictResolutionModel): Promise<boolean> {
+		if (this.item.mergeable === PullRequestMergeability.Conflict && (!model.resolvedConflicts || model.resolvedConflicts.size === 0)) {
+			throw new Error('Pull Request has conflicts but no resolutions were provided.');
+		}
+
+		Logger.debug(`Updating branch ${model.prHeadBranchName} to ${model.prBaseBranchName} - enter`, GitHubRepository.ID);
 		try {
-			const { octokit, remote } = await this.githubRepository.ensure();
-			const baseCommitSha = (await octokit.call(octokit.api.repos.getBranch, { owner: remote.owner, repo: remote.repositoryName, branch: base.ref })).data.commit.sha;
+			const { octokit } = await this.githubRepository.ensure();
 
-			const lastCommitSha = (await octokit.call(octokit.api.repos.getBranch, { owner: head.owner, repo: remote.repositoryName, branch: head.ref })).data.commit.sha;
-			const lastTreeSha = (await octokit.call(octokit.api.repos.getCommit, { owner: head.owner, repo: remote.repositoryName, ref: lastCommitSha })).data.commit.tree.sha;
+			const lastCommitSha = (await octokit.call(octokit.api.repos.getBranch, { owner: model.prHeadOwner, repo: model.repositoryName, branch: model.prHeadBranchName })).data.commit.sha;
+			const lastTreeSha = (await octokit.call(octokit.api.repos.getCommit, { owner: model.prHeadOwner, repo: model.repositoryName, ref: lastCommitSha })).data.commit.tree.sha;
 
-			const treeItems: IGitTreeItem[] = await this.getUpdateBranchFiles(head, base, baseCommitSha, lastTreeSha);
+			const treeItems: IGitTreeItem[] = await this.getUpdateBranchFiles(model.latestPrBaseSha, lastTreeSha, model);
 
-			const newTreeSha = (await octokit.call(octokit.api.git.createTree, { owner: head.owner, repo: remote.repositoryName, base_tree: lastTreeSha, tree: treeItems })).data.sha;
+			const newTreeSha = (await octokit.call(octokit.api.git.createTree, { owner: model.prHeadOwner, repo: model.repositoryName, base_tree: lastTreeSha, tree: treeItems })).data.sha;
 			let message: string;
-			if (base.owner === head.owner) {
-				message = `Merge branch \`${base.ref}\` into ${head.ref}`;
+			if (model.prBaseOwner === model.prHeadOwner) {
+				message = `Merge branch \`${model.prBaseBranchName}\` into ${model.prHeadBranchName}`;
 			} else {
-				message = `Merge branch \`${base.owner}:${base.ref}\` into ${head.ref}`;
+				message = `Merge branch \`${model.prBaseOwner}:${model.prBaseBranchName}\` into ${model.prHeadBranchName}`;
 			}
-			const newCommitSha = (await octokit.call(octokit.api.git.createCommit, { owner: head.owner, repo: remote.repositoryName, message, tree: newTreeSha, parents: [lastCommitSha, baseCommitSha] })).data.sha;
-			await octokit.call(octokit.api.git.updateRef, { owner: head.owner, repo: remote.repositoryName, ref: `heads/${head.ref}`, sha: newCommitSha });
+			const newCommitSha = (await octokit.call(octokit.api.git.createCommit, { owner: model.prHeadOwner, repo: model.repositoryName, message, tree: newTreeSha, parents: [lastCommitSha, model.latestPrBaseSha] })).data.sha;
+			await octokit.call(octokit.api.git.updateRef, { owner: model.prHeadOwner, repo: model.repositoryName, ref: `heads/${model.prHeadBranchName}`, sha: newCommitSha });
 
 		} catch (e) {
-			Logger.error(`Updating branch ${head.ref} to ${base.ref} failed: ${e}`, GitHubRepository.ID);
+			Logger.error(`Updating branch ${model.prHeadBranchName} to ${model.prBaseBranchName} failed: ${e}`, GitHubRepository.ID);
+			return false;
 		}
-		Logger.debug(`Updating branch ${head.ref} to ${base.ref} - done`, GitHubRepository.ID);
+		Logger.debug(`Updating branch ${model.prHeadBranchName} to ${model.prBaseBranchName} - done`, GitHubRepository.ID);
+		return true;
 	}
 
 	/**
