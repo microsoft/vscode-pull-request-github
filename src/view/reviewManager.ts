@@ -289,8 +289,7 @@ export class ReviewManager {
 					Logger.error('Timeout occurred while validating state.', this.id);
 					/* __GDPR__
 						"pr.checkout" : {
-						{
-							"version" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth"
+							"version" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
 						}
 					*/
 					this._telemetry.sendTelemetryErrorEvent('pr.validateStateTimeout', { version: this._context.extension.packageJSON.version });
