@@ -686,6 +686,18 @@ query GetUser($login: String!) {
 	}
 }
 
+query PullRequestMergeability($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			mergeable
+			mergeStateStatus
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
 query PullRequestState($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {

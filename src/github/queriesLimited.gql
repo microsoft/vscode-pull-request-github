@@ -132,17 +132,6 @@ query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!)
 	}
 }
 
-query PullRequestMergeability($owner: String!, $name: String!, $number: Int!) {
-	repository(owner: $owner, name: $name) {
-		pullRequest(number: $number) {
-			mergeable
-			mergeStateStatus
-		}
-	}
-	rateLimit {
-		...RateLimit
-	}
-}
 
 mutation CreatePullRequest($input: CreatePullRequestInput!) {
 	createPullRequest(input: $input) {
