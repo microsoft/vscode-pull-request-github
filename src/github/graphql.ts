@@ -668,6 +668,13 @@ export interface PullRequestMergabilityResponse {
 		pullRequest: {
 			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 			mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+			mergeRequirements?: {
+				conditions: {
+					__typename: string | 'PullRequestMergeConflictStateCondition';
+					result: 'PASSED' | 'FAILED';
+					conflicts: string[];
+				}[];
+			}
 		};
 	} | null;
 	rateLimit: RateLimit;

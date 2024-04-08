@@ -141,6 +141,29 @@ query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!)
 	}
 }
 
+query PullRequestMergeability($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			mergeable
+			mergeStateStatus
+			mergeRequirements { # This is a privage field we're testing
+				state
+				conditions {
+					result
+					... on PullRequestMergeConflictStateCondition {
+						__typename
+						conflicts
+						isConflictResolvableInWeb
+					}
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
 mutation CreatePullRequest($input: CreatePullRequestInput!) {
 	createPullRequest(input: $input) {
 		pullRequest {
