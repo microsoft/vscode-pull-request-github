@@ -117,6 +117,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public localBranchName?: string;
 	public mergeBase?: string;
 	public mergeQueueEntry?: MergeQueueEntry;
+	public conflicts?: string[];
 	public suggestedReviewers?: ISuggestedReviewer[];
 	public hasChangesSinceLastReview?: boolean;
 	private _showChangesSinceReview: boolean;
@@ -1545,7 +1546,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * Get the current mergeability of the pull request.
 	 */
-	async getMergeability(): Promise<PullRequestMergeability> {
+	async getMergeability(): Promise<{ mergeability: PullRequestMergeability, conflicts?: string[] }> {
 		try {
 			Logger.debug(`Fetch pull request mergeability ${this.number} - enter`, PullRequestModel.ID);
 			const { query, remote, schema } = await this.githubRepository.ensure();
@@ -1557,6 +1558,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					name: remote.repositoryName,
 					number: this.number,
 				},
+				context: {
+					headers: {
+						'GraphQL-Features': 'pull_request_merge_requirements_api' // This flag allows specific users to test a private field. 
+					}
+				}
 			});
 			if (data.repository === null) {
 				Logger.error('Unexpected null repository while getting mergeability', PullRequestModel.ID);
@@ -1565,10 +1571,12 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			Logger.debug(`Fetch pull request mergeability ${this.number} - done`, PullRequestModel.ID);
 			const mergeability = parseMergeability(data.repository?.pullRequest.mergeable, data.repository?.pullRequest.mergeStateStatus);
 			this.item.mergeable = mergeability;
-			return mergeability;
+			this.conflicts = data.repository?.pullRequest.mergeRequirements?.conditions.find(condition => condition.__typename === 'PullRequestMergeConflictStateCondition')?.conflicts;
+			this.update(this.item);
+			return { mergeability, conflicts: this.conflicts };
 		} catch (e) {
 			Logger.error(`Unable to fetch PR Mergeability: ${e}`, PullRequestModel.ID);
-			return PullRequestMergeability.Unknown;
+			return { mergeability: PullRequestMergeability.Unknown };
 		}
 	}
 

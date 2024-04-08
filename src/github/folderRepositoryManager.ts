@@ -74,9 +74,10 @@ async function createConflictResolutionModel(pullRequest: PullRequestModel): Pro
 				previousFilenames.set(fileChange.previousFileName, fileChange);
 			}
 		}
+		const knownConflicts = new Set<string>(pullRequest.conflicts);
 		for (const mergeFile of mergeBaseIntoPrCompareData) {
 			const fileChange = pullRequest.fileChanges.get(mergeFile.filename) ?? previousFilenames.get(mergeFile.filename);
-			if (fileChange) {
+			if (fileChange && (knownConflicts.size === 0 || knownConflicts.has(fileChange.fileName))) {
 				const prHeadFilePath = fileChange.fileName;
 				let contentsConflict = false;
 				let filePathConflict = false;

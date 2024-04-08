@@ -196,7 +196,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			pullRequestModel.canEdit(),
 			this._folderRepositoryManager.getOrgTeamsCount(pullRequestModel.githubRepository),
 			this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName),
-			this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel)])
+			this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel),
+			pullRequestModel.getMergeability()])
 			.then(result => {
 				const [
 					pullRequest,
@@ -210,7 +211,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					viewerCanEdit,
 					orgTeamsCount,
 					mergeQueueMethod,
-					isBranchUpToDateWithBase
+					isBranchUpToDateWithBase,
+					mergeability
 				] = result;
 				if (!pullRequest) {
 					throw new Error(
@@ -271,7 +273,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					status: status[0],
 					reviewRequirement: status[1],
 					canUpdateBranch: pullRequest.item.viewerCanUpdate && !isBranchUpToDateWithBase && isUpdateBranchWithGitHubEnabled,
-					mergeable: pullRequest.item.mergeable,
+					mergeable: mergeability.mergeability,
 					reviewers: this._existingReviewers,
 					isDraft: pullRequest.isDraft,
 					mergeMethodsAvailability,
@@ -851,7 +853,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		let mergability = PullRequestMergeability.Unknown;
 		let attemptsRemaining = 5;
 		do {
-			mergability = await this._item.getMergeability();
+			mergability = (await this._item.getMergeability()).mergeability;
 			attemptsRemaining--;
 			await new Promise(c => setTimeout(c, 1000));
 		} while (attemptsRemaining > 0 && mergability === PullRequestMergeability.Unknown);
