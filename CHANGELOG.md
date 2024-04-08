@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.86.1
+
+### Fixes
+
+- Create PR viewlet clears itself after changing base repository and branch. https://github.com/microsoft/vscode-pull-request-github/issues/5878
+- Field 'mergeQueueEntry' doesn't exist on type 'PullRequest'. https://github.com/microsoft/vscode-pull-request-github/issues/5808
+
 ## 0.86.0
 
 ### Changes
