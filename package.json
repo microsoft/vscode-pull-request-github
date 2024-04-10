@@ -626,7 +626,7 @@
 						"multiDiff",
 						false
 					],
-					"default": "firstDiff",
+					"default": "multiDiff",
 					"description": "%githubPullRequests.focusedMode.description%"
 				},
 				"githubPullRequests.showPullRequestNumberInTree": {
