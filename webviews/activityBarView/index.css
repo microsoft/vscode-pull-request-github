@@ -211,3 +211,20 @@ button.split-right .icon {
 button.split-right .icon svg path {
 	fill: unset;
 }
+
+.dropdown-container {
+	display: flex;
+	flex-grow: 1;
+	min-width: 0;
+	margin: 0;
+	width: 100%;
+	justify-content: center;
+}
+
+button.inlined-dropdown {
+	width: 100%;
+	max-width: 150px;
+	margin-right: 5px;
+	display: inline-block;
+	text-align: center;
+}

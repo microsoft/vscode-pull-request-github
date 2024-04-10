@@ -341,6 +341,7 @@ body img.avatar {
 	display: flex;
 	flex-grow: 1;
 	min-width: 0;
+	max-width: 260px;
 }
 
 button.split-left {

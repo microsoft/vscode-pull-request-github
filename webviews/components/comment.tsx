@@ -331,16 +331,16 @@ export function AddComment({
 		close(value);
 	};
 
-	let currentSelection: string = lastReviewType ?? (currentUserReviewState === 'APPROVED' ? 'approve' : (currentUserReviewState === 'CHANGES_REQUESTED' ? 'requestChanges' : 'comment'));
+	let currentSelection: ReviewType = lastReviewType ?? (currentUserReviewState === 'APPROVED' ? ReviewType.Approve : (currentUserReviewState === 'CHANGES_REQUESTED' ? ReviewType.RequestChanges : ReviewType.Comment));
 
-	async function submitAction(): Promise<void> {
+	async function submitAction(action: ReviewType): Promise<void> {
 		const { value } = textareaRef.current!;
-		if (continueOnGitHub && currentSelection !== ReviewType.Comment) {
+		if (continueOnGitHub && action !== ReviewType.Comment) {
 			await openOnGitHub();
 			return;
 		}
 		setBusy(true);
-		switch (currentSelection) {
+		switch (action) {
 			case ReviewType.RequestChanges:
 				await requestChanges(value);
 				break;
@@ -353,13 +353,17 @@ export function AddComment({
 		setBusy(false);
 	}
 
-	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = isAuthor || isDraft
-		? { comment: 'Comment' }
+	async function defaultSubmitAction(): Promise<void> {
+		await submitAction(currentSelection);
+	}
+
+	const availableActions: { [key in ReviewType]?: string } = isAuthor || isDraft
+		? { [ReviewType.Comment]: 'Comment' }
 		: continueOnGitHub
 			? {
-				comment: 'Comment',
-				approve: 'Approve on github.com',
-				requestChanges: 'Request changes on github.com',
+				[ReviewType.Comment]: 'Comment',
+				[ReviewType.Approve]: 'Approve on github.com',
+				[ReviewType.RequestChanges]: 'Request changes on github.com',
 			}
 			: COMMENT_METHODS;
 
@@ -390,9 +394,22 @@ export function AddComment({
 
 				<ContextDropdown
 					optionsContext={() => makeCommentMenuContext(availableActions, pendingCommentText)}
-					defaultAction={submitAction}
-					defaultOptionLabel={() => availableActions[currentSelection]}
+					defaultAction={defaultSubmitAction}
+					defaultOptionLabel={() => availableActions[currentSelection]!}
 					defaultOptionValue={() => currentSelection}
+					allOptions={() => {
+						const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
+						if (availableActions.approve) {
+							actions.push({ label: availableActions[ReviewType.Approve]!, value: ReviewType.Approve, action: () => submitAction(ReviewType.Approve) });
+						}
+						if (availableActions.comment) {
+							actions.push({ label: availableActions[ReviewType.Comment]!, value: ReviewType.Comment, action: () => submitAction(ReviewType.Comment) });
+						}
+						if (availableActions.requestChanges) {
+							actions.push({ label: availableActions[ReviewType.RequestChanges]!, value: ReviewType.RequestChanges, action: () => submitAction(ReviewType.RequestChanges) });
+						}
+						return actions;
+					}}
 					optionsTitle='Submit pull request review'
 					disabled={isBusy || busy}
 					hasSingleAction={Object.keys(availableActions).length === 1}
@@ -439,16 +456,16 @@ export const AddCommentSimple = (pr: PullRequest) => {
 	const { updatePR, requestChanges, approve, submit, openOnGitHub } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>();
-	let currentSelection: string = pr.lastReviewType ?? (pr.currentUserReviewState === 'APPROVED' ? 'approve' : (pr.currentUserReviewState === 'CHANGES_REQUESTED' ? 'requestChanges' : 'comment'));
+	let currentSelection: ReviewType = pr.lastReviewType ?? (pr.currentUserReviewState === 'APPROVED' ? ReviewType.Approve : (pr.currentUserReviewState === 'CHANGES_REQUESTED' ? ReviewType.RequestChanges: ReviewType.Comment));
 
-	async function submitAction(): Promise<void> {
+	async function submitAction(action: ReviewType): Promise<void> {
 		const { value } = textareaRef.current!;
-		if (pr.continueOnGitHub && currentSelection !== ReviewType.Comment) {
+		if (pr.continueOnGitHub && action !== ReviewType.Comment) {
 			await openOnGitHub();
 			return;
 		}
 		setBusy(true);
-		switch (currentSelection) {
+		switch (action) {
 			case ReviewType.RequestChanges:
 				await requestChanges(value);
 				break;
@@ -461,6 +478,10 @@ export const AddCommentSimple = (pr: PullRequest) => {
 		setBusy(false);
 	}
 
+	async function defaultSubmitAction(): Promise<void> {
+		await submitAction(currentSelection);
+	}
+
 	const onChangeTextarea = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
 		updatePR({ pendingCommentText: e.target.value });
 	};
@@ -470,7 +491,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
 
 				e.preventDefault();
-				submitAction();
+				defaultSubmitAction();
 			}
 		},
 		[submitAction],
@@ -501,9 +522,22 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			<div className='comment-button'>
 				<ContextDropdown
 					optionsContext={() => makeCommentMenuContext(availableActions, pr.pendingCommentText)}
-					defaultAction={submitAction}
-					defaultOptionLabel={() => availableActions[currentSelection]}
+					defaultAction={defaultSubmitAction}
+					defaultOptionLabel={() => availableActions[currentSelection]!}
 					defaultOptionValue={() => currentSelection}
+					allOptions={() => {
+						const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
+						if (availableActions.approve) {
+							actions.push({ label: availableActions[ReviewType.Approve]!, value: ReviewType.Approve, action: () => submitAction(ReviewType.Approve) });
+						}
+						if (availableActions.comment) {
+							actions.push({ label: availableActions[ReviewType.Comment]!, value: ReviewType.Comment, action: () => submitAction(ReviewType.Comment) });
+						}
+						if (availableActions.requestChanges) {
+							actions.push({ label: availableActions[ReviewType.RequestChanges]!, value: ReviewType.RequestChanges, action: () => submitAction(ReviewType.RequestChanges) });
+						}
+						return actions;
+					}}
 					optionsTitle='Submit pull request review'
 					disabled={isBusy || pr.busy}
 					hasSingleAction={Object.keys(availableActions).length === 1}
