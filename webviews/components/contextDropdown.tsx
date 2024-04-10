@@ -53,7 +53,7 @@ export const ContextDropdown = ({ optionsContext, defaultOptionLabel, defaultOpt
 	useWindowSize();
 
 	return <div className='dropdown-container' ref={divRef}>
-		{divRef.current && divRef.current.clientWidth > 375 && options ? options().map(({ label, value, action }) => {
+		{divRef.current && (divRef.current.clientWidth > 375) && options && !hasSingleAction ? options().map(({ label, value, action }) => {
 			return <button className='inlined-dropdown' key={value} title={label} disabled={disabled} onClick={action} value={value}>{label}</button>;
 		})
 			:

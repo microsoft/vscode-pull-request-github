@@ -780,6 +780,10 @@ textarea {
 	flex-grow: unset;
 }
 
+.dropdown-container {
+	justify-content: right;
+}
+
 .form-actions {
 	display: flex;
 	justify-content: flex-end;
