@@ -408,3 +408,20 @@ button.input-box:hover:not(:disabled) {
 button.input-box:focus {
 	border-color: var(--vscode-focusBorder) !important;
 }
+
+.dropdown-container {
+	display: flex;
+	flex-grow: 1;
+	min-width: 0;
+	margin: 0;
+	width: 100%;
+	justify-content: center;
+}
+
+button.inlined-dropdown {
+	width: 100%;
+	max-width: 150px;
+	margin-right: 5px;
+	display: inline-block;
+	text-align: center;
+}
