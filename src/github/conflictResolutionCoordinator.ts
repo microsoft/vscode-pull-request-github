@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as buffer from 'buffer';
 import * as vscode from 'vscode';
 import { commands, contexts } from '../common/executeCommands';
 import { Schemes } from '../common/uri';
@@ -47,9 +48,14 @@ class MergeOutputProvider implements vscode.FileSystemProvider {
 	}
 	async readFile(uri: vscode.Uri): Promise<Uint8Array> {
 		if (!this._mergedFiles.has(uri.path)) {
-			const original = this._conflictResolutionModel.mergeBaseUri({ prHeadFilePath: uri.path });
-			const content = await vscode.workspace.fs.readFile(original);
-			this._mergedFiles.set(uri.path, content);
+			// If the result file contains a conflict marker then the merge editor will automagically compute the merge result.
+			const original =
+				`<<<<<<< HEAD:file.txt
+A
+=======
+B
+>>>>>>> fa7472b59e45e5b86c985a175aac33af7a8322a3:file.txt`;
+			this._mergedFiles.set(uri.path, buffer.Buffer.from(original));
 		}
 		return this._mergedFiles.get(uri.path)!;
 	}
