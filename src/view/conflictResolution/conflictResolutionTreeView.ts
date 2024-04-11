@@ -26,7 +26,8 @@ export class ConflictResolutionTreeView implements vscode.TreeDataProvider<Confl
 	}
 
 	async getTreeItem(element: ConflictNode): Promise<vscode.TreeItem> {
-		const item = new vscode.TreeItem(element.conflict.prHeadFilePath);
+		const resource = vscode.Uri.from({ path: element.conflict.prHeadFilePath, scheme: 'conflictResolution' });
+		const item = new vscode.TreeItem(resource);
 		if (this._conflictResolutionModel.isResolved(element.conflict.prHeadFilePath)) {
 			item.iconPath = new vscode.ThemeIcon('check');
 			item.command = {
