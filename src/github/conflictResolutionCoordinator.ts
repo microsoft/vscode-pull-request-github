@@ -22,7 +22,8 @@ class MergeOutputProvider implements vscode.FileSystemProvider {
 	get mergeResults(): Map<string, Uint8Array> {
 		return this._mergedFiles;
 	}
-	onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = new vscode.EventEmitter<vscode.FileChangeEvent[]>().event;
+	private _onDidChangeFile = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
+	onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._onDidChangeFile.event;
 	constructor(private readonly _conflictResolutionModel: ConflictResolutionModel) {
 		this._createTime = new Date().getTime();
 	}
@@ -68,6 +69,15 @@ B
 	}
 	rename(_oldUri: vscode.Uri, _newUri: vscode.Uri, _options: { readonly overwrite: boolean; }): void {
 		throw new Error('Method not implemented.');
+	}
+
+	clear(): void {
+		const fileEvents: vscode.FileChangeEvent[] = [];
+		for (const file of this._mergedFiles.keys()) {
+			fileEvents.push({ uri: vscode.Uri.from({ scheme: Schemes.MergeOutput, path: file }), type: vscode.FileChangeType.Changed });
+			this._mergedFiles.set(file, buffer.Buffer.from(''));
+		}
+		this._onDidChangeFile.fire(fileEvents);
 	}
 }
 
@@ -141,7 +151,18 @@ export class ConflictResolutionCoordinator {
 
 	private _onExitConflictResolutionMode = new vscode.EventEmitter<boolean>();
 	async exitConflictResolutionMode(allConflictsResolved: boolean): Promise<void> {
+		// Clearing first lets us close the merge editors without prompting the user about closing with conflicts.
+		this._mergeOutputProvider.clear();
 		await commands.setContext(contexts.RESOLVING_CONFLICTS, false);
+		const tabsToClose: vscode.Tab[] = [];
+		for (const group of vscode.window.tabGroups.all) {
+			for (const tab of group.tabs) {
+				if ((tab.input instanceof vscode.TabInputTextMerge) && (tab.input.result.scheme === Schemes.MergeOutput)) {
+					tabsToClose.push(tab);
+				}
+			}
+		}
+		await vscode.window.tabGroups.close(tabsToClose);
 		this._onExitConflictResolutionMode.fire(allConflictsResolved);
 		this.dispose();
 	}
