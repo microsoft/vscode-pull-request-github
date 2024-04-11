@@ -29,7 +29,8 @@
 		"shareProvider",
 		"tabInputTextMerge",
 		"tokenInformation",
-		"treeViewMarkdownMessage"
+		"treeViewMarkdownMessage",
+		"contribAccessibilityHelpContent"
 	],
 	"version": "0.86.0",
 	"publisher": "GitHub",
@@ -662,13 +663,15 @@
 					"id": "pr:github",
 					"name": "%view.pr.github.name%",
 					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts",
-					"icon": "$(git-pull-request)"
+					"icon": "$(git-pull-request)",
+					"accessibilityHelpContent": "Helpful commands include: \n-Refresh PR List (kb(command:pr.refreshList)) \n-GitHub Pull Requests: Focus on Issues View (kb(issues:github.focus)) \n-GitHub Pull Requests: Focus on Pull Requests View (kb(pr:github.focus))\n-GitHub Issues: Copy GitHub Permalink (kb(command:issue.copyGithubPermalink))\n-GitHub Issues: Create an Issue (kb(command:issue.createIssue))\n-GitHub Pull Requests: Create Pull Request (kb(command:pr.create)\n-GitHub Pull Requests: Start Review (kb(pr.startReview))\n-GitHub Pull Requests: Mark Pull Request Ready For Review (kb(command:pr.readyForReview))\n-GitHub Pull Requests: Approve (kb(command:review.approve))"
 				},
 				{
 					"id": "issues:github",
 					"name": "%view.issues.github.name%",
 					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts",
-					"icon": "$(issues)"
+					"icon": "$(issues)",
+					"accessibilityHelpContent": "Helpful commands include: \n-Refresh Issue List (kb(command:issue.refresh)) \n-GitHub Pull Requests: Focus on Issues View (kb(issues:github.focus)) \n-GitHub Pull Requests: Focus on Pull Requests View (kb(pr:github.focus))\n-GitHub Issues: Copy GitHub Permalink (kb(command:issue.copyGithubPermalink))\n-GitHub Issues: Create an Issue (kb(command:issue.createIssue))\n-GitHub Pull Requests: Create Pull Request (kb(command:pr.create)\n-GitHub Pull Requests: Start Review (kb(pr.startReview))\n-GitHub Pull Requests: Mark Pull Request Ready For Review (kb(command:pr.readyForReview))\n-GitHub Pull Requests: Approve (kb(command:review.approve))"
 				},
 				{
 					"id": "github:conflictResolution",
