@@ -14,10 +14,16 @@ import { Conflict, ConflictResolutionModel } from './conflictResolutionModel';
 import { GitHubRepository } from './githubRepository';
 
 interface MergeEditorInputData { uri: vscode.Uri; title?: string; detail?: string; description?: string }
+const ORIGINAL_FILE =
+	`<<<<<<< HEAD:file.txt
+A
+=======
+B
+>>>>>>> fa7472b59e45e5b86c985a175aac33af7a8322a3:file.txt`;
 
 class MergeOutputProvider implements vscode.FileSystemProvider {
 	private _createTime: number = 0;
-	private _modifiedTime: number = 0;
+	private _modifiedTimes: Map<string, number> = new Map();
 	private _mergedFiles: Map<string, Uint8Array> = new Map();
 	get mergeResults(): Map<string, Uint8Array> {
 		return this._mergedFiles;
@@ -37,7 +43,7 @@ class MergeOutputProvider implements vscode.FileSystemProvider {
 		return {
 			type: vscode.FileType.File,
 			ctime: this._createTime,
-			mtime: this._modifiedTime,
+			mtime: this._modifiedTimes.get(uri.path) ?? 0,
 			size: this._mergedFiles.get(uri.path)?.length ?? 0,
 		};
 	}
@@ -50,19 +56,12 @@ class MergeOutputProvider implements vscode.FileSystemProvider {
 	async readFile(uri: vscode.Uri): Promise<Uint8Array> {
 		if (!this._mergedFiles.has(uri.path)) {
 			// If the result file contains a conflict marker then the merge editor will automagically compute the merge result.
-			const original =
-				`<<<<<<< HEAD:file.txt
-A
-=======
-B
->>>>>>> fa7472b59e45e5b86c985a175aac33af7a8322a3:file.txt`;
-			this._mergedFiles.set(uri.path, buffer.Buffer.from(original));
+			this.updateFile(uri.path, buffer.Buffer.from(ORIGINAL_FILE));
 		}
 		return this._mergedFiles.get(uri.path)!;
 	}
 	writeFile(uri: vscode.Uri, content: Uint8Array, _options: { readonly create: boolean; readonly overwrite: boolean; }): void {
-		this._modifiedTime = new Date().getTime();
-		this._mergedFiles.set(uri.path, content);
+		this.updateFile(uri.path, content);
 	}
 	delete(_uri: vscode.Uri, _options: { readonly recursive: boolean; }): void {
 		throw new Error('Method not implemented.');
@@ -71,11 +70,16 @@ B
 		throw new Error('Method not implemented.');
 	}
 
+	private updateFile(file: string, contents: Uint8Array): void {
+		this._mergedFiles.set(file, contents);
+		this._modifiedTimes.set(file, new Date().getTime());
+	}
+
 	clear(): void {
 		const fileEvents: vscode.FileChangeEvent[] = [];
 		for (const file of this._mergedFiles.keys()) {
 			fileEvents.push({ uri: vscode.Uri.from({ scheme: Schemes.MergeOutput, path: file }), type: vscode.FileChangeType.Changed });
-			this._mergedFiles.set(file, buffer.Buffer.from(''));
+			this.updateFile(file, buffer.Buffer.from(ORIGINAL_FILE));
 		}
 		this._onDidChangeFile.fire(fileEvents);
 	}
@@ -162,7 +166,6 @@ export class ConflictResolutionCoordinator {
 
 	private _onExitConflictResolutionMode = new vscode.EventEmitter<boolean>();
 	async exitConflictResolutionMode(allConflictsResolved: boolean): Promise<void> {
-		// Clearing first lets us close the merge editors without prompting the user about closing with conflicts.
 		this._mergeOutputProvider.clear();
 		await commands.setContext(contexts.RESOLVING_CONFLICTS, false);
 		const tabsToClose: vscode.Tab[] = [];
