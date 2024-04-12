@@ -251,3 +251,7 @@ textarea {
 	padding-bottom: 20px;
 	width: 100%;
 }
+
+.dropdown-container {
+	justify-content: right;
+}
