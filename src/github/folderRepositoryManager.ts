@@ -2193,6 +2193,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			if (pullRequest.item.mergeable === PullRequestMergeability.Conflict) {
 				const coordinator = new ConflictResolutionCoordinator(conflictModel, this.gitHubRepositories.filter(repo => repo.remote.repositoryName === pullRequest.githubRepository.remote.repositoryName));
 				continueWithMerge = await coordinator.enterConflictResolutionAndWaitForExit();
+				coordinator.dispose();
 			}
 
 			if (continueWithMerge) {
