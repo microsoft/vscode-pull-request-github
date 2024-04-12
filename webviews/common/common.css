@@ -415,6 +415,9 @@ button.input-box:focus {
 	min-width: 0;
 	margin: 0;
 	width: 100%;
+}
+
+.dropdown-container:not(:has(.primary-split-button)) {
 	justify-content: center;
 }
 
