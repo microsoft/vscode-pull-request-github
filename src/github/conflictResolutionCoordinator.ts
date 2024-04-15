@@ -6,6 +6,7 @@
 import * as buffer from 'buffer';
 import * as vscode from 'vscode';
 import { commands, contexts } from '../common/executeCommands';
+import { ITelemetry } from '../common/telemetry';
 import { Schemes } from '../common/uri';
 import { asPromise } from '../common/utils';
 import { ConflictResolutionTreeView } from '../view/conflictResolution/conflictResolutionTreeView';
@@ -94,7 +95,8 @@ export class ConflictResolutionCoordinator {
 	private _disposables: vscode.Disposable[] = [];
 	private _mergeOutputProvider: MergeOutputProvider;
 
-	constructor(private readonly _conflictResolutionModel: ConflictResolutionModel, private readonly _githubRepositories: GitHubRepository[]) {
+	constructor(private readonly _telemetry: ITelemetry,
+		private readonly _conflictResolutionModel: ConflictResolutionModel, private readonly _githubRepositories: GitHubRepository[]) {
 		this._mergeOutputProvider = new MergeOutputProvider(this._conflictResolutionModel);
 		this._disposables.push(this._mergeOutputProvider);
 	}
@@ -159,6 +161,10 @@ export class ConflictResolutionCoordinator {
 	}
 
 	async enterConflictResolutionMode(): Promise<void> {
+		/* __GDPR__
+			"pr.conflictResolution.start" : {}
+		*/
+		this._telemetry.sendTelemetryEvent('pr.conflictResolution.start');
 		await commands.setContext(contexts.RESOLVING_CONFLICTS, true);
 		this.register();
 		this.openConflict(this._conflictResolutionModel.startingConflicts[0]);
@@ -166,6 +172,13 @@ export class ConflictResolutionCoordinator {
 
 	private _onExitConflictResolutionMode = new vscode.EventEmitter<boolean>();
 	async exitConflictResolutionMode(allConflictsResolved: boolean): Promise<void> {
+		/* __GDPR__
+			"pr.conflictResolution.exit" : {
+				"allConflictsResolved" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		this._telemetry.sendTelemetryEvent('pr.conflictResolution.exit', { allConflictsResolved: allConflictsResolved.toString() });
+
 		this._mergeOutputProvider.clear();
 		await commands.setContext(contexts.RESOLVING_CONFLICTS, false);
 		const tabsToClose: vscode.Tab[] = [];
