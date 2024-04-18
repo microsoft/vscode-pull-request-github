@@ -29,8 +29,7 @@
 		"shareProvider",
 		"tabInputTextMerge",
 		"tokenInformation",
-		"treeViewMarkdownMessage",
-		"contribAccessibilityHelpContent"
+		"treeViewMarkdownMessage"
 	],
 	"version": "0.86.0",
 	"publisher": "GitHub",
@@ -663,15 +662,13 @@
 					"id": "pr:github",
 					"name": "%view.pr.github.name%",
 					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts",
-					"icon": "$(git-pull-request)",
-					"accessibilityHelpContent": "Helpful commands include: \n-Refresh PR List (keybinding:pr.refreshList)\n-GitHub Pull Requests: Focus on Issues View (keybinding:issue.refresh) \n-GitHub Pull Requests: Focus on Pull Requests View (keybinding:pr:github.focus)\n-GitHub Issues: Copy GitHub Permalink (keybinding:issue.copyGithubPermalink)\n-GitHub Issues: Create an Issue (keybinding:issue.createIssue)\n-GitHub Pull Requests: Create Pull Request (keybinding:command:pr.create)\n-GitHub Pull Requests: Start Review (keybinding:pr.startReview)\n-GitHub Pull Requests: Mark Pull Request Ready For Review (keybinding:pr.readyForReview)\n-GitHub Pull Requests: Approve (keybinding:review.approve)"
+					"icon": "$(git-pull-request)"
 				},
 				{
 					"id": "issues:github",
 					"name": "%view.issues.github.name%",
 					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts",
-					"icon": "$(issues)",
-					"accessibilityHelpContent": "Helpful commands include: \n-[Refresh issues](command:issue.refresh)(keybinding:issue.refresh)\n-[GitHub Pull Requests: Focus on Issues View](command:issues:github.focus)(keybinding:issue.refresh) \n-[GitHub Pull Requests: Focus on Pull Requests View](command:pr:github.focus)(keybinding:pr:github.focus)\n-[GitHub Issues: Copy GitHub Permalink](command:issue.copyGithubPermalink)(keybinding:issue.copyGithubPermalink)\n-[GitHub Issues: Create an Issue](command:issue.createIssue)(keybinding:issue.createIssue)\n-[GitHub Pull Requests: Create Pull Request](command:pr.create)(keybinding:command:pr.create)\n-[GitHub Pull Requests: Start Review](command:pr.startReview)(keybinding:pr.startReview)\n-[GitHub Pull Requests: Mark Pull Request Ready For Review](command:pr.readyForReview)(keybinding:pr.readyForReview)\n-[GitHub Pull Requests: Approve](command:review.approve)(keybinding:review.approve)"
+					"icon": "$(issues)"
 				},
 				{
 					"id": "github:conflictResolution",
