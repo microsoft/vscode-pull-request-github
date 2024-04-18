@@ -27,6 +27,8 @@ parameters:
 extends:
   template: azure-pipelines/extension/pre-release.yml@templates
   parameters:
+    ghCreateRelease: false
+
     l10nSourcePaths: ./src
 
     buildSteps:

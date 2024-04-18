@@ -176,6 +176,10 @@ button .icon svg {
 	min-width: 0;
 }
 
+.dropdown-container {
+	justify-content: center;
+}
+
 button.split-left {
 	border-radius: 2px 0 0 2px;
 	flex-grow: 1;
