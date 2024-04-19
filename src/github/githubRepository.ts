@@ -426,7 +426,7 @@ export class GitHubRepository implements vscode.Disposable {
 		return 'master';
 	}
 
-	async getOwnerPullRequestTemplates(): Promise<string[] | undefined> {
+	async getPullRequestTemplates(): Promise<string[] | undefined> {
 		try {
 			Logger.debug('Fetch pull request templates - enter', GitHubRepository.ID);
 			const { query, remote, schema } = await this.ensure();
