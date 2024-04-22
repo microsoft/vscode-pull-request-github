@@ -143,6 +143,10 @@
 	"view.github.pull.request.name": "GitHub Pull Request",
 	"view.github.login.name": "Login",
 	"view.pr.github.name": "Pull Requests",
+	"view.pr.github.accessibilityHelpContent": {
+		"message":"Helpful commands include:\n-GitHub Pull Requests: Refresh Pull Requests List\n-GitHub Pull Requests: Focus on Issues View \n-GitHub Pull Requests: Focus on Pull Requests View\n-GitHub Issues: Copy GitHub Permalink\n-GitHub Issues: Create an Issue\n-GitHub Pull Requests: Create Pull Request",
+		"comment": "Do not translate the contents of (...) or <...> in the message. They are commands that will be replaced with the actual command name and keybinding."
+	},
 	"view.issues.github.name": "Issues",
 	"view.github.conflictResolution.name": "Conflict Resolution",
 	"view.github.create.pull.request.name": "Create",
