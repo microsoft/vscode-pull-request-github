@@ -17,6 +17,7 @@
 		"commentingRangeHint",
 		"commentReactor",
 		"commentThreadApplicability",
+		"contribAccessibilityHelpContent",
 		"contribCommentEditorActionsMenu",
 		"contribCommentPeekContext",
 		"contribCommentThreadAdditionalMenu",
@@ -662,13 +663,15 @@
 					"id": "pr:github",
 					"name": "%view.pr.github.name%",
 					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts",
-					"icon": "$(git-pull-request)"
+					"icon": "$(git-pull-request)",
+					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%"
 				},
 				{
 					"id": "issues:github",
 					"name": "%view.issues.github.name%",
 					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts",
-					"icon": "$(issues)"
+					"icon": "$(issues)",
+					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%"
 				},
 				{
 					"id": "github:conflictResolution",
