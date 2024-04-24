@@ -2156,7 +2156,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		const isBrowser = (vscode.env.appHost === 'vscode.dev' || vscode.env.appHost === 'github.dev');
 		if (!pullRequest.isActive || isBrowser) {
-			const conflictModel = await createConflictResolutionModel(pullRequest);
+			const conflictModel = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Finding conflicts...') }, () => createConflictResolutionModel(pullRequest));
 			if (conflictModel === undefined) {
 				await vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolved conflicts for this pull request. There are too many file changes.'), { modal: true, detail: isBrowser ? undefined : vscode.l10n.t('Please check out the pull request to resolve conflicts.') });
 				return false;
