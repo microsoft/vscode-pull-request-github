@@ -493,8 +493,11 @@ body button .icon {
 .small-button {
 	display: flex;
 	font-size: 11px;
-	font-weight: 600;
 	padding: 0 5px;
+}
+
+:not(.status-item) > .small-button {
+	font-weight: 600;
 }
 
 #status {
