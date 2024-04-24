@@ -417,10 +417,6 @@ button.input-box:focus {
 	width: 100%;
 }
 
-.dropdown-container:not(:has(.primary-split-button)) {
-	justify-content: center;
-}
-
 button.inlined-dropdown {
 	width: 100%;
 	max-width: 150px;
