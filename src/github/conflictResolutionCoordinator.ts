@@ -79,7 +79,7 @@ class MergeOutputProvider implements vscode.FileSystemProvider {
 	clear(): void {
 		const fileEvents: vscode.FileChangeEvent[] = [];
 		for (const file of this._mergedFiles.keys()) {
-			fileEvents.push({ uri: vscode.Uri.from({ scheme: Schemes.MergeOutput, path: file }), type: vscode.FileChangeType.Changed });
+			fileEvents.push({ uri: vscode.Uri.from({ scheme: this._conflictResolutionModel.mergeScheme, path: file }), type: vscode.FileChangeType.Changed });
 			this.updateFile(file, buffer.Buffer.from(ORIGINAL_FILE));
 		}
 		this._onDidChangeFile.fire(fileEvents);
@@ -124,7 +124,7 @@ export class ConflictResolutionCoordinator {
 
 	private register(): void {
 		this._disposables.push(vscode.workspace.registerFileSystemProvider(Schemes.GithubPr, new GitHubContentProvider(this._githubRepositories), { isReadonly: true }));
-		this._disposables.push(vscode.workspace.registerFileSystemProvider(Schemes.MergeOutput, this._mergeOutputProvider));
+		this._disposables.push(vscode.workspace.registerFileSystemProvider(this._conflictResolutionModel.mergeScheme, this._mergeOutputProvider));
 		this._disposables.push(vscode.commands.registerCommand('pr.resolveConflict', (conflict: Conflict) => {
 			return this.openConflict(conflict);
 		}));
@@ -184,7 +184,7 @@ export class ConflictResolutionCoordinator {
 		const tabsToClose: vscode.Tab[] = [];
 		for (const group of vscode.window.tabGroups.all) {
 			for (const tab of group.tabs) {
-				if ((tab.input instanceof vscode.TabInputTextMerge) && (tab.input.result.scheme === Schemes.MergeOutput)) {
+				if ((tab.input instanceof vscode.TabInputTextMerge) && (tab.input.result.scheme === this._conflictResolutionModel.mergeScheme)) {
 					tabsToClose.push(tab);
 				}
 			}
