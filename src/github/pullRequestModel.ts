@@ -815,14 +815,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		const { octokit, remote } = await this.githubRepository.ensure();
 
 		// Get the files that would change as part of the merge
-		const compareData = await restPaginate<typeof octokit.api.repos.compareCommits, OctokitCommon.ReposCompareCommitsResponseData>(octokit.api.repos.compareCommits, {
+		const compareData = await octokit.call(octokit.api.repos.compareCommits, {
 			repo: remote.repositoryName,
 			owner: headOwner,
 			base: `${headOwner}:${headRef}`, // flip base and head because we are comparing for a merge to update the PR
 			head: `${baseOwner}:${baseRef}`,
 		});
 
-		return compareData.map(data => data.files).flat().filter<IRawFileChange>((change): change is IRawFileChange => change !== undefined);
+		return compareData?.data?.files?.filter<IRawFileChange>((change): change is IRawFileChange => change !== undefined) ?? [];
 	}
 
 	private async getUpdateBranchFiles(baseCommitSha: string, headTreeSha: string, model: ConflictResolutionModel): Promise<IGitTreeItem[]> {
