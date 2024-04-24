@@ -54,7 +54,7 @@ import {
 	variableSubstitution,
 } from './utils';
 
-async function createConflictResolutionModel(pullRequest: PullRequestModel): Promise<ConflictResolutionModel> {
+async function createConflictResolutionModel(pullRequest: PullRequestModel): Promise<ConflictResolutionModel | undefined> {
 	const head = pullRequest.head;
 	if (!head) {
 		throw new Error('No head found for pull request');
@@ -67,6 +67,11 @@ async function createConflictResolutionModel(pullRequest: PullRequestModel): Pro
 	const potentialMergeConflicts: Conflict[] = [];
 	if (pullRequest.item.mergeable === PullRequestMergeability.Conflict) {
 		const mergeBaseIntoPrCompareData = await pullRequest.compareBaseBranchForMerge(prHeadOwner, prHeadRef, prBaseOwner, baseCommitSha);
+		if ((pullRequest.item.mergeable === PullRequestMergeability.Conflict) && (mergeBaseIntoPrCompareData.length >= 300)) {
+			// API limitation: it only returns the first 300 files
+			return undefined;
+		}
+
 		const previousFilenames: Map<string, SlimFileChange | InMemFileChange> = new Map();
 		// We must also check all the previous file names of the files in the PR. Assemble a map with this info
 		for (const fileChange of pullRequest.fileChanges.values()) {
@@ -2149,8 +2154,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return true;
 		}
 
-		if (!pullRequest.isActive || (vscode.env.appHost === 'vscode.dev' || vscode.env.appHost === 'github.dev')) {
+		const isBrowser = (vscode.env.appHost === 'vscode.dev' || vscode.env.appHost === 'github.dev');
+		if (!pullRequest.isActive || isBrowser) {
 			const conflictModel = await createConflictResolutionModel(pullRequest);
+			if (conflictModel === undefined) {
+				await vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolved conflicts for this pull request. There are too many file changes.'), { modal: true, detail: isBrowser ? undefined : vscode.l10n.t('Please check out the pull request to resolve conflicts.') });
+				return false;
+			}
 			let continueWithMerge = true;
 			if (pullRequest.item.mergeable === PullRequestMergeability.Conflict) {
 				const coordinator = new ConflictResolutionCoordinator(this.telemetry, conflictModel, this.gitHubRepositories.filter(repo => repo.remote.repositoryName === pullRequest.githubRepository.remote.repositoryName));
