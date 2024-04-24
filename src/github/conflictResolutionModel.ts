@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { randomUUID } from 'crypto';
 import * as vscode from 'vscode';
 import { Schemes, toGitHubUri } from '../common/uri';
 
@@ -27,7 +26,7 @@ export class ConflictResolutionModel {
 	private readonly _resolvedConflicts: Map<string, ResolvedConflict> = new Map();
 	private readonly _onAddedResolution: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
 	public readonly onAddedResolution: vscode.Event<void> = this._onAddedResolution.event;
-	public readonly mergeScheme = `${Schemes.MergeOutput}-${randomUUID()}`;
+	public readonly mergeScheme = `${Schemes.MergeOutput}-${new Date().getTime()}`;
 
 	constructor(public readonly startingConflicts: Conflict[], public readonly repositoryName: string, public readonly prBaseOwner: string,
 		public readonly latestPrBaseSha: string,
