@@ -10,7 +10,7 @@ import { commands, contexts } from '../common/executeCommands';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
-import { compareIgnoreCase, dispose } from '../common/utils';
+import { compareIgnoreCase, dispose, isDescendant } from '../common/utils';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
 import { IssueModel } from './issueModel';
@@ -86,7 +86,7 @@ export class RepositoriesManager implements vscode.Disposable {
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 		if (workspaceFolders) {
 			const index = workspaceFolders.findIndex(
-				folder => folder.uri.toString() === folderManager.repository.rootUri.toString(),
+				folder => isDescendant(folder.uri.fsPath, folderManager.repository.rootUri.fsPath) || isDescendant(folderManager.repository.rootUri.fsPath, folder.uri.fsPath),
 			);
 			if (index > -1) {
 				const arrayEnd = this._folderManagers.slice(index, this._folderManagers.length);

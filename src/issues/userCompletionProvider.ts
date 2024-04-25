@@ -9,7 +9,7 @@ import Logger from '../common/logger';
 import { IGNORE_USER_COMPLETION_TRIGGER, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { TimelineEvent } from '../common/timelineEvent';
 import { fromPRUri, Schemes } from '../common/uri';
-import { compareIgnoreCase } from '../common/utils';
+import { compareIgnoreCase, isDescendant } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { IAccount, User } from '../github/interface';
@@ -128,7 +128,7 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 
 	private isCodeownersFiles(uri: vscode.Uri): boolean {
 		const repositoryManager = this.manager.getManagerForFile(uri);
-		if (!repositoryManager || !uri.path.startsWith(repositoryManager.repository.rootUri.path)) {
+		if (!repositoryManager || !isDescendant(repositoryManager.repository.rootUri.fsPath, uri.fsPath)) {
 			return false;
 		}
 		const subpath = uri.path.substring(repositoryManager.repository.rootUri.path.length).toLowerCase();

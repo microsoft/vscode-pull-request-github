@@ -18,7 +18,7 @@ import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { ReviewEvent as CommonReviewEvent, EventType, TimelineEvent } from '../common/timelineEvent';
 import { resolvePath, Schemes, toPRUri, toReviewUri } from '../common/uri';
-import { formatError } from '../common/utils';
+import { formatError, isDescendant } from '../common/utils';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
 import { OctokitCommon } from './common';
 import { ConflictResolutionModel } from './conflictResolutionModel';
@@ -1933,7 +1933,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		const allFilenames = filePathOrSubpaths
 			.map((f) =>
-				f.startsWith(this.githubRepository.rootUri.path)
+				isDescendant(this.githubRepository.rootUri.path, f)
 					? f.substring(this.githubRepository.rootUri.path.length + 1)
 					: f
 			);

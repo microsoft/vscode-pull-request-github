@@ -8,6 +8,7 @@ import { GitApiImpl } from '../api/api1';
 import { commands, contexts } from '../common/executeCommands';
 import Logger, { PR_TREE } from '../common/logger';
 import { FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { isDescendant } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
@@ -166,9 +167,10 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 	private sortMap() {
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 		const compareFolders = (a: vscode.Uri, b: vscode.Uri) => {
-			const aFolder = a.toString().toLowerCase();
-			const bFolder = b.toString().toLowerCase();
-			return aFolder.includes(bFolder) || bFolder.includes(aFolder);
+			const aFolder = a.fsPath.toLowerCase();
+			const bFolder = b.fsPath.toLowerCase();
+
+			return isDescendant(aFolder, bFolder) || isDescendant(bFolder, aFolder);
 		};
 
 		return Array.from(this._pullRequestManagerMap.entries()).sort((a, b) => {
