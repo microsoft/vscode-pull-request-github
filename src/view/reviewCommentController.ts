@@ -7,6 +7,7 @@ import * as nodePath from 'path';
 import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
+import { GitApiImpl } from '../api/api1';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
 import { DiffSide, IReviewThread, SubjectType } from '../common/comment';
 import { getCommentingRanges } from '../common/commentingRanges';
@@ -22,6 +23,7 @@ import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import {
 	CommentReactionHandler,
 	createVSCodeCommentThreadForReviewThread,
+	getRepositoryForFile,
 	isFileInRepo,
 	threadRange,
 	updateCommentReviewState,
@@ -57,6 +59,7 @@ export class ReviewCommentController extends CommentControllerBase
 		folderRepoManager: FolderRepositoryManager,
 		private _repository: Repository,
 		private _reviewModel: ReviewModel,
+		private _gitApi: GitApiImpl
 	) {
 		super(folderRepoManager);
 		this._context = this._folderRepoManager.context;
@@ -443,7 +446,8 @@ export class ReviewCommentController extends CommentControllerBase
 			}
 		}
 
-		if (!isFileInRepo(this._repository, document.uri)) {
+		const bestRepoForFile = getRepositoryForFile(this._gitApi, document.uri);
+		if (bestRepoForFile?.rootUri.toString() !== this._repository.rootUri.toString()) {
 			if (document.uri.scheme !== 'output') {
 				Logger.debug('No commenting ranges: File is not in the current repository.', ReviewCommentController.ID);
 			}

@@ -103,7 +103,7 @@ export class ReviewManager {
 		private _showPullRequest: ShowPullRequest,
 		private readonly _activePrViewCoordinator: WebviewViewCoordinator,
 		private _createPullRequestHelper: CreatePullRequestHelper,
-		gitApi: GitApiImpl
+		private _gitApi: GitApiImpl
 	) {
 		this._switchingToReviewMode = false;
 		this._disposables = [];
@@ -115,7 +115,7 @@ export class ReviewManager {
 
 		this.registerListeners();
 
-		if (gitApi.state === 'initialized') {
+		if (_gitApi.state === 'initialized') {
 			this.updateState(true);
 		}
 		this.pollForStatusChange();
@@ -906,6 +906,7 @@ export class ReviewManager {
 				this._folderRepoManager,
 				this._repository,
 				this._reviewModel,
+				this._gitApi
 			);
 
 			await this._reviewCommentController.initialize();

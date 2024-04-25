@@ -59,6 +59,7 @@ describe('ReviewCommentController', function () {
 	let githubRepo: MockGitHubRepository;
 	let reviewManager: ReviewManager;
 	let reposManager: RepositoriesManager;
+	let gitApiImpl: GitApiImpl;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
@@ -75,7 +76,7 @@ describe('ReviewCommentController', function () {
 		const activePrViewCoordinator = new WebviewViewCoordinator(context);
 		const createPrHelper = new CreatePullRequestHelper();
 		Resource.initialize(context);
-		const gitApiImpl = new GitApiImpl();
+		gitApiImpl = new GitApiImpl();
 		manager = new FolderRepositoryManager(0, context, repository, telemetry, gitApiImpl, credentialStore);
 		reposManager.insertFolderManager(manager);
 		const tree = new PullRequestChangesTreeDataProvider(context, gitApiImpl, reposManager);
@@ -169,7 +170,7 @@ describe('ReviewCommentController', function () {
 		const localFileChanges = [createLocalFileChange(uri, fileName, repository.rootUri)];
 		const reviewModel = new ReviewModel();
 		reviewModel.localFileChanges = localFileChanges;
-		const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, reviewModel);
+		const reviewCommentController = new TestReviewCommentController(reviewManager, manager, repository, reviewModel, gitApiImpl);
 
 		sinon.stub(activePullRequest, 'validateDraftMode').returns(Promise.resolve(false));
 		sinon.stub(activePullRequest, 'getReviewThreads').returns(
@@ -234,6 +235,7 @@ describe('ReviewCommentController', function () {
 				manager,
 				repository,
 				reviewModel,
+				gitApiImpl
 			);
 			const thread = createGHPRCommentThread('review-1.1', uri);
 
