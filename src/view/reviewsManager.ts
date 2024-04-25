@@ -8,6 +8,7 @@ import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { ITelemetry } from '../common/telemetry';
 import { Schemes } from '../common/uri';
+import { isDescendant } from '../common/utils';
 import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { GitContentFileSystemProvider } from './gitContentProvider';
@@ -65,7 +66,7 @@ export class ReviewsManager {
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string | undefined> {
 		for (const reviewManager of this._reviewManagers) {
-			if (uri.fsPath.startsWith(reviewManager.repository.rootUri.fsPath)) {
+			if (isDescendant(reviewManager.repository.rootUri.fsPath, uri.fsPath)) {
 				return reviewManager.provideTextDocumentContent(uri);
 			}
 		}
