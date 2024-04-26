@@ -132,7 +132,7 @@ body .comment-container.review {
 	position: relative;
 }
 
-body #main > .comment-container > .review-comment-container > .review-comment-header:not(:nth-last-child(2)) {
+body #main>.comment-container>.review-comment-container>.review-comment-header:not(:nth-last-child(2)) {
 	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
 }
 
@@ -176,6 +176,11 @@ body .comment-container .review-comment-header {
 .comment-actions button svg {
 	margin-right: 0;
 	height: 14px;
+}
+
+.status-scroll {
+	max-height: 220px;
+	overflow-y: auto;
 }
 
 .status-check {
@@ -325,11 +330,11 @@ button.input-box {
 	border-bottom-right-radius: 3px;
 }
 
-#status-checks .merge-select-container > * {
+#status-checks .merge-select-container>* {
 	margin-right: 5px;
 }
 
-#status-checks .merge-select-container > select {
+#status-checks .merge-select-container>select {
 	margin-left: 5px;
 }
 
@@ -343,10 +348,10 @@ button.input-box {
 	padding: 16px;
 }
 
-body .comment-container .review-comment-header > span,
-body .comment-container .review-comment-header > a,
-body .commit .commit-message > a,
-body .merged .merged-message > a {
+body .comment-container .review-comment-header>span,
+body .comment-container .review-comment-header>a,
+body .commit .commit-message>a,
+body .merged .merged-message>a {
 	margin-right: 6px;
 }
 
@@ -370,7 +375,8 @@ body .diff .diffPath {
 	margin-right: 4px;
 }
 
-.comment-container form, #merge-comment-form {
+.comment-container form,
+#merge-comment-form {
 	padding: 16px;
 	background-color: var(--vscode-editorWidget-background);
 }
@@ -388,16 +394,16 @@ body .comment-container .review-comment-container .review-comment-body {
 	border: none;
 }
 
-body .comment-container .comment-body > p,
-body .comment-container .comment-body > div > p,
-.comment-container .review-body > p {
+body .comment-container .comment-body>p,
+body .comment-container .comment-body>div>p,
+.comment-container .review-body>p {
 	margin-top: 0;
 	line-height: 1.5em;
 }
 
-body .comment-container .comment-body > p:last-child,
-body .comment-container .comment-body > div > p:last-child,
-.comment-container .review-body > p:last-child {
+body .comment-container .comment-body>p:last-child,
+body .comment-container .comment-body>div>p:last-child,
+.comment-container .review-body>p:last-child {
 	margin-bottom: 0;
 }
 
@@ -496,7 +502,7 @@ body button .icon {
 	padding: 0 5px;
 }
 
-:not(.status-item) > .small-button {
+:not(.status-item)>.small-button {
 	font-weight: 600;
 }
 
@@ -697,7 +703,7 @@ body button .icon {
 	border: none;
 }
 
-.comment-container[data-type='commit'] + .comment-container[data-type='commit'] {
+.comment-container[data-type='commit']+.comment-container[data-type='commit'] {
 	border-top: none;
 }
 
@@ -773,8 +779,8 @@ textarea {
 	justify-content: flex-end;
 }
 
-.comment-form .form-actions > button,
-.comment-form .form-actions > input[type='submit'] {
+.comment-form .form-actions>button,
+.comment-form .form-actions>input[type='submit'] {
 	margin-right: 0;
 	margin-left: 0;
 }
@@ -797,7 +803,7 @@ textarea {
 	flex-direction: row-reverse;
 }
 
-.main-comment-form > .form-actions {
+.main-comment-form>.form-actions {
 	margin-bottom: 10px;
 }
 
@@ -866,19 +872,19 @@ h3 {
 	border-collapse: collapse;
 }
 
-.comment-body table > thead > tr > th {
+.comment-body table>thead>tr>th {
 	text-align: left;
 	border-bottom: 1px solid;
 }
 
-.comment-body table > thead > tr > th,
-.comment-body table > thead > tr > td,
-.comment-body table > tbody > tr > th,
-.comment-body table > tbody > tr > td {
+.comment-body table>thead>tr>th,
+.comment-body table>thead>tr>td,
+.comment-body table>tbody>tr>th,
+.comment-body table>tbody>tr>td {
 	padding: 5px 10px;
 }
 
-.comment-body table > tbody > tr + tr > td {
+.comment-body table>tbody>tr+tr>td {
 	border-top: 1px solid;
 }
 
@@ -918,7 +924,7 @@ code {
 }
 
 .comment-body pre:not(.hljs),
-.comment-body pre.hljs code > div {
+.comment-body pre.hljs code>div {
 	padding: 16px;
 	border-radius: 3px;
 	overflow: auto;
@@ -942,12 +948,12 @@ code {
 }
 
 .vscode-light .comment-body pre:not(.hljs),
-.vscode-light .comment-body code > div {
+.vscode-light .comment-body code>div {
 	background-color: rgba(220, 220, 220, 0.4);
 }
 
 .vscode-dark .comment-body pre:not(.hljs),
-.vscode-dark .comment-body code > div {
+.vscode-dark .comment-body code>div {
 	background-color: rgba(10, 10, 10, 0.4);
 }
 
@@ -972,23 +978,23 @@ code {
 	border: 1px solid var(--vscode-panel-border);
 }
 
-.vscode-light .comment-body table > thead > tr > th {
+.vscode-light .comment-body table>thead>tr>th {
 	border-color: rgba(0, 0, 0, 0.69);
 }
 
-.vscode-dark .comment-body table > thead > tr > th {
+.vscode-dark .comment-body table>thead>tr>th {
 	border-color: rgba(255, 255, 255, 0.69);
 }
 
 .vscode-light .comment-body h1,
 .vscode-light .comment-body hr,
-.vscode-light .comment-body table > tbody > tr + tr > td {
+.vscode-light .comment-body table>tbody>tr+tr>td {
 	border-color: rgba(0, 0, 0, 0.18);
 }
 
 .vscode-dark .comment-body h1,
 .vscode-dark .comment-body hr,
-.vscode-dark .comment-body table > tbody > tr + tr > td {
+.vscode-dark .comment-body table>tbody>tr+tr>td {
 	border-color: rgba(255, 255, 255, 0.18);
 }
 
@@ -1188,8 +1194,8 @@ code {
 	min-width: 42px;
 }
 
-.action-bar > button,
-.flex-action-bar > button {
+.action-bar>button,
+.flex-action-bar>button {
 	margin-left: 4px;
 	margin-right: 4px;
 }
@@ -1198,7 +1204,7 @@ code {
 	flex-grow: 1;
 }
 
-.title-editing-form > .form-actions {
+.title-editing-form>.form-actions {
 	margin-left: 0;
 }
 

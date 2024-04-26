@@ -509,7 +509,7 @@ export const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>
 );
 
 const StatusCheckDetails = ( { statuses }: { statuses: PullRequestCheckStatus[] }) => (
-	<div>
+	<div className='status-scroll'>
 		{statuses.map(s => (
 			<div key={s.id} className="status-check">
 				<div className="status-check-details">
