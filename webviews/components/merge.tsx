@@ -238,6 +238,9 @@ export const MergeStatus = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpd
 
 	if (isSimple) {
 		icon = null;
+		if (mergeable !== PullRequestMergeability.Conflict) {
+			action = null;
+		}
 	}
 	return (
 		<div className="status-item status-section">
@@ -245,7 +248,13 @@ export const MergeStatus = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpd
 			<p>
 				{summary}
 			</p>
-			{(action && !isSimple && canUpdateBranch) ? <button className="secondary" onClick={onClick} disabled={busy} >{action}</button> : null}
+			{(action && canUpdateBranch) ?
+				<div className="button-container">
+					<button className="secondary" onClick={onClick} disabled={busy} >
+						{action}
+					</button>
+				</div>
+			: null}
 		</div>
 	);
 };
