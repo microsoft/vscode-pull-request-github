@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.88.0
+
+### Changes
+
+- Experimental conflict resolution for non-checked out PRs is available when enabled by the hidden setting `"githubPullRequests.experimentalUpdateBranchWithGitHub": true`. This feature allows you to resolve conflicts in a PR without checking out the branch locally. The feature is still experimental and will not work in all cases.
+- There's an Accessibility Help Dialog that shows when "Open Accessibility Help" is triggered from the "Pull Requests" and "Issues" views.
+
+  ![Accessibility help dialog](./documentation/changelog/0.88.0/accessibility-help.png)
+- All review action buttons will show in the Active Pull Request sidebar view when there's enough space.
+
+  ![Show all review actions in sidebar](./documentation/changelog/0.88.0/show-all-review-actions.gif)
+
+### Fixes
+
+- Show some loading indicator when switching PR descriptions. https://github.com/microsoft/vscode-pull-request-github/issues/5954
+- Many ripgrep. https://github.com/microsoft/vscode-pull-request-github/issues/5923
+- The icon for un-resolve is too close to undo. https://github.com/microsoft/vscode-pull-request-github/issues/5868
+- PR order does not match multi-root order anymore. https://github.com/microsoft/vscode-pull-request-github/issues/5789
+- Handle renamed files. https://github.com/microsoft/vscode-pull-request-github/issues/5767
+
 ## 0.86.1
 
 ### Fixes
