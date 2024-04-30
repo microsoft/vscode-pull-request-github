@@ -12,15 +12,24 @@ import { GitHubRepository } from '../github/githubRepository';
 
 export async function getGitHubFileContent(gitHubRepository: GitHubRepository, fileName: string, ref: string): Promise<Uint8Array> {
 	const { octokit, remote } = await gitHubRepository.ensure();
-	let fileContent: { data: { content: string; encoding: string; sha: string } } = (await octokit.call(octokit.api.repos.getContent,
-		{
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			path: fileName,
-			ref,
-		},
-	)) as any;
-	let contents = fileContent.data.content ?? '';
+	let contents: string = '';
+	let fileContent: { data: { content: string; encoding: string; sha: string } };
+	try {
+		fileContent = (await octokit.call(octokit.api.repos.getContent,
+			{
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				path: fileName,
+				ref,
+			},
+		)) as any;
+		contents = fileContent.data.content ?? '';
+	} catch (e) {
+		if (e.status === 404) {
+			return new Uint8Array(0);
+		}
+		throw e;
+	}
 
 	// Empty contents and 'none' encoding indcates that the file has been truncated and we should get the blob.
 	if (contents === '' && fileContent.data.encoding === 'none') {
