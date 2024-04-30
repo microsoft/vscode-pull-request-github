@@ -179,6 +179,7 @@
 	"command.pr.openDescription.title": "View Pull Request Description",
 	"command.pr.openDescriptionToTheSide.title": "Open Pull Request Description to the Side",
 	"command.pr.refreshDescription.title": "Refresh Pull Request Description",
+	"command.pr.focusDescriptionInput.title": "Focus Pull Request Description Review Input",
 	"command.pr.showDiffSinceLastReview.title": "Show Changes Since Last Review",
 	"command.pr.showDiffAll.title": "Show All Changes",
 	"command.pr.checkoutByNumber.title": "Checkout Pull Request by Number",

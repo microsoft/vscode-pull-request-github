@@ -184,7 +184,7 @@ function AddReviewSummaryComment() {
 	const comment = useRef<HTMLTextAreaElement>();
 	return (
 		<form>
-			<textarea ref={comment} placeholder="Leave a review summary comment"></textarea>
+			<textarea id='pending-review' ref={comment} placeholder="Leave a review summary comment"></textarea>
 			<div className="form-actions">
 				{isAuthor ? null : (
 					<button

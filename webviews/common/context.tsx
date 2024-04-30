@@ -273,9 +273,10 @@ export class PRContext {
 				window.scrollTo(message.scrollPosition.x, message.scrollPosition.y);
 				return;
 			case 'pr.scrollToPendingReview':
-				const pendingReview = document.getElementById('pending-review');
+				const pendingReview = document.getElementById('pending-review') ?? document.getElementById('comment-textarea');
 				if (pendingReview) {
 					pendingReview.scrollIntoView();
+					pendingReview.focus();
 				}
 				return;
 			case 'pr.submitting-review':

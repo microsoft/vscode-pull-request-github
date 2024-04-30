@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import { onDidUpdatePR, openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
+import { commands, contexts } from '../common/executeCommands';
 import Logger from '../common/logger';
 import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
@@ -119,6 +120,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._disposables,
 		);
 
+		this.setVisibilityContext();
+		this._disposables.push(this._panel.onDidChangeViewState(() => this.setVisibilityContext()));
 		this._disposables.push(
 			folderRepositoryManager.onDidMergePullRequest(_ => {
 				this._postMessage({
@@ -162,6 +165,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				}
 			}));
 		}
+	}
+
+	private setVisibilityContext() {
+		return commands.setContext(contexts.PULL_REQUEST_DESCRIPTION_VISIBLE, this._panel.visible);
 	}
 
 	/**
