@@ -3,6 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// https://docs.github.com/en/enterprise-cloud@latest/admin/identity-and-access-management/iam-configuration-reference/username-considerations-for-external-authentication#about-username-normalization
+export const ALLOWED_USERS = `[a-zA-Z0-9-]+`;
+
 // https://jsdoc.app/index.html
 export const JSDOC_NON_USERS = ['abstract', 'virtual', 'access', 'alias', 'async', 'augments', 'extends', 'author', 'borrows', 'callback', 'class', 'constructor', 'classdesc', 'constant', 'const', 'constructs', 'copyright', 'default', 'defaultvalue', 'deprecated', 'description', 'desc', 'enum', 'event', 'example', 'exports', 'external', 'host', 'file', 'fileoverview', 'overview', 'fires', 'emits', 'function', 'func', 'method', 'generator', 'global', 'hideconstructor', 'ignore', 'implements', 'inheritdoc', 'inner', 'instance', 'interface', 'kind', 'lends', 'license', 'listens', 'member', 'var', 'memberof', 'mixes', 'mixin', 'module', 'name', 'namespace', 'override', 'package', 'param', 'arg', 'argument', 'private', 'property', 'prop', 'protected', 'public', 'readonly', 'requires', 'returns', 'return', 'see', 'since', 'static', 'summary', 'this', 'throws', 'exception', 'todo', 'tutorial', 'type', 'typedef', 'variation', 'version', 'yields', 'yield', 'link'];
 
