@@ -379,6 +379,11 @@ ${lineContents}
 			if ((newLinesReplaced.substring(0, offset).match(/```/g)?.length ?? 0) % 2 === 1) {
 				return substring;
 			}
+			// Do not try to replace user if it might already be part of a link
+			if (substring.includes(']') || substring.includes(')')) {
+				return substring;
+			}
+
 			const username = substring.substring(substring.startsWith('@') ? 1 : 2);
 			if ((((documentLanguage === 'javascript') || (documentLanguage === 'typescript')) && JSDOC_NON_USERS.includes(username))
 				|| ((documentLanguage === 'php') && PHPDOC_NON_USERS.includes(username))) {
