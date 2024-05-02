@@ -23,6 +23,7 @@
 		"contribCommentThreadAdditionalMenu",
 		"contribCommentsViewThreadMenus",
 		"contribEditorContentMenu",
+		"contribMultiDiffEditorMenus",
 		"contribShareMenu",
 		"diffCommand",
 		"fileComments",
@@ -2387,6 +2388,18 @@
 					"command": "pr.addFileComment",
 					"group": "navigation",
 					"when": "(resourceScheme == pr) || (resourcePath in github:viewedFiles) || (resourcePath in github:unviewedFiles)"
+				}
+			],
+			"multiDiffEditor/resource/title": [
+				{
+					"command": "pr.markFileAsViewed",
+					"group": "navigation",
+					"when": "resourceScheme != pr && resourceScheme != review && resourceScheme != filechange && resourcePath in github:unviewedFiles"
+				},
+				{
+					"command": "pr.unmarkFileAsViewed",
+					"group": "navigation",
+					"when": "resourceScheme != pr && resourceScheme != review && resourceScheme != filechange && resourcePath in github:viewedFiles"
 				}
 			],
 			"editor/content": [
