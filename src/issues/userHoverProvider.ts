@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { ITelemetry } from '../common/telemetry';
-import { JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
+import { DOXYGEN_NON_USERS, JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { shouldShowHover, USER_EXPRESSION, userMarkdown } from './util';
 
@@ -38,6 +38,10 @@ export class UserHoverProvider implements vscode.HoverProvider {
 				}
 				// PHP doc checks
 				if ((document.languageId === 'php') && PHPDOC_NON_USERS.indexOf(username) >= 0) {
+					return;
+				}
+				const isDoxygenLanguage = document.languageId === 'cpp' || document.languageId === 'c' || document.languageId === 'csharp' || document.languageId === 'java' || document.languageId === 'objective-c' || document.languageId === 'php';
+				if (isDoxygenLanguage && DOXYGEN_NON_USERS.indexOf(username) >= 0) {
 					return;
 				}
 				return this.createHover(document.uri, username, wordPosition);
