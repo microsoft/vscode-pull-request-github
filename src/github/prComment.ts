@@ -7,7 +7,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
 import { DataUri } from '../common/uri';
-import { JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
+import { ALLOWED_USERS, JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
 import { stringReplaceAsync } from '../common/utils';
 import { GitHubRepository } from './githubRepository';
 import { IAccount } from './interface';
@@ -372,8 +372,9 @@ ${lineContents}
 		}
 		const newLinesReplaced = this.replaceNewlines(body);
 		const documentLanguage = (await vscode.workspace.openTextDocument(this.parent.uri)).languageId;
+		const replacerRegex = new RegExp(`([^\[\`]|^)@(${ALLOWED_USERS})`, 'g');
 		// Replace user
-		const linkified = newLinesReplaced.replace(/([^\[`]|^)\@([^\s`]+)/g, (substring, _1, _2, offset) => {
+		const linkified = newLinesReplaced.replace(replacerRegex, (substring, _1, _2, offset) => {
 			// Do not try to replace user if there's a code block.
 			if ((newLinesReplaced.substring(0, offset).match(/```/g)?.length ?? 0) % 2 === 1) {
 				return substring;
