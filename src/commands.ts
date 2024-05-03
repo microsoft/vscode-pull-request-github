@@ -825,6 +825,14 @@ export function registerCommands(
 		}),
 	);
 
+	context.subscriptions.push(vscode.commands.registerCommand('pr.focusDescriptionInput',
+		async () => {
+			if (PullRequestOverviewPanel.currentPanel) {
+				PullRequestOverviewPanel.scrollToReview();
+			}
+		}
+	));
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.openDescriptionToTheSide', async (descriptionNode: DescriptionNode) => {
 			const folderManager = reposManager.getManagerForIssueModel(descriptionNode.pullRequestModel);

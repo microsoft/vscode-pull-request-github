@@ -852,6 +852,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.focusDescriptionInput",
+				"title": "%command.pr.focusDescriptionInput.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.showDiffSinceLastReview",
 				"title": "%command.pr.showDiffSinceLastReview.title%",
 				"icon": "$(git-pull-request-new-changes)"
@@ -1643,6 +1648,10 @@
 				{
 					"command": "pr.openDescription",
 					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
+				},
+				{
+					"command": "pr.focusDescriptionInput",
+					"when": "github:pullRequestDescriptionVisible"
 				},
 				{
 					"command": "pr.showDiffSinceLastReview",

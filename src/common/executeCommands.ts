@@ -16,6 +16,7 @@ export namespace contexts {
 	export const LOADING_ISSUES_TREE = 'github:loadingIssuesTree';
 	export const CREATE_PR_PERMISSIONS = 'github:createPrPermissions';
 	export const RESOLVING_CONFLICTS = 'github:resolvingConflicts';
+	export const PULL_REQUEST_DESCRIPTION_VISIBLE = 'github:pullRequestDescriptionVisible';
 }
 
 export namespace commands {
