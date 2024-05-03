@@ -275,6 +275,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					isDraft: pullRequest.isDraft,
 					status: null,
 					reviewRequirement: null,
+					canUpdateBranch: pullRequest.item.viewerCanUpdate,
 					events: [],
 					mergeMethodsAvailability,
 					defaultMergeMethod,
