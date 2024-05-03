@@ -144,7 +144,7 @@
 	"view.github.login.name": "Login",
 	"view.pr.github.name": "Pull Requests",
 	"view.pr.github.accessibilityHelpContent": {
-		"message":"Helpful commands include:\n-GitHub Pull Requests: Refresh Pull Requests List\n-GitHub Pull Requests: Focus on Issues View \n-GitHub Pull Requests: Focus on Pull Requests View\n-GitHub Issues: Copy GitHub Permalink\n-GitHub Issues: Create an Issue\n-GitHub Pull Requests: Create Pull Request",
+		"message":"Helpful commands include:\n-GitHub Pull Requests: Refresh Pull Requests List<keybinding:pr.refreshList>\n-GitHub Pull Requests: Focus on Issues View<keybinding:issues:github.focus> \n-GitHub Pull Requests: Focus on Pull Requests View<keybinding:pr:github.focus>\n-GitHub Issues: Copy GitHub Permalink<keybinding:issue.copyGithubPermalink>\n-GitHub Issues: Create an Issue<keybinding:issue.createIssueFromFile>\n-GitHub Pull Requests: Create Pull Request<keybinding:pr.create>",
 		"comment": [
 			"Do not translate the contents of (...) or <...> in the message. They are commands that will be replaced with the actual command name and keybinding."
 		]
