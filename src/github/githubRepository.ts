@@ -539,9 +539,12 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	async getAllPullRequests(page?: number): Promise<PullRequestData | undefined> {
+		let remote: GitHubRemote | undefined;
 		try {
 			Logger.debug(`Fetch all pull requests - enter`, GitHubRepository.ID);
-			const { octokit, remote } = await this.ensure();
+			const ensured = await this.ensure();
+			remote = ensured.remote;
+			const octokit = ensured.octokit;
 			const result = await octokit.call(octokit.api.pulls.list, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
@@ -585,7 +588,7 @@ export class GitHubRepository implements vscode.Disposable {
 			if (e.code === 404) {
 				// not found
 				vscode.window.showWarningMessage(
-					`Fetching pull requests for remote '${this.remote.remoteName}' failed, please check if the url ${this.remote.url} is valid.`,
+					`Fetching all pull requests for remote '${remote?.remoteName}' failed, please check if the repository ${remote?.owner}/${remote?.repositoryName} is valid.`,
 				);
 			} else {
 				throw e;
@@ -595,9 +598,12 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	async getPullRequestForBranch(branch: string, headOwner: string): Promise<PullRequestModel | undefined> {
+		let remote: GitHubRemote | undefined;
 		try {
 			Logger.debug(`Fetch pull requests for branch - enter`, GitHubRepository.ID);
-			const { query, remote, schema } = await this.ensure();
+			const ensured = await this.ensure();
+			remote = ensured.remote;
+			const { query, schema } = ensured;
 			const { data } = await query<PullRequestsResponse>({
 				query: schema.PullRequestForHead,
 				variables: {
@@ -617,11 +623,11 @@ export class GitHubRepository implements vscode.Disposable {
 				return this.createOrUpdatePullRequestModel(mostRecentOrOpenPr);
 			}
 		} catch (e) {
-			Logger.error(`Fetching pull requests for branch failed: ${e}`, GitHubRepository.ID);
+			Logger.error(`Fetching pull request for branch failed: ${e}`, GitHubRepository.ID);
 			if (e.code === 404) {
 				// not found
 				vscode.window.showWarningMessage(
-					`Fetching pull requests for remote '${this.remote.remoteName}' failed, please check if the url ${this.remote.url} is valid.`,
+					`Fetching pull request for branch for remote '${remote?.remoteName}' failed, please check if the repository ${remote?.owner}/${remote?.repositoryName} is valid.`,
 				);
 			}
 		}
@@ -866,13 +872,14 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
+		let repo: IMetadata | undefined;
 		try {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, GitHubRepository.ID);
 			const { octokit, query, schema } = await this.ensure();
 
 			const user = await this.getAuthenticatedUser();
 			// Search api will not try to resolve repo that redirects, so get full name first
-			const repo = await this.getMetadata();
+			repo = await this.getMetadata();
 			const { data, headers } = await octokit.call(octokit.api.search.issuesAndPullRequests, {
 				q: getPRFetchQuery(repo.full_name, user, categoryQuery),
 				per_page: PULL_REQUEST_PAGE_SIZE,
@@ -915,11 +922,11 @@ export class GitHubRepository implements vscode.Disposable {
 				hasMorePages,
 			};
 		} catch (e) {
-			Logger.error(`Fetching all pull requests failed: ${e}`, GitHubRepository.ID);
+			Logger.error(`Fetching pull request with query failed: ${e}`, GitHubRepository.ID);
 			if (e.code === 404) {
 				// not found
 				vscode.window.showWarningMessage(
-					`Fetching pull requests for remote ${this.remote.remoteName}, please check if the url ${this.remote.url} is valid.`,
+					`Fetching pull requests for remote ${this.remote.remoteName} with query failed, please check if the repo ${repo?.full_name} is valid.`,
 				);
 			} else {
 				throw e;
