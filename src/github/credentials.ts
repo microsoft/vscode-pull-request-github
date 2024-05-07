@@ -38,6 +38,7 @@ export interface GitHub {
 	octokit: LoggingOctokit;
 	graphql: LoggingApolloClient;
 	currentUser?: Promise<IAccount>;
+	isEmu?: Promise<boolean>;
 }
 
 interface AuthResult {
@@ -347,6 +348,11 @@ export class CredentialStore implements vscode.Disposable {
 		return (await this._githubAPI?.currentUser)?.login === username || (await this._githubEnterpriseAPI?.currentUser)?.login == username;
 	}
 
+	public async getIsEmu(authProviderId: AuthProvider): Promise<boolean> {
+		const github = this.getHub(authProviderId);
+		return !!(await github?.isEmu);
+	}
+
 	public getCurrentUser(authProviderId: AuthProvider): Promise<IAccount> {
 		const github = this.getHub(authProviderId);
 		const octokit = github?.octokit;
@@ -354,9 +360,19 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	private setCurrentUser(github: GitHub): void {
-		github.currentUser = new Promise(resolve => {
+		const getUser: ReturnType<typeof github.octokit.api.users.getAuthenticated> = new Promise(resolve => {
 			github.octokit.call(github.octokit.api.users.getAuthenticated, {}).then(result => {
+				resolve(result);
+			});
+		});
+		github.currentUser = new Promise(resolve => {
+			getUser.then(result => {
 				resolve(convertRESTUserToAccount(result.data));
+			});
+		});
+		github.isEmu = new Promise(resolve => {
+			getUser.then(result => {
+				resolve(result.data.plan?.name === 'emu_user');
 			});
 		});
 	}

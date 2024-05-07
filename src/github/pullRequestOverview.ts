@@ -197,7 +197,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._folderRepositoryManager.getOrgTeamsCount(pullRequestModel.githubRepository),
 			this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName),
 			this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel),
-			pullRequestModel.getMergeability()])
+			pullRequestModel.getMergeability(),
+			this._folderRepositoryManager.credentialStore.getIsEmu(pullRequestModel.remote.authProviderId)])
 			.then(result => {
 				const [
 					pullRequest,
@@ -212,7 +213,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					orgTeamsCount,
 					mergeQueueMethod,
 					isBranchUpToDateWithBase,
-					mergeability
+					mergeability,
+					isEmu
 				] = result;
 				if (!pullRequest) {
 					throw new Error(
@@ -290,7 +292,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					milestone: pullRequest.milestone,
 					assignees: pullRequest.assignees,
 					continueOnGitHub,
-					emailForCommit: currentUser.email,
+					emailForCommit: isEmu ? undefined : currentUser.email,
 					isAuthor: currentUser.login === pullRequest.author.login,
 					currentUserReviewState: reviewState,
 					isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
