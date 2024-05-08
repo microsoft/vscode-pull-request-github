@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.88.1
+
+### Fixes
+
+- GraphQL error: Invalid email address on EMU. https://github.com/microsoft/vscode-pull-request-github/issues/5842
+
 ## 0.88.0
 
 ### Changes
