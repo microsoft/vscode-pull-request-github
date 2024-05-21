@@ -2892,7 +2892,7 @@
 		"@types/react-dom": "^16.8.2",
 		"@types/sinon": "7.0.11",
 		"@types/temp": "0.8.34",
-		"@types/vscode": "1.79.0",
+		"@types/vscode": "1.89.0",
 		"@types/webpack-env": "^1.16.0",
 		"@typescript-eslint/eslint-plugin": "6.10.0",
 		"@typescript-eslint/parser": "6.10.0",
