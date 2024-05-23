@@ -93,7 +93,7 @@ body hr {
 	display: block;
 	height: 1px;
 	border: 0;
-	border-top: 1px solid #555;
+	border-top: 1px solid var(--vscode-editorHoverWidget-border);
 	margin: 0 !important;
 	padding: 0;
 }
