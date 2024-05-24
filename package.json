@@ -2014,6 +2014,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.applySuggestion",
+					"when": "false"
+				},
+				{
 					"command": "pr.openPullsWebsite",
 					"when": "github:hasGitHubRemotes"
 				},
