@@ -2165,6 +2165,11 @@
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description/"
 				},
 				{
+					"command": "pr.openPullRequestOnGitHub",
+					"group": "inline@3",
+					"when": "view =~ /(pr|prStatus):github/  && viewItem =~ /description/"
+      			},
+				{
 					"command": "pr.exit",
 					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:active|description:active/",
 					"group": "1_pullrequest@1"
