@@ -11,7 +11,7 @@ import { dispose, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { ReviewManager } from '../view/reviewManager';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, IAccount, isTeam, PullRequestMergeability, reviewerId, ReviewEvent, ReviewState } from './interface';
+import { GithubItemStateEnum, IAccount, isTeam, reviewerId, ReviewEvent, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
@@ -75,32 +75,6 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		this.updatePullRequest(this._item);
 	}
 
-	private async updateBranch(message: IRequestMessage<string>): Promise<void> {
-		if (this._folderRepositoryManager.repository.state.workingTreeChanges.length > 0 || this._folderRepositoryManager.repository.state.indexChanges.length > 0) {
-			await vscode.window.showErrorMessage(vscode.l10n.t('The pull request branch cannot be updated when the there changed files in the working tree or index. Stash or commit all change and then try again.'), { modal: true });
-			return this._replyMessage(message, {});
-		}
-		const mergeSucceeded = await this._folderRepositoryManager.tryMergeBaseIntoHead(this._item, true);
-		if (!mergeSucceeded) {
-			this._replyMessage(message, {});
-		}
-		// The mergability of the PR doesn't update immediately. Poll.
-		let mergability = PullRequestMergeability.Unknown;
-		let attemptsRemaining = 5;
-		do {
-			mergability = (await this._item.getMergeability()).mergeability;
-			attemptsRemaining--;
-			await new Promise(c => setTimeout(c, 1000));
-		} while (attemptsRemaining > 0 && mergability === PullRequestMergeability.Unknown);
-
-		const result: Partial<PullRequest> = {
-			events: await this._item.getTimelineEvents(),
-			mergeable: mergability,
-		};
-		await this.refresh();
-		this._replyMessage(message, result);
-	}
-
 	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		const result = await super._onDidReceiveMessage(message);
 		if (result !== this.MESSAGE_UNHANDLED) {
@@ -133,8 +107,6 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 			case 'pr.checkout-default-branch':
 				return this.checkoutDefaultBranch(message);
-			case 'pr.update-branch':
-				return this.updateBranch(message);
 			case 'pr.re-request-review':
 				return this.reRequestReview(message);
 		}
