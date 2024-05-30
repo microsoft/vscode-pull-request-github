@@ -320,9 +320,13 @@ ${args[3] ?? ''}
 
 	private async createLocalFilePath(rootUri: vscode.Uri, fileSubPath: string, startLine: number, endLine: number): Promise<string | undefined> {
 		const localFile = vscode.Uri.joinPath(rootUri, fileSubPath);
-		const stat = await vscode.workspace.fs.stat(localFile);
-		if (stat.type === vscode.FileType.File) {
-			return `${localFile.with({ fragment: `${startLine}-${endLine}` }).toString()}`;
+		try {
+			const stat = await vscode.workspace.fs.stat(localFile);
+			if (stat.type === vscode.FileType.File) {
+				return `${localFile.with({ fragment: `${startLine}-${endLine}` }).toString()}`;
+			}
+		} catch (e) {
+			return undefined;
 		}
 	}
 
