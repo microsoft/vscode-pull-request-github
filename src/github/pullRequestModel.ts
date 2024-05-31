@@ -1933,7 +1933,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		const allFilenames = filePathOrSubpaths
 			.map((f) =>
-				isDescendant(this.githubRepository.rootUri.path, f)
+				isDescendant(this.githubRepository.rootUri.path, f, '/')
 					? f.substring(this.githubRepository.rootUri.path.length + 1)
 					: f
 			);

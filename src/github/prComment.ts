@@ -320,9 +320,13 @@ ${args[3] ?? ''}
 
 	private async createLocalFilePath(rootUri: vscode.Uri, fileSubPath: string, startLine: number, endLine: number): Promise<string | undefined> {
 		const localFile = vscode.Uri.joinPath(rootUri, fileSubPath);
-		const stat = await vscode.workspace.fs.stat(localFile);
-		if (stat.type === vscode.FileType.File) {
-			return `${localFile.with({ fragment: `${startLine}-${endLine}` }).toString()}`;
+		try {
+			const stat = await vscode.workspace.fs.stat(localFile);
+			if (stat.type === vscode.FileType.File) {
+				return `${localFile.with({ fragment: `${startLine}-${endLine}` }).toString()}`;
+			}
+		} catch (e) {
+			return undefined;
 		}
 	}
 
@@ -372,7 +376,7 @@ ${lineContents}
 		}
 		const newLinesReplaced = this.replaceNewlines(body);
 		const documentLanguage = (await vscode.workspace.openTextDocument(this.parent.uri)).languageId;
-		const replacerRegex = new RegExp(`([^\[\`]|^)@(${ALLOWED_USERS})`, 'g');
+		const replacerRegex = new RegExp(`([^/\[\`]|^)@(${ALLOWED_USERS})`, 'g');
 		// Replace user
 		const linkified = newLinesReplaced.replace(replacerRegex, (substring, _1, _2, offset) => {
 			// Do not try to replace user if there's a code block.

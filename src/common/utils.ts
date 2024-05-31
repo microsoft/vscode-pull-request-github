@@ -114,13 +114,13 @@ function isWindowsPath(path: string): boolean {
 	return /^[a-zA-Z]:\\/.test(path);
 }
 
-export function isDescendant(parent: string, descendant: string): boolean {
+export function isDescendant(parent: string, descendant: string, separator: string = sep): boolean {
 	if (parent === descendant) {
 		return true;
 	}
 
-	if (parent.charAt(parent.length - 1) !== sep) {
-		parent += sep;
+	if (parent.charAt(parent.length - 1) !== separator) {
+		parent += separator;
 	}
 
 	// Windows is case insensitive
