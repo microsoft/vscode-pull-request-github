@@ -250,7 +250,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				}
 
 				try {
-					this._view.title = `${pullRequest.title} #${pullRequestModel.number.toString()}`;
+					this._view.title = `${vscode.l10n.t('Review Pull Request')} #${pullRequestModel.number.toString()}`;
 				} catch (e) {
 					// If we ry to set the title of the webview too early it will throw an error.
 				}
