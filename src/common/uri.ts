@@ -148,7 +148,9 @@ export async function asTempStorageURI(uri: vscode.Uri, repository: Repository):
 			return;
 		}
 		const ref = uri.scheme === Schemes.Review ? commit : isBase ? baseCommit : headCommit;
-		const { object } = await repository.getObjectDetails(ref, uri.fsPath);
+
+		const absolutePath = pathUtils.join(repository.rootUri.fsPath, path).replace(/\\/g, '/');
+		const { object } = await repository.getObjectDetails(ref, absolutePath);
 		const { mimetype } = await repository.detectObjectType(object);
 
 		if (mimetype === 'text/plain') {
@@ -156,7 +158,7 @@ export async function asTempStorageURI(uri: vscode.Uri, repository: Repository):
 		}
 
 		if (ImageMimetypes.indexOf(mimetype) > -1) {
-			const contents = await repository.buffer(ref, uri.fsPath);
+			const contents = await repository.buffer(ref, absolutePath);
 			return TemporaryState.write(pathUtils.dirname(path), pathUtils.basename(path), contents);
 		}
 	} catch (err) {
