@@ -160,6 +160,7 @@ describe('ReviewCommentController', function () {
 			label: 'Start discussion',
 			state: { resolved: vscode.CommentThreadState.Unresolved, applicability: 0 },
 			canReply: false,
+			reveal: () => { return Promise.resolve(); },
 			dispose: () => { },
 		};
 	}
