@@ -56,6 +56,10 @@ export class CredentialStore implements vscode.Disposable {
 	public readonly onDidInitialize: vscode.Event<void> = this._onDidInitialize.event;
 	private _scopes: string[] = SCOPES_OLD;
 	private _scopesEnterprise: string[] = SCOPES_OLD;
+	private _isSamling: boolean = false;
+
+	private _onDidChangeSessions: vscode.EventEmitter<vscode.AuthenticationSessionsChangeEvent> = new vscode.EventEmitter();
+	public readonly onDidChangeSessions = this._onDidChangeSessions.event;
 
 	private _onDidGetSession: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidGetSession = this._onDidGetSession.event;
@@ -68,7 +72,7 @@ export class CredentialStore implements vscode.Disposable {
 
 		this._disposables = [];
 		this._disposables.push(
-			vscode.authentication.onDidChangeSessions(async () => {
+			vscode.authentication.onDidChangeSessions(async e => {
 				const promises: Promise<any>[] = [];
 				if (!this.isAuthenticated(AuthProvider.github)) {
 					promises.push(this.initialize(AuthProvider.github));
@@ -81,6 +85,8 @@ export class CredentialStore implements vscode.Disposable {
 				await Promise.all(promises);
 				if (this.isAnyAuthenticated()) {
 					this._onDidGetSession.fire();
+				} else if (!this._isSamling) {
+					this._onDidChangeSessions.fire(e);
 				}
 			}),
 		);
@@ -169,7 +175,7 @@ export class CredentialStore implements vscode.Disposable {
 			}
 			await this.saveScopesInState();
 
-			if (!this._isInitialized || isNew) {
+			if (!this._isInitialized || (isNew && !this._isSamling)) {
 				this._isInitialized = true;
 				this._onDidInitialize.fire();
 			}
@@ -341,7 +347,10 @@ export class CredentialStore implements vscode.Disposable {
 	}
 
 	public async showSamlMessageAndAuth(organizations: string[]): Promise<AuthResult> {
-		return this.recreate(vscode.l10n.t('GitHub Pull Requests and Issues requires that you provide SAML access to your organization ({0}) when you sign in.', organizations.join(', ')));
+		this._isSamling = true;
+		const result = await this.recreate(vscode.l10n.t('GitHub Pull Requests requires that you provide SAML access to your organization ({0}) when you sign in.', organizations.join(', ')));
+		this._isSamling = false;
+		return result;
 	}
 
 	public async isCurrentUser(username: string): Promise<boolean> {

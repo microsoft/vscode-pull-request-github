@@ -481,17 +481,26 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 
 		return Promise.all(resolveRemotePromises).then(async (remoteResults: boolean[]) => {
-			const missingSaml: string[] = [];
+			const missingSaml: GitHubRepository[] = [];
 			for (let i = 0; i < remoteResults.length; i++) {
 				if (!remoteResults[i]) {
-					missingSaml.push(repositories[i].remote.owner);
+					missingSaml.push(repositories[i]);
 				}
 			}
 			if (missingSaml.length > 0) {
-				const result = await this._credentialStore.showSamlMessageAndAuth(missingSaml);
+				const result = await this._credentialStore.showSamlMessageAndAuth(missingSaml.map(repo => repo.remote.owner));
 				if (result.canceled) {
 					this.dispose();
 					return true;
+				} else {
+					// Make a test call to see if the user has SAML enabled.
+					const samlTest = await Promise.all(missingSaml.map(repo => repo.resolveRemote()));
+
+					if (samlTest.some(result => !result)) {
+						await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. GitHub Pull Requests will not work.'), { modal: true });
+						this.dispose();
+						return true;
+					}
 				}
 			}
 
