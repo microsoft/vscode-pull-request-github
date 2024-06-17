@@ -139,6 +139,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _onDidChangeChangesSinceReview = new vscode.EventEmitter<void>();
 	public onDidChangeChangesSinceReview = this._onDidChangeChangesSinceReview.event;
 
+	private _hasComments: boolean;
 	private _comments: readonly IComment[] | undefined;
 	private _onDidChangeComments: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidChangeComments: vscode.Event<void> = this._onDidChangeComments.event;
@@ -266,6 +267,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 		if (item.mergeQueueEntry !== undefined) {
 			this.mergeQueueEntry = item.mergeQueueEntry ?? undefined;
+		}
+		if (item.hasComments !== undefined) {
+			this._hasComments = item.hasComments;
 		}
 	}
 
@@ -1541,6 +1545,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	get squashCommitMeta(): { title: string; description: string } | undefined {
 		return this.item.squashCommitMeta;
+	}
+
+	get hasComments(): boolean {
+		return this._hasComments;
 	}
 
 	/**

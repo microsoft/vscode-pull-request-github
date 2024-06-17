@@ -632,7 +632,7 @@ export class ReviewManager {
 	private _doFocusShow(pr: PullRequestModel, updateLayout: boolean) {
 		// Respect the setting 'comments.openView' when it's 'never'.
 		const shouldShowCommentsView = vscode.workspace.getConfiguration(COMMENTS).get<'never' | string>(OPEN_VIEW);
-		if (shouldShowCommentsView !== 'never') {
+		if ((shouldShowCommentsView !== 'never') && (pr.hasComments)) {
 			commands.executeCommand('workbench.action.focusCommentsPanel');
 		}
 		this._activePrViewCoordinator.show(pr);

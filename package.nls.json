@@ -155,7 +155,7 @@
 	"view.github.compare.changes.name": "Files Changed",
 	"view.github.compare.changesCommits.name": "Commits",
 	"view.pr.status.github.name": "Changes In Pull Request",
-	"view.github.active.pull.request.name": "Active Pull Request",
+	"view.github.active.pull.request.name": "Review Pull Request",
 	"view.github.active.pull.request.welcome.name": "Active Pull Request",
 	"command.pull.request.category": "GitHub Pull Requests",
 	"command.pr.create.title": "Create Pull Request",
