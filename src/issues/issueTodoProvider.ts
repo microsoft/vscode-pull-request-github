@@ -8,6 +8,10 @@ import { CREATE_ISSUE_TRIGGERS, ISSUES_SETTINGS_NAMESPACE } from '../common/sett
 import { ISSUE_OR_URL_EXPRESSION } from '../github/utils';
 import { MAX_LINE_LENGTH } from './util';
 
+function escapeRegExp(string: string) {
+	return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export class IssueTodoProvider implements vscode.CodeActionProvider {
 	private expression: RegExp | undefined;
 
@@ -22,7 +26,7 @@ export class IssueTodoProvider implements vscode.CodeActionProvider {
 
 	private updateTriggers() {
 		const triggers = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get(CREATE_ISSUE_TRIGGERS, []);
-		this.expression = triggers.length > 0 ? new RegExp(triggers.join('|')) : undefined;
+		this.expression = triggers.length > 0 ? new RegExp(triggers.map(trigger => escapeRegExp(trigger)).join('|')) : undefined;
 	}
 
 	async provideCodeActions(
