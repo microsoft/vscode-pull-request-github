@@ -39,7 +39,6 @@
 	},
 	"categories": [
 		"Other"
-		"Other"
 	],
 	"extensionDependencies": [
 		"vscode.github-authentication"
