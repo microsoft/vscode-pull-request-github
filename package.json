@@ -16,6 +16,7 @@
 		"codeActionRanges",
 		"commentingRangeHint",
 		"commentReactor",
+		"commentReveal",
 		"commentThreadApplicability",
 		"contribAccessibilityHelpContent",
 		"contribCommentEditorActionsMenu",
@@ -28,7 +29,6 @@
 		"fileComments",
 		"quickDiffProvider",
 		"shareProvider",
-		"tabInputTextMerge",
 		"tokenInformation",
 		"treeViewMarkdownMessage"
 	],
@@ -998,6 +998,11 @@
 			},
 			{
 				"command": "pr.unresolveReviewThread",
+				"title": "%command.pr.unresolveReviewThread.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.unresolveReviewThreadFromView",
 				"title": "%command.pr.unresolveReviewThread.title%",
 				"category": "%command.pull.request.category%",
 				"icon": "$(sync)"
@@ -2340,7 +2345,7 @@
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
 				},
 				{
-					"command": "pr.unresolveReviewThread",
+					"command": "pr.unresolveReviewThreadFromView",
 					"group": "inline@1",
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
 				},
@@ -2355,7 +2360,7 @@
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
 				},
 				{
-					"command": "pr.unresolveReviewThread",
+					"command": "pr.unresolveReviewThreadFromView",
 					"group": "context@1",
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
 				}
