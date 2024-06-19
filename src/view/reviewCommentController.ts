@@ -224,9 +224,11 @@ export class ReviewCommentController extends CommentControllerBase
 	private updateResourcesWithCommentingRanges(): void {
 		// only prefetch for small PRs
 		if (this._folderRepoManager.activePullRequest && this._folderRepoManager.activePullRequest.fileChanges.size < 30) {
-			for (const file of (this._folderRepoManager.activePullRequest?.fileChanges.keys() ?? [])) {
-				const uri = vscode.Uri.joinPath(this._folderRepoManager.repository.rootUri, file);
-				vscode.workspace.openTextDocument(uri);
+			for (const [file, change] of (this._folderRepoManager.activePullRequest?.fileChanges.entries() ?? [])) {
+				if (change.status !== GitChangeType.DELETE) {
+					const uri = vscode.Uri.joinPath(this._folderRepoManager.repository.rootUri, file);
+					vscode.workspace.openTextDocument(uri);
+				}
 			}
 		}
 	}
