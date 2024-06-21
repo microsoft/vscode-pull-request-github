@@ -997,3 +997,13 @@ export async function stringReplaceAsync(str: string, regex: RegExp, asyncFn: (s
 	let offset = 0;
 	return str.replace(regex, () => data[offset++]);
 }
+
+export async function batchPromiseAll<T>(items: readonly T[], batchSize: number, processFn: (item: T) => Promise<void>): Promise<void> {
+	const batches = Math.ceil(items.length / batchSize);
+
+	for (let i = 0; i < batches; i++) {
+		const batch = items.slice(i * batchSize, (i + 1) * batchSize);
+		await Promise.all(batch.map(processFn));
+	}
+}
+
