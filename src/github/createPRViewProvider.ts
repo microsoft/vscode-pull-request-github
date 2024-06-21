@@ -122,6 +122,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		const branchRemoteChanged = compareBranch && (compareBranch.upstream?.remote !== currentCompareRemote);
 		if (branchChanged || branchRemoteChanged) {
 			this._defaultCompareBranch = compareBranch!.name!;
+			this.model.setCompareBranch(compareBranch!.name);
 			this.changeBranch(compareBranch!.name!, false).then(titleAndDescription => {
 				const params: Partial<CreateParamsNew> = {
 					defaultTitle: titleAndDescription.title,
