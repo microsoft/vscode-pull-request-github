@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { APIState, PublishEvent } from '../@types/git';
 import Logger from '../common/logger';
 import { TernarySearchTree } from '../common/utils';
-import { API, IGit, PostCommitCommandsProvider, Repository, TitleAndDescriptionProvider } from './api';
+import { API, IGit, PostCommitCommandsProvider, Repository, ReviewerCommentsProvider, TitleAndDescriptionProvider } from './api';
 
 export const enum RefType {
 	Head,
@@ -215,4 +215,18 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 		}
 	}
 
+	private _reviewerCommentsProviders: Set<{ title: string, provider: ReviewerCommentsProvider }> = new Set();
+	registerReviewerCommentsProvider(title: string, provider: ReviewerCommentsProvider): vscode.Disposable {
+		const registeredValue = { title, provider };
+		this._reviewerCommentsProviders.add(registeredValue);
+		const disposable = {
+			dispose: () => this._reviewerCommentsProviders.delete(registeredValue)
+		};
+		this._disposables.push(disposable);
+		return disposable;
+	}
+
+	getReviewerCommentsProvider(): { title: string, provider: ReviewerCommentsProvider } | undefined {
+		return this._reviewerCommentsProviders.size > 0 ? this._reviewerCommentsProviders.values().next().value : undefined;
+	}
 }

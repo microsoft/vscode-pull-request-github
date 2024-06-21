@@ -38,6 +38,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
 import { getIssueNumberLabelFromParsed, ISSUE_EXPRESSION, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, variableSubstitution } from './utils';
+import { PreReviewState } from './views';
 
 const ISSUE_CLOSING_KEYWORDS = new RegExp('closes|closed|close|fixes|fixed|fix|resolves|resolved|resolve\s$', 'i'); // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
 
@@ -402,6 +403,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			*/
 			this.telemetry.sendTelemetryEvent('pr.defaultTitleAndDescriptionProvider', { providerTitle: defaultTitleAndDescriptionProvider });
 		}
+		const preReviewer = this._folderRepositoryManager.getAutoReviewer();
 
 		this.labels = labels;
 
@@ -424,7 +426,9 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
 			generateTitleAndDescriptionTitle: defaultTitleAndDescriptionProvider,
 			creating: false,
-			initializeWithGeneratedTitleAndDescription: useCopilot
+			initializeWithGeneratedTitleAndDescription: useCopilot,
+			preReviewState: PreReviewState.None,
+			preReviewer: preReviewer?.title
 		};
 
 		Logger.appendLine(`Initializing "create" view: ${JSON.stringify(params)}`, CreatePullRequestViewProvider.ID);
@@ -830,39 +834,44 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		return undefined;
 	}
 
+	private async getCommitsAndPatches(): Promise<{ commitMessages: string[], patches: { patch: string, fileUri: string, previousFileUri?: string }[] }> {
+		let commitMessages: string[];
+		let patches: ({ patch: string, fileUri: string, previousFileUri?: string } | undefined)[];
+		if (await this.model.getCompareHasUpstream()) {
+			[commitMessages, patches] = await Promise.all([
+				this.model.gitHubCommits().then(rawCommits => rawCommits.map(commit => commit.commit.message)),
+				this.model.gitHubFiles().then(rawPatches => rawPatches.map(file => {
+					if (!file.patch) {
+						return;
+					}
+					const fileUri = vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, file.filename).toString();
+					const previousFileUri = file.previous_filename ? vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, file.previous_filename).toString() : undefined;
+					return { patch: file.patch, fileUri, previousFileUri };
+				}))]);
+		} else {
+			[commitMessages, patches] = await Promise.all([
+				this.model.gitCommits().then(rawCommits => rawCommits.filter(commit => commit.parents.length === 1).map(commit => commit.message)),
+				Promise.all((await this.model.gitFiles()).map(async (file) => {
+					return {
+						patch: await this._folderRepositoryManager.repository.diffBetween(this.model.baseBranch, this.model.compareBranch, file.uri.fsPath),
+						fileUri: file.uri.toString(),
+					};
+				}))]);
+		}
+		const filteredPatches: { patch: string, fileUri: string, previousFileUri?: string }[] =
+			patches.filter<{ patch: string, fileUri: string, previousFileUri?: string }>((patch): patch is { patch: string, fileUri: string, previousFileUri?: string } => !!patch);
+		return { commitMessages, patches: filteredPatches };
+	}
+
 	private lastGeneratedTitleAndDescription: { title?: string, description?: string, providerTitle: string } | undefined;
 	private async getTitleAndDescriptionFromProvider(token: vscode.CancellationToken, searchTerm?: string) {
 		return CreatePullRequestViewProvider.withProgress(async () => {
 			try {
-				let commitMessages: string[];
-				let patches: ({ patch: string, fileUri: string, previousFileUri?: string } | undefined)[];
-				if (await this.model.getCompareHasUpstream()) {
-					[commitMessages, patches] = await Promise.all([
-						this.model.gitHubCommits().then(rawCommits => rawCommits.map(commit => commit.commit.message)),
-						this.model.gitHubFiles().then(rawPatches => rawPatches.map(file => {
-							if (!file.patch) {
-								return;
-							}
-							const fileUri = vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, file.filename).toString();
-							const previousFileUri = file.previous_filename ? vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, file.previous_filename).toString() : undefined;
-							return { patch: file.patch, fileUri, previousFileUri };
-						}))]);
-				} else {
-					[commitMessages, patches] = await Promise.all([
-						this.model.gitCommits().then(rawCommits => rawCommits.filter(commit => commit.parents.length === 1).map(commit => commit.message)),
-						Promise.all((await this.model.gitFiles()).map(async (file) => {
-							return {
-								patch: await this._folderRepositoryManager.repository.diffBetween(this.model.baseBranch, this.model.compareBranch, file.uri.fsPath),
-								fileUri: file.uri.toString(),
-							};
-						}))]);
-				}
-				const filteredPatches: { patch: string, fileUri: string, previousFileUri?: string }[] =
-					patches.filter<{ patch: string, fileUri: string, previousFileUri?: string }>((patch): patch is { patch: string, fileUri: string, previousFileUri?: string } => !!patch);
+				const { commitMessages, patches } = await this.getCommitsAndPatches();
 				const issues = await this.findIssueContext(commitMessages);
 
 				const provider = this._folderRepositoryManager.getTitleAndDescriptionProvider(searchTerm);
-				const result = await provider?.provider.provideTitleAndDescription({ commitMessages, patches: filteredPatches, issues }, token);
+				const result = await provider?.provider.provideTitleAndDescription({ commitMessages, patches, issues }, token);
 
 				if (provider) {
 					this.lastGeneratedTitleAndDescription = { ...result, providerTitle: provider.title };
@@ -905,6 +914,38 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	private async cancelGenerateTitleAndDescription(): Promise<void> {
 		if (this.generatingCancellationToken) {
 			this.generatingCancellationToken.cancel();
+		}
+	}
+
+	private async getPreReviewFromProvider(token: vscode.CancellationToken): Promise<PreReviewState | undefined> {
+		const preReviewer = this._folderRepositoryManager.getAutoReviewer();
+		if (!preReviewer) {
+			return;
+		}
+		const { commitMessages, patches } = await this.getCommitsAndPatches();
+		const result = await preReviewer.provider.provideReviewerComments({ repositoryRoot: this._folderRepositoryManager.repository.rootUri.fsPath, commitMessages, patches }, token);
+		return (result && result.succeeded && result.files.length > 0) ? PreReviewState.ReviewedWithComments : PreReviewState.ReviewedWithoutComments;
+	}
+
+	private reviewingCancellationToken: vscode.CancellationTokenSource | undefined;
+	private async preReview(message: IRequestMessage<any>): Promise<void> {
+		if (this.reviewingCancellationToken) {
+			this.reviewingCancellationToken.cancel();
+		}
+		this.reviewingCancellationToken = new vscode.CancellationTokenSource();
+
+
+		const result = await Promise.race([this.getPreReviewFromProvider(this.reviewingCancellationToken.token),
+		new Promise<void>(resolve => this.reviewingCancellationToken?.token.onCancellationRequested(() => resolve()))]);
+
+		this.reviewingCancellationToken = undefined;
+
+		return this._replyMessage(message, result);
+	}
+
+	private async cancelPreReview(): Promise<void> {
+		if (this.reviewingCancellationToken) {
+			this.reviewingCancellationToken.cancel();
 		}
 	}
 
@@ -1174,6 +1215,12 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 			case 'pr.cancelGenerateTitleAndDescription':
 				return this.cancelGenerateTitleAndDescription();
+
+			case 'pr.preReview':
+				return this.preReview(message);
+
+			case 'pr.cancelPreReview':
+				return this.cancelPreReview();
 
 			default:
 				// Log error

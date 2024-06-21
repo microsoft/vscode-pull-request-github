@@ -119,7 +119,7 @@ button.input-box {
 	padding: 2px;
 }
 
-.group-title .title-action.disabled svg path  {
+.group-title .disabled svg path  {
 	fill: var(--vscode-disabledForeground);
 }
 
@@ -254,4 +254,27 @@ textarea {
 
 .dropdown-container {
 	justify-content: right;
+}
+
+/* Auto review */
+.pre-review {
+	display: flex;
+	flex-direction: column;
+}
+
+.auto-review {
+	display: flex;
+	justify-content: right;
+	cursor: pointer;
+}
+
+.auto-review.disabled:hover,
+.auto-review.disabled {
+	cursor: default;
+	color: var(--vscode-disabledForeground);
+	text-decoration: none;
+}
+
+.pre-review svg path {
+	fill: currentColor;
 }
