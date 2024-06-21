@@ -41,6 +41,7 @@ export function main() {
 				const ctx = useContext(PullRequestContextNew);
 				const [isBusy, setBusy] = useState(params.creating);
 				const [isGeneratingTitle, setGeneratingTitle] = useState(false);
+				const [isReviewing, setReviewing] = useState(false);
 				function createMethodLabel(isDraft?: boolean, autoMerge?: boolean, autoMergeMethod?: MergeMethod, baseHasMergeQueue?: boolean): { value: CreateMethod, label: string } {
 					let value: CreateMethod;
 					let label: string;
@@ -187,6 +188,12 @@ export function main() {
 					setGeneratingTitle(false);
 				}
 
+				async function preReview() {
+					setReviewing(true);
+					await ctx.preReview();
+					setReviewing(false);
+				}
+
 				if (!ctx.initialized) {
 					ctx.initialize();
 				}
@@ -240,7 +247,7 @@ export function main() {
 							onChange={(e) => updateTitle(e.currentTarget.value)}
 							onKeyDown={(e) => onKeyDown(true, e)}
 							data-vscode-context='{"preventDefaultContextMenuItems": false}'
-							disabled={!ctx.initialized || isBusy || isGeneratingTitle}>
+							disabled={!ctx.initialized || isBusy || isGeneratingTitle || isReviewing}>
 						</input>
 						{ctx.createParams.generateTitleAndDescriptionTitle ?
 							isGeneratingTitle ?
@@ -337,7 +344,7 @@ export function main() {
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
 							onKeyDown={(e) => onKeyDown(false, e)}
 							data-vscode-context='{"preventDefaultContextMenuItems": false}'
-							disabled={!ctx.initialized || isBusy || isGeneratingTitle}></textarea>
+							disabled={!ctx.initialized || isBusy || isGeneratingTitle || isReviewing}></textarea>
 					</div>
 
 					<div className={params.validate && !!params.createError ? 'wrapper validation-error' : 'hidden'} aria-live='assertive'>
@@ -345,6 +352,19 @@ export function main() {
 							{params.createError}
 						</ErrorBoundary>
 					</div>
+
+					{params.preReviewer ?
+						<div className='pre-review'>
+							{isReviewing ?
+								<a title='Cancel review' onClick={ctx.cancelPreReview} className={`auto-review ${isBusy || isGeneratingTitle || !ctx.initialized ? ' disabled' : ''}`}>
+									{stopIcon} Cancel review
+								</a>
+								: <a title={`Pre-review with ${params.preReviewer}`} onClick={preReview} className={`auto-review ${isBusy || isGeneratingTitle || !ctx.initialized ? ' disabled' : ''}`}>
+									{sparkleIcon} Pre-review with {params.preReviewer}
+								</a>
+							}
+						</div>
+					: null}
 
 					<div className='group-actions'>
 						<button disabled={isBusy} className='secondary' onClick={() => ctx.cancelCreate()}>
@@ -356,7 +376,7 @@ export function main() {
 							defaultOptionLabel={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).label}
 							defaultOptionValue={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).value}
 							optionsTitle='Create with Option'
-							disabled={isBusy || isGeneratingTitle || !isCreateable || !ctx.initialized}
+							disabled={isBusy || isGeneratingTitle || isReviewing || !isCreateable || !ctx.initialized}
 						/>
 
 					</div>

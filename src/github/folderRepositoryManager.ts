@@ -2551,6 +2551,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return this._git.getTitleAndDescriptionProvider(searchTerm);
 	}
 
+	public getAutoReviewer() {
+		return this._git.getReviewerCommentsProvider();
+	}
+
 	dispose() {
 		this._subs.forEach(sub => sub.dispose());
 		this._onDidDispose.fire();
