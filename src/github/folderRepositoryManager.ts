@@ -1876,6 +1876,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 										// TODO: The git extension API doesn't support removing configs
 										// If that support is added we should remove the config as it is no longer useful.
 										nonExistantBranches.add(pick.label);
+										await PullRequestGitHelper.associateBranchWithPullRequest(this.repository, undefined, pick.label);
 									} else {
 										throw e;
 									}
