@@ -22,6 +22,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public iconPath: vscode.Uri | undefined;
 	public contextValue?: string;
+	public description: string | undefined;
 
 	constructor(
 		public parent: TreeNodeParent,
@@ -35,6 +36,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		this.sha = commit.sha;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 		this.contextValue = 'commit';
+		this.description = commit.commit.author?.date ? new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(commit.commit.author.date)) : undefined;
 	}
 
 	async getTreeItem(): Promise<vscode.TreeItem> {
