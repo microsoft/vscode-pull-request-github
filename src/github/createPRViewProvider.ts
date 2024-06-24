@@ -428,7 +428,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			creating: false,
 			initializeWithGeneratedTitleAndDescription: useCopilot,
 			preReviewState: PreReviewState.None,
-			preReviewer: preReviewer?.title
+			preReviewer: preReviewer?.title,
+			reviewing: false
 		};
 
 		Logger.appendLine(`Initializing "create" view: ${JSON.stringify(params)}`, CreatePullRequestViewProvider.ID);
@@ -927,20 +928,28 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 		return (result && result.succeeded && result.files.length > 0) ? PreReviewState.ReviewedWithComments : PreReviewState.ReviewedWithoutComments;
 	}
 
+	public async review(): Promise<void> {
+		this._postMessage({ command: 'reviewing', params: { reviewing: true } });
+	}
+
 	private reviewingCancellationToken: vscode.CancellationTokenSource | undefined;
 	private async preReview(message: IRequestMessage<any>): Promise<void> {
-		if (this.reviewingCancellationToken) {
-			this.reviewingCancellationToken.cancel();
-		}
-		this.reviewingCancellationToken = new vscode.CancellationTokenSource();
+		return CreatePullRequestViewProvider.withProgress(async () => {
+			await commands.setContext('pr:preReviewing', true);
 
+			if (this.reviewingCancellationToken) {
+				this.reviewingCancellationToken.cancel();
+			}
+			this.reviewingCancellationToken = new vscode.CancellationTokenSource();
 
-		const result = await Promise.race([this.getPreReviewFromProvider(this.reviewingCancellationToken.token),
-		new Promise<void>(resolve => this.reviewingCancellationToken?.token.onCancellationRequested(() => resolve()))]);
+			const result = await Promise.race([this.getPreReviewFromProvider(this.reviewingCancellationToken.token),
+			new Promise<void>(resolve => this.reviewingCancellationToken?.token.onCancellationRequested(() => resolve()))]);
 
-		this.reviewingCancellationToken = undefined;
+			this.reviewingCancellationToken = undefined;
+			await commands.setContext('pr:preReviewing', false);
 
-		return this._replyMessage(message, result);
+			return this._replyMessage(message, result);
+		});
 	}
 
 	private async cancelPreReview(): Promise<void> {

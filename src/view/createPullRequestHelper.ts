@@ -113,6 +113,13 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 				}
 			})
 		);
+		this._disposables.push(
+			vscode.commands.registerCommand('pr.preReview', () => {
+				if (this._createPRViewProvider instanceof CreatePullRequestViewProvider) {
+					this._createPRViewProvider.review();
+				}
+			})
+		);
 
 		if (usingCurrentBranchAsCompare) {
 			this._disposables.push(

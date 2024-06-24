@@ -226,6 +226,7 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 
 		const { rawFiles, mergeBase } = await this.getRawGitHubData();
 		if (rawFiles && mergeBase) {
+			(this.view as vscode.TreeView2<TreeNode>).message = this.addReviewMessage();
 			return rawFiles.map(file => {
 				return new GitHubFileChangeNode(
 					this,
@@ -256,6 +257,21 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 		});
 	}
 
+	private addReviewMessage(markdown?: vscode.MarkdownString): vscode.MarkdownString | undefined {
+		const preReviewer = this.folderRepoManager.getAutoReviewer();
+		if (!preReviewer) {
+			return markdown;
+		}
+		if (!markdown) {
+			markdown = new vscode.MarkdownString();
+		} else {
+			markdown.appendMarkdown('\n\n');
+		}
+		markdown.supportThemeIcons = true;
+		markdown.appendMarkdown(`[${vscode.l10n.t('$(sparkle) Review with {0}', preReviewer.title)}](command:pr.preReview)`);
+		return markdown;
+	}
+
 	protected async getGitChildren(element?: TreeNode) {
 		if (!element) {
 			const diff = await this.model.gitFiles();
@@ -265,7 +281,7 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 			} else if (!(await this.model.getCompareHasUpstream())) {
 				const message = new vscode.MarkdownString(vscode.l10n.t({ message: 'Branch `{0}` has not been pushed yet. [Publish branch](command:git.publish) to see all changes.', args: [this.model.compareBranch], comment: "{Locked='](command:git.publish)'}" }));
 				message.isTrusted = { enabledCommands: ['git.publish'] };
-				(this.view as vscode.TreeView2<TreeNode>).message = message;
+				(this.view as vscode.TreeView2<TreeNode>).message = this.addReviewMessage(message);
 			} else if (this._isDisposed) {
 				return [];
 			} else {

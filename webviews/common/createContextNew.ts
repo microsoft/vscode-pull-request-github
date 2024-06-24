@@ -30,7 +30,8 @@ const defaultCreateParams: CreateParamsNew = {
 	initializeWithGeneratedTitleAndDescription: false,
 	baseHasMergeQueue: false,
 	preReviewState: PreReviewState.None,
-	preReviewer: undefined
+	preReviewer: undefined,
+	reviewing: false
 };
 
 export class CreatePRContextNew {
@@ -182,8 +183,9 @@ export class CreatePRContextNew {
 	}
 
 	public preReview = async (): Promise<void> => {
+		this.updateState({ reviewing: true });
 		const result: PreReviewState = await this.postMessage({ command: 'pr.preReview' });
-		this.updateState({ preReviewState: result });
+		this.updateState({ preReviewState: result, reviewing: false });
 	}
 
 	public cancelPreReview = async (): Promise<void> => {
@@ -339,6 +341,12 @@ export class CreatePRContextNew {
 					return;
 				}
 				this.updateState(message.params);
+				return;
+			case 'reviewing':
+				if (!message.params) {
+					return;
+				}
+				this.preReview();
 				return;
 		}
 	};
