@@ -1123,6 +1123,13 @@
 				"icon": "$(github-project)"
 			},
 			{
+				"command": "pr.preReview",
+				"title": "%command.pr.preReview.title%",
+				"category": "%command.pull.request.category%",
+				"enablement": "!pr:preReviewing",
+				"icon": "$(comment)"
+			},
+			{
 				"command": "pr.addFileComment",
 				"title": "%command.pr.addFileComment.title%",
 				"category": "%command.pull.request.category%",
@@ -1844,6 +1851,10 @@
 				},
 				{
 					"command": "pr.addProjectsToNewPr",
+					"when": "false"
+				},
+				{
+					"command": "pr.preReview",
 					"when": "false"
 				},
 				{

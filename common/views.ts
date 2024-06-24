@@ -128,6 +128,7 @@ export interface CreateParamsNew {
 	baseHasMergeQueue: boolean;
 
 	creating: boolean;
+	reviewing: boolean;
 }
 
 export interface ChooseRemoteAndBranchArgs {
