@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { getGitChangeType } from '../../common/diffHunk';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 import { DataUri, toReviewUri } from '../../common/uri';
+import { dateFromNow } from '../../common/utils';
 import { OctokitCommon } from '../../github/common';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { IAccount } from '../../github/interface';
@@ -36,7 +37,7 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		this.sha = commit.sha;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 		this.contextValue = 'commit';
-		this.description = commit.commit.author?.date ? new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(commit.commit.author.date)) : undefined;
+		this.description = commit.commit.author?.date ? dateFromNow(commit.commit.author.date) : undefined;
 	}
 
 	async getTreeItem(): Promise<vscode.TreeItem> {
