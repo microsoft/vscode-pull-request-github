@@ -1055,6 +1055,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 
 		CreatePullRequestViewProvider.withProgress(() => {
 			return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification }, async progress => {
+				commands.setContext('pr:creating', true);
 				let totalIncrement = 0;
 				progress.report({ message: vscode.l10n.t('Checking for upstream branch'), increment: totalIncrement });
 				let createdPR: PullRequestModel | undefined = undefined;
@@ -1140,6 +1141,8 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 						vscode.window.showErrorMessage(vscode.l10n.t('There was an error creating the pull request: {0}', (e as Error).message));
 					}
 				} finally {
+					commands.setContext('pr:creating', false);
+
 					let completeMessage: string;
 					if (createdPR) {
 						this._onDone.fire(createdPR);

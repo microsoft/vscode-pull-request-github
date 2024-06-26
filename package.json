@@ -1126,7 +1126,7 @@
 				"command": "pr.preReview",
 				"title": "%command.pr.preReview.title%",
 				"category": "%command.pull.request.category%",
-				"enablement": "!pr:preReviewing",
+				"enablement": "!pr:preReviewing && !pr:creating",
 				"icon": "$(comment)"
 			},
 			{
