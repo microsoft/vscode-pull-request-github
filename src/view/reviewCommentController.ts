@@ -479,8 +479,8 @@ export class ReviewCommentController extends CommentControllerBase
 
 				for (let i = 0; i < diffHunks.length; i++) {
 					const diffHunk = diffHunks[i];
-					const start = mapOldPositionToNew(contentDiff, diffHunk.newLineNumber);
-					const end = mapOldPositionToNew(contentDiff, diffHunk.newLineNumber + diffHunk.newLength - 1);
+					const start = mapOldPositionToNew(contentDiff, diffHunk.newLineNumber, document.lineCount);
+					const end = mapOldPositionToNew(contentDiff, diffHunk.newLineNumber + diffHunk.newLength - 1, document.lineCount);
 					if (start > 0 && end > 0) {
 						ranges.push(new vscode.Range(start - 1, 0, end - 1, 0));
 					}
@@ -514,7 +514,7 @@ export class ReviewCommentController extends CommentControllerBase
 		}
 
 		try {
-			if (matchedEditor && matchedEditor.document.isDirty) {
+			if (matchedEditor && matchedEditor.document.isDirty && vscode.workspace.getConfiguration('files', matchedEditor.document.uri).get('autoSave') !== 'afterDelay') {
 				const documentText = matchedEditor.document.getText();
 				const details = await this._repository.getObjectDetails(
 					this._folderRepoManager.activePullRequest.head.sha,
