@@ -1845,17 +1845,24 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			progress.report({ message: vscode.l10n.t('Deleted {0} of {1} branches', deletedBranches, totalBranches) });
 		};
 
+		const hideConfig = async (branch: string) => {
+			await PullRequestGitHelper.associateBranchWithPullRequest(this.repository, undefined, branch);
+		};
+
 		// batch deleting the branches to avoid consuming all available resources
 		await batchPromiseAll(picks, 5, async (pick) => {
 			try {
 				await this.repository.deleteBranch(pick.label, true);
+				if ((await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this.repository, pick.label))) {
+					await hideConfig(pick.label);
+				}
 				reportProgress();
 			} catch (e) {
 				if (typeof e.stderr === 'string' && e.stderr.includes('not found')) {
 					// TODO: The git extension API doesn't support removing configs
 					// If that support is added we should remove the config as it is no longer useful.
 					nonExistantBranches.add(pick.label);
-					await PullRequestGitHelper.associateBranchWithPullRequest(this.repository, undefined, pick.label);
+					await hideConfig(pick.label);
 					reportProgress();
 				} else if (typeof e.stderr === 'string' && e.stderr.includes('unable to access') && needsRetry) {
 					// There is contention for the related git files
