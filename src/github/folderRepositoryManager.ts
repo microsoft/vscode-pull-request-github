@@ -1895,6 +1895,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				return result.picked && !((result.label === defaults.base) && (result.metadata.owner === defaults.owner) && (result.metadata.repositoryName === defaults.repo));
 			});
 			quickPick.busy = false;
+			if (results.length === 0) {
+				quickPick.canSelectMany = false;
+				quickPick.items = [{ label: vscode.l10n.t('No local branches to delete'), picked: false }];
+			}
 
 			let firstStep = true;
 			quickPick.onDidAccept(async () => {
@@ -1918,6 +1922,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					const remoteItems = await this.getRemoteDeletionItems(nonExistantBranches);
 
 					if (remoteItems && remoteItems.length) {
+						quickPick.canSelectMany = true;
 						quickPick.placeholder = vscode.l10n.t('Choose remotes you want to delete permanently');
 						quickPick.items = remoteItems;
 						quickPick.selectedItems = remoteItems.filter(item => item.picked);
