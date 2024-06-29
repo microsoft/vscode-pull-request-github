@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.90.0
+
+### Changes
+
+- There's a new command available when a PR description is opened: **GitHub Pull Requests: Focus Pull Request Description Review Input**. This command will scroll the PR description to the final comment input box and focus into the input box.
+
+### Fixes
+
+- The at sign after the backquote is converted to markdown. https://github.com/microsoft/vscode-pull-request-github/issues/5965
+- Can height of checks area in PR description have a max. https://github.com/microsoft/vscode-pull-request-github/issues/5947
+- Make conflicts hint actionable. https://github.com/microsoft/vscode-pull-request-github/issues/5942
+- Links with an @ are rendered incorrectly. https://github.com/microsoft/vscode-pull-request-github/issues/5924
+
 ## 0.88.1
 
 ### Fixes

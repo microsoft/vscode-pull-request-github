@@ -71,6 +71,9 @@ fragment PullRequestFragment on PullRequest {
 	autoMergeRequest {
 		mergeMethod
 	}
+	reviewThreads {
+		totalCount
+	}
 	viewerCanEnableAutoMerge
 	viewerCanDisableAutoMerge
 	viewerCanUpdate

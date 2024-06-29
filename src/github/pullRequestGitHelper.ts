@@ -375,15 +375,19 @@ export class PullRequestGitHelper {
 
 	static async associateBranchWithPullRequest(
 		repository: Repository,
-		pullRequest: PullRequestModel,
+		pullRequest: PullRequestModel | undefined,
 		branchName: string,
 	) {
 		try {
-			Logger.appendLine(`associate ${branchName} with Pull Request #${pullRequest.number}`, PullRequestGitHelper.ID);
+			if (pullRequest) {
+				Logger.appendLine(`associate ${branchName} with Pull Request #${pullRequest.number}`, PullRequestGitHelper.ID);
+			}
 			const prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
-			await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
+			await repository.setConfig(prConfigKey, pullRequest ? PullRequestGitHelper.buildPullRequestMetadata(pullRequest) : ' ');
 		} catch (e) {
-			Logger.error(`associate ${branchName} with Pull Request #${pullRequest.number} failed`, PullRequestGitHelper.ID);
+			if (pullRequest) {
+				Logger.error(`associate ${branchName} with Pull Request #${pullRequest.number} failed`, PullRequestGitHelper.ID);
+			}
 		}
 	}
 

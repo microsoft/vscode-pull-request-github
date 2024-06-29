@@ -244,6 +244,18 @@ export interface TitleAndDescriptionProvider {
 	provideTitleAndDescription(context: { commitMessages: string[], patches: string[] | { patch: string, fileUri: string, previousFileUri?: string }[], issues?: { reference: string, content: string }[] }, token: CancellationToken): Promise<{ title: string, description?: string } | undefined>;
 }
 
+export interface ReviewerComments {
+	// To tell which files we should add a comment icon in the "Files Changed" view
+	files: Uri[];
+	succeeded: boolean;
+	// For removing comments
+	disposable?: Disposable;
+}
+
+export interface ReviewerCommentsProvider {
+	provideReviewerComments(context: { repositoryRoot: string, commitMessages: string[], patches: { patch: string, fileUri: string, previousFileUri?: string }[] }, token: CancellationToken): Promise<ReviewerComments>;
+}
+
 export interface API {
 	/**
 	 * Register a [git provider](#IGit)
@@ -262,4 +274,9 @@ export interface API {
 	 * Register a PR title and description provider.
 	 */
 	registerTitleAndDescriptionProvider(title: string, provider: TitleAndDescriptionProvider): Disposable;
+
+	/**
+	 * Register a PR reviewer comments provider.
+	 */
+	registerReviewerCommentsProvider(title: string, provider: ReviewerCommentsProvider): Disposable;
 }

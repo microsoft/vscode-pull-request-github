@@ -29,7 +29,7 @@ import {
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
-import { compareIgnoreCase, formatError, Predicate } from '../common/utils';
+import { batchPromiseAll, compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
@@ -481,17 +481,26 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 
 		return Promise.all(resolveRemotePromises).then(async (remoteResults: boolean[]) => {
-			const missingSaml: string[] = [];
+			const missingSaml: GitHubRepository[] = [];
 			for (let i = 0; i < remoteResults.length; i++) {
 				if (!remoteResults[i]) {
-					missingSaml.push(repositories[i].remote.owner);
+					missingSaml.push(repositories[i]);
 				}
 			}
 			if (missingSaml.length > 0) {
-				const result = await this._credentialStore.showSamlMessageAndAuth(missingSaml);
+				const result = await this._credentialStore.showSamlMessageAndAuth(missingSaml.map(repo => repo.remote.owner));
 				if (result.canceled) {
 					this.dispose();
 					return true;
+				} else {
+					// Make a test call to see if the user has SAML enabled.
+					const samlTest = await Promise.all(missingSaml.map(repo => repo.resolveRemote()));
+
+					if (samlTest.some(result => !result)) {
+						await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. GitHub Pull Requests will not work.'), { modal: true });
+						this.dispose();
+						return true;
+					}
 				}
 			}
 
@@ -1858,20 +1867,21 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					const nonExistantBranches = new Set<string>();
 					if (picks.length) {
 						try {
-							await Promise.all(
-								picks.map(async pick => {
-									try {
-										await this.repository.deleteBranch(pick.label, true);
-									} catch (e) {
-										if ((typeof e.stderr === 'string') && (e.stderr as string).includes('not found')) {
-											// TODO: The git extension API doesn't support removing configs
-											// If that support is added we should remove the config as it is no longer useful.
-											nonExistantBranches.add(pick.label);
-										} else {
-											throw e;
-										}
+							// batch deleting the branches to avoid consuming all available resources
+							await batchPromiseAll(picks, 5, async (pick) => {
+								try {
+									await this.repository.deleteBranch(pick.label, true);
+								} catch (e) {
+									if (typeof e.stderr === 'string' && e.stderr.includes('not found')) {
+										// TODO: The git extension API doesn't support removing configs
+										// If that support is added we should remove the config as it is no longer useful.
+										nonExistantBranches.add(pick.label);
+										await PullRequestGitHelper.associateBranchWithPullRequest(this.repository, undefined, pick.label);
+									} else {
+										throw e;
 									}
-								}));
+								}
+							});
 						} catch (e) {
 							quickPick.hide();
 							vscode.window.showErrorMessage(vscode.l10n.t('Deleting branches failed: {0} {1}', e.message, e.stderr));
@@ -1889,14 +1899,12 @@ export class FolderRepositoryManager implements vscode.Disposable {
 						quickPick.hide();
 					}
 				} else {
-					// delete remotes
+					// batch deleting the remotes to avoid consuming all available resources
 					const picks = quickPick.selectedItems;
 					if (picks.length) {
-						await Promise.all(
-							picks.map(async pick => {
-								await this.repository.removeRemote(pick.label);
-							}),
-						);
+						await batchPromiseAll(picks, 5, async pick => {
+							await this.repository.removeRemote(pick.label);
+						});
 					}
 					quickPick.hide();
 				}
@@ -2541,6 +2549,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	public getTitleAndDescriptionProvider(searchTerm?: string) {
 		return this._git.getTitleAndDescriptionProvider(searchTerm);
+	}
+
+	public getAutoReviewer() {
+		return this._git.getReviewerCommentsProvider();
 	}
 
 	dispose() {

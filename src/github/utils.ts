@@ -708,6 +708,7 @@ export function parseGraphQLPullRequest(
 		merged: graphQLPullRequest.merged,
 		mergeable: parseMergeability(graphQLPullRequest.mergeable, graphQLPullRequest.mergeStateStatus),
 		mergeQueueEntry: parseMergeQueueEntry(graphQLPullRequest.mergeQueueEntry),
+		hasComments: graphQLPullRequest.reviewThreads.totalCount > 0,
 		autoMerge: !!graphQLPullRequest.autoMergeRequest,
 		autoMergeMethod: parseMergeMethod(graphQLPullRequest.autoMergeRequest?.mergeMethod),
 		allowAutoMerge: graphQLPullRequest.viewerCanEnableAutoMerge || graphQLPullRequest.viewerCanDisableAutoMerge,

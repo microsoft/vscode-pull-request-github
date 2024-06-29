@@ -610,6 +610,9 @@ export interface PullRequest {
 	mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 	mergeQueueEntry?: MergeQueueEntry | null;
 	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+	reviewThreads: {
+		totalCount: number;
+	}
 	autoMergeRequest?: {
 		mergeMethod: MergeMethod;
 	};

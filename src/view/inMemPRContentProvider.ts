@@ -163,7 +163,7 @@ export async function provideDocumentContentForChangeModel(folderRepoManager: Fo
 	let inMemNeedsFullFile = false;
 	if (fileChange instanceof InMemFileChangeModel) {
 		// Partial or looks like binary.
-		inMemNeedsFullFile = (await fileChange.isPartial()) || (fileChange.status === GitChangeType.ADD && diffHunks.length === 0);
+		inMemNeedsFullFile = (await fileChange.isPartial()) || ((fileChange.status === GitChangeType.ADD || fileChange.status === GitChangeType.RENAME) && diffHunks.length === 0);
 	}
 
 	if ((fileChange instanceof RemoteFileChangeModel) || ((fileChange instanceof InMemFileChangeModel) && inMemNeedsFullFile)) {

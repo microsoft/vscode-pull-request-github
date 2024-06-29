@@ -16,6 +16,7 @@
 		"codeActionRanges",
 		"commentingRangeHint",
 		"commentReactor",
+		"commentReveal",
 		"commentThreadApplicability",
 		"contribAccessibilityHelpContent",
 		"contribCommentEditorActionsMenu",
@@ -28,14 +29,13 @@
 		"fileComments",
 		"quickDiffProvider",
 		"shareProvider",
-		"tabInputTextMerge",
 		"tokenInformation",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.88.0",
+	"version": "0.90.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.89.0"
+		"vscode": "^1.90.0"
 	},
 	"categories": [
 		"Other"
@@ -999,6 +999,11 @@
 			{
 				"command": "pr.unresolveReviewThread",
 				"title": "%command.pr.unresolveReviewThread.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.unresolveReviewThreadFromView",
+				"title": "%command.pr.unresolveReviewThread.title%",
 				"category": "%command.pull.request.category%",
 				"icon": "$(sync)"
 			},
@@ -1116,6 +1121,13 @@
 				"title": "%command.pr.addProjectsToNewPr.title%",
 				"category": "%command.pull.request.category%",
 				"icon": "$(github-project)"
+			},
+			{
+				"command": "pr.preReview",
+				"title": "%command.pr.preReview.title%",
+				"category": "%command.pull.request.category%",
+				"enablement": "!pr:preReviewing && !pr:creating",
+				"icon": "$(comment)"
 			},
 			{
 				"command": "pr.addFileComment",
@@ -1842,6 +1854,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.preReview",
+					"when": "false"
+				},
+				{
 					"command": "pr.addFileComment",
 					"when": "false"
 				},
@@ -2345,7 +2361,7 @@
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
 				},
 				{
-					"command": "pr.unresolveReviewThread",
+					"command": "pr.unresolveReviewThreadFromView",
 					"group": "inline@1",
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
 				},
@@ -2360,7 +2376,7 @@
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canResolve/"
 				},
 				{
-					"command": "pr.unresolveReviewThread",
+					"command": "pr.unresolveReviewThreadFromView",
 					"group": "context@1",
 					"when": "commentController =~ /^github-(browse|review)/ && commentThread =~ /canUnresolve/"
 				}

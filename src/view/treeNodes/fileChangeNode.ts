@@ -422,7 +422,7 @@ export class GitHubFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public description: string;
 	public iconPath: vscode.ThemeIcon;
 	public fileChangeResourceUri: vscode.Uri;
-
+	public readonly tooltip: string;
 	public command: vscode.Command;
 
 	constructor(
@@ -437,6 +437,7 @@ export class GitHubFileChangeNode extends TreeNode implements vscode.TreeItem {
 		super();
 		const scheme = isLocal ? Schemes.GitPr : Schemes.GithubPr;
 		this.label = fileName;
+		this.tooltip = fileName;
 		this.iconPath = vscode.ThemeIcon.File;
 		this.fileChangeResourceUri = vscode.Uri.file(fileName).with({
 			scheme,

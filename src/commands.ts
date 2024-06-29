@@ -962,20 +962,29 @@ export function registerCommands(
 		}),
 	);
 
-	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.unresolveReviewThread', async (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => {
-			/* __GDPR__
-			"pr.unresolveReviewThread" : {}
-			*/
-			telemetry.sendTelemetryEvent('pr.unresolveReviewThread');
-			const { thread, text } = threadAndText(commentLike);
+	const unresolve = async (commentLike: CommentReply | GHPRCommentThread | GHPRComment, focusReply: boolean) => {
+		/* __GDPR__
+		"pr.unresolveReviewThread" : {}
+		*/
+		telemetry.sendTelemetryEvent('pr.unresolveReviewThread');
+		const { thread, text } = threadAndText(commentLike);
 
-			const handler = resolveCommentHandler(thread);
+		const handler = resolveCommentHandler(thread);
 
-			if (handler) {
-				await handler.unresolveReviewThread(thread, text);
+		if (handler) {
+			await handler.unresolveReviewThread(thread, text);
+			if (focusReply) {
+				thread.reveal({ focusReply: true });
 			}
-		}),
+		}
+	};
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.unresolveReviewThread', (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => unresolve(commentLike, false))
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.unresolveReviewThreadFromView', (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => unresolve(commentLike, true))
 	);
 
 	const localUriFromReviewUri = (reviewUri: vscode.Uri) => {

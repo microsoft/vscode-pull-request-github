@@ -323,7 +323,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		};
 	}
 
-	async provideCommentingRanges(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.Range[] | { fileComments: boolean; ranges?: vscode.Range[] } | undefined> {
+	async provideCommentingRanges(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.Range[] | { enableFileComments: boolean; ranges?: vscode.Range[] } | undefined> {
 		if (document.uri.scheme === Schemes.Pr) {
 			const params = fromPRUri(document.uri);
 
@@ -337,7 +337,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				return undefined;
 			}
 
-			return { ranges: getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase, PRNode.ID), fileComments: true };
+			return { ranges: getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase, PRNode.ID), enableFileComments: true };
 		}
 
 		return undefined;

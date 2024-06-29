@@ -192,6 +192,7 @@ export interface PullRequest extends Issue {
 	mergeCommitMeta?: { title: string, description: string };
 	squashCommitMeta?: { title: string, description: string };
 	suggestedReviewers?: ISuggestedReviewer[];
+	hasComments?: boolean;
 }
 
 export interface IRawFileChange {
