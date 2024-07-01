@@ -2397,7 +2397,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	}
 
 	private async createAndAddGitHubRepository(remote: Remote, credentialStore: CredentialStore, silent?: boolean) {
-		const repo = new GitHubRepository(GitHubRemote.remoteAsGitHub(remote, await this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)), this.repository.rootUri, credentialStore, this.telemetry, silent);
+		const repoId = this._id + (this._githubRepositories.length * 0.1);
+		const repo = new GitHubRepository(repoId, GitHubRemote.remoteAsGitHub(remote, await this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)), this.repository.rootUri, credentialStore, this.telemetry, silent);
 		this._githubRepositories.push(repo);
 		return repo;
 	}
@@ -2405,9 +2406,9 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	private _createGitHubRepositoryBulkhead = bulkhead(1, 300);
 	async createGitHubRepository(remote: Remote, credentialStore: CredentialStore, silent?: boolean, ignoreRemoteName: boolean = false): Promise<GitHubRepository> {
 		// Use a bulkhead/semaphore to ensure that we don't create multiple GitHubRepositories for the same remote at the same time.
-		return this._createGitHubRepositoryBulkhead.execute(() => {
+		return this._createGitHubRepositoryBulkhead.execute(async () => {
 			return this.findExistingGitHubRepository({ owner: remote.owner, repositoryName: remote.repositoryName, remoteName: ignoreRemoteName ? undefined : remote.remoteName }) ??
-				this.createAndAddGitHubRepository(remote, credentialStore, silent);
+				await this.createAndAddGitHubRepository(remote, credentialStore, silent);
 		});
 	}
 
