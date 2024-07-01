@@ -194,6 +194,7 @@ export class TemporaryComment extends CommentBase {
 }
 
 const SUGGESTION_EXPRESSION = /```suggestion(\u0020*(\r\n|\n))((?<suggestion>[\s\S]*?)(\r\n|\n))?```/;
+const IMG_EXPRESSION = /<img .*src=['"](?<src>.+?)['"].*?>/g;
 
 export class GHPRComment extends CommentBase {
 	public commentId: string;
@@ -309,6 +310,12 @@ export class GHPRComment extends CommentBase {
 		return this.commentId;
 	}
 
+	private replaceImg(body: string) {
+		return body.replace(IMG_EXPRESSION, (_substring, _1, _2, _3, { src }) => {
+			return `![image](${src})`;
+		});
+	}
+
 	private replaceSuggestion(body: string) {
 		return body.replace(new RegExp(SUGGESTION_EXPRESSION, 'g'), (_substring: string, ...args: any[]) => {
 			return `***
@@ -374,7 +381,7 @@ ${lineContents}
 	private async replaceBody(body: string | vscode.MarkdownString): Promise<string> {
 		if (body instanceof vscode.MarkdownString) {
 			const permalinkReplaced = await this.replacePermalink(body.value);
-			return this.replaceSuggestion(permalinkReplaced);
+			return this.replaceImg(this.replaceSuggestion(permalinkReplaced));
 		}
 		const newLinesReplaced = this.replaceNewlines(body);
 		const documentLanguage = (await vscode.workspace.openTextDocument(this.parent.uri)).languageId;
@@ -399,7 +406,7 @@ ${lineContents}
 		});
 
 		const permalinkReplaced = await this.replacePermalink(linkified);
-		return this.replaceSuggestion(permalinkReplaced);
+		return this.replaceImg(this.replaceSuggestion(permalinkReplaced));
 	}
 
 	protected async doSetBody(body: string | vscode.MarkdownString, refresh: boolean) {
