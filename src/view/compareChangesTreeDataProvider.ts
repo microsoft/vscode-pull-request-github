@@ -268,7 +268,7 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 			markdown.appendMarkdown('\n\n');
 		}
 		markdown.supportThemeIcons = true;
-		markdown.appendMarkdown(`[${vscode.l10n.t('$(sparkle) Review with {0}', preReviewer.title)}](command:pr.preReview)`);
+		markdown.appendMarkdown(`[${vscode.l10n.t('$(sparkle) Review with {0} (Experimental)', preReviewer.title)}](command:pr.preReview)`);
 		return markdown;
 	}
 
