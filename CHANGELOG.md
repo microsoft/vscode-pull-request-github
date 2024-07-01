@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.92.0
+
+### Changes
+
+- Dates are listed in the "Commits" subtree for checked out PRs
+
+  ![commits subtree with dates](./documentation/changelog/0.92.0/date-of-commits.png)
+
+### Fixes
+
+- Extension asks for commenting ranges on a file that got deleted in PR. https://github.com/microsoft/vscode-pull-request-github/issues/6046
+- An error occurred while loading the image (renamed picture). https://github.com/microsoft/vscode-pull-request-github/issues/6008
+- GitHub Issue trigger - [ ] does not work. https://github.com/microsoft/vscode-pull-request-github/issues/6007
+- PR Title generation surrounded by "quotes". https://github.com/microsoft/vscode-pull-request-github/issues/6002
+- Unresolve comment does not move focus to it. https://github.com/microsoft/vscode-pull-request-github/issues/5973
+
 ## 0.90.0
 
 ### Changes
