@@ -2183,7 +2183,7 @@
 				{
 					"command": "pr.openPullRequestOnGitHub",
 					"group": "inline@3",
-					"when": "view =~ /(pr|prStatus):github/  && viewItem =~ /description/ && github:activePRCount >= 2"
+					"when": "view == prStatus:github && viewItem =~ /description/ && github:activePRCount >= 2"
       			},
 				{
 					"command": "pr.exit",
