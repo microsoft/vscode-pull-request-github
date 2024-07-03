@@ -250,15 +250,16 @@ export async function extractMetadataFromFile(repositoriesManager: RepositoriesM
 	if (text.startsWith(PROJECTS)) {
 		const lines = text.split(/\r\n|\n/, 1);
 		if (lines.length === 1) {
-			const repoProjects = await folderManager.getAllProjects(repo);
-			projects = lines[0].substring(PROJECTS.length)
-				.split(',')
-				.map(value => {
-					value = value.trim();
-					return repoProjects.find(project => project.title === value);
-				})
-				.filter<IProject>((project): project is IProject => !!project);
-
+			if (await repo.canGetProjectsNow()) {
+				const repoProjects = await folderManager.getAllProjects(repo);
+				projects = lines[0].substring(PROJECTS.length)
+					.split(',')
+					.map(value => {
+						value = value.trim();
+						return repoProjects.find(project => project.title === value);
+					})
+					.filter<IProject>((project): project is IProject => !!project);
+			}
 			text = text.substring(lines[0].length).trim();
 		}
 	}

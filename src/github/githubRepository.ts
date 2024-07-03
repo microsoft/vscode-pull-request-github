@@ -632,6 +632,14 @@ export class GitHubRepository implements vscode.Disposable {
 		return undefined;
 	}
 
+	async canGetProjectsNow(): Promise<boolean> {
+		let { schema } = await this.ensure();
+		if (schema.GetRepoProjects && schema.GetOrgProjects) {
+			return true;
+		}
+		return false;
+	}
+
 	async getOrgProjects(): Promise<IProject[]> {
 		Logger.debug(`Fetch org projects - enter`, GitHubRepository.ID);
 		let { query, remote, schema } = await this.ensure();
