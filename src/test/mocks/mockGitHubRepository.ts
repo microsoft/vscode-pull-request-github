@@ -27,7 +27,7 @@ export class MockGitHubRepository extends GitHubRepository {
 	readonly queryProvider: QueryProvider;
 
 	constructor(remote: GitHubRemote, credentialStore: CredentialStore, telemetry: MockTelemetry, sinon: SinonSandbox) {
-		super(remote, Uri.file('C:\\users\\test\\repo'), credentialStore, telemetry);
+		super(1, remote, Uri.file('C:\\users\\test\\repo'), credentialStore, telemetry);
 
 		this.queryProvider = new QueryProvider(sinon);
 
@@ -36,10 +36,10 @@ export class MockGitHubRepository extends GitHubRepository {
 			graphql: null,
 		};
 
-		this._metadata = {
+		this._metadata = Promise.resolve({
 			...new RepositoryBuilder().build(),
 			currentUser: new UserBuilder().build(),
-		};
+		});
 
 		this._initialized = true;
 	}
@@ -58,10 +58,10 @@ export class MockGitHubRepository extends GitHubRepository {
 		const repoBuilder = new RepositoryBuilder();
 		const userBuilder = new UserBuilder();
 		block(repoBuilder, userBuilder);
-		this._metadata = {
+		this._metadata = Promise.resolve({
 			...repoBuilder.build(),
 			currentUser: userBuilder.build(),
-		};
+		});
 	}
 
 	addGraphQLPullRequest(block: (builder: ManagedGraphQLPullRequestBuilder) => void): ManagedPullRequest<'graphql'> {
