@@ -1839,6 +1839,44 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return remoteItems;
 	}
 
+	private async deleteBranches(picks: readonly vscode.QuickPickItem[], nonExistantBranches: Set<string>, progress: vscode.Progress<{ message?: string; increment?: number; }>, totalBranches: number, deletedBranches: number, needsRetry?: vscode.QuickPickItem[]) {
+		const reportProgress = () => {
+			deletedBranches++;
+			progress.report({ message: vscode.l10n.t('Deleted {0} of {1} branches', deletedBranches, totalBranches) });
+		};
+
+		const hideConfig = async (branch: string) => {
+			await PullRequestGitHelper.associateBranchWithPullRequest(this.repository, undefined, branch);
+		};
+
+		// batch deleting the branches to avoid consuming all available resources
+		await batchPromiseAll(picks, 5, async (pick) => {
+			try {
+				await this.repository.deleteBranch(pick.label, true);
+				if ((await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this.repository, pick.label))) {
+					await hideConfig(pick.label);
+				}
+				reportProgress();
+			} catch (e) {
+				if (typeof e.stderr === 'string' && e.stderr.includes('not found')) {
+					// TODO: The git extension API doesn't support removing configs
+					// If that support is added we should remove the config as it is no longer useful.
+					nonExistantBranches.add(pick.label);
+					await hideConfig(pick.label);
+					reportProgress();
+				} else if (typeof e.stderr === 'string' && e.stderr.includes('unable to access') && needsRetry) {
+					// There is contention for the related git files
+					needsRetry.push(pick);
+				} else {
+					throw e;
+				}
+			}
+		});
+		if (needsRetry && needsRetry.length) {
+			await this.deleteBranches(needsRetry, nonExistantBranches, progress, totalBranches, deletedBranches);
+		}
+	}
+
 	async deleteLocalBranchesNRemotes() {
 		return new Promise<void>(async resolve => {
 			const quickPick = vscode.window.createQuickPick();
@@ -1857,6 +1895,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				return result.picked && !((result.label === defaults.base) && (result.metadata.owner === defaults.owner) && (result.metadata.repositoryName === defaults.repo));
 			});
 			quickPick.busy = false;
+			if (results.length === 0) {
+				quickPick.canSelectMany = false;
+				quickPick.items = [{ label: vscode.l10n.t('No local branches to delete'), picked: false }];
+			}
 
 			let firstStep = true;
 			quickPick.onDidAccept(async () => {
@@ -1866,32 +1908,21 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					const picks = quickPick.selectedItems;
 					const nonExistantBranches = new Set<string>();
 					if (picks.length) {
-						try {
-							// batch deleting the branches to avoid consuming all available resources
-							await batchPromiseAll(picks, 5, async (pick) => {
-								try {
-									await this.repository.deleteBranch(pick.label, true);
-								} catch (e) {
-									if (typeof e.stderr === 'string' && e.stderr.includes('not found')) {
-										// TODO: The git extension API doesn't support removing configs
-										// If that support is added we should remove the config as it is no longer useful.
-										nonExistantBranches.add(pick.label);
-										await PullRequestGitHelper.associateBranchWithPullRequest(this.repository, undefined, pick.label);
-									} else {
-										throw e;
-									}
-								}
-							});
-						} catch (e) {
-							quickPick.hide();
-							vscode.window.showErrorMessage(vscode.l10n.t('Deleting branches failed: {0} {1}', e.message, e.stderr));
-						}
+						await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Cleaning up') }, async (progress) => {
+							try {
+								await this.deleteBranches(picks, nonExistantBranches, progress, picks.length, 0, []);
+							} catch (e) {
+								quickPick.hide();
+								vscode.window.showErrorMessage(vscode.l10n.t('Deleting branches failed: {0} {1}', e.message, e.stderr));
+							}
+						});
 					}
 
 					firstStep = false;
 					const remoteItems = await this.getRemoteDeletionItems(nonExistantBranches);
 
 					if (remoteItems && remoteItems.length) {
+						quickPick.canSelectMany = true;
 						quickPick.placeholder = vscode.l10n.t('Choose remotes you want to delete permanently');
 						quickPick.items = remoteItems;
 						quickPick.selectedItems = remoteItems.filter(item => item.picked);
@@ -1902,8 +1933,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					// batch deleting the remotes to avoid consuming all available resources
 					const picks = quickPick.selectedItems;
 					if (picks.length) {
-						await batchPromiseAll(picks, 5, async pick => {
-							await this.repository.removeRemote(pick.label);
+						await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Deleting {0} remotes...', picks.length) }, async () => {
+							await batchPromiseAll(picks, 5, async pick => {
+								await this.repository.removeRemote(pick.label);
+							});
 						});
 					}
 					quickPick.hide();
