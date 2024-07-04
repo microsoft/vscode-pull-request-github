@@ -279,7 +279,7 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 				(this.view as vscode.TreeView2<TreeNode>).message = new vscode.MarkdownString(vscode.l10n.t('There are no commits between the base `{0}` branch and the comparing `{1}` branch', this.model.baseBranch, this.model.compareBranch));
 				return [];
 			} else if (!(await this.model.getCompareHasUpstream())) {
-				const message = new vscode.MarkdownString(vscode.l10n.t({ message: 'Branch `{0}` has not been pushed yet. [Publish branch](command:git.publish) to see all changes.', args: [this.model.compareBranch], comment: "{Locked='](command:git.publish)'}" }));
+				const message = new vscode.MarkdownString(vscode.l10n.t({ message: 'Branch `{0}` has not been pushed yet. [Publish branch](command:git.publish) to see all changes from base branch.', args: [this.model.compareBranch], comment: "{Locked='](command:git.publish)'}" }));
 				message.isTrusted = { enabledCommands: ['git.publish'] };
 				(this.view as vscode.TreeView2<TreeNode>).message = this.addReviewMessage(message);
 			} else if (this._isDisposed) {
