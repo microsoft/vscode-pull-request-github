@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { Change, Commit } from '../api/api';
+import Logger from '../common/logger';
 import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
@@ -18,6 +19,7 @@ export interface CreateModelChangeEvent {
 }
 
 export class CreatePullRequestDataModel {
+	private static ID = 'CreatePullRequestDataModel';
 	private _baseOwner: string;
 	private _baseBranch: string;
 	private _compareOwner: string;
@@ -190,9 +192,11 @@ export class CreatePullRequestDataModel {
 			const startCompare = this._compareBranch;
 			const result = await this.folderRepositoryManager.repository.diffBetween(`${this.baseRemoteName}/${this._baseBranch}`, this._compareBranch);
 			if (startBase !== this._baseBranch || startCompare !== this._compareBranch) {
+				Logger.debug(`Branches have changed while getting git diff. Base: ${startBase} -> ${this._baseBranch}, Compare: ${startCompare} -> ${this._compareBranch}`, CreatePullRequestDataModel.ID);
 				// The branches have changed while we were waiting for the diff. We can use the result, but we shouldn't save it
 				return result;
 			} else {
+				Logger.debug(`Got ${result.length} git file diffs for merging ${this._compareOwner}/${this._compareBranch} in ${this._baseOwner}/${this._baseBranch}`, CreatePullRequestDataModel.ID);
 				this._gitFiles = result;
 			}
 		}
