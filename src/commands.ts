@@ -974,7 +974,7 @@ export function registerCommands(
 		if (handler) {
 			await handler.unresolveReviewThread(thread, text);
 			if (focusReply) {
-				thread.reveal({ focusReply: true });
+				thread.reveal(undefined, { focus: vscode.CommentThreadFocus.Reply });
 			}
 		}
 	};

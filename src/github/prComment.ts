@@ -48,7 +48,7 @@ export interface GHPRCommentThread extends vscode.CommentThread2 {
 	 */
 	state?: { resolved: vscode.CommentThreadState; applicability?: vscode.CommentThreadApplicability };
 
-	reveal(options?: vscode.CommentThreadRevealOptions): Promise<void>;
+	reveal(comment?: vscode.Comment, options?: vscode.CommentThreadRevealOptions): Promise<void>;
 
 	dispose: () => void;
 }
