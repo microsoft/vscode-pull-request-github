@@ -3,48 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as buffer from 'buffer';
 import * as vscode from 'vscode';
 import { fromGitHubURI, GitHubUriParams } from '../common/uri';
 import { compareIgnoreCase } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
-
-export async function getGitHubFileContent(gitHubRepository: GitHubRepository, fileName: string, ref: string): Promise<Uint8Array> {
-	const { octokit, remote } = await gitHubRepository.ensure();
-	let contents: string = '';
-	let fileContent: { data: { content: string; encoding: string; sha: string } };
-	try {
-		fileContent = (await octokit.call(octokit.api.repos.getContent,
-			{
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				path: fileName,
-				ref,
-			},
-		)) as any;
-		contents = fileContent.data.content ?? '';
-	} catch (e) {
-		if (e.status === 404) {
-			return new Uint8Array(0);
-		}
-		throw e;
-	}
-
-	// Empty contents and 'none' encoding indcates that the file has been truncated and we should get the blob.
-	if (contents === '' && fileContent.data.encoding === 'none') {
-		const fileSha = fileContent.data.sha;
-		fileContent = await octokit.call(octokit.api.git.getBlob, {
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			file_sha: fileSha,
-		});
-		contents = fileContent.data.content;
-	}
-
-	const buff = buffer.Buffer.from(contents, (fileContent.data as any).encoding);
-	return buff;
-}
 
 async function getGitFileContent(folderRepoManager: FolderRepositoryManager, fileName: string, branch: string, isEmpty: boolean): Promise<Uint8Array> {
 	let content = '';
@@ -157,7 +120,7 @@ export class GitHubContentProvider extends ChangesContentProvider implements vsc
 		if (!repo) {
 			throw new Error(`No GitHub repository found for owner ${asParams!.owner}`);
 		}
-		const content = await getGitHubFileContent(repo, asParams!.fileName, asParams!.branch);
+		const content = await repo.getFile(asParams!.fileName, asParams!.branch);
 		this.changedFiles.set(uri.toString(), { file: content, modified: false });
 		return this.changedFiles.get(uri.toString())!.file;
 	}

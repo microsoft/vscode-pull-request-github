@@ -163,18 +163,18 @@ export async function provideDocumentContentForChangeModel(folderRepoManager: Fo
 	let inMemNeedsFullFile = false;
 	if (fileChange instanceof InMemFileChangeModel) {
 		// Partial or looks like binary.
-		inMemNeedsFullFile = (await fileChange.isPartial()) || ((fileChange.status === GitChangeType.ADD || fileChange.status === GitChangeType.RENAME) && diffHunks.length === 0);
+		inMemNeedsFullFile = await fileChange.isPartial();
 	}
 
 	if ((fileChange instanceof RemoteFileChangeModel) || ((fileChange instanceof InMemFileChangeModel) && inMemNeedsFullFile)) {
 		try {
 			if (params.isBase) {
-				return pullRequestModel.getFile(
+				return pullRequestModel.githubRepository.getFile(
 					fileChange.previousFileName || fileChange.fileName,
 					params.baseCommit,
 				);
 			} else {
-				return pullRequestModel.getFile(fileChange.fileName, params.headCommit);
+				return pullRequestModel.githubRepository.getFile(fileChange.fileName, params.headCommit);
 			}
 		} catch (e) {
 			Logger.error(`Fetching file content failed: ${e}`, 'PR');

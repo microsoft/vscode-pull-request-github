@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as buffer from 'buffer';
 import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
 import * as vscode from 'vscode';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
@@ -1039,6 +1040,52 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.error(`Unable to fetch PR: ${e}`, this.id);
 			return;
 		}
+	}
+
+	/**
+	 * Gets file content for a file at the specified commit
+	 * @param filePath The file path
+	 * @param ref The commit
+	 */
+	async getFile(filePath: string, ref: string): Promise<Uint8Array> {
+		const { octokit, remote } = await this.ensure();
+		let contents: string = '';
+		let fileContent: { data: { content: string; encoding: string; sha: string } };
+		try {
+			fileContent = (await octokit.call(octokit.api.repos.getContent,
+				{
+					owner: remote.owner,
+					repo: remote.repositoryName,
+					path: filePath,
+					ref,
+				},
+			)) as any;
+
+			if (Array.isArray(fileContent.data)) {
+				throw new Error(`Unexpected array response when getting file ${filePath}`);
+			}
+
+			contents = fileContent.data.content ?? '';
+		} catch (e) {
+			if (e.status === 404) {
+				return new Uint8Array(0);
+			}
+			throw e;
+		}
+
+		// Empty contents and 'none' encoding indcates that the file has been truncated and we should get the blob.
+		if (contents === '' && fileContent.data.encoding === 'none') {
+			const fileSha = fileContent.data.sha;
+			fileContent = await octokit.call(octokit.api.git.getBlob, {
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				file_sha: fileSha,
+			});
+			contents = fileContent.data.content;
+		}
+
+		const buff = buffer.Buffer.from(contents, (fileContent.data as any).encoding);
+		return buff;
 	}
 
 	async hasBranch(branchName: string): Promise<boolean> {
