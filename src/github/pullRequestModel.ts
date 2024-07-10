@@ -1180,29 +1180,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	/**
-	 * Gets file content for a file at the specified commit
-	 * @param filePath The file path
-	 * @param commit The commit
-	 */
-	async getFile(filePath: string, commit: string): Promise<Uint8Array> {
-		const { octokit, remote } = await this.githubRepository.ensure();
-		const fileContent = await octokit.call(octokit.api.repos.getContent, {
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			path: filePath,
-			ref: commit,
-		});
-
-		if (Array.isArray(fileContent.data)) {
-			throw new Error(`Unexpected array response when getting file ${filePath}`);
-		}
-
-		const contents = (fileContent.data as any).content ?? '';
-		const buff = buffer.Buffer.from(contents, (fileContent.data as any).encoding);
-		return buff;
-	}
-
-	/**
 	 * Get the timeline events of a pull request, including comments, reviews, commits, merges, deletes, and assigns.
 	 */
 	async getTimelineEvents(): Promise<TimelineEvent[]> {

@@ -38,7 +38,6 @@ import { PullRequestGitHelper, PullRequestMetadata } from '../github/pullRequest
 import { IResolvedPullRequestModel, PullRequestModel } from '../github/pullRequestModel';
 import { CreatePullRequestHelper } from './createPullRequestHelper';
 import { GitFileChangeModel, InMemFileChangeModel, RemoteFileChangeModel } from './fileChangeModel';
-import { getGitHubFileContent } from './gitHubContentProvider';
 import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from './inMemPRContentProvider';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { ProgressHelper } from './progress';
@@ -1306,7 +1305,7 @@ export class ReviewManager {
 			return ret.join('\n');
 		} else if (base && commit && this._folderRepoManager.activePullRequest) {
 			// We can't get the content from git. Try to get it from github.
-			const content = await getGitHubFileContent(this._folderRepoManager.activePullRequest.githubRepository, path, commit);
+			const content = await this._folderRepoManager.activePullRequest.githubRepository.getFile(path, commit);
 			return content.toString();
 		}
 	}

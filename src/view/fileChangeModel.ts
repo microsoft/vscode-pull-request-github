@@ -111,27 +111,28 @@ export class InMemFileChangeModel extends FileChangeModel {
 
 	async isPartial(): Promise<boolean> {
 		let originalFileExist = false;
+		let fileName: string | undefined = undefined;
 
-		switch (this.change.status) {
-			case GitChangeType.DELETE:
-			case GitChangeType.MODIFY:
-				try {
-					await this.folderRepoManager.repository.getObjectDetails(this.change.baseCommit, this.change.fileName);
-					originalFileExist = true;
-				} catch (err) {
-					/* noop */
-				}
-				break;
-			case GitChangeType.RENAME:
-				try {
-					await this.folderRepoManager.repository.getObjectDetails(this.change.baseCommit, this.change.previousFileName!);
-					originalFileExist = true;
-				} catch (err) {
-					/* noop */
-				}
-				break;
+		if ((this.change.patch === '') &&
+			((this.change.status === GitChangeType.MODIFY) || (this.change.status === GitChangeType.RENAME) || (this.change.status === GitChangeType.ADD))) {
+			return true;
 		}
-		return !originalFileExist && (this.change.status !== GitChangeType.ADD);
+
+		if ((this.change.status === GitChangeType.DELETE) || (this.change.status === GitChangeType.MODIFY)) {
+			fileName = this.change.fileName;
+		} else if (this.change.status === GitChangeType.RENAME) {
+			fileName = this.change.previousFileName!;
+		}
+
+		try {
+			if (fileName) {
+				await this.folderRepoManager.repository.getObjectDetails(this.change.baseCommit, fileName);
+				originalFileExist = true;
+			}
+		} catch (err) {
+			/* noop */
+		}
+		return !originalFileExist;
 	}
 
 	get patch(): string {
