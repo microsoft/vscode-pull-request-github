@@ -416,10 +416,7 @@ export class GitHubRepository implements vscode.Disposable {
 			return overrideSetting;
 		}
 		try {
-			Logger.debug(`Fetch default branch - enter`, this.id);
 			const data = await this.getMetadata();
-			Logger.debug(`Fetch default branch - done`, this.id);
-
 			return data.default_branch;
 		} catch (e) {
 			Logger.warn(`Fetching default branch failed: ${e}`, this.id);
