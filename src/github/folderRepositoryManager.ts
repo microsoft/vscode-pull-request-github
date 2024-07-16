@@ -198,8 +198,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	private _onDidLoadRepositories = new vscode.EventEmitter<ReposManagerState>();
 	readonly onDidLoadRepositories: vscode.Event<ReposManagerState> = this._onDidLoadRepositories.event;
 
-	private _onDidChangeRepositories = new vscode.EventEmitter<void>();
-	readonly onDidChangeRepositories: vscode.Event<void> = this._onDidChangeRepositories.event;
+	private _onDidChangeRepositories = new vscode.EventEmitter<{ added: boolean }>();
+	readonly onDidChangeRepositories: vscode.Event<{ added: boolean }> = this._onDidChangeRepositories.event;
 
 	private _onDidChangeAssignableUsers = new vscode.EventEmitter<IAccount[]>();
 	readonly onDidChangeAssignableUsers: vscode.Event<IAccount[]> = this._onDidChangeAssignableUsers.event;
@@ -507,17 +507,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			this._githubRepositories = repositories;
 			oldRepositories.filter(old => this._githubRepositories.indexOf(old) < 0).forEach(repo => repo.dispose());
 
-			const repositoriesChanged =
-				oldRepositories.length !== this._githubRepositories.length ||
-				!oldRepositories.every(oldRepo =>
-					this._githubRepositories.some(newRepo => newRepo.remote.equals(oldRepo.remote)),
-				);
+			const repositoriesAdded =
+				oldRepositories.length !== this._githubRepositories.length ?
+					this.gitHubRepositories.filter(repo =>
+						!oldRepositories.some(oldRepo => oldRepo.remote.equals(repo.remote)),
+					) : [];
 
-			if (repositoriesChanged) {
+			if (repositoriesAdded.length > 0) {
 				this._onDidChangeGithubRepositories.fire(this._githubRepositories);
 			}
 
-			if (this._githubRepositories.length && repositoriesChanged) {
+			if (this._githubRepositories.length && repositoriesAdded.length > 0) {
 				if (await this.checkIfMissingUpstream()) {
 					this.updateRepositories(silent);
 					return true;
@@ -525,17 +525,18 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 
 			if (this.activePullRequest) {
-				this.getMentionableUsers(repositoriesChanged);
+				this.getMentionableUsers(repositoriesAdded.length > 0);
 			}
 
-			this.getAssignableUsers(repositoriesChanged);
+			this.getAssignableUsers(repositoriesAdded.length > 0);
 			if (isAuthenticated && activeRemotes.length) {
 				this._onDidLoadRepositories.fire(ReposManagerState.RepositoriesLoaded);
 			} else if (!isAuthenticated) {
 				this._onDidLoadRepositories.fire(ReposManagerState.NeedsAuthentication);
 			}
 			if (!silent) {
-				this._onDidChangeRepositories.fire();
+				console.log(this.repository.rootUri.fsPath);
+				this._onDidChangeRepositories.fire({ added: repositoriesAdded.length > 0 });
 			}
 			return true;
 		});
@@ -1169,7 +1170,10 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	 */
 	async getIssues(
 		query?: string,
-	): Promise<ItemsResponseResult<IssueModel>> {
+	): Promise<ItemsResponseResult<IssueModel> | undefined> {
+		if (this.gitHubRepositories.length === 0) {
+			return undefined;
+		}
 		try {
 			const data = await this.fetchPagedData<Issue>({ fetchNextPage: false, fetchOnePagePerRepo: false }, `issuesKey${query}`, PagedDataType.IssueSearch, PRType.All, query);
 			const mappedData: ItemsResponseResult<IssueModel> = {

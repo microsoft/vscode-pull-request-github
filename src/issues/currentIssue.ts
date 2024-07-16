@@ -85,7 +85,7 @@ export class CurrentIssue {
 					)) {
 						await this.manager.assignIssue(this.issueModel, login);
 					}
-					await this.stateManager.refresh();
+					await this.stateManager.refresh(this.manager);
 				}
 				return true;
 			}

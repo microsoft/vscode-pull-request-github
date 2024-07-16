@@ -66,7 +66,7 @@ export type QueryGroup = 'repository' | 'milestone';
 
 export interface IssueQueryResult {
 	groupBy: QueryGroup[];
-	issues: IssueItem[];
+	issues: IssueItem[] | undefined;
 }
 
 export class StateManager {
@@ -193,8 +193,12 @@ export class StateManager {
 		this._onRefreshCacheNeeded.fire();
 	}
 
-	async refresh() {
-		return this.setAllIssueData();
+	async refresh(folderManager?: FolderRepositoryManager) {
+		if (folderManager) {
+			return this.setIssueData(folderManager);
+		} else {
+			return this.setAllIssueData();
+		}
 	}
 
 	private async doInitialize() {
@@ -226,7 +230,14 @@ export class StateManager {
 		);
 
 		for (const folderManager of this.manager.folderManagers) {
-			this.context.subscriptions.push(folderManager.onDidChangeRepositories(() => this.refresh()));
+			this.context.subscriptions.push(folderManager.onDidChangeRepositories(async (e) => {
+				if (e.added) {
+					const state = this.getOrCreateSingleRepoState(folderManager.repository.rootUri);
+					if ((state.issueCollection.size === 0) || (await Promise.all(state.issueCollection.values())).some(collection => collection.issues === undefined)) {
+						this.refresh(folderManager);
+					}
+				}
+			}));
 
 			const singleRepoState: SingleRepoState = this.getOrCreateSingleRepoState(
 				folderManager.repository.rootUri,
@@ -317,12 +328,12 @@ export class StateManager {
 		singleRepoState.lastBranch = folderManager.repository.state.HEAD?.name;
 	}
 
-	private setIssues(folderManager: FolderRepositoryManager, query: string): Promise<IssueItem[]> {
+	private setIssues(folderManager: FolderRepositoryManager, query: string): Promise<IssueItem[] | undefined> {
 		return new Promise(async resolve => {
 			const issues = await folderManager.getIssues(query);
 			this._onDidChangeIssueData.fire();
 			resolve(
-				issues.items.map(item => {
+				issues?.items.map(item => {
 					const issueItem: IssueItem = item as IssueItem;
 					issueItem.uri = folderManager.repository.rootUri;
 					return issueItem;

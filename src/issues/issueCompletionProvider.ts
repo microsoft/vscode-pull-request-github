@@ -152,16 +152,16 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		let totalIssues = 0;
 		for (const issueQuery of issueData) {
 			const issuesOrMilestones: IssueQueryResult = await issueQuery[1];
-			totalIssues += issuesOrMilestones.issues.length;
+			totalIssues += (issuesOrMilestones.issues ?? []).length;
 		}
 
 		for (const issueQuery of issueData) {
 			const issuesOrMilestones: IssueQueryResult = await issueQuery[1];
-			if (issuesOrMilestones.issues.length === 0) {
+			if ((issuesOrMilestones.issues ?? []).length === 0) {
 				continue;
 			}
 			let index = 0;
-			for (const issue of issuesOrMilestones.issues) {
+			for (const issue of (issuesOrMilestones.issues ?? [])) {
 				if (filterOwnerAndRepo && ((issue as IssueModel).remote.owner !== filterOwnerAndRepo.owner || (issue as IssueModel).remote.repositoryName !== filterOwnerAndRepo.repo)) {
 					continue;
 				}
