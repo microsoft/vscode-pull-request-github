@@ -1271,7 +1271,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 		});
 
-		const pendingReview = reviewEvents.filter(r => r.state.toLowerCase() === 'pending')[0];
+		const pendingReview = reviewEvents.filter(r => r.state?.toLowerCase() === 'pending')[0];
 		if (pendingReview) {
 			// Ensures that pending comments made in reply to other reviews are included for the pending review
 			pendingReview.comments = reviewComments.filter(c => c.isDraft);

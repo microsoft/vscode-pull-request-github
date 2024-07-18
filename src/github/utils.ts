@@ -1183,12 +1183,13 @@ export function parseReviewers(
 	seen.set(author.login, true);
 
 	for (let i = reviewEvents.length - 1; i >= 0; i--) {
-		const reviewer = reviewEvents[i].user;
-		if (!seen.get(reviewer.login)) {
+		const reviewEvent = reviewEvents[i];
+		const reviewer = reviewEvent.user;
+		if (reviewEvent.state && !seen.get(reviewer.login)) {
 			seen.set(reviewer.login, true);
 			reviewers.push({
 				reviewer: reviewer,
-				state: reviewEvents[i].state,
+				state: reviewEvent.state,
 			});
 		}
 	}

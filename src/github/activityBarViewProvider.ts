@@ -351,7 +351,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	private updateReviewers(review?: CommonReviewEvent): void {
-		if (review) {
+		if (review && review.state) {
 			const existingReviewer = this._existingReviewers.find(
 				reviewer => review.user.login === reviewerId(reviewer.reviewer),
 			);

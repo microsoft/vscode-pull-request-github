@@ -58,7 +58,7 @@ export interface ReviewEvent {
 	htmlUrl: string;
 	user: IAccount;
 	authorAssociation: string;
-	state: 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING' | 'REQUESTED';
+	state?: 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING' | 'REQUESTED';
 }
 
 export interface CommitEvent {
