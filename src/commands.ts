@@ -60,7 +60,6 @@ function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode | Pull
 }
 
 export async function openDescription(
-	context: vscode.ExtensionContext,
 	telemetry: ITelemetry,
 	pullRequestModel: PullRequestModel,
 	descriptionNode: DescriptionNode | undefined,
@@ -74,7 +73,7 @@ export async function openDescription(
 		descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
 	}
 	// Create and show a new webview
-	await PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest, undefined, preserveFocus);
+	await PullRequestOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, pullRequest, undefined, preserveFocus);
 
 	if (notificationProvider?.hasNotification(pullRequest)) {
 		notificationProvider.markPrNotificationsAsRead(pullRequest);
@@ -124,7 +123,7 @@ export function registerCommands(
 	reposManager: RepositoriesManager,
 	reviewsManager: ReviewsManager,
 	telemetry: ITelemetry,
-	tree: PullRequestsTreeDataProvider
+	tree: PullRequestsTreeDataProvider,
 ) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
@@ -812,7 +811,7 @@ export function registerCommands(
 					descriptionNode = reviewManager.changesInPrDataProvider.getDescriptionNode(folderManager);
 				}
 
-				await openDescription(context, telemetry, pullRequestModel, descriptionNode, folderManager, !(argument instanceof DescriptionNode), !(argument instanceof RepositoryChangesNode), tree.notificationProvider);
+				await openDescription(telemetry, pullRequestModel, descriptionNode, folderManager, !(argument instanceof DescriptionNode), !(argument instanceof RepositoryChangesNode), tree.notificationProvider);
 			},
 		),
 	);
@@ -843,7 +842,7 @@ export function registerCommands(
 			const pullRequest = ensurePR(folderManager, pr);
 			descriptionNode.reveal(descriptionNode, { select: true, focus: true });
 			// Create and show a new webview
-			PullRequestOverviewPanel.createOrShow(context.extensionUri, folderManager, pullRequest, true);
+			PullRequestOverviewPanel.createOrShow(telemetry, context.extensionUri, folderManager, pullRequest, true);
 
 			/* __GDPR__
 			"pr.openDescriptionToTheSide" : {}

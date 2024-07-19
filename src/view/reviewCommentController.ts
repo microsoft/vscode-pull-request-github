@@ -15,6 +15,7 @@ import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPosition
 import { GitChangeType } from '../common/file';
 import Logger from '../common/logger';
 import { PR_SETTINGS_NAMESPACE, PULL_BRANCH, PULL_PR_BRANCH_BEFORE_CHECKOUT, PullPRBranchVariants } from '../common/settingKeys';
+import { ITelemetry } from '../common/telemetry';
 import { fromReviewUri, ReviewUriParams, Schemes, toReviewUri } from '../common/uri';
 import { dispose, formatError, groupBy, uniqBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -59,9 +60,10 @@ export class ReviewCommentController extends CommentControllerBase
 		folderRepoManager: FolderRepositoryManager,
 		private _repository: Repository,
 		private _reviewModel: ReviewModel,
-		private _gitApi: GitApiImpl
+		private _gitApi: GitApiImpl,
+		telemetry: ITelemetry
 	) {
-		super(folderRepoManager);
+		super(folderRepoManager, telemetry);
 		this._context = this._folderRepoManager.context;
 		this._commentController = vscode.comments.createCommentController(
 			`github-review-${folderRepoManager.activePullRequest?.remote.owner}-${folderRepoManager.activePullRequest?.remote.owner}-${folderRepoManager.activePullRequest!.number}`,

@@ -658,7 +658,7 @@ body button .icon {
 	white-space: nowrap;
 }
 
-.sha-with-timestamp {
+.timeline-detail {
 	display: flex;
 	align-items: center;
 	gap: 8px;

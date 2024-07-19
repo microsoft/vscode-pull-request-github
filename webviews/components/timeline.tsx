@@ -17,7 +17,7 @@ import {
 } from '../../src/common/timelineEvent';
 import { groupBy, UnreachableCaseError } from '../../src/common/utils';
 import PullRequestContext from '../common/context';
-import {  CommentView } from './comment';
+import { CommentView } from './comment';
 import Diff from './diff';
 import { commitIcon, mergeIcon, plusIcon } from './icon';
 import { nbsp } from './space';
@@ -26,26 +26,26 @@ import { AuthorLink, Avatar } from './user';
 
 export const Timeline = ({ events }: { events: TimelineEvent[] }) => (
 	<>
-	{events.map(event => {
-		switch (event.event) {
-			case EventType.Committed:
-				return <CommitEventView key={`commit${event.id}`} {...event} />;
-			case EventType.Reviewed:
-				return <ReviewEventView key={`review${event.id}`} {...event} />;
-			case EventType.Commented:
-				return <CommentEventView key={`comment${event.id}`} {...event} />;
-			case EventType.Merged:
-				return <MergedEventView key={`merged${event.id}`} {...event} />;
-			case EventType.Assigned:
-				return <AssignEventView key={`assign${event.id}`} {...event} />;
-			case EventType.HeadRefDeleted:
-				return <HeadDeleteEventView key={`head${event.id}`} {...event} />;
-			case EventType.NewCommitsSinceReview:
-				return <NewCommitsSinceReviewEventView key={`newCommits${event.id}`} />;
-			default:
-				throw new UnreachableCaseError(event);
-		}
-	})}
+		{events.map(event => {
+			switch (event.event) {
+				case EventType.Committed:
+					return <CommitEventView key={`commit${event.id}`} {...event} />;
+				case EventType.Reviewed:
+					return <ReviewEventView key={`review${event.id}`} {...event} />;
+				case EventType.Commented:
+					return <CommentEventView key={`comment${event.id}`} {...event} />;
+				case EventType.Merged:
+					return <MergedEventView key={`merged${event.id}`} {...event} />;
+				case EventType.Assigned:
+					return <AssignEventView key={`assign${event.id}`} {...event} />;
+				case EventType.HeadRefDeleted:
+					return <HeadDeleteEventView key={`head${event.id}`} {...event} />;
+				case EventType.NewCommitsSinceReview:
+					return <NewCommitsSinceReviewEventView key={`newCommits${event.id}`} />;
+				default:
+					throw new UnreachableCaseError(event);
+			}
+		})}
 	</>
 );
 
@@ -66,7 +66,7 @@ const CommitEventView = (event: CommitEvent) => (
 				</a>
 			</div>
 		</div>
-		<div className="sha-with-timestamp">
+		<div className="timeline-detail">
 			<a className="sha" href={event.htmlUrl} title={event.htmlUrl}>
 				{event.sha.slice(0, 7)}
 			</a>
@@ -106,16 +106,16 @@ const ReviewEventView = (event: ReviewEvent) => {
 	const reviewIsPending = event.state === 'PENDING';
 	return (
 		<CommentView comment={event} allowEmpty={true}>
-				{/* Don't show the empty comment body unless a comment has been written. Shows diffs and suggested changes. */}
-				{event.comments.length ? (
-					<div className="comment-body review-comment-body">
-						{Object.entries(comments).map(([key, thread]) => {
-							return <CommentThread key={key} thread={thread} event={event} />;
-						})}
-					</div>
-				) : null}
+			{/* Don't show the empty comment body unless a comment has been written. Shows diffs and suggested changes. */}
+			{event.comments.length ? (
+				<div className="comment-body review-comment-body">
+					{Object.entries(comments).map(([key, thread]) => {
+						return <CommentThread key={key} thread={thread} event={event} />;
+					})}
+				</div>
+			) : null}
 
-				{reviewIsPending ? <AddReviewSummaryComment /> : null}
+			{reviewIsPending ? <AddReviewSummaryComment /> : null}
 		</CommentView>
 	);
 };
@@ -222,28 +222,36 @@ function AddReviewSummaryComment() {
 
 const CommentEventView = (event: CommentEvent) => <CommentView headerInEditMode comment={event} />;
 
-const MergedEventView = (event: MergedEvent) => (
-	<div className="comment-container commit">
-		<div className="commit-message">
-			{mergeIcon}
-			{nbsp}
-			<div className="avatar-container">
-				<Avatar for={event.user} />
-			</div>
-			<AuthorLink for={event.user} />
-			<div className="message">
-				merged commit{nbsp}
-				<a className="sha" href={event.commitUrl} title={event.commitUrl}>
-					{event.sha.substr(0, 7)}
-				</a>
+const MergedEventView = (event: MergedEvent) => {
+	const { revert, pr } = useContext(PullRequestContext);
+
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				{mergeIcon}
 				{nbsp}
-				into {event.mergeRef}
-				{nbsp}
+				<div className="avatar-container">
+					<Avatar for={event.user} />
+				</div>
+				<AuthorLink for={event.user} />
+				<div className="message">
+					merged commit{nbsp}
+					<a className="sha" href={event.commitUrl} title={event.commitUrl}>
+						{event.sha.substr(0, 7)}
+					</a>
+					{nbsp}
+					into {event.mergeRef}
+					{nbsp}
+				</div>
+				<Timestamp href={event.url} date={event.createdAt} />
 			</div>
-			<Timestamp href={event.url} date={event.createdAt} />
+			{pr.revertable ?
+				<div className="timeline-detail">
+					<button className='secondary' disabled={pr.busy} onClick={revert}>Revert</button>
+				</div> : null}
 		</div>
-	</div>
-);
+	);
+};
 
 const HeadDeleteEventView = (event: HeadRefDeleteEvent) => (
 	<div className="comment-container commit">

@@ -6,7 +6,6 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
 import { CreateParamsNew, RemoteInfo } from '../../common/views';
-import { compareIgnoreCase } from '../../src/common/utils';
 import { isTeam, MergeMethod } from '../../src/github/interface';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
@@ -87,15 +86,6 @@ export function main() {
 						await ctx.submit();
 					}
 					setBusy(false);
-				}
-
-				let isCreateable: boolean = true;
-				if (ctx.createParams.baseRemote && ctx.createParams.compareRemote && ctx.createParams.baseBranch && ctx.createParams.compareBranch
-					&& compareIgnoreCase(ctx.createParams.baseRemote?.owner, ctx.createParams.compareRemote?.owner) === 0
-					&& compareIgnoreCase(ctx.createParams.baseRemote?.repositoryName, ctx.createParams.compareRemote?.repositoryName) === 0
-					&& compareIgnoreCase(ctx.createParams.baseBranch, ctx.createParams.compareBranch) === 0) {
-
-					isCreateable = false;
 				}
 
 				const onKeyDown = useCallback((isTitle: boolean, e) => {
@@ -198,7 +188,7 @@ export function main() {
 				}
 
 				return <div className='group-main' data-vscode-context='{"preventDefaultContextMenuItems": true}'>
-					<div className='group-branches'>
+					<div className='group-branches' hidden={!ctx.createParams.canModifyBranches}>
 						<div className='input-label base'>
 							<div className="deco">
 								<span title='Base branch' aria-hidden='true'>{prBaseIcon} Base</span>
@@ -357,7 +347,7 @@ export function main() {
 							defaultOptionLabel={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).label}
 							defaultOptionValue={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).value}
 							optionsTitle='Create with Option'
-							disabled={isBusy || isGeneratingTitle || params.reviewing || !isCreateable || !ctx.initialized}
+							disabled={isBusy || isGeneratingTitle || params.reviewing || !ctx.isCreatable || !ctx.initialized}
 						/>
 
 					</div>

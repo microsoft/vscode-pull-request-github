@@ -8,6 +8,7 @@ import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
 import { DiffSide, IComment, SubjectType } from '../common/comment';
+import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, Schemes } from '../common/uri';
 import { dispose, groupBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -38,8 +39,9 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		private readonly pullRequestModel: PullRequestModel,
 		folderRepoManager: FolderRepositoryManager,
 		commentController: vscode.CommentController,
+		telemetry: ITelemetry
 	) {
-		super(folderRepoManager);
+		super(folderRepoManager, telemetry);
 		this._commentController = commentController;
 		this._context = folderRepoManager.context;
 		this._commentHandlerId = uuid();
@@ -454,7 +456,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 
 
 	public async openReview(): Promise<void> {
-		await PullRequestOverviewPanel.createOrShow(this._folderRepoManager.context.extensionUri, this._folderRepoManager, this.pullRequestModel);
+		await PullRequestOverviewPanel.createOrShow(this._telemetry, this._folderRepoManager.context.extensionUri, this._folderRepoManager, this.pullRequestModel);
 		PullRequestOverviewPanel.scrollToReview();
 
 		/* __GDPR__

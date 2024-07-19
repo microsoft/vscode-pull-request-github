@@ -137,6 +137,7 @@ button.input-box {
 .group-description {
 	flex-grow: 1;
 	margin-top: 10px;
+	max-height: 500px;
 }
 
 input[type=text],

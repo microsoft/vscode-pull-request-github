@@ -5,6 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GHPRComment } from '../github/prComment';
@@ -24,7 +25,7 @@ export class PRCommentControllerRegistry implements vscode.CommentingRangeProvid
 	private _activeChangeListeners: Map<FolderRepositoryManager, vscode.Disposable> = new Map();
 	public readonly resourceHints = { schemes: [Schemes.Pr] };
 
-	constructor(public commentsController: vscode.CommentController) {
+	constructor(public commentsController: vscode.CommentController, private _telemetry: ITelemetry) {
 		this.commentsController.commentingRangeProvider = this;
 		this.commentsController.reactionHandler = this.toggleReaction.bind(this);
 	}
@@ -84,7 +85,7 @@ export class PRCommentControllerRegistry implements vscode.CommentingRangeProvid
 			}));
 		}
 
-		const handler = new PullRequestCommentController(pullRequestModel, folderRepositoryManager, this.commentsController);
+		const handler = new PullRequestCommentController(pullRequestModel, folderRepositoryManager, this.commentsController, this._telemetry);
 		this._prCommentHandlers[prNumber] = {
 			handler,
 			refCount: 1,

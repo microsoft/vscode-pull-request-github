@@ -33,6 +33,7 @@ import { batchPromiseAll, compareIgnoreCase, formatError, Predicate } from '../c
 import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
+import { CreatePullRequestHelper } from '../view/createPullRequestHelper';
 import { OctokitCommon } from './common';
 import { ConflictModel } from './conflictGuide';
 import { ConflictResolutionCoordinator } from './conflictResolutionCoordinator';
@@ -217,6 +218,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		public readonly telemetry: ITelemetry,
 		private _git: GitApiImpl,
 		private _credentialStore: CredentialStore,
+		public readonly createPullRequestHelper: CreatePullRequestHelper
 	) {
 		this._subs = [];
 		this._githubRepositories = [];
@@ -1952,6 +1954,18 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				resolve();
 			});
 		});
+	}
+
+	async revert(pullRequest: PullRequestModel, title: string, body: string, draft: boolean): Promise<PullRequestModel | undefined> {
+		const repo = this._githubRepositories.find(
+			r => r.remote.owner === pullRequest.remote.owner && r.remote.repositoryName === pullRequest.remote.repositoryName,
+		);
+		if (!repo) {
+			throw new Error(`No matching repository ${pullRequest.remote.repositoryName} found for ${pullRequest.remote.owner}`);
+		}
+
+		const pullRequestModel: PullRequestModel | undefined = await repo.revertPullRequest(pullRequest.graphNodeId, title, body, draft);
+		return pullRequestModel;
 	}
 
 	async getPullRequestRepositoryDefaultBranch(issue: IssueModel): Promise<string> {

@@ -89,6 +89,7 @@ export interface PullRequest {
 	hasReviewDraft: boolean;
 
 	lastReviewType?: ReviewType;
+	revertable?: boolean;
 	busy?: boolean;
 }
 

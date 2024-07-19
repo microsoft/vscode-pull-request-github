@@ -36,6 +36,7 @@ import {
 	PullRequestsResponse,
 	PullRequestTemplatesResponse,
 	RepoProjectsResponse,
+	RevertPullRequestResponse,
 	ViewerPermissionResponse,
 } from './graphql';
 import {
@@ -180,7 +181,7 @@ export class GitHubRepository implements vscode.Disposable {
 				`github-browse-${this.remote.normalizedHost}-${this.remote.owner}-${this.remote.repositoryName}`,
 				`Pull Request (${this.remote.owner}/${this.remote.repositoryName})`,
 			);
-			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController);
+			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController, this._telemetry);
 			this._toDispose.push(this.commentsHandler);
 			this._toDispose.push(this.commentsController);
 		} catch (e) {
@@ -982,6 +983,33 @@ export class GitHubRepository implements vscode.Disposable {
 			return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data.createPullRequest.pullRequest, this));
 		} catch (e) {
 			Logger.error(`Unable to create PR: ${e}`, this.id);
+			throw e;
+		}
+	}
+
+	async revertPullRequest(pullRequestId: string, title: string, body: string, draft: boolean): Promise<PullRequestModel> {
+		try {
+			Logger.debug(`Revert pull request - enter`, this.id);
+			const { mutate, schema } = await this.ensure();
+
+			const { data } = await mutate<RevertPullRequestResponse>({
+				mutation: schema.RevertPullRequest,
+				variables: {
+					input: {
+						pullRequestId,
+						title,
+						body,
+						draft
+					}
+				}
+			});
+			Logger.debug(`Revert pull request - done`, this.id);
+			if (!data) {
+				throw new Error('Failed to create revert pull request.');
+			}
+			return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data.revertPullRequest.revertPullRequest, this));
+		} catch (e) {
+			Logger.error(`Unable to create revert PR: ${e}`, this.id);
 			throw e;
 		}
 	}

@@ -905,7 +905,8 @@ export class ReviewManager {
 				this._folderRepoManager,
 				this._repository,
 				this._reviewModel,
-				this._gitApi
+				this._gitApi,
+				this._telemetry
 			);
 
 			await this._reviewCommentController.initialize();
@@ -1149,12 +1150,15 @@ export class ReviewManager {
 	}
 
 	public async createPullRequest(compareBranch?: string): Promise<void> {
-		const postCreate = async (createdPR: PullRequestModel) => {
+		const postCreate = async (createdPR: PullRequestModel | undefined) => {
+			if (!createdPR) {
+				return;
+			}
+
 			const postCreate = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'none' | 'openOverview' | 'checkoutDefaultBranch' | 'checkoutDefaultBranchAndShow' | 'checkoutDefaultBranchAndCopy'>(POST_CREATE, 'openOverview');
 			if (postCreate === 'openOverview') {
 				const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(this._folderRepoManager);
 				await openDescription(
-					this._context,
 					this._telemetry,
 					createdPR,
 					descriptionNode,
@@ -1192,7 +1196,6 @@ export class ReviewManager {
 
 		const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(this._folderRepoManager);
 		await openDescription(
-			this._context,
 			this._telemetry,
 			pullRequest,
 			descriptionNode,

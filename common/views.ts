@@ -89,6 +89,7 @@ export interface CreatePullRequestNew {
 // #region new create view
 
 export interface CreateParamsNew {
+	canModifyBranches: boolean;
 	defaultBaseRemote?: RemoteInfo;
 	defaultBaseBranch?: string;
 	defaultCompareRemote?: RemoteInfo;
