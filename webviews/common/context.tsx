@@ -64,6 +64,12 @@ export class PRContext {
 
 	public deleteBranch = () => this.postMessage({ command: 'pr.deleteBranch' });
 
+	public revert = async () => {
+		this.updatePR({ busy: true });
+		const revertResult = await this.postMessage({ command: 'pr.revert' });
+		this.updatePR({ busy: false, ...revertResult });
+	};
+
 	public readyForReview = (): Promise<ReadyForReview> => this.postMessage({ command: 'pr.readyForReview' });
 
 	public addReviewers = () => this.postMessage({ command: 'pr.change-reviewers' });

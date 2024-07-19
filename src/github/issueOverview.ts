@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
+import { ITelemetry } from '../common/telemetry';
 import { asPromise, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
@@ -32,6 +33,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	protected _scrollPosition = { x: 0, y: 0 };
 
 	public static async createOrShow(
+		telemetry: ITelemetry,
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
 		issue: IssueModel,
@@ -50,6 +52,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		} else {
 			const title = `Issue #${issue.number.toString()}`;
 			IssueOverviewPanel.currentPanel = new IssueOverviewPanel(
+				telemetry,
 				extensionUri,
 				activeColumn || vscode.ViewColumn.Active,
 				title,
@@ -76,7 +79,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	protected constructor(
-		private readonly _extensionUri: vscode.Uri,
+		protected readonly _telemetry: ITelemetry,
+		protected readonly _extensionUri: vscode.Uri,
 		column: vscode.ViewColumn,
 		title: string,
 		folderRepositoryManager: FolderRepositoryManager,

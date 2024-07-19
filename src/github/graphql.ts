@@ -368,6 +368,12 @@ export interface CreatePullRequestResponse {
 	}
 }
 
+export interface RevertPullRequestResponse {
+	revertPullRequest: {
+		revertPullRequest: PullRequest
+	}
+}
+
 export interface AddReviewThreadResponse {
 	addPullRequestReviewThread: {
 		thread: ReviewThread;

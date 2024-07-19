@@ -21,6 +21,7 @@ import { CredentialStore } from '../../github/credentials';
 import { MockExtensionContext } from '../mocks/mockExtensionContext';
 import { Uri } from 'vscode';
 import { GitHubServerType } from '../../common/authentication';
+import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 
 describe('PullRequestManager', function () {
 	let sinon: SinonSandbox;
@@ -35,7 +36,7 @@ describe('PullRequestManager', function () {
 		const repository = new MockRepository();
 		const context = new MockExtensionContext();
 		const credentialStore = new CredentialStore(telemetry, context);
-		manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore);
+		manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore, new CreatePullRequestHelper());
 	});
 
 	afterEach(function () {

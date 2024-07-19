@@ -4,13 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { ITelemetry } from '../common/telemetry';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
 import { PullRequestModel } from '../github/pullRequestModel';
 
 export abstract class CommentControllerBase {
 	constructor(
-		protected _folderRepoManager: FolderRepositoryManager
+		protected _folderRepoManager: FolderRepositoryManager,
+		protected _telemetry: ITelemetry
 	) { }
 
 	protected _commentController: vscode.CommentController;

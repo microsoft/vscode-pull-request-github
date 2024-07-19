@@ -175,6 +175,14 @@ mutation CreatePullRequest($input: CreatePullRequestInput!) {
 	}
 }
 
+mutation RevertPullRequest($input: RevertPullRequestInput!) {
+	revertPullRequest(input: $input) {
+		revertPullRequest {
+			...PullRequestFragment
+		}
+	}
+}
+
 # Queries that only exist in this file and in extra
 
 mutation DequeuePullRequest($input: DequeuePullRequestInput!) {

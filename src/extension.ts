@@ -54,6 +54,7 @@ async function init(
 	liveshareApiPromise: Promise<LiveShare | undefined>,
 	showPRController: ShowPullRequest,
 	reposManager: RepositoriesManager,
+	createPrHelper: CreatePullRequestHelper
 ): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
@@ -146,8 +147,7 @@ async function init(
 
 	const activePrViewCoordinator = new WebviewViewCoordinator(context);
 	context.subscriptions.push(activePrViewCoordinator);
-	const createPrHelper = new CreatePullRequestHelper();
-	context.subscriptions.push(createPrHelper);
+
 	let reviewManagerIndex = 0;
 	const reviewManagers = reposManager.folderManagers.map(
 		folderManager => new ReviewManager(reviewManagerIndex++, context, folderManager.repository, folderManager, telemetry, changesTree, tree, showPRController, activePrViewCoordinator, createPrHelper, git),
@@ -170,7 +170,7 @@ async function init(
 				Logger.appendLine(`Repo ${repo.rootUri} has already been setup.`);
 				return;
 			}
-			const newFolderManager = new FolderRepositoryManager(reposManager.folderManagers.length, context, repo, telemetry, git, credentialStore);
+			const newFolderManager = new FolderRepositoryManager(reposManager.folderManagers.length, context, repo, telemetry, git, credentialStore, createPrHelper);
 			reposManager.insertFolderManager(newFolderManager);
 			const newReviewManager = new ReviewManager(
 				reviewManagerIndex++,
@@ -364,10 +364,12 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	Logger.appendLine('Looking for git repository');
 	const repositories = apiImpl.repositories;
 	Logger.appendLine(`Found ${repositories.length} repositories during activation`);
+	const createPrHelper = new CreatePullRequestHelper();
+	context.subscriptions.push(createPrHelper);
 
 	let folderManagerIndex = 0;
 	const folderManagers = repositories.map(
-		repository => new FolderRepositoryManager(folderManagerIndex++, context, repository, telemetry, apiImpl, credentialStore),
+		repository => new FolderRepositoryManager(folderManagerIndex++, context, repository, telemetry, apiImpl, credentialStore, createPrHelper),
 	);
 	context.subscriptions.push(...folderManagers);
 	for (const folderManager of folderManagers) {
@@ -379,7 +381,7 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	readOnlyMessage.isTrusted = { enabledCommands: ['pr.checkoutFromReadonlyFile'] };
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.Pr, inMemPRFileSystemProvider, { isReadonly: readOnlyMessage }));
 
-	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager);
+	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper);
 }
 
 export async function deactivate() {

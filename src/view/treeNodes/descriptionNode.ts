@@ -18,7 +18,7 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 	constructor(
 		public parent: TreeNodeParent,
 		public label: string,
-		public pullRequestModel: PullRequestModel,
+		public readonly pullRequestModel: PullRequestModel,
 		public readonly repository: Repository,
 		private readonly folderRepositoryManager: FolderRepositoryManager
 	) {

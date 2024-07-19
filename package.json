@@ -685,7 +685,7 @@
 					"id": "github:createPullRequestWebview",
 					"type": "webview",
 					"name": "%view.github.create.pull.request.name%",
-					"when": "github:createPullRequest",
+					"when": "github:createPullRequest || github:revertPullRequest",
 					"visibility": "visible",
 					"initialSize": 2
 				},
@@ -706,7 +706,7 @@
 				{
 					"id": "prStatus:github",
 					"name": "%view.pr.status.github.name%",
-					"when": "github:inReviewMode && !github:createPullRequest",
+					"when": "github:inReviewMode && !github:createPullRequest && !github:revertPullRequest",
 					"icon": "$(git-pull-request)",
 					"visibility": "visible",
 					"initialSize": 3
@@ -715,7 +715,7 @@
 					"id": "github:activePullRequest",
 					"type": "webview",
 					"name": "%view.github.active.pull.request.name%",
-					"when": "github:inReviewMode && github:focusedReview && !github:createPullRequest && github:activePRCount <= 1",
+					"when": "github:inReviewMode && github:focusedReview && !github:createPullRequest && !github:revertPullRequest && github:activePRCount <= 1",
 					"initialSize": 2
 				},
 				{

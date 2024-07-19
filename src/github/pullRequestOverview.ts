@@ -10,6 +10,7 @@ import { IComment } from '../common/comment';
 import { commands, contexts } from '../common/executeCommands';
 import Logger from '../common/logger';
 import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { ITelemetry } from '../common/telemetry';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
 import { asPromise, dispose, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
@@ -51,6 +52,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _isUpdating: boolean = false;
 
 	public static async createOrShow(
+		telemetry: ITelemetry,
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
 		issue: PullRequestModel,
@@ -70,10 +72,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		} else {
 			const title = `Pull Request #${issue.number.toString()}`;
 			PullRequestOverviewPanel.currentPanel = new PullRequestOverviewPanel(
+				telemetry,
 				extensionUri,
 				activeColumn || vscode.ViewColumn.Active,
 				title,
-				folderRepositoryManager,
+				folderRepositoryManager
 			);
 		}
 
@@ -97,12 +100,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	protected constructor(
+		telemetry: ITelemetry,
 		extensionUri: vscode.Uri,
 		column: vscode.ViewColumn,
 		title: string,
 		folderRepositoryManager: FolderRepositoryManager,
 	) {
-		super(extensionUri, column, title, folderRepositoryManager, PULL_REQUEST_OVERVIEW_VIEW_TYPE);
+		super(telemetry, extensionUri, column, title, folderRepositoryManager, PULL_REQUEST_OVERVIEW_VIEW_TYPE);
 
 		this.registerPrListeners();
 		onDidUpdatePR(
@@ -303,7 +307,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					isAuthor: currentUser.login === pullRequest.author.login,
 					currentUserReviewState: reviewState,
 					isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
-					isEnterprise: pullRequest.githubRepository.remote.isEnterprise
+					isEnterprise: pullRequest.githubRepository.remote.isEnterprise,
+					revertable: pullRequest.state === GithubItemStateEnum.Merged
 				};
 				this._postMessage({
 					command: 'pr.initialize',
@@ -400,11 +405,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			case 'pr.update-branch':
 				return this.updateBranch(message);
 			case 'pr.gotoChangesSinceReview':
-				this.gotoChangesSinceReview();
-				break;
+				return this.gotoChangesSinceReview();
 			case 'pr.re-request-review':
-				this.reRequestReview(message);
-				break;
+				return this.reRequestReview(message);
+			case 'pr.revert':
+				return this.revert(message);
 		}
 	}
 
@@ -806,6 +811,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._replyMessage(message, {
 				reviewers: this._existingReviewers,
 			});
+		});
+	}
+
+	private async revert(message: IRequestMessage<string>): Promise<void> {
+		await this._folderRepositoryManager.createPullRequestHelper.revert(this._telemetry, this._extensionUri, this._folderRepositoryManager, this._item, async (pullRequest) => {
+			const result: Partial<PullRequest> = { revertable: !pullRequest };
+			return this._replyMessage(message, result);
 		});
 	}
 

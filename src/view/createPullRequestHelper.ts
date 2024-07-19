@@ -7,45 +7,42 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { ITelemetry } from '../common/telemetry';
 import { dispose } from '../common/utils';
-import { CreatePullRequestViewProvider } from '../github/createPRViewProvider';
+import { BaseCreatePullRequestViewProvider, BasePullRequestDataModel, CreatePullRequestViewProvider } from '../github/createPRViewProvider';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { RevertPullRequestViewProvider } from '../github/revertPRViewProvider';
 import { CompareChanges } from './compareChangesTreeDataProvider';
 import { CreatePullRequestDataModel } from './createPullRequestDataModel';
 
 export class CreatePullRequestHelper implements vscode.Disposable {
 	private _disposables: vscode.Disposable[] = [];
-	private _createPRViewProvider: CreatePullRequestViewProvider | undefined;
+	private _createPRViewProvider: BaseCreatePullRequestViewProvider | undefined;
 	private _treeView: CompareChanges | undefined;
-	private _postCreateCallback: ((pullRequestModel: PullRequestModel) => Promise<void>) | undefined;
+	private _postCreateCallback: ((pullRequestModel: PullRequestModel | undefined) => Promise<void>) | undefined;
 
 	constructor() { }
 
-	private registerListeners(repository: Repository, usingCurrentBranchAsCompare: boolean) {
+	private registerListeners(repository: Repository, usingCurrentBranchAsCompare: boolean, activeContext: string) {
 		this._disposables.push(
 			this._createPRViewProvider!.onDone(async createdPR => {
-				if (createdPR) {
-					await CreatePullRequestViewProvider.withProgress(async () => {
-						return this._postCreateCallback?.(createdPR);
-					});
-				}
+				vscode.commands.executeCommand('setContext', activeContext, false);
+				await CreatePullRequestViewProvider.withProgress(async () => {
+					return this._postCreateCallback?.(createdPR);
+				});
 				this.dispose();
 			}),
 		);
 
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.addAssigneesToNewPr', _ => {
-				if (this._createPRViewProvider instanceof CreatePullRequestViewProvider) {
-					return this._createPRViewProvider.addAssignees();
-				}
+				return this._createPRViewProvider?.addAssignees();
+
 			}),
 		);
 
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.addReviewersToNewPr', _ => {
-				if (this._createPRViewProvider instanceof CreatePullRequestViewProvider) {
-					return this._createPRViewProvider.addReviewers();
-				}
+				return this._createPRViewProvider?.addReviewers();
 			}),
 		);
 
@@ -57,60 +54,50 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.addMilestoneToNewPr', _ => {
-				if (this._createPRViewProvider instanceof CreatePullRequestViewProvider) {
-					return this._createPRViewProvider.addMilestone();
-				}
+				return this._createPRViewProvider?.addMilestone();
+
 			}),
 		);
 
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.addProjectsToNewPr', _ => {
-				if (this._createPRViewProvider instanceof CreatePullRequestViewProvider) {
-					return this._createPRViewProvider.addProjects();
-				}
+				return this._createPRViewProvider?.addProjects();
+
 			}),
 		);
 
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.createPrMenuCreate', () => {
-				if (this._createPRViewProvider instanceof CreatePullRequestViewProvider) {
-					this._createPRViewProvider.createFromCommand(false, false, undefined);
-				}
+				this._createPRViewProvider?.createFromCommand(false, false, undefined);
+
 			})
 		);
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.createPrMenuDraft', () => {
-				if (this._createPRViewProvider instanceof CreatePullRequestViewProvider) {
-					this._createPRViewProvider.createFromCommand(true, false, undefined);
-				}
+				this._createPRViewProvider?.createFromCommand(true, false, undefined);
+
 			})
 		);
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.createPrMenuMergeWhenReady', () => {
-				if (this._createPRViewProvider instanceof CreatePullRequestViewProvider) {
-					this._createPRViewProvider.createFromCommand(false, true, undefined, true);
-				}
+				this._createPRViewProvider?.createFromCommand(false, true, undefined, true);
+
 			})
 		);
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.createPrMenuMerge', () => {
-				if (this._createPRViewProvider instanceof CreatePullRequestViewProvider) {
-					this._createPRViewProvider.createFromCommand(false, true, 'merge');
-				}
+				this._createPRViewProvider?.createFromCommand(false, true, 'merge');
+
 			})
 		);
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.createPrMenuSquash', () => {
-				if (this._createPRViewProvider instanceof CreatePullRequestViewProvider) {
-					this._createPRViewProvider.createFromCommand(false, true, 'squash');
-				}
+				this._createPRViewProvider?.createFromCommand(false, true, 'squash');
 			})
 		);
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.createPrMenuRebase', () => {
-				if (this._createPRViewProvider instanceof CreatePullRequestViewProvider) {
-					this._createPRViewProvider.createFromCommand(false, true, 'rebase');
-				}
+				this._createPRViewProvider?.createFromCommand(false, true, 'rebase');
 			})
 		);
 		this._disposables.push(
@@ -124,7 +111,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 		if (usingCurrentBranchAsCompare) {
 			this._disposables.push(
 				repository.state.onDidChange(_ => {
-					if (this._createPRViewProvider && repository.state.HEAD) {
+					if (this._createPRViewProvider && repository.state.HEAD && this._createPRViewProvider instanceof CreatePullRequestViewProvider) {
 						this._createPRViewProvider.setDefaultCompareBranch(repository.state.HEAD);
 					}
 				}),
@@ -158,24 +145,69 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 		}
 	}
 
-	async create(
+	async revert(
 		telemetry: ITelemetry,
 		extensionUri: vscode.Uri,
 		folderRepoManager: FolderRepositoryManager,
-		compareBranch: string | undefined,
-		callback: (pullRequestModel: PullRequestModel) => Promise<void>,
+		pullRequestModel: PullRequestModel,
+		callback: (pullRequest: PullRequestModel | undefined) => Promise<void>,
 	) {
 		this.reset();
 
 		this._postCreateCallback = callback;
 		await folderRepoManager.loginAndUpdate();
-		vscode.commands.executeCommand('setContext', 'github:createPullRequest', true);
+		const activeContext = 'github:revertPullRequest';
+		vscode.commands.executeCommand('setContext', activeContext, true);
+
+		if (!this._createPRViewProvider || !(this._createPRViewProvider instanceof RevertPullRequestViewProvider)) {
+			this._createPRViewProvider?.dispose();
+			const model: BasePullRequestDataModel = {
+				baseOwner: pullRequestModel.remote.owner,
+				repositoryName: pullRequestModel.remote.repositoryName
+			};
+			this._createPRViewProvider = new RevertPullRequestViewProvider(
+				telemetry,
+				model,
+				extensionUri,
+				folderRepoManager,
+				{ base: pullRequestModel.base.name, owner: pullRequestModel.remote.owner, repo: pullRequestModel.remote.repositoryName },
+				pullRequestModel
+			);
+
+			this.registerListeners(folderRepoManager.repository, false, activeContext);
+
+			this._disposables.push(
+				vscode.window.registerWebviewViewProvider(
+					this._createPRViewProvider.viewType,
+					this._createPRViewProvider,
+				),
+			);
+		}
+
+		this._createPRViewProvider.show();
+	}
+
+	async create(
+		telemetry: ITelemetry,
+		extensionUri: vscode.Uri,
+		folderRepoManager: FolderRepositoryManager,
+		compareBranch: string | undefined,
+		callback: (pullRequestModel: PullRequestModel | undefined) => Promise<void>,
+	) {
+		this.reset();
+
+		this._postCreateCallback = callback;
+		await folderRepoManager.loginAndUpdate();
+		const activeContext = 'github:createPullRequest';
+		vscode.commands.executeCommand('setContext', activeContext, true);
 
 		const branch =
 			((compareBranch ? await folderRepoManager.repository.getBranch(compareBranch) : undefined) ??
 				folderRepoManager.repository.state.HEAD?.name ? folderRepoManager.repository.state.HEAD : undefined);
 
-		if (!this._createPRViewProvider) {
+		let createViewProvider: CreatePullRequestViewProvider;
+		if (!this._createPRViewProvider || !(this._createPRViewProvider instanceof CreatePullRequestViewProvider)) {
+			this._createPRViewProvider?.dispose();
 			const pullRequestDefaults = await this.ensureDefaultsAreLocal(
 				folderRepoManager,
 				await folderRepoManager.getPullRequestDefaults(branch),
@@ -183,7 +215,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 
 			const compareOrigin = await folderRepoManager.getOrigin(branch);
 			const model = new CreatePullRequestDataModel(folderRepoManager, pullRequestDefaults.owner, pullRequestDefaults.base, compareOrigin.remote.owner, branch?.name ?? pullRequestDefaults.base, compareOrigin.remote.repositoryName);
-			this._createPRViewProvider = new CreatePullRequestViewProvider(
+			createViewProvider = this._createPRViewProvider = new CreatePullRequestViewProvider(
 				telemetry,
 				model,
 				extensionUri,
@@ -196,7 +228,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 				model
 			);
 
-			this.registerListeners(folderRepoManager.repository, !compareBranch);
+			this.registerListeners(folderRepoManager.repository, !compareBranch, activeContext);
 
 			this._disposables.push(
 				vscode.window.registerWebviewViewProvider(
@@ -204,9 +236,11 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 					this._createPRViewProvider,
 				),
 			);
+		} else {
+			createViewProvider = this._createPRViewProvider;
 		}
 
-		this._createPRViewProvider.show(branch);
+		createViewProvider.show(branch);
 	}
 
 	private reset() {
