@@ -912,8 +912,8 @@ export class GitHubRepository implements vscode.Disposable {
 
 			const pullRequests = pullRequestResponses
 				.map(response => {
-					if (!response.repository?.pullRequest.headRef) {
-						Logger.appendLine('The remote branch for this PR was already deleted.', this.id);
+					if (!response.repository) {
+						Logger.appendLine('Pull request doesn\'t appear to exist.', this.id);
 						return null;
 					}
 
@@ -1542,7 +1542,7 @@ export class GitHubRepository implements vscode.Disposable {
 			};
 
 		let reviewRequirement: PullRequestReviewRequirement | null = null;
-		const rule = result.data.repository.pullRequest.baseRef.refUpdateRule;
+		const rule = result.data.repository.pullRequest.baseRef?.refUpdateRule;
 		if (rule) {
 			const prUrl = result.data.repository.pullRequest.url;
 

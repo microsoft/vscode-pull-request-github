@@ -2047,11 +2047,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		if (githubRepo) {
 			const pr = await githubRepo.getPullRequest(pullRequestNumber);
 			Logger.appendLine(`Found GitHub pr repo for pr #${pullRequestNumber}: ${pr ? 'yes' : 'no'}`, this.id);
-			if (pr) {
-				if (await githubRepo.hasBranch(pr.base.name)) {
-					return pr;
-				}
-			}
+			return pr;
 		}
 		return undefined;
 	}
