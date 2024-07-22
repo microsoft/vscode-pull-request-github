@@ -903,7 +903,7 @@ export interface GetChecksResponse {
 					requiresCodeOwnerReviews: boolean;
 					viewerCanPush: boolean;
 				} | null;
-			};
+			} | null;
 			commits: {
 				nodes: {
 					commit: {

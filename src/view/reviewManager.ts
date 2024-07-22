@@ -389,9 +389,9 @@ export class ReviewManager {
 
 			const { owner, repositoryName } = metadata;
 			Logger.appendLine('Resolving pull request', this.id);
-			const pr = await this._folderRepoManager.resolvePullRequest(owner, repositoryName, metadata.prNumber);
+			let pr = await this._folderRepoManager.resolvePullRequest(owner, repositoryName, metadata.prNumber);
 
-			if (!pr || !pr.isResolved()) {
+			if (!pr || !pr.isResolved() || !(await pr.githubRepository.hasBranch(pr.base.name))) {
 				await this.clear(true);
 				this._prNumber = undefined;
 				Logger.appendLine('This PR is no longer valid', this.id);
@@ -954,7 +954,7 @@ export class ReviewManager {
 				vscode.window.showErrorMessage(formatError(e));
 			}
 			// todo, we should try to recover, for example, git checkout succeeds but set config fails.
-			if (this._folderRepoManager.activePullRequest) {
+			if (this._folderRepoManager.activePullRequest?.number === pr.number) {
 				this.setStatusForPr(this._folderRepoManager.activePullRequest);
 			} else {
 				this.statusBarItem.hide();

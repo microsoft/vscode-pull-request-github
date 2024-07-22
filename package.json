@@ -747,6 +747,7 @@
 				"command": "pr.pick",
 				"title": "%command.pr.pick.title%",
 				"category": "%command.pull.request.category%",
+				"enablement": "viewItem =~ /hasHeadRef/",
 				"icon": "$(arrow-right)"
 			},
 			{
