@@ -141,6 +141,10 @@ export class CreatePRContextNew {
 		this.updateState(updateValues);
 	};
 
+	public openAssociatedPullRequest = async (): Promise<void> => {
+		return this.postMessage({ command: 'pr.openAssociatedPullRequest' });
+	};
+
 	public changeMergeRemoteAndBranch = async (currentRemote?: RemoteInfo, currentBranch?: string): Promise<void> => {
 		const args: ChooseRemoteAndBranchArgs = {
 			currentRemote,

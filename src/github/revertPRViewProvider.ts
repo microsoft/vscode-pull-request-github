@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { CreatePullRequestNew } from '../../common/views';
+import { CreateParamsNew, CreatePullRequestNew } from '../../common/views';
 import { openDescription } from '../commands';
 import { commands } from '../common/executeCommands';
 import { ITelemetry } from '../common/telemetry';
@@ -18,8 +18,6 @@ import { BaseBranchMetadata } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 
 export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
-	protected _canModifyBranches: boolean = false;
-
 	constructor(
 		telemetry: ITelemetry,
 		model: BasePullRequestDataModel,
@@ -48,6 +46,33 @@ export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProv
 
 	protected getTitleAndDescriptionProvider(_name?: string) {
 		return undefined;
+	}
+
+	protected async getCreateParams(): Promise<CreateParamsNew> {
+		const params = await super.getCreateParams();
+		params.canModifyBranches = false;
+		params.actionDetail = vscode.l10n.t('Reverting');
+		params.associatedExistingPullRequest = this.pullRequest.number;
+		return params;
+	}
+
+	private openAssociatedPullRequest() {
+		return openDescription(this.telemetry, this.pullRequest, undefined, this._folderRepositoryManager, false, true);
+	}
+
+	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
+		const result = await super._onDidReceiveMessage(message);
+		if (result !== this.MESSAGE_UNHANDLED) {
+			return;
+		}
+
+		switch (message.command) {
+			case 'pr.openAssociatedPullRequest':
+				return this.openAssociatedPullRequest();
+			default:
+				// Log error
+				vscode.window.showErrorMessage('Unsupported webview message');
+		}
 	}
 
 	protected async create(message: IRequestMessage<CreatePullRequestNew>): Promise<void> {

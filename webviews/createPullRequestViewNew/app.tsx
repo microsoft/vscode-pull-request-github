@@ -58,7 +58,7 @@ export function main() {
 						label = 'Create';
 					}
 
-					return {value, label};
+					return { value, label };
 				}
 
 				const titleInput = useRef<HTMLInputElement>() as React.MutableRefObject<HTMLInputElement>;
@@ -89,17 +89,17 @@ export function main() {
 				}
 
 				const onKeyDown = useCallback((isTitle: boolean, e) => {
-						if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-							e.preventDefault();
-							create();
-						} else if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
-							if (isTitle) {
-								ctx.popTitle();
-							} else {
-								ctx.popDescription();
-							}
+					if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+						e.preventDefault();
+						create();
+					} else if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+						if (isTitle) {
+							ctx.popTitle();
+						} else {
+							ctx.popDescription();
 						}
-					},
+					}
+				},
 					[create],
 				);
 
@@ -188,7 +188,7 @@ export function main() {
 				}
 
 				return <div className='group-main' data-vscode-context='{"preventDefaultContextMenuItems": true}'>
-					<div className='group-branches' hidden={!ctx.createParams.canModifyBranches}>
+					<div className='group-branches'>
 						<div className='input-label base'>
 							<div className="deco">
 								<span title='Base branch' aria-hidden='true'>{prBaseIcon} Base</span>
@@ -198,19 +198,24 @@ export function main() {
 								defaultBranch={params.baseBranch}
 								remoteCount={params.remoteCount}
 								isBase={true}
-								disabled={!ctx.initialized || isBusy} />
+								disabled={!ctx.initialized || isBusy || !ctx.createParams.canModifyBranches} />
 						</div>
+
 
 						<div className='input-label merge'>
 							<div className="deco">
-								<span title='Merge branch' aria-hidden='true'>{prMergeIcon} Merge</span>
+								<span title='Merge branch' aria-hidden='true'>{prMergeIcon} {params.actionDetail ? params.actionDetail : 'Merge'}</span>
 							</div>
-							<ChooseRemoteAndBranch onClick={ctx.changeMergeRemoteAndBranch}
-								defaultRemote={params.compareRemote}
-								defaultBranch={params.compareBranch}
-								remoteCount={params.remoteCount}
-								isBase={false}
-								disabled={!ctx.initialized || isBusy} />
+							{ctx.createParams.canModifyBranches ?
+								<ChooseRemoteAndBranch onClick={ctx.changeMergeRemoteAndBranch}
+									defaultRemote={params.compareRemote}
+									defaultBranch={params.compareBranch}
+									remoteCount={params.remoteCount}
+									isBase={false}
+									disabled={!ctx.initialized || isBusy} />
+								: params.associatedExistingPullRequest ?
+									<a onClick={() => ctx.openAssociatedPullRequest()}>#{params.associatedExistingPullRequest}</a>
+									: null}
 						</div>
 					</div>
 
@@ -287,7 +292,7 @@ export function main() {
 									{params.labels.map(label => <LabelCreate key={label.name} {...label} canDelete isDarkTheme={!!params.isDarkTheme} />)}
 								</ul>
 							</div>
-						: null}
+							: null}
 
 						{params.milestone ?
 							<div className='milestone'>

@@ -55,7 +55,6 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 	readonly onDone: vscode.Event<PullRequestModel | undefined> = this._onDone.event;
 
 	protected _firstLoad: boolean = true;
-	protected _canModifyBranches: boolean = true;
 
 	constructor(
 		protected readonly telemetry: ITelemetry,
@@ -166,7 +165,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		return this._folderRepositoryManager.getTitleAndDescriptionProvider(name);
 	}
 
-	protected async doInitializeParams(): Promise<CreateParamsNew> {
+	protected async getCreateParams(): Promise<CreateParamsNew> {
 		const defaultCompareBranch = await this._folderRepositoryManager.repository.getBranch(this._defaultCompareBranch);
 		const [detectedBaseMetadata, remotes, defaultOrigin] = await Promise.all([
 			this.detectBaseMetadata(defaultCompareBranch),
@@ -229,7 +228,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		this.labels = labels;
 
 		const params: CreateParamsNew = {
-			canModifyBranches: this._canModifyBranches,
+			canModifyBranches: true,
 			defaultBaseRemote,
 			defaultBaseBranch,
 			defaultCompareRemote,
@@ -253,6 +252,12 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			preReviewer: preReviewer?.title,
 			reviewing: false
 		};
+
+		return params;
+	}
+
+	private async doInitializeParams(): Promise<CreateParamsNew> {
+		const params = await this.getCreateParams();
 
 		Logger.appendLine(`Initializing "create" view: ${JSON.stringify(params)}`, BaseCreatePullRequestViewProvider.ID);
 
@@ -771,8 +776,8 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		}
 	}
 
-	protected async doInitializeParams(): Promise<CreateParamsNew> {
-		const params = await super.doInitializeParams();
+	protected async getCreateParams(): Promise<CreateParamsNew> {
+		const params = await super.getCreateParams();
 		this.model.baseOwner = params.defaultBaseRemote!.owner;
 		this.model.baseBranch = params.defaultBaseBranch!;
 		return params;

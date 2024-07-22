@@ -90,6 +90,8 @@ export interface CreatePullRequestNew {
 
 export interface CreateParamsNew {
 	canModifyBranches: boolean;
+	actionDetail?: string;
+	associatedExistingPullRequest?: number;
 	defaultBaseRemote?: RemoteInfo;
 	defaultBaseBranch?: string;
 	defaultCompareRemote?: RemoteInfo;
