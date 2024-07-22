@@ -19,13 +19,20 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 	private _createPRViewProvider: BaseCreatePullRequestViewProvider | undefined;
 	private _treeView: CompareChanges | undefined;
 	private _postCreateCallback: ((pullRequestModel: PullRequestModel | undefined) => Promise<void>) | undefined;
+	private _activeContext: string | undefined;
 
 	constructor() { }
 
-	private registerListeners(repository: Repository, usingCurrentBranchAsCompare: boolean, activeContext: string) {
+	private async setActiveContext(value: boolean) {
+		if (this._activeContext) {
+			await vscode.commands.executeCommand('setContext', this._activeContext, value);
+		}
+	}
+
+	private registerListeners(repository: Repository, usingCurrentBranchAsCompare: boolean) {
 		this._disposables.push(
 			this._createPRViewProvider!.onDone(async createdPR => {
-				vscode.commands.executeCommand('setContext', activeContext, false);
+				this.setActiveContext(false);
 				await CreatePullRequestViewProvider.withProgress(async () => {
 					return this._postCreateCallback?.(createdPR);
 				});
@@ -156,8 +163,8 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 
 		this._postCreateCallback = callback;
 		await folderRepoManager.loginAndUpdate();
-		const activeContext = 'github:revertPullRequest';
-		vscode.commands.executeCommand('setContext', activeContext, true);
+		this._activeContext = 'github:revertPullRequest';
+		this.setActiveContext(true);
 
 		if (!this._createPRViewProvider || !(this._createPRViewProvider instanceof RevertPullRequestViewProvider)) {
 			this._createPRViewProvider?.dispose();
@@ -174,7 +181,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 				pullRequestModel
 			);
 
-			this.registerListeners(folderRepoManager.repository, false, activeContext);
+			this.registerListeners(folderRepoManager.repository, false);
 
 			this._disposables.push(
 				vscode.window.registerWebviewViewProvider(
@@ -198,8 +205,8 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 
 		this._postCreateCallback = callback;
 		await folderRepoManager.loginAndUpdate();
-		const activeContext = 'github:createPullRequest';
-		vscode.commands.executeCommand('setContext', activeContext, true);
+		this._activeContext = 'github:createPullRequest';
+		this.setActiveContext(true);
 
 		const branch =
 			((compareBranch ? await folderRepoManager.repository.getBranch(compareBranch) : undefined) ??
@@ -228,7 +235,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 				model
 			);
 
-			this.registerListeners(folderRepoManager.repository, !compareBranch, activeContext);
+			this.registerListeners(folderRepoManager.repository, !compareBranch);
 
 			this._disposables.push(
 				vscode.window.registerWebviewViewProvider(
@@ -244,14 +251,14 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 	}
 
 	private reset() {
-		vscode.commands.executeCommand('setContext', 'github:createPullRequest', false);
-
+		this.setActiveContext(false);
 		this._createPRViewProvider?.dispose();
 		this._createPRViewProvider = undefined;
 
 		this._treeView?.dispose();
 		this._treeView = undefined;
 		this._postCreateCallback = undefined;
+		this._activeContext = undefined;
 
 		dispose(this._disposables);
 	}

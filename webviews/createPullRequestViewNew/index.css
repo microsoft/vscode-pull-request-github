@@ -34,9 +34,9 @@ textarea:disabled {
 	margin-bottom: 10px;
 }
 
-.base,
-.merge {
-	display: block !important;
+.input-label.base,
+.input-label.merge {
+	display: block;
 }
 
 .base .deco,
