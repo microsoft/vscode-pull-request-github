@@ -27,6 +27,8 @@
 		"contribShareMenu",
 		"diffCommand",
 		"fileComments",
+		"findFiles2New",
+		"findTextInFilesNew",
 		"quickDiffProvider",
 		"shareProvider",
 		"tokenInformation",

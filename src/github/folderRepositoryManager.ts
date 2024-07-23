@@ -167,7 +167,7 @@ enum PagedDataType {
 	IssueSearch,
 }
 
-const CACHED_TEMPLATE_BODY = 'templateBody';
+const CACHED_TEMPLATE_URI = 'templateUri';
 
 export class FolderRepositoryManager implements vscode.Disposable {
 	static ID = 'FolderRepositoryManager';
@@ -1211,50 +1211,53 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	async getIssueTemplates(): Promise<vscode.Uri[]> {
 		const pattern = '{docs,.github}/ISSUE_TEMPLATE/*.md';
-		return vscode.workspace.findFiles(
-			new vscode.RelativePattern(this._repository.rootUri, pattern), null
+		return vscode.workspace.findFiles2New(
+			[new vscode.RelativePattern(this._repository.rootUri, pattern)], { useExcludeSettings: vscode.ExcludeSettingOptions.filesExclude }
 		);
 	}
 
 	async getPullRequestTemplateBody(owner: string): Promise<string | undefined> {
-		try {
-			const template = await this.getPullRequestTemplateWithCache(owner);
-			if (template) {
-				return template;
-			}
+		// First try for a local template
+		const templateUri = await this.getPullRequestTemplatesWithCache();
 
-			// If there's no local template, look for a owner-wide template
-			return this.getOwnerPullRequestTemplate(owner);
-		} catch (e) {
-			Logger.error(`Error fetching pull request template for ${owner}: ${e instanceof Error ? e.message : e}`, this.id);
+		if (templateUri) {
+			try {
+				const templateContent = await vscode.workspace.fs.readFile(templateUri);
+				return new TextDecoder('utf-8').decode(templateContent);
+			} catch (e) {
+				Logger.warn(`Reading pull request template failed: ${e}`);
+			}
 		}
+
+		// If there's no local template, look for a owner-wide template
+		return this.getOwnerPullRequestTemplates(owner);
 	}
 
-	private async getPullRequestTemplateWithCache(owner: string): Promise<string | undefined> {
-		const cacheLocation = `${CACHED_TEMPLATE_BODY}+${this.repository.rootUri.toString()}`;
+	async getPullRequestTemplatesWithCache(): Promise<vscode.Uri | undefined> {
+		const cacheLocation = `${CACHED_TEMPLATE_URI}+${this.repository.rootUri.toString()}`;
 
-		const findTemplate = this.getPullRequestTemplate(owner).then((template) => {
+		const findTemplate = this.getFirstLocalPullRequestTemplate().then((template) => {
 			//update cache
 			if (template) {
-				this.context.workspaceState.update(cacheLocation, template);
+				this.context.workspaceState.update(cacheLocation, template.toString());
 			} else {
 				this.context.workspaceState.update(cacheLocation, null);
 			}
 			return template;
 		});
 		const hasCachedTemplate = this.context.workspaceState.keys().includes(cacheLocation);
-		const cachedTemplate = this.context.workspaceState.get<string | null>(cacheLocation);
+		const cachedTemplateLocation = this.context.workspaceState.get<string | null>(cacheLocation);
 		if (hasCachedTemplate) {
-			if (cachedTemplate === null) {
-				return undefined;
-			} else if (cachedTemplate) {
-				return cachedTemplate;
+			if (cachedTemplateLocation === null) {
+				return;
+			} else if (cachedTemplateLocation) {
+				return vscode.Uri.parse(cachedTemplateLocation);
 			}
 		}
 		return findTemplate;
 	}
 
-	private async getOwnerPullRequestTemplate(owner: string): Promise<string | undefined> {
+	private async getOwnerPullRequestTemplates(owner: string): Promise<string | undefined> {
 		const githubRepository = await this.createGitHubRepositoryFromOwnerName(owner, '.github');
 		if (!githubRepository) {
 			return undefined;
@@ -1265,13 +1268,25 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 	}
 
-	private async getPullRequestTemplate(owner: string): Promise<string | undefined> {
-		const repository = this.gitHubRepositories.find(repo => repo.remote.owner === owner);
-		if (!repository) {
-			return;
+	private async getFirstLocalPullRequestTemplate(): Promise<vscode.Uri | undefined> {
+		function patternToGlob(pattern: string) {
+			return new vscode.RelativePattern(this._repository.rootUri, pattern);
 		}
-		const templates = await repository.getPullRequestTemplates();
-		return templates ? templates[0] : undefined;
+
+		/**
+		 * Places a PR template can be:
+		 * - At the root, the docs folder, or the.github folder, named pull_request_template.md or PULL_REQUEST_TEMPLATE.md
+		 * - At the same folder locations under a PULL_REQUEST_TEMPLATE folder with any name
+		 */
+		const pattern1 = patternToGlob('{pull_request_template,PULL_REQUEST_TEMPLATE}.{md,txt}');
+		const pattern2 = patternToGlob('{docs,.github}/{pull_request_template,PULL_REQUEST_TEMPLATE}.{md,txt}');
+		const pattern3 = patternToGlob('{pull_request_template,PULL_REQUEST_TEMPLATE}');
+		const pattern4 = patternToGlob('{docs,.github}/{pull_request_template,PULL_REQUEST_TEMPLATE}');
+		const pattern5 = patternToGlob('PULL_REQUEST_TEMPLATE/*.md');
+		const pattern6 = patternToGlob('{docs,.github}/PULL_REQUEST_TEMPLATE/*.md');
+
+		const result = await vscode.workspace.findFiles2New([pattern1, pattern2, pattern3, pattern4, pattern5, pattern6], { maxResults: 1, useExcludeSettings: vscode.ExcludeSettingOptions.filesExclude });
+		return result.length > 0 ? result[0] : undefined;
 	}
 
 	async getPullRequestDefaults(branch?: Branch): Promise<PullRequestDefaults> {
