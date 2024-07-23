@@ -1293,10 +1293,21 @@ mutation UnmarkFileAsViewed($input: UnmarkFileAsViewedInput!) {
 	}
 }
 
-mutation MergePullRequest($input: MergePullRequestInput!) {
+mutation MergePullRequest($input: MergePullRequestInput!, $last: Int = 150) {
 	mergePullRequest(input: $input) {
 		pullRequest {
 			id
+			timelineItems(last: $last) {
+				nodes {
+					__typename
+					...Merged
+					...Comment
+					...Review
+					...Commit
+					...AssignedEvent
+					...HeadRefDeleted
+				}
+			}
 		}
 	}
 }

@@ -27,7 +27,7 @@ import {
 	UPSTREAM_REMOTE,
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { EventType } from '../common/timelineEvent';
+import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
 import { batchPromiseAll, compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
@@ -50,6 +50,7 @@ import {
 	convertRESTPullRequestToRawPullRequest,
 	getOverrideBranch,
 	loginComparator,
+	parseGraphQLTimelineEvents,
 	parseGraphQLUser,
 	teamComparator,
 	variableSubstitution,
@@ -1554,7 +1555,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		description?: string,
 		method?: 'merge' | 'squash' | 'rebase',
 		email?: string,
-	): Promise<{ merged: boolean, message: string }> {
+	): Promise<{ merged: boolean, message: string, timeline?: TimelineEvent[] }> {
 		Logger.debug(`Merging PR: ${pullRequest.number} method: ${method} for user: "${email}" - enter`, this.id);
 		const { mutate, schema } = await pullRequest.githubRepository.ensure();
 
@@ -1619,7 +1620,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				input
 			}
 		})
-			.then(() => {
+			.then(result => {
 				Logger.debug(`Merging PR: ${pullRequest.number}} - done`, this.id);
 
 				/* __GDPR__
@@ -1627,7 +1628,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				*/
 				this.telemetry.sendTelemetryEvent('pr.merge.success');
 				this._onDidMergePullRequest.fire();
-				return { merged: true, message: '' };
+				return { merged: true, message: '', timeline: parseGraphQLTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], pullRequest.githubRepository) };
 			})
 			.catch(e => {
 				/* __GDPR__

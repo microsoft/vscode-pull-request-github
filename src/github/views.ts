@@ -104,6 +104,12 @@ export interface MergeArguments {
 	email?: string;
 }
 
+export interface MergeResult {
+	state: GithubItemStateEnum;
+	revertable: boolean;
+	events?: TimelineEvent[];
+}
+
 export enum PreReviewState {
 	None = 0,
 	Available,
