@@ -1076,6 +1076,7 @@ export class GitHubRepository implements vscode.Disposable {
 		const { octokit, remote } = await this.ensure();
 		let contents: string = '';
 		let fileContent: { data: { content: string; encoding: string; sha: string } };
+		Logger.debug(`Fetch file ${filePath} - enter`, this.id);
 		try {
 			fileContent = (await octokit.call(octokit.api.repos.getContent,
 				{
@@ -1092,6 +1093,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 			contents = fileContent.data.content ?? '';
 		} catch (e) {
+			Logger.error(`Unable to fetch file ${filePath}: ${e}`, this.id);
 			if (e.status === 404) {
 				return new Uint8Array(0);
 			}
@@ -1100,6 +1102,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 		// Empty contents and 'none' encoding indcates that the file has been truncated and we should get the blob.
 		if (contents === '' && fileContent.data.encoding === 'none') {
+			Logger.debug(`Fetch blob file ${filePath} - enter`, this.id);
 			const fileSha = fileContent.data.sha;
 			fileContent = await octokit.call(octokit.api.git.getBlob, {
 				owner: remote.owner,
@@ -1107,9 +1110,11 @@ export class GitHubRepository implements vscode.Disposable {
 				file_sha: fileSha,
 			});
 			contents = fileContent.data.content;
+			Logger.debug(`Fetch blob file ${filePath} - done`, this.id);
 		}
 
 		const buff = buffer.Buffer.from(contents, (fileContent.data as any).encoding);
+		Logger.debug(`Fetch file ${filePath}, file length ${contents.length} - done`, this.id);
 		return buff;
 	}
 
