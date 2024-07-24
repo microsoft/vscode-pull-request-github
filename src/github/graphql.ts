@@ -959,5 +959,11 @@ export interface MergePullRequestInput {
 }
 
 export interface MergePullRequestResponse {
-	pullRequest: PullRequest;
+	mergePullRequest: {
+		pullRequest: PullRequest & {
+			timelineItems: {
+				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent)[]
+			}
+		};
+	}
 }

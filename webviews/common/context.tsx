@@ -7,7 +7,7 @@ import { createContext } from 'react';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, ReadyForReview, ReviewState } from '../../src/github/interface';
-import { MergeArguments, ProjectItemsReply, PullRequest } from '../../src/github/views';
+import { MergeArguments, MergeResult, ProjectItemsReply, PullRequest } from '../../src/github/views';
 import { getState, setState, updateState } from './cache';
 import { getMessageHandler, MessageHandler } from './message';
 
@@ -57,8 +57,10 @@ export class PRContext {
 		this.updatePR({ emailForCommit: newEmail });
 	};
 
-	public merge = (args: MergeArguments) =>
-		this.postMessage({ command: 'pr.merge', args });
+	public merge = async (args: MergeArguments): Promise<MergeResult> => {
+		const result: MergeResult = await this.postMessage({ command: 'pr.merge', args });
+		return result;
+	}
 
 	public openOnGitHub = () => this.postMessage({ command: 'pr.openOnGitHub' });
 
