@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
 import Logger from '../common/logger';
 import {
+	ALWAYS_PROMPT_FOR_NEW_ISSUE_REPO,
 	CREATE_INSERT_FORMAT,
 	ENABLED,
 	ISSUE_COMPLETIONS,
@@ -619,7 +620,9 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 	async createIssue() {
 		let uri = vscode.window.activeTextEditor?.document.uri;
 		let folderManager: FolderRepositoryManager | undefined = uri ? this.manager.getManagerForFile(uri) : undefined;
-		if (!folderManager) {
+
+		const alwaysPrompt = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<boolean>(ALWAYS_PROMPT_FOR_NEW_ISSUE_REPO);
+		if (!folderManager || alwaysPrompt) {
 			folderManager = await this.chooseRepo(vscode.l10n.t('Select the repo to create the issue in.'));
 			uri = folderManager?.repository.rootUri;
 		}
@@ -630,9 +633,9 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		const template = await this.chooseTemplate(folderManager);
 		this._newIssueCache.clear();
 		if (template) {
-			this.makeNewIssueFile(uri, template.title, template.body);
+			this.makeNewIssueFile(uri, { title: template.title, body: template.body, repoUri: folderManager.repository.rootUri });
 		} else {
-			this.makeNewIssueFile(uri);
+			this.makeNewIssueFile(uri, { repoUri: folderManager.repository.rootUri });
 		}
 	}
 
@@ -652,7 +655,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			metadata.projects,
 			this.createIssueInfo?.lineNumber,
 			this.createIssueInfo?.insertIndex,
-			metadata.originUri
+			metadata.originUri,
+			metadata.repoUri
 		);
 		this.createIssueInfo = undefined;
 		if (createSucceeded) {
@@ -891,7 +895,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		let titlePlaceholder: string | undefined;
 		let insertIndex: number | undefined;
 		let lineNumber: number | undefined;
-		let assignee: string[] | undefined;
+		let assignees: string[] | undefined;
 		let issueGenerationText: string | undefined;
 		if (!newIssue && vscode.window.activeTextEditor) {
 			document = vscode.window.activeTextEditor.document;
@@ -909,7 +913,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		}
 		const matches = issueGenerationText.match(USER_EXPRESSION);
 		if (matches && matches.length === 2 && (await this._stateManager.getUserMap(document.uri)).has(matches[1])) {
-			assignee = [matches[1]];
+			assignees = [matches[1]];
 		}
 		let title: string | undefined;
 		const body: string | undefined = await this.createTodoIssueBody(newIssue, issueBody);
@@ -929,7 +933,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			title = quickInput.value;
 			if (title) {
 				quickInput.busy = true;
-				await this.doCreateIssue(document, newIssue, title, body, assignee, undefined, undefined, undefined, lineNumber, insertIndex);
+				await this.doCreateIssue(document, newIssue, title, body, assignees, undefined, undefined, undefined, lineNumber, insertIndex);
 				quickInput.busy = false;
 			}
 			quickInput.hide();
@@ -939,7 +943,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			quickInput.busy = true;
 			this.createIssueInfo = { document, newIssue, lineNumber, insertIndex };
 
-			this.makeNewIssueFile(document.uri, title, body, assignee);
+			this.makeNewIssueFile(document.uri, { title, body, assignees });
 			quickInput.busy = false;
 			quickInput.hide();
 		});
@@ -950,11 +954,20 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 
 	private async makeNewIssueFile(
 		originUri: vscode.Uri,
-		title?: string,
-		body?: string,
-		assignees?: string[] | undefined,
+		options?: {
+			title?: string,
+			body?: string,
+			assignees?: string[] | undefined,
+			repoUri?: vscode.Uri,
+		}
 	) {
-		const query = `?{"origin":"${originUri.toString()}"}`;
+		const queryBody: any = {
+			origin: originUri.toString(),
+		};
+		if (options?.repoUri) {
+			queryBody.repoUri = options.repoUri.toString();
+		}
+		const query = `?${JSON.stringify(queryBody)}`;
 		const bodyPath = vscode.Uri.parse(`${NEW_ISSUE_SCHEME}:/${NEW_ISSUE_FILE}${query}`);
 		if (
 			vscode.window.visibleTextEditors.filter(
@@ -964,18 +977,19 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			return;
 		}
 		await vscode.workspace.fs.delete(bodyPath);
-		const assigneeLine = `${ASSIGNEES} ${assignees && assignees.length > 0 ? assignees.map(value => '@' + value).join(', ') + ' ' : ''
+		const assigneeLine = `${ASSIGNEES} ${options?.assignees && options.assignees.length > 0 ? options.assignees.map(value => '@' + value).join(', ') + ' ' : ''
 			}`;
 		const labelLine = `${LABELS} `;
 		const milestoneLine = `${MILESTONE} `;
 		const projectsLine = `${PROJECTS} `;
 		const cached = this._newIssueCache.get();
-		const text = (cached && cached !== '') ? cached : `${title ?? vscode.l10n.t('Issue Title')}\n
+		const text = (cached && cached !== '') ? cached : `${options?.title ?? vscode.l10n.t('Issue Title')}\n
+${options?.repoUri ? `<!-- ${vscode.l10n.t(`This issue will be created in repo ${options.repoUri.toString()}. Changing this line has no effect.`)} -->\n` : ''}
 ${assigneeLine}
 ${labelLine}
 ${milestoneLine}
 ${projectsLine}\n
-${body ?? ''}\n
+${options?.body ?? ''}\n
 <!-- ${vscode.l10n.t('Edit the body of your new issue then click the ✓ \"Create Issue\" button in the top right of the editor. The first line will be the issue title. Assignees and Labels follow after a blank line. Leave an empty line before beginning the body of the issue.')} -->`;
 		await vscode.workspace.fs.writeFile(bodyPath, this.stringToUint8Array(text));
 		const assigneesDecoration = vscode.window.createTextEditorDecorationType({
@@ -1171,13 +1185,21 @@ ${body ?? ''}\n
 		lineNumber: number | undefined,
 		insertIndex: number | undefined,
 		originUri?: vscode.Uri,
+		repoUri?: vscode.Uri,
 	): Promise<boolean> {
 		let origin: PullRequestDefaults | undefined;
 		let folderManager: FolderRepositoryManager | undefined;
-		if (document) {
-			folderManager = this.manager.getManagerForFile(document.uri);
-		} else if (originUri) {
-			folderManager = this.manager.getManagerForFile(originUri);
+		if (repoUri) {
+			folderManager = this.manager.folderManagers.find(manager => manager.repository.rootUri.toString() === repoUri.toString());
+		}
+		if (!folderManager) {
+			// We don't check for githubIssues.alwaysPromptForNewIssueRepo here because we're
+			// likely in this scenario due to making an issue from a file selection/etc.
+			if (document) {
+				folderManager = this.manager.getManagerForFile(document.uri);
+			} else if (originUri) {
+				folderManager = this.manager.getManagerForFile(originUri);
+			}
 		}
 		if (!folderManager) {
 			folderManager = await this.chooseRepo(vscode.l10n.t('Choose where to create the issue.'));
