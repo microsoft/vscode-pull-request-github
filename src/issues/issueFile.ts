@@ -24,6 +24,13 @@ export function extractIssueOriginFromQuery(uri: vscode.Uri): vscode.Uri | undef
 	}
 }
 
+export function extractIssueRepoFromQuery(uri: vscode.Uri): vscode.Uri | undefined {
+	const query = JSON.parse(uri.query);
+	if (query.repoUri) {
+		return vscode.Uri.parse(query.repoUri);
+	}
+}
+
 export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 	private content: Uint8Array | undefined;
 	private createTime: number = 0;
@@ -168,7 +175,7 @@ export class NewIssueCache {
 	}
 }
 
-export async function extractMetadataFromFile(repositoriesManager: RepositoriesManager): Promise<{ labels: string[] | undefined, milestone: number | undefined, projects: IProject[] | undefined, assignees: string[] | undefined, title: string, body: string | undefined, originUri: vscode.Uri } | undefined> {
+export async function extractMetadataFromFile(repositoriesManager: RepositoriesManager): Promise<{ labels: string[] | undefined, milestone: number | undefined, projects: IProject[] | undefined, assignees: string[] | undefined, title: string, body: string | undefined, originUri: vscode.Uri, repoUri?: vscode.Uri } | undefined> {
 	let text: string;
 	if (
 		!vscode.window.activeTextEditor ||
@@ -180,6 +187,7 @@ export async function extractMetadataFromFile(repositoriesManager: RepositoriesM
 	if (!originUri) {
 		return;
 	}
+	const repoUri = extractIssueRepoFromQuery(vscode.window.activeTextEditor.document.uri);
 	const folderManager = repositoriesManager.getManagerForFile(originUri);
 	if (!folderManager) {
 		return;
@@ -206,6 +214,24 @@ export async function extractMetadataFromFile(repositoriesManager: RepositoriesM
 	}
 	let assignees: string[] | undefined;
 	text = text.substring(indexOfEmptyLine + 2).trim();
+	if (text.startsWith('<!--')) {
+		text = text.substring(indexOfEmptyLine + 2).trim();
+		const nextIndexOfEmptyLineWindows = text.indexOf('\r\n\r\n');
+		const nextIndexOfEmptyLineOther = text.indexOf('\n\n');
+		let nextIndexOfEmptyLine: number;
+		if (nextIndexOfEmptyLineWindows < 0 && nextIndexOfEmptyLineOther < 0) {
+			return;
+		} else {
+			if (nextIndexOfEmptyLineWindows < 0) {
+				nextIndexOfEmptyLine = nextIndexOfEmptyLineOther;
+			} else if (nextIndexOfEmptyLineOther < 0) {
+				nextIndexOfEmptyLine = nextIndexOfEmptyLineWindows;
+			} else {
+				nextIndexOfEmptyLine = Math.min(nextIndexOfEmptyLineWindows, nextIndexOfEmptyLineOther);
+			}
+		}
+		text = text.substring(nextIndexOfEmptyLine + 2).trim();
+	}
 	if (text.startsWith(ASSIGNEES)) {
 		const lines = text.split(/\r\n|\n/, 1);
 		if (lines.length === 1) {
@@ -264,5 +290,5 @@ export async function extractMetadataFromFile(repositoriesManager: RepositoriesM
 		}
 	}
 	const body = text ?? '';
-	return { labels, milestone, projects, assignees, title, body, originUri };
+	return { labels, milestone, projects, assignees, title, body, originUri, repoUri };
 }
