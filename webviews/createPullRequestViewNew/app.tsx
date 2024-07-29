@@ -214,7 +214,7 @@ export function main() {
 									isBase={false}
 									disabled={!ctx.initialized || isBusy} />
 								: params.associatedExistingPullRequest ?
-									<a className='pr-link' onClick={() => ctx.openAssociatedPullRequest()}>#{params.associatedExistingPullRequest}</a>
+									<a onClick={() => ctx.openAssociatedPullRequest()}>#{params.associatedExistingPullRequest}</a>
 									: null}
 						</div>
 					</div>

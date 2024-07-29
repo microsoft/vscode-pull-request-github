@@ -39,10 +39,6 @@ textarea:disabled {
 	display: block;
 }
 
-.pr-link {
-	cursor: pointer;
-}
-
 .base .deco,
 .merge .deco {
 	display: block;
