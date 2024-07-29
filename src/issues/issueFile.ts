@@ -14,21 +14,33 @@ export const ASSIGNEES = vscode.l10n.t('Assignees:');
 export const LABELS = vscode.l10n.t('Labels:');
 export const MILESTONE = vscode.l10n.t('Milestone:');
 export const PROJECTS = vscode.l10n.t('Projects:');
+export const REPO_SCHEME = 'repo';
+export const FOLDER_MANAGER_ROOT_URI_QUERY = 'folderManagerRootUri';
 
 const NEW_ISSUE_CACHE = 'newIssue.cache';
 
+export interface IssueFileQuery {
+	origin: string;
+}
+
 export function extractIssueOriginFromQuery(uri: vscode.Uri): vscode.Uri | undefined {
-	const query = JSON.parse(uri.query);
+	const query: IssueFileQuery = JSON.parse(uri.query);
 	if (query.origin) {
 		return vscode.Uri.parse(query.origin);
 	}
 }
 
-export function extractIssueRepoFromQuery(uri: vscode.Uri): vscode.Uri | undefined {
-	const query = JSON.parse(uri.query);
-	if (query.repoUri) {
-		return vscode.Uri.parse(query.repoUri);
+export function extractFolderManagerForRepoUri(manager: RepositoriesManager, uri: vscode.Uri): FolderRepositoryManager | undefined {
+	if (uri.scheme !== REPO_SCHEME) {
+		return undefined;
 	}
+	const queryParams = uri.query.split('&');
+	const folderManagerRootUri = queryParams.find(queryParam => queryParam.startsWith(FOLDER_MANAGER_ROOT_URI_QUERY))?.split('=')[1];
+	if (!folderManagerRootUri) {
+		return undefined;
+	}
+	const queryUri = vscode.Uri.parse(folderManagerRootUri);
+	return manager.folderManagers.find(f => f.repository.rootUri.toString() === queryUri.toString());
 }
 
 export class IssueFileSystemProvider implements vscode.FileSystemProvider {
@@ -187,8 +199,12 @@ export async function extractMetadataFromFile(repositoriesManager: RepositoriesM
 	if (!originUri) {
 		return;
 	}
-	const repoUri = extractIssueRepoFromQuery(vscode.window.activeTextEditor.document.uri);
-	const folderManager = repositoriesManager.getManagerForFile(originUri);
+	let folderManager: FolderRepositoryManager | undefined;
+	if (originUri.scheme === REPO_SCHEME) {
+		folderManager = extractFolderManagerForRepoUri(repositoriesManager, originUri);
+	} else {
+		folderManager = repositoriesManager.getManagerForFile(originUri);
+	}
 	if (!folderManager) {
 		return;
 	}
@@ -215,7 +231,6 @@ export async function extractMetadataFromFile(repositoriesManager: RepositoriesM
 	let assignees: string[] | undefined;
 	text = text.substring(indexOfEmptyLine + 2).trim();
 	if (text.startsWith('<!--')) {
-		text = text.substring(indexOfEmptyLine + 2).trim();
 		const nextIndexOfEmptyLineWindows = text.indexOf('\r\n\r\n');
 		const nextIndexOfEmptyLineOther = text.indexOf('\n\n');
 		let nextIndexOfEmptyLine: number;
@@ -290,5 +305,5 @@ export async function extractMetadataFromFile(repositoriesManager: RepositoriesM
 		}
 	}
 	const body = text ?? '';
-	return { labels, milestone, projects, assignees, title, body, originUri, repoUri };
+	return { labels, milestone, projects, assignees, title, body, originUri };
 }
