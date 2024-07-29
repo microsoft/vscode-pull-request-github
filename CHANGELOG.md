@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.94.0
+
+### Changes
+
+- You can create revert PRs from the PR description. The PR branch doesn't need to be checked out to create a revert PR.
+
+![Create a revert PR](./documentation/changelog/0.94.0/create-revert-pr.gif)
+
+- As a nice side effect of the enabling reverts, you can now see PRs whose branch has been deleted in the "Pull Requests" view.
+- The "Open Pull Request on GitHub.com" action shows even when there are PRs from multiple repos checked out.
+- `img` tags in code comments will now properly show the image for public repos.
+
+### Fixes
+
+- Failed to execute git when deleting branches and remotes. https://github.com/microsoft/vscode-pull-request-github/issues/6051
+- Use notification progress when deleting branches and remotes. https://github.com/microsoft/vscode-pull-request-github/issues/6050
+- Sign in failed: Error: No auth flow succeeded. https://github.com/microsoft/vscode-pull-request-github/issues/6056
+- Extension gets rate limited in a many-repo setup: http forbidden response when adding reviewer after creating pull request. https://github.com/microsoft/vscode-pull-request-github/issues/6042
+- File can't be opened, redirects me to browser. https://github.com/microsoft/vscode-pull-request-github/issues/5827
+
+**_Thank You_**
+
+* [@Santhoshmani1 (Santhosh Mani )](https://github.com/Santhoshmani1): Feature : Add open pr on github from pr description node [PR #6020](https://github.com/microsoft/vscode-pull-request-github/pull/6020)
+
+
 ## 0.92.0
 
 ### Changes
