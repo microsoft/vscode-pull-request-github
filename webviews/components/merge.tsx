@@ -376,12 +376,12 @@ export const MergeOnGitHub = () => {
 export const MergeSimple = (pr: PullRequest) => {
 	const { merge, updatePR } = useContext(PullRequestContext);
 	async function submitAction(selected: MergeMethod): Promise<void> {
-		const newContext = await merge({
+		const { state } = await merge({
 			title: '',
 			description: '',
 			method: selected,
 		});
-		updatePR(newContext);
+		updatePR({ state });
 	}
 
 	const availableOptions = Object.keys(MERGE_METHODS)
@@ -440,13 +440,13 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 					try {
 						setBusy(true);
 						const { title, description }: any = event.target;
-						const mergeResult = await merge({
+						const { state } = await merge({
 							title: title?.value,
 							description: description?.value,
 							method,
 							email: emailForCommit
 						});
-						updatePR(mergeResult);
+						updatePR({ state });
 					} finally {
 						setBusy(false);
 					}

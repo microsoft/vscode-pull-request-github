@@ -35,7 +35,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { getAssigneesQuickPickItems, getMilestoneFromQuickPick, getProjectFromQuickPick, pickEmail, reviewersQuickPick } from './quickPicks';
 import { isInCodespaces, parseReviewers, vscodeDevPrLink } from './utils';
-import { MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReviewType } from './views';
+import { MergeArguments, ProjectItemsReply, PullRequest, ReviewType } from './views';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static ID: string = 'PullRequestOverviewPanel';
@@ -640,12 +640,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					vscode.window.showErrorMessage(`Merging PR failed: ${result.message}`);
 				}
 
-				const mergeResult: MergeResult = {
+				this._replyMessage(message, {
 					state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
-					revertable: result.merged,
-					events: result.timeline
-				};
-				this._replyMessage(message, mergeResult);
+				});
 			})
 			.catch(e => {
 				vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
