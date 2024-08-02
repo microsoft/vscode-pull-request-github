@@ -26,7 +26,7 @@ export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProv
 		pullRequestDefaults: PullRequestDefaults,
 		private readonly pullRequest: PullRequestModel
 	) {
-		super(telemetry, model, extensionUri, folderRepositoryManager, pullRequestDefaults, pullRequest.base.name);
+		super(telemetry, model, extensionUri, folderRepositoryManager, pullRequestDefaults, folderRepositoryManager.repository.state.HEAD?.name ?? pullRequest.base.name);
 	}
 
 	protected async getTitleAndDescription(): Promise<{ title: string; description: string; }> {
