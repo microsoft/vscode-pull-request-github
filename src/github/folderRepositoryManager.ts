@@ -538,7 +538,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				this._onDidLoadRepositories.fire(ReposManagerState.NeedsAuthentication);
 			}
 			if (!silent) {
-				console.log(this.repository.rootUri.fsPath);
 				this._onDidChangeRepositories.fire({ added: repositoriesAdded.length > 0 });
 			}
 			return true;
