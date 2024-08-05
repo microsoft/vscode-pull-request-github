@@ -1432,7 +1432,7 @@
 			{
 				"command": "issues.openIssuesWebsite",
 				"title": "%command.issues.openIssuesWebsite.title%",
-				"category": "%command.pull.issues.category%",
+				"category": "%command.issues.category%",
 				"icon": "$(globe)"
 			}
 		],
