@@ -7,6 +7,7 @@ import * as pathLib from 'path';
 import * as vscode from 'vscode';
 import { Commit, Remote, Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
+import Logger from '../common/logger';
 import { fromReviewUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { RepositoriesManager } from '../github/repositoriesManager';
@@ -203,12 +204,14 @@ export class GitHubPermalinkShareProvider extends AbstractShareProvider implemen
 }
 
 export class GitHubPermalinkAsMarkdownShareProvider extends GitHubPermalinkShareProvider {
+	private static ID = 'GitHubPermalinkAsMarkdownShareProvider';
 
 	constructor(repositoryManager: RepositoriesManager, gitApi: GitApiImpl) {
 		super(repositoryManager, gitApi, 'githubComPermalinkAsMarkdown', vscode.l10n.t('Copy GitHub Permalink as Markdown'), 12);
 	}
 
 	async provideShare(item: vscode.ShareableItem): Promise<vscode.Uri | string | undefined> {
+		Logger.trace('providing permalink markdown share', GitHubPermalinkAsMarkdownShareProvider.ID);
 		const link = await super.provideShare(item);
 
 		const text = await this.getMarkdownLinkText(item);

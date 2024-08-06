@@ -229,6 +229,7 @@ export class ReviewCommentController extends CommentControllerBase
 			for (const [file, change] of (this._folderRepoManager.activePullRequest?.fileChanges.entries() ?? [])) {
 				if (change.status !== GitChangeType.DELETE) {
 					const uri = vscode.Uri.joinPath(this._folderRepoManager.repository.rootUri, file);
+					Logger.trace(`Prefetching commenting ranges for ${uri.toString()}`, ReviewCommentController.ID);
 					vscode.workspace.openTextDocument(uri);
 				}
 			}
