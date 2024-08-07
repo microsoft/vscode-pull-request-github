@@ -8,6 +8,7 @@ import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
 import { DiffSide, IComment, SubjectType } from '../common/comment';
+import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, Schemes } from '../common/uri';
 import { dispose, groupBy } from '../common/utils';
@@ -28,6 +29,7 @@ import {
 import { CommentControllerBase } from './commentControllBase';
 
 export class PullRequestCommentController extends CommentControllerBase implements CommentHandler, CommentReactionHandler {
+	private static ID = 'PullRequestCommentController';
 	private _pendingCommentThreadAdds: GHPRCommentThread[] = [];
 	private _commentHandlerId: string;
 	private _commentThreadCache: { [key: string]: GHPRCommentThread[] } = {};
@@ -113,6 +115,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 				if (potentialEditor.editor) {
 					return Promise.resolve(potentialEditor.editor.document);
 				} else {
+					Logger.trace(`Opening text document for PR editor ${potentialEditor.uri.toString()}`, PullRequestCommentController.ID);
 					return vscode.workspace.openTextDocument(potentialEditor.uri);
 				}
 			}

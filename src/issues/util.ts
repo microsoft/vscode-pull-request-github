@@ -171,6 +171,7 @@ async function findCodeLinksInIssue(body: string, repositoriesManager: Repositor
 	return findAndModifyString(body, CODE_PERMALINK, async (match: RegExpMatchArray) => {
 		const codeLink = await findCodeLinkLocally(match, repositoriesManager);
 		if (codeLink) {
+			Logger.trace('finding code links in issue', 'Issues');
 			const textDocument = await vscode.workspace.openTextDocument(codeLink?.file);
 			const endingTextDocumentLine = textDocument.lineAt(
 				codeLink.end < textDocument.lineCount ? codeLink.end : textDocument.lineCount - 1,

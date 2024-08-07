@@ -6,6 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
+import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
 import { ALLOWED_USERS, JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
 import { stringReplaceAsync } from '../common/utils';
@@ -197,6 +198,7 @@ const SUGGESTION_EXPRESSION = /```suggestion(\u0020*(\r\n|\n))((?<suggestion>[\s
 const IMG_EXPRESSION = /<img .*src=['"](?<src>.+?)['"].*?>/g;
 
 export class GHPRComment extends CommentBase {
+	private static ID = 'GHPRComment';
 	public commentId: string;
 	public timestamp: Date;
 
@@ -379,6 +381,7 @@ ${lineContents}
 	}
 
 	private async replaceBody(body: string | vscode.MarkdownString): Promise<string> {
+		Logger.trace('Replace comment body', GHPRComment.ID);
 		if (body instanceof vscode.MarkdownString) {
 			const permalinkReplaced = await this.replacePermalink(body.value);
 			return this.replaceImg(this.replaceSuggestion(permalinkReplaced));
