@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 body a {
-	text-decoration: none;
+	text-decoration: var(--text-link-decoration);
 }
 
 h3 {
