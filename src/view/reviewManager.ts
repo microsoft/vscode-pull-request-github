@@ -248,7 +248,7 @@ export class ReviewManager {
 
 	private pollForStatusChange() {
 		setTimeout(async () => {
-			if (!this._validateStatusInProgress) {
+			if (!this._validateStatusInProgress && this._folderRepoManager.activePullRequest) {
 				await this.updateComments();
 			}
 			this.pollForStatusChange();
