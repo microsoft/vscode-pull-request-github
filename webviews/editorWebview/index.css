@@ -894,7 +894,7 @@ h3 {
 }
 
 code {
-	font-family: Menlo, Monaco, Consolas, 'Droid Sans Mono', 'Courier New', monospace, 'Droid Sans Fallback';
+	font-family: var(--vscode-editor-font-family), Menlo, Monaco, Consolas, 'Droid Sans Mono', 'Courier New', monospace, 'Droid Sans Fallback';
 }
 
 .comment-body .snippet-clipboard-content {
