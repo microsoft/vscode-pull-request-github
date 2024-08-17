@@ -1053,15 +1053,15 @@ code {
 }
 
 .win32 .diff .diffLine {
-	font-family: Consolas, Inconsolata, 'Courier New', monospace;
+	font-family: var(--vscode-editor-font-family), Consolas, Inconsolata, 'Courier New', monospace;
 }
 
 .darwin .diff .diffLine {
-	font-family: Monaco, Menlo, Inconsolata, 'Courier New', monospace;
+	font-family: var(--vscode-editor-font-family), Monaco, Menlo, Inconsolata, 'Courier New', monospace;
 }
 
 .linux .diff .diffLine {
-	font-family: 'Droid Sans Mono', Inconsolata, 'Courier New', monospace, 'Droid Sans Fallback';
+	font-family: var(--vscode-editor-font-family), 'Droid Sans Mono', Inconsolata, 'Courier New', monospace, 'Droid Sans Fallback';
 }
 
 .diff .diffLine.add {
