@@ -11,6 +11,7 @@ import { GitApiImpl } from '../api/api1';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
 import { DiffSide, IReviewThread, SubjectType } from '../common/comment';
 import { getCommentingRanges } from '../common/commentingRanges';
+import { DiffChangeType, DiffHunk } from '../common/diffHunk';
 import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPositionMapping';
 import { GitChangeType } from '../common/file';
 import Logger from '../common/logger';
@@ -794,6 +795,56 @@ export class ReviewCommentController extends CommentControllerBase
 				return c;
 			});
 		}
+	}
+
+	private trimContextFromHunk(hunk: DiffHunk) {
+		let oldLineNumber = hunk.oldLineNumber;
+		let oldLength = hunk.oldLength;
+
+		// start at 1 to skip the control line
+		let i = 1;
+		for (; i < hunk.diffLines.length; i++) {
+			const line = hunk.diffLines[i];
+			if (line.type === DiffChangeType.Context) {
+				oldLineNumber++;
+				oldLength--;
+			} else {
+				break;
+			}
+		}
+		let j = hunk.diffLines.length - 1;
+		for (; j >= 0; j--) {
+			if (hunk.diffLines[j].type === DiffChangeType.Context) {
+				oldLength--;
+			} else {
+				break;
+			}
+		}
+		hunk.diffLines = hunk.diffLines.slice(i, j + 1);
+		hunk.oldLength = oldLength;
+		hunk.oldLineNumber = oldLineNumber;
+	}
+
+	async createSuggestionsFromChanges(file: vscode.Uri, hunk: DiffHunk) {
+		const activePr = this._folderRepoManager.activePullRequest;
+		if (!activePr) {
+			return;
+		}
+
+		this.trimContextFromHunk(hunk);
+
+		const path = this.gitRelativeRootPath(file.path);
+		const body = `\`\`\`suggestion
+${hunk.diffLines.filter(line => (line.type === DiffChangeType.Add) || (line.type == DiffChangeType.Context)).map(line => line.text).join('\n')}
+\`\`\``;
+		await activePr.createReviewThread(
+			body,
+			path,
+			hunk.oldLineNumber,
+			hunk.oldLineNumber + hunk.oldLength - 1,
+			DiffSide.RIGHT,
+			false,
+		);
 	}
 
 	private async createCommentOnResolve(thread: GHPRCommentThread, input: string): Promise<void> {

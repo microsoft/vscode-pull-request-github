@@ -1212,6 +1212,12 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "review.createSuggestionsFromChanges",
+				"title": "%command.review.createSuggestionsFromChanges.title%",
+				"icon": "$(gift)",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.createPrMenuCreate",
 				"title": "%command.pr.createPrMenuCreate.title%",
 				"category": "%command.pull.request.category%"
@@ -1716,6 +1722,10 @@
 				},
 				{
 					"command": "review.requestChangesOnDotComDescription",
+					"when": "false"
+				},
+				{
+					"command": "review.createSuggestionsFromChanges",
 					"when": "false"
 				},
 				{
@@ -2440,6 +2450,13 @@
 					"command": "pr.create",
 					"when": "scmProvider =~ /^git|^remoteHub:github/ && scmProviderRootUri in github:reposNotInReviewMode",
 					"group": "navigation"
+				}
+			],
+			"scm/resourceGroup/context": [
+				{
+					"command": "review.createSuggestionsFromChanges",
+					"when": "scmProviderRootUri in github:reposInReviewMode && scmProvider =~ /^git|^remoteHub:github/ && scmResourceGroup == workingTree",
+					"group": "inline@-2"
 				}
 			],
 			"comments/commentThread/context": [
