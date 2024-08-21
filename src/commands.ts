@@ -1154,6 +1154,18 @@ ${contents}
 		}),
 	);
 
+	context.subscriptions.push(vscode.commands.registerCommand('review.createSuggestionsFromChanges', async (value: { resourceStates: { resourceUri }[] }) => {
+		if (value.resourceStates.length === 0) {
+			return;
+		}
+		const folderManager = reposManager.getManagerForFile(value.resourceStates[0].resourceUri);
+		if (!folderManager || !folderManager.activePullRequest) {
+			return;
+		}
+		const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager);
+		return reviewManager?.createSuggestionsFromChanges();
+	}));
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.refreshChanges', _ => {
 			reviewsManager.reviewManagers.forEach(reviewManager => {
