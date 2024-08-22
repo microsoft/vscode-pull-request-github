@@ -11,7 +11,6 @@ import { GitApiImpl } from '../api/api1';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
 import { DiffSide, IReviewThread, SubjectType } from '../common/comment';
 import { getCommentingRanges } from '../common/commentingRanges';
-import { DiffChangeType, DiffHunk } from '../common/diffHunk';
 import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPositionMapping';
 import { GitChangeType } from '../common/file';
 import Logger from '../common/logger';
@@ -38,6 +37,12 @@ import { RemoteFileChangeModel } from './fileChangeModel';
 import { ReviewManager } from './reviewManager';
 import { ReviewModel } from './reviewModel';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
+
+export interface SuggestionInformation {
+	originalStartLine: number;
+	originalLineLength: number;
+	suggestionContent: string;
+}
 
 export class ReviewCommentController extends CommentControllerBase
 	implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider2, CommentReactionHandler {
@@ -797,51 +802,21 @@ export class ReviewCommentController extends CommentControllerBase
 		}
 	}
 
-	private trimContextFromHunk(hunk: DiffHunk) {
-		let oldLineNumber = hunk.oldLineNumber;
-		let oldLength = hunk.oldLength;
-
-		// start at 1 to skip the control line
-		let i = 1;
-		for (; i < hunk.diffLines.length; i++) {
-			const line = hunk.diffLines[i];
-			if (line.type === DiffChangeType.Context) {
-				oldLineNumber++;
-				oldLength--;
-			} else {
-				break;
-			}
-		}
-		let j = hunk.diffLines.length - 1;
-		for (; j >= 0; j--) {
-			if (hunk.diffLines[j].type === DiffChangeType.Context) {
-				oldLength--;
-			} else {
-				break;
-			}
-		}
-		hunk.diffLines = hunk.diffLines.slice(i, j + 1);
-		hunk.oldLength = oldLength;
-		hunk.oldLineNumber = oldLineNumber;
-	}
-
-	async createSuggestionsFromChanges(file: vscode.Uri, hunk: DiffHunk) {
+	async createSuggestionsFromChanges(file: vscode.Uri, suggestionInformation: SuggestionInformation): Promise<void> {
 		const activePr = this._folderRepoManager.activePullRequest;
 		if (!activePr) {
 			return;
 		}
 
-		this.trimContextFromHunk(hunk);
-
 		const path = this.gitRelativeRootPath(file.path);
 		const body = `\`\`\`suggestion
-${hunk.diffLines.filter(line => (line.type === DiffChangeType.Add) || (line.type == DiffChangeType.Context)).map(line => line.text).join('\n')}
+${suggestionInformation.suggestionContent}
 \`\`\``;
 		await activePr.createReviewThread(
 			body,
 			path,
-			hunk.oldLineNumber,
-			hunk.oldLineNumber + hunk.oldLength - 1,
+			suggestionInformation.originalStartLine,
+			suggestionInformation.originalStartLine + suggestionInformation.originalLineLength - 1,
 			DiffSide.RIGHT,
 			false,
 		);

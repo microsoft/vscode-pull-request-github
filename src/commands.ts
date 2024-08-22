@@ -1166,6 +1166,35 @@ ${contents}
 		return reviewManager?.createSuggestionsFromChanges();
 	}));
 
+	context.subscriptions.push(vscode.commands.registerDiffInformationCommand('review.createSuggestionFromChange', async (diffLines: vscode.LineChange[]) => {
+		const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+		const input = tab?.input;
+		if (!(input instanceof vscode.TabInputTextDiff)) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Current editor isn\'t a diff editor.'));
+		}
+
+		const editor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === input.modified.toString());
+		if (!editor) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unexpectedly unable to find the current modified editor.'));
+		}
+
+		const folderManager = reposManager.getManagerForFile(input.modified);
+		if (!folderManager || !folderManager.activePullRequest) {
+			return;
+		}
+		const editorSelection = editor.selection;
+		const selectedLines = diffLines.filter(line => {
+			return !!editorSelection.intersection(new vscode.Selection(line.modifiedStartLineNumber - 1, 0, line.modifiedEndLineNumber - 1, 100));
+		});
+
+		if (selectedLines.length === 0) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('No modified lines selected.'));
+		}
+		const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager);
+		return reviewManager?.createSuggestionFromChange(editor.document, selectedLines);
+
+	}));
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.refreshChanges', _ => {
 			reviewsManager.reviewManagers.forEach(reviewManager => {

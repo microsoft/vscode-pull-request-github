@@ -1218,6 +1218,12 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "review.createSuggestionFromChange",
+				"title": "%command.review.createSuggestionFromChange.title%",
+				"icon": "$(gift)",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.createPrMenuCreate",
 				"title": "%command.pr.createPrMenuCreate.title%",
 				"category": "%command.pull.request.category%"
@@ -1727,6 +1733,10 @@
 				{
 					"command": "review.createSuggestionsFromChanges",
 					"when": "false"
+				},
+				{
+					"command": "review.createSuggestionFromChange",
+					"when": "activeEditor == workbench.editors.textDiffEditor && (resourcePath in github:unviewedFiles || resourcePath in github:viewedFiles)"
 				},
 				{
 					"command": "pr.refreshList",
@@ -2619,6 +2629,13 @@
 					"command": "issue.copyGithubDevLink",
 					"when": "github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev",
 					"group": "0_vscode@0"
+				}
+			],
+			"editor/context": [
+				{
+					"command": "review.createSuggestionFromChange",
+					"when": "activeEditor == workbench.editors.textDiffEditor && (resourcePath in github:unviewedFiles || resourcePath in github:viewedFiles)",
+					"group": "2_git@6"
 				}
 			],
 			"file/share": [
