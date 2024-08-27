@@ -1210,9 +1210,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			this.addReviewTimelineEventComments(events, reviewThreads);
 			insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, this.head);
-
+			Logger.debug(`Fetch timeline events of PR #${this.number} - done`, PullRequestModel.ID);
 			return events;
 		} catch (e) {
+			Logger.error(`Failed to get pull request timeline events: ${e}`, PullRequestModel.ID);
 			console.log(e);
 			return [];
 		}

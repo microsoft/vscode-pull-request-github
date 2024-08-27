@@ -1317,7 +1317,9 @@ export class GitHubRepository implements vscode.Disposable {
 					login: remote.owner
 				},
 			});
-			return result.data.organization.teams.totalCount;
+			const totalCount = result.data.organization.teams.totalCount;
+			Logger.debug(`Fetch Teams Count - done`, this.id);
+			return totalCount;
 		} catch (e) {
 			Logger.debug(`Unable to fetch teams Count: ${e}`, this.id);
 			if (
