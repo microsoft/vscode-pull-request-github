@@ -956,6 +956,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Get existing requests to review.
 	 */
 	async getReviewRequests(): Promise<(IAccount | ITeam)[]> {
+		Logger.debug('Get Review Requests - enter', PullRequestModel.ID);
+
 		const githubRepository = this.githubRepository;
 		const { remote, query, schema } = await githubRepository.ensure();
 
@@ -997,6 +999,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				reviewers.push(team);
 			}
 		}
+		Logger.debug('Get Review Requests - done', PullRequestModel.ID);
 		return reviewers;
 	}
 

@@ -1474,6 +1474,8 @@ export class GitHubRepository implements vscode.Disposable {
 	 */
 	private _useFallbackChecks: boolean = false;
 	async getStatusChecks(number: number): Promise<[PullRequestChecks | null, PullRequestReviewRequirement | null]> {
+		Logger.debug('Get Status Checks - enter', this.id);
+
 		const { query, remote, schema } = await this.ensure();
 		const captureUseFallbackChecks = this._useFallbackChecks;
 		let result: ApolloQueryResult<GetChecksResponse>;
@@ -1495,6 +1497,7 @@ export class GitHubRepository implements vscode.Disposable {
 					return this.getStatusChecks(number);
 				}
 			}
+			Logger.error(`Unable to fetch PR checks: ${e}`, this.id);
 			throw e;
 		}
 
@@ -1594,6 +1597,7 @@ export class GitHubRepository implements vscode.Disposable {
 			}
 		}
 
+		Logger.debug('Get Status Checks - done', this.id);
 		return [checks.statuses.length ? checks : null, reviewRequirement];
 	}
 

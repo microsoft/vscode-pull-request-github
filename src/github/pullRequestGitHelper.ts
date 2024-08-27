@@ -190,24 +190,25 @@ export class PullRequestGitHelper {
 		createdForPullRequest?: boolean;
 		remoteInUse?: boolean;
 	} | null> {
-		const key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
-		const configs = await repository.getConfigs();
+		let branchName: string | null = null;
+		try {
+			const key = PullRequestGitHelper.buildPullRequestMetadata(pullRequest);
+			const configs = await repository.getConfigs();
 
-		const branchInfo = configs
-			.map(config => {
-				const matches = PullRequestBranchRegex.exec(config.key);
-				return {
-					branch: matches && matches.length ? matches[1] : null,
-					value: config.value,
-				};
-			})
-			.find(c => !!c.branch && c.value === key);
+			const branchInfo = configs
+				.map(config => {
+					const matches = PullRequestBranchRegex.exec(config.key);
+					return {
+						branch: matches && matches.length ? matches[1] : null,
+						value: config.value,
+					};
+				})
+				.find(c => !!c.branch && c.value === key);
 
-		if (branchInfo) {
-			// we find the branch
-			const branchName = branchInfo.branch;
+			if (branchInfo) {
+				// we find the branch
+				branchName = branchInfo.branch;
 
-			try {
 				const configKey = `branch.${branchName}.remote`;
 				const branchRemotes = configs.filter(config => config.key === configKey).map(config => config.value);
 				let remoteName: string | undefined = undefined;
@@ -248,13 +249,18 @@ export class PullRequestGitHelper {
 					createdForPullRequest,
 					remoteInUse,
 				};
-			} catch (_) {
+			}
+
+		} catch (e) {
+			if (branchName) {
 				return {
 					branch: branchName!,
 				};
+			} else {
+				Logger.error(`getBranchNRemoteForPullRequest failed ${e}`, PullRequestGitHelper.ID);
+				return null;
 			}
 		}
-
 		return null;
 	}
 
