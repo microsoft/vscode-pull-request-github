@@ -450,7 +450,7 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRep
 	return {
 		id: thread.id,
 		prReviewDatabaseId: thread.comments.edges && thread.comments.edges.length ?
-			thread.comments.edges[0].node.pullRequestReview.databaseId :
+			thread.comments.edges[0].node.pullRequestReview?.databaseId :
 			undefined,
 		isResolved: thread.isResolved,
 		viewerCanResolve: thread.viewerCanResolve,
