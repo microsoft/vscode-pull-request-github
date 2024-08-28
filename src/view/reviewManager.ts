@@ -777,7 +777,7 @@ export class ReviewManager {
 		});
 		if (!hasError) {
 			const checkoutAllFilesResponse = vscode.l10n.t('Checkout all files');
-			vscode.window.showInformationMessage(vscode.l10n.t('All changes have been converted to suggestions.'), { modal: true, detail: vscode.l10n.t('Do you want to checkout all files and reset your working state to match the pull request state?') }, checkoutAllFilesResponse).then((response) => {
+			vscode.window.showInformationMessage(vscode.l10n.t('All changes have been converted to suggestions.'), { modal: true, detail: vscode.l10n.t('Do you want to reset your local changes?') }, checkoutAllFilesResponse).then((response) => {
 				if (response === checkoutAllFilesResponse) {
 					return Promise.all(convertedFiles.map(changeFile => this._folderRepoManager.repository.checkout(changeFile.fsPath)));
 				}
