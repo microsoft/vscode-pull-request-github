@@ -781,8 +781,10 @@ export class ReviewManager {
 					return Promise.all(convertedFiles.map(changeFile => this._folderRepoManager.repository.checkout(changeFile.fsPath)));
 				}
 			});
+		} else if (convertedFiles.length) {
+			vscode.window.showWarningMessage(vscode.l10n.t('Not all changes could be converted to suggestions.'), { detail: vscode.l10n.t('Some of the changes may be outside of commenting ranges.\nYour changes are still available locally.'), modal: true });
 		} else {
-			vscode.window.showWarningMessage(vscode.l10n.t('Not all changes could be converted to suggestions.'), { detail: vscode.l10n.t('Some of the changes may be outside of commenting ranges.'), modal: true });
+			vscode.window.showWarningMessage(vscode.l10n.t('No changes could be converted to suggestions.'), { detail: vscode.l10n.t('All of the changes are outside of commenting ranges.'), modal: true });
 		}
 	}
 
