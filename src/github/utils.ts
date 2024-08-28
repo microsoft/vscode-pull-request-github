@@ -133,8 +133,9 @@ export const COMMENT_EXPAND_STATE_SETTING = 'commentExpandState';
 export const COMMENT_EXPAND_STATE_COLLAPSE_VALUE = 'collapseAll';
 export const COMMENT_EXPAND_STATE_EXPAND_VALUE = 'expandUnresolved';
 export function getCommentCollapsibleState(thread: IReviewThread, expand?: boolean, currentUser?: string) {
-	if (thread.isResolved
-		|| (!thread.isOutdated && currentUser && (thread.comments[thread.comments.length - 1].user?.login === currentUser))) {
+	const isFromCurrent = (currentUser && (thread.comments[thread.comments.length - 1].user?.login === currentUser));
+	const isJustSuggestion = thread.comments.length === 1 && thread.comments[0].body.startsWith('```suggestion') && thread.comments[0].body.endsWith('```');
+	if (thread.isResolved || (!thread.isOutdated && isFromCurrent && !isJustSuggestion)) {
 		return vscode.CommentThreadCollapsibleState.Collapsed;
 	}
 	if (expand === undefined) {
