@@ -48,7 +48,8 @@ To customize the pull request tree, you can use the `githubPullRequests.queries`
 	},
 	{
 		"label": "Assigned To Me",
-		"query": "is:open assignee:${user}"
+		"query": "is:open userAgent
+Mozilla/5.0 (Linux; Android 9; SM-J330F Build/PPR1.180610.011; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/127.0.6533.103 Mobile Safari/537.36 BNC/1.11.3 (Android 2.88.1assignee:${user}"
 	},
 	{
 		"label": "Created By Me",
