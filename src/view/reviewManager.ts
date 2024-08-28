@@ -755,12 +755,13 @@ export class ReviewManager {
 		};
 	}
 
-	async createSuggestionsFromChanges() {
+	async createSuggestionsFromChanges(resources: vscode.Uri[]) {
+		const resourceStrings = resources.map(resource => resource.toString());
 		let hasError: boolean = false;
 		const convertedFiles: vscode.Uri[] = [];
 		await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: 'Converting changes to suggestions' }, async () => {
 			await Promise.all(this._folderRepoManager.repository.state.workingTreeChanges.map(async changeFile => {
-				if (changeFile.status !== Status.MODIFIED) {
+				if (!resourceStrings.includes(changeFile.uri.toString()) || (changeFile.status !== Status.MODIFIED)) {
 					return;
 				}
 				const diff = parsePatch(await this._folderRepoManager.repository.diffWithHEAD(changeFile.uri.fsPath));

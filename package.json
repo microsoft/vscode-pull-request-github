@@ -2469,6 +2469,13 @@
 					"group": "inline@-2"
 				}
 			],
+			"scm/resourceState/context": [
+				{
+					"command": "review.createSuggestionsFromChanges",
+					"when": "scmProviderRootUri in github:reposInReviewMode && scmProvider =~ /^git|^remoteHub:github/ && scmResourceGroup == workingTree",
+					"group": "1_modification@5"
+				}
+			],
 			"comments/commentThread/context": [
 				{
 					"command": "pr.createComment",

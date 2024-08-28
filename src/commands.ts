@@ -1154,16 +1154,25 @@ ${contents}
 		}),
 	);
 
-	context.subscriptions.push(vscode.commands.registerCommand('review.createSuggestionsFromChanges', async (value: { resourceStates: { resourceUri }[] }) => {
-		if (value.resourceStates.length === 0) {
+	context.subscriptions.push(vscode.commands.registerCommand('review.createSuggestionsFromChanges', async (value: ({ resourceStates: { resourceUri }[] }) | ({ resourceUri: vscode.Uri }), ...additionalSelected: ({ resourceUri: vscode.Uri })[]) => {
+		let resources: vscode.Uri[];
+		if ('resourceStates' in value) {
+			resources = value.resourceStates.map(resource => resource.resourceUri);
+		} else {
+			resources = [value.resourceUri];
+			if (additionalSelected) {
+				resources.push(...additionalSelected.map(resource => resource.resourceUri));
+			}
+		}
+		if (resources.length === 0) {
 			return;
 		}
-		const folderManager = reposManager.getManagerForFile(value.resourceStates[0].resourceUri);
+		const folderManager = reposManager.getManagerForFile(resources[0]);
 		if (!folderManager || !folderManager.activePullRequest) {
 			return;
 		}
 		const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager);
-		return reviewManager?.createSuggestionsFromChanges();
+		return reviewManager?.createSuggestionsFromChanges(resources);
 	}));
 
 	context.subscriptions.push(vscode.commands.registerDiffInformationCommand('review.createSuggestionFromChange', async (diffLines: vscode.LineChange[]) => {
