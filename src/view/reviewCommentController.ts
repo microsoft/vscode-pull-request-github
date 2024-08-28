@@ -957,7 +957,7 @@ ${suggestionInformation.suggestionContent}
 			throw new Error('Cannot find the editor to apply the suggestion to.');
 		}
 		await editor.edit(builder => {
-			builder.replace(range.with(undefined, new vscode.Position(range.end.line + 1, 0)), suggestion);
+			builder.replace(range.with(undefined, editor.document.lineAt(range.end.line).range.end), suggestion);
 		});
 	}
 

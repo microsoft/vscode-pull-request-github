@@ -304,7 +304,7 @@ export class GHPRComment extends CommentBase {
 		const match = this.rawComment.body.match(SUGGESTION_EXPRESSION);
 		const suggestionBody = match?.groups?.suggestion;
 		if (match) {
-			return suggestionBody ? `${suggestionBody}\n` : '';
+			return suggestionBody ? suggestionBody : '';
 		}
 	}
 
