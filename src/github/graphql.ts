@@ -221,7 +221,7 @@ export interface ReviewThread {
 		nodes: ReviewComment[];
 		edges: [{
 			node: {
-				pullRequestReview: {
+				pullRequestReview?: {
 					databaseId: number
 				}
 			}
