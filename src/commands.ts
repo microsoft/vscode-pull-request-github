@@ -1122,7 +1122,7 @@ ${contents}
 		*/
 			telemetry.sendTelemetryEvent('pr.deleteComment');
 			const deleteOption = vscode.l10n.t('Delete');
-			const shouldDelete = await vscode.window.showWarningMessage(vscode.l10n.t('Delete comment?'), { modal: true }, deleteOption);
+			const shouldDelete = await vscode.window.showWarningMessage(vscode.l10n.t('Are you sure you want to delete this comment?'), { modal: true }, deleteOption);
 
 			if (shouldDelete === deleteOption) {
 				const handler = resolveCommentHandler(comment.parent);
