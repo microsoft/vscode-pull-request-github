@@ -12,6 +12,7 @@ import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from
 import { DiffSide, IReviewThread, SubjectType } from '../common/comment';
 import { getCommentingRanges } from '../common/commentingRanges';
 import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPositionMapping';
+import { commands, contexts } from '../common/executeCommands';
 import { GitChangeType } from '../common/file';
 import Logger from '../common/logger';
 import { PR_SETTINGS_NAMESPACE, PULL_BRANCH, PULL_PR_BRANCH_BEFORE_CHECKOUT, PullPRBranchVariants } from '../common/settingKeys';
@@ -37,6 +38,7 @@ import { RemoteFileChangeModel } from './fileChangeModel';
 import { ReviewManager } from './reviewManager';
 import { ReviewModel } from './reviewModel';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
+import { IDisposable } from 'cockatiel';
 
 export interface SuggestionInformation {
 	originalStartLine: number;
@@ -357,6 +359,30 @@ export class ReviewCommentController extends CommentControllerBase
 				this.updateResourcesWithCommentingRanges();
 			}),
 		);
+		this._localToDispose.push(vscode.window.onDidChangeActiveTextEditor(e => this.onDidChangeActiveTextEditor(e)));
+	}
+
+	private _commentContentChangedListner: IDisposable | undefined;
+	private onDidChangeActiveTextEditor(editor: vscode.TextEditor | undefined) {
+		this._commentContentChangedListner?.dispose();
+		this._commentContentChangedListner = undefined;
+		if (editor?.document.uri.scheme !== Schemes.Comment) {
+			return;
+		}
+		const updateHasSuggestion = () => {
+			if (editor.document.getText().includes('```suggestion')) {
+				commands.setContext(contexts.ACTIVE_COMMENT_HAS_SUGGESTION, true);
+			} else {
+				commands.setContext(contexts.ACTIVE_COMMENT_HAS_SUGGESTION, false);
+			}
+		};
+		this._commentContentChangedListner = vscode.workspace.onDidChangeTextDocument(e => {
+			if (e.document.uri.toString() !== editor.document.uri.toString()) {
+				return;
+			}
+			updateHasSuggestion();
+		});
+		updateHasSuggestion();
 	}
 
 	public updateCommentExpandState(expand: boolean) {

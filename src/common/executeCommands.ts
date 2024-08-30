@@ -17,6 +17,7 @@ export namespace contexts {
 	export const CREATE_PR_PERMISSIONS = 'github:createPrPermissions';
 	export const RESOLVING_CONFLICTS = 'github:resolvingConflicts';
 	export const PULL_REQUEST_DESCRIPTION_VISIBLE = 'github:pullRequestDescriptionVisible';
+	export const ACTIVE_COMMENT_HAS_SUGGESTION = 'github:activeCommentHasSuggestion';
 }
 
 export namespace commands {
