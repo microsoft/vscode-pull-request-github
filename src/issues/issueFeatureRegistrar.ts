@@ -631,8 +631,6 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this._newIssueCache.clear();
 		if (template) {
 			this.makeNewIssueFile(uri, template.title, template.body);
-		} else {
-			this.makeNewIssueFile(uri);
 		}
 	}
 
@@ -1111,11 +1109,11 @@ ${body ?? ''}\n
 	private async chooseTemplate(folderManager: FolderRepositoryManager): Promise<{ title: string | undefined, body: string | undefined } | undefined> {
 		const templateUris = await folderManager.getIssueTemplates();
 		if (templateUris.length === 0) {
-			return undefined;
+			return { title: undefined, body: undefined };
 		}
 
 		interface IssueChoice extends vscode.QuickPickItem {
-			template: IssueTemplate | undefined;
+			template: { title: string | undefined, body: string | undefined } | undefined;
 		}
 		const templates = await Promise.all(
 			templateUris
@@ -1141,7 +1139,7 @@ ${body ?? ''}\n
 		});
 		choices.push({
 			label: vscode.l10n.t('Blank issue'),
-			template: undefined
+			template: { title: undefined, body: undefined }
 		});
 
 		const selectedTemplate = await vscode.window.showQuickPick(choices, {
