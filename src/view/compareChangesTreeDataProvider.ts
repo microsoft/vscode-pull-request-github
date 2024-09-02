@@ -23,6 +23,7 @@ export function getGitChangeTypeFromApi(status: Status): GitChangeType {
 		case Status.DELETED:
 			return GitChangeType.DELETE;
 		case Status.ADDED_BY_US:
+		case Status.INDEX_ADDED:
 			return GitChangeType.ADD;
 		case Status.INDEX_RENAMED:
 			return GitChangeType.RENAME;
