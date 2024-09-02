@@ -4,10 +4,9 @@
 
 ### Changes
 
-- Local changes to a checked-out PR can be quickly converted to suggestion comments.
+- Local changes to a checked-out PR can be quickly converted to suggestion comments from both the SCM view and from the diff editor context menu.
 
-<insert gif here>
-
+![Convert local changes to suggestions](./documentation/changelog/0.96.0/convert-to-suggestions.gif)
 
 ### Fixes
 
@@ -15,7 +14,6 @@
 - Sort shorter paths to the top. https://github.com/microsoft/vscode-pull-request-github/issues/6143
 - Error git config --local branch.main.github-pr-owner-number. https://github.com/microsoft/vscode-pull-request-github/issues/6134
 - The "accessibility.underlineLinks": true setting is ignored. https://github.com/microsoft/vscode-pull-request-github/issues/6122
-
 
 **_Thank You_**
 
