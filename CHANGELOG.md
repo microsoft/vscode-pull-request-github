@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.96.0
+
+### Changes
+
+- Local changes to a checked-out PR can be quickly converted to suggestion comments.
+
+<insert gif here>
+
+
+### Fixes
+
+- Use the editor font code for the diffs. https://github.com/microsoft/vscode-pull-request-github/issues/6146
+- Sort shorter paths to the top. https://github.com/microsoft/vscode-pull-request-github/issues/6143
+- Error git config --local branch.main.github-pr-owner-number. https://github.com/microsoft/vscode-pull-request-github/issues/6134
+- The "accessibility.underlineLinks": true setting is ignored. https://github.com/microsoft/vscode-pull-request-github/issues/6122
+
+
+**_Thank You_**
+
+* [@jmg-duarte (Jose Duarte)](https://github.com/jmg-duarte)
+  * Use editor font for diff [PR #6148](https://github.com/microsoft/vscode-pull-request-github/pull/6148)
+  * Make code blocks use the editor's font family by default [PR #6149](https://github.com/microsoft/vscode-pull-request-github/pull/6149)
+
 ## 0.94.0
 
 ### Changes
