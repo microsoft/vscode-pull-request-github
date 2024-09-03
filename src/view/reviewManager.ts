@@ -741,7 +741,30 @@ export class ReviewManager {
 				break;
 			}
 		}
-		hunk.diffLines = hunk.diffLines.slice(i, j + 1);
+
+		let slice = hunk.diffLines.slice(i, j + 1);
+
+		if (slice.every(line => line.type === DiffChangeType.Add)) {
+			// we have only inserted lines, so we need to include a context line so that
+			// there's a line to anchor the suggestion to
+			if (i > 1) {
+				// include from the begginning of the hunk
+				i--;
+				oldLineNumber--;
+				oldLength++;
+			} else if (j < hunk.diffLines.length - 1) {
+				// include from the end of the hunk
+				j++;
+				oldLength++;
+			} else {
+				// include entire context
+				i = 1;
+				j = hunk.diffLines.length - 1;
+			}
+			slice = hunk.diffLines.slice(i, j + 1);
+		}
+
+		hunk.diffLines = slice;
 		hunk.oldLength = oldLength;
 		hunk.oldLineNumber = oldLineNumber;
 	}
