@@ -39,7 +39,7 @@
 	"githubPullRequests.createOnPublishBranch.description": "Create a pull request when a branch is published.",
 	"githubPullRequests.createOnPublishBranch.never": "Never create a pull request when a branch is published.",
 	"githubPullRequests.createOnPublishBranch.ask": "Ask if you want to create a pull request when a branch is published.",
-	"githubPullRequests.commentExpandState.description": "Controls whether comments are expanded when a document with comments is opened.",
+	"githubPullRequests.commentExpandState.description": "Controls whether comments are expanded when a document with comments is opened. Requires a reload to take effect for comments that have already been added.",
 	"githubPullRequests.commentExpandState.expandUnresolved": "All unresolved comments will be expanded.",
 	"githubPullRequests.commentExpandState.collapseAll": "All comments will be collapsed",
 	"githubPullRequests.useReviewMode.description": "Choose which pull request states will use review mode. \"Open\" pull requests will always use review mode. Setting to \"auto\" will use review mode for open, closed, and merged pull requests in web, but only open pull requests on desktop.",
