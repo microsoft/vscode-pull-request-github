@@ -956,6 +956,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Get existing requests to review.
 	 */
 	async getReviewRequests(): Promise<(IAccount | ITeam)[]> {
+		Logger.debug('Get Review Requests - enter', PullRequestModel.ID);
+
 		const githubRepository = this.githubRepository;
 		const { remote, query, schema } = await githubRepository.ensure();
 
@@ -997,6 +999,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				reviewers.push(team);
 			}
 		}
+		Logger.debug('Get Review Requests - done', PullRequestModel.ID);
 		return reviewers;
 	}
 
@@ -1210,9 +1213,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			this.addReviewTimelineEventComments(events, reviewThreads);
 			insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, this.head);
-
+			Logger.debug(`Fetch timeline events of PR #${this.number} - done`, PullRequestModel.ID);
 			return events;
 		} catch (e) {
+			Logger.error(`Failed to get pull request timeline events: ${e}`, PullRequestModel.ID);
 			console.log(e);
 			return [];
 		}
