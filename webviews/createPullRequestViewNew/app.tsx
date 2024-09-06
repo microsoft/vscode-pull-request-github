@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { use } from 'chai';
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
 import { CreateParamsNew, RemoteInfo } from '../../common/views';
@@ -70,6 +71,61 @@ export function main() {
 						ctx.updateState({ pendingTitle: title });
 					}
 				}
+
+				console.log('RENDER #####################################################');
+				const descriptionInput = useRef<HTMLTextAreaElement>() as React.MutableRefObject<HTMLTextAreaElement>;
+				const descriptionContainer = useRef<HTMLDivElement>() as React.MutableRefObject<HTMLDivElement>;
+				const lineHeight = descriptionInput.current ? getLineHeight(descriptionInput.current) : 18;
+				const [initialScrollHeight] = useState(Math.floor(300 / lineHeight) * lineHeight);
+				const [maxDescriptionHeight, setMaxDescriptionHeight] = useState(descriptionInput.current?.scrollHeight ?? initialScrollHeight);
+				const [currentDescriptionHeight, setCurrentDescriptionHeight] = useState(maxDescriptionHeight);
+				const computedOverflow = descriptionInput.current ? window.getComputedStyle(descriptionInput.current).overflow : 'auto';
+				const [originalOverflow, setOriginalOverflow] = useState(computedOverflow ?? 'auto');
+				const [shouldHideOverflow, setShouldHideOverflow] = useState(false);
+				if (computedOverflow !== 'hidden' && computedOverflow !== originalOverflow) {
+					setOriginalOverflow(computedOverflow);
+				}
+
+				useEffect(() => {
+					if (descriptionInput.current.style.overflow === 'hidden' && (currentDescriptionHeight !== maxDescriptionHeight)) {
+						setCurrentDescriptionHeight(maxDescriptionHeight);
+					}
+				}, [shouldHideOverflow]);
+
+				useEffect(() => {
+					if (shouldHideOverflow) {
+						setShouldHideOverflow(false);
+
+					}
+				}, [shouldHideOverflow]);
+
+				const udpateDescriptionHeight = (newHeight: number) => {
+					setShouldHideOverflow(true);
+					setMaxDescriptionHeight(newHeight);
+				};
+				const onChange = () => {
+					const contentHeight = calculateContentHeight(descriptionInput.current, lineHeight);
+					if (!contentHeight) {
+						return;
+					}
+					if (contentHeight < maxDescriptionHeight) {
+						const proposedShrunkHeight = Math.ceil(contentHeight / lineHeight) * lineHeight;
+						if ((initialScrollHeight < proposedShrunkHeight) && (proposedShrunkHeight < maxDescriptionHeight)) {
+							// Shrink to fit
+							console.log('shrinking');
+							udpateDescriptionHeight(proposedShrunkHeight);
+						} else if ((contentHeight < initialScrollHeight) && (maxDescriptionHeight !== initialScrollHeight)) {
+							// reset to initial height
+							console.log('resetting');
+							udpateDescriptionHeight(initialScrollHeight);
+						}
+					} else if (contentHeight > maxDescriptionHeight) {
+						// Expand to fit or max
+						const newHeight = Math.ceil(contentHeight / lineHeight) * lineHeight;
+						console.log('expanding');
+						udpateDescriptionHeight(newHeight);
+					}
+				};
 
 				useEffect(() => {
 					if (ctx.initialized) {
@@ -323,14 +379,23 @@ export function main() {
 							: null}
 					</div>
 
-					<div className='group-description'>
+					<div className='group-description' ref={descriptionContainer} style={{
+						maxHeight: currentDescriptionHeight,
+					}} >
 						<textarea
 							id='description'
+							ref={descriptionInput}
 							name='description'
 							placeholder='Description'
 							aria-label='Description'
 							value={params.pendingDescription}
-							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
+							onChange={(e) => {
+								ctx.updateState({ pendingDescription: e.currentTarget.value });
+								onChange();
+							}}
+							style={{
+								overflow: shouldHideOverflow ? 'hidden' : originalOverflow,
+							}}
 							onKeyDown={(e) => onKeyDown(false, e)}
 							data-vscode-context='{"preventDefaultContextMenuItems": false}'
 							disabled={!ctx.initialized || isBusy || isGeneratingTitle || params.reviewing}></textarea>
@@ -372,4 +437,58 @@ export function Root({ children }) {
 	}, []);
 	ctx.postMessage({ command: 'ready' });
 	return children(pr);
+}
+
+function calculateContentHeight(textarea: HTMLTextAreaElement, scanAmount: number): number | undefined {
+	let style = window.getComputedStyle(textarea);
+
+	const origMinHeight = style.minHeight;
+	const origMaxHeight = style.maxHeight;
+	const origHeight = style.height;
+	let height = textarea.offsetHeight;
+	const scrollHeight = textarea.scrollHeight;
+	const overflow = style.overflow;
+	/// only bother if the ta is bigger than content
+	if (height >= scrollHeight) {
+		textarea.style.overflow = 'hidden';
+		textarea.style.maxHeight = 'none';
+		textarea.style.minHeight = '0';
+		/// check that our browser supports changing dimension
+		/// calculations mid-way through a function call...
+		textarea.style.height = (height + scanAmount) + 'px';
+		/// because the scrollbar can cause calculation problems
+		/// by checking that scrollHeight has updated
+		if (scrollHeight !== textarea.scrollHeight) {
+			/// now try and scan the ta's height downwards
+			/// until scrollHeight becomes larger than height
+			while (textarea.offsetHeight >= textarea.scrollHeight) {
+				textarea.style.height = (height -= scanAmount) + 'px';
+			}
+			/// be more specific to get the exact height
+			while (textarea.offsetHeight < textarea.scrollHeight) {
+				textarea.style.height = (height++) + 'px';
+			}
+		}
+		textarea.style.minHeight = origMinHeight;
+		textarea.style.maxHeight = origMaxHeight;
+		/// reset the ta back to it's original height
+		textarea.style.height = '100%';
+		/// put the overflow back
+		textarea.style.overflow = overflow;
+		return height;
+	}
+	return scrollHeight;
+}
+
+function getLineHeight(textarea: HTMLTextAreaElement): number {
+	const style = window.getComputedStyle(textarea);
+	return parseInt(style.lineHeight, 10);
+}
+
+function getHeight(element: HTMLElement | undefined): number {
+	if (!element) {
+		return 0;
+	}
+	const style = window.getComputedStyle(element);
+	return parseInt(style.height.split('px')[0], 10);
 }

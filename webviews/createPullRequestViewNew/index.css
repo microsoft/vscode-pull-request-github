@@ -141,7 +141,6 @@ button.input-box {
 .group-description {
 	flex-grow: 1;
 	margin-top: 10px;
-	max-height: 500px;
 }
 
 input[type=text],
@@ -153,6 +152,10 @@ textarea {
 	height: 100%;
 	min-height: 96px;
 	resize: none;
+}
+
+#description {
+	line-height: 18px;
 }
 
 .validation-error {
