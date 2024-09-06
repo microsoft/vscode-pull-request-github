@@ -51,6 +51,7 @@ export const CREATE_ISSUE_TRIGGERS = 'createIssueTriggers';
 export const DEFAULT = 'default';
 export const IGNORE_MILESTONES = 'ignoreMilestones';
 export const ALLOW_FETCH = 'allowFetch';
+export const ALWAYS_PROMPT_FOR_NEW_ISSUE_REPO = 'alwaysPromptForNewIssueRepo';
 
 // git
 export const GIT = 'git';
