@@ -169,6 +169,10 @@ export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHP
 		vscodeThread.contextValue = 'canUnresolve';
 	}
 
+	if (reviewThread.isOutdated) {
+		vscodeThread.contextValue += 'outdated';
+	}
+
 	const newResolvedState = isResolvedToResolvedState(reviewThread.isResolved);
 	if (vscodeThread.state?.resolved !== newResolvedState) {
 		vscodeThread.state = {
