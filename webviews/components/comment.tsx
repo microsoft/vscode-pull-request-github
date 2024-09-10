@@ -357,7 +357,7 @@ export function AddComment({
 		await submitAction(currentSelection);
 	}
 
-	const availableActions: { [key in ReviewType]?: string } = isAuthor || isDraft
+	const availableActions: { [key in ReviewType]?: string } = isAuthor
 		? { [ReviewType.Comment]: 'Comment' }
 		: continueOnGitHub
 			? {
@@ -497,7 +497,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 		[submitAction],
 	);
 
-	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = pr.isAuthor || pr.isDraft
+	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = pr.isAuthor
 		? { comment: 'Comment' }
 		: pr.continueOnGitHub
 			? {
