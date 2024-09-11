@@ -281,7 +281,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
 
 		const { title, number, author, isDraft, html_url } = this.pullRequestModel;
-
+		const labelTitle = this.pullRequestModel.title.length > 50 ? `${this.pullRequestModel.title.substring(0, 50)}...` : this.pullRequestModel.title;
 		const { login } = author;
 
 		const hasNotification = this._notificationProvider.hasNotification(this.pullRequestModel);
@@ -299,7 +299,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 			tooltipPrefix += `#${formattedPRNumber}: `;
 		}
 
-		const label = `${labelPrefix}${isDraft ? '[DRAFT] ' : ''}${title}`;
+		const label = `${labelPrefix}${isDraft ? '[DRAFT] ' : ''}${labelTitle}`;
 		const tooltip = `${tooltipPrefix}${title} by @${login}`;
 		const description = `by @${login}`;
 
