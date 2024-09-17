@@ -316,6 +316,8 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		let hasMorePages = false;
 		let hasUnsearchedRepositories = false;
 		let needLogin = false;
+		const fetchNextPage = this.fetchNextPage;
+		this.fetchNextPage = false;
 		if (this.type === PRType.LocalPullRequest) {
 			try {
 				this.prs = (await this._prsTreeModel.getLocalPullRequests(this._folderRepoManager)).items;
@@ -328,13 +330,13 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				let response: ItemsResponseResult<PullRequestModel>;
 				switch (this.type) {
 					case PRType.All:
-						response = await this._prsTreeModel.getAllPullRequests(this._folderRepoManager, this.fetchNextPage);
+						response = await this._prsTreeModel.getAllPullRequests(this._folderRepoManager, fetchNextPage);
 						break;
 					case PRType.Query:
-						response = await this._prsTreeModel.getPullRequestsForQuery(this._folderRepoManager, this.fetchNextPage, this._categoryQuery!);
+						response = await this._prsTreeModel.getPullRequestsForQuery(this._folderRepoManager, fetchNextPage, this._categoryQuery!);
 						break;
 				}
-				if (!this.fetchNextPage) {
+				if (!fetchNextPage) {
 					this.prs = response.items;
 				} else {
 					this.prs = this.prs.concat(response.items);
@@ -353,8 +355,6 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 					}
 				});
 				needLogin = e instanceof AuthenticationError;
-			} finally {
-				this.fetchNextPage = false;
 			}
 		}
 
