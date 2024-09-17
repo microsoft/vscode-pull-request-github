@@ -311,7 +311,7 @@ export function AddComment({
 
 	emitter.addListener('quoteReply', (message: string) => {
 		const quoted = message.replace(/\n/g, '\n> ');
-		updatePR({ pendingCommentText: `> ${quoted} \n` });
+		updatePR({ pendingCommentText: `> ${quoted} \n\n` });
 		textareaRef.current?.scrollIntoView();
 		textareaRef.current?.focus();
 	});
