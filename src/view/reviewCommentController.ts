@@ -38,7 +38,6 @@ import { RemoteFileChangeModel } from './fileChangeModel';
 import { ReviewManager } from './reviewManager';
 import { ReviewModel } from './reviewModel';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
-import { IDisposable } from 'cockatiel';
 
 export interface SuggestionInformation {
 	originalStartLine: number;
@@ -362,7 +361,7 @@ export class ReviewCommentController extends CommentControllerBase
 		this._localToDispose.push(vscode.window.onDidChangeActiveTextEditor(e => this.onDidChangeActiveTextEditor(e)));
 	}
 
-	private _commentContentChangedListner: IDisposable | undefined;
+	private _commentContentChangedListner: vscode.Disposable | undefined;
 	private onDidChangeActiveTextEditor(editor: vscode.TextEditor | undefined) {
 		this._commentContentChangedListner?.dispose();
 		this._commentContentChangedListner = undefined;
