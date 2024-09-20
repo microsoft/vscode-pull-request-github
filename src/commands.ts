@@ -1575,4 +1575,16 @@ ${contents}
 			}
 		}
 	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('github.api.goToCommit', async (repository: Repository, historyItem?: any /* vscode.SourceControlHistoryItem */): Promise<void> => {
+		if (!historyItem?.id) {
+			return;
+		}
+		const gitHubRemotes = await reposManager.getManagerForFile(repository.rootUri)?.getGitHubRemotes();
+		if (!gitHubRemotes) {
+			return;
+		}
+		const remote = gitHubRemotes[0]; // TODO - be smarter about which remote to go to
+		vscode.env.openExternal(vscode.Uri.parse(`https://${remote.host}/${remote.owner}/${remote.repositoryName}/commit/${historyItem.id}`));
+	}));
 }

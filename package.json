@@ -25,6 +25,7 @@
 		"contribCommentsViewThreadMenus",
 		"contribEditorContentMenu",
 		"contribShareMenu",
+		"contribSourceControlHistoryItemMenu",
 		"diffCommand",
 		"fileComments",
 		"quickDiffProvider",
@@ -35,7 +36,7 @@
 	"version": "0.96.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.92.0"
+		"vscode": "^1.94.0"
 	},
 	"categories": [
 		"Other"
@@ -730,6 +731,11 @@
 				"command": "github.api.preloadPullRequest",
 				"title": "Preload Pull Request",
 				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "github.api.goToCommit",
+				"title": "Open Commit at GitHub",
+				"icon": "$(github)"
 			},
 			{
 				"command": "pr.create",
@@ -1564,6 +1570,10 @@
 			"commandPalette": [
 				{
 					"command": "github.api.preloadPullRequest",
+					"when": "false"
+				},
+				{
+					"command": "github.api.goToCommit",
 					"when": "false"
 				},
 				{
@@ -2476,6 +2486,13 @@
 					"group": "1_modification@5"
 				}
 			],
+			"scm/historyItem/context": [
+				{
+					"command": "github.api.goToCommit",
+					"when": "github:hasGitHubRemotes",
+					"group": "0_view@10"
+				}
+			],
 			"comments/commentThread/context": [
 				{
 					"command": "pr.createComment",
@@ -2959,7 +2976,7 @@
 		"@types/react-dom": "^16.8.2",
 		"@types/sinon": "7.0.11",
 		"@types/temp": "0.8.34",
-		"@types/vscode": "1.89.0",
+		"@types/vscode": "1.93.0",
 		"@types/webpack-env": "^1.16.0",
 		"@typescript-eslint/eslint-plugin": "6.10.0",
 		"@typescript-eslint/parser": "6.10.0",
