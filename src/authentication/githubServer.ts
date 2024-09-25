@@ -13,8 +13,9 @@ import { HostHelper } from './configuration';
 
 export class GitHubManager {
 	private static readonly _githubDotComServers = new Set<string>().add('github.com').add('ssh.github.com');
+	private static readonly _gheServers = new Set<string>().add('ghe.com');
 	private static readonly _neverGitHubServers = new Set<string>().add('bitbucket.org').add('gitlab.com');
-	private _servers: Map<string, GitHubServerType> = new Map(Array.from(GitHubManager._githubDotComServers.keys()).map(key => [key, GitHubServerType.GitHubDotCom]));
+	private _knownServers: Map<string, GitHubServerType> = new Map([...Array.from(GitHubManager._githubDotComServers.keys()).map(key => [key, GitHubServerType.GitHubDotCom]), ...Array.from(GitHubManager._gheServers.keys()).map(key => [key, GitHubServerType.Enterprise])] as [string, GitHubServerType][]);
 
 	public static isGithubDotCom(host: string): boolean {
 		return this._githubDotComServers.has(host);
@@ -28,23 +29,26 @@ export class GitHubManager {
 		if (host === null) {
 			return GitHubServerType.None;
 		}
+		const authority = host.authority.toLowerCase();
 
 		// .wiki/.git repos are not supported
-		if (host.path.endsWith('.wiki') || host.authority.match(/gist[.]github[.]com/)) {
+		if (host.path.endsWith('.wiki') || authority.match(/gist[.]github[.]com/)) {
 			return GitHubServerType.None;
 		}
 
-		if (GitHubManager.isGithubDotCom(host.authority)) {
+		if (GitHubManager.isGithubDotCom(authority)) {
 			return GitHubServerType.GitHubDotCom;
 		}
 
+		const matchingKnownServer = Array.from(this._knownServers.keys()).find(server => authority.endsWith(server));
+
 		const knownEnterprise = getEnterpriseUri();
-		if ((host.authority.toLowerCase() === knownEnterprise?.authority.toLowerCase()) && (!this._servers.has(host.authority) || (this._servers.get(host.authority) === GitHubServerType.None))) {
+		if ((host.authority.toLowerCase() === knownEnterprise?.authority.toLowerCase()) && (!matchingKnownServer || (this._knownServers.get(matchingKnownServer) === GitHubServerType.None))) {
 			return GitHubServerType.Enterprise;
 		}
 
-		if (this._servers.has(host.authority)) {
-			return this._servers.get(host.authority) ?? GitHubServerType.None;
+		if (matchingKnownServer) {
+			return this._knownServers.get(matchingKnownServer) ?? GitHubServerType.None;
 		}
 
 		const [uri, options] = await GitHubManager.getOptions(host, 'HEAD', '/rate_limit');
@@ -85,7 +89,7 @@ export class GitHubManager {
 			return isGitHub;
 		} finally {
 			Logger.debug(`Host ${host} is associated with GitHub: ${isGitHub}`, 'GitHubServer');
-			this._servers.set(host.authority, isGitHub);
+			this._knownServers.set(authority, isGitHub);
 		}
 	}
 
