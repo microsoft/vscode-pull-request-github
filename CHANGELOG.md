@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.98.0
+
+### Fixes
+
+- Can't approve/reject PRs when in draft mode. https://github.com/microsoft/vscode-pull-request-github/issues/6174
+- Disallow Make a suggestion button press if already have a suggestion in the comment. https://github.com/microsoft/vscode-pull-request-github/issues/6195
+- Untracked files in GHPRI view don't have green text decoration. https://github.com/microsoft/vscode-internalbacklog/issues/5025
+- Don't show error "We couldn't find commit" on outdated comments. https://github.com/microsoft/vscode-pull-request-github/issues/1691
+- Element with id xxx is already registered. https://github.com/microsoft/vscode-pull-request-github/issues/6218
+- Diff Comment with HEAD button in Comments view sometimes disappears. https://github.com/microsoft/vscode-pull-request-github/issues/6157
+
+**_Thank You_**
+
+* [@ixzhao](https://github.com/ixzhao): fix quote reply [PR #6230](https://github.com/microsoft/vscode-pull-request-github/pull/6230)
+
 ## 0.96.0
 
 ### Changes
