@@ -71,25 +71,42 @@ export class CredentialStore implements vscode.Disposable {
 		this.setScopesFromState();
 
 		this._disposables = [];
-		this._disposables.push(
-			vscode.authentication.onDidChangeSessions(async e => {
-				const promises: Promise<any>[] = [];
-				if (!this.isAuthenticated(AuthProvider.github)) {
-					promises.push(this.initialize(AuthProvider.github));
-				}
+		this._disposables.push(vscode.authentication.onDidChangeSessions((e) => this.handlOnDidChangeSessions(e)));
+	}
 
-				if (!this.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
-					promises.push(this.initialize(AuthProvider.githubEnterprise));
-				}
+	private async handlOnDidChangeSessions(e: vscode.AuthenticationSessionsChangeEvent) {
+		const currentProvider = (e.provider.id === AuthProvider.github && this._githubAPI) ? AuthProvider.github : ((e.provider.id === AuthProvider.githubEnterprise && this._githubEnterpriseAPI) ? AuthProvider.githubEnterprise : undefined);
+		if ((this._githubAPI || this._githubEnterpriseAPI) && !currentProvider) {
+			return;
+		}
+		if (currentProvider) {
+			const newSession = await this.getSession(currentProvider, { silent: true }, currentProvider === AuthProvider.github ? this._scopes : this._scopesEnterprise, true);
+			if (newSession.session?.id === this._sessionId) {
+				return;
+			}
+			if (currentProvider === AuthProvider.github) {
+				this._githubAPI = undefined;
+				this._sessionId = undefined;
+			} else {
+				this._githubEnterpriseAPI = undefined;
+				this._enterpriseSessionId = undefined;
+			}
+		}
+		const promises: Promise<any>[] = [];
+		if (!this.isAuthenticated(AuthProvider.github)) {
+			promises.push(this.initialize(AuthProvider.github));
+		}
 
-				await Promise.all(promises);
-				if (this.isAnyAuthenticated()) {
-					this._onDidGetSession.fire();
-				} else if (!this._isSamling) {
-					this._onDidChangeSessions.fire(e);
-				}
-			}),
-		);
+		if (!this.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
+			promises.push(this.initialize(AuthProvider.githubEnterprise));
+		}
+
+		await Promise.all(promises);
+		if (this.isAnyAuthenticated()) {
+			this._onDidGetSession.fire();
+		} else if (!this._isSamling) {
+			this._onDidChangeSessions.fire(e);
+		}
 	}
 
 	private allScopesIncluded(actualScopes: string[], requiredScopes: string[]) {
