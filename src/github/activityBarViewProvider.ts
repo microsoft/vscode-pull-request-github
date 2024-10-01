@@ -187,6 +187,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	public async refresh(): Promise<void> {
+		await this._item.initializeReviewThreadCache();
 		await this.updatePullRequest(this._item);
 	}
 
