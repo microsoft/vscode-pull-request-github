@@ -35,16 +35,19 @@ export class CommentDecorationProvider extends TreeDecorationProvider {
 		const query = fromFileChangeNodeUri(uri);
 		const folderManager = this._repositoriesManager.getManagerForFile(uri);
 		if (query && folderManager) {
-			for (const repo of folderManager.gitHubRepositories) {
+			const hasComment = folderManager.gitHubRepositories.find(repo => {
 				const pr = repo.pullRequestModels.get(query.prNumber);
-				if (pr && pr.reviewThreadsCache.some(c => c.path === query.fileName)) {
-					return {
-						propagate: false,
-						tooltip: 'Commented',
-						// allow-any-unicode-next-line
-						badge: '💬',
-					};
+				if (pr?.reviewThreadsCache.find(c => c.path === query.fileName)) {
+					return true;
 				}
+			});
+			if (hasComment) {
+				return {
+					propagate: false,
+					tooltip: 'Commented',
+					// allow-any-unicode-next-line
+					badge: '💬',
+				};
 			}
 		}
 		return undefined;
