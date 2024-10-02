@@ -1207,9 +1207,11 @@ ${contents}
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.refreshChanges', _ => {
 			reviewsManager.reviewManagers.forEach(reviewManager => {
-				reviewManager.updateComments();
-				PullRequestOverviewPanel.refresh();
-				reviewManager.changesInPrDataProvider.refresh();
+				vscode.window.withProgress({ location: { viewId: 'prStatus:github' } }, async () => {
+					await reviewManager.updateComments();
+					PullRequestOverviewPanel.refresh();
+					reviewManager.changesInPrDataProvider.refresh();
+				});
 			});
 		}),
 	);
