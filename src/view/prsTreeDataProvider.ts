@@ -19,7 +19,6 @@ import { findDotComAndEnterpriseRemotes } from '../github/utils';
 import { PRStatusDecorationProvider } from './prStatusDecorationProvider';
 import { PrsTreeModel } from './prsTreeModel';
 import { ReviewModel } from './reviewModel';
-import { DecorationProvider } from './treeDecorationProvider';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
@@ -53,7 +52,6 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		this._disposables.push(this.prsTreeModel);
 		this._disposables.push(this.prsTreeModel.onDidChangeData(folderManager => folderManager ? this.refreshRepo(folderManager) : this.refresh()));
 		this._disposables.push(new PRStatusDecorationProvider(this.prsTreeModel));
-		this._disposables.push(vscode.window.registerFileDecorationProvider(DecorationProvider));
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.refreshList', _ => {
 				this.prsTreeModel.clearCache();

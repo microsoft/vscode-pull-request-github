@@ -13,7 +13,6 @@ import { groupBy } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { FileChangeModel, GitFileChangeModel, InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
-import { DecorationProvider } from '../treeDecorationProvider';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
 export function openFileCommand(uri: vscode.Uri, inputOpts: vscode.TextDocumentShowOptions = {}): vscode.Command {
@@ -186,13 +185,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		const reviewThreads = this.pullRequest.reviewThreadsCache;
 		const reviewThreadsByFile = groupBy(reviewThreads, thread => thread.path);
 		const reviewThreadsForNode = (reviewThreadsByFile[this.changeModel.fileName] || []).filter(thread => !thread.isOutdated);
-
-		DecorationProvider.updateFileComments(
-			this.fileChangeResourceUri,
-			this.pullRequest.number,
-			this.changeModel.fileName,
-			reviewThreadsForNode.length > 0,
-		);
 
 		if (reviewThreadsForNode.length) {
 			reviewThreadsForNode.sort((a, b) => a.endLine - b.endLine);
