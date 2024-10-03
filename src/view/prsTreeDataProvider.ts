@@ -56,8 +56,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		this._disposables.push(vscode.window.registerFileDecorationProvider(DecorationProvider));
 		this._disposables.push(
 			vscode.commands.registerCommand('pr.refreshList', _ => {
-				this.prsTreeModel.clearCache();
-				this._onDidChangeTreeData.fire();
+				this.refresh(undefined, true);
 			}),
 		);
 
@@ -174,7 +173,10 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		);
 	}
 
-	refresh(node?: TreeNode): void {
+	refresh(node?: TreeNode, reset?: boolean): void {
+		if (reset) {
+			this.prsTreeModel.clearCache();
+		}
 		return node ? this._onDidChangeTreeData.fire(node) : this._onDidChangeTreeData.fire();
 	}
 
