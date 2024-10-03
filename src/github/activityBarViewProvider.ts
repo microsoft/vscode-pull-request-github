@@ -187,7 +187,10 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	}
 
 	public async refresh(): Promise<void> {
-		await this.updatePullRequest(this._item);
+		return vscode.window.withProgress({ location: { viewId: 'github:activePullRequest' } }, async () => {
+			await this._item.initializeReviewThreadCache();
+			await this.updatePullRequest(this._item);
+		});
 	}
 
 	private getCurrentUserReviewState(reviewers: ReviewState[], currentUser: IAccount): string | undefined {
