@@ -281,7 +281,7 @@ export class ReviewCommentController extends CommentControllerBase
 					const { path } = thread;
 
 					const index = this._pendingCommentThreadAdds.findIndex(async t => {
-						const fileName = this.gitRelativeRootPath(t.uri.path);
+						const fileName = this._folderRepoManager.gitRelativeRootPath(t.uri.path);
 						if (fileName !== thread.path) {
 							return false;
 						}
@@ -496,7 +496,7 @@ export class ReviewCommentController extends CommentControllerBase
 				return;
 			}
 
-			const fileName = this.gitRelativeRootPath(document.uri.path);
+			const fileName = this._folderRepoManager.gitRelativeRootPath(document.uri.path);
 			const matchedFile = gitFileChangeNodeFilter(this._reviewModel.localFileChanges).find(
 				fileChange => fileChange.fileName === fileName,
 			);
@@ -633,11 +633,6 @@ export class ReviewCommentController extends CommentControllerBase
 		return undefined;
 	}
 
-	private gitRelativeRootPath(path: string) {
-		// get path relative to git root directory. Handles windows path by converting it to unix path.
-		return nodePath.relative(this._repository.rootUri.path, path).replace(/\\/g, '/');
-	}
-
 	// #endregion
 
 	// #region Review
@@ -656,7 +651,7 @@ export class ReviewCommentController extends CommentControllerBase
 		try {
 			temporaryCommentId = await this.optimisticallyAddComment(thread, input, true);
 			if (!hasExistingComments) {
-				const fileName = this.gitRelativeRootPath(thread.uri.path);
+				const fileName = this._folderRepoManager.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
 				this._pendingCommentThreadAdds.push(thread);
 
@@ -762,7 +757,7 @@ export class ReviewCommentController extends CommentControllerBase
 
 		try {
 			if (!hasExistingComments) {
-				const fileName = this.gitRelativeRootPath(thread.uri.path);
+				const fileName = this._folderRepoManager.gitRelativeRootPath(thread.uri.path);
 				this._pendingCommentThreadAdds.push(thread);
 				const side = this.getCommentSide(thread);
 
@@ -833,7 +828,7 @@ export class ReviewCommentController extends CommentControllerBase
 			return;
 		}
 
-		const path = this.gitRelativeRootPath(file.path);
+		const path = this._folderRepoManager.gitRelativeRootPath(file.path);
 		const body = `\`\`\`suggestion
 ${suggestionInformation.suggestionContent}
 \`\`\``;
