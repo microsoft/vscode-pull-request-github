@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as nodePath from 'path';
 import { bulkhead } from 'cockatiel';
 import * as vscode from 'vscode';
 import type { Branch, Commit, Repository, UpstreamRef } from '../api/api';
@@ -1739,6 +1740,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		});
 
 		return results;
+	}
+
+	public gitRelativeRootPath(path: string) {
+		// get path relative to git root directory. Handles windows path by converting it to unix path.
+		return nodePath.relative(this._repository.rootUri.path, path).replace(/\\/g, '/');
 	}
 
 	public async cleanupAfterPullRequest(branchName: string, pullRequest: PullRequestModel) {

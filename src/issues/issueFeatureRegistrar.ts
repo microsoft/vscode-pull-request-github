@@ -20,7 +20,7 @@ import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRe
 import { IProject } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { getRepositoryForFile, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../github/utils';
+import { ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../github/utils';
 import { ReviewManager } from '../view/reviewManager';
 import { ReviewsManager } from '../view/reviewsManager';
 import { CurrentIssue } from './currentIssue';
@@ -872,14 +872,20 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 
 		let contents = '';
 		if (newIssue) {
-			const repository = getRepositoryForFile(this.gitAPI, newIssue.document.uri);
-			const changeAffectingFile = repository?.state.workingTreeChanges.find(value => value.uri.toString() === newIssue.document.uri.toString());
+			const folderRepoManager = this.manager.getManagerForFile(newIssue.document.uri);
+			const changeAffectingFile = folderRepoManager?.repository?.state.workingTreeChanges.find(value => value.uri.toString() === newIssue.document.uri.toString());
 			if (changeAffectingFile) {
 				// The file we're creating the issue for has uncommitted changes.
 				// Add a quote of the line so that the issue body is still meaningful.
 				contents = `\`\`\`\n${newIssue.line}\n\`\`\`\n\n`;
 			}
+
+			if (folderRepoManager) {
+				const relativePath = folderRepoManager.gitRelativeRootPath(newIssue.document.uri.path);
+				contents += vscode.l10n.t('In file {0}\n', relativePath);
+			}
 		}
+
 		contents += (await createGithubPermalink(this.manager, this.gitAPI, true, true, newIssue)).permalink;
 		return contents;
 	}

@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as path from 'path';
 import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
@@ -211,7 +210,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		e.added.forEach(async (thread) => {
 			const fileName = thread.path;
 			const index = this._pendingCommentThreadAdds.findIndex(t => {
-				const samePath = this.gitRelativeRootPath(t.uri.path) === thread.path;
+				const samePath = this._folderRepoManager.gitRelativeRootPath(t.uri.path) === thread.path;
 				const sameLine = (t.range === undefined && thread.subjectType === SubjectType.FILE) || (t.range && t.range.end.line + 1 === thread.endLine);
 				return samePath && sameLine;
 			});
@@ -317,7 +316,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			if (hasExistingComments) {
 				await this.reply(thread, input, isSingleComment);
 			} else {
-				const fileName = this.gitRelativeRootPath(thread.uri.path);
+				const fileName = this._folderRepoManager.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
 				this._pendingCommentThreadAdds.push(thread);
 				await this.pullRequestModel.createReviewThread(
@@ -422,11 +421,6 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 	}
 	// #endregion
 
-	private gitRelativeRootPath(comparePath: string) {
-		// get path relative to git root directory. Handles windows path by converting it to unix path.
-		return path.relative(this._folderRepoManager.repository.rootUri.path, comparePath).replace(/\\/g, '/');
-	}
-
 	// #region Review
 	public async startReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		const hasExistingComments = thread.comments.length;
@@ -435,7 +429,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		try {
 			temporaryCommentId = await this.optimisticallyAddComment(thread, input, true);
 			if (!hasExistingComments) {
-				const fileName = this.gitRelativeRootPath(thread.uri.path);
+				const fileName = this._folderRepoManager.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
 				this._pendingCommentThreadAdds.push(thread);
 				await this.pullRequestModel.createReviewThread(input, fileName, thread.range ? (thread.range.start.line + 1) : undefined, thread.range ? (thread.range.end.line + 1) : undefined, side);
