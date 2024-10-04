@@ -16,6 +16,7 @@ import {
 	TimelineEvent,
 } from '../../src/common/timelineEvent';
 import { groupBy, UnreachableCaseError } from '../../src/common/utils';
+import { ReviewType } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { CommentView } from './comment';
 import Diff from './diff';
@@ -182,6 +183,25 @@ function AddReviewSummaryComment() {
 	const { requestChanges, approve, submit, pr } = useContext(PullRequestContext);
 	const { isAuthor } = pr;
 	const comment = useRef<HTMLTextAreaElement>();
+	const [isBusy, setBusy] = useState(false);
+
+	async function submitAction(event: React.MouseEvent, action: ReviewType): Promise<void> {
+		event.preventDefault();
+		const { value } = comment.current!;
+		setBusy(true);
+		switch (action) {
+			case ReviewType.RequestChanges:
+				await requestChanges(value);
+				break;
+			case ReviewType.Approve:
+				await approve(value);
+				break;
+			default:
+				await submit(value);
+		}
+		setBusy(false);
+	}
+
 	return (
 		<form>
 			<textarea id='pending-review' ref={comment} placeholder="Leave a review summary comment"></textarea>
@@ -190,10 +210,8 @@ function AddReviewSummaryComment() {
 					<button
 						id="request-changes"
 						className='secondary'
-						onClick={(event) => {
-							event.preventDefault();
-							requestChanges(comment.current!.value);
-						}}
+						disabled={isBusy || pr.busy}
+						onClick={(event) => submitAction(event, ReviewType.RequestChanges)}
 					>
 						Request Changes
 					</button>
@@ -201,19 +219,15 @@ function AddReviewSummaryComment() {
 				{isAuthor ? null : (
 					<button
 						id="approve" className='secondary'
-						onClick={(event) => {
-							event.preventDefault();
-							approve(comment.current!.value);
-						}}
+						disabled={isBusy || pr.busy}
+						onClick={(event) => submitAction(event, ReviewType.Approve)}
 					>
 						Approve
 					</button>
 				)}
 				<button
-					onClick={(event) => {
-						event.preventDefault();
-						submit(comment.current!.value);
-					}}
+					disabled={isBusy || pr.busy}
+					onClick={(event) => submitAction(event, ReviewType.Comment)}
 				>Submit Review</button>
 			</div>
 		</form>
