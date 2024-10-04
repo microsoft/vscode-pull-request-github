@@ -781,21 +781,22 @@ export class ReviewManager {
 	async createSuggestionsFromChanges(resources: vscode.Uri[]) {
 		const resourceStrings = resources.map(resource => resource.toString());
 		let hasError: boolean = false;
+		let diff: DiffHunk[] = [];
 		const convertedFiles: vscode.Uri[] = [];
 		await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: 'Converting changes to suggestions' }, async () => {
 			await Promise.all(this._folderRepoManager.repository.state.workingTreeChanges.map(async changeFile => {
 				if (!resourceStrings.includes(changeFile.uri.toString()) || (changeFile.status !== Status.MODIFIED)) {
 					return;
 				}
-				const diff = parsePatch(await this._folderRepoManager.repository.diffWithHEAD(changeFile.uri.fsPath));
-				try {
-					await Promise.all(diff.map(async hunk => {
+				diff = parsePatch(await this._folderRepoManager.repository.diffWithHEAD(changeFile.uri.fsPath));
+				await Promise.allSettled(diff.map(async hunk => {
+					try {
 						await this._reviewCommentController?.createSuggestionsFromChanges(changeFile.uri, this.convertDiffHunkToSuggestion(hunk));
 						convertedFiles.push(changeFile.uri);
-					}));
-				} catch (e) {
-					hasError = true;
-				}
+					} catch (e) {
+						hasError = true;
+					}
+				}));
 			}));
 		});
 		if (!hasError) {
@@ -806,7 +807,7 @@ export class ReviewManager {
 				}
 			});
 		} else if (convertedFiles.length) {
-			vscode.window.showWarningMessage(vscode.l10n.t('Not all changes could be converted to suggestions.'), { detail: vscode.l10n.t('Some of the changes may be outside of commenting ranges.\nYour changes are still available locally.'), modal: true });
+			vscode.window.showWarningMessage(vscode.l10n.t('Not all changes could be converted to suggestions.'), { detail: vscode.l10n.t('{0} of {1} changes converted. Some of the changes may be outside of commenting ranges.\nYour changes are still available locally.', convertedFiles.length, diff.length), modal: true });
 		} else {
 			vscode.window.showWarningMessage(vscode.l10n.t('No changes could be converted to suggestions.'), { detail: vscode.l10n.t('All of the changes are outside of commenting ranges.'), modal: true });
 		}
