@@ -19,6 +19,7 @@ import { BRANCH_PUBLISH, FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_
 import { TemporaryState } from './common/temporaryState';
 import { Schemes, handler as uriHandler } from './common/uri';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
+import { chatParticipantHandler } from './copilot/participants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
@@ -60,6 +61,8 @@ async function init(
 ): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
+	const ghprChatParticipant = vscode.chat.createChatParticipant('ghpr', chatParticipantHandler);
+	ghprChatParticipant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'resources/icons/github_logo.png');
 
 	context.subscriptions.push(credentialStore.onDidChangeSessions(async e => {
 		if (e.provider.id === 'github') {

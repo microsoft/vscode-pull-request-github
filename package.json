@@ -38,7 +38,9 @@
 		"vscode": "^1.92.0"
 	},
 	"categories": [
-		"Other"
+		"Other",
+		"AI",
+		"Chat"
 	],
 	"extensionDependencies": [
 		"vscode.github-authentication"
@@ -60,6 +62,29 @@
 		"virtualWorkspaces": true
 	},
 	"contributes": {
+		"chatParticipants": [
+			{
+				"id": "ghpr",
+				"name": "ghpr",
+				"fullName": "GHPR",
+				"description": "Chat participant for GitHub Pull Requests and Issues extension",
+				"isSticky": true,
+				"commands": [
+					{
+						"name": "issue",
+						"description": "Send a request related to GitHub issues"
+					},
+					{
+						"name": "pr",
+						"description": "Send a request related to GitHub pull requests"
+					},
+					{
+						"name": "notification",
+						"description": "Send a request related to GitHub notifications"
+					}
+				]
+			}
+		],
 		"configuration": {
 			"type": "object",
 			"title": "GitHub Pull Requests",
