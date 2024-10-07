@@ -61,7 +61,7 @@ async function init(
 ): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
-	const ghprChatParticipant = vscode.chat.createChatParticipant('ghpr', chatParticipantHandler);
+	const ghprChatParticipant = vscode.chat.createChatParticipant('github', chatParticipantHandler);
 	ghprChatParticipant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'resources/icons/github_logo.png');
 
 	context.subscriptions.push(credentialStore.onDidChangeSessions(async e => {

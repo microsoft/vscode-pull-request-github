@@ -64,9 +64,9 @@
 	"contributes": {
 		"chatParticipants": [
 			{
-				"id": "ghpr",
-				"name": "ghpr",
-				"fullName": "GHPR",
+				"id": "github",
+				"name": "github",
+				"fullName": "Github",
 				"description": "Chat participant for GitHub Pull Requests and Issues extension",
 				"isSticky": true,
 				"commands": [
