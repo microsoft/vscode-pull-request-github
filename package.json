@@ -68,18 +68,8 @@
 				"id": "githubpr",
 				"name": "githubpr",
 				"fullName": "Github",
-				"description": "Chat participant for GitHub Pull Requests and Issues extension",
-				"isSticky": true,
-				"commands": [
-					{
-						"name": "issue",
-						"description": "Send a request related to GitHub issues"
-					},
-					{
-						"name": "notification",
-						"description": "Send a request related to GitHub notifications"
-					}
-				]
+				"description": "Chat participant for GitHub Pull Requests extension",
+				"isSticky": true
 			}
 		],
 		"configuration": {

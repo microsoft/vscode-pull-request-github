@@ -5,7 +5,7 @@
 
 'use strict';
 import * as vscode from 'vscode';
-import { handleIssueCommand } from './commandHandlers';
+import { handleIssueCommand as handleParticipantRequest } from './commandHandlers';
 
 export const chatParticipantHandler: vscode.ChatRequestHandler = async (
 	request: vscode.ChatRequest,
@@ -13,9 +13,5 @@ export const chatParticipantHandler: vscode.ChatRequestHandler = async (
 	stream: vscode.ChatResponseStream,
 	token: vscode.CancellationToken
 ): Promise<void> => {
-	if (request.command === 'issue') {
-		await handleIssueCommand(request, context, stream, token);
-	} else if (request.command === 'notification') {
-		stream.markdown(`You did a request for notification search`);
-	}
+	await handleParticipantRequest(request, context, stream, token);
 };
