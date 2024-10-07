@@ -76,10 +76,6 @@
 						"description": "Send a request related to GitHub issues"
 					},
 					{
-						"name": "pr",
-						"description": "Send a request related to GitHub pull requests"
-					},
-					{
 						"name": "notification",
 						"description": "Send a request related to GitHub notifications"
 					}

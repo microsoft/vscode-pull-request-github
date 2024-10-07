@@ -5,17 +5,17 @@
 
 'use strict';
 import * as vscode from 'vscode';
+import { handleIssueCommand } from './commandHandlers';
 
 export const chatParticipantHandler: vscode.ChatRequestHandler = async (
 	request: vscode.ChatRequest,
 	context: vscode.ChatContext,
-	stream: vscode.ChatResponseStream
+	stream: vscode.ChatResponseStream,
+	token: vscode.CancellationToken
 ): Promise<void> => {
 	if (request.command === 'issue') {
-		stream.markdown(`The issue concerns incorrect behavior of the editor indentation in Python files.`);
-	} else if (request.command === 'pr') {
-		stream.markdown(`The PR is about adding a new feature to the editor.`);
+		await handleIssueCommand(request, context, stream, token);
 	} else if (request.command === 'notification') {
-		stream.markdown(`The notification is about adding a new feature to the editor.`);
+		stream.markdown(`You did a request for notification search`);
 	}
 };
