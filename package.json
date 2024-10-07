@@ -702,6 +702,13 @@
 					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%"
 				},
 				{
+					"id": "notifications:github",
+					"name": "%view.notifications.github.name%",
+					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts",
+					"icon": "$(bell)",
+					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%"
+				},
+				{
 					"id": "github:conflictResolution",
 					"name": "%view.github.conflictResolution.name%",
 					"when": "github:resolvingConflicts",
@@ -1474,6 +1481,12 @@
 				"title": "%command.issues.openIssuesWebsite.title%",
 				"category": "%command.issues.category%",
 				"icon": "$(globe)"
+			},
+			{
+				"command": "notifications.refresh",
+				"title": "%command.notifications.refresh.title%",
+				"category": "%command.notifications.category%",
+				"icon": "$(refresh)"
 			}
 		],
 		"viewsWelcome": [
@@ -2089,6 +2102,10 @@
 				{
 					"command": "issues.openIssuesWebsite",
 					"when": "github:hasGitHubRemotes"
+				},
+				{
+					"command": "notifications.refresh",
+					"when": "false"
 				}
 			],
 			"view/title": [
@@ -2196,6 +2213,11 @@
 					"command": "pr.refreshComments",
 					"when": "view == workbench.panel.comments",
 					"group": "navigation"
+				},
+				{
+					"command": "notifications.refresh",
+					"when": "view == notifications:github",
+					"group": "navigation@1"
 				}
 			],
 			"view/item/context": [

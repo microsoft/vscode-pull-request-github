@@ -150,6 +150,7 @@
 		]
 	},
 	"view.issues.github.name": "Issues",
+	"view.notifications.github.name": "Notifications",
 	"view.github.conflictResolution.name": "Conflict Resolution",
 	"view.github.create.pull.request.name": "Create",
 	"view.github.compare.changes.name": "Files Changed",
@@ -276,6 +277,8 @@
 	"command.issue.signinAndRefreshList.title": "Sign in and Refresh",
 	"command.issue.goToLinkedCode.title": "Go to Linked Code",
 	"command.issues.openIssuesWebsite.title": "Open on GitHub",
+	"command.notifications.category": "GitHub Notifications",
+	"command.notifications.refresh.title": "Refresh",
 	"welcome.github.login.contents": {
 		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)",
 		"comment" : [
