@@ -65,8 +65,8 @@
 	"contributes": {
 		"chatParticipants": [
 			{
-				"id": "github",
-				"name": "github",
+				"id": "githubpr",
+				"name": "githubpr",
 				"fullName": "Github",
 				"description": "Chat participant for GitHub Pull Requests and Issues extension",
 				"isSticky": true,
