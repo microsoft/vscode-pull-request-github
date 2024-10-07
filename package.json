@@ -27,6 +27,7 @@
 		"contribShareMenu",
 		"diffCommand",
 		"fileComments",
+		"lmTools",
 		"quickDiffProvider",
 		"shareProvider",
 		"tokenInformation",
@@ -125,7 +126,7 @@
 					"description": "%githubPullRequests.pullRequestDescription.description%"
 				},
 				"githubPullRequests.defaultCreateOption": {
-					"type":"string",
+					"type": "string",
 					"enum": [
 						"lastUsed",
 						"create",
@@ -466,7 +467,11 @@
 				},
 				"githubPullRequests.createDefaultBaseBranch": {
 					"type": "string",
-					"enum": ["repositoryDefault", "createdFromBranch", "auto"],
+					"enum": [
+						"repositoryDefault",
+						"createdFromBranch",
+						"auto"
+					],
 					"markdownEnumDescriptions": [
 						"%githubPullRequests.createDefaultBaseBranch.repositoryDefault%",
 						"%githubPullRequests.createDefaultBaseBranch.createdFromBranch%",
@@ -618,7 +623,9 @@
 						{
 							"label": "%githubIssues.queries.default.myIssues%",
 							"query": "is:open assignee:${user} repo:${owner}/${repository}",
-							"groupBy": ["milestone"]
+							"groupBy": [
+								"milestone"
+							]
 						},
 						{
 							"label": "%githubIssues.queries.default.createdIssues%",
@@ -2230,7 +2237,7 @@
 					"command": "pr.openPullRequestOnGitHub",
 					"group": "inline@3",
 					"when": "view == prStatus:github && viewItem =~ /description/ && github:activePRCount >= 2"
-      			},
+				},
 				{
 					"command": "pr.exit",
 					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:active|description:active/",
@@ -2945,6 +2952,54 @@
 					"stripPathStartingSeparator": true
 				}
 			}
+		],
+		"languageModelTools": [
+			{
+				"id": "github-pull-request_issue",
+				"tags": [
+					"github",
+					"issues"
+				],
+				"name": "issue",
+				"displayName": "Get GitHub Issue",
+				"modelDescription": "A GitHub issue, which includes the title, body, and comments.",
+				"icon": "$(info)",
+				"canBeInvokedManually": true,
+				"parametersSchema": {
+					"type": "object",
+					"properties": {
+						"repo": {
+							"type": "object",
+							"description": "The repository to get the issue from.",
+							"properties": {
+								"owner": {
+									"type": "string",
+									"description": "The owner of the repository to get the issue from."
+								},
+								"name": {
+									"type": "string",
+									"description": "The name of the repository to get the issue from."
+								}
+							},
+							"required": [
+								"owner",
+								"name"
+							]
+						},
+						"issueNumber": {
+							"type": "number",
+							"description": "The number of the issue to get."
+						}
+					},
+					"required": [
+						"issueNumber",
+						"repo"
+					]
+				},
+				"supportedContentTypes": [
+					"text/plain"
+				]
+			}
 		]
 	},
 	"scripts": {
@@ -3041,6 +3096,7 @@
 		"@octokit/rest": "18.2.1",
 		"@octokit/types": "6.10.1",
 		"@vscode/extension-telemetry": "0.7.5",
+		"@vscode/prompt-tsx": "^0.2.11-alpha",
 		"apollo-boost": "^0.4.9",
 		"apollo-link-context": "1.0.20",
 		"cockatiel": "^3.1.1",

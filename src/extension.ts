@@ -28,6 +28,7 @@ import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitP
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
 import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
+import { registerTools } from './lm/tools';
 import { CommentDecorationProvider } from './view/commentDecorationProvider';
 import { CompareChanges } from './view/compareChangesTreeDataProvider';
 import { CreatePullRequestHelper } from './view/createPullRequestHelper';
@@ -227,6 +228,8 @@ async function init(
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 
 	registerPostCommitCommandsProvider(reposManager, git);
+	registerTools(context, reposManager);
+
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
 	CompareChanges.closeTabs();
 	/* __GDPR__
