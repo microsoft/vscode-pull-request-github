@@ -8,6 +8,7 @@ import { ITelemetry } from '../common/telemetry';
 import { NotificationsTreeData } from './notificationsView';
 import { NotificationsProvider } from './notificationsProvider';
 import { CredentialStore } from '../github/credentials';
+import { RepositoriesManager } from '../github/repositoriesManager';
 
 export class NotificationsFeatureRegister implements vscode.Disposable {
 
@@ -15,9 +16,10 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 
 	constructor(
 		credentialStore: CredentialStore,
+		private readonly _repositoriesManager: RepositoriesManager,
 		private readonly _telemetry: ITelemetry
 	) {
-		const notificationsProvider = new NotificationsProvider(credentialStore);
+		const notificationsProvider = new NotificationsProvider(credentialStore, this._repositoriesManager);
 
 		// View
 		const dataProvider = new NotificationsTreeData(notificationsProvider);
@@ -27,6 +29,19 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 		this._disposables.push(view);
 
 		// Commands
+		this._disposables.push(
+			vscode.commands.registerCommand(
+				'notifications.prioritize',
+				() => {
+					/* __GDPR__
+						"notifications.prioritize" : {}
+					*/
+					this._telemetry.sendTelemetryEvent('notifications.prioritize');
+					return dataProvider.refresh();
+				},
+				this,
+			),
+		);
 		this._disposables.push(
 			vscode.commands.registerCommand(
 				'notifications.refresh',
@@ -40,6 +55,11 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 				this,
 			),
 		);
+
+		// Events
+		this._repositoriesManager.onDidLoadAnyRepositories(() => {
+			dataProvider.refresh();
+		});
 	}
 
 	dispose() {
