@@ -67,7 +67,7 @@
 			{
 				"id": "githubpr",
 				"name": "githubpr",
-				"fullName": "Github",
+				"fullName": "GitHub",
 				"description": "Chat participant for GitHub Pull Requests extension"
 			}
 		],
