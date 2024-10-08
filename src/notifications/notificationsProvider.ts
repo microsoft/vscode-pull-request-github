@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { AuthProvider } from "../common/authentication";
-import { CredentialStore, GitHub } from "../github/credentials";
+import { AuthProvider } from '../common/authentication';
+import { CredentialStore, GitHub } from '../github/credentials';
 import { hasEnterpriseUri } from '../github/utils';
 
 export type Notification = {
