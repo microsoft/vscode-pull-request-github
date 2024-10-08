@@ -176,7 +176,7 @@ export class NotificationsProvider implements vscode.Disposable {
 					created_at: issueOrPullRequest?.createdAt,
 					updated_at: issueOrPullRequest?.updatedAt
 				}
-			}
+			};
 
 			const messages = [vscode.LanguageModelChatMessage.User(llmInstructions)];
 			messages.push(vscode.LanguageModelChatMessage.User(JSON.stringify(notificationObject)));
