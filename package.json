@@ -2345,17 +2345,17 @@
 				},
 				{
 					"command": "issue.openIssue",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && !github.copilot-chat.activated",
 					"group": "inline@2"
 				},
 				{
 					"command": "issue.chatSummarizeIssue",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
 					"group": "inline@0"
 				},
 				{
 					"command": "issue.chatSuggestFix",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
 					"group": "inline@1"
 				},
 				{
@@ -2420,14 +2420,24 @@
 					"group": "inline@1"
 				},
 				{
+					"command": "issue.chatSummarizeIssue",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
+					"group": "issues_1@0"
+				},
+				{
+					"command": "issue.chatSuggestFix",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
+					"group": "issues_1@1"
+				},
+				{
 					"command": "issue.copyIssueNumber",
 					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
-					"group": "issues_1@1"
+					"group": "issues_2@1"
 				},
 				{
 					"command": "issue.copyIssueUrl",
 					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
-					"group": "issues_1@2"
+					"group": "issues_2@2"
 				},
 				{
 					"command": "issue.editQuery",
