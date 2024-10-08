@@ -100,7 +100,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		//  - consider fetching unread notifications
 		const { data } = await gitHub.octokit.call(gitHub.octokit.api.activity.listNotificationsForAuthenticatedUser, {
 			// all: true, - fetch unread notifications
-			per_page: 10
+			per_page: 50
 		});
 
 		// Resolve issues/pull request
