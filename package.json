@@ -3054,8 +3054,7 @@
 						}
 					},
 					"required": [
-						"issueNumber",
-						"repo"
+						"issueNumber"
 					]
 				},
 				"supportedContentTypes": [
