@@ -103,6 +103,13 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(view);
 		this.context.subscriptions.push(view.onDidCollapseElement(e => updateExpandedQueries(this.context, e.element, false)));
 		this.context.subscriptions.push(view.onDidExpandElement(e => updateExpandedQueries(this.context, e.element, true)));
+		this.context.subscriptions.push(vscode.commands.registerCommand(
+			'issue.llm.fixIssue',
+			(issueUrl: string) => {
+				const message = `@githubpr find a fix for ${issueUrl}`;
+				vscode.commands.executeCommand('workbench.action.chat.open', { query: message });
+			}
+		));
 		this.context.subscriptions.push(
 			vscode.commands.registerCommand(
 				'issue.createIssueFromSelection',

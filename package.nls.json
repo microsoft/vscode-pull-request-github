@@ -239,6 +239,7 @@
 	"command.review.diffWithPrHead.title": "Compare Base With Pull Request Head (readonly)",
 	"command.review.diffLocalWithPrHead.title": "Compare Pull Request Head with Local",
 	"command.issues.category": "GitHub Issues",
+	"command.issue.llm.fixIssue": "Suggest Fix for Issue",
 	"command.issue.createIssueFromSelection.title": "Create Issue From Selection",
 	"command.issue.createIssueFromClipboard.title": "Create Issue From Clipboard",
 	"command.pr.copyVscodeDevPrLink.title": "Copy vscode.dev Pull Request Link",
