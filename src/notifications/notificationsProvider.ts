@@ -6,10 +6,10 @@
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
 import { CredentialStore, GitHub } from '../github/credentials';
-import { hasEnterpriseUri } from '../github/utils';
-import { RepositoriesManager } from '../github/repositoriesManager';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { RepositoriesManager } from '../github/repositoriesManager';
+import { hasEnterpriseUri } from '../github/utils';
 
 export type Notification = {
 	readonly id: string;
@@ -80,6 +80,10 @@ export class NotificationsProvider implements vscode.Disposable {
 		return `${owner}/${name}#${id}`;
 	}
 
+	clearCache(): void {
+		this._notifications.clear();
+	}
+
 	async getNotifications(): Promise<Notification[] | undefined> {
 		const gitHub = this._getGitHub();
 		if (gitHub === undefined) {
@@ -93,9 +97,6 @@ export class NotificationsProvider implements vscode.Disposable {
 			per_page: 10
 		});
 
-		// @lszomoru - not sure if this is the right approach
-		const folderManager = this._repositoriesManager.folderManagers[0];
-
 		// Resolve issues/pull request
 		const result = await Promise.all(data.map(async (notification: any): Promise<Notification> => {
 			const id = notification.subject.url.split('/').pop();
@@ -103,9 +104,12 @@ export class NotificationsProvider implements vscode.Disposable {
 
 			const cachedNotificationKey = this._getKey(notification);
 			const cachedNotification = this._notifications.get(cachedNotificationKey);
-			if (cachedNotification) {
+			if (cachedNotification && cachedNotification.updated_at === notification.updated_at) {
 				return cachedNotification;
 			}
+
+			const folderManager = this._repositoriesManager.getManagerForRepository(owner, name) ??
+				this._repositoriesManager.folderManagers[0];
 
 			const model = notification.subject.type === 'Issue' ?
 				await folderManager.resolveIssue(owner, name, parseInt(id), true) :

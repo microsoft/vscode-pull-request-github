@@ -5,10 +5,10 @@
 
 import * as vscode from 'vscode';
 import { ITelemetry } from '../common/telemetry';
-import { NotificationsTreeData } from './notificationsView';
-import { NotificationsProvider } from './notificationsProvider';
 import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { NotificationsProvider } from './notificationsProvider';
+import { NotificationsTreeData } from './notificationsView';
 
 export class NotificationsFeatureRegister implements vscode.Disposable {
 
@@ -58,6 +58,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 
 		// Events
 		this._repositoriesManager.onDidLoadAnyRepositories(() => {
+			notificationsProvider.clearCache();
 			dataProvider.refresh();
 		});
 	}

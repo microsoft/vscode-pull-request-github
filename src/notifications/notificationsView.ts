@@ -35,6 +35,10 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 	}
 
 	async getChildren(element?: unknown): Promise<Notification[] | undefined> {
+		if (element !== undefined) {
+			return undefined;
+		}
+
 		const result = await this._notificationsProvider.getNotifications();
 		return result;
 	}
