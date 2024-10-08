@@ -1477,6 +1477,18 @@
 				"icon": "$(globe)"
 			},
 			{
+				"command": "issue.chatSummarizeIssue",
+				"title": "%command.issue.chatSummarizeIssue.title%",
+				"category": "%command.issues.category%",
+				"icon": "$(copilot)"
+			},
+			{
+				"command": "issue.chatSuggestFix",
+				"title": "%command.issue.chatSuggestFix.title%",
+				"category": "%command.issues.category%",
+				"icon": "$(sparkle)"
+			},
+			{
 				"command": "notifications.refresh",
 				"title": "%command.notifications.refresh.title%",
 				"category": "%command.notifications.category%",
@@ -2098,6 +2110,14 @@
 					"when": "github:hasGitHubRemotes"
 				},
 				{
+					"command": "issue.chatSummarizeIssue",
+					"when": "false"
+				},
+				{
+					"command": "issue.chatSuggestFix",
+					"when": "false"
+				},
+				{
 					"command": "notifications.refresh",
 					"when": "false"
 				}
@@ -2334,6 +2354,16 @@
 					"group": "inline@2"
 				},
 				{
+					"command": "issue.chatSummarizeIssue",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
+					"group": "inline@0"
+				},
+				{
+					"command": "issue.chatSuggestFix",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
+					"group": "inline@1"
+				},
+				{
 					"command": "issue.openIssue",
 					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
 					"group": "issues_0@1"
@@ -2346,22 +2376,22 @@
 				{
 					"command": "issue.startWorking",
 					"when": "view == issues:github && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues != on",
-					"group": "inline@1"
+					"group": "inline@2"
 				},
 				{
 					"command": "issue.startWorkingBranchDescriptiveTitle",
 					"when": "view == issues:github && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues == on",
-					"group": "inline@1"
+					"group": "inline@2"
 				},
 				{
 					"command": "issue.startWorking",
 					"when": "view == issues:github && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues != on",
-					"group": "inline@1"
+					"group": "inline@2"
 				},
 				{
 					"command": "issue.startWorkingBranchDescriptiveTitle",
 					"when": "view == issues:github && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues == on",
-					"group": "inline@1"
+					"group": "inline@2"
 				},
 				{
 					"command": "issue.startWorking",
