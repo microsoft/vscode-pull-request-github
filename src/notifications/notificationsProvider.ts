@@ -123,7 +123,7 @@ export class NotificationsProvider implements vscode.Disposable {
 				await folderManager.resolvePullRequest(owner, name, parseInt(id));
 
 			// Compute priority
-			const priority = await this.prioritizeNotifications(notification);
+			const priority = await this.prioritizeNotifications(notification, model);
 
 			const resolvedNotification = {
 				id: notification.id,
@@ -150,10 +150,10 @@ export class NotificationsProvider implements vscode.Disposable {
 			return resolvedNotification;
 		}));
 
-		return result;
+		return result.sort((r1, r2) => r1.priority?.localeCompare(r2.priority ?? '') ?? 0);
 	}
 
-	async prioritizeNotifications(notification: Notification): Promise<string | undefined> {
+	async prioritizeNotifications(notification: Notification, issueOrPullRequest: IssueModel | PullRequestModel | undefined): Promise<string | undefined> {
 		try {
 			const models = await vscode.lm.selectChatModels({
 				vendor: 'copilot',
@@ -163,8 +163,19 @@ export class NotificationsProvider implements vscode.Disposable {
 
 			const notificationObject = {
 				...notification,
-				// TODO - add context
-				model: {}
+				// TODO
+				//  - labels
+				//  - comments
+				//  - reactions (body, comments)
+				model: {
+					title: issueOrPullRequest?.title,
+					body: issueOrPullRequest?.body,
+					isOpen: issueOrPullRequest?.isOpen,
+					isClosed: issueOrPullRequest?.isClosed,
+					isMerged: issueOrPullRequest?.isMerged,
+					created_at: issueOrPullRequest?.createdAt,
+					updated_at: issueOrPullRequest?.updatedAt
+				}
 			}
 
 			const messages = [vscode.LanguageModelChatMessage.User(llmInstructions)];
@@ -212,26 +223,28 @@ const llmInstructions = `
 	1.	Issues, pull requests (PRs), mentions, commits, and comments are the core types of notifications.
 		For each notification, check if it involves the user directly (e.g., mentioned, assigned, requested for review) or passively (e.g., subscribed, participating in the conversation).
 	2. 	Assign Priority:
-			• Critical Priority (P1):
-				• Direct mentions or assignments (you are mentioned, assigned, or requested for a review).
-				• Issues/PRs related to a repository that you are frequently involved in (or of high relevance, e.g., production).
-				• Notifications regarding bugs, security issues, or feature requests that have critical labels such as important, bug, security.
-			• High Priority (P2):
-				• Updates to issues/PRs where there has been recent activity (e.g., new comments, commits).
-				• Notifications from repositories you are watching that have significant updates, such as new commits, changes to PRs, or resolved issues.
-				• PRs requiring reviews.
-			• Medium Priority (P3):
-				• Notifications of general discussion or updates on repositories you're subscribed to.
-				• Non-urgent issues, comments, or notifications with no direct mention or action required.
-				• Notifications from less critical repositories or older issues/PRs.
-			• Low Priority (P4):
-				• General repository activity that does not involve you directly.
-				• Old, unresolved issues or PRs with no recent activity.
+			* Critical Priority (P1):
+				* Direct mentions or assignments (you are mentioned, assigned, or requested for a review).
+				* Issues/PRs related to a repository that you are frequently involved in (or of high relevance, e.g., production).
+				* Notifications regarding bugs, security issues, or feature requests that have critical labels such as important, bug, security.
+			* High Priority (P2):
+				* Updates to issues/PRs where there has been recent activity (e.g., new comments, commits).
+				* Notifications from repositories you are watching that have significant updates, such as new commits, changes to PRs, or resolved issues.
+				* PRs requiring reviews.
+			* Medium Priority (P3):
+				* Notifications of general discussion or updates on repositories you're subscribed to.
+				* Non-urgent issues, comments, or notifications with no direct mention or action required.
+				* Notifications from less critical repositories or older issues/PRs.
+			* Low Priority (P4):
+				* General repository activity that does not involve you directly.
+				* Old, unresolved issues or PRs with no recent activity.
 	3.	Evaluate Urgency:
-			• Consider the last updated timestamp. The more recent the activity, the higher the urgency.
-			• Consider the volume of activity (e.g., multiple comments or participants) to assess whether it's gaining traction and should be addressed.
+			* Issues that have the "important" label should always be a P1.
+			* Notifications for closed issues or closed pull request should never be a P1.
+			* Consider the last updated timestamp. The more recent the activity, the higher the urgency.
+			* Consider the volume of activity (e.g., multiple comments or participants) to assess whether it's gaining traction and should be addressed.
 	4.	Output:
-			• For each notification, return a text code block containing the priority level (P1, P2, P3, or P4).
+			* For each notification, return a text code block containing the priority level (P1, P2, P3, or P4).
 				Example output:
 				\`\`\`text
 				P2
