@@ -5,13 +5,19 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { RepositoriesManager } from '../github/repositoriesManager';
+import { RepositoriesManager } from '../../github/repositoriesManager';
 import { IssueTool } from './issueTool';
+import { SuggestFixTool } from './suggestFixTool';
 
 export function registerTools(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {
 	registerIssueTool(context, repositoriesManager);
+	registerSuggestFixTool(context, repositoriesManager);
 }
 
 function registerIssueTool(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {
 	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_issue', new IssueTool(repositoriesManager)));
+}
+
+function registerSuggestFixTool(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {
+	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_suggest-fix', new SuggestFixTool(repositoriesManager)));
 }

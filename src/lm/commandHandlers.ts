@@ -5,22 +5,15 @@
 
 'use strict';
 import * as vscode from 'vscode';
-
-interface IToolCall {
-	tool: vscode.LanguageModelToolDescription;
-	call: vscode.LanguageModelChatResponseToolCallPart;
-	result: Thenable<vscode.LanguageModelToolResult>;
-}
+import { IToolCall } from './tools/toolsUtils';
 
 const llmInstructions = `Instructions:
 - The user will ask a question related to GitHub, and it may require lots of research to answer correctly. There is a selection of tools that let you perform actions or retrieve helpful context to answer the user's question.
 - If you aren't sure which tool is relevant, you can call multiple tools. You can call tools repeatedly to take actions or gather as much context as needed until you have completed the task fully. Don't give up unless you are sure the request cannot be fulfilled with the tools you have.
 - Don't ask the user for confirmation to use tools, just use them.
-- When talking about issues:
-  - Be as concise as possible while still conveying all the information you need to. Avoid mentioning the following:
-    - The fact that there are no comments.
-    - Any info that seems like template info.
-  - When asked to fix an issue, search the code-base for relevant information and suggest pointers for a fix or propose a solution.`;
+- When talking about issues, be as concise as possible while still conveying all the information you need to. Avoid mentioning the following:
+  - The fact that there are no comments.
+  - Any info that seems like template info.`;
 
 export async function handleIssueCommand(
 	request: vscode.ChatRequest,

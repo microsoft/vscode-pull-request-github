@@ -28,7 +28,7 @@ import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServic
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
 import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
 import { chatParticipantHandler } from './lm/participants';
-import { registerTools } from './lm/tools';
+import { registerTools } from './lm/tools/tools';
 import { NotificationsFeatureRegister } from './notifications/notificationsFeatureRegistar';
 import { CommentDecorationProvider } from './view/commentDecorationProvider';
 import { CompareChanges } from './view/compareChangesTreeDataProvider';
