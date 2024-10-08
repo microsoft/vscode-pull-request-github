@@ -31,9 +31,7 @@ export async function handleIssueCommand(
 		vendor: 'copilot',
 		family: 'gpt-4o'
 	});
-
 	const model = models[0];
-
 	const allTools = vscode.lm.tools.map((tool): vscode.LanguageModelChatTool => {
 		return {
 			name: tool.id,
@@ -45,7 +43,6 @@ export async function handleIssueCommand(
 	const messages = [vscode.LanguageModelChatMessage.User(llmInstructions)];
 	messages.push(vscode.LanguageModelChatMessage.User(request.prompt));
 	const toolReferences = [...request.toolReferences];
-
 	const options: vscode.LanguageModelChatRequestOptions = {
 		justification: 'Answering user questions pertaining to GitHub.'
 	};
@@ -62,7 +59,6 @@ export async function handleIssueCommand(
 		}
 
 		const toolCalls: IToolCall[] = [];
-
 		const response = await model.sendRequest(messages, options, token);
 
 		for await (const part of response.stream) {
@@ -94,11 +90,9 @@ export async function handleIssueCommand(
 
 		if (toolCalls.length) {
 
-			// Not sure what the below is needed for?
 			const assistantMsg = vscode.LanguageModelChatMessage.Assistant('');
 			assistantMsg.content2 = toolCalls.map(toolCall => new vscode.LanguageModelChatResponseToolCallPart(toolCall.tool.id, toolCall.call.toolCallId, toolCall.call.parameters));
 			messages.push(assistantMsg);
-			// Not sure what the above is needed for?
 
 			for (const toolCall of toolCalls) {
 				const message = vscode.LanguageModelChatMessage.User('');
