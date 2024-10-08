@@ -68,8 +68,7 @@
 				"id": "githubpr",
 				"name": "githubpr",
 				"fullName": "Github",
-				"description": "Chat participant for GitHub Pull Requests extension",
-				"isSticky": true
+				"description": "Chat participant for GitHub Pull Requests extension"
 			}
 		],
 		"configuration": {
