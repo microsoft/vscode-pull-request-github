@@ -1278,11 +1278,6 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
-				"command": "issue.llm.fixIssue",
-				"title": "%command.issue.llm.fixIssue%",
-				"category": "%command.issues.category%"
-			},
-			{
 				"command": "issue.createIssueFromSelection",
 				"title": "%command.issue.createIssueFromSelection.title%",
 				"category": "%command.issues.category%"

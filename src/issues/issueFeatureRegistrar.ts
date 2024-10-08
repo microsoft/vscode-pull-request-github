@@ -104,13 +104,6 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(view);
 		this.context.subscriptions.push(view.onDidCollapseElement(e => updateExpandedQueries(this.context, e.element, false)));
 		this.context.subscriptions.push(view.onDidExpandElement(e => updateExpandedQueries(this.context, e.element, true)));
-		this.context.subscriptions.push(vscode.commands.registerCommand(
-			'issue.llm.fixIssue',
-			(issueUrl: string) => {
-				const message = `@githubpr find a fix for ${issueUrl}`;
-				vscode.commands.executeCommand('workbench.action.chat.open', { query: message });
-			}
-		));
 		this.context.subscriptions.push(
 			vscode.commands.registerCommand(
 				'issue.createIssueFromSelection',
@@ -505,13 +498,15 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			}),
 		);
 		this.context.subscriptions.push(
-			vscode.commands.registerCommand('issue.chatSuggestFix', () => {
+			vscode.commands.registerCommand('issue.chatSuggestFix', (issue: any) => {
+				if (!(issue instanceof IssueModel)) {
+					return;
+				}
 				/* __GDPR__
 				"issue.chatSuggestFix" : {}
 			*/
 				this.telemetry.sendTelemetryEvent('issue.chatSuggestFix');
-
-				// TODO @aiday-mar
+				commands.executeCommand(commands.OPEN_CHAT, vscode.l10n.t('@githubpr Find a fix for issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number));
 			}),
 		);
 		this._stateManager.tryInitializeAndWait().then(() => {
