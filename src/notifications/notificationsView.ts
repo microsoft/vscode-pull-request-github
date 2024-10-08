@@ -15,7 +15,7 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 	constructor(private readonly _notificationsProvider: NotificationsProvider) { }
 
 	async getTreeItem(element: Notification): Promise<vscode.TreeItem> {
-		const item = new vscode.TreeItem(element.subject.title, vscode.TreeItemCollapsibleState.None);
+		const item = new vscode.TreeItem(`(${element.priority}) - ${element.subject.title}`, vscode.TreeItemCollapsibleState.None);
 
 		if (element.subject.type === 'Issue' && element.model instanceof IssueModel) {
 			item.iconPath = element.model.isOpen
