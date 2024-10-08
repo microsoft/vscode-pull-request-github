@@ -32,11 +32,12 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 		this._disposables.push(
 			vscode.commands.registerCommand(
 				'notifications.prioritize',
-				() => {
+				async () => {
 					/* __GDPR__
 						"notifications.prioritize" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.prioritize');
+					await notificationsProvider.prioritizeNotifications();
 					return dataProvider.refresh();
 				},
 				this,

@@ -280,7 +280,9 @@
 	"command.issue.chatSummarizeIssue.title": "Summarize With Copilot",
 	"command.issue.chatSuggestFix.title": "Fix With Copilot",
 	"command.notifications.category": "GitHub Notifications",
+	"command.notifications.prioritize.title": "Prioritize",
 	"command.notifications.refresh.title": "Refresh",
+	"command.notifications.pri.title": "Prioritize",
 	"welcome.github.login.contents": {
 		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)",
 		"comment" : [

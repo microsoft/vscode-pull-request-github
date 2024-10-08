@@ -1484,6 +1484,12 @@
 				"icon": "$(sparkle)"
 			},
 			{
+				"command": "notifications.prioritize",
+				"title": "%command.notifications.prioritize.title%",
+				"category": "%command.notifications.category%",
+				"icon": "$(sparkle)"
+			},
+			{
 				"command": "notifications.refresh",
 				"title": "%command.notifications.refresh.title%",
 				"category": "%command.notifications.category%",
@@ -2113,6 +2119,10 @@
 					"when": "false"
 				},
 				{
+					"command": "notifications.prioritize",
+					"when": "false"
+				},
+				{
 					"command": "notifications.refresh",
 					"when": "false"
 				}
@@ -2224,9 +2234,14 @@
 					"group": "navigation"
 				},
 				{
-					"command": "notifications.refresh",
+					"command": "notifications.prioritize",
 					"when": "view == notifications:github",
 					"group": "navigation@1"
+				},
+				{
+					"command": "notifications.refresh",
+					"when": "view == notifications:github",
+					"group": "navigation@2"
 				}
 			],
 			"view/item/context": [

@@ -142,6 +142,9 @@ export class NotificationsProvider implements vscode.Disposable {
 		return result;
 	}
 
+	async prioritizeNotifications(): Promise<void> {
+	}
+
 	dispose() {
 		this._disposables.forEach(d => d.dispose());
 	}
