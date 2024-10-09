@@ -99,7 +99,6 @@ export class NotificationsProvider implements vscode.Disposable {
 		//  - consider fetching all pages of notifications
 		//  - consider fetching unread notifications
 		const { data } = await gitHub.octokit.call(gitHub.octokit.api.activity.listNotificationsForAuthenticatedUser, {
-			// all: true, - fetch unread notifications
 			per_page: 50
 		});
 
@@ -176,26 +175,58 @@ export class NotificationsProvider implements vscode.Disposable {
 			const model = models[0];
 
 			const messages = [vscode.LanguageModelChatMessage.User(prioritizeNotificationsInstructions)];
-			for (const [index, notification] of notifications.entries()) {
+			for (const [notificationIndex, notification] of notifications.entries()) {
 				const model = notification.model;
-				const notificationObject = {
-					...notification,
-					// TODO
-					//  - labels
-					//  - comments
-					//  - reactions (body, comments)
-					model: {
-						title: model?.title,
-						body: model?.body,
-						isOpen: model?.isOpen,
-						isClosed: model?.isClosed,
-						isMerged: model?.isMerged,
-						created_at: model?.createdAt,
-						updated_at: model?.updatedAt
+				if (!model) {
+					continue;
+				}
+				const lastReadAt = notification.last_read_at;
+				const issueComments = await model.getIssueComments();
+				const newIssueComments = lastReadAt ? issueComments : issueComments; // .filter(comment => comment.updated_at > lastReadAt)
+
+				// TODO: add labels and the actual issue reactions
+				let notificationMessage = `
+The following is the data for notification ${notificationIndex + 1}:
+• Author: ${model.author.login}
+• Title: ${model.title}
+• Body:
+
+${model.body}
+
+• isOpen: ${model.isOpen}
+• isMerged: ${model.isMerged}
+• Created At: ${model.createdAt}
+• Updated At: ${model.updatedAt}
+`;
+				if (newIssueComments.length > 0) {
+					notificationMessage += `
+The following is the data concerning the new unread comments since notification ${notificationIndex + 1} was last read.`;
+				}
+				for (const [commentIndex, comment] of newIssueComments.entries()) {
+					const nonNullReactions = {};
+					const commentReactions = comment.reactions;
+					if (commentReactions) {
+						for (const reaction of Object.keys(commentReactions)) {
+							const count = commentReactions[reaction];
+							if (count > 0) {
+								nonNullReactions[reaction] = count;
+							}
+						}
 					}
-				};
-				messages.push(vscode.LanguageModelChatMessage.User(`The following is the data for notification ${index}`));
-				messages.push(vscode.LanguageModelChatMessage.User(JSON.stringify(notificationObject)));
+					let reactionMessage = '';
+					if (Object.keys(nonNullReactions).length > 0) {
+						reactionMessage = `
+• Reactions :`;
+						for (const reaction of Object.keys(nonNullReactions)) {
+							reactionMessage += `- ${reaction}: ${nonNullReactions[reaction]}`;
+						}
+					}
+					notificationMessage += `
+Comment ${commentIndex + 1} for notification ${notificationIndex + 1}:
+• Author Association: ${comment.author_association}
+• Body: ${comment.body}` + reactionMessage;
+				}
+				messages.push(vscode.LanguageModelChatMessage.User(notificationMessage));
 			}
 			messages.push(vscode.LanguageModelChatMessage.User('Please provide the priority for each notification in a separate text code block.'));
 
