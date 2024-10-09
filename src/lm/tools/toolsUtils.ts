@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 
 export interface IToolCall {
 	tool: vscode.LanguageModelToolDescription;
-	call: vscode.LanguageModelChatResponseToolCallPart;
+	call: vscode.LanguageModelToolCallPart;
 	result: Thenable<vscode.LanguageModelToolResult>;
 }
 

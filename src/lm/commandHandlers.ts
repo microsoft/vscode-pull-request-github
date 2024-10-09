@@ -58,9 +58,9 @@ export async function handleIssueCommand(
 
 		for await (const part of response.stream) {
 
-			if (part instanceof vscode.LanguageModelChatResponseTextPart) {
+			if (part instanceof vscode.LanguageModelTextPart) {
 				stream.markdown(part.value);
-			} else if (part instanceof vscode.LanguageModelChatResponseToolCallPart) {
+			} else if (part instanceof vscode.LanguageModelToolCallPart) {
 
 				const tool = vscode.lm.tools.find(tool => tool.id === part.name);
 				if (!tool) {
@@ -85,14 +85,14 @@ export async function handleIssueCommand(
 
 		if (toolCalls.length) {
 			const assistantMsg = vscode.LanguageModelChatMessage.Assistant('');
-			assistantMsg.content2 = toolCalls.map(toolCall => new vscode.LanguageModelChatResponseToolCallPart(toolCall.tool.id, toolCall.call.toolCallId, toolCall.call.parameters));
+			assistantMsg.content2 = toolCalls.map(toolCall => new vscode.LanguageModelToolCallPart(toolCall.tool.id, toolCall.call.toolCallId, toolCall.call.parameters));
 			messages.push(assistantMsg);
 
 			for (const toolCall of toolCalls) {
 				const message = vscode.LanguageModelChatMessage.User('');
 				const toolCallResult = (await toolCall.result)['text/plain'];
 				if (toolCallResult !== undefined) {
-					message.content2 = [new vscode.LanguageModelChatMessageToolResultPart(toolCall.call.toolCallId, (await toolCall.result)['text/plain']!)];
+					message.content2 = [new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, (await toolCall.result)['text/plain']!)];
 					messages.push(message);
 				}
 			}
