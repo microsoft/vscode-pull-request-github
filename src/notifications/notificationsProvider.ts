@@ -180,9 +180,6 @@ export class NotificationsProvider implements vscode.Disposable {
 				if (!model) {
 					continue;
 				}
-				const lastReadAt = notification.last_read_at;
-				const issueComments = await model.getIssueComments();
-				const newIssueComments = lastReadAt ? issueComments : issueComments; // .filter(comment => comment.updated_at > lastReadAt)
 
 				// TODO: add labels and the actual issue reactions
 				let notificationMessage = `
@@ -196,10 +193,25 @@ ${model.body}
 • isOpen: ${model.isOpen}
 • isMerged: ${model.isMerged}
 • Created At: ${model.createdAt}
-• Updated At: ${model.updatedAt}
-`;
+• Updated At: ${model.updatedAt}`;
+
+				const labels = await model.getLabels();
+
+				let labelsMessage = '';
+				if (labels.length > 0) {
+					const labelListAsString = labels.map(label => label.name).join(', ');
+					labelsMessage = `
+• Labels: ${labelListAsString}`;
+				}
+
+				notificationMessage += labelsMessage;
+				const lastReadAt = notification.last_read_at;
+				const issueComments = await model.getIssueComments();
+				const newIssueComments = lastReadAt ? issueComments : issueComments; // .filter(comment => comment.updated_at > lastReadAt)
+
 				if (newIssueComments.length > 0) {
 					notificationMessage += `
+
 The following is the data concerning the new unread comments since notification ${notificationIndex + 1} was last read.`;
 				}
 				for (const [commentIndex, comment] of newIssueComments.entries()) {
@@ -218,13 +230,17 @@ The following is the data concerning the new unread comments since notification 
 						reactionMessage = `
 • Reactions :`;
 						for (const reaction of Object.keys(nonNullReactions)) {
-							reactionMessage += `- ${reaction}: ${nonNullReactions[reaction]}`;
+							reactionMessage += `
+	• ${reaction}: ${nonNullReactions[reaction]}`;
 						}
 					}
 					notificationMessage += `
+
 Comment ${commentIndex + 1} for notification ${notificationIndex + 1}:
 • Author Association: ${comment.author_association}
-• Body: ${comment.body}` + reactionMessage;
+• Body:
+${comment.body}
+` + reactionMessage;
 				}
 				messages.push(vscode.LanguageModelChatMessage.User(notificationMessage));
 			}

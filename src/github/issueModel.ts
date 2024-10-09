@@ -18,7 +18,7 @@ import {
 	TimelineEventsResponse,
 	UpdatePullRequestResponse,
 } from './graphql';
-import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, IPullRequestEditData, Issue } from './interface';
+import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, IProjectItem, IPullRequestEditData, Issue } from './interface';
 import { parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
 
 export class IssueModel<TItem extends Issue = Issue> {
@@ -265,6 +265,16 @@ export class IssueModel<TItem extends Issue = Issue> {
 			Logger.error(`Failed to add labels to PR #${this.number}`, IssueModel.ID);
 			vscode.window.showWarningMessage(vscode.l10n.t('Some, or all, labels could not be added to the pull request.'));
 		}
+	}
+
+	async getLabels(): Promise<ILabel[]> {
+		const { octokit, remote } = await this.githubRepository.ensure();
+		const { data } = await octokit.call(octokit.api.issues.listLabelsOnIssue, {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			issue_number: this.number,
+		});
+		return data;
 	}
 
 	async removeLabel(label: string): Promise<void> {
