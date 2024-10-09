@@ -29,7 +29,7 @@ export type Notification = {
 	readonly updated_at: string;
 	readonly last_read_at: string | null;
 	readonly model: IssueModel | PullRequestModel | undefined;
-	readonly priority: string | undefined;
+	priority: string | undefined;
 };
 
 function getNotificationOwner(notification: Notification): { owner: string, name: string } {
@@ -104,8 +104,15 @@ export class NotificationsProvider implements vscode.Disposable {
 		});
 
 		// Resolve issues/pull request
-		const result = await Promise.all(data.map(async (notification: any): Promise<Notification> => {
-			const id = notification.subject.url.split('/').pop();
+		const result = await Promise.all(data.map(async (notification: any): Promise<Notification | undefined> => {
+			const url = notification.subject.url;
+			if (!(typeof url === 'string')) {
+				return undefined;
+			}
+			const id = url.split('/').pop();
+			if (id === undefined) {
+				return undefined;
+			}
 			const { owner, name } = getNotificationOwner(notification);
 
 			const cachedNotificationKey = this._getKey(notification);
@@ -121,9 +128,6 @@ export class NotificationsProvider implements vscode.Disposable {
 			const model = notification.subject.type === 'Issue' ?
 				await folderManager.resolveIssue(owner, name, parseInt(id), true) :
 				await folderManager.resolvePullRequest(owner, name, parseInt(id));
-
-			// Compute priority
-			const priority = await this.prioritizeNotifications(notification, model);
 
 			const resolvedNotification = {
 				id: notification.id,
@@ -143,17 +147,27 @@ export class NotificationsProvider implements vscode.Disposable {
 				updated_at: notification.updated_at,
 				last_read_at: notification.last_read_at,
 				model: model,
-				priority
+				priority: undefined
 			};
 
 			this._notifications.set(cachedNotificationKey, resolvedNotification);
 			return resolvedNotification;
 		}));
 
-		return result.sort((r1, r2) => r1.priority?.localeCompare(r2.priority ?? '') ?? 0);
+		const filteredNotifications = result.filter(notification => notification !== undefined) as Notification[];
+
+		const notificationBatchSize = 5;
+		const notificationBatches: (Notification[])[] = [];
+		for (let i = 0; i < filteredNotifications.length; i += notificationBatchSize) {
+			notificationBatches.push(filteredNotifications.slice(i, i + notificationBatchSize));
+		}
+		const prioritizedBatches = await Promise.all(notificationBatches.map(batch => this.prioritizeNotifications(batch)));
+		const prioritizedNotifications = prioritizedBatches.flat();
+		const sortedPrioritizedNotifications = prioritizedNotifications.sort((r1, r2) => r1.priority?.localeCompare(r2.priority ?? '') ?? 0);
+		return sortedPrioritizedNotifications;
 	}
 
-	async prioritizeNotifications(notification: Notification, issueOrPullRequest: IssueModel | PullRequestModel | undefined): Promise<string | undefined> {
+	async prioritizeNotifications(notifications: Notification[]): Promise<Notification[]> {
 		try {
 			const models = await vscode.lm.selectChatModels({
 				vendor: 'copilot',
@@ -161,25 +175,29 @@ export class NotificationsProvider implements vscode.Disposable {
 			});
 			const model = models[0];
 
-			const notificationObject = {
-				...notification,
-				// TODO
-				//  - labels
-				//  - comments
-				//  - reactions (body, comments)
-				model: {
-					title: issueOrPullRequest?.title,
-					body: issueOrPullRequest?.body,
-					isOpen: issueOrPullRequest?.isOpen,
-					isClosed: issueOrPullRequest?.isClosed,
-					isMerged: issueOrPullRequest?.isMerged,
-					created_at: issueOrPullRequest?.createdAt,
-					updated_at: issueOrPullRequest?.updatedAt
-				}
-			};
-
-			const messages = [vscode.LanguageModelChatMessage.User(llmInstructions)];
-			messages.push(vscode.LanguageModelChatMessage.User(JSON.stringify(notificationObject)));
+			const messages = [vscode.LanguageModelChatMessage.User(prioritizeNotificationsInstructions)];
+			for (const [index, notification] of notifications.entries()) {
+				const model = notification.model;
+				const notificationObject = {
+					...notification,
+					// TODO
+					//  - labels
+					//  - comments
+					//  - reactions (body, comments)
+					model: {
+						title: model?.title,
+						body: model?.body,
+						isOpen: model?.isOpen,
+						isClosed: model?.isClosed,
+						isMerged: model?.isMerged,
+						created_at: model?.createdAt,
+						updated_at: model?.updatedAt
+					}
+				};
+				messages.push(vscode.LanguageModelChatMessage.User(`The following is the data for notification ${index}`));
+				messages.push(vscode.LanguageModelChatMessage.User(JSON.stringify(notificationObject)));
+			}
+			messages.push(vscode.LanguageModelChatMessage.User('Please provide the priority for each notification in a separate text code block.'));
 
 			const response = await model.sendRequest(messages, {});
 
@@ -188,13 +206,17 @@ export class NotificationsProvider implements vscode.Disposable {
 				responseText += chunk;
 			}
 
-			const textCodeBlockRegex = /^```text\s*([\s\S]+?)\s*```$/m;
-			const textCodeBlockMatch = textCodeBlockRegex.exec(responseText);
-
-			return textCodeBlockMatch !== null ? textCodeBlockMatch[1] : undefined;
+			const textCodeBlockRegex = /```text\s*([\s\S]+?)\s*```/gm;
+			for (let i = 0; i < notifications.length; i++) {
+				const execResult = textCodeBlockRegex.exec(responseText);
+				if (execResult) {
+					notifications[i].priority = execResult[1];
+				}
+			}
+			return notifications;
 		} catch (e) {
 			console.log(e);
-			return undefined;
+			return [];
 		}
 	}
 
@@ -216,7 +238,7 @@ export class NotificationsProvider implements vscode.Disposable {
 // 	}
 // }
 
-const llmInstructions = `
+const prioritizeNotificationsInstructions = `
 	You are an intelligent assistant tasked with prioritizing GitHub notifications.
 	You are given a list of notifications, each related to a repository, an issue, pull request.
 	Follow these guidelines to prioritize them:
@@ -253,5 +275,5 @@ const llmInstructions = `
 				P2
 
 	Use the provided notifications list to determine the priorities based on the criteria above.
-	The notification is provided as a JSON code block containing the object representing a notification.
+	The notification is provided as a JSON code block containing the object representing a notification. For each notification provide on code block result.
 `;
