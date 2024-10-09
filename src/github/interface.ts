@@ -146,6 +146,10 @@ export interface ILabel {
 	description?: string | null;
 }
 
+export interface IReaction {
+	content: '+1' | '-1' | 'laugh' | 'confused' | 'heart' | 'hooray' | 'rocket' | 'eyes';
+}
+
 export interface Issue {
 	id: number;
 	graphNodeId: string;

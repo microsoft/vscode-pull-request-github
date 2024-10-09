@@ -196,15 +196,30 @@ ${model.body}
 • Updated At: ${model.updatedAt}`;
 
 				const labels = await model.getLabels();
-
 				let labelsMessage = '';
 				if (labels.length > 0) {
 					const labelListAsString = labels.map(label => label.name).join(', ');
 					labelsMessage = `
 • Labels: ${labelListAsString}`;
 				}
-
 				notificationMessage += labelsMessage;
+
+				const reactions = (await model.getReactions()).map(reaction => reaction.content);
+				const reactionCountMap = new Map<string, number>();
+				for (const reaction of reactions) {
+					reactionCountMap.set(reaction, (reactionCountMap.get(reaction) || 0) + 1);
+				}
+				let reactionsMessage = '';
+				if (reactionCountMap.size > 0) {
+					reactionsMessage = `
+• Reactions:`;
+					for (const [reaction, count] of reactionCountMap.entries()) {
+						reactionsMessage += `
+	• ${reaction}: ${count}`;
+					}
+				}
+				notificationMessage += reactionsMessage;
+
 				const lastReadAt = notification.last_read_at;
 				const issueComments = await model.getIssueComments();
 				const newIssueComments = lastReadAt ? issueComments : issueComments; // .filter(comment => comment.updated_at > lastReadAt)
@@ -228,10 +243,10 @@ The following is the data concerning the new unread comments since notification 
 					let reactionMessage = '';
 					if (Object.keys(nonNullReactions).length > 0) {
 						reactionMessage = `
-• Reactions :`;
+• Reactions: `;
 						for (const reaction of Object.keys(nonNullReactions)) {
 							reactionMessage += `
-	• ${reaction}: ${nonNullReactions[reaction]}`;
+	• ${reaction}: ${nonNullReactions[reaction]} `;
 						}
 					}
 					notificationMessage += `

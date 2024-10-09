@@ -18,7 +18,7 @@ import {
 	TimelineEventsResponse,
 	UpdatePullRequestResponse,
 } from './graphql';
-import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, IProjectItem, IPullRequestEditData, Issue } from './interface';
+import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, IProjectItem, IPullRequestEditData, IReaction, Issue } from './interface';
 import { parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
 
 export class IssueModel<TItem extends Issue = Issue> {
@@ -285,6 +285,16 @@ export class IssueModel<TItem extends Issue = Issue> {
 			issue_number: this.number,
 			name: label,
 		});
+	}
+
+	async getReactions(): Promise<IReaction[]> {
+		const { octokit, remote } = await this.githubRepository.ensure();
+		const { data } = await octokit.call(octokit.api.reactions.listForIssue, {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			issue_number: this.number,
+		});
+		return data;
 	}
 
 	public async removeProjects(projectItems: IProjectItem[]): Promise<void> {
