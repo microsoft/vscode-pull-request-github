@@ -5,6 +5,7 @@
 
 'use strict';
 import * as vscode from 'vscode';
+import { DisplayIssuesParameters } from './displayIssuesTool';
 
 interface IToolCall {
 	tool: vscode.LanguageModelToolDescription;
@@ -42,7 +43,7 @@ export async function handleIssueCommand(
 		};
 	});
 
-	const messages = [vscode.LanguageModelChatMessage.User(llmInstructions)];
+	const messages = [vscode.LanguageModelChatMessage.Assistant(llmInstructions)];
 	messages.push(vscode.LanguageModelChatMessage.User(request.prompt));
 	const toolReferences = [...request.toolReferences];
 	const options: vscode.LanguageModelChatRequestOptions = {
@@ -81,14 +82,15 @@ export async function handleIssueCommand(
 					throw new Error(`Got invalid tool use parameters: "${part.parameters}". (${(err as Error).message})`);
 				}
 
-				const invokationOptions = { parameters, toolInvocationToken: request.toolInvocationToken, requestedContentTypes: ['text/plain'] };
+				const invocationOptions = { parameters, toolInvocationToken: request.toolInvocationToken, requestedContentTypes: ['text/plain', 'text/markdown', 'text/json'] };
 				toolCalls.push({
 					call: part,
-					result: vscode.lm.invokeTool(tool.id, invokationOptions, token),
+					result: vscode.lm.invokeTool(tool.id, invocationOptions, token),
 					tool
 				});
 			}
 		}
+		let isVisible: boolean = false;
 
 		if (toolCalls.length) {
 			const assistantMsg = vscode.LanguageModelChatMessage.Assistant('');
@@ -97,14 +99,38 @@ export async function handleIssueCommand(
 
 			for (const toolCall of toolCalls) {
 				const message = vscode.LanguageModelChatMessage.User('');
-				const toolCallResult = (await toolCall.result)['text/plain'];
-				if (toolCallResult !== undefined) {
-					message.content2 = [new vscode.LanguageModelChatMessageToolResultPart(toolCall.call.toolCallId, (await toolCall.result)['text/plain']!)];
+				let toolCallResult = (await toolCall.result);
+
+				// Can't get the llm to just call the render tool, so we have to do it manually
+				// if (toolCall.tool.id === 'github-pull-request_doSearch') {
+				// 	const json: DisplayIssuesParameters = JSON.parse(toolCallResult['text/plain']!) as DisplayIssuesParameters;
+				// 	if (json !== undefined) {
+				// 		const invocationOptions = { parameters: json, toolInvocationToken: request.toolInvocationToken, requestedContentTypes: ['text/plain', 'text/markdown', 'text/json'] };
+				// 		toolCallResult = await vscode.lm.invokeTool('github-pull-request_renderIssues', invocationOptions, token);
+				// 	}
+				// }
+
+				const plainText = toolCallResult['text/plain'];
+				const markdown = toolCallResult['text/markdown'];
+				const json: JSON = toolCallResult['text/json'];
+				const content: (string | vscode.LanguageModelChatMessageToolResultPart | vscode.LanguageModelChatResponseToolCallPart)[] = [];
+				if (json !== undefined) {
+					content.push(new vscode.LanguageModelChatMessageToolResultPart(toolCall.call.toolCallId, JSON.stringify(json)));
+				} else if (markdown !== undefined) {
+					stream.markdown(markdown);
+					content.push(new vscode.LanguageModelChatMessageToolResultPart(toolCall.call.toolCallId, markdown));
+					isVisible = true;
+				}
+				if (plainText !== undefined) {
+					content.push(new vscode.LanguageModelChatMessageToolResultPart(toolCall.call.toolCallId, plainText));
+				}
+				if (content.length > 0) {
+					message.content2 = content;
 					messages.push(message);
 				}
 			}
 
-			messages.push(vscode.LanguageModelChatMessage.User(`Above is the result of calling the functions ${toolCalls.map(call => call.tool.id).join(', ')}. The user cannot see this result, so you should explain it to the user if referencing it in your answer.`));
+			messages.push(vscode.LanguageModelChatMessage.User(`Above is the result of calling the functions ${toolCalls.map(call => call.tool.id).join(', ')}.${isVisible ? 'The user can see this result.' : 'The user cannot see this result, so you should explain it to the user if referencing it in your answer.'}`));
 			return runWithFunctions();
 		}
 	};
