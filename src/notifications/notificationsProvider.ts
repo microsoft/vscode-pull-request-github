@@ -162,7 +162,11 @@ export class NotificationsProvider implements vscode.Disposable {
 		}
 		const prioritizedBatches = await Promise.all(notificationBatches.map(batch => this.prioritizeNotifications(batch)));
 		const prioritizedNotifications = prioritizedBatches.flat();
-		const sortedPrioritizedNotifications = prioritizedNotifications.sort((r1, r2) => r1.priority?.localeCompare(r2.priority ?? '') ?? 0);
+		const sortedPrioritizedNotifications = prioritizedNotifications.sort((r1, r2) => {
+			const priority1 = Number(r1.priority);
+			const priority2 = Number(r2.priority);
+			return priority2 - priority1;
+		});
 		return sortedPrioritizedNotifications;
 	}
 
@@ -181,7 +185,6 @@ export class NotificationsProvider implements vscode.Disposable {
 					continue;
 				}
 
-				// TODO: add labels and the actual issue reactions
 				let notificationMessage = `
 The following is the data for notification ${notificationIndex + 1}:
 • Author: ${model.author.login}
@@ -268,7 +271,7 @@ ${comment.body}
 				responseText += chunk;
 			}
 
-			const textCodeBlockRegex = /```text\s*([\s\S]+?)\s*```/gm;
+			const textCodeBlockRegex = /```text\s*[\s\S]+?\s*=\s*([\S]+?)\s*```/gm;
 			for (let i = 0; i < notifications.length; i++) {
 				const execResult = textCodeBlockRegex.exec(responseText);
 				if (execResult) {
@@ -290,9 +293,7 @@ ${comment.body}
 // export interface PromptProps extends BasePromptElementProps {
 // 	notification: Notification;
 // }
-
 // export interface PromptState { }
-
 // export class NotificationPrompt extends PromptElement<PromptProps, PromptState> {
 // 	async render(state: PromptState, sizing: PromptSizing) {
 // 		return (
@@ -301,41 +302,52 @@ ${comment.body}
 // }
 
 const prioritizeNotificationsInstructions = `
-	You are an intelligent assistant tasked with prioritizing GitHub notifications.
-	You are given a list of notifications, each related to a repository, an issue, pull request.
-	Follow these guidelines to prioritize them:
-	1.	Issues, pull requests (PRs), mentions, commits, and comments are the core types of notifications.
-		For each notification, check if it involves the user directly (e.g., mentioned, assigned, requested for review) or passively (e.g., subscribed, participating in the conversation).
-	2. 	Assign Priority:
-			* Critical Priority (P1):
-				* Direct mentions or assignments (you are mentioned, assigned, or requested for a review).
-				* Issues/PRs related to a repository that you are frequently involved in (or of high relevance, e.g., production).
-				* Notifications regarding bugs, security issues, or feature requests that have critical labels such as important, bug, security.
-			* High Priority (P2):
-				* Updates to issues/PRs where there has been recent activity (e.g., new comments, commits).
-				* Notifications from repositories you are watching that have significant updates, such as new commits, changes to PRs, or resolved issues.
-				* PRs requiring reviews.
-			* Medium Priority (P3):
-				* Notifications of general discussion or updates on repositories you're subscribed to.
-				* Non-urgent issues, comments, or notifications with no direct mention or action required.
-				* Notifications from less critical repositories or older issues/PRs.
-			* Low Priority (P4):
-				* General repository activity that does not involve you directly.
-				* Old, unresolved issues or PRs with no recent activity.
-	3.	Evaluate Urgency:
-			* Issues that have the "important" label should always be a P1.
-			* Notifications for closed issues or closed pull request should never be a P1.
-			* Consider the last updated timestamp. The more recent the activity, the higher the urgency.
-			* Consider the volume of activity (e.g., multiple comments or participants) to assess whether it's gaining traction and should be addressed.
-	4.	Output:
-			* For each notification, return a text code block containing the priority level (P1, P2, P3, or P4).
-				Example output:
-				\`\`\`text
-				P2
-				\`\`\`
-				Example of incorrect output:
-				P2
+You are an intelligent assistant tasked with prioritizing GitHub notifications.
+You are given a list of notifications, each related to an issue or pull request.
+Follow the following scoring mechanism to priority the notifications:
 
-	Use the provided notifications list to determine the priorities based on the criteria above.
-	The notification is provided as a JSON code block containing the object representing a notification. For each notification provide on code block result.
+	1. Assign points from 0 to 30 to the importance of the notification. Consider the following points:
+		- In case of an issue, does the content/title suggest this is a critical issue? In the case of a PR, does the content/title suggest it fixes a critical issue? A critical issue/PR has a higher priority.
+		- To evaluate the importance/criticality of an issue/PR evaluate whether it references the following. Such issues/PRs should be assigned a higher priority.
+			- security vulnerabilities
+			- major regressions
+			- data loss
+			- crashes
+			- performance issues
+			- memory leaks
+			- breaking changes
+		- Are the labels assigned to the issue/PR indicate it is critical. Labels that include the following: 'critical', 'urgent', 'important', 'high priority' should be assigned a higher priority.
+		- Is the issue/PR suggesting it is blocking for other work and must be addressed now?
+		- Is the issue/PR user facing? User facing issue/PRs that have a clear negative impact on the user should be assigned a higher priority.
+		- Is the tone of voice urgent or neutral? An urgent tone of voice has a higher priority.
+		- In contrast, issues/PRs about technical debt/code polishing/minor internal issues or generally that have low importance should be assigned lower priority.
+		- Is the issue/PR open or closed? An open issue/PR should be assigned a higher priority.
+	2. Assign points from 0 to 30 for the community engagement. Consider the following points:
+		- Reactions: Consider the number and the type of reactions under an issue/pr. A higher number of reactions should be assigned a higher priority.
+		- Comments: Evaluate the community engagmenent on the issue/PR through the comments. In particular consider the following:
+			- Does the issue/pr have a lot of comments indicating widespread interest?
+			- Does the issue/pr have comments from many different users which would indicate widespread interest?
+			- Evaluate the comments content. Do they indicate that the issue/PR is critical and touches many people? A critical issue/PR should be assigned a higher priority.
+			- Evaluate the effort/detail put into the comments, are the users invested in the issue/pr? A higher effort should be assigned a higher priority.
+			- Evaluate the tone of voice in the comments, an urgent tone of voice should be assigned a higher priority.
+			- Evaluate the reactions under the comments, a higher number of reactions indicate widespread interest and issue/PR following. A higher number of reactions should be assigned a higher priority.
+	3. Assign points from 0 to 20 for the issue/PR content quality. Consider the following points:
+		- Description: In the case of an issue, are there clear steps to reproduce the issue? In the case of a PR, is there a clear description of the change? A clearer, more complete description should be assigned a higher priority.
+		- Effort: Evaluate the general effort put into writing this issue/PR. Does the user provide a lengthy clear explanation? A higher effort should be assigned a higher priority.
+	4. Assign points from 0 to 10 for the pertinence of the notification.
+		- Assignment: Is the issue/PR assigned to the user or is the user just mentioned? An issue/PR assigned to the user should be assigned a higher priority.
+		- Review Request: Is the user's review requested on the PR, or is the user just mentioned? A review request should be assigned a higher priority.
+		- Generally does the issue/PR and the associated comments suggest the user is the main person resposible for resolving it? If so, assign a higher priority.
+	5. Assign points from 0 to 10 for the timing factors of the notification.
+		- Update Time: What is the last update_time of the notification? A more recent notification should be assigned a higher priority.
+		- Responsiveness: Is the issue/PR author responsive?
+
+Use the above guidelines to assign points to each notification. Provide the sum of the individual points in a separate text code block for each notification. The points sum to 100 as a maximum. After the text code block add a description for why you assigned this score.
+The output should look as follows:
+
+\`\`\`text
+15 + 15 + 10 + 5 + 5 = 50
+\`\`\`text
+
+<reasoning>
 `;
