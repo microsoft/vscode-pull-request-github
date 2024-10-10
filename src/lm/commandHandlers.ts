@@ -35,7 +35,7 @@ export async function handleIssueCommand(
 		};
 	});
 
-	const messages = [vscode.LanguageModelChatMessage.User(llmInstructions)];
+	const messages = [vscode.LanguageModelChatMessage.Assistant(llmInstructions)];
 	messages.push(vscode.LanguageModelChatMessage.User(request.prompt));
 	const toolReferences = [...request.toolReferences];
 	const options: vscode.LanguageModelChatRequestOptions = {
@@ -74,10 +74,10 @@ export async function handleIssueCommand(
 					throw new Error(`Got invalid tool use parameters: "${part.parameters}". (${(err as Error).message})`);
 				}
 
-				const invokationOptions = { parameters, toolInvocationToken: request.toolInvocationToken, requestedContentTypes: ['text/plain'] };
+				const invocationOptions = { parameters, toolInvocationToken: request.toolInvocationToken, requestedContentTypes: ['text/plain', 'text/markdown', 'text/json'] };
 				toolCalls.push({
 					call: part,
-					result: vscode.lm.invokeTool(tool.id, invokationOptions, token),
+					result: vscode.lm.invokeTool(tool.id, invocationOptions, token),
 					tool
 				});
 			}
@@ -88,16 +88,47 @@ export async function handleIssueCommand(
 			assistantMsg.content2 = toolCalls.map(toolCall => new vscode.LanguageModelToolCallPart(toolCall.tool.id, toolCall.call.toolCallId, toolCall.call.parameters));
 			messages.push(assistantMsg);
 
+			let hasJson = false;
 			for (const toolCall of toolCalls) {
-				const message = vscode.LanguageModelChatMessage.User('');
-				const toolCallResult = (await toolCall.result)['text/plain'];
-				if (toolCallResult !== undefined) {
-					message.content2 = [new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, (await toolCall.result)['text/plain']!)];
+				let toolCallResult = (await toolCall.result);
+
+				const plainText = toolCallResult['text/plain'];
+				const markdown = toolCallResult['text/markdown'];
+				const json = toolCallResult['text/json'];
+				let isOnlyPlaintext = true;
+				if (json !== undefined) {
+					const message = vscode.LanguageModelChatMessage.User('');
+
+					message.content2 = [new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, JSON.stringify(json))];
+					messages.push(message);
+					isOnlyPlaintext = false;
+					hasJson = true;
+
+				} else if (markdown !== undefined) {
+					stream.markdown(markdown);
+					const message = vscode.LanguageModelChatMessage.User('');
+					message.content2 = [new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, markdown)];
+					messages.push(message);
+					isOnlyPlaintext = false;
+				}
+				if ((plainText !== undefined) && isOnlyPlaintext) {
+					const message = vscode.LanguageModelChatMessage.User('');
+					message.content2 = [new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, plainText)];
 					messages.push(message);
 				}
+
+
+				// Can't get the llm to pass the issues to the render tool, so we have to do it manually
+				// if (toolCall.tool.id === 'github-pull-request_doSearch') {
+				// 	const json: DisplayIssuesParameters = JSON.parse(toolCallResult['text/json']!) as DisplayIssuesParameters;
+				// 	if (json !== undefined) {
+				// 		const invocationOptions = { parameters: json, toolInvocationToken: request.toolInvocationToken, requestedContentTypes: ['text/plain', 'text/markdown', 'text/json'] };
+				// 		toolCallResult = await vscode.lm.invokeTool('github-pull-request_renderIssues', invocationOptions, token);
+				// 	}
+				// }
 			}
 
-			messages.push(vscode.LanguageModelChatMessage.User(`Above is the result of calling the functions ${toolCalls.map(call => call.tool.id).join(', ')}. The user cannot see this result, so you should explain it to the user if referencing it in your answer.`));
+			messages.push(vscode.LanguageModelChatMessage.User(`Above is the result of calling the functions ${toolCalls.map(call => call.tool.id).join(', ')}.${hasJson ? ' The JSON is also included and should be passed to the next tool.' : ''}`));
 			return runWithFunctions();
 		}
 	};

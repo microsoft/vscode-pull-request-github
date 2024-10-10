@@ -3106,6 +3106,161 @@
 				"supportedContentTypes": [
 					"text/plain"
 				]
+			},
+			{
+				"id": "github-pull-request_searchSyntax",
+				"tags": [
+					"github",
+					"issues",
+					"search",
+					"query",
+					"syntax"
+				],
+				"name": "searchSyntax",
+				"displayName": "Convert plain text to GitHub search syntax",
+				"modelDescription": "Converts plain text to GitHub search syntax.",
+				"icon": "$(search)",
+				"canBeInvokedManually": true,
+				"parametersSchema": {
+					"type": "object",
+					"properties": {
+						"repo": {
+							"type": "object",
+							"description": "The repository to get the issue from.",
+							"properties": {
+								"owner": {
+									"type": "string",
+									"description": "The owner of the repository to get the issue from."
+								},
+								"name": {
+									"type": "string",
+									"description": "The name of the repository to get the issue from."
+								}
+							},
+							"required": [
+								"owner",
+								"name"
+							]
+						},
+						"plainSearchString": {
+							"type": "string",
+							"description": "A plain text description of what the search should be."
+						}
+					},
+					"required": [
+						"plainSearchString"
+					]
+				},
+				"supportedContentTypes": [
+					"text/plain"
+				]
+			},
+			{
+				"id": "github-pull-request_doSearch",
+				"tags": [
+					"github",
+					"issues",
+					"search"
+				],
+				"name": "doSearch",
+				"displayName": "Execute a GitHub search given a well formed GitHub search query.",
+				"modelDescription": "Execute a GitHub search given a well formed GitHub search query.",
+				"icon": "$(search)",
+				"canBeInvokedManually": true,
+				"parametersSchema": {
+					"type": "object",
+					"properties": {
+						"repo": {
+							"type": "object",
+							"description": "The repository to get the issue from.",
+							"properties": {
+								"owner": {
+									"type": "string",
+									"description": "The owner of the repository to get the issue from."
+								},
+								"name": {
+									"type": "string",
+									"description": "The name of the repository to get the issue from."
+								}
+							},
+							"required": [
+								"owner",
+								"name"
+							]
+						},
+						"query": {
+							"type": "string",
+							"description": "A well formed GitHub search query using proper GitHub search syntax."
+						}
+					},
+					"required": [
+						"query"
+					]
+				},
+				"supportedContentTypes": [
+					"text/plain",
+					"text/json"
+				]
+			},
+			{
+				"id": "github-pull-request_renderIssues",
+				"tags": [
+					"github",
+					"issues",
+					"render",
+					"display"
+				],
+				"name": "renderIssues",
+				"displayName": "Render issue items in a markdown table.",
+				"modelDescription": "Render issue items from an issue search in a markdown table.",
+				"icon": "$(paintcan)",
+				"canBeInvokedManually": true,
+				"parametersSchema": {
+					"type": "object",
+					"properties": {
+						"arrayOfIssues": {
+							"oneOf": [
+								{
+									"type": "array",
+									"description": "An array of GitHub Issues.",
+									"items": {
+										"type": "object",
+										"properties": {
+											"title": {
+												"type": "string",
+												"description": "The title of the issue."
+											},
+											"number": {
+												"type": "number",
+												"description": "The number of the issue."
+											},
+											"body": {
+												"type": "string",
+												"description": "The body of the issue."
+											},
+											"url": {
+												"type": "string",
+												"description": "The URL of the issue."
+											}
+										}
+									}
+								},
+								{
+									"type": "string",
+									"description": "A Json stringified array of GitHub Issues."
+								}
+							],
+							"description": "An array or stringified array of GitHub Issues."
+						}
+					},
+					"required": [
+						"issues"
+					]
+				},
+				"supportedContentTypes": [
+					"text/plain",
+					"text/markdown"
+				]
 			}
 		]
 	},
