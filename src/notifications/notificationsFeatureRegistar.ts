@@ -37,7 +37,6 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 						"notifications.prioritize" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.prioritize');
-					await notificationsProvider.prioritizeNotifications();
 					return dataProvider.refresh();
 				},
 				this,
@@ -51,6 +50,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 						"notifications.refresh" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.refresh');
+					notificationsProvider.clearCache();
 					return dataProvider.refresh();
 				},
 				this,

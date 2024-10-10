@@ -5,8 +5,8 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { FolderRepositoryManager } from '../github/folderRepositoryManager';
-import { RepositoriesManager } from '../github/repositoriesManager';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { RepositoriesManager } from '../../github/repositoriesManager';
 
 interface IssueToolParameters {
 	issueNumber: number;

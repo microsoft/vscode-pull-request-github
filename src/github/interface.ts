@@ -143,7 +143,11 @@ export interface IGitHubRef {
 export interface ILabel {
 	name: string;
 	color: string;
-	description?: string;
+	description?: string | null;
+}
+
+export interface IReaction {
+	content: '+1' | '-1' | 'laugh' | 'confused' | 'heart' | 'hooray' | 'rocket' | 'eyes';
 }
 
 export interface Issue {

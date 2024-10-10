@@ -3062,6 +3062,52 @@
 				]
 			},
 			{
+				"id": "github-pull-request_suggest-fix",
+				"tags": [
+					"github",
+					"issues"
+				],
+				"name": "suggest-fix",
+				"displayName": "Suggest a Fix for a GitHub Issue",
+				"modelDescription": "Summarize and suggest a fix for a GitHub issue.",
+				"icon": "$(info)",
+				"canBeInvokedManually": true,
+				"parametersSchema": {
+					"type": "object",
+					"properties": {
+						"repo": {
+							"type": "object",
+							"description": "The repository to get the issue from.",
+							"properties": {
+								"owner": {
+									"type": "string",
+									"description": "The owner of the repository to get the issue from."
+								},
+								"name": {
+									"type": "string",
+									"description": "The name of the repository to get the issue from."
+								}
+							},
+							"required": [
+								"owner",
+								"name"
+							]
+						},
+						"issueNumber": {
+							"type": "number",
+							"description": "The number of the issue to get."
+						}
+					},
+					"required": [
+						"issueNumber",
+						"repo"
+					]
+				},
+				"supportedContentTypes": [
+					"text/plain"
+				]
+			},
+			{
 				"id": "github-pull-request_searchSyntax",
 				"tags": [
 					"github",
