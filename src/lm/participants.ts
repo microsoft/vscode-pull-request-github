@@ -123,7 +123,7 @@ export class ChatParticipant implements vscode.Disposable {
 						throw new Error(`Got invalid tool use parameters: "${part.parameters}". (${(err as Error).message})`);
 					}
 
-					const invocationOptions = { parameters, toolInvocationToken: request.toolInvocationToken, requestedContentTypes: ['text/plain', 'text/markdown', 'text/json'] };
+					const invocationOptions = { parameters, toolInvocationToken: request.toolInvocationToken, requestedContentTypes: ['text/plain', 'text/markdown', 'text/json', 'text/display'] };
 					toolCalls.push({
 						call: part,
 						result: vscode.lm.invokeTool(tool.id, invocationOptions, token),
@@ -144,17 +144,20 @@ export class ChatParticipant implements vscode.Disposable {
 					const plainText = toolCallResult['text/plain'];
 					const markdown = toolCallResult['text/markdown'];
 					const json = toolCallResult['text/json'];
+					const display = toolCallResult['text/display']; // our own fake type that we use to indicate something that should be streamed to the user
+					if (display) {
+						stream.markdown(display);
+					}
+
 					let isOnlyPlaintext = true;
 					if (json !== undefined) {
 						const message = vscode.LanguageModelChatMessage.User('');
-
 						message.content2 = [new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, JSON.stringify(json))];
 						this.state.addMessage(message);
 						isOnlyPlaintext = false;
 						hasJson = true;
 
 					} else if (markdown !== undefined) {
-						stream.markdown(markdown);
 						const message = vscode.LanguageModelChatMessage.User('');
 						message.content2 = [new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, markdown)];
 						this.state.addMessage(message);

@@ -30,9 +30,9 @@ You are an expert on GitHub query syntax. You can help the user convert a plain 
 - Always try to include "repo:" and "org:" in your response.
 - Respond with only the query.
 - Here are some examples of valid queries:
-	- org:microsoft repo:vscode is:issue is:open
-	- mentions:@me org:microsoft repo:vscode is:issue is:open
-	- assignee:@me milestone:"October 2024" is:open is:issue
+	- org:microsoft repo:vscode is:issue is:open sort:updated-asc
+	- mentions:@me org:microsoft repo:vscode is:issue is:open sort:updated
+	- assignee:@me milestone:"October 2024" is:open is:issue sort:reactions
 	- comments:>5 org:contoso repo:cli is:issue is:closed
 - As a reminder, here are the components of the query syntax:
 	Filters:
@@ -69,6 +69,7 @@ You are an expert on GitHub query syntax. You can help the user convert a plain 
 	- updated:
 	- closed:
 	- no: (label, milestone, assignee, project)
+	- sort:
 
 	Value Qualifiers:
 	- >n
@@ -85,6 +86,19 @@ You are an expert on GitHub query syntax. You can help the user convert a plain 
 
 	Special Values:
 	- @me
+
+	Sort Values:
+	- interactions
+	- interactions-asc
+	- reactions
+	- reactions-asc
+	- reactions- (+1, -1, smile, tada, heart)
+	- author-date
+	- author-date-asc
+	- committer-date
+	- committer-date-asc
+	- updated
+	- updated-asc
 `;
 
 export class ConvertToSearchSyntaxTool implements vscode.LanguageModelTool<ConvertToQuerySyntaxParameters> {
@@ -178,7 +192,8 @@ export class ConvertToSearchSyntaxTool implements vscode.LanguageModelTool<Conve
 			throw new Error('Unable to form a query.');
 		}
 		return {
-			'text/plain': result.query
+			'text/plain': result.query,
+			'text/display': `Using query \`${result.query}\``
 		};
 	}
 

@@ -3152,7 +3152,8 @@
 					]
 				},
 				"supportedContentTypes": [
-					"text/plain"
+					"text/plain",
+					"text/display"
 				]
 			},
 			{
