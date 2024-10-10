@@ -340,6 +340,8 @@ export function convertRESTPullRequestToRawPullRequest(
 		suggestedReviewers: [], // suggested reviewers only available through GraphQL API
 		projectItems: [], // projects only available through GraphQL API
 		commits: [], // commits only available through GraphQL API
+		reactionCount: 0, // reaction count only available through GraphQL API
+		commentCount: 0 // comment count only available through GraphQL API
 	};
 
 	// mergeable is not included in the list response, will need to fetch later
@@ -369,6 +371,7 @@ export function convertRESTIssueToRawPullRequest(
 		labels,
 		node_id,
 		id,
+		comments
 	} = pullRequest;
 
 	const item: Issue = {
@@ -390,6 +393,8 @@ export function convertRESTIssueToRawPullRequest(
 			typeof l === 'string' ? { name: l, color: '' } : { name: l.name ?? '', color: l.color ?? '', description: l.description ?? undefined },
 		),
 		projectItems: [], // projects only available through GraphQL API
+		reactionCount: 0, // reaction count only available through GraphQL API
+		commentCount: comments
 	};
 
 	return item;
@@ -726,6 +731,8 @@ export function parseGraphQLPullRequest(
 		milestone: parseMilestone(graphQLPullRequest.milestone),
 		assignees: graphQLPullRequest.assignees?.nodes.map(assignee => parseAuthor(assignee, githubRepository)),
 		commits: parseCommits(graphQLPullRequest.commits.nodes),
+		reactionCount: graphQLPullRequest.reactions.totalCount,
+		commentCount: graphQLPullRequest.comments.totalCount,
 	};
 	pr.mergeCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.mergeCommitTitle, graphQLPullRequest.baseRepository.mergeCommitMessage, pr);
 	pr.squashCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.squashMergeCommitTitle, graphQLPullRequest.baseRepository.squashMergeCommitMessage, pr);
@@ -830,6 +837,8 @@ export function parseGraphQLIssue(issue: GraphQL.PullRequest, githubRepository: 
 		repositoryOwner: issue.repository?.owner.login ?? githubRepository.remote.owner,
 		repositoryUrl: issue.repository?.url ?? githubRepository.remote.url,
 		projectItems: parseProjectItems(issue.projectItems?.nodes),
+		reactionCount: issue.reactions.totalCount,
+		commentCount: issue.comments.totalCount
 	};
 }
 

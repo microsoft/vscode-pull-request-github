@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { Issue } from '../github/interface';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { concatAsyncIterable } from './tools/toolsUtils';
 
 interface ConvertToQuerySyntaxParameters {
 	plainSearchString: string;
@@ -187,7 +188,7 @@ export class ConvertToSearchSyntaxTool implements vscode.LanguageModelTool<Conve
 		const messages = [vscode.LanguageModelChatMessage.Assistant(CONVERT_TO_QUERY_SYNTAX_LLM_INSTRUCTIONS)];
 		messages.push(vscode.LanguageModelChatMessage.User(this.userPrompt(options.parameters.plainSearchString)));
 		const response = await model.sendRequest(messages, chatOptions, token);
-		const result = this.postProcess(await this.concatAsyncIterable(response.text));
+		const result = this.postProcess(await concatAsyncIterable(response.text));
 		if (!result) {
 			throw new Error('Unable to form a query.');
 		}
@@ -195,14 +196,6 @@ export class ConvertToSearchSyntaxTool implements vscode.LanguageModelTool<Conve
 			'text/plain': result.query,
 			'text/display': `Using query \`${result.query}\``
 		};
-	}
-
-	private async concatAsyncIterable(asyncIterable: AsyncIterable<string>): Promise<string> {
-		let result = '';
-		for await (const chunk of asyncIterable) {
-			result += chunk;
-		}
-		return result;
 	}
 }
 
@@ -240,7 +233,7 @@ export class SearchTool implements vscode.LanguageModelTool<SearchToolParameters
 			arrayOfIssues: searchResult.items.map(i => i.item)
 		};
 		return {
-			'text/plain': 'Here are the issues I found in a stringified json format. You can pass these to a tool that can display them. ' + JSON.stringify(result.arrayOfIssues),
+			'text/plain': `Here are the issues I found for the query ${options.parameters.query} in a stringified json format. You can pass these to a tool that can display them.`,
 			'text/json': result
 		};
 	}

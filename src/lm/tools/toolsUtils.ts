@@ -32,3 +32,11 @@ export abstract class ToolBase<T> implements vscode.LanguageModelTool<T> {
 	constructor(protected readonly chatParticipantState: ChatParticipantState) { }
 	abstract invoke(options: vscode.LanguageModelToolInvocationOptions<T>, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelToolResult>;
 }
+
+export async function concatAsyncIterable(asyncIterable: AsyncIterable<string>): Promise<string> {
+	let result = '';
+	for await (const chunk of asyncIterable) {
+		result += chunk;
+	}
+	return result;
+}

@@ -19,13 +19,16 @@ const llmInstructions = `Instructions:
 export class ChatParticipantState {
 	private _messages: vscode.LanguageModelChatMessage[] = [];
 
-	get lastToolResult(): vscode.LanguageModelToolResultPart | undefined {
+	get lastToolResult(): (string | vscode.LanguageModelToolResultPart | vscode.LanguageModelToolCallPart)[] {
 		for (let i = this._messages.length - 1; i >= 0; i--) {
 			const message = this._messages[i];
-			if (message.content2 && message.content2.length > 0 && message.content2[0] instanceof vscode.LanguageModelToolResultPart) {
-				return message.content2[0] as vscode.LanguageModelToolResultPart;
+			for (const part of message.content2) {
+				if (part instanceof vscode.LanguageModelToolResultPart) {
+					return message.content2;
+				}
 			}
 		}
+		return [];
 	}
 
 	get messages(): vscode.LanguageModelChatMessage[] {
@@ -149,25 +152,27 @@ export class ChatParticipant implements vscode.Disposable {
 						stream.markdown(display);
 					}
 
+					const content: (string | vscode.LanguageModelToolResultPart | vscode.LanguageModelToolCallPart)[] = [];
 					let isOnlyPlaintext = true;
 					if (json !== undefined) {
-						const message = vscode.LanguageModelChatMessage.User('');
-						message.content2 = [new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, JSON.stringify(json))];
-						this.state.addMessage(message);
+						content.push(new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, JSON.stringify(json)));
 						isOnlyPlaintext = false;
 						hasJson = true;
 
 					} else if (markdown !== undefined) {
-						const message = vscode.LanguageModelChatMessage.User('');
-						message.content2 = [new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, markdown)];
-						this.state.addMessage(message);
+						content.push(new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, markdown));
 						isOnlyPlaintext = false;
 					}
-					if ((plainText !== undefined) && isOnlyPlaintext) {
-						const message = vscode.LanguageModelChatMessage.User('');
-						message.content2 = [new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, plainText)];
-						this.state.addMessage(message);
+					if (plainText !== undefined) {
+						if (isOnlyPlaintext) {
+							content.push(new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, plainText));
+						} else {
+							content.push(plainText);
+						}
 					}
+					const message = vscode.LanguageModelChatMessage.User('');
+					message.content2 = content;
+					this.state.addMessage(message);
 
 
 					// Can't get the llm to pass the issues to the render tool, so we have to do it manually

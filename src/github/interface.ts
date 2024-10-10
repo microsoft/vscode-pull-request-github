@@ -175,6 +175,8 @@ export interface Issue {
 		body: string;
 		databaseId: number;
 	}[];
+	commentCount: number;
+	reactionCount: number;
 }
 
 export interface PullRequest extends Issue {
