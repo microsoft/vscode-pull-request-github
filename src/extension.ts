@@ -27,7 +27,7 @@ import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitP
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
 import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
-import { chatParticipantHandler } from './lm/participants';
+import { ChatParticipant, ChatParticipantState } from './lm/participants';
 import { registerTools } from './lm/tools/tools';
 import { NotificationsFeatureRegister } from './notifications/notificationsFeatureRegistar';
 import { CommentDecorationProvider } from './view/commentDecorationProvider';
@@ -63,10 +63,6 @@ async function init(
 ): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
-
-	const ghprChatParticipant = vscode.chat.createChatParticipant('githubpr', chatParticipantHandler);
-	ghprChatParticipant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'resources/icons/github_logo.png');
-	context.subscriptions.push(ghprChatParticipant);
 
 	context.subscriptions.push(credentialStore.onDidChangeSessions(async e => {
 		if (e.provider.id === 'github') {
@@ -234,7 +230,10 @@ async function init(
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 
 	registerPostCommitCommandsProvider(reposManager, git);
-	registerTools(context, reposManager);
+
+	const chatParticipantState = new ChatParticipantState();
+	context.subscriptions.push(new ChatParticipant(context, chatParticipantState));
+	registerTools(context, reposManager, chatParticipantState);
 
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
 	CompareChanges.closeTabs();

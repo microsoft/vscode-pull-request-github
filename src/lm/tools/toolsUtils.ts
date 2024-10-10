@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { ChatParticipantState } from '../participants';
 
 export interface IToolCall {
 	tool: vscode.LanguageModelToolDescription;
@@ -25,4 +26,9 @@ export interface IssueResult {
 	comments: {
 		body: string;
 	}[];
+}
+
+export abstract class ToolBase<T> implements vscode.LanguageModelTool<T> {
+	constructor(protected readonly chatParticipantState: ChatParticipantState) { }
+	abstract invoke(options: vscode.LanguageModelToolInvocationOptions<T>, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelToolResult>;
 }
