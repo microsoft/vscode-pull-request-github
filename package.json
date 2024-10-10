@@ -2271,6 +2271,11 @@
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:(active|nonactive):hasChangesSinceReview:showingChangesSinceReview/"
 				},
 				{
+					"command": "pr.openDescription",
+					"group": "inline@1",
+					"when": "view == notifications:github"
+				},
+				{
 					"command": "pr.openDescriptionToTheSide",
 					"group": "inline@2",
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description/"

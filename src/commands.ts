@@ -19,12 +19,15 @@ import { EXTENSION_ID } from './constants';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
 import { PullRequest } from './github/interface';
+import { IssueModel } from './github/issueModel';
+import { IssueOverviewPanel } from './github/issueOverview';
 import { NotificationProvider } from './github/notifications';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, vscodeDevPrLink } from './github/utils';
+import { GithubNotification } from './notifications/notificationsProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewCommentController } from './view/reviewCommentController';
 import { ReviewManager } from './view/reviewManager';
@@ -61,22 +64,26 @@ function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode | Pull
 
 export async function openDescription(
 	telemetry: ITelemetry,
-	pullRequestModel: PullRequestModel,
+	pullRequestModel: PullRequestModel | IssueModel,
 	descriptionNode: DescriptionNode | undefined,
 	folderManager: FolderRepositoryManager,
 	revealNode: boolean,
 	preserveFocus: boolean = true,
 	notificationProvider?: NotificationProvider
 ) {
-	const pullRequest = ensurePR(folderManager, pullRequestModel);
-	if (revealNode) {
-		descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
-	}
-	// Create and show a new webview
-	await PullRequestOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, pullRequest, undefined, preserveFocus);
+	if (pullRequestModel instanceof PullRequestModel) {
+		const pullRequest = ensurePR(folderManager, pullRequestModel);
+		if (revealNode) {
+			descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
+		}
+		// Create and show a new webview
+		await PullRequestOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, pullRequest, undefined, preserveFocus);
 
-	if (notificationProvider?.hasNotification(pullRequest)) {
-		notificationProvider.markPrNotificationsAsRead(pullRequest);
+		if (notificationProvider?.hasNotification(pullRequest)) {
+			notificationProvider.markPrNotificationsAsRead(pullRequest);
+		}
+	} else {
+		await IssueOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, pullRequestModel, undefined);
 	}
 
 	/* __GDPR__
@@ -773,8 +780,8 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openDescription',
-			async (argument: DescriptionNode | PullRequestModel | undefined) => {
-				let pullRequestModel: PullRequestModel | undefined;
+			async (argument: DescriptionNode | PullRequestModel | GithubNotification | undefined) => {
+				let pullRequestModel: PullRequestModel | IssueModel | undefined;
 				if (!argument) {
 					const activePullRequests: PullRequestModel[] = reposManager.folderManagers
 						.map(manager => manager.activePullRequest!)
@@ -786,7 +793,13 @@ export function registerCommands(
 						);
 					}
 				} else {
-					pullRequestModel = argument instanceof DescriptionNode ? argument.pullRequestModel : argument;
+					if (argument instanceof DescriptionNode) {
+						pullRequestModel = argument.pullRequestModel;
+					} else if (argument instanceof GithubNotification) {
+						pullRequestModel = argument.model;
+					} else {
+						pullRequestModel = argument;
+					}
 				}
 
 				if (!pullRequestModel) {

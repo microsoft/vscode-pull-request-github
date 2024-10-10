@@ -11,28 +11,30 @@ import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { hasEnterpriseUri } from '../github/utils';
 
-export type Notification = {
-	readonly id: string;
-	readonly subject: {
-		readonly title: string;
-		readonly type: 'Issue' | 'PullRequest';
-		readonly url: string;
-	};
-	readonly reason: string;
-	readonly repository: {
-		readonly name: string;
-		readonly owner: {
-			readonly login: string;
-		}
-	}
-	readonly unread: boolean;
-	readonly updated_at: string;
-	readonly last_read_at: string | null;
-	readonly model: IssueModel | PullRequestModel | undefined;
-	priority: string | undefined;
-};
+export class GithubNotification {
+	constructor(
+		readonly id: string,
+		readonly subject: {
+			readonly title: string,
+			readonly type: 'Issue' | 'PullRequest',
+			readonly url: string,
+		},
+		readonly reason: string,
+		readonly repository: {
+			readonly name: string,
+			readonly owner: {
+				readonly login: string,
+			}
+		},
+		readonly unread: boolean,
+		readonly updated_at: string,
+		readonly last_read_at: string | null,
+		readonly model: IssueModel | PullRequestModel | undefined,
+		public priority: string | undefined
+	) { }
+}
 
-function getNotificationOwner(notification: Notification): { owner: string, name: string } {
+function getNotificationOwner(notification: GithubNotification): { owner: string, name: string } {
 	const owner = notification.repository.owner.login;
 	const name = notification.repository.name;
 
@@ -41,7 +43,7 @@ function getNotificationOwner(notification: Notification): { owner: string, name
 
 export class NotificationsProvider implements vscode.Disposable {
 	private _authProvider: AuthProvider | undefined;
-	private readonly _notifications = new Map<string, Notification>();
+	private readonly _notifications = new Map<string, GithubNotification>();
 
 	private readonly _disposables: vscode.Disposable[] = [];
 
@@ -74,7 +76,7 @@ export class NotificationsProvider implements vscode.Disposable {
 			undefined;
 	}
 
-	private _getKey(notification: Notification): string {
+	private _getKey(notification: GithubNotification): string {
 		const id = notification.subject.url.split('/').pop();
 		const { owner, name } = getNotificationOwner(notification);
 
@@ -85,7 +87,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		this._notifications.clear();
 	}
 
-	async getNotifications(): Promise<Notification[] | undefined> {
+	async getNotifications(): Promise<GithubNotification[] | undefined> {
 		const gitHub = this._getGitHub();
 		if (gitHub === undefined) {
 			return undefined;
@@ -103,7 +105,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		});
 
 		// Resolve issues/pull request
-		const result = await Promise.all(data.map(async (notification: any): Promise<Notification | undefined> => {
+		const result = await Promise.all(data.map(async (notification: any): Promise<GithubNotification | undefined> => {
 			const url = notification.subject.url;
 			if (!(typeof url === 'string')) {
 				return undefined;
@@ -128,35 +130,37 @@ export class NotificationsProvider implements vscode.Disposable {
 				await folderManager.resolveIssue(owner, name, parseInt(id), true) :
 				await folderManager.resolvePullRequest(owner, name, parseInt(id));
 
-			const resolvedNotification = {
-				id: notification.id,
-				subject: {
+			const resolvedNotification = new GithubNotification(
+				notification.id,
+				{
 					title: notification.subject.title,
 					type: notification.subject.type,
 					url: notification.subject.url,
 				},
-				reason: notification.reason,
-				repository: {
+				notification.reason,
+				{
 					name: name,
 					owner: {
 						login: owner,
 					}
 				},
-				unread: notification.unread,
-				updated_at: notification.updated_at,
-				last_read_at: notification.last_read_at,
-				model: model,
-				priority: undefined
-			};
+				notification.unread,
+				notification.updated_at,
+				notification.last_read_at,
+				model,
+				undefined
+			);
 
 			this._notifications.set(cachedNotificationKey, resolvedNotification);
 			return resolvedNotification;
 		}));
 
-		const filteredNotifications = result.filter(notification => notification !== undefined) as Notification[];
+		const filteredNotifications = result.filter(notification => {
+			return notification !== undefined && notification.unread;
+		}) as GithubNotification[];
 
 		const notificationBatchSize = 5;
-		const notificationBatches: (Notification[])[] = [];
+		const notificationBatches: (GithubNotification[])[] = [];
 		for (let i = 0; i < filteredNotifications.length; i += notificationBatchSize) {
 			notificationBatches.push(filteredNotifications.slice(i, i + notificationBatchSize));
 		}
@@ -170,7 +174,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		return sortedPrioritizedNotifications;
 	}
 
-	async prioritizeNotifications(notifications: Notification[]): Promise<Notification[]> {
+	async prioritizeNotifications(notifications: GithubNotification[]): Promise<GithubNotification[]> {
 		try {
 			const models = await vscode.lm.selectChatModels({
 				vendor: 'copilot',
@@ -178,17 +182,20 @@ export class NotificationsProvider implements vscode.Disposable {
 			});
 			const model = models[0];
 
-			const messages = [vscode.LanguageModelChatMessage.User(prioritizeNotificationsInstructions)];
+			const loginOfCurrentUser = (await this._credentialStore.getCurrentUser(AuthProvider.github)).login;
+			const messages = [vscode.LanguageModelChatMessage.User(getPrioritizeNotificationsInstructions(loginOfCurrentUser))];
 			for (const [notificationIndex, notification] of notifications.entries()) {
 				const model = notification.model;
 				if (!model) {
 					continue;
 				}
+				const assignees = model.assignees;
 
 				let notificationMessage = `
 The following is the data for notification ${notificationIndex + 1}:
 • Author: ${model.author.login}
 • Title: ${model.title}
+• Assignees: ${assignees?.join(', ') || 'none'}
 • Body:
 
 ${model.body}
@@ -223,16 +230,14 @@ ${model.body}
 				}
 				notificationMessage += reactionsMessage;
 
-				const lastReadAt = notification.last_read_at;
 				const issueComments = await model.getIssueComments();
-				const newIssueComments = lastReadAt ? issueComments : issueComments; // .filter(comment => comment.updated_at > lastReadAt)
 
-				if (newIssueComments.length > 0) {
+				if (issueComments.length > 0) {
 					notificationMessage += `
 
 The following is the data concerning the new unread comments since notification ${notificationIndex + 1} was last read.`;
 				}
-				for (const [commentIndex, comment] of newIssueComments.entries()) {
+				for (const [commentIndex, comment] of issueComments.entries()) {
 					const nonNullReactions = {};
 					const commentReactions = comment.reactions;
 					if (commentReactions) {
@@ -262,7 +267,7 @@ ${comment.body}
 				}
 				messages.push(vscode.LanguageModelChatMessage.User(notificationMessage));
 			}
-			messages.push(vscode.LanguageModelChatMessage.User('Please provide the priority for each notification in a separate text code block.'));
+			messages.push(vscode.LanguageModelChatMessage.User('Please provide the priority for each notification in a separate text code block. Remember to place the title and the reasoning outside of the text code block.'));
 
 			const response = await model.sendRequest(messages, {});
 
@@ -301,9 +306,10 @@ ${comment.body}
 // 	}
 // }
 
-const prioritizeNotificationsInstructions = `
+function getPrioritizeNotificationsInstructions(githubHandle: string) {
+	return `
 You are an intelligent assistant tasked with prioritizing GitHub notifications.
-You are given a list of notifications, each related to an issue or pull request.
+You are given a list of notifications for the user ${githubHandle}, each related to an issue or pull request.
 Follow the following scoring mechanism to priority the notifications:
 
 	1. Assign points from 0 to 30 to the importance of the notification. Consider the following points:
@@ -335,19 +341,29 @@ Follow the following scoring mechanism to priority the notifications:
 		- Description: In the case of an issue, are there clear steps to reproduce the issue? In the case of a PR, is there a clear description of the change? A clearer, more complete description should be assigned a higher priority.
 		- Effort: Evaluate the general effort put into writing this issue/PR. Does the user provide a lengthy clear explanation? A higher effort should be assigned a higher priority.
 	4. Assign points from 0 to 10 for the pertinence of the notification.
-		- Assignment: Is the issue/PR assigned to the user or is the user just mentioned? An issue/PR assigned to the user should be assigned a higher priority.
-		- Review Request: Is the user's review requested on the PR, or is the user just mentioned? A review request should be assigned a higher priority.
+		- Assignment: Is the issue/PR assigned to the user with github handle ${githubHandle} or is the user just mentioned? An issue/PR assigned to the user should be assigned a higher priority.
+		- Review Request: Is the user's review is requested on the PR, or is the user ${githubHandle} just mentioned? A review request should be assigned a higher priority.
 		- Generally does the issue/PR and the associated comments suggest the user is the main person resposible for resolving it? If so, assign a higher priority.
 	5. Assign points from 0 to 10 for the timing factors of the notification.
 		- Update Time: What is the last update_time of the notification? A more recent notification should be assigned a higher priority.
 		- Responsiveness: Is the issue/PR author responsive?
 
-Use the above guidelines to assign points to each notification. Provide the sum of the individual points in a separate text code block for each notification. The points sum to 100 as a maximum. After the text code block add a description for why you assigned this score.
+Use the above guidelines to assign points to each notification. Provide the sum of the individual points in a separate text code block for each notification. The points sum to 100 as a maximum. OUTSIDE of the text code block add the name of the issue for which the scoring is done and a description for why you assigned this score.
 The output should look as follows:
 
 \`\`\`text
 15 + 15 + 10 + 5 + 5 = 50
 \`\`\`text
-
+<title>
 <reasoning>
+
+Do not place the title and the reasoning in the text code block. The following is incorrect:
+
+\`\`\`text
+15 + 15 + 10 + 5 + 5 = 50
+<title>
+<reasoning>
+\`\`\`text
+
 `;
+}

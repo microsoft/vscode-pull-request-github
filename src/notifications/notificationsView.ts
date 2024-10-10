@@ -6,15 +6,15 @@
 import * as vscode from 'vscode';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { Notification, NotificationsProvider } from './notificationsProvider';
+import { GithubNotification, NotificationsProvider } from './notificationsProvider';
 
-export class NotificationsTreeData implements vscode.TreeDataProvider<Notification> {
-	private _onDidChangeTreeData: vscode.EventEmitter<Notification | undefined | void> = new vscode.EventEmitter<Notification | undefined | void>();
-	readonly onDidChangeTreeData: vscode.Event<Notification | undefined | void> = this._onDidChangeTreeData.event;
+export class NotificationsTreeData implements vscode.TreeDataProvider<GithubNotification> {
+	private _onDidChangeTreeData: vscode.EventEmitter<GithubNotification | undefined | void> = new vscode.EventEmitter<GithubNotification | undefined | void>();
+	readonly onDidChangeTreeData: vscode.Event<GithubNotification | undefined | void> = this._onDidChangeTreeData.event;
 
 	constructor(private readonly _notificationsProvider: NotificationsProvider) { }
 
-	async getTreeItem(element: Notification): Promise<vscode.TreeItem> {
+	async getTreeItem(element: GithubNotification): Promise<vscode.TreeItem> {
 		const item = new vscode.TreeItem(`(${element.priority}) - ${element.subject.title}`, vscode.TreeItemCollapsibleState.None);
 
 		if (element.subject.type === 'Issue' && element.model instanceof IssueModel) {
@@ -34,7 +34,7 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 		return item;
 	}
 
-	async getChildren(element?: unknown): Promise<Notification[] | undefined> {
+	async getChildren(element?: unknown): Promise<GithubNotification[] | undefined> {
 		if (element !== undefined) {
 			return undefined;
 		}
