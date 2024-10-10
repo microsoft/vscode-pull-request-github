@@ -193,8 +193,8 @@ export class ConvertToSearchSyntaxTool implements vscode.LanguageModelTool<Conve
 
 type SearchToolParameters = ConvertToQuerySyntaxResult;
 
-interface SearchToolResult {
-	issues: Issue[];
+export interface SearchToolResult {
+	arrayOfIssues: Issue[];
 }
 
 export class SearchTool implements vscode.LanguageModelTool<SearchToolParameters> {
@@ -222,10 +222,10 @@ export class SearchTool implements vscode.LanguageModelTool<SearchToolParameters
 			throw new Error(`No issues found for ${options.parameters.query}. Make sure the query is valid.`);
 		}
 		const result: SearchToolResult = {
-			issues: searchResult.items.map(i => i.item)
+			arrayOfIssues: searchResult.items.map(i => i.item)
 		};
 		return {
-			'text/plain': 'Above is a list of issues. These might need to be rendered.',
+			'text/plain': 'Here are the issues I found in a stringified json format. You can pass these to a tool that can display them. ' + JSON.stringify(result.arrayOfIssues),
 			'text/json': result
 		};
 	}

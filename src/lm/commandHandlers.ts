@@ -5,11 +5,10 @@
 
 'use strict';
 import * as vscode from 'vscode';
-import { DisplayIssuesParameters } from './displayIssuesTool';
 
 interface IToolCall {
 	tool: vscode.LanguageModelToolDescription;
-	call: vscode.LanguageModelChatResponseToolCallPart;
+	call: vscode.LanguageModelToolCallPart;
 	result: Thenable<vscode.LanguageModelToolResult>;
 }
 
@@ -66,9 +65,9 @@ export async function handleIssueCommand(
 
 		for await (const part of response.stream) {
 
-			if (part instanceof vscode.LanguageModelChatResponseTextPart) {
+			if (part instanceof vscode.LanguageModelTextPart) {
 				stream.markdown(part.value);
-			} else if (part instanceof vscode.LanguageModelChatResponseToolCallPart) {
+			} else if (part instanceof vscode.LanguageModelToolCallPart) {
 
 				const tool = vscode.lm.tools.find(tool => tool.id === part.name);
 				if (!tool) {
@@ -90,47 +89,53 @@ export async function handleIssueCommand(
 				});
 			}
 		}
-		let isVisible: boolean = false;
 
 		if (toolCalls.length) {
 			const assistantMsg = vscode.LanguageModelChatMessage.Assistant('');
-			assistantMsg.content2 = toolCalls.map(toolCall => new vscode.LanguageModelChatResponseToolCallPart(toolCall.tool.id, toolCall.call.toolCallId, toolCall.call.parameters));
+			assistantMsg.content2 = toolCalls.map(toolCall => new vscode.LanguageModelToolCallPart(toolCall.tool.id, toolCall.call.toolCallId, toolCall.call.parameters));
 			messages.push(assistantMsg);
 
+			let hasJson = false;
 			for (const toolCall of toolCalls) {
-				const message = vscode.LanguageModelChatMessage.User('');
 				let toolCallResult = (await toolCall.result);
 
-				// Can't get the llm to just call the render tool, so we have to do it manually
+				const plainText = toolCallResult['text/plain'];
+				const markdown = toolCallResult['text/markdown'];
+				const json = toolCallResult['text/json'];
+				let isOnlyPlaintext = true;
+				if (json !== undefined) {
+					const message = vscode.LanguageModelChatMessage.User('');
+
+					message.content2 = [new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, JSON.stringify(json))];
+					messages.push(message);
+					isOnlyPlaintext = false;
+					hasJson = true;
+
+				} else if (markdown !== undefined) {
+					stream.markdown(markdown);
+					const message = vscode.LanguageModelChatMessage.User('');
+					message.content2 = [new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, markdown)];
+					messages.push(message);
+					isOnlyPlaintext = false;
+				}
+				if ((plainText !== undefined) && isOnlyPlaintext) {
+					const message = vscode.LanguageModelChatMessage.User('');
+					message.content2 = [new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, plainText)];
+					messages.push(message);
+				}
+
+
+				// Can't get the llm to pass the issues to the render tool, so we have to do it manually
 				// if (toolCall.tool.id === 'github-pull-request_doSearch') {
-				// 	const json: DisplayIssuesParameters = JSON.parse(toolCallResult['text/plain']!) as DisplayIssuesParameters;
+				// 	const json: DisplayIssuesParameters = JSON.parse(toolCallResult['text/json']!) as DisplayIssuesParameters;
 				// 	if (json !== undefined) {
 				// 		const invocationOptions = { parameters: json, toolInvocationToken: request.toolInvocationToken, requestedContentTypes: ['text/plain', 'text/markdown', 'text/json'] };
 				// 		toolCallResult = await vscode.lm.invokeTool('github-pull-request_renderIssues', invocationOptions, token);
 				// 	}
 				// }
-
-				const plainText = toolCallResult['text/plain'];
-				const markdown = toolCallResult['text/markdown'];
-				const json: JSON = toolCallResult['text/json'];
-				const content: (string | vscode.LanguageModelChatMessageToolResultPart | vscode.LanguageModelChatResponseToolCallPart)[] = [];
-				if (json !== undefined) {
-					content.push(new vscode.LanguageModelChatMessageToolResultPart(toolCall.call.toolCallId, JSON.stringify(json)));
-				} else if (markdown !== undefined) {
-					stream.markdown(markdown);
-					content.push(new vscode.LanguageModelChatMessageToolResultPart(toolCall.call.toolCallId, markdown));
-					isVisible = true;
-				}
-				if (plainText !== undefined) {
-					content.push(new vscode.LanguageModelChatMessageToolResultPart(toolCall.call.toolCallId, plainText));
-				}
-				if (content.length > 0) {
-					message.content2 = content;
-					messages.push(message);
-				}
 			}
 
-			messages.push(vscode.LanguageModelChatMessage.User(`Above is the result of calling the functions ${toolCalls.map(call => call.tool.id).join(', ')}.${isVisible ? 'The user can see this result.' : 'The user cannot see this result, so you should explain it to the user if referencing it in your answer.'}`));
+			messages.push(vscode.LanguageModelChatMessage.User(`Above is the result of calling the functions ${toolCalls.map(call => call.tool.id).join(', ')}.${hasJson ? ' The JSON is also included and should be passed to the next tool.' : ''}`));
 			return runWithFunctions();
 		}
 	};

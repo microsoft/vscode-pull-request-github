@@ -3172,7 +3172,7 @@
 				"parametersSchema": {
 					"type": "object",
 					"properties": {
-						"issues": {
+						"arrayOfIssues": {
 							"oneOf": [
 								{
 									"type": "array",
