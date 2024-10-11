@@ -15,7 +15,8 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<ResolvedNo
 	constructor(private readonly _notificationsProvider: NotificationsProvider) { }
 
 	async getTreeItem(element: ResolvedNotification): Promise<vscode.TreeItem> {
-		const item = new vscode.TreeItem(`${element.priority}% - ${element.subject.title}`, vscode.TreeItemCollapsibleState.None);
+		const label = element.priority !== undefined ? `${element.priority}% - ${element.subject.title}` : element.subject.title;
+		const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
 
 		if (element.subject.type === 'Issue' && element.model instanceof IssueModel) {
 			item.iconPath = element.model.isOpen
