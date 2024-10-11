@@ -312,7 +312,7 @@ ${labels.map(label => label.name).filter(label => !label.includes('required') &&
 		Logger.debug(`Query \`${result.query}\``, ConvertToSearchSyntaxTool.ID);
 		return {
 			'text/plain': result.query,
-			'text/display': `Using query \`${result.query}\`. [Open on GitHub.com](${this.toGitHubUrl(result.query)})`,
+			'text/display': `Query \`${result.query}\`. [Open on GitHub.com](${this.toGitHubUrl(result.query)})\n\n`,
 		};
 	}
 }

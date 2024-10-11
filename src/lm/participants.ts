@@ -150,13 +150,14 @@ export class ChatParticipant implements vscode.Disposable {
 				this.state.addMessage(assistantMsg);
 
 				let hasJson = false;
+				let display: string | undefined;
 				for (const toolCall of toolCalls) {
 					let toolCallResult = (await toolCall.result);
 
 					const plainText = toolCallResult['text/plain'];
 					const markdown = toolCallResult['text/markdown'];
 					const json = toolCallResult['text/json'];
-					const display = toolCallResult['text/display']; // our own fake type that we use to indicate something that should be streamed to the user
+					display = toolCallResult['text/display']; // our own fake type that we use to indicate something that should be streamed to the user
 					if (display) {
 						stream.markdown(display);
 					}
@@ -194,7 +195,7 @@ export class ChatParticipant implements vscode.Disposable {
 					// }
 				}
 
-				this.state.addMessage(vscode.LanguageModelChatMessage.User(`Above is the result of calling the functions ${toolCalls.map(call => call.tool.id).join(', ')}.${hasJson ? ' The JSON is also included and should be passed to the next tool.' : ''}`));
+				this.state.addMessage(vscode.LanguageModelChatMessage.User(`Above is the result of calling the functions ${toolCalls.map(call => call.tool.id).join(', ')}.${hasJson ? ' The JSON is also included and should be passed to the next tool.' : ''} ${display ? 'The user can see the result of the tool call and doesn\'t need you to show it.' : 'The user cannot see the result of the tool call, so you should show it to them in an appropriate way.'}`));
 				return runWithFunctions();
 			}
 		};
