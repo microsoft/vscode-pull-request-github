@@ -307,7 +307,7 @@ Follow the following scoring mechanism to priority the notifications:
 		- In contrast, issues/PRs about technical debt/code polishing/minor internal issues or generally that have low importance should be assigned lower priority.
 		- Is the issue/PR open or closed? An open issue/PR should be assigned a higher priority.
 	2. Assign points from 0 to 30 for the community engagement. Consider the following points:
-		- Reactions: Consider the number and the type of reactions under an issue/pr. A higher number of reactions should be assigned a higher priority.
+		- Reactions: Consider the number of reactions under an issue/pr. A higher number of reactions should be assigned a higher priority.
 		- Comments: Evaluate the community engagmenent on the issue/PR through the comments. In particular consider the following:
 			- Does the issue/pr have a lot of comments indicating widespread interest?
 			- Does the issue/pr have comments from many different users which would indicate widespread interest?
