@@ -1094,6 +1094,12 @@
 				"icon": "$(gift)"
 			},
 			{
+				"command": "pr.applySuggestionWithCopilot",
+				"title": "%command.pr.applySuggestionWithCopilot.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(sparkle)"
+			},
+			{
 				"command": "pr.addAssigneesToNewPr",
 				"title": "%command.pr.addAssigneesToNewPr.title%",
 				"category": "%command.pull.request.category%",
@@ -2055,6 +2061,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.applySuggestionWithCopilot",
+					"when": "false"
+				},
+				{
 					"command": "pr.openPullsWebsite",
 					"when": "github:hasGitHubRemotes"
 				},
@@ -2551,6 +2561,10 @@
 				{
 					"command": "pr.applySuggestion",
 					"when": "commentController =~ /^github-review/ && comment =~ /hasSuggestion/"
+				},
+				{
+					"command": "pr.applySuggestionWithCopilot",
+					"when": "commentController =~ /^github-review/ && !(comment =~ /hasSuggestion/)"
 				}
 			],
 			"comments/comment/title": [
@@ -2563,6 +2577,11 @@
 					"command": "pr.applySuggestion",
 					"group": "inline@0",
 					"when": "commentController =~ /^github-review/ && comment =~ /hasSuggestion/"
+				},
+				{
+					"command": "pr.applySuggestionWithCopilot",
+					"group": "inline@0",
+					"when": "commentController =~ /^github-review/ && !(comment =~ /hasSuggestion/)"
 				},
 				{
 					"command": "pr.editComment",
