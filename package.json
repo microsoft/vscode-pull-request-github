@@ -3147,13 +3147,13 @@
 								"name"
 							]
 						},
-						"plainSearchString": {
+						"naturalLanguageString": {
 							"type": "string",
 							"description": "A plain text description of what the search should be."
 						}
 					},
 					"required": [
-						"plainSearchString"
+						"naturalLanguageString"
 					]
 				},
 				"supportedContentTypes": [

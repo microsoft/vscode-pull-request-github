@@ -31,6 +31,15 @@ export class ChatParticipantState {
 		return [];
 	}
 
+	get firstUserMessage(): string | undefined {
+		for (let i = 0; i < this._messages.length; i++) {
+			const message = this._messages[i];
+			if (message.role === vscode.LanguageModelChatMessageRole.User && message.content) {
+				return message.content;
+			}
+		}
+	}
+
 	get messages(): vscode.LanguageModelChatMessage[] {
 		return this._messages;
 	}

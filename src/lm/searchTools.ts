@@ -9,10 +9,11 @@ import Logger from '../common/logger';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { ILabel, Issue } from '../github/interface';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { concatAsyncIterable } from './tools/toolsUtils';
+import { ChatParticipantState } from './participants';
+import { concatAsyncIterable, ToolBase } from './tools/toolsUtils';
 
 interface ConvertToQuerySyntaxParameters {
-	plainSearchString: string;
+	naturalLanguageString: string;
 	repo?: {
 		owner?: string;
 		name?: string;
@@ -27,90 +28,94 @@ interface ConvertToQuerySyntaxResult {
 	};
 }
 
-export class ConvertToSearchSyntaxTool implements vscode.LanguageModelTool<ConvertToQuerySyntaxParameters> {
+export class ConvertToSearchSyntaxTool extends ToolBase<ConvertToQuerySyntaxParameters> {
 	static ID = 'ConvertToSearchSyntaxTool';
-	constructor(private readonly repositoriesManager: RepositoriesManager) { }
+	constructor(private readonly repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
+		super(chatParticipantState);
+	}
 
 	private async fullQueryAssistantPrompt(folderRepoManager: FolderRepositoryManager): Promise<string> {
 		const remote = folderRepoManager.activePullRequest?.remote ?? folderRepoManager.activeIssue?.remote ?? (await folderRepoManager.getPullRequestDefaultRepo()).remote;
 
 		return `Instructions:
-You are an expert on GitHub query syntax. You can help the user convert a plain text query to a query that can be used to search GitHub issues. Here are some rules to follow:
+You are an expert on GitHub issue search syntax. GitHub issues are always software engineering related. You can help the user convert a natural language query to a query that can be used to search GitHub issues. Here are some rules to follow:
 - Always try to include "repo:" or "org:" in your response.
 - "repo" is often formated as "owner/name". If needed, the current repo is ${remote.owner}/${remote.repositoryName}.
+- Ignore display information.
 - Respond with only the query.
 - Always include a "sort:" parameter.
 - Here are some examples of valid queries:
 	- repo:microsoft/vscode is:issue state:open sort:updated-asc
 	- mentions:@me org:microsoft is:issue state:open sort:updated
 	- assignee:@me milestone:"October 2024" is:open is:issue sort:reactions
-	- comments:>5 org:contoso is:issue state:closed
+	- comments:>5 org:contoso is:issue state:closed mentions:@me label:bug
 	- interactions:>5 repo:contoso/cli is:issue state:open
+- Go through each word of the natural language query and try to match it to a syntax component.
 - As a reminder, here are the components of the query syntax:
 	Filters:
-	- is: (issue, pr, draft, public, private, locked, unlocked)
-	- assignee:
-	- author:
-	- mentions:
-	- team:
-	- commenter:
-	- involves:
-	- label:
-	- type: (pr, issue)
-	- state: (open, closed, merged)
-	- in: (title, body, comments)
-	- user:
-	- org: (owner)
-	- repo: (name)
-	- linked: (pr, issue)
-	- milestone:
-	- project:
-	- status: (success, failure, pending)
-	- head:
-	- base:
-	- comments: (n)
-	- interactions: (n)
-	- reactions: (n)
-	- draft: (true, false)
-	- review: (none, required, approved, changes_requested)
-	- reviewed-by:
-	- review-requested:
-	- user-review-requested:
-	- team-review-requested:
-	- created:
-	- updated:
-	- closed:
-	- no: (label, milestone, assignee, project)
-	- sort:
+		- is: (issue, pr, draft, public, private, locked, unlocked)
+		- assignee:
+		- author:
+		- mentions:
+		- team:
+		- commenter:
+		- involves:
+		- label:
+		- type: (pr, issue)
+		- state: (open, closed, merged)
+		- in: (title, body, comments)
+		- user:
+		- org: (owner)
+		- repo: (name)
+		- linked: (pr, issue)
+		- milestone:
+		- project:
+		- status: (success, failure, pending)
+		- head:
+		- base:
+		- comments: (n)
+		- interactions: (n)
+		- reactions: (n)
+		- draft: (true, false)
+		- review: (none, required, approved, changes_requested)
+		- reviewed-by:
+		- review-requested:
+		- user-review-requested:
+		- team-review-requested:
+		- created:
+		- updated:
+		- closed:
+		- no: (label, milestone, assignee, project)
+		- sort:
 
-	Value Qualifiers:
-	- >n
-	- >=n
-	- <n
-	- <=n
-	- n..*
-	- *..n
-	- n..n
-	- YYYY-MM-DD
+		Value Qualifiers:
+		- >n
+		- >=n
+		- <n
+		- <=n
+		- n..*
+		- *..n
+		- n..n
+		- YYYY-MM-DD
 
-	Logical Operators:
-	- -
+		Logical Operators:
+		- -
 
-	Special Values:
-	- @me
+		Special Values:
+		- @me
 
-	Sort Values:
-	- interactions
-	- interactions-asc
-	- reactions
-	- reactions-asc
-	- reactions- (+1, -1, smile, tada, heart)
-	- author-date
-	- author-date-asc
-	- committer-date
-	- committer-date-asc
-	- updated
-	- updated-asc
+		Sort Values:
+		- interactions
+		- interactions-asc
+		- reactions
+		- reactions-asc
+		- reactions- (+1, -1, smile, tada, heart)
+		- author-date
+		- author-date-asc
+		- committer-date
+		- committer-date-asc
+		- updated
+		- updated-asc
 `;
 	}
 
@@ -120,17 +125,17 @@ You are an expert on GitHub query syntax. You can help the user convert a plain 
 		//- Use as many labels as you think fit the query. If one label fits, then there are probably more that fit.
 		// - Respond with a list of labels in github search syntax, separated by AND or OR. Examples: "label:bug OR label:polish", "label:accessibility AND label:editor-accessibility"
 		return `Instructions:
-You are an expert on GitHub query syntax. You can convert natural language into labels that are used in a GitHub issue search query. Here are some rules to follow:
-- It's ok to have no labels if they don't seem to be needed!
+You are an expert on GitHub query syntax. You can find the exact labels that are needed for a GitHub issue search. Here are some rules to follow:
 - Labels will be and-ed together, so don't pick a bunch of super specific labels.
 - Respond with a space-separated list of labels in GitHub search syntax. Examples: "label:bug label:polish", "label:accessibility label:editor-accessibility"
-- Here are the available labels:
-${labels.map(label => `- ${label.name}`).join('\n')}
+- Only choose labels that you're sure are relevant to the search. Having no labels is preferable than lables that aren't relevant.
+- Respond with labels chosen from these options:
+${labels.map(label => label.name).filter(label => !label.includes('required')).join(', ')}
 `;
 	}
 
 	private labelsUserPrompt(originalUserPrompt: string): string {
-		return `Which labels are relevant to the natural language search "${originalUserPrompt}"?`;
+		return `The following labels are most appropriate for "${originalUserPrompt}":`;
 	}
 
 	private fullQueryUserPrompt(originalUserPrompt: string): string {
@@ -197,12 +202,12 @@ ${labels.map(label => `- ${label.name}`).join('\n')}
 		return fixedRepo;
 	}
 
-	private fixRepo(initialQuery: string): ConvertToQuerySyntaxResult {
+	private fixRepo(query: string): ConvertToQuerySyntaxResult {
 		const repoRegex = /repo:([^ ]+)/;
 		const orgRegex = /org:([^ ]+)/;
-		const repoMatch = initialQuery.match(repoRegex);
-		const orgMatch = initialQuery.match(orgRegex);
-		let newQuery = initialQuery.trim();
+		const repoMatch = query.match(repoRegex);
+		const orgMatch = query.match(orgRegex);
+		let newQuery = query.trim();
 		let owner: string | undefined;
 		let name: string | undefined;
 		if (repoMatch) {
@@ -215,10 +220,10 @@ ${labels.map(label => `- ${label.name}`).join('\n')}
 
 			if (orgMatch && originalRepo.includes('/')) {
 				// remove the org match
-				newQuery = initialQuery.replace(orgRegex, '');
+				newQuery = query.replace(orgRegex, '');
 			} else if (orgMatch) {
 				// We need to add the org into the repo
-				newQuery = initialQuery.replace(repoRegex, `repo:${orgMatch[1]}/${originalRepo}`);
+				newQuery = query.replace(repoRegex, `repo:${orgMatch[1]}/${originalRepo}`);
 				owner = orgMatch[1];
 				name = originalRepo;
 			}
@@ -249,16 +254,16 @@ ${labels.map(label => `- ${label.name}`).join('\n')}
 		}
 	}
 
-	private async generateLabelQuery(folderManager: FolderRepositoryManager, labels: ILabel[], chatOptions: vscode.LanguageModelChatRequestOptions, model: vscode.LanguageModelChat, options: vscode.LanguageModelToolInvocationOptions<ConvertToQuerySyntaxParameters>, token: vscode.CancellationToken): Promise<string> {
+	private async generateLabelQuery(folderManager: FolderRepositoryManager, labels: ILabel[], chatOptions: vscode.LanguageModelChatRequestOptions, model: vscode.LanguageModelChat, naturalLanguageString: string, token: vscode.CancellationToken): Promise<string> {
 		const messages = [vscode.LanguageModelChatMessage.Assistant(await this.labelsAssistantPrompt(folderManager, labels))];
-		messages.push(vscode.LanguageModelChatMessage.User(this.labelsUserPrompt(options.parameters.plainSearchString)));
+		messages.push(vscode.LanguageModelChatMessage.User(this.labelsUserPrompt(naturalLanguageString)));
 		const response = await model.sendRequest(messages, chatOptions, token);
 		return concatAsyncIterable(response.text);
 	}
 
-	private async generateQuery(folderManager: FolderRepositoryManager, chatOptions: vscode.LanguageModelChatRequestOptions, model: vscode.LanguageModelChat, options: vscode.LanguageModelToolInvocationOptions<ConvertToQuerySyntaxParameters>, token: vscode.CancellationToken): Promise<string> {
+	private async generateQuery(folderManager: FolderRepositoryManager, chatOptions: vscode.LanguageModelChatRequestOptions, model: vscode.LanguageModelChat, naturalLanguageString: string, token: vscode.CancellationToken): Promise<string> {
 		const messages = [vscode.LanguageModelChatMessage.Assistant(await this.fullQueryAssistantPrompt(folderManager))];
-		messages.push(vscode.LanguageModelChatMessage.User(this.fullQueryUserPrompt(options.parameters.plainSearchString)));
+		messages.push(vscode.LanguageModelChatMessage.User(this.fullQueryUserPrompt(naturalLanguageString)));
 		const response = await model.sendRequest(messages, chatOptions, token);
 		return concatAsyncIterable(response.text);
 	}
@@ -267,6 +272,7 @@ ${labels.map(label => `- ${label.name}`).join('\n')}
 		let owner: string | undefined;
 		let name: string | undefined;
 		let folderManager: FolderRepositoryManager | undefined;
+		const firstUserMessage = this.chatParticipantState.firstUserMessage ?? options.parameters.naturalLanguageString;
 		// The llm likes to make up an owner and name if it isn't provided one, and they tend to include 'owner' and 'name' respectively
 		if (options.parameters.repo && options.parameters.repo.owner && options.parameters.repo.name && !options.parameters.repo.owner.includes('owner') && !options.parameters.repo.name.includes('name')) {
 			owner = options.parameters.repo.owner;
@@ -291,7 +297,7 @@ ${labels.map(label => `- ${label.name}`).join('\n')}
 		const chatOptions: vscode.LanguageModelChatRequestOptions = {
 			justification: 'Answering user questions pertaining to GitHub.'
 		};
-		const [query, labelsList] = await Promise.all([this.generateQuery(folderManager, chatOptions, model, options, token), this.generateLabelQuery(folderManager, labels, chatOptions, model, options, token)]);
+		const [query, labelsList] = await Promise.all([this.generateQuery(folderManager, chatOptions, model, firstUserMessage, token), this.generateLabelQuery(folderManager, labels, chatOptions, model, firstUserMessage, token)]);
 
 		const result = this.postProcess(query, labelsList, labels);
 		if (!result) {

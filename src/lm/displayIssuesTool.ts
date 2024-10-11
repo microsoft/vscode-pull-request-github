@@ -13,6 +13,8 @@ import { concatAsyncIterable, ToolBase } from './tools/toolsUtils';
 
 export type DisplayIssuesParameters = SearchToolResult;
 
+type IssueColumn = keyof Issue;
+
 const LLM_FIND_IMPORTANT_COLUMNS_INSTRUCTIONS = `Instructions:
 You are an expert on GitHub issues. You can help the user identify the most important columns for rendering issues based on a query for issues. Include a column related to the sort value, if given. Output a newline separated list of columns only, max 4 columns. List the columns in the order they should be displayed. Don't change the casing. Here are the possible columns:
 `;
@@ -28,10 +30,10 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		return `${LLM_FIND_IMPORTANT_COLUMNS_INSTRUCTIONS}\n${possibleColumns.map(column => `- ${column}`).join('\n')}\nHere's the data you have about the issues:\n`;
 	}
 
-	private postProcess(output: string, issues: Issue[]): string[] {
+	private postProcess(output: string, issues: Issue[]): IssueColumn[] {
 		const lines = output.split('\n');
 		const possibleColumns = Object.keys(issues[0]);
-		const finalColumns: string[] = [];
+		const finalColumns: IssueColumn[] = [];
 		for (const line of lines) {
 			if (line === '') {
 				continue;
@@ -42,11 +44,11 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 				if (splitOnSpace.length > 1) {
 					const testColumn = splitOnSpace[splitOnSpace.length - 1];
 					if (possibleColumns.includes(testColumn)) {
-						finalColumns.push(testColumn);
+						finalColumns.push(testColumn as IssueColumn);
 					}
 				}
 			} else {
-				finalColumns.push(line);
+				finalColumns.push(line as IssueColumn);
 			}
 		}
 		const indexOfId = finalColumns.indexOf('id');
@@ -56,7 +58,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		return finalColumns;
 	}
 
-	private async getImportantColumns(issueItemsInfo: string, issues: Issue[], token: vscode.CancellationToken): Promise<string[]> {
+	private async getImportantColumns(issueItemsInfo: string, issues: Issue[], token: vscode.CancellationToken): Promise<IssueColumn[]> {
 		// Try to get the llm to tell us which columns are important based on information it has about the issues
 		const models = await vscode.lm.selectChatModels({
 			vendor: 'copilot',
@@ -77,12 +79,15 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		return result;
 	}
 
-	private issueToRow(issue: Issue, importantColumns: string[]): string {
+	private issueToRow(issue: Issue, importantColumns: IssueColumn[]): string {
 		return `| ${importantColumns.map(column => {
-			if (column === 'number') {
-				return `[${issue[column]}](${issue.url})`;
-			} else {
-				return issue[column];
+			switch (column) {
+				case 'number':
+					return `[${issue[column]}](${issue.url})`;
+				case 'labels':
+					return issue[column].map((label) => label.name).join(', ');
+				default:
+					return issue[column];
 			}
 		}).join(' | ')} |`;
 	}
@@ -90,7 +95,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 	async invoke(_options: vscode.LanguageModelToolInvocationOptions<DisplayIssuesParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		// The llm won't actually pass the output of the search tool to this tool, so we need to get the issues from the last message
 		let issueItems: Issue[] = []; // = (typeof options.parameters.arrayOfIssues === 'string') ? JSON.parse(options.parameters.arrayOfIssues) : options.parameters.arrayOfIssues;
-		let issueItemsInfo: string = '';
+		let issueItemsInfo: string = this.chatParticipantState.firstUserMessage ?? '';
 		const lastMessage = this.chatParticipantState.lastToolResult;
 		if (lastMessage) {
 			try {
