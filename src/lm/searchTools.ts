@@ -44,6 +44,7 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 - Ignore display information.
 - Respond with only the query.
 - Always include a "sort:" parameter.
+- Unless the user indicates "all issues", only include open issues.
 - Here are some examples of valid queries:
 	- repo:microsoft/vscode is:issue state:open sort:updated-asc
 	- mentions:@me org:microsoft is:issue state:open sort:updated
@@ -125,12 +126,13 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 		//- Use as many labels as you think fit the query. If one label fits, then there are probably more that fit.
 		// - Respond with a list of labels in github search syntax, separated by AND or OR. Examples: "label:bug OR label:polish", "label:accessibility AND label:editor-accessibility"
 		return `Instructions:
-You are an expert on choosing search labels based on a sentence or phrase. Here are some rules to follow:
+You are an expert on choosing search keywords based on a natural language search query. Here are some rules to follow:
+- Choose labels based on what the user wants to search for, not based on the actual words in the query.
 - Labels will be and-ed together, so don't pick a bunch of super specific labels.
 - Respond with a space-separated list of labels: Examples: 'bug polish', 'accessibility "feature accessibility"'
 - Only choose labels that you're sure are relevant. Having no labels is preferable than lables that aren't relevant.
 - Respond with labels chosen from these options:
-${labels.map(label => label.name).filter(label => !label.includes('required')).join(', ')}
+${labels.map(label => label.name).filter(label => !label.includes('required') && !label.includes('search') && !label.includes('question') && !label.includes('find')).join(', ')}
 `;
 	}
 
@@ -268,6 +270,10 @@ ${labels.map(label => label.name).filter(label => !label.includes('required')).j
 		return concatAsyncIterable(response.text);
 	}
 
+	private toGitHubUrl(query: string) {
+		return `https://github.com/issues/?q=${encodeURIComponent(query)}`;
+	}
+
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<ConvertToQuerySyntaxParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		let owner: string | undefined;
 		let name: string | undefined;
@@ -306,7 +312,7 @@ ${labels.map(label => label.name).filter(label => !label.includes('required')).j
 		Logger.debug(`Query \`${result.query}\``, ConvertToSearchSyntaxTool.ID);
 		return {
 			'text/plain': result.query,
-			'text/display': `Using query \`${result.query}\``
+			'text/display': `Using query \`${result.query}\`. [Open on GitHub.com](${this.toGitHubUrl(result.query)})`,
 		};
 	}
 }
