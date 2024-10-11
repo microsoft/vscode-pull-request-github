@@ -5,11 +5,11 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import Logger from '../common/logger';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
-import { Issue } from '../github/interface';
+import { ILabel, Issue } from '../github/interface';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { concatAsyncIterable } from './tools/toolsUtils';
-import Logger from '../common/logger';
 
 interface ConvertToQuerySyntaxParameters {
 	plainSearchString: string;
@@ -31,7 +31,7 @@ export class ConvertToSearchSyntaxTool implements vscode.LanguageModelTool<Conve
 	static ID = 'ConvertToSearchSyntaxTool';
 	constructor(private readonly repositoriesManager: RepositoriesManager) { }
 
-	private async assistantPrompt(folderRepoManager: FolderRepositoryManager): Promise<string> {
+	private async fullQueryAssistantPrompt(folderRepoManager: FolderRepositoryManager): Promise<string> {
 		const remote = folderRepoManager.activePullRequest?.remote ?? folderRepoManager.activeIssue?.remote ?? (await folderRepoManager.getPullRequestDefaultRepo()).remote;
 
 		return `Instructions:
@@ -39,12 +39,13 @@ You are an expert on GitHub query syntax. You can help the user convert a plain 
 - Always try to include "repo:" or "org:" in your response.
 - "repo" is often formated as "owner/name". If needed, the current repo is ${remote.owner}/${remote.repositoryName}.
 - Respond with only the query.
+- Always include a "sort:" parameter.
 - Here are some examples of valid queries:
-- repo:microsoft/vscode is:issue state:open sort:updated-asc
-- mentions:@me org:microsoft is:issue state:open sort:updated
-- assignee:@me milestone:"October 2024" is:open is:issue sort:reactions
-- comments:>5 org:contoso is:issue state:closed
-- interactions:>5 repo:contoso/cli is:issue state:open
+	- repo:microsoft/vscode is:issue state:open sort:updated-asc
+	- mentions:@me org:microsoft is:issue state:open sort:updated
+	- assignee:@me milestone:"October 2024" is:open is:issue sort:reactions
+	- comments:>5 org:contoso is:issue state:closed
+	- interactions:>5 repo:contoso/cli is:issue state:open
 - As a reminder, here are the components of the query syntax:
 	Filters:
 	- is: (issue, pr, draft, public, private, locked, unlocked)
@@ -113,17 +114,86 @@ You are an expert on GitHub query syntax. You can help the user convert a plain 
 `;
 	}
 
-	private userPrompt(originalUserPrompt: string): string {
+	private async labelsAssistantPrompt(folderRepoManager: FolderRepositoryManager, labels: ILabel[]): Promise<string> {
+		// It seems that AND and OR aren't supported in GraphQL, so we can't use them in the query
+		// Here's the prompt in case we switch to REST:
+		//- Use as many labels as you think fit the query. If one label fits, then there are probably more that fit.
+		// - Respond with a list of labels in github search syntax, separated by AND or OR. Examples: "label:bug OR label:polish", "label:accessibility AND label:editor-accessibility"
+		return `Instructions:
+You are an expert on GitHub query syntax. You can convert natural language into labels that are used in a GitHub issue search query. Here are some rules to follow:
+- It's ok to have no labels if they don't seem to be needed!
+- Labels will be and-ed together, so don't pick a bunch of super specific labels.
+- Respond with a space-separated list of labels in GitHub search syntax. Examples: "label:bug label:polish", "label:accessibility label:editor-accessibility"
+- Here are the available labels:
+${labels.map(label => `- ${label.name}`).join('\n')}
+`;
+	}
+
+	private labelsUserPrompt(originalUserPrompt: string): string {
+		return `Which labels are relevant to the natural language search "${originalUserPrompt}"?`;
+	}
+
+	private fullQueryUserPrompt(originalUserPrompt: string): string {
 		const date = new Date();
 		return `Pretend today's date is ${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}, but only include it if needed. How should this be converted to a GitHub issue search query? ${originalUserPrompt}`;
 	}
 
-	private postProcess(result: string): ConvertToQuerySyntaxResult | undefined {
-		const query = this.findQuery(result);
+	private validateLabelsList(labelsList: string, allLabels: ILabel[]): string {
+		// I wrote everything for AND and OR, but it isn't supported with GraphQL.
+		// Leaving it in for now in case we switch to REST.
+		const isAndOrOr = (labelOrOperator: string) => {
+			return labelOrOperator === 'AND' || labelOrOperator === 'OR';
+		};
+
+		const labelsAndOperators = labelsList.split(' ').map(label => label.trim());
+		let goodLabels: string[] = [];
+		for (let labelOrOperator of labelsAndOperators) {
+			if (isAndOrOr(labelOrOperator)) {
+				if (goodLabels.length === 0) {
+					continue;
+				} else if (goodLabels.length > 0 && isAndOrOr(goodLabels[goodLabels.length - 1])) {
+					goodLabels[goodLabels.length - 1] = labelOrOperator;
+				} else {
+					goodLabels.push(labelOrOperator);
+				}
+				continue;
+			}
+			// Make sure it does start with `label:`
+			const labelPrefixRegex = /^label:([^ ]+)/;
+			const labelPrefixMatch = labelOrOperator.match(labelPrefixRegex);
+			let label = labelOrOperator;
+			if (labelPrefixMatch) {
+				label = labelPrefixMatch[1];
+			}
+			if (allLabels.find(l => l.name === label)) {
+				goodLabels.push(`label:${label}`);
+			}
+		}
+		if (goodLabels.length > 0 && isAndOrOr(goodLabels[goodLabels.length - 1])) {
+			goodLabels = goodLabels.slice(0, goodLabels.length - 1);
+		}
+		return goodLabels.join(' ');
+	}
+
+	private processInLabelsPart(query: string, labelsList: string, allLabels: ILabel[]) {
+		const validLables = this.validateLabelsList(labelsList, allLabels);
+		if (validLables.length === 0) {
+			return query;
+		}
+		// Remove all labels from the query
+		query = query.replace(/\slabel:([^ ]+)/g, '');
+		// Add the valid labels back
+		query = `${query} ${validLables}`;
+		return query;
+	}
+
+	private postProcess(queryPart: string, labelsList: string, allLabels: ILabel[]): ConvertToQuerySyntaxResult | undefined {
+		const query = this.findQuery(queryPart);
 		if (!query) {
 			return;
 		}
-		const fixedRepo = this.fixRepo(query);
+		const fixedLabels = this.processInLabelsPart(query, labelsList, allLabels);
+		const fixedRepo = this.fixRepo(fixedLabels);
 		return fixedRepo;
 	}
 
@@ -179,6 +249,20 @@ You are an expert on GitHub query syntax. You can help the user convert a plain 
 		}
 	}
 
+	private async generateLabelQuery(folderManager: FolderRepositoryManager, labels: ILabel[], chatOptions: vscode.LanguageModelChatRequestOptions, model: vscode.LanguageModelChat, options: vscode.LanguageModelToolInvocationOptions<ConvertToQuerySyntaxParameters>, token: vscode.CancellationToken): Promise<string> {
+		const messages = [vscode.LanguageModelChatMessage.Assistant(await this.labelsAssistantPrompt(folderManager, labels))];
+		messages.push(vscode.LanguageModelChatMessage.User(this.labelsUserPrompt(options.parameters.plainSearchString)));
+		const response = await model.sendRequest(messages, chatOptions, token);
+		return concatAsyncIterable(response.text);
+	}
+
+	private async generateQuery(folderManager: FolderRepositoryManager, chatOptions: vscode.LanguageModelChatRequestOptions, model: vscode.LanguageModelChat, options: vscode.LanguageModelToolInvocationOptions<ConvertToQuerySyntaxParameters>, token: vscode.CancellationToken): Promise<string> {
+		const messages = [vscode.LanguageModelChatMessage.Assistant(await this.fullQueryAssistantPrompt(folderManager))];
+		messages.push(vscode.LanguageModelChatMessage.User(this.fullQueryUserPrompt(options.parameters.plainSearchString)));
+		const response = await model.sendRequest(messages, chatOptions, token);
+		return concatAsyncIterable(response.text);
+	}
+
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<ConvertToQuerySyntaxParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		let owner: string | undefined;
 		let name: string | undefined;
@@ -197,6 +281,8 @@ You are an expert on GitHub query syntax. You can help the user convert a plain 
 			throw new Error(`No folder manager found for ${owner}/${name}. Make sure to have a repository open.`);
 		}
 
+		const labels = await folderManager.getLabels(undefined, { owner, repo: name });
+
 		const models = await vscode.lm.selectChatModels({
 			vendor: 'copilot',
 			family: 'gpt-4o'
@@ -205,10 +291,9 @@ You are an expert on GitHub query syntax. You can help the user convert a plain 
 		const chatOptions: vscode.LanguageModelChatRequestOptions = {
 			justification: 'Answering user questions pertaining to GitHub.'
 		};
-		const messages = [vscode.LanguageModelChatMessage.Assistant(await this.assistantPrompt(folderManager))];
-		messages.push(vscode.LanguageModelChatMessage.User(this.userPrompt(options.parameters.plainSearchString)));
-		const response = await model.sendRequest(messages, chatOptions, token);
-		const result = this.postProcess(await concatAsyncIterable(response.text));
+		const [query, labelsList] = await Promise.all([this.generateQuery(folderManager, chatOptions, model, options, token), this.generateLabelQuery(folderManager, labels, chatOptions, model, options, token)]);
+
+		const result = this.postProcess(query, labelsList, labels);
 		if (!result) {
 			throw new Error('Unable to form a query.');
 		}
