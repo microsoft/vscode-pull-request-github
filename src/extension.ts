@@ -15,7 +15,7 @@ import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
 import { parseRepositoryRemotes } from './common/remote';
 import { Resource } from './common/resources';
-import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
+import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, EXPERIMENTAL_NOTIFICATIONS, FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { TemporaryState } from './common/temporaryState';
 import { Schemes, handler as uriHandler } from './common/uri';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
@@ -222,8 +222,11 @@ async function init(
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
 
-	const notificationsFeatures = new NotificationsFeatureRegister(credentialStore, reposManager, telemetry);
-	context.subscriptions.push(notificationsFeatures);
+	const notificationsViewEnabled = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_NOTIFICATIONS, false);
+	if (notificationsViewEnabled) {
+		const notificationsFeatures = new NotificationsFeatureRegister(credentialStore, reposManager, telemetry);
+		context.subscriptions.push(notificationsFeatures);
+	}
 
 	context.subscriptions.push(new GitLensIntegration());
 

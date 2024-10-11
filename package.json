@@ -694,7 +694,7 @@
 				{
 					"id": "notifications:github",
 					"name": "%view.notifications.github.name%",
-					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts",
+					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts && config.githubPullRequests.experimental.notificationsView",
 					"icon": "$(bell)",
 					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%"
 				},
