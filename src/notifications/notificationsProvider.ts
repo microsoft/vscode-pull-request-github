@@ -220,8 +220,8 @@ export class NotificationsProvider implements vscode.Disposable {
 		const assignees = model.assignees;
 		return `
 The following is the data for notification ${notificationIndex + 1}:
-• Author: ${model.author.login}
 • Title: ${model.title}
+• Author: ${model.author.login}
 • Assignees: ${assignees?.map(assignee => assignee.login).join(', ') || 'none'}
 • Body:
 
@@ -255,15 +255,19 @@ ${model.body}
 		}
 		let commentsMessage = `
 
-The following is the data concerning the comments for the notification:`;
+The following is the data concerning the at most last 5 comments for the notification:`;
 
-		for (const [commentIndex, comment] of issueComments.entries()) {
+		let index = 1;
+		const lowerCommentIndexBound = Math.max(0, issueComments.length - 5);
+		for (let i = lowerCommentIndexBound; i < issueComments.length; i++) {
+			const comment = issueComments.at(i)!;
 			commentsMessage += `
 
-Comment ${commentIndex + 1} for notification:
+Comment ${index} for notification:
 • Body:
 ${comment.body}
 • Reaction Count: ${comment.reactionCount}`;
+			index += 1;
 		}
 		return commentsMessage;
 	}
@@ -287,10 +291,10 @@ ${comment.body}
 function getPrioritizeNotificationsInstructions(githubHandle: string) {
 	return `
 You are an intelligent assistant tasked with prioritizing GitHub notifications.
-You are given a list of notifications for the current user ${githubHandle}, each related to an issue, pull request or discussion.
+You are given a list of notifications for the current user ${githubHandle}, each related to an issue, pull request or discussion. In the case of an issue/PR, if there are comments, you are given the last 5 comments under it.
 Use the following scoring mechanism to prioritize the notifications and assign them a score from 0 to 100:
 
-	1. Assign points from 0 to 40 for the relevancy of the notification. Below when we talk about the current user, it is always the user with the GitHub login handle ${githubHandle}.
+	1. Assign points from 0 to 40 for the relevance of the notification. Below when we talk about the current user, it is always the user with the GitHub login handle ${githubHandle}.
 		- 0-9 points: If the current user is neither assigned, nor requested for a review, nor mentioned in the issue/PR/discussion.
 		- 10-19 points: If the current user is mentioned or is the author of the issue/PR. In the case of an issue/PR, the current user should not be assigned to it.
 		- 20-40 points: If the current user is assigned to the issue/PR or is requested for a review.
@@ -319,7 +323,7 @@ Use the following scoring mechanism to prioritize the notifications and assign t
 		- In contrast, issues/PRs about technical debt/code polishing/minor internal issues or generally that have low importance should be assigned lower priority.
 	3. Assign points from 0 to 30 for the community engagement. Consider the following points:
 		- Reactions: Consider the number of reactions under an issue/PR/discussion that correspond to real users. A higher number of reactions should be assigned a higher priority.
-		- Comments: Evaluate the community engagmenent on the issue/PR through the comments. If you detect a comment comming from a bot, do not include it in the following evaluation. Consider the following:
+		- Comments: Evaluate the community engagmenent on the issue/PR through the last 5 comments. If you detect a comment comming from a bot, do not include it in the following evaluation. Consider the following:
 			- Does the issue/PR/discussion have a lot of comments indicating widespread interest?
 			- Does the issue/PR/discussion have comments from many different users which would indicate widespread interest?
 			- Evaluate the comments content. Do they indicate that the issue/PR is critical and touches many people? A critical issue/PR should be assigned a higher priority.
