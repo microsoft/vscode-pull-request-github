@@ -9,32 +9,42 @@ import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { Issue } from '../github/interface';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { concatAsyncIterable } from './tools/toolsUtils';
+import Logger from '../common/logger';
 
 interface ConvertToQuerySyntaxParameters {
 	plainSearchString: string;
 	repo?: {
-		owner: string;
-		name: string;
+		owner?: string;
+		name?: string;
 	};
 }
 
 interface ConvertToQuerySyntaxResult {
 	query: string;
 	repo?: {
-		owner: string;
-		name: string;
+		owner?: string;
+		name?: string;
 	};
 }
 
-const CONVERT_TO_QUERY_SYNTAX_LLM_INSTRUCTIONS = `Instructions:
+export class ConvertToSearchSyntaxTool implements vscode.LanguageModelTool<ConvertToQuerySyntaxParameters> {
+	static ID = 'ConvertToSearchSyntaxTool';
+	constructor(private readonly repositoriesManager: RepositoriesManager) { }
+
+	private async assistantPrompt(folderRepoManager: FolderRepositoryManager): Promise<string> {
+		const remote = folderRepoManager.activePullRequest?.remote ?? folderRepoManager.activeIssue?.remote ?? (await folderRepoManager.getPullRequestDefaultRepo()).remote;
+
+		return `Instructions:
 You are an expert on GitHub query syntax. You can help the user convert a plain text query to a query that can be used to search GitHub issues. Here are some rules to follow:
-- Always try to include "repo:" and "org:" in your response.
+- Always try to include "repo:" or "org:" in your response.
+- "repo" is often formated as "owner/name". If needed, the current repo is ${remote.owner}/${remote.repositoryName}.
 - Respond with only the query.
 - Here are some examples of valid queries:
-	- org:microsoft repo:vscode is:issue is:open sort:updated-asc
-	- mentions:@me org:microsoft repo:vscode is:issue is:open sort:updated
-	- assignee:@me milestone:"October 2024" is:open is:issue sort:reactions
-	- comments:>5 org:contoso repo:cli is:issue is:closed
+- repo:microsoft/vscode is:issue state:open sort:updated-asc
+- mentions:@me org:microsoft is:issue state:open sort:updated
+- assignee:@me milestone:"October 2024" is:open is:issue sort:reactions
+- comments:>5 org:contoso is:issue state:closed
+- interactions:>5 repo:contoso/cli is:issue state:open
 - As a reminder, here are the components of the query syntax:
 	Filters:
 	- is: (issue, pr, draft, public, private, locked, unlocked)
@@ -101,9 +111,7 @@ You are an expert on GitHub query syntax. You can help the user convert a plain 
 	- updated
 	- updated-asc
 `;
-
-export class ConvertToSearchSyntaxTool implements vscode.LanguageModelTool<ConvertToQuerySyntaxParameters> {
-	constructor(private readonly repositoriesManager: RepositoriesManager) { }
+	}
 
 	private userPrompt(originalUserPrompt: string): string {
 		const date = new Date();
@@ -121,22 +129,34 @@ export class ConvertToSearchSyntaxTool implements vscode.LanguageModelTool<Conve
 
 	private fixRepo(initialQuery: string): ConvertToQuerySyntaxResult {
 		const repoRegex = /repo:([^ ]+)/;
-		const match = initialQuery.match(repoRegex);
-		if (match) {
-			const originalRepo = match[1];
+		const orgRegex = /org:([^ ]+)/;
+		const repoMatch = initialQuery.match(repoRegex);
+		const orgMatch = initialQuery.match(orgRegex);
+		let newQuery = initialQuery.trim();
+		let owner: string | undefined;
+		let name: string | undefined;
+		if (repoMatch) {
+			const originalRepo = repoMatch[1];
 			if (originalRepo.includes('/')) {
 				const ownerAndRepo = originalRepo.split('/');
-				const query = initialQuery.replace(repoRegex, `repo:${ownerAndRepo[1]} org:${ownerAndRepo[0]}`);
-				return {
-					query,
-					repo: {
-						owner: ownerAndRepo[0],
-						name: ownerAndRepo[1]
-					}
-				};
+				owner = ownerAndRepo[0];
+				name = ownerAndRepo[1];
+			}
+
+			if (orgMatch && originalRepo.includes('/')) {
+				// remove the org match
+				newQuery = initialQuery.replace(orgRegex, '');
+			} else if (orgMatch) {
+				// We need to add the org into the repo
+				newQuery = initialQuery.replace(repoRegex, `repo:${orgMatch[1]}/${originalRepo}`);
+				owner = orgMatch[1];
+				name = originalRepo;
 			}
 		}
-		return { query: initialQuery };
+		return {
+			query: newQuery,
+			repo: owner && name ? { owner, name } : undefined
+		};
 	}
 
 	private findQuery(result: string): string | undefined {
@@ -164,7 +184,7 @@ export class ConvertToSearchSyntaxTool implements vscode.LanguageModelTool<Conve
 		let name: string | undefined;
 		let folderManager: FolderRepositoryManager | undefined;
 		// The llm likes to make up an owner and name if it isn't provided one, and they tend to include 'owner' and 'name' respectively
-		if (options.parameters.repo && !options.parameters.repo.owner.includes('owner') && !options.parameters.repo.name.includes('name')) {
+		if (options.parameters.repo && options.parameters.repo.owner && options.parameters.repo.name && !options.parameters.repo.owner.includes('owner') && !options.parameters.repo.name.includes('name')) {
 			owner = options.parameters.repo.owner;
 			name = options.parameters.repo.name;
 			folderManager = this.repositoriesManager.getManagerForRepository(options.parameters.repo.owner, options.parameters.repo.name);
@@ -185,13 +205,14 @@ export class ConvertToSearchSyntaxTool implements vscode.LanguageModelTool<Conve
 		const chatOptions: vscode.LanguageModelChatRequestOptions = {
 			justification: 'Answering user questions pertaining to GitHub.'
 		};
-		const messages = [vscode.LanguageModelChatMessage.Assistant(CONVERT_TO_QUERY_SYNTAX_LLM_INSTRUCTIONS)];
+		const messages = [vscode.LanguageModelChatMessage.Assistant(await this.assistantPrompt(folderManager))];
 		messages.push(vscode.LanguageModelChatMessage.User(this.userPrompt(options.parameters.plainSearchString)));
 		const response = await model.sendRequest(messages, chatOptions, token);
 		const result = this.postProcess(await concatAsyncIterable(response.text));
 		if (!result) {
 			throw new Error('Unable to form a query.');
 		}
+		Logger.debug(`Query \`${result.query}\``, ConvertToSearchSyntaxTool.ID);
 		return {
 			'text/plain': result.query,
 			'text/display': `Using query \`${result.query}\``
@@ -206,14 +227,16 @@ export interface SearchToolResult {
 }
 
 export class SearchTool implements vscode.LanguageModelTool<SearchToolParameters> {
+	static ID = 'SearchTool';
 	constructor(private readonly repositoriesManager: RepositoriesManager) { }
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<SearchToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
+		Logger.debug(`Searching with query \`${options.parameters.query}\``, SearchTool.ID);
 		let owner: string | undefined;
 		let name: string | undefined;
 		let folderManager: FolderRepositoryManager | undefined;
 		// The llm likes to make up an owner and name if it isn't provided one, and they tend to include 'owner' and 'name' respectively
-		if (options.parameters.repo) {
+		if (options.parameters.repo && options.parameters.repo.owner && options.parameters.repo.name && !options.parameters.repo.owner.includes('owner') && !options.parameters.repo.name.includes('name')) {
 			owner = options.parameters.repo.owner;
 			name = options.parameters.repo.name;
 			folderManager = this.repositoriesManager.getManagerForRepository(options.parameters.repo.owner, options.parameters.repo.name);
@@ -232,6 +255,7 @@ export class SearchTool implements vscode.LanguageModelTool<SearchToolParameters
 		const result: SearchToolResult = {
 			arrayOfIssues: searchResult.items.map(i => i.item)
 		};
+		Logger.debug(`Found ${result.arrayOfIssues.length} issues, first issue ${result.arrayOfIssues[0]?.number}.`, SearchTool.ID);
 		return {
 			'text/plain': `Here are the issues I found for the query ${options.parameters.query} in a stringified json format. You can pass these to a tool that can display them.`,
 			'text/json': result

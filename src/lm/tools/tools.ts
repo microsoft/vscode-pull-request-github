@@ -27,7 +27,7 @@ function registerSuggestFixTool(context: vscode.ExtensionContext, repositoriesMa
 }
 
 function registerSearchTools(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
-	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_searchSyntax', new ConvertToSearchSyntaxTool(repositoriesManager)));
+	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_formSearchQuery', new ConvertToSearchSyntaxTool(repositoriesManager)));
 	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_doSearch', new SearchTool(repositoriesManager)));
 	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_renderIssues', new DisplayIssuesTool(chatParticipantState)));
 }

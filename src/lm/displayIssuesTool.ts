@@ -5,6 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import Logger from '../common/logger';
 import { Issue } from '../github/interface';
 import { ChatParticipantState } from './participants';
 import { SearchToolResult } from './searchTools';
@@ -17,6 +18,7 @@ You are an expert on GitHub issues. You can help the user identify the most impo
 `;
 
 export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
+	static ID = 'DisplayIssuesTool';
 	constructor(chatParticipantState: ChatParticipantState) {
 		super(chatParticipantState);
 	}
@@ -112,10 +114,11 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 				'text/markdown': 'No issues found. Please try another query.'
 			};
 		}
-
+		Logger.debug(`Displaying ${issueItems.length} issues, first issue ${issueItems[0].number}`, DisplayIssuesTool.ID);
 		const importantColumns = await this.getImportantColumns(issueItemsInfo, issueItems, token);
 
 		const titleRow = `| ${importantColumns.join(' | ')} |`;
+		Logger.debug(`Columns ${titleRow} issues`, DisplayIssuesTool.ID);
 		const separatorRow = `| ${importantColumns.map(() => '---').join(' | ')} |`;
 		const issues = new vscode.MarkdownString(titleRow);
 		issues.appendMarkdown('\n');

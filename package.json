@@ -3113,17 +3113,17 @@
 				]
 			},
 			{
-				"id": "github-pull-request_searchSyntax",
+				"id": "github-pull-request_formSearchQuery",
 				"tags": [
 					"github",
 					"issues",
 					"search",
 					"query",
-					"syntax"
+					"natural language"
 				],
 				"name": "searchSyntax",
-				"displayName": "Convert plain text to GitHub search syntax",
-				"modelDescription": "Converts plain text to GitHub search syntax.",
+				"displayName": "Convert natural language to a GitHub search query",
+				"modelDescription": "Converts natural language to a GitHub search query. Should ALWAYS be called before doing a search.",
 				"icon": "$(search)",
 				"canBeInvokedManually": true,
 				"parametersSchema": {
@@ -3169,8 +3169,8 @@
 					"search"
 				],
 				"name": "doSearch",
-				"displayName": "Execute a GitHub search given a well formed GitHub search query.",
-				"modelDescription": "Execute a GitHub search given a well formed GitHub search query.",
+				"displayName": "Execute a GitHub search",
+				"modelDescription": "Execute a GitHub search given a well formed GitHub search query. Call github-pull-request_formSearchQuery first to get good search syntax.",
 				"icon": "$(search)",
 				"canBeInvokedManually": true,
 				"parametersSchema": {
