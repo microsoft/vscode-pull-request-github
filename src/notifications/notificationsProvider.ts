@@ -125,8 +125,19 @@ export class NotificationsProvider implements vscode.Disposable {
 		}
 		const notifications = await this._getResolvedNotifications(gitHub);
 		const filteredNotifications = notifications.filter(notification => notification !== undefined) as ResolvedNotification[];
-		const sortedPrioritizedNotifications = await this._prioritizeNotifications(filteredNotifications);
-		return sortedPrioritizedNotifications;
+		const models = await vscode.lm.selectChatModels({
+			vendor: 'copilot',
+			family: 'gpt-4o'
+		});
+		const model = models[0];
+		if (model) {
+			try {
+				return this._prioritizeNotificationsWithLLM(filteredNotifications, model);
+			} catch (e) {
+				return this._sortNotificationsByTimestamp(filteredNotifications);
+			}
+		}
+		return this._sortNotificationsByTimestamp(filteredNotifications);
 	}
 
 	private async _getResolvedNotifications(gitHub: GitHub): Promise<(ResolvedNotification | undefined)[]> {
@@ -170,13 +181,17 @@ export class NotificationsProvider implements vscode.Disposable {
 		return model;
 	}
 
-	private async _prioritizeNotifications(notifications: ResolvedNotification[]): Promise<ResolvedNotification[]> {
+	private _sortNotificationsByTimestamp(notifications: ResolvedNotification[]): ResolvedNotification[] {
+		return notifications.sort((n1, n2) => n1.updated_at > n2.updated_at ? -1 : 1);
+	}
+
+	private async _prioritizeNotificationsWithLLM(notifications: ResolvedNotification[], model: vscode.LanguageModelChat): Promise<ResolvedNotification[]> {
 		const notificationBatchSize = 5;
 		const notificationBatches: (ResolvedNotification[])[] = [];
 		for (let i = 0; i < notifications.length; i += notificationBatchSize) {
 			notificationBatches.push(notifications.slice(i, i + notificationBatchSize));
 		}
-		const prioritizedBatches = await Promise.all(notificationBatches.map(batch => this._prioritizeNotificationBatch(batch)));
+		const prioritizedBatches = await Promise.all(notificationBatches.map(batch => this._prioritizeNotificationBatchWithLLM(batch, model)));
 		const prioritizedNotifications = prioritizedBatches.flat();
 		const sortedPrioritizedNotifications = prioritizedNotifications.sort((r1, r2) => {
 			const priority1 = Number(r1.priority);
@@ -186,23 +201,18 @@ export class NotificationsProvider implements vscode.Disposable {
 		return sortedPrioritizedNotifications;
 	}
 
-	private async _prioritizeNotificationBatch(notifications: ResolvedNotification[]): Promise<ResolvedNotification[]> {
+	private async _prioritizeNotificationBatchWithLLM(notifications: ResolvedNotification[], model: vscode.LanguageModelChat): Promise<ResolvedNotification[]> {
 		try {
-			const models = await vscode.lm.selectChatModels({
-				vendor: 'copilot',
-				family: 'gpt-4o'
-			});
-			const model = models[0];
 			const userLogin = (await this._credentialStore.getCurrentUser(AuthProvider.github)).login;
 			const messages = [vscode.LanguageModelChatMessage.User(getPrioritizeNotificationsInstructions(userLogin))];
 			for (const [notificationIndex, notification] of notifications.entries()) {
-				const model = notification.model;
-				if (!model) {
+				const issueModel = notification.model;
+				if (!issueModel) {
 					continue;
 				}
-				let notificationMessage = this._getBasePrompt(model, notificationIndex);
-				notificationMessage += await this._getLabelsPrompt(model);
-				notificationMessage += await this._getCommentsPrompt(model);
+				let notificationMessage = this._getBasePrompt(issueModel, notificationIndex);
+				notificationMessage += await this._getLabelsPrompt(issueModel);
+				notificationMessage += await this._getCommentsPrompt(issueModel);
 				messages.push(vscode.LanguageModelChatMessage.User(notificationMessage));
 			}
 			messages.push(vscode.LanguageModelChatMessage.User('Please provide the priority for each notification in a separate text code block. Remember to place the title and the reasoning outside of the text code block.'));
