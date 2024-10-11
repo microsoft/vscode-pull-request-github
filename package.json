@@ -68,7 +68,8 @@
 				"id": "githubpr",
 				"name": "githubpr",
 				"fullName": "GitHub",
-				"description": "Chat participant for GitHub Pull Requests extension"
+				"description": "Chat participant for GitHub Pull Requests extension",
+				"when": "config.githubPullRequests.experimental.chat"
 			}
 		],
 		"configuration": {
@@ -3064,7 +3065,8 @@
 				},
 				"supportedContentTypes": [
 					"text/plain"
-				]
+				],
+				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
 				"id": "github-pull-request_suggest-fix",
@@ -3110,7 +3112,8 @@
 				},
 				"supportedContentTypes": [
 					"text/plain"
-				]
+				],
+				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
 				"id": "github-pull-request_formSearchQuery",
@@ -3159,7 +3162,8 @@
 				"supportedContentTypes": [
 					"text/plain",
 					"text/display"
-				]
+				],
+				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
 				"id": "github-pull-request_doSearch",
@@ -3206,7 +3210,8 @@
 				"supportedContentTypes": [
 					"text/plain",
 					"text/json"
-				]
+				],
+				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
 				"id": "github-pull-request_renderIssues",
@@ -3266,7 +3271,8 @@
 				"supportedContentTypes": [
 					"text/plain",
 					"text/markdown"
-				]
+				],
+				"when": "config.githubPullRequests.experimental.chat"
 			}
 		]
 	},

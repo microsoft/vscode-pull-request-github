@@ -51,6 +51,7 @@ export const CREATE_ISSUE_TRIGGERS = 'createIssueTriggers';
 export const DEFAULT = 'default';
 export const IGNORE_MILESTONES = 'ignoreMilestones';
 export const ALLOW_FETCH = 'allowFetch';
+export const EXPERIMENTAL_CHAT = 'experimental.chat';
 
 // git
 export const GIT = 'git';
