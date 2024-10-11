@@ -1439,7 +1439,7 @@ ${contents}
 			telemetry.sendTelemetryEvent('pr.applySuggestionWithCopilot');
 
 			const commentThread = comment.parent;
-			commentThread.hide();
+			commentThread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
 			const message = comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body;
 			await vscode.commands.executeCommand('vscode.editorChat.start', {
 				initialRange: commentThread.range,
