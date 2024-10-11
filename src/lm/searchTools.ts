@@ -125,10 +125,10 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 		//- Use as many labels as you think fit the query. If one label fits, then there are probably more that fit.
 		// - Respond with a list of labels in github search syntax, separated by AND or OR. Examples: "label:bug OR label:polish", "label:accessibility AND label:editor-accessibility"
 		return `Instructions:
-You are an expert on GitHub query syntax. You can find the exact labels that are needed for a GitHub issue search. Here are some rules to follow:
+You are an expert on choosing search labels based on a sentence or phrase. Here are some rules to follow:
 - Labels will be and-ed together, so don't pick a bunch of super specific labels.
-- Respond with a space-separated list of labels in GitHub search syntax. Examples: "label:bug label:polish", "label:accessibility label:editor-accessibility"
-- Only choose labels that you're sure are relevant to the search. Having no labels is preferable than lables that aren't relevant.
+- Respond with a space-separated list of labels: Examples: 'bug polish', 'accessibility "feature accessibility"'
+- Only choose labels that you're sure are relevant. Having no labels is preferable than lables that aren't relevant.
 - Respond with labels chosen from these options:
 ${labels.map(label => label.name).filter(label => !label.includes('required')).join(', ')}
 `;

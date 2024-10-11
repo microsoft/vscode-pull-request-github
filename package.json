@@ -3170,7 +3170,7 @@
 				],
 				"name": "doSearch",
 				"displayName": "Execute a GitHub search",
-				"modelDescription": "Execute a GitHub search given a well formed GitHub search query. Call github-pull-request_formSearchQuery first to get good search syntax.",
+				"modelDescription": "Execute a GitHub search given a well formed GitHub search query. Call github-pull-request_formSearchQuery first to get good search syntax and pass the exact result in as the 'query'.",
 				"icon": "$(search)",
 				"canBeInvokedManually": true,
 				"parametersSchema": {
