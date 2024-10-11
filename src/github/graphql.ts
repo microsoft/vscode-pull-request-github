@@ -52,6 +52,9 @@ export interface AbbreviatedIssueComment {
 	};
 	body: string;
 	databaseId: number;
+	reactions: {
+		totalCount: number;
+	};
 }
 
 export interface IssueComment extends AbbreviatedIssueComment {

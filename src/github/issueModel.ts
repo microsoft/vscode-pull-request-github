@@ -9,7 +9,6 @@ import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { TimelineEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
-import { OctokitCommon } from './common';
 import { GitHubRepository } from './githubRepository';
 import {
 	AddIssueCommentResponse,
@@ -18,7 +17,7 @@ import {
 	TimelineEventsResponse,
 	UpdatePullRequestResponse,
 } from './graphql';
-import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, IProjectItem, IPullRequestEditData, IReaction, Issue } from './interface';
+import { GithubItemStateEnum, IAccount, IIssueComment, ILabel, IMilestone, IProject, IProjectItem, IPullRequestEditData, Issue } from './interface';
 import { parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
 
 export class IssueModel<TItem extends Issue = Issue> {
@@ -75,6 +74,27 @@ export class IssueModel<TItem extends Issue = Issue> {
 			return this.item.user.avatarUrl;
 		}
 
+		return undefined;
+	}
+
+	public get labels(): ILabel[] | undefined {
+		if (this.item) {
+			return this.item.labels;
+		}
+		return undefined;
+	}
+
+	public get reactionCount(): number | undefined {
+		if (this.item) {
+			return this.item.reactionCount;
+		}
+		return undefined;
+	}
+
+	public get issueComments(): IIssueComment[] | undefined {
+		if (this.item) {
+			return this.item.comments;
+		}
 		return undefined;
 	}
 
@@ -186,21 +206,6 @@ export class IssueModel<TItem extends Issue = Issue> {
 		return this.githubRepository.isCurrentUser(username);
 	}
 
-	async getIssueComments(): Promise<OctokitCommon.IssuesListCommentsResponseData> {
-		Logger.debug(`Fetch issue comments of PR #${this.number} - enter`, IssueModel.ID);
-		const { octokit, remote } = await this.githubRepository.ensure();
-
-		const promise = await octokit.call(octokit.api.issues.listComments, {
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			issue_number: this.number,
-			per_page: 100,
-		});
-		Logger.debug(`Fetch issue comments of PR #${this.number} - done`, IssueModel.ID);
-
-		return promise.data;
-	}
-
 	async createIssueComment(text: string): Promise<IComment> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 		const { data } = await mutate<AddIssueCommentResponse>({
@@ -267,16 +272,6 @@ export class IssueModel<TItem extends Issue = Issue> {
 		}
 	}
 
-	async getLabels(): Promise<ILabel[]> {
-		const { octokit, remote } = await this.githubRepository.ensure();
-		const { data } = await octokit.call(octokit.api.issues.listLabelsOnIssue, {
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			issue_number: this.number,
-		});
-		return data;
-	}
-
 	async removeLabel(label: string): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		await octokit.call(octokit.api.issues.removeLabel, {
@@ -285,16 +280,6 @@ export class IssueModel<TItem extends Issue = Issue> {
 			issue_number: this.number,
 			name: label,
 		});
-	}
-
-	async getReactions(): Promise<IReaction[]> {
-		const { octokit, remote } = await this.githubRepository.ensure();
-		const { data } = await octokit.call(octokit.api.reactions.listForIssue, {
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			issue_number: this.number,
-		});
-		return data;
 	}
 
 	public async removeProjects(projectItems: IProjectItem[]): Promise<void> {
@@ -376,6 +361,4 @@ export class IssueModel<TItem extends Issue = Issue> {
 			return [];
 		}
 	}
-
-
 }

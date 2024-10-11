@@ -150,6 +150,13 @@ export interface IReaction {
 	content: '+1' | '-1' | 'laugh' | 'confused' | 'heart' | 'hooray' | 'rocket' | 'eyes';
 }
 
+export interface IIssueComment {
+	author: IAccount;
+	body: string;
+	databaseId: number;
+	reactionCount: number;
+}
+
 export interface Issue {
 	id: number;
 	graphNodeId: string;
@@ -170,11 +177,7 @@ export interface Issue {
 	repositoryOwner?: string;
 	repositoryName?: string;
 	repositoryUrl?: string;
-	comments?: {
-		author: IAccount;
-		body: string;
-		databaseId: number;
-	}[];
+	comments?: IIssueComment[];
 	commentCount: number;
 	reactionCount: number;
 }

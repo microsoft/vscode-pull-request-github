@@ -664,6 +664,9 @@ query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
 					}
 					body
 					databaseId
+					reactions(first: 100) {
+						totalCount
+					}
 				}
 				totalCount
 			}

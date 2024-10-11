@@ -27,6 +27,7 @@ import {
 	IAccount,
 	IActor,
 	IGitHubRef,
+	IIssueComment,
 	ILabel,
 	IMilestone,
 	IProjectItem,
@@ -804,12 +805,14 @@ function parseComments(comments: GraphQL.AbbreviatedIssueComment[] | undefined, 
 		author: IAccount;
 		body: string;
 		databaseId: number;
+		reactionCount: number;
 	}[] = [];
 	for (const comment of comments) {
 		parsedComments.push({
 			author: parseAuthor(comment.author, githubRepository),
 			body: comment.body,
 			databaseId: comment.databaseId,
+			reactionCount: comment.reactions.totalCount
 		});
 	}
 
@@ -837,8 +840,18 @@ export function parseGraphQLIssue(issue: GraphQL.PullRequest, githubRepository: 
 		repositoryOwner: issue.repository?.owner.login ?? githubRepository.remote.owner,
 		repositoryUrl: issue.repository?.url ?? githubRepository.remote.url,
 		projectItems: parseProjectItems(issue.projectItems?.nodes),
+		comments: issue.comments.nodes?.map(comment => parseIssueComment(comment)),
 		reactionCount: issue.reactions.totalCount,
 		commentCount: issue.comments.totalCount
+	};
+}
+
+function parseIssueComment(comment: GraphQL.AbbreviatedIssueComment): IIssueComment {
+	return {
+		author: comment.author,
+		body: comment.body,
+		databaseId: comment.databaseId,
+		reactionCount: comment.reactions.totalCount
 	};
 }
 

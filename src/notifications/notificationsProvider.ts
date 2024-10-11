@@ -101,7 +101,11 @@ export class NotificationsProvider implements vscode.Disposable {
 			undefined;
 	}
 
-	private _getKey(notification: ResolvedNotification): string {
+	private _getKey(notification: ResolvedNotification): string | undefined {
+		const url = notification.subject.url;
+		if (!url) {
+			return undefined;
+		}
 		const id = notification.subject.url.split('/').pop();
 		const { owner, name } = getNotificationOwner(notification);
 		return `${owner}/${name}#${id}`;
@@ -132,6 +136,9 @@ export class NotificationsProvider implements vscode.Disposable {
 		});
 		return Promise.all(data.map(async (notification: any): Promise<ResolvedNotification | undefined> => {
 			const cachedNotificationKey = this._getKey(notification);
+			if (!cachedNotificationKey) {
+				return undefined;
+			}
 			const cachedNotification = this._notifications.get(cachedNotificationKey);
 			if (cachedNotification && cachedNotification.updated_at === notification.updated_at) {
 				return cachedNotification;
@@ -195,7 +202,6 @@ export class NotificationsProvider implements vscode.Disposable {
 				}
 				let notificationMessage = this._getBasePrompt(model, notificationIndex);
 				notificationMessage += await this._getLabelsPrompt(model);
-				notificationMessage += await this._getReactionsPrompt(model);
 				notificationMessage += await this._getCommentsPrompt(model);
 				messages.push(vscode.LanguageModelChatMessage.User(notificationMessage));
 			}
@@ -221,6 +227,7 @@ The following is the data for notification ${notificationIndex + 1}:
 
 ${model.body}
 
+• Reaction Count: ${model.reactionCount ?? 0}
 • isOpen: ${model.isOpen}
 • isMerged: ${model.isMerged}
 • Created At: ${model.createdAt}
@@ -228,7 +235,10 @@ ${model.body}
 	}
 
 	private async _getLabelsPrompt(model: IssueModel<Issue> | PullRequestModel): Promise<string> {
-		const labels = await model.getLabels();
+		const labels = model.labels;
+		if (!labels) {
+			return '';
+		}
 		let labelsMessage = '';
 		if (labels.length > 0) {
 			const labelListAsString = labels.map(label => label.name).join(', ');
@@ -238,27 +248,9 @@ ${model.body}
 		return labelsMessage;
 	}
 
-	private async _getReactionsPrompt(model: IssueModel<Issue> | PullRequestModel): Promise<string> {
-		const reactions = (await model.getReactions()).map(reaction => reaction.content);
-		const reactionCountMap = new Map<string, number>();
-		for (const reaction of reactions) {
-			reactionCountMap.set(reaction, (reactionCountMap.get(reaction) || 0) + 1);
-		}
-		let reactionsMessage = '';
-		if (reactionCountMap.size > 0) {
-			reactionsMessage = `
-• Reactions:`;
-			for (const [reaction, count] of reactionCountMap.entries()) {
-				reactionsMessage += `
-	• ${reaction}: ${count}`;
-			}
-		}
-		return reactionsMessage;
-	}
-
 	private async _getCommentsPrompt(model: IssueModel<Issue> | PullRequestModel): Promise<string> {
-		const issueComments = await model.getIssueComments();
-		if (issueComments.length === 0) {
+		const issueComments = model.issueComments;
+		if (!issueComments || issueComments.length === 0) {
 			return '';
 		}
 		let commentsMessage = `
@@ -266,32 +258,12 @@ ${model.body}
 The following is the data concerning the comments for the notification:`;
 
 		for (const [commentIndex, comment] of issueComments.entries()) {
-			const nonNullReactions = {};
-			const commentReactions = comment.reactions;
-			if (commentReactions) {
-				for (const reaction of Object.keys(commentReactions)) {
-					const count = commentReactions[reaction];
-					if (count > 0) {
-						nonNullReactions[reaction] = count;
-					}
-				}
-			}
-			let reactionMessage = '';
-			if (Object.keys(nonNullReactions).length > 0) {
-				reactionMessage = `
-• Reactions: `;
-				for (const reaction of Object.keys(nonNullReactions)) {
-					reactionMessage += `
-	• ${reaction}: ${nonNullReactions[reaction]} `;
-				}
-			}
 			commentsMessage += `
 
 Comment ${commentIndex + 1} for notification:
-• Author Association: ${comment.author_association}
 • Body:
 ${comment.body}
-` + reactionMessage;
+• Reaction Count: ${comment.reactionCount}`;
 		}
 		return commentsMessage;
 	}
