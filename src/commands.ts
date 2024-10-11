@@ -1431,7 +1431,23 @@ ${contents}
 				handler.applySuggestion(comment);
 			}
 		}));
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.applySuggestionWithCopilot', async (comment: GHPRComment) => {
+			/* __GDPR__
+				"pr.applySuggestionWithCopilot" : {}
+			*/
+			telemetry.sendTelemetryEvent('pr.applySuggestionWithCopilot');
 
+			const commentThread = comment.parent;
+			commentThread.hide();
+			const message = comment.body instanceof vscode.MarkdownString ? comment.body.value : comment.body;
+			await vscode.commands.executeCommand('vscode.editorChat.start', {
+				initialRange: commentThread.range,
+				message: message,
+				autoSend: true,
+			});
+		})
+	);
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.addFileComment', async () => {
 			return vscode.commands.executeCommand('workbench.action.addComment', { fileComment: true });

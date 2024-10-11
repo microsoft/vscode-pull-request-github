@@ -228,6 +228,7 @@
 	"command.pr.goToPreviousDiffInPr.title": "Go to Previous Diff in Pull Request",
 	"command.pr.copyCommentLink.title": "Copy Comment Link",
 	"command.pr.applySuggestion.title": "Apply Suggestion",
+	"command.pr.applySuggestionWithCopilot.title": "Apply Suggestion With Copilot",
 	"command.pr.addAssigneesToNewPr.title": "Add Assignees",
 	"command.pr.addReviewersToNewPr.title": "Add Reviewers",
 	"command.pr.addLabelsToNewPr.title": "Apply Labels",
