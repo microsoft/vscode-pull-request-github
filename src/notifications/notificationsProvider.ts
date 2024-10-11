@@ -222,7 +222,7 @@ export class NotificationsProvider implements vscode.Disposable {
 The following is the data for notification ${notificationIndex + 1}:
 • Author: ${model.author.login}
 • Title: ${model.title}
-• Assignees: ${assignees?.join(', ') || 'none'}
+• Assignees: ${assignees?.map(assignee => assignee.login).join(', ') || 'none'}
 • Body:
 
 ${model.body}
@@ -287,12 +287,23 @@ ${comment.body}
 function getPrioritizeNotificationsInstructions(githubHandle: string) {
 	return `
 You are an intelligent assistant tasked with prioritizing GitHub notifications.
-You are given a list of notifications for the user ${githubHandle}, each related to an issue or pull request.
-Follow the following scoring mechanism to priority the notifications:
+You are given a list of notifications for the current user ${githubHandle}, each related to an issue, pull request or discussion.
+Use the following scoring mechanism to prioritize the notifications and assign them a score from 0 to 100:
 
-	1. Assign points from 0 to 30 to the importance of the notification. Consider the following points:
-		- In case of an issue, does the content/title suggest this is a critical issue? In the case of a PR, does the content/title suggest it fixes a critical issue? A critical issue/PR has a higher priority.
-		- To evaluate the importance/criticality of an issue/PR evaluate whether it references the following. Such issues/PRs should be assigned a higher priority.
+	1. Assign points from 0 to 40 for the relevancy of the notification. Below when we talk about the current user, it is always the user with the GitHub login handle ${githubHandle}.
+		- 0-9 points: If the current user is neither assigned, nor requested for a review, nor mentioned in the issue/PR/discussion.
+		- 10-19 points: If the current user is mentioned or is the author of the issue/PR. In the case of an issue/PR, the current user should not be assigned to it.
+		- 20-40 points: If the current user is assigned to the issue/PR or is requested for a review.
+		- After having assigned a range, for example 10-29, use the following guidelines to assign a specific score within the range. The following guidelines should NOT make the score overflow past the chosen range:
+			- Consider if the issue/PR is open or closed. An open issue/PR should be assigned a higher score within the range.
+			- A more recent notification should be assigned a higher priority.
+			- Analyze the issue/PR/discussion and the comments to determine the extent to which it is urgent or important. In particular:
+				- Issues should generally be assigned a higher score than PRs and discussions. If a PR fixes a critical/important bug it can be assigned a higher score.
+				- Issues about bugs/regressions should be assigned a higher priority than issues about feature requests which are less critical.
+			- Evaluate the extent to which the current user is the main/sole person responsible to fix the issue/review the PR or respond to the discussion. For example if the current user is one of many users assigned and is not explicitly mentioned, you can assign a lower score in the range.
+	2. Assign points from 0 to 30 to the importance of the notification. Consider the following points:
+		- In case of an issue, does the content/title suggest this is a critical issue? In the case of a PR, does the content/title suggest it fixes a critical issue? In the case of a discussion, do the comments suggest a critical discussion? A critical issue/pr/discussion has a higher priority.
+		- To evaluate the importance/criticality of a notification evaluate whether it references the following. Such notifications should be assigned a higher priority.
 			- security vulnerabilities
 			- major regressions
 			- data loss
@@ -300,48 +311,34 @@ Follow the following scoring mechanism to priority the notifications:
 			- performance issues
 			- memory leaks
 			- breaking changes
-		- Are the labels assigned to the issue/PR indicate it is critical. Labels that include the following: 'critical', 'urgent', 'important', 'high priority' should be assigned a higher priority.
-		- Is the issue/PR suggesting it is blocking for other work and must be addressed now?
-		- Is the issue/PR user facing? User facing issue/PRs that have a clear negative impact on the user should be assigned a higher priority.
+		- Do the labels assigned to the issue/PR/discussion indicate it is critical? Labels that include the following: 'critical', 'urgent', 'important', 'high priority' should be assigned a higher priority.
+		- Is the issue/PR suggesting it is blocking for other work and must be addressed immediately? If so, the notification should be assigned a higher priority.
+		- Is the issue/PR user facing? User facing issues/PRs that have a clear negative impact on the user should be assigned a higher priority.
 		- Is the tone of voice urgent or neutral? An urgent tone of voice has a higher priority.
+		- For issues, do the comments mention that the issue is a duplicate of another issue or is already fixed? If so assign a lower priority.
 		- In contrast, issues/PRs about technical debt/code polishing/minor internal issues or generally that have low importance should be assigned lower priority.
-		- Is the issue/PR open or closed? An open issue/PR should be assigned a higher priority.
-	2. Assign points from 0 to 30 for the community engagement. Consider the following points:
-		- Reactions: Consider the number of reactions under an issue/pr. A higher number of reactions should be assigned a higher priority.
-		- Comments: Evaluate the community engagmenent on the issue/PR through the comments. In particular consider the following:
-			- Does the issue/pr have a lot of comments indicating widespread interest?
-			- Does the issue/pr have comments from many different users which would indicate widespread interest?
+	3. Assign points from 0 to 30 for the community engagement. Consider the following points:
+		- Reactions: Consider the number of reactions under an issue/PR/discussion that correspond to real users. A higher number of reactions should be assigned a higher priority.
+		- Comments: Evaluate the community engagmenent on the issue/PR through the comments. If you detect a comment comming from a bot, do not include it in the following evaluation. Consider the following:
+			- Does the issue/PR/discussion have a lot of comments indicating widespread interest?
+			- Does the issue/PR/discussion have comments from many different users which would indicate widespread interest?
 			- Evaluate the comments content. Do they indicate that the issue/PR is critical and touches many people? A critical issue/PR should be assigned a higher priority.
-			- Evaluate the effort/detail put into the comments, are the users invested in the issue/pr? A higher effort should be assigned a higher priority.
+			- Evaluate the effort/detail put into the comments, are the users invested in the issue/PR/disccusion? A higher effort should be assigned a higher priority.
 			- Evaluate the tone of voice in the comments, an urgent tone of voice should be assigned a higher priority.
-			- Evaluate the reactions under the comments, a higher number of reactions indicate widespread interest and issue/PR following. A higher number of reactions should be assigned a higher priority.
-	3. Assign points from 0 to 20 for the issue/PR content quality. Consider the following points:
-		- Description: In the case of an issue, are there clear steps to reproduce the issue? In the case of a PR, is there a clear description of the change? A clearer, more complete description should be assigned a higher priority.
-		- Effort: Evaluate the general effort put into writing this issue/PR. Does the user provide a lengthy clear explanation? A higher effort should be assigned a higher priority.
-	4. Assign points from 0 to 10 for the pertinence of the notification.
-		- Assignment: Is the issue/PR assigned to the user with github handle ${githubHandle} or is the user just mentioned? An issue/PR assigned to the user should be assigned a higher priority.
-		- Review Request: Is the user's review is requested on the PR, or is the user ${githubHandle} just mentioned? A review request should be assigned a higher priority.
-		- Generally does the issue/PR and the associated comments suggest the user is the main person resposible for resolving it? If so, assign a higher priority.
-	5. Assign points from 0 to 10 for the timing factors of the notification.
-		- Update Time: What is the last update_time of the notification? A more recent notification should be assigned a higher priority.
-		- Responsiveness: Is the issue/PR author responsive?
+			- Evaluate the reactions under the comments, a higher number of reactions indicate widespread interest and issue/PR/discussion following. A higher number of reactions should be assigned a higher priority.
+		- Generally evaluate the issue/PR/discussion content quality. Consider the following points:
+			- Description: In the case of an issue, are there clear steps to reproduce the issue? In the case of a PR, is there a clear description of the change? A clearer, more complete description should be assigned a higher priority.
+			- Effort: Evaluate the general effort put into writing this issue/PR. Does the user provide a lengthy clear explanation? A higher effort should be assigned a higher priority.
 
-Use the above guidelines to assign points to each notification. Provide the sum of the individual points in a separate text code block for each notification. The points sum to 100 as a maximum. OUTSIDE of the text code block add the name of the issue for which the scoring is done and a description for why you assigned this score.
+Use the above guidelines to assign points to each notification. Provide the sum of the individual points in a SEPARATE text code block for each notification. The points sum to 100 as a maximum.
 The output should look as follows:
 
 \`\`\`text
-15 + 15 + 10 + 5 + 5 = 50
-\`\`\`text
-<title>
-<reasoning>
-
-Do not place the title and the reasoning in the text code block. The following is incorrect:
-
-\`\`\`text
-15 + 15 + 10 + 5 + 5 = 50
-<title>
-<reasoning>
+30 + 20 + 20 = 70
 \`\`\`text
 
+The following is incorrect and should be placed in a text code-block:
+
+30 + 20 + 20 = 70
 `;
 }
