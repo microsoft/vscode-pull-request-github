@@ -1485,12 +1485,6 @@
 				"icon": "$(sparkle)"
 			},
 			{
-				"command": "notifications.prioritize",
-				"title": "%command.notifications.prioritize.title%",
-				"category": "%command.notifications.category%",
-				"icon": "$(sparkle)"
-			},
-			{
 				"command": "notifications.refresh",
 				"title": "%command.notifications.refresh.title%",
 				"category": "%command.notifications.category%",
@@ -1499,6 +1493,16 @@
 			{
 				"command": "notifications.loadMore",
 				"title": "%command.notifications.loadMore.title%",
+				"category": "%command.notifications.category%"
+			},
+			{
+				"command": "notifications.sortByTimestamp",
+				"title": "%command.notifications.sortByTimestamp.title%",
+				"category": "%command.notifications.category%"
+			},
+			{
+				"command": "notifications.sortByPriority",
+				"title": "%command.notifications.sortByPriority.title%",
 				"category": "%command.notifications.category%"
 			}
 		],
@@ -2125,7 +2129,15 @@
 					"when": "false"
 				},
 				{
-					"command": "notifications.prioritize",
+					"command": "notifications.sortByTimestamp",
+					"when": "false"
+				},
+				{
+					"command": "notifications.sortByPriority",
+					"when": "false"
+				},
+				{
+					"command": "notifications.loadMore",
 					"when": "false"
 				},
 				{
@@ -2240,14 +2252,19 @@
 					"group": "navigation"
 				},
 				{
-					"command": "notifications.prioritize",
-					"when": "view == notifications:github",
-					"group": "navigation@1"
+					"command": "notifications.sortByTimestamp",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
+					"group": "sortNotifications@1"
+				},
+				{
+					"command": "notifications.sortByPriority",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
+					"group": "sortNotifications@2"
 				},
 				{
 					"command": "notifications.refresh",
-					"when": "view == notifications:github",
-					"group": "navigation@2"
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
+					"group": "navigation@1"
 				}
 			],
 			"view/item/context": [

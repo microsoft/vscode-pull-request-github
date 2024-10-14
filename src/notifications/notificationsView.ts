@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { NotificationsProvider, NotificationTreeItem, } from './notificationsProvider';
+import { NotificationsProvider, NotificationsSortMethod, NotificationTreeItem, } from './notificationsProvider';
 
 class LoadMoreNotificationsTreeItem { }
 
@@ -15,6 +15,8 @@ type NotificationTreeDataItem = NotificationTreeItem | LoadMoreNotificationsTree
 export class NotificationsTreeData implements vscode.TreeDataProvider<NotificationTreeDataItem> {
 	private _onDidChangeTreeData: vscode.EventEmitter<NotificationTreeDataItem | undefined | void> = new vscode.EventEmitter<NotificationTreeDataItem | undefined | void>();
 	readonly onDidChangeTreeData: vscode.Event<NotificationTreeDataItem | undefined | void> = this._onDidChangeTreeData.event;
+
+	private _sortByMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
 
 	constructor(private readonly _notificationsProvider: NotificationsProvider) { }
 
@@ -58,7 +60,7 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 		if (element !== undefined) {
 			return undefined;
 		}
-		const result = await this._notificationsProvider.getNotifications();
+		const result = await this._notificationsProvider.getNotifications(this._sortByMethod);
 		if (!result) {
 			return undefined;
 		}
@@ -67,6 +69,16 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 			return [...result, new LoadMoreNotificationsTreeItem()];
 		}
 		return result;
+	}
+
+	sortByTimestamp(): void {
+		this._sortByMethod = NotificationsSortMethod.Timestamp;
+		this.refresh();
+	}
+
+	sortByPriority(): void {
+		this._sortByMethod = NotificationsSortMethod.Priority;
+		this.refresh();
 	}
 
 	refresh(): void {

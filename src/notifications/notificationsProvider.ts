@@ -14,6 +14,11 @@ import { RepositoriesManager } from '../github/repositoriesManager';
 import { hasEnterpriseUri } from '../github/utils';
 import { concatAsyncIterable } from '../lm/tools/toolsUtils';
 
+export enum NotificationsSortMethod {
+	Timestamp = 'Timestamp',
+	Priority = 'Priority'
+}
+
 export class NotificationTreeItem {
 
 	public priority: string | undefined;
@@ -127,7 +132,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		this._notifications.clear();
 	}
 
-	public async getNotifications(): Promise<NotificationTreeItem[] | undefined> {
+	public async getNotifications(notificationSortMethod: NotificationsSortMethod): Promise<NotificationTreeItem[] | undefined> {
 		const gitHub = this._getGitHub();
 		if (gitHub === undefined) {
 			return undefined;
@@ -137,16 +142,18 @@ export class NotificationsProvider implements vscode.Disposable {
 		}
 		const notifications = await this._getResolvedNotifications(gitHub);
 		const filteredNotifications = notifications.filter(notification => notification !== undefined) as NotificationTreeItem[];
-		const models = await vscode.lm.selectChatModels({
-			vendor: 'copilot',
-			family: 'gpt-4o'
-		});
-		const model = models[0];
-		if (model) {
-			try {
-				return this._prioritizeNotificationsWithLLM(filteredNotifications, model);
-			} catch (e) {
-				return this._sortNotificationsByTimestamp(filteredNotifications);
+		if (notificationSortMethod === NotificationsSortMethod.Priority) {
+			const models = await vscode.lm.selectChatModels({
+				vendor: 'copilot',
+				family: 'gpt-4o'
+			});
+			const model = models[0];
+			if (model) {
+				try {
+					return this._prioritizeNotificationsWithLLM(filteredNotifications, model);
+				} catch (e) {
+					return this._sortNotificationsByTimestamp(filteredNotifications);
+				}
 			}
 		}
 		return this._sortNotificationsByTimestamp(filteredNotifications);

@@ -31,13 +31,26 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 		// Commands
 		this._disposables.push(
 			vscode.commands.registerCommand(
-				'notifications.prioritize',
+				'notifications.sortByTimestamp',
 				async () => {
 					/* __GDPR__
-						"notifications.prioritize" : {}
+						"notifications.sortByTimestamp" : {}
 					*/
-					this._telemetry.sendTelemetryEvent('notifications.prioritize');
-					return dataProvider.refresh();
+					this._telemetry.sendTelemetryEvent('notifications.sortByTimestamp');
+					return dataProvider.sortByTimestamp();
+				},
+				this,
+			),
+		);
+		this._disposables.push(
+			vscode.commands.registerCommand(
+				'notifications.sortByPriority',
+				async () => {
+					/* __GDPR__
+						"notifications.sortByTimestamp" : {}
+					*/
+					this._telemetry.sendTelemetryEvent('notifications.sortByTimestamp');
+					return dataProvider.sortByPriority();
 				},
 				this,
 			),
