@@ -3023,16 +3023,16 @@
 		],
 		"languageModelTools": [
 			{
-				"id": "github-pull-request_issue",
+				"name": "github-pull-request_issue",
 				"tags": [
 					"github",
 					"issues"
 				],
-				"name": "issue",
+				"toolReferenceName": "issue",
 				"displayName": "Get GitHub Issue",
 				"modelDescription": "A GitHub issue, which includes the title, body, and comments.",
 				"icon": "$(info)",
-				"canBeInvokedManually": true,
+				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
 					"type": "object",
 					"properties": {
@@ -3069,16 +3069,16 @@
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
-				"id": "github-pull-request_suggest-fix",
+				"name": "github-pull-request_suggest-fix",
 				"tags": [
 					"github",
 					"issues"
 				],
-				"name": "suggest-fix",
+				"toolReferenceName": "suggest-fix",
 				"displayName": "Suggest a Fix for a GitHub Issue",
 				"modelDescription": "Summarize and suggest a fix for a GitHub issue.",
 				"icon": "$(info)",
-				"canBeInvokedManually": true,
+				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
 					"type": "object",
 					"properties": {
@@ -3116,7 +3116,7 @@
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
-				"id": "github-pull-request_formSearchQuery",
+				"name": "github-pull-request_formSearchQuery",
 				"tags": [
 					"github",
 					"issues",
@@ -3124,11 +3124,11 @@
 					"query",
 					"natural language"
 				],
-				"name": "searchSyntax",
+				"toolReferenceName": "searchSyntax",
 				"displayName": "Convert natural language to a GitHub search query",
 				"modelDescription": "Converts natural language to a GitHub search query. Should ALWAYS be called before doing a search.",
 				"icon": "$(search)",
-				"canBeInvokedManually": true,
+				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
 					"type": "object",
 					"properties": {
@@ -3166,17 +3166,17 @@
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
-				"id": "github-pull-request_doSearch",
+				"name": "github-pull-request_doSearch",
 				"tags": [
 					"github",
 					"issues",
 					"search"
 				],
-				"name": "doSearch",
+				"toolReferenceName": "doSearch",
 				"displayName": "Execute a GitHub search",
 				"modelDescription": "Execute a GitHub search given a well formed GitHub search query. Call github-pull-request_formSearchQuery first to get good search syntax and pass the exact result in as the 'query'.",
 				"icon": "$(search)",
-				"canBeInvokedManually": true,
+				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
 					"type": "object",
 					"properties": {
@@ -3214,18 +3214,18 @@
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
-				"id": "github-pull-request_renderIssues",
+				"name": "github-pull-request_renderIssues",
 				"tags": [
 					"github",
 					"issues",
 					"render",
 					"display"
 				],
-				"name": "renderIssues",
+				"toolReferenceName": "renderIssues",
 				"displayName": "Render issue items in a markdown table.",
 				"modelDescription": "Render issue items from an issue search in a markdown table.",
 				"icon": "$(paintcan)",
-				"canBeInvokedManually": true,
+				"canBeReferencedInPrompt": false,
 				"parametersSchema": {
 					"type": "object",
 					"properties": {
