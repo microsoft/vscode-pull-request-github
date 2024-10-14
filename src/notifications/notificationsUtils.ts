@@ -25,6 +25,8 @@ export class NotificationTreeItem {
 
 	public priority: string | undefined;
 
+	public priorityReasoning: string | undefined;
+
 	constructor(
 		readonly id: string,
 		readonly subject: {

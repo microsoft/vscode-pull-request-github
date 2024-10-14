@@ -15,7 +15,7 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 	private _onDidChangeTreeData: vscode.EventEmitter<NotificationTreeDataItem | undefined | void> = new vscode.EventEmitter<NotificationTreeDataItem | undefined | void>();
 	readonly onDidChangeTreeData: vscode.Event<NotificationTreeDataItem | undefined | void> = this._onDidChangeTreeData.event;
 
-	private _sortByMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
+	private _sortingMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
 
 	constructor(private readonly _notificationsProvider: NotificationsProvider) { }
 
@@ -42,6 +42,9 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 		}
 		item.description = `${element.repository.owner.login}/${element.repository.name}`;
 		item.contextValue = element.subject.type;
+		if (element.priorityReasoning) {
+			item.tooltip = element.priorityReasoning;
+		}
 		return item;
 	}
 
@@ -59,7 +62,7 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 		if (element !== undefined) {
 			return undefined;
 		}
-		const result = await this._notificationsProvider.getNotifications(this._sortByMethod);
+		const result = await this._notificationsProvider.getNotifications(this._sortingMethod);
 		if (!result) {
 			return undefined;
 		}
@@ -71,12 +74,12 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 	}
 
 	sortByTimestamp(): void {
-		this._sortByMethod = NotificationsSortMethod.Timestamp;
+		this._sortingMethod = NotificationsSortMethod.Timestamp;
 		this.refresh();
 	}
 
 	sortByPriority(): void {
-		this._sortByMethod = NotificationsSortMethod.Priority;
+		this._sortingMethod = NotificationsSortMethod.Priority;
 		this.refresh();
 	}
 

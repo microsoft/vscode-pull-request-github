@@ -69,7 +69,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		this._notifications.clear();
 	}
 
-	public async getNotifications(notificationSortMethod: NotificationsSortMethod): Promise<NotificationTreeItem[] | undefined> {
+	public async getNotifications(sortingMethod: NotificationsSortMethod): Promise<NotificationTreeItem[] | undefined> {
 		const gitHub = this._getGitHub();
 		if (gitHub === undefined) {
 			return undefined;
@@ -79,7 +79,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		}
 		const notifications = await this._getResolvedNotifications(gitHub);
 		const filteredNotifications = notifications.filter(notification => notification !== undefined) as NotificationTreeItem[];
-		if (notificationSortMethod === NotificationsSortMethod.Priority) {
+		if (sortingMethod === NotificationsSortMethod.Priority) {
 			const models = await vscode.lm.selectChatModels({
 				vendor: 'copilot',
 				family: 'gpt-4o'
@@ -275,9 +275,14 @@ ${comment.body}
 	private _updateNotificationsWithPriorityFromLLM(notifications: NotificationTreeItem[], text: string): NotificationTreeItem[] {
 		const regex = /```text\s*[\s\S]+?\s*=\s*([\S]+?)\s*```/gm;
 		for (let i = 0; i < notifications.length; i++) {
-			const execResult = regex.exec(text);
-			if (execResult) {
-				notifications[i].priority = execResult[1];
+			const execResultForPriority = regex.exec(text);
+			if (execResultForPriority) {
+				notifications[i].priority = execResultForPriority[1];
+				const regex = /```(?!text)([\s\S]+?)###/gm;
+				const execResultForPriorityReasoning = regex.exec(text);
+				if (execResultForPriorityReasoning) {
+					notifications[i].priorityReasoning = execResultForPriorityReasoning[1].trim();
+				}
 			}
 		}
 		return notifications;
@@ -335,14 +340,19 @@ Use the following scoring mechanism to prioritize the notifications and assign t
 			- Effort: Evaluate the general effort put into writing this issue/PR. Does the user provide a lengthy clear explanation? A higher effort should be assigned a higher priority.
 
 Use the above guidelines to assign points to each notification. Provide the sum of the individual points in a SEPARATE text code block for each notification. The points sum to 100 as a maximum.
-The output should look as follows:
+After the text code block containing the priority, add a detailed summary of the notification and generally explain why it is important or not, do NOT reference the scoring mechanism above. This summary and reasoning will be displayed to the user.
+The output should look as follow. Here <summary + reasoning> corresponds to your summary and reasoning and <title> corresponds to the notification title. The title should be placed after three hashtags:
 
+### <title>
 \`\`\`text
 30 + 20 + 20 = 70
 \`\`\`text
+<summary + reasoning>
 
-The following is incorrect and should be placed in a text code-block:
+The following is INCORRECT:
 
+<title>
 30 + 20 + 20 = 70
+<summary + reasoning>
 `;
 }
