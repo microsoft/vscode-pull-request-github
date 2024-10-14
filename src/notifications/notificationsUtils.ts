@@ -12,14 +12,14 @@ export interface NotificationsPaginationRange {
 	endPage: number;
 }
 
-export class LoadMoreNotificationsTreeItem { }
-
-export type NotificationTreeDataItem = NotificationTreeItem | LoadMoreNotificationsTreeItem;
-
 export enum NotificationsSortMethod {
 	Timestamp = 'Timestamp',
 	Priority = 'Priority'
 }
+
+export type NotificationTreeDataItem = NotificationTreeItem | LoadMoreNotificationsTreeItem;
+
+export class LoadMoreNotificationsTreeItem { }
 
 export class NotificationTreeItem {
 

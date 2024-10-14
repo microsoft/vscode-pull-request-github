@@ -21,7 +21,7 @@ export class NotificationsProvider implements vscode.Disposable {
 
 	private readonly _disposables: vscode.Disposable[] = [];
 
-	private readonly _paginationRange: NotificationsPaginationRange = {
+	private readonly _notificationsPaginationRange: NotificationsPaginationRange = {
 		startPage: 1,
 		endPage: 1
 	}
@@ -101,12 +101,12 @@ export class NotificationsProvider implements vscode.Disposable {
 	}
 
 	public loadMore(): void {
-		this._paginationRange.endPage += 1;
+		this._notificationsPaginationRange.endPage += 1;
 	}
 
 	private async _getResolvedNotifications(gitHub: GitHub): Promise<(NotificationTreeItem | undefined)[]> {
 		const notificationPromises: Promise<(NotificationTreeItem | undefined)[]>[] = [];
-		for (let i = this._paginationRange.startPage; i <= this._paginationRange.endPage; i++) {
+		for (let i = this._notificationsPaginationRange.startPage; i <= this._notificationsPaginationRange.endPage; i++) {
 			notificationPromises.push(this._getResolvedNotificationsForPage(gitHub, i));
 		}
 		return (await Promise.all(notificationPromises)).flat();
