@@ -2294,7 +2294,7 @@
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:(active|nonactive):hasChangesSinceReview:showingChangesSinceReview/"
 				},
 				{
-					"command": "pr.openDescription",
+					"command": "pr.openPullRequestOnGitHub",
 					"group": "inline@1",
 					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
 				},

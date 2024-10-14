@@ -19,8 +19,6 @@ import { EXTENSION_ID } from './constants';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
 import { PullRequest } from './github/interface';
-import { IssueModel } from './github/issueModel';
-import { IssueOverviewPanel } from './github/issueOverview';
 import { NotificationProvider } from './github/notifications';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
@@ -64,26 +62,22 @@ function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode | Pull
 
 export async function openDescription(
 	telemetry: ITelemetry,
-	pullRequestModel: PullRequestModel | IssueModel,
+	pullRequestModel: PullRequestModel,
 	descriptionNode: DescriptionNode | undefined,
 	folderManager: FolderRepositoryManager,
 	revealNode: boolean,
 	preserveFocus: boolean = true,
 	notificationProvider?: NotificationProvider
 ) {
-	if (pullRequestModel instanceof PullRequestModel) {
-		const pullRequest = ensurePR(folderManager, pullRequestModel);
-		if (revealNode) {
-			descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
-		}
-		// Create and show a new webview
-		await PullRequestOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, pullRequest, undefined, preserveFocus);
+	const pullRequest = ensurePR(folderManager, pullRequestModel);
+	if (revealNode) {
+		descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
+	}
+	// Create and show a new webview
+	await PullRequestOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, pullRequest, undefined, preserveFocus);
 
-		if (notificationProvider?.hasNotification(pullRequest)) {
-			notificationProvider.markPrNotificationsAsRead(pullRequest);
-		}
-	} else {
-		await IssueOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, pullRequestModel, undefined);
+	if (notificationProvider?.hasNotification(pullRequest)) {
+		notificationProvider.markPrNotificationsAsRead(pullRequest);
 	}
 
 	/* __GDPR__
@@ -112,9 +106,11 @@ async function chooseItem<T>(
 	return (await vscode.window.showQuickPick(items, options))?.itemValue;
 }
 
-export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | PullRequestModel, telemetry: ITelemetry) {
+export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | PullRequestModel | NotificationTreeItem, telemetry: ITelemetry) {
 	if (e instanceof PRNode || e instanceof DescriptionNode) {
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.html_url));
+	} else if (e instanceof NotificationTreeItem) {
+		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.model.html_url));
 	} else {
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.html_url));
 	}
@@ -135,7 +131,7 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openPullRequestOnGitHub',
-			async (e: PRNode | DescriptionNode | PullRequestModel | undefined) => {
+			async (e: PRNode | DescriptionNode | PullRequestModel | NotificationTreeItem | undefined) => {
 				if (!e) {
 					const activePullRequests: PullRequestModel[] = reposManager.folderManagers
 						.map(folderManager => folderManager.activePullRequest!)
@@ -780,8 +776,8 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openDescription',
-			async (argument: DescriptionNode | PullRequestModel | NotificationTreeItem | undefined) => {
-				let pullRequestModel: PullRequestModel | IssueModel | undefined;
+			async (argument: DescriptionNode | PullRequestModel | undefined) => {
+				let pullRequestModel: PullRequestModel | undefined;
 				if (!argument) {
 					const activePullRequests: PullRequestModel[] = reposManager.folderManagers
 						.map(manager => manager.activePullRequest!)
@@ -795,8 +791,6 @@ export function registerCommands(
 				} else {
 					if (argument instanceof DescriptionNode) {
 						pullRequestModel = argument.pullRequestModel;
-					} else if (argument instanceof NotificationTreeItem) {
-						pullRequestModel = argument.model;
 					} else {
 						pullRequestModel = argument;
 					}
