@@ -28,6 +28,18 @@ interface ConvertToQuerySyntaxResult {
 	};
 }
 
+enum ValidatableProperty {
+	is = 'is',
+	type = 'type',
+	state = 'state',
+	in = 'in',
+	linked = 'linked',
+	status = 'status',
+	draft = 'draft',
+	review = 'review',
+	no = 'no',
+}
+
 export class ConvertToSearchSyntaxTool extends ToolBase<ConvertToQuerySyntaxParameters> {
 	static ID = 'ConvertToSearchSyntaxTool';
 	constructor(private readonly repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
@@ -44,7 +56,6 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 - Ignore display information.
 - Respond with only the query.
 - Always include a "sort:" parameter.
-- Unless the user indicates "all issues", only include open issues.
 - Here are some examples of valid queries:
 	- repo:microsoft/vscode is:issue state:open sort:updated-asc
 	- mentions:@me org:microsoft is:issue state:open sort:updated
@@ -54,69 +65,48 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 - Go through each word of the natural language query and try to match it to a syntax component.
 - As a reminder, here are the components of the query syntax:
 	Filters:
-		- is: (issue, pr, draft, public, private, locked, unlocked)
-		- assignee:
-		- author:
-		- mentions:
-		- team:
-		- commenter:
-		- involves:
-		- label:
-		- type: (pr, issue)
-		- state: (open, closed, merged)
-		- in: (title, body, comments)
-		- user:
-		- org: (owner)
-		- repo: (name)
-		- linked: (pr, issue)
-		- milestone:
-		- project:
-		- status: (success, failure, pending)
-		- head:
-		- base:
-		- comments: (n)
-		- interactions: (n)
-		- reactions: (n)
-		- draft: (true, false)
-		- review: (none, required, approved, changes_requested)
-		- reviewed-by:
-		- review-requested:
-		- user-review-requested:
-		- team-review-requested:
-		- created:
-		- updated:
-		- closed:
-		- no: (label, milestone, assignee, project)
-		- sort:
+| Property 	| Possible Values | Value Description |
+|-----------|-----------------|-------------------|
+| is 		| issue, pr, draft, public, private, locked, unlocked |  |
+| assignee 	|  | A GitHub user name |
+| author 	|  | A GitHub user name |
+| mentions 	|  | A GitHub user name |
+| team 		|  | A GitHub user name |
+| commenter |  | A GitHub user name |
+| involves 	|  | A GitHub user name |
+| label		|  | A GitHub issue/pr label |
+| type 		| pr, issue |  |
+| state 	|  open, closed, merged |  |
+| in 		| title, body, comments |  |
+| user 		|  | A GitHub user name |
+| org 		| | A GitHub org, without the repo name |
+| repo 		| | A GitHub repo, without the org name |
+| linked 	| pr, issue |  |
+| milestone |  | A GitHub milestone |
+| project 	|  | A GitHub project  |
+| status 	| success, failure, pending |  |
+| head 		|  | A git commit sha or branch name |
+| base 		|  | A git commit sha or branch name |
+| comments  | | A number |
+| interactions |  | A number |
+| reactions |  | A number |
+| draft 	| true, false |  |
+| review 	| none, required, approved, changes_requested |  |
+| reviewed-by |  | A GitHub user name |
+| review-requested |  | A GitHub user name |
+| user-review-requested |  | A GitHub user name |
+| team-review-requested |  | A GitHub user name |
+| created 	|  | A date, with an optional < > |
+| updated 	|  | A date, with an optional < > |
+| closed 	|  | A date, with an optional < > |
+| no 		|  label, milestone, assignee, project |  |
+| sort 		| updated, updated-asc, interactions, interactions-asc, author-date, author-date-asc, committer-date, committer-date-asc, reactions, reactions-asc, reactions-(+1, -1, smile, tada, heart) |  |
 
-		Value Qualifiers:
-		- >n
-		- >=n
-		- <n
-		- <=n
-		- n..*
-		- *..n
-		- n..n
-		- YYYY-MM-DD
-
-		Logical Operators:
+	Logical Operators:
 		- -
 
-		Special Values:
+	Special Values:
 		- @me
-
-		Sort Values:
-		- interactions
-		- interactions-asc
-		- reactions
-		- reactions-asc
-		- reactions- (+1, -1, smile, tada, heart)
-		- author-date
-		- author-date-asc
-		- committer-date
-		- committer-date-asc
-		- updated
-		- updated-asc
 `;
 	}
 
@@ -129,11 +119,27 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 You are an expert on choosing search keywords based on a natural language search query. Here are some rules to follow:
 - Choose labels based on what the user wants to search for, not based on the actual words in the query.
 - Labels will be and-ed together, so don't pick a bunch of super specific labels.
+- Try to pick just one label.
 - Respond with a space-separated list of labels: Examples: 'bug polish', 'accessibility "feature accessibility"'
 - Only choose labels that you're sure are relevant. Having no labels is preferable than lables that aren't relevant.
 - Respond with labels chosen from these options:
 ${labels.map(label => label.name).filter(label => !label.includes('required') && !label.includes('search') && !label.includes('question') && !label.includes('find')).join(', ')}
 `;
+	}
+
+	private freeFormAssistantPrompt(): string {
+		return `Instructions:
+You are getting ready to make a GitHub search query. Given a natural language query, you should find any key words that might be good for searching:
+- Only include a max of 1 key word that is relevant to the search query.
+- Don't refer to issue numbers.
+- Don't refer to product names.
+- Respond with only your chosen key word.
+- It is okay to return no key words if there are none that are good for searching.
+`;
+	}
+
+	private freeFormUserPrompt(originalUserPrompt: string): string {
+		return `The best search keywords in "${originalUserPrompt}" are:`;
 	}
 
 	private labelsUserPrompt(originalUserPrompt: string): string {
@@ -145,6 +151,31 @@ ${labels.map(label => label.name).filter(label => !label.includes('required') &&
 		return `Pretend today's date is ${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}, but only include it if needed. How should this be converted to a GitHub issue search query? ${originalUserPrompt}`;
 	}
 
+	private validateSpecificQueryPart(property: ValidatableProperty | string, value: string): boolean {
+		switch (property) {
+			case ValidatableProperty.is:
+				return value === 'issue' || value === 'pr' || value === 'draft' || value === 'public' || value === 'private' || value === 'locked' || value === 'unlocked';
+			case ValidatableProperty.type:
+				return value === 'pr' || value === 'issue';
+			case ValidatableProperty.state:
+				return value === 'open' || value === 'closed' || value === 'merged';
+			case ValidatableProperty.in:
+				return value === 'title' || value === 'body' || value === 'comments';
+			case ValidatableProperty.linked:
+				return value === 'pr' || value === 'issue';
+			case ValidatableProperty.status:
+				return value === 'success' || value === 'failure' || value === 'pending';
+			case ValidatableProperty.draft:
+				return value === 'true' || value === 'false';
+			case ValidatableProperty.review:
+				return value === 'none' || value === 'required' || value === 'approved' || value === 'changes_requested';
+			case ValidatableProperty.no:
+				return value === 'label' || value === 'milestone' || value === 'assignee' || value === 'project';
+			default:
+				return true;
+		}
+	}
+
 	private validateLabelsList(labelsList: string, allLabels: ILabel[]): string {
 		// I wrote everything for AND and OR, but it isn't supported with GraphQL.
 		// Leaving it in for now in case we switch to REST.
@@ -152,7 +183,7 @@ ${labels.map(label => label.name).filter(label => !label.includes('required') &&
 			return labelOrOperator === 'AND' || labelOrOperator === 'OR';
 		};
 
-		const labelsAndOperators = labelsList.split(' ').map(label => label.trim());
+		const labelsAndOperators = labelsList.split(/(?!\B"[^"]*)\s+(?![^"]*"\B)/).map(label => label.trim());
 		let goodLabels: string[] = [];
 		for (let labelOrOperator of labelsAndOperators) {
 			if (isAndOrOr(labelOrOperator)) {
@@ -166,7 +197,7 @@ ${labels.map(label => label.name).filter(label => !label.includes('required') &&
 				continue;
 			}
 			// Make sure it does start with `label:`
-			const labelPrefixRegex = /^label:([^ ]+)/;
+			const labelPrefixRegex = /^label:(?!\B"[^"]*)\s+(?![^"]*"\B)/;
 			const labelPrefixMatch = labelOrOperator.match(labelPrefixRegex);
 			let label = labelOrOperator;
 			if (labelPrefixMatch) {
@@ -182,24 +213,42 @@ ${labels.map(label => label.name).filter(label => !label.includes('required') &&
 		return goodLabels.join(' ');
 	}
 
-	private processInLabelsPart(query: string, labelsList: string, allLabels: ILabel[]) {
-		const validLables = this.validateLabelsList(labelsList, allLabels);
-		if (validLables.length === 0) {
-			return query;
-		}
+	private validateQuery(query: string, labelsList: string, allLabels: ILabel[]) {
 		// Remove all labels from the query
-		query = query.replace(/\slabel:([^ ]+)/g, '');
+		query = query.replace(/\slabel:([^ ]+|"[^"]+")/g, '');
+
+		let reformedQuery = '';
+		const queryParts = query.split(' ');
+		// Only keep property:value pairs and '-', no reform allowed here.
+		for (const part of queryParts) {
+			if (part.startsWith('label:')) {
+				continue;
+			}
+			const propAndVal = part.split(':');
+			if (propAndVal.length === 2) {
+				const label = propAndVal[0];
+				const value = propAndVal[1];
+				if (!this.validateSpecificQueryPart(label, value)) {
+					continue;
+				}
+			} else if (!part.startsWith('-')) {
+				continue;
+			}
+			reformedQuery = `${reformedQuery} ${part}`;
+		}
+
+		const validLabels = this.validateLabelsList(labelsList, allLabels);
 		// Add the valid labels back
-		query = `${query} ${validLables}`;
-		return query;
+		reformedQuery = `${reformedQuery} ${validLabels}`;
+		return reformedQuery.trim();
 	}
 
-	private postProcess(queryPart: string, labelsList: string, allLabels: ILabel[]): ConvertToQuerySyntaxResult | undefined {
+	private postProcess(queryPart: string, freeForm: string, labelsList: string, allLabels: ILabel[]): ConvertToQuerySyntaxResult | undefined {
 		const query = this.findQuery(queryPart);
 		if (!query) {
 			return;
 		}
-		const fixedLabels = this.processInLabelsPart(query, labelsList, allLabels);
+		const fixedLabels = `${this.validateQuery(query, labelsList, allLabels)} ${freeForm}`;
 		const fixedRepo = this.fixRepo(fixedLabels);
 		return fixedRepo;
 	}
@@ -263,6 +312,13 @@ ${labels.map(label => label.name).filter(label => !label.includes('required') &&
 		return concatAsyncIterable(response.text);
 	}
 
+	private async generateFreeFormQuery(folderManager: FolderRepositoryManager, chatOptions: vscode.LanguageModelChatRequestOptions, model: vscode.LanguageModelChat, naturalLanguageString: string, token: vscode.CancellationToken): Promise<string> {
+		const messages = [vscode.LanguageModelChatMessage.Assistant(this.freeFormAssistantPrompt())];
+		messages.push(vscode.LanguageModelChatMessage.User(this.freeFormUserPrompt(naturalLanguageString)));
+		const response = await model.sendRequest(messages, chatOptions, token);
+		return concatAsyncIterable(response.text);
+	}
+
 	private async generateQuery(folderManager: FolderRepositoryManager, chatOptions: vscode.LanguageModelChatRequestOptions, model: vscode.LanguageModelChat, naturalLanguageString: string, token: vscode.CancellationToken): Promise<string> {
 		const messages = [vscode.LanguageModelChatMessage.Assistant(await this.fullQueryAssistantPrompt(folderManager))];
 		messages.push(vscode.LanguageModelChatMessage.User(this.fullQueryUserPrompt(naturalLanguageString)));
@@ -278,7 +334,7 @@ ${labels.map(label => label.name).filter(label => !label.includes('required') &&
 		let owner: string | undefined;
 		let name: string | undefined;
 		let folderManager: FolderRepositoryManager | undefined;
-		const firstUserMessage = this.chatParticipantState.firstUserMessage ?? options.parameters.naturalLanguageString;
+		const firstUserMessage = `${this.chatParticipantState.firstUserMessage}, ${options.parameters.naturalLanguageString}`;
 		// The llm likes to make up an owner and name if it isn't provided one, and they tend to include 'owner' and 'name' respectively
 		if (options.parameters.repo && options.parameters.repo.owner && options.parameters.repo.name && !options.parameters.repo.owner.includes('owner') && !options.parameters.repo.name.includes('name')) {
 			owner = options.parameters.repo.owner;
@@ -303,9 +359,9 @@ ${labels.map(label => label.name).filter(label => !label.includes('required') &&
 		const chatOptions: vscode.LanguageModelChatRequestOptions = {
 			justification: 'Answering user questions pertaining to GitHub.'
 		};
-		const [query, labelsList] = await Promise.all([this.generateQuery(folderManager, chatOptions, model, firstUserMessage, token), this.generateLabelQuery(folderManager, labels, chatOptions, model, firstUserMessage, token)]);
+		const [query, freeForm, labelsList] = await Promise.all([this.generateQuery(folderManager, chatOptions, model, firstUserMessage, token), this.generateFreeFormQuery(folderManager, chatOptions, model, firstUserMessage, token), this.generateLabelQuery(folderManager, labels, chatOptions, model, firstUserMessage, token)]);
 
-		const result = this.postProcess(query, labelsList, labels);
+		const result = this.postProcess(query, freeForm, labelsList, labels);
 		if (!result) {
 			throw new Error('Unable to form a query.');
 		}
