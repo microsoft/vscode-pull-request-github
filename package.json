@@ -2308,7 +2308,7 @@
 				{
 					"command": "notification.chatSummarizeNotification",
 					"group": "inline@1",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
+					"when": "view == notifications:github && viewItem == 'Issue'"
 				},
 				{
 					"command": "notification.openOnGitHub",
