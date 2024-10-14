@@ -90,7 +90,7 @@ export class ChatParticipant implements vscode.Disposable {
 		const model = models[0];
 		const allTools = vscode.lm.tools.map((tool): vscode.LanguageModelChatTool => {
 			return {
-				name: tool.id,
+				name: tool.name,
 				description: tool.description,
 				parametersSchema: tool.parametersSchema ?? {}
 			};
@@ -123,22 +123,22 @@ export class ChatParticipant implements vscode.Disposable {
 					stream.markdown(part.value);
 				} else if (part instanceof vscode.LanguageModelToolCallPart) {
 
-					const tool = vscode.lm.tools.find(tool => tool.id === part.name);
+					const tool = vscode.lm.tools.find(tool => tool.name === part.name);
 					if (!tool) {
 						throw new Error('Got invalid tool choice: ' + part.name);
 					}
 
 					let parameters: any;
 					try {
-						parameters = JSON.parse(part.parameters);
+						parameters = part.parameters;
 					} catch (err) {
-						throw new Error(`Got invalid tool use parameters: "${part.parameters}". (${(err as Error).message})`);
+						throw new Error(`Got invalid tool use parameters: "${JSON.stringify(part.parameters)}". (${(err as Error).message})`);
 					}
 
 					const invocationOptions = { parameters, toolInvocationToken: request.toolInvocationToken, requestedContentTypes: ['text/plain', 'text/markdown', 'text/json', 'text/display'] };
 					toolCalls.push({
 						call: part,
-						result: vscode.lm.invokeTool(tool.id, invocationOptions, token),
+						result: vscode.lm.invokeTool(tool.name, invocationOptions, token),
 						tool
 					});
 				}
@@ -146,7 +146,7 @@ export class ChatParticipant implements vscode.Disposable {
 
 			if (toolCalls.length) {
 				const assistantMsg = vscode.LanguageModelChatMessage.Assistant('');
-				assistantMsg.content2 = toolCalls.map(toolCall => new vscode.LanguageModelToolCallPart(toolCall.tool.id, toolCall.call.toolCallId, toolCall.call.parameters));
+				assistantMsg.content2 = toolCalls.map(toolCall => new vscode.LanguageModelToolCallPart(toolCall.tool.name, toolCall.call.toolCallId, toolCall.call.parameters));
 				this.state.addMessage(assistantMsg);
 
 				let hasJson = false;
@@ -195,7 +195,7 @@ export class ChatParticipant implements vscode.Disposable {
 					// }
 				}
 
-				this.state.addMessage(vscode.LanguageModelChatMessage.User(`Above is the result of calling the functions ${toolCalls.map(call => call.tool.id).join(', ')}.${hasJson ? ' The JSON is also included and should be passed to the next tool.' : ''} ${display ? 'The user can see the result of the tool call and doesn\'t need you to show it.' : 'The user cannot see the result of the tool call, so you should show it to them in an appropriate way.'}`));
+				this.state.addMessage(vscode.LanguageModelChatMessage.User(`Above is the result of calling the functions ${toolCalls.map(call => call.tool.name).join(', ')}.${hasJson ? ' The JSON is also included and should be passed to the next tool.' : ''} ${display ? 'The user can see the result of the tool call and doesn\'t need you to show it.' : 'The user cannot see the result of the tool call, so you should show it to them in an appropriate way.'}`));
 				return runWithFunctions();
 			}
 		};
