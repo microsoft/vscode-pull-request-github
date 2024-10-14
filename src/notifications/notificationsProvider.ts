@@ -180,12 +180,19 @@ export class NotificationsProvider implements vscode.Disposable {
 		}
 		const prioritizedBatches = await Promise.all(notificationBatches.map(batch => this._prioritizeNotificationBatchWithLLM(batch, model)));
 		const prioritizedNotifications = prioritizedBatches.flat();
-		const sortedPrioritizedNotifications = prioritizedNotifications.sort((r1, r2) => {
+		const openNotifications = prioritizedNotifications.filter(notification => notification.model.isOpen);
+		const closedNotifications = prioritizedNotifications.filter(notification => notification.model.isClosed || notification.model.isMerged);
+		const sortedOpenNotifications = openNotifications.sort((r1, r2) => {
 			const priority1 = Number(r1.priority);
 			const priority2 = Number(r2.priority);
 			return priority2 - priority1;
 		});
-		return sortedPrioritizedNotifications;
+		const sortedClosedNotifications = closedNotifications.sort((r1, r2) => {
+			const priority1 = Number(r1.priority);
+			const priority2 = Number(r2.priority);
+			return priority2 - priority1;
+		});
+		return [...sortedOpenNotifications, ...sortedClosedNotifications];
 	}
 
 	private async _prioritizeNotificationBatchWithLLM(notifications: NotificationTreeItem[], model: vscode.LanguageModelChat): Promise<NotificationTreeItem[]> {
