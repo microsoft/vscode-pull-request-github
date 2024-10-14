@@ -165,11 +165,7 @@ export class NotificationsProvider implements vscode.Disposable {
 	}
 
 	private _sortNotificationsByTimestamp(notifications: NotificationTreeItem[]): NotificationTreeItem[] {
-		notifications.sort((n1, n2) => n1.updated_at > n2.updated_at ? -1 : 1);
-		notifications.forEach(notification => {
-			notification.sortMethod = NotificationsSortMethod.Timestamp;
-		});
-		return notifications;
+		return notifications.sort((n1, n2) => n1.updated_at > n2.updated_at ? -1 : 1);
 	}
 
 	private async _sortNotificationsByLLMPriority(notifications: NotificationTreeItem[], model: vscode.LanguageModelChat): Promise<NotificationTreeItem[]> {
@@ -281,9 +277,7 @@ ${comment.body}
 		for (let i = 0; i < notifications.length; i++) {
 			const execResult = regex.exec(text);
 			if (execResult) {
-				const notification = notifications[i];
-				notification.priority = execResult[1];
-				notification.sortMethod = NotificationsSortMethod.Priority;
+				notifications[i].priority = execResult[1];
 			}
 		}
 		return notifications;

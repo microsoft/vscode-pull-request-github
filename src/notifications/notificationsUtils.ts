@@ -23,8 +23,6 @@ export class LoadMoreNotificationsTreeItem { }
 
 export class NotificationTreeItem {
 
-	public sortMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
-
 	public priority: string | undefined;
 
 	constructor(

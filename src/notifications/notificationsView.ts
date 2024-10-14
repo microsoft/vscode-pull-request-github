@@ -9,6 +9,8 @@ import { PullRequestModel } from '../github/pullRequestModel';
 import { NotificationsProvider } from './notificationsProvider';
 import { LoadMoreNotificationsTreeItem, NotificationsSortMethod, NotificationTreeDataItem, NotificationTreeItem } from './notificationsUtils';
 
+const devMode = false; // Boolean("true");
+
 export class NotificationsTreeData implements vscode.TreeDataProvider<NotificationTreeDataItem> {
 	private _onDidChangeTreeData: vscode.EventEmitter<NotificationTreeDataItem | undefined | void> = new vscode.EventEmitter<NotificationTreeDataItem | undefined | void>();
 	readonly onDidChangeTreeData: vscode.Event<NotificationTreeDataItem | undefined | void> = this._onDidChangeTreeData.event;
@@ -25,7 +27,7 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 	}
 
 	private _resolveNotificationTreeItem(element: NotificationTreeItem): vscode.TreeItem {
-		const label = (element.sortMethod === NotificationsSortMethod.Priority) ? `${element.priority}% - ${element.subject.title}` : element.subject.title;
+		const label = devMode ? `${element.priority}% - ${element.subject.title}` : element.subject.title;
 		const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
 
 		if (element.subject.type === 'Issue' && element.model instanceof IssueModel) {
