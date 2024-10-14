@@ -169,6 +169,11 @@ export class NotificationsProvider implements vscode.Disposable {
 	}
 
 	private async _sortNotificationsByLLMPriority(notifications: NotificationTreeItem[], model: vscode.LanguageModelChat): Promise<NotificationTreeItem[]> {
+		const sortByPriority = (r1: NotificationTreeItem, r2: NotificationTreeItem): number => {
+			const priority1 = Number(r1.priority);
+			const priority2 = Number(r2.priority);
+			return priority2 - priority1;
+		};
 		const notificationBatchSize = 5;
 		const notificationBatches: NotificationTreeItem[][] = [];
 		for (let i = 0; i < notifications.length; i += notificationBatchSize) {
@@ -178,16 +183,8 @@ export class NotificationsProvider implements vscode.Disposable {
 		const prioritizedNotifications = prioritizedBatches.flat();
 		const openNotifications = prioritizedNotifications.filter(notification => notification.model.isOpen);
 		const closedNotifications = prioritizedNotifications.filter(notification => notification.model.isClosed || notification.model.isMerged);
-		const sortedOpenNotifications = openNotifications.sort((r1, r2) => {
-			const priority1 = Number(r1.priority);
-			const priority2 = Number(r2.priority);
-			return priority2 - priority1;
-		});
-		const sortedClosedNotifications = closedNotifications.sort((r1, r2) => {
-			const priority1 = Number(r1.priority);
-			const priority2 = Number(r2.priority);
-			return priority2 - priority1;
-		});
+		const sortedOpenNotifications = openNotifications.sort((r1, r2) => sortByPriority(r1, r2));
+		const sortedClosedNotifications = closedNotifications.sort((r1, r2) => sortByPriority(r1, r2));
 		return [...sortedOpenNotifications, ...sortedClosedNotifications];
 	}
 
@@ -273,13 +270,13 @@ ${comment.body}
 	}
 
 	private _updateNotificationsWithPriorityFromLLM(notifications: NotificationTreeItem[], text: string): NotificationTreeItem[] {
-		const regex = /```text\s*[\s\S]+?\s*=\s*([\S]+?)\s*```/gm;
+		const regexReasoning = /```text\s*[\s\S]+?\s*=\s*([\S]+?)\s*```/gm;
+		const regexPriorityReasoning = /```(?!text)([\s\S]+?)(###|$)/g;
 		for (let i = 0; i < notifications.length; i++) {
-			const execResultForPriority = regex.exec(text);
+			const execResultForPriority = regexReasoning.exec(text);
 			if (execResultForPriority) {
 				notifications[i].priority = execResultForPriority[1];
-				const regex = /```(?!text)([\s\S]+?)###/gm;
-				const execResultForPriorityReasoning = regex.exec(text);
+				const execResultForPriorityReasoning = regexPriorityReasoning.exec(text);
 				if (execResultForPriorityReasoning) {
 					notifications[i].priorityReasoning = execResultForPriorityReasoning[1].trim();
 				}
