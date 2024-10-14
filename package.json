@@ -1495,6 +1495,11 @@
 				"title": "%command.notifications.refresh.title%",
 				"category": "%command.notifications.category%",
 				"icon": "$(refresh)"
+			},
+			{
+				"command": "notifications.loadMore",
+				"title": "%command.notifications.loadMore.title%",
+				"category": "%command.notifications.category%"
 			}
 		],
 		"viewsWelcome": [
@@ -2274,7 +2279,7 @@
 				{
 					"command": "pr.openDescription",
 					"group": "inline@1",
-					"when": "view == notifications:github"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
 				},
 				{
 					"command": "pr.openDescriptionToTheSide",

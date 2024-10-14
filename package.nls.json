@@ -283,6 +283,7 @@
 	"command.notifications.prioritize.title": "Prioritize",
 	"command.notifications.refresh.title": "Refresh",
 	"command.notifications.pri.title": "Prioritize",
+	"command.notifications.loadMore.title": "Load More Notifications",
 	"welcome.github.login.contents": {
 		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)",
 		"comment" : [

@@ -56,6 +56,11 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 				this,
 			),
 		);
+		this._disposables.push(
+			vscode.commands.registerCommand('notifications.loadMore', () => {
+				// TODO
+			})
+		);
 
 		// Events
 		this._repositoriesManager.onDidLoadAnyRepositories(() => {

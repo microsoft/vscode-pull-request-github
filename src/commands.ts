@@ -27,7 +27,7 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, vscodeDevPrLink } from './github/utils';
-import { ResolvedNotification } from './notifications/notificationsProvider';
+import { NotificationTreeItem } from './notifications/notificationsProvider';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewCommentController } from './view/reviewCommentController';
 import { ReviewManager } from './view/reviewManager';
@@ -780,7 +780,7 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openDescription',
-			async (argument: DescriptionNode | PullRequestModel | ResolvedNotification | undefined) => {
+			async (argument: DescriptionNode | PullRequestModel | NotificationTreeItem | undefined) => {
 				let pullRequestModel: PullRequestModel | IssueModel | undefined;
 				if (!argument) {
 					const activePullRequests: PullRequestModel[] = reposManager.folderManagers
@@ -795,7 +795,7 @@ export function registerCommands(
 				} else {
 					if (argument instanceof DescriptionNode) {
 						pullRequestModel = argument.pullRequestModel;
-					} else if (argument instanceof ResolvedNotification) {
+					} else if (argument instanceof NotificationTreeItem) {
 						pullRequestModel = argument.model;
 					} else {
 						pullRequestModel = argument;

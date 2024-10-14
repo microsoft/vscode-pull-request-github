@@ -6,15 +6,26 @@
 import * as vscode from 'vscode';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { NotificationsProvider, ResolvedNotification, } from './notificationsProvider';
+import { NotificationsProvider, NotificationTreeItem, } from './notificationsProvider';
 
-export class NotificationsTreeData implements vscode.TreeDataProvider<ResolvedNotification> {
-	private _onDidChangeTreeData: vscode.EventEmitter<ResolvedNotification | undefined | void> = new vscode.EventEmitter<ResolvedNotification | undefined | void>();
-	readonly onDidChangeTreeData: vscode.Event<ResolvedNotification | undefined | void> = this._onDidChangeTreeData.event;
+class LoadMoreNotificationsTreeItem { }
+
+type NotificationTreeDataItem = NotificationTreeItem | LoadMoreNotificationsTreeItem;
+
+export class NotificationsTreeData implements vscode.TreeDataProvider<NotificationTreeDataItem> {
+	private _onDidChangeTreeData: vscode.EventEmitter<NotificationTreeDataItem | undefined | void> = new vscode.EventEmitter<NotificationTreeDataItem | undefined | void>();
+	readonly onDidChangeTreeData: vscode.Event<NotificationTreeDataItem | undefined | void> = this._onDidChangeTreeData.event;
 
 	constructor(private readonly _notificationsProvider: NotificationsProvider) { }
 
-	async getTreeItem(element: ResolvedNotification): Promise<vscode.TreeItem> {
+	async getTreeItem(element: NotificationTreeDataItem): Promise<vscode.TreeItem> {
+		if (element instanceof NotificationTreeItem) {
+			return this._resolveNotificationTreeItem(element);
+		}
+		return this._resolveLoadMoreNotificationsTreeItem();
+	}
+
+	private _resolveNotificationTreeItem(element: NotificationTreeItem): vscode.TreeItem {
 		const label = element.priority !== undefined ? `${element.priority}% - ${element.subject.title}` : element.subject.title;
 		const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
 
@@ -22,7 +33,6 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<ResolvedNo
 			item.iconPath = element.model.isOpen
 				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
 				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed'));
-
 		}
 		if (element.subject.type === 'PullRequest' && element.model instanceof PullRequestModel) {
 			item.iconPath = element.model.isOpen
@@ -31,17 +41,29 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<ResolvedNo
 		}
 		item.description = `${element.repository.owner.login}/${element.repository.name}`;
 		item.contextValue = element.subject.type;
-
 		return item;
 	}
 
-	async getChildren(element?: unknown): Promise<ResolvedNotification[] | undefined> {
+	private _resolveLoadMoreNotificationsTreeItem(): vscode.TreeItem {
+		const item = new vscode.TreeItem(`Load More Notifications...`, vscode.TreeItemCollapsibleState.None);
+		item.command = {
+			title: 'Load More Notifications',
+			command: 'notifications.loadMore'
+		};
+		item.contextValue = 'loadMoreNotifications';
+		return item;
+	}
+
+	async getChildren(element?: unknown): Promise<NotificationTreeDataItem[] | undefined> {
 		if (element !== undefined) {
 			return undefined;
 		}
 
 		const result = await this._notificationsProvider.getNotifications();
-		return result;
+		if (!result) {
+			return undefined;
+		}
+		return [...result, new LoadMoreNotificationsTreeItem()];
 	}
 
 	refresh(): void {
