@@ -27,7 +27,7 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, vscodeDevPrLink } from './github/utils';
-import { NotificationTreeItem } from './notifications/notificationsProvider';
+import { NotificationTreeItem } from './notifications/notificationsUtils';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewCommentController } from './view/reviewCommentController';
 import { ReviewManager } from './view/reviewManager';

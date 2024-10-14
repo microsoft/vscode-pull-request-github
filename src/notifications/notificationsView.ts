@@ -6,11 +6,8 @@
 import * as vscode from 'vscode';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { NotificationsProvider, NotificationsSortMethod, NotificationTreeItem, } from './notificationsProvider';
-
-class LoadMoreNotificationsTreeItem { }
-
-type NotificationTreeDataItem = NotificationTreeItem | LoadMoreNotificationsTreeItem;
+import { NotificationsProvider } from './notificationsProvider';
+import { LoadMoreNotificationsTreeItem, NotificationsSortMethod, NotificationTreeDataItem, NotificationTreeItem } from './notificationsUtils';
 
 export class NotificationsTreeData implements vscode.TreeDataProvider<NotificationTreeDataItem> {
 	private _onDidChangeTreeData: vscode.EventEmitter<NotificationTreeDataItem | undefined | void> = new vscode.EventEmitter<NotificationTreeDataItem | undefined | void>();

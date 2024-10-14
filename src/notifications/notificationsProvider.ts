@@ -13,72 +13,7 @@ import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { hasEnterpriseUri } from '../github/utils';
 import { concatAsyncIterable } from '../lm/tools/toolsUtils';
-
-export enum NotificationsSortMethod {
-	Timestamp = 'Timestamp',
-	Priority = 'Priority'
-}
-
-export class NotificationTreeItem {
-
-	public sortMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
-
-	public priority: string | undefined;
-
-	constructor(
-		readonly id: string,
-		readonly subject: {
-			readonly title: string,
-			readonly type: 'Issue' | 'PullRequest',
-			readonly url: string,
-		},
-		readonly reason: string,
-		readonly repository: {
-			readonly name: string,
-			readonly owner: {
-				readonly login: string,
-			}
-		},
-		readonly unread: boolean,
-		readonly updated_at: string,
-		readonly last_read_at: string | null,
-		readonly model: IssueModel | PullRequestModel
-	) { }
-
-	static fromOctokitCall(notification: any, model: IssueModel<Issue>, owner: string, name: string): NotificationTreeItem {
-		return new NotificationTreeItem(
-			notification.id,
-			{
-				title: notification.subject.title,
-				type: notification.subject.type,
-				url: notification.subject.url,
-			},
-			notification.reason,
-			{
-				name: name,
-				owner: {
-					login: owner,
-				}
-			},
-			notification.unread,
-			notification.updated_at,
-			notification.last_read_at,
-			model
-		);
-	}
-}
-
-function getNotificationOwner(notification: NotificationTreeItem): { owner: string, name: string } {
-	const owner = notification.repository.owner.login;
-	const name = notification.repository.name;
-
-	return { owner, name };
-}
-
-export interface NotificationPaginationRange {
-	startPage: number;
-	endPage: number;
-}
+import { NotificationsPaginationRange, NotificationsSortMethod, NotificationTreeItem } from './notificationsUtils';
 
 export class NotificationsProvider implements vscode.Disposable {
 	private _authProvider: AuthProvider | undefined;
@@ -86,7 +21,7 @@ export class NotificationsProvider implements vscode.Disposable {
 
 	private readonly _disposables: vscode.Disposable[] = [];
 
-	private readonly _paginationRange: NotificationPaginationRange = {
+	private readonly _paginationRange: NotificationsPaginationRange = {
 		startPage: 1,
 		endPage: 1
 	}
@@ -126,7 +61,7 @@ export class NotificationsProvider implements vscode.Disposable {
 			return undefined;
 		}
 		const id = notification.subject.url.split('/').pop();
-		const { owner, name } = getNotificationOwner(notification);
+		const { owner, name } = this._getNotificationOwner(notification);
 		return `${owner}/${name}#${id}`;
 	}
 
@@ -196,7 +131,7 @@ export class NotificationsProvider implements vscode.Disposable {
 			if (cachedNotification && cachedNotification.updated_at === notification.updated_at) {
 				return cachedNotification;
 			}
-			const { owner, name } = getNotificationOwner(notification);
+			const { owner, name } = this._getNotificationOwner(notification);
 			const model = await this._getNotificationModel(notification, owner, name);
 			if (!model) {
 				return undefined;
@@ -205,6 +140,12 @@ export class NotificationsProvider implements vscode.Disposable {
 			this._notifications.set(cachedNotificationKey, resolvedNotification);
 			return resolvedNotification;
 		}));
+	}
+
+	private _getNotificationOwner(notification: NotificationTreeItem): { owner: string, name: string } {
+		const owner = notification.repository.owner.login;
+		const name = notification.repository.name;
+		return { owner, name };
 	}
 
 	private async _getNotificationModel(notification: any, owner: string, name: string): Promise<IssueModel<Issue> | undefined> {
