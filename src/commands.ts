@@ -131,7 +131,7 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openPullRequestOnGitHub',
-			async (e: PRNode | DescriptionNode | PullRequestModel | NotificationTreeItem | undefined) => {
+			async (e: PRNode | DescriptionNode | PullRequestModel | undefined) => {
 				if (!e) {
 					const activePullRequests: PullRequestModel[] = reposManager.folderManagers
 						.map(folderManager => folderManager.activePullRequest!)
@@ -147,6 +147,16 @@ export function registerCommands(
 						}
 					}
 				} else {
+					openPullRequestOnGitHub(e, telemetry);
+				}
+			},
+		),
+	);
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'notification.openOnGitHub',
+			async (e: NotificationTreeItem | undefined) => {
+				if (e) {
 					openPullRequestOnGitHub(e, telemetry);
 				}
 			},

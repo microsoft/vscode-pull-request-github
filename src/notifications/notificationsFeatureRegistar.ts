@@ -4,10 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { commands } from '../common/executeCommands';
 import { ITelemetry } from '../common/telemetry';
 import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { NotificationsProvider } from './notificationsProvider';
+import { NotificationTreeItem } from './notificationsUtils';
 import { NotificationsTreeData } from './notificationsView';
 
 export class NotificationsFeatureRegister implements vscode.Disposable {
@@ -76,6 +78,18 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 				*/
 				this._telemetry.sendTelemetryEvent('notifications.loadMore');
 				dataProvider.loadMore();
+			})
+		);
+		this._disposables.push(
+			vscode.commands.registerCommand('notification.chatSummarizeNotification', (notification: any) => {
+				if (!(notification instanceof NotificationTreeItem)) {
+					return;
+				}
+				/* __GDPR__
+					"notification.chatSummarizeNotification" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('notification.chatSummarizeNotification');
+				vscode.commands.executeCommand(commands.OPEN_CHAT, vscode.l10n.t('@githubpr Summarize notification {0}/{1}#{2}', notification.model.remote.owner, notification.model.remote.repositoryName, notification.model.number));
 			})
 		);
 

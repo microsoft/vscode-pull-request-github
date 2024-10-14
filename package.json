@@ -1504,6 +1504,18 @@
 				"command": "notifications.sortByPriority",
 				"title": "%command.notifications.sortByPriority.title%",
 				"category": "%command.notifications.category%"
+			},
+			{
+				"command": "notification.openOnGitHub",
+				"title": "%command.notifications.openOnGitHub.title%",
+				"category": "%command.notifications.category%",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "notification.chatSummarizeNotification",
+				"title": "%command.notification.chatSummarizeNotification.title%",
+				"category": "%command.notifications.category%",
+				"icon": "$(copilot)"
 			}
 		],
 		"viewsWelcome": [
@@ -2294,8 +2306,13 @@
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:(active|nonactive):hasChangesSinceReview:showingChangesSinceReview/"
 				},
 				{
-					"command": "pr.openPullRequestOnGitHub",
+					"command": "notification.chatSummarizeNotification",
 					"group": "inline@1",
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
+				},
+				{
+					"command": "notification.openOnGitHub",
+					"group": "inline@2",
 					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
 				},
 				{
