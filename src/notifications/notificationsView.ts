@@ -28,7 +28,7 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 	}
 
 	private _resolveNotificationTreeItem(element: NotificationTreeItem): vscode.TreeItem {
-		const label = element.priority !== undefined ? `${element.priority}% - ${element.subject.title}` : element.subject.title;
+		const label = (element.sortMethod === NotificationsSortMethod.Priority) ? `${element.priority}% - ${element.subject.title}` : element.subject.title;
 		const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
 
 		if (element.subject.type === 'Issue' && element.model instanceof IssueModel) {

@@ -21,6 +21,8 @@ export enum NotificationsSortMethod {
 
 export class NotificationTreeItem {
 
+	public sortMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
+
 	public priority: string | undefined;
 
 	constructor(
@@ -150,7 +152,7 @@ export class NotificationsProvider implements vscode.Disposable {
 			const model = models[0];
 			if (model) {
 				try {
-					return this._prioritizeNotificationsWithLLM(filteredNotifications, model);
+					return this._sortNotificationsByLLMPriority(filteredNotifications, model);
 				} catch (e) {
 					return this._sortNotificationsByTimestamp(filteredNotifications);
 				}
@@ -222,10 +224,14 @@ export class NotificationsProvider implements vscode.Disposable {
 	}
 
 	private _sortNotificationsByTimestamp(notifications: NotificationTreeItem[]): NotificationTreeItem[] {
-		return notifications.sort((n1, n2) => n1.updated_at > n2.updated_at ? -1 : 1);
+		notifications.sort((n1, n2) => n1.updated_at > n2.updated_at ? -1 : 1);
+		notifications.forEach(notification => {
+			notification.sortMethod = NotificationsSortMethod.Timestamp;
+		});
+		return notifications;
 	}
 
-	private async _prioritizeNotificationsWithLLM(notifications: NotificationTreeItem[], model: vscode.LanguageModelChat): Promise<NotificationTreeItem[]> {
+	private async _sortNotificationsByLLMPriority(notifications: NotificationTreeItem[], model: vscode.LanguageModelChat): Promise<NotificationTreeItem[]> {
 		const notificationBatchSize = 5;
 		const notificationBatches: NotificationTreeItem[][] = [];
 		for (let i = 0; i < notifications.length; i += notificationBatchSize) {
@@ -327,7 +333,9 @@ ${comment.body}
 		for (let i = 0; i < notifications.length; i++) {
 			const execResult = regex.exec(text);
 			if (execResult) {
-				notifications[i].priority = execResult[1];
+				const notification = notifications[i];
+				notification.priority = execResult[1];
+				notification.sortMethod = NotificationsSortMethod.Priority;
 			}
 		}
 		return notifications;
