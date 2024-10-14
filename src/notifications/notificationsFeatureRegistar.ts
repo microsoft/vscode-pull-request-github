@@ -58,7 +58,11 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 		);
 		this._disposables.push(
 			vscode.commands.registerCommand('notifications.loadMore', () => {
-				// TODO
+				/* __GDPR__
+					"notifications.loadMore" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('notifications.loadMore');
+				dataProvider.loadMore();
 			})
 		);
 

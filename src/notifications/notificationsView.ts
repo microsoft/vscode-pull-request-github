@@ -58,15 +58,23 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 		if (element !== undefined) {
 			return undefined;
 		}
-
 		const result = await this._notificationsProvider.getNotifications();
 		if (!result) {
 			return undefined;
 		}
-		return [...result, new LoadMoreNotificationsTreeItem()];
+		const canLoadMoreNotifications = this._notificationsProvider.canLoadMoreNotifications;
+		if (canLoadMoreNotifications) {
+			return [...result, new LoadMoreNotificationsTreeItem()];
+		}
+		return result;
 	}
 
 	refresh(): void {
+		this._onDidChangeTreeData.fire();
+	}
+
+	loadMore(): void {
+		this._notificationsProvider.loadMore();
 		this._onDidChangeTreeData.fire();
 	}
 }

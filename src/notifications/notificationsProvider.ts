@@ -68,11 +68,23 @@ function getNotificationOwner(notification: NotificationTreeItem): { owner: stri
 	return { owner, name };
 }
 
+export interface NotificationPaginationRange {
+	startPage: number;
+	endPage: number;
+}
+
 export class NotificationsProvider implements vscode.Disposable {
 	private _authProvider: AuthProvider | undefined;
 	private readonly _notifications = new Map<string, NotificationTreeItem>();
 
 	private readonly _disposables: vscode.Disposable[] = [];
+
+	private readonly _paginationRange: NotificationPaginationRange = {
+		startPage: 1,
+		endPage: 1
+	}
+
+	private _canLoadMoreNotifications: boolean = true;
 
 	constructor(
 		private readonly _credentialStore: CredentialStore,
@@ -88,7 +100,6 @@ export class NotificationsProvider implements vscode.Disposable {
 				if (_credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
 					this._authProvider = AuthProvider.githubEnterprise;
 				}
-
 				if (_credentialStore.isAuthenticated(AuthProvider.github)) {
 					this._authProvider = AuthProvider.github;
 				}
@@ -112,11 +123,11 @@ export class NotificationsProvider implements vscode.Disposable {
 		return `${owner}/${name}#${id}`;
 	}
 
-	clearCache(): void {
+	public clearCache(): void {
 		this._notifications.clear();
 	}
 
-	async getNotifications(): Promise<NotificationTreeItem[] | undefined> {
+	public async getNotifications(): Promise<NotificationTreeItem[] | undefined> {
 		const gitHub = this._getGitHub();
 		if (gitHub === undefined) {
 			return undefined;
@@ -141,12 +152,32 @@ export class NotificationsProvider implements vscode.Disposable {
 		return this._sortNotificationsByTimestamp(filteredNotifications);
 	}
 
+	public get canLoadMoreNotifications(): boolean {
+		return this._canLoadMoreNotifications;
+	}
+
+	public loadMore(): void {
+		this._paginationRange.endPage += 1;
+	}
+
 	private async _getResolvedNotifications(gitHub: GitHub): Promise<(NotificationTreeItem | undefined)[]> {
+		const notificationPromises: Promise<(NotificationTreeItem | undefined)[]>[] = [];
+		for (let i = this._paginationRange.startPage; i <= this._paginationRange.endPage; i++) {
+			notificationPromises.push(this._getResolvedNotificationsForPage(gitHub, i));
+		}
+		return (await Promise.all(notificationPromises)).flat();
+	}
+
+	private async _getResolvedNotificationsForPage(gitHub: GitHub, pageNumber: number): Promise<(NotificationTreeItem | undefined)[]> {
 		const pageSize = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE, 50);
 		const { data } = await gitHub.octokit.call(gitHub.octokit.api.activity.listNotificationsForAuthenticatedUser, {
 			all: false,
+			page: pageNumber,
 			per_page: pageSize
 		});
+		if (data.length < pageSize) {
+			this._canLoadMoreNotifications = false;
+		}
 		return Promise.all(data.map(async (notification: any): Promise<NotificationTreeItem | undefined> => {
 			const cachedNotificationKey = this._getKey(notification);
 			if (!cachedNotificationKey) {
