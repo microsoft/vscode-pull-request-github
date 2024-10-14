@@ -283,8 +283,8 @@
 	"command.notifications.refresh.title": "Refresh",
 	"command.notifications.pri.title": "Prioritize",
 	"command.notifications.loadMore.title": "Load More Notifications",
-	"command.notifications.sortByTimestamp.title": "Sort By Timestamp",
-	"command.notifications.sortByPriority.title": "Sort By Priority using Copilot",
+	"command.notifications.sortByTimestamp.title": "Sort by Timestamp",
+	"command.notifications.sortByPriority.title": "Sort by Priority using Copilot",
 	"command.notifications.openOnGitHub.title": "Open on GitHub",
 	"command.notification.chatSummarizeNotification.title": "Summarize With Copilot",
 	"welcome.github.login.contents": {
