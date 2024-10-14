@@ -83,7 +83,7 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 	const displayTitle = (
 		<div className="overview-title">
 			<h2>
-				<span dangerouslySetInnerHTML={{ __html: titleHTML }} />
+				<span dangerouslySetInnerHTML={{ __html: titleHTML ?? title }} />
 				{' '}
 				<a href={url} title={url}>
 					#{number}
