@@ -37,6 +37,8 @@ import {
 	MergeMethod,
 	MergeQueueEntry,
 	MergeQueueState,
+	Notification,
+	NotificationSubjectType,
 	PullRequest,
 	PullRequestMergeability,
 	reviewerId,
@@ -1247,6 +1249,31 @@ export function parseReviewers(
 	});
 
 	return reviewers;
+}
+
+export function parseNotification(notification: OctokitCommon.Notification): Notification | undefined {
+	if (!notification.subject.url) {
+		return undefined;
+	}
+	const owner = notification.repository.owner.login;
+	const name = notification.repository.name;
+	const id = notification.subject.url.split('/').pop();
+
+	return {
+		owner,
+		name,
+		key: `${owner}/${name}#${id}`,
+		id: id!,
+		subject: {
+			title: notification.subject.title,
+			type: notification.subject.type as NotificationSubjectType,
+			url: notification.subject.url
+		},
+		lastReadAt: new Date(notification.last_read_at),
+		reason: notification.reason,
+		unread: notification.unread,
+		updatedAd: new Date(notification.updated_at),
+	};
 }
 
 export function insertNewCommitsSinceReview(

@@ -17,7 +17,7 @@ import {
 	TimelineEventsResponse,
 	UpdatePullRequestResponse,
 } from './graphql';
-import { GithubItemStateEnum, IAccount, IIssueComment, ILabel, IMilestone, IProject, IProjectItem, IPullRequestEditData, Issue } from './interface';
+import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, IPullRequestEditData, Issue } from './interface';
 import { parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
 
 export class IssueModel<TItem extends Issue = Issue> {
@@ -74,27 +74,6 @@ export class IssueModel<TItem extends Issue = Issue> {
 			return this.item.user.avatarUrl;
 		}
 
-		return undefined;
-	}
-
-	public get labels(): ILabel[] | undefined {
-		if (this.item) {
-			return this.item.labels;
-		}
-		return undefined;
-	}
-
-	public get reactionCount(): number | undefined {
-		if (this.item) {
-			return this.item.reactionCount;
-		}
-		return undefined;
-	}
-
-	public get issueComments(): IIssueComment[] | undefined {
-		if (this.item) {
-			return this.item.comments;
-		}
 		return undefined;
 	}
 

@@ -6,11 +6,12 @@
 import * as vscode from 'vscode';
 import { commands } from '../common/executeCommands';
 import { ITelemetry } from '../common/telemetry';
+import { dispose } from '../common/utils';
 import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { NotificationsProvider } from './notificationsProvider';
-import { NotificationTreeItem } from './notificationsUtils';
 import { NotificationsTreeData } from './notificationsView';
+import { NotificationTreeItem } from './notificationTreeItem';
 
 export class NotificationsFeatureRegister implements vscode.Disposable {
 
@@ -25,6 +26,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 
 		// View
 		const dataProvider = new NotificationsTreeData(notificationsProvider);
+		this._disposables.push(dataProvider);
 		const view = vscode.window.createTreeView<any>('notifications:github', {
 			treeDataProvider: dataProvider
 		});
@@ -101,6 +103,6 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 	}
 
 	dispose() {
-		this._disposables.forEach(d => d.dispose());
+		dispose(this._disposables);
 	}
 }

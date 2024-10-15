@@ -4,20 +4,25 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { dispose } from '../common/utils';
+import { NotificationSubjectType } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { NotificationsProvider } from './notificationsProvider';
-import { LoadMoreNotificationsTreeItem, NotificationsSortMethod, NotificationTreeDataItem, NotificationTreeItem } from './notificationsUtils';
+import { LoadMoreNotificationsTreeItem, NotificationsSortMethod, NotificationTreeDataItem, NotificationTreeItem } from './notificationTreeItem';
 
 const devMode = false; // Boolean("true");
 
-export class NotificationsTreeData implements vscode.TreeDataProvider<NotificationTreeDataItem> {
+export class NotificationsTreeData implements vscode.TreeDataProvider<NotificationTreeDataItem>, vscode.Disposable {
+	private readonly _disposables: vscode.Disposable[] = [];
 	private _onDidChangeTreeData: vscode.EventEmitter<NotificationTreeDataItem | undefined | void> = new vscode.EventEmitter<NotificationTreeDataItem | undefined | void>();
 	readonly onDidChangeTreeData: vscode.Event<NotificationTreeDataItem | undefined | void> = this._onDidChangeTreeData.event;
 
 	private _sortingMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
 
-	constructor(private readonly _notificationsProvider: NotificationsProvider) { }
+	constructor(private readonly _notificationsProvider: NotificationsProvider) {
+		this._disposables.push(this._onDidChangeTreeData);
+	}
 
 	async getTreeItem(element: NotificationTreeDataItem): Promise<vscode.TreeItem> {
 		if (element instanceof NotificationTreeItem) {
@@ -27,29 +32,37 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 	}
 
 	private _resolveNotificationTreeItem(element: NotificationTreeItem): vscode.TreeItem {
-		const label = devMode ? `${element.priority}% - ${element.subject.title}` : element.subject.title;
+		const label = devMode ? `${element.priority}% - ${element.notification.subject.title}` : element.notification.subject.title;
 		const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
+		const notification = element.notification;
+		const model = element.model;
 
-		if (element.subject.type === 'Issue' && element.model instanceof IssueModel) {
+		if (notification.subject.type === NotificationSubjectType.Issue && model instanceof IssueModel) {
 			item.iconPath = element.model.isOpen
 				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
 				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed'));
 		}
-		if (element.subject.type === 'PullRequest' && element.model instanceof PullRequestModel) {
-			item.iconPath = element.model.isOpen
+		if (notification.subject.type === NotificationSubjectType.PullRequest && model instanceof PullRequestModel) {
+			item.iconPath = model.isOpen
 				? new vscode.ThemeIcon('git-pull-request', new vscode.ThemeColor('pullRequests.open'))
 				: new vscode.ThemeIcon('git-pull-request', new vscode.ThemeColor('pullRequests.merged'));
 		}
-		item.description = `${element.repository.owner.login}/${element.repository.name}`;
-		item.contextValue = element.subject.type;
+		item.description = `${notification.owner}/${notification.name}`;
+		item.contextValue = notification.subject.type;
 		if (element.priorityReasoning) {
 			item.tooltip = element.priorityReasoning;
 		}
+		// TODO: Issue webview needs polish before we do this
+		// item.command = {
+		// 	command: 'pr.openDescription',
+		// 	title: 'Open Description',
+		// 	arguments: [element.model]
+		// };
 		return item;
 	}
 
 	private _resolveLoadMoreNotificationsTreeItem(): vscode.TreeItem {
-		const item = new vscode.TreeItem(`Load More Notifications...`, vscode.TreeItemCollapsibleState.None);
+		const item = new vscode.TreeItem(vscode.l10n.t('Load More Notifications...'), vscode.TreeItemCollapsibleState.None);
 		item.command = {
 			title: 'Load More Notifications',
 			command: 'notifications.loadMore'
@@ -90,5 +103,9 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 	loadMore(): void {
 		this._notificationsProvider.loadMore();
 		this._onDidChangeTreeData.fire();
+	}
+
+	dispose() {
+		dispose(this._disposables);
 	}
 }

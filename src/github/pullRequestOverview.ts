@@ -338,7 +338,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		});
 
 		if (!this._item || (this._item.number !== pullRequestModel.number) || !this._panel.webview.html) {
-			this._panel.webview.html = this.getHtmlForWebview(pullRequestModel.number.toString());
+			this._panel.webview.html = this.getHtmlForWebview();
 		}
 
 		return vscode.window.withProgress({ location: { viewId: 'pr:github' } }, () => this.updatePullRequest(pullRequestModel));

@@ -183,16 +183,6 @@ export class ChatParticipant implements vscode.Disposable {
 					const message = vscode.LanguageModelChatMessage.User('');
 					message.content2 = content;
 					this.state.addMessage(message);
-
-
-					// Can't get the llm to pass the issues to the render tool, so we have to do it manually
-					// if (toolCall.tool.id === 'github-pull-request_doSearch') {
-					// 	const json: DisplayIssuesParameters = JSON.parse(toolCallResult['text/json']!) as DisplayIssuesParameters;
-					// 	if (json !== undefined) {
-					// 		const invocationOptions = { parameters: json, toolInvocationToken: request.toolInvocationToken, requestedContentTypes: ['text/plain', 'text/markdown', 'text/json'] };
-					// 		toolCallResult = await vscode.lm.invokeTool('github-pull-request_renderIssues', invocationOptions, token);
-					// 	}
-					// }
 				}
 
 				this.state.addMessage(vscode.LanguageModelChatMessage.User(`Above is the result of calling the functions ${toolCalls.map(call => call.tool.name).join(', ')}.${hasJson ? ' The JSON is also included and should be passed to the next tool.' : ''} ${display ? 'The user can see the result of the tool call and doesn\'t need you to show it.' : 'The user cannot see the result of the tool call, so you should show it to them in an appropriate way.'}`));

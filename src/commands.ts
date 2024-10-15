@@ -18,14 +18,16 @@ import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
-import { PullRequest } from './github/interface';
+import { Issue, PullRequest } from './github/interface';
+import { IssueModel } from './github/issueModel';
+import { IssueOverviewPanel } from './github/issueOverview';
 import { NotificationProvider } from './github/notifications';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, vscodeDevPrLink } from './github/utils';
-import { NotificationTreeItem } from './notifications/notificationsUtils';
+import { NotificationTreeItem } from './notifications/notificationTreeItem';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewCommentController } from './view/reviewCommentController';
 import { ReviewManager } from './view/reviewManager';
@@ -46,7 +48,9 @@ import { RepositoryChangesNode } from './view/treeNodes/repositoryChangesNode';
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
 export const onDidUpdatePR: vscode.Event<PullRequest | void> = _onDidUpdatePR.event;
 
-function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode | PullRequestModel): PullRequestModel {
+function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode): PullRequestModel;
+function ensurePR<U extends Issue, T extends IssueModel<U>>(folderRepoManager: FolderRepositoryManager, pr?: T): T;
+function ensurePR<U extends Issue, T extends IssueModel<U>>(folderRepoManager: FolderRepositoryManager, pr?: PRNode | T): T {
 	// If the command is called from the command palette, no arguments are passed.
 	if (!pr) {
 		if (!folderRepoManager.activePullRequest) {
@@ -54,15 +58,15 @@ function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode | Pull
 			throw new Error('Unable to find current pull request.');
 		}
 
-		return folderRepoManager.activePullRequest;
+		return folderRepoManager.activePullRequest as unknown as T;
 	} else {
-		return pr instanceof PRNode ? pr.pullRequestModel : pr;
+		return (pr instanceof PRNode ? pr.pullRequestModel : pr) as T;
 	}
 }
 
 export async function openDescription(
 	telemetry: ITelemetry,
-	pullRequestModel: PullRequestModel,
+	pullRequestModel: IssueModel,
 	descriptionNode: DescriptionNode | undefined,
 	folderManager: FolderRepositoryManager,
 	revealNode: boolean,
@@ -74,7 +78,11 @@ export async function openDescription(
 		descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
 	}
 	// Create and show a new webview
-	await PullRequestOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, pullRequest, undefined, preserveFocus);
+	if (pullRequest instanceof PullRequestModel) {
+		await PullRequestOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, pullRequest, undefined, preserveFocus);
+	} else {
+		await IssueOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, pullRequest);
+	}
 
 	if (notificationProvider?.hasNotification(pullRequest)) {
 		notificationProvider.markPrNotificationsAsRead(pullRequest);
@@ -786,8 +794,8 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openDescription',
-			async (argument: DescriptionNode | PullRequestModel | undefined) => {
-				let pullRequestModel: PullRequestModel | undefined;
+			async (argument: DescriptionNode | IssueModel | undefined) => {
+				let pullRequestModel: IssueModel | undefined;
 				if (!argument) {
 					const activePullRequests: PullRequestModel[] = reposManager.folderManagers
 						.map(manager => manager.activePullRequest!)
@@ -799,11 +807,7 @@ export function registerCommands(
 						);
 					}
 				} else {
-					if (argument instanceof DescriptionNode) {
-						pullRequestModel = argument.pullRequestModel;
-					} else {
-						pullRequestModel = argument;
-					}
+					pullRequestModel = argument instanceof DescriptionNode ? argument.pullRequestModel : argument;
 				}
 
 				if (!pullRequestModel) {

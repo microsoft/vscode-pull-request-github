@@ -146,10 +146,6 @@ export interface ILabel {
 	description?: string | null;
 }
 
-export interface IReaction {
-	content: '+1' | '-1' | 'laugh' | 'confused' | 'heart' | 'hooray' | 'rocket' | 'eyes';
-}
-
 export interface IIssueComment {
 	author: IAccount;
 	body: string;
@@ -202,6 +198,27 @@ export interface PullRequest extends Issue {
 	squashCommitMeta?: { title: string, description: string };
 	suggestedReviewers?: ISuggestedReviewer[];
 	hasComments?: boolean;
+}
+
+export enum NotificationSubjectType {
+	Issue = 'Issue',
+	PullRequest = 'PullRequest'
+}
+
+export interface Notification {
+	owner: string;
+	name: string;
+	key: string;
+	id: string;
+	subject: {
+		title: string;
+		type: NotificationSubjectType;
+		url: string;
+	};
+	reason: string;
+	unread: boolean;
+	updatedAd: Date;
+	lastReadAt: Date | undefined;
 }
 
 export interface IRawFileChange {

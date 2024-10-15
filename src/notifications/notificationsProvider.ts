@@ -6,14 +6,15 @@
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
 import { EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { OctokitCommon } from '../github/common';
 import { CredentialStore, GitHub } from '../github/credentials';
-import { Issue } from '../github/interface';
+import { Issue, Notification, NotificationSubjectType } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { hasEnterpriseUri } from '../github/utils';
+import { hasEnterpriseUri, parseNotification } from '../github/utils';
 import { concatAsyncIterable } from '../lm/tools/toolsUtils';
-import { NotificationsPaginationRange, NotificationsSortMethod, NotificationTreeItem } from './notificationsUtils';
+import { NotificationsPaginationRange, NotificationsSortMethod, NotificationTreeItem } from './notificationTreeItem';
 
 export class NotificationsProvider implements vscode.Disposable {
 	private _authProvider: AuthProvider | undefined;
@@ -38,7 +39,7 @@ export class NotificationsProvider implements vscode.Disposable {
 			this._authProvider = AuthProvider.github;
 		}
 		this._disposables.push(
-			vscode.authentication.onDidChangeSessions(_ => {
+			_credentialStore.onDidChangeSessions(_ => {
 				if (_credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
 					this._authProvider = AuthProvider.githubEnterprise;
 				}
@@ -53,16 +54,6 @@ export class NotificationsProvider implements vscode.Disposable {
 		return (this._authProvider !== undefined) ?
 			this._credentialStore.getHub(this._authProvider) :
 			undefined;
-	}
-
-	private _getKey(notification: NotificationTreeItem): string | undefined {
-		const url = notification.subject.url;
-		if (!url) {
-			return undefined;
-		}
-		const id = notification.subject.url.split('/').pop();
-		const { owner, name } = this._getNotificationOwner(notification);
-		return `${owner}/${name}#${id}`;
 	}
 
 	public clearCache(): void {
@@ -122,33 +113,26 @@ export class NotificationsProvider implements vscode.Disposable {
 		if (data.length < pageSize) {
 			this._canLoadMoreNotifications = false;
 		}
-		return Promise.all(data.map(async (notification: any): Promise<NotificationTreeItem | undefined> => {
-			const cachedNotificationKey = this._getKey(notification);
-			if (!cachedNotificationKey) {
+		return Promise.all(data.map(async (notification: OctokitCommon.Notification): Promise<NotificationTreeItem | undefined> => {
+			const parsedNotification = parseNotification(notification);
+			if (!parsedNotification) {
 				return undefined;
 			}
-			const cachedNotification = this._notifications.get(cachedNotificationKey);
-			if (cachedNotification && cachedNotification.updated_at === notification.updated_at) {
+			const cachedNotification = this._notifications.get(parsedNotification?.key);
+			if (cachedNotification && cachedNotification.notification.updatedAd === parsedNotification.updatedAd) {
 				return cachedNotification;
 			}
-			const { owner, name } = this._getNotificationOwner(notification);
-			const model = await this._getNotificationModel(notification, owner, name);
+			const model = await this._getNotificationModel(parsedNotification);
 			if (!model) {
 				return undefined;
 			}
-			const resolvedNotification = NotificationTreeItem.fromOctokitCall(notification, model, owner, name);
-			this._notifications.set(cachedNotificationKey, resolvedNotification);
+			const resolvedNotification = new NotificationTreeItem(parsedNotification, model);
+			this._notifications.set(parsedNotification.key, resolvedNotification);
 			return resolvedNotification;
 		}));
 	}
 
-	private _getNotificationOwner(notification: NotificationTreeItem): { owner: string, name: string } {
-		const owner = notification.repository.owner.login;
-		const name = notification.repository.name;
-		return { owner, name };
-	}
-
-	private async _getNotificationModel(notification: any, owner: string, name: string): Promise<IssueModel<Issue> | undefined> {
+	private async _getNotificationModel(notification: Notification): Promise<IssueModel<Issue> | undefined> {
 		const url = notification.subject.url;
 		if (!(typeof url === 'string')) {
 			return undefined;
@@ -157,15 +141,15 @@ export class NotificationsProvider implements vscode.Disposable {
 		if (issueOrPrNumber === undefined) {
 			return undefined;
 		}
-		const folderManager = this._repositoriesManager.getManagerForRepository(owner, name) ?? this._repositoriesManager.folderManagers[0];
-		const model = notification.subject.type === 'Issue' ?
-			await folderManager.resolveIssue(owner, name, parseInt(issueOrPrNumber), true) :
-			await folderManager.resolvePullRequest(owner, name, parseInt(issueOrPrNumber));
+		const folderManager = this._repositoriesManager.getManagerForRepository(notification.owner, notification.name) ?? this._repositoriesManager.folderManagers[0];
+		const model = notification.subject.type === NotificationSubjectType.Issue ?
+			await folderManager.resolveIssue(notification.owner, notification.name, parseInt(issueOrPrNumber), true) :
+			await folderManager.resolvePullRequest(notification.owner, notification.name, parseInt(issueOrPrNumber));
 		return model;
 	}
 
 	private _sortNotificationsByTimestamp(notifications: NotificationTreeItem[]): NotificationTreeItem[] {
-		return notifications.sort((n1, n2) => n1.updated_at > n2.updated_at ? -1 : 1);
+		return notifications.sort((n1, n2) => n1.notification.updatedAd > n2.notification.updatedAd ? -1 : 1);
 	}
 
 	private async _sortNotificationsByLLMPriority(notifications: NotificationTreeItem[], model: vscode.LanguageModelChat): Promise<NotificationTreeItem[]> {
@@ -224,7 +208,7 @@ The following is the data for notification ${notificationIndex + 1}:
 
 ${model.body}
 
-• Reaction Count: ${model.reactionCount ?? 0}
+• Reaction Count: ${model.item.reactionCount ?? 0}
 • isOpen: ${model.isOpen}
 • isMerged: ${model.isMerged}
 • Created At: ${model.createdAt}
@@ -232,7 +216,7 @@ ${model.body}
 	}
 
 	private async _getLabelsPrompt(model: IssueModel<Issue> | PullRequestModel): Promise<string> {
-		const labels = model.labels;
+		const labels = model.item.labels;
 		if (!labels) {
 			return '';
 		}
@@ -246,7 +230,7 @@ ${model.body}
 	}
 
 	private async _getCommentsPrompt(model: IssueModel<Issue> | PullRequestModel): Promise<string> {
-		const issueComments = model.issueComments;
+		const issueComments = model.item.comments;
 		if (!issueComments || issueComments.length === 0) {
 			return '';
 		}
