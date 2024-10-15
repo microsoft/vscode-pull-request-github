@@ -40,6 +40,8 @@ enum ValidatableProperty {
 	no = 'no',
 }
 
+const MATCH_UNQUOTED_SPACES = /(?!\B"[^"]*)\s+(?![^"]*"\B)/;
+
 export class ConvertToSearchSyntaxTool extends ToolBase<ConvertToQuerySyntaxParameters> {
 	static ID = 'ConvertToSearchSyntaxTool';
 	constructor(private readonly repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
@@ -56,6 +58,7 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 - Ignore display information.
 - Respond with only the query.
 - Always include a "sort:" parameter.
+- Always include a property with the @me value if the query includes "me" or "my".
 - Here are some examples of valid queries:
 	- repo:microsoft/vscode is:issue state:open sort:updated-asc
 	- mentions:@me org:microsoft is:issue state:open sort:updated
@@ -68,17 +71,17 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 | Property 	| Possible Values | Value Description |
 |-----------|-----------------|-------------------|
 | is 		| issue, pr, draft, public, private, locked, unlocked |  |
-| assignee 	|  | A GitHub user name |
-| author 	|  | A GitHub user name |
-| mentions 	|  | A GitHub user name |
+| assignee 	|  | A GitHub user name or @me |
+| author 	|  | A GitHub user name or @me |
+| mentions 	|  | A GitHub user name or @me |
 | team 		|  | A GitHub user name |
-| commenter |  | A GitHub user name |
-| involves 	|  | A GitHub user name |
+| commenter |  | A GitHub user name or @me |
+| involves 	|  | A GitHub user name or @me |
 | label		|  | A GitHub issue/pr label |
 | type 		| pr, issue |  |
 | state 	|  open, closed, merged |  |
 | in 		| title, body, comments |  |
-| user 		|  | A GitHub user name |
+| user 		|  | A GitHub user name or @me |
 | org 		| | A GitHub org, without the repo name |
 | repo 		| | A GitHub repo, without the org name |
 | linked 	| pr, issue |  |
@@ -92,9 +95,9 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 | reactions |  | A number |
 | draft 	| true, false |  |
 | review 	| none, required, approved, changes_requested |  |
-| reviewed-by |  | A GitHub user name |
-| review-requested |  | A GitHub user name |
-| user-review-requested |  | A GitHub user name |
+| reviewed-by |  | A GitHub user name or @me |
+| review-requested |  | A GitHub user name or @me |
+| user-review-requested |  | A GitHub user name or @me |
 | team-review-requested |  | A GitHub user name |
 | created 	|  | A date, with an optional < > |
 | updated 	|  | A date, with an optional < > |
@@ -133,8 +136,9 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 - Only include a max of 1 key word that is relevant to the search query.
 - Don't refer to issue numbers.
 - Don't refer to product names.
+- Don't include any key words that might be related to sorting.
 - Respond with only your chosen key word.
-- It is okay to return no key words if there are none that are good for searching.
+- It's better to return no keywords than to return irrelevant keywords.
 `;
 	}
 
@@ -147,6 +151,7 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 	}
 
 	private fullQueryUserPrompt(originalUserPrompt: string): string {
+		originalUserPrompt = originalUserPrompt.replace(/\b(me|my)\b/, (value) => value.toUpperCase());
 		const date = new Date();
 		return `Pretend today's date is ${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}, but only include it if needed. How should this be converted to a GitHub issue search query? ${originalUserPrompt}`;
 	}
@@ -176,14 +181,14 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		}
 	}
 
-	private validateLabelsList(labelsList: string, allLabels: ILabel[]): string {
+	private validateLabelsList(labelsList: string, allLabels: ILabel[]): string[] {
 		// I wrote everything for AND and OR, but it isn't supported with GraphQL.
 		// Leaving it in for now in case we switch to REST.
 		const isAndOrOr = (labelOrOperator: string) => {
 			return labelOrOperator === 'AND' || labelOrOperator === 'OR';
 		};
 
-		const labelsAndOperators = labelsList.split(/(?!\B"[^"]*)\s+(?![^"]*"\B)/).map(label => label.trim());
+		const labelsAndOperators = labelsList.split(MATCH_UNQUOTED_SPACES).map(label => label.trim());
 		let goodLabels: string[] = [];
 		for (let labelOrOperator of labelsAndOperators) {
 			if (isAndOrOr(labelOrOperator)) {
@@ -204,21 +209,33 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 				label = labelPrefixMatch[1];
 			}
 			if (allLabels.find(l => l.name === label)) {
-				goodLabels.push(`label:${label}`);
+				goodLabels.push(label);
 			}
 		}
 		if (goodLabels.length > 0 && isAndOrOr(goodLabels[goodLabels.length - 1])) {
 			goodLabels = goodLabels.slice(0, goodLabels.length - 1);
 		}
-		return goodLabels.join(' ');
+		return goodLabels;
 	}
 
-	private validateQuery(query: string, labelsList: string, allLabels: ILabel[]) {
-		// Remove all labels from the query
-		query = query.replace(/\slabel:([^ ]+|"[^"]+")/g, '');
+	private validateFreeForm(baseQuery: string, labels: string[], freeForm: string) {
+		// Currently, we only allow the free form to return one keyword
+		freeForm = freeForm.trim();
+		if (baseQuery.includes(freeForm)) {
+			return '';
+		}
+		if (labels.includes(freeForm)) {
+			return '';
+		}
+		if (labels.some(label => freeForm.includes(label))) {
+			return '';
+		}
+		return freeForm;
+	}
 
+	private validateQuery(query: string, labelsList: string, allLabels: ILabel[], freeForm: string) {
 		let reformedQuery = '';
-		const queryParts = query.split(' ');
+		const queryParts = query.split(MATCH_UNQUOTED_SPACES);
 		// Only keep property:value pairs and '-', no reform allowed here.
 		for (const part of queryParts) {
 			if (part.startsWith('label:')) {
@@ -228,6 +245,9 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 			if (propAndVal.length === 2) {
 				const label = propAndVal[0];
 				const value = propAndVal[1];
+				if (!label.match(/^[a-zA-Z]+$/)) {
+					continue;
+				}
 				if (!this.validateSpecificQueryPart(label, value)) {
 					continue;
 				}
@@ -238,8 +258,9 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		}
 
 		const validLabels = this.validateLabelsList(labelsList, allLabels);
-		// Add the valid labels back
-		reformedQuery = `${reformedQuery} ${validLabels}`;
+		const validFreeForm = this.validateFreeForm(reformedQuery, validLabels, freeForm);
+
+		reformedQuery = `${reformedQuery} ${validLabels.map(label => `label:${label}`).join(' ')} ${validFreeForm}`;
 		return reformedQuery.trim();
 	}
 
@@ -248,7 +269,7 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		if (!query) {
 			return;
 		}
-		const fixedLabels = `${this.validateQuery(query, labelsList, allLabels)} ${freeForm}`;
+		const fixedLabels = this.validateQuery(query, labelsList, allLabels, freeForm);
 		const fixedRepo = this.fixRepo(fixedLabels);
 		return fixedRepo;
 	}
@@ -384,7 +405,8 @@ export class SearchTool implements vscode.LanguageModelTool<SearchToolParameters
 	constructor(private readonly repositoriesManager: RepositoriesManager) { }
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<SearchToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		Logger.debug(`Searching with query \`${options.parameters.query}\``, SearchTool.ID);
+		const parameterQuery = options.parameters.query;
+		Logger.debug(`Searching with query \`${parameterQuery}\``, SearchTool.ID);
 		let owner: string | undefined;
 		let name: string | undefined;
 		let folderManager: FolderRepositoryManager | undefined;
@@ -401,16 +423,16 @@ export class SearchTool implements vscode.LanguageModelTool<SearchToolParameters
 		if (!folderManager || !owner || !name) {
 			throw new Error(`No folder manager found for ${owner}/${name}. Make sure to have the repository open.`);
 		}
-		const searchResult = await folderManager.getIssues(options.parameters.query);
+		const searchResult = await folderManager.getIssues(parameterQuery);
 		if (!searchResult) {
-			throw new Error(`No issues found for ${options.parameters.query}. Make sure the query is valid.`);
+			throw new Error(`No issues found for ${parameterQuery}. Make sure the query is valid.`);
 		}
 		const result: SearchToolResult = {
 			arrayOfIssues: searchResult.items.map(i => i.item)
 		};
 		Logger.debug(`Found ${result.arrayOfIssues.length} issues, first issue ${result.arrayOfIssues[0]?.number}.`, SearchTool.ID);
 		return {
-			'text/plain': `Here are the issues I found for the query ${options.parameters.query} in a stringified json format. You can pass these to a tool that can display them.`,
+			'text/plain': `Here are the issues I found for the query ${parameterQuery} in json format. You can pass these to a tool that can display them.`,
 			'text/json': result
 		};
 	}

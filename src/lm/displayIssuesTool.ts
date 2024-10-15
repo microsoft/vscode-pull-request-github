@@ -124,7 +124,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 
 		const titleRow = `| ${importantColumns.join(' | ')} |`;
 		Logger.debug(`Columns ${titleRow} issues`, DisplayIssuesTool.ID);
-		const separatorRow = `| ${importantColumns.map(() => '---').join(' | ')} |`;
+		const separatorRow = `| ${importantColumns.map(() => '---').join(' | ')} |\n`;
 		const issues = new vscode.MarkdownString(titleRow);
 		issues.appendMarkdown('\n');
 		issues.appendMarkdown(separatorRow);
@@ -133,8 +133,9 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		}).join('\n'));
 
 		return {
-			'text/plain': 'Here is a markdown table of the first 10 issues. The user needs you to show it to them.',
-			'text/markdown': issues.value
+			'text/plain': `Here is a markdown table of the first 10 issues.`,
+			'text/markdown': issues.value,
+			'text/display': `Here's a markdown table of the first 10 issues.\n\n${issues.value}\n\n`
 		};
 	}
 
