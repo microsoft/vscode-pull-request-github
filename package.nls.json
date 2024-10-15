@@ -150,6 +150,7 @@
 		]
 	},
 	"view.issues.github.name": "Issues",
+	"view.notifications.github.name": "Notifications",
 	"view.github.conflictResolution.name": "Conflict Resolution",
 	"view.github.create.pull.request.name": "Create",
 	"view.github.compare.changes.name": "Files Changed",
@@ -277,6 +278,16 @@
 	"command.issue.signinAndRefreshList.title": "Sign in and Refresh",
 	"command.issue.goToLinkedCode.title": "Go to Linked Code",
 	"command.issues.openIssuesWebsite.title": "Open on GitHub",
+	"command.issue.chatSummarizeIssue.title": "Summarize With Copilot",
+	"command.issue.chatSuggestFix.title": "Fix With Copilot",
+	"command.notifications.category": "GitHub Notifications",
+	"command.notifications.refresh.title": "Refresh",
+	"command.notifications.pri.title": "Prioritize",
+	"command.notifications.loadMore.title": "Load More Notifications",
+	"command.notifications.sortByTimestamp.title": "Sort by Timestamp",
+	"command.notifications.sortByPriority.title": "Sort by Priority using Copilot",
+	"command.notifications.openOnGitHub.title": "Open on GitHub",
+	"command.notification.chatSummarizeNotification.title": "Summarize With Copilot",
 	"welcome.github.login.contents": {
 		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)",
 		"comment" : [

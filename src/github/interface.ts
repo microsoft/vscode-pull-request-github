@@ -143,7 +143,14 @@ export interface IGitHubRef {
 export interface ILabel {
 	name: string;
 	color: string;
-	description?: string;
+	description?: string | null;
+}
+
+export interface IIssueComment {
+	author: IAccount;
+	body: string;
+	databaseId: number;
+	reactionCount: number;
 }
 
 export interface Issue {
@@ -166,11 +173,9 @@ export interface Issue {
 	repositoryOwner?: string;
 	repositoryName?: string;
 	repositoryUrl?: string;
-	comments?: {
-		author: IAccount;
-		body: string;
-		databaseId: number;
-	}[];
+	comments?: IIssueComment[];
+	commentCount: number;
+	reactionCount: number;
 }
 
 export interface PullRequest extends Issue {
@@ -193,6 +198,27 @@ export interface PullRequest extends Issue {
 	squashCommitMeta?: { title: string, description: string };
 	suggestedReviewers?: ISuggestedReviewer[];
 	hasComments?: boolean;
+}
+
+export enum NotificationSubjectType {
+	Issue = 'Issue',
+	PullRequest = 'PullRequest'
+}
+
+export interface Notification {
+	owner: string;
+	name: string;
+	key: string;
+	id: string;
+	subject: {
+		title: string;
+		type: NotificationSubjectType;
+		url: string;
+	};
+	reason: string;
+	unread: boolean;
+	updatedAd: Date;
+	lastReadAt: Date | undefined;
 }
 
 export interface IRawFileChange {

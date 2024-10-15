@@ -21,6 +21,8 @@ export namespace contexts {
 }
 
 export namespace commands {
+	export const OPEN_CHAT = 'workbench.action.chat.open';
+
 	export function executeCommand(command: string, arg1?: any, arg2?: any) {
 		return vscode.commands.executeCommand(command, arg1, arg2);
 	}

@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
+import { commands } from '../common/executeCommands';
 import Logger from '../common/logger';
 import {
 	CREATE_INSERT_FORMAT,
@@ -482,6 +483,30 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this.context.subscriptions.push(
 			vscode.commands.registerCommand('issue.goToLinkedCode', async (issueModel: any) => {
 				return openCodeLink(issueModel, this.manager);
+			}),
+		);
+		this.context.subscriptions.push(
+			vscode.commands.registerCommand('issue.chatSummarizeIssue', (issue: any) => {
+				if (!(issue instanceof IssueModel)) {
+					return;
+				}
+				/* __GDPR__
+				"issue.chatSummarizeIssue" : {}
+			*/
+				this.telemetry.sendTelemetryEvent('issue.chatSummarizeIssue');
+				commands.executeCommand(commands.OPEN_CHAT, vscode.l10n.t('@githubpr Summarize issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number));
+			}),
+		);
+		this.context.subscriptions.push(
+			vscode.commands.registerCommand('issue.chatSuggestFix', (issue: any) => {
+				if (!(issue instanceof IssueModel)) {
+					return;
+				}
+				/* __GDPR__
+				"issue.chatSuggestFix" : {}
+			*/
+				this.telemetry.sendTelemetryEvent('issue.chatSuggestFix');
+				commands.executeCommand(commands.OPEN_CHAT, vscode.l10n.t('@githubpr Find a fix for issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number));
 			}),
 		);
 		this._stateManager.tryInitializeAndWait().then(() => {
