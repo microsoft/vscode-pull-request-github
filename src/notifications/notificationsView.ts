@@ -52,12 +52,8 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 		}
 		item.description = `${notification.owner}/${notification.name}`;
 		item.contextValue = notification.subject.type;
-		const priority = element.getPriority();
 		item.resourceUri = toNotificationUri({ key: element.notification.key });
 
-		if (priority?.priorityReasoning) {
-			item.tooltip = priority.priorityReasoning;
-		}
 		// TODO: Issue webview needs polish before we do this
 		// item.command = {
 		// 	command: 'pr.openDescription',
