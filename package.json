@@ -3098,15 +3098,15 @@
 					"properties": {
 						"repo": {
 							"type": "object",
-							"description": "The repository to get the issue from.",
+							"description": "The repository to get the issue/PR from.",
 							"properties": {
 								"owner": {
 									"type": "string",
-									"description": "The owner of the repository to get the issue from."
+									"description": "The owner of the repository to get the issue/PR from."
 								},
 								"name": {
 									"type": "string",
-									"description": "The name of the repository to get the issue from."
+									"description": "The name of the repository to get the issue/PR from."
 								}
 							},
 							"required": [
@@ -3116,7 +3116,7 @@
 						},
 						"issueNumber": {
 							"type": "number",
-							"description": "The number of the issue to get."
+							"description": "The number of the issue/PR to get."
 						}
 					},
 					"required": [

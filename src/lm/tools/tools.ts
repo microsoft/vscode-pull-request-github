@@ -9,19 +9,19 @@ import { RepositoriesManager } from '../../github/repositoriesManager';
 import { DisplayIssuesTool } from '../displayIssuesTool';
 import { ChatParticipantState } from '../participants';
 import { ConvertToSearchSyntaxTool, SearchTool } from '../searchTools';
-import { IssueTool } from './issueTool';
+import { FetchTool } from './fetchTool';
 import { SuggestFixTool } from './suggestFixTool';
 import { SummarizationTool } from './summarizeTool';
 
 export function registerTools(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
-	registerIssueTool(context, repositoriesManager);
+	registerFetchTool(context, repositoriesManager);
 	registerSummarizationTool(context, repositoriesManager);
 	registerSuggestFixTool(context, repositoriesManager);
 	registerSearchTools(context, repositoriesManager, chatParticipantState);
 }
 
-function registerIssueTool(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {
-	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_issue', new IssueTool(repositoriesManager)));
+function registerFetchTool(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {
+	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_fetch', new FetchTool(repositoriesManager)));
 }
 
 function registerSummarizationTool(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {

@@ -6,9 +6,11 @@
 
 import * as vscode from 'vscode';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { IssueModel } from '../../github/issueModel';
+import { PullRequestModel } from '../../github/pullRequestModel';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 
-interface IssueToolParameters {
+interface FetchToolParameters {
 	issueNumber: number;
 	repo?: {
 		owner: string;
@@ -16,7 +18,7 @@ interface IssueToolParameters {
 	};
 }
 
-interface IssueResult {
+interface FetchResult {
 	title: string;
 	body: string;
 	comments: {
@@ -24,10 +26,10 @@ interface IssueResult {
 	}[];
 }
 
-export class IssueTool implements vscode.LanguageModelTool<IssueToolParameters> {
+export class FetchTool implements vscode.LanguageModelTool<FetchToolParameters> {
 	constructor(private readonly repositoriesManager: RepositoriesManager) { }
 
-	async invoke(options: vscode.LanguageModelToolInvocationOptions<IssueToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
+	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		let owner: string | undefined;
 		let name: string | undefined;
 		let folderManager: FolderRepositoryManager | undefined;
@@ -44,14 +46,17 @@ export class IssueTool implements vscode.LanguageModelTool<IssueToolParameters> 
 		if (!folderManager || !owner || !name) {
 			throw new Error(`No folder manager found for ${owner}/${name}. Make sure to have the repository open.`);
 		}
-		const issue = await folderManager.resolveIssue(owner, name, options.parameters.issueNumber, true);
-		if (!issue) {
-			throw new Error(`No issue found for ${owner}/${name}/${options.parameters.issueNumber}. Make sure the issue exists.`);
+		let issueOrPullRequest: IssueModel | PullRequestModel | undefined = await folderManager.resolveIssue(owner, name, options.parameters.issueNumber, true);
+		if (!issueOrPullRequest) {
+			issueOrPullRequest = await folderManager.resolvePullRequest(owner, name, options.parameters.issueNumber);
 		}
-		const result: IssueResult = {
-			title: issue.title,
-			body: issue.body,
-			comments: issue.item.comments?.map(c => ({ body: c.body })) ?? []
+		if (!issueOrPullRequest) {
+			throw new Error(`No issue or PR found for ${owner}/${name}/${options.parameters.issueNumber}. Make sure the issue or PR exists.`);
+		}
+		const result: FetchResult = {
+			title: issueOrPullRequest.title,
+			body: issueOrPullRequest.body,
+			comments: issueOrPullRequest.item.comments?.map(c => ({ body: c.body })) ?? []
 		};
 		return {
 			'text/plain': JSON.stringify(result)
