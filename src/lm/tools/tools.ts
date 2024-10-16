@@ -9,7 +9,7 @@ import { RepositoriesManager } from '../../github/repositoriesManager';
 import { DisplayIssuesTool } from '../displayIssuesTool';
 import { ChatParticipantState } from '../participants';
 import { ConvertToSearchSyntaxTool, SearchTool } from '../searchTools';
-import { IssueTool } from './issueTool';
+import { SummarizationTool } from './issueTool';
 import { SuggestFixTool } from './suggestFixTool';
 
 export function registerTools(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
@@ -19,7 +19,7 @@ export function registerTools(context: vscode.ExtensionContext, repositoriesMana
 }
 
 function registerIssueTool(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {
-	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_issue', new IssueTool(repositoriesManager)));
+	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_summarize', new SummarizationTool(repositoriesManager)));
 }
 
 function registerSuggestFixTool(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {

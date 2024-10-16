@@ -274,7 +274,7 @@ ${comment.body}
 	}
 }
 
-function getPrioritizeNotificationsInstructions(githubHandle: string) {
+function getPrioritizeNotificationsInstructions(githubHandle: string): string {
 	return `
 You are an intelligent assistant tasked with prioritizing GitHub notifications.
 You are given a list of notifications for the current user ${githubHandle}, each related to an issue, pull request or discussion. In the case of an issue/PR, if there are comments, you are given the last 5 comments under it.

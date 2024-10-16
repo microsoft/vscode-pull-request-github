@@ -2320,7 +2320,7 @@
 				{
 					"command": "notification.chatSummarizeNotification",
 					"group": "inline@1",
-					"when": "view == notifications:github && viewItem == 'Issue'"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
 				},
 				{
 					"command": "notification.openOnGitHub",
@@ -3083,14 +3083,15 @@
 		],
 		"languageModelTools": [
 			{
-				"name": "github-pull-request_issue",
+				"name": "github-pull-request_summarize",
 				"tags": [
 					"github",
-					"issues"
+					"issues",
+					"prs"
 				],
-				"toolReferenceName": "issue",
-				"displayName": "Get GitHub Issue",
-				"modelDescription": "A GitHub issue, which includes the title, body, and comments.",
+				"toolReferenceName": "summarize",
+				"displayName": "Summarize a GitHub Issue/PR",
+				"modelDescription": "Returns a summary of a GitHub issue or pull request.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
@@ -3098,15 +3099,15 @@
 					"properties": {
 						"repo": {
 							"type": "object",
-							"description": "The repository to get the issue from.",
+							"description": "The repository to get the issue/PR from.",
 							"properties": {
 								"owner": {
 									"type": "string",
-									"description": "The owner of the repository to get the issue from."
+									"description": "The owner of the repository to get the issue/PR from."
 								},
 								"name": {
 									"type": "string",
-									"description": "The name of the repository to get the issue from."
+									"description": "The name of the repository to get the issue/PR from."
 								}
 							},
 							"required": [
@@ -3116,7 +3117,7 @@
 						},
 						"issueNumber": {
 							"type": "number",
-							"description": "The number of the issue to get."
+							"description": "The number of the issue/PR to get."
 						}
 					},
 					"required": [
