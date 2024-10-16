@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import Logger from '../../common/logger';
-import { Issue } from '../../github/interface';
+import { IAccount, Issue, ITeam, reviewerLabel } from '../../github/interface';
 import { ChatParticipantState } from '../participants';
 import { SearchToolResult } from './searchTools';
 import { concatAsyncIterable, MimeTypes, ToolBase } from './toolsUtils';
