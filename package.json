@@ -3125,7 +3125,8 @@
 					]
 				},
 				"supportedContentTypes": [
-					"text/plain"
+					"text/plain",
+					"text/json"
 				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
@@ -3158,6 +3159,23 @@
 								"type": "string"
 							},
 							"description": "The array of associated string comments"
+						},
+						"fileChanges": {
+							"type": "array",
+							"items": {
+								"type": "object",
+								"properties": {
+									"fileName": {
+										"type": "string",
+										"description": "The name of the file of the change"
+									},
+									"patch": {
+										"type": "string",
+										"description": "The patch of the change"
+									}
+								}
+							},
+							"description": "For a PR, the array of associated file changes"
 						}
 					},
 					"required": [

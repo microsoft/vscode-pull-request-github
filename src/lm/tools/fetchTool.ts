@@ -5,6 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { InMemFileChange } from '../../common/file';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { IssueModel } from '../../github/issueModel';
 import { PullRequestModel } from '../../github/pullRequestModel';
@@ -18,12 +19,18 @@ interface FetchToolParameters {
 	};
 }
 
-interface FetchResult {
+interface FileChange {
+	fileName: string;
+	patch: string;
+}
+
+export interface FetchResult {
 	title: string;
 	body: string;
 	comments: {
 		body: string;
 	}[];
+	fileChanges?: FileChange[];
 }
 
 export class FetchTool extends RepoToolBase<FetchToolParameters> {
@@ -35,6 +42,19 @@ export class FetchTool extends RepoToolBase<FetchToolParameters> {
 			body: issueOrPullRequest.body,
 			comments: issueOrPullRequest.item.comments?.map(c => ({ body: c.body })) ?? []
 		};
+		if (issueOrPullRequest instanceof PullRequestModel) {
+			const fileChanges = await issueOrPullRequest.getFileChangesInfo();
+			const fetchedFileChanges: FileChange[] = [];
+			for (const fileChange of fileChanges) {
+				if (fileChange instanceof InMemFileChange) {
+					fetchedFileChanges.push({
+						fileName: fileChange.fileName,
+						patch: fileChange.patch
+					});
+				}
+			}
+			result.fileChanges = fetchedFileChanges;
+		}
 		return {
 			[MimeTypes.textPlain]: JSON.stringify(result),
 			[MimeTypes.textJson]: result
