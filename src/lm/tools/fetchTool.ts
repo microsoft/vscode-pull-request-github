@@ -36,7 +36,8 @@ export class FetchTool extends RepoToolBase<FetchToolParameters> {
 			comments: issueOrPullRequest.item.comments?.map(c => ({ body: c.body })) ?? []
 		};
 		return {
-			[MimeTypes.textPlain]: JSON.stringify(result)
+			[MimeTypes.textPlain]: JSON.stringify(result),
+			[MimeTypes.textJson]: result
 		};
 	}
 
