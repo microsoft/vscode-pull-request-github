@@ -36,7 +36,7 @@
 	"version": "0.98.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.94.0"
+		"vscode": "^1.95.0"
 	},
 	"categories": [
 		"Other",

@@ -125,6 +125,7 @@ You are an expert on choosing search keywords based on a natural language search
 - Try to pick just one label.
 - Respond with a space-separated list of labels: Examples: 'bug polish', 'accessibility "feature accessibility"'
 - Only choose labels that you're sure are relevant. Having no labels is preferable than lables that aren't relevant.
+- Don't choose labels that the user has explicitly excluded.
 - Respond with labels chosen from these options:
 ${labels.map(label => label.name).filter(label => !label.includes('required') && !label.includes('search') && !label.includes('question') && !label.includes('find')).join(', ')}
 `;
@@ -139,6 +140,7 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 - Don't include any key words that might be related to sorting.
 - Respond with only your chosen key word.
 - It's better to return no keywords than to return irrelevant keywords.
+- If an issue is provided, choose a keyword that names the feature or bug that the issue is about.
 `;
 	}
 
@@ -228,6 +230,10 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 			return '';
 		}
 		if (labels.some(label => freeForm.includes(label))) {
+			return '';
+		}
+		// useless strings to search for
+		if (freeForm.includes('issue')) {
 			return '';
 		}
 		return freeForm;
