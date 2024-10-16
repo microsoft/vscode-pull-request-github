@@ -6,10 +6,16 @@
 
 import * as vscode from 'vscode';
 import { RepositoriesManager } from '../../github/repositoriesManager';
-import { IssueResult, IssueToolParameters } from './toolsUtils';
+import { IssueResult, IssueToolParameters, MimeTypes } from './toolsUtils';
 
 export class SuggestFixTool implements vscode.LanguageModelTool<IssueToolParameters> {
 	constructor(private readonly repositoriesManager: RepositoriesManager) { }
+
+	async prepareToolInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<IssueToolParameters>): Promise<vscode.PreparedToolInvocation> {
+		return {
+			invocationMessage: options.parameters.issueNumber ? vscode.l10n.t('Suggesting a fix for issue #{0}...', options.parameters.issueNumber) : vscode.l10n.t('Suggesting a fix for the issue...')
+		};
+	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<IssueToolParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		const folderManager = this.repositoriesManager.getManagerForRepository(options.parameters.repo.owner, options.parameters.repo.name);
@@ -67,7 +73,7 @@ export class SuggestFixTool implements vscode.LanguageModelTool<IssueToolParamet
 			responseResult += chunk;
 		}
 		return {
-			'text/plain': responseResult
+			[MimeTypes.textPlain]: responseResult
 		};
 	}
 

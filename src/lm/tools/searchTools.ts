@@ -5,12 +5,10 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import Logger from '../common/logger';
-import { FolderRepositoryManager } from '../github/folderRepositoryManager';
-import { ILabel, Issue } from '../github/interface';
-import { RepositoriesManager } from '../github/repositoriesManager';
-import { ChatParticipantState } from './participants';
-import { concatAsyncIterable, ToolBase } from './tools/toolsUtils';
+import Logger from '../../common/logger';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { ILabel, Issue } from '../../github/interface';
+import { concatAsyncIterable, MimeTypes, RepoToolBase } from './toolsUtils';
 
 interface ConvertToQuerySyntaxParameters {
 	naturalLanguageString: string;
@@ -40,13 +38,47 @@ enum ValidatableProperty {
 	no = 'no',
 }
 
+const githubSearchSyntax = {
+	is: { possibleValues: ['issue', 'pr', 'draft', 'public', 'private', 'locked', 'unlocked'] },
+	assignee: { valueDescription: 'A GitHub user name or @me' },
+	author: { valueDescription: 'A GitHub user name or @me' },
+	mentions: { valueDescription: 'A GitHub user name or @me' },
+	team: { valueDescription: 'A GitHub user name' },
+	commenter: { valueDescription: 'A GitHub user name or @me' },
+	involves: { valueDescription: 'A GitHub user name or @me' },
+	label: { valueDescription: 'A GitHub issue/pr label' },
+	type: { possibleValues: ['pr', 'issue'] },
+	state: { possibleValues: ['open', 'closed', 'merged'] },
+	in: { possibleValues: ['title', 'body', 'comments'] },
+	user: { valueDescription: 'A GitHub user name or @me' },
+	org: { valueDescription: 'A GitHub org, without the repo name' },
+	repo: { valueDescription: 'A GitHub repo, without the org name' },
+	linked: { possibleValues: ['pr', 'issue'] },
+	milestone: { valueDescription: 'A GitHub milestone' },
+	project: { valueDescription: 'A GitHub project' },
+	status: { possibleValues: ['success', 'failure', 'pending'] },
+	head: { valueDescription: 'A git commit sha or branch name' },
+	base: { valueDescription: 'A git commit sha or branch name' },
+	comments: { valueDescription: 'A number' },
+	interactions: { valueDescription: 'A number' },
+	reactions: { valueDescription: 'A number' },
+	draft: { possibleValues: ['true', 'false'] },
+	review: { possibleValues: ['none', 'required', 'approved', 'changes_requested'] },
+	reviewedBy: { valueDescription: 'A GitHub user name or @me' },
+	reviewRequested: { valueDescription: 'A GitHub user name or @me' },
+	userReviewRequested: { valueDescription: 'A GitHub user name or @me' },
+	teamReviewRequested: { valueDescription: 'A GitHub user name' },
+	created: { valueDescription: 'A date, with an optional < >' },
+	updated: { valueDescription: 'A date, with an optional < >' },
+	closed: { valueDescription: 'A date, with an optional < >' },
+	no: { possibleValues: ['label', 'milestone', 'assignee', 'project'] },
+	sort: { possibleValues: ['updated', 'updated-asc', 'interactions', 'interactions-asc', 'author-date', 'author-date-asc', 'committer-date', 'committer-date-asc', 'reactions', 'reactions-asc', 'reactions-(+1, -1, smile, tada, heart)'] }
+};
+
 const MATCH_UNQUOTED_SPACES = /(?!\B"[^"]*)\s+(?![^"]*"\B)/;
 
-export class ConvertToSearchSyntaxTool extends ToolBase<ConvertToQuerySyntaxParameters> {
+export class ConvertToSearchSyntaxTool extends RepoToolBase<ConvertToQuerySyntaxParameters> {
 	static ID = 'ConvertToSearchSyntaxTool';
-	constructor(private readonly repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
-		super(chatParticipantState);
-	}
 
 	private async fullQueryAssistantPrompt(folderRepoManager: FolderRepositoryManager): Promise<string> {
 		const remote = folderRepoManager.activePullRequest?.remote ?? folderRepoManager.activeIssue?.remote ?? (await folderRepoManager.getPullRequestDefaultRepo()).remote;
@@ -66,57 +98,16 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 	- comments:>5 org:contoso is:issue state:closed mentions:@me label:bug
 	- interactions:>5 repo:contoso/cli is:issue state:open
 - Go through each word of the natural language query and try to match it to a syntax component.
+- Use a "-" in front of a syntax component to indicate that it should be excluded from the search.
 - As a reminder, here are the components of the query syntax:
-	Filters:
-| Property 	| Possible Values | Value Description |
-|-----------|-----------------|-------------------|
-| is 		| issue, pr, draft, public, private, locked, unlocked |  |
-| assignee 	|  | A GitHub user name or @me |
-| author 	|  | A GitHub user name or @me |
-| mentions 	|  | A GitHub user name or @me |
-| team 		|  | A GitHub user name |
-| commenter |  | A GitHub user name or @me |
-| involves 	|  | A GitHub user name or @me |
-| label		|  | A GitHub issue/pr label |
-| type 		| pr, issue |  |
-| state 	|  open, closed, merged |  |
-| in 		| title, body, comments |  |
-| user 		|  | A GitHub user name or @me |
-| org 		| | A GitHub org, without the repo name |
-| repo 		| | A GitHub repo, without the org name |
-| linked 	| pr, issue |  |
-| milestone |  | A GitHub milestone |
-| project 	|  | A GitHub project  |
-| status 	| success, failure, pending |  |
-| head 		|  | A git commit sha or branch name |
-| base 		|  | A git commit sha or branch name |
-| comments  | | A number |
-| interactions |  | A number |
-| reactions |  | A number |
-| draft 	| true, false |  |
-| review 	| none, required, approved, changes_requested |  |
-| reviewed-by |  | A GitHub user name or @me |
-| review-requested |  | A GitHub user name or @me |
-| user-review-requested |  | A GitHub user name or @me |
-| team-review-requested |  | A GitHub user name |
-| created 	|  | A date, with an optional < > |
-| updated 	|  | A date, with an optional < > |
-| closed 	|  | A date, with an optional < > |
-| no 		|  label, milestone, assignee, project |  |
-| sort 		| updated, updated-asc, interactions, interactions-asc, author-date, author-date-asc, committer-date, committer-date-asc, reactions, reactions-asc, reactions-(+1, -1, smile, tada, heart) |  |
-
-	Logical Operators:
-		- -
-
-	Special Values:
-		- @me
+	${JSON.stringify(githubSearchSyntax)}
 `;
 	}
 
 	private async labelsAssistantPrompt(folderRepoManager: FolderRepositoryManager, labels: ILabel[]): Promise<string> {
 		// It seems that AND and OR aren't supported in GraphQL, so we can't use them in the query
 		// Here's the prompt in case we switch to REST:
-		//- Use as many labels as you think fit the query. If one label fits, then there are probably more that fit.
+		// - Use as many labels as you think fit the query. If one label fits, then there are probably more that fit.
 		// - Respond with a list of labels in github search syntax, separated by AND or OR. Examples: "label:bug OR label:polish", "label:accessibility AND label:editor-accessibility"
 		return `Instructions:
 You are an expert on choosing search keywords based on a natural language search query. Here are some rules to follow:
@@ -357,24 +348,15 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		return `https://github.com/issues/?q=${encodeURIComponent(query)}`;
 	}
 
+	async prepareToolInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<ConvertToQuerySyntaxParameters>): Promise<vscode.PreparedToolInvocation> {
+		return {
+			invocationMessage: vscode.l10n.t('Converting to search syntax...')
+		};
+	}
+
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<ConvertToQuerySyntaxParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		let owner: string | undefined;
-		let name: string | undefined;
-		let folderManager: FolderRepositoryManager | undefined;
+		const { owner, name, folderManager } = await this.getRepoInfo(options);
 		const firstUserMessage = `${this.chatParticipantState.firstUserMessage}, ${options.parameters.naturalLanguageString}`;
-		// The llm likes to make up an owner and name if it isn't provided one, and they tend to include 'owner' and 'name' respectively
-		if (options.parameters.repo && options.parameters.repo.owner && options.parameters.repo.name && !options.parameters.repo.owner.includes('owner') && !options.parameters.repo.name.includes('name')) {
-			owner = options.parameters.repo.owner;
-			name = options.parameters.repo.name;
-			folderManager = this.repositoriesManager.getManagerForRepository(options.parameters.repo.owner, options.parameters.repo.name);
-		} else if (this.repositoriesManager.folderManagers.length > 0) {
-			folderManager = this.repositoriesManager.folderManagers[0];
-			owner = folderManager.gitHubRepositories[0].remote.owner;
-			name = folderManager.gitHubRepositories[0].remote.repositoryName;
-		}
-		if (!folderManager || !owner || !name) {
-			throw new Error(`No folder manager found for ${owner}/${name}. Make sure to have a repository open.`);
-		}
 
 		const labels = await folderManager.getLabels(undefined, { owner, repo: name });
 
@@ -394,8 +376,8 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		}
 		Logger.debug(`Query \`${result.query}\``, ConvertToSearchSyntaxTool.ID);
 		return {
-			'text/plain': result.query,
-			'text/display': `Query \`${result.query}\`. [Open on GitHub.com](${this.toGitHubUrl(result.query)})\n\n`,
+			[MimeTypes.textPlain]: result.query,
+			[MimeTypes.textDisplay]: vscode.l10n.t('Query \`{0}\`. [Open on GitHub.com]({1})\n\n', result.query, this.toGitHubUrl(result.query))
 		};
 	}
 }
@@ -406,29 +388,21 @@ export interface SearchToolResult {
 	arrayOfIssues: Issue[];
 }
 
-export class SearchTool implements vscode.LanguageModelTool<SearchToolParameters> {
+export class SearchTool extends RepoToolBase<SearchToolParameters> {
 	static ID = 'SearchTool';
-	constructor(private readonly repositoriesManager: RepositoriesManager) { }
+
+	async prepareToolInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<SearchToolParameters>): Promise<vscode.PreparedToolInvocation> {
+		return {
+			invocationMessage: vscode.l10n.t('Searching for issues...')
+		};
+	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<SearchToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
+		const { folderManager } = await this.getRepoInfo(options);
+
 		const parameterQuery = options.parameters.query;
 		Logger.debug(`Searching with query \`${parameterQuery}\``, SearchTool.ID);
-		let owner: string | undefined;
-		let name: string | undefined;
-		let folderManager: FolderRepositoryManager | undefined;
-		// The llm likes to make up an owner and name if it isn't provided one, and they tend to include 'owner' and 'name' respectively
-		if (options.parameters.repo && options.parameters.repo.owner && options.parameters.repo.name && !options.parameters.repo.owner.includes('owner') && !options.parameters.repo.name.includes('name')) {
-			owner = options.parameters.repo.owner;
-			name = options.parameters.repo.name;
-			folderManager = this.repositoriesManager.getManagerForRepository(options.parameters.repo.owner, options.parameters.repo.name);
-		} else if (this.repositoriesManager.folderManagers.length > 0) {
-			folderManager = this.repositoriesManager.folderManagers[0];
-			owner = folderManager.gitHubRepositories[0].remote.owner;
-			name = folderManager.gitHubRepositories[0].remote.repositoryName;
-		}
-		if (!folderManager || !owner || !name) {
-			throw new Error(`No folder manager found for ${owner}/${name}. Make sure to have the repository open.`);
-		}
+
 		const searchResult = await folderManager.getIssues(parameterQuery);
 		if (!searchResult) {
 			throw new Error(`No issues found for ${parameterQuery}. Make sure the query is valid.`);
@@ -438,8 +412,8 @@ export class SearchTool implements vscode.LanguageModelTool<SearchToolParameters
 		};
 		Logger.debug(`Found ${result.arrayOfIssues.length} issues, first issue ${result.arrayOfIssues[0]?.number}.`, SearchTool.ID);
 		return {
-			'text/plain': `Here are the issues I found for the query ${parameterQuery} in json format. You can pass these to a tool that can display them.`,
-			'text/json': result
+			[MimeTypes.textPlain]: `Here are the issues I found for the query ${parameterQuery} in json format. You can pass these to a tool that can display them.`,
+			[MimeTypes.textJson]: result
 		};
 	}
 }

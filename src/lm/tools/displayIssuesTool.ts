@@ -5,11 +5,11 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import Logger from '../common/logger';
-import { IAccount, Issue, ITeam, reviewerLabel } from '../github/interface';
-import { ChatParticipantState } from './participants';
+import Logger from '../../common/logger';
+import { IAccount, Issue, ITeam, reviewerLabel } from '../../github/interface';
+import { ChatParticipantState } from '../participants';
 import { SearchToolResult } from './searchTools';
-import { concatAsyncIterable, ToolBase } from './tools/toolsUtils';
+import { concatAsyncIterable, MimeTypes, ToolBase } from './toolsUtils';
 
 export type DisplayIssuesParameters = SearchToolResult;
 
@@ -30,8 +30,8 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		return `${LLM_FIND_IMPORTANT_COLUMNS_INSTRUCTIONS}\n${possibleColumns.map(column => `- ${column}`).join('\n')}\nHere's the data you have about the issues:\n`;
 	}
 
-	private postProcess(output: string, issues: Issue[]): IssueColumn[] {
-		const lines = output.split('\n');
+	private postProcess(proposedColumns: string, issues: Issue[]): IssueColumn[] {
+		const lines = proposedColumns.split('\n');
 		const possibleColumns = Object.keys(issues[0]);
 		const finalColumns: IssueColumn[] = [];
 		for (const line of lines) {
@@ -105,9 +105,15 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		}).join(' | ')} |`;
 	}
 
+	async prepareToolInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<DisplayIssuesParameters>): Promise<vscode.PreparedToolInvocation> {
+		return {
+			invocationMessage: vscode.l10n.t('Generating markdown table of issues...'),
+		};
+	}
+
 	async invoke(_options: vscode.LanguageModelToolInvocationOptions<DisplayIssuesParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		// The llm won't actually pass the output of the search tool to this tool, so we need to get the issues from the last message
-		let issueItems: Issue[] = []; // = (typeof options.parameters.arrayOfIssues === 'string') ? JSON.parse(options.parameters.arrayOfIssues) : options.parameters.arrayOfIssues;
+		let issueItems: Issue[] = [];
 		let issueItemsInfo: string = this.chatParticipantState.firstUserMessage ?? '';
 		const lastMessage = this.chatParticipantState.lastToolResult;
 		if (lastMessage) {
@@ -129,7 +135,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		if (issueItems.length === 0) {
 			return {
 				'text/plain': 'No issues found. Please try another query.',
-				'text/markdown': 'No issues found. Please try another query.'
+				'text/markdown': vscode.l10n.t('No issues found. Please try another query.')
 			};
 		}
 		Logger.debug(`Displaying ${issueItems.length} issues, first issue ${issueItems[0].number}`, DisplayIssuesTool.ID);
@@ -146,9 +152,9 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		}).join('\n'));
 
 		return {
-			'text/plain': `Here is a markdown table of the first 10 issues.`,
-			'text/markdown': issues.value,
-			'text/display': `Here's a markdown table of the first 10 issues.\n\n${issues.value}\n\n`
+			[MimeTypes.textPlain]: `Here is a markdown table of the first 10 issues.`,
+			[MimeTypes.textMarkdown]: issues.value,
+			[MimeTypes.textDisplay]: vscode.l10n.t('Here\'s a markdown table of the first 10 issues.\n\n{0}\n\n', issues.value)
 		};
 	}
 

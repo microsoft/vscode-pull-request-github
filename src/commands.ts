@@ -27,7 +27,7 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, vscodeDevPrLink } from './github/utils';
-import { NotificationTreeItem } from './notifications/notificationTreeItem';
+import { NotificationItem } from './notifications/notificationsManager';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewCommentController } from './view/reviewCommentController';
 import { ReviewManager } from './view/reviewManager';
@@ -49,8 +49,8 @@ const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
 export const onDidUpdatePR: vscode.Event<PullRequest | void> = _onDidUpdatePR.event;
 
 function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode): PullRequestModel;
-function ensurePR<U extends Issue, T extends IssueModel<U>>(folderRepoManager: FolderRepositoryManager, pr?: T): T;
-function ensurePR<U extends Issue, T extends IssueModel<U>>(folderRepoManager: FolderRepositoryManager, pr?: PRNode | T): T {
+function ensurePR<TIssue extends Issue, TIssueModel extends IssueModel<TIssue>>(folderRepoManager: FolderRepositoryManager, pr?: TIssueModel): TIssueModel;
+function ensurePR<TIssue extends Issue, TIssueModel extends IssueModel<TIssue>>(folderRepoManager: FolderRepositoryManager, pr?: PRNode | TIssueModel): TIssueModel {
 	// If the command is called from the command palette, no arguments are passed.
 	if (!pr) {
 		if (!folderRepoManager.activePullRequest) {
@@ -58,9 +58,9 @@ function ensurePR<U extends Issue, T extends IssueModel<U>>(folderRepoManager: F
 			throw new Error('Unable to find current pull request.');
 		}
 
-		return folderRepoManager.activePullRequest as unknown as T;
+		return folderRepoManager.activePullRequest as unknown as TIssueModel;
 	} else {
-		return (pr instanceof PRNode ? pr.pullRequestModel : pr) as T;
+		return (pr instanceof PRNode ? pr.pullRequestModel : pr) as TIssueModel;
 	}
 }
 
@@ -114,10 +114,10 @@ async function chooseItem<T>(
 	return (await vscode.window.showQuickPick(items, options))?.itemValue;
 }
 
-export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | PullRequestModel | NotificationTreeItem, telemetry: ITelemetry) {
+export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | PullRequestModel | NotificationItem, telemetry: ITelemetry) {
 	if (e instanceof PRNode || e instanceof DescriptionNode) {
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.html_url));
-	} else if (e instanceof NotificationTreeItem) {
+	} else if (e instanceof NotificationItem) {
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.model.html_url));
 	} else {
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.html_url));
@@ -163,7 +163,7 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'notification.openOnGitHub',
-			async (e: NotificationTreeItem | undefined) => {
+			async (e: NotificationItem | undefined) => {
 				if (e) {
 					openPullRequestOnGitHub(e, telemetry);
 				}

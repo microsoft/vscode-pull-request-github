@@ -143,7 +143,7 @@ export interface IGitHubRef {
 export interface ILabel {
 	name: string;
 	color: string;
-	description?: string | null;
+	description?: string;
 }
 
 export interface IIssueComment {

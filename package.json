@@ -2320,7 +2320,7 @@
 				{
 					"command": "notification.chatSummarizeNotification",
 					"group": "inline@1",
-					"when": "view == notifications:github && viewItem == 'Issue'"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
 				},
 				{
 					"command": "notification.openOnGitHub",
@@ -3083,14 +3083,15 @@
 		],
 		"languageModelTools": [
 			{
-				"name": "github-pull-request_issue",
+				"name": "github-pull-request_fetch",
 				"tags": [
 					"github",
-					"issues"
+					"issues",
+					"prs"
 				],
-				"toolReferenceName": "issue",
-				"displayName": "Get GitHub Issue",
-				"modelDescription": "A GitHub issue, which includes the title, body, and comments.",
+				"toolReferenceName": "fetch",
+				"displayName": "%languageModelTools.github-pull-request_fetch.displayName%",
+				"modelDescription": "Get a GitHub issue/PR, which includes the title, body, and comments.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
@@ -3098,15 +3099,15 @@
 					"properties": {
 						"repo": {
 							"type": "object",
-							"description": "The repository to get the issue from.",
+							"description": "The repository to get the issue/PR from.",
 							"properties": {
 								"owner": {
 									"type": "string",
-									"description": "The owner of the repository to get the issue from."
+									"description": "The owner of the repository to get the issue/PR from."
 								},
 								"name": {
 									"type": "string",
-									"description": "The name of the repository to get the issue from."
+									"description": "The name of the repository to get the issue/PR from."
 								}
 							},
 							"required": [
@@ -3116,7 +3117,7 @@
 						},
 						"issueNumber": {
 							"type": "number",
-							"description": "The number of the issue to get."
+							"description": "The number of the issue/PR to get."
 						}
 					},
 					"required": [
@@ -3124,7 +3125,68 @@
 					]
 				},
 				"supportedContentTypes": [
-					"text/plain"
+					"text/plain",
+					"text/json"
+				],
+				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
+				"name": "github-pull-request_summarize",
+				"tags": [
+					"github",
+					"issues",
+					"prs"
+				],
+				"toolReferenceName": "summarize",
+				"displayName": "%languageModelTools.github-pull-request_summarize.displayName%",
+				"modelDescription": "Returns a summary of a GitHub issue or PR given issue/PR details.",
+				"icon": "$(info)",
+				"canBeReferencedInPrompt": true,
+				"parametersSchema": {
+					"type": "object",
+					"properties": {
+						"title": {
+							"type": "string",
+							"description": "The title of the issue/PR"
+						},
+						"body": {
+							"type": "string",
+							"description": "The body of the issue/PR"
+						},
+						"comments": {
+							"type": "array",
+							"items": {
+								"type": "string"
+							},
+							"description": "The array of associated string comments"
+						},
+						"fileChanges": {
+							"type": "array",
+							"items": {
+								"type": "object",
+								"properties": {
+									"fileName": {
+										"type": "string",
+										"description": "The name of the file of the change"
+									},
+									"patch": {
+										"type": "string",
+										"description": "The patch of the change"
+									}
+								}
+							},
+							"description": "For a PR, the array of associated file changes"
+						}
+					},
+					"required": [
+						"title",
+						"body",
+						"comments"
+					]
+				},
+				"supportedContentTypes": [
+					"text/plain",
+					"text/json"
 				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
@@ -3135,7 +3197,7 @@
 					"issues"
 				],
 				"toolReferenceName": "suggest-fix",
-				"displayName": "Suggest a Fix for a GitHub Issue",
+				"displayName": "%languageModelTools.github-pull-request_suggest-fix.displayName%",
 				"modelDescription": "Summarize and suggest a fix for a GitHub issue.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
@@ -3185,7 +3247,7 @@
 					"natural language"
 				],
 				"toolReferenceName": "searchSyntax",
-				"displayName": "Convert natural language to a GitHub search query",
+				"displayName": "%languageModelTools.github-pull-request_formSearchQuery.displayName%",
 				"modelDescription": "Converts natural language to a GitHub search query. Should ALWAYS be called before doing a search.",
 				"icon": "$(search)",
 				"canBeReferencedInPrompt": true,
@@ -3233,7 +3295,7 @@
 					"search"
 				],
 				"toolReferenceName": "doSearch",
-				"displayName": "Execute a GitHub search",
+				"displayName": "%languageModelTools.github-pull-request_doSearch.displayName%",
 				"modelDescription": "Execute a GitHub search given a well formed GitHub search query. Call github-pull-request_formSearchQuery first to get good search syntax and pass the exact result in as the 'query'.",
 				"icon": "$(search)",
 				"canBeReferencedInPrompt": true,
@@ -3282,7 +3344,7 @@
 					"display"
 				],
 				"toolReferenceName": "renderIssues",
-				"displayName": "Render issue items in a markdown table.",
+				"displayName": "%languageModelTools.github-pull-request_renderIssues.displayName%",
 				"modelDescription": "Render issue items from an issue search in a markdown table.",
 				"icon": "$(paintcan)",
 				"canBeReferencedInPrompt": false,

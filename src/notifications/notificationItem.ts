@@ -16,18 +16,12 @@ export enum NotificationsSortMethod {
 	Priority = 'Priority'
 }
 
-export type NotificationTreeDataItem = NotificationTreeItem | LoadMoreNotificationsTreeItem;
+export type NotificationTreeDataItem = INotificationItem | LoadMoreNotificationsTreeItem;
 
 export class LoadMoreNotificationsTreeItem { }
 
-export class NotificationTreeItem {
-
-	public priority: string | undefined;
-
-	public priorityReasoning: string | undefined;
-
-	constructor(
-		public readonly notification: Notification,
-		readonly model: IssueModel
-	) { }
+export interface INotificationItem {
+	notification: Notification;
+	model: IssueModel;
+	getPriority(): { priority: string, priorityReasoning: string } | undefined;
 }
