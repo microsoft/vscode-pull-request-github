@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { RepositoriesManager } from '../../github/repositoriesManager';
-import { IssueResult, IssueToolParameters } from './toolsUtils';
+import { IssueResult, IssueToolParameters, MimeTypes } from './toolsUtils';
 
 export class SuggestFixTool implements vscode.LanguageModelTool<IssueToolParameters> {
 	constructor(private readonly repositoriesManager: RepositoriesManager) { }
@@ -67,7 +67,7 @@ export class SuggestFixTool implements vscode.LanguageModelTool<IssueToolParamet
 			responseResult += chunk;
 		}
 		return {
-			'text/plain': responseResult
+			[MimeTypes.textPlain]: responseResult
 		};
 	}
 

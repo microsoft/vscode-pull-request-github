@@ -3089,7 +3089,7 @@
 					"issues"
 				],
 				"toolReferenceName": "issue",
-				"displayName": "Get GitHub Issue",
+				"displayName": "%languageModelTools.github-pull-request_issue.displayName%",
 				"modelDescription": "A GitHub issue, which includes the title, body, and comments.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
@@ -3135,7 +3135,7 @@
 					"issues"
 				],
 				"toolReferenceName": "suggest-fix",
-				"displayName": "Suggest a Fix for a GitHub Issue",
+				"displayName": "%languageModelTools.github-pull-request_suggest-fix.displayName%",
 				"modelDescription": "Summarize and suggest a fix for a GitHub issue.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
@@ -3185,7 +3185,7 @@
 					"natural language"
 				],
 				"toolReferenceName": "searchSyntax",
-				"displayName": "Convert natural language to a GitHub search query",
+				"displayName": "%languageModelTools.github-pull-request_formSearchQuery.displayName%",
 				"modelDescription": "Converts natural language to a GitHub search query. Should ALWAYS be called before doing a search.",
 				"icon": "$(search)",
 				"canBeReferencedInPrompt": true,
@@ -3233,7 +3233,7 @@
 					"search"
 				],
 				"toolReferenceName": "doSearch",
-				"displayName": "Execute a GitHub search",
+				"displayName": "%languageModelTools.github-pull-request_doSearch.displayName%",
 				"modelDescription": "Execute a GitHub search given a well formed GitHub search query. Call github-pull-request_formSearchQuery first to get good search syntax and pass the exact result in as the 'query'.",
 				"icon": "$(search)",
 				"canBeReferencedInPrompt": true,
@@ -3282,7 +3282,7 @@
 					"display"
 				],
 				"toolReferenceName": "renderIssues",
-				"displayName": "Render issue items in a markdown table.",
+				"displayName": "%languageModelTools.github-pull-request_renderIssues.displayName%",
 				"modelDescription": "Render issue items from an issue search in a markdown table.",
 				"icon": "$(paintcan)",
 				"canBeReferencedInPrompt": false,

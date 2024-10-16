@@ -5,12 +5,12 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import Logger from '../common/logger';
-import { FolderRepositoryManager } from '../github/folderRepositoryManager';
-import { ILabel, Issue } from '../github/interface';
-import { RepositoriesManager } from '../github/repositoriesManager';
-import { ChatParticipantState } from './participants';
-import { concatAsyncIterable, ToolBase } from './tools/toolsUtils';
+import Logger from '../../common/logger';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { ILabel, Issue } from '../../github/interface';
+import { RepositoriesManager } from '../../github/repositoriesManager';
+import { ChatParticipantState } from '../participants';
+import { concatAsyncIterable, MimeTypes, ToolBase } from './toolsUtils';
 
 interface ConvertToQuerySyntaxParameters {
 	naturalLanguageString: string;
@@ -40,6 +40,43 @@ enum ValidatableProperty {
 	no = 'no',
 }
 
+const githubSearchSyntax = {
+	is: { possibleValues: ['issue', 'pr', 'draft', 'public', 'private', 'locked', 'unlocked'] },
+	assignee: { valueDescription: 'A GitHub user name or @me' },
+	author: { valueDescription: 'A GitHub user name or @me' },
+	mentions: { valueDescription: 'A GitHub user name or @me' },
+	team: { valueDescription: 'A GitHub user name' },
+	commenter: { valueDescription: 'A GitHub user name or @me' },
+	involves: { valueDescription: 'A GitHub user name or @me' },
+	label: { valueDescription: 'A GitHub issue/pr label' },
+	type: { possibleValues: ['pr', 'issue'] },
+	state: { possibleValues: ['open', 'closed', 'merged'] },
+	in: { possibleValues: ['title', 'body', 'comments'] },
+	user: { valueDescription: 'A GitHub user name or @me' },
+	org: { valueDescription: 'A GitHub org, without the repo name' },
+	repo: { valueDescription: 'A GitHub repo, without the org name' },
+	linked: { possibleValues: ['pr', 'issue'] },
+	milestone: { valueDescription: 'A GitHub milestone' },
+	project: { valueDescription: 'A GitHub project' },
+	status: { possibleValues: ['success', 'failure', 'pending'] },
+	head: { valueDescription: 'A git commit sha or branch name' },
+	base: { valueDescription: 'A git commit sha or branch name' },
+	comments: { valueDescription: 'A number' },
+	interactions: { valueDescription: 'A number' },
+	reactions: { valueDescription: 'A number' },
+	draft: { possibleValues: ['true', 'false'] },
+	review: { possibleValues: ['none', 'required', 'approved', 'changes_requested'] },
+	reviewedBy: { valueDescription: 'A GitHub user name or @me' },
+	reviewRequested: { valueDescription: 'A GitHub user name or @me' },
+	userReviewRequested: { valueDescription: 'A GitHub user name or @me' },
+	teamReviewRequested: { valueDescription: 'A GitHub user name' },
+	created: { valueDescription: 'A date, with an optional < >' },
+	updated: { valueDescription: 'A date, with an optional < >' },
+	closed: { valueDescription: 'A date, with an optional < >' },
+	no: { possibleValues: ['label', 'milestone', 'assignee', 'project'] },
+	sort: { possibleValues: ['updated', 'updated-asc', 'interactions', 'interactions-asc', 'author-date', 'author-date-asc', 'committer-date', 'committer-date-asc', 'reactions', 'reactions-asc', 'reactions-(+1, -1, smile, tada, heart)'] }
+};
+
 const MATCH_UNQUOTED_SPACES = /(?!\B"[^"]*)\s+(?![^"]*"\B)/;
 
 export class ConvertToSearchSyntaxTool extends ToolBase<ConvertToQuerySyntaxParameters> {
@@ -66,57 +103,16 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 	- comments:>5 org:contoso is:issue state:closed mentions:@me label:bug
 	- interactions:>5 repo:contoso/cli is:issue state:open
 - Go through each word of the natural language query and try to match it to a syntax component.
+- Use a "-" in front of a syntax component to indicate that it should be excluded from the search.
 - As a reminder, here are the components of the query syntax:
-	Filters:
-| Property 	| Possible Values | Value Description |
-|-----------|-----------------|-------------------|
-| is 		| issue, pr, draft, public, private, locked, unlocked |  |
-| assignee 	|  | A GitHub user name or @me |
-| author 	|  | A GitHub user name or @me |
-| mentions 	|  | A GitHub user name or @me |
-| team 		|  | A GitHub user name |
-| commenter |  | A GitHub user name or @me |
-| involves 	|  | A GitHub user name or @me |
-| label		|  | A GitHub issue/pr label |
-| type 		| pr, issue |  |
-| state 	|  open, closed, merged |  |
-| in 		| title, body, comments |  |
-| user 		|  | A GitHub user name or @me |
-| org 		| | A GitHub org, without the repo name |
-| repo 		| | A GitHub repo, without the org name |
-| linked 	| pr, issue |  |
-| milestone |  | A GitHub milestone |
-| project 	|  | A GitHub project  |
-| status 	| success, failure, pending |  |
-| head 		|  | A git commit sha or branch name |
-| base 		|  | A git commit sha or branch name |
-| comments  | | A number |
-| interactions |  | A number |
-| reactions |  | A number |
-| draft 	| true, false |  |
-| review 	| none, required, approved, changes_requested |  |
-| reviewed-by |  | A GitHub user name or @me |
-| review-requested |  | A GitHub user name or @me |
-| user-review-requested |  | A GitHub user name or @me |
-| team-review-requested |  | A GitHub user name |
-| created 	|  | A date, with an optional < > |
-| updated 	|  | A date, with an optional < > |
-| closed 	|  | A date, with an optional < > |
-| no 		|  label, milestone, assignee, project |  |
-| sort 		| updated, updated-asc, interactions, interactions-asc, author-date, author-date-asc, committer-date, committer-date-asc, reactions, reactions-asc, reactions-(+1, -1, smile, tada, heart) |  |
-
-	Logical Operators:
-		- -
-
-	Special Values:
-		- @me
+	${JSON.stringify(githubSearchSyntax)}
 `;
 	}
 
 	private async labelsAssistantPrompt(folderRepoManager: FolderRepositoryManager, labels: ILabel[]): Promise<string> {
 		// It seems that AND and OR aren't supported in GraphQL, so we can't use them in the query
 		// Here's the prompt in case we switch to REST:
-		//- Use as many labels as you think fit the query. If one label fits, then there are probably more that fit.
+		// - Use as many labels as you think fit the query. If one label fits, then there are probably more that fit.
 		// - Respond with a list of labels in github search syntax, separated by AND or OR. Examples: "label:bug OR label:polish", "label:accessibility AND label:editor-accessibility"
 		return `Instructions:
 You are an expert on choosing search keywords based on a natural language search query. Here are some rules to follow:
@@ -394,8 +390,8 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		}
 		Logger.debug(`Query \`${result.query}\``, ConvertToSearchSyntaxTool.ID);
 		return {
-			'text/plain': result.query,
-			'text/display': `Query \`${result.query}\`. [Open on GitHub.com](${this.toGitHubUrl(result.query)})\n\n`,
+			[MimeTypes.textPlain]: result.query,
+			[MimeTypes.textDisplay]: vscode.l10n.t('Query \`{0}\`. [Open on GitHub.com]({1})\n\n', result.query, this.toGitHubUrl(result.query))
 		};
 	}
 }
@@ -438,8 +434,8 @@ export class SearchTool implements vscode.LanguageModelTool<SearchToolParameters
 		};
 		Logger.debug(`Found ${result.arrayOfIssues.length} issues, first issue ${result.arrayOfIssues[0]?.number}.`, SearchTool.ID);
 		return {
-			'text/plain': `Here are the issues I found for the query ${parameterQuery} in json format. You can pass these to a tool that can display them.`,
-			'text/json': result
+			[MimeTypes.textPlain]: `Here are the issues I found for the query ${parameterQuery} in json format. You can pass these to a tool that can display them.`,
+			[MimeTypes.textJson]: result
 		};
 	}
 }

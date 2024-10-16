@@ -51,10 +51,6 @@ export class ChatParticipantState {
 	reset(): void {
 		this._messages = [];
 	}
-
-	constructor() {
-
-	}
 }
 
 export class ChatParticipant implements vscode.Disposable {

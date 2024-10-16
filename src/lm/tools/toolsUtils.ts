@@ -40,3 +40,10 @@ export async function concatAsyncIterable(asyncIterable: AsyncIterable<string>):
 	}
 	return result;
 }
+
+export const enum MimeTypes {
+	textPlain = 'text/plain',
+	textMarkdown = 'text/markdown',
+	textJson = 'text/json',
+	textDisplay = 'text/display' // our own made up mime type for stuff that should be shown in chat to the user
+}
