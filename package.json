@@ -27,6 +27,7 @@
 		"contribShareMenu",
 		"diffCommand",
 		"fileComments",
+		"lmTools",
 		"quickDiffProvider",
 		"shareProvider",
 		"tokenInformation",
@@ -35,10 +36,12 @@
 	"version": "0.98.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.94.0"
+		"vscode": "^1.95.0"
 	},
 	"categories": [
-		"Other"
+		"Other",
+		"AI",
+		"Chat"
 	],
 	"extensionDependencies": [
 		"vscode.github-authentication"
@@ -60,6 +63,15 @@
 		"virtualWorkspaces": true
 	},
 	"contributes": {
+		"chatParticipants": [
+			{
+				"id": "githubpr",
+				"name": "githubpr",
+				"fullName": "GitHub",
+				"description": "Chat participant for GitHub Pull Requests extension",
+				"when": "config.githubPullRequests.experimental.chat"
+			}
+		],
 		"configuration": {
 			"type": "object",
 			"title": "GitHub Pull Requests",
@@ -100,7 +112,7 @@
 					"description": "%githubPullRequests.pullRequestDescription.description%"
 				},
 				"githubPullRequests.defaultCreateOption": {
-					"type":"string",
+					"type": "string",
 					"enum": [
 						"lastUsed",
 						"create",
@@ -671,6 +683,13 @@
 					"name": "%view.issues.github.name%",
 					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts",
 					"icon": "$(issues)",
+					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%"
+				},
+				{
+					"id": "notifications:github",
+					"name": "%view.notifications.github.name%",
+					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts && config.githubPullRequests.experimental.notificationsView",
+					"icon": "$(bell)",
 					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%"
 				},
 				{
@@ -1452,6 +1471,51 @@
 				"title": "%command.issues.openIssuesWebsite.title%",
 				"category": "%command.issues.category%",
 				"icon": "$(globe)"
+			},
+			{
+				"command": "issue.chatSummarizeIssue",
+				"title": "%command.issue.chatSummarizeIssue.title%",
+				"category": "%command.issues.category%",
+				"icon": "$(copilot)"
+			},
+			{
+				"command": "issue.chatSuggestFix",
+				"title": "%command.issue.chatSuggestFix.title%",
+				"category": "%command.issues.category%",
+				"icon": "$(sparkle)"
+			},
+			{
+				"command": "notifications.refresh",
+				"title": "%command.notifications.refresh.title%",
+				"category": "%command.notifications.category%",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "notifications.loadMore",
+				"title": "%command.notifications.loadMore.title%",
+				"category": "%command.notifications.category%"
+			},
+			{
+				"command": "notifications.sortByTimestamp",
+				"title": "%command.notifications.sortByTimestamp.title%",
+				"category": "%command.notifications.category%"
+			},
+			{
+				"command": "notifications.sortByPriority",
+				"title": "%command.notifications.sortByPriority.title%",
+				"category": "%command.notifications.category%"
+			},
+			{
+				"command": "notification.openOnGitHub",
+				"title": "%command.notifications.openOnGitHub.title%",
+				"category": "%command.notifications.category%",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "notification.chatSummarizeNotification",
+				"title": "%command.notification.chatSummarizeNotification.title%",
+				"category": "%command.notifications.category%",
+				"icon": "$(copilot)"
 			}
 		],
 		"viewsWelcome": [
@@ -2071,6 +2135,38 @@
 				{
 					"command": "issues.openIssuesWebsite",
 					"when": "github:hasGitHubRemotes"
+				},
+				{
+					"command": "issue.chatSummarizeIssue",
+					"when": "false"
+				},
+				{
+					"command": "issue.chatSuggestFix",
+					"when": "false"
+				},
+				{
+					"command": "notifications.sortByTimestamp",
+					"when": "false"
+				},
+				{
+					"command": "notifications.sortByPriority",
+					"when": "false"
+				},
+				{
+					"command": "notifications.loadMore",
+					"when": "false"
+				},
+				{
+					"command": "notifications.refresh",
+					"when": "false"
+				},
+				{
+					"command": "notification.openOnGitHub",
+					"when": "false"
+				},
+				{
+					"command": "notification.chatSummarizeNotification",
+					"when": "false"
 				}
 			],
 			"view/title": [
@@ -2178,6 +2274,21 @@
 					"command": "pr.refreshComments",
 					"when": "view == workbench.panel.comments",
 					"group": "navigation"
+				},
+				{
+					"command": "notifications.sortByTimestamp",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
+					"group": "sortNotifications@1"
+				},
+				{
+					"command": "notifications.sortByPriority",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
+					"group": "sortNotifications@2"
+				},
+				{
+					"command": "notifications.refresh",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
+					"group": "navigation@1"
 				}
 			],
 			"view/item/context": [
@@ -2207,6 +2318,16 @@
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:(active|nonactive):hasChangesSinceReview:showingChangesSinceReview/"
 				},
 				{
+					"command": "notification.chatSummarizeNotification",
+					"group": "inline@1",
+					"when": "view == notifications:github && viewItem == 'Issue'"
+				},
+				{
+					"command": "notification.openOnGitHub",
+					"group": "inline@2",
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
+				},
+				{
 					"command": "pr.openDescriptionToTheSide",
 					"group": "inline@2",
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description/"
@@ -2215,7 +2336,7 @@
 					"command": "pr.openPullRequestOnGitHub",
 					"group": "inline@3",
 					"when": "view == prStatus:github && viewItem =~ /description/ && github:activePRCount >= 2"
-      			},
+				},
 				{
 					"command": "pr.exit",
 					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:active|description:active/",
@@ -2296,8 +2417,18 @@
 				},
 				{
 					"command": "issue.openIssue",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && !github.copilot-chat.activated",
 					"group": "inline@2"
+				},
+				{
+					"command": "issue.chatSummarizeIssue",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
+					"group": "inline@0"
+				},
+				{
+					"command": "issue.chatSuggestFix",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
+					"group": "inline@1"
 				},
 				{
 					"command": "issue.openIssue",
@@ -2312,22 +2443,22 @@
 				{
 					"command": "issue.startWorking",
 					"when": "view == issues:github && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues != on",
-					"group": "inline@1"
+					"group": "inline@2"
 				},
 				{
 					"command": "issue.startWorkingBranchDescriptiveTitle",
 					"when": "view == issues:github && viewItem =~ /^(link)?issue/ && config.githubIssues.useBranchForIssues == on",
-					"group": "inline@1"
+					"group": "inline@2"
 				},
 				{
 					"command": "issue.startWorking",
 					"when": "view == issues:github && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues != on",
-					"group": "inline@1"
+					"group": "inline@2"
 				},
 				{
 					"command": "issue.startWorkingBranchDescriptiveTitle",
 					"when": "view == issues:github && viewItem =~ /^(link)?continueissue/ && config.githubIssues.useBranchForIssues == on",
-					"group": "inline@1"
+					"group": "inline@2"
 				},
 				{
 					"command": "issue.startWorking",
@@ -2361,14 +2492,24 @@
 					"group": "inline@1"
 				},
 				{
+					"command": "issue.chatSummarizeIssue",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
+					"group": "issues_1@0"
+				},
+				{
+					"command": "issue.chatSuggestFix",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
+					"group": "issues_1@1"
+				},
+				{
 					"command": "issue.copyIssueNumber",
 					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
-					"group": "issues_1@1"
+					"group": "issues_2@1"
 				},
 				{
 					"command": "issue.copyIssueUrl",
 					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
-					"group": "issues_1@2"
+					"group": "issues_2@2"
 				},
 				{
 					"command": "issue.editQuery",
@@ -2939,6 +3080,260 @@
 					"stripPathStartingSeparator": true
 				}
 			}
+		],
+		"languageModelTools": [
+			{
+				"name": "github-pull-request_issue",
+				"tags": [
+					"github",
+					"issues"
+				],
+				"toolReferenceName": "issue",
+				"displayName": "Get GitHub Issue",
+				"modelDescription": "A GitHub issue, which includes the title, body, and comments.",
+				"icon": "$(info)",
+				"canBeReferencedInPrompt": true,
+				"parametersSchema": {
+					"type": "object",
+					"properties": {
+						"repo": {
+							"type": "object",
+							"description": "The repository to get the issue from.",
+							"properties": {
+								"owner": {
+									"type": "string",
+									"description": "The owner of the repository to get the issue from."
+								},
+								"name": {
+									"type": "string",
+									"description": "The name of the repository to get the issue from."
+								}
+							},
+							"required": [
+								"owner",
+								"name"
+							]
+						},
+						"issueNumber": {
+							"type": "number",
+							"description": "The number of the issue to get."
+						}
+					},
+					"required": [
+						"issueNumber"
+					]
+				},
+				"supportedContentTypes": [
+					"text/plain"
+				],
+				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
+				"name": "github-pull-request_suggest-fix",
+				"tags": [
+					"github",
+					"issues"
+				],
+				"toolReferenceName": "suggest-fix",
+				"displayName": "Suggest a Fix for a GitHub Issue",
+				"modelDescription": "Summarize and suggest a fix for a GitHub issue.",
+				"icon": "$(info)",
+				"canBeReferencedInPrompt": true,
+				"parametersSchema": {
+					"type": "object",
+					"properties": {
+						"repo": {
+							"type": "object",
+							"description": "The repository to get the issue from.",
+							"properties": {
+								"owner": {
+									"type": "string",
+									"description": "The owner of the repository to get the issue from."
+								},
+								"name": {
+									"type": "string",
+									"description": "The name of the repository to get the issue from."
+								}
+							},
+							"required": [
+								"owner",
+								"name"
+							]
+						},
+						"issueNumber": {
+							"type": "number",
+							"description": "The number of the issue to get."
+						}
+					},
+					"required": [
+						"issueNumber",
+						"repo"
+					]
+				},
+				"supportedContentTypes": [
+					"text/plain"
+				],
+				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
+				"name": "github-pull-request_formSearchQuery",
+				"tags": [
+					"github",
+					"issues",
+					"search",
+					"query",
+					"natural language"
+				],
+				"toolReferenceName": "searchSyntax",
+				"displayName": "Convert natural language to a GitHub search query",
+				"modelDescription": "Converts natural language to a GitHub search query. Should ALWAYS be called before doing a search.",
+				"icon": "$(search)",
+				"canBeReferencedInPrompt": true,
+				"parametersSchema": {
+					"type": "object",
+					"properties": {
+						"repo": {
+							"type": "object",
+							"description": "The repository to get the issue from.",
+							"properties": {
+								"owner": {
+									"type": "string",
+									"description": "The owner of the repository to get the issue from."
+								},
+								"name": {
+									"type": "string",
+									"description": "The name of the repository to get the issue from."
+								}
+							},
+							"required": [
+								"owner",
+								"name"
+							]
+						},
+						"naturalLanguageString": {
+							"type": "string",
+							"description": "A plain text description of what the search should be."
+						}
+					},
+					"required": [
+						"naturalLanguageString"
+					]
+				},
+				"supportedContentTypes": [
+					"text/plain",
+					"text/display"
+				],
+				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
+				"name": "github-pull-request_doSearch",
+				"tags": [
+					"github",
+					"issues",
+					"search"
+				],
+				"toolReferenceName": "doSearch",
+				"displayName": "Execute a GitHub search",
+				"modelDescription": "Execute a GitHub search given a well formed GitHub search query. Call github-pull-request_formSearchQuery first to get good search syntax and pass the exact result in as the 'query'.",
+				"icon": "$(search)",
+				"canBeReferencedInPrompt": true,
+				"parametersSchema": {
+					"type": "object",
+					"properties": {
+						"repo": {
+							"type": "object",
+							"description": "The repository to get the issue from.",
+							"properties": {
+								"owner": {
+									"type": "string",
+									"description": "The owner of the repository to get the issue from."
+								},
+								"name": {
+									"type": "string",
+									"description": "The name of the repository to get the issue from."
+								}
+							},
+							"required": [
+								"owner",
+								"name"
+							]
+						},
+						"query": {
+							"type": "string",
+							"description": "A well formed GitHub search query using proper GitHub search syntax."
+						}
+					},
+					"required": [
+						"query"
+					]
+				},
+				"supportedContentTypes": [
+					"text/plain",
+					"text/json"
+				],
+				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
+				"name": "github-pull-request_renderIssues",
+				"tags": [
+					"github",
+					"issues",
+					"render",
+					"display"
+				],
+				"toolReferenceName": "renderIssues",
+				"displayName": "Render issue items in a markdown table.",
+				"modelDescription": "Render issue items from an issue search in a markdown table.",
+				"icon": "$(paintcan)",
+				"canBeReferencedInPrompt": false,
+				"parametersSchema": {
+					"type": "object",
+					"properties": {
+						"arrayOfIssues": {
+							"oneOf": [
+								{
+									"type": "array",
+									"description": "An array of GitHub Issues.",
+									"items": {
+										"type": "object",
+										"properties": {
+											"title": {
+												"type": "string",
+												"description": "The title of the issue."
+											},
+											"number": {
+												"type": "number",
+												"description": "The number of the issue."
+											},
+											"body": {
+												"type": "string",
+												"description": "The body of the issue."
+											},
+											"url": {
+												"type": "string",
+												"description": "The URL of the issue."
+											}
+										}
+									}
+								},
+								{
+									"type": "string",
+									"description": "A Json stringified array of GitHub Issues."
+								}
+							],
+							"description": "An array or stringified array of GitHub Issues."
+						}
+					},
+					"required": [
+						"issues"
+					]
+				},
+				"supportedContentTypes": [
+					"text/plain",
+					"text/markdown"
+				],
+				"when": "config.githubPullRequests.experimental.chat"
+			}
 		]
 	},
 	"scripts": {
@@ -3035,6 +3430,7 @@
 		"@octokit/rest": "18.2.1",
 		"@octokit/types": "6.10.1",
 		"@vscode/extension-telemetry": "0.7.5",
+		"@vscode/prompt-tsx": "^0.2.11-alpha",
 		"apollo-boost": "^0.4.9",
 		"apollo-link-context": "1.0.20",
 		"cockatiel": "^3.1.1",

@@ -8,7 +8,6 @@ import LRUCache from 'lru-cache';
 import * as marked from 'marked';
 import 'url-search-params-polyfill';
 import * as vscode from 'vscode';
-import { gitHubLabelColor } from '../../src/common/utils';
 import { Ref, Remote, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import Logger from '../common/logger';
@@ -19,7 +18,7 @@ import { GithubItemStateEnum, User } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { getEnterpriseUri, getIssueNumberLabelFromParsed, getRepositoryForFile, ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
+import { getEnterpriseUri, getIssueNumberLabelFromParsed, getRepositoryForFile, ISSUE_OR_URL_EXPRESSION, makeLabel, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
 import { ReviewManager } from '../view/reviewManager';
 import { CODE_PERMALINK, findCodeLinkLocally } from './issueLinkLookup';
 import { StateManager } from './stateManager';
@@ -118,12 +117,6 @@ export function userMarkdown(origin: PullRequestDefaults, user: User): vscode.Ma
 		markdown.appendMarkdown(`  \r\n${vscode.l10n.t({ message: '{0} Member of {1}', args: ['$(jersey)', user.company], comment: ['An organization that the user is a member of.', 'The first placeholder is an icon and shouldn\'t be localized.', 'The second placeholder is the name of the organization.'] })}`);
 	}
 	return markdown;
-}
-
-function makeLabel(color: string, text: string): string {
-	const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
-	const labelColor = gitHubLabelColor(color, isDarkTheme, true);
-	return `<span style="color:${labelColor.textColor};background-color:${labelColor.backgroundColor};">&nbsp;&nbsp;${text}&nbsp;&nbsp;</span>`;
 }
 
 async function findAndModifyString(
@@ -238,7 +231,7 @@ export async function issueMarkdown(
 	if (issue.item.labels.length > 0) {
 		issue.item.labels.forEach(label => {
 			markdown.appendMarkdown(
-				`[${makeLabel(label.color, label.name)}](https://github.com/${ownerName}/labels/${encodeURIComponent(
+				`[${makeLabel(label)}](https://github.com/${ownerName}/labels/${encodeURIComponent(
 					label.name,
 				)}) `,
 			);

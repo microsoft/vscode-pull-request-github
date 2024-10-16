@@ -117,6 +117,12 @@ fragment PullRequestFragment on PullRequest {
 			url
 		}
 	}
+	reactions(first: 1) {
+		totalCount
+	}
+	comments(first: 1) {
+		totalCount
+	}
 }
 
 query PullRequest($owner: String!, $name: String!, $number: Int!) {

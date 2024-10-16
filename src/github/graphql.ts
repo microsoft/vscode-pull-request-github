@@ -52,6 +52,9 @@ export interface AbbreviatedIssueComment {
 	};
 	body: string;
 	databaseId: number;
+	reactions: {
+		totalCount: number;
+	};
 }
 
 export interface IssueComment extends AbbreviatedIssueComment {
@@ -593,8 +596,9 @@ export interface PullRequest {
 			};
 		}[];
 	};
-	comments?: {
-		nodes: AbbreviatedIssueComment[];
+	comments: {
+		nodes?: AbbreviatedIssueComment[];
+		totalCount: number;
 	};
 	createdAt: string;
 	updatedAt: string;
@@ -650,6 +654,9 @@ export interface PullRequest {
 		};
 		url: string;
 	};
+	reactions: {
+		totalCount: number;
+	}
 }
 
 export enum DefaultCommitTitle {

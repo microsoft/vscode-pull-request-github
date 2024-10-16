@@ -16,6 +16,7 @@ import { TreeNode } from '../view/treeNodes/treeNode';
 import { CredentialStore, GitHub } from './credentials';
 import { GitHubRepository } from './githubRepository';
 import { PullRequestState } from './graphql';
+import { IssueModel } from './issueModel';
 import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
 import { hasEnterpriseUri } from './utils';
@@ -133,7 +134,7 @@ export class NotificationProvider implements vscode.Disposable {
 		);
 	}
 
-	private getPrIdentifier(pullRequest: PullRequestModel | OctokitResponse<any>['data']): string {
+	private getPrIdentifier(pullRequest: IssueModel | OctokitResponse<any>['data']): string {
 		if (pullRequest instanceof PullRequestModel) {
 			return `${pullRequest.remote.url}:${pullRequest.number}`;
 		}
@@ -144,8 +145,8 @@ export class NotificationProvider implements vscode.Disposable {
 
 	/* Takes a PullRequestModel or a PRIdentifier and
 	returns true if there is a Notification for the corresponding PR */
-	public hasNotification(pullRequest: PullRequestModel | string): boolean {
-		const identifier = pullRequest instanceof PullRequestModel ?
+	public hasNotification(pullRequest: IssueModel | string): boolean {
+		const identifier = pullRequest instanceof IssueModel ?
 			this.getPrIdentifier(pullRequest) :
 			pullRequest;
 		const prNotifications = this._notifications.get(identifier);
@@ -265,7 +266,7 @@ export class NotificationProvider implements vscode.Disposable {
 		});
 	}
 
-	public async markPrNotificationsAsRead(pullRequestModel: PullRequestModel) {
+	public async markPrNotificationsAsRead(pullRequestModel: IssueModel) {
 		const identifier = this.getPrIdentifier(pullRequestModel);
 		const prNotifications = this._notifications.get(identifier);
 		if (prNotifications && prNotifications.length) {
