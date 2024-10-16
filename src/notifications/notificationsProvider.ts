@@ -14,11 +14,11 @@ import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { hasEnterpriseUri, parseNotification } from '../github/utils';
 import { concatAsyncIterable } from '../lm/tools/toolsUtils';
-import { NotificationsPaginationRange, NotificationsSortMethod, NotificationTreeItem } from './notificationTreeItem';
+import { INotificationItem, NotificationsPaginationRange, NotificationsSortMethod } from './notificationItem';
+import { NotificationItem, NotificationsManager, NotificationUpdate } from './notificationsManager';
 
 export class NotificationsProvider implements vscode.Disposable {
 	private _authProvider: AuthProvider | undefined;
-	private readonly _notifications = new Map<string, NotificationTreeItem>();
 
 	private readonly _disposables: vscode.Disposable[] = [];
 
@@ -31,7 +31,8 @@ export class NotificationsProvider implements vscode.Disposable {
 
 	constructor(
 		private readonly _credentialStore: CredentialStore,
-		private readonly _repositoriesManager: RepositoriesManager
+		private readonly _repositoriesManager: RepositoriesManager,
+		private readonly _notificationsManager: NotificationsManager
 	) {
 		if (_credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
 			this._authProvider = AuthProvider.githubEnterprise;
@@ -57,10 +58,10 @@ export class NotificationsProvider implements vscode.Disposable {
 	}
 
 	public clearCache(): void {
-		this._notifications.clear();
+		this._notificationsManager.clear();
 	}
 
-	public async getNotifications(sortingMethod: NotificationsSortMethod): Promise<NotificationTreeItem[] | undefined> {
+	public async getNotifications(sortingMethod: NotificationsSortMethod): Promise<INotificationItem[] | undefined> {
 		const gitHub = this._getGitHub();
 		if (gitHub === undefined) {
 			return undefined;
@@ -69,7 +70,7 @@ export class NotificationsProvider implements vscode.Disposable {
 			return undefined;
 		}
 		const notifications = await this._getResolvedNotifications(gitHub);
-		const filteredNotifications = notifications.filter(notification => notification !== undefined) as NotificationTreeItem[];
+		const filteredNotifications = notifications.filter(notification => notification !== undefined) as INotificationItem[];
 		if (sortingMethod === NotificationsSortMethod.Priority) {
 			const models = await vscode.lm.selectChatModels({
 				vendor: 'copilot',
@@ -95,15 +96,15 @@ export class NotificationsProvider implements vscode.Disposable {
 		this._notificationsPaginationRange.endPage += 1;
 	}
 
-	private async _getResolvedNotifications(gitHub: GitHub): Promise<(NotificationTreeItem | undefined)[]> {
-		const notificationPromises: Promise<(NotificationTreeItem | undefined)[]>[] = [];
+	private async _getResolvedNotifications(gitHub: GitHub): Promise<(INotificationItem | undefined)[]> {
+		const notificationPromises: Promise<(INotificationItem | undefined)[]>[] = [];
 		for (let i = this._notificationsPaginationRange.startPage; i <= this._notificationsPaginationRange.endPage; i++) {
 			notificationPromises.push(this._getResolvedNotificationsForPage(gitHub, i));
 		}
 		return (await Promise.all(notificationPromises)).flat();
 	}
 
-	private async _getResolvedNotificationsForPage(gitHub: GitHub, pageNumber: number): Promise<(NotificationTreeItem | undefined)[]> {
+	private async _getResolvedNotificationsForPage(gitHub: GitHub, pageNumber: number): Promise<(INotificationItem | undefined)[]> {
 		const pageSize = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE, 50);
 		const { data } = await gitHub.octokit.call(gitHub.octokit.api.activity.listNotificationsForAuthenticatedUser, {
 			all: false,
@@ -113,12 +114,12 @@ export class NotificationsProvider implements vscode.Disposable {
 		if (data.length < pageSize) {
 			this._canLoadMoreNotifications = false;
 		}
-		return Promise.all(data.map(async (notification: OctokitCommon.Notification): Promise<NotificationTreeItem | undefined> => {
+		return Promise.all(data.map(async (notification: OctokitCommon.Notification): Promise<INotificationItem | undefined> => {
 			const parsedNotification = parseNotification(notification);
 			if (!parsedNotification) {
 				return undefined;
 			}
-			const cachedNotification = this._notifications.get(parsedNotification?.key);
+			const cachedNotification = this._notificationsManager.getNotification(parsedNotification?.key);
 			if (cachedNotification && cachedNotification.notification.updatedAd === parsedNotification.updatedAd) {
 				return cachedNotification;
 			}
@@ -126,8 +127,8 @@ export class NotificationsProvider implements vscode.Disposable {
 			if (!model) {
 				return undefined;
 			}
-			const resolvedNotification = new NotificationTreeItem(parsedNotification, model);
-			this._notifications.set(parsedNotification.key, resolvedNotification);
+			const resolvedNotification = new NotificationItem(parsedNotification, model);
+			this._notificationsManager.setNotification(parsedNotification.key, resolvedNotification);
 			return resolvedNotification;
 		}));
 	}
@@ -148,18 +149,18 @@ export class NotificationsProvider implements vscode.Disposable {
 		return model;
 	}
 
-	private _sortNotificationsByTimestamp(notifications: NotificationTreeItem[]): NotificationTreeItem[] {
+	private _sortNotificationsByTimestamp(notifications: INotificationItem[]): INotificationItem[] {
 		return notifications.sort((n1, n2) => n1.notification.updatedAd > n2.notification.updatedAd ? -1 : 1);
 	}
 
-	private async _sortNotificationsByLLMPriority(notifications: NotificationTreeItem[], model: vscode.LanguageModelChat): Promise<NotificationTreeItem[]> {
-		const sortByPriority = (r1: NotificationTreeItem, r2: NotificationTreeItem): number => {
-			const priority1 = Number(r1.priority);
-			const priority2 = Number(r2.priority);
+	private async _sortNotificationsByLLMPriority(notifications: INotificationItem[], model: vscode.LanguageModelChat): Promise<INotificationItem[]> {
+		const sortByPriority = (r1: INotificationItem, r2: INotificationItem): number => {
+			const priority1 = Number(r1.getPriority()?.priority);
+			const priority2 = Number(r2.getPriority()?.priority);
 			return priority2 - priority1;
 		};
 		const notificationBatchSize = 5;
-		const notificationBatches: NotificationTreeItem[][] = [];
+		const notificationBatches: INotificationItem[][] = [];
 		for (let i = 0; i < notifications.length; i += notificationBatchSize) {
 			notificationBatches.push(notifications.slice(i, i + notificationBatchSize));
 		}
@@ -172,7 +173,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		return [...sortedOpenNotifications, ...sortedClosedNotifications];
 	}
 
-	private async _prioritizeNotificationBatchWithLLM(notifications: NotificationTreeItem[], model: vscode.LanguageModelChat): Promise<NotificationTreeItem[]> {
+	private async _prioritizeNotificationBatchWithLLM(notifications: INotificationItem[], model: vscode.LanguageModelChat): Promise<INotificationItem[]> {
 		try {
 			const userLogin = (await this._credentialStore.getCurrentUser(AuthProvider.github)).login;
 			const messages = [vscode.LanguageModelChatMessage.User(getPrioritizeNotificationsInstructions(userLogin))];
@@ -253,19 +254,26 @@ ${comment.body}
 		return commentsMessage;
 	}
 
-	private _updateNotificationsWithPriorityFromLLM(notifications: NotificationTreeItem[], text: string): NotificationTreeItem[] {
+	private _updateNotificationsWithPriorityFromLLM(notifications: INotificationItem[], text: string): INotificationItem[] {
 		const regexReasoning = /```text\s*[\s\S]+?\s*=\s*([\S]+?)\s*```/gm;
 		const regexPriorityReasoning = /```(?!text)([\s\S]+?)(###|$)/g;
+		const updates: NotificationUpdate[] = [];
 		for (let i = 0; i < notifications.length; i++) {
 			const execResultForPriority = regexReasoning.exec(text);
 			if (execResultForPriority) {
-				notifications[i].priority = execResultForPriority[1];
+				const update: NotificationUpdate = {
+					priority: execResultForPriority[1],
+					priorityReasoning: '',
+					key: notifications[i].notification.key
+				};
+				updates.push(update);
 				const execResultForPriorityReasoning = regexPriorityReasoning.exec(text);
 				if (execResultForPriorityReasoning) {
-					notifications[i].priorityReasoning = execResultForPriorityReasoning[1].trim();
+					update.priorityReasoning = execResultForPriorityReasoning[1].trim();
 				}
 			}
 		}
+		this._notificationsManager.updateNotificationPriority(updates);
 		return notifications;
 	}
 

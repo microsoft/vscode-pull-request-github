@@ -9,9 +9,10 @@ import { ITelemetry } from '../common/telemetry';
 import { dispose } from '../common/utils';
 import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { NotificationsDecorationProvider } from './notificationDecorationProvider';
+import { NotificationItem, NotificationsManager } from './notificationsManager';
 import { NotificationsProvider } from './notificationsProvider';
 import { NotificationsTreeData } from './notificationsView';
-import { NotificationTreeItem } from './notificationTreeItem';
 
 export class NotificationsFeatureRegister implements vscode.Disposable {
 
@@ -22,10 +23,15 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 		private readonly _repositoriesManager: RepositoriesManager,
 		private readonly _telemetry: ITelemetry
 	) {
-		const notificationsProvider = new NotificationsProvider(credentialStore, this._repositoriesManager);
+		const notificationsManager = new NotificationsManager();
+		this._disposables.push(notificationsManager);
+		const notificationsProvider = new NotificationsProvider(credentialStore, this._repositoriesManager, notificationsManager);
+
+		// Decorations
+		this._disposables.push(vscode.window.registerFileDecorationProvider(new NotificationsDecorationProvider(notificationsManager)));
 
 		// View
-		const dataProvider = new NotificationsTreeData(notificationsProvider);
+		const dataProvider = new NotificationsTreeData(notificationsProvider, notificationsManager);
 		this._disposables.push(dataProvider);
 		const view = vscode.window.createTreeView<any>('notifications:github', {
 			treeDataProvider: dataProvider
@@ -84,7 +90,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 		);
 		this._disposables.push(
 			vscode.commands.registerCommand('notification.chatSummarizeNotification', (notification: any) => {
-				if (!(notification instanceof NotificationTreeItem)) {
+				if (!(notification instanceof NotificationItem)) {
 					return;
 				}
 				/* __GDPR__
