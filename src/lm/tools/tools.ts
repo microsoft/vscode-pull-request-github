@@ -6,10 +6,10 @@
 
 import * as vscode from 'vscode';
 import { RepositoriesManager } from '../../github/repositoriesManager';
-import { DisplayIssuesTool } from '../displayIssuesTool';
 import { ChatParticipantState } from '../participants';
-import { ConvertToSearchSyntaxTool, SearchTool } from '../searchTools';
+import { DisplayIssuesTool } from './displayIssuesTool';
 import { FetchTool } from './fetchTool';
+import { ConvertToSearchSyntaxTool, SearchTool } from './searchTools';
 import { SuggestFixTool } from './suggestFixTool';
 
 export function registerTools(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {

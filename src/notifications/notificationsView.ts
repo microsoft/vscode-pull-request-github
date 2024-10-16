@@ -11,7 +11,8 @@ import { PullRequestModel } from '../github/pullRequestModel';
 import { NotificationsProvider } from './notificationsProvider';
 import { LoadMoreNotificationsTreeItem, NotificationsSortMethod, NotificationTreeDataItem, NotificationTreeItem } from './notificationTreeItem';
 
-const devMode = false; // Boolean("true");
+// Uncomment the /* || Boolean("true") */ to enable dev mode
+const devMode = false /* || Boolean("true") */; // done "weirdly" so that a lint warning prevents you from pushing this
 
 export class NotificationsTreeData implements vscode.TreeDataProvider<NotificationTreeDataItem>, vscode.Disposable {
 	private readonly _disposables: vscode.Disposable[] = [];

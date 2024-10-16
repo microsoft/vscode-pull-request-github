@@ -49,8 +49,8 @@ const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
 export const onDidUpdatePR: vscode.Event<PullRequest | void> = _onDidUpdatePR.event;
 
 function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode): PullRequestModel;
-function ensurePR<U extends Issue, T extends IssueModel<U>>(folderRepoManager: FolderRepositoryManager, pr?: T): T;
-function ensurePR<U extends Issue, T extends IssueModel<U>>(folderRepoManager: FolderRepositoryManager, pr?: PRNode | T): T {
+function ensurePR<TIssue extends Issue, TIssueModel extends IssueModel<TIssue>>(folderRepoManager: FolderRepositoryManager, pr?: TIssueModel): TIssueModel;
+function ensurePR<TIssue extends Issue, TIssueModel extends IssueModel<TIssue>>(folderRepoManager: FolderRepositoryManager, pr?: PRNode | TIssueModel): TIssueModel {
 	// If the command is called from the command palette, no arguments are passed.
 	if (!pr) {
 		if (!folderRepoManager.activePullRequest) {
@@ -58,9 +58,9 @@ function ensurePR<U extends Issue, T extends IssueModel<U>>(folderRepoManager: F
 			throw new Error('Unable to find current pull request.');
 		}
 
-		return folderRepoManager.activePullRequest as unknown as T;
+		return folderRepoManager.activePullRequest as unknown as TIssueModel;
 	} else {
-		return (pr instanceof PRNode ? pr.pullRequestModel : pr) as T;
+		return (pr instanceof PRNode ? pr.pullRequestModel : pr) as TIssueModel;
 	}
 }
 
