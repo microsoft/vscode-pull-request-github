@@ -13,13 +13,13 @@ import { ConvertToSearchSyntaxTool, SearchTool } from './searchTools';
 import { SuggestFixTool } from './suggestFixTool';
 
 export function registerTools(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
-	registerFetchTool(context, repositoriesManager);
+	registerFetchTool(context, repositoriesManager, chatParticipantState);
 	registerSuggestFixTool(context, repositoriesManager);
 	registerSearchTools(context, repositoriesManager, chatParticipantState);
 }
 
-function registerFetchTool(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {
-	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_fetch', new FetchTool(repositoriesManager)));
+function registerFetchTool(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
+	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_fetch', new FetchTool(repositoriesManager, chatParticipantState)));
 }
 
 function registerSuggestFixTool(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {
@@ -28,6 +28,6 @@ function registerSuggestFixTool(context: vscode.ExtensionContext, repositoriesMa
 
 function registerSearchTools(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
 	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_formSearchQuery', new ConvertToSearchSyntaxTool(repositoriesManager, chatParticipantState)));
-	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_doSearch', new SearchTool(repositoriesManager)));
+	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_doSearch', new SearchTool(repositoriesManager, chatParticipantState)));
 	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_renderIssues', new DisplayIssuesTool(chatParticipantState)));
 }

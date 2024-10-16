@@ -8,8 +8,7 @@ import * as vscode from 'vscode';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { IssueModel } from '../../github/issueModel';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { RepositoriesManager } from '../../github/repositoriesManager';
-import { MimeTypes } from './toolsUtils';
+import { MimeTypes, RepoToolBase } from './toolsUtils';
 
 interface FetchToolParameters {
 	issueNumber: number;
@@ -27,11 +26,10 @@ interface FetchResult {
 	}[];
 }
 
-export class FetchTool implements vscode.LanguageModelTool<FetchToolParameters> {
-	constructor(private readonly repositoriesManager: RepositoriesManager) { }
-
+export class FetchTool extends RepoToolBase<FetchToolParameters> {
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		const issueOrPullRequest = await this._fetchIssueOrPR(options, this.repositoriesManager);
+		const { owner, name, folderManager } = await this.getRepoInfo(options);
+		const issueOrPullRequest = await this._fetchIssueOrPR(options, folderManager, owner, name);
 		const result: FetchResult = {
 			title: issueOrPullRequest.title,
 			body: issueOrPullRequest.body,
@@ -42,23 +40,7 @@ export class FetchTool implements vscode.LanguageModelTool<FetchToolParameters> 
 		};
 	}
 
-	private async _fetchIssueOrPR(options: vscode.LanguageModelToolInvocationOptions<FetchToolParameters>, repositoriesManager: RepositoriesManager): Promise<PullRequestModel | IssueModel> {
-		let owner: string | undefined;
-		let name: string | undefined;
-		let folderManager: FolderRepositoryManager | undefined;
-		// The llm likes to make up an owner and name if it isn't provided one, and they tend to include 'owner' and 'name' respectively
-		if (options.parameters.repo && !options.parameters.repo.owner.includes('owner') && !options.parameters.repo.name.includes('name')) {
-			owner = options.parameters.repo.owner;
-			name = options.parameters.repo.name;
-			folderManager = repositoriesManager.getManagerForRepository(options.parameters.repo.owner, options.parameters.repo.name);
-		} else if (repositoriesManager.folderManagers.length > 0) {
-			folderManager = repositoriesManager.folderManagers[0];
-			owner = folderManager.gitHubRepositories[0].remote.owner;
-			name = folderManager.gitHubRepositories[0].remote.repositoryName;
-		}
-		if (!folderManager || !owner || !name) {
-			throw new Error(`No folder manager found for ${owner}/${name}. Make sure to have the repository open.`);
-		}
+	private async _fetchIssueOrPR(options: vscode.LanguageModelToolInvocationOptions<FetchToolParameters>, folderManager: FolderRepositoryManager, owner: string, name: string): Promise<PullRequestModel | IssueModel> {
 		let issueOrPullRequest: IssueModel | PullRequestModel | undefined = await folderManager.resolveIssue(owner, name, options.parameters.issueNumber, true);
 		if (!issueOrPullRequest) {
 			issueOrPullRequest = await folderManager.resolvePullRequest(owner, name, options.parameters.issueNumber);
