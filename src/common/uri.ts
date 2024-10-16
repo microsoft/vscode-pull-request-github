@@ -401,6 +401,25 @@ export function createPRNodeUri(
 	});
 }
 
+export interface NotificationUriParams {
+	key: string;
+}
+
+export function toNotificationUri(params: NotificationUriParams) {
+	return vscode.Uri.from({ scheme: Schemes.Notification, path: params.key });
+}
+
+export function fromNotificationUri(uri: vscode.Uri): NotificationUriParams | undefined {
+	if (uri.scheme !== Schemes.Notification) {
+		return;
+	}
+	try {
+		return {
+			key: uri.path,
+		};
+	} catch (e) { }
+}
+
 export enum Schemes {
 	File = 'file',
 	Review = 'review', // File content for a checked out PR
@@ -412,6 +431,7 @@ export enum Schemes {
 	VscodeVfs = 'vscode-vfs', // Remote Repository
 	Comment = 'comment', // Comments from the VS Code comment widget
 	MergeOutput = 'merge-output', // Merge output
+	Notification = 'notification' // Notification tree items in the notification view
 }
 
 export function resolvePath(from: vscode.Uri, to: string) {
