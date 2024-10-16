@@ -30,13 +30,19 @@ export class FetchTool implements vscode.LanguageModelTool<FetchToolParameters> 
 	constructor(private readonly repositoriesManager: RepositoriesManager) { }
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
+		const issueOrPullRequest = await fetchIssueOrPR(options, this.repositoriesManager);
+		const result: FetchResult = {
+			title: issueOrPullRequest.title,
+			body: issueOrPullRequest.body,
+			comments: issueOrPullRequest.item.comments?.map(c => ({ body: c.body })) ?? []
+		};
 		return {
-			'text/plain': JSON.stringify(await fetchIssueOrPR(options, this.repositoriesManager))
+			'text/plain': JSON.stringify(result)
 		};
 	}
 }
 
-export async function fetchIssueOrPR(options: vscode.LanguageModelToolInvocationOptions<FetchToolParameters>, repositoriesManager: RepositoriesManager): Promise<FetchResult> {
+export async function fetchIssueOrPR(options: vscode.LanguageModelToolInvocationOptions<FetchToolParameters>, repositoriesManager: RepositoriesManager): Promise<PullRequestModel | IssueModel> {
 	let owner: string | undefined;
 	let name: string | undefined;
 	let folderManager: FolderRepositoryManager | undefined;
@@ -60,9 +66,5 @@ export async function fetchIssueOrPR(options: vscode.LanguageModelToolInvocation
 	if (!issueOrPullRequest) {
 		throw new Error(`No issue or PR found for ${owner}/${name}/${options.parameters.issueNumber}. Make sure the issue or PR exists.`);
 	}
-	return {
-		title: issueOrPullRequest.title,
-		body: issueOrPullRequest.body,
-		comments: issueOrPullRequest.item.comments?.map(c => ({ body: c.body })) ?? []
-	};
+	return issueOrPullRequest;
 }
