@@ -3086,7 +3086,8 @@
 				"name": "github-pull-request_fetch",
 				"tags": [
 					"github",
-					"issues"
+					"issues",
+					"prs"
 				],
 				"toolReferenceName": "fetch",
 				"displayName": "%languageModelTools.github-pull-request_fetch.displayName%",
@@ -3125,6 +3126,49 @@
 				},
 				"supportedContentTypes": [
 					"text/plain"
+				],
+				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
+				"name": "github-pull-request_summarize",
+				"tags": [
+					"github",
+					"issues",
+					"prs"
+				],
+				"toolReferenceName": "summarize",
+				"displayName": "%languageModelTools.github-pull-request_summarize.displayName%",
+				"modelDescription": "Returns a summary of a GitHub issue or PR given issue/PR details.",
+				"icon": "$(info)",
+				"canBeReferencedInPrompt": true,
+				"parametersSchema": {
+					"type": "object",
+					"properties": {
+						"title": {
+							"type": "string",
+							"description": "The title of the issue/PR"
+						},
+						"body": {
+							"type": "string",
+							"description": "The body of the issue/PR"
+						},
+						"comments": {
+							"type": "array",
+							"items": {
+								"type": "string"
+							},
+							"description": "The array of associated string comments"
+						}
+					},
+					"required": [
+						"title",
+						"body",
+						"comments"
+					]
+				},
+				"supportedContentTypes": [
+					"text/plain",
+					"text/json"
 				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
