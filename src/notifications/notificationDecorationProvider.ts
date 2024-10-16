@@ -48,7 +48,8 @@ export class NotificationsDecorationProvider implements vscode.FileDecorationPro
 			return undefined;
 		}
 		return {
-			badge: this._notificationsManager.getNotification(notificationUriParams.key)?.getPriority()?.priority ?? '0'
+			badge: this._notificationsManager.getNotification(notificationUriParams.key)?.getPriority()?.priority ?? '0',
+			tooltip: this._notificationsManager.getNotification(notificationUriParams.key)?.getPriority()?.priorityReasoning
 		};
 	}
 }
