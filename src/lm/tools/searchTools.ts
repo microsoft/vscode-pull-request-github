@@ -8,9 +8,7 @@ import * as vscode from 'vscode';
 import Logger from '../../common/logger';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { ILabel, Issue } from '../../github/interface';
-import { RepositoriesManager } from '../../github/repositoriesManager';
-import { ChatParticipantState } from '../participants';
-import { concatAsyncIterable, MimeTypes, ToolBase } from './toolsUtils';
+import { concatAsyncIterable, MimeTypes, RepoToolBase } from './toolsUtils';
 
 interface ConvertToQuerySyntaxParameters {
 	naturalLanguageString: string;
@@ -79,11 +77,8 @@ const githubSearchSyntax = {
 
 const MATCH_UNQUOTED_SPACES = /(?!\B"[^"]*)\s+(?![^"]*"\B)/;
 
-export class ConvertToSearchSyntaxTool extends ToolBase<ConvertToQuerySyntaxParameters> {
+export class ConvertToSearchSyntaxTool extends RepoToolBase<ConvertToQuerySyntaxParameters> {
 	static ID = 'ConvertToSearchSyntaxTool';
-	constructor(private readonly repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
-		super(chatParticipantState);
-	}
 
 	private async fullQueryAssistantPrompt(folderRepoManager: FolderRepositoryManager): Promise<string> {
 		const remote = folderRepoManager.activePullRequest?.remote ?? folderRepoManager.activeIssue?.remote ?? (await folderRepoManager.getPullRequestDefaultRepo()).remote;
@@ -354,23 +349,8 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<ConvertToQuerySyntaxParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		let owner: string | undefined;
-		let name: string | undefined;
-		let folderManager: FolderRepositoryManager | undefined;
+		const { owner, name, folderManager } = await this.getRepoInfo(options);
 		const firstUserMessage = `${this.chatParticipantState.firstUserMessage}, ${options.parameters.naturalLanguageString}`;
-		// The llm likes to make up an owner and name if it isn't provided one, and they tend to include 'owner' and 'name' respectively
-		if (options.parameters.repo && options.parameters.repo.owner && options.parameters.repo.name && !options.parameters.repo.owner.includes('owner') && !options.parameters.repo.name.includes('name')) {
-			owner = options.parameters.repo.owner;
-			name = options.parameters.repo.name;
-			folderManager = this.repositoriesManager.getManagerForRepository(options.parameters.repo.owner, options.parameters.repo.name);
-		} else if (this.repositoriesManager.folderManagers.length > 0) {
-			folderManager = this.repositoriesManager.folderManagers[0];
-			owner = folderManager.gitHubRepositories[0].remote.owner;
-			name = folderManager.gitHubRepositories[0].remote.repositoryName;
-		}
-		if (!folderManager || !owner || !name) {
-			throw new Error(`No folder manager found for ${owner}/${name}. Make sure to have a repository open.`);
-		}
 
 		const labels = await folderManager.getLabels(undefined, { owner, repo: name });
 
@@ -402,29 +382,15 @@ export interface SearchToolResult {
 	arrayOfIssues: Issue[];
 }
 
-export class SearchTool implements vscode.LanguageModelTool<SearchToolParameters> {
+export class SearchTool extends RepoToolBase<SearchToolParameters> {
 	static ID = 'SearchTool';
-	constructor(private readonly repositoriesManager: RepositoriesManager) { }
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<SearchToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
+		const { folderManager } = await this.getRepoInfo(options);
+
 		const parameterQuery = options.parameters.query;
 		Logger.debug(`Searching with query \`${parameterQuery}\``, SearchTool.ID);
-		let owner: string | undefined;
-		let name: string | undefined;
-		let folderManager: FolderRepositoryManager | undefined;
-		// The llm likes to make up an owner and name if it isn't provided one, and they tend to include 'owner' and 'name' respectively
-		if (options.parameters.repo && options.parameters.repo.owner && options.parameters.repo.name && !options.parameters.repo.owner.includes('owner') && !options.parameters.repo.name.includes('name')) {
-			owner = options.parameters.repo.owner;
-			name = options.parameters.repo.name;
-			folderManager = this.repositoriesManager.getManagerForRepository(options.parameters.repo.owner, options.parameters.repo.name);
-		} else if (this.repositoriesManager.folderManagers.length > 0) {
-			folderManager = this.repositoriesManager.folderManagers[0];
-			owner = folderManager.gitHubRepositories[0].remote.owner;
-			name = folderManager.gitHubRepositories[0].remote.repositoryName;
-		}
-		if (!folderManager || !owner || !name) {
-			throw new Error(`No folder manager found for ${owner}/${name}. Make sure to have the repository open.`);
-		}
+
 		const searchResult = await folderManager.getIssues(parameterQuery);
 		if (!searchResult) {
 			throw new Error(`No issues found for ${parameterQuery}. Make sure the query is valid.`);
