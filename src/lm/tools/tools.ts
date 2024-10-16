@@ -8,18 +8,18 @@ import * as vscode from 'vscode';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { ChatParticipantState } from '../participants';
 import { DisplayIssuesTool } from './displayIssuesTool';
-import { IssueTool } from './issueTool';
+import { FetchTool } from './fetchTool';
 import { ConvertToSearchSyntaxTool, SearchTool } from './searchTools';
 import { SuggestFixTool } from './suggestFixTool';
 
 export function registerTools(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
-	registerIssueTool(context, repositoriesManager);
+	registerFetchTool(context, repositoriesManager);
 	registerSuggestFixTool(context, repositoriesManager);
 	registerSearchTools(context, repositoriesManager, chatParticipantState);
 }
 
-function registerIssueTool(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {
-	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_issue', new IssueTool(repositoriesManager)));
+function registerFetchTool(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {
+	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_fetch', new FetchTool(repositoriesManager)));
 }
 
 function registerSuggestFixTool(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {
