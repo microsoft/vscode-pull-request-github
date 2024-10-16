@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import Logger from '../common/logger';
-import { Issue } from '../github/interface';
+import { IAccount, Issue, ITeam, reviewerLabel } from '../github/interface';
 import { ChatParticipantState } from './participants';
 import { SearchToolResult } from './searchTools';
 import { concatAsyncIterable, ToolBase } from './tools/toolsUtils';
@@ -79,6 +79,10 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		return result;
 	}
 
+	private renderUser(account: ITeam | IAccount) {
+		return `[@${reviewerLabel(account)}](${account.url})`;
+	}
+
 	private issueToRow(issue: Issue, importantColumns: IssueColumn[]): string {
 		return `| ${importantColumns.map(column => {
 			switch (column) {
@@ -86,6 +90,15 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 					return `[${issue[column]}](${issue.url})`;
 				case 'labels':
 					return issue[column].map((label) => label.name).join(', ');
+				case 'assignees':
+					return issue[column]?.map((assignee) => this.renderUser(assignee)).join(', ');
+				case 'user':
+					return this.renderUser(issue[column]);
+				case 'createdAt':
+				case 'updatedAt':
+					return new Date(issue[column]).toLocaleDateString();
+				case 'milestone':
+					return issue[column]?.title;
 				default:
 					return issue[column];
 			}
