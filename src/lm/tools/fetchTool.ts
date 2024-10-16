@@ -9,6 +9,7 @@ import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { IssueModel } from '../../github/issueModel';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { RepositoriesManager } from '../../github/repositoriesManager';
+import { MimeTypes } from './toolsUtils';
 
 interface FetchToolParameters {
 	issueNumber: number;
@@ -30,41 +31,41 @@ export class FetchTool implements vscode.LanguageModelTool<FetchToolParameters> 
 	constructor(private readonly repositoriesManager: RepositoriesManager) { }
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		const issueOrPullRequest = await fetchIssueOrPR(options, this.repositoriesManager);
+		const issueOrPullRequest = await this._fetchIssueOrPR(options, this.repositoriesManager);
 		const result: FetchResult = {
 			title: issueOrPullRequest.title,
 			body: issueOrPullRequest.body,
 			comments: issueOrPullRequest.item.comments?.map(c => ({ body: c.body })) ?? []
 		};
 		return {
-			'text/plain': JSON.stringify(result)
+			[MimeTypes.textPlain]: JSON.stringify(result)
 		};
 	}
-}
 
-export async function fetchIssueOrPR(options: vscode.LanguageModelToolInvocationOptions<FetchToolParameters>, repositoriesManager: RepositoriesManager): Promise<PullRequestModel | IssueModel> {
-	let owner: string | undefined;
-	let name: string | undefined;
-	let folderManager: FolderRepositoryManager | undefined;
-	// The llm likes to make up an owner and name if it isn't provided one, and they tend to include 'owner' and 'name' respectively
-	if (options.parameters.repo && !options.parameters.repo.owner.includes('owner') && !options.parameters.repo.name.includes('name')) {
-		owner = options.parameters.repo.owner;
-		name = options.parameters.repo.name;
-		folderManager = repositoriesManager.getManagerForRepository(options.parameters.repo.owner, options.parameters.repo.name);
-	} else if (repositoriesManager.folderManagers.length > 0) {
-		folderManager = repositoriesManager.folderManagers[0];
-		owner = folderManager.gitHubRepositories[0].remote.owner;
-		name = folderManager.gitHubRepositories[0].remote.repositoryName;
+	private async _fetchIssueOrPR(options: vscode.LanguageModelToolInvocationOptions<FetchToolParameters>, repositoriesManager: RepositoriesManager): Promise<PullRequestModel | IssueModel> {
+		let owner: string | undefined;
+		let name: string | undefined;
+		let folderManager: FolderRepositoryManager | undefined;
+		// The llm likes to make up an owner and name if it isn't provided one, and they tend to include 'owner' and 'name' respectively
+		if (options.parameters.repo && !options.parameters.repo.owner.includes('owner') && !options.parameters.repo.name.includes('name')) {
+			owner = options.parameters.repo.owner;
+			name = options.parameters.repo.name;
+			folderManager = repositoriesManager.getManagerForRepository(options.parameters.repo.owner, options.parameters.repo.name);
+		} else if (repositoriesManager.folderManagers.length > 0) {
+			folderManager = repositoriesManager.folderManagers[0];
+			owner = folderManager.gitHubRepositories[0].remote.owner;
+			name = folderManager.gitHubRepositories[0].remote.repositoryName;
+		}
+		if (!folderManager || !owner || !name) {
+			throw new Error(`No folder manager found for ${owner}/${name}. Make sure to have the repository open.`);
+		}
+		let issueOrPullRequest: IssueModel | PullRequestModel | undefined = await folderManager.resolveIssue(owner, name, options.parameters.issueNumber, true);
+		if (!issueOrPullRequest) {
+			issueOrPullRequest = await folderManager.resolvePullRequest(owner, name, options.parameters.issueNumber);
+		}
+		if (!issueOrPullRequest) {
+			throw new Error(`No issue or PR found for ${owner}/${name}/${options.parameters.issueNumber}. Make sure the issue or PR exists.`);
+		}
+		return issueOrPullRequest;
 	}
-	if (!folderManager || !owner || !name) {
-		throw new Error(`No folder manager found for ${owner}/${name}. Make sure to have the repository open.`);
-	}
-	let issueOrPullRequest: IssueModel | PullRequestModel | undefined = await folderManager.resolveIssue(owner, name, options.parameters.issueNumber, true);
-	if (!issueOrPullRequest) {
-		issueOrPullRequest = await folderManager.resolvePullRequest(owner, name, options.parameters.issueNumber);
-	}
-	if (!issueOrPullRequest) {
-		throw new Error(`No issue or PR found for ${owner}/${name}/${options.parameters.issueNumber}. Make sure the issue or PR exists.`);
-	}
-	return issueOrPullRequest;
 }
