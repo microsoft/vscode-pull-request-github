@@ -40,6 +40,12 @@ export class FetchTool extends RepoToolBase<FetchToolParameters> {
 		};
 	}
 
+	async prepareToolInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchToolParameters>): Promise<vscode.PreparedToolInvocation> {
+		return {
+			invocationMessage: options.parameters.issueNumber ? vscode.l10n.t('Fetching item #{0} from GitHub...', options.parameters.issueNumber) : vscode.l10n.t('Fetching item from GitHub...'),
+		};
+	}
+
 	private async _fetchIssueOrPR(options: vscode.LanguageModelToolInvocationOptions<FetchToolParameters>, folderManager: FolderRepositoryManager, owner: string, name: string): Promise<PullRequestModel | IssueModel> {
 		let issueOrPullRequest: IssueModel | PullRequestModel | undefined = await folderManager.resolveIssue(owner, name, options.parameters.issueNumber, true);
 		if (!issueOrPullRequest) {

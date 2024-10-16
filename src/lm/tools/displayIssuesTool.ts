@@ -105,6 +105,12 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		}).join(' | ')} |`;
 	}
 
+	async prepareToolInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<DisplayIssuesParameters>): Promise<vscode.PreparedToolInvocation> {
+		return {
+			invocationMessage: vscode.l10n.t('Generating markdown table of issues...'),
+		};
+	}
+
 	async invoke(_options: vscode.LanguageModelToolInvocationOptions<DisplayIssuesParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		// The llm won't actually pass the output of the search tool to this tool, so we need to get the issues from the last message
 		let issueItems: Issue[] = [];

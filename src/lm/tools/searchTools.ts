@@ -348,6 +348,12 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		return `https://github.com/issues/?q=${encodeURIComponent(query)}`;
 	}
 
+	async prepareToolInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<ConvertToQuerySyntaxParameters>): Promise<vscode.PreparedToolInvocation> {
+		return {
+			invocationMessage: vscode.l10n.t('Converting to search syntax...')
+		};
+	}
+
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<ConvertToQuerySyntaxParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		const { owner, name, folderManager } = await this.getRepoInfo(options);
 		const firstUserMessage = `${this.chatParticipantState.firstUserMessage}, ${options.parameters.naturalLanguageString}`;
@@ -384,6 +390,12 @@ export interface SearchToolResult {
 
 export class SearchTool extends RepoToolBase<SearchToolParameters> {
 	static ID = 'SearchTool';
+
+	async prepareToolInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<SearchToolParameters>): Promise<vscode.PreparedToolInvocation> {
+		return {
+			invocationMessage: vscode.l10n.t('Searching for issues...')
+		};
+	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<SearchToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		const { folderManager } = await this.getRepoInfo(options);
