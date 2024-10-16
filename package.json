@@ -3129,53 +3129,6 @@
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
-				"name": "github-pull-request_summarize",
-				"tags": [
-					"github",
-					"issues",
-					"prs"
-				],
-				"toolReferenceName": "summarize",
-				"displayName": "Summarize a GitHub Issue/PR",
-				"modelDescription": "Returns a summary of a GitHub issue or pull request.",
-				"icon": "$(info)",
-				"canBeReferencedInPrompt": true,
-				"parametersSchema": {
-					"type": "object",
-					"properties": {
-						"repo": {
-							"type": "object",
-							"description": "The repository to get the issue/PR from.",
-							"properties": {
-								"owner": {
-									"type": "string",
-									"description": "The owner of the repository to get the issue/PR from."
-								},
-								"name": {
-									"type": "string",
-									"description": "The name of the repository to get the issue/PR from."
-								}
-							},
-							"required": [
-								"owner",
-								"name"
-							]
-						},
-						"issueNumber": {
-							"type": "number",
-							"description": "The number of the issue/PR to get."
-						}
-					},
-					"required": [
-						"issueNumber"
-					]
-				},
-				"supportedContentTypes": [
-					"text/plain"
-				],
-				"when": "config.githubPullRequests.experimental.chat"
-			},
-			{
 				"name": "github-pull-request_suggest-fix",
 				"tags": [
 					"github",

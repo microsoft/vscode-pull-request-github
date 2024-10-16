@@ -11,21 +11,15 @@ import { ChatParticipantState } from '../participants';
 import { ConvertToSearchSyntaxTool, SearchTool } from '../searchTools';
 import { FetchTool } from './fetchTool';
 import { SuggestFixTool } from './suggestFixTool';
-import { SummarizationTool } from './summarizeTool';
 
 export function registerTools(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
 	registerFetchTool(context, repositoriesManager);
-	registerSummarizationTool(context, repositoriesManager);
 	registerSuggestFixTool(context, repositoriesManager);
 	registerSearchTools(context, repositoriesManager, chatParticipantState);
 }
 
 function registerFetchTool(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {
 	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_fetch', new FetchTool(repositoriesManager)));
-}
-
-function registerSummarizationTool(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {
-	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_summarize', new SummarizationTool(repositoriesManager)));
 }
 
 function registerSuggestFixTool(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {
