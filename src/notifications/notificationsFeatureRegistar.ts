@@ -100,6 +100,18 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 				vscode.commands.executeCommand(commands.OPEN_CHAT, vscode.l10n.t('@githubpr Summarize notification {0}/{1}#{2}', notification.model.remote.owner, notification.model.remote.repositoryName, notification.model.number));
 			})
 		);
+		this._disposables.push(
+			vscode.commands.registerCommand('notification.markAsRead', (notification: any) => {
+				if (!(notification instanceof NotificationItem)) {
+					return;
+				}
+				/* __GDPR__
+					"notification.markAsRead" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('notification.markAsRead');
+				notificationsProvider.markAsRead(notification);
+			})
+		);
 
 		// Events
 		this._repositoriesManager.onDidLoadAnyRepositories(() => {

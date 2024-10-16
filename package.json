@@ -1516,6 +1516,12 @@
 				"title": "%command.notification.chatSummarizeNotification.title%",
 				"category": "%command.notifications.category%",
 				"icon": "$(copilot)"
+			},
+			{
+				"command": "notification.markAsRead",
+				"title": "%command.notifications.markAsRead.title%",
+				"category": "%command.notifications.category%",
+				"icon": "$(checkmark)"
 			}
 		],
 		"viewsWelcome": [
@@ -2165,6 +2171,10 @@
 					"when": "false"
 				},
 				{
+					"command": "notification.markAsRead",
+					"when": "false"
+				},
+				{
 					"command": "notification.chatSummarizeNotification",
 					"when": "false"
 				}
@@ -2326,6 +2336,11 @@
 					"command": "notification.openOnGitHub",
 					"group": "inline@2",
 					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
+				},
+				{
+					"command": "notification.markAsRead",
+					"group": "inline@3",
+					"when": "view == notifications:github"
 				},
 				{
 					"command": "pr.openDescriptionToTheSide",
