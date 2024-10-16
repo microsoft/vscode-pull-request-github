@@ -347,6 +347,6 @@
 	"languageModelTools.github-pull-request_suggest-fix.displayName": "Suggest a Fix for a GitHub Issue",
 	"languageModelTools.github-pull-request_formSearchQuery.displayName": "Convert natural language to a GitHub search query",
 	"languageModelTools.github-pull-request_doSearch.displayName": "Execute a GitHub search",
-	"languageModelTools.github-pull-request_renderIssues.displayName": "Render issue items in a markdown table",
+	"languageModelTools.github-pull-request_renderIssues.displayName": "Render issue items in a markdown table"
 
 }
