@@ -70,8 +70,12 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		messages.push(vscode.LanguageModelChatMessage.User(issueItemsInfo));
 		const response = await model.sendRequest(messages, chatOptions, token);
 		const result = this.postProcess(await concatAsyncIterable(response.text), issues);
+		const indexOfUrl = result.indexOf('url');
 		if (result.length === 0) {
 			return ['number', 'title', 'state'];
+		} else if (indexOfUrl >= 0) {
+			// Never include the url column
+			result[indexOfUrl] = 'number';
 		}
 
 		return result;
@@ -132,7 +136,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		}).join('\n'));
 
 		return {
-			[MimeTypes.textPlain]: `Here is a markdown table of the first 10 issues`,
+			[MimeTypes.textPlain]: `The user has already been shown a markdown table of the issues. There is no need to display further information about these issues. Do NOT display them again.`,
 			[MimeTypes.textMarkdown]: issues.value,
 			[MimeTypes.textDisplay]: vscode.l10n.t('Here\'s a markdown table of the first 10 issues: ')
 		};
