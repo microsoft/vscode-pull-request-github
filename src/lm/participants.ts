@@ -6,7 +6,7 @@
 'use strict';
 import * as vscode from 'vscode';
 import { dispose } from '../common/utils';
-import { IToolCall } from './tools/toolsUtils';
+import { IToolCall, MimeTypes } from './tools/toolsUtils';
 
 const llmInstructions = `Instructions:
 - The user will ask a question related to GitHub, and it may require lots of research to answer correctly. There is a selection of tools that let you perform actions or retrieve helpful context to answer the user's question.
@@ -150,10 +150,10 @@ export class ChatParticipant implements vscode.Disposable {
 				for (const toolCall of toolCalls) {
 					let toolCallResult = (await toolCall.result);
 
-					const plainText = toolCallResult['text/plain'];
-					const markdown = toolCallResult['text/markdown'];
-					const json = toolCallResult['text/json'];
-					display = toolCallResult['text/display']; // our own fake type that we use to indicate something that should be streamed to the user
+					const plainText = toolCallResult[MimeTypes.textPlain];
+					const markdown: string = toolCallResult[MimeTypes.textMarkdown];
+					const json: JSON = toolCallResult[MimeTypes.textJson];
+					display = toolCallResult[MimeTypes.textDisplay]; // our own fake type that we use to indicate something that should be streamed to the user
 					if (display) {
 						stream.markdown(display);
 					}
@@ -164,9 +164,10 @@ export class ChatParticipant implements vscode.Disposable {
 						content.push(new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, JSON.stringify(json)));
 						isOnlyPlaintext = false;
 						hasJson = true;
-
 					} else if (markdown !== undefined) {
-						content.push(new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, markdown));
+						const asMarkdownString = new vscode.MarkdownString(markdown);
+						asMarkdownString.supportHtml = true;
+						stream.markdown(asMarkdownString);
 						isOnlyPlaintext = false;
 					}
 					if (plainText !== undefined) {
