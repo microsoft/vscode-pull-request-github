@@ -1521,7 +1521,7 @@
 				"command": "notification.markAsRead",
 				"title": "%command.notifications.markAsRead.title%",
 				"category": "%command.notifications.category%",
-				"icon": "$(checkmark)"
+				"icon": "$(check)"
 			}
 		],
 		"viewsWelcome": [
@@ -2340,7 +2340,7 @@
 				{
 					"command": "notification.markAsRead",
 					"group": "inline@3",
-					"when": "view == notifications:github"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
 				},
 				{
 					"command": "pr.openDescriptionToTheSide",
