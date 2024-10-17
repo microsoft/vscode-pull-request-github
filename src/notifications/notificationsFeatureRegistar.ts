@@ -74,7 +74,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.refresh');
 					notificationsProvider.clearCache();
-					return dataProvider.refresh();
+					return dataProvider.computeAndRefresh();
 				},
 				this,
 			),
@@ -101,7 +101,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 			})
 		);
 		this._disposables.push(
-			vscode.commands.registerCommand('notification.markAsRead', (notification: any) => {
+			vscode.commands.registerCommand('notification.markAsRead', async (notification: any) => {
 				if (!(notification instanceof NotificationItem)) {
 					return;
 				}
@@ -109,14 +109,14 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 					"notification.markAsRead" : {}
 				*/
 				this._telemetry.sendTelemetryEvent('notification.markAsRead');
-				notificationsProvider.markAsRead(notification);
+				return dataProvider.markAsRead(notification);
 			})
 		);
 
 		// Events
 		this._repositoriesManager.onDidLoadAnyRepositories(() => {
 			notificationsProvider.clearCache();
-			dataProvider.refresh();
+			dataProvider.computeAndRefresh();
 		});
 	}
 

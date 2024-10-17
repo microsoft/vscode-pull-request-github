@@ -29,6 +29,8 @@ export class NotificationsProvider implements vscode.Disposable {
 
 	private _canLoadMoreNotifications: boolean = true;
 
+	private _notifications: INotificationItem[] | undefined;
+
 	constructor(
 		private readonly _credentialStore: CredentialStore,
 		private readonly _repositoriesManager: RepositoriesManager,
@@ -69,14 +71,23 @@ export class NotificationsProvider implements vscode.Disposable {
 		await gitHub.octokit.call(gitHub.octokit.api.activity.markThreadAsRead, {
 			thread_id: Number(notification.notification.id)
 		});
+		if (this._notifications === undefined) {
+			return;
+		}
+		const notificationIndexToRemove = this._notifications.findIndex(n => n === notification);
+		if (notificationIndexToRemove !== -1) {
+			this._notifications.splice(notificationIndexToRemove, 1);
+		}
 	}
 
-	public async getNotifications(sortingMethod: NotificationsSortMethod): Promise<INotificationItem[] | undefined> {
+	public async computeNotifications(sortingMethod: NotificationsSortMethod): Promise<INotificationItem[] | undefined> {
 		const gitHub = this._getGitHub();
 		if (gitHub === undefined) {
+			this._notifications = undefined;
 			return undefined;
 		}
 		if (this._repositoriesManager.folderManagers.length === 0) {
+			this._notifications = undefined;
 			return undefined;
 		}
 		const notifications = await this._getResolvedNotifications(gitHub);
@@ -89,13 +100,18 @@ export class NotificationsProvider implements vscode.Disposable {
 			const model = models[0];
 			if (model) {
 				try {
-					return this._sortNotificationsByLLMPriority(filteredNotifications, model);
+					this._notifications = await this._sortNotificationsByLLMPriority(filteredNotifications, model);
 				} catch (e) {
-					return this._sortNotificationsByTimestamp(filteredNotifications);
+					this._notifications = this._sortNotificationsByTimestamp(filteredNotifications);
 				}
 			}
 		}
-		return this._sortNotificationsByTimestamp(filteredNotifications);
+		this._notifications = this._sortNotificationsByTimestamp(filteredNotifications);
+		return this._notifications;
+	}
+
+	public getNotifications(): INotificationItem[] | undefined {
+		return this._notifications;
 	}
 
 	public get canLoadMoreNotifications(): boolean {
