@@ -35,7 +35,7 @@ export interface FetchResult {
 
 export class FetchTool extends RepoToolBase<FetchToolParameters> {
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		const { owner, name, folderManager } = await this.getRepoInfo(options);
+		const { owner, name, folderManager } = this.getRepoInfo(options);
 		const issueOrPullRequest = await this._fetchIssueOrPR(options, folderManager, owner, name);
 		const result: FetchResult = {
 			title: issueOrPullRequest.title,
@@ -62,8 +62,15 @@ export class FetchTool extends RepoToolBase<FetchToolParameters> {
 	}
 
 	async prepareToolInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchToolParameters>): Promise<vscode.PreparedToolInvocation> {
+		if (!options.parameters.issueNumber) {
+			return {
+				invocationMessage: vscode.l10n.t('Fetching item from GitHub')
+			};
+		}
+		const { owner, name } = this.getRepoInfo(options);
+		const url = (owner && name) ? `https://github.com/${owner}/${name}/issues/${options.parameters.issueNumber}` : undefined;
 		return {
-			invocationMessage: options.parameters.issueNumber ? vscode.l10n.t('Fetching item #{0} from GitHub...', options.parameters.issueNumber) : vscode.l10n.t('Fetching item from GitHub...'),
+			invocationMessage: url ? vscode.l10n.t('Fetching item [#{0}]({1}) from GitHub', options.parameters.issueNumber, url) : vscode.l10n.t('Fetching item #{0} from GitHub', options.parameters.issueNumber),
 		};
 	}
 

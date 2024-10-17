@@ -6,11 +6,22 @@
 
 import * as vscode from 'vscode';
 import { FetchResult } from './fetchTool';
-import { concatAsyncIterable } from './toolsUtils';
+import { concatAsyncIterable, MimeTypes } from './toolsUtils';
 
 export class SummarizationTool implements vscode.LanguageModelTool<FetchResult> {
 
-	constructor() { }
+	async prepareToolInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchResult>): Promise<vscode.PreparedToolInvocation> {
+		if (!options.parameters.title) {
+			return {
+				invocationMessage: vscode.l10n.t('Summarizing issue')
+			};
+		}
+		const shortenedTitle = options.parameters.title.length > 40;
+		const maxLengthTitle = shortenedTitle ? options.parameters.title.substring(0, 40) : options.parameters.title;
+		return {
+			invocationMessage: shortenedTitle ? vscode.l10n.t('Summarizing "{0}', maxLengthTitle) : vscode.l10n.t('Sumarizing "{0}"')
+		};
+	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchResult>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		let issueOrPullRequestInfo: string = `
@@ -28,34 +39,35 @@ File : ${fileChange.fileName}
 Patch: ${fileChange.patch}
 `;
 			}
-			const comments = options.parameters.comments;
-			for (const [index, comment] of comments.entries()) {
-				issueOrPullRequestInfo += `
+		}
+		const comments = options.parameters.comments;
+		for (const [index, comment] of comments.entries()) {
+			issueOrPullRequestInfo += `
 Comment ${index} :
 Body: ${comment.body}
 `;
-			}
-			const models = await vscode.lm.selectChatModels({
-				vendor: 'copilot',
-				family: 'gpt-4o'
-			});
-			const model = models[0];
-
-			if (model) {
-				const messages = [vscode.LanguageModelChatMessage.User(summarizeInstructions())];
-				messages.push(vscode.LanguageModelChatMessage.User(`The issue or pull request information is as follows:`));
-				messages.push(vscode.LanguageModelChatMessage.User(issueOrPullRequestInfo));
-				const response = await model.sendRequest(messages, {});
-				const responseText = await concatAsyncIterable(response.text);
-				return {
-					'text/plain': responseText
-				};
-			} else {
-				return {
-					'text/plain': issueOrPullRequestInfo
-				};
-			}
 		}
+		const models = await vscode.lm.selectChatModels({
+			vendor: 'copilot',
+			family: 'gpt-4o'
+		});
+		const model = models[0];
+
+		if (model) {
+			const messages = [vscode.LanguageModelChatMessage.User(summarizeInstructions())];
+			messages.push(vscode.LanguageModelChatMessage.User(`The issue or pull request information is as follows:`));
+			messages.push(vscode.LanguageModelChatMessage.User(issueOrPullRequestInfo));
+			const response = await model.sendRequest(messages, {});
+			const responseText = await concatAsyncIterable(response.text);
+			return {
+				[MimeTypes.textPlain]: responseText
+			};
+		} else {
+			return {
+				[MimeTypes.textPlain]: issueOrPullRequestInfo
+			};
+		}
+
 	}
 }
 
