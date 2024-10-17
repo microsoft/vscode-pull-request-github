@@ -6,8 +6,6 @@
 
 import * as vscode from 'vscode';
 import { InMemFileChange } from '../../common/file';
-import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
-import { IssueModel } from '../../github/issueModel';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { MimeTypes, RepoToolBase } from './toolsUtils';
 
@@ -35,8 +33,11 @@ export interface FetchIssueResult {
 
 export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchIssueToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		const { owner, name, folderManager } = this.getRepoInfo(options);
-		const issueOrPullRequest = await fetchIssueOrPR(options.parameters.issueNumber, folderManager, owner, name);
+		const { owner, name, folderManager } = this.getRepoInfo({ owner: options.parameters.repo?.owner, name: options.parameters.repo?.name });
+		const issueOrPullRequest = await folderManager.resolveIssueOrPullRequest(owner, name, options.parameters.issueNumber);
+		if (!issueOrPullRequest) {
+			throw new Error(`No issue or PR found for ${owner}/${name}/${options.parameters.issueNumber}. Make sure the issue or PR exists.`);
+		}
 		const result: FetchIssueResult = {
 			title: issueOrPullRequest.title,
 			body: issueOrPullRequest.body,
@@ -67,22 +68,10 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 				invocationMessage: vscode.l10n.t('Fetching item from GitHub')
 			};
 		}
-		const { owner, name } = this.getRepoInfo(options);
+		const { owner, name } = this.getRepoInfo({ owner: options.parameters.repo?.owner, name: options.parameters.repo?.name });
 		const url = (owner && name) ? `https://github.com/${owner}/${name}/issues/${options.parameters.issueNumber}` : undefined;
 		return {
 			invocationMessage: url ? vscode.l10n.t('Fetching item [#{0}]({1}) from GitHub', options.parameters.issueNumber, url) : vscode.l10n.t('Fetching item #{0} from GitHub', options.parameters.issueNumber),
 		};
 	}
-}
-
-// place into the folder manager instead
-export async function fetchIssueOrPR(issueNumber: number, folderManager: FolderRepositoryManager, owner: string, name: string): Promise<PullRequestModel | IssueModel> {
-	let issueOrPullRequest: IssueModel | PullRequestModel | undefined = await folderManager.resolveIssue(owner, name, issueNumber, true);
-	if (!issueOrPullRequest) {
-		issueOrPullRequest = await folderManager.resolvePullRequest(owner, name, issueNumber);
-	}
-	if (!issueOrPullRequest) {
-		throw new Error(`No issue or PR found for ${owner}/${name}/${issueNumber}. Make sure the issue or PR exists.`);
-	}
-	return issueOrPullRequest;
 }

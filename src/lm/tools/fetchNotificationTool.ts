@@ -5,17 +5,12 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { MimeTypes, RepoToolBase } from './toolsUtils';
-import { fetchIssueOrPR } from './fetchIssueTool';
-import { PullRequestModel } from '../../github/pullRequestModel';
 import { InMemFileChange } from '../../common/file';
+import { PullRequestModel } from '../../github/pullRequestModel';
+import { MimeTypes, RepoToolBase } from './toolsUtils';
 
 interface FetchNotificationToolParameters {
 	thread_id: number;
-	repo?: {
-		owner: string;
-		name: string;
-	};
 }
 
 interface FileChange {
@@ -47,32 +42,21 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 		const thread = await github.octokit.api.activity.getThread({
 			thread_id: options.parameters.thread_id
 		});
-		console.log('thread : ', thread);
-		const lastUpdatedAt = thread.data.updated_at;
-		const lastReadAt = thread.data.last_read_at ?? undefined;
-		const unread = thread.data.unread;
-		const owner = thread.data.repository.owner.login;
-		const name = thread.data.repository.name;
-
-		const modifiedOptions = {
-			parameters: {
-				thread_id: options.parameters.thread_id,
-				repo: {
-					owner,
-					name
-				}
-			}
-		};
-		const repoInfo = this.getRepoInfo(modifiedOptions);
-
-		console.log('thread.data : ', thread.data);
-		const issueNumber = thread.data.subject.url.split('/').pop();
-
+		const threadData = thread.data;
+		const issueNumber = threadData.subject.url.split('/').pop();
 		if (issueNumber === undefined) {
 			return undefined;
 		}
-
-		const issueOrPR = await fetchIssueOrPR(Number(issueNumber), repoInfo.folderManager, owner, name);
+		const lastUpdatedAt = threadData.updated_at;
+		const lastReadAt = threadData.last_read_at ?? undefined;
+		const unread = threadData.unread;
+		const owner = threadData.repository.owner.login;
+		const name = threadData.repository.name;
+		const { folderManager } = this.getRepoInfo({ owner, name });
+		const issueOrPR = await folderManager.resolveIssueOrPullRequest(owner, name, Number(issueNumber));
+		if (!issueOrPR) {
+			throw new Error(`No notification found with thread ID #${options.parameters.thread_id}.`);
+		}
 		const result: FetchNotificationResult = {
 			lastReadAt,
 			lastUpdatedAt,

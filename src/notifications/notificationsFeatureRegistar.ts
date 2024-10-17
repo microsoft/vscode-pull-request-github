@@ -97,7 +97,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 					"notification.chatSummarizeNotification" : {}
 				*/
 				this._telemetry.sendTelemetryEvent('notification.chatSummarizeNotification');
-				vscode.commands.executeCommand(commands.OPEN_CHAT, vscode.l10n.t('@githubpr Summarize notification with thread ID {0}', notification.notification.id));
+				vscode.commands.executeCommand(commands.OPEN_CHAT, vscode.l10n.t('@githubpr Summarize notification with thread ID #{0}', notification.notification.id));
 			})
 		);
 		this._disposables.push(

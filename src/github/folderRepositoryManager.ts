@@ -2043,6 +2043,14 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return githubRepo;
 	}
 
+	async resolveIssueOrPullRequest(owner: string, repositoryName: string, issueOrPullRequestNumber: number): Promise<PullRequestModel | IssueModel | undefined> {
+		let issueOrPullRequest: IssueModel | PullRequestModel | undefined = await this.resolveIssue(owner, repositoryName, issueOrPullRequestNumber, true);
+		if (!issueOrPullRequest) {
+			issueOrPullRequest = await this.resolvePullRequest(owner, repositoryName, issueOrPullRequestNumber);
+		}
+		return issueOrPullRequest;
+	}
+
 	async resolvePullRequest(
 		owner: string,
 		repositoryName: string,

@@ -453,11 +453,7 @@
 				},
 				"githubPullRequests.createDefaultBaseBranch": {
 					"type": "string",
-					"enum": [
-						"repositoryDefault",
-						"createdFromBranch",
-						"auto"
-					],
+					"enum": ["repositoryDefault", "createdFromBranch", "auto"],
 					"markdownEnumDescriptions": [
 						"%githubPullRequests.createDefaultBaseBranch.repositoryDefault%",
 						"%githubPullRequests.createDefaultBaseBranch.createdFromBranch%",
@@ -609,9 +605,7 @@
 						{
 							"label": "%githubIssues.queries.default.myIssues%",
 							"query": "is:open assignee:${user} repo:${owner}/${repository}",
-							"groupBy": [
-								"milestone"
-							]
+							"groupBy": ["milestone"]
 						},
 						{
 							"label": "%githubIssues.queries.default.createdIssues%",
@@ -3174,7 +3168,7 @@
 				],
 				"toolReferenceName": "notification_fetch",
 				"displayName": "%languageModelTools.github-pull-request_notification_fetch.displayName%",
-				"modelDescription": "Get a GitHub notification.",
+				"modelDescription": "Get a GitHub notification's details.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
 				"parametersSchema": {

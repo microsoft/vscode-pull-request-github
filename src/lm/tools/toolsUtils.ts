@@ -53,27 +53,20 @@ export const enum MimeTypes {
 	textDisplay = 'text/display' // our own made up mime type for stuff that should be shown in chat to the user
 }
 
-interface RepoToolBaseParameters {
-	repo?: {
-		owner?: string;
-		name?: string;
-	};
-}
-
-export abstract class RepoToolBase<T extends RepoToolBaseParameters> extends ToolBase<T> {
+export abstract class RepoToolBase<T> extends ToolBase<T> {
 	constructor(private readonly credentialStore: CredentialStore, private readonly repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
 		super(chatParticipantState);
 	}
 
-	protected getRepoInfo(options: { parameters: T }): { owner: string; name: string; folderManager: FolderRepositoryManager } {
+	protected getRepoInfo(options: { owner?: string, name?: string }): { owner: string; name: string; folderManager: FolderRepositoryManager } {
 		let owner: string | undefined;
 		let name: string | undefined;
 		let folderManager: FolderRepositoryManager | undefined;
 		// The llm likes to make up an owner and name if it isn't provided one, and they tend to include 'owner' and 'name' respectively
-		if (options.parameters.repo && options.parameters.repo.owner && options.parameters.repo.name && !options.parameters.repo.owner.includes('owner') && !options.parameters.repo.name.includes('name')) {
-			owner = options.parameters.repo.owner;
-			name = options.parameters.repo.name;
-			folderManager = this.repositoriesManager.getManagerForRepository(options.parameters.repo.owner, options.parameters.repo.name);
+		if (options.owner && options.name && !options.owner.includes('owner') && !options.name.includes('name')) {
+			owner = options.owner;
+			name = options.name;
+			folderManager = this.repositoriesManager.getManagerForRepository(options.owner, options.name);
 		} else if (this.repositoriesManager.folderManagers.length > 0) {
 			folderManager = this.repositoriesManager.folderManagers[0];
 			owner = folderManager.gitHubRepositories[0].remote.owner;
