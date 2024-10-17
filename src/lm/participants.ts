@@ -6,7 +6,7 @@
 'use strict';
 import * as vscode from 'vscode';
 import { dispose } from '../common/utils';
-import { IToolCall } from './tools/toolsUtils';
+import { IToolCall, MimeTypes } from './tools/toolsUtils';
 
 const llmInstructions = `Instructions:
 - The user will ask a question related to GitHub, and it may require lots of research to answer correctly. There is a selection of tools that let you perform actions or retrieve helpful context to answer the user's question.
@@ -146,16 +146,17 @@ export class ChatParticipant implements vscode.Disposable {
 				this.state.addMessage(assistantMsg);
 
 				let hasJson = false;
-				let display: string | undefined;
+				let shownToUser = false;
 				for (const toolCall of toolCalls) {
 					let toolCallResult = (await toolCall.result);
 
-					const plainText = toolCallResult['text/plain'];
-					const markdown = toolCallResult['text/markdown'];
-					const json = toolCallResult['text/json'];
-					display = toolCallResult['text/display']; // our own fake type that we use to indicate something that should be streamed to the user
+					const plainText = toolCallResult[MimeTypes.textPlain];
+					const markdown: string = toolCallResult[MimeTypes.textMarkdown];
+					const json: JSON = toolCallResult[MimeTypes.textJson];
+					const display = toolCallResult[MimeTypes.textDisplay]; // our own fake type that we use to indicate something that should be streamed to the user
 					if (display) {
 						stream.markdown(display);
+						shownToUser = true;
 					}
 
 					const content: (string | vscode.LanguageModelToolResultPart | vscode.LanguageModelToolCallPart)[] = [];
@@ -164,10 +165,11 @@ export class ChatParticipant implements vscode.Disposable {
 						content.push(new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, JSON.stringify(json)));
 						isOnlyPlaintext = false;
 						hasJson = true;
-
 					} else if (markdown !== undefined) {
-						content.push(new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, markdown));
-						isOnlyPlaintext = false;
+						const asMarkdownString = new vscode.MarkdownString(markdown);
+						asMarkdownString.supportHtml = true;
+						stream.markdown(asMarkdownString);
+						shownToUser = true;
 					}
 					if (plainText !== undefined) {
 						if (isOnlyPlaintext) {
@@ -181,7 +183,7 @@ export class ChatParticipant implements vscode.Disposable {
 					this.state.addMessage(message);
 				}
 
-				this.state.addMessage(vscode.LanguageModelChatMessage.User(`Above is the result of calling the functions ${toolCalls.map(call => call.tool.name).join(', ')}.${hasJson ? ' The JSON is also included and should be passed to the next tool.' : ''} ${display ? 'The user can see the result of the tool call and doesn\'t need you to show it.' : 'The user cannot see the result of the tool call, so you should show it to them in an appropriate way.'}`));
+				this.state.addMessage(vscode.LanguageModelChatMessage.User(`Above is the result of calling the functions ${toolCalls.map(call => call.tool.name).join(', ')}.${hasJson ? ' The JSON is also included and should be passed to the next tool.' : ''} ${shownToUser ? 'The user can see the result of the tool call.' : ''}`));
 				return runWithFunctions();
 			}
 		};
