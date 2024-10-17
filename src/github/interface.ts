@@ -210,6 +210,7 @@ export interface Notification {
 	name: string;
 	key: string;
 	id: string;
+	itemID: string;
 	subject: {
 		title: string;
 		type: NotificationSubjectType;

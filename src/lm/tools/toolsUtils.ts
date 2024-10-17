@@ -4,8 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { AuthProvider } from '../../common/authentication';
+import { CredentialStore, GitHub } from '../../github/credentials';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { RepositoriesManager } from '../../github/repositoriesManager';
+import { hasEnterpriseUri } from '../../github/utils';
 import { ChatParticipantState } from '../participants';
 
 export interface IToolCall {
@@ -58,7 +61,7 @@ interface RepoToolBaseParameters {
 }
 
 export abstract class RepoToolBase<T extends RepoToolBaseParameters> extends ToolBase<T> {
-	constructor(private readonly repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
+	constructor(private readonly credentialStore: CredentialStore, private readonly repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
 		super(chatParticipantState);
 	}
 
@@ -80,5 +83,15 @@ export abstract class RepoToolBase<T extends RepoToolBaseParameters> extends Too
 			throw new Error(`No folder manager found for ${owner}/${name}. Make sure to have the repository open.`);
 		}
 		return { owner, name, folderManager };
+	}
+
+	protected getGitHub(): GitHub | undefined {
+		let authProvider: AuthProvider | undefined;
+		if (this.credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
+			authProvider = AuthProvider.githubEnterprise;
+		} else if (this.credentialStore.isAuthenticated(AuthProvider.github)) {
+			authProvider = AuthProvider.github;
+		}
+		return (authProvider !== undefined) ? this.credentialStore.getHub(authProvider) : undefined;
 	}
 }

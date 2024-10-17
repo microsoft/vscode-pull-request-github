@@ -3083,14 +3083,14 @@
 		],
 		"languageModelTools": [
 			{
-				"name": "github-pull-request_fetch",
+				"name": "github-pull-request_issue_pr_fetch",
 				"tags": [
 					"github",
 					"issues",
 					"prs"
 				],
 				"toolReferenceName": "fetch",
-				"displayName": "%languageModelTools.github-pull-request_fetch.displayName%",
+				"displayName": "%languageModelTools.github-pull-request_issue_pr_fetch.displayName%",
 				"modelDescription": "Get a GitHub issue/PR, which includes the title, body, and comments.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
@@ -3131,14 +3131,44 @@
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
-				"name": "github-pull-request_summarize",
+				"name": "github-pull-request_notification_fetch",
+				"tags": [
+					"github",
+					"issues",
+					"prs"
+				],
+				"toolReferenceName": "fetch",
+				"displayName": "%languageModelTools.github-pull-request_notification_fetch.displayName%",
+				"modelDescription": "Get a GitHub notification.",
+				"icon": "$(info)",
+				"canBeReferencedInPrompt": true,
+				"parametersSchema": {
+					"type": "object",
+					"properties": {
+						"thread_id": {
+							"type": "string",
+							"description": "The notification thread id."
+						}
+					},
+					"required": [
+						"thread_id"
+					]
+				},
+				"supportedContentTypes": [
+					"text/plain",
+					"text/json"
+				],
+				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
+				"name": "github-pull-request_issue_pr_summarize",
 				"tags": [
 					"github",
 					"issues",
 					"prs"
 				],
 				"toolReferenceName": "summarize",
-				"displayName": "%languageModelTools.github-pull-request_summarize.displayName%",
+				"displayName": "%languageModelTools.github-pull-request_issue_pr_summarize.displayName%",
 				"modelDescription": "Returns a summary of a GitHub issue or PR given issue/PR details.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,

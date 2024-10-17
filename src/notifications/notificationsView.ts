@@ -53,13 +53,11 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 		item.description = `${notification.owner}/${notification.name}`;
 		item.contextValue = notification.subject.type;
 		item.resourceUri = toNotificationUri({ key: element.notification.key });
-
-		// TODO: Issue webview needs polish before we do this
-		// item.command = {
-		// 	command: 'pr.openDescription',
-		// 	title: 'Open Description',
-		// 	arguments: [element.model]
-		// };
+		item.command = {
+			command: 'notification.chatSummarizeNotification',
+			title: 'Summarize Notification',
+			arguments: [element]
+		};
 		return item;
 	}
 
