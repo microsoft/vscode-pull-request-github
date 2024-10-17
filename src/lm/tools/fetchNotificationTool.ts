@@ -24,7 +24,7 @@ export interface FetchNotificationResult {
 	unread: boolean;
 	title: string;
 	body: string;
-	comments: {
+	unreadComments: {
 		body: string;
 	}[];
 	fileChanges?: FileChange[];
@@ -57,13 +57,22 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 		if (!issueOrPR) {
 			throw new Error(`No notification found with thread ID #${options.parameters.thread_id}.`);
 		}
+		const comments = issueOrPR.item.comments ?? [];
+		let unreadComments: { body: string; }[];
+		if (lastReadAt !== undefined && comments) {
+			unreadComments = comments.filter(comment => {
+				return comment.createdAt > lastReadAt;
+			}).map(comment => { return { body: comment.body }; });
+		} else {
+			unreadComments = comments.map(comment => { return { body: comment.body }; });
+		}
 		const result: FetchNotificationResult = {
 			lastReadAt,
 			lastUpdatedAt,
 			unread,
 			title: issueOrPR.title,
 			body: issueOrPR.body,
-			comments: issueOrPR.item.comments?.map(c => ({ body: c.body })) ?? []
+			unreadComments
 		};
 		if (issueOrPR instanceof PullRequestModel) {
 			const fileChanges = await issueOrPR.getFileChangesInfo();

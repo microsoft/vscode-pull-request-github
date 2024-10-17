@@ -5,13 +5,12 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { FetchIssueResult } from './fetchIssueTool';
 import { FetchNotificationResult } from './fetchNotificationTool';
 import { MimeTypes } from './toolsUtils';
 
 export class NotificationSummarizationTool implements vscode.LanguageModelTool<FetchNotificationResult> {
 
-	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchIssueResult>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
+	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchNotificationResult>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		console.log('options : ', options);
 		return {
 			[MimeTypes.textPlain]: ''
