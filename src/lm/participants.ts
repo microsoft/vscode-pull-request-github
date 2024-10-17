@@ -4,17 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
+import { renderPrompt } from '@vscode/prompt-tsx';
 import * as vscode from 'vscode';
 import { dispose } from '../common/utils';
+import { ParticipantsPrompt } from './participantsPrompt';
 import { IToolCall } from './tools/toolsUtils';
-
-const llmInstructions = `Instructions:
-- The user will ask a question related to GitHub, and it may require lots of research to answer correctly. There is a selection of tools that let you perform actions or retrieve helpful context to answer the user's question.
-- If you aren't sure which tool is relevant, you can call multiple tools. You can call tools repeatedly to take actions or gather as much context as needed until you have completed the task fully. Don't give up unless you are sure the request cannot be fulfilled with the tools you have.
-- Don't ask the user for confirmation to use tools, just use them.
-- When talking about issues, be as concise as possible while still conveying all the information you need to. Avoid mentioning the following:
-  - The fact that there are no comments.
-  - Any info that seems like template info.`;
 
 export class ChatParticipantState {
 	private _messages: vscode.LanguageModelChatMessage[] = [];
@@ -46,6 +40,10 @@ export class ChatParticipantState {
 
 	addMessage(message: vscode.LanguageModelChatMessage): void {
 		this._messages.push(message);
+	}
+
+	addMessages(messages: vscode.LanguageModelChatMessage[]): void {
+		this._messages.push(...messages);
 	}
 
 	reset(): void {
@@ -92,8 +90,14 @@ export class ChatParticipant implements vscode.Disposable {
 			};
 		});
 
-		this.state.addMessage(vscode.LanguageModelChatMessage.Assistant(llmInstructions));
-		this.state.addMessage(vscode.LanguageModelChatMessage.User(request.prompt));
+		const { messages } = await renderPrompt(
+			ParticipantsPrompt,
+			{ userMessage: request.prompt },
+			{ modelMaxPromptTokens: model.maxInputTokens },
+			model);
+
+		this.state.addMessages(messages);
+
 		const toolReferences = [...request.toolReferences];
 		const options: vscode.LanguageModelChatRequestOptions = {
 			justification: 'Answering user questions pertaining to GitHub.'
