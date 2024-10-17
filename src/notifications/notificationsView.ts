@@ -20,6 +20,8 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 
 	private _sortingMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
 
+	private _computeNotifications: boolean = false;
+
 	constructor(private readonly _notificationsProvider: NotificationsProvider, private readonly _notificationsManager: NotificationsManager) {
 		this._disposables.push(this._onDidChangeTreeData);
 		this._disposables.push(this._notificationsManager.onDidChangeNotifications(updates => {
@@ -75,8 +77,14 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 		if (element !== undefined) {
 			return undefined;
 		}
-		const result = await this._notificationsProvider.getNotifications(this._sortingMethod);
-		if (!result) {
+		let result: INotificationItem[] | undefined;
+		if (this._computeNotifications) {
+			result = await this._notificationsProvider.computeNotifications(this._sortingMethod);
+		} else {
+			result = this._notificationsProvider.getNotifications();
+		}
+		this._computeNotifications = false;
+		if (result === undefined) {
 			return undefined;
 		}
 		const canLoadMoreNotifications = this._notificationsProvider.canLoadMoreNotifications;
@@ -88,20 +96,31 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 
 	sortByTimestamp(): void {
 		this._sortingMethod = NotificationsSortMethod.Timestamp;
-		this.refresh();
+		this.computeAndRefresh();
 	}
 
 	sortByPriority(): void {
 		this._sortingMethod = NotificationsSortMethod.Priority;
-		this.refresh();
+		this.computeAndRefresh();
 	}
 
-	refresh(): void {
+	computeAndRefresh(): void {
+		this._computeNotifications = true;
 		this._onDidChangeTreeData.fire();
 	}
 
 	loadMore(): void {
 		this._notificationsProvider.loadMore();
+		this.computeAndRefresh();
+	}
+
+	async markAsRead(notification: NotificationItem): Promise<void> {
+		await this._notificationsProvider.markAsRead(notification);
+		this._simpleRefresh();
+	}
+
+	private _simpleRefresh(): void {
+		this._computeNotifications = false;
 		this._onDidChangeTreeData.fire();
 	}
 

@@ -209,7 +209,7 @@ export interface Notification {
 	owner: string;
 	name: string;
 	key: string;
-	id: string;
+	id: string,
 	itemID: string;
 	subject: {
 		title: string;
