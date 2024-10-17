@@ -74,7 +74,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.refresh');
 					notificationsProvider.clearCache();
-					return dataProvider.refresh();
+					return dataProvider.computeAndRefresh();
 				},
 				this,
 			),
@@ -100,11 +100,23 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 				vscode.commands.executeCommand(commands.OPEN_CHAT, vscode.l10n.t('@githubpr Summarize notification {0}/{1}#{2}', notification.model.remote.owner, notification.model.remote.repositoryName, notification.model.number));
 			})
 		);
+		this._disposables.push(
+			vscode.commands.registerCommand('notification.markAsRead', async (notification: any) => {
+				if (!(notification instanceof NotificationItem)) {
+					return;
+				}
+				/* __GDPR__
+					"notification.markAsRead" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('notification.markAsRead');
+				return dataProvider.markAsRead(notification);
+			})
+		);
 
 		// Events
 		this._repositoriesManager.onDidLoadAnyRepositories(() => {
 			notificationsProvider.clearCache();
-			dataProvider.refresh();
+			dataProvider.computeAndRefresh();
 		});
 	}
 

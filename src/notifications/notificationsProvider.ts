@@ -61,7 +61,18 @@ export class NotificationsProvider implements vscode.Disposable {
 		this._notificationsManager.clear();
 	}
 
-	public async getNotifications(sortingMethod: NotificationsSortMethod): Promise<INotificationItem[] | undefined> {
+	public async markAsRead(notification: INotificationItem): Promise<void> {
+		const gitHub = this._getGitHub();
+		if (gitHub === undefined) {
+			return undefined;
+		}
+		await gitHub.octokit.call(gitHub.octokit.api.activity.markThreadAsRead, {
+			thread_id: Number(notification.notification.id)
+		});
+		this._notificationsManager.removeNotification(notification.notification.key);
+	}
+
+	public async computeNotifications(sortingMethod: NotificationsSortMethod): Promise<INotificationItem[] | undefined> {
 		const gitHub = this._getGitHub();
 		if (gitHub === undefined) {
 			return undefined;
@@ -86,6 +97,10 @@ export class NotificationsProvider implements vscode.Disposable {
 			}
 		}
 		return this._sortNotificationsByTimestamp(filteredNotifications);
+	}
+
+	public getNotifications(): INotificationItem[] {
+		return this._notificationsManager.getAllNotifications();
 	}
 
 	public get canLoadMoreNotifications(): boolean {

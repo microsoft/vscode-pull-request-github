@@ -1257,13 +1257,14 @@ export function parseNotification(notification: OctokitCommon.Notification): Not
 	}
 	const owner = notification.repository.owner.login;
 	const name = notification.repository.name;
-	const id = notification.subject.url.split('/').pop();
+	const itemID = notification.subject.url.split('/').pop();
 
 	return {
 		owner,
 		name,
-		key: `${owner}/${name}#${id}`,
-		id: id!,
+		key: `${owner}/${name}#${itemID}`,
+		id: notification.id,
+		itemID: itemID!,
 		subject: {
 			title: notification.subject.title,
 			type: notification.subject.type as NotificationSubjectType,
