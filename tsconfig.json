@@ -1,8 +1,14 @@
 {
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
+		"jsx": "react",
+		"jsxFactory": "vscpp",
+		"jsxFragmentFactory": "vscppf",
 		"strictNullChecks": true,
-		"tsBuildInfoFile": "tsconfig.tsbuildinfo"
+		"tsBuildInfoFile": "tsconfig.tsbuildinfo",
+		"types": [
+			"node"
+		]
 	},
 	"exclude": [
 		"node_modules",
