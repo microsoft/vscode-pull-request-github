@@ -1110,7 +1110,7 @@
 				"command": "pr.applySuggestion",
 				"title": "%command.pr.applySuggestion.title%",
 				"category": "%command.pull.request.category%",
-				"icon": "$(gift)"
+				"icon": "$(replace)"
 			},
 			{
 				"command": "pr.applySuggestionWithCopilot",
@@ -1239,13 +1239,13 @@
 			{
 				"command": "review.createSuggestionsFromChanges",
 				"title": "%command.review.createSuggestionsFromChanges.title%",
-				"icon": "$(gift)",
+				"icon": "$(comment)",
 				"category": "%command.pull.request.category%"
 			},
 			{
 				"command": "review.createSuggestionFromChange",
 				"title": "%command.review.createSuggestionFromChange.title%",
-				"icon": "$(gift)",
+				"icon": "$(comment)",
 				"category": "%command.pull.request.category%"
 			},
 			{
