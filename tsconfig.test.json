@@ -3,6 +3,7 @@
 	"compilerOptions": {
 		"jsx": "react",
 		"lib": ["dom", "dom.iterable", "es2019"],
+		"module": "commonjs",
 		"outDir": "out",
 		"tsBuildInfoFile": "tsconfig.test.tsbuildinfo"
 	}
