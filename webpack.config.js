@@ -248,7 +248,7 @@ async function getExtensionConfig(target, mode, env) {
 						? {
 							loader: 'esbuild-loader',
 							options: {
-								loader: 'ts',
+								loader: 'tsx',
 								target: 'es2019',
 								tsconfigRaw: await resolveTSConfig(
 									path.join(
