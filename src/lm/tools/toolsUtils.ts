@@ -62,7 +62,7 @@ export abstract class RepoToolBase<T extends RepoToolBaseParameters> extends Too
 		super(chatParticipantState);
 	}
 
-	protected async getRepoInfo(options: vscode.LanguageModelToolInvocationOptions<T>): Promise<{ owner: string; name: string; folderManager: FolderRepositoryManager }> {
+	protected getRepoInfo(options: { parameters: T }): { owner: string; name: string; folderManager: FolderRepositoryManager } {
 		let owner: string | undefined;
 		let name: string | undefined;
 		let folderManager: FolderRepositoryManager | undefined;

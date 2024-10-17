@@ -350,12 +350,12 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 
 	async prepareToolInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<ConvertToQuerySyntaxParameters>): Promise<vscode.PreparedToolInvocation> {
 		return {
-			invocationMessage: vscode.l10n.t('Converting to search syntax...')
+			invocationMessage: vscode.l10n.t('Converting to search syntax')
 		};
 	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<ConvertToQuerySyntaxParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		const { owner, name, folderManager } = await this.getRepoInfo(options);
+		const { owner, name, folderManager } = this.getRepoInfo(options);
 		const firstUserMessage = `${this.chatParticipantState.firstUserMessage}, ${options.parameters.naturalLanguageString}`;
 
 		const labels = await folderManager.getLabels(undefined, { owner, repo: name });
@@ -393,12 +393,12 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 
 	async prepareToolInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<SearchToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		return {
-			invocationMessage: vscode.l10n.t('Searching for issues...')
+			invocationMessage: vscode.l10n.t('Searching for issues')
 		};
 	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<SearchToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		const { folderManager } = await this.getRepoInfo(options);
+		const { folderManager } = this.getRepoInfo(options);
 
 		const parameterQuery = options.parameters.query;
 		Logger.debug(`Searching with query \`${parameterQuery}\``, SearchTool.ID);

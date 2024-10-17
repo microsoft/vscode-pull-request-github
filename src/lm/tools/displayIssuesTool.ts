@@ -107,7 +107,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 
 	async prepareToolInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<DisplayIssuesParameters>): Promise<vscode.PreparedToolInvocation> {
 		return {
-			invocationMessage: vscode.l10n.t('Generating markdown table of issues...'),
+			invocationMessage: vscode.l10n.t('Generating markdown table of issues'),
 		};
 	}
 
