@@ -2330,17 +2330,17 @@
 				{
 					"command": "notification.chatSummarizeNotification",
 					"group": "inline@1",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
 				},
 				{
 					"command": "notification.openOnGitHub",
 					"group": "inline@2",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
 				},
 				{
 					"command": "notification.markAsRead",
 					"group": "inline@3",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
 				},
 				{
 					"command": "pr.openDescriptionToTheSide",
