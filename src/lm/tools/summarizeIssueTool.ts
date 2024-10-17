@@ -5,12 +5,12 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { FetchIssueOrPRResult } from './fetchIssuePRTool';
+import { FetchIssueResult } from './fetchIssueTool';
 import { concatAsyncIterable, MimeTypes } from './toolsUtils';
 
-export class IssueAndPRSummarizationTool implements vscode.LanguageModelTool<FetchIssueOrPRResult> {
+export class IssueSummarizationTool implements vscode.LanguageModelTool<FetchIssueResult> {
 
-	async prepareToolInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchIssueOrPRResult>): Promise<vscode.PreparedToolInvocation> {
+	async prepareToolInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchIssueResult>): Promise<vscode.PreparedToolInvocation> {
 		if (!options.parameters.title) {
 			return {
 				invocationMessage: vscode.l10n.t('Summarizing issue')
@@ -23,7 +23,7 @@ export class IssueAndPRSummarizationTool implements vscode.LanguageModelTool<Fet
 		};
 	}
 
-	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchIssueOrPRResult>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
+	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchIssueResult>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		let issueOrPullRequestInfo: string = `
 Title : ${options.parameters.title}
 Body : ${options.parameters.body}

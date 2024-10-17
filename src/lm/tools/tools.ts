@@ -9,11 +9,11 @@ import { CredentialStore } from '../../github/credentials';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { ChatParticipantState } from '../participants';
 import { DisplayIssuesTool } from './displayIssuesTool';
-import { FetchIssueOrPRTool } from './fetchIssuePRTool';
+import { FetchIssueTool } from './fetchIssueTool';
 import { FetchNotificationTool } from './fetchNotificationTool';
 import { ConvertToSearchSyntaxTool, SearchTool } from './searchTools';
 import { SuggestFixTool } from './suggestFixTool';
-import { IssueAndPRSummarizationTool } from './summarizeIssuePRTool';
+import { IssueSummarizationTool } from './summarizeIssueTool';
 import { NotificationSummarizationTool } from './summarizeNotificationsTool';
 
 export function registerTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
@@ -26,7 +26,7 @@ export function registerTools(context: vscode.ExtensionContext, credentialStore:
 }
 
 function registerFetchIssueOrPRTool(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
-	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_issue_pr_fetch', new FetchIssueOrPRTool(credentialStore, repositoriesManager, chatParticipantState)));
+	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_issue_fetch', new FetchIssueTool(credentialStore, repositoriesManager, chatParticipantState)));
 }
 
 function registerFetchNotificationTool(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
@@ -34,7 +34,7 @@ function registerFetchNotificationTool(context: vscode.ExtensionContext, credent
 }
 
 function registerIssueAndPRSummarizationTool(context: vscode.ExtensionContext) {
-	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_issue_pr_summarize', new IssueAndPRSummarizationTool()));
+	context.subscriptions.push(vscode.lm.registerTool('github-pull-request_issue_summarize', new IssueSummarizationTool()));
 }
 
 function registerNotificationSummarizationTool(context: vscode.ExtensionContext) {

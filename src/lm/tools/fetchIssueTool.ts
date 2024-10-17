@@ -11,7 +11,7 @@ import { IssueModel } from '../../github/issueModel';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { MimeTypes, RepoToolBase } from './toolsUtils';
 
-interface FetchIssueOrPRToolParameters {
+interface FetchIssueToolParameters {
 	issueNumber: number;
 	repo?: {
 		owner: string;
@@ -24,7 +24,7 @@ interface FileChange {
 	patch: string;
 }
 
-export interface FetchIssueOrPRResult {
+export interface FetchIssueResult {
 	title: string;
 	body: string;
 	comments: {
@@ -33,11 +33,11 @@ export interface FetchIssueOrPRResult {
 	fileChanges?: FileChange[];
 }
 
-export class FetchIssueOrPRTool extends RepoToolBase<FetchIssueOrPRToolParameters> {
-	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchIssueOrPRToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
+export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
+	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchIssueToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		const { owner, name, folderManager } = this.getRepoInfo(options);
-		const issueOrPullRequest = await this._fetchIssueOrPR(options, folderManager, owner, name);
-		const result: FetchIssueOrPRResult = {
+		const issueOrPullRequest = await fetchIssueOrPR(options.parameters.issueNumber, folderManager, owner, name);
+		const result: FetchIssueResult = {
 			title: issueOrPullRequest.title,
 			body: issueOrPullRequest.body,
 			comments: issueOrPullRequest.item.comments?.map(c => ({ body: c.body })) ?? []
@@ -61,7 +61,7 @@ export class FetchIssueOrPRTool extends RepoToolBase<FetchIssueOrPRToolParameter
 		};
 	}
 
-	async prepareToolInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchIssueOrPRToolParameters>): Promise<vscode.PreparedToolInvocation> {
+	async prepareToolInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchIssueToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		if (!options.parameters.issueNumber) {
 			return {
 				invocationMessage: vscode.l10n.t('Fetching item from GitHub')
@@ -73,15 +73,16 @@ export class FetchIssueOrPRTool extends RepoToolBase<FetchIssueOrPRToolParameter
 			invocationMessage: url ? vscode.l10n.t('Fetching item [#{0}]({1}) from GitHub', options.parameters.issueNumber, url) : vscode.l10n.t('Fetching item #{0} from GitHub', options.parameters.issueNumber),
 		};
 	}
+}
 
-	private async _fetchIssueOrPR(options: vscode.LanguageModelToolInvocationOptions<FetchIssueOrPRToolParameters>, folderManager: FolderRepositoryManager, owner: string, name: string): Promise<PullRequestModel | IssueModel> {
-		let issueOrPullRequest: IssueModel | PullRequestModel | undefined = await folderManager.resolveIssue(owner, name, options.parameters.issueNumber, true);
-		if (!issueOrPullRequest) {
-			issueOrPullRequest = await folderManager.resolvePullRequest(owner, name, options.parameters.issueNumber);
-		}
-		if (!issueOrPullRequest) {
-			throw new Error(`No issue or PR found for ${owner}/${name}/${options.parameters.issueNumber}. Make sure the issue or PR exists.`);
-		}
-		return issueOrPullRequest;
+// place into the folder manager instead
+export async function fetchIssueOrPR(issueNumber: number, folderManager: FolderRepositoryManager, owner: string, name: string): Promise<PullRequestModel | IssueModel> {
+	let issueOrPullRequest: IssueModel | PullRequestModel | undefined = await folderManager.resolveIssue(owner, name, issueNumber, true);
+	if (!issueOrPullRequest) {
+		issueOrPullRequest = await folderManager.resolvePullRequest(owner, name, issueNumber);
 	}
+	if (!issueOrPullRequest) {
+		throw new Error(`No issue or PR found for ${owner}/${name}/${issueNumber}. Make sure the issue or PR exists.`);
+	}
+	return issueOrPullRequest;
 }
