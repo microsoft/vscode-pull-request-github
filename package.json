@@ -3257,7 +3257,7 @@
 				],
 				"toolReferenceName": "notification_summarize",
 				"displayName": "%languageModelTools.github-pull-request_notification_summarize.displayName%",
-				"modelDescription": "Returns a summary of a GitHub notification given notification details.",
+				"modelDescription": "Returns a summary of a GitHub notification given notification details found using the 'github-pull-request_notification_fetch' tool.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
@@ -3277,18 +3277,18 @@
 						},
 						"title": {
 							"type": "string",
-							"description": "The title of the issue/PR"
+							"description": "The title of the notification issue/PR"
 						},
 						"body": {
 							"type": "string",
-							"description": "The body of the issue/PR"
+							"description": "The body of the notification issue/PR"
 						},
-						"comments": {
+						"unreadComments": {
 							"type": "array",
 							"items": {
 								"type": "string"
 							},
-							"description": "The array of associated string comments"
+							"description": "The array of unread comments under the issue/PR of the notification"
 						},
 						"fileChanges": {
 							"type": "array",
@@ -3305,13 +3305,13 @@
 									}
 								}
 							},
-							"description": "For a PR, the array of associated file changes"
+							"description": "For a notification about a PR, the array of associated file changes"
 						}
 					},
 					"required": [
 						"title",
 						"body",
-						"comments",
+						"unreadComments",
 						"lastUpdatedAt",
 						"unread"
 					]

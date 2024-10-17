@@ -67,7 +67,6 @@ Body: ${comment.body}
 				[MimeTypes.textPlain]: issueOrPullRequestInfo
 			};
 		}
-
 	}
 }
 

@@ -33,8 +33,6 @@ export interface FetchNotificationResult {
 export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolParameters> {
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchNotificationToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		console.log('options : ', options);
-
 		const github = this.getGitHub();
 		if (!github) {
 			return undefined;
@@ -70,9 +68,9 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 			lastReadAt,
 			lastUpdatedAt,
 			unread,
+			unreadComments,
 			title: issueOrPR.title,
 			body: issueOrPR.body,
-			unreadComments
 		};
 		if (issueOrPR instanceof PullRequestModel) {
 			const fileChanges = await issueOrPR.getFileChangesInfo();
