@@ -77,6 +77,10 @@ export class NotificationsManager {
 		return this._notifications.get(key);
 	}
 
+	public removeNotification(key: string): void {
+		this._notifications.delete(key);
+	}
+
 	public setNotification(key: string, notification: NotificationItem) {
 		this._notifications.set(key, notification);
 		this._onDidChangeNotifications.fire([notification]);
