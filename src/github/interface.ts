@@ -151,6 +151,7 @@ export interface IIssueComment {
 	body: string;
 	databaseId: number;
 	reactionCount: number;
+	createdAt: string;
 }
 
 export interface Issue {

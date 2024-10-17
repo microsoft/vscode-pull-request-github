@@ -55,6 +55,7 @@ export interface AbbreviatedIssueComment {
 	reactions: {
 		totalCount: number;
 	};
+	createdAt: string;
 }
 
 export interface IssueComment extends AbbreviatedIssueComment {

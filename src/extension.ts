@@ -238,7 +238,7 @@ async function init(
 	if (chatEnabled) {
 		const chatParticipantState = new ChatParticipantState();
 		context.subscriptions.push(new ChatParticipant(context, chatParticipantState));
-		registerTools(context, reposManager, chatParticipantState);
+		registerTools(context, credentialStore, reposManager, chatParticipantState);
 	}
 
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
