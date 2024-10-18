@@ -61,6 +61,7 @@ export interface IAccount extends IActor {
 	avatarUrl?: string;
 	url: string;
 	email?: string;
+	specialDisplayName?: string
 }
 
 export interface ITeam {
@@ -83,7 +84,7 @@ export function reviewerId(reviewer: ITeam | IAccount): string {
 }
 
 export function reviewerLabel(reviewer: ITeam | IAccount | IActor | any): string {
-	return isTeam(reviewer) ? (reviewer.name ?? reviewer.slug) : reviewer.login;
+	return isTeam(reviewer) ? (reviewer.name ?? reviewer.slug) : (reviewer.specialDisplayName ?? reviewer.login);
 }
 
 export function isTeam(reviewer: ITeam | IAccount | IActor | any): reviewer is ITeam {
