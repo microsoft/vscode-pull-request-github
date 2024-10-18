@@ -27,7 +27,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		endPage: 1
 	}
 
-	private _canLoadMoreNotifications: boolean = true;
+	private _canLoadMoreNotifications: boolean = false;
 
 	constructor(
 		private readonly _credentialStore: CredentialStore,
@@ -112,24 +112,26 @@ export class NotificationsProvider implements vscode.Disposable {
 	}
 
 	private async _getResolvedNotifications(gitHub: GitHub): Promise<(INotificationItem | undefined)[]> {
-		const notificationPromises: Promise<(INotificationItem | undefined)[]>[] = [];
+		const notificationPromises: Promise<{ notifications: INotificationItem[], hasNextPage: boolean }>[] = [];
 		for (let i = this._notificationsPaginationRange.startPage; i <= this._notificationsPaginationRange.endPage; i++) {
 			notificationPromises.push(this._getResolvedNotificationsForPage(gitHub, i));
 		}
-		return (await Promise.all(notificationPromises)).flat();
+
+		const notifications = await Promise.all(notificationPromises);
+		this._canLoadMoreNotifications = notifications[this._notificationsPaginationRange.endPage - 1].hasNextPage;
+
+		return notifications.flatMap(n => n.notifications);
 	}
 
-	private async _getResolvedNotificationsForPage(gitHub: GitHub, pageNumber: number): Promise<(INotificationItem | undefined)[]> {
+	private async _getResolvedNotificationsForPage(gitHub: GitHub, pageNumber: number): Promise<{ notifications: INotificationItem[]; hasNextPage: boolean }> {
 		const pageSize = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE, 50);
-		const { data } = await gitHub.octokit.call(gitHub.octokit.api.activity.listNotificationsForAuthenticatedUser, {
+		const { data, headers } = await gitHub.octokit.call(gitHub.octokit.api.activity.listNotificationsForAuthenticatedUser, {
 			all: false,
 			page: pageNumber,
 			per_page: pageSize
 		});
-		if (data.length < pageSize) {
-			this._canLoadMoreNotifications = false;
-		}
-		const notifications = await Promise.all(data.map(async (notification: OctokitCommon.Notification): Promise<INotificationItem | undefined> => {
+
+		const resolvedNotifications = await Promise.all(data.map(async (notification: OctokitCommon.Notification): Promise<INotificationItem | undefined> => {
 			const parsedNotification = parseNotification(notification);
 			if (!parsedNotification) {
 				return undefined;
@@ -145,8 +147,12 @@ export class NotificationsProvider implements vscode.Disposable {
 			const resolvedNotification = new NotificationItem(parsedNotification, model);
 			return resolvedNotification;
 		}));
-		this._notificationsManager.setNotifications(notifications.filter(notification => notification !== undefined) as NotificationItem[]);
-		return notifications;
+
+		const notifications = resolvedNotifications
+			.filter(notification => !!notification) as NotificationItem[];
+		this._notificationsManager.setNotifications(notifications);
+
+		return { notifications, hasNextPage: headers.link?.includes(`rel="next"`) === true };
 	}
 
 	private async _getNotificationModel(notification: Notification): Promise<IssueModel<Issue> | undefined> {
