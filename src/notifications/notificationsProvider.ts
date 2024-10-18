@@ -302,11 +302,11 @@ You are given a list of notifications for the current user ${githubHandle}, each
 Use the following scoring mechanism to prioritize the notifications and assign them a score from 0 to 100:
 
 	1. Assign points from 0 to 30 for the relevance of the notification. Below when we talk about the current user, it is always the user with the GitHub login handle ${githubHandle}. First consider if the corresponding thread is open or closed:
-		- If the thread is closed, assign point as follows:
+		- If the thread is closed, assign points as follows:
 			- 0 points: If the current user is neither assigned, nor requested for a review, nor mentioned in the issue/PR/discussion.
 			- 5 points: If the current user is mentioned or is the author of the issue/PR. In the case of an issue/PR, the current user should not be assigned to it.
 			- 10 points: If the current user is assigned to the issue/PR or is requested for a review.
-		- If the thread is open, assign point as follows:
+		- If the thread is open, assign points as follows:
 			- 20 points: If the current user is neither assigned, nor requested for a review, nor mentioned in the issue/PR/discussion.
 			- 25 points: If the current user is mentioned or is the author of the issue/PR. In the case of an issue/PR, the current user should not be assigned to it.
 			- 30 points: If the current user is assigned to the issue/PR or is requested for a review.
