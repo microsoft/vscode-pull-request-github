@@ -27,6 +27,20 @@ export class NotificationsProvider implements vscode.Disposable {
 		endPage: 1
 	}
 
+	private _sortingMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
+	public get sortingMethod(): NotificationsSortMethod { return this._sortingMethod; }
+	public set sortingMethod(value: NotificationsSortMethod) {
+		if (this._sortingMethod === value) {
+			return;
+		}
+
+		this._sortingMethod = value;
+		this._onDidChangeSortingMethod.fire();
+	}
+
+	private readonly _onDidChangeSortingMethod = new vscode.EventEmitter<void>();
+	readonly onDidChangeSortingMethod = this._onDidChangeSortingMethod.event;
+
 	private _canLoadMoreNotifications: boolean = false;
 
 	constructor(
@@ -49,6 +63,8 @@ export class NotificationsProvider implements vscode.Disposable {
 				}
 			})
 		);
+
+		this._disposables.push(this._onDidChangeSortingMethod);
 	}
 
 	private _getGitHub(): GitHub | undefined {
@@ -72,7 +88,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		this._notificationsManager.removeNotification(notificationIdentifier.notificationKey);
 	}
 
-	public async computeNotifications(sortingMethod: NotificationsSortMethod): Promise<INotificationItem[] | undefined> {
+	public async computeNotifications(): Promise<INotificationItem[] | undefined> {
 		const gitHub = this._getGitHub();
 		if (gitHub === undefined) {
 			return undefined;
@@ -82,7 +98,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		}
 		const notifications = await this._getResolvedNotifications(gitHub);
 		const filteredNotifications = notifications.filter(notification => notification !== undefined) as INotificationItem[];
-		if (sortingMethod === NotificationsSortMethod.Priority) {
+		if (this.sortingMethod === NotificationsSortMethod.Priority) {
 			const models = await vscode.lm.selectChatModels({
 				vendor: 'copilot',
 				family: 'gpt-4o'
