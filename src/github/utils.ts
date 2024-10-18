@@ -487,7 +487,7 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: 
 		id: comment.databaseId,
 		url: comment.url,
 		body: comment.body,
-		specialDisplayBodyPostfix: specialAuthor.postComment,
+		specialDisplayBodyPostfix: specialAuthor?.postComment,
 		bodyHTML: comment.bodyHTML,
 		path: comment.path,
 		canEdit: comment.viewerCanDelete,
