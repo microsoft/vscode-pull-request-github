@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { commands } from '../common/executeCommands';
 import { ITelemetry } from '../common/telemetry';
 import { dispose, onceEvent } from '../common/utils';
 import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { chatCommand } from '../lm/utils';
 import { NotificationsDecorationProvider } from './notificationDecorationProvider';
 import { NotificationsSortMethod } from './notificationItem';
 import { NotificationItem, NotificationsManager } from './notificationsManager';
@@ -99,7 +99,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 					"notification.chatSummarizeNotification" : {}
 				*/
 				this._telemetry.sendTelemetryEvent('notification.chatSummarizeNotification');
-				vscode.commands.executeCommand(commands.OPEN_CHAT, vscode.l10n.t('@githubpr Summarize notification with thread ID #{0}', notification.notification.id));
+				vscode.commands.executeCommand(chatCommand(), vscode.l10n.t('@githubpr Summarize notification with thread ID #{0}', notification.notification.id));
 			})
 		);
 		this._disposables.push(
