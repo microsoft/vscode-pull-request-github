@@ -383,6 +383,9 @@ fragment ReviewComment on PullRequestReviewComment {
 			email
 			id
 		}
+		... on Bot {
+			id
+		}
 	}
 	path
 	originalPosition
