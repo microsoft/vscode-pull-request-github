@@ -15,7 +15,6 @@ import {
 	WORKING_ISSUE_FORMAT_SCM,
 } from '../common/settingKeys';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
-import { GithubItemStateEnum } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { variableSubstitution } from '../github/utils';
 import { IssueState, StateManager } from './stateManager';
@@ -28,6 +27,7 @@ export class CurrentIssue {
 	private _repoDefaults: PullRequestDefaults | undefined;
 	private _onDidChangeCurrentIssueState: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidChangeCurrentIssueState: vscode.Event<void> = this._onDidChangeCurrentIssueState.event;
+
 	constructor(
 		private issueModel: IssueModel,
 		public readonly manager: FolderRepositoryManager,
@@ -47,7 +47,7 @@ export class CurrentIssue {
 					remote.name === repoRemote?.remoteName &&
 					remote.fetchUrl
 						?.toLowerCase()
-						.search(`${repoRemote.owner.toLowerCase()}/${repoRemote.repositoryName.toLowerCase()}`) !== -1
+						.includes(`${repoRemote.owner.toLowerCase()}/${repoRemote.repositoryName.toLowerCase()}`)
 				) {
 					this.repo = repo;
 					return;
@@ -79,10 +79,13 @@ export class CurrentIssue {
 					vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get(ASSIGN_WHEN_WORKING) &&
 					!this.issueModel.assignees?.find(value => value.login === login)
 				) {
-					// Check that we have a repo open for this issue and only try to assign in that case.
-					if (this.manager.gitHubRepositories.find(
-						r => r.remote.owner === this.issueModel.remote.owner && r.remote.repositoryName === this.issueModel.remote.repositoryName,
-					)) {
+					if (
+						this.manager.gitHubRepositories.find(
+							(r) =>
+								r.remote.owner === this.issueModel.remote.owner &&
+								r.remote.repositoryName === this.issueModel.remote.repositoryName,
+						)
+					) {
 						await this.manager.assignIssue(this.issueModel, login);
 					}
 					await this.stateManager.refresh(this.manager);
@@ -90,8 +93,9 @@ export class CurrentIssue {
 				return true;
 			}
 		} catch (e) {
-			// leave repoDefaults undefined
-			vscode.window.showErrorMessage(vscode.l10n.t('There is no remote. Can\'t start working on an issue.'));
+			vscode.window.showErrorMessage(
+				vscode.l10n.t("There is no remote. Can't start working on an issue."),
+			);
 		}
 		return false;
 	}
@@ -107,10 +111,12 @@ export class CurrentIssue {
 		if (this._repoDefaults && checkoutDefaultBranch) {
 			try {
 				await this.manager.repository.checkout(this._repoDefaults.base);
-			} catch (e) {
+			} catch (e: any) {
 				if (e.gitErrorCode === GitErrorCodes.DirtyWorkTree) {
 					vscode.window.showErrorMessage(
-						vscode.l10n.t('Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches'),
+						vscode.l10n.t(
+							'Your local changes would be overwritten by checkout, please commit your changes or stash them before you switch branches',
+						),
 					);
 				}
 				throw e;
@@ -120,63 +126,55 @@ export class CurrentIssue {
 		this.dispose();
 	}
 
-	private getBasicBranchName(user: string): string {
-		return `${user}/issue${this.issueModel.number}`;
-	}
-
 	private async getBranch(branch: string): Promise<Branch | undefined> {
 		try {
 			return await this.manager.repository.getBranch(branch);
-		} catch (e) {
-			// branch doesn't exist
+		} catch {
+			return undefined;
 		}
-		return undefined;
 	}
 
 	private async createOrCheckoutBranch(branch: string): Promise<boolean> {
+		let localBranchName = branch;
 		try {
-			if (await this.getBranch(branch)) {
-				await this.manager.repository.checkout(branch);
+			const isRemoteBranch = branch.startsWith('origin/');
+			if (isRemoteBranch) {
+				localBranchName = branch.substring('origin/'.length);
+			}
+			const localBranch = await this.getBranch(localBranchName);
+			if (localBranch) {
+				await this.manager.repository.checkout(localBranchName);
+			} else if (isRemoteBranch) {
+				await this.manager.repository.createBranch(localBranchName, true, branch);
+				await this.manager.repository.setBranchUpstream(localBranchName, branch);
 			} else {
-				await this.manager.repository.createBranch(branch, true);
+				await this.manager.repository.createBranch(localBranchName, true);
 			}
 			return true;
-		} catch (e) {
+		} catch (e: any) {
 			if (e.message !== 'User aborted') {
 				vscode.window.showErrorMessage(
-					`Unable to checkout branch ${branch}. There may be file conflicts that prevent this branch change. Git error: ${e.error}`,
+					`Unable to checkout branch ${localBranchName}. There may be file conflicts that prevent this branch change. Git error: ${e.message}`,
 				);
 			}
 			return false;
 		}
 	}
 
-	private async getUser(): Promise<string> {
-		if (!this.user) {
-			this.user = await this.issueModel.githubRepository.getAuthenticatedUser();
-		}
-		return this.user;
-	}
-
-	private async getBranchTitle(): Promise<string> {
-		return (
-			vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<string>(ISSUE_BRANCH_TITLE) ??
-			this.getBasicBranchName(await this.getUser())
-		);
-	}
-
 	private validateBranchName(branch: string): string | undefined {
 		const VALID_BRANCH_CHARACTERS = /[^ \\@\~\^\?\*\[]+/;
 		const match = branch.match(VALID_BRANCH_CHARACTERS);
 		if (match && match.length > 0 && match[0] !== branch) {
-			return vscode.l10n.t('Branch name cannot contain a space or the following characters: \\@~^?*[');
+			return vscode.l10n.t(
+				'Branch name cannot contain a space or the following characters: \\@~^?*[',
+			);
 		}
 		return undefined;
 	}
 
 	private showBranchNameError(error: string) {
-		const editSetting = `Edit Setting`;
-		vscode.window.showErrorMessage(error, editSetting).then(result => {
+		const editSetting = 'Edit Setting';
+		vscode.window.showErrorMessage(error, editSetting).then((result) => {
 			if (result === editSetting) {
 				vscode.commands.executeCommand(
 					'workbench.action.openSettings',
@@ -186,61 +184,122 @@ export class CurrentIssue {
 		});
 	}
 
-	private async offerNewBranch(branch: Branch, branchNameConfig: string, branchNameMatch: RegExpMatchArray | null | undefined): Promise<string> {
-		// Check if this branch has a merged PR associated with it.
-		// If so, offer to create a new branch.
-		const pr = await this.manager.getMatchingPullRequestMetadataFromGitHub(branch, branch.upstream?.remote, branch.upstream?.name);
-		if (pr && (pr.model.state !== GithubItemStateEnum.Open)) {
-			const mergedMessage = vscode.l10n.t('The pull request for {0} has been merged. Do you want to create a new branch?', branch.name ?? 'unknown branch');
-			const closedMessage = vscode.l10n.t('The pull request for {0} has been closed. Do you want to create a new branch?', branch.name ?? 'unknown branch');
-			const createBranch = vscode.l10n.t('Create New Branch');
-			const createNew = await vscode.window.showInformationMessage(pr.model.state === GithubItemStateEnum.Merged ? mergedMessage : closedMessage,
-				{
-					modal: true
-				}, createBranch);
-			if (createNew === createBranch) {
-				const number = (branchNameMatch?.length === 4 ? (Number(branchNameMatch[3]) + 1) : 1);
-				return `${branchNameConfig}_${number}`;
-			}
-		}
-		return branchNameConfig;
-	}
-
 	private async createIssueBranch(silent: boolean): Promise<boolean> {
 		const createBranchConfig = this.shouldPromptForBranch
 			? 'prompt'
-			: vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<string>(USE_BRANCH_FOR_ISSUES);
+			: vscode.workspace
+				.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
+				.get<string>(USE_BRANCH_FOR_ISSUES);
 		if (createBranchConfig === 'off') {
 			return true;
 		}
+
 		const state: IssueState = this.stateManager.getSavedIssueState(this.issueModel.number);
-		this._branchName = this.shouldPromptForBranch ? undefined : state.branch;
-		const branchNameConfig = await variableSubstitution(
-			await this.getBranchTitle(),
-			this.issue,
-			undefined,
-			await this.getUser(),
+		const issueNumberStr = this.issueModel.number.toString();
+		const suggestedBranchName = `issue${issueNumberStr}`;
+		this._branchName = undefined;
+
+		const branches = await this.manager.repository.getBranches({ remote: true });
+		const branchesWithIssueNumber = branches.filter((branch) =>
+			branch.name?.includes(issueNumberStr),
 		);
-		const branchNameMatch = this._branchName?.match(new RegExp('^(' + branchNameConfig + ')(_)?(\\d*)'));
-		if ((createBranchConfig === 'on')) {
-			const branch = await this.getBranch(this._branchName!);
-			if (!branch) {
-				if (!branchNameMatch) {
-					this._branchName = branchNameConfig;
-				}
-			} else if (!silent) {
-				this._branchName = await this.offerNewBranch(branch, branchNameConfig, branchNameMatch);
+		const otherBranches = branches.filter(
+			(branch) => !branch.name?.includes(issueNumberStr),
+		);
+
+		const branchItems: vscode.QuickPickItem[] = [];
+
+		if (branchesWithIssueNumber.length > 0) {
+			branchItems.push({
+				label: 'Branches containing issue number:',
+				kind: vscode.QuickPickItemKind.Separator,
+			});
+			for (const branch of branchesWithIssueNumber) {
+				const isRemote = branch.name?.startsWith('origin/');
+				branchItems.push({
+					label: `${isRemote ? '$(cloud)' : '$(git-branch)'} ${branch.name ?? ''}`,
+					description: `${isRemote ? 'Remote' : 'Local'} branch`,
+				});
 			}
 		}
-		if (!this._branchName) {
-			this._branchName = await vscode.window.showInputBox({
-				value: branchNameConfig,
-				prompt: vscode.l10n.t('Enter the label for the new branch.'),
+
+		if (!branches.find((branch) => branch.name === suggestedBranchName)) {
+			branchItems.push({
+				label: `$(lightbulb) ${suggestedBranchName}`,
+				description: 'Suggested branch name for this issue',
+				detail: 'Recommended branch name based on the issue number',
+				picked: true,
 			});
 		}
-		if (!this._branchName) {
-			// user has cancelled
+
+		if (otherBranches.length > 0) {
+			branchItems.push({
+				label: 'Other branches:',
+				kind: vscode.QuickPickItemKind.Separator,
+			});
+			for (const branch of otherBranches) {
+				const isRemote = branch.name?.startsWith('origin/');
+				branchItems.push({
+					label: `${isRemote ? '$(cloud)' : '$(git-branch)'} ${branch.name ?? ''}`,
+					description: `${isRemote ? 'Remote' : 'Local'} branch`,
+				});
+			}
+		}
+
+		branchItems.push({
+			label: '$(pencil) Enter a custom branch name...',
+			description: 'Choose this to type your own branch name',
+		});
+
+		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem>();
+		quickPick.items = branchItems;
+		quickPick.placeholder = 'Select a branch or create a new one for this issue';
+		quickPick.ignoreFocusOut = true;
+		quickPick.canSelectMany = false;
+
+		const suggestedItem = branchItems.find((item) =>
+			item.label.includes(suggestedBranchName),
+		);
+		if (suggestedItem) {
+			quickPick.activeItems = [suggestedItem];
+		}
+
+		quickPick.show();
+
+		const selectedBranch = await new Promise<vscode.QuickPickItem | undefined>((resolve) => {
+			quickPick.onDidAccept(() => {
+				const selection = quickPick.selectedItems[0];
+				resolve(selection);
+				quickPick.hide();
+			});
+			quickPick.onDidHide(() => {
+				resolve(undefined);
+			});
+		});
+
+		quickPick.dispose();
+
+		if (!selectedBranch) {
+			vscode.window.showInformationMessage('Branch selection cancelled.');
 			return false;
+		}
+
+		if (selectedBranch.label === '$(pencil) Enter a custom branch name...') {
+			const customBranchName = await vscode.window.showInputBox({
+				prompt: 'Enter your custom branch name',
+				placeHolder: 'e.g., feature/my-custom-branch',
+				validateInput: (input) =>
+					input.trim() === '' ? 'Branch name cannot be empty.' : undefined,
+			});
+
+			if (!customBranchName) {
+				vscode.window.showInformationMessage('Branch creation cancelled.');
+				return false;
+			}
+
+			this._branchName = customBranchName.trim();
+		} else {
+			this._branchName = selectedBranch.label.replace(/^\$\([^\)]+\)\s*/, '').trim();
 		}
 
 		const validateBranchName = this.validateBranchName(this._branchName);
@@ -251,15 +310,19 @@ export class CurrentIssue {
 
 		state.branch = this._branchName;
 		await this.stateManager.setSavedIssueState(this.issueModel, state);
+
 		if (!(await this.createOrCheckoutBranch(this._branchName))) {
 			this._branchName = undefined;
 			return false;
 		}
+
 		return true;
 	}
 
 	public async getCommitMessage(): Promise<string | undefined> {
-		const configuration = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get(WORKING_ISSUE_FORMAT_SCM);
+		const configuration = vscode.workspace
+			.getConfiguration(ISSUES_SETTINGS_NAMESPACE)
+			.get(WORKING_ISSUE_FORMAT_SCM);
 		if (typeof configuration === 'string') {
 			return variableSubstitution(configuration, this.issueModel, this._repoDefaults);
 		}
@@ -271,6 +334,5 @@ export class CurrentIssue {
 		if (this.repo && message) {
 			this.repo.inputBox.value = message;
 		}
-		return;
 	}
 }
