@@ -14,39 +14,22 @@ import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { hasEnterpriseUri, parseNotification } from '../github/utils';
 import { concatAsyncIterable } from '../lm/tools/toolsUtils';
-import { INotificationItem, NotificationsPaginationRange, NotificationsSortMethod } from './notificationItem';
-import { NotificationItem, NotificationsManager, NotificationUpdate } from './notificationsManager';
+import { INotificationItem } from './notificationItem';
+import { NotificationUpdate } from './notificationsManager';
+
+export interface INotificationItems {
+	readonly notifications: INotificationItem[];
+	readonly hasNextPage: boolean;
+}
 
 export class NotificationsProvider implements vscode.Disposable {
 	private _authProvider: AuthProvider | undefined;
 
 	private readonly _disposables: vscode.Disposable[] = [];
 
-	private readonly _notificationsPaginationRange: NotificationsPaginationRange = {
-		startPage: 1,
-		endPage: 1
-	}
-
-	private _sortingMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
-	public get sortingMethod(): NotificationsSortMethod { return this._sortingMethod; }
-	public set sortingMethod(value: NotificationsSortMethod) {
-		if (this._sortingMethod === value) {
-			return;
-		}
-
-		this._sortingMethod = value;
-		this._onDidChangeSortingMethod.fire();
-	}
-
-	private readonly _onDidChangeSortingMethod = new vscode.EventEmitter<void>();
-	readonly onDidChangeSortingMethod = this._onDidChangeSortingMethod.event;
-
-	private _canLoadMoreNotifications: boolean = false;
-
 	constructor(
 		private readonly _credentialStore: CredentialStore,
-		private readonly _repositoriesManager: RepositoriesManager,
-		private readonly _notificationsManager: NotificationsManager
+		private readonly _repositoriesManager: RepositoriesManager
 	) {
 		if (_credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
 			this._authProvider = AuthProvider.githubEnterprise;
@@ -63,18 +46,12 @@ export class NotificationsProvider implements vscode.Disposable {
 				}
 			})
 		);
-
-		this._disposables.push(this._onDidChangeSortingMethod);
 	}
 
 	private _getGitHub(): GitHub | undefined {
 		return (this._authProvider !== undefined) ?
 			this._credentialStore.getHub(this._authProvider) :
 			undefined;
-	}
-
-	public clearCache(): void {
-		this._notificationsManager.clear();
 	}
 
 	public async markAsRead(notificationIdentifier: { threadId: string, notificationKey: string }): Promise<void> {
@@ -85,10 +62,9 @@ export class NotificationsProvider implements vscode.Disposable {
 		await gitHub.octokit.call(gitHub.octokit.api.activity.markThreadAsRead, {
 			thread_id: Number(notificationIdentifier.threadId)
 		});
-		this._notificationsManager.removeNotification(notificationIdentifier.notificationKey);
 	}
 
-	public async computeNotifications(): Promise<INotificationItem[] | undefined> {
+	public async computeNotifications(pageCount: number): Promise<{ notifications: Notification[], hasNextPage: boolean } | undefined> {
 		const gitHub = this._getGitHub();
 		if (gitHub === undefined) {
 			return undefined;
@@ -96,50 +72,36 @@ export class NotificationsProvider implements vscode.Disposable {
 		if (this._repositoriesManager.folderManagers.length === 0) {
 			return undefined;
 		}
-		const notifications = await this._getResolvedNotifications(gitHub);
-		const filteredNotifications = notifications.filter(notification => notification !== undefined) as INotificationItem[];
-		if (this.sortingMethod === NotificationsSortMethod.Priority) {
-			const models = await vscode.lm.selectChatModels({
-				vendor: 'copilot',
-				family: 'gpt-4o'
-			});
-			const model = models[0];
-			if (model) {
-				try {
-					return this._sortNotificationsByLLMPriority(filteredNotifications, model);
-				} catch (e) {
-					return this._sortNotificationsByTimestamp(filteredNotifications);
-				}
-			}
-		}
-		return this._sortNotificationsByTimestamp(filteredNotifications);
-	}
 
-	public getNotifications(): INotificationItem[] {
-		return this._notificationsManager.getAllNotifications();
-	}
-
-	public get canLoadMoreNotifications(): boolean {
-		return this._canLoadMoreNotifications;
-	}
-
-	public loadMore(): void {
-		this._notificationsPaginationRange.endPage += 1;
-	}
-
-	private async _getResolvedNotifications(gitHub: GitHub): Promise<(INotificationItem | undefined)[]> {
-		const notificationPromises: Promise<{ notifications: INotificationItem[], hasNextPage: boolean }>[] = [];
-		for (let i = this._notificationsPaginationRange.startPage; i <= this._notificationsPaginationRange.endPage; i++) {
-			notificationPromises.push(this._getResolvedNotificationsForPage(gitHub, i));
+		const notificationPromises: Promise<{ notifications: Notification[], hasNextPage: boolean }>[] = [];
+		for (let i = 1; i <= pageCount; i++) {
+			notificationPromises.push(this._getNotificationsPage(gitHub, i));
 		}
 
 		const notifications = await Promise.all(notificationPromises);
-		this._canLoadMoreNotifications = notifications[this._notificationsPaginationRange.endPage - 1].hasNextPage;
+		const hasNextPage = notifications[pageCount - 1].hasNextPage;
 
-		return notifications.flatMap(n => n.notifications);
+		return { notifications: notifications.flatMap(n => n.notifications), hasNextPage };
+
+		// const filteredNotifications = notifications.filter(notification => notification !== undefined) as INotificationItem[];
+		// if (this.sortingMethod === NotificationsSortMethod.Priority) {
+		// 	const models = await vscode.lm.selectChatModels({
+		// 		vendor: 'copilot',
+		// 		family: 'gpt-4o'
+		// 	});
+		// 	const model = models[0];
+		// 	if (model) {
+		// 		try {
+		// 			return this._sortNotificationsByLLMPriority(filteredNotifications, model);
+		// 		} catch (e) {
+		// 			return this._sortNotificationsByTimestamp(filteredNotifications);
+		// 		}
+		// 	}
+		// }
+		// return this._sortNotificationsByTimestamp(filteredNotifications);
 	}
 
-	private async _getResolvedNotificationsForPage(gitHub: GitHub, pageNumber: number): Promise<{ notifications: INotificationItem[]; hasNextPage: boolean }> {
+	private async _getNotificationsPage(gitHub: GitHub, pageNumber: number): Promise<{ notifications: Notification[]; hasNextPage: boolean }> {
 		const pageSize = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE, 50);
 		const { data, headers } = await gitHub.octokit.call(gitHub.octokit.api.activity.listNotificationsForAuthenticatedUser, {
 			all: false,
@@ -147,31 +109,14 @@ export class NotificationsProvider implements vscode.Disposable {
 			per_page: pageSize
 		});
 
-		const resolvedNotifications = await Promise.all(data.map(async (notification: OctokitCommon.Notification): Promise<INotificationItem | undefined> => {
-			const parsedNotification = parseNotification(notification);
-			if (!parsedNotification) {
-				return undefined;
-			}
-			const cachedNotification = this._notificationsManager.getNotification(parsedNotification?.key);
-			if (cachedNotification && cachedNotification.notification.updatedAd === parsedNotification.updatedAd) {
-				return cachedNotification;
-			}
-			const model = await this._getNotificationModel(parsedNotification);
-			if (!model) {
-				return undefined;
-			}
-			const resolvedNotification = new NotificationItem(parsedNotification, model);
-			return resolvedNotification;
-		}));
-
-		const notifications = resolvedNotifications
-			.filter(notification => !!notification) as NotificationItem[];
-		this._notificationsManager.setNotifications(notifications);
+		const notifications = data
+			.map((notification: OctokitCommon.Notification) => parseNotification(notification))
+			.filter(notification => !!notification) as Notification[];
 
 		return { notifications, hasNextPage: headers.link?.includes(`rel="next"`) === true };
 	}
 
-	private async _getNotificationModel(notification: Notification): Promise<IssueModel<Issue> | undefined> {
+	async getNotificationModel(notification: Notification): Promise<IssueModel<Issue> | undefined> {
 		const url = notification.subject.url;
 		if (!(typeof url === 'string')) {
 			return undefined;
@@ -185,10 +130,6 @@ export class NotificationsProvider implements vscode.Disposable {
 			await folderManager.resolveIssue(notification.owner, notification.name, parseInt(issueOrPrNumber), true) :
 			await folderManager.resolvePullRequest(notification.owner, notification.name, parseInt(issueOrPrNumber));
 		return model;
-	}
-
-	private _sortNotificationsByTimestamp(notifications: INotificationItem[]): INotificationItem[] {
-		return notifications.sort((n1, n2) => n1.notification.updatedAd > n2.notification.updatedAd ? -1 : 1);
 	}
 
 	private async _sortNotificationsByLLMPriority(notifications: INotificationItem[], model: vscode.LanguageModelChat): Promise<INotificationItem[]> {
@@ -308,7 +249,7 @@ ${comment.body}
 				}
 			}
 		}
-		this._notificationsManager.updateNotificationPriority(updates);
+		// this._notificationsManager.updateNotificationPriority(updates);
 		return notifications;
 	}
 

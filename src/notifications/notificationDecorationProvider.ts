@@ -9,7 +9,6 @@ import { fromNotificationUri, toNotificationUri } from '../common/uri';
 import { dispose } from '../common/utils';
 import { NotificationsSortMethod } from './notificationItem';
 import { NotificationsManager } from './notificationsManager';
-import { NotificationsProvider } from './notificationsProvider';
 
 export class NotificationsDecorationProvider implements vscode.FileDecorationProvider {
 	private _readonlyOnDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri[]> = new vscode.EventEmitter<vscode.Uri[]>();
@@ -17,10 +16,7 @@ export class NotificationsDecorationProvider implements vscode.FileDecorationPro
 
 	private readonly _disposables: vscode.Disposable[] = [];
 
-	constructor(
-		private readonly _notificationsManager: NotificationsManager,
-		private readonly _notificationsProvider: NotificationsProvider
-	) {
+	constructor(private readonly _notificationsManager: NotificationsManager) {
 		this._disposables.push(_notificationsManager.onDidChangeNotifications(updates => {
 			const uris = updates.map(update => toNotificationUri({ key: update.notification.key }));
 			this._readonlyOnDidChangeFileDecorations.fire(uris);
@@ -48,7 +44,7 @@ export class NotificationsDecorationProvider implements vscode.FileDecorationPro
 			return undefined;
 		}
 
-		if (this._notificationsProvider.sortingMethod !== NotificationsSortMethod.Priority) {
+		if (this._notificationsManager.sortingMethod !== NotificationsSortMethod.Priority) {
 			return undefined;
 		}
 

@@ -6,11 +6,6 @@
 import { Notification } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 
-export interface NotificationsPaginationRange {
-	startPage: number;
-	endPage: number;
-}
-
 export enum NotificationsSortMethod {
 	Timestamp = 'Timestamp',
 	Priority = 'Priority'

@@ -11,22 +11,23 @@ import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { INotificationItem, LoadMoreNotificationsTreeItem, NotificationTreeDataItem } from './notificationItem';
 import { NotificationItem, NotificationsManager } from './notificationsManager';
-import { NotificationsProvider } from './notificationsProvider';
 
 export class NotificationsTreeData implements vscode.TreeDataProvider<NotificationTreeDataItem>, vscode.Disposable {
 	private readonly _disposables: vscode.Disposable[] = [];
 	private _onDidChangeTreeData: vscode.EventEmitter<NotificationTreeDataItem | undefined | void> = new vscode.EventEmitter<NotificationTreeDataItem | undefined | void>();
 	readonly onDidChangeTreeData: vscode.Event<NotificationTreeDataItem | undefined | void> = this._onDidChangeTreeData.event;
 
+	private _pageCount: number = 1;
 	private _computeNotifications: boolean = false;
 
-	constructor(private readonly _notificationsProvider: NotificationsProvider, private readonly _notificationsManager: NotificationsManager) {
+
+	constructor(private readonly _notificationsManager: NotificationsManager) {
 		this._disposables.push(this._onDidChangeTreeData);
 		this._disposables.push(this._notificationsManager.onDidChangeNotifications(updates => {
 			this._onDidChangeTreeData.fire(updates);
 		}));
-		this._disposables.push(this._notificationsProvider.onDidChangeSortingMethod(() => {
-			this.computeAndRefresh();
+		this._disposables.push(this._notificationsManager.onDidChangeSortingMethod(() => {
+			this.refresh(true);
 		}));
 	}
 
@@ -78,41 +79,35 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 		if (element !== undefined) {
 			return undefined;
 		}
-		let result: INotificationItem[] | undefined;
-		if (this._computeNotifications) {
-			result = await this._notificationsProvider.computeNotifications();
-		} else {
-			result = this._notificationsProvider.getNotifications();
-		}
+
+		const notificationsData = await this._notificationsManager
+			.getNotifications(this._computeNotifications, this._pageCount);
 		this._computeNotifications = false;
-		if (result === undefined) {
+
+		if (notificationsData === undefined) {
 			return undefined;
 		}
-		const canLoadMoreNotifications = this._notificationsProvider.canLoadMoreNotifications;
-		if (canLoadMoreNotifications) {
-			return [...result, new LoadMoreNotificationsTreeItem()];
-		}
-		return result;
-	}
 
-	computeAndRefresh(): void {
-		this._computeNotifications = true;
-		this._onDidChangeTreeData.fire();
+		if (notificationsData.hasNextPage) {
+			return [...notificationsData.notifications, new LoadMoreNotificationsTreeItem()];
+		}
+
+		return notificationsData.notifications;
 	}
 
 	loadMore(): void {
-		this._notificationsProvider.loadMore();
-		this.computeAndRefresh();
+		this._pageCount++;
+		this.refresh(true);
+	}
+
+	refresh(compute: boolean): void {
+		this._computeNotifications = compute;
+		this._onDidChangeTreeData.fire();
 	}
 
 	async markAsRead(notificationIdentifier: { threadId: string, notificationKey: string }): Promise<void> {
-		await this._notificationsProvider.markAsRead(notificationIdentifier);
-		this._simpleRefresh();
-	}
-
-	private _simpleRefresh(): void {
-		this._computeNotifications = false;
-		this._onDidChangeTreeData.fire();
+		await this._notificationsManager.markAsRead(notificationIdentifier);
+		this.refresh(false);
 	}
 
 	dispose() {
