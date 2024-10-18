@@ -114,8 +114,8 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 		this.computeAndRefresh();
 	}
 
-	async markAsRead(notification: NotificationItem): Promise<void> {
-		await this._notificationsProvider.markAsRead(notification);
+	async markAsRead(notificationIdentifier: { threadId: string, notificationKey: string }): Promise<void> {
+		await this._notificationsProvider.markAsRead(notificationIdentifier);
 		this._simpleRefresh();
 	}
 

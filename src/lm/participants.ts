@@ -135,7 +135,7 @@ export class ChatParticipant implements vscode.Disposable {
 						throw new Error(`Got invalid tool use parameters: "${JSON.stringify(part.parameters)}". (${(err as Error).message})`);
 					}
 
-					const invocationOptions = { parameters, toolInvocationToken: request.toolInvocationToken, requestedContentTypes: ['text/plain', 'text/markdown', 'text/json', 'text/display'] };
+					const invocationOptions = { parameters, toolInvocationToken: request.toolInvocationToken, requestedContentTypes: ['text/plain', 'text/markdown', 'text/json', 'text/display', 'command'] };
 					toolCalls.push({
 						call: part,
 						result: vscode.lm.invokeTool(tool.name, invocationOptions, token),
@@ -158,6 +158,7 @@ export class ChatParticipant implements vscode.Disposable {
 					const markdown: string = toolCallResult[MimeTypes.textMarkdown];
 					const json: JSON = toolCallResult[MimeTypes.textJson];
 					const display = toolCallResult[MimeTypes.textDisplay]; // our own fake type that we use to indicate something that should be streamed to the user
+					const command = toolCallResult[MimeTypes.command]; // our own fake type that we use to indicate something that should be executed as a command
 					if (display) {
 						stream.markdown(display);
 						shownToUser = true;
@@ -174,6 +175,9 @@ export class ChatParticipant implements vscode.Disposable {
 						asMarkdownString.supportHtml = true;
 						stream.markdown(asMarkdownString);
 						shownToUser = true;
+					}
+					if (command) {
+						stream.button(command);
 					}
 					if (plainText !== undefined) {
 						if (isOnlyPlaintext) {

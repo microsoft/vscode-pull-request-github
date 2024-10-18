@@ -50,7 +50,8 @@ export const enum MimeTypes {
 	textPlain = 'text/plain',
 	textMarkdown = 'text/markdown',
 	textJson = 'text/json',
-	textDisplay = 'text/display' // our own made up mime type for stuff that should be shown in chat to the user
+	textDisplay = 'text/display', // our own made up mime type for stuff that should be shown in chat to the user
+	command = 'command', // our own made up mime type for commands that should be executed from buttons in the stream
 }
 
 export abstract class RepoToolBase<T> extends ToolBase<T> {

@@ -3287,6 +3287,14 @@
 							},
 							"description": "The array of unread comments under the issue/PR of the notification"
 						},
+						"threadId": {
+							"type": "number",
+							"description": "The thread id of the notification"
+						},
+						"notificationKey": {
+							"type": "string",
+							"description": "The key of the notification"
+						},
 						"fileChanges": {
 							"type": "array",
 							"items": {
@@ -3310,11 +3318,14 @@
 						"body",
 						"unreadComments",
 						"lastUpdatedAt",
-						"unread"
+						"unread",
+						"threadId",
+						"notificationKey"
 					]
 				},
 				"supportedContentTypes": [
-					"text/plain"
+					"text/plain",
+					"command"
 				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
