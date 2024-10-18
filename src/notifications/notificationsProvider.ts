@@ -43,12 +43,12 @@ export class NotificationsProvider implements vscode.Disposable {
 		this._onDidChangeSortingMethod.fire();
 	}
 
-	public set filterMethod(value: NotificationsSortMethod) {
-		if (this._sortingMethod === value) {
+	public set filterMethod(value: NotificationFilterMethod) {
+		if (this._filterMethod === value) {
 			return;
 		}
-		this._sortingMethod = value;
-		this._onDidChangeSortingMethod.fire();
+		this._filterMethod = value;
+		this._onDidChangeFilterMethod.fire();
 	}
 
 	private readonly _onDidChangeSortingMethod = new vscode.EventEmitter<void>();
