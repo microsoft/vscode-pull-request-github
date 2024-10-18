@@ -1516,6 +1516,12 @@
 				"title": "%command.notification.chatSummarizeNotification.title%",
 				"category": "%command.notifications.category%",
 				"icon": "$(copilot)"
+			},
+			{
+				"command": "notification.markAsRead",
+				"title": "%command.notifications.markAsRead.title%",
+				"category": "%command.notifications.category%",
+				"icon": "$(check)"
 			}
 		],
 		"viewsWelcome": [
@@ -2165,6 +2171,10 @@
 					"when": "false"
 				},
 				{
+					"command": "notification.markAsRead",
+					"when": "false"
+				},
+				{
 					"command": "notification.chatSummarizeNotification",
 					"when": "false"
 				}
@@ -2320,12 +2330,32 @@
 				{
 					"command": "notification.chatSummarizeNotification",
 					"group": "inline@1",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
+				},
+				{
+					"command": "notification.chatSummarizeNotification",
+					"group": "issues_0@0",
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
 				},
 				{
 					"command": "notification.openOnGitHub",
 					"group": "inline@2",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest')"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
+				},
+				{
+					"command": "notification.openOnGitHub",
+					"group": "issues_0@1",
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
+				},
+				{
+					"command": "notification.markAsRead",
+					"group": "inline@3",
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
+				},
+				{
+					"command": "notification.markAsRead",
+					"group": "issues_0@2",
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
 				},
 				{
 					"command": "pr.openDescriptionToTheSide",
