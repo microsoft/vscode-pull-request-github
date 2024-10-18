@@ -81,9 +81,13 @@ export class NotificationsManager {
 		this._notifications.delete(key);
 	}
 
-	public setNotification(key: string, notification: NotificationItem) {
-		this._notifications.set(key, notification);
-		this._onDidChangeNotifications.fire([notification]);
+	public setNotifications(notifications: NotificationItem[]) {
+		const newNotifications: INotificationItem[] = [];
+		for (const notification of notifications) {
+			this._notifications.set(notification.notification.key, notification);
+			newNotifications.push(notification);
+		}
+		this._onDidChangeNotifications.fire(newNotifications);
 	}
 
 	public getAllNotifications(): INotificationItem[] {
