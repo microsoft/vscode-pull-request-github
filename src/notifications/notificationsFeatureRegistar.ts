@@ -10,6 +10,7 @@ import { dispose, onceEvent } from '../common/utils';
 import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { NotificationsDecorationProvider } from './notificationDecorationProvider';
+import { NotificationsSortMethod } from './notificationItem';
 import { NotificationItem, NotificationsManager } from './notificationsManager';
 import { NotificationsProvider } from './notificationsProvider';
 import { NotificationsTreeData } from './notificationsView';
@@ -27,9 +28,6 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 		this._disposables.push(notificationsManager);
 		const notificationsProvider = new NotificationsProvider(credentialStore, this._repositoriesManager, notificationsManager);
 
-		// Decorations
-		this._disposables.push(vscode.window.registerFileDecorationProvider(new NotificationsDecorationProvider(notificationsManager)));
-
 		// View
 		const dataProvider = new NotificationsTreeData(notificationsProvider, notificationsManager);
 		this._disposables.push(dataProvider);
@@ -37,6 +35,10 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 			treeDataProvider: dataProvider
 		});
 		this._disposables.push(view);
+
+		// Decorations
+		const decorationsProvider = new NotificationsDecorationProvider(notificationsManager, notificationsProvider);
+		this._disposables.push(vscode.window.registerFileDecorationProvider(decorationsProvider));
 
 		// Commands
 		this._disposables.push(
@@ -47,7 +49,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 						"notifications.sortByTimestamp" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.sortByTimestamp');
-					return dataProvider.sortByTimestamp();
+					notificationsProvider.sortingMethod = NotificationsSortMethod.Timestamp;
 				},
 				this,
 			),
@@ -60,7 +62,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 						"notifications.sortByTimestamp" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.sortByTimestamp');
-					return dataProvider.sortByPriority();
+					notificationsProvider.sortingMethod = NotificationsSortMethod.Priority;
 				},
 				this,
 			),
