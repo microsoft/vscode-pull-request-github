@@ -112,6 +112,7 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 		return `Instructions:
 You are an expert on choosing search keywords based on a natural language search query. Here are some rules to follow:
 - Choose labels based on what the user wants to search for, not based on the actual words in the query.
+- The user might include info on how they want their search results to be displayed. Ignore all of that.
 - Labels will be and-ed together, so don't pick a bunch of super specific labels.
 - Try to pick just one label.
 - Respond with a space-separated list of labels: Examples: 'bug polish', 'accessibility "feature accessibility"'
@@ -128,7 +129,7 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 - Only include a max of 1 key word that is relevant to the search query.
 - Don't refer to issue numbers.
 - Don't refer to product names.
-- Don't include any key words that might be related to sorting.
+- Don't include any key words that might be related to display or rendering.
 - Respond with only your chosen key word.
 - It's better to return no keywords than to return irrelevant keywords.
 - If an issue is provided, choose a keyword that names the feature or bug that the issue is about.
@@ -439,8 +440,9 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 		if (!searchResult) {
 			throw new Error(`No issues found for ${parameterQuery}. Make sure the query is valid.`);
 		}
+		const cutoff = 20;
 		const result: SearchToolResult = {
-			arrayOfIssues: searchResult.items.map(i => {
+			arrayOfIssues: searchResult.items.slice(0, cutoff).map(i => {
 				const item = i.item;
 				return {
 					title: item.title,
@@ -462,7 +464,7 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 		return {
 			[MimeTypes.textPlain]: `Here are the issues I found for the query ${parameterQuery} in json format. You can pass these to a tool that can display them.`,
 			[MimeTypes.textJson]: result,
-			[MimeTypes.textDisplay]: vscode.l10n.t('Found {0} issues.', result.arrayOfIssues.length)
+			[MimeTypes.textDisplay]: ((result.arrayOfIssues.length < searchResult.items.length) && (searchResult.totalCount !== undefined)) ? vscode.l10n.t('Found {0} issues, using the first {1}', searchResult.totalCount, cutoff) : vscode.l10n.t('Found {0} issues.', result.arrayOfIssues.length)
 		};
 	}
 }

@@ -3486,7 +3486,7 @@
 				],
 				"toolReferenceName": "renderIssues",
 				"displayName": "%languageModelTools.github-pull-request_renderIssues.displayName%",
-				"modelDescription": "Render issue items from an issue search in a markdown table.",
+				"modelDescription": "Render issue items from an issue search in a markdown table. The markdown table will be displayed directly to the user by the tool. No further display should be done after this!",
 				"icon": "$(paintcan)",
 				"canBeReferencedInPrompt": false,
 				"parametersSchema": {
