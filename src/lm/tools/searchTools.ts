@@ -7,7 +7,7 @@
 import * as vscode from 'vscode';
 import Logger from '../../common/logger';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
-import { ILabel, Issue } from '../../github/interface';
+import { ILabel } from '../../github/interface';
 import { concatAsyncIterable, MimeTypes, RepoToolBase } from './toolsUtils';
 
 interface ConvertToQuerySyntaxParameters {
@@ -214,6 +214,10 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 	private validateFreeForm(baseQuery: string, labels: string[], freeForm: string) {
 		// Currently, we only allow the free form to return one keyword
 		freeForm = freeForm.trim();
+		// useless strings to search for
+		if (freeForm.includes('issue') || freeForm.match(MATCH_UNQUOTED_SPACES)) {
+			return '';
+		}
 		if (baseQuery.includes(freeForm)) {
 			return '';
 		}
@@ -221,10 +225,6 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 			return '';
 		}
 		if (labels.some(label => freeForm.includes(label))) {
-			return '';
-		}
-		// useless strings to search for
-		if (freeForm.includes('issue')) {
 			return '';
 		}
 		return freeForm;
@@ -375,8 +375,15 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 			throw new Error('Unable to form a query.');
 		}
 		Logger.debug(`Query \`${result.query}\``, ConvertToSearchSyntaxTool.ID);
+		const json: ConvertToQuerySyntaxResult = {
+			query: result.query,
+			repo: {
+				owner,
+				name
+			}
+		};
 		return {
-			[MimeTypes.textPlain]: result.query,
+			[MimeTypes.textJson]: json,
 			[MimeTypes.textDisplay]: vscode.l10n.t('Query \`{0}\`. [Open on GitHub.com]({1})\n\n', result.query, this.toGitHubUrl(result.query))
 		};
 	}
@@ -384,8 +391,33 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 
 type SearchToolParameters = ConvertToQuerySyntaxResult;
 
+export interface IssueSearchResultAccount {
+	login: string;
+	url: string;
+}
+
+interface IssueSearchResultLabel {
+	name: string;
+	color: string;
+}
+
+export interface IssueSearchResultItem {
+	title: string;
+	url: string;
+	number: number;
+	labels: IssueSearchResultLabel[];
+	state: string;
+	assignees: IssueSearchResultAccount[] | undefined;
+	createdAt: string;
+	updatedAt: string;
+	author: IssueSearchResultAccount;
+	milestone: string | undefined;
+	commentCount: number;
+	reactionCount: number;
+}
+
 export interface SearchToolResult {
-	arrayOfIssues: Issue[];
+	arrayOfIssues: IssueSearchResultItem[];
 }
 
 export class SearchTool extends RepoToolBase<SearchToolParameters> {
@@ -408,12 +440,29 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 			throw new Error(`No issues found for ${parameterQuery}. Make sure the query is valid.`);
 		}
 		const result: SearchToolResult = {
-			arrayOfIssues: searchResult.items.map(i => i.item)
+			arrayOfIssues: searchResult.items.map(i => {
+				const item = i.item;
+				return {
+					title: item.title,
+					url: item.url,
+					number: item.number,
+					labels: item.labels.map(l => ({ name: l.name, color: l.color })),
+					state: item.state,
+					assignees: item.assignees?.map(a => ({ login: a.login, url: a.url })),
+					createdAt: item.createdAt,
+					updatedAt: item.updatedAt,
+					author: { login: item.user.login, url: item.user.url },
+					milestone: item.milestone?.title,
+					commentCount: item.commentCount,
+					reactionCount: item.reactionCount
+				};
+			})
 		};
 		Logger.debug(`Found ${result.arrayOfIssues.length} issues, first issue ${result.arrayOfIssues[0]?.number}.`, SearchTool.ID);
 		return {
 			[MimeTypes.textPlain]: `Here are the issues I found for the query ${parameterQuery} in json format. You can pass these to a tool that can display them.`,
-			[MimeTypes.textJson]: result
+			[MimeTypes.textJson]: result,
+			[MimeTypes.textDisplay]: vscode.l10n.t('Found {0} issues.', result.arrayOfIssues.length)
 		};
 	}
 }

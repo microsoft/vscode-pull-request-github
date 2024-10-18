@@ -4,7 +4,6 @@
 		"forceConsistentCasingInFileNames": true,
 		"incremental": true,
 		"isolatedModules": false,
-		"jsx": "react",
 		"lib": ["es2019"],
 		"module": "esnext",
 		"moduleResolution": "node",

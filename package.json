@@ -3411,6 +3411,7 @@
 				},
 				"supportedContentTypes": [
 					"text/plain",
+					"text/json",
 					"text/display"
 				],
 				"when": "config.githubPullRequests.experimental.chat"
@@ -3454,7 +3455,8 @@
 						}
 					},
 					"required": [
-						"query"
+						"query",
+						"repo"
 					]
 				},
 				"supportedContentTypes": [
@@ -3480,38 +3482,64 @@
 					"type": "object",
 					"properties": {
 						"arrayOfIssues": {
-							"oneOf": [
-								{
-									"type": "array",
-									"description": "An array of GitHub Issues.",
-									"items": {
+							"type": "array",
+							"description": "An array of GitHub Issues.",
+							"items": {
+								"type": "object",
+								"properties": {
+									"title": { "type": "string", "description": "The title of the issue." },
+									"number": { "type": "number", "description": "The number of the issue." },
+									"url": { "type": "string", "description": "The URL of the issue." },
+									"state": { "type": "string", "description": "The state of the issue (open/closed)." },
+									"createdAt": { "type": "string", "description": "The creation date of the issue." },
+									"updatedAt": { "type": "string", "description": "The last update date of the issue." },
+									"closedAt": { "type": "string", "description": "The closing date of the issue." },
+									"author": {
 										"type": "object",
+										"description": "The author of the issue.",
 										"properties": {
-											"title": {
-												"type": "string",
-												"description": "The title of the issue."
-											},
-											"number": {
-												"type": "number",
-												"description": "The number of the issue."
-											},
-											"body": {
-												"type": "string",
-												"description": "The body of the issue."
-											},
-											"url": {
-												"type": "string",
-												"description": "The URL of the issue."
+											"login": { "type": "string", "description": "The login of the author." },
+											"url": { "type": "string", "description": "The URL of the author's profile." }
+										}
+									},
+									"labels": {
+										"type": "array",
+										"description": "The labels associated with the issue.",
+										"items": {
+											"type": "object",
+											"properties": {
+												"name": { "type": "string", "description": "The name of the label." },
+												"color": { "type": "string", "description": "The color of the label." }
 											}
 										}
+									},
+									"assignees": {
+										"type": "array",
+										"description": "The assignees of the issue.",
+										"items": {
+											"type": "object",
+											"properties": {
+												"login": { "type": "string", "description": "The login of the assignee." },
+												"url": { "type": "string", "description": "The URL of the assignee's profile." }
+											}
+										}
+									},
+									"commentsCount": {
+										"type": "number",
+										"description": "The number of comments on the issue."
 									}
-								},
-								{
-									"type": "string",
-									"description": "A Json stringified array of GitHub Issues."
 								}
-							],
-							"description": "An array or stringified array of GitHub Issues."
+							},
+							"required": [
+								"title",
+								"number",
+								"url",
+								"state",
+								"createdAt",
+								"author",
+								"commentCount",
+								"reactionCount"
+							]
 						}
 					},
 					"required": [
@@ -3520,7 +3548,8 @@
 				},
 				"supportedContentTypes": [
 					"text/plain",
-					"text/markdown"
+					"text/markdown",
+					"text/display"
 				],
 				"when": "config.githubPullRequests.experimental.chat"
 			}
