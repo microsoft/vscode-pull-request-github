@@ -54,7 +54,7 @@ Body: ${comment.body}
 		const model = models[0];
 
 		if (model) {
-			const messages = [vscode.LanguageModelChatMessage.User(summarizeInstructions())];
+			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions())];
 			messages.push(vscode.LanguageModelChatMessage.User(`The issue or pull request information is as follows:`));
 			messages.push(vscode.LanguageModelChatMessage.User(issueOrPullRequestInfo));
 			const response = await model.sendRequest(messages, {});
@@ -68,14 +68,14 @@ Body: ${comment.body}
 			};
 		}
 	}
-}
 
-function summarizeInstructions(): string {
-	return `
+	private summarizeInstructions(): string {
+		return `
 You are an AI assistant who is very proficient in summarizing issues and PRs.
 You will be given information relative to an issue or PR : the title, the body and the comments. In the case of a PR you will also be given patches of the PR changes.
 Your task is to output a summary of all this information.
 Do not output code. When you try to summarize PR changes, write in a textual format.
 Make sure the summary is at least as short or shorter than the issue or PR with the comments and the patches if there are.
 `;
+	}
 }
