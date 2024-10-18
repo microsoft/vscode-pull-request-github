@@ -461,7 +461,8 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 		Logger.debug(`Found ${result.arrayOfIssues.length} issues, first issue ${result.arrayOfIssues[0]?.number}.`, SearchTool.ID);
 		return {
 			[MimeTypes.textPlain]: `Here are the issues I found for the query ${parameterQuery} in json format. You can pass these to a tool that can display them.`,
-			[MimeTypes.textJson]: result
+			[MimeTypes.textJson]: result,
+			[MimeTypes.textDisplay]: vscode.l10n.t('Found {0} issues.', result.arrayOfIssues.length)
 		};
 	}
 }

@@ -136,7 +136,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		}).join('\n'));
 
 		return {
-			[MimeTypes.textPlain]: `The user has already been shown a markdown table of the issues. There is no need to display further information about these issues. Do NOT display them again.`,
+			[MimeTypes.textPlain]: `The issues have been shown to the user.`,
 			[MimeTypes.textMarkdown]: issues.value,
 			[MimeTypes.textDisplay]: vscode.l10n.t('Here\'s a markdown table of the first 10 issues: ')
 		};
