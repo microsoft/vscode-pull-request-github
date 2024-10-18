@@ -101,15 +101,23 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 			})
 		);
 		this._disposables.push(
-			vscode.commands.registerCommand('notification.markAsRead', async (notification: any) => {
-				if (!(notification instanceof NotificationItem)) {
-					return;
+			vscode.commands.registerCommand('notification.markAsRead', async (options: any) => {
+				let threadId: string;
+				let notificationKey: string;
+				if (options instanceof NotificationItem) {
+					threadId = options.notification.id;
+					notificationKey = options.notification.key;
+				} else if ('threadId' in options && 'notificationKey' in options && typeof options.threadId === 'number' && typeof options.notificationKey === 'string') {
+					threadId = options.threadId;
+					notificationKey = options.notificationKey;
+				} else {
+					throw new Error(`Invalid arguments for command notification.markAsRead : ${JSON.stringify(options)}`);
 				}
 				/* __GDPR__
 					"notification.markAsRead" : {}
 				*/
 				this._telemetry.sendTelemetryEvent('notification.markAsRead');
-				return dataProvider.markAsRead(notification);
+				return dataProvider.markAsRead({ threadId, notificationKey });
 			})
 		);
 

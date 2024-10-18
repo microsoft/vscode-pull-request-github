@@ -1265,7 +1265,7 @@ export function parseNotification(notification: OctokitCommon.Notification): Not
 	return {
 		owner,
 		name,
-		key: `${owner}/${name}#${itemID}`,
+		key: getNotificationKey(owner, name, itemID!),
 		id: notification.id,
 		itemID: itemID!,
 		subject: {
@@ -1278,6 +1278,10 @@ export function parseNotification(notification: OctokitCommon.Notification): Not
 		unread: notification.unread,
 		updatedAd: new Date(notification.updated_at),
 	};
+}
+
+export function getNotificationKey(owner: string, name: string, itemID: string): string {
+	return `${owner}/${name}#${itemID}`;
 }
 
 export function insertNewCommitsSinceReview(

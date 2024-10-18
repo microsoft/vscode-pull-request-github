@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import { InMemFileChange } from '../../common/file';
 import { PullRequestModel } from '../../github/pullRequestModel';
+import { getNotificationKey } from '../../github/utils';
 import { MimeTypes, RepoToolBase } from './toolsUtils';
 
 interface FetchNotificationToolParameters {
@@ -28,6 +29,8 @@ export interface FetchNotificationResult {
 		body: string;
 	}[];
 	fileChanges?: FileChange[];
+	threadId: number,
+	notificationKey: string
 }
 
 export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolParameters> {
@@ -37,8 +40,9 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 		if (!github) {
 			return undefined;
 		}
+		const threadId = options.parameters.thread_id;
 		const thread = await github.octokit.api.activity.getThread({
-			thread_id: options.parameters.thread_id
+			thread_id: threadId
 		});
 		const threadData = thread.data;
 		const issueNumber = threadData.subject.url.split('/').pop();
@@ -53,8 +57,9 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 		const { folderManager } = this.getRepoInfo({ owner, name });
 		const issueOrPR = await folderManager.resolveIssueOrPullRequest(owner, name, Number(issueNumber));
 		if (!issueOrPR) {
-			throw new Error(`No notification found with thread ID #${options.parameters.thread_id}.`);
+			throw new Error(`No notification found with thread ID #${threadId}.`);
 		}
+		const notificationKey = getNotificationKey(owner, name, String(issueOrPR.number));
 		const comments = issueOrPR.item.comments ?? [];
 		let unreadComments: { body: string; }[];
 		if (lastReadAt !== undefined && comments) {
@@ -69,6 +74,8 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 			lastUpdatedAt,
 			unread,
 			unreadComments,
+			threadId,
+			notificationKey,
 			title: issueOrPR.title,
 			body: issueOrPR.body,
 		};

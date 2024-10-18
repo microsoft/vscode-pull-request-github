@@ -51,7 +51,14 @@ Body: ${comment.body}
 			family: 'gpt-4o'
 		});
 		const model = models[0];
-
+		const markAsReadCommand: vscode.Command = {
+			title: 'Mark As Read',
+			command: 'notification.markAsRead',
+			arguments: [{
+				threadId: options.parameters.threadId,
+				notificationKey: options.parameters.notificationKey
+			}]
+		};
 		if (model) {
 			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions())];
 			messages.push(vscode.LanguageModelChatMessage.User(`The notification information is as follows:`));
@@ -59,11 +66,13 @@ Body: ${comment.body}
 			const response = await model.sendRequest(messages, {});
 			const responseText = await concatAsyncIterable(response.text);
 			return {
-				[MimeTypes.textPlain]: responseText
+				[MimeTypes.textPlain]: responseText,
+				[MimeTypes.command]: markAsReadCommand
 			};
 		} else {
 			return {
-				[MimeTypes.textPlain]: notificationInfo
+				[MimeTypes.textPlain]: notificationInfo,
+				[MimeTypes.command]: markAsReadCommand
 			};
 		}
 	}
