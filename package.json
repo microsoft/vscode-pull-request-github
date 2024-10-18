@@ -3113,15 +3113,15 @@
 		],
 		"languageModelTools": [
 			{
-				"name": "github-pull-request_fetch",
+				"name": "github-pull-request_issue_fetch",
 				"tags": [
 					"github",
 					"issues",
 					"prs"
 				],
-				"toolReferenceName": "fetch",
-				"displayName": "%languageModelTools.github-pull-request_fetch.displayName%",
-				"modelDescription": "Get a GitHub issue/PR, which includes the title, body, and comments.",
+				"toolReferenceName": "issue_fetch",
+				"displayName": "%languageModelTools.github-pull-request_issue_fetch.displayName%",
+				"modelDescription": "Get a GitHub issue/PR's details as a JSON object.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
@@ -3155,21 +3155,48 @@
 					]
 				},
 				"supportedContentTypes": [
-					"text/plain",
 					"text/json"
 				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
-				"name": "github-pull-request_summarize",
+				"name": "github-pull-request_notification_fetch",
+				"tags": [
+					"github",
+					"notification"
+				],
+				"toolReferenceName": "notification_fetch",
+				"displayName": "%languageModelTools.github-pull-request_notification_fetch.displayName%",
+				"modelDescription": "Get a GitHub notification's details as a JSON object.",
+				"icon": "$(info)",
+				"canBeReferencedInPrompt": true,
+				"parametersSchema": {
+					"type": "object",
+					"properties": {
+						"thread_id": {
+							"type": "string",
+							"description": "The notification thread id."
+						}
+					},
+					"required": [
+						"thread_id"
+					]
+				},
+				"supportedContentTypes": [
+					"text/json"
+				],
+				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
+				"name": "github-pull-request_issue_summarize",
 				"tags": [
 					"github",
 					"issues",
 					"prs"
 				],
-				"toolReferenceName": "summarize",
-				"displayName": "%languageModelTools.github-pull-request_summarize.displayName%",
-				"modelDescription": "Returns a summary of a GitHub issue or PR given issue/PR details.",
+				"toolReferenceName": "issue_summarize",
+				"displayName": "%languageModelTools.github-pull-request_issue_summarize.displayName%",
+				"modelDescription": "Returns a summary of a GitHub issue/PR, given issue/PR details in a JSON object.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
@@ -3215,8 +3242,79 @@
 					]
 				},
 				"supportedContentTypes": [
-					"text/plain",
-					"text/json"
+					"text/plain"
+				],
+				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
+				"name": "github-pull-request_notification_summarize",
+				"tags": [
+					"github",
+					"notification"
+				],
+				"toolReferenceName": "notification_summarize",
+				"displayName": "%languageModelTools.github-pull-request_notification_summarize.displayName%",
+				"modelDescription": "Returns a summary of a GitHub notification, given notification details in a JSON object.",
+				"icon": "$(info)",
+				"canBeReferencedInPrompt": true,
+				"parametersSchema": {
+					"type": "object",
+					"properties": {
+						"lastReadAt": {
+							"type": "string",
+							"description": "The last read time of the notification."
+						},
+						"lastUpdatedAt": {
+							"type": "string",
+							"description": "The last updated time of the notification."
+						},
+						"unread": {
+							"type": "boolean",
+							"description": "Whether the notification is unread."
+						},
+						"title": {
+							"type": "string",
+							"description": "The title of the notification issue/PR"
+						},
+						"body": {
+							"type": "string",
+							"description": "The body of the notification issue/PR"
+						},
+						"unreadComments": {
+							"type": "array",
+							"items": {
+								"type": "string"
+							},
+							"description": "The array of unread comments under the issue/PR of the notification"
+						},
+						"fileChanges": {
+							"type": "array",
+							"items": {
+								"type": "object",
+								"properties": {
+									"fileName": {
+										"type": "string",
+										"description": "The name of the file of the change"
+									},
+									"patch": {
+										"type": "string",
+										"description": "The patch of the change"
+									}
+								}
+							},
+							"description": "For a notification about a PR, the array of associated file changes"
+						}
+					},
+					"required": [
+						"title",
+						"body",
+						"unreadComments",
+						"lastUpdatedAt",
+						"unread"
+					]
+				},
+				"supportedContentTypes": [
+					"text/plain"
 				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
