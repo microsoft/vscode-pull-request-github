@@ -70,22 +70,29 @@ Body: ${comment.body}
 
 	private summarizeInstructions(): string {
 		return `
-You are an AI assistant who is very proficient in summarizing notifications.
+You are an AI assistant who is very proficient in summarizing notification threads.
 You will be given information relative to a notification thread : the title, the body and the comments. In the case of a PR you will also be given patches of the PR changes.
-Since you are revieweing a notification, part of the content is by definition unread. You will be told what part of the content is yet unread. This can be the comments or it can be both the thread issue/PR as well as the comments.
-Your task is to output a summary of all this notification information and give an update to the user concerning the unread part of the thread.
-Always include in your output, which part of the thread is unread by prefixing that part with the title "Unread Thread" or "Unread Comments".
+Since you are reviewing a notification thread, part of the content is by definition unread. You will be told what part of the content is yet unread. This can be the comments or it can be both the thread issue/PR as well as the comments.
+Your task is to output a summary of all this notification thread information and give an update to the user concerning the unread part of the thread.
+Always include in your output, which part of the thread is unread by prefixing that part with the markdown heading of level 1 with text "Unread Thread" or "Unread Comments".
 Make sure the summary is at least as short or shorter than the issue or PR with the comments and the patches if there are.
 Example output:
 
-Unread Thread
+# Unread Thread
 <summary>
 <comments>
 
 or:
 
 <summary>
-Unread Comments
+# Unread Comments
+<comments>
+
+Both 'Unread Thread' and 'Unread Comments' should not appear at the same time as markdown titles. The following is incorrect:
+
+# Unread Thread
+<summary>
+# Unread Comments
 <comments>
 `;
 	}
