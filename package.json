@@ -3121,7 +3121,7 @@
 				],
 				"toolReferenceName": "issue_fetch",
 				"displayName": "%languageModelTools.github-pull-request_issue_fetch.displayName%",
-				"modelDescription": "Get a GitHub issue/PR, which includes the title, body, and comments.",
+				"modelDescription": "Get a GitHub issue/PR's details as a JSON object.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
@@ -3155,7 +3155,6 @@
 					]
 				},
 				"supportedContentTypes": [
-					"text/plain",
 					"text/json"
 				],
 				"when": "config.githubPullRequests.experimental.chat"
@@ -3168,7 +3167,7 @@
 				],
 				"toolReferenceName": "notification_fetch",
 				"displayName": "%languageModelTools.github-pull-request_notification_fetch.displayName%",
-				"modelDescription": "Get a GitHub notification's details.",
+				"modelDescription": "Get a GitHub notification's details as a JSON object.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
@@ -3184,7 +3183,6 @@
 					]
 				},
 				"supportedContentTypes": [
-					"text/plain",
 					"text/json"
 				],
 				"when": "config.githubPullRequests.experimental.chat"
@@ -3198,7 +3196,7 @@
 				],
 				"toolReferenceName": "issue_summarize",
 				"displayName": "%languageModelTools.github-pull-request_issue_summarize.displayName%",
-				"modelDescription": "Returns a summary of a GitHub issue or PR given issue/PR details.",
+				"modelDescription": "Returns a summary of a GitHub issue/PR, given issue/PR details in a JSON object.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
@@ -3244,8 +3242,7 @@
 					]
 				},
 				"supportedContentTypes": [
-					"text/plain",
-					"text/json"
+					"text/plain"
 				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
@@ -3257,7 +3254,7 @@
 				],
 				"toolReferenceName": "notification_summarize",
 				"displayName": "%languageModelTools.github-pull-request_notification_summarize.displayName%",
-				"modelDescription": "Returns a summary of a GitHub notification given notification details found using the 'github-pull-request_notification_fetch' tool.",
+				"modelDescription": "Returns a summary of a GitHub notification, given notification details in a JSON object.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
@@ -3317,8 +3314,7 @@
 					]
 				},
 				"supportedContentTypes": [
-					"text/plain",
-					"text/json"
+					"text/plain"
 				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},

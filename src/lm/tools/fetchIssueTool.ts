@@ -32,7 +32,7 @@ export interface FetchIssueResult {
 }
 
 export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
-	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchIssueToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
+	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchIssueToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult> {
 		const { owner, name, folderManager } = this.getRepoInfo({ owner: options.parameters.repo?.owner, name: options.parameters.repo?.name });
 		const issueOrPullRequest = await folderManager.resolveIssueOrPullRequest(owner, name, options.parameters.issueNumber);
 		if (!issueOrPullRequest) {
@@ -57,7 +57,6 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 			result.fileChanges = fetchedFileChanges;
 		}
 		return {
-			[MimeTypes.textPlain]: JSON.stringify(result),
 			[MimeTypes.textJson]: result
 		};
 	}

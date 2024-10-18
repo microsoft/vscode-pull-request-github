@@ -86,7 +86,6 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 			result.fileChanges = fetchedFileChanges;
 		}
 		return {
-			[MimeTypes.textPlain]: JSON.stringify(result),
 			[MimeTypes.textJson]: result
 		};
 	}

@@ -19,7 +19,7 @@ export class IssueSummarizationTool implements vscode.LanguageModelTool<FetchIss
 		const shortenedTitle = options.parameters.title.length > 40;
 		const maxLengthTitle = shortenedTitle ? options.parameters.title.substring(0, 40) : options.parameters.title;
 		return {
-			invocationMessage: shortenedTitle ? vscode.l10n.t('Summarizing "{0}', maxLengthTitle) : vscode.l10n.t('Sumarizing "{0}"')
+			invocationMessage: vscode.l10n.t('Summarizing "{0}', maxLengthTitle)
 		};
 	}
 
