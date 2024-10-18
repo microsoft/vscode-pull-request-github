@@ -103,6 +103,7 @@ export class ChatParticipant implements vscode.Disposable {
 			justification: 'Answering user questions pertaining to GitHub.'
 		};
 
+		const commands: vscode.Command[] = [];
 		const runWithFunctions = async (): Promise<void> => {
 
 			const requestedTool = toolReferences.shift();
@@ -163,7 +164,9 @@ export class ChatParticipant implements vscode.Disposable {
 						stream.markdown(display);
 						shownToUser = true;
 					}
-
+					if (command) {
+						commands.push(command);
+					}
 					const content: (string | vscode.LanguageModelToolResultPart | vscode.LanguageModelToolCallPart)[] = [];
 					let isOnlyPlaintext = true;
 					if (json !== undefined) {
@@ -175,9 +178,6 @@ export class ChatParticipant implements vscode.Disposable {
 						asMarkdownString.supportHtml = true;
 						stream.markdown(asMarkdownString);
 						shownToUser = true;
-					}
-					if (command) {
-						stream.button(command);
 					}
 					if (plainText !== undefined) {
 						if (isOnlyPlaintext) {
@@ -196,7 +196,13 @@ export class ChatParticipant implements vscode.Disposable {
 			}
 		};
 		await runWithFunctions();
+		this.addButtons(stream, commands);
 	}
 
+	private addButtons(stream: vscode.ChatResponseStream, commands: vscode.Command[]) {
+		for (const command of commands) {
+			stream.button(command);
+		}
+	}
 }
 
