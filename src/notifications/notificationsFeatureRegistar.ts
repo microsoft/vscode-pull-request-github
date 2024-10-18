@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { commands } from '../common/executeCommands';
 import { ITelemetry } from '../common/telemetry';
-import { dispose } from '../common/utils';
+import { dispose, onceEvent } from '../common/utils';
 import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { NotificationsDecorationProvider } from './notificationDecorationProvider';
@@ -122,10 +122,10 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 		);
 
 		// Events
-		this._repositoriesManager.onDidLoadAnyRepositories(() => {
+		onceEvent(this._repositoriesManager.onDidLoadAnyRepositories)(() => {
 			notificationsProvider.clearCache();
 			dataProvider.computeAndRefresh();
-		});
+		}, this, this._disposables);
 	}
 
 	dispose() {
