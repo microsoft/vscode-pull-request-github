@@ -113,6 +113,7 @@ export interface ItemsResponseResult<T> {
 	items: T[];
 	hasMorePages: boolean;
 	hasUnsearchedRepositories: boolean;
+	totalCount?: number;
 }
 
 export class NoGitHubReposError extends Error {
@@ -1015,6 +1016,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				items: [],
 				hasMorePages: false,
 				hasUnsearchedRepositories: false,
+				totalCount: 0
 			};
 		}
 
@@ -1032,12 +1034,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 
 		let pagesFetched = 0;
-		const itemData: ItemsData = { hasMorePages: false, items: [] };
+		const itemData: ItemsData = { hasMorePages: false, items: [], totalCount: 0 };
 		const addPage = (page: PullRequestData | undefined) => {
 			pagesFetched++;
 			if (page) {
 				itemData.items = itemData.items.concat(page.items);
 				itemData.hasMorePages = page.hasMorePages;
+				itemData.totalCount = page.totalCount;
 			}
 		};
 
@@ -1060,7 +1063,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 			const fetchPage = async (
 				pageNumber: number,
-			): Promise<{ items: any[]; hasMorePages: boolean } | undefined> => {
+			): Promise<{ items: any[]; hasMorePages: boolean, totalCount?: number } | undefined> => {
 				// Resolve variables in the query with each repo
 				const resolvedQuery = query ? await variableSubstitution(query, undefined,
 					{ base: await githubRepository.getDefaultBranch(), owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName }) : undefined;
@@ -1117,6 +1120,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					items: itemData.items,
 					hasMorePages: pageInformation.hasMorePages,
 					hasUnsearchedRepositories: i < githubRepositories.length - 1,
+					totalCount: itemData.totalCount,
 				};
 			}
 		}
@@ -1125,6 +1129,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			items: itemData.items,
 			hasMorePages: false,
 			hasUnsearchedRepositories: false,
+			totalCount: itemData.totalCount
 		};
 	}
 
@@ -1182,7 +1187,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const mappedData: ItemsResponseResult<IssueModel> = {
 				items: [],
 				hasMorePages: data.hasMorePages,
-				hasUnsearchedRepositories: data.hasUnsearchedRepositories
+				hasUnsearchedRepositories: data.hasUnsearchedRepositories,
+				totalCount: data.totalCount
 			};
 			for (const issue of data.items) {
 				const githubRepository = await this.getRepoForIssue(issue);
@@ -1191,7 +1197,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return mappedData;
 		} catch (e) {
 			Logger.error(`Error fetching issues with query ${query}: ${e instanceof Error ? e.message : e}`, this.id);
-			return { hasMorePages: false, hasUnsearchedRepositories: false, items: [] };
+			return { hasMorePages: false, hasUnsearchedRepositories: false, items: [], totalCount: 0 };
 		}
 	}
 
@@ -2041,6 +2047,14 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			githubRepo = await this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
 		}
 		return githubRepo;
+	}
+
+	async resolveIssueOrPullRequest(owner: string, repositoryName: string, issueOrPullRequestNumber: number): Promise<PullRequestModel | IssueModel | undefined> {
+		let issueOrPullRequest: IssueModel | PullRequestModel | undefined = await this.resolveIssue(owner, repositoryName, issueOrPullRequestNumber, true);
+		if (!issueOrPullRequest) {
+			issueOrPullRequest = await this.resolvePullRequest(owner, repositoryName, issueOrPullRequestNumber);
+		}
+		return issueOrPullRequest;
 	}
 
 	async resolvePullRequest(

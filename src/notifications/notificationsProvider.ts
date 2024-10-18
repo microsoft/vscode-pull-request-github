@@ -27,7 +27,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		endPage: 1
 	}
 
-	private _canLoadMoreNotifications: boolean = true;
+	private _canLoadMoreNotifications: boolean = false;
 
 	constructor(
 		private readonly _credentialStore: CredentialStore,
@@ -61,15 +61,15 @@ export class NotificationsProvider implements vscode.Disposable {
 		this._notificationsManager.clear();
 	}
 
-	public async markAsRead(notification: INotificationItem): Promise<void> {
+	public async markAsRead(notificationIdentifier: { threadId: string, notificationKey: string }): Promise<void> {
 		const gitHub = this._getGitHub();
 		if (gitHub === undefined) {
 			return undefined;
 		}
 		await gitHub.octokit.call(gitHub.octokit.api.activity.markThreadAsRead, {
-			thread_id: Number(notification.notification.id)
+			thread_id: Number(notificationIdentifier.threadId)
 		});
-		this._notificationsManager.removeNotification(notification.notification.key);
+		this._notificationsManager.removeNotification(notificationIdentifier.notificationKey);
 	}
 
 	public async computeNotifications(sortingMethod: NotificationsSortMethod): Promise<INotificationItem[] | undefined> {
@@ -112,24 +112,26 @@ export class NotificationsProvider implements vscode.Disposable {
 	}
 
 	private async _getResolvedNotifications(gitHub: GitHub): Promise<(INotificationItem | undefined)[]> {
-		const notificationPromises: Promise<(INotificationItem | undefined)[]>[] = [];
+		const notificationPromises: Promise<{ notifications: INotificationItem[], hasNextPage: boolean }>[] = [];
 		for (let i = this._notificationsPaginationRange.startPage; i <= this._notificationsPaginationRange.endPage; i++) {
 			notificationPromises.push(this._getResolvedNotificationsForPage(gitHub, i));
 		}
-		return (await Promise.all(notificationPromises)).flat();
+
+		const notifications = await Promise.all(notificationPromises);
+		this._canLoadMoreNotifications = notifications[this._notificationsPaginationRange.endPage - 1].hasNextPage;
+
+		return notifications.flatMap(n => n.notifications);
 	}
 
-	private async _getResolvedNotificationsForPage(gitHub: GitHub, pageNumber: number): Promise<(INotificationItem | undefined)[]> {
+	private async _getResolvedNotificationsForPage(gitHub: GitHub, pageNumber: number): Promise<{ notifications: INotificationItem[]; hasNextPage: boolean }> {
 		const pageSize = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE, 50);
-		const { data } = await gitHub.octokit.call(gitHub.octokit.api.activity.listNotificationsForAuthenticatedUser, {
+		const { data, headers } = await gitHub.octokit.call(gitHub.octokit.api.activity.listNotificationsForAuthenticatedUser, {
 			all: false,
 			page: pageNumber,
 			per_page: pageSize
 		});
-		if (data.length < pageSize) {
-			this._canLoadMoreNotifications = false;
-		}
-		return Promise.all(data.map(async (notification: OctokitCommon.Notification): Promise<INotificationItem | undefined> => {
+
+		const resolvedNotifications = await Promise.all(data.map(async (notification: OctokitCommon.Notification): Promise<INotificationItem | undefined> => {
 			const parsedNotification = parseNotification(notification);
 			if (!parsedNotification) {
 				return undefined;
@@ -143,9 +145,14 @@ export class NotificationsProvider implements vscode.Disposable {
 				return undefined;
 			}
 			const resolvedNotification = new NotificationItem(parsedNotification, model);
-			this._notificationsManager.setNotification(parsedNotification.key, resolvedNotification);
 			return resolvedNotification;
 		}));
+
+		const notifications = resolvedNotifications
+			.filter(notification => !!notification) as NotificationItem[];
+		this._notificationsManager.setNotifications(notifications);
+
+		return { notifications, hasNextPage: headers.link?.includes(`rel="next"`) === true };
 	}
 
 	private async _getNotificationModel(notification: Notification): Promise<IssueModel<Issue> | undefined> {
@@ -181,11 +188,8 @@ export class NotificationsProvider implements vscode.Disposable {
 		}
 		const prioritizedBatches = await Promise.all(notificationBatches.map(batch => this._prioritizeNotificationBatchWithLLM(batch, model)));
 		const prioritizedNotifications = prioritizedBatches.flat();
-		const openNotifications = prioritizedNotifications.filter(notification => notification.model.isOpen);
-		const closedNotifications = prioritizedNotifications.filter(notification => notification.model.isClosed || notification.model.isMerged);
-		const sortedOpenNotifications = openNotifications.sort((r1, r2) => sortByPriority(r1, r2));
-		const sortedClosedNotifications = closedNotifications.sort((r1, r2) => sortByPriority(r1, r2));
-		return [...sortedOpenNotifications, ...sortedClosedNotifications];
+		const sortedPrioritizedNotifications = prioritizedNotifications.sort((r1, r2) => sortByPriority(r1, r2));
+		return sortedPrioritizedNotifications;
 	}
 
 	private async _prioritizeNotificationBatchWithLLM(notifications: INotificationItem[], model: vscode.LanguageModelChat): Promise<INotificationItem[]> {
@@ -303,18 +307,16 @@ You are an intelligent assistant tasked with prioritizing GitHub notifications.
 You are given a list of notifications for the current user ${githubHandle}, each related to an issue, pull request or discussion. In the case of an issue/PR, if there are comments, you are given the last 5 comments under it.
 Use the following scoring mechanism to prioritize the notifications and assign them a score from 0 to 100:
 
-	1. Assign points from 0 to 40 for the relevance of the notification. Below when we talk about the current user, it is always the user with the GitHub login handle ${githubHandle}.
-		- 0-9 points: If the current user is neither assigned, nor requested for a review, nor mentioned in the issue/PR/discussion.
-		- 10-19 points: If the current user is mentioned or is the author of the issue/PR. In the case of an issue/PR, the current user should not be assigned to it.
-		- 20-40 points: If the current user is assigned to the issue/PR or is requested for a review.
-		- After having assigned a range, for example 10-29, use the following guidelines to assign a specific score within the range. The following guidelines should NOT make the score overflow past the chosen range:
-			- Consider if the issue/PR is open or closed. An open issue/PR should be assigned a higher score within the range.
-			- A more recent notification should be assigned a higher priority.
-			- Analyze the issue/PR/discussion and the comments to determine the extent to which it is urgent or important. In particular:
-				- Issues should generally be assigned a higher score than PRs and discussions. If a PR fixes a critical/important bug it can be assigned a higher score.
-				- Issues about bugs/regressions should be assigned a higher priority than issues about feature requests which are less critical.
-			- Evaluate the extent to which the current user is the main/sole person responsible to fix the issue/review the PR or respond to the discussion. For example if the current user is one of many users assigned and is not explicitly mentioned, you can assign a lower score in the range.
-	2. Assign points from 0 to 30 to the importance of the notification. Consider the following points:
+	1. Assign points from 0 to 30 for the relevance of the notification. Below when we talk about the current user, it is always the user with the GitHub login handle ${githubHandle}. First consider if the corresponding thread is open or closed:
+		- If the thread is closed, assign points as follows:
+			- 0 points: If the current user is neither assigned, nor requested for a review, nor mentioned in the issue/PR/discussion.
+			- 5 points: If the current user is mentioned or is the author of the issue/PR. In the case of an issue/PR, the current user should not be assigned to it.
+			- 10 points: If the current user is assigned to the issue/PR or is requested for a review.
+		- If the thread is open, assign points as follows:
+			- 20 points: If the current user is neither assigned, nor requested for a review, nor mentioned in the issue/PR/discussion.
+			- 25 points: If the current user is mentioned or is the author of the issue/PR. In the case of an issue/PR, the current user should not be assigned to it.
+			- 30 points: If the current user is assigned to the issue/PR or is requested for a review.
+	2. Assign points from 0 to 40 to the importance of the notification. Consider the following points:
 		- In case of an issue, does the content/title suggest this is a critical issue? In the case of a PR, does the content/title suggest it fixes a critical issue? In the case of a discussion, do the comments suggest a critical discussion? A critical issue/pr/discussion has a higher priority.
 		- To evaluate the importance/criticality of a notification evaluate whether it references the following. Such notifications should be assigned a higher priority.
 			- security vulnerabilities
@@ -329,7 +331,8 @@ Use the following scoring mechanism to prioritize the notifications and assign t
 		- Is the issue/PR user facing? User facing issues/PRs that have a clear negative impact on the user should be assigned a higher priority.
 		- Is the tone of voice urgent or neutral? An urgent tone of voice has a higher priority.
 		- For issues, do the comments mention that the issue is a duplicate of another issue or is already fixed? If so assign a lower priority.
-		- In contrast, issues/PRs about technical debt/code polishing/minor internal issues or generally that have low importance should be assigned lower priority.
+		- Issues should generally be assigned a higher score than PRs and discussions.
+		- Issues about bugs/regressions should be assigned a higher priority than issues about feature requests which are less critical.
 	3. Assign points from 0 to 30 for the community engagement. Consider the following points:
 		- Reactions: Consider the number of reactions under an issue/PR/discussion that correspond to real users. A higher number of reactions should be assigned a higher priority.
 		- Comments: Evaluate the community engagmenent on the issue/PR through the last 5 comments. If you detect a comment comming from a bot, do not include it in the following evaluation. Consider the following:
@@ -349,14 +352,14 @@ The output should look as follow. Here <summary + reasoning> corresponds to your
 
 ### <title>
 \`\`\`text
-30 + 20 + 20 = 70
+20 + 30 + 20 = 70
 \`\`\`text
 <summary + reasoning>
 
 The following is INCORRECT:
 
 <title>
-30 + 20 + 20 = 70
+20 + 30 + 20 = 70
 <summary + reasoning>
 `;
 }

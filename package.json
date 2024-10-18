@@ -2456,6 +2456,11 @@
 					"group": "inline@0"
 				},
 				{
+					"command": "issue.chatSummarizeIssue",
+					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated",
+					"group": "inline@0"
+				},
+				{
 					"command": "issue.chatSuggestFix",
 					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
 					"group": "inline@1"
@@ -3113,15 +3118,15 @@
 		],
 		"languageModelTools": [
 			{
-				"name": "github-pull-request_fetch",
+				"name": "github-pull-request_issue_fetch",
 				"tags": [
 					"github",
 					"issues",
 					"prs"
 				],
-				"toolReferenceName": "fetch",
-				"displayName": "%languageModelTools.github-pull-request_fetch.displayName%",
-				"modelDescription": "Get a GitHub issue/PR, which includes the title, body, and comments.",
+				"toolReferenceName": "issue_fetch",
+				"displayName": "%languageModelTools.github-pull-request_issue_fetch.displayName%",
+				"modelDescription": "Get a GitHub issue/PR's details as a JSON object.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
@@ -3155,21 +3160,48 @@
 					]
 				},
 				"supportedContentTypes": [
-					"text/plain",
 					"text/json"
 				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
-				"name": "github-pull-request_summarize",
+				"name": "github-pull-request_notification_fetch",
+				"tags": [
+					"github",
+					"notification"
+				],
+				"toolReferenceName": "notification_fetch",
+				"displayName": "%languageModelTools.github-pull-request_notification_fetch.displayName%",
+				"modelDescription": "Get a GitHub notification's details as a JSON object.",
+				"icon": "$(info)",
+				"canBeReferencedInPrompt": true,
+				"parametersSchema": {
+					"type": "object",
+					"properties": {
+						"thread_id": {
+							"type": "string",
+							"description": "The notification thread id."
+						}
+					},
+					"required": [
+						"thread_id"
+					]
+				},
+				"supportedContentTypes": [
+					"text/json"
+				],
+				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
+				"name": "github-pull-request_issue_summarize",
 				"tags": [
 					"github",
 					"issues",
 					"prs"
 				],
-				"toolReferenceName": "summarize",
-				"displayName": "%languageModelTools.github-pull-request_summarize.displayName%",
-				"modelDescription": "Returns a summary of a GitHub issue or PR given issue/PR details.",
+				"toolReferenceName": "issue_summarize",
+				"displayName": "%languageModelTools.github-pull-request_issue_summarize.displayName%",
+				"modelDescription": "Returns a summary of a GitHub issue/PR, given issue/PR details in a JSON object.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
@@ -3215,8 +3247,90 @@
 					]
 				},
 				"supportedContentTypes": [
+					"text/plain"
+				],
+				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
+				"name": "github-pull-request_notification_summarize",
+				"tags": [
+					"github",
+					"notification"
+				],
+				"toolReferenceName": "notification_summarize",
+				"displayName": "%languageModelTools.github-pull-request_notification_summarize.displayName%",
+				"modelDescription": "Returns a summary of a GitHub notification, given notification details in a JSON object.",
+				"icon": "$(info)",
+				"canBeReferencedInPrompt": true,
+				"parametersSchema": {
+					"type": "object",
+					"properties": {
+						"lastReadAt": {
+							"type": "string",
+							"description": "The last read time of the notification."
+						},
+						"lastUpdatedAt": {
+							"type": "string",
+							"description": "The last updated time of the notification."
+						},
+						"unread": {
+							"type": "boolean",
+							"description": "Whether the notification is unread."
+						},
+						"title": {
+							"type": "string",
+							"description": "The title of the notification issue/PR"
+						},
+						"body": {
+							"type": "string",
+							"description": "The body of the notification issue/PR"
+						},
+						"unreadComments": {
+							"type": "array",
+							"items": {
+								"type": "string"
+							},
+							"description": "The array of unread comments under the issue/PR of the notification"
+						},
+						"threadId": {
+							"type": "number",
+							"description": "The thread id of the notification"
+						},
+						"notificationKey": {
+							"type": "string",
+							"description": "The key of the notification"
+						},
+						"fileChanges": {
+							"type": "array",
+							"items": {
+								"type": "object",
+								"properties": {
+									"fileName": {
+										"type": "string",
+										"description": "The name of the file of the change"
+									},
+									"patch": {
+										"type": "string",
+										"description": "The patch of the change"
+									}
+								}
+							},
+							"description": "For a notification about a PR, the array of associated file changes"
+						}
+					},
+					"required": [
+						"title",
+						"body",
+						"unreadComments",
+						"lastUpdatedAt",
+						"unread",
+						"threadId",
+						"notificationKey"
+					]
+				},
+				"supportedContentTypes": [
 					"text/plain",
-					"text/json"
+					"command"
 				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
@@ -3313,6 +3427,7 @@
 				},
 				"supportedContentTypes": [
 					"text/plain",
+					"text/json",
 					"text/display"
 				],
 				"when": "config.githubPullRequests.experimental.chat"
@@ -3356,7 +3471,8 @@
 						}
 					},
 					"required": [
-						"query"
+						"query",
+						"repo"
 					]
 				},
 				"supportedContentTypes": [
@@ -3375,45 +3491,71 @@
 				],
 				"toolReferenceName": "renderIssues",
 				"displayName": "%languageModelTools.github-pull-request_renderIssues.displayName%",
-				"modelDescription": "Render issue items from an issue search in a markdown table.",
+				"modelDescription": "Render issue items from an issue search in a markdown table. The markdown table will be displayed directly to the user by the tool. No further display should be done after this!",
 				"icon": "$(paintcan)",
 				"canBeReferencedInPrompt": false,
 				"parametersSchema": {
 					"type": "object",
 					"properties": {
 						"arrayOfIssues": {
-							"oneOf": [
-								{
-									"type": "array",
-									"description": "An array of GitHub Issues.",
-									"items": {
+							"type": "array",
+							"description": "An array of GitHub Issues.",
+							"items": {
+								"type": "object",
+								"properties": {
+									"title": { "type": "string", "description": "The title of the issue." },
+									"number": { "type": "number", "description": "The number of the issue." },
+									"url": { "type": "string", "description": "The URL of the issue." },
+									"state": { "type": "string", "description": "The state of the issue (open/closed)." },
+									"createdAt": { "type": "string", "description": "The creation date of the issue." },
+									"updatedAt": { "type": "string", "description": "The last update date of the issue." },
+									"closedAt": { "type": "string", "description": "The closing date of the issue." },
+									"author": {
 										"type": "object",
+										"description": "The author of the issue.",
 										"properties": {
-											"title": {
-												"type": "string",
-												"description": "The title of the issue."
-											},
-											"number": {
-												"type": "number",
-												"description": "The number of the issue."
-											},
-											"body": {
-												"type": "string",
-												"description": "The body of the issue."
-											},
-											"url": {
-												"type": "string",
-												"description": "The URL of the issue."
+											"login": { "type": "string", "description": "The login of the author." },
+											"url": { "type": "string", "description": "The URL of the author's profile." }
+										}
+									},
+									"labels": {
+										"type": "array",
+										"description": "The labels associated with the issue.",
+										"items": {
+											"type": "object",
+											"properties": {
+												"name": { "type": "string", "description": "The name of the label." },
+												"color": { "type": "string", "description": "The color of the label." }
 											}
 										}
+									},
+									"assignees": {
+										"type": "array",
+										"description": "The assignees of the issue.",
+										"items": {
+											"type": "object",
+											"properties": {
+												"login": { "type": "string", "description": "The login of the assignee." },
+												"url": { "type": "string", "description": "The URL of the assignee's profile." }
+											}
+										}
+									},
+									"commentsCount": {
+										"type": "number",
+										"description": "The number of comments on the issue."
 									}
-								},
-								{
-									"type": "string",
-									"description": "A Json stringified array of GitHub Issues."
 								}
-							],
-							"description": "An array or stringified array of GitHub Issues."
+							},
+							"required": [
+								"title",
+								"number",
+								"url",
+								"state",
+								"createdAt",
+								"author",
+								"commentCount",
+								"reactionCount"
+							]
 						}
 					},
 					"required": [
@@ -3422,7 +3564,8 @@
 				},
 				"supportedContentTypes": [
 					"text/plain",
-					"text/markdown"
+					"text/markdown",
+					"text/display"
 				],
 				"when": "config.githubPullRequests.experimental.chat"
 			}

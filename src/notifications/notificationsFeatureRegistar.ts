@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { commands } from '../common/executeCommands';
 import { ITelemetry } from '../common/telemetry';
-import { dispose } from '../common/utils';
+import { dispose, onceEvent } from '../common/utils';
 import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { NotificationsDecorationProvider } from './notificationDecorationProvider';
@@ -97,27 +97,35 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 					"notification.chatSummarizeNotification" : {}
 				*/
 				this._telemetry.sendTelemetryEvent('notification.chatSummarizeNotification');
-				vscode.commands.executeCommand(commands.OPEN_CHAT, vscode.l10n.t('@githubpr Summarize notification {0}/{1}#{2}', notification.model.remote.owner, notification.model.remote.repositoryName, notification.model.number));
+				vscode.commands.executeCommand(commands.OPEN_CHAT, vscode.l10n.t('@githubpr Summarize notification with thread ID #{0}', notification.notification.id));
 			})
 		);
 		this._disposables.push(
-			vscode.commands.registerCommand('notification.markAsRead', async (notification: any) => {
-				if (!(notification instanceof NotificationItem)) {
-					return;
+			vscode.commands.registerCommand('notification.markAsRead', async (options: any) => {
+				let threadId: string;
+				let notificationKey: string;
+				if (options instanceof NotificationItem) {
+					threadId = options.notification.id;
+					notificationKey = options.notification.key;
+				} else if ('threadId' in options && 'notificationKey' in options && typeof options.threadId === 'number' && typeof options.notificationKey === 'string') {
+					threadId = options.threadId;
+					notificationKey = options.notificationKey;
+				} else {
+					throw new Error(`Invalid arguments for command notification.markAsRead : ${JSON.stringify(options)}`);
 				}
 				/* __GDPR__
 					"notification.markAsRead" : {}
 				*/
 				this._telemetry.sendTelemetryEvent('notification.markAsRead');
-				return dataProvider.markAsRead(notification);
+				return dataProvider.markAsRead({ threadId, notificationKey });
 			})
 		);
 
 		// Events
-		this._repositoriesManager.onDidLoadAnyRepositories(() => {
+		onceEvent(this._repositoriesManager.onDidLoadAnyRepositories)(() => {
 			notificationsProvider.clearCache();
 			dataProvider.computeAndRefresh();
-		});
+		}, this, this._disposables);
 	}
 
 	dispose() {

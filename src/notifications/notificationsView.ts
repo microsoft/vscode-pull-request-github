@@ -55,13 +55,11 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 		item.description = `${notification.owner}/${notification.name}`;
 		item.contextValue = notification.subject.type;
 		item.resourceUri = toNotificationUri({ key: element.notification.key });
-
-		// TODO: Issue webview needs polish before we do this
-		// item.command = {
-		// 	command: 'pr.openDescription',
-		// 	title: 'Open Description',
-		// 	arguments: [element.model]
-		// };
+		item.command = {
+			command: 'notification.chatSummarizeNotification',
+			title: 'Summarize Notification',
+			arguments: [element]
+		};
 		return item;
 	}
 
@@ -116,8 +114,8 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 		this.computeAndRefresh();
 	}
 
-	async markAsRead(notification: NotificationItem): Promise<void> {
-		await this._notificationsProvider.markAsRead(notification);
+	async markAsRead(notificationIdentifier: { threadId: string, notificationKey: string }): Promise<void> {
+		await this._notificationsProvider.markAsRead(notificationIdentifier);
 		this._simpleRefresh();
 	}
 

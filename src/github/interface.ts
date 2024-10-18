@@ -82,11 +82,11 @@ export function reviewerId(reviewer: ITeam | IAccount): string {
 	return isTeam(reviewer) ? reviewer.id : reviewer.login;
 }
 
-export function reviewerLabel(reviewer: ITeam | IAccount | IActor): string {
+export function reviewerLabel(reviewer: ITeam | IAccount | IActor | any): string {
 	return isTeam(reviewer) ? (reviewer.name ?? reviewer.slug) : reviewer.login;
 }
 
-export function isTeam(reviewer: ITeam | IAccount | IActor): reviewer is ITeam {
+export function isTeam(reviewer: ITeam | IAccount | IActor | any): reviewer is ITeam {
 	return 'org' in reviewer;
 }
 
@@ -151,6 +151,7 @@ export interface IIssueComment {
 	body: string;
 	databaseId: number;
 	reactionCount: number;
+	createdAt: string;
 }
 
 export interface Issue {
