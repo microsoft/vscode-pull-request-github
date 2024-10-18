@@ -20,7 +20,7 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 
 	private _sortingMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
 
-	private _computeNotifications: boolean = false;
+	private _computeNotifications: boolean = true;
 
 	constructor(private readonly _notificationsProvider: NotificationsProvider, private readonly _notificationsManager: NotificationsManager) {
 		this._disposables.push(this._onDidChangeTreeData);
@@ -83,7 +83,7 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 		} else {
 			result = this._notificationsProvider.getNotifications();
 		}
-		this._computeNotifications = false;
+		this._computeNotifications = true;
 		if (result === undefined) {
 			return undefined;
 		}
