@@ -2456,6 +2456,11 @@
 					"group": "inline@0"
 				},
 				{
+					"command": "issue.chatSummarizeIssue",
+					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated",
+					"group": "inline@0"
+				},
+				{
 					"command": "issue.chatSuggestFix",
 					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
 					"group": "inline@1"

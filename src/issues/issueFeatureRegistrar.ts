@@ -24,6 +24,7 @@ import { RepositoriesManager } from '../github/repositoriesManager';
 import { ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../github/utils';
 import { ReviewManager } from '../view/reviewManager';
 import { ReviewsManager } from '../view/reviewsManager';
+import { PRNode } from '../view/treeNodes/pullRequestNode';
 import { CurrentIssue } from './currentIssue';
 import { IssueCompletionProvider } from './issueCompletionProvider';
 import {
@@ -487,14 +488,20 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		);
 		this.context.subscriptions.push(
 			vscode.commands.registerCommand('issue.chatSummarizeIssue', (issue: any) => {
-				if (!(issue instanceof IssueModel)) {
+				if (!(issue instanceof IssueModel || issue instanceof PRNode)) {
 					return;
 				}
 				/* __GDPR__
 				"issue.chatSummarizeIssue" : {}
 			*/
 				this.telemetry.sendTelemetryEvent('issue.chatSummarizeIssue');
-				commands.executeCommand(commands.OPEN_CHAT, vscode.l10n.t('@githubpr Summarize issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number));
+				if (issue instanceof IssueModel) {
+					commands.executeCommand(commands.OPEN_CHAT, vscode.l10n.t('@githubpr Summarize issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number));
+				} else {
+					const pullRequestModel = issue.pullRequestModel;
+					const remote = pullRequestModel.githubRepository.remote;
+					commands.executeCommand(commands.OPEN_CHAT, vscode.l10n.t('@githubpr Summarize PR {0}/{1}#{2}', remote.owner, remote.repositoryName, pullRequestModel.number));
+				}
 			}),
 		);
 		this.context.subscriptions.push(
