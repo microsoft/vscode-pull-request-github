@@ -192,7 +192,7 @@ export class PrsTreeModel implements vscode.Disposable {
 
 		const prs = (await folderRepoManager.getLocalPullRequests())
 			.filter(pr => pr.isOpen || (pr.isClosed && useReviewConfiguration.closed) || (pr.isMerged && useReviewConfiguration.merged));
-		cache.set(PRType.LocalPullRequest, { hasMorePages: false, hasUnsearchedRepositories: false, items: prs });
+		cache.set(PRType.LocalPullRequest, { hasMorePages: false, hasUnsearchedRepositories: false, items: prs, totalCount: prs.length });
 
 		/* __GDPR__
 			"pr.expand.local" : {}

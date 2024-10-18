@@ -79,6 +79,7 @@ const GRAPHQL_COMPONENT_ID = 'GraphQL';
 export interface ItemsData {
 	items: any[];
 	hasMorePages: boolean;
+	totalCount?: number;
 }
 
 export interface IssueData extends ItemsData {
@@ -562,6 +563,7 @@ export class GitHubRepository implements vscode.Disposable {
 				return {
 					items: [],
 					hasMorePages: false,
+					totalCount: 0
 				};
 			}
 
@@ -581,7 +583,7 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug(`Fetch all pull requests - done`, this.id);
 			return {
 				items: pullRequests,
-				hasMorePages,
+				hasMorePages
 			};
 		} catch (e) {
 			Logger.error(`Fetching all pull requests failed: ${e}`, this.id);
@@ -779,6 +781,7 @@ export class GitHubRepository implements vscode.Disposable {
 			return {
 				items: issues,
 				hasMorePages: data.search.pageInfo.hasNextPage,
+				totalCount: data.search.issueCount
 			};
 		} catch (e) {
 			Logger.error(`Unable to fetch issues with query: ${e}`, this.id);
@@ -928,6 +931,7 @@ export class GitHubRepository implements vscode.Disposable {
 			return {
 				items: pullRequests,
 				hasMorePages,
+				totalCount: data.total_count
 			};
 		} catch (e) {
 			Logger.error(`Fetching pull request with query failed: ${e}`, this.id);

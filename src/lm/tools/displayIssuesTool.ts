@@ -136,7 +136,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		}).join('\n'));
 
 		return {
-			[MimeTypes.textPlain]: `The issues have been shown to the user.`,
+			[MimeTypes.textPlain]: `The issues have been shown to the user. Simply say that you've already displayed the issue or issues.`,
 			[MimeTypes.textMarkdown]: issues.value,
 			[MimeTypes.textDisplay]: vscode.l10n.t('Here\'s a markdown table of the first 10 issues: ')
 		};
