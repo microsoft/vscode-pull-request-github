@@ -14,7 +14,7 @@ import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { hasEnterpriseUri, parseNotification } from '../github/utils';
 import { concatAsyncIterable } from '../lm/tools/toolsUtils';
-import { INotificationItem, NotificationsPaginationRange, NotificationsSortMethod } from './notificationItem';
+import { INotificationItem, NotificationFilterMethod, NotificationsPaginationRange, NotificationsSortMethod } from './notificationItem';
 import { NotificationItem, NotificationsManager, NotificationUpdate } from './notificationsManager';
 
 export class NotificationsProvider implements vscode.Disposable {
@@ -28,18 +28,34 @@ export class NotificationsProvider implements vscode.Disposable {
 	}
 
 	private _sortingMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
+
+	private _filterMethod: NotificationFilterMethod = NotificationFilterMethod.All;
+
 	public get sortingMethod(): NotificationsSortMethod { return this._sortingMethod; }
+
+	public get filterMethod(): NotificationFilterMethod { return this._filterMethod; }
+
 	public set sortingMethod(value: NotificationsSortMethod) {
 		if (this._sortingMethod === value) {
 			return;
 		}
+		this._sortingMethod = value;
+		this._onDidChangeSortingMethod.fire();
+	}
 
+	public set filterMethod(value: NotificationsSortMethod) {
+		if (this._sortingMethod === value) {
+			return;
+		}
 		this._sortingMethod = value;
 		this._onDidChangeSortingMethod.fire();
 	}
 
 	private readonly _onDidChangeSortingMethod = new vscode.EventEmitter<void>();
 	readonly onDidChangeSortingMethod = this._onDidChangeSortingMethod.event;
+
+	private readonly _onDidChangeFilterMethod = new vscode.EventEmitter<void>();
+	readonly onDidChangeFilterMethod = this._onDidChangeFilterMethod.event;
 
 	private _canLoadMoreNotifications: boolean = false;
 
@@ -65,6 +81,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		);
 
 		this._disposables.push(this._onDidChangeSortingMethod);
+		this._disposables.push(this._onDidChangeFilterMethod);
 	}
 
 	private _getGitHub(): GitHub | undefined {
@@ -97,7 +114,33 @@ export class NotificationsProvider implements vscode.Disposable {
 			return undefined;
 		}
 		const notifications = await this._getResolvedNotifications(gitHub);
-		const filteredNotifications = notifications.filter(notification => notification !== undefined) as INotificationItem[];
+		const filteredNotifications = this._filterNotifications(notifications);
+		return this._sortNotifications(filteredNotifications);
+	}
+
+	private _filterNotifications(notifications: (INotificationItem | undefined)[]): INotificationItem[] {
+		let filteredNotifications: INotificationItem[];
+		switch (this.filterMethod) {
+			case NotificationFilterMethod.All:
+				filteredNotifications = notifications.filter(notification => notification !== undefined);
+				break;
+			case NotificationFilterMethod.Open:
+				filteredNotifications = notifications.filter(notification => notification !== undefined && notification.model.isOpen) as INotificationItem[];
+				break;
+			case NotificationFilterMethod.Closed:
+				filteredNotifications = notifications.filter(notification => notification !== undefined && notification.model.isClosed) as INotificationItem[];
+				break;
+			case NotificationFilterMethod.Issues:
+				filteredNotifications = notifications.filter(notification => notification !== undefined && notification.model instanceof IssueModel) as INotificationItem[];
+				break;
+			case NotificationFilterMethod.PullRequests:
+				filteredNotifications = notifications.filter(notification => notification !== undefined && notification.model instanceof PullRequestModel) as INotificationItem[];
+				break;
+		}
+		return filteredNotifications;
+	}
+
+	private async _sortNotifications(notifications: INotificationItem[]): Promise<INotificationItem[]> {
 		if (this.sortingMethod === NotificationsSortMethod.Priority) {
 			const models = await vscode.lm.selectChatModels({
 				vendor: 'copilot',
@@ -106,13 +149,13 @@ export class NotificationsProvider implements vscode.Disposable {
 			const model = models[0];
 			if (model) {
 				try {
-					return this._sortNotificationsByLLMPriority(filteredNotifications, model);
+					return this._sortNotificationsByLLMPriority(notifications, model);
 				} catch (e) {
-					return this._sortNotificationsByTimestamp(filteredNotifications);
+					return this._sortNotificationsByTimestamp(notifications);
 				}
 			}
 		}
-		return this._sortNotificationsByTimestamp(filteredNotifications);
+		return this._sortNotificationsByTimestamp(notifications);
 	}
 
 	public getNotifications(): INotificationItem[] {
