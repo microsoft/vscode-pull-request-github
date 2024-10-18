@@ -129,7 +129,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		if (data.length < pageSize) {
 			this._canLoadMoreNotifications = false;
 		}
-		return Promise.all(data.map(async (notification: OctokitCommon.Notification): Promise<INotificationItem | undefined> => {
+		const notifications = await Promise.all(data.map(async (notification: OctokitCommon.Notification): Promise<INotificationItem | undefined> => {
 			const parsedNotification = parseNotification(notification);
 			if (!parsedNotification) {
 				return undefined;
@@ -143,9 +143,10 @@ export class NotificationsProvider implements vscode.Disposable {
 				return undefined;
 			}
 			const resolvedNotification = new NotificationItem(parsedNotification, model);
-			this._notificationsManager.setNotification(parsedNotification.key, resolvedNotification);
 			return resolvedNotification;
 		}));
+		this._notificationsManager.setNotifications(notifications.filter(notification => notification !== undefined) as NotificationItem[]);
+		return notifications;
 	}
 
 	private async _getNotificationModel(notification: Notification): Promise<IssueModel<Issue> | undefined> {
