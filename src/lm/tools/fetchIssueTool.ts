@@ -7,7 +7,7 @@
 import * as vscode from 'vscode';
 import { InMemFileChange } from '../../common/file';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { MimeTypes, RepoToolBase } from './toolsUtils';
+import { RepoToolBase } from './toolsUtils';
 
 interface FetchIssueToolParameters {
 	issueNumber: number;
@@ -56,9 +56,7 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 			}
 			result.fileChanges = fetchedFileChanges;
 		}
-		return {
-			[MimeTypes.textJson]: result
-		};
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(result))]);
 	}
 
 	async prepareToolInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchIssueToolParameters>): Promise<vscode.PreparedToolInvocation> {
