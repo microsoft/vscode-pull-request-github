@@ -73,9 +73,11 @@ export class NotificationsManager {
 	public async getNotifications(compute: boolean, pageCount: number): Promise<INotificationTreeItems | undefined> {
 		if (!compute) {
 			const notifications = Array.from(this._notifications.values());
+			const filteredNotifications = this._filterNotifications(notifications);
+			const sortedFilteredNotifications = this._sortNotifications(filteredNotifications);
 
 			return {
-				notifications: this._sortNotifications(notifications),
+				notifications: sortedFilteredNotifications,
 				hasNextPage: this._hasNextPage
 			};
 		}
@@ -97,11 +99,6 @@ export class NotificationsManager {
 
 			const model = await this._notificationProvider.getNotificationModel(notification);
 			if (!model) {
-				return;
-			}
-
-			const shouldFilter = this._shouldFilter(model);
-			if (shouldFilter) {
 				return;
 			}
 			notificationItems.set(notification.key, {
@@ -136,8 +133,11 @@ export class NotificationsManager {
 		const notifications = Array.from(this._notifications.values());
 		this._onDidChangeNotifications.fire(notifications);
 
+		const filteredNotifications = this._filterNotifications(notifications);
+		const sortedFilteredNotifications = this._sortNotifications(filteredNotifications);
+
 		return {
-			notifications: this._sortNotifications(notifications),
+			notifications: sortedFilteredNotifications,
 			hasNextPage: this._hasNextPage
 		};
 	}
@@ -170,10 +170,21 @@ export class NotificationsManager {
 		return notifications;
 	}
 
-	private _shouldFilter(model: IssueModel): boolean {
-		return (this.filterMethod === NotificationFilterMethod.Open && !model.isOpen)
-			|| (this.filterMethod === NotificationFilterMethod.Closed && !model.isClosed)
-			|| (this.filterMethod === NotificationFilterMethod.Issues && (model instanceof PullRequestModel))
-			|| (this.filterMethod === NotificationFilterMethod.PullRequests && !(model instanceof PullRequestModel));
+	private _filterNotifications(notifications: NotificationTreeItem[]): NotificationTreeItem[] {
+		return notifications.filter(notification => {
+			const model = notification.model;
+			switch (this._filterMethod) {
+				case NotificationFilterMethod.All:
+					return true;
+				case NotificationFilterMethod.Open:
+					return model.isOpen;
+				case NotificationFilterMethod.Closed:
+					return model.isClosed;
+				case NotificationFilterMethod.Issues:
+					return (model instanceof IssueModel) && !(model instanceof PullRequestModel);
+				case NotificationFilterMethod.PullRequests:
+					return model instanceof PullRequestModel;
+			}
+		});
 	}
 }
