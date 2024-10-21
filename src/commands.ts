@@ -27,7 +27,7 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, vscodeDevPrLink } from './github/utils';
-import { NotificationItem } from './notifications/notificationsManager';
+import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewCommentController } from './view/reviewCommentController';
 import { ReviewManager } from './view/reviewManager';
@@ -114,10 +114,10 @@ async function chooseItem<T>(
 	return (await vscode.window.showQuickPick(items, options))?.itemValue;
 }
 
-export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | PullRequestModel | NotificationItem, telemetry: ITelemetry) {
+export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | PullRequestModel | NotificationTreeItem, telemetry: ITelemetry) {
 	if (e instanceof PRNode || e instanceof DescriptionNode) {
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.html_url));
-	} else if (e instanceof NotificationItem) {
+	} else if (isNotificationTreeItem(e)) {
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.model.html_url));
 	} else {
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.html_url));
@@ -163,7 +163,7 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'notification.openOnGitHub',
-			async (e: NotificationItem | undefined) => {
+			async (e: NotificationTreeItem | undefined) => {
 				if (e) {
 					openPullRequestOnGitHub(e, telemetry);
 				}
