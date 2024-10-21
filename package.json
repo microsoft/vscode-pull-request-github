@@ -1506,6 +1506,31 @@
 				"category": "%command.notifications.category%"
 			},
 			{
+				"command": "notifications.filterByAll",
+				"title": "%command.notifications.filterByAll.title%",
+				"category": "%command.notifications.category%"
+			},
+			{
+				"command": "notifications.filterByOpen",
+				"title": "%command.notifications.filterByOpen.title%",
+				"category": "%command.notifications.category%"
+			},
+			{
+				"command": "notifications.filterByClosed",
+				"title": "%command.notifications.filterByClosed.title%",
+				"category": "%command.notifications.category%"
+			},
+			{
+				"command": "notifications.filterByIssues",
+				"title": "%command.notifications.filterByIssues.title%",
+				"category": "%command.notifications.category%"
+			},
+			{
+				"command": "notifications.filterByPullRequests",
+				"title": "%command.notifications.filterByPullRequests.title%",
+				"category": "%command.notifications.category%"
+			},
+			{
 				"command": "notification.openOnGitHub",
 				"title": "%command.notifications.openOnGitHub.title%",
 				"category": "%command.notifications.category%",
@@ -2159,6 +2184,26 @@
 					"when": "false"
 				},
 				{
+					"command": "notifications.filterByAll",
+					"when": "false"
+				},
+				{
+					"command": "notifications.filterByOpen",
+					"when": "false"
+				},
+				{
+					"command": "notifications.filterByClosed",
+					"when": "false"
+				},
+				{
+					"command": "notifications.filterByIssues",
+					"when": "false"
+				},
+				{
+					"command": "notifications.filterByPullRequests",
+					"when": "false"
+				},
+				{
 					"command": "notifications.loadMore",
 					"when": "false"
 				},
@@ -2294,6 +2339,31 @@
 					"command": "notifications.sortByPriority",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
 					"group": "sortNotifications@2"
+				},
+				{
+					"command": "notifications.filterByAll",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
+					"group": "sortNotifications@3"
+				},
+				{
+					"command": "notifications.filterByOpen",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
+					"group": "sortNotifications@4"
+				},
+				{
+					"command": "notifications.filterByClosed",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
+					"group": "sortNotifications@5"
+				},
+				{
+					"command": "notifications.filterByIssues",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
+					"group": "sortNotifications@6"
+				},
+				{
+					"command": "notifications.filterByPullRequests",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
+					"group": "sortNotifications@7"
 				},
 				{
 					"command": "notifications.refresh",

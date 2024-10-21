@@ -122,7 +122,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		let filteredNotifications: INotificationItem[];
 		switch (this.filterMethod) {
 			case NotificationFilterMethod.All:
-				filteredNotifications = notifications.filter(notification => notification !== undefined);
+				filteredNotifications = notifications.filter(notification => notification !== undefined) as INotificationItem[];
 				break;
 			case NotificationFilterMethod.Open:
 				filteredNotifications = notifications.filter(notification => notification !== undefined && notification.model.isOpen) as INotificationItem[];
@@ -131,7 +131,7 @@ export class NotificationsProvider implements vscode.Disposable {
 				filteredNotifications = notifications.filter(notification => notification !== undefined && notification.model.isClosed) as INotificationItem[];
 				break;
 			case NotificationFilterMethod.Issues:
-				filteredNotifications = notifications.filter(notification => notification !== undefined && notification.model instanceof IssueModel) as INotificationItem[];
+				filteredNotifications = notifications.filter(notification => notification !== undefined && notification.model instanceof IssueModel && !(notification.model instanceof PullRequestModel)) as INotificationItem[];
 				break;
 			case NotificationFilterMethod.PullRequests:
 				filteredNotifications = notifications.filter(notification => notification !== undefined && notification.model instanceof PullRequestModel) as INotificationItem[];

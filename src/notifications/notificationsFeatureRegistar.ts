@@ -10,7 +10,7 @@ import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { chatCommand } from '../lm/utils';
 import { NotificationsDecorationProvider } from './notificationDecorationProvider';
-import { NotificationsSortMethod } from './notificationItem';
+import { NotificationFilterMethod, NotificationsSortMethod } from './notificationItem';
 import { NotificationItem, NotificationsManager } from './notificationsManager';
 import { NotificationsProvider } from './notificationsProvider';
 import { NotificationsTreeData } from './notificationsView';
@@ -63,6 +63,71 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.sortByTimestamp');
 					notificationsProvider.sortingMethod = NotificationsSortMethod.Priority;
+				},
+				this,
+			),
+		);
+		this._disposables.push(
+			vscode.commands.registerCommand(
+				'notifications.filterByAll',
+				async () => {
+					/* __GDPR__
+						"notifications.filterByAll" : {}
+					*/
+					this._telemetry.sendTelemetryEvent('notifications.filterByAll');
+					notificationsProvider.filterMethod = NotificationFilterMethod.All;
+				},
+				this,
+			),
+		);
+		this._disposables.push(
+			vscode.commands.registerCommand(
+				'notifications.filterByOpen',
+				async () => {
+					/* __GDPR__
+						"notifications.filterByOpen" : {}
+					*/
+					this._telemetry.sendTelemetryEvent('notifications.filterByOpen');
+					notificationsProvider.filterMethod = NotificationFilterMethod.Open;
+				},
+				this,
+			),
+		);
+		this._disposables.push(
+			vscode.commands.registerCommand(
+				'notifications.filterByClosed',
+				async () => {
+					/* __GDPR__
+						"notifications.filterByClosed" : {}
+					*/
+					this._telemetry.sendTelemetryEvent('notifications.filterByClosed');
+					notificationsProvider.filterMethod = NotificationFilterMethod.Closed;
+				},
+				this,
+			),
+		);
+		this._disposables.push(
+			vscode.commands.registerCommand(
+				'notifications.filterByIssues',
+				async () => {
+					/* __GDPR__
+						"notifications.filterByIssues" : {}
+					*/
+					this._telemetry.sendTelemetryEvent('notifications.filterByIssues');
+					notificationsProvider.filterMethod = NotificationFilterMethod.Issues;
+				},
+				this,
+			),
+		);
+		this._disposables.push(
+			vscode.commands.registerCommand(
+				'notifications.filterByPullRequests',
+				async () => {
+					/* __GDPR__
+						"notifications.filterByPullRequests" : {}
+					*/
+					this._telemetry.sendTelemetryEvent('notifications.filterByPullRequests');
+					notificationsProvider.filterMethod = NotificationFilterMethod.PullRequests;
 				},
 				this,
 			),
