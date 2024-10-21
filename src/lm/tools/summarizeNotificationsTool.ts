@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { FetchNotificationResult } from './fetchNotificationTool';
-import { concatAsyncIterable, MimeTypes } from './toolsUtils';
+import { concatAsyncIterable, TOOL_COMMAND_RESULT } from './toolsUtils';
 
 export class NotificationSummarizationTool implements vscode.LanguageModelTool<FetchNotificationResult> {
 
@@ -65,15 +65,14 @@ Body: ${comment.body}
 			messages.push(vscode.LanguageModelChatMessage.User(notificationInfo));
 			const response = await model.sendRequest(messages, {});
 			const responseText = await concatAsyncIterable(response.text);
-			return {
-				[MimeTypes.textPlain]: responseText,
-				[MimeTypes.command]: markAsReadCommand
-			};
+
+			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
+			new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)),
+			new vscode.LanguageModelTextPart(responseText)]);
 		} else {
-			return {
-				[MimeTypes.textPlain]: notificationInfo,
-				[MimeTypes.command]: markAsReadCommand
-			};
+			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
+			new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)),
+			new vscode.LanguageModelTextPart(notificationInfo)]);
 		}
 	}
 

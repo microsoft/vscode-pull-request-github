@@ -10,7 +10,7 @@ import { reviewerLabel } from '../../github/interface';
 import { makeLabel } from '../../github/utils';
 import { ChatParticipantState } from '../participants';
 import { IssueSearchResultAccount, IssueSearchResultItem, SearchToolResult } from './searchTools';
-import { concatAsyncIterable, MimeTypes, ToolBase } from './toolsUtils';
+import { concatAsyncIterable, TOOL_MARKDOWN_RESULT, ToolBase } from './toolsUtils';
 
 export type DisplayIssuesParameters = SearchToolResult;
 
@@ -117,9 +117,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		let issueItemsInfo: string = this.chatParticipantState.firstUserMessage ?? '';
 		const issueItems: IssueSearchResultItem[] = options.parameters.arrayOfIssues;
 		if (issueItems.length === 0) {
-			return {
-				[MimeTypes.textPlain]: 'No issues found. Please try another query.'
-			};
+			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(vscode.l10n.t('No issues found. Please try another query.'))]);
 		}
 		Logger.debug(`Displaying ${issueItems.length} issues, first issue ${issueItems[0].number}`, DisplayIssuesTool.ID);
 		const importantColumns = await this.getImportantColumns(issueItemsInfo, issueItems, token);
@@ -135,11 +133,9 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 			return this.issueToRow(issue, importantColumns);
 		}).join('\n'));
 
-		return {
-			[MimeTypes.textPlain]: `The issues have been shown to the user. Simply say that you've already displayed the issue or issues.`,
-			[MimeTypes.textMarkdown]: issues.value,
-			[MimeTypes.textDisplay]: vscode.l10n.t('Here\'s a markdown table of the first 10 issues: ')
-		};
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_MARKDOWN_RESULT),
+		new vscode.LanguageModelTextPart(issues.value),
+		new vscode.LanguageModelTextPart(`The issues have been shown to the user. Simply say that you've already displayed the issue or first 10 issues.`)]);
 	}
 
 }

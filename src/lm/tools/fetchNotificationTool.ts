@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { InMemFileChange } from '../../common/file';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { getNotificationKey } from '../../github/utils';
-import { MimeTypes, RepoToolBase } from './toolsUtils';
+import { RepoToolBase } from './toolsUtils';
 
 interface FetchNotificationToolParameters {
 	thread_id: number;
@@ -92,8 +92,6 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 			}
 			result.fileChanges = fetchedFileChanges;
 		}
-		return {
-			[MimeTypes.textJson]: result
-		};
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(result))]);
 	}
 }

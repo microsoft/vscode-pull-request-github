@@ -3573,19 +3573,46 @@
 							"items": {
 								"type": "object",
 								"properties": {
-									"title": { "type": "string", "description": "The title of the issue." },
-									"number": { "type": "number", "description": "The number of the issue." },
-									"url": { "type": "string", "description": "The URL of the issue." },
-									"state": { "type": "string", "description": "The state of the issue (open/closed)." },
-									"createdAt": { "type": "string", "description": "The creation date of the issue." },
-									"updatedAt": { "type": "string", "description": "The last update date of the issue." },
-									"closedAt": { "type": "string", "description": "The closing date of the issue." },
+									"title": {
+										"type": "string",
+										"description": "The title of the issue."
+									},
+									"number": {
+										"type": "number",
+										"description": "The number of the issue."
+									},
+									"url": {
+										"type": "string",
+										"description": "The URL of the issue."
+									},
+									"state": {
+										"type": "string",
+										"description": "The state of the issue (open/closed)."
+									},
+									"createdAt": {
+										"type": "string",
+										"description": "The creation date of the issue."
+									},
+									"updatedAt": {
+										"type": "string",
+										"description": "The last update date of the issue."
+									},
+									"closedAt": {
+										"type": "string",
+										"description": "The closing date of the issue."
+									},
 									"author": {
 										"type": "object",
 										"description": "The author of the issue.",
 										"properties": {
-											"login": { "type": "string", "description": "The login of the author." },
-											"url": { "type": "string", "description": "The URL of the author's profile." }
+											"login": {
+												"type": "string",
+												"description": "The login of the author."
+											},
+											"url": {
+												"type": "string",
+												"description": "The URL of the author's profile."
+											}
 										}
 									},
 									"labels": {
@@ -3594,8 +3621,14 @@
 										"items": {
 											"type": "object",
 											"properties": {
-												"name": { "type": "string", "description": "The name of the label." },
-												"color": { "type": "string", "description": "The color of the label." }
+												"name": {
+													"type": "string",
+													"description": "The name of the label."
+												},
+												"color": {
+													"type": "string",
+													"description": "The color of the label."
+												}
 											}
 										}
 									},
@@ -3605,8 +3638,14 @@
 										"items": {
 											"type": "object",
 											"properties": {
-												"login": { "type": "string", "description": "The login of the assignee." },
-												"url": { "type": "string", "description": "The URL of the assignee's profile." }
+												"login": {
+													"type": "string",
+													"description": "The login of the assignee."
+												},
+												"url": {
+													"type": "string",
+													"description": "The URL of the assignee's profile."
+												}
 											}
 										}
 									},
@@ -3735,7 +3774,7 @@
 		"@octokit/rest": "18.2.1",
 		"@octokit/types": "6.10.1",
 		"@vscode/extension-telemetry": "0.7.5",
-		"@vscode/prompt-tsx": "^0.2.11-alpha",
+		"@vscode/prompt-tsx": "^0.3.0-alpha",
 		"apollo-boost": "^0.4.9",
 		"apollo-link-context": "1.0.20",
 		"cockatiel": "^3.1.1",
@@ -3749,6 +3788,7 @@
 		"react": "^16.12.0",
 		"react-dom": "^16.12.0",
 		"ssh-config": "4.1.1",
+		"stream-http": "^3.2.0",
 		"tunnel": "0.0.6",
 		"url-search-params-polyfill": "^8.1.1",
 		"uuid": "8.3.2",
