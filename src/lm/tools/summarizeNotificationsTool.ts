@@ -9,6 +9,7 @@ import { FetchNotificationResult } from './fetchNotificationTool';
 import { concatAsyncIterable, TOOL_COMMAND_RESULT } from './toolsUtils';
 
 export class NotificationSummarizationTool implements vscode.LanguageModelTool<FetchNotificationResult> {
+	public static readonly toolId = 'github-pull-request_notification_summarize';
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchNotificationResult>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		let notificationInfo: string = '';
@@ -104,4 +105,5 @@ Both 'Unread Thread' and 'Unread Comments' should not appear at the same time as
 <comments>
 `;
 	}
+
 }

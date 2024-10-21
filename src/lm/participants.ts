@@ -154,13 +154,9 @@ export class ChatParticipant implements vscode.Disposable {
 				for (const toolCall of toolCalls) {
 					let toolCallResult = (await toolCall.result);
 
-					// const plainText = toolCallResult[MimeTypes.textPlain];
-					// const markdown: string = toolCallResult[MimeTypes.textMarkdown];
-					// const json: JSON = toolCallResult[MimeTypes.textJson];
-					// const display = toolCallResult[MimeTypes.textDisplay]; // our own fake type that we use to indicate something that should be streamed to the user
-					// const command = toolCallResult[MimeTypes.command]; // our own fake type that we use to indicate something that should be executed as a command
 					const additionalContent: string[] = [];
 					let result: vscode.LanguageModelToolResultPart | undefined;
+
 					for (let i = 0; i < toolCallResult.content.length; i++) {
 						const part = toolCallResult.content[i];
 						if (!(part instanceof vscode.LanguageModelTextPart)) {
