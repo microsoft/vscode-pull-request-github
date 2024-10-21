@@ -12,10 +12,13 @@ import { hasEnterpriseUri } from '../../github/utils';
 import { ChatParticipantState } from '../participants';
 
 export interface IToolCall {
-	tool: vscode.LanguageModelToolDescription;
+	tool: vscode.LanguageModelToolInformation;
 	call: vscode.LanguageModelToolCallPart;
 	result: Thenable<vscode.LanguageModelToolResult>;
 }
+
+export const TOOL_MARKDOWN_RESULT = 'TOOL_MARKDOWN_RESULT';
+export const TOOL_COMMAND_RESULT = 'TOOL_COMMAND_RESULT';
 
 export interface IssueToolParameters {
 	issueNumber: number;
@@ -44,14 +47,6 @@ export async function concatAsyncIterable(asyncIterable: AsyncIterable<string>):
 		result += chunk;
 	}
 	return result;
-}
-
-export const enum MimeTypes {
-	textPlain = 'text/plain',
-	textMarkdown = 'text/markdown',
-	textJson = 'text/json',
-	textDisplay = 'text/display', // our own made up mime type for stuff that should be shown in chat to the user
-	command = 'command', // our own made up mime type for commands that should be executed from buttons in the stream
 }
 
 export abstract class RepoToolBase<T> extends ToolBase<T> {
