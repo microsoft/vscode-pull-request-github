@@ -3159,9 +3159,6 @@
 						"issueNumber"
 					]
 				},
-				"supportedContentTypes": [
-					"text/json"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
@@ -3187,9 +3184,6 @@
 						"thread_id"
 					]
 				},
-				"supportedContentTypes": [
-					"text/json"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
@@ -3579,10 +3573,15 @@
 								"commentCount",
 								"reactionCount"
 							]
+						},
+						"totalIssues": {
+							"type": "number",
+							"description": "The total number of issues in the search."
 						}
 					},
 					"required": [
-						"issues"
+						"arrayOfIssues",
+						"totalIssues"
 					]
 				},
 				"when": "config.githubPullRequests.experimental.chat"

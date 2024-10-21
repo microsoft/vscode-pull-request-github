@@ -9,6 +9,7 @@ import { FetchIssueResult } from './fetchIssueTool';
 import { concatAsyncIterable } from './toolsUtils';
 
 export class IssueSummarizationTool implements vscode.LanguageModelTool<FetchIssueResult> {
+	public static readonly toolId = 'github-pull-request_issue_summarize';
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchIssueResult>): Promise<vscode.PreparedToolInvocation> {
 		if (!options.parameters.title) {
@@ -74,4 +75,5 @@ Do not output code. When you try to summarize PR changes, write in a textual for
 Make sure the summary is at least as short or shorter than the issue or PR with the comments and the patches if there are.
 `;
 	}
+
 }

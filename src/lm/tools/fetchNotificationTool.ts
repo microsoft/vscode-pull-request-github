@@ -34,6 +34,7 @@ export interface FetchNotificationResult {
 }
 
 export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolParameters> {
+	public static readonly toolId = 'github-pull-request_notification_fetch';
 
 	async prepareInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<FetchNotificationToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		return {
@@ -102,4 +103,5 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 		new vscode.LanguageModelTextPart('Above is a stringified JSON representation of the notification. This can be passed to other tools for further processing or display.')
 		]);
 	}
+
 }

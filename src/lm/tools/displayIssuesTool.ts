@@ -21,7 +21,8 @@ You are an expert on GitHub issues. You can help the user identify the most impo
 `;
 
 export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
-	static ID = 'DisplayIssuesTool';
+	public static readonly toolId = 'github-pull-request_renderIssues';
+	private static ID = 'DisplayIssuesTool';
 	constructor(chatParticipantState: ChatParticipantState) {
 		super(chatParticipantState);
 	}
@@ -75,7 +76,11 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 			return ['number', 'title', 'state'];
 		} else if (indexOfUrl >= 0) {
 			// Never include the url column
-			result[indexOfUrl] = 'number';
+			if (result.indexOf('number') >= 0) {
+				result.splice(indexOfUrl, 1);
+			} else {
+				result[indexOfUrl] = 'number';
+			}
 		}
 
 		return result;
@@ -107,9 +112,9 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		}).join(' | ')} |`;
 	}
 
-	async prepareInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<DisplayIssuesParameters>): Promise<vscode.PreparedToolInvocation> {
+	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<DisplayIssuesParameters>): Promise<vscode.PreparedToolInvocation> {
 		return {
-			invocationMessage: vscode.l10n.t('Generating markdown table of issues'),
+			invocationMessage: vscode.l10n.t('Found {0} issues. Generating a markdown table of the first 10', options.parameters.totalIssues)
 		};
 	}
 

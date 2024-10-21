@@ -32,6 +32,8 @@ export interface FetchIssueResult {
 }
 
 export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
+	public static readonly toolId = 'github-pull-request_issue_fetch';
+
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchIssueToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult> {
 		const { owner, name, folderManager } = this.getRepoInfo({ owner: options.parameters.repo?.owner, name: options.parameters.repo?.name });
 		const issueOrPullRequest = await folderManager.resolveIssueOrPullRequest(owner, name, options.parameters.issueNumber);
@@ -72,5 +74,6 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 		return {
 			invocationMessage: url ? vscode.l10n.t('Fetching item [#{0}]({1}) from GitHub', options.parameters.issueNumber, url) : vscode.l10n.t('Fetching item #{0} from GitHub', options.parameters.issueNumber),
 		};
+
 	}
 }

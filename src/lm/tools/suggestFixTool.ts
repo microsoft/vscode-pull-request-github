@@ -9,6 +9,8 @@ import { RepositoriesManager } from '../../github/repositoriesManager';
 import { IssueResult, IssueToolParameters } from './toolsUtils';
 
 export class SuggestFixTool implements vscode.LanguageModelTool<IssueToolParameters> {
+	public static readonly toolId = 'github-pull-request_suggest-fix';
+
 	constructor(private readonly repositoriesManager: RepositoriesManager) { }
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<IssueToolParameters>): Promise<vscode.PreparedToolInvocation> {
@@ -73,5 +75,6 @@ export class SuggestFixTool implements vscode.LanguageModelTool<IssueToolParamet
 		}
 		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(responseResult)]);
 	}
+
 
 }
