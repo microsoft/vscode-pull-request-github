@@ -106,17 +106,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 		);
 		this._disposables.push(
 			vscode.commands.registerCommand('notification.markAsRead', (options: any) => {
-				let threadId: string;
-				let notificationKey: string;
-				if (isNotificationTreeItem(options)) {
-					threadId = options.notification.id;
-					notificationKey = options.notification.key;
-				} else if ('threadId' in options && 'notificationKey' in options && typeof options.threadId === 'number' && typeof options.notificationKey === 'string') {
-					threadId = options.threadId;
-					notificationKey = options.notificationKey;
-				} else {
-					throw new Error(`Invalid arguments for command notification.markAsRead : ${JSON.stringify(options)}`);
-				}
+				const { threadId, notificationKey } = this._extractMarkAsCommandOptions(options);
 				/* __GDPR__
 					"notification.markAsRead" : {}
 				*/
@@ -126,17 +116,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 		);
 		this._disposables.push(
 			vscode.commands.registerCommand('notification.markAsDone', (options: any) => {
-				let threadId: string;
-				let notificationKey: string;
-				if (isNotificationTreeItem(options)) {
-					threadId = options.notification.id;
-					notificationKey = options.notification.key;
-				} else if ('threadId' in options && 'notificationKey' in options && typeof options.threadId === 'number' && typeof options.notificationKey === 'string') {
-					threadId = options.threadId;
-					notificationKey = options.notificationKey;
-				} else {
-					throw new Error(`Invalid arguments for command notification.markAsDone : ${JSON.stringify(options)}`);
-				}
+				const { threadId, notificationKey } = this._extractMarkAsCommandOptions(options);
 				/* __GDPR__
 					"notification.markAsDone" : {}
 				*/
@@ -150,6 +130,21 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 			notificationsManager.clear();
 			dataProvider.refresh(true);
 		}, this, this._disposables);
+	}
+
+	private _extractMarkAsCommandOptions(options: any): { threadId: string, notificationKey: string } {
+		let threadId: string;
+		let notificationKey: string;
+		if (isNotificationTreeItem(options)) {
+			threadId = options.notification.id;
+			notificationKey = options.notification.key;
+		} else if ('threadId' in options && 'notificationKey' in options && typeof options.threadId === 'number' && typeof options.notificationKey === 'string') {
+			threadId = options.threadId;
+			notificationKey = options.notificationKey;
+		} else {
+			throw new Error(`Invalid arguments for command : ${JSON.stringify(options)}`);
+		}
+		return { threadId, notificationKey };
 	}
 
 	dispose() {

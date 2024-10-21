@@ -51,21 +51,17 @@ Body: ${comment.body}
 			family: 'gpt-4o'
 		});
 		const model = models[0];
+		const threadId = options.parameters.threadId;
+		const notificationKey = options.parameters.notificationKey;
 		const markAsReadCommand: vscode.Command = {
 			title: 'Mark As Read',
 			command: 'notification.markAsRead',
-			arguments: [{
-				threadId: options.parameters.threadId,
-				notificationKey: options.parameters.notificationKey
-			}]
+			arguments: [{ threadId, notificationKey }]
 		};
 		const markAsDoneCommand: vscode.Command = {
 			title: 'Mark As Done',
 			command: 'notification.markAsDone',
-			arguments: [{
-				threadId: options.parameters.threadId,
-				notificationKey: options.parameters.notificationKey
-			}]
+			arguments: [{ threadId, notificationKey }]
 		};
 		if (model) {
 			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions())];

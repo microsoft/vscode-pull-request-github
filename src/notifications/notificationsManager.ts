@@ -141,7 +141,6 @@ export class NotificationsManager {
 
 	public async markAsDone(notificationIdentifier: { threadId: string, notificationKey: string }): Promise<void> {
 		await this._notificationProvider.markAsDone(notificationIdentifier);
-
 		const notification = this._notifications.get(notificationIdentifier.notificationKey);
 		if (notification) {
 			this._onDidChangeNotifications.fire([notification]);
