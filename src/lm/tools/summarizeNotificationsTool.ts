@@ -63,6 +63,12 @@ Body: ${comment.body}
 			command: 'notification.markAsDone',
 			arguments: [{ threadId, notificationKey }]
 		};
+		const commands = [
+			new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
+			new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)),
+			new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
+			new vscode.LanguageModelTextPart(JSON.stringify(markAsDoneCommand)),
+		];
 		if (model) {
 			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions())];
 			messages.push(vscode.LanguageModelChatMessage.User(`The notification information is as follows:`));
@@ -70,15 +76,13 @@ Body: ${comment.body}
 			const response = await model.sendRequest(messages, {});
 			const responseText = await concatAsyncIterable(response.text);
 
-			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
-			new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)),
-			new vscode.LanguageModelTextPart(JSON.stringify(markAsDoneCommand)),
-			new vscode.LanguageModelTextPart(responseText)]);
+			return new vscode.LanguageModelToolResult([
+				...commands,
+				new vscode.LanguageModelTextPart(responseText)]);
 		} else {
-			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
-			new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)),
-			new vscode.LanguageModelTextPart(JSON.stringify(markAsDoneCommand)),
-			new vscode.LanguageModelTextPart(notificationInfo)]);
+			return new vscode.LanguageModelToolResult([
+				...commands,
+				new vscode.LanguageModelTextPart(notificationInfo)]);
 		}
 	}
 
