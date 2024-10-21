@@ -59,6 +59,14 @@ Body: ${comment.body}
 				notificationKey: options.parameters.notificationKey
 			}]
 		};
+		const markAsDoneCommand: vscode.Command = {
+			title: 'Mark As Done',
+			command: 'notification.markAsDone',
+			arguments: [{
+				threadId: options.parameters.threadId,
+				notificationKey: options.parameters.notificationKey
+			}]
+		};
 		if (model) {
 			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions())];
 			messages.push(vscode.LanguageModelChatMessage.User(`The notification information is as follows:`));
@@ -68,10 +76,12 @@ Body: ${comment.body}
 
 			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
 			new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)),
+			new vscode.LanguageModelTextPart(JSON.stringify(markAsDoneCommand)),
 			new vscode.LanguageModelTextPart(responseText)]);
 		} else {
 			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
 			new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)),
+			new vscode.LanguageModelTextPart(JSON.stringify(markAsDoneCommand)),
 			new vscode.LanguageModelTextPart(notificationInfo)]);
 		}
 	}

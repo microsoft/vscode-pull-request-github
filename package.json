@@ -1522,6 +1522,12 @@
 				"title": "%command.notifications.markAsRead.title%",
 				"category": "%command.notifications.category%",
 				"icon": "$(check)"
+			},
+			{
+				"command": "notification.markAsDone",
+				"title": "%command.notifications.markAsDone.title%",
+				"category": "%command.notifications.category%",
+				"icon": "$(check)"
 			}
 		],
 		"viewsWelcome": [
@@ -2175,6 +2181,10 @@
 					"when": "false"
 				},
 				{
+					"command": "notification.markAsDone",
+					"when": "false"
+				},
+				{
 					"command": "notification.chatSummarizeNotification",
 					"when": "false"
 				}
@@ -2355,6 +2365,16 @@
 				{
 					"command": "notification.markAsRead",
 					"group": "issues_0@2",
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
+				},
+				{
+					"command": "notification.markAsDone",
+					"group": "inline@4",
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
+				},
+				{
+					"command": "notification.markAsDone",
+					"group": "issues_0@3",
 					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
 				},
 				{
@@ -3677,8 +3697,8 @@
 		"webpack-cli": "4.2.0"
 	},
 	"dependencies": {
-		"@octokit/rest": "18.2.1",
-		"@octokit/types": "6.10.1",
+		"@octokit/rest": "20.1.0",
+		"@octokit/types": "13.1.0",
 		"@vscode/extension-telemetry": "0.7.5",
 		"@vscode/prompt-tsx": "^0.3.0-alpha",
 		"apollo-boost": "^0.4.9",

@@ -288,6 +288,7 @@
 	"command.notifications.sortByPriority.title": "Sort by Priority using Copilot",
 	"command.notifications.openOnGitHub.title": "Open on GitHub",
 	"command.notifications.markAsRead.title": "Mark as Read",
+	"command.notifications.markAsDone.title": "Mark as Done",
 	"command.notification.chatSummarizeNotification.title": "Summarize With Copilot",
 	"welcome.github.login.contents": {
 		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)",

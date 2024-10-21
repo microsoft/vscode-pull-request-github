@@ -109,6 +109,11 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 		this.refresh(false);
 	}
 
+	async markAsDone(notificationIdentifier: { threadId: string, notificationKey: string }): Promise<void> {
+		await this._notificationsManager.markAsDone(notificationIdentifier);
+		this.refresh(false);
+	}
+
 	dispose() {
 		dispose(this._disposables);
 	}

@@ -124,6 +124,26 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 				dataProvider.markAsRead({ threadId, notificationKey });
 			})
 		);
+		this._disposables.push(
+			vscode.commands.registerCommand('notification.markAsDone', (options: any) => {
+				let threadId: string;
+				let notificationKey: string;
+				if (isNotificationTreeItem(options)) {
+					threadId = options.notification.id;
+					notificationKey = options.notification.key;
+				} else if ('threadId' in options && 'notificationKey' in options && typeof options.threadId === 'number' && typeof options.notificationKey === 'string') {
+					threadId = options.threadId;
+					notificationKey = options.notificationKey;
+				} else {
+					throw new Error(`Invalid arguments for command notification.markAsDone : ${JSON.stringify(options)}`);
+				}
+				/* __GDPR__
+					"notification.markAsDone" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('notification.markAsDone');
+				dataProvider.markAsDone({ threadId, notificationKey });
+			})
+		);
 
 		// Events
 		onceEvent(this._repositoriesManager.onDidLoadAnyRepositories)(() => {

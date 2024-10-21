@@ -139,6 +139,16 @@ export class NotificationsManager {
 		}
 	}
 
+	public async markAsDone(notificationIdentifier: { threadId: string, notificationKey: string }): Promise<void> {
+		await this._notificationProvider.markAsDone(notificationIdentifier);
+
+		const notification = this._notifications.get(notificationIdentifier.notificationKey);
+		if (notification) {
+			this._onDidChangeNotifications.fire([notification]);
+			this._notifications.delete(notificationIdentifier.notificationKey);
+		}
+	}
+
 	private _sortNotifications(notifications: NotificationTreeItem[]): NotificationTreeItem[] {
 		if (this._sortingMethod === NotificationsSortMethod.Timestamp) {
 			return notifications.sort((n1, n2) => n2.notification.updatedAd.getTime() - n1.notification.updatedAd.getTime());
