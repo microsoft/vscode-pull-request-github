@@ -54,9 +54,9 @@ export class NotificationsDecorationProvider implements vscode.FileDecorationPro
 		}
 
 		// Limit the length of the priority badge to two characters
-		const priorityData = this._notificationsManager.getNotification(notificationUriParams.key)?.getPriority();
-		const priority = priorityData?.priority === '100' ? '99' : priorityData?.priority ?? '0';
+		const notification = this._notificationsManager.getNotification(notificationUriParams.key);
+		const priority = notification?.priority === '100' ? '99' : notification?.priority ?? '0';
 
-		return { badge: priority, tooltip: priorityData?.priorityReasoning };
+		return { badge: priority, tooltip: notification?.priorityReason };
 	}
 }

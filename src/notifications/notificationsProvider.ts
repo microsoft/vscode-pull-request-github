@@ -14,12 +14,17 @@ import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { hasEnterpriseUri, parseNotification } from '../github/utils';
 import { concatAsyncIterable } from '../lm/tools/toolsUtils';
-import { INotificationItem } from './notificationItem';
-import { NotificationUpdate } from './notificationsManager';
+import { NotificationTreeItem } from './notificationItem';
 
-export interface INotificationItems {
-	readonly notifications: INotificationItem[];
+export interface INotifications {
+	readonly notifications: Notification[];
 	readonly hasNextPage: boolean;
+}
+
+export interface INotificationPriority {
+	readonly key: string;
+	readonly priority: string | undefined;
+	readonly priorityReasoning: string | undefined;
 }
 
 export class NotificationsProvider implements vscode.Disposable {
@@ -64,7 +69,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		});
 	}
 
-	public async computeNotifications(pageCount: number): Promise<{ notifications: Notification[], hasNextPage: boolean } | undefined> {
+	public async computeNotifications(pageCount: number): Promise<INotifications | undefined> {
 		const gitHub = this._getGitHub();
 		if (gitHub === undefined) {
 			return undefined;
@@ -73,7 +78,7 @@ export class NotificationsProvider implements vscode.Disposable {
 			return undefined;
 		}
 
-		const notificationPromises: Promise<{ notifications: Notification[], hasNextPage: boolean }>[] = [];
+		const notificationPromises: Promise<INotifications>[] = [];
 		for (let i = 1; i <= pageCount; i++) {
 			notificationPromises.push(this._getNotificationsPage(gitHub, i));
 		}
@@ -82,23 +87,6 @@ export class NotificationsProvider implements vscode.Disposable {
 		const hasNextPage = notifications[pageCount - 1].hasNextPage;
 
 		return { notifications: notifications.flatMap(n => n.notifications), hasNextPage };
-
-		// const filteredNotifications = notifications.filter(notification => notification !== undefined) as INotificationItem[];
-		// if (this.sortingMethod === NotificationsSortMethod.Priority) {
-		// 	const models = await vscode.lm.selectChatModels({
-		// 		vendor: 'copilot',
-		// 		family: 'gpt-4o'
-		// 	});
-		// 	const model = models[0];
-		// 	if (model) {
-		// 		try {
-		// 			return this._sortNotificationsByLLMPriority(filteredNotifications, model);
-		// 		} catch (e) {
-		// 			return this._sortNotificationsByTimestamp(filteredNotifications);
-		// 		}
-		// 	}
-		// }
-		// return this._sortNotificationsByTimestamp(filteredNotifications);
 	}
 
 	private async _getNotificationsPage(gitHub: GitHub, pageNumber: number): Promise<{ notifications: Notification[]; hasNextPage: boolean }> {
@@ -132,24 +120,19 @@ export class NotificationsProvider implements vscode.Disposable {
 		return model;
 	}
 
-	private async _sortNotificationsByLLMPriority(notifications: INotificationItem[], model: vscode.LanguageModelChat): Promise<INotificationItem[]> {
-		const sortByPriority = (r1: INotificationItem, r2: INotificationItem): number => {
-			const priority1 = Number(r1.getPriority()?.priority);
-			const priority2 = Number(r2.getPriority()?.priority);
-			return priority2 - priority1;
-		};
+	async getNotificationsPriority(notifications: NotificationTreeItem[]): Promise<INotificationPriority[]> {
 		const notificationBatchSize = 5;
-		const notificationBatches: INotificationItem[][] = [];
+		const notificationBatches: NotificationTreeItem[][] = [];
 		for (let i = 0; i < notifications.length; i += notificationBatchSize) {
 			notificationBatches.push(notifications.slice(i, i + notificationBatchSize));
 		}
-		const prioritizedBatches = await Promise.all(notificationBatches.map(batch => this._prioritizeNotificationBatchWithLLM(batch, model)));
-		const prioritizedNotifications = prioritizedBatches.flat();
-		const sortedPrioritizedNotifications = prioritizedNotifications.sort((r1, r2) => sortByPriority(r1, r2));
-		return sortedPrioritizedNotifications;
+
+		const models = await vscode.lm.selectChatModels({ vendor: 'copilot', family: 'gpt-4o' });
+		const prioritizedBatches = await Promise.all(notificationBatches.map(batch => this._prioritizeNotificationBatch(batch, models[0])));
+		return prioritizedBatches.flat();
 	}
 
-	private async _prioritizeNotificationBatchWithLLM(notifications: INotificationItem[], model: vscode.LanguageModelChat): Promise<INotificationItem[]> {
+	private async _prioritizeNotificationBatch(notifications: NotificationTreeItem[], model: vscode.LanguageModelChat): Promise<INotificationPriority[]> {
 		try {
 			const userLogin = (await this._credentialStore.getCurrentUser(AuthProvider.github)).login;
 			const messages = [vscode.LanguageModelChatMessage.User(getPrioritizeNotificationsInstructions(userLogin))];
@@ -166,8 +149,8 @@ export class NotificationsProvider implements vscode.Disposable {
 			messages.push(vscode.LanguageModelChatMessage.User('Please provide the priority for each notification in a separate text code block. Remember to place the title and the reasoning outside of the text code block.'));
 			const response = await model.sendRequest(messages, {});
 			const responseText = await concatAsyncIterable(response.text);
-			const updatedNotifications = this._updateNotificationsWithPriorityFromLLM(notifications, responseText);
-			return updatedNotifications;
+
+			return this._updateNotificationsWithPriorityFromLLM(notifications, responseText);
 		} catch (e) {
 			console.log(e);
 			return [];
@@ -230,27 +213,27 @@ ${comment.body}
 		return commentsMessage;
 	}
 
-	private _updateNotificationsWithPriorityFromLLM(notifications: INotificationItem[], text: string): INotificationItem[] {
+	private _updateNotificationsWithPriorityFromLLM(notifications: NotificationTreeItem[], text: string): INotificationPriority[] {
 		const regexReasoning = /```text\s*[\s\S]+?\s*=\s*([\S]+?)\s*```/gm;
 		const regexPriorityReasoning = /```(?!text)([\s\S]+?)(###|$)/g;
-		const updates: NotificationUpdate[] = [];
+
+		const updates: INotificationPriority[] = [];
 		for (let i = 0; i < notifications.length; i++) {
 			const execResultForPriority = regexReasoning.exec(text);
+
 			if (execResultForPriority) {
-				const update: NotificationUpdate = {
-					priority: execResultForPriority[1],
-					priorityReasoning: '',
-					key: notifications[i].notification.key
-				};
-				updates.push(update);
 				const execResultForPriorityReasoning = regexPriorityReasoning.exec(text);
-				if (execResultForPriorityReasoning) {
-					update.priorityReasoning = execResultForPriorityReasoning[1].trim();
-				}
+
+				updates.push({
+					key: notifications[i].notification.key,
+					priority: execResultForPriority[1],
+					priorityReasoning: execResultForPriorityReasoning ?
+						execResultForPriorityReasoning[1].trim() : undefined
+				});
 			}
 		}
-		// this._notificationsManager.updateNotificationPriority(updates);
-		return notifications;
+
+		return updates;
 	}
 
 	dispose() {

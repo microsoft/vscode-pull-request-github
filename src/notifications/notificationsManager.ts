@@ -5,53 +5,16 @@
 
 import * as vscode from 'vscode';
 import { dispose } from '../common/utils';
-import { Notification } from '../github/interface';
-import { IssueModel } from '../github/issueModel';
-import { INotificationItem, NotificationsSortMethod } from './notificationItem';
+import { NotificationsSortMethod, NotificationTreeItem } from './notificationItem';
 import { NotificationsProvider } from './notificationsProvider';
 
-export class NotificationItem implements INotificationItem {
-	private _priority: string | undefined;
-	private _priorityReasoning: string | undefined;
-
-	get priority() {
-		return this._priority;
-	}
-	set priority(value: string | undefined) {
-		if (this._priority !== value) {
-			this._priority = value;
-		}
-	}
-
-	get priorityReasoning() {
-		return this._priorityReasoning;
-	}
-	set priorityReasoning(value: string | undefined) {
-		if (this._priorityReasoning !== value) {
-			this._priorityReasoning = value;
-		}
-	}
-
-	getPriority(): { priority: string; priorityReasoning: string; } | undefined {
-		if (this._priority && this._priorityReasoning) {
-			return { priority: this._priority, priorityReasoning: this._priorityReasoning };
-		}
-	}
-
-	constructor(
-		public readonly notification: Notification,
-		readonly model: IssueModel
-	) { }
-}
-
-export interface NotificationUpdate {
-	key: string;
-	priority: string | undefined;
-	priorityReasoning: string | undefined;
+export interface INotificationTreeItems {
+	readonly notifications: NotificationTreeItem[];
+	readonly hasNextPage: boolean
 }
 
 export class NotificationsManager {
-	private readonly _onDidChangeNotifications = new vscode.EventEmitter<INotificationItem[]>();
+	private readonly _onDidChangeNotifications = new vscode.EventEmitter<NotificationTreeItem[]>();
 	readonly onDidChangeNotifications = this._onDidChangeNotifications.event;
 
 	private _sortingMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
@@ -69,7 +32,7 @@ export class NotificationsManager {
 	readonly onDidChangeSortingMethod = this._onDidChangeSortingMethod.event;
 
 	private _hasNextPage: boolean = false;
-	private _notifications = new Map<string, NotificationItem>();
+	private _notifications = new Map<string, NotificationTreeItem>();
 
 	private readonly _disposable: vscode.Disposable[] = [];
 
@@ -90,7 +53,7 @@ export class NotificationsManager {
 		this._onDidChangeNotifications.fire(updates);
 	}
 
-	public async getNotifications(compute: boolean, pageCount: number): Promise<{ notifications: INotificationItem[]; hasNextPage: boolean } | undefined> {
+	public async getNotifications(compute: boolean, pageCount: number): Promise<INotificationTreeItems | undefined> {
 		if (!compute) {
 			const notifications = Array.from(this._notifications.values());
 
@@ -107,7 +70,7 @@ export class NotificationsManager {
 		}
 
 		// Resolve notifications
-		const notificationItems = new Map<string, NotificationItem>();
+		const notificationItems = new Map<string, NotificationTreeItem>();
 		await Promise.all(notificationsData.notifications.map(async notification => {
 			const cachedNotification = this._notifications.get(notification.key);
 			if (cachedNotification && cachedNotification.notification.updatedAd.getTime() === notification.updatedAd.getTime()) {
@@ -120,8 +83,31 @@ export class NotificationsManager {
 				return;
 			}
 
-			notificationItems.set(notification.key, new NotificationItem(notification, model));
+			notificationItems.set(notification.key, {
+				notification, model, kind: 'notification'
+			});
 		}));
+
+		// Calculate notification priority
+		if (this.sortingMethod === NotificationsSortMethod.Priority) {
+			const notificationsWithoutPriority = Array.from(notificationItems.values())
+				.filter(notification => notification.priority === undefined);
+
+			const notificationPriorities = await this._notificationProvider
+				.getNotificationsPriority(notificationsWithoutPriority);
+
+			for (const { key, priority, priorityReasoning } of notificationPriorities) {
+				const notification = notificationItems.get(key);
+				if (!notification) {
+					continue;
+				}
+
+				notification.priority = priority;
+				notification.priorityReason = priorityReasoning;
+
+				notificationItems.set(key, notification);
+			}
+		}
 
 		this._notifications = notificationItems;
 		this._hasNextPage = notificationsData.hasNextPage;
@@ -135,26 +121,12 @@ export class NotificationsManager {
 		};
 	}
 
-	public getNotification(key: string): INotificationItem | undefined {
+	public getNotification(key: string): NotificationTreeItem | undefined {
 		return this._notifications.get(key);
 	}
 
-	public getAllNotifications(): INotificationItem[] {
+	public getAllNotifications(): NotificationTreeItem[] {
 		return Array.from(this._notifications.values());
-	}
-
-	public updateNotificationPriority(updates: NotificationUpdate[]) {
-		const updated: INotificationItem[] = [];
-		for (const update of updates) {
-
-			const notification = this._notifications.get(update.key);
-			if (notification) {
-				notification.priority = update.priority;
-				notification.priorityReasoning = update.priorityReasoning;
-				updated.push(notification);
-			}
-		}
-		this._onDidChangeNotifications.fire(updated);
 	}
 
 	public async markAsRead(notificationIdentifier: { threadId: string, notificationKey: string }): Promise<void> {
@@ -167,15 +139,13 @@ export class NotificationsManager {
 		}
 	}
 
-	private _sortNotifications(notifications: INotificationItem[]): INotificationItem[] {
+	private _sortNotifications(notifications: NotificationTreeItem[]): NotificationTreeItem[] {
 		if (this._sortingMethod === NotificationsSortMethod.Timestamp) {
-			return this._sortNotificationsByTimestamp(notifications);
+			return notifications.sort((n1, n2) => n2.notification.updatedAd.getTime() - n1.notification.updatedAd.getTime());
+		} else if (this._sortingMethod === NotificationsSortMethod.Priority) {
+			return notifications.sort((n1, n2) => Number(n2.priority) - Number(n1.priority));
 		}
 
 		return notifications;
-	}
-
-	private _sortNotificationsByTimestamp(notifications: INotificationItem[]): INotificationItem[] {
-		return notifications.sort((n1, n2) => n2.notification.updatedAd.getTime() - n1.notification.updatedAd.getTime());
 	}
 }

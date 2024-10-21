@@ -11,12 +11,20 @@ export enum NotificationsSortMethod {
 	Priority = 'Priority'
 }
 
-export type NotificationTreeDataItem = INotificationItem | LoadMoreNotificationsTreeItem;
+export type NotificationTreeDataItem = NotificationTreeItem | LoadMoreNotificationsTreeItem;
 
-export class LoadMoreNotificationsTreeItem { }
+export interface LoadMoreNotificationsTreeItem {
+	readonly kind: 'loadMoreNotifications';
+}
 
-export interface INotificationItem {
-	notification: Notification;
-	model: IssueModel;
-	getPriority(): { priority: string, priorityReasoning: string } | undefined;
+export interface NotificationTreeItem {
+	readonly notification: Notification;
+	readonly model: IssueModel;
+	priority?: string;
+	priorityReason?: string;
+	readonly kind: 'notification';
+}
+
+export function isNotificationTreeItem(item: any): item is NotificationTreeItem {
+	return item.kind === 'notification';
 }

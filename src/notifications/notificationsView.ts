@@ -9,8 +9,8 @@ import { dispose } from '../common/utils';
 import { NotificationSubjectType } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { INotificationItem, LoadMoreNotificationsTreeItem, NotificationTreeDataItem } from './notificationItem';
-import { NotificationItem, NotificationsManager } from './notificationsManager';
+import { isNotificationTreeItem, NotificationTreeDataItem, NotificationTreeItem } from './notificationItem';
+import { NotificationsManager } from './notificationsManager';
 
 export class NotificationsTreeData implements vscode.TreeDataProvider<NotificationTreeDataItem>, vscode.Disposable {
 	private readonly _disposables: vscode.Disposable[] = [];
@@ -20,11 +20,10 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 	private _pageCount: number = 1;
 	private _computeNotifications: boolean = false;
 
-
 	constructor(private readonly _notificationsManager: NotificationsManager) {
 		this._disposables.push(this._onDidChangeTreeData);
-		this._disposables.push(this._notificationsManager.onDidChangeNotifications(updates => {
-			this._onDidChangeTreeData.fire(updates);
+		this._disposables.push(this._notificationsManager.onDidChangeNotifications(() => {
+			this._onDidChangeTreeData.fire();
 		}));
 		this._disposables.push(this._notificationsManager.onDidChangeSortingMethod(() => {
 			this.refresh(true);
@@ -32,13 +31,13 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 	}
 
 	async getTreeItem(element: NotificationTreeDataItem): Promise<vscode.TreeItem> {
-		if (element instanceof NotificationItem) {
+		if (isNotificationTreeItem(element)) {
 			return this._resolveNotificationTreeItem(element);
 		}
 		return this._resolveLoadMoreNotificationsTreeItem();
 	}
 
-	private _resolveNotificationTreeItem(element: INotificationItem): vscode.TreeItem {
+	private _resolveNotificationTreeItem(element: NotificationTreeItem): vscode.TreeItem {
 		const label = element.notification.subject.title;
 		const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
 		const notification = element.notification;
@@ -89,7 +88,7 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 		}
 
 		if (notificationsData.hasNextPage) {
-			return [...notificationsData.notifications, new LoadMoreNotificationsTreeItem()];
+			return [...notificationsData.notifications, { kind: 'loadMoreNotifications' }];
 		}
 
 		return notificationsData.notifications;

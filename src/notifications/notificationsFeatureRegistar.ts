@@ -10,8 +10,8 @@ import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { chatCommand } from '../lm/utils';
 import { NotificationsDecorationProvider } from './notificationDecorationProvider';
-import { NotificationsSortMethod } from './notificationItem';
-import { NotificationItem, NotificationsManager } from './notificationsManager';
+import { isNotificationTreeItem, NotificationsSortMethod, NotificationTreeDataItem } from './notificationItem';
+import { NotificationsManager } from './notificationsManager';
 import { NotificationsProvider } from './notificationsProvider';
 import { NotificationsTreeData } from './notificationsView';
 
@@ -93,8 +93,8 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 			})
 		);
 		this._disposables.push(
-			vscode.commands.registerCommand('notification.chatSummarizeNotification', (notification: any) => {
-				if (!(notification instanceof NotificationItem)) {
+			vscode.commands.registerCommand('notification.chatSummarizeNotification', (notification: NotificationTreeDataItem) => {
+				if (!isNotificationTreeItem(notification)) {
 					return;
 				}
 				/* __GDPR__
@@ -108,7 +108,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 			vscode.commands.registerCommand('notification.markAsRead', (options: any) => {
 				let threadId: string;
 				let notificationKey: string;
-				if (options instanceof NotificationItem) {
+				if (isNotificationTreeItem(options)) {
 					threadId = options.notification.id;
 					notificationKey = options.notification.key;
 				} else if ('threadId' in options && 'notificationKey' in options && typeof options.threadId === 'number' && typeof options.notificationKey === 'string') {
