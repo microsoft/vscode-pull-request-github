@@ -10,7 +10,7 @@ import { reviewerLabel } from '../../github/interface';
 import { makeLabel } from '../../github/utils';
 import { ChatParticipantState } from '../participants';
 import { IssueSearchResultAccount, IssueSearchResultItem, SearchToolResult } from './searchTools';
-import { concatAsyncIterable, MimeTypes, ToolBase } from './toolsUtils';
+import { concatAsyncIterable, TOOL_MARKDOWN_RESULT, ToolBase } from './toolsUtils';
 
 export type DisplayIssuesParameters = SearchToolResult;
 
@@ -21,7 +21,8 @@ You are an expert on GitHub issues. You can help the user identify the most impo
 `;
 
 export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
-	static ID = 'DisplayIssuesTool';
+	public static readonly toolId = 'github-pull-request_renderIssues';
+	private static ID = 'DisplayIssuesTool';
 	constructor(chatParticipantState: ChatParticipantState) {
 		super(chatParticipantState);
 	}
@@ -75,7 +76,11 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 			return ['number', 'title', 'state'];
 		} else if (indexOfUrl >= 0) {
 			// Never include the url column
-			result[indexOfUrl] = 'number';
+			if (result.indexOf('number') >= 0) {
+				result.splice(indexOfUrl, 1);
+			} else {
+				result[indexOfUrl] = 'number';
+			}
 		}
 
 		return result;
@@ -107,9 +112,9 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		}).join(' | ')} |`;
 	}
 
-	async prepareToolInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<DisplayIssuesParameters>): Promise<vscode.PreparedToolInvocation> {
+	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<DisplayIssuesParameters>): Promise<vscode.PreparedToolInvocation> {
 		return {
-			invocationMessage: vscode.l10n.t('Generating markdown table of issues'),
+			invocationMessage: vscode.l10n.t('Found {0} issues. Generating a markdown table of the first 10', options.parameters.totalIssues)
 		};
 	}
 
@@ -117,9 +122,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		let issueItemsInfo: string = this.chatParticipantState.firstUserMessage ?? '';
 		const issueItems: IssueSearchResultItem[] = options.parameters.arrayOfIssues;
 		if (issueItems.length === 0) {
-			return {
-				[MimeTypes.textPlain]: 'No issues found. Please try another query.'
-			};
+			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(vscode.l10n.t('No issues found. Please try another query.'))]);
 		}
 		Logger.debug(`Displaying ${issueItems.length} issues, first issue ${issueItems[0].number}`, DisplayIssuesTool.ID);
 		const importantColumns = await this.getImportantColumns(issueItemsInfo, issueItems, token);
@@ -135,11 +138,9 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 			return this.issueToRow(issue, importantColumns);
 		}).join('\n'));
 
-		return {
-			[MimeTypes.textPlain]: `The issues have been shown to the user. Simply say that you've already displayed the issue or issues.`,
-			[MimeTypes.textMarkdown]: issues.value,
-			[MimeTypes.textDisplay]: vscode.l10n.t('Here\'s a markdown table of the first 10 issues: ')
-		};
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_MARKDOWN_RESULT),
+		new vscode.LanguageModelTextPart(issues.value),
+		new vscode.LanguageModelTextPart(`The issues have been shown to the user. Simply say that you've already displayed the issue or first 10 issues.`)]);
 	}
 
 }

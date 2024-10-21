@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import Logger from '../../common/logger';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { ILabel } from '../../github/interface';
-import { concatAsyncIterable, MimeTypes, RepoToolBase } from './toolsUtils';
+import { concatAsyncIterable, RepoToolBase } from './toolsUtils';
 
 interface ConvertToQuerySyntaxParameters {
 	naturalLanguageString: string;
@@ -78,6 +78,7 @@ const githubSearchSyntax = {
 const MATCH_UNQUOTED_SPACES = /(?!\B"[^"]*)\s+(?![^"]*"\B)/;
 
 export class ConvertToSearchSyntaxTool extends RepoToolBase<ConvertToQuerySyntaxParameters> {
+	public static readonly toolId = 'github-pull-request_formSearchQuery';
 	static ID = 'ConvertToSearchSyntaxTool';
 
 	private async fullQueryAssistantPrompt(folderRepoManager: FolderRepositoryManager): Promise<string> {
@@ -345,11 +346,7 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		return concatAsyncIterable(response.text);
 	}
 
-	private toGitHubUrl(query: string) {
-		return `https://github.com/issues/?q=${encodeURIComponent(query)}`;
-	}
-
-	async prepareToolInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<ConvertToQuerySyntaxParameters>): Promise<vscode.PreparedToolInvocation> {
+	async prepareInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<ConvertToQuerySyntaxParameters>): Promise<vscode.PreparedToolInvocation> {
 		return {
 			invocationMessage: vscode.l10n.t('Converting to search syntax')
 		};
@@ -383,10 +380,8 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 				name
 			}
 		};
-		return {
-			[MimeTypes.textJson]: json,
-			[MimeTypes.textDisplay]: vscode.l10n.t('Query \`{0}\`. [Open on GitHub.com]({1})\n\n', result.query, this.toGitHubUrl(result.query))
-		};
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(json)),
+		new vscode.LanguageModelTextPart('Above is the query in stringified json format. You can pass this VERBATIM to a tool that knows how to search.')]);
 	}
 }
 
@@ -419,14 +414,23 @@ export interface IssueSearchResultItem {
 
 export interface SearchToolResult {
 	arrayOfIssues: IssueSearchResultItem[];
+	totalIssues: number;
 }
 
 export class SearchTool extends RepoToolBase<SearchToolParameters> {
+	public static readonly toolId = 'github-pull-request_doSearch';
 	static ID = 'SearchTool';
 
-	async prepareToolInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<SearchToolParameters>): Promise<vscode.PreparedToolInvocation> {
+
+	private toGitHubUrl(query: string) {
+		return `https://github.com/issues/?q=${encodeURIComponent(query)}`;
+	}
+
+	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<SearchToolParameters>): Promise<vscode.PreparedToolInvocation> {
+		const parameterQuery = options.parameters.query;
+
 		return {
-			invocationMessage: vscode.l10n.t('Searching for issues')
+			invocationMessage: vscode.l10n.t('Searching for issues with "{0}". [Open on GitHub.com]({1})', parameterQuery, this.toGitHubUrl(parameterQuery))
 		};
 	}
 
@@ -458,13 +462,12 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 					commentCount: item.commentCount,
 					reactionCount: item.reactionCount
 				};
-			})
+			}),
+			totalIssues: searchResult.totalCount ?? searchResult.items.length
 		};
 		Logger.debug(`Found ${result.arrayOfIssues.length} issues, first issue ${result.arrayOfIssues[0]?.number}.`, SearchTool.ID);
-		return {
-			[MimeTypes.textPlain]: `Here are the issues I found for the query ${parameterQuery} in json format. You can pass these to a tool that can display them.`,
-			[MimeTypes.textJson]: result,
-			[MimeTypes.textDisplay]: ((result.arrayOfIssues.length < searchResult.items.length) && (searchResult.totalCount !== undefined)) ? vscode.l10n.t('Found {0} issues, using the first {1}', searchResult.totalCount, cutoff) : vscode.l10n.t('Found {0} issues.', result.arrayOfIssues.length)
-		};
+
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(result)),
+		new vscode.LanguageModelTextPart(`Above are the issues I found for the query ${parameterQuery} in json format. You can pass these to a tool that can display them.`)]);
 	}
 }

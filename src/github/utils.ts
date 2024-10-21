@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
-import { IComment, IReviewThread, Reaction, SubjectType } from '../common/comment';
+import { IComment, IReviewThread, Reaction, SPECIAL_COMMENT_AUTHORS, SubjectType } from '../common/comment';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
@@ -209,8 +209,8 @@ export function updateCommentThreadLabel(thread: GHPRCommentThread) {
 	}
 
 	if (thread.comments.length) {
-		const participantsList = uniqBy(thread.comments as vscode.Comment[], comment => comment.author.name)
-			.map(comment => `@${comment.author.name}`)
+		const participantsList = uniqBy(thread.comments, comment => comment.originalAuthor.name)
+			.map(comment => `@${comment.originalAuthor.name}`)
 			.join(', ');
 		thread.label = vscode.l10n.t('Participants: {0}', participantsList);
 	} else {
@@ -277,7 +277,8 @@ export function convertRESTUserToAccount(
 		url: user.html_url,
 		avatarUrl: githubRepository ? getAvatarWithEnterpriseFallback(user.avatar_url, user.gravatar_id ?? undefined, githubRepository.remote.isEnterprise) : user.avatar_url,
 		id: user.node_id,
-		email: user.email ?? undefined
+		email: user.email ?? undefined,
+		specialDisplayName: SPECIAL_COMMENT_AUTHORS[user.login] ? (user.name ?? SPECIAL_COMMENT_AUTHORS[user.login].name) : undefined,
 	};
 }
 
@@ -481,10 +482,12 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRep
 }
 
 export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean, githubRepository: GitHubRepository): IComment {
+	const specialAuthor = SPECIAL_COMMENT_AUTHORS[comment.author?.login ?? ''];
 	const c: IComment = {
 		id: comment.databaseId,
 		url: comment.url,
 		body: comment.body,
+		specialDisplayBodyPostfix: specialAuthor?.postComment,
 		bodyHTML: comment.bodyHTML,
 		path: comment.path,
 		canEdit: comment.viewerCanDelete,
@@ -495,7 +498,7 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: 
 		commitId: comment.commit.oid,
 		originalPosition: comment.originalPosition,
 		originalCommitId: comment.originalCommit && comment.originalCommit.oid,
-		user: comment.author ? parseAuthor(comment.author, githubRepository) : undefined,
+		user: comment.author ? { ...parseAuthor(comment.author, githubRepository), specialDisplayName: specialAuthor ? (comment.author.name ?? specialAuthor.name) : undefined } : undefined,
 		createdAt: comment.createdAt,
 		htmlUrl: comment.url,
 		graphNodeId: comment.id,
@@ -516,6 +519,7 @@ export function parseGraphQlIssueComment(comment: GraphQL.IssueComment, githubRe
 		id: comment.databaseId,
 		url: comment.url,
 		body: comment.body,
+		specialDisplayBodyPostfix: SPECIAL_COMMENT_AUTHORS[comment.author?.login ?? '']?.postComment,
 		bodyHTML: comment.bodyHTML,
 		canEdit: comment.viewerCanDelete,
 		canDelete: comment.viewerCanDelete,
@@ -569,7 +573,7 @@ function parseRef(refName: string, oid: string, repository?: GraphQL.RefReposito
 }
 
 function parseAuthor(
-	author: { login: string; url: string; avatarUrl: string; email?: string, id: string } | null,
+	author: { login: string; url: string; avatarUrl: string; email?: string, id: string, name?: string } | null,
 	githubRepository: GitHubRepository,
 ): IAccount {
 	if (author) {
@@ -578,7 +582,8 @@ function parseAuthor(
 			url: author.url,
 			avatarUrl: getAvatarWithEnterpriseFallback(author.avatarUrl, undefined, githubRepository.remote.isEnterprise),
 			email: author.email,
-			id: author.id
+			id: author.id,
+			specialDisplayName: SPECIAL_COMMENT_AUTHORS[author.login] ? (author.name ?? SPECIAL_COMMENT_AUTHORS[author.login].name) : undefined,
 		};
 	} else {
 		return {

@@ -64,6 +64,7 @@ export interface IComment {
 	originalCommitId?: string;
 	user?: IAccount;
 	body: string;
+	specialDisplayBodyPostfix?: string;
 	createdAt: string;
 	htmlUrl: string;
 	isDraft?: boolean;
@@ -72,3 +73,10 @@ export interface IComment {
 	reactions?: Reaction[];
 	isResolved?: boolean;
 }
+
+export const SPECIAL_COMMENT_AUTHORS: { [key: string]: { postComment: string, name: string } } = {
+	'copilot-pull-request-reviewer': {
+		name: 'Copilot', // TODO: The copilot reviewer is a Bot, but per the graphQL schema, Bots don't have a name, just a login. We have it hardcoded here for now.
+		postComment: vscode.l10n.t('Copilot is powered by AI, so mistakes are possible. Review output carefully before use.')
+	}
+};

@@ -7,7 +7,7 @@
 import * as vscode from 'vscode';
 import { InMemFileChange } from '../../common/file';
 import { PullRequestModel } from '../../github/pullRequestModel';
-import { MimeTypes, RepoToolBase } from './toolsUtils';
+import { RepoToolBase } from './toolsUtils';
 
 interface FetchIssueToolParameters {
 	issueNumber: number;
@@ -32,6 +32,8 @@ export interface FetchIssueResult {
 }
 
 export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
+	public static readonly toolId = 'github-pull-request_issue_fetch';
+
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchIssueToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult> {
 		const { owner, name, folderManager } = this.getRepoInfo({ owner: options.parameters.repo?.owner, name: options.parameters.repo?.name });
 		const issueOrPullRequest = await folderManager.resolveIssueOrPullRequest(owner, name, options.parameters.issueNumber);
@@ -56,12 +58,12 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 			}
 			result.fileChanges = fetchedFileChanges;
 		}
-		return {
-			[MimeTypes.textJson]: result
-		};
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(result)),
+		new vscode.LanguageModelTextPart('Above is a stringified JSON representation of the issue or pull request. This can be passed to other tools for further processing.')
+		]);
 	}
 
-	async prepareToolInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchIssueToolParameters>): Promise<vscode.PreparedToolInvocation> {
+	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchIssueToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		if (!options.parameters.issueNumber) {
 			return {
 				invocationMessage: vscode.l10n.t('Fetching item from GitHub')
@@ -72,5 +74,6 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 		return {
 			invocationMessage: url ? vscode.l10n.t('Fetching item [#{0}]({1}) from GitHub', options.parameters.issueNumber, url) : vscode.l10n.t('Fetching item #{0} from GitHub', options.parameters.issueNumber),
 		};
+
 	}
 }

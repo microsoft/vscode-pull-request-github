@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { EXPERIMENTAL_NOTIFICATIONS_SCORE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { fromNotificationUri, toNotificationUri } from '../common/uri';
 import { dispose } from '../common/utils';
+import { NotificationsSortMethod } from './notificationItem';
 import { NotificationsManager } from './notificationsManager';
 
 export class NotificationsDecorationProvider implements vscode.FileDecorationProvider {
@@ -43,15 +44,19 @@ export class NotificationsDecorationProvider implements vscode.FileDecorationPro
 			return undefined;
 		}
 
+		if (this._notificationsManager.sortingMethod !== NotificationsSortMethod.Priority) {
+			return undefined;
+		}
+
 		const notificationUriParams = fromNotificationUri(uri);
 		if (!notificationUriParams) {
 			return undefined;
 		}
 
 		// Limit the length of the priority badge to two characters
-		const priorityData = this._notificationsManager.getNotification(notificationUriParams.key)?.getPriority();
-		const priority = priorityData?.priority === '100' ? '99' : priorityData?.priority ?? '0';
+		const notification = this._notificationsManager.getNotification(notificationUriParams.key);
+		const priority = notification?.priority === '100' ? '99' : notification?.priority ?? '0';
 
-		return { badge: priority, tooltip: priorityData?.priorityReasoning };
+		return { badge: priority, tooltip: notification?.priorityReason };
 	}
 }

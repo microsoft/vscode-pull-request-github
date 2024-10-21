@@ -6,11 +6,12 @@
 
 import * as vscode from 'vscode';
 import { FetchIssueResult } from './fetchIssueTool';
-import { concatAsyncIterable, MimeTypes } from './toolsUtils';
+import { concatAsyncIterable } from './toolsUtils';
 
 export class IssueSummarizationTool implements vscode.LanguageModelTool<FetchIssueResult> {
+	public static readonly toolId = 'github-pull-request_issue_summarize';
 
-	async prepareToolInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchIssueResult>): Promise<vscode.PreparedToolInvocation> {
+	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchIssueResult>): Promise<vscode.PreparedToolInvocation> {
 		if (!options.parameters.title) {
 			return {
 				invocationMessage: vscode.l10n.t('Summarizing issue')
@@ -59,13 +60,9 @@ Body: ${comment.body}
 			messages.push(vscode.LanguageModelChatMessage.User(issueOrPullRequestInfo));
 			const response = await model.sendRequest(messages, {});
 			const responseText = await concatAsyncIterable(response.text);
-			return {
-				[MimeTypes.textPlain]: responseText
-			};
+			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(responseText)]);
 		} else {
-			return {
-				[MimeTypes.textPlain]: issueOrPullRequestInfo
-			};
+			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(issueOrPullRequestInfo)]);
 		}
 	}
 
@@ -78,4 +75,5 @@ Do not output code. When you try to summarize PR changes, write in a textual for
 Make sure the summary is at least as short or shorter than the issue or PR with the comments and the patches if there are.
 `;
 	}
+
 }

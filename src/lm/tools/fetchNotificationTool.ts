@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { InMemFileChange } from '../../common/file';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { getNotificationKey } from '../../github/utils';
-import { MimeTypes, RepoToolBase } from './toolsUtils';
+import { RepoToolBase } from './toolsUtils';
 
 interface FetchNotificationToolParameters {
 	thread_id: number;
@@ -34,6 +34,13 @@ export interface FetchNotificationResult {
 }
 
 export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolParameters> {
+	public static readonly toolId = 'github-pull-request_notification_fetch';
+
+	async prepareInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<FetchNotificationToolParameters>): Promise<vscode.PreparedToolInvocation> {
+		return {
+			invocationMessage: vscode.l10n.t('Fetching notification from GitHub')
+		};
+	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchNotificationToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		const github = this.getGitHub();
@@ -92,8 +99,9 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 			}
 			result.fileChanges = fetchedFileChanges;
 		}
-		return {
-			[MimeTypes.textJson]: result
-		};
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(result)),
+		new vscode.LanguageModelTextPart('Above is a stringified JSON representation of the notification. This can be passed to other tools for further processing or display.')
+		]);
 	}
+
 }

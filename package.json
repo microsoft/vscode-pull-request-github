@@ -3159,9 +3159,6 @@
 						"issueNumber"
 					]
 				},
-				"supportedContentTypes": [
-					"text/json"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
@@ -3187,9 +3184,6 @@
 						"thread_id"
 					]
 				},
-				"supportedContentTypes": [
-					"text/json"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
@@ -3201,7 +3195,7 @@
 				],
 				"toolReferenceName": "issue_summarize",
 				"displayName": "%languageModelTools.github-pull-request_issue_summarize.displayName%",
-				"modelDescription": "Returns a summary of a GitHub issue/PR, given issue/PR details in a JSON object.",
+				"modelDescription": "Summarizes a GitHub issue or pull request. A summary is a great way to describe an issue or pull request.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
@@ -3246,9 +3240,6 @@
 						"comments"
 					]
 				},
-				"supportedContentTypes": [
-					"text/plain"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
@@ -3259,7 +3250,7 @@
 				],
 				"toolReferenceName": "notification_summarize",
 				"displayName": "%languageModelTools.github-pull-request_notification_summarize.displayName%",
-				"modelDescription": "Returns a summary of a GitHub notification, given notification details in a JSON object.",
+				"modelDescription": "Summarizes a GitHub notification. A summary is a great way to describe a notification.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
@@ -3313,14 +3304,17 @@
 										"type": "string",
 										"description": "The patch of the change"
 									}
-								}
+								},
+								"required": [
+									"fileName",
+									"patch"
+								]
 							},
 							"description": "For a notification about a PR, the array of associated file changes"
 						}
 					},
 					"required": [
 						"title",
-						"body",
 						"unreadComments",
 						"lastUpdatedAt",
 						"unread",
@@ -3328,10 +3322,6 @@
 						"notificationKey"
 					]
 				},
-				"supportedContentTypes": [
-					"text/plain",
-					"command"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
@@ -3376,9 +3366,6 @@
 						"repo"
 					]
 				},
-				"supportedContentTypes": [
-					"text/plain"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
@@ -3425,11 +3412,6 @@
 						"naturalLanguageString"
 					]
 				},
-				"supportedContentTypes": [
-					"text/plain",
-					"text/json",
-					"text/display"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
@@ -3475,10 +3457,6 @@
 						"repo"
 					]
 				},
-				"supportedContentTypes": [
-					"text/plain",
-					"text/json"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
@@ -3503,19 +3481,46 @@
 							"items": {
 								"type": "object",
 								"properties": {
-									"title": { "type": "string", "description": "The title of the issue." },
-									"number": { "type": "number", "description": "The number of the issue." },
-									"url": { "type": "string", "description": "The URL of the issue." },
-									"state": { "type": "string", "description": "The state of the issue (open/closed)." },
-									"createdAt": { "type": "string", "description": "The creation date of the issue." },
-									"updatedAt": { "type": "string", "description": "The last update date of the issue." },
-									"closedAt": { "type": "string", "description": "The closing date of the issue." },
+									"title": {
+										"type": "string",
+										"description": "The title of the issue."
+									},
+									"number": {
+										"type": "number",
+										"description": "The number of the issue."
+									},
+									"url": {
+										"type": "string",
+										"description": "The URL of the issue."
+									},
+									"state": {
+										"type": "string",
+										"description": "The state of the issue (open/closed)."
+									},
+									"createdAt": {
+										"type": "string",
+										"description": "The creation date of the issue."
+									},
+									"updatedAt": {
+										"type": "string",
+										"description": "The last update date of the issue."
+									},
+									"closedAt": {
+										"type": "string",
+										"description": "The closing date of the issue."
+									},
 									"author": {
 										"type": "object",
 										"description": "The author of the issue.",
 										"properties": {
-											"login": { "type": "string", "description": "The login of the author." },
-											"url": { "type": "string", "description": "The URL of the author's profile." }
+											"login": {
+												"type": "string",
+												"description": "The login of the author."
+											},
+											"url": {
+												"type": "string",
+												"description": "The URL of the author's profile."
+											}
 										}
 									},
 									"labels": {
@@ -3524,8 +3529,14 @@
 										"items": {
 											"type": "object",
 											"properties": {
-												"name": { "type": "string", "description": "The name of the label." },
-												"color": { "type": "string", "description": "The color of the label." }
+												"name": {
+													"type": "string",
+													"description": "The name of the label."
+												},
+												"color": {
+													"type": "string",
+													"description": "The color of the label."
+												}
 											}
 										}
 									},
@@ -3535,8 +3546,14 @@
 										"items": {
 											"type": "object",
 											"properties": {
-												"login": { "type": "string", "description": "The login of the assignee." },
-												"url": { "type": "string", "description": "The URL of the assignee's profile." }
+												"login": {
+													"type": "string",
+													"description": "The login of the assignee."
+												},
+												"url": {
+													"type": "string",
+													"description": "The URL of the assignee's profile."
+												}
 											}
 										}
 									},
@@ -3556,17 +3573,17 @@
 								"commentCount",
 								"reactionCount"
 							]
+						},
+						"totalIssues": {
+							"type": "number",
+							"description": "The total number of issues in the search."
 						}
 					},
 					"required": [
-						"issues"
+						"arrayOfIssues",
+						"totalIssues"
 					]
 				},
-				"supportedContentTypes": [
-					"text/plain",
-					"text/markdown",
-					"text/display"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			}
 		]
@@ -3665,7 +3682,7 @@
 		"@octokit/rest": "18.2.1",
 		"@octokit/types": "6.10.1",
 		"@vscode/extension-telemetry": "0.7.5",
-		"@vscode/prompt-tsx": "^0.2.11-alpha",
+		"@vscode/prompt-tsx": "^0.3.0-alpha",
 		"apollo-boost": "^0.4.9",
 		"apollo-link-context": "1.0.20",
 		"cockatiel": "^3.1.1",
@@ -3679,6 +3696,7 @@
 		"react": "^16.12.0",
 		"react-dom": "^16.12.0",
 		"ssh-config": "4.1.1",
+		"stream-http": "^3.2.0",
 		"tunnel": "0.0.6",
 		"url-search-params-polyfill": "^8.1.1",
 		"uuid": "8.3.2",

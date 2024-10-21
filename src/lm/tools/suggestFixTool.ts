@@ -6,12 +6,14 @@
 
 import * as vscode from 'vscode';
 import { RepositoriesManager } from '../../github/repositoriesManager';
-import { IssueResult, IssueToolParameters, MimeTypes } from './toolsUtils';
+import { IssueResult, IssueToolParameters } from './toolsUtils';
 
 export class SuggestFixTool implements vscode.LanguageModelTool<IssueToolParameters> {
+	public static readonly toolId = 'github-pull-request_suggest-fix';
+
 	constructor(private readonly repositoriesManager: RepositoriesManager) { }
 
-	async prepareToolInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<IssueToolParameters>): Promise<vscode.PreparedToolInvocation> {
+	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<IssueToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		return {
 			invocationMessage: options.parameters.issueNumber ? vscode.l10n.t('Suggesting a fix for issue #{0}', options.parameters.issueNumber) : vscode.l10n.t('Suggesting a fix for the issue')
 		};
@@ -47,17 +49,16 @@ export class SuggestFixTool implements vscode.LanguageModelTool<IssueToolParamet
 
 		const copilotCodebaseResult = await vscode.lm.invokeTool('copilot_codebase', {
 			toolInvocationToken: undefined,
-			requestedContentTypes: ['text/plain'],
 			parameters: {
 				query: result.title
 			}
 		}, token);
 
-		const plainTextResult = copilotCodebaseResult['text/plain'];
-		if (plainTextResult !== undefined) {
+		const plainTextResult = copilotCodebaseResult.content[0];
+		if (plainTextResult instanceof vscode.LanguageModelTextPart) {
 			messages.push(vscode.LanguageModelChatMessage.User(`Below is some potential relevant workspace context to the issue. The user cannot see this result, so you should explain it to the user if referencing it in your answer.`));
 			const toolMessage = vscode.LanguageModelChatMessage.User('');
-			toolMessage.content2 = [plainTextResult];
+			toolMessage.content2 = [plainTextResult.value];
 			messages.push(toolMessage);
 		}
 
@@ -72,9 +73,8 @@ export class SuggestFixTool implements vscode.LanguageModelTool<IssueToolParamet
 		for await (const chunk of response.text) {
 			responseResult += chunk;
 		}
-		return {
-			[MimeTypes.textPlain]: responseResult
-		};
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(responseResult)]);
 	}
+
 
 }

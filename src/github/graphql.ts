@@ -114,6 +114,7 @@ export interface ReviewComment {
 		avatarUrl: string;
 		url: string;
 		id: string;
+		name?: string;
 	};
 	path: string;
 	originalPosition: number;

@@ -6,9 +6,10 @@
 
 import * as vscode from 'vscode';
 import { FetchNotificationResult } from './fetchNotificationTool';
-import { concatAsyncIterable, MimeTypes } from './toolsUtils';
+import { concatAsyncIterable, TOOL_COMMAND_RESULT } from './toolsUtils';
 
 export class NotificationSummarizationTool implements vscode.LanguageModelTool<FetchNotificationResult> {
+	public static readonly toolId = 'github-pull-request_notification_summarize';
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchNotificationResult>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		let notificationInfo: string = '';
@@ -65,15 +66,14 @@ Body: ${comment.body}
 			messages.push(vscode.LanguageModelChatMessage.User(notificationInfo));
 			const response = await model.sendRequest(messages, {});
 			const responseText = await concatAsyncIterable(response.text);
-			return {
-				[MimeTypes.textPlain]: responseText,
-				[MimeTypes.command]: markAsReadCommand
-			};
+
+			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
+			new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)),
+			new vscode.LanguageModelTextPart(responseText)]);
 		} else {
-			return {
-				[MimeTypes.textPlain]: notificationInfo,
-				[MimeTypes.command]: markAsReadCommand
-			};
+			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
+			new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)),
+			new vscode.LanguageModelTextPart(notificationInfo)]);
 		}
 	}
 
@@ -105,4 +105,5 @@ Both 'Unread Thread' and 'Unread Comments' should not appear at the same time as
 <comments>
 `;
 	}
+
 }
