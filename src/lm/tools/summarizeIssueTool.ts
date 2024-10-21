@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { FetchIssueResult } from './fetchIssueTool';
-import { concatAsyncIterable, MimeTypes } from './toolsUtils';
+import { concatAsyncIterable } from './toolsUtils';
 
 export class IssueSummarizationTool implements vscode.LanguageModelTool<FetchIssueResult> {
 
@@ -59,13 +59,9 @@ Body: ${comment.body}
 			messages.push(vscode.LanguageModelChatMessage.User(issueOrPullRequestInfo));
 			const response = await model.sendRequest(messages, {});
 			const responseText = await concatAsyncIterable(response.text);
-			return {
-				[MimeTypes.textPlain]: responseText
-			};
+			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(responseText)]);
 		} else {
-			return {
-				[MimeTypes.textPlain]: issueOrPullRequestInfo
-			};
+			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(issueOrPullRequestInfo)]);
 		}
 	}
 

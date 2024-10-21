@@ -791,10 +791,10 @@
     "@microsoft/applicationinsights-web-basic" "^2.8.9"
     applicationinsights "2.4.1"
 
-"@vscode/prompt-tsx@^0.2.11-alpha":
-  version "0.2.11-alpha"
-  resolved "https://registry.yarnpkg.com/@vscode/prompt-tsx/-/prompt-tsx-0.2.11-alpha.tgz#1077f686770a0bf3e43cd4c8046eff0d9d98d521"
-  integrity sha512-U/hmOwcWla5EHCiwCAAZni6w9N6lbG56EpciNXDis0oYFu03fGD+BzTw7jxbYd9NCS8CSHb76JoW49jyLilFxg==
+"@vscode/prompt-tsx@^0.3.0-alpha":
+  version "0.3.0-alpha.8"
+  resolved "https://registry.yarnpkg.com/@vscode/prompt-tsx/-/prompt-tsx-0.3.0-alpha.8.tgz#94de46269bd054e6ad2f3dfe613f85d9c66e7f0c"
+  integrity sha512-uhGZve/mhrSkFNU1zvhcbbPL8laT8Ytlk3q5sswE8XnveiCb7eANk7Ea4IkKI3KvbThX3p3cl3xOauHuqrhlSg==
 
 "@vscode/test-electron@^2.3.8":
   version "2.3.8"
@@ -1584,6 +1584,11 @@ buffer@^6.0.3:
   dependencies:
     base64-js "^1.3.1"
     ieee754 "^1.2.1"
+
+builtin-status-codes@^3.0.0:
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/builtin-status-codes/-/builtin-status-codes-3.0.0.tgz#85982878e21b98e1c66425e03d0174788f569ee8"
+  integrity sha512-HpGFw18DgFWlncDfjTa2rcQ4W88O1mC8e8yZ2AvQY5KDaktSTwo+KRf6nHK6FRI5FyRyb/5T6+TSxfP7QyGsmQ==
 
 cache-content-type@^1.0.0:
   version "1.0.1"
@@ -5317,6 +5322,16 @@ stream-combiner@^0.2.2:
     duplexer "~0.1.1"
     through "~2.3.4"
 
+stream-http@^3.2.0:
+  version "3.2.0"
+  resolved "https://registry.yarnpkg.com/stream-http/-/stream-http-3.2.0.tgz#1872dfcf24cb15752677e40e5c3f9cc1926028b5"
+  integrity sha512-Oq1bLqisTyK3TSCXpPbT4sdeYNdmyZJv1LxpEm2vu1ZhK89kSE5YXwZc3cWk0MagGaKriBh9mCFbVGtO+vY29A==
+  dependencies:
+    builtin-status-codes "^3.0.0"
+    inherits "^2.0.4"
+    readable-stream "^3.6.0"
+    xtend "^4.0.2"
+
 stream-shift@^1.0.0:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/stream-shift/-/stream-shift-1.0.1.tgz#d7088281559ab2778424279b0877da3c392d5a3d"
@@ -6186,7 +6201,7 @@ xmlchars@^2.2.0:
   resolved "https://registry.yarnpkg.com/xmlchars/-/xmlchars-2.2.0.tgz#060fe1bcb7f9c76fe2a17db86a9bc3ab894210cb"
   integrity sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==
 
-xtend@^4.0.0, xtend@~4.0.0, xtend@~4.0.1:
+xtend@^4.0.0, xtend@^4.0.2, xtend@~4.0.0, xtend@~4.0.1:
   version "4.0.2"
   resolved "https://registry.yarnpkg.com/xtend/-/xtend-4.0.2.tgz#bb72779f5fa465186b1f438f674fa347fdb5db54"
   integrity sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==

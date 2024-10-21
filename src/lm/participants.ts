@@ -8,7 +8,7 @@ import { renderPrompt } from '@vscode/prompt-tsx';
 import * as vscode from 'vscode';
 import { dispose } from '../common/utils';
 import { ParticipantsPrompt } from './participantsPrompt';
-import { IToolCall, MimeTypes } from './tools/toolsUtils';
+import { IToolCall, TOOL_COMMAND_RESULT, TOOL_MARKDOWN_RESULT } from './tools/toolsUtils';
 
 export class ChatParticipantState {
 	private _messages: vscode.LanguageModelChatMessage[] = [];
@@ -108,10 +108,10 @@ export class ChatParticipant implements vscode.Disposable {
 
 			const requestedTool = toolReferences.shift();
 			if (requestedTool) {
-				options.toolChoice = requestedTool.id;
-				options.tools = allTools.filter(tool => tool.name === requestedTool.id);
+				options.toolMode = vscode.LanguageModelChatToolMode.Required;
+				options.tools = allTools.filter(tool => tool.name === requestedTool.name);
 			} else {
-				options.toolChoice = undefined;
+				options.toolMode = undefined;
 				options.tools = allTools;
 			}
 
@@ -147,7 +147,7 @@ export class ChatParticipant implements vscode.Disposable {
 
 			if (toolCalls.length) {
 				const assistantMsg = vscode.LanguageModelChatMessage.Assistant('');
-				assistantMsg.content2 = toolCalls.map(toolCall => new vscode.LanguageModelToolCallPart(toolCall.tool.name, toolCall.call.toolCallId, toolCall.call.parameters));
+				assistantMsg.content2 = toolCalls.map(toolCall => new vscode.LanguageModelToolCallPart(toolCall.tool.name, toolCall.call.callId, toolCall.call.parameters));
 				this.state.addMessage(assistantMsg);
 
 				let hasJson = false;
@@ -155,40 +155,43 @@ export class ChatParticipant implements vscode.Disposable {
 				for (const toolCall of toolCalls) {
 					let toolCallResult = (await toolCall.result);
 
-					const plainText = toolCallResult[MimeTypes.textPlain];
-					const markdown: string = toolCallResult[MimeTypes.textMarkdown];
-					const json: JSON = toolCallResult[MimeTypes.textJson];
-					const display = toolCallResult[MimeTypes.textDisplay]; // our own fake type that we use to indicate something that should be streamed to the user
-					const command = toolCallResult[MimeTypes.command]; // our own fake type that we use to indicate something that should be executed as a command
-					if (display) {
-						stream.markdown(display);
-						shownToUser = true;
-					}
-					if (command) {
-						commands.push(command);
-					}
-					const content: (string | vscode.LanguageModelToolResultPart | vscode.LanguageModelToolCallPart)[] = [];
-					let isOnlyPlaintext = true;
-					if (json !== undefined) {
-						content.push(new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, JSON.stringify(json)));
-						isOnlyPlaintext = false;
-						hasJson = true;
-					} else if (markdown !== undefined) {
-						const asMarkdownString = new vscode.MarkdownString(markdown);
-						asMarkdownString.supportHtml = true;
-						stream.markdown(asMarkdownString);
-						shownToUser = true;
-					}
-					if (plainText !== undefined) {
-						if (isOnlyPlaintext) {
-							content.push(new vscode.LanguageModelToolResultPart(toolCall.call.toolCallId, plainText));
+					// const plainText = toolCallResult[MimeTypes.textPlain];
+					// const markdown: string = toolCallResult[MimeTypes.textMarkdown];
+					// const json: JSON = toolCallResult[MimeTypes.textJson];
+					// const display = toolCallResult[MimeTypes.textDisplay]; // our own fake type that we use to indicate something that should be streamed to the user
+					// const command = toolCallResult[MimeTypes.command]; // our own fake type that we use to indicate something that should be executed as a command
+					const additionalContent: string[] = [];
+					let result: vscode.LanguageModelToolResultPart | undefined;
+					for (let i = 0; i < toolCallResult.content.length; i++) {
+						const part = toolCallResult.content[i];
+						if (!(part instanceof vscode.LanguageModelTextPart)) {
+							// We only support text results for now, will change when we finish adopting prompt-tsx
+							continue;
+						}
+
+						if (part.value === TOOL_MARKDOWN_RESULT) {
+							const markdown = new vscode.MarkdownString((toolCallResult.content[++i] as vscode.LanguageModelTextPart).value);
+							markdown.supportHtml = true;
+							stream.markdown(markdown);
+							shownToUser = true;
+						} else if (part.value === TOOL_COMMAND_RESULT) {
+							commands.push(JSON.parse((toolCallResult.content[++i] as vscode.LanguageModelTextPart).value) as vscode.Command);
 						} else {
-							content.push(plainText);
+							if (!result) {
+								result = new vscode.LanguageModelToolResultPart(toolCall.call.callId, [part]);
+							} else {
+								additionalContent.push(part.value);
+							}
 						}
 					}
 					const message = vscode.LanguageModelChatMessage.User('');
-					message.content2 = content;
+					message.content2 = [result!];
 					this.state.addMessage(message);
+					if (additionalContent.length) {
+						const additionalMessage = vscode.LanguageModelChatMessage.User('');
+						additionalMessage.content2 = additionalContent;
+						this.state.addMessage(additionalMessage);
+					}
 				}
 
 				this.state.addMessage(vscode.LanguageModelChatMessage.User(`Above is the result of calling the functions ${toolCalls.map(call => call.tool.name).join(', ')}.${hasJson ? ' The JSON is also included and should be passed to the next tool.' : ''} ${shownToUser ? 'The user can see the result of the tool call.' : ''}`));
