@@ -10,7 +10,7 @@ import { concatAsyncIterable } from './toolsUtils';
 
 export class IssueSummarizationTool implements vscode.LanguageModelTool<FetchIssueResult> {
 
-	async prepareToolInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchIssueResult>): Promise<vscode.PreparedToolInvocation> {
+	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchIssueResult>): Promise<vscode.PreparedToolInvocation> {
 		if (!options.parameters.title) {
 			return {
 				invocationMessage: vscode.l10n.t('Summarizing issue')

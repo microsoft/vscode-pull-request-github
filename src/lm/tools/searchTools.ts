@@ -349,7 +349,7 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		return `https://github.com/issues/?q=${encodeURIComponent(query)}`;
 	}
 
-	async prepareToolInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<ConvertToQuerySyntaxParameters>): Promise<vscode.PreparedToolInvocation> {
+	async prepareInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<ConvertToQuerySyntaxParameters>): Promise<vscode.PreparedToolInvocation> {
 		return {
 			invocationMessage: vscode.l10n.t('Converting to search syntax')
 		};
@@ -424,7 +424,7 @@ export interface SearchToolResult {
 export class SearchTool extends RepoToolBase<SearchToolParameters> {
 	static ID = 'SearchTool';
 
-	async prepareToolInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<SearchToolParameters>): Promise<vscode.PreparedToolInvocation> {
+	async prepareInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<SearchToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		return {
 			invocationMessage: vscode.l10n.t('Searching for issues')
 		};
