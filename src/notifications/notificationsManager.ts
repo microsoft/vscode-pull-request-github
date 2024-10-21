@@ -5,7 +5,9 @@
 
 import * as vscode from 'vscode';
 import { dispose } from '../common/utils';
-import { NotificationsSortMethod, NotificationTreeItem } from './notificationItem';
+import { IssueModel } from '../github/issueModel';
+import { PullRequestModel } from '../github/pullRequestModel';
+import { NotificationFilterMethod, NotificationsSortMethod, NotificationTreeItem } from './notificationItem';
 import { NotificationsProvider } from './notificationsProvider';
 
 export interface INotificationTreeItems {
@@ -28,8 +30,21 @@ export class NotificationsManager {
 		this._onDidChangeSortingMethod.fire();
 	}
 
+	private _filterMethod: NotificationFilterMethod = NotificationFilterMethod.All;
+	public get filterMethod(): NotificationFilterMethod { return this._filterMethod; }
+	public set filterMethod(value: NotificationFilterMethod) {
+		if (this._filterMethod === value) {
+			return;
+		}
+		this._filterMethod = value;
+		this._onDidChangeFilterMethod.fire();
+	}
+
 	private readonly _onDidChangeSortingMethod = new vscode.EventEmitter<void>();
 	readonly onDidChangeSortingMethod = this._onDidChangeSortingMethod.event;
+
+	private readonly _onDidChangeFilterMethod = new vscode.EventEmitter<void>();
+	readonly onDidChangeFilterMethod = this._onDidChangeFilterMethod.event;
 
 	private _hasNextPage: boolean = false;
 	private _notifications = new Map<string, NotificationTreeItem>();
@@ -38,6 +53,8 @@ export class NotificationsManager {
 
 	constructor(private readonly _notificationProvider: NotificationsProvider) {
 		this._disposable.push(this._onDidChangeNotifications);
+		this._disposable.push(this._onDidChangeSortingMethod);
+		this._disposable.push(this._onDidChangeFilterMethod);
 	}
 
 	dispose() {
@@ -83,6 +100,10 @@ export class NotificationsManager {
 				return;
 			}
 
+			const shouldFilter = this._shouldFilter(model);
+			if (shouldFilter) {
+				return;
+			}
 			notificationItems.set(notification.key, {
 				notification, model, kind: 'notification'
 			});
@@ -147,5 +168,12 @@ export class NotificationsManager {
 		}
 
 		return notifications;
+	}
+
+	private _shouldFilter(model: IssueModel): boolean {
+		return (this.filterMethod === NotificationFilterMethod.Open && !model.isOpen)
+			|| (this.filterMethod === NotificationFilterMethod.Closed && !model.isClosed)
+			|| (this.filterMethod === NotificationFilterMethod.Issues && (model instanceof PullRequestModel))
+			|| (this.filterMethod === NotificationFilterMethod.PullRequests && !(model instanceof PullRequestModel));
 	}
 }

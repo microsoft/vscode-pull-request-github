@@ -10,7 +10,7 @@ import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { chatCommand } from '../lm/utils';
 import { NotificationsDecorationProvider } from './notificationDecorationProvider';
-import { NotificationFilterMethod, isNotificationTreeItem, NotificationsSortMethod, NotificationTreeDataItem } from './notificationItem';
+import { isNotificationTreeItem, NotificationFilterMethod, NotificationsSortMethod, NotificationTreeDataItem } from './notificationItem';
 import { NotificationsManager } from './notificationsManager';
 import { NotificationsProvider } from './notificationsProvider';
 import { NotificationsTreeData } from './notificationsView';
@@ -77,7 +77,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 						"notifications.filterByAll" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.filterByAll');
-					notificationsProvider.filterMethod = NotificationFilterMethod.All;
+					notificationsManager.filterMethod = NotificationFilterMethod.All;
 				},
 				this,
 			),
@@ -90,7 +90,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 						"notifications.filterByOpen" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.filterByOpen');
-					notificationsProvider.filterMethod = NotificationFilterMethod.Open;
+					notificationsManager.filterMethod = NotificationFilterMethod.Open;
 				},
 				this,
 			),
@@ -103,7 +103,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 						"notifications.filterByClosed" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.filterByClosed');
-					notificationsProvider.filterMethod = NotificationFilterMethod.Closed;
+					notificationsManager.filterMethod = NotificationFilterMethod.Closed;
 				},
 				this,
 			),
@@ -116,7 +116,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 						"notifications.filterByIssues" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.filterByIssues');
-					notificationsProvider.filterMethod = NotificationFilterMethod.Issues;
+					notificationsManager.filterMethod = NotificationFilterMethod.Issues;
 				},
 				this,
 			),
@@ -129,7 +129,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 						"notifications.filterByPullRequests" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.filterByPullRequests');
-					notificationsProvider.filterMethod = NotificationFilterMethod.PullRequests;
+					notificationsManager.filterMethod = NotificationFilterMethod.PullRequests;
 				},
 				this,
 			),
@@ -142,7 +142,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 						"notifications.filterByAll" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.filterByAll');
-					notificationsProvider.filterMethod = NotificationFilterMethod.All;
+					notificationsManager.filterMethod = NotificationFilterMethod.All;
 				},
 				this,
 			),
@@ -155,7 +155,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 						"notifications.filterByOpen" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.filterByOpen');
-					notificationsProvider.filterMethod = NotificationFilterMethod.Open;
+					notificationsManager.filterMethod = NotificationFilterMethod.Open;
 				},
 				this,
 			),
@@ -168,7 +168,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 						"notifications.filterByClosed" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.filterByClosed');
-					notificationsProvider.filterMethod = NotificationFilterMethod.Closed;
+					notificationsManager.filterMethod = NotificationFilterMethod.Closed;
 				},
 				this,
 			),
@@ -181,7 +181,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 						"notifications.filterByIssues" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.filterByIssues');
-					notificationsProvider.filterMethod = NotificationFilterMethod.Issues;
+					notificationsManager.filterMethod = NotificationFilterMethod.Issues;
 				},
 				this,
 			),
@@ -194,7 +194,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 						"notifications.filterByPullRequests" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.filterByPullRequests');
-					notificationsProvider.filterMethod = NotificationFilterMethod.PullRequests;
+					notificationsManager.filterMethod = NotificationFilterMethod.PullRequests;
 				},
 				this,
 			),

@@ -32,43 +32,6 @@ export class NotificationsProvider implements vscode.Disposable {
 
 	private readonly _disposables: vscode.Disposable[] = [];
 
-	private readonly _notificationsPaginationRange: NotificationsPaginationRange = {
-		startPage: 1,
-		endPage: 1
-	}
-
-	private _sortingMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
-
-	private _filterMethod: NotificationFilterMethod = NotificationFilterMethod.All;
-
-	public get sortingMethod(): NotificationsSortMethod { return this._sortingMethod; }
-
-	public get filterMethod(): NotificationFilterMethod { return this._filterMethod; }
-
-	public set sortingMethod(value: NotificationsSortMethod) {
-		if (this._sortingMethod === value) {
-			return;
-		}
-		this._sortingMethod = value;
-		this._onDidChangeSortingMethod.fire();
-	}
-
-	public set filterMethod(value: NotificationFilterMethod) {
-		if (this._filterMethod === value) {
-			return;
-		}
-		this._filterMethod = value;
-		this._onDidChangeFilterMethod.fire();
-	}
-
-	private readonly _onDidChangeSortingMethod = new vscode.EventEmitter<void>();
-	readonly onDidChangeSortingMethod = this._onDidChangeSortingMethod.event;
-
-	private readonly _onDidChangeFilterMethod = new vscode.EventEmitter<void>();
-	readonly onDidChangeFilterMethod = this._onDidChangeFilterMethod.event;
-
-	private _canLoadMoreNotifications: boolean = false;
-
 	constructor(
 		private readonly _credentialStore: CredentialStore,
 		private readonly _repositoriesManager: RepositoriesManager
@@ -88,9 +51,6 @@ export class NotificationsProvider implements vscode.Disposable {
 				}
 			})
 		);
-
-		this._disposables.push(this._onDidChangeSortingMethod);
-		this._disposables.push(this._onDidChangeFilterMethod);
 	}
 
 	private _getGitHub(): GitHub | undefined {
@@ -117,67 +77,10 @@ export class NotificationsProvider implements vscode.Disposable {
 		if (this._repositoriesManager.folderManagers.length === 0) {
 			return undefined;
 		}
-		const notifications = await this._getResolvedNotifications(gitHub);
-		const filteredNotifications = this._filterNotifications(notifications);
-		return this._sortNotifications(filteredNotifications);
-	}
 
-	private _filterNotifications(notifications: (INotificationItem | undefined)[]): INotificationItem[] {
-		let filteredNotifications: INotificationItem[];
-		switch (this.filterMethod) {
-			case NotificationFilterMethod.All:
-				filteredNotifications = notifications.filter(notification => notification !== undefined) as INotificationItem[];
-				break;
-			case NotificationFilterMethod.Open:
-				filteredNotifications = notifications.filter(notification => notification !== undefined && notification.model.isOpen) as INotificationItem[];
-				break;
-			case NotificationFilterMethod.Closed:
-				filteredNotifications = notifications.filter(notification => notification !== undefined && notification.model.isClosed) as INotificationItem[];
-				break;
-			case NotificationFilterMethod.Issues:
-				filteredNotifications = notifications.filter(notification => notification !== undefined && notification.model instanceof IssueModel && !(notification.model instanceof PullRequestModel)) as INotificationItem[];
-				break;
-			case NotificationFilterMethod.PullRequests:
-				filteredNotifications = notifications.filter(notification => notification !== undefined && notification.model instanceof PullRequestModel) as INotificationItem[];
-				break;
-		}
-		return filteredNotifications;
-	}
-
-	private async _sortNotifications(notifications: INotificationItem[]): Promise<INotificationItem[]> {
-		if (this.sortingMethod === NotificationsSortMethod.Priority) {
-			const models = await vscode.lm.selectChatModels({
-				vendor: 'copilot',
-				family: 'gpt-4o'
-			});
-			const model = models[0];
-			if (model) {
-				try {
-					return this._sortNotificationsByLLMPriority(notifications, model);
-				} catch (e) {
-					return this._sortNotificationsByTimestamp(notifications);
-				}
-			}
-		}
-		return this._sortNotificationsByTimestamp(notifications);
-	}
-
-	public getNotifications(): INotificationItem[] {
-		return this._notificationsManager.getAllNotifications();
-	}
-
-	public get canLoadMoreNotifications(): boolean {
-		return this._canLoadMoreNotifications;
-	}
-
-	public loadMore(): void {
-		this._notificationsPaginationRange.endPage += 1;
-	}
-
-	private async _getResolvedNotifications(gitHub: GitHub): Promise<(INotificationItem | undefined)[]> {
-		const notificationPromises: Promise<{ notifications: INotificationItem[], hasNextPage: boolean }>[] = [];
-		for (let i = this._notificationsPaginationRange.startPage; i <= this._notificationsPaginationRange.endPage; i++) {
-			notificationPromises.push(this._getResolvedNotificationsForPage(gitHub, i));
+		const notificationPromises: Promise<INotifications>[] = [];
+		for (let i = 1; i <= pageCount; i++) {
+			notificationPromises.push(this._getNotificationsPage(gitHub, i));
 		}
 
 		const notifications = await Promise.all(notificationPromises);
