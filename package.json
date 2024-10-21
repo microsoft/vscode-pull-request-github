@@ -3201,7 +3201,7 @@
 				],
 				"toolReferenceName": "issue_summarize",
 				"displayName": "%languageModelTools.github-pull-request_issue_summarize.displayName%",
-				"modelDescription": "Returns a summary of a GitHub issue/PR, given issue/PR details in a JSON object.",
+				"modelDescription": "Summarizes a GitHub issue or pull request. A summary is a great way to describe an issue or pull request.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
@@ -3246,9 +3246,6 @@
 						"comments"
 					]
 				},
-				"supportedContentTypes": [
-					"text/plain"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
@@ -3328,10 +3325,6 @@
 						"notificationKey"
 					]
 				},
-				"supportedContentTypes": [
-					"text/plain",
-					"command"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
@@ -3376,9 +3369,6 @@
 						"repo"
 					]
 				},
-				"supportedContentTypes": [
-					"text/plain"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
@@ -3425,11 +3415,6 @@
 						"naturalLanguageString"
 					]
 				},
-				"supportedContentTypes": [
-					"text/plain",
-					"text/json",
-					"text/display"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
@@ -3475,10 +3460,6 @@
 						"repo"
 					]
 				},
-				"supportedContentTypes": [
-					"text/plain",
-					"text/json"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
@@ -3601,11 +3582,6 @@
 						"issues"
 					]
 				},
-				"supportedContentTypes": [
-					"text/plain",
-					"text/markdown",
-					"text/display"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			}
 		]

@@ -56,10 +56,12 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 			}
 			result.fileChanges = fetchedFileChanges;
 		}
-		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(result))]);
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(result)),
+		new vscode.LanguageModelTextPart('Above is a stringified JSON representation of the issue or pull request. This can be passed to other tools for further processing.')
+		]);
 	}
 
-	async prepareToolInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchIssueToolParameters>): Promise<vscode.PreparedToolInvocation> {
+	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchIssueToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		if (!options.parameters.issueNumber) {
 			return {
 				invocationMessage: vscode.l10n.t('Fetching item from GitHub')

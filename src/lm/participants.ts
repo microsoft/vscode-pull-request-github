@@ -150,7 +150,6 @@ export class ChatParticipant implements vscode.Disposable {
 				assistantMsg.content2 = toolCalls.map(toolCall => new vscode.LanguageModelToolCallPart(toolCall.tool.name, toolCall.call.callId, toolCall.call.parameters));
 				this.state.addMessage(assistantMsg);
 
-				let hasJson = false;
 				let shownToUser = false;
 				for (const toolCall of toolCalls) {
 					let toolCallResult = (await toolCall.result);
@@ -194,7 +193,7 @@ export class ChatParticipant implements vscode.Disposable {
 					}
 				}
 
-				this.state.addMessage(vscode.LanguageModelChatMessage.User(`Above is the result of calling the functions ${toolCalls.map(call => call.tool.name).join(', ')}.${hasJson ? ' The JSON is also included and should be passed to the next tool.' : ''} ${shownToUser ? 'The user can see the result of the tool call.' : ''}`));
+				this.state.addMessage(vscode.LanguageModelChatMessage.User(`Above is the result of calling the functions ${toolCalls.map(call => call.tool.name).join(', ')}. ${shownToUser ? 'The user can see the result of the tool call.' : ''}`));
 				return runWithFunctions();
 			}
 		};

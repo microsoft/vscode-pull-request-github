@@ -11,7 +11,7 @@ import { IssueResult, IssueToolParameters } from './toolsUtils';
 export class SuggestFixTool implements vscode.LanguageModelTool<IssueToolParameters> {
 	constructor(private readonly repositoriesManager: RepositoriesManager) { }
 
-	async prepareToolInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<IssueToolParameters>): Promise<vscode.PreparedToolInvocation> {
+	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<IssueToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		return {
 			invocationMessage: options.parameters.issueNumber ? vscode.l10n.t('Suggesting a fix for issue #{0}', options.parameters.issueNumber) : vscode.l10n.t('Suggesting a fix for the issue')
 		};
