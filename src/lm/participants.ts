@@ -160,7 +160,8 @@ export class ChatParticipant implements vscode.Disposable {
 					// const json: JSON = toolCallResult[MimeTypes.textJson];
 					// const display = toolCallResult[MimeTypes.textDisplay]; // our own fake type that we use to indicate something that should be streamed to the user
 					// const command = toolCallResult[MimeTypes.command]; // our own fake type that we use to indicate something that should be executed as a command
-					const content: (string | vscode.LanguageModelToolResultPart)[] = [];
+					const additionalContent: string[] = [];
+					let result: vscode.LanguageModelToolResultPart | undefined;
 					for (let i = 0; i < toolCallResult.content.length; i++) {
 						const part = toolCallResult.content[i];
 						if (!(part instanceof vscode.LanguageModelTextPart)) {
@@ -169,23 +170,28 @@ export class ChatParticipant implements vscode.Disposable {
 						}
 
 						if (part.value === TOOL_MARKDOWN_RESULT) {
-							const markdown = new vscode.MarkdownString((toolCallResult.content[i++] as vscode.LanguageModelTextPart).value);
+							const markdown = new vscode.MarkdownString((toolCallResult.content[++i] as vscode.LanguageModelTextPart).value);
 							markdown.supportHtml = true;
 							stream.markdown(markdown);
 							shownToUser = true;
 						} else if (part.value === TOOL_COMMAND_RESULT) {
-							commands.push(JSON.parse((toolCallResult.content[i++] as vscode.LanguageModelTextPart).value) as vscode.Command);
+							commands.push(JSON.parse((toolCallResult.content[++i] as vscode.LanguageModelTextPart).value) as vscode.Command);
 						} else {
-							if (i === toolCallResult.content.length - 1) {
-								content.push(new vscode.LanguageModelToolResultPart(toolCall.call.callId, [part]));
+							if (!result) {
+								result = new vscode.LanguageModelToolResultPart(toolCall.call.callId, [part]);
 							} else {
-								content.push(part.value);
+								additionalContent.push(part.value);
 							}
 						}
 					}
 					const message = vscode.LanguageModelChatMessage.User('');
-					message.content2 = content;
+					message.content2 = [result!];
 					this.state.addMessage(message);
+					if (additionalContent.length) {
+						const additionalMessage = vscode.LanguageModelChatMessage.User('');
+						additionalMessage.content2 = additionalContent;
+						this.state.addMessage(additionalMessage);
+					}
 				}
 
 				this.state.addMessage(vscode.LanguageModelChatMessage.User(`Above is the result of calling the functions ${toolCalls.map(call => call.tool.name).join(', ')}.${hasJson ? ' The JSON is also included and should be passed to the next tool.' : ''} ${shownToUser ? 'The user can see the result of the tool call.' : ''}`));

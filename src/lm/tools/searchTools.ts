@@ -385,8 +385,8 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		};
 		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_MARKDOWN_RESULT),
 		new vscode.LanguageModelTextPart(vscode.l10n.t('Query \`{0}\`. [Open on GitHub.com]({1})\n\n', result.query, this.toGitHubUrl(result.query))),
-		new vscode.LanguageModelTextPart(vscode.l10n.t('Here is the query in json format. You can pass this to a tool that can display it.\n\n')),
-		new vscode.LanguageModelTextPart(JSON.stringify(json))]);
+		new vscode.LanguageModelTextPart(JSON.stringify(json)),
+		new vscode.LanguageModelTextPart('Above is the query in stringified json format. You can pass this VERBATIM to a tool that knows how to search.')]);
 	}
 }
 
@@ -461,9 +461,10 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 			})
 		};
 		Logger.debug(`Found ${result.arrayOfIssues.length} issues, first issue ${result.arrayOfIssues[0]?.number}.`, SearchTool.ID);
+
 		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_MARKDOWN_RESULT),
 		new vscode.LanguageModelTextPart((result.arrayOfIssues.length < searchResult.items.length) && (searchResult.totalCount !== undefined) ? vscode.l10n.t('Found {0} issues, using the first {1}', searchResult.totalCount, cutoff) : vscode.l10n.t('Found {0} issues.', result.arrayOfIssues.length)),
-		new vscode.LanguageModelTextPart(`Here are the issues I found for the query ${parameterQuery} in json format. You can pass these to a tool that can display them.`),
-		new vscode.LanguageModelTextPart(JSON.stringify(result))]);
+		new vscode.LanguageModelTextPart(JSON.stringify(result)),
+		new vscode.LanguageModelTextPart(`Above are the issues I found for the query ${parameterQuery} in json format. You can pass these to a tool that can display them.`)]);
 	}
 }
