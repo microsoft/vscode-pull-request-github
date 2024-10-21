@@ -1527,7 +1527,7 @@
 				"command": "notification.markAsDone",
 				"title": "%command.notifications.markAsDone.title%",
 				"category": "%command.notifications.category%",
-				"icon": "$(check)"
+				"icon": "$(check-all)"
 			}
 		],
 		"viewsWelcome": [
