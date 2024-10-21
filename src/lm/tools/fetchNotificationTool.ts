@@ -99,7 +99,7 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 			result.fileChanges = fetchedFileChanges;
 		}
 		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(result)),
-		new vscode.LanguageModelTextPart('Above is a stringified JSON representation of the notification. This can be passed to other tools for further processing.')
+		new vscode.LanguageModelTextPart('Above is a stringified JSON representation of the notification. This can be passed to other tools for further processing or display.')
 		]);
 	}
 }
