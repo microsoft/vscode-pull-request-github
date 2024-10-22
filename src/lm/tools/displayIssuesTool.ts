@@ -57,7 +57,11 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		return finalColumns;
 	}
 
-	private async getImportantColumns(issueItemsInfo: string, issues: IssueSearchResultItem[], token: vscode.CancellationToken): Promise<IssueColumn[]> {
+	private async getImportantColumns(issueItemsInfo: vscode.LanguageModelTextPart | undefined, issues: IssueSearchResultItem[], token: vscode.CancellationToken): Promise<IssueColumn[]> {
+		if (!issueItemsInfo) {
+			return ['number', 'title', 'state'];
+		}
+
 		// Try to get the llm to tell us which columns are important based on information it has about the issues
 		const models = await vscode.lm.selectChatModels({
 			vendor: 'copilot',
@@ -68,7 +72,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 			justification: 'Answering user questions pertaining to GitHub.'
 		};
 		const messages = [vscode.LanguageModelChatMessage.Assistant(this.assistantPrompt(issues))];
-		messages.push(vscode.LanguageModelChatMessage.User(issueItemsInfo));
+		messages.push(new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.User, issueItemsInfo?.value));
 		const response = await model.sendRequest(messages, chatOptions, token);
 		const result = this.postProcess(await concatAsyncIterable(response.text), issues);
 		const indexOfUrl = result.indexOf('url');
@@ -119,7 +123,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<DisplayIssuesParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		let issueItemsInfo: string = this.chatParticipantState.firstUserMessage ?? '';
+		let issueItemsInfo: vscode.LanguageModelTextPart | undefined = this.chatParticipantState.firstUserMessage;
 		const issueItems: IssueSearchResultItem[] = options.parameters.arrayOfIssues;
 		if (issueItems.length === 0) {
 			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(vscode.l10n.t('No issues found. Please try another query.'))]);
