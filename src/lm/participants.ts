@@ -25,11 +25,15 @@ export class ChatParticipantState {
 		return [];
 	}
 
-	get firstUserMessage(): string | undefined {
+	get firstUserMessage(): vscode.LanguageModelTextPart | undefined {
 		for (let i = 0; i < this._messages.length; i++) {
 			const message = this._messages[i];
 			if (message.role === vscode.LanguageModelChatMessageRole.User && message.content) {
-				return message.content;
+				for (const part of message.content) {
+					if (part instanceof vscode.LanguageModelTextPart) {
+						return part;
+					}
+				}
 			}
 		}
 	}
@@ -96,7 +100,7 @@ export class ChatParticipant implements vscode.Disposable {
 			{ modelMaxPromptTokens: model.maxInputTokens },
 			model);
 
-		this.state.addMessages(messages);
+		this.state.addMessages(messages as any);
 
 		const toolReferences = [...request.toolReferences];
 		const options: vscode.LanguageModelChatRequestOptions = {
