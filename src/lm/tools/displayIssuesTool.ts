@@ -124,9 +124,19 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 		const maxDisplay = 10;
 		const foundIssuesCount = this.foundIssuesCount(options.parameters);
 		const actualDisplay = Math.min(maxDisplay, foundIssuesCount);
-		return {
-			invocationMessage: vscode.l10n.t('Found {0} issues. Generating a markdown table of the first {1}', foundIssuesCount, actualDisplay)
-		};
+		if (actualDisplay === 0) {
+			return {
+				invocationMessage: vscode.l10n.t('No issues found')
+			};
+		} else if (actualDisplay < foundIssuesCount) {
+			return {
+				invocationMessage: vscode.l10n.t('Found {0} issues. Generating a markdown table of the first {1}', foundIssuesCount, actualDisplay)
+			};
+		} else {
+			return {
+				invocationMessage: vscode.l10n.t('Found {0} issues. Generating a markdown table', foundIssuesCount)
+			};
+		}
 	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<DisplayIssuesParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
