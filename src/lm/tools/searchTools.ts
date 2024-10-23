@@ -226,7 +226,7 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		if (labels.includes(freeForm)) {
 			return '';
 		}
-		if (labels.some(label => freeForm.includes(label))) {
+		if (labels.some(label => freeForm.includes(label) || label.includes(freeForm))) {
 			return '';
 		}
 		return freeForm;
@@ -465,7 +465,7 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 			}),
 			totalIssues: searchResult.totalCount ?? searchResult.items.length
 		};
-		Logger.debug(`Found ${result.arrayOfIssues.length} issues, first issue ${result.arrayOfIssues[0]?.number}.`, SearchTool.ID);
+		Logger.debug(`Found ${result.totalIssues} issues, first issue ${result.arrayOfIssues[0]?.number}.`, SearchTool.ID);
 
 		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(result)),
 		new vscode.LanguageModelTextPart(`Above are the issues I found for the query ${parameterQuery} in json format. You can pass these to a tool that can display them.`)]);
