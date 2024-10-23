@@ -99,8 +99,10 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 	- comments:>5 org:contoso is:issue state:closed mentions:@me label:bug
 	- interactions:>5 repo:contoso/cli is:issue state:open
 	- repo:microsoft/vscode-python is:issue sort:updated -assignee:@me
+	- repo:contoso/cli is:issue sort:updated no:milestone
 - Go through each word of the natural language query and try to match it to a syntax component.
 - Use a "-" in front of a syntax component to indicate that it should be "not-ed".
+- Use the "no" syntax component to indicate that a property should be empty.
 - As a reminder, here are the components of the query syntax:
 	${JSON.stringify(githubSearchSyntax)}
 `;
@@ -252,8 +254,6 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 				if (!this.validateSpecificQueryPart(label, value)) {
 					continue;
 				}
-			} else if (!part.startsWith('-')) {
-				continue;
 			}
 			reformedQuery = `${reformedQuery} ${part}`;
 		}
