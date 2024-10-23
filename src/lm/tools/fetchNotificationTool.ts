@@ -28,6 +28,8 @@ export interface FetchNotificationResult {
 	unreadComments: {
 		body: string;
 	}[];
+	owner: string;
+	repo: string;
 	fileChanges?: FileChange[];
 	threadId: number,
 	notificationKey: string
@@ -85,6 +87,8 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 			notificationKey,
 			title: issueOrPR.title,
 			body: issueOrPR.body,
+			owner,
+			repo: name
 		};
 		if (issueOrPR instanceof PullRequestModel) {
 			const fileChanges = await issueOrPR.getFileChangesInfo();
