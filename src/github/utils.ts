@@ -14,7 +14,7 @@ import { IComment, IReviewThread, Reaction, SPECIAL_COMMENT_AUTHORS, SubjectType
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
-import { Remote } from '../common/remote';
+import { GitHubRemote, Remote } from '../common/remote';
 import { Resource } from '../common/resources';
 import { GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
@@ -592,6 +592,38 @@ function parseAuthor(
 			id: ''
 		};
 	}
+}
+
+export function parseGraphQLReviewers(data: GraphQL.GetReviewRequestsResponse, remote: GitHubRemote): (IAccount | ITeam)[] {
+	if (!data.repository) {
+		return [];
+	}
+	const reviewers: (IAccount | ITeam)[] = [];
+	for (const reviewer of data.repository.pullRequest.reviewRequests.nodes) {
+		if (reviewer.requestedReviewer?.login) {
+			const account: IAccount = {
+				login: reviewer.requestedReviewer.login,
+				url: reviewer.requestedReviewer.url,
+				avatarUrl: getAvatarWithEnterpriseFallback(reviewer.requestedReviewer.avatarUrl, undefined, remote.isEnterprise),
+				email: reviewer.requestedReviewer.email,
+				name: reviewer.requestedReviewer.name,
+				id: reviewer.requestedReviewer.id,
+				specialDisplayName: SPECIAL_COMMENT_AUTHORS[reviewer.requestedReviewer.login] ? (reviewer.requestedReviewer.name ?? SPECIAL_COMMENT_AUTHORS[reviewer.requestedReviewer.login].name) : undefined,
+			};
+			reviewers.push(account);
+		} else if (reviewer.requestedReviewer) {
+			const team: ITeam = {
+				name: reviewer.requestedReviewer.name,
+				url: reviewer.requestedReviewer.url,
+				avatarUrl: getAvatarWithEnterpriseFallback(reviewer.requestedReviewer.avatarUrl, undefined, remote.isEnterprise),
+				id: reviewer.requestedReviewer.id!,
+				org: remote.owner,
+				slug: reviewer.requestedReviewer.slug!
+			};
+			reviewers.push(team);
+		}
+	}
+	return reviewers;
 }
 
 function parseActor(
