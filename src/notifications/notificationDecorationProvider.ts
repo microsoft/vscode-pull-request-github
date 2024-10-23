@@ -57,6 +57,6 @@ export class NotificationsDecorationProvider implements vscode.FileDecorationPro
 		const notification = this._notificationsManager.getNotification(notificationUriParams.key);
 		const priority = notification?.priority === '100' ? '99' : notification?.priority ?? '0';
 
-		return { badge: priority, tooltip: notification?.priorityReason };
+		return { badge: priority, tooltip: vscode.l10n.t('Priority score is {0}. {1}', priority, notification?.priorityReason ?? '') };
 	}
 }
