@@ -66,7 +66,7 @@
 			{
 				"id": "githubpr",
 				"name": "githubpr",
-				"fullName": "GitHub",
+				"fullName": "GitHub Pull Requests and Issues",
 				"description": "Chat participant for GitHub Pull Requests extension",
 				"when": "config.githubPullRequests.experimental.chat"
 			}
