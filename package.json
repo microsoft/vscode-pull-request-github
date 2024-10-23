@@ -66,7 +66,7 @@
 			{
 				"id": "githubpr",
 				"name": "githubpr",
-				"fullName": "GitHub",
+				"fullName": "GitHub Pull Requests",
 				"description": "Chat participant for GitHub Pull Requests extension",
 				"when": "config.githubPullRequests.experimental.chat"
 			}
@@ -1520,7 +1520,7 @@
 				"command": "notification.markAsRead",
 				"title": "%command.notifications.markAsRead.title%",
 				"category": "%command.notifications.category%",
-				"icon": "$(check)"
+				"icon": "$(mail-read)"
 			}
 		],
 		"viewsWelcome": [
@@ -2329,12 +2329,12 @@
 				{
 					"command": "notification.chatSummarizeNotification",
 					"group": "inline@1",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView && config.githubPullRequests.experimental.chat"
 				},
 				{
 					"command": "notification.chatSummarizeNotification",
 					"group": "issues_0@0",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView && config.githubPullRequests.experimental.chat"
 				},
 				{
 					"command": "notification.openOnGitHub",
@@ -2380,6 +2380,11 @@
 					"command": "pr.refreshPullRequest",
 					"when": "view == pr:github && viewItem =~ /pullrequest|description/",
 					"group": "pullrequest@1"
+				},
+				{
+					"command": "issue.chatSummarizeIssue",
+					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
+					"group": "pullrequest@2"
 				},
 				{
 					"command": "pr.openPullRequestOnGitHub",
@@ -2451,17 +2456,17 @@
 				},
 				{
 					"command": "issue.chatSummarizeIssue",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
 					"group": "inline@0"
 				},
 				{
 					"command": "issue.chatSummarizeIssue",
-					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated",
+					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
 					"group": "inline@0"
 				},
 				{
 					"command": "issue.chatSuggestFix",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
 					"group": "inline@1"
 				},
 				{
@@ -2527,12 +2532,12 @@
 				},
 				{
 					"command": "issue.chatSummarizeIssue",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
 					"group": "issues_1@0"
 				},
 				{
 					"command": "issue.chatSuggestFix",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
 					"group": "issues_1@1"
 				},
 				{

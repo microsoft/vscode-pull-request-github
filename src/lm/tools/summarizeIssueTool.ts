@@ -45,6 +45,7 @@ Patch: ${fileChange.patch}
 		for (const [index, comment] of comments.entries()) {
 			issueOrPullRequestInfo += `
 Comment ${index} :
+Author: ${comment.author}
 Body: ${comment.body}
 `;
 		}
@@ -71,7 +72,8 @@ Body: ${comment.body}
 You are an AI assistant who is very proficient in summarizing issues and PRs.
 You will be given information relative to an issue or PR : the title, the body and the comments. In the case of a PR you will also be given patches of the PR changes.
 Your task is to output a summary of all this information.
-Do not output code. When you try to summarize PR changes, write in a textual format.
+Do not output code. When you try to summarize PR changes, summarize in a textual format.
+When you summarize comments, give a summary of each comment and mention the author clearly.
 Make sure the summary is at least as short or shorter than the issue or PR with the comments and the patches if there are.
 `;
 	}

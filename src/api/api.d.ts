@@ -185,7 +185,7 @@ export interface Repository {
 	getBranches(query: BranchQuery): Promise<Ref[]>;
 	getBranchBase(name: string): Promise<Branch | undefined>;
 	setBranchUpstream(name: string, upstream: string): Promise<void>;
-	getRefs(query: RefQuery, cancellationToken?: CancellationToken): Promise<Ref[]>;
+	getRefs?(query: RefQuery, cancellationToken?: CancellationToken): Promise<Ref[]>; // Optional, because Remote Hub doesn't support this
 
 	getMergeBase(ref1: string, ref2: string): Promise<string>;
 
