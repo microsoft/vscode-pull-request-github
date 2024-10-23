@@ -26,6 +26,7 @@ export interface FetchIssueResult {
 	title: string;
 	body: string;
 	comments: {
+		author: string;
 		body: string;
 	}[];
 	fileChanges?: FileChange[];
@@ -43,7 +44,7 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 		const result: FetchIssueResult = {
 			title: issueOrPullRequest.title,
 			body: issueOrPullRequest.body,
-			comments: issueOrPullRequest.item.comments?.map(c => ({ body: c.body })) ?? []
+			comments: issueOrPullRequest.item.comments?.map(c => ({ body: c.body, author: c.author.login })) ?? []
 		};
 		if (issueOrPullRequest instanceof PullRequestModel) {
 			const fileChanges = await issueOrPullRequest.getFileChangesInfo();
