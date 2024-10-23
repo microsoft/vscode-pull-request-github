@@ -2382,6 +2382,11 @@
 					"group": "pullrequest@1"
 				},
 				{
+					"command": "issue.chatSummarizeIssue",
+					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
+					"group": "pullrequest@2"
+				},
+				{
 					"command": "pr.openPullRequestOnGitHub",
 					"when": "view == pr:github && viewItem =~ /pullrequest|description/",
 					"group": "1_pullrequest@3"
