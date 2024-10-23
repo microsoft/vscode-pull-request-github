@@ -29,6 +29,8 @@ export interface FetchIssueResult {
 		author: string;
 		body: string;
 	}[];
+	owner: string;
+	repo: string;
 	fileChanges?: FileChange[];
 }
 
@@ -42,6 +44,8 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 			throw new Error(`No issue or PR found for ${owner}/${name}/${options.parameters.issueNumber}. Make sure the issue or PR exists.`);
 		}
 		const result: FetchIssueResult = {
+			owner,
+			repo: name,
 			title: issueOrPullRequest.title,
 			body: issueOrPullRequest.body,
 			comments: issueOrPullRequest.item.comments?.map(c => ({ body: c.body, author: c.author.login })) ?? []

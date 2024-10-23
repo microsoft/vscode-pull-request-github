@@ -3213,6 +3213,14 @@
 							"type": "string",
 							"description": "The body of the issue/PR"
 						},
+						"owner": {
+							"type": "string",
+							"description": "The owner of the repo in which the issue/PR is located"
+						},
+						"repo": {
+							"type": "string",
+							"description": "The repo in which the issue/PR is located"
+						},
 						"comments": {
 							"type": "array",
 							"items": {
@@ -3241,7 +3249,9 @@
 					"required": [
 						"title",
 						"body",
-						"comments"
+						"comments",
+						"owner",
+						"repo"
 					]
 				},
 				"when": "config.githubPullRequests.experimental.chat"
