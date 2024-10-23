@@ -3213,6 +3213,14 @@
 							"type": "string",
 							"description": "The body of the issue/PR"
 						},
+						"owner": {
+							"type": "string",
+							"description": "The owner of the repo in which the issue/PR is located"
+						},
+						"repo": {
+							"type": "string",
+							"description": "The repo in which the issue/PR is located"
+						},
 						"comments": {
 							"type": "array",
 							"items": {
@@ -3241,7 +3249,9 @@
 					"required": [
 						"title",
 						"body",
-						"comments"
+						"comments",
+						"owner",
+						"repo"
 					]
 				},
 				"when": "config.githubPullRequests.experimental.chat"
@@ -3279,6 +3289,14 @@
 						"body": {
 							"type": "string",
 							"description": "The body of the notification issue/PR"
+						},
+						"owner": {
+							"type": "string",
+							"description": "The owner of the repo in which the issue/PR is located"
+						},
+						"repo": {
+							"type": "string",
+							"description": "The repo in which the issue/PR is located"
 						},
 						"unreadComments": {
 							"type": "array",
@@ -3323,7 +3341,9 @@
 						"lastUpdatedAt",
 						"unread",
 						"threadId",
-						"notificationKey"
+						"notificationKey",
+						"owner",
+						"repo"
 					]
 				},
 				"when": "config.githubPullRequests.experimental.chat"
@@ -3686,7 +3706,7 @@
 		"@octokit/rest": "18.2.1",
 		"@octokit/types": "6.10.1",
 		"@vscode/extension-telemetry": "0.7.5",
-		"@vscode/prompt-tsx": "^0.3.0-alpha",
+		"@vscode/prompt-tsx": "^0.3.0-alpha.11",
 		"apollo-boost": "^0.4.9",
 		"apollo-link-context": "1.0.20",
 		"cockatiel": "^3.1.1",

@@ -28,6 +28,8 @@ export interface FetchNotificationResult {
 	unreadComments: {
 		body: string;
 	}[];
+	owner: string;
+	repo: string;
 	fileChanges?: FileChange[];
 	threadId: number,
 	notificationKey: string
@@ -61,7 +63,7 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 		const unread = threadData.unread;
 		const owner = threadData.repository.owner.login;
 		const name = threadData.repository.name;
-		const { folderManager } = this.getRepoInfo({ owner, name });
+		const { folderManager } = await this.getRepoInfo({ owner, name });
 		const issueOrPR = await folderManager.resolveIssueOrPullRequest(owner, name, Number(issueNumber));
 		if (!issueOrPR) {
 			throw new Error(`No notification found with thread ID #${threadId}.`);
@@ -85,6 +87,8 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 			notificationKey,
 			title: issueOrPR.title,
 			body: issueOrPR.body,
+			owner,
+			repo: name
 		};
 		if (issueOrPR instanceof PullRequestModel) {
 			const fileChanges = await issueOrPR.getFileChangesInfo();

@@ -90,7 +90,7 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 - "repo" is often formated as "owner/name". If needed, the current repo is ${remote.owner}/${remote.repositoryName}.
 - Ignore display information.
 - Respond with only the query.
-- Always include a "sort:" parameter.
+- Always include a "sort:" parameter. If multiple sorts are possible, choose the one that the user requested.
 - Always include a property with the @me value if the query includes "me" or "my".
 - Here are some examples of valid queries:
 	- repo:microsoft/vscode is:issue state:open sort:updated-asc
@@ -98,8 +98,11 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 	- assignee:@me milestone:"October 2024" is:open is:issue sort:reactions
 	- comments:>5 org:contoso is:issue state:closed mentions:@me label:bug
 	- interactions:>5 repo:contoso/cli is:issue state:open
+	- repo:microsoft/vscode-python is:issue sort:updated -assignee:@me
+	- repo:contoso/cli is:issue sort:updated no:milestone
 - Go through each word of the natural language query and try to match it to a syntax component.
-- Use a "-" in front of a syntax component to indicate that it should be excluded from the search.
+- Use a "-" in front of a syntax component to indicate that it should be "not-ed".
+- Use the "no" syntax component to indicate that a property should be empty.
 - As a reminder, here are the components of the query syntax:
 	${JSON.stringify(githubSearchSyntax)}
 `;
@@ -226,7 +229,7 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		if (labels.includes(freeForm)) {
 			return '';
 		}
-		if (labels.some(label => freeForm.includes(label))) {
+		if (labels.some(label => freeForm.includes(label) || label.includes(freeForm))) {
 			return '';
 		}
 		return freeForm;
@@ -242,7 +245,8 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 			}
 			const propAndVal = part.split(':');
 			if (propAndVal.length === 2) {
-				const label = propAndVal[0];
+				const hasMinus = propAndVal[0].startsWith('-');
+				const label = hasMinus ? propAndVal[0].substring(1) : propAndVal[0];
 				const value = propAndVal[1];
 				if (!label.match(/^[a-zA-Z]+$/)) {
 					continue;
@@ -250,8 +254,6 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 				if (!this.validateSpecificQueryPart(label, value)) {
 					continue;
 				}
-			} else if (!part.startsWith('-')) {
-				continue;
 			}
 			reformedQuery = `${reformedQuery} ${part}`;
 		}
@@ -353,7 +355,7 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<ConvertToQuerySyntaxParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		const { owner, name, folderManager } = this.getRepoInfo({ owner: options.parameters.repo?.owner, name: options.parameters.repo?.name });
+		const { owner, name, folderManager } = await this.getRepoInfo({ owner: options.parameters.repo?.owner, name: options.parameters.repo?.name });
 		const firstUserMessage = `${this.chatParticipantState.firstUserMessage?.value}, ${options.parameters.naturalLanguageString}`;
 
 		const labels = await folderManager.getLabels(undefined, { owner, repo: name });
@@ -435,7 +437,7 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<SearchToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		const { folderManager } = this.getRepoInfo({ owner: options.parameters.repo?.owner, name: options.parameters.repo?.name });
+		const { folderManager } = await this.getRepoInfo({ owner: options.parameters.repo?.owner, name: options.parameters.repo?.name });
 
 		const parameterQuery = options.parameters.query;
 		Logger.debug(`Searching with query \`${parameterQuery}\``, SearchTool.ID);
@@ -465,7 +467,7 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 			}),
 			totalIssues: searchResult.totalCount ?? searchResult.items.length
 		};
-		Logger.debug(`Found ${result.arrayOfIssues.length} issues, first issue ${result.arrayOfIssues[0]?.number}.`, SearchTool.ID);
+		Logger.debug(`Found ${result.totalIssues} issues, first issue ${result.arrayOfIssues[0]?.number}.`, SearchTool.ID);
 
 		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(result)),
 		new vscode.LanguageModelTextPart(`Above are the issues I found for the query ${parameterQuery} in json format. You can pass these to a tool that can display them.`)]);

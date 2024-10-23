@@ -56,7 +56,7 @@ Body: ${comment.body}
 		const model = models[0];
 
 		if (model) {
-			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions())];
+			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(options.parameters.repo, options.parameters.owner))];
 			messages.push(vscode.LanguageModelChatMessage.User(`The issue or pull request information is as follows:`));
 			messages.push(vscode.LanguageModelChatMessage.User(issueOrPullRequestInfo));
 			const response = await model.sendRequest(messages, {});
@@ -67,12 +67,18 @@ Body: ${comment.body}
 		}
 	}
 
-	private summarizeInstructions(): string {
+	private summarizeInstructions(repo: string, owner: string): string {
 		return `
 You are an AI assistant who is very proficient in summarizing issues and PRs.
 You will be given information relative to an issue or PR : the title, the body and the comments. In the case of a PR you will also be given patches of the PR changes.
 Your task is to output a summary of all this information.
 Do not output code. When you try to summarize PR changes, summarize in a textual format.
+Output references to other issues and PRs as Markdown links. The current issue has owner ${owner} and is in the repo ${repo}.
+If a comment references for example issue or PR #123, then output either of the following in the summary depending on if it is an issue or a PR:
+
+[#123](https://github.com/${owner}/${repo}/issues/123)
+[#123](https://github.com/${owner}/${repo}/pull/123)
+
 When you summarize comments, give a summary of each comment and mention the author clearly.
 Make sure the summary is at least as short or shorter than the issue or PR with the comments and the patches if there are.
 `;
