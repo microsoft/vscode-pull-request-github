@@ -36,9 +36,13 @@ export interface IssueResult {
 	}[];
 }
 
+export interface ToolInvocationOptions<T> extends vscode.LanguageModelToolInvocationOptions<T> {
+	requestPrompt: string;
+}
+
 export abstract class ToolBase<T> implements vscode.LanguageModelTool<T> {
 	constructor(protected readonly chatParticipantState: ChatParticipantState) { }
-	abstract invoke(options: vscode.LanguageModelToolInvocationOptions<T>, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelToolResult>;
+	abstract invoke(options: ToolInvocationOptions<T>, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelToolResult>;
 }
 
 export async function concatAsyncIterable(asyncIterable: AsyncIterable<string>): Promise<string> {
