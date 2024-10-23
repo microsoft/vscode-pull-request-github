@@ -70,8 +70,14 @@ export abstract class RepoToolBase<T> extends ToolBase<T> {
 			if (owner && name) {
 				await folderManager.createGitHubRepositoryFromOwnerName(owner, name);
 			} else {
-				owner = folderManager.gitHubRepositories[0].remote.owner;
-				name = folderManager.gitHubRepositories[0].remote.repositoryName;
+				const defaults = await folderManager.getPullRequestDefaults();
+				if (defaults) {
+					owner = defaults.owner;
+					name = defaults.repo;
+				} else {
+					owner = folderManager.gitHubRepositories[0].remote.owner;
+					name = folderManager.gitHubRepositories[0].remote.repositoryName;
+				}
 			}
 		}
 
