@@ -61,7 +61,7 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 		const unread = threadData.unread;
 		const owner = threadData.repository.owner.login;
 		const name = threadData.repository.name;
-		const { folderManager } = this.getRepoInfo({ owner, name });
+		const { folderManager } = await this.getRepoInfo({ owner, name });
 		const issueOrPR = await folderManager.resolveIssueOrPullRequest(owner, name, Number(issueNumber));
 		if (!issueOrPR) {
 			throw new Error(`No notification found with thread ID #${threadId}.`);

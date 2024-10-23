@@ -5,13 +5,17 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { CredentialStore } from '../../github/credentials';
 import { RepositoriesManager } from '../../github/repositoriesManager';
-import { IssueResult, IssueToolParameters } from './toolsUtils';
+import { ChatParticipantState } from '../participants';
+import { IssueResult, IssueToolParameters, RepoToolBase } from './toolsUtils';
 
-export class SuggestFixTool implements vscode.LanguageModelTool<IssueToolParameters> {
+export class SuggestFixTool extends RepoToolBase<IssueToolParameters> {
 	public static readonly toolId = 'github-pull-request_suggest-fix';
 
-	constructor(private readonly repositoriesManager: RepositoriesManager) { }
+	constructor(credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
+		super(credentialStore, repositoriesManager, chatParticipantState);
+	}
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<IssueToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		return {
@@ -20,7 +24,7 @@ export class SuggestFixTool implements vscode.LanguageModelTool<IssueToolParamet
 	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<IssueToolParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		const folderManager = this.repositoriesManager.getManagerForRepository(options.parameters.repo.owner, options.parameters.repo.name);
+		const { folderManager } = await this.getRepoInfo(options.parameters.repo);
 		if (!folderManager) {
 			throw new Error(`No folder manager found for ${options.parameters.repo.owner}/${options.parameters.repo.name}. Make sure to have the repository open.`);
 		}
