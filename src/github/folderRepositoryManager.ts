@@ -868,7 +868,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	async getLocalPullRequests(): Promise<PullRequestModel[]> {
 		const githubRepositories = this._githubRepositories;
 
-		if (!githubRepositories || !githubRepositories.length) {
+		if (!githubRepositories || !githubRepositories.length || !this.repository.getRefs) {
 			return [];
 		}
 
