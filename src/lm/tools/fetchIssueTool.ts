@@ -36,7 +36,7 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 	public static readonly toolId = 'github-pull-request_issue_fetch';
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchIssueToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult> {
-		const { owner, name, folderManager } = this.getRepoInfo({ owner: options.parameters.repo?.owner, name: options.parameters.repo?.name });
+		const { owner, name, folderManager } = await this.getRepoInfo({ owner: options.parameters.repo?.owner, name: options.parameters.repo?.name });
 		const issueOrPullRequest = await folderManager.resolveIssueOrPullRequest(owner, name, options.parameters.issueNumber);
 		if (!issueOrPullRequest) {
 			throw new Error(`No issue or PR found for ${owner}/${name}/${options.parameters.issueNumber}. Make sure the issue or PR exists.`);
@@ -70,7 +70,7 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 				invocationMessage: vscode.l10n.t('Fetching item from GitHub')
 			};
 		}
-		const { owner, name } = this.getRepoInfo({ owner: options.parameters.repo?.owner, name: options.parameters.repo?.name });
+		const { owner, name } = await this.getRepoInfo({ owner: options.parameters.repo?.owner, name: options.parameters.repo?.name });
 		const url = (owner && name) ? `https://github.com/${owner}/${name}/issues/${options.parameters.issueNumber}` : undefined;
 		return {
 			invocationMessage: url ? vscode.l10n.t('Fetching item [#{0}]({1}) from GitHub', options.parameters.issueNumber, url) : vscode.l10n.t('Fetching item #{0} from GitHub', options.parameters.issueNumber),

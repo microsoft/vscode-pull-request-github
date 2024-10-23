@@ -19,7 +19,7 @@ import { NotificationSummarizationTool } from './summarizeNotificationsTool';
 export function registerTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
 	registerFetchingTools(context, credentialStore, repositoriesManager, chatParticipantState);
 	registerSummarizationTools(context);
-	registerSuggestFixTool(context, repositoriesManager);
+	registerSuggestFixTool(context, credentialStore, repositoriesManager, chatParticipantState);
 	registerSearchTools(context, credentialStore, repositoriesManager, chatParticipantState);
 }
 
@@ -33,8 +33,8 @@ function registerSummarizationTools(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.lm.registerTool(NotificationSummarizationTool.toolId, new NotificationSummarizationTool()));
 }
 
-function registerSuggestFixTool(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {
-	context.subscriptions.push(vscode.lm.registerTool(SuggestFixTool.toolId, new SuggestFixTool(repositoriesManager)));
+function registerSuggestFixTool(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
+	context.subscriptions.push(vscode.lm.registerTool(SuggestFixTool.toolId, new SuggestFixTool(credentialStore, repositoriesManager, chatParticipantState)));
 }
 
 function registerSearchTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
