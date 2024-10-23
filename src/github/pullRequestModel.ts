@@ -72,11 +72,11 @@ import { IssueModel } from './issueModel';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
-	getAvatarWithEnterpriseFallback,
 	getReactionGroup,
 	insertNewCommitsSinceReview,
 	parseGraphQLComment,
 	parseGraphQLReaction,
+	parseGraphQLReviewers,
 	parseGraphQLReviewEvent,
 	parseGraphQLReviewThread,
 	parseGraphQLTimelineEvents,
@@ -975,30 +975,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return [];
 		}
 
-		const reviewers: (IAccount | ITeam)[] = [];
-		for (const reviewer of data.repository.pullRequest.reviewRequests.nodes) {
-			if (reviewer.requestedReviewer?.login) {
-				const account: IAccount = {
-					login: reviewer.requestedReviewer.login,
-					url: reviewer.requestedReviewer.url,
-					avatarUrl: getAvatarWithEnterpriseFallback(reviewer.requestedReviewer.avatarUrl, undefined, remote.isEnterprise),
-					email: reviewer.requestedReviewer.email,
-					name: reviewer.requestedReviewer.name,
-					id: reviewer.requestedReviewer.id
-				};
-				reviewers.push(account);
-			} else if (reviewer.requestedReviewer) {
-				const team: ITeam = {
-					name: reviewer.requestedReviewer.name,
-					url: reviewer.requestedReviewer.url,
-					avatarUrl: getAvatarWithEnterpriseFallback(reviewer.requestedReviewer.avatarUrl, undefined, remote.isEnterprise),
-					id: reviewer.requestedReviewer.id!,
-					org: remote.owner,
-					slug: reviewer.requestedReviewer.slug!
-				};
-				reviewers.push(team);
-			}
-		}
+		const reviewers: (IAccount | ITeam)[] = parseGraphQLReviewers(data, remote);
 		Logger.debug('Get Review Requests - done', PullRequestModel.ID);
 		return reviewers;
 	}
