@@ -80,11 +80,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 			return ['number', 'title', 'state'];
 		} else if (indexOfUrl >= 0) {
 			// Never include the url column
-			if (result.indexOf('number') >= 0) {
-				result.splice(indexOfUrl, 1);
-			} else {
-				result[indexOfUrl] = 'number';
-			}
+			result.splice(indexOfUrl, 1);
 		}
 
 		return result;
