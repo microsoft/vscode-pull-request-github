@@ -50,7 +50,7 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 			body: issueOrPullRequest.body,
 			comments: issueOrPullRequest.item.comments?.map(c => ({ body: c.body, author: c.author.login })) ?? []
 		};
-		if (issueOrPullRequest instanceof PullRequestModel) {
+		if (issueOrPullRequest instanceof PullRequestModel && issueOrPullRequest.isResolved()) {
 			const fileChanges = await issueOrPullRequest.getFileChangesInfo();
 			const fetchedFileChanges: FileChange[] = [];
 			for (const fileChange of fileChanges) {
