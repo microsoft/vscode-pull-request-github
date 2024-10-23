@@ -90,7 +90,7 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 - "repo" is often formated as "owner/name". If needed, the current repo is ${remote.owner}/${remote.repositoryName}.
 - Ignore display information.
 - Respond with only the query.
-- Always include a "sort:" parameter.
+- Always include a "sort:" parameter. If multiple sorts are possible, choose the one that the user requested.
 - Always include a property with the @me value if the query includes "me" or "my".
 - Here are some examples of valid queries:
 	- repo:microsoft/vscode is:issue state:open sort:updated-asc
