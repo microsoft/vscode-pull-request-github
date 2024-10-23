@@ -1520,7 +1520,7 @@
 				"command": "notification.markAsRead",
 				"title": "%command.notifications.markAsRead.title%",
 				"category": "%command.notifications.category%",
-				"icon": "$(check)"
+				"icon": "$(mail-read)"
 			}
 		],
 		"viewsWelcome": [
