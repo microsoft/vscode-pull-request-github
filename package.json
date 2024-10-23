@@ -3290,6 +3290,14 @@
 							"type": "string",
 							"description": "The body of the notification issue/PR"
 						},
+						"owner": {
+							"type": "string",
+							"description": "The owner of the repo in which the issue/PR is located"
+						},
+						"repo": {
+							"type": "string",
+							"description": "The repo in which the issue/PR is located"
+						},
 						"unreadComments": {
 							"type": "array",
 							"items": {
@@ -3333,7 +3341,9 @@
 						"lastUpdatedAt",
 						"unread",
 						"threadId",
-						"notificationKey"
+						"notificationKey",
+						"owner",
+						"repo"
 					]
 				},
 				"when": "config.githubPullRequests.experimental.chat"
