@@ -98,8 +98,9 @@ You are an expert on GitHub issue search syntax. GitHub issues are always softwa
 	- assignee:@me milestone:"October 2024" is:open is:issue sort:reactions
 	- comments:>5 org:contoso is:issue state:closed mentions:@me label:bug
 	- interactions:>5 repo:contoso/cli is:issue state:open
+	- repo:microsoft/vscode-python is:issue sort:updated -assignee:@me
 - Go through each word of the natural language query and try to match it to a syntax component.
-- Use a "-" in front of a syntax component to indicate that it should be excluded from the search.
+- Use a "-" in front of a syntax component to indicate that it should be "not-ed".
 - As a reminder, here are the components of the query syntax:
 	${JSON.stringify(githubSearchSyntax)}
 `;
@@ -242,7 +243,8 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 			}
 			const propAndVal = part.split(':');
 			if (propAndVal.length === 2) {
-				const label = propAndVal[0];
+				const hasMinus = propAndVal[0].startsWith('-');
+				const label = hasMinus ? propAndVal[0].substring(1) : propAndVal[0];
 				const value = propAndVal[1];
 				if (!label.match(/^[a-zA-Z]+$/)) {
 					continue;
