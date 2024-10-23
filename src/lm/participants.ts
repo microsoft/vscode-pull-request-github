@@ -100,7 +100,7 @@ export class ChatParticipant implements vscode.Disposable {
 			{ modelMaxPromptTokens: model.maxInputTokens },
 			model);
 
-		this.state.addMessages(messages as any);
+		this.state.addMessages(messages);
 
 		const toolReferences = [...request.toolReferences];
 		const options: vscode.LanguageModelChatRequestOptions = {
@@ -165,6 +165,7 @@ export class ChatParticipant implements vscode.Disposable {
 						const part = toolCallResult.content[i];
 						if (!(part instanceof vscode.LanguageModelTextPart)) {
 							// We only support text results for now, will change when we finish adopting prompt-tsx
+							result = new vscode.LanguageModelToolResultPart(toolCall.call.callId, toolCallResult.content);
 							continue;
 						}
 
