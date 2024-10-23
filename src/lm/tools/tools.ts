@@ -18,7 +18,7 @@ import { NotificationSummarizationTool } from './summarizeNotificationsTool';
 
 export function registerTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
 	registerFetchingTools(context, credentialStore, repositoriesManager, chatParticipantState);
-	registerSummarizationTools(context);
+	registerSummarizationTools(context, credentialStore);
 	registerSuggestFixTool(context, credentialStore, repositoriesManager, chatParticipantState);
 	registerSearchTools(context, credentialStore, repositoriesManager, chatParticipantState);
 }
@@ -28,9 +28,9 @@ function registerFetchingTools(context: vscode.ExtensionContext, credentialStore
 	context.subscriptions.push(vscode.lm.registerTool(FetchNotificationTool.toolId, new FetchNotificationTool(credentialStore, repositoriesManager, chatParticipantState)));
 }
 
-function registerSummarizationTools(context: vscode.ExtensionContext) {
-	context.subscriptions.push(vscode.lm.registerTool(IssueSummarizationTool.toolId, new IssueSummarizationTool()));
-	context.subscriptions.push(vscode.lm.registerTool(NotificationSummarizationTool.toolId, new NotificationSummarizationTool()));
+function registerSummarizationTools(context: vscode.ExtensionContext, credentialStore: CredentialStore) {
+	context.subscriptions.push(vscode.lm.registerTool(IssueSummarizationTool.toolId, new IssueSummarizationTool(credentialStore)));
+	context.subscriptions.push(vscode.lm.registerTool(NotificationSummarizationTool.toolId, new NotificationSummarizationTool(credentialStore)));
 }
 
 function registerSuggestFixTool(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {

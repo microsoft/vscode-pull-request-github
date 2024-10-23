@@ -8,7 +8,7 @@ import { renderPrompt } from '@vscode/prompt-tsx';
 import * as vscode from 'vscode';
 import { dispose } from '../common/utils';
 import { ParticipantsPrompt } from './participantsPrompt';
-import { IToolCall, TOOL_COMMAND_RESULT, TOOL_MARKDOWN_RESULT } from './tools/toolsUtils';
+import { IToolCall, TOOL_COMMAND_RESULT, TOOL_MARKDOWN_RESULT, ToolInvocationOptions } from './tools/toolsUtils';
 
 export class ChatParticipantState {
 	private _messages: vscode.LanguageModelChatMessage[] = [];
@@ -140,7 +140,12 @@ export class ChatParticipant implements vscode.Disposable {
 						throw new Error(`Got invalid tool use parameters: "${JSON.stringify(part.parameters)}". (${(err as Error).message})`);
 					}
 
-					const invocationOptions = { parameters, toolInvocationToken: request.toolInvocationToken, requestedContentTypes: ['text/plain', 'text/markdown', 'text/json', 'text/display', 'command'] };
+					const invocationOptions: ToolInvocationOptions<any> = {
+						parameters,
+						requestPrompt: request.prompt,
+						toolInvocationToken: request.toolInvocationToken
+					};
+					console.log('invocationOptions : ', invocationOptions);
 					toolCalls.push({
 						call: part,
 						result: vscode.lm.invokeTool(tool.name, invocationOptions, token),

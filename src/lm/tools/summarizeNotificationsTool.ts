@@ -5,13 +5,17 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { AuthProvider } from '../../common/authentication';
+import { CredentialStore } from '../../github/credentials';
 import { FetchNotificationResult } from './fetchNotificationTool';
-import { concatAsyncIterable, TOOL_COMMAND_RESULT } from './toolsUtils';
+import { concatAsyncIterable, TOOL_COMMAND_RESULT, ToolInvocationOptions } from './toolsUtils';
 
 export class NotificationSummarizationTool implements vscode.LanguageModelTool<FetchNotificationResult> {
 	public static readonly toolId = 'github-pull-request_notification_summarize';
 
-	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchNotificationResult>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
+	constructor(private readonly _credentialStore: CredentialStore) { }
+
+	async invoke(options: ToolInvocationOptions<FetchNotificationResult>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		let notificationInfo: string = '';
 		const lastReadAt = options.parameters.lastReadAt;
 		if (!lastReadAt) {
@@ -61,7 +65,7 @@ Body: ${comment.body}
 			}]
 		};
 		if (model) {
-			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions())];
+			const messages = [vscode.LanguageModelChatMessage.User(await this.summarizeInstructions())];
 			messages.push(vscode.LanguageModelChatMessage.User(`The notification information is as follows:`));
 			messages.push(vscode.LanguageModelChatMessage.User(notificationInfo));
 			const response = await model.sendRequest(messages, {});
@@ -77,10 +81,12 @@ Body: ${comment.body}
 		}
 	}
 
-	private summarizeInstructions(): string {
+	private async summarizeInstructions(): Promise<string> {
+		const userLogin = (await this._credentialStore.getCurrentUser(AuthProvider.github)).login;
 		return `
 You are an AI assistant who is very proficient in summarizing notification threads.
 You will be given information relative to a notification thread : the title, the body and the comments. In the case of a PR you will also be given patches of the PR changes.
+The current user login is ${userLogin}.
 Since you are reviewing a notification thread, part of the content is by definition unread. You will be told what part of the content is yet unread. This can be the comments or it can be both the thread issue/PR as well as the comments.
 Your task is to output a summary of all this notification thread information and give an update to the user concerning the unread part of the thread.
 Always include in your output, which part of the thread is unread by prefixing that part with the markdown heading of level 1 with text "Unread Thread" or "Unread Comments".
