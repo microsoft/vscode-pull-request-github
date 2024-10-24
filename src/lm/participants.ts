@@ -151,7 +151,7 @@ export class ChatParticipant implements vscode.Disposable {
 
 			if (toolCalls.length) {
 				const assistantMsg = vscode.LanguageModelChatMessage.Assistant('');
-				assistantMsg.content2 = toolCalls.map(toolCall => new vscode.LanguageModelToolCallPart(toolCall.tool.name, toolCall.call.callId, toolCall.call.parameters));
+				assistantMsg.content2 = toolCalls.map(toolCall => new vscode.LanguageModelToolCallPart(toolCall.call.callId, toolCall.tool.name, toolCall.call.parameters));
 				this.state.addMessage(assistantMsg);
 
 				let shownToUser = false;
