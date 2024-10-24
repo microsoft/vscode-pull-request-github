@@ -3313,6 +3313,14 @@
 							"type": "string",
 							"description": "The key of the notification"
 						},
+						"itemNumber": {
+							"type": "string",
+							"description": "The number of the issue/PR in the notification"
+						},
+						"itemType": {
+							"type": "string",
+							"description": "The type of the item in the notification - whether it is an issue or a PR"
+						},
 						"fileChanges": {
 							"type": "array",
 							"items": {

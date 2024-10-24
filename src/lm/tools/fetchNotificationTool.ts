@@ -30,6 +30,8 @@ export interface FetchNotificationResult {
 	}[];
 	owner: string;
 	repo: string;
+	itemNumber: string;
+	itemType: 'issue' | 'pr';
 	fileChanges?: FileChange[];
 	threadId: number,
 	notificationKey: string
@@ -54,8 +56,8 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 			thread_id: threadId
 		});
 		const threadData = thread.data;
-		const issueNumber = threadData.subject.url.split('/').pop();
-		if (issueNumber === undefined) {
+		const itemNumber = threadData.subject.url.split('/').pop();
+		if (itemNumber === undefined) {
 			return undefined;
 		}
 		const lastUpdatedAt = threadData.updated_at;
@@ -64,10 +66,11 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 		const owner = threadData.repository.owner.login;
 		const name = threadData.repository.name;
 		const { folderManager } = await this.getRepoInfo({ owner, name });
-		const issueOrPR = await folderManager.resolveIssueOrPullRequest(owner, name, Number(issueNumber));
+		const issueOrPR = await folderManager.resolveIssueOrPullRequest(owner, name, Number(itemNumber));
 		if (!issueOrPR) {
 			throw new Error(`No notification found with thread ID #${threadId}.`);
 		}
+		const itemType = issueOrPR instanceof PullRequestModel ? 'pr' : 'issue';
 		const notificationKey = getNotificationKey(owner, name, String(issueOrPR.number));
 		const comments = issueOrPR.item.comments ?? [];
 		let unreadComments: { body: string; }[];
@@ -88,7 +91,9 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 			title: issueOrPR.title,
 			body: issueOrPR.body,
 			owner,
-			repo: name
+			repo: name,
+			itemNumber,
+			itemType
 		};
 		if (issueOrPR instanceof PullRequestModel) {
 			const fileChanges = await issueOrPR.getFileChangesInfo();

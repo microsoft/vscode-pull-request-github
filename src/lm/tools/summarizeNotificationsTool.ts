@@ -11,6 +11,15 @@ import { concatAsyncIterable, TOOL_COMMAND_RESULT } from './toolsUtils';
 export class NotificationSummarizationTool implements vscode.LanguageModelTool<FetchNotificationResult> {
 	public static readonly toolId = 'github-pull-request_notification_summarize';
 
+	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchNotificationResult>): Promise<vscode.PreparedToolInvocation> {
+		const parameters = options.parameters;
+		const type = parameters.itemType === 'issue' ? 'issues' : 'pull';
+		const url = `https://github.com/${parameters.owner}/${parameters.repo}/${type}/${parameters.itemNumber}`;
+		return {
+			invocationMessage: vscode.l10n.t('Fetching item [#{0}]({1}) from GitHub', parameters.itemNumber, url)
+		};
+	}
+
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchNotificationResult>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		let notificationInfo: string = '';
 		const lastReadAt = options.parameters.lastReadAt;
