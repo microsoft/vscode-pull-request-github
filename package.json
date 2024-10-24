@@ -461,6 +461,21 @@
 					"default": "auto",
 					"markdownDescription": "%githubPullRequests.createDefaultBaseBranch.description%"
 				},
+				"githubPullRequests.experimental.chat": {
+					"type": "boolean",
+					"markdownDescription": "%githubPullRequests.experimental.chat.description%",
+					"default": false
+				},
+				"githubPullRequests.experimental.notificationsView": {
+					"type": "boolean",
+					"markdownDescription": "%githubPullRequests.experimental.notificationsView.description%",
+					"default": false
+				},
+				"githubPullRequests.experimental.useQuickChat": {
+					"type": "boolean",
+					"markdownDescription": "%githubPullRequests.experimental.useQuickChat.description%",
+					"default": false
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],
