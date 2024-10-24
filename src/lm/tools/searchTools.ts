@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import Logger from '../../common/logger';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { ILabel } from '../../github/interface';
+import { escapeMarkdown } from '../../issues/util';
 import { concatAsyncIterable, RepoToolBase } from './toolsUtils';
 
 interface ConvertToQuerySyntaxParameters {
@@ -432,7 +433,7 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 		const parameterQuery = options.parameters.query;
 
 		return {
-			invocationMessage: vscode.l10n.t('Searching for issues with "{0}". [Open on GitHub.com]({1})', parameterQuery, this.toGitHubUrl(parameterQuery))
+			invocationMessage: vscode.l10n.t('Searching for issues with "{0}". [Open on GitHub.com]({1})', escapeMarkdown(parameterQuery), escapeMarkdown(this.toGitHubUrl(parameterQuery)))
 		};
 	}
 
