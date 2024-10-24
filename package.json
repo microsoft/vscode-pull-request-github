@@ -474,7 +474,7 @@
 				"githubPullRequests.experimental.useQuickChat": {
 					"type": "boolean",
 					"markdownDescription": "%githubPullRequests.experimental.useQuickChat.description%",
-					"default": true
+					"default": false
 				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
