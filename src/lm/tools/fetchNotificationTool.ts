@@ -26,6 +26,7 @@ export interface FetchNotificationResult {
 	title: string;
 	body: string;
 	unreadComments: {
+		author: string;
 		body: string;
 	}[];
 	owner: string;
@@ -73,13 +74,13 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 		const itemType = issueOrPR instanceof PullRequestModel ? 'pr' : 'issue';
 		const notificationKey = getNotificationKey(owner, name, String(issueOrPR.number));
 		const comments = issueOrPR.item.comments ?? [];
-		let unreadComments: { body: string; }[];
+		let unreadComments: { body: string; author: string }[];
 		if (lastReadAt !== undefined && comments) {
 			unreadComments = comments.filter(comment => {
 				return comment.createdAt > lastReadAt;
-			}).map(comment => { return { body: comment.body }; });
+			}).map(comment => { return { body: comment.body, author: comment.author.login }; });
 		} else {
-			unreadComments = comments.map(comment => { return { body: comment.body }; });
+			unreadComments = comments.map(comment => { return { body: comment.body, author: comment.author.login }; });
 		}
 		const result: FetchNotificationResult = {
 			lastReadAt,

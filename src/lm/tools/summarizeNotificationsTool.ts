@@ -53,6 +53,7 @@ The following are the unread comments of the thread:
 		for (const [index, comment] of unreadComments.entries()) {
 			notificationInfo += `
 Comment ${index} :
+Author: ${comment.author}
 Body: ${comment.body}
 `;
 		}
@@ -97,6 +98,10 @@ If a comment references for example issue or PR #123, then output either of the 
 
 [#123](https://github.com/${owner}/${repo}/issues/123)
 [#123](https://github.com/${owner}/${repo}/pull/123)
+
+When you summarize comments, always give a summary of each comment and always mention the author clearly before the comment. If the author is called 'joe' and the comment is 'this is a comment', then the output should be:
+
+joe: this is a comment
 
 Always include in your output, which part of the thread is unread by prefixing that part with the markdown heading of level 1 with text "Unread Thread" or "Unread Comments".
 Make sure the summary is at least as short or shorter than the issue or PR with the comments and the patches if there are.
