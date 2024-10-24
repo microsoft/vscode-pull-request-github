@@ -79,7 +79,10 @@ If a comment references for example issue or PR #123, then output either of the 
 [#123](https://github.com/${owner}/${repo}/issues/123)
 [#123](https://github.com/${owner}/${repo}/pull/123)
 
-When you summarize comments, give a summary of each comment and mention the author clearly.
+When you summarize comments, always give a summary of each comment and always mention the author clearly before the comment. If the author is called 'joe' and the comment is 'this is a comment', then the output should be:
+
+joe: this is a comment
+
 Make sure the summary is at least as short or shorter than the issue or PR with the comments and the patches if there are.
 `;
 	}

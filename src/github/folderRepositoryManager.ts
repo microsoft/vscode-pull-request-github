@@ -214,6 +214,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	private _onDidDispose = new vscode.EventEmitter<void>();
 	readonly onDidDispose: vscode.Event<void> = this._onDidDispose.event;
 
+	private _sessionIgnoredRemoteNames: Set<string> = new Set();
+
 	constructor(
 		private _id: number,
 		public context: vscode.ExtensionContext,
@@ -330,7 +332,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		return remotesSetting
 			.map(remote => allGitHubRemotes.find(repo => repo.remoteName === remote))
-			.filter((repo: GitHubRemote | undefined): repo is GitHubRemote => !!repo);
+			.filter((repo: GitHubRemote | undefined): repo is GitHubRemote => !!repo && !this._sessionIgnoredRemoteNames.has(repo.remoteName));
 	}
 
 	get activeIssue(): IssueModel | undefined {
@@ -485,6 +487,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			repositories.push(repository);
 		}
 
+		const cleanUpMissingSaml = async (missingSaml: GitHubRepository[]) => {
+			for (const missing of missingSaml) {
+				this._sessionIgnoredRemoteNames.add(missing.remote.remoteName);
+				this.removeGitHubRepository(missing.remote);
+				const index = repositories.indexOf(missing);
+				if (index > -1) {
+					repositories.splice(index, 1);
+				}
+			}
+		};
+
 		return Promise.all(resolveRemotePromises).then(async (remoteResults: boolean[]) => {
 			const missingSaml: GitHubRepository[] = [];
 			for (let i = 0; i < remoteResults.length; i++) {
@@ -494,18 +507,18 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 			if (missingSaml.length > 0) {
 				const result = await this._credentialStore.showSamlMessageAndAuth(missingSaml.map(repo => repo.remote.owner));
-				if (result.canceled) {
-					this.dispose();
-					return true;
-				} else {
-					// Make a test call to see if the user has SAML enabled.
-					const samlTest = await Promise.all(missingSaml.map(repo => repo.resolveRemote()));
-
-					if (samlTest.some(result => !result)) {
+				// Make a test call to see if the user has SAML enabled.
+				const samlTest = result.canceled ? [] : await Promise.all(missingSaml.map(repo => repo.resolveRemote()));
+				const stillMissing = result.canceled ? missingSaml : samlTest.map((result, index) => !result ? missingSaml[index] : undefined).filter((repo): repo is GitHubRepository => !!repo);
+				// Make a test call to see if the user has SAML enabled.
+				if (stillMissing.length > 0) {
+					if (stillMissing.length === repositories.length) {
 						await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. GitHub Pull Requests will not work.'), { modal: true });
 						this.dispose();
 						return true;
 					}
+					await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. Some GitHub repositories will not be available.'), { modal: true });
+					cleanUpMissingSaml(stillMissing);
 				}
 			}
 
@@ -2468,6 +2481,18 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		const repo = new GitHubRepository(repoId, GitHubRemote.remoteAsGitHub(remote, await this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)), this.repository.rootUri, credentialStore, this.telemetry, silent);
 		this._githubRepositories.push(repo);
 		return repo;
+	}
+
+	private removeGitHubRepository(remote: Remote) {
+		const index = this._githubRepositories.findIndex(
+			r =>
+				(r.remote.owner.toLowerCase() === remote.owner.toLowerCase())
+				&& (r.remote.repositoryName.toLowerCase() === remote.repositoryName.toLowerCase())
+				&& (!remote.remoteName || (r.remote.remoteName === remote.remoteName))
+		);
+		if (index > -1) {
+			this._githubRepositories.splice(index, 1);
+		}
 	}
 
 	private _createGitHubRepositoryBulkhead = bulkhead(1, 300);

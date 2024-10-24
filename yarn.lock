@@ -791,10 +791,10 @@
     "@microsoft/applicationinsights-web-basic" "^2.8.9"
     applicationinsights "2.4.1"
 
-"@vscode/prompt-tsx@^0.3.0-alpha.11":
-  version "0.3.0-alpha.11"
-  resolved "https://registry.yarnpkg.com/@vscode/prompt-tsx/-/prompt-tsx-0.3.0-alpha.11.tgz#32b2e7df6263defd7da7a33a439b4259768a65c1"
-  integrity sha512-ThJinCs/eIaAqof8GcI6VUuY16XWiiEST1+gZOlR0vJP6vg4HzM/sUWDHGWHk/jwiYpffiAFgDpbfzuhr4seRw==
+"@vscode/prompt-tsx@^0.3.0-alpha.12":
+  version "0.3.0-alpha.12"
+  resolved "https://registry.yarnpkg.com/@vscode/prompt-tsx/-/prompt-tsx-0.3.0-alpha.12.tgz#c9afbf7029ea0289e3cd359798e4bfc237c1ab92"
+  integrity sha512-2ANm569UBXIzjPbaDFjzRkucelhsnlnmYIPdDo+USeFq2Do0Q70gKiiRWYrQf5rPqCxrChDvgU14nsdJLUSaOQ==
 
 "@vscode/test-electron@^2.3.8":
   version "2.3.8"

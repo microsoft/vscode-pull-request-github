@@ -461,6 +461,21 @@
 					"default": "auto",
 					"markdownDescription": "%githubPullRequests.createDefaultBaseBranch.description%"
 				},
+				"githubPullRequests.experimental.chat": {
+					"type": "boolean",
+					"markdownDescription": "%githubPullRequests.experimental.chat.description%",
+					"default": false
+				},
+				"githubPullRequests.experimental.notificationsView": {
+					"type": "boolean",
+					"markdownDescription": "%githubPullRequests.experimental.notificationsView.description%",
+					"default": false
+				},
+				"githubPullRequests.experimental.useQuickChat": {
+					"type": "boolean",
+					"markdownDescription": "%githubPullRequests.experimental.useQuickChat.description%",
+					"default": false
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],
@@ -3224,7 +3239,17 @@
 						"comments": {
 							"type": "array",
 							"items": {
-								"type": "string"
+								"type": "object",
+								"properties": {
+									"body": {
+										"type": "string",
+										"description": "The comment body"
+									},
+									"author": {
+										"type": "string",
+										"description": "The author of the comment"
+									}
+								}
 							},
 							"description": "The array of associated string comments"
 						},
@@ -3301,7 +3326,17 @@
 						"unreadComments": {
 							"type": "array",
 							"items": {
-								"type": "string"
+								"type": "object",
+								"properties": {
+									"body": {
+										"type": "string",
+										"description": "The comment body"
+									},
+									"author": {
+										"type": "string",
+										"description": "The author of the comment"
+									}
+								}
 							},
 							"description": "The array of unread comments under the issue/PR of the notification"
 						},
@@ -3312,6 +3347,14 @@
 						"notificationKey": {
 							"type": "string",
 							"description": "The key of the notification"
+						},
+						"itemNumber": {
+							"type": "string",
+							"description": "The number of the issue/PR in the notification"
+						},
+						"itemType": {
+							"type": "string",
+							"description": "The type of the item in the notification - whether it is an issue or a PR"
 						},
 						"fileChanges": {
 							"type": "array",
@@ -3706,7 +3749,7 @@
 		"@octokit/rest": "18.2.1",
 		"@octokit/types": "6.10.1",
 		"@vscode/extension-telemetry": "0.7.5",
-		"@vscode/prompt-tsx": "^0.3.0-alpha.11",
+		"@vscode/prompt-tsx": "^0.3.0-alpha.12",
 		"apollo-boost": "^0.4.9",
 		"apollo-link-context": "1.0.20",
 		"cockatiel": "^3.1.1",

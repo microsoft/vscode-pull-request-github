@@ -11,6 +11,15 @@ import { concatAsyncIterable, TOOL_COMMAND_RESULT } from './toolsUtils';
 export class NotificationSummarizationTool implements vscode.LanguageModelTool<FetchNotificationResult> {
 	public static readonly toolId = 'github-pull-request_notification_summarize';
 
+	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchNotificationResult>): Promise<vscode.PreparedToolInvocation> {
+		const parameters = options.parameters;
+		const type = parameters.itemType === 'issue' ? 'issues' : 'pull';
+		const url = `https://github.com/${parameters.owner}/${parameters.repo}/${type}/${parameters.itemNumber}`;
+		return {
+			invocationMessage: vscode.l10n.t('Fetching item [#{0}]({1}) from GitHub', parameters.itemNumber, url)
+		};
+	}
+
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchNotificationResult>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		let notificationInfo: string = '';
 		const lastReadAt = options.parameters.lastReadAt;
@@ -44,6 +53,7 @@ The following are the unread comments of the thread:
 		for (const [index, comment] of unreadComments.entries()) {
 			notificationInfo += `
 Comment ${index} :
+Author: ${comment.author}
 Body: ${comment.body}
 `;
 		}
@@ -88,6 +98,10 @@ If a comment references for example issue or PR #123, then output either of the 
 
 [#123](https://github.com/${owner}/${repo}/issues/123)
 [#123](https://github.com/${owner}/${repo}/pull/123)
+
+When you summarize comments, always give a summary of each comment and always mention the author clearly before the comment. If the author is called 'joe' and the comment is 'this is a comment', then the output should be:
+
+joe: this is a comment
 
 Always include in your output, which part of the thread is unread by prefixing that part with the markdown heading of level 1 with text "Unread Thread" or "Unread Comments".
 Make sure the summary is at least as short or shorter than the issue or PR with the comments and the patches if there are.
