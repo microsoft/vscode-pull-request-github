@@ -11,6 +11,14 @@ export enum NotificationsSortMethod {
 	Priority = 'Priority'
 }
 
+export enum NotificationFilterMethod {
+	All = 'All',
+	Open = 'open',
+	Closed = 'closed',
+	Issues = 'issues',
+	PullRequests = 'pullRequests'
+}
+
 export type NotificationTreeDataItem = NotificationTreeItem | LoadMoreNotificationsTreeItem;
 
 export interface LoadMoreNotificationsTreeItem {

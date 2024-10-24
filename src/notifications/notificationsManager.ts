@@ -5,7 +5,9 @@
 
 import * as vscode from 'vscode';
 import { dispose } from '../common/utils';
-import { NotificationsSortMethod, NotificationTreeItem } from './notificationItem';
+import { IssueModel } from '../github/issueModel';
+import { PullRequestModel } from '../github/pullRequestModel';
+import { NotificationFilterMethod, NotificationsSortMethod, NotificationTreeItem } from './notificationItem';
 import { NotificationsProvider } from './notificationsProvider';
 
 export interface INotificationTreeItems {
@@ -28,8 +30,21 @@ export class NotificationsManager {
 		this._onDidChangeSortingMethod.fire();
 	}
 
+	private _filterMethod: NotificationFilterMethod = NotificationFilterMethod.All;
+	public get filterMethod(): NotificationFilterMethod { return this._filterMethod; }
+	public set filterMethod(value: NotificationFilterMethod) {
+		if (this._filterMethod === value) {
+			return;
+		}
+		this._filterMethod = value;
+		this._onDidChangeFilterMethod.fire();
+	}
+
 	private readonly _onDidChangeSortingMethod = new vscode.EventEmitter<void>();
 	readonly onDidChangeSortingMethod = this._onDidChangeSortingMethod.event;
+
+	private readonly _onDidChangeFilterMethod = new vscode.EventEmitter<void>();
+	readonly onDidChangeFilterMethod = this._onDidChangeFilterMethod.event;
 
 	private _hasNextPage: boolean = false;
 	private _notifications = new Map<string, NotificationTreeItem>();
@@ -38,6 +53,8 @@ export class NotificationsManager {
 
 	constructor(private readonly _notificationProvider: NotificationsProvider) {
 		this._disposable.push(this._onDidChangeNotifications);
+		this._disposable.push(this._onDidChangeSortingMethod);
+		this._disposable.push(this._onDidChangeFilterMethod);
 	}
 
 	dispose() {
@@ -56,9 +73,11 @@ export class NotificationsManager {
 	public async getNotifications(compute: boolean, pageCount: number): Promise<INotificationTreeItems | undefined> {
 		if (!compute) {
 			const notifications = Array.from(this._notifications.values());
+			const filteredNotifications = this._filterNotifications(notifications);
+			const sortedFilteredNotifications = this._sortNotifications(filteredNotifications);
 
 			return {
-				notifications: this._sortNotifications(notifications),
+				notifications: sortedFilteredNotifications,
 				hasNextPage: this._hasNextPage
 			};
 		}
@@ -82,7 +101,6 @@ export class NotificationsManager {
 			if (!model) {
 				return;
 			}
-
 			notificationItems.set(notification.key, {
 				notification, model, kind: 'notification'
 			});
@@ -115,8 +133,11 @@ export class NotificationsManager {
 		const notifications = Array.from(this._notifications.values());
 		this._onDidChangeNotifications.fire(notifications);
 
+		const filteredNotifications = this._filterNotifications(notifications);
+		const sortedFilteredNotifications = this._sortNotifications(filteredNotifications);
+
 		return {
-			notifications: this._sortNotifications(notifications),
+			notifications: sortedFilteredNotifications,
 			hasNextPage: this._hasNextPage
 		};
 	}
@@ -147,5 +168,23 @@ export class NotificationsManager {
 		}
 
 		return notifications;
+	}
+
+	private _filterNotifications(notifications: NotificationTreeItem[]): NotificationTreeItem[] {
+		return notifications.filter(notification => {
+			const model = notification.model;
+			switch (this._filterMethod) {
+				case NotificationFilterMethod.All:
+					return true;
+				case NotificationFilterMethod.Open:
+					return model.isOpen;
+				case NotificationFilterMethod.Closed:
+					return model.isClosed;
+				case NotificationFilterMethod.Issues:
+					return (model instanceof IssueModel) && !(model instanceof PullRequestModel);
+				case NotificationFilterMethod.PullRequests:
+					return model instanceof PullRequestModel;
+			}
+		});
 	}
 }

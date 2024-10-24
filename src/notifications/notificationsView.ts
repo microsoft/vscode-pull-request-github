@@ -28,6 +28,9 @@ export class NotificationsTreeData implements vscode.TreeDataProvider<Notificati
 		this._disposables.push(this._notificationsManager.onDidChangeSortingMethod(() => {
 			this.refresh(true);
 		}));
+		this._disposables.push(this._notificationsManager.onDidChangeFilterMethod(() => {
+			this.refresh(true);
+		}));
 	}
 
 	async getTreeItem(element: NotificationTreeDataItem): Promise<vscode.TreeItem> {
