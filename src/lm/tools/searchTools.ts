@@ -233,6 +233,9 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 		if (labels.some(label => freeForm.includes(label) || label.includes(freeForm))) {
 			return '';
 		}
+		if (Object.keys(githubSearchSyntax).includes(freeForm)) {
+			return '';
+		}
 		return freeForm;
 	}
 
