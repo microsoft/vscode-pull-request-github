@@ -1907,7 +1907,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				this.markFilesInProgressRefCount.delete(f);
 				completed.push(f);
 			} else {
-				this.markFilesInProgressRefCount.set(f, count - 1);
+				this.markFilesInProgressRefCount.set(f, count);
 			}
 		}
 		return completed;
