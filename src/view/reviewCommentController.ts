@@ -82,7 +82,7 @@ export class ReviewCommentController extends CommentControllerBase
 		this._localToDispose.push(this._folderRepoManager.onDidChangeActivePullRequest(() => this.updateResourcesWithCommentingRanges()));
 		this._localToDispose.push(this._commentController);
 		this._commentHandlerId = uuid();
-		registerCommentHandler(this._commentHandlerId, this);
+		registerCommentHandler(this._commentHandlerId, this, _repository);
 	}
 
 	// #region initialize
