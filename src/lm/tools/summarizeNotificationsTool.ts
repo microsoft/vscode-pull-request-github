@@ -13,6 +13,11 @@ export class NotificationSummarizationTool implements vscode.LanguageModelTool<F
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchNotificationResult>): Promise<vscode.PreparedToolInvocation> {
 		const parameters = options.parameters;
+		if (!parameters.itemType || !parameters.itemNumber) {
+			return {
+				invocationMessage: vscode.l10n.t('Summarizing notification')
+			};
+		}
 		const type = parameters.itemType === 'issue' ? 'issues' : 'pull';
 		const url = `https://github.com/${parameters.owner}/${parameters.repo}/${type}/${parameters.itemNumber}`;
 		return {
@@ -44,47 +49,48 @@ Patch: ${fileChange.patch}
 			}
 		}
 
-		const unreadComments = options.parameters.unreadComments;
-		if (unreadComments.length > 0) {
+		const unreadComments = options.parameters.comments;
+		if (unreadComments && unreadComments.length > 0) {
 			notificationInfo += `
 The following are the unread comments of the thread:
 `;
-		}
-		for (const [index, comment] of unreadComments.entries()) {
-			notificationInfo += `
+			for (const [index, comment] of unreadComments.entries()) {
+				notificationInfo += `
 Comment ${index} :
 Author: ${comment.author}
 Body: ${comment.body}
 `;
+			}
 		}
 		const models = await vscode.lm.selectChatModels({
 			vendor: 'copilot',
 			family: 'gpt-4o'
 		});
 		const model = models[0];
-		const markAsReadCommand: vscode.Command = {
-			title: 'Mark As Read',
-			command: 'notification.markAsRead',
-			arguments: [{
-				threadId: options.parameters.threadId,
-				notificationKey: options.parameters.notificationKey
-			}]
-		};
+		const content: vscode.LanguageModelTextPart[] = [];
+		const threadId = options.parameters.threadId;
+		const notificationKey = options.parameters.notificationKey;
+		if (threadId && notificationKey) {
+			const markAsReadCommand = {
+				title: 'Mark As Read',
+				command: 'notification.markAsRead',
+				arguments: [{ threadId, notificationKey }]
+			};
+			content.push(new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT));
+			content.push(new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)));
+		}
 		if (model) {
 			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(options.parameters.owner, options.parameters.repo))];
 			messages.push(vscode.LanguageModelChatMessage.User(`The notification information is as follows:`));
 			messages.push(vscode.LanguageModelChatMessage.User(notificationInfo));
 			const response = await model.sendRequest(messages, {});
 			const responseText = await concatAsyncIterable(response.text);
-
-			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
-			new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)),
-			new vscode.LanguageModelTextPart(responseText)]);
+			content.push(new vscode.LanguageModelTextPart(responseText));
 		} else {
-			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
-			new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)),
-			new vscode.LanguageModelTextPart(notificationInfo)]);
+			content.push(new vscode.LanguageModelTextPart(notificationInfo));
 		}
+		content.push(new vscode.LanguageModelTextPart('Above is a summary of the notification. Extract and output this notification summary directly as is to the user. Do not output the result from the call to the fetch notification tool.'));
+		return new vscode.LanguageModelToolResult(content);
 	}
 
 	private summarizeInstructions(owner: string, repo: string): string {
