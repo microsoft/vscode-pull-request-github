@@ -86,11 +86,10 @@ Body: ${comment.body}
 			const response = await model.sendRequest(messages, {});
 			const responseText = await concatAsyncIterable(response.text);
 			content.push(new vscode.LanguageModelTextPart(responseText));
-			return new vscode.LanguageModelToolResult(content);
 		} else {
 			content.push(new vscode.LanguageModelTextPart(notificationInfo));
-			return new vscode.LanguageModelToolResult(content);
 		}
+		return new vscode.LanguageModelToolResult(content);
 	}
 
 	private summarizeInstructions(owner: string, repo: string): string {
