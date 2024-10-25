@@ -84,16 +84,13 @@ Body: ${comment.body}
 			const response = await model.sendRequest(messages, {});
 			const responseText = await concatAsyncIterable(response.text);
 
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(responseText),
-				new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
-				new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand))]);
+			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
+			new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)),
+			new vscode.LanguageModelTextPart(responseText)]);
 		} else {
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(notificationInfo),
-				new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
-				new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)),
-			]);
+			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
+			new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)),
+			new vscode.LanguageModelTextPart(notificationInfo)]);
 		}
 	}
 
