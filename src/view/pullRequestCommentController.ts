@@ -46,7 +46,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		this._commentController = commentController;
 		this._context = folderRepoManager.context;
 		this._commentHandlerId = uuid();
-		registerCommentHandler(this._commentHandlerId, this);
+		registerCommentHandler(this._commentHandlerId, this, folderRepoManager.repository);
 
 		if (this.pullRequestModel.reviewThreadsCacheReady) {
 			this.initializeThreadsInOpenEditors().then(() => {
