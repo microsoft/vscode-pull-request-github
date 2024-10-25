@@ -67,7 +67,7 @@ Body: ${comment.body}
 			family: 'gpt-4o'
 		});
 		const model = models[0];
-		let content: vscode.LanguageModelTextPart[] = [];
+		const content: vscode.LanguageModelTextPart[] = [];
 		const threadId = options.parameters.threadId;
 		const notificationKey = options.parameters.notificationKey;
 		if (threadId && notificationKey) {
@@ -76,10 +76,8 @@ Body: ${comment.body}
 				command: 'notification.markAsRead',
 				arguments: [{ threadId, notificationKey }]
 			};
-			content = [
-				new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
-				new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand))
-			];
+			content.push(new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT));
+			content.push(new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)));
 		}
 		if (model) {
 			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(options.parameters.owner, options.parameters.repo))];
