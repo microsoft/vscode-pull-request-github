@@ -3323,7 +3323,7 @@
 							"type": "string",
 							"description": "The repo in which the issue/PR is located"
 						},
-						"unreadComments": {
+						"comments": {
 							"type": "array",
 							"items": {
 								"type": "object",
@@ -3380,13 +3380,15 @@
 					},
 					"required": [
 						"title",
-						"unreadComments",
+						"comments",
 						"lastUpdatedAt",
 						"unread",
 						"threadId",
 						"notificationKey",
 						"owner",
-						"repo"
+						"repo",
+						"itemNumber",
+						"itemType"
 					]
 				},
 				"when": "config.githubPullRequests.experimental.chat"

@@ -25,17 +25,17 @@ export interface FetchNotificationResult {
 	unread: boolean;
 	title: string;
 	body: string;
-	unreadComments: {
+	comments?: {
 		author: string;
 		body: string;
 	}[];
 	owner: string;
 	repo: string;
-	itemNumber: string;
-	itemType: 'issue' | 'pr';
+	itemNumber?: string;
+	itemType?: 'issue' | 'pr';
 	fileChanges?: FileChange[];
-	threadId: number,
-	notificationKey: string
+	threadId?: number,
+	notificationKey?: string
 }
 
 export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolParameters> {
@@ -73,20 +73,20 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 		}
 		const itemType = issueOrPR instanceof PullRequestModel ? 'pr' : 'issue';
 		const notificationKey = getNotificationKey(owner, name, String(issueOrPR.number));
-		const comments = issueOrPR.item.comments ?? [];
-		let unreadComments: { body: string; author: string }[];
-		if (lastReadAt !== undefined && comments) {
-			unreadComments = comments.filter(comment => {
+		const itemComments = issueOrPR.item.comments ?? [];
+		let comments: { body: string; author: string }[];
+		if (lastReadAt !== undefined && itemComments) {
+			comments = itemComments.filter(comment => {
 				return comment.createdAt > lastReadAt;
 			}).map(comment => { return { body: comment.body, author: comment.author.login }; });
 		} else {
-			unreadComments = comments.map(comment => { return { body: comment.body, author: comment.author.login }; });
+			comments = itemComments.map(comment => { return { body: comment.body, author: comment.author.login }; });
 		}
 		const result: FetchNotificationResult = {
 			lastReadAt,
 			lastUpdatedAt,
 			unread,
-			unreadComments,
+			comments,
 			threadId,
 			notificationKey,
 			title: issueOrPR.title,
