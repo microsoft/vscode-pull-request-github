@@ -13,6 +13,11 @@ export class NotificationSummarizationTool implements vscode.LanguageModelTool<F
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchNotificationResult>): Promise<vscode.PreparedToolInvocation> {
 		const parameters = options.parameters;
+		if (!parameters.itemType || !parameters.itemNumber) {
+			return {
+				invocationMessage: vscode.l10n.t('Summarizing notification')
+			};
+		}
 		const type = parameters.itemType === 'issue' ? 'issues' : 'pull';
 		const url = `https://github.com/${parameters.owner}/${parameters.repo}/${type}/${parameters.itemNumber}`;
 		return {
@@ -44,32 +49,34 @@ Patch: ${fileChange.patch}
 			}
 		}
 
-		const unreadComments = options.parameters.unreadComments;
-		if (unreadComments.length > 0) {
+		const unreadComments = options.parameters.comments;
+		if (unreadComments && unreadComments.length > 0) {
 			notificationInfo += `
 The following are the unread comments of the thread:
 `;
-		}
-		for (const [index, comment] of unreadComments.entries()) {
-			notificationInfo += `
+			for (const [index, comment] of unreadComments.entries()) {
+				notificationInfo += `
 Comment ${index} :
 Author: ${comment.author}
 Body: ${comment.body}
 `;
+			}
 		}
 		const models = await vscode.lm.selectChatModels({
 			vendor: 'copilot',
 			family: 'gpt-4o'
 		});
 		const model = models[0];
-		const markAsReadCommand: vscode.Command = {
-			title: 'Mark As Read',
-			command: 'notification.markAsRead',
-			arguments: [{
-				threadId: options.parameters.threadId,
-				notificationKey: options.parameters.notificationKey
-			}]
-		};
+		let markAsReadCommand: vscode.Command | undefined;
+		const threadId = options.parameters.threadId;
+		const notificationKey = options.parameters.notificationKey;
+		if (threadId && notificationKey) {
+			markAsReadCommand = {
+				title: 'Mark As Read',
+				command: 'notification.markAsRead',
+				arguments: [{ threadId, notificationKey }]
+			};
+		}
 		if (model) {
 			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(options.parameters.owner, options.parameters.repo))];
 			messages.push(vscode.LanguageModelChatMessage.User(`The notification information is as follows:`));
