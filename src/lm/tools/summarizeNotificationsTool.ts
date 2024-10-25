@@ -89,6 +89,7 @@ Body: ${comment.body}
 		} else {
 			content.push(new vscode.LanguageModelTextPart(notificationInfo));
 		}
+		content.push(new vscode.LanguageModelTextPart('Above is a summary of the notification. Extract and output this notification summary directly as is to the user. Do not output the result from the call to the fetch notification tool.'));
 		return new vscode.LanguageModelToolResult(content);
 	}
 
