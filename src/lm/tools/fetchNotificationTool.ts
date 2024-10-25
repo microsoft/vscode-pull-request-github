@@ -25,17 +25,17 @@ export interface FetchNotificationResult {
 	unread: boolean;
 	title: string;
 	body: string;
-	comments: {
+	comments?: {
 		author: string;
 		body: string;
 	}[];
 	owner: string;
 	repo: string;
-	itemNumber: string;
-	itemType: 'issue' | 'pr';
+	itemNumber?: string;
+	itemType?: 'issue' | 'pr';
 	fileChanges?: FileChange[];
-	threadId: number,
-	notificationKey: string
+	threadId?: number,
+	notificationKey?: string
 }
 
 export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolParameters> {

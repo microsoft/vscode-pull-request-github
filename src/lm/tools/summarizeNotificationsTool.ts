@@ -67,15 +67,19 @@ Body: ${comment.body}
 			family: 'gpt-4o'
 		});
 		const model = models[0];
-		let markAsReadCommand: vscode.Command | undefined;
+		let content: vscode.LanguageModelTextPart[] = [];
 		const threadId = options.parameters.threadId;
 		const notificationKey = options.parameters.notificationKey;
 		if (threadId && notificationKey) {
-			markAsReadCommand = {
+			const markAsReadCommand = {
 				title: 'Mark As Read',
 				command: 'notification.markAsRead',
 				arguments: [{ threadId, notificationKey }]
 			};
+			content = [
+				new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
+				new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand))
+			];
 		}
 		if (model) {
 			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(options.parameters.owner, options.parameters.repo))];
@@ -83,14 +87,11 @@ Body: ${comment.body}
 			messages.push(vscode.LanguageModelChatMessage.User(notificationInfo));
 			const response = await model.sendRequest(messages, {});
 			const responseText = await concatAsyncIterable(response.text);
-
-			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
-			new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)),
-			new vscode.LanguageModelTextPart(responseText)]);
+			content.push(new vscode.LanguageModelTextPart(responseText));
+			return new vscode.LanguageModelToolResult(content);
 		} else {
-			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
-			new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)),
-			new vscode.LanguageModelTextPart(notificationInfo)]);
+			content.push(new vscode.LanguageModelTextPart(notificationInfo));
+			return new vscode.LanguageModelToolResult(content);
 		}
 	}
 
