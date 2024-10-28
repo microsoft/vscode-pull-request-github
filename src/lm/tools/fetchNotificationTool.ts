@@ -52,7 +52,7 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 		if (!github) {
 			return undefined;
 		}
-		const threadId = options.parameters.thread_id;
+		const threadId = options.input.thread_id;
 		const thread = await github.octokit.api.activity.getThread({
 			thread_id: threadId
 		});

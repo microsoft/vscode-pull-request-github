@@ -13,12 +13,12 @@ import { IToolCall, TOOL_COMMAND_RESULT, TOOL_MARKDOWN_RESULT } from './tools/to
 export class ChatParticipantState {
 	private _messages: vscode.LanguageModelChatMessage[] = [];
 
-	get lastToolResult(): (string | vscode.LanguageModelToolResultPart | vscode.LanguageModelToolCallPart)[] {
+	get lastToolResult(): (vscode.LanguageModelTextPart | vscode.LanguageModelToolResultPart | vscode.LanguageModelToolCallPart)[] {
 		for (let i = this._messages.length - 1; i >= 0; i--) {
 			const message = this._messages[i];
-			for (const part of message.content2) {
+			for (const part of message.content) {
 				if (part instanceof vscode.LanguageModelToolResultPart) {
-					return message.content2;
+					return message.content;
 				}
 			}
 		}
@@ -90,7 +90,7 @@ export class ChatParticipant implements vscode.Disposable {
 			return {
 				name: tool.name,
 				description: tool.description,
-				parametersSchema: tool.parametersSchema ?? {}
+				inputSchema: tool.inputSchema ?? {}
 			};
 		});
 
@@ -133,14 +133,14 @@ export class ChatParticipant implements vscode.Disposable {
 						throw new Error('Got invalid tool choice: ' + part.name);
 					}
 
-					let parameters: any;
+					let input: any;
 					try {
-						parameters = part.parameters;
+						input = part.input;
 					} catch (err) {
-						throw new Error(`Got invalid tool use parameters: "${JSON.stringify(part.parameters)}". (${(err as Error).message})`);
+						throw new Error(`Got invalid tool use parameters: "${JSON.stringify(part.input)}". (${(err as Error).message})`);
 					}
 
-					const invocationOptions = { parameters, toolInvocationToken: request.toolInvocationToken, requestedContentTypes: ['text/plain', 'text/markdown', 'text/json', 'text/display', 'command'] };
+					const invocationOptions: vscode.LanguageModelToolInvocationOptions<any> = { input, toolInvocationToken: request.toolInvocationToken };
 					toolCalls.push({
 						call: part,
 						result: vscode.lm.invokeTool(tool.name, invocationOptions, token),
@@ -151,14 +151,14 @@ export class ChatParticipant implements vscode.Disposable {
 
 			if (toolCalls.length) {
 				const assistantMsg = vscode.LanguageModelChatMessage.Assistant('');
-				assistantMsg.content2 = toolCalls.map(toolCall => new vscode.LanguageModelToolCallPart(toolCall.call.callId, toolCall.tool.name, toolCall.call.parameters));
+				assistantMsg.content = toolCalls.map(toolCall => new vscode.LanguageModelToolCallPart(toolCall.call.callId, toolCall.tool.name, toolCall.call.input));
 				this.state.addMessage(assistantMsg);
 
 				let shownToUser = false;
 				for (const toolCall of toolCalls) {
 					let toolCallResult = (await toolCall.result);
 
-					const additionalContent: string[] = [];
+					const additionalContent: vscode.LanguageModelTextPart[] = [];
 					let result: vscode.LanguageModelToolResultPart | undefined;
 
 					for (let i = 0; i < toolCallResult.content.length; i++) {
@@ -180,16 +180,16 @@ export class ChatParticipant implements vscode.Disposable {
 							if (!result) {
 								result = new vscode.LanguageModelToolResultPart(toolCall.call.callId, [part]);
 							} else {
-								additionalContent.push(part.value);
+								additionalContent.push(part);
 							}
 						}
 					}
 					const message = vscode.LanguageModelChatMessage.User('');
-					message.content2 = [result!];
+					message.content = [result!];
 					this.state.addMessage(message);
 					if (additionalContent.length) {
 						const additionalMessage = vscode.LanguageModelChatMessage.User('');
-						additionalMessage.content2 = additionalContent;
+						additionalMessage.content = additionalContent;
 						this.state.addMessage(additionalMessage);
 					}
 				}

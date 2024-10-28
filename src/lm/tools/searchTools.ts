@@ -363,8 +363,8 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<ConvertToQuerySyntaxParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		const { owner, name, folderManager } = await this.getRepoInfo({ owner: options.parameters.repo?.owner, name: options.parameters.repo?.name });
-		const firstUserMessage = `${this.chatParticipantState.firstUserMessage?.value}, ${options.parameters.naturalLanguageString}`;
+		const { owner, name, folderManager } = await this.getRepoInfo({ owner: options.input.repo?.owner, name: options.input.repo?.name });
+		const firstUserMessage = `${this.chatParticipantState.firstUserMessage?.value}, ${options.input.naturalLanguageString}`;
 
 		const allLabels = await folderManager.getLabels(undefined, { owner, repo: name });
 
@@ -438,7 +438,7 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 	}
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<SearchToolParameters>): Promise<vscode.PreparedToolInvocation> {
-		const parameterQuery = options.parameters.query;
+		const parameterQuery = options.input.query;
 
 		return {
 			invocationMessage: vscode.l10n.t('Searching for issues with "{0}". [Open on GitHub.com]({1})', escapeMarkdown(parameterQuery), escapeMarkdown(this.toGitHubUrl(parameterQuery)))
@@ -446,9 +446,9 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<SearchToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		const { folderManager } = await this.getRepoInfo({ owner: options.parameters.repo?.owner, name: options.parameters.repo?.name });
+		const { folderManager } = await this.getRepoInfo({ owner: options.input.repo?.owner, name: options.input.repo?.name });
 
-		const parameterQuery = options.parameters.query;
+		const parameterQuery = options.input.query;
 		Logger.debug(`Searching with query \`${parameterQuery}\``, SearchTool.ID);
 
 		const searchResult = await folderManager.getIssues(parameterQuery);
