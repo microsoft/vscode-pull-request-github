@@ -8,15 +8,17 @@ This month, our focus was on integrating Copilot into GitHub Pull Requests, usin
 
 #### Copilot integration
 
-- Issue search
+- The new `@githubpr` Chat Participant can search for issues on GitHub.
 
-TODO @alexr00
+![Copilot issue search for closed October bugs](./documentation/changelog/0.100.0/copilot-issue-search.png)
+
+![Copilot issue search for most open bugs in November](./documentation/changelog/0.100.0/copilot-issue-search-most-bugs.png)
 
 - Notifications
 
 TODO @lszomoru and @aiday-mar
 
-- Issue fix suggestions
+- Fix suggestions and summarization
 
 TODO @aiday-mar
 
