@@ -17,7 +17,13 @@ export type DisplayIssuesParameters = SearchToolResult;
 type IssueColumn = keyof IssueSearchResultItem;
 
 const LLM_FIND_IMPORTANT_COLUMNS_INSTRUCTIONS = `Instructions:
-You are an expert on GitHub issues. You can help the user identify the most important columns for rendering issues based on a query for issues. Include a column related to the sort value, if given. Output a newline separated list of columns only, max 4 columns. List the columns in the order they should be displayed. Don't change the casing. Here are the possible columns:
+You are an expert on GitHub issues. You can help the user identify the most important columns for rendering issues based on a query for issues:
+- Include a column related to the sort value, if given.
+- Output a newline separated list of columns only, max 4 columns.
+- List the columns in the order they should be displayed.
+- Don't change the casing.
+- Don't include columns that will all have the same value for all the resulting issues.
+Here are the possible columns:
 `;
 
 export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
