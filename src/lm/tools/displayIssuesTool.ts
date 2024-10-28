@@ -118,7 +118,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<DisplayIssuesParameters>): Promise<vscode.PreparedToolInvocation> {
 		const maxDisplay = 10;
-		const foundIssuesCount = this.foundIssuesCount(options.parameters);
+		const foundIssuesCount = this.foundIssuesCount(options.input);
 		const actualDisplay = Math.min(maxDisplay, foundIssuesCount);
 		if (actualDisplay === 0) {
 			return {
@@ -137,11 +137,11 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<DisplayIssuesParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		const issueItemsInfo: vscode.LanguageModelTextPart | undefined = this.chatParticipantState.firstUserMessage;
-		const issueItems: IssueSearchResultItem[] = options.parameters.arrayOfIssues;
+		const issueItems: IssueSearchResultItem[] = options.input.arrayOfIssues;
 		if (issueItems.length === 0) {
 			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(vscode.l10n.t('No issues found. Please try another query.'))]);
 		}
-		Logger.debug(`Displaying ${this.foundIssuesCount(options.parameters)} issues, first issue ${issueItems[0].number}`, DisplayIssuesTool.ID);
+		Logger.debug(`Displaying ${this.foundIssuesCount(options.input)} issues, first issue ${issueItems[0].number}`, DisplayIssuesTool.ID);
 		const importantColumns = await this.getImportantColumns(issueItemsInfo, issueItems, token);
 
 		const titleRow = `| ${importantColumns.join(' | ')} |`;
