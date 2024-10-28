@@ -8,7 +8,7 @@ This month, our focus was on integrating Copilot into GitHub Pull Requests, usin
 
 #### Copilot integration
 
-- The new `@githubpr` Chat Participant can search for issues on GitHub.
+- The new `@githubpr` Chat Participant can search for issues on GitHub. When displaying issues, `@githubpr` will show a markdown table and try to pick the best columns to show based on the search.
 
 ![Copilot issue search for closed October bugs](./documentation/changelog/0.100.0/copilot-issue-search.png)
 
