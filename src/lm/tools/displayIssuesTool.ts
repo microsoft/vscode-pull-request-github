@@ -17,7 +17,13 @@ export type DisplayIssuesParameters = SearchToolResult;
 type IssueColumn = keyof IssueSearchResultItem;
 
 const LLM_FIND_IMPORTANT_COLUMNS_INSTRUCTIONS = `Instructions:
-You are an expert on GitHub issues. You can help the user identify the most important columns for rendering issues based on a query for issues. Include a column related to the sort value, if given. Output a newline separated list of columns only, max 4 columns. List the columns in the order they should be displayed. Don't change the casing. Here are the possible columns:
+You are an expert on GitHub issues. You can help the user identify the most important columns for rendering issues based on a query for issues:
+- Include a column related to the sort value, if given.
+- Output a newline separated list of columns only, max 4 columns.
+- List the columns in the order they should be displayed.
+- Don't change the casing.
+- Don't include columns that will all have the same value for all the resulting issues.
+Here are the possible columns:
 `;
 
 export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
@@ -118,7 +124,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<DisplayIssuesParameters>): Promise<vscode.PreparedToolInvocation> {
 		const maxDisplay = 10;
-		const foundIssuesCount = this.foundIssuesCount(options.parameters);
+		const foundIssuesCount = this.foundIssuesCount(options.input);
 		const actualDisplay = Math.min(maxDisplay, foundIssuesCount);
 		if (actualDisplay === 0) {
 			return {
@@ -137,11 +143,11 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<DisplayIssuesParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		const issueItemsInfo: vscode.LanguageModelTextPart | undefined = this.chatParticipantState.firstUserMessage;
-		const issueItems: IssueSearchResultItem[] = options.parameters.arrayOfIssues;
+		const issueItems: IssueSearchResultItem[] = options.input.arrayOfIssues;
 		if (issueItems.length === 0) {
 			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(vscode.l10n.t('No issues found. Please try another query.'))]);
 		}
-		Logger.debug(`Displaying ${this.foundIssuesCount(options.parameters)} issues, first issue ${issueItems[0].number}`, DisplayIssuesTool.ID);
+		Logger.debug(`Displaying ${this.foundIssuesCount(options.input)} issues, first issue ${issueItems[0].number}`, DisplayIssuesTool.ID);
 		const importantColumns = await this.getImportantColumns(issueItemsInfo, issueItems, token);
 
 		const titleRow = `| ${importantColumns.join(' | ')} |`;

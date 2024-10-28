@@ -254,6 +254,11 @@ body img.avatar {
 	display: flex;
 }
 
+.automerge-section,
+.status-section {
+	flex-wrap: wrap;
+}
+
 #status-checks .automerge-section {
 	align-items: center;
 	padding: 16px;
