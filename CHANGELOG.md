@@ -10,9 +10,15 @@ This month, our focus was on integrating Copilot into GitHub Pull Requests, usin
 
 - Issue search
 
+TODO @alexr00
+
 - Notifications
 
+TODO @lszomoru and @aiday-mar
+
 - Issue fix suggestions
+
+TODO @aiday-mar
 
 ### Fixes
 
