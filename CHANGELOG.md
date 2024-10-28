@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.100.0
+
+### Changes
+
+This month, our focus was on integrating Copilot into GitHub Pull Requests, using the new VS Code extension API, to showcase how Copilot can be added to an extension.
+
+#### Copilot integration
+
+- Issue search
+
+- Notifications
+
+- Issue fix suggestions
+
+### Fixes
+
+- Gift icon is confusing to me here. https://github.com/microsoft/vscode-pull-request-github/issues/6289
+- Cannot get PR to show that is from a fork and main branch. https://github.com/microsoft/vscode-pull-request-github/issues/6267
+- Summary review comment buttons do not disable while review is submitting. https://github.com/microsoft/vscode-pull-request-github/issues/6261
+- Refreshing a PR doesn't refresh comments. https://github.com/microsoft/vscode-pull-request-github/issues/6252
+- Adding a new Review doesn't update the Tree Control Node. https://github.com/microsoft/vscode-pull-request-github/issues/6251
+- pr.markFileAsViewed doesn't update the parent nodes. https://github.com/microsoft/vscode-pull-request-github/issues/6248
+- Infinite error dialogs with GH account mixup. https://github.com/microsoft/vscode-pull-request-github/issues/6245
+- PRs do not refresh after changing account preferences in dropdown. https://github.com/microsoft/vscode-pull-request-github/issues/6244
+- Extension should still work if only upstream requires SAML. https://github.com/microsoft/vscode-pull-request-github/issues/6159
+- Checkbox likes to play Simon Says. https://github.com/microsoft/vscode-pull-request-github/issues/3972
+
 ## 0.98.0
 
 ### Fixes
