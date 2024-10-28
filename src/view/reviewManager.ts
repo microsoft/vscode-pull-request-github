@@ -1294,7 +1294,7 @@ export class ReviewManager {
 					if (postCreate === 'checkoutDefaultBranch') {
 						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch);
 					} if (postCreate === 'checkoutDefaultBranchAndShow') {
-						await vscode.commands.executeCommand('pr:github.focus');
+						await commands.executeCommand('pr:github.focus');
 						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch);
 						await this._pullRequestsTree.expandPullRequest(createdPR);
 					} else if (postCreate === 'checkoutDefaultBranchAndCopy') {
