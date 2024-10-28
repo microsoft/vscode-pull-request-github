@@ -102,7 +102,9 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 						{ commit: { message: 'commit 1' } },
 					]
 				}
-			})
+			}),
+			reactions: { default: { totalCount: 0 } },
+			comments: { default: { totalCount: 0 } }
 		})
 	}),
 	rateLimit: { linked: RateLimitBuilder },

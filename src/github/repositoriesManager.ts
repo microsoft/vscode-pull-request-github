@@ -122,19 +122,7 @@ export class RepositoriesManager implements vscode.Disposable {
 		if (issueModel === undefined) {
 			return undefined;
 		}
-		const issueRemoteUrl = `${issueModel.remote.owner.toLowerCase()}/${issueModel.remote.repositoryName.toLowerCase()}`;
-		for (const folderManager of this._folderManagers) {
-			if (
-				folderManager.gitHubRepositories
-					.map(repo =>
-						`${repo.remote.owner.toLowerCase()}/${repo.remote.repositoryName.toLowerCase()}`
-					)
-					.includes(issueRemoteUrl)
-			) {
-				return folderManager;
-			}
-		}
-		return undefined;
+		return this.getManagerForRepository(issueModel.remote.owner, issueModel.remote.repositoryName);
 	}
 
 	getManagerForFile(uri: vscode.Uri): FolderRepositoryManager | undefined {
@@ -157,6 +145,21 @@ export class RepositoriesManager implements vscode.Disposable {
 			}
 		}
 		return undefined;
+	}
+
+	getManagerForRepository(owner: string, repo: string) {
+		const issueRemoteUrl = `${owner.toLowerCase()}/${repo.toLowerCase()}`;
+		for (const folderManager of this._folderManagers) {
+			if (
+				folderManager.gitHubRepositories
+					.map(repo =>
+						`${repo.remote.owner.toLowerCase()}/${repo.remote.repositoryName.toLowerCase()}`
+					)
+					.includes(issueRemoteUrl)
+			) {
+				return folderManager;
+			}
+		}
 	}
 
 	get state() {

@@ -72,11 +72,11 @@ import { IssueModel } from './issueModel';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
-	getAvatarWithEnterpriseFallback,
 	getReactionGroup,
 	insertNewCommitsSinceReview,
 	parseGraphQLComment,
 	parseGraphQLReaction,
+	parseGraphQLReviewers,
 	parseGraphQLReviewEvent,
 	parseGraphQLReviewThread,
 	parseGraphQLTimelineEvents,
@@ -956,6 +956,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Get existing requests to review.
 	 */
 	async getReviewRequests(): Promise<(IAccount | ITeam)[]> {
+		Logger.debug('Get Review Requests - enter', PullRequestModel.ID);
+
 		const githubRepository = this.githubRepository;
 		const { remote, query, schema } = await githubRepository.ensure();
 
@@ -973,30 +975,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return [];
 		}
 
-		const reviewers: (IAccount | ITeam)[] = [];
-		for (const reviewer of data.repository.pullRequest.reviewRequests.nodes) {
-			if (reviewer.requestedReviewer?.login) {
-				const account: IAccount = {
-					login: reviewer.requestedReviewer.login,
-					url: reviewer.requestedReviewer.url,
-					avatarUrl: getAvatarWithEnterpriseFallback(reviewer.requestedReviewer.avatarUrl, undefined, remote.isEnterprise),
-					email: reviewer.requestedReviewer.email,
-					name: reviewer.requestedReviewer.name,
-					id: reviewer.requestedReviewer.id
-				};
-				reviewers.push(account);
-			} else if (reviewer.requestedReviewer) {
-				const team: ITeam = {
-					name: reviewer.requestedReviewer.name,
-					url: reviewer.requestedReviewer.url,
-					avatarUrl: getAvatarWithEnterpriseFallback(reviewer.requestedReviewer.avatarUrl, undefined, remote.isEnterprise),
-					id: reviewer.requestedReviewer.id!,
-					org: remote.owner,
-					slug: reviewer.requestedReviewer.slug!
-				};
-				reviewers.push(team);
-			}
-		}
+		const reviewers: (IAccount | ITeam)[] = parseGraphQLReviewers(data, remote);
+		Logger.debug('Get Review Requests - done', PullRequestModel.ID);
 		return reviewers;
 	}
 
@@ -1210,9 +1190,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 			this.addReviewTimelineEventComments(events, reviewThreads);
 			insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, this.head);
-
+			Logger.debug(`Fetch timeline events of PR #${this.number} - done`, PullRequestModel.ID);
 			return events;
 		} catch (e) {
+			Logger.error(`Failed to get pull request timeline events: ${e}`, PullRequestModel.ID);
 			console.log(e);
 			return [];
 		}
@@ -1912,16 +1893,38 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	async markFiles(filePathOrSubpaths: string[], event: boolean, state: 'viewed' | 'unviewed'): Promise<void> {
-		const { mutate } = await this.githubRepository.ensure();
-		const pullRequestId = this.graphNodeId;
+	private markFilesInProgressRefCount: Map<string, number> = new Map();
+	private updateMarkFilesInProgressRefCount(filePathOrSubpaths: string[], direction: 'increment' | 'decrement'): string[] {
+		const completed: string[] = [];
+		for (const f of filePathOrSubpaths) {
+			let count = this.markFilesInProgressRefCount.get(f) || 0;
+			if (direction === 'increment') {
+				count++;
+			} else {
+				count--;
+			}
+			if (count === 0) {
+				this.markFilesInProgressRefCount.delete(f);
+				completed.push(f);
+			} else {
+				this.markFilesInProgressRefCount.set(f, count);
+			}
+		}
+		return completed;
+	}
 
+	async markFiles(filePathOrSubpaths: string[], event: boolean, state: 'viewed' | 'unviewed'): Promise<void> {
 		const allFilenames = filePathOrSubpaths
 			.map((f) =>
 				isDescendant(this.githubRepository.rootUri.path, f, '/')
 					? f.substring(this.githubRepository.rootUri.path.length + 1)
 					: f
 			);
+
+		this.updateMarkFilesInProgressRefCount(allFilenames, 'increment');
+
+		const { mutate } = await this.githubRepository.ensure();
+		const pullRequestId = this.graphNodeId;
 
 		const mutationName = state === 'viewed'
 			? 'markFileAsViewed'
@@ -1957,7 +1960,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		// 	}
 		// }
 
-		allFilenames.forEach(path => this.setFileViewedState(path, state === 'viewed' ? ViewedState.VIEWED : ViewedState.UNVIEWED, event));
+		// We keep a ref count of the files who's states are in the process of being modified so that we don't have UI flickering
+		const completed = this.updateMarkFilesInProgressRefCount(allFilenames, 'decrement');
+		completed.forEach(path => this.setFileViewedState(path, state === 'viewed' ? ViewedState.VIEWED : ViewedState.UNVIEWED, event));
 	}
 
 	async unmarkAllFilesAsViewed(): Promise<void> {

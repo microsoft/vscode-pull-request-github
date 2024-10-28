@@ -894,7 +894,7 @@ h3 {
 }
 
 code {
-	font-family: Menlo, Monaco, Consolas, 'Droid Sans Mono', 'Courier New', monospace, 'Droid Sans Fallback';
+	font-family: var(--vscode-editor-font-family), Menlo, Monaco, Consolas, 'Droid Sans Mono', 'Courier New', monospace, 'Droid Sans Fallback';
 }
 
 .comment-body .snippet-clipboard-content {
@@ -1053,15 +1053,15 @@ code {
 }
 
 .win32 .diff .diffLine {
-	font-family: Consolas, Inconsolata, 'Courier New', monospace;
+	font-family: var(--vscode-editor-font-family), Consolas, Inconsolata, 'Courier New', monospace;
 }
 
 .darwin .diff .diffLine {
-	font-family: Monaco, Menlo, Inconsolata, 'Courier New', monospace;
+	font-family: var(--vscode-editor-font-family), Monaco, Menlo, Inconsolata, 'Courier New', monospace;
 }
 
 .linux .diff .diffLine {
-	font-family: 'Droid Sans Mono', Inconsolata, 'Courier New', monospace, 'Droid Sans Fallback';
+	font-family: var(--vscode-editor-font-family), 'Droid Sans Mono', Inconsolata, 'Courier New', monospace, 'Droid Sans Fallback';
 }
 
 .diff .diffLine.add {

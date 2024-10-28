@@ -12,6 +12,7 @@ import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from
 import { DiffSide, IReviewThread, SubjectType } from '../common/comment';
 import { getCommentingRanges } from '../common/commentingRanges';
 import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPositionMapping';
+import { commands, contexts } from '../common/executeCommands';
 import { GitChangeType } from '../common/file';
 import Logger from '../common/logger';
 import { PR_SETTINGS_NAMESPACE, PULL_BRANCH, PULL_PR_BRANCH_BEFORE_CHECKOUT, PullPRBranchVariants } from '../common/settingKeys';
@@ -37,6 +38,12 @@ import { RemoteFileChangeModel } from './fileChangeModel';
 import { ReviewManager } from './reviewManager';
 import { ReviewModel } from './reviewModel';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
+
+export interface SuggestionInformation {
+	originalStartLine: number;
+	originalLineLength: number;
+	suggestionContent: string;
+}
 
 export class ReviewCommentController extends CommentControllerBase
 	implements vscode.Disposable, CommentHandler, vscode.CommentingRangeProvider2, CommentReactionHandler {
@@ -75,7 +82,7 @@ export class ReviewCommentController extends CommentControllerBase
 		this._localToDispose.push(this._folderRepoManager.onDidChangeActivePullRequest(() => this.updateResourcesWithCommentingRanges()));
 		this._localToDispose.push(this._commentController);
 		this._commentHandlerId = uuid();
-		registerCommentHandler(this._commentHandlerId, this);
+		registerCommentHandler(this._commentHandlerId, this, _repository);
 	}
 
 	// #region initialize
@@ -229,6 +236,7 @@ export class ReviewCommentController extends CommentControllerBase
 			for (const [file, change] of (this._folderRepoManager.activePullRequest?.fileChanges.entries() ?? [])) {
 				if (change.status !== GitChangeType.DELETE) {
 					const uri = vscode.Uri.joinPath(this._folderRepoManager.repository.rootUri, file);
+					Logger.trace(`Prefetching commenting ranges for ${uri.toString()}`, ReviewCommentController.ID);
 					vscode.workspace.openTextDocument(uri);
 				}
 			}
@@ -273,7 +281,7 @@ export class ReviewCommentController extends CommentControllerBase
 					const { path } = thread;
 
 					const index = this._pendingCommentThreadAdds.findIndex(async t => {
-						const fileName = this.gitRelativeRootPath(t.uri.path);
+						const fileName = this._folderRepoManager.gitRelativeRootPath(t.uri.path);
 						if (fileName !== thread.path) {
 							return false;
 						}
@@ -350,6 +358,30 @@ export class ReviewCommentController extends CommentControllerBase
 				this.updateResourcesWithCommentingRanges();
 			}),
 		);
+		this._localToDispose.push(vscode.window.onDidChangeActiveTextEditor(e => this.onDidChangeActiveTextEditor(e)));
+	}
+
+	private _commentContentChangedListner: vscode.Disposable | undefined;
+	private onDidChangeActiveTextEditor(editor: vscode.TextEditor | undefined) {
+		this._commentContentChangedListner?.dispose();
+		this._commentContentChangedListner = undefined;
+		if (editor?.document.uri.scheme !== Schemes.Comment) {
+			return;
+		}
+		const updateHasSuggestion = () => {
+			if (editor.document.getText().includes('```suggestion')) {
+				commands.setContext(contexts.ACTIVE_COMMENT_HAS_SUGGESTION, true);
+			} else {
+				commands.setContext(contexts.ACTIVE_COMMENT_HAS_SUGGESTION, false);
+			}
+		};
+		this._commentContentChangedListner = vscode.workspace.onDidChangeTextDocument(e => {
+			if (e.document.uri.toString() !== editor.document.uri.toString()) {
+				return;
+			}
+			updateHasSuggestion();
+		});
+		updateHasSuggestion();
 	}
 
 	public updateCommentExpandState(expand: boolean) {
@@ -464,7 +496,7 @@ export class ReviewCommentController extends CommentControllerBase
 				return;
 			}
 
-			const fileName = this.gitRelativeRootPath(document.uri.path);
+			const fileName = this._folderRepoManager.gitRelativeRootPath(document.uri.path);
 			const matchedFile = gitFileChangeNodeFilter(this._reviewModel.localFileChanges).find(
 				fileChange => fileChange.fileName === fileName,
 			);
@@ -601,11 +633,6 @@ export class ReviewCommentController extends CommentControllerBase
 		return undefined;
 	}
 
-	private gitRelativeRootPath(path: string) {
-		// get path relative to git root directory. Handles windows path by converting it to unix path.
-		return nodePath.relative(this._repository.rootUri.path, path).replace(/\\/g, '/');
-	}
-
 	// #endregion
 
 	// #region Review
@@ -624,7 +651,7 @@ export class ReviewCommentController extends CommentControllerBase
 		try {
 			temporaryCommentId = await this.optimisticallyAddComment(thread, input, true);
 			if (!hasExistingComments) {
-				const fileName = this.gitRelativeRootPath(thread.uri.path);
+				const fileName = this._folderRepoManager.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
 				this._pendingCommentThreadAdds.push(thread);
 
@@ -730,7 +757,7 @@ export class ReviewCommentController extends CommentControllerBase
 
 		try {
 			if (!hasExistingComments) {
-				const fileName = this.gitRelativeRootPath(thread.uri.path);
+				const fileName = this._folderRepoManager.gitRelativeRootPath(thread.uri.path);
 				this._pendingCommentThreadAdds.push(thread);
 				const side = this.getCommentSide(thread);
 
@@ -793,6 +820,26 @@ export class ReviewCommentController extends CommentControllerBase
 				return c;
 			});
 		}
+	}
+
+	async createSuggestionsFromChanges(file: vscode.Uri, suggestionInformation: SuggestionInformation): Promise<void> {
+		const activePr = this._folderRepoManager.activePullRequest;
+		if (!activePr) {
+			return;
+		}
+
+		const path = this._folderRepoManager.gitRelativeRootPath(file.path);
+		const body = `\`\`\`suggestion
+${suggestionInformation.suggestionContent}
+\`\`\``;
+		await activePr.createReviewThread(
+			body,
+			path,
+			suggestionInformation.originalStartLine,
+			suggestionInformation.originalStartLine + suggestionInformation.originalLineLength - 1,
+			DiffSide.RIGHT,
+			false,
+		);
 	}
 
 	private async createCommentOnResolve(thread: GHPRCommentThread, input: string): Promise<void> {
@@ -930,7 +977,7 @@ export class ReviewCommentController extends CommentControllerBase
 			throw new Error('Cannot find the editor to apply the suggestion to.');
 		}
 		await editor.edit(builder => {
-			builder.replace(range.with(undefined, new vscode.Position(range.end.line + 1, 0)), suggestion);
+			builder.replace(range.with(undefined, editor.document.lineAt(range.end.line).range.end), suggestion);
 		});
 	}
 

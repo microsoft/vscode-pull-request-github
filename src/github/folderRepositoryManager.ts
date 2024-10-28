@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as nodePath from 'path';
 import { bulkhead } from 'cockatiel';
 import * as vscode from 'vscode';
 import type { Branch, Commit, Repository, UpstreamRef } from '../api/api';
@@ -112,6 +113,7 @@ export interface ItemsResponseResult<T> {
 	items: T[];
 	hasMorePages: boolean;
 	hasUnsearchedRepositories: boolean;
+	totalCount?: number;
 }
 
 export class NoGitHubReposError extends Error {
@@ -211,6 +213,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	private _onDidDispose = new vscode.EventEmitter<void>();
 	readonly onDidDispose: vscode.Event<void> = this._onDidDispose.event;
+
+	private _sessionIgnoredRemoteNames: Set<string> = new Set();
 
 	constructor(
 		private _id: number,
@@ -328,7 +332,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 		return remotesSetting
 			.map(remote => allGitHubRemotes.find(repo => repo.remoteName === remote))
-			.filter((repo: GitHubRemote | undefined): repo is GitHubRemote => !!repo);
+			.filter((repo: GitHubRemote | undefined): repo is GitHubRemote => !!repo && !this._sessionIgnoredRemoteNames.has(repo.remoteName));
 	}
 
 	get activeIssue(): IssueModel | undefined {
@@ -483,6 +487,17 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			repositories.push(repository);
 		}
 
+		const cleanUpMissingSaml = async (missingSaml: GitHubRepository[]) => {
+			for (const missing of missingSaml) {
+				this._sessionIgnoredRemoteNames.add(missing.remote.remoteName);
+				this.removeGitHubRepository(missing.remote);
+				const index = repositories.indexOf(missing);
+				if (index > -1) {
+					repositories.splice(index, 1);
+				}
+			}
+		};
+
 		return Promise.all(resolveRemotePromises).then(async (remoteResults: boolean[]) => {
 			const missingSaml: GitHubRepository[] = [];
 			for (let i = 0; i < remoteResults.length; i++) {
@@ -492,18 +507,18 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}
 			if (missingSaml.length > 0) {
 				const result = await this._credentialStore.showSamlMessageAndAuth(missingSaml.map(repo => repo.remote.owner));
-				if (result.canceled) {
-					this.dispose();
-					return true;
-				} else {
-					// Make a test call to see if the user has SAML enabled.
-					const samlTest = await Promise.all(missingSaml.map(repo => repo.resolveRemote()));
-
-					if (samlTest.some(result => !result)) {
+				// Make a test call to see if the user has SAML enabled.
+				const samlTest = result.canceled ? [] : await Promise.all(missingSaml.map(repo => repo.resolveRemote()));
+				const stillMissing = result.canceled ? missingSaml : samlTest.map((result, index) => !result ? missingSaml[index] : undefined).filter((repo): repo is GitHubRepository => !!repo);
+				// Make a test call to see if the user has SAML enabled.
+				if (stillMissing.length > 0) {
+					if (stillMissing.length === repositories.length) {
 						await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. GitHub Pull Requests will not work.'), { modal: true });
 						this.dispose();
 						return true;
 					}
+					await vscode.window.showErrorMessage(vscode.l10n.t('SAML access was not provided. Some GitHub repositories will not be available.'), { modal: true });
+					cleanUpMissingSaml(stillMissing);
 				}
 			}
 
@@ -538,7 +553,6 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				this._onDidLoadRepositories.fire(ReposManagerState.NeedsAuthentication);
 			}
 			if (!silent) {
-				console.log(this.repository.rootUri.fsPath);
 				this._onDidChangeRepositories.fire({ added: repositoriesAdded.length > 0 });
 			}
 			return true;
@@ -867,7 +881,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	async getLocalPullRequests(): Promise<PullRequestModel[]> {
 		const githubRepositories = this._githubRepositories;
 
-		if (!githubRepositories || !githubRepositories.length) {
+		if (!githubRepositories || !githubRepositories.length || !this.repository.getRefs) {
 			return [];
 		}
 
@@ -1015,6 +1029,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 				items: [],
 				hasMorePages: false,
 				hasUnsearchedRepositories: false,
+				totalCount: 0
 			};
 		}
 
@@ -1032,12 +1047,13 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		}
 
 		let pagesFetched = 0;
-		const itemData: ItemsData = { hasMorePages: false, items: [] };
+		const itemData: ItemsData = { hasMorePages: false, items: [], totalCount: 0 };
 		const addPage = (page: PullRequestData | undefined) => {
 			pagesFetched++;
 			if (page) {
 				itemData.items = itemData.items.concat(page.items);
 				itemData.hasMorePages = page.hasMorePages;
+				itemData.totalCount = page.totalCount;
 			}
 		};
 
@@ -1060,7 +1076,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 			const fetchPage = async (
 				pageNumber: number,
-			): Promise<{ items: any[]; hasMorePages: boolean } | undefined> => {
+			): Promise<{ items: any[]; hasMorePages: boolean, totalCount?: number } | undefined> => {
 				// Resolve variables in the query with each repo
 				const resolvedQuery = query ? await variableSubstitution(query, undefined,
 					{ base: await githubRepository.getDefaultBranch(), owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName }) : undefined;
@@ -1117,6 +1133,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					items: itemData.items,
 					hasMorePages: pageInformation.hasMorePages,
 					hasUnsearchedRepositories: i < githubRepositories.length - 1,
+					totalCount: itemData.totalCount,
 				};
 			}
 		}
@@ -1125,6 +1142,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			items: itemData.items,
 			hasMorePages: false,
 			hasUnsearchedRepositories: false,
+			totalCount: itemData.totalCount
 		};
 	}
 
@@ -1182,7 +1200,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			const mappedData: ItemsResponseResult<IssueModel> = {
 				items: [],
 				hasMorePages: data.hasMorePages,
-				hasUnsearchedRepositories: data.hasUnsearchedRepositories
+				hasUnsearchedRepositories: data.hasUnsearchedRepositories,
+				totalCount: data.totalCount
 			};
 			for (const issue of data.items) {
 				const githubRepository = await this.getRepoForIssue(issue);
@@ -1191,7 +1210,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			return mappedData;
 		} catch (e) {
 			Logger.error(`Error fetching issues with query ${query}: ${e instanceof Error ? e.message : e}`, this.id);
-			return { hasMorePages: false, hasUnsearchedRepositories: false, items: [] };
+			return { hasMorePages: false, hasUnsearchedRepositories: false, items: [], totalCount: 0 };
 		}
 	}
 
@@ -1742,6 +1761,11 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return results;
 	}
 
+	public gitRelativeRootPath(path: string) {
+		// get path relative to git root directory. Handles windows path by converting it to unix path.
+		return nodePath.relative(this._repository.rootUri.path, path).replace(/\\/g, '/');
+	}
+
 	public async cleanupAfterPullRequest(branchName: string, pullRequest: PullRequestModel) {
 		const defaults = await this.getPullRequestDefaults();
 		if (branchName === defaults.base) {
@@ -2036,6 +2060,14 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			githubRepo = await this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
 		}
 		return githubRepo;
+	}
+
+	async resolveIssueOrPullRequest(owner: string, repositoryName: string, issueOrPullRequestNumber: number): Promise<PullRequestModel | IssueModel | undefined> {
+		let issueOrPullRequest: IssueModel | PullRequestModel | undefined = await this.resolveIssue(owner, repositoryName, issueOrPullRequestNumber, true);
+		if (!issueOrPullRequest) {
+			issueOrPullRequest = await this.resolvePullRequest(owner, repositoryName, issueOrPullRequestNumber);
+		}
+		return issueOrPullRequest;
 	}
 
 	async resolvePullRequest(
@@ -2449,6 +2481,18 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		const repo = new GitHubRepository(repoId, GitHubRemote.remoteAsGitHub(remote, await this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)), this.repository.rootUri, credentialStore, this.telemetry, silent);
 		this._githubRepositories.push(repo);
 		return repo;
+	}
+
+	private removeGitHubRepository(remote: Remote) {
+		const index = this._githubRepositories.findIndex(
+			r =>
+				(r.remote.owner.toLowerCase() === remote.owner.toLowerCase())
+				&& (r.remote.repositoryName.toLowerCase() === remote.repositoryName.toLowerCase())
+				&& (!remote.remoteName || (r.remote.remoteName === remote.remoteName))
+		);
+		if (index > -1) {
+			this._githubRepositories.splice(index, 1);
+		}
 	}
 
 	private _createGitHubRepositoryBulkhead = bulkhead(1, 300);

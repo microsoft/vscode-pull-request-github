@@ -47,6 +47,7 @@ export namespace OctokitCommon {
 	export type CompareCommits = Endpoints['GET /repos/{owner}/{repo}/compare/{base}...{head}']['response']['data'];
 	export type Commit = CompareCommits['commits'][0];
 	export type CommitFile = CompareCommits['files'][0];
+	export type Notification = Endpoints['GET /notifications']['response']['data'][0];
 }
 
 export type Schema = { [key: string]: any, definitions: any[]; };

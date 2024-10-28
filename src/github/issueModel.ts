@@ -9,7 +9,6 @@ import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { TimelineEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
-import { OctokitCommon } from './common';
 import { GitHubRepository } from './githubRepository';
 import {
 	AddIssueCommentResponse,
@@ -186,21 +185,6 @@ export class IssueModel<TItem extends Issue = Issue> {
 		return this.githubRepository.isCurrentUser(username);
 	}
 
-	async getIssueComments(): Promise<OctokitCommon.IssuesListCommentsResponseData> {
-		Logger.debug(`Fetch issue comments of PR #${this.number} - enter`, IssueModel.ID);
-		const { octokit, remote } = await this.githubRepository.ensure();
-
-		const promise = await octokit.call(octokit.api.issues.listComments, {
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			issue_number: this.number,
-			per_page: 100,
-		});
-		Logger.debug(`Fetch issue comments of PR #${this.number} - done`, IssueModel.ID);
-
-		return promise.data;
-	}
-
 	async createIssueComment(text: string): Promise<IComment> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 		const { data } = await mutate<AddIssueCommentResponse>({
@@ -356,6 +340,4 @@ export class IssueModel<TItem extends Issue = Issue> {
 			return [];
 		}
 	}
-
-
 }

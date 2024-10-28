@@ -192,7 +192,7 @@ export class PrsTreeModel implements vscode.Disposable {
 
 		const prs = (await folderRepoManager.getLocalPullRequests())
 			.filter(pr => pr.isOpen || (pr.isClosed && useReviewConfiguration.closed) || (pr.isMerged && useReviewConfiguration.merged));
-		cache.set(PRType.LocalPullRequest, { hasMorePages: false, hasUnsearchedRepositories: false, items: prs });
+		cache.set(PRType.LocalPullRequest, { hasMorePages: false, hasUnsearchedRepositories: false, items: prs, totalCount: prs.length });
 
 		/* __GDPR__
 			"pr.expand.local" : {}
@@ -204,9 +204,9 @@ export class PrsTreeModel implements vscode.Disposable {
 		return { hasMorePages: false, hasUnsearchedRepositories: false, items: prs };
 	}
 
-	async getPullRequestsForQuery(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, query: string, update?: boolean): Promise<ItemsResponseResult<PullRequestModel>> {
+	async getPullRequestsForQuery(folderRepoManager: FolderRepositoryManager, fetchNextPage: boolean, query: string): Promise<ItemsResponseResult<PullRequestModel>> {
 		const cache = this.getFolderCache(folderRepoManager);
-		if (!update && cache.has(query)) {
+		if (!fetchNextPage && cache.has(query)) {
 			return cache.get(query)!;
 		}
 

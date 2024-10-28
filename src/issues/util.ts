@@ -8,7 +8,6 @@ import LRUCache from 'lru-cache';
 import * as marked from 'marked';
 import 'url-search-params-polyfill';
 import * as vscode from 'vscode';
-import { gitHubLabelColor } from '../../src/common/utils';
 import { Ref, Remote, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import Logger from '../common/logger';
@@ -19,7 +18,7 @@ import { GithubItemStateEnum, User } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { getEnterpriseUri, getIssueNumberLabelFromParsed, getRepositoryForFile, ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
+import { getEnterpriseUri, getIssueNumberLabelFromParsed, getRepositoryForFile, ISSUE_OR_URL_EXPRESSION, makeLabel, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
 import { ReviewManager } from '../view/reviewManager';
 import { CODE_PERMALINK, findCodeLinkLocally } from './issueLinkLookup';
 import { StateManager } from './stateManager';
@@ -120,12 +119,6 @@ export function userMarkdown(origin: PullRequestDefaults, user: User): vscode.Ma
 	return markdown;
 }
 
-function makeLabel(color: string, text: string): string {
-	const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
-	const labelColor = gitHubLabelColor(color, isDarkTheme, true);
-	return `<span style="color:${labelColor.textColor};background-color:${labelColor.backgroundColor};">&nbsp;&nbsp;${text}&nbsp;&nbsp;</span>`;
-}
-
 async function findAndModifyString(
 	text: string,
 	find: RegExp,
@@ -171,6 +164,7 @@ async function findCodeLinksInIssue(body: string, repositoriesManager: Repositor
 	return findAndModifyString(body, CODE_PERMALINK, async (match: RegExpMatchArray) => {
 		const codeLink = await findCodeLinkLocally(match, repositoriesManager);
 		if (codeLink) {
+			Logger.trace('finding code links in issue', 'Issues');
 			const textDocument = await vscode.workspace.openTextDocument(codeLink?.file);
 			const endingTextDocumentLine = textDocument.lineAt(
 				codeLink.end < textDocument.lineCount ? codeLink.end : textDocument.lineCount - 1,
@@ -237,7 +231,7 @@ export async function issueMarkdown(
 	if (issue.item.labels.length > 0) {
 		issue.item.labels.forEach(label => {
 			markdown.appendMarkdown(
-				`[${makeLabel(label.color, label.name)}](https://github.com/${ownerName}/labels/${encodeURIComponent(
+				`[${makeLabel(label)}](https://github.com/${ownerName}/labels/${encodeURIComponent(
 					label.name,
 				)}) `,
 			);
@@ -732,6 +726,10 @@ export async function shouldShowHover(document: vscode.TextDocument, position: v
 export function getRootUriFromScmInputUri(uri: vscode.Uri): vscode.Uri | undefined {
 	const rootUri = new URLSearchParams(uri.query).get('rootUri');
 	return rootUri ? vscode.Uri.parse(rootUri) : undefined;
+}
+
+export function escapeMarkdown(text: string): string {
+	return text.replace(/([_~*])/g, '\\$1');
 }
 
 export class PlainTextRenderer extends marked.Renderer {

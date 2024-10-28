@@ -61,6 +61,7 @@ export interface IAccount extends IActor {
 	avatarUrl?: string;
 	url: string;
 	email?: string;
+	specialDisplayName?: string
 }
 
 export interface ITeam {
@@ -82,11 +83,11 @@ export function reviewerId(reviewer: ITeam | IAccount): string {
 	return isTeam(reviewer) ? reviewer.id : reviewer.login;
 }
 
-export function reviewerLabel(reviewer: ITeam | IAccount | IActor): string {
-	return isTeam(reviewer) ? (reviewer.name ?? reviewer.slug) : reviewer.login;
+export function reviewerLabel(reviewer: ITeam | IAccount | IActor | any): string {
+	return isTeam(reviewer) ? (reviewer.name ?? reviewer.slug) : (reviewer.specialDisplayName ?? reviewer.login);
 }
 
-export function isTeam(reviewer: ITeam | IAccount | IActor): reviewer is ITeam {
+export function isTeam(reviewer: ITeam | IAccount | IActor | any): reviewer is ITeam {
 	return 'org' in reviewer;
 }
 
@@ -146,6 +147,14 @@ export interface ILabel {
 	description?: string;
 }
 
+export interface IIssueComment {
+	author: IAccount;
+	body: string;
+	databaseId: number;
+	reactionCount: number;
+	createdAt: string;
+}
+
 export interface Issue {
 	id: number;
 	graphNodeId: string;
@@ -166,11 +175,9 @@ export interface Issue {
 	repositoryOwner?: string;
 	repositoryName?: string;
 	repositoryUrl?: string;
-	comments?: {
-		author: IAccount;
-		body: string;
-		databaseId: number;
-	}[];
+	comments?: IIssueComment[];
+	commentCount: number;
+	reactionCount: number;
 }
 
 export interface PullRequest extends Issue {
@@ -193,6 +200,28 @@ export interface PullRequest extends Issue {
 	squashCommitMeta?: { title: string, description: string };
 	suggestedReviewers?: ISuggestedReviewer[];
 	hasComments?: boolean;
+}
+
+export enum NotificationSubjectType {
+	Issue = 'Issue',
+	PullRequest = 'PullRequest'
+}
+
+export interface Notification {
+	owner: string;
+	name: string;
+	key: string;
+	id: string,
+	itemID: string;
+	subject: {
+		title: string;
+		type: NotificationSubjectType;
+		url: string;
+	};
+	reason: string;
+	unread: boolean;
+	updatedAd: Date;
+	lastReadAt: Date | undefined;
 }
 
 export interface IRawFileChange {

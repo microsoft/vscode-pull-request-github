@@ -6,74 +6,22 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { GitChangeType } from '../common/file';
-import { FileChangeNodeUriParams, fromFileChangeNodeUri, fromPRUri, PRUriParams, Schemes, toResourceUri } from '../common/uri';
+import { FileChangeNodeUriParams, fromFileChangeNodeUri, fromPRUri, PRUriParams } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { RepositoriesManager } from '../github/repositoriesManager';
+import { TreeDecorationProvider } from './treeDecorationProviders';
 
-export class FileTypeDecorationProvider implements vscode.FileDecorationProvider {
-	private _disposables: vscode.Disposable[] = [];
-	private _gitHubReposListeners: vscode.Disposable[] = [];
-	private _pullRequestListeners: vscode.Disposable[] = [];
-	private _fileViewedListeners: vscode.Disposable[] = [];
-
-	_onDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<
-		vscode.Uri | vscode.Uri[]
-	>();
-	onDidChangeFileDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeFileDecorations.event;
-
-
-	constructor(private _repositoriesManager: RepositoriesManager) {
-		this._disposables.push(vscode.window.registerFileDecorationProvider(this));
-		this._registerListeners();
+export class FileTypeDecorationProvider extends TreeDecorationProvider {
+	constructor() {
+		super();
 	}
 
-	private _registerFileViewedListeners(folderManager: FolderRepositoryManager, model: PullRequestModel) {
+	registerPullRequestPropertyChangedListeners(folderManager: FolderRepositoryManager, model: PullRequestModel): vscode.Disposable {
 		return model.onDidChangeFileViewedState(changed => {
 			changed.changed.forEach(change => {
-				const uri = vscode.Uri.joinPath(folderManager.repository.rootUri, change.fileName);
-				const fileChange = model.fileChanges.get(change.fileName);
-				if (fileChange) {
-					const fileChangeUri = toResourceUri(uri, model.number, change.fileName, fileChange.status, fileChange.previousFileName);
-					this._onDidChangeFileDecorations.fire(fileChangeUri);
-					this._onDidChangeFileDecorations.fire(fileChangeUri.with({ scheme: folderManager.repository.rootUri.scheme }));
-					this._onDidChangeFileDecorations.fire(fileChangeUri.with({ scheme: Schemes.Pr, authority: '' }));
-				}
+				this._handlePullRequestPropertyChange(folderManager, model, { path: change.fileName });
 			});
 		});
-	}
-
-	private _registerPullRequestAddedListeners(folderManager: FolderRepositoryManager) {
-		folderManager.gitHubRepositories.forEach(gitHubRepo => {
-			this._pullRequestListeners.push(gitHubRepo.onDidAddPullRequest(model => {
-				this._fileViewedListeners.push(this._registerFileViewedListeners(folderManager, model));
-			}));
-			this._fileViewedListeners.push(...Array.from(gitHubRepo.pullRequestModels.values()).map(model => {
-				return this._registerFileViewedListeners(folderManager, model);
-			}));
-		});
-	}
-
-	private _registerRepositoriesChangedListeners() {
-		this._gitHubReposListeners.forEach(disposable => disposable.dispose());
-		this._gitHubReposListeners = [];
-		this._pullRequestListeners.forEach(disposable => disposable.dispose());
-		this._pullRequestListeners = [];
-		this._fileViewedListeners.forEach(disposable => disposable.dispose());
-		this._fileViewedListeners = [];
-		this._repositoriesManager.folderManagers.forEach(folderManager => {
-			this._gitHubReposListeners.push(folderManager.onDidChangeRepositories(() => {
-				this._registerPullRequestAddedListeners(folderManager,);
-			}));
-		});
-	}
-
-	private _registerListeners() {
-		this._registerRepositoriesChangedListeners();
-		this._disposables.push(this._repositoriesManager.onDidChangeFolderRepositories(() => {
-			this._registerRepositoriesChangedListeners();
-		}));
-
 	}
 
 	provideFileDecoration(
@@ -171,12 +119,5 @@ export class FileTypeDecorationProvider implements vscode.FileDecorationProvider
 		if ((change.status === GitChangeType.RENAME) && change.previousFileName) {
 			return `Renamed ${change.previousFileName} to ${path.basename(change.fileName)}`;
 		}
-	}
-
-	dispose() {
-		this._disposables.forEach(dispose => dispose.dispose());
-		this._gitHubReposListeners.forEach(dispose => dispose.dispose());
-		this._pullRequestListeners.forEach(dispose => dispose.dispose());
-		this._fileViewedListeners.forEach(dispose => dispose.dispose());
 	}
 }

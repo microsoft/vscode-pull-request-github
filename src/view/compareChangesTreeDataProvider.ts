@@ -23,6 +23,7 @@ export function getGitChangeTypeFromApi(status: Status): GitChangeType {
 		case Status.DELETED:
 			return GitChangeType.DELETE;
 		case Status.ADDED_BY_US:
+		case Status.INDEX_ADDED:
 			return GitChangeType.ADD;
 		case Status.INDEX_RENAMED:
 			return GitChangeType.RENAME;
@@ -268,7 +269,7 @@ class CompareChangesFilesTreeProvider extends CompareChangesTreeProvider {
 			markdown.appendMarkdown('\n\n');
 		}
 		markdown.supportThemeIcons = true;
-		markdown.appendMarkdown(`[${vscode.l10n.t('$(sparkle) Review with {0} (Experimental)', preReviewer.title)}](command:pr.preReview)`);
+		markdown.appendMarkdown(`[${vscode.l10n.t('$(sparkle) {0} Code Review', preReviewer.title)}](command:pr.preReview)`);
 		return markdown;
 	}
 

@@ -1,5 +1,66 @@
 # Changelog
 
+## 0.98.0
+
+### Fixes
+
+- Can't approve/reject PRs when in draft mode. https://github.com/microsoft/vscode-pull-request-github/issues/6174
+- Disallow Make a suggestion button press if already have a suggestion in the comment. https://github.com/microsoft/vscode-pull-request-github/issues/6195
+- Untracked files in GHPRI view don't have green text decoration. https://github.com/microsoft/vscode-internalbacklog/issues/5025
+- Don't show error "We couldn't find commit" on outdated comments. https://github.com/microsoft/vscode-pull-request-github/issues/1691
+- Element with id xxx is already registered. https://github.com/microsoft/vscode-pull-request-github/issues/6218
+- Diff Comment with HEAD button in Comments view sometimes disappears. https://github.com/microsoft/vscode-pull-request-github/issues/6157
+
+**_Thank You_**
+
+* [@ixzhao](https://github.com/ixzhao): fix quote reply [PR #6230](https://github.com/microsoft/vscode-pull-request-github/pull/6230)
+
+## 0.96.0
+
+### Changes
+
+- Local changes to a checked-out PR can be quickly converted to suggestion comments from both the SCM view and from the diff editor context menu.
+
+![Convert local changes to suggestions](./documentation/changelog/0.96.0/convert-to-suggestions.gif)
+
+### Fixes
+
+- Use the editor font code for the diffs. https://github.com/microsoft/vscode-pull-request-github/issues/6146
+- Sort shorter paths to the top. https://github.com/microsoft/vscode-pull-request-github/issues/6143
+- Error git config --local branch.main.github-pr-owner-number. https://github.com/microsoft/vscode-pull-request-github/issues/6134
+- The "accessibility.underlineLinks": true setting is ignored. https://github.com/microsoft/vscode-pull-request-github/issues/6122
+
+**_Thank You_**
+
+* [@jmg-duarte (Jose Duarte)](https://github.com/jmg-duarte)
+  * Use editor font for diff [PR #6148](https://github.com/microsoft/vscode-pull-request-github/pull/6148)
+  * Make code blocks use the editor's font family by default [PR #6149](https://github.com/microsoft/vscode-pull-request-github/pull/6149)
+
+## 0.94.0
+
+### Changes
+
+- You can create revert PRs from the PR description. The PR branch doesn't need to be checked out to create a revert PR.
+
+![Create a revert PR](./documentation/changelog/0.94.0/create-revert-pr.gif)
+
+- As a nice side effect of the enabling reverts, you can now see PRs whose branch has been deleted in the "Pull Requests" view.
+- The "Open Pull Request on GitHub.com" action shows even when there are PRs from multiple repos checked out.
+- `img` tags in code comments will now properly show the image for public repos.
+
+### Fixes
+
+- Failed to execute git when deleting branches and remotes. https://github.com/microsoft/vscode-pull-request-github/issues/6051
+- Use notification progress when deleting branches and remotes. https://github.com/microsoft/vscode-pull-request-github/issues/6050
+- Sign in failed: Error: No auth flow succeeded. https://github.com/microsoft/vscode-pull-request-github/issues/6056
+- Extension gets rate limited in a many-repo setup: http forbidden response when adding reviewer after creating pull request. https://github.com/microsoft/vscode-pull-request-github/issues/6042
+- File can't be opened, redirects me to browser. https://github.com/microsoft/vscode-pull-request-github/issues/5827
+
+**_Thank You_**
+
+* [@Santhoshmani1 (Santhosh Mani )](https://github.com/Santhoshmani1): Feature : Add open pr on github from pr description node [PR #6020](https://github.com/microsoft/vscode-pull-request-github/pull/6020)
+
+
 ## 0.92.0
 
 ### Changes

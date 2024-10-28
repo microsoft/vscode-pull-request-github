@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import Logger, { PR_TREE } from '../../common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
+import { compareIgnoreCase } from '../../common/utils';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { ReviewModel } from '../reviewModel';
 import { DirectoryTreeNode } from './directoryTreeNode';
@@ -76,7 +77,9 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 		if (layout === 'tree') {
 			nodes = this.directories;
 		} else {
-			nodes = this._reviewModel.localFileChanges;
+			const fileNodes = [...this._reviewModel.localFileChanges];
+			fileNodes.sort((a, b) => compareIgnoreCase(a.fileChangeResourceUri.toString(), b.fileChangeResourceUri.toString()));
+			nodes = fileNodes;
 		}
 		Logger.appendLine(`Got all children for Files node`, PR_TREE);
 		this.children = nodes;

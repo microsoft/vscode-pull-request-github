@@ -6,6 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
+import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
 import { ALLOWED_USERS, JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
 import { stringReplaceAsync } from '../common/utils';
@@ -81,7 +82,12 @@ abstract class CommentBase implements vscode.Comment {
 	/**
 	 * The author of the comment
 	 */
-	public author: vscode.CommentAuthorInformation;
+	public abstract get author(): vscode.CommentAuthorInformation;
+
+	/**
+	 * The author of the comment, before any modifications we make for display purposes.
+	 */
+	public originalAuthor: vscode.CommentAuthorInformation;
 
 	/**
 	 * The label to display on the comment, 'Pending' or nothing
@@ -159,7 +165,7 @@ export class TemporaryComment extends CommentBase {
 	) {
 		super(parent);
 		this.mode = vscode.CommentMode.Preview;
-		this.author = {
+		this.originalAuthor = {
 			name: currentUser.login,
 			iconPath: currentUser.avatarUrl ? vscode.Uri.parse(`${currentUser.avatarUrl}&s=64`) : undefined,
 		};
@@ -184,6 +190,10 @@ export class TemporaryComment extends CommentBase {
 		return new vscode.MarkdownString(this.input);
 	}
 
+	get author(): vscode.CommentAuthorInformation {
+		return this.originalAuthor;
+	}
+
 	commentEditId() {
 		return this.id;
 	}
@@ -197,6 +207,7 @@ const SUGGESTION_EXPRESSION = /```suggestion(\u0020*(\r\n|\n))((?<suggestion>[\s
 const IMG_EXPRESSION = /<img .*src=['"](?<src>.+?)['"].*?>/g;
 
 export class GHPRComment extends CommentBase {
+	private static ID = 'GHPRComment';
 	public commentId: string;
 	public timestamp: Date;
 
@@ -211,7 +222,7 @@ export class GHPRComment extends CommentBase {
 	constructor(context: vscode.ExtensionContext, comment: IComment, parent: GHPRCommentThread, private readonly githubRepositories?: GitHubRepository[]) {
 		super(parent);
 		this.rawComment = comment;
-		this.author = {
+		this.originalAuthor = {
 			name: comment.user!.login,
 			iconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined,
 		};
@@ -245,6 +256,16 @@ export class GHPRComment extends CommentBase {
 
 		this.contextValue = contextValues.join(',');
 		this.timestamp = new Date(comment.createdAt);
+	}
+
+	get author(): vscode.CommentAuthorInformation {
+		if (!this.rawComment.user?.specialDisplayName) {
+			return this.originalAuthor;
+		}
+		return {
+			name: this.rawComment.user.specialDisplayName,
+			iconPath: this.originalAuthor.iconPath,
+		};
 	}
 
 	update(comment: IComment) {
@@ -302,7 +323,7 @@ export class GHPRComment extends CommentBase {
 		const match = this.rawComment.body.match(SUGGESTION_EXPRESSION);
 		const suggestionBody = match?.groups?.suggestion;
 		if (match) {
-			return suggestionBody ? `${suggestionBody}\n` : '';
+			return suggestionBody ? suggestionBody : '';
 		}
 	}
 
@@ -378,7 +399,15 @@ ${lineContents}
 		return body.replace(/(?<!\s)(\r\n|\n)/g, '  \n');
 	}
 
+	private postpendSpecialAuthorComment(body: string) {
+		if (!this.rawComment.specialDisplayBodyPostfix) {
+			return body;
+		}
+		return `${body}  \n\n_${this.rawComment.specialDisplayBodyPostfix}_`;
+	}
+
 	private async replaceBody(body: string | vscode.MarkdownString): Promise<string> {
+		Logger.trace('Replace comment body', GHPRComment.ID);
 		if (body instanceof vscode.MarkdownString) {
 			const permalinkReplaced = await this.replacePermalink(body.value);
 			return this.replaceImg(this.replaceSuggestion(permalinkReplaced));
@@ -406,7 +435,7 @@ ${lineContents}
 		});
 
 		const permalinkReplaced = await this.replacePermalink(linkified);
-		return this.replaceImg(this.replaceSuggestion(permalinkReplaced));
+		return this.postpendSpecialAuthorComment(this.replaceImg(this.replaceSuggestion(permalinkReplaced)));
 	}
 
 	protected async doSetBody(body: string | vscode.MarkdownString, refresh: boolean) {

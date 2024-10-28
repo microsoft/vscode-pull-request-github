@@ -79,6 +79,7 @@ const GRAPHQL_COMPONENT_ID = 'GraphQL';
 export interface ItemsData {
 	items: any[];
 	hasMorePages: boolean;
+	totalCount?: number;
 }
 
 export interface IssueData extends ItemsData {
@@ -562,6 +563,7 @@ export class GitHubRepository implements vscode.Disposable {
 				return {
 					items: [],
 					hasMorePages: false,
+					totalCount: 0
 				};
 			}
 
@@ -581,7 +583,7 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug(`Fetch all pull requests - done`, this.id);
 			return {
 				items: pullRequests,
-				hasMorePages,
+				hasMorePages
 			};
 		} catch (e) {
 			Logger.error(`Fetching all pull requests failed: ${e}`, this.id);
@@ -779,6 +781,7 @@ export class GitHubRepository implements vscode.Disposable {
 			return {
 				items: issues,
 				hasMorePages: data.search.pageInfo.hasNextPage,
+				totalCount: data.search.issueCount
 			};
 		} catch (e) {
 			Logger.error(`Unable to fetch issues with query: ${e}`, this.id);
@@ -928,6 +931,7 @@ export class GitHubRepository implements vscode.Disposable {
 			return {
 				items: pullRequests,
 				hasMorePages,
+				totalCount: data.total_count
 			};
 		} catch (e) {
 			Logger.error(`Fetching pull request with query failed: ${e}`, this.id);
@@ -1317,7 +1321,9 @@ export class GitHubRepository implements vscode.Disposable {
 					login: remote.owner
 				},
 			});
-			return result.data.organization.teams.totalCount;
+			const totalCount = result.data.organization.teams.totalCount;
+			Logger.debug(`Fetch Teams Count - done`, this.id);
+			return totalCount;
 		} catch (e) {
 			Logger.debug(`Unable to fetch teams Count: ${e}`, this.id);
 			if (
@@ -1472,6 +1478,8 @@ export class GitHubRepository implements vscode.Disposable {
 	 */
 	private _useFallbackChecks: boolean = false;
 	async getStatusChecks(number: number): Promise<[PullRequestChecks | null, PullRequestReviewRequirement | null]> {
+		Logger.debug('Get Status Checks - enter', this.id);
+
 		const { query, remote, schema } = await this.ensure();
 		const captureUseFallbackChecks = this._useFallbackChecks;
 		let result: ApolloQueryResult<GetChecksResponse>;
@@ -1493,6 +1501,7 @@ export class GitHubRepository implements vscode.Disposable {
 					return this.getStatusChecks(number);
 				}
 			}
+			Logger.error(`Unable to fetch PR checks: ${e}`, this.id);
 			throw e;
 		}
 
@@ -1592,6 +1601,7 @@ export class GitHubRepository implements vscode.Disposable {
 			}
 		}
 
+		Logger.debug('Get Status Checks - done', this.id);
 		return [checks.statuses.length ? checks : null, reviewRequirement];
 	}
 

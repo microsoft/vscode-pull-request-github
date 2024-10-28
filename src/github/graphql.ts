@@ -52,6 +52,10 @@ export interface AbbreviatedIssueComment {
 	};
 	body: string;
 	databaseId: number;
+	reactions: {
+		totalCount: number;
+	};
+	createdAt: string;
 }
 
 export interface IssueComment extends AbbreviatedIssueComment {
@@ -110,6 +114,7 @@ export interface ReviewComment {
 		avatarUrl: string;
 		url: string;
 		id: string;
+		name?: string;
 	};
 	path: string;
 	originalPosition: number;
@@ -221,7 +226,7 @@ export interface ReviewThread {
 		nodes: ReviewComment[];
 		edges: [{
 			node: {
-				pullRequestReview: {
+				pullRequestReview?: {
 					databaseId: number
 				}
 			}
@@ -593,8 +598,9 @@ export interface PullRequest {
 			};
 		}[];
 	};
-	comments?: {
-		nodes: AbbreviatedIssueComment[];
+	comments: {
+		nodes?: AbbreviatedIssueComment[];
+		totalCount: number;
 	};
 	createdAt: string;
 	updatedAt: string;
@@ -650,6 +656,9 @@ export interface PullRequest {
 		};
 		url: string;
 	};
+	reactions: {
+		totalCount: number;
+	}
 }
 
 export enum DefaultCommitTitle {

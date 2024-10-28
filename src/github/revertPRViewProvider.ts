@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { CreateParamsNew, CreatePullRequestNew } from '../../common/views';
 import { openDescription } from '../commands';
-import { commands } from '../common/executeCommands';
+import { commands, contexts } from '../common/executeCommands';
 import { ITelemetry } from '../common/telemetry';
 import { IRequestMessage } from '../common/webview';
 import { BaseCreatePullRequestViewProvider, BasePullRequestDataModel } from './createPRViewProvider';
@@ -26,7 +26,7 @@ export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProv
 		pullRequestDefaults: PullRequestDefaults,
 		private readonly pullRequest: PullRequestModel
 	) {
-		super(telemetry, model, extensionUri, folderRepositoryManager, pullRequestDefaults, pullRequest.base.name);
+		super(telemetry, model, extensionUri, folderRepositoryManager, pullRequestDefaults, folderRepositoryManager.repository.state.HEAD?.name ?? pullRequest.base.name);
 	}
 
 	protected async getTitleAndDescription(): Promise<{ title: string; description: string; }> {
@@ -78,7 +78,7 @@ export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProv
 	protected async create(message: IRequestMessage<CreatePullRequestNew>): Promise<void> {
 		let revertPr: PullRequestModel | undefined;
 		RevertPullRequestViewProvider.withProgress(async () => {
-			commands.setContext('pr:creating', true);
+			commands.setContext(contexts.CREATING, true);
 			try {
 				revertPr = await this._folderRepositoryManager.revert(this.pullRequest, message.args.title, message.args.body, message.args.draft);
 				if (revertPr) {
@@ -102,7 +102,7 @@ export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProv
 					vscode.window.showErrorMessage(vscode.l10n.t('There was an error creating the pull request: {0}', (e as Error).message));
 				}
 			} finally {
-				commands.setContext('pr:creating', false);
+				commands.setContext(contexts.CREATING, false);
 				if (revertPr) {
 					this._onDone.fire(revertPr);
 				} else {

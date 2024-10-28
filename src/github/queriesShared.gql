@@ -357,6 +357,11 @@ query GetReviewRequests($owner: String!, $name: String!, $number: Int!) {
 							email
 							name
 						}
+						... on Bot {
+							id
+							login
+							avatarUrl
+						}
 					}
 				}
 			}
@@ -381,6 +386,9 @@ fragment ReviewComment on PullRequestReviewComment {
 		}
 		... on Organization {
 			email
+			id
+		}
+		... on Bot {
 			id
 		}
 	}
@@ -585,6 +593,15 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 			}
 			createdAt
 			updatedAt
+			assignees(first: 10) {
+				nodes {
+					avatarUrl
+					email
+					login
+					url
+					id
+				}
+			}
 			labels(first: 50) {
 				nodes {
 					name
@@ -593,6 +610,12 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 			}
 			id
 			databaseId
+			reactions(first: 100) {
+				totalCount
+			}
+			comments(first: 1) {
+				totalCount
+			}
 		}
 	}
 	rateLimit {
@@ -649,7 +672,23 @@ query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
 					}
 					body
 					databaseId
+					reactions(first: 100) {
+						totalCount
+					}
 				}
+				totalCount
+			}
+			assignees(first: 10) {
+				nodes {
+					avatarUrl
+					email
+					login
+					url
+					id
+				}
+			}
+			reactions(first: 100) {
+				totalCount
 			}
 		}
 	}
@@ -1024,6 +1063,12 @@ query Issues($query: String!) {
 							login
 						}
 						url
+					}
+					reactions(first: 1) {
+						totalCount
+					}
+					comments(first: 1) {
+						totalCount
 					}
 				}
 			}

@@ -116,6 +116,7 @@ export function CommentView(commentProps: Props) {
 				body={bodyMd}
 				canApplyPatch={pr.isCurrentlyCheckedOut}
 				allowEmpty={!!commentProps.allowEmpty}
+				specialDisplayBodyPostfix={(comment as IComment).specialDisplayBodyPostfix}
 			/>
 			{children}
 		</CommentBox>
@@ -146,7 +147,7 @@ const reviewDescriptor = (state: string) => DESCRIPTORS[state] || 'reviewed';
 
 function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
 	const htmlUrl = ('htmlUrl' in comment) ? comment.htmlUrl : (comment as PullRequest).url;
-	const isDraft = (comment as IComment).isDraft ?? (isReviewEvent(comment) && (comment.state.toLocaleUpperCase() === 'PENDING'));
+	const isDraft = (comment as IComment).isDraft ?? (isReviewEvent(comment) && (comment.state?.toLocaleUpperCase() === 'PENDING'));
 	const author = ('user' in comment) ? comment.user! : (comment as PullRequest).author!;
 	const createdAt = ('createdAt' in comment) ? comment.createdAt : (comment as ReviewEvent).submittedAt;
 
@@ -162,7 +163,7 @@ function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, childre
 
 						{createdAt ? (
 							<>
-								{isReviewEvent(comment) ? reviewDescriptor(comment.state) : 'commented'}
+								{(isReviewEvent(comment) && comment.state) ? reviewDescriptor(comment.state) : 'commented'}
 								{nbsp}
 								<Timestamp href={htmlUrl} date={createdAt} />
 							</>
@@ -262,10 +263,11 @@ export interface Embodied {
 	bodyHTML?: string;
 	body?: string;
 	canApplyPatch: boolean;
-	allowEmpty: boolean
+	allowEmpty: boolean;
+	specialDisplayBodyPostfix?: string;
 }
 
-export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty }: Embodied) => {
+export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty, specialDisplayBodyPostfix }: Embodied) => {
 	if (!body && !bodyHTML) {
 		if (allowEmpty) {
 			return null;
@@ -288,6 +290,8 @@ export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty
 		<div className="comment-body">
 			{renderedBody}
 			{applyPatchButton}
+			{specialDisplayBodyPostfix ? <br/> : null}
+			{specialDisplayBodyPostfix ? <em>{specialDisplayBodyPostfix}</em> : null}
 		</div>
 	);
 };
@@ -310,7 +314,7 @@ export function AddComment({
 	const textareaRef = useRef<HTMLTextAreaElement>();
 
 	emitter.addListener('quoteReply', (message: string) => {
-		const quoted = message.replace(/\n\n/g, '\n\n> ');
+		const quoted = message.replace(/\n/g, '\n> ');
 		updatePR({ pendingCommentText: `> ${quoted} \n\n` });
 		textareaRef.current?.scrollIntoView();
 		textareaRef.current?.focus();
@@ -357,7 +361,7 @@ export function AddComment({
 		await submitAction(currentSelection);
 	}
 
-	const availableActions: { [key in ReviewType]?: string } = isAuthor || isDraft
+	const availableActions: { [key in ReviewType]?: string } = isAuthor
 		? { [ReviewType.Comment]: 'Comment' }
 		: continueOnGitHub
 			? {
@@ -497,7 +501,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 		[submitAction],
 	);
 
-	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = pr.isAuthor || pr.isDraft
+	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = pr.isAuthor
 		? { comment: 'Comment' }
 		: pr.continueOnGitHub
 			? {

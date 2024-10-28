@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
+import { commands } from '../common/executeCommands';
 import Logger from '../common/logger';
 import {
 	ALWAYS_PROMPT_FOR_NEW_ISSUE_REPO,
@@ -21,9 +22,11 @@ import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRe
 import { IProject } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { getRepositoryForFile, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../github/utils';
+import { ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../github/utils';
+import { chatCommand } from '../lm/utils';
 import { ReviewManager } from '../view/reviewManager';
 import { ReviewsManager } from '../view/reviewsManager';
+import { PRNode } from '../view/treeNodes/pullRequestNode';
 import { CurrentIssue } from './currentIssue';
 import { IssueCompletionProvider } from './issueCompletionProvider';
 import {
@@ -491,6 +494,37 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				return openCodeLink(issueModel, this.manager);
 			}),
 		);
+		const chatCommandID = chatCommand();
+		this.context.subscriptions.push(
+			vscode.commands.registerCommand('issue.chatSummarizeIssue', (issue: any) => {
+				if (!(issue instanceof IssueModel || issue instanceof PRNode)) {
+					return;
+				}
+				/* __GDPR__
+				"issue.chatSummarizeIssue" : {}
+			*/
+				this.telemetry.sendTelemetryEvent('issue.chatSummarizeIssue');
+				if (issue instanceof IssueModel) {
+					commands.executeCommand(chatCommandID, vscode.l10n.t('@githubpr Summarize issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number));
+				} else {
+					const pullRequestModel = issue.pullRequestModel;
+					const remote = pullRequestModel.githubRepository.remote;
+					commands.executeCommand(chatCommandID, vscode.l10n.t('@githubpr Summarize PR {0}/{1}#{2}', remote.owner, remote.repositoryName, pullRequestModel.number));
+				}
+			}),
+		);
+		this.context.subscriptions.push(
+			vscode.commands.registerCommand('issue.chatSuggestFix', (issue: any) => {
+				if (!(issue instanceof IssueModel)) {
+					return;
+				}
+				/* __GDPR__
+				"issue.chatSuggestFix" : {}
+			*/
+				this.telemetry.sendTelemetryEvent('issue.chatSuggestFix');
+				commands.executeCommand(chatCommandID, vscode.l10n.t('@githubpr Find a fix for issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number));
+			}),
+		);
 		this._stateManager.tryInitializeAndWait().then(() => {
 			this.registerCompletionProviders();
 
@@ -903,14 +937,20 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 
 		let contents = '';
 		if (newIssue) {
-			const repository = getRepositoryForFile(this.gitAPI, newIssue.document.uri);
-			const changeAffectingFile = repository?.state.workingTreeChanges.find(value => value.uri.toString() === newIssue.document.uri.toString());
+			const folderRepoManager = this.manager.getManagerForFile(newIssue.document.uri);
+			const changeAffectingFile = folderRepoManager?.repository?.state.workingTreeChanges.find(value => value.uri.toString() === newIssue.document.uri.toString());
 			if (changeAffectingFile) {
 				// The file we're creating the issue for has uncommitted changes.
 				// Add a quote of the line so that the issue body is still meaningful.
 				contents = `\`\`\`\n${newIssue.line}\n\`\`\`\n\n`;
 			}
+
+			if (folderRepoManager) {
+				const relativePath = folderRepoManager.gitRelativeRootPath(newIssue.document.uri.path);
+				contents += vscode.l10n.t('In file {0}\n', relativePath);
+			}
 		}
+
 		contents += (await createGithubPermalink(this.manager, this.gitAPI, true, true, newIssue)).permalink;
 		return contents;
 	}
@@ -1161,11 +1201,11 @@ ${options?.body ?? ''}\n
 	private async chooseTemplate(folderManager: FolderRepositoryManager): Promise<{ title: string | undefined, body: string | undefined } | undefined> {
 		const templateUris = await folderManager.getIssueTemplates();
 		if (templateUris.length === 0) {
-			return undefined;
+			return { title: undefined, body: undefined };
 		}
 
 		interface IssueChoice extends vscode.QuickPickItem {
-			template: IssueTemplate | undefined;
+			template: { title: string | undefined, body: string | undefined } | undefined;
 		}
 		const templates = await Promise.all(
 			templateUris
@@ -1191,7 +1231,7 @@ ${options?.body ?? ''}\n
 		});
 		choices.push({
 			label: vscode.l10n.t('Blank issue'),
-			template: undefined
+			template: { title: undefined, body: undefined }
 		});
 
 		const selectedTemplate = await vscode.window.showQuickPick(choices, {

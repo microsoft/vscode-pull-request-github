@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
+import { commands } from '../common/executeCommands';
 import { ITelemetry } from '../common/telemetry';
 import { dispose } from '../common/utils';
 import { BaseCreatePullRequestViewProvider, BasePullRequestDataModel, CreatePullRequestViewProvider } from '../github/createPRViewProvider';
@@ -25,14 +26,13 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 
 	private async setActiveContext(value: boolean) {
 		if (this._activeContext) {
-			await vscode.commands.executeCommand('setContext', this._activeContext, value);
+			await commands.setContext(this._activeContext, value);
 		}
 	}
 
 	private registerListeners(repository: Repository, usingCurrentBranchAsCompare: boolean) {
 		this._disposables.push(
 			this._createPRViewProvider!.onDone(async createdPR => {
-				this.setActiveContext(false);
 				await CreatePullRequestViewProvider.withProgress(async () => {
 					return this._postCreateCallback?.(createdPR);
 				});

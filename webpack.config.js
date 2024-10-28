@@ -143,6 +143,7 @@ async function getWebviewConfig(mode, env, entry) {
 				crypto: require.resolve("crypto-browserify"),
 				path: require.resolve('path-browserify'),
 				stream: require.resolve("stream-browserify"),
+				http: require.resolve("stream-http")
 			},
 		},
 		plugins: plugins,
@@ -248,7 +249,7 @@ async function getExtensionConfig(target, mode, env) {
 						? {
 							loader: 'esbuild-loader',
 							options: {
-								loader: 'ts',
+								loader: 'tsx',
 								target: 'es2019',
 								tsconfigRaw: await resolveTSConfig(
 									path.join(
@@ -332,9 +333,12 @@ async function getExtensionConfig(target, mode, env) {
 						'os': require.resolve('os-browserify/browser'),
 						"constants": require.resolve("constants-browserify"),
 						buffer: require.resolve('buffer'),
-						timers: require.resolve('timers-browserify')
+						timers: require.resolve('timers-browserify'),
+						http: require.resolve("stream-http")
 					}
-					: undefined,
+					: {
+						http: require.resolve("stream-http")
+					},
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			symlinks: false,
 		},

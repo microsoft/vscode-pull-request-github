@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 body a {
-	text-decoration: none;
+	text-decoration: var(--text-link-decoration);
 }
 
 h3 {
@@ -252,6 +252,11 @@ body img.avatar {
 
 .automerge-section {
 	display: flex;
+}
+
+.automerge-section,
+.status-section {
+	flex-wrap: wrap;
 }
 
 #status-checks .automerge-section {
