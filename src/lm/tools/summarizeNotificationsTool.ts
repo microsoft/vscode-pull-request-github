@@ -12,7 +12,7 @@ export class NotificationSummarizationTool implements vscode.LanguageModelTool<F
 	public static readonly toolId = 'github-pull-request_notification_summarize';
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchNotificationResult>): Promise<vscode.PreparedToolInvocation> {
-		const parameters = options.parameters;
+		const parameters = options.input;
 		if (!parameters.itemType || !parameters.itemNumber) {
 			return {
 				invocationMessage: vscode.l10n.t('Summarizing notification')
@@ -27,16 +27,16 @@ export class NotificationSummarizationTool implements vscode.LanguageModelTool<F
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchNotificationResult>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		let notificationInfo: string = '';
-		const lastReadAt = options.parameters.lastReadAt;
+		const lastReadAt = options.input.lastReadAt;
 		if (!lastReadAt) {
 			// First time the thread is viewed, so no lastReadAt field
 			notificationInfo += `This thread is viewed for the first time. Here is the main item information of the thread:`;
 		}
 		notificationInfo += `
-Title : ${options.parameters.title}
-Body : ${options.parameters.body}
+Title : ${options.input.title}
+Body : ${options.input.body}
 `;
-		const fileChanges = options.parameters.fileChanges;
+		const fileChanges = options.input.fileChanges;
 		if (fileChanges) {
 			notificationInfo += `
 The following are the files changed:
@@ -49,7 +49,7 @@ Patch: ${fileChange.patch}
 			}
 		}
 
-		const unreadComments = options.parameters.comments;
+		const unreadComments = options.input.comments;
 		if (unreadComments && unreadComments.length > 0) {
 			notificationInfo += `
 The following are the unread comments of the thread:
@@ -68,8 +68,8 @@ Body: ${comment.body}
 		});
 		const model = models[0];
 		const content: vscode.LanguageModelTextPart[] = [];
-		const threadId = options.parameters.threadId;
-		const notificationKey = options.parameters.notificationKey;
+		const threadId = options.input.threadId;
+		const notificationKey = options.input.notificationKey;
 		if (threadId && notificationKey) {
 			const markAsReadCommand = {
 				title: 'Mark As Read',
@@ -80,7 +80,7 @@ Body: ${comment.body}
 			content.push(new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)));
 		}
 		if (model) {
-			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(options.parameters.owner, options.parameters.repo))];
+			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(options.input.owner, options.input.repo))];
 			messages.push(vscode.LanguageModelChatMessage.User(`The notification information is as follows:`));
 			messages.push(vscode.LanguageModelChatMessage.User(notificationInfo));
 			const response = await model.sendRequest(messages, {});
