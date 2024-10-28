@@ -19,18 +19,18 @@ export class SuggestFixTool extends RepoToolBase<IssueToolParameters> {
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<IssueToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		return {
-			invocationMessage: options.parameters.issueNumber ? vscode.l10n.t('Suggesting a fix for issue #{0}', options.parameters.issueNumber) : vscode.l10n.t('Suggesting a fix for the issue')
+			invocationMessage: options.input.issueNumber ? vscode.l10n.t('Suggesting a fix for issue #{0}', options.input.issueNumber) : vscode.l10n.t('Suggesting a fix for the issue')
 		};
 	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<IssueToolParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		const { folderManager } = await this.getRepoInfo(options.parameters.repo);
+		const { folderManager } = await this.getRepoInfo(options.input.repo);
 		if (!folderManager) {
-			throw new Error(`No folder manager found for ${options.parameters.repo.owner}/${options.parameters.repo.name}. Make sure to have the repository open.`);
+			throw new Error(`No folder manager found for ${options.input.repo.owner}/${options.input.repo.name}. Make sure to have the repository open.`);
 		}
-		const issue = await folderManager.resolveIssue(options.parameters.repo.owner, options.parameters.repo.name, options.parameters.issueNumber, true);
+		const issue = await folderManager.resolveIssue(options.input.repo.owner, options.input.repo.name, options.input.issueNumber, true);
 		if (!issue) {
-			throw new Error(`No issue found for ${options.parameters.repo.owner}/${options.parameters.repo.name}/${options.parameters.issueNumber}. Make sure the issue exists.`);
+			throw new Error(`No issue found for ${options.input.repo.owner}/${options.input.repo.name}/${options.input.issueNumber}. Make sure the issue exists.`);
 		}
 
 		const result: IssueResult = {
@@ -53,7 +53,7 @@ export class SuggestFixTool extends RepoToolBase<IssueToolParameters> {
 
 		const copilotCodebaseResult = await vscode.lm.invokeTool('copilot_codebase', {
 			toolInvocationToken: undefined,
-			parameters: {
+			input: {
 				query: result.title
 			}
 		}, token);
@@ -62,7 +62,7 @@ export class SuggestFixTool extends RepoToolBase<IssueToolParameters> {
 		if (plainTextResult instanceof vscode.LanguageModelTextPart) {
 			messages.push(vscode.LanguageModelChatMessage.User(`Below is some potential relevant workspace context to the issue. The user cannot see this result, so you should explain it to the user if referencing it in your answer.`));
 			const toolMessage = vscode.LanguageModelChatMessage.User('');
-			toolMessage.content2 = [plainTextResult.value];
+			toolMessage.content = [plainTextResult];
 			messages.push(toolMessage);
 		}
 
