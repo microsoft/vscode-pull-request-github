@@ -4,15 +4,19 @@
 
 ### Changes
 
-This month, our focus was on integrating Copilot into GitHub Pull Requests, using the new VS Code extension API, to showcase how Copilot can be added to an extension.
+This month, our focus was on integrating Copilot into GitHub Pull Requests, using the new VS Code extension API, to showcase how Copilot can be added to an extension. These features are behind several settings. To try everything out, you can set the following settings:
+- `"githubPullRequests.experimental.chat": true`
+- `"githubPullRequests.experimental.notificationsView": true`
 
 #### Copilot integration
 
-- The new `@githubpr` Chat Participant can search for issues on GitHub. When displaying issues, `@githubpr` will show a markdown table and try to pick the best columns to show based on the search.
-
-![Copilot issue search for closed October bugs](./documentation/changelog/0.100.0/copilot-issue-search.png)
+- The new `@githubpr` Chat Participant can search for issues on GitHub.
 
 ![Copilot issue search for most open bugs in November](./documentation/changelog/0.100.0/copilot-issue-search-most-bugs.png)
+
+- When displaying issues, `@githubpr` will show a markdown table and try to pick the best columns to show based on the search.
+
+![Copilot issue search for closed October bugs](./documentation/changelog/0.100.0/copilot-issue-search.png)
 
 - Notifications
 
