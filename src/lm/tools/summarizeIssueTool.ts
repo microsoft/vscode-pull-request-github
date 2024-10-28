@@ -12,13 +12,13 @@ export class IssueSummarizationTool implements vscode.LanguageModelTool<FetchIss
 	public static readonly toolId = 'github-pull-request_issue_summarize';
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchIssueResult>): Promise<vscode.PreparedToolInvocation> {
-		if (!options.parameters.title) {
+		if (!options.input.title) {
 			return {
 				invocationMessage: vscode.l10n.t('Summarizing issue')
 			};
 		}
-		const shortenedTitle = options.parameters.title.length > 40;
-		const maxLengthTitle = shortenedTitle ? options.parameters.title.substring(0, 40) : options.parameters.title;
+		const shortenedTitle = options.input.title.length > 40;
+		const maxLengthTitle = shortenedTitle ? options.input.title.substring(0, 40) : options.input.title;
 		return {
 			invocationMessage: vscode.l10n.t('Summarizing "{0}', maxLengthTitle)
 		};
@@ -26,10 +26,10 @@ export class IssueSummarizationTool implements vscode.LanguageModelTool<FetchIss
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchIssueResult>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		let issueOrPullRequestInfo: string = `
-Title : ${options.parameters.title}
-Body : ${options.parameters.body}
+Title : ${options.input.title}
+Body : ${options.input.body}
 `;
-		const fileChanges = options.parameters.fileChanges;
+		const fileChanges = options.input.fileChanges;
 		if (fileChanges) {
 			issueOrPullRequestInfo += `
 The following are the files changed:
@@ -41,7 +41,7 @@ Patch: ${fileChange.patch}
 `;
 			}
 		}
-		const comments = options.parameters.comments;
+		const comments = options.input.comments;
 		for (const [index, comment] of comments.entries()) {
 			issueOrPullRequestInfo += `
 Comment ${index} :
@@ -56,7 +56,7 @@ Body: ${comment.body}
 		const model = models[0];
 
 		if (model) {
-			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(options.parameters.repo, options.parameters.owner))];
+			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(options.input.repo, options.input.owner))];
 			messages.push(vscode.LanguageModelChatMessage.User(`The issue or pull request information is as follows:`));
 			messages.push(vscode.LanguageModelChatMessage.User(issueOrPullRequestInfo));
 			const response = await model.sendRequest(messages, {});
