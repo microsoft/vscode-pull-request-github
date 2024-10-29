@@ -18,13 +18,8 @@ This month, our focus was on integrating Copilot into GitHub Pull Requests, usin
 
 ![Copilot issue search for closed October bugs](./documentation/changelog/0.100.0/copilot-issue-search.png)
 
-- Notifications
-
-TODO @lszomoru and @aiday-mar
-
-- Fix suggestions and summarization
-
-TODO @aiday-mar
+- Each issue listed in the "Issues" view has a new action, "Summarize With Copilot", that will reveal the Chat panel and summarize the selected issue. We also added another action, "Fix With Copilot", that will summarize the selected issue and will use the workspace context to suggest a fix for it.
+- We have added an experimental "Notifications" view that lists the user's unread notifications across repositories. By default the notifications are sorted by most recently updated descending, but you can use the "Sort by Priority using Copilot" action from the view title's `...` menu to have Copilot prioritize the notifications. Clicking on each notification trigger an action to summarize the notification using Copilot. The view also contains easily accessible action to mark a notification as read, as well as open the notification on GitHub.com.
 
 ### Fixes
 
