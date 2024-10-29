@@ -7,8 +7,7 @@ import * as vscode from 'vscode';
 import { EXPERIMENTAL_NOTIFICATIONS_SCORE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { fromNotificationUri, toNotificationUri } from '../common/uri';
 import { dispose } from '../common/utils';
-import { NotificationsSortMethod } from './notificationItem';
-import { NotificationsManager } from './notificationsManager';
+import { NotificationsManager, NotificationsSortMethod } from './notificationsManager';
 
 export class NotificationsDecorationProvider implements vscode.FileDecorationProvider {
 	private _readonlyOnDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri[]> = new vscode.EventEmitter<vscode.Uri[]>();

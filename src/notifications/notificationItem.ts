@@ -6,11 +6,6 @@
 import { Notification } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 
-export enum NotificationsSortMethod {
-	Timestamp = 'Timestamp',
-	Priority = 'Priority'
-}
-
 export type NotificationTreeDataItem = NotificationTreeItem | LoadMoreNotificationsTreeItem;
 
 export interface LoadMoreNotificationsTreeItem {
