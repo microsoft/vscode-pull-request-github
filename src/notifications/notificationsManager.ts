@@ -32,7 +32,7 @@ export class NotificationsManager implements vscode.TreeDataProvider<Notificatio
 	private _pageCount: number = 1;
 	private _hasNextPage: boolean = false;
 	private _dateTime: Date = new Date();
-	private _computeNotifications: boolean = false;
+	private _fetchNotifications: boolean = false;
 	private _notifications = new Map<string, NotificationTreeItem>();
 
 	private _sortingMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
@@ -115,7 +115,7 @@ export class NotificationsManager implements vscode.TreeDataProvider<Notificatio
 	//#endregion
 
 	public async getNotifications(): Promise<INotificationTreeItems | undefined> {
-		if (this._computeNotifications) {
+		if (this._fetchNotifications) {
 			// Get raw notifications
 			const notificationsData = await this._notificationProvider.getNotifications(this._dateTime.toISOString(), this._pageCount);
 			if (!notificationsData) {
@@ -140,7 +140,7 @@ export class NotificationsManager implements vscode.TreeDataProvider<Notificatio
 			}
 			this._hasNextPage = notificationsData.hasNextPage;
 
-			this._computeNotifications = false;
+			this._fetchNotifications = false;
 		}
 
 		// Calculate notification priority
@@ -198,8 +198,8 @@ export class NotificationsManager implements vscode.TreeDataProvider<Notificatio
 		this._refresh(true);
 	}
 
-	public _refresh(compute: boolean): void {
-		this._computeNotifications = compute;
+	public _refresh(fetch: boolean): void {
+		this._fetchNotifications = fetch;
 		this._onDidChangeTreeData.fire();
 	}
 
