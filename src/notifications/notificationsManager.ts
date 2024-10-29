@@ -57,8 +57,6 @@ export class NotificationsManager implements vscode.TreeDataProvider<Notificatio
 		}
 
 		const notificationsData = await this.getNotifications();
-		this._computeNotifications = false;
-
 		if (notificationsData === undefined) {
 			return undefined;
 		}
@@ -117,41 +115,44 @@ export class NotificationsManager implements vscode.TreeDataProvider<Notificatio
 	//#endregion
 
 	public async getNotifications(): Promise<INotificationTreeItems | undefined> {
-		if (!this._computeNotifications) {
-			const notifications = Array.from(this._notifications.values());
-
-			return {
-				notifications: this._sortNotifications(notifications),
-				hasNextPage: this._hasNextPage
-			};
-		}
-
-		// Get raw notifications
-		const notificationsData = await this._notificationProvider.getNotifications(this._dateTime.toISOString(), this._pageCount);
-		if (!notificationsData) {
-			return undefined;
-		}
-
-		// Resolve notifications
-		const notificationTreeItems = new Map<string, NotificationTreeItem>();
-		await Promise.all(notificationsData.notifications.map(async notification => {
-			const model = await this._notificationProvider.getNotificationModel(notification);
-			if (!model) {
-				return;
+		if (this._computeNotifications) {
+			// Get raw notifications
+			const notificationsData = await this._notificationProvider.getNotifications(this._dateTime.toISOString(), this._pageCount);
+			if (!notificationsData) {
+				return undefined;
 			}
 
-			notificationTreeItems.set(notification.key, {
-				notification, model, kind: 'notification'
-			});
-		}));
+			// Resolve notifications
+			const notificationTreeItems = new Map<string, NotificationTreeItem>();
+			await Promise.all(notificationsData.notifications.map(async notification => {
+				const model = await this._notificationProvider.getNotificationModel(notification);
+				if (!model) {
+					return;
+				}
+
+				notificationTreeItems.set(notification.key, {
+					notification, model, kind: 'notification'
+				});
+			}));
+
+			for (const [key, value] of notificationTreeItems.entries()) {
+				this._notifications.set(key, value);
+			}
+			this._hasNextPage = notificationsData.hasNextPage;
+
+			this._computeNotifications = false;
+		}
 
 		// Calculate notification priority
 		if (this._sortingMethod === NotificationsSortMethod.Priority) {
+			const notificationsWithoutPriority = Array.from(this._notifications.values())
+				.filter(notification => notification.priority === undefined);
+
 			const notificationPriorities = await this._notificationProvider
-				.getNotificationsPriority(Array.from(notificationTreeItems.values()));
+				.getNotificationsPriority(notificationsWithoutPriority);
 
 			for (const { key, priority, priorityReasoning } of notificationPriorities) {
-				const notification = notificationTreeItems.get(key);
+				const notification = this._notifications.get(key);
 				if (!notification) {
 					continue;
 				}
@@ -159,14 +160,9 @@ export class NotificationsManager implements vscode.TreeDataProvider<Notificatio
 				notification.priority = priority;
 				notification.priorityReason = priorityReasoning;
 
-				notificationTreeItems.set(key, notification);
+				this._notifications.set(key, notification);
 			}
 		}
-
-		for (const [key, value] of notificationTreeItems.entries()) {
-			this._notifications.set(key, value);
-		}
-		this._hasNextPage = notificationsData.hasNextPage;
 
 		const notifications = Array.from(this._notifications.values());
 		this._onDidChangeNotifications.fire(notifications);
@@ -225,7 +221,7 @@ export class NotificationsManager implements vscode.TreeDataProvider<Notificatio
 		}
 
 		this._sortingMethod = method;
-		this._refresh(true);
+		this._refresh(false);
 	}
 
 	private _sortNotifications(notifications: NotificationTreeItem[]): NotificationTreeItem[] {
