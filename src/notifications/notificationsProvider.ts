@@ -69,7 +69,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		});
 	}
 
-	public async computeNotifications(pageCount: number): Promise<INotifications | undefined> {
+	public async getNotifications(before: string, page: number): Promise<INotifications | undefined> {
 		const gitHub = this._getGitHub();
 		if (gitHub === undefined) {
 			return undefined;
@@ -78,22 +78,11 @@ export class NotificationsProvider implements vscode.Disposable {
 			return undefined;
 		}
 
-		const notificationPromises: Promise<INotifications>[] = [];
-		for (let i = 1; i <= pageCount; i++) {
-			notificationPromises.push(this._getNotificationsPage(gitHub, i));
-		}
-
-		const notifications = await Promise.all(notificationPromises);
-		const hasNextPage = notifications[pageCount - 1].hasNextPage;
-
-		return { notifications: notifications.flatMap(n => n.notifications), hasNextPage };
-	}
-
-	private async _getNotificationsPage(gitHub: GitHub, pageNumber: number): Promise<{ notifications: Notification[]; hasNextPage: boolean }> {
 		const pageSize = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE, 50);
 		const { data, headers } = await gitHub.octokit.call(gitHub.octokit.api.activity.listNotificationsForAuthenticatedUser, {
 			all: false,
-			page: pageNumber,
+			before: before,
+			page: page,
 			per_page: pageSize
 		});
 
