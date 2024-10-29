@@ -188,6 +188,7 @@ export class NotificationsManager implements vscode.TreeDataProvider<Notificatio
 		}
 
 		this._pageCount = 1;
+		this._dateTime = new Date();
 		this._notifications.clear();
 
 		this._refresh(true);
