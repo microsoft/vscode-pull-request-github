@@ -179,26 +179,83 @@ export function parsePatch(patch: string): DiffHunk[] {
 	let diffHunkIter = diffHunkReader.next();
 	const diffHunks: DiffHunk[] = [];
 
-	const right: string[] = [];
 	while (!diffHunkIter.done) {
 		const diffHunk = diffHunkIter.value;
 		diffHunks.push(diffHunk);
-
-		for (let j = 0; j < diffHunk.diffLines.length; j++) {
-			const diffLine = diffHunk.diffLines[j];
-			if (diffLine.type === DiffChangeType.Delete || diffLine.type === DiffChangeType.Control) {
-			} else if (diffLine.type === DiffChangeType.Add) {
-				right.push(diffLine.text);
-			} else {
-				const codeInFirstLine = diffLine.text;
-				right.push(codeInFirstLine);
-			}
-		}
-
 		diffHunkIter = diffHunkReader.next();
 	}
 
 	return diffHunks;
+}
+
+/**
+ * Split a hunk into smaller hunks based on the context lines. Position in hunk and control lines are not preserved.
+ */
+export function splitIntoSmallerHunks(hunk: DiffHunk): DiffHunk[] {
+	const splitHunks: DiffHunk[] = [];
+	const newHunk = (fromLine: DiffLine) => {
+		return {
+			diffLines: [],
+			newLength: 0,
+			oldLength: 0,
+			oldLineNumber: fromLine.oldLineNumber,
+			newLineNumber: fromLine.newLineNumber,
+			positionInHunk: 0
+		};
+	};
+
+	// Split hunk into smaller hunks on context lines.
+	// Context lines will be duplicated across the new smaller hunks
+	let currentHunk: DiffHunk | undefined;
+	let nextHunk: DiffHunk | undefined;
+
+	const addLineToHunk = (hunk: DiffHunk, line: DiffLine) => {
+		hunk.diffLines.push(line);
+		if (line.type === DiffChangeType.Delete) {
+			hunk.oldLength++;
+		} else if (line.type === DiffChangeType.Add) {
+			hunk.newLength++;
+		} else if (line.type === DiffChangeType.Context) {
+			hunk.oldLength++;
+			hunk.newLength++;
+		}
+	};
+	const hunkHasChanges = (hunk: DiffHunk) => {
+		return hunk.diffLines.some(line => line.type !== DiffChangeType.Context);
+	};
+	const hunkHasSandwichedChanges = (hunk: DiffHunk) => {
+		return hunkHasChanges(hunk) && hunk.diffLines[hunk.diffLines.length - 1].type === DiffChangeType.Context;
+	};
+
+	for (const line of hunk.diffLines) {
+		if (line.type === DiffChangeType.Context) {
+			if (!currentHunk) {
+				currentHunk = newHunk(line);
+			}
+			addLineToHunk(currentHunk, line);
+			if (hunkHasSandwichedChanges(currentHunk)) {
+				if (!nextHunk) {
+					nextHunk = newHunk(line);
+				}
+				addLineToHunk(nextHunk, line);
+			}
+		} else if (currentHunk) {
+			if (hunkHasSandwichedChanges(currentHunk)) {
+				splitHunks.push(currentHunk);
+				currentHunk = nextHunk!;
+				nextHunk = undefined;
+			}
+			if ((line.type === DiffChangeType.Delete) || (line.type === DiffChangeType.Add)) {
+				addLineToHunk(currentHunk, line);
+			}
+		}
+	}
+
+	if (currentHunk) {
+		splitHunks.push(currentHunk);
+	}
+
+	return splitHunks;
 }
 
 export function getModifiedContentFromDiffHunk(originalContent: string, patch: string) {
