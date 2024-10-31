@@ -79,8 +79,10 @@ Body: ${comment.body}
 			content.push(new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT));
 			content.push(new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)));
 		}
-		if (model) {
-			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(options.input.owner, options.input.repo))];
+		const owner = options.input.owner;
+		const repo = options.input.repo;
+		if (model && owner && repo) {
+			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(owner, repo))];
 			messages.push(vscode.LanguageModelChatMessage.User(`The notification information is as follows:`));
 			messages.push(vscode.LanguageModelChatMessage.User(notificationInfo));
 			const response = await model.sendRequest(messages, {});
