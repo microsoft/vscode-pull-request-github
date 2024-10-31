@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import type { Branch, Repository } from '../api/api';
 import { GitApiImpl, GitErrorCodes, Status } from '../api/api1';
 import { openDescription } from '../commands';
-import { DiffChangeType, DiffHunk, parsePatch } from '../common/diffHunk';
+import { DiffChangeType, DiffHunk, parsePatch, splitIntoSmallerHunks } from '../common/diffHunk';
 import { commands } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import Logger from '../common/logger';
@@ -723,10 +723,12 @@ export class ReviewManager {
 		let oldLineNumber = hunk.oldLineNumber;
 		let oldLength = hunk.oldLength;
 
-		// start at 1 to skip the control line
-		let i = 1;
+		let i = 0;
 		for (; i < hunk.diffLines.length; i++) {
 			const line = hunk.diffLines[i];
+			if (line.type === DiffChangeType.Control) {
+				continue;
+			}
 			if (line.type === DiffChangeType.Context) {
 				oldLineNumber++;
 				oldLength--;
@@ -749,7 +751,7 @@ export class ReviewManager {
 			// we have only inserted lines, so we need to include a context line so that
 			// there's a line to anchor the suggestion to
 			if (i > 1) {
-				// include from the begginning of the hunk
+				// include from the beginning of the hunk
 				i--;
 				oldLineNumber--;
 				oldLength++;
@@ -789,7 +791,7 @@ export class ReviewManager {
 				if (!resourceStrings.includes(changeFile.uri.toString()) || (changeFile.status !== Status.MODIFIED)) {
 					return;
 				}
-				diff = parsePatch(await this._folderRepoManager.repository.diffWithHEAD(changeFile.uri.fsPath));
+				diff = parsePatch(await this._folderRepoManager.repository.diffWithHEAD(changeFile.uri.fsPath)).map(hunk => splitIntoSmallerHunks(hunk)).flat();
 				await Promise.allSettled(diff.map(async hunk => {
 					try {
 						await this._reviewCommentController?.createSuggestionsFromChanges(changeFile.uri, this.convertDiffHunkToSuggestion(hunk));
@@ -1294,7 +1296,7 @@ export class ReviewManager {
 					if (postCreate === 'checkoutDefaultBranch') {
 						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch);
 					} if (postCreate === 'checkoutDefaultBranchAndShow') {
-						await vscode.commands.executeCommand('pr:github.focus');
+						await commands.executeCommand('pr:github.focus');
 						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch);
 						await this._pullRequestsTree.expandPullRequest(createdPR);
 					} else if (postCreate === 'checkoutDefaultBranchAndCopy') {

@@ -27,13 +27,12 @@
 		"contribShareMenu",
 		"diffCommand",
 		"fileComments",
-		"lmTools",
 		"quickDiffProvider",
 		"shareProvider",
 		"tokenInformation",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.98.0",
+	"version": "0.100.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.95.0"
@@ -67,7 +66,7 @@
 			{
 				"id": "githubpr",
 				"name": "githubpr",
-				"fullName": "GitHub",
+				"fullName": "GitHub Pull Requests",
 				"description": "Chat participant for GitHub Pull Requests extension",
 				"when": "config.githubPullRequests.experimental.chat"
 			}
@@ -461,6 +460,21 @@
 					],
 					"default": "auto",
 					"markdownDescription": "%githubPullRequests.createDefaultBaseBranch.description%"
+				},
+				"githubPullRequests.experimental.chat": {
+					"type": "boolean",
+					"markdownDescription": "%githubPullRequests.experimental.chat.description%",
+					"default": false
+				},
+				"githubPullRequests.experimental.notificationsView": {
+					"type": "boolean",
+					"markdownDescription": "%githubPullRequests.experimental.notificationsView.description%",
+					"default": false
+				},
+				"githubPullRequests.experimental.useQuickChat": {
+					"type": "boolean",
+					"markdownDescription": "%githubPullRequests.experimental.useQuickChat.description%",
+					"default": false
 				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
@@ -1521,7 +1535,7 @@
 				"command": "notification.markAsRead",
 				"title": "%command.notifications.markAsRead.title%",
 				"category": "%command.notifications.category%",
-				"icon": "$(check)"
+				"icon": "$(mail-read)"
 			},
 			{
 				"command": "notification.markAsDone",
@@ -2340,12 +2354,12 @@
 				{
 					"command": "notification.chatSummarizeNotification",
 					"group": "inline@1",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView && config.githubPullRequests.experimental.chat"
 				},
 				{
 					"command": "notification.chatSummarizeNotification",
 					"group": "issues_0@0",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView && config.githubPullRequests.experimental.chat"
 				},
 				{
 					"command": "notification.openOnGitHub",
@@ -2401,6 +2415,11 @@
 					"command": "pr.refreshPullRequest",
 					"when": "view == pr:github && viewItem =~ /pullrequest|description/",
 					"group": "pullrequest@1"
+				},
+				{
+					"command": "issue.chatSummarizeIssue",
+					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
+					"group": "pullrequest@2"
 				},
 				{
 					"command": "pr.openPullRequestOnGitHub",
@@ -2472,17 +2491,17 @@
 				},
 				{
 					"command": "issue.chatSummarizeIssue",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
 					"group": "inline@0"
 				},
 				{
 					"command": "issue.chatSummarizeIssue",
-					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated",
+					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
 					"group": "inline@0"
 				},
 				{
 					"command": "issue.chatSuggestFix",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
 					"group": "inline@1"
 				},
 				{
@@ -2548,12 +2567,12 @@
 				},
 				{
 					"command": "issue.chatSummarizeIssue",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
 					"group": "issues_1@0"
 				},
 				{
 					"command": "issue.chatSuggestFix",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated",
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
 					"group": "issues_1@1"
 				},
 				{
@@ -3179,9 +3198,6 @@
 						"issueNumber"
 					]
 				},
-				"supportedContentTypes": [
-					"text/json"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
@@ -3207,9 +3223,6 @@
 						"thread_id"
 					]
 				},
-				"supportedContentTypes": [
-					"text/json"
-				],
 				"when": "config.githubPullRequests.experimental.chat"
 			},
 			{
@@ -3235,10 +3248,28 @@
 							"type": "string",
 							"description": "The body of the issue/PR"
 						},
+						"owner": {
+							"type": "string",
+							"description": "The owner of the repo in which the issue/PR is located"
+						},
+						"repo": {
+							"type": "string",
+							"description": "The repo in which the issue/PR is located"
+						},
 						"comments": {
 							"type": "array",
 							"items": {
-								"type": "string"
+								"type": "object",
+								"properties": {
+									"body": {
+										"type": "string",
+										"description": "The comment body"
+									},
+									"author": {
+										"type": "string",
+										"description": "The author of the comment"
+									}
+								}
 							},
 							"description": "The array of associated string comments"
 						},
@@ -3263,7 +3294,9 @@
 					"required": [
 						"title",
 						"body",
-						"comments"
+						"comments",
+						"owner",
+						"repo"
 					]
 				},
 				"when": "config.githubPullRequests.experimental.chat"
@@ -3276,7 +3309,7 @@
 				],
 				"toolReferenceName": "notification_summarize",
 				"displayName": "%languageModelTools.github-pull-request_notification_summarize.displayName%",
-				"modelDescription": "Returns a summary of a GitHub notification, given notification details in a JSON object.",
+				"modelDescription": "Summarizes a GitHub notification. A summary is a great way to describe a notification.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
 				"parametersSchema": {
@@ -3302,10 +3335,28 @@
 							"type": "string",
 							"description": "The body of the notification issue/PR"
 						},
-						"unreadComments": {
+						"owner": {
+							"type": "string",
+							"description": "The owner of the repo in which the issue/PR is located"
+						},
+						"repo": {
+							"type": "string",
+							"description": "The repo in which the issue/PR is located"
+						},
+						"comments": {
 							"type": "array",
 							"items": {
-								"type": "string"
+								"type": "object",
+								"properties": {
+									"body": {
+										"type": "string",
+										"description": "The comment body"
+									},
+									"author": {
+										"type": "string",
+										"description": "The author of the comment"
+									}
+								}
 							},
 							"description": "The array of unread comments under the issue/PR of the notification"
 						},
@@ -3316,6 +3367,14 @@
 						"notificationKey": {
 							"type": "string",
 							"description": "The key of the notification"
+						},
+						"itemNumber": {
+							"type": "string",
+							"description": "The number of the issue/PR in the notification"
+						},
+						"itemType": {
+							"type": "string",
+							"description": "The type of the item in the notification - whether it is an issue or a PR"
 						},
 						"fileChanges": {
 							"type": "array",
@@ -3330,19 +3389,26 @@
 										"type": "string",
 										"description": "The patch of the change"
 									}
-								}
+								},
+								"required": [
+									"fileName",
+									"patch"
+								]
 							},
 							"description": "For a notification about a PR, the array of associated file changes"
 						}
 					},
 					"required": [
 						"title",
-						"body",
-						"unreadComments",
+						"comments",
 						"lastUpdatedAt",
 						"unread",
 						"threadId",
-						"notificationKey"
+						"notificationKey",
+						"owner",
+						"repo",
+						"itemNumber",
+						"itemType"
 					]
 				},
 				"when": "config.githubPullRequests.experimental.chat"
@@ -3596,10 +3662,15 @@
 								"commentCount",
 								"reactionCount"
 							]
+						},
+						"totalIssues": {
+							"type": "number",
+							"description": "The total number of issues in the search."
 						}
 					},
 					"required": [
-						"issues"
+						"arrayOfIssues",
+						"totalIssues"
 					]
 				},
 				"when": "config.githubPullRequests.experimental.chat"
@@ -3700,7 +3771,7 @@
 		"@octokit/rest": "20.1.0",
 		"@octokit/types": "13.1.0",
 		"@vscode/extension-telemetry": "0.7.5",
-		"@vscode/prompt-tsx": "^0.3.0-alpha",
+		"@vscode/prompt-tsx": "^0.3.0-alpha.12",
 		"apollo-boost": "^0.4.9",
 		"apollo-link-context": "1.0.20",
 		"cockatiel": "^3.1.1",

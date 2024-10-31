@@ -25,15 +25,21 @@ export interface FetchNotificationResult {
 	unread: boolean;
 	title: string;
 	body: string;
-	unreadComments: {
+	comments?: {
+		author: string;
 		body: string;
 	}[];
+	owner: string;
+	repo: string;
+	itemNumber?: string;
+	itemType?: 'issue' | 'pr';
 	fileChanges?: FileChange[];
-	threadId: number,
-	notificationKey: string
+	threadId?: number,
+	notificationKey?: string
 }
 
 export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolParameters> {
+	public static readonly toolId = 'github-pull-request_notification_fetch';
 
 	async prepareInvocation(_options: vscode.LanguageModelToolInvocationPrepareOptions<FetchNotificationToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		return {
@@ -46,13 +52,13 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 		if (!github) {
 			return undefined;
 		}
-		const threadId = options.parameters.thread_id;
+		const threadId = options.input.thread_id;
 		const thread = await github.octokit.api.activity.getThread({
 			thread_id: threadId
 		});
 		const threadData = thread.data;
-		const issueNumber = threadData.subject.url.split('/').pop();
-		if (issueNumber === undefined) {
+		const itemNumber = threadData.subject.url.split('/').pop();
+		if (itemNumber === undefined) {
 			return undefined;
 		}
 		const lastUpdatedAt = threadData.updated_at;
@@ -60,30 +66,35 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 		const unread = threadData.unread;
 		const owner = threadData.repository.owner.login;
 		const name = threadData.repository.name;
-		const { folderManager } = this.getRepoInfo({ owner, name });
-		const issueOrPR = await folderManager.resolveIssueOrPullRequest(owner, name, Number(issueNumber));
+		const { folderManager } = await this.getRepoInfo({ owner, name });
+		const issueOrPR = await folderManager.resolveIssueOrPullRequest(owner, name, Number(itemNumber));
 		if (!issueOrPR) {
 			throw new Error(`No notification found with thread ID #${threadId}.`);
 		}
+		const itemType = issueOrPR instanceof PullRequestModel ? 'pr' : 'issue';
 		const notificationKey = getNotificationKey(owner, name, String(issueOrPR.number));
-		const comments = issueOrPR.item.comments ?? [];
-		let unreadComments: { body: string; }[];
-		if (lastReadAt !== undefined && comments) {
-			unreadComments = comments.filter(comment => {
+		const itemComments = issueOrPR.item.comments ?? [];
+		let comments: { body: string; author: string }[];
+		if (lastReadAt !== undefined && itemComments) {
+			comments = itemComments.filter(comment => {
 				return comment.createdAt > lastReadAt;
-			}).map(comment => { return { body: comment.body }; });
+			}).map(comment => { return { body: comment.body, author: comment.author.login }; });
 		} else {
-			unreadComments = comments.map(comment => { return { body: comment.body }; });
+			comments = itemComments.map(comment => { return { body: comment.body, author: comment.author.login }; });
 		}
 		const result: FetchNotificationResult = {
 			lastReadAt,
 			lastUpdatedAt,
 			unread,
-			unreadComments,
+			comments,
 			threadId,
 			notificationKey,
 			title: issueOrPR.title,
 			body: issueOrPR.body,
+			owner,
+			repo: name,
+			itemNumber,
+			itemType
 		};
 		if (issueOrPR instanceof PullRequestModel) {
 			const fileChanges = await issueOrPR.getFileChangesInfo();
@@ -99,7 +110,8 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 			result.fileChanges = fetchedFileChanges;
 		}
 		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(result)),
-		new vscode.LanguageModelTextPart('Above is a stringified JSON representation of the notification. This can be passed to other tools for further processing.')
+		new vscode.LanguageModelTextPart('Above is a stringified JSON representation of the notification. This can be passed to other tools for further processing or display.')
 		]);
 	}
+
 }

@@ -79,7 +79,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		});
 	}
 
-	public async computeNotifications(pageCount: number): Promise<INotifications | undefined> {
+	public async getNotifications(before: string, page: number): Promise<INotifications | undefined> {
 		const gitHub = this._getGitHub();
 		if (gitHub === undefined) {
 			return undefined;
@@ -88,22 +88,11 @@ export class NotificationsProvider implements vscode.Disposable {
 			return undefined;
 		}
 
-		const notificationPromises: Promise<INotifications>[] = [];
-		for (let i = 1; i <= pageCount; i++) {
-			notificationPromises.push(this._getNotificationsPage(gitHub, i));
-		}
-
-		const notifications = await Promise.all(notificationPromises);
-		const hasNextPage = notifications[pageCount - 1].hasNextPage;
-
-		return { notifications: notifications.flatMap(n => n.notifications), hasNextPage };
-	}
-
-	private async _getNotificationsPage(gitHub: GitHub, pageNumber: number): Promise<{ notifications: Notification[]; hasNextPage: boolean }> {
 		const pageSize = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE, 50);
 		const { data, headers } = await gitHub.octokit.call(gitHub.octokit.api.activity.listNotificationsForAuthenticatedUser, {
 			all: false,
-			page: pageNumber,
+			before: before,
+			page: page,
 			per_page: pageSize
 		});
 
@@ -285,11 +274,11 @@ Use the following scoring mechanism to prioritize the notifications and assign t
 		- Issues about bugs/regressions should be assigned a higher priority than issues about feature requests which are less critical.
 	3. Assign points from 0 to 30 for the community engagement. Consider the following points:
 		- Reactions: Consider the number of reactions under an issue/PR/discussion that correspond to real users. A higher number of reactions should be assigned a higher priority.
-		- Comments: Evaluate the community engagmenent on the issue/PR through the last 5 comments. If you detect a comment comming from a bot, do not include it in the following evaluation. Consider the following:
+		- Comments: Evaluate the community engagement on the issue/PR through the last 5 comments. If you detect a comment coming from a bot, do not include it in the following evaluation. Consider the following:
 			- Does the issue/PR/discussion have a lot of comments indicating widespread interest?
 			- Does the issue/PR/discussion have comments from many different users which would indicate widespread interest?
 			- Evaluate the comments content. Do they indicate that the issue/PR is critical and touches many people? A critical issue/PR should be assigned a higher priority.
-			- Evaluate the effort/detail put into the comments, are the users invested in the issue/PR/disccusion? A higher effort should be assigned a higher priority.
+			- Evaluate the effort/detail put into the comments, are the users invested in the issue/PR/discussion? A higher effort should be assigned a higher priority.
 			- Evaluate the tone of voice in the comments, an urgent tone of voice should be assigned a higher priority.
 			- Evaluate the reactions under the comments, a higher number of reactions indicate widespread interest and issue/PR/discussion following. A higher number of reactions should be assigned a higher priority.
 		- Generally evaluate the issue/PR/discussion content quality. Consider the following points:

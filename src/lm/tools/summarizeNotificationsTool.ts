@@ -9,19 +9,34 @@ import { FetchNotificationResult } from './fetchNotificationTool';
 import { concatAsyncIterable, TOOL_COMMAND_RESULT } from './toolsUtils';
 
 export class NotificationSummarizationTool implements vscode.LanguageModelTool<FetchNotificationResult> {
+	public static readonly toolId = 'github-pull-request_notification_summarize';
+
+	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<FetchNotificationResult>): Promise<vscode.PreparedToolInvocation> {
+		const parameters = options.input;
+		if (!parameters.itemType || !parameters.itemNumber) {
+			return {
+				invocationMessage: vscode.l10n.t('Summarizing notification')
+			};
+		}
+		const type = parameters.itemType === 'issue' ? 'issues' : 'pull';
+		const url = `https://github.com/${parameters.owner}/${parameters.repo}/${type}/${parameters.itemNumber}`;
+		return {
+			invocationMessage: vscode.l10n.t('Summarizing item [#{0}]({1})', parameters.itemNumber, url)
+		};
+	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchNotificationResult>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		let notificationInfo: string = '';
-		const lastReadAt = options.parameters.lastReadAt;
+		const lastReadAt = options.input.lastReadAt;
 		if (!lastReadAt) {
 			// First time the thread is viewed, so no lastReadAt field
 			notificationInfo += `This thread is viewed for the first time. Here is the main item information of the thread:`;
 		}
 		notificationInfo += `
-Title : ${options.parameters.title}
-Body : ${options.parameters.body}
+Title : ${options.input.title}
+Body : ${options.input.body}
 `;
-		const fileChanges = options.parameters.fileChanges;
+		const fileChanges = options.input.fileChanges;
 		if (fileChanges) {
 			notificationInfo += `
 The following are the files changed:
@@ -34,64 +49,73 @@ Patch: ${fileChange.patch}
 			}
 		}
 
-		const unreadComments = options.parameters.unreadComments;
-		if (unreadComments.length > 0) {
+		const unreadComments = options.input.comments;
+		if (unreadComments && unreadComments.length > 0) {
 			notificationInfo += `
 The following are the unread comments of the thread:
 `;
-		}
-		for (const [index, comment] of unreadComments.entries()) {
-			notificationInfo += `
+			for (const [index, comment] of unreadComments.entries()) {
+				notificationInfo += `
 Comment ${index} :
+Author: ${comment.author}
 Body: ${comment.body}
 `;
+			}
 		}
 		const models = await vscode.lm.selectChatModels({
 			vendor: 'copilot',
 			family: 'gpt-4o'
 		});
 		const model = models[0];
-		const threadId = options.parameters.threadId;
-		const notificationKey = options.parameters.notificationKey;
-		const markAsReadCommand: vscode.Command = {
-			title: 'Mark As Read',
-			command: 'notification.markAsRead',
-			arguments: [{ threadId, notificationKey }]
-		};
-		const markAsDoneCommand: vscode.Command = {
-			title: 'Mark As Done',
-			command: 'notification.markAsDone',
-			arguments: [{ threadId, notificationKey }]
-		};
-		const commands = [
-			new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
-			new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)),
-			new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT),
-			new vscode.LanguageModelTextPart(JSON.stringify(markAsDoneCommand)),
-		];
+		const content: vscode.LanguageModelTextPart[] = [];
+		const threadId = options.input.threadId;
+		const notificationKey = options.input.notificationKey;
+		if (threadId && notificationKey) {
+			const markAsReadCommand = {
+				title: 'Mark As Read',
+				command: 'notification.markAsRead',
+				arguments: [{ threadId, notificationKey }]
+			};
+			const markAsDoneCommand: vscode.Command = {
+				title: 'Mark As Done',
+				command: 'notification.markAsDone',
+				arguments: [{ threadId, notificationKey }]
+			};
+			content.push(new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT));
+			content.push(new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)));
+			content.push(new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT));
+			content.push(new vscode.LanguageModelTextPart(JSON.stringify(markAsDoneCommand)));
+		}
 		if (model) {
-			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions())];
+			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(options.input.owner, options.input.repo))];
 			messages.push(vscode.LanguageModelChatMessage.User(`The notification information is as follows:`));
 			messages.push(vscode.LanguageModelChatMessage.User(notificationInfo));
 			const response = await model.sendRequest(messages, {});
 			const responseText = await concatAsyncIterable(response.text);
-
-			return new vscode.LanguageModelToolResult([
-				...commands,
-				new vscode.LanguageModelTextPart(responseText)]);
+			content.push(new vscode.LanguageModelTextPart(responseText));
 		} else {
-			return new vscode.LanguageModelToolResult([
-				...commands,
-				new vscode.LanguageModelTextPart(notificationInfo)]);
+			content.push(new vscode.LanguageModelTextPart(notificationInfo));
 		}
+		content.push(new vscode.LanguageModelTextPart('Above is a summary of the notification. Extract and output this notification summary directly as is to the user. Do not output the result from the call to the fetch notification tool.'));
+		return new vscode.LanguageModelToolResult(content);
 	}
 
-	private summarizeInstructions(): string {
+	private summarizeInstructions(owner: string, repo: string): string {
 		return `
 You are an AI assistant who is very proficient in summarizing notification threads.
 You will be given information relative to a notification thread : the title, the body and the comments. In the case of a PR you will also be given patches of the PR changes.
 Since you are reviewing a notification thread, part of the content is by definition unread. You will be told what part of the content is yet unread. This can be the comments or it can be both the thread issue/PR as well as the comments.
 Your task is to output a summary of all this notification thread information and give an update to the user concerning the unread part of the thread.
+Output references to issues and PRs as Markdown links. The current notification is for a thread that has owner ${owner} and is in the repo ${repo}.
+If a comment references for example issue or PR #123, then output either of the following in the summary depending on if it is an issue or a PR:
+
+[#123](https://github.com/${owner}/${repo}/issues/123)
+[#123](https://github.com/${owner}/${repo}/pull/123)
+
+When you summarize comments, always give a summary of each comment and always mention the author clearly before the comment. If the author is called 'joe' and the comment is 'this is a comment', then the output should be:
+
+joe: this is a comment
+
 Always include in your output, which part of the thread is unread by prefixing that part with the markdown heading of level 1 with text "Unread Thread" or "Unread Comments".
 Make sure the summary is at least as short or shorter than the issue or PR with the comments and the patches if there are.
 Example output:
@@ -114,4 +138,5 @@ Both 'Unread Thread' and 'Unread Comments' should not appear at the same time as
 <comments>
 `;
 	}
+
 }

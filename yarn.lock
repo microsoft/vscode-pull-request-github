@@ -788,10 +788,10 @@
     "@microsoft/applicationinsights-web-basic" "^2.8.9"
     applicationinsights "2.4.1"
 
-"@vscode/prompt-tsx@^0.3.0-alpha":
-  version "0.3.0-alpha.8"
-  resolved "https://registry.yarnpkg.com/@vscode/prompt-tsx/-/prompt-tsx-0.3.0-alpha.8.tgz#94de46269bd054e6ad2f3dfe613f85d9c66e7f0c"
-  integrity sha512-uhGZve/mhrSkFNU1zvhcbbPL8laT8Ytlk3q5sswE8XnveiCb7eANk7Ea4IkKI3KvbThX3p3cl3xOauHuqrhlSg==
+"@vscode/prompt-tsx@^0.3.0-alpha.12":
+  version "0.3.0-alpha.12"
+  resolved "https://registry.yarnpkg.com/@vscode/prompt-tsx/-/prompt-tsx-0.3.0-alpha.12.tgz#c9afbf7029ea0289e3cd359798e4bfc237c1ab92"
+  integrity sha512-2ANm569UBXIzjPbaDFjzRkucelhsnlnmYIPdDo+USeFq2Do0Q70gKiiRWYrQf5rPqCxrChDvgU14nsdJLUSaOQ==
 
 "@vscode/test-electron@^2.3.8":
   version "2.3.8"
@@ -2266,9 +2266,9 @@ electron-to-chromium@^1.5.4:
   integrity sha512-lbBcvtIJ4J6sS4tb5TLp1b4LyfCdMkwStzXPyAgVgTRAsep4bvrAGaBOP7ZJtQMNJpSQ9SqG4brWOroNaQtm7Q==
 
 elliptic@^6.5.3, elliptic@^6.5.4:
-  version "6.5.7"
-  resolved "https://registry.yarnpkg.com/elliptic/-/elliptic-6.5.7.tgz#8ec4da2cb2939926a1b9a73619d768207e647c8b"
-  integrity sha512-ESVCtTwiA+XhY3wyh24QqRGBoP3rEdDUl3EDUUo9tft074fi19IrdpH7hLCMMP3CIj7jb3W96rn8lt/BqIlt5Q==
+  version "6.6.0"
+  resolved "https://registry.yarnpkg.com/elliptic/-/elliptic-6.6.0.tgz#5919ec723286c1edf28685aa89261d4761afa210"
+  integrity sha512-dpwoQcLc/2WLQvJvLRHKZ+f9FgOdjnq11rurqwekGQygGPsYSK29OMMD2WalatiqQ+XGFDglTNixpPfI+lpaAA==
   dependencies:
     bn.js "^4.11.9"
     brorand "^1.1.0"

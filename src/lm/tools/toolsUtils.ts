@@ -54,7 +54,7 @@ export abstract class RepoToolBase<T> extends ToolBase<T> {
 		super(chatParticipantState);
 	}
 
-	protected getRepoInfo(options: { owner?: string, name?: string }): { owner: string; name: string; folderManager: FolderRepositoryManager } {
+	protected async getRepoInfo(options: { owner?: string, name?: string }): Promise<{ owner: string; name: string; folderManager: FolderRepositoryManager }> {
 		let owner: string | undefined;
 		let name: string | undefined;
 		let folderManager: FolderRepositoryManager | undefined;
@@ -63,13 +63,26 @@ export abstract class RepoToolBase<T> extends ToolBase<T> {
 			owner = options.owner;
 			name = options.name;
 			folderManager = this.repositoriesManager.getManagerForRepository(options.owner, options.name);
-		} else if (this.repositoriesManager.folderManagers.length > 0) {
-			folderManager = this.repositoriesManager.folderManagers[0];
-			owner = folderManager.gitHubRepositories[0].remote.owner;
-			name = folderManager.gitHubRepositories[0].remote.repositoryName;
 		}
+
+		if (!folderManager && this.repositoriesManager.folderManagers.length > 0) {
+			folderManager = this.repositoriesManager.folderManagers[0];
+			if (owner && name) {
+				await folderManager.createGitHubRepositoryFromOwnerName(owner, name);
+			} else {
+				const defaults = await folderManager.getPullRequestDefaults();
+				if (defaults) {
+					owner = defaults.owner;
+					name = defaults.repo;
+				} else {
+					owner = folderManager.gitHubRepositories[0].remote.owner;
+					name = folderManager.gitHubRepositories[0].remote.repositoryName;
+				}
+			}
+		}
+
 		if (!folderManager || !owner || !name) {
-			throw new Error(`No folder manager found for ${owner}/${name}. Make sure to have the repository open.`);
+			throw new Error(`No repository found for ${owner}/${name}. Make sure to have the repository open.`);
 		}
 		return { owner, name, folderManager };
 	}

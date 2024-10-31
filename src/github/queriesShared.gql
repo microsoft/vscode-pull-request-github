@@ -357,6 +357,11 @@ query GetReviewRequests($owner: String!, $name: String!, $number: Int!) {
 							email
 							name
 						}
+						... on Bot {
+							id
+							login
+							avatarUrl
+						}
 					}
 				}
 			}

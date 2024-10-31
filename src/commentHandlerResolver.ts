@@ -5,6 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { Repository } from './api/api';
 import Logger from './common/logger';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prComment';
 
@@ -34,10 +35,10 @@ export namespace CommentReply {
 	}
 }
 
-const commentHandlers = new Map<string, CommentHandler>();
+const commentHandlers = new Map<string, { handler: CommentHandler, repoRootUri: string }>();
 
-export function registerCommentHandler(key: string, commentHandler: CommentHandler) {
-	commentHandlers.set(key, commentHandler);
+export function registerCommentHandler(key: string, commentHandler: CommentHandler, repository: Repository) {
+	commentHandlers.set(key, { handler: commentHandler, repoRootUri: repository.rootUri.toString() });
 }
 
 export function unregisterCommentHandler(key: string) {
@@ -45,12 +46,18 @@ export function unregisterCommentHandler(key: string) {
 }
 
 export function resolveCommentHandler(commentThread: GHPRCommentThread): CommentHandler | undefined {
+	const possibleHandlers: { handler: CommentHandler, repoRootUri: string }[] = [];
 	for (const commentHandler of commentHandlers.values()) {
-		if (commentHandler.hasCommentThread(commentThread)) {
-			return commentHandler;
+		if (commentHandler.handler.hasCommentThread(commentThread)) {
+			possibleHandlers.push(commentHandler);
 		}
 	}
-
+	if (possibleHandlers.length > 0) {
+		possibleHandlers.sort((a, b) => {
+			return b.repoRootUri.length - a.repoRootUri.length;
+		});
+		return possibleHandlers[0].handler;
+	}
 	Logger.warn(`Unable to find handler for comment thread ${commentThread.gitHubThreadId}`);
 
 	return;
@@ -58,8 +65,8 @@ export function resolveCommentHandler(commentThread: GHPRCommentThread): Comment
 
 export function findActiveHandler() {
 	for (const commentHandler of commentHandlers.values()) {
-		if (commentHandler.commentController.activeCommentThread) {
-			return commentHandler;
+		if (commentHandler.handler.commentController.activeCommentThread) {
+			return commentHandler.handler;
 		}
 	}
 }

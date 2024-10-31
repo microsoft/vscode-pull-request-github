@@ -10,10 +10,9 @@ import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { chatCommand } from '../lm/utils';
 import { NotificationsDecorationProvider } from './notificationDecorationProvider';
-import { isNotificationTreeItem, NotificationsSortMethod, NotificationTreeDataItem } from './notificationItem';
-import { NotificationsManager } from './notificationsManager';
+import { isNotificationTreeItem, NotificationTreeDataItem } from './notificationItem';
+import { NotificationsManager, NotificationsSortMethod } from './notificationsManager';
 import { NotificationsProvider } from './notificationsProvider';
-import { NotificationsTreeData } from './notificationsView';
 
 export class NotificationsFeatureRegister implements vscode.Disposable {
 
@@ -35,10 +34,8 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 		this._disposables.push(vscode.window.registerFileDecorationProvider(decorationsProvider));
 
 		// View
-		const dataProvider = new NotificationsTreeData(notificationsManager);
-		this._disposables.push(dataProvider);
 		const view = vscode.window.createTreeView<any>('notifications:github', {
-			treeDataProvider: dataProvider
+			treeDataProvider: notificationsManager
 		});
 		this._disposables.push(view);
 
@@ -51,7 +48,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 						"notifications.sortByTimestamp" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.sortByTimestamp');
-					notificationsManager.sortingMethod = NotificationsSortMethod.Timestamp;
+					notificationsManager.sortNotifications(NotificationsSortMethod.Timestamp);
 				},
 				this,
 			),
@@ -64,7 +61,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 						"notifications.sortByTimestamp" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.sortByTimestamp');
-					notificationsManager.sortingMethod = NotificationsSortMethod.Priority;
+					notificationsManager.sortNotifications(NotificationsSortMethod.Priority);
 				},
 				this,
 			),
@@ -77,8 +74,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 						"notifications.refresh" : {}
 					*/
 					this._telemetry.sendTelemetryEvent('notifications.refresh');
-					notificationsManager.clear();
-					dataProvider.refresh(true);
+					notificationsManager.refresh();
 				},
 				this,
 			),
@@ -89,7 +85,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 					"notifications.loadMore" : {}
 				*/
 				this._telemetry.sendTelemetryEvent('notifications.loadMore');
-				dataProvider.loadMore();
+				notificationsManager.loadMore();
 			})
 		);
 		this._disposables.push(
@@ -111,7 +107,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 					"notification.markAsRead" : {}
 				*/
 				this._telemetry.sendTelemetryEvent('notification.markAsRead');
-				dataProvider.markAsRead({ threadId, notificationKey });
+				notificationsManager.markAsRead({ threadId, notificationKey });
 			})
 		);
 		this._disposables.push(
@@ -127,8 +123,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 
 		// Events
 		onceEvent(this._repositoriesManager.onDidLoadAnyRepositories)(() => {
-			notificationsManager.clear();
-			dataProvider.refresh(true);
+			notificationsManager.refresh();
 		}, this, this._disposables);
 	}
 

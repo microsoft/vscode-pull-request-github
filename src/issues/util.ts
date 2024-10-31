@@ -728,6 +728,10 @@ export function getRootUriFromScmInputUri(uri: vscode.Uri): vscode.Uri | undefin
 	return rootUri ? vscode.Uri.parse(rootUri) : undefined;
 }
 
+export function escapeMarkdown(text: string): string {
+	return text.replace(/([_~*])/g, '\\$1');
+}
+
 export class PlainTextRenderer extends marked.Renderer {
 	code(code: string): string {
 		return code;
