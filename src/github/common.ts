@@ -11,6 +11,7 @@ export namespace OctokitCommon {
 	export type IssuesCreateResponseData = OctokitRest.RestEndpointMethodTypes['issues']['create']['response']['data'];
 	export type IssuesListCommentsResponseData = OctokitRest.RestEndpointMethodTypes['issues']['listComments']['response']['data'];
 	export type IssuesListEventsForTimelineResponseData = Endpoints['GET /repos/{owner}/{repo}/issues/{issue_number}/timeline']['response']['data'];
+	export type IssuesListEventsForTimelineResponseItemActor = IssuesListEventsForTimelineResponseData[0]['actor'];
 	export type PullsCreateParams = OctokitRest.RestEndpointMethodTypes['pulls']['create']['parameters'];
 	export type PullsCreateReviewResponseData = Endpoints['POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews']['response']['data'];
 	export type PullsCreateReviewCommentResponseData = Endpoints['POST /repos/{owner}/{repo}/pulls/{pull_number}/comments']['response']['data'];
@@ -32,6 +33,7 @@ export namespace OctokitCommon {
 	export type PullsListResponseItemHeadUser = PullsListResponseItemHead['user'];
 	export type PullsListResponseItemHeadRepoOwner = PullsListResponseItemHead['repo']['owner'];
 	export type PullsListReviewRequestsResponseTeamsItem = Endpoints['GET /repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers']['response']['data']['teams'][0];
+	export type PullsListResponseItemHeadRepoTemplateRepository = PullsListResponseItem['head']['repo']['template_repository'];
 	export type PullsListCommitsResponseItem = Endpoints['GET /repos/{owner}/{repo}/pulls/{pull_number}/commits']['response']['data'][0];
 	export type ReposCompareCommitsResponseData = OctokitRest.RestEndpointMethodTypes['repos']['compareCommits']['response']['data'];
 	export type ReposGetCombinedStatusForRefResponseStatusesItem = Endpoints['GET /repos/{owner}/{repo}/commits/{ref}/status']['response']['data']['statuses'][0];
@@ -44,7 +46,7 @@ export namespace OctokitCommon {
 	export type SearchReposResponseItem = Endpoints['GET /search/repositories']['response']['data']['items'][0];
 	export type CompareCommits = Endpoints['GET /repos/{owner}/{repo}/compare/{base}...{head}']['response']['data'];
 	export type Commit = CompareCommits['commits'][0];
-	export type CommitFile = (Exclude<CompareCommits['files'], undefined>)[0];
+	export type CommitFile = CompareCommits['files'][0];
 	export type Notification = Endpoints['GET /notifications']['response']['data'][0];
 }
 

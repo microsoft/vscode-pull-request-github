@@ -217,10 +217,9 @@ export class NotificationsManager implements vscode.TreeDataProvider<Notificatio
 	}
 
 	public async markAsDone(notificationIdentifier: { threadId: string, notificationKey: string }): Promise<void> {
-		await this._notificationProvider.markAsDone(notificationIdentifier);
 		const notification = this._notifications.get(notificationIdentifier.notificationKey);
 		if (notification) {
-			await this._notificationProvider.markAsRead(notificationIdentifier);
+			await this._notificationProvider.markAsDone(notificationIdentifier);
 
 			this._onDidChangeNotifications.fire([notification]);
 			this._notifications.delete(notificationIdentifier.notificationKey);
@@ -237,7 +236,6 @@ export class NotificationsManager implements vscode.TreeDataProvider<Notificatio
 		this._sortingMethod = method;
 		this._refresh(false);
 	}
-
 
 	private _sortNotifications(notifications: NotificationTreeItem[]): NotificationTreeItem[] {
 		if (this._sortingMethod === NotificationsSortMethod.Timestamp) {

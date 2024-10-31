@@ -117,7 +117,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 					"notification.markAsDone" : {}
 				*/
 				this._telemetry.sendTelemetryEvent('notification.markAsDone');
-				dataProvider.markAsDone({ threadId, notificationKey });
+				notificationsManager.markAsDone({ threadId, notificationKey });
 			})
 		);
 
@@ -137,7 +137,7 @@ export class NotificationsFeatureRegister implements vscode.Disposable {
 			threadId = options.threadId;
 			notificationKey = options.notificationKey;
 		} else {
-			throw new Error(`Invalid arguments for command : ${JSON.stringify(options)}`);
+			throw new Error(`Invalid arguments for command notification.markAsRead : ${JSON.stringify(options)}`);
 		}
 		return { threadId, notificationKey };
 	}

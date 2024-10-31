@@ -289,7 +289,7 @@ export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListRespons
 		sha: head.sha,
 		repo: {
 			cloneUrl: head.repo.clone_url,
-			isInOrganization: !!head.repo.owner.organizations_url,
+			isInOrganization: !!head.repo.organization,
 			owner: head.repo.owner!.login,
 			name: head.repo.name
 		},
@@ -1310,7 +1310,7 @@ export function parseNotification(notification: OctokitCommon.Notification): Not
 			type: notification.subject.type as NotificationSubjectType,
 			url: notification.subject.url
 		},
-		lastReadAt: notification.last_read_at ? new Date(notification.last_read_at) : undefined,
+		lastReadAt: new Date(notification.last_read_at),
 		reason: notification.reason,
 		unread: notification.unread,
 		updatedAd: new Date(notification.updated_at),
