@@ -10,7 +10,7 @@ import { parseRemote } from './remote';
 export class GitHubRef {
 	public repositoryCloneUrl: Protocol;
 	constructor(public ref: string, public label: string, public sha: string, repositoryCloneUrl: string,
-		public readonly owner: string, public readonly name: string, public readonly isInOrganization: boolean) {
+		public readonly owner: string, public readonly name: string, public readonly isInOrganization: boolean | string) {
 		this.repositoryCloneUrl = new Protocol(repositoryCloneUrl);
 	}
 }

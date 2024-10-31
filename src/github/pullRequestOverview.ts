@@ -423,7 +423,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}> | undefined;
 
 		try {
-			quickPick = await reviewersQuickPick(this._folderRepositoryManager, this._item.remote.remoteName, this._item.base.isInOrganization, this._teamsCount, this._item.author, this._existingReviewers, this._item.suggestedReviewers);
+			quickPick = await reviewersQuickPick(this._folderRepositoryManager, this._item.remote.remoteName, await this.isInOrganization(), this._teamsCount, this._item.author, this._existingReviewers, this._item.suggestedReviewers);
 			quickPick.busy = false;
 			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
 				return quickPick!.selectedItems.filter(item => item.user) as (vscode.QuickPickItem & { user: IAccount | ITeam })[] | undefined;
@@ -471,6 +471,22 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			quickPick?.hide();
 			quickPick?.dispose();
 		}
+	}
+
+	private async isInOrganization(): Promise<boolean> {
+		let isInOrganization: boolean;
+		const _isInOrganization = this._item.base.isInOrganization;
+		if (typeof _isInOrganization === 'string') {
+			const response = await fetch(_isInOrganization);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch organization information: ${response.statusText}`);
+			}
+			const organizations = await response.json();
+			isInOrganization = organizations.length > 0;
+		} else {
+			isInOrganization = _isInOrganization;
+		}
+		return isInOrganization;
 	}
 
 	private async addMilestone(message: IRequestMessage<void>): Promise<void> {
