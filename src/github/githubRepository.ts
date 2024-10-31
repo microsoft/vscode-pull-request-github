@@ -567,17 +567,19 @@ export class GitHubRepository implements vscode.Disposable {
 				};
 			}
 
-			const pullRequestsPromise: Promise<PullRequestModel | null>[] = result.data
-				.map(async (pullRequest) => {
+			const pullRequests = result.data
+				.map(pullRequest => {
 					if (!pullRequest.head.repo) {
 						Logger.appendLine('The remote branch for this PR was already deleted.', this.id);
 						return null;
 					}
+
 					return this.createOrUpdatePullRequestModel(
-						await convertRESTPullRequestToRawPullRequest(pullRequest, this),
+						convertRESTPullRequestToRawPullRequest(pullRequest, this),
 					);
-				});
-			const pullRequests = (await Promise.all(pullRequestsPromise)).filter(item => item !== null) as PullRequestModel[];
+				})
+				.filter(item => item !== null) as PullRequestModel[];
+
 			Logger.debug(`Fetch all pull requests - done`, this.id);
 			return {
 				items: pullRequests,

@@ -129,7 +129,7 @@ export interface MergePullRequest {
 
 export interface IRepository {
 	cloneUrl: string;
-	isInOrganization: boolean;
+	isInOrganization: boolean | string;
 	owner: string;
 	name: string;
 }

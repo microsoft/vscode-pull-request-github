@@ -2025,7 +2025,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 					repo: remote.repositoryName,
 					pull_number: pullRequest.number,
 				});
-				pullRequest.update(await convertRESTPullRequestToRawPullRequest(data, githubRepository));
+				pullRequest.update(convertRESTPullRequestToRawPullRequest(data, githubRepository));
 			}
 
 			if (!pullRequest.mergeBase) {

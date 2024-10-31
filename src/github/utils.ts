@@ -282,32 +282,26 @@ export function convertRESTUserToAccount(
 	};
 }
 
-export async function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListResponseItemHead): Promise<IGitHubRef> {
-	const response = await fetch(head.repo.owner.organizations_url);
-	if (!response.ok) {
-		// Failing sometimes with 429, too many requests made
-		console.log(`convertRESTHeadToIGitHubRef failed with: ${response.status}`);
-	}
-	const organizations = await response.json();
+export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListResponseItemHead): IGitHubRef {
 	return {
 		label: head.label,
 		ref: head.ref,
 		sha: head.sha,
 		repo: {
 			cloneUrl: head.repo.clone_url,
-			isInOrganization: Array.isArray(organizations) && organizations.length > 0,
+			isInOrganization: head.repo.owner.organizations_url,
 			owner: head.repo.owner!.login,
 			name: head.repo.name
 		},
 	};
 }
 
-export async function convertRESTPullRequestToRawPullRequest(
+export function convertRESTPullRequestToRawPullRequest(
 	pullRequest:
 		| OctokitCommon.PullsGetResponseData
 		| OctokitCommon.PullsListResponseItem,
 	githubRepository: GitHubRepository,
-): Promise<PullRequest> {
+): PullRequest {
 	const {
 		number,
 		body,
@@ -343,8 +337,8 @@ export async function convertRESTPullRequestToRawPullRequest(
 		createdAt: created_at,
 		updatedAt: updated_at,
 		viewerCanUpdate: false,
-		head: head.repo ? await convertRESTHeadToIGitHubRef(head as OctokitCommon.PullsListResponseItemHead) : undefined,
-		base: await convertRESTHeadToIGitHubRef(base),
+		head: head.repo ? convertRESTHeadToIGitHubRef(head as OctokitCommon.PullsListResponseItemHead) : undefined,
+		base: convertRESTHeadToIGitHubRef(base),
 		labels: labels.map<ILabel>(l => ({ name: '', color: '', ...l })),
 		isDraft: draft,
 		suggestedReviewers: [], // suggested reviewers only available through GraphQL API
