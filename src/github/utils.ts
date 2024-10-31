@@ -285,7 +285,8 @@ export function convertRESTUserToAccount(
 export async function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListResponseItemHead): Promise<IGitHubRef> {
 	const response = await fetch(head.repo.owner.organizations_url);
 	if (!response.ok) {
-		throw new Error(`convertRESTHeadToIGitHubRef failed with: ${response.status}`);
+		// Failing sometimes with 429, too many requests made
+		console.log(`convertRESTHeadToIGitHubRef failed with: ${response.status}`);
 	}
 	const organizations = await response.json();
 	return {
