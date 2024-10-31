@@ -42,21 +42,25 @@ Patch: ${fileChange.patch}
 			}
 		}
 		const comments = options.input.comments;
-		for (const [index, comment] of comments.entries()) {
-			issueOrPullRequestInfo += `
+		if (comments) {
+			for (const [index, comment] of comments.entries()) {
+				issueOrPullRequestInfo += `
 Comment ${index} :
 Author: ${comment.author}
 Body: ${comment.body}
 `;
+			}
 		}
 		const models = await vscode.lm.selectChatModels({
 			vendor: 'copilot',
 			family: 'gpt-4o'
 		});
 		const model = models[0];
+		const repo = options.input.repo;
+		const owner = options.input.owner;
 
-		if (model) {
-			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(options.input.repo, options.input.owner))];
+		if (model && repo && owner) {
+			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(repo, owner))];
 			messages.push(vscode.LanguageModelChatMessage.User(`The issue or pull request information is as follows:`));
 			messages.push(vscode.LanguageModelChatMessage.User(issueOrPullRequestInfo));
 			const response = await model.sendRequest(messages, {});
