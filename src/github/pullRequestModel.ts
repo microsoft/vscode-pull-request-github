@@ -1420,7 +1420,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				repo: remote.repositoryName,
 				pull_number: this.number,
 			});
-			this.update(convertRESTPullRequestToRawPullRequest(info.data, githubRepository));
+			this.update(await convertRESTPullRequestToRawPullRequest(info.data, githubRepository));
 		}
 
 		let compareWithBaseRef = this.base.sha;
