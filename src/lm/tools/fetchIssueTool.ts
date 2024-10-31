@@ -10,27 +10,27 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 import { RepoToolBase } from './toolsUtils';
 
 interface FetchIssueToolParameters {
-	issueNumber: number;
+	issueNumber?: number;
 	repo?: {
-		owner: string;
-		name: string;
+		owner?: string;
+		name?: string;
 	};
 }
 
 interface FileChange {
-	fileName: string;
-	patch: string;
+	fileName?: string;
+	patch?: string;
 }
 
 export interface FetchIssueResult {
-	title: string;
-	body: string;
-	comments: {
-		author: string;
-		body: string;
+	title?: string;
+	body?: string;
+	comments?: {
+		author?: string;
+		body?: string;
 	}[];
-	owner: string;
-	repo: string;
+	owner?: string;
+	repo?: string;
 	fileChanges?: FileChange[];
 }
 
@@ -38,10 +38,14 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 	public static readonly toolId = 'github-pull-request_issue_fetch';
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<FetchIssueToolParameters>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult> {
+		const issueNumber = options.input.issueNumber;
+		if (!issueNumber) {
+			throw new Error('No issue/PR number provided.');
+		}
 		const { owner, name, folderManager } = await this.getRepoInfo({ owner: options.input.repo?.owner, name: options.input.repo?.name });
-		const issueOrPullRequest = await folderManager.resolveIssueOrPullRequest(owner, name, options.input.issueNumber);
+		const issueOrPullRequest = await folderManager.resolveIssueOrPullRequest(owner, name, issueNumber);
 		if (!issueOrPullRequest) {
-			throw new Error(`No issue or PR found for ${owner}/${name}/${options.input.issueNumber}. Make sure the issue or PR exists.`);
+			throw new Error(`No issue or PR found for ${owner}/${name}/${issueNumber}. Make sure the issue or PR exists.`);
 		}
 		const result: FetchIssueResult = {
 			owner,
@@ -79,6 +83,5 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 		return {
 			invocationMessage: url ? vscode.l10n.t('Fetching item [#{0}]({1}) from GitHub', options.input.issueNumber, url) : vscode.l10n.t('Fetching item #{0} from GitHub', options.input.issueNumber),
 		};
-
 	}
 }
