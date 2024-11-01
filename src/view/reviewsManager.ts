@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
+import { Disposable } from '../common/lifecycle';
 import { ITelemetry } from '../common/telemetry';
 import { Schemes } from '../common/uri';
 import { isDescendant } from '../common/utils';
@@ -16,9 +17,8 @@ import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider'
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
 import { ReviewManager } from './reviewManager';
 
-export class ReviewsManager {
+export class ReviewsManager extends Disposable {
 	public static ID = 'Reviews';
-	private _disposables: vscode.Disposable[];
 
 	constructor(
 		private _context: vscode.ExtensionContext,
@@ -30,12 +30,12 @@ export class ReviewsManager {
 		private _credentialStore: CredentialStore,
 		private _gitApi: GitApiImpl,
 	) {
-		this._disposables = [];
+		super();
 		const gitContentProvider = new GitContentFileSystemProvider(_gitApi, _credentialStore, () => this._reviewManagers);
 		gitContentProvider.registerTextDocumentContentFallback(this.provideTextDocumentContent.bind(this));
-		this._disposables.push(vscode.workspace.registerFileSystemProvider(Schemes.Review, gitContentProvider, { isReadonly: true }));
+		this._register(vscode.workspace.registerFileSystemProvider(Schemes.Review, gitContentProvider, { isReadonly: true }));
 		this.registerListeners();
-		this._disposables.push(this._prsTreeDataProvider);
+		this._register(this._prsTreeDataProvider);
 	}
 
 	get reviewManagers(): ReviewManager[] {
@@ -43,25 +43,22 @@ export class ReviewsManager {
 	}
 
 	private registerListeners(): void {
-		this._disposables.push(
-			vscode.workspace.onDidChangeConfiguration(async e => {
-				if (e.affectsConfiguration('githubPullRequests.showInSCM')) {
-					if (this._prFileChangesProvider) {
-						this._prFileChangesProvider.dispose();
-						this._prFileChangesProvider = new PullRequestChangesTreeDataProvider(this._context, this._gitApi, this._reposManager);
+		this._register(vscode.workspace.onDidChangeConfiguration(async e => {
+			if (e.affectsConfiguration('githubPullRequests.showInSCM')) {
+				if (this._prFileChangesProvider) {
+					this._prFileChangesProvider.dispose();
+					this._prFileChangesProvider = new PullRequestChangesTreeDataProvider(this._gitApi, this._reposManager);
 
-						for (const reviewManager of this._reviewManagers) {
-							reviewManager.updateState(true);
-						}
+					for (const reviewManager of this._reviewManagers) {
+						reviewManager.updateState(true);
 					}
-
-					this._prsTreeDataProvider.dispose();
-					this._prsTreeDataProvider = new PullRequestsTreeDataProvider(this._telemetry, this._context, this._reposManager);
-					this._prsTreeDataProvider.initialize(this._reviewManagers.map(manager => manager.reviewModel), this._credentialStore);
-					this._disposables.push(this._prsTreeDataProvider);
 				}
-			}),
-		);
+
+				this._prsTreeDataProvider.dispose();
+				this._prsTreeDataProvider = this._register(new PullRequestsTreeDataProvider(this._telemetry, this._context, this._reposManager));
+				this._prsTreeDataProvider.initialize(this._reviewManagers.map(manager => manager.reviewModel), this._credentialStore);
+			}
+		}));
 	}
 
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string | undefined> {
@@ -100,11 +97,5 @@ export class ReviewsManager {
 			this._reviewManagers.splice(reviewManagerIndex);
 			manager.dispose();
 		}
-	}
-
-	dispose() {
-		this._disposables.forEach(d => {
-			d.dispose();
-		});
 	}
 }

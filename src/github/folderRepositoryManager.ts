@@ -13,6 +13,7 @@ import { AuthProvider, GitHubServerType } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import { InMemFileChange, SlimFileChange } from '../common/file';
 import { findLocalRepoRemoteFromGitHubRef } from '../common/githubRef';
+import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
 import { GitHubRemote, parseRemote, parseRepositoryRemotes, Remote } from '../common/remote';
@@ -117,31 +118,31 @@ export interface ItemsResponseResult<T> {
 }
 
 export class NoGitHubReposError extends Error {
-	constructor(public repository: Repository) {
+	constructor(public readonly repository: Repository) {
 		super();
 	}
 
-	get message() {
+	override get message() {
 		return vscode.l10n.t('{0} has no GitHub remotes', this.repository.rootUri.toString());
 	}
 }
 
 export class DetachedHeadError extends Error {
-	constructor(public repository: Repository) {
+	constructor(public readonly repository: Repository) {
 		super();
 	}
 
-	get message() {
+	override get message() {
 		return vscode.l10n.t('{0} has a detached HEAD (create a branch first', this.repository.rootUri.toString());
 	}
 }
 
 export class BadUpstreamError extends Error {
-	constructor(public branchName: string, public upstreamRef: UpstreamRef, public problem: string) {
+	constructor(public readonly branchName: string, public readonly upstreamRef: UpstreamRef, public readonly problem: string) {
 		super();
 	}
 
-	get message() {
+	override get message() {
 		const {
 			upstreamRef: { remote, name },
 			branchName,
@@ -172,10 +173,9 @@ enum PagedDataType {
 
 const CACHED_TEMPLATE_BODY = 'templateBody';
 
-export class FolderRepositoryManager implements vscode.Disposable {
+export class FolderRepositoryManager extends Disposable {
 	static ID = 'FolderRepositoryManager';
 
-	private _subs: vscode.Disposable[];
 	private _activePullRequest?: PullRequestModel;
 	private _activeIssue?: IssueModel;
 	private _githubRepositories: GitHubRepository[];
@@ -191,45 +191,45 @@ export class FolderRepositoryManager implements vscode.Disposable {
 	private _repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 	private _addedUpstreamCount: number = 0;
 
-	private _onDidMergePullRequest = new vscode.EventEmitter<void>();
+	private _onDidMergePullRequest = this._register(new vscode.EventEmitter<void>());
 	readonly onDidMergePullRequest = this._onDidMergePullRequest.event;
 
-	private _onDidChangeActivePullRequest = new vscode.EventEmitter<{ new: number | undefined, old: number | undefined }>();
+	private _onDidChangeActivePullRequest = this._register(new vscode.EventEmitter<{ new: number | undefined, old: number | undefined }>());
 	readonly onDidChangeActivePullRequest: vscode.Event<{ new: number | undefined, old: number | undefined }> = this._onDidChangeActivePullRequest.event;
-	private _onDidChangeActiveIssue = new vscode.EventEmitter<void>();
+	private _onDidChangeActiveIssue = this._register(new vscode.EventEmitter<void>());
 	readonly onDidChangeActiveIssue: vscode.Event<void> = this._onDidChangeActiveIssue.event;
 
-	private _onDidLoadRepositories = new vscode.EventEmitter<ReposManagerState>();
+	private _onDidLoadRepositories = this._register(new vscode.EventEmitter<ReposManagerState>());
 	readonly onDidLoadRepositories: vscode.Event<ReposManagerState> = this._onDidLoadRepositories.event;
 
-	private _onDidChangeRepositories = new vscode.EventEmitter<{ added: boolean }>();
+	private _onDidChangeRepositories = this._register(new vscode.EventEmitter<{ added: boolean }>());
 	readonly onDidChangeRepositories: vscode.Event<{ added: boolean }> = this._onDidChangeRepositories.event;
 
-	private _onDidChangeAssignableUsers = new vscode.EventEmitter<IAccount[]>();
+	private _onDidChangeAssignableUsers = this._register(new vscode.EventEmitter<IAccount[]>());
 	readonly onDidChangeAssignableUsers: vscode.Event<IAccount[]> = this._onDidChangeAssignableUsers.event;
 
-	private _onDidChangeGithubRepositories = new vscode.EventEmitter<GitHubRepository[]>();
+	private _onDidChangeGithubRepositories = this._register(new vscode.EventEmitter<GitHubRepository[]>());
 	readonly onDidChangeGithubRepositories: vscode.Event<GitHubRepository[]> = this._onDidChangeGithubRepositories.event;
 
-	private _onDidDispose = new vscode.EventEmitter<void>();
+	private _onDidDispose = this._register(new vscode.EventEmitter<void>());
 	readonly onDidDispose: vscode.Event<void> = this._onDidDispose.event;
 
 	private _sessionIgnoredRemoteNames: Set<string> = new Set();
 
 	constructor(
-		private _id: number,
-		public context: vscode.ExtensionContext,
+		private readonly _id: number,
+		public readonly context: vscode.ExtensionContext,
 		private _repository: Repository,
 		public readonly telemetry: ITelemetry,
-		private _git: GitApiImpl,
-		private _credentialStore: CredentialStore,
+		private readonly _git: GitApiImpl,
+		private readonly _credentialStore: CredentialStore,
 		public readonly createPullRequestHelper: CreatePullRequestHelper
 	) {
-		this._subs = [];
+		super();
 		this._githubRepositories = [];
 		this._githubManager = new GitHubManager();
 
-		this._subs.push(
+		this._register(
 			vscode.workspace.onDidChangeConfiguration(async e => {
 				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${REMOTES}`)) {
 					await this.updateRepositories();
@@ -237,7 +237,7 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}),
 		);
 
-		this._subs.push(_credentialStore.onDidInitialize(() => this.updateRepositories()));
+		this._register(_credentialStore.onDidInitialize(() => this.updateRepositories()));
 
 		this.cleanStoredRepoState();
 	}
@@ -2648,8 +2648,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		return this._git.getReviewerCommentsProvider();
 	}
 
-	dispose() {
-		this._subs.forEach(sub => sub.dispose());
+	override dispose() {
+		super.dispose();
 		this._onDidDispose.fire();
 	}
 }

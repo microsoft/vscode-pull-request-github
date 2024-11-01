@@ -26,13 +26,13 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	public description: string | undefined;
 
 	constructor(
-		public parent: TreeNodeParent,
+		parent: TreeNodeParent,
 		private readonly pullRequestManager: FolderRepositoryManager,
 		private readonly pullRequest: PullRequestModel,
 		private readonly commit: OctokitCommon.PullsListCommitsResponseItem,
 		private readonly isCurrent: boolean
 	) {
-		super();
+		super(parent);
 		this.label = commit.commit.message;
 		this.sha = commit.sha;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
@@ -48,12 +48,12 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 		return this;
 	}
 
-	async getChildren(): Promise<TreeNode[]> {
+	override async getChildren(): Promise<TreeNode[]> {
 		super.getChildren();
 		const fileChanges = (await this.pullRequest.getCommitChangedFiles(this.commit)) ?? [];
 
 		if (fileChanges.length === 0) {
-			return [new LabelOnlyNode('No changed files')];
+			return [new LabelOnlyNode(this, 'No changed files')];
 		}
 
 		const fileChangeNodes = fileChanges.map(change => {

@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { commands } from './executeCommands';
+import { Disposable } from './lifecycle';
 
 export const PULL_REQUEST_OVERVIEW_VIEW_TYPE = 'PullRequestOverview';
 
@@ -29,16 +30,16 @@ export function getNonce() {
 	return text;
 }
 
-export class WebviewBase {
+export class WebviewBase extends Disposable {
 	protected _webview?: vscode.Webview;
-	protected _disposables: vscode.Disposable[] = [];
 
 	private _waitForReady: Promise<void>;
-	private _onIsReady: vscode.EventEmitter<void> = new vscode.EventEmitter();
+	private _onIsReady: vscode.EventEmitter<void> = this._register(new vscode.EventEmitter());
 
 	protected readonly MESSAGE_UNHANDLED: string = 'message not handled';
 
 	constructor() {
+		super();
 		this._waitForReady = new Promise(resolve => {
 			const disposable = this._onIsReady.event(() => {
 				disposable.dispose();
@@ -51,12 +52,9 @@ export class WebviewBase {
 		const disposable = this._webview?.onDidReceiveMessage(
 			async message => {
 				await this._onDidReceiveMessage(message as IRequestMessage<any>);
-			},
-			null,
-			this._disposables,
-		);
+			});
 		if (disposable) {
-			this._disposables.push(disposable);
+			this._register(disposable);
 		}
 	}
 
@@ -94,10 +92,6 @@ export class WebviewBase {
 		};
 		this._webview?.postMessage(reply);
 	}
-
-	public dispose() {
-		this._disposables.forEach(d => d.dispose());
-	}
 }
 
 export class WebviewViewBase extends WebviewBase {
@@ -122,7 +116,7 @@ export class WebviewViewBase extends WebviewBase {
 
 			localResourceRoots: [this._extensionUri],
 		};
-		this._disposables.push(this._view.onDidDispose(() => {
+		this._register(this._view.onDidDispose(() => {
 			this._webview = undefined;
 			this._view = undefined;
 		}));

@@ -4,31 +4,26 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Disposable } from '../common/lifecycle';
 import { EXPERIMENTAL_NOTIFICATIONS_SCORE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { fromNotificationUri, toNotificationUri } from '../common/uri';
-import { dispose } from '../common/utils';
 import { NotificationsManager, NotificationsSortMethod } from './notificationsManager';
 
-export class NotificationsDecorationProvider implements vscode.FileDecorationProvider {
-	private _readonlyOnDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri[]> = new vscode.EventEmitter<vscode.Uri[]>();
+export class NotificationsDecorationProvider extends Disposable implements vscode.FileDecorationProvider {
+	private _readonlyOnDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri[]> = this._register(new vscode.EventEmitter<vscode.Uri[]>());
 	public readonly onDidChangeFileDecorations = this._readonlyOnDidChangeFileDecorations.event;
 
-	private readonly _disposables: vscode.Disposable[] = [];
-
 	constructor(private readonly _notificationsManager: NotificationsManager) {
-		this._disposables.push(_notificationsManager.onDidChangeNotifications(updates => {
+		super();
+		this._register(_notificationsManager.onDidChangeNotifications(updates => {
 			const uris = updates.map(update => toNotificationUri({ key: update.notification.key }));
 			this._readonlyOnDidChangeFileDecorations.fire(uris);
 		}));
-		this._disposables.push(vscode.workspace.onDidChangeConfiguration(e => {
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${EXPERIMENTAL_NOTIFICATIONS_SCORE}`)) {
 				this._readonlyOnDidChangeFileDecorations.fire(_notificationsManager.getAllNotifications().map(notification => toNotificationUri({ key: notification.notification.key })));
 			}
 		}));
-	}
-
-	dispose() {
-		dispose(this._disposables);
 	}
 
 	private settingValue(): boolean {

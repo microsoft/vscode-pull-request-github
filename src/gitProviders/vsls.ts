@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { LiveShare } from 'vsls/vscode.js';
 import { API } from '../api/api';
+import { Disposable, disposeAll } from '../common/lifecycle';
 import { VSLSGuest } from './vslsguest';
 import { VSLSHost } from './vslshost';
 
@@ -31,16 +32,15 @@ async function getVSLSApi() {
 	return extensionApi.getApi(liveShareApiVersion);
 }
 
-export class LiveShareManager implements vscode.Disposable {
+export class LiveShareManager extends Disposable {
 	private _liveShareAPI?: LiveShare;
 	private _host?: VSLSHost;
 	private _guest?: VSLSGuest;
-	private _localDisposables: vscode.Disposable[];
-	private _globalDisposables: vscode.Disposable[];
+	private readonly _localDisposables: vscode.Disposable[] = [];
 
-	constructor(private _api: API) {
-		this._localDisposables = [];
-		this._globalDisposables = [];
+	constructor(private readonly _api: API) {
+		super();
+		this._register({ dispose: () => disposeAll(this._localDisposables) });
 	}
 
 	/**
@@ -55,9 +55,7 @@ export class LiveShareManager implements vscode.Disposable {
 			return;
 		}
 
-		this._globalDisposables.push(
-			this._liveShareAPI.onDidChangeSession(e => this._onDidChangeSession(e.session), this),
-		);
+		this._register(this._liveShareAPI.onDidChangeSession(e => this._onDidChangeSession(e.session), this));
 		if (this._liveShareAPI!.session) {
 			this._onDidChangeSession(this._liveShareAPI!.session);
 		}
@@ -66,7 +64,7 @@ export class LiveShareManager implements vscode.Disposable {
 	}
 
 	private async _onDidChangeSession(session: any) {
-		this._localDisposables.forEach(disposable => disposable.dispose());
+		disposeAll(this._localDisposables);
 
 		if (session.role === 1 /* Role.Host */) {
 			this._host = new VSLSHost(this._liveShareAPI!, this._api);
@@ -81,11 +79,5 @@ export class LiveShareManager implements vscode.Disposable {
 			await this._guest.initialize();
 			this._localDisposables.push(this._api.registerGitProvider(this._guest));
 		}
-	}
-
-	public dispose() {
-		this._liveShareAPI = undefined;
-		this._localDisposables.forEach(d => d.dispose());
-		this._globalDisposables.forEach(d => d.dispose());
 	}
 }

@@ -7,6 +7,7 @@ import * as buffer from 'buffer';
 import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
 import * as vscode from 'vscode';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
+import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { GitHubRemote, parseRemote } from '../common/remote';
@@ -137,19 +138,18 @@ export interface GraphQLError {
 	message?: string;
 }
 
-export class GitHubRepository implements vscode.Disposable {
+export class GitHubRepository extends Disposable {
 	static ID = 'GitHubRepository';
 	protected _initialized: boolean = false;
 	protected _hub: GitHub | undefined;
 	protected _metadata: Promise<IMetadata> | undefined;
-	private _toDispose: vscode.Disposable[] = [];
 	public commentsController?: vscode.CommentController;
 	public commentsHandler?: PRCommentControllerRegistry;
 	private _pullRequestModels = new Map<number, PullRequestModel>();
 	private _queriesSchema: any;
 	private _areQueriesLimited: boolean = false;
 
-	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = new vscode.EventEmitter();
+	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = this._register(new vscode.EventEmitter());
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
 
 	public get hub(): GitHub {
@@ -183,16 +183,15 @@ export class GitHubRepository implements vscode.Disposable {
 				`Pull Request (${this.remote.owner}/${this.remote.repositoryName})`,
 			);
 			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController, this._telemetry);
-			this._toDispose.push(this.commentsHandler);
-			this._toDispose.push(this.commentsController);
+			this._register(this.commentsHandler);
+			this._register(this.commentsController);
 		} catch (e) {
 			console.log(e);
 		}
 	}
 
-	dispose() {
-		this._toDispose.forEach(d => d.dispose());
-		this._toDispose = [];
+	override dispose() {
+		super.dispose();
 		this.commentsController = undefined;
 		this.commentsHandler = undefined;
 	}
@@ -206,13 +205,14 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	constructor(
-		private _id: number,
+		private readonly _id: number,
 		public remote: GitHubRemote,
 		public readonly rootUri: vscode.Uri,
 		private readonly _credentialStore: CredentialStore,
 		private readonly _telemetry: ITelemetry,
 		silent: boolean = false
 	) {
+		super();
 		this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as unknown as Schema, defaultSchema as unknown as Schema);
 		// kick off the comments controller early so that the Comments view is visible and doesn't pop up later in an way that's jarring
 		if (!silent) {

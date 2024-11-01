@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
+import { Disposable } from '../common/lifecycle';
 import { EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { OctokitCommon } from '../github/common';
 import { CredentialStore, GitHub } from '../github/credentials';
@@ -27,21 +28,21 @@ export interface INotificationPriority {
 	readonly priorityReasoning: string | undefined;
 }
 
-export class NotificationsProvider implements vscode.Disposable {
+export class NotificationsProvider extends Disposable {
 	private _authProvider: AuthProvider | undefined;
 
-	private readonly _disposables: vscode.Disposable[] = [];
 
 	constructor(
 		private readonly _credentialStore: CredentialStore,
 		private readonly _repositoriesManager: RepositoriesManager
 	) {
+		super();
 		if (_credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
 			this._authProvider = AuthProvider.githubEnterprise;
 		} else if (_credentialStore.isAuthenticated(AuthProvider.github)) {
 			this._authProvider = AuthProvider.github;
 		}
-		this._disposables.push(
+		this._register(
 			_credentialStore.onDidChangeSessions(_ => {
 				if (_credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
 					this._authProvider = AuthProvider.githubEnterprise;
@@ -223,10 +224,6 @@ ${comment.body}
 		}
 
 		return updates;
-	}
-
-	dispose() {
-		this._disposables.forEach(d => d.dispose());
 	}
 }
 

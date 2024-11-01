@@ -10,6 +10,7 @@ import { createHttpLink } from 'apollo-link-http';
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
+import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
 import { ITelemetry } from '../common/telemetry';
@@ -45,12 +46,11 @@ interface AuthResult {
 	canceled: boolean;
 }
 
-export class CredentialStore implements vscode.Disposable {
+export class CredentialStore extends Disposable {
 	private _githubAPI: GitHub | undefined;
 	private _sessionId: string | undefined;
 	private _githubEnterpriseAPI: GitHub | undefined;
 	private _enterpriseSessionId: string | undefined;
-	private _disposables: vscode.Disposable[];
 	private _isInitialized: boolean = false;
 	private _onDidInitialize: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidInitialize: vscode.Event<void> = this._onDidInitialize.event;
@@ -68,10 +68,10 @@ export class CredentialStore implements vscode.Disposable {
 	public readonly onDidUpgradeSession = this._onDidUpgradeSession.event;
 
 	constructor(private readonly _telemetry: ITelemetry, private readonly context: vscode.ExtensionContext) {
+		super();
 		this.setScopesFromState();
 
-		this._disposables = [];
-		this._disposables.push(vscode.authentication.onDidChangeSessions((e) => this.handlOnDidChangeSessions(e)));
+		this._register(vscode.authentication.onDidChangeSessions((e) => this.handlOnDidChangeSessions(e)));
 	}
 
 	private async handlOnDidChangeSessions(e: vscode.AuthenticationSessionsChangeEvent) {
@@ -479,10 +479,6 @@ export class CredentialStore implements vscode.Disposable {
 		};
 		this.setCurrentUser(github);
 		return github;
-	}
-
-	dispose() {
-		this._disposables.forEach(disposable => disposable.dispose());
 	}
 }
 

@@ -11,6 +11,7 @@ import { openDescription } from '../commands';
 import { DiffChangeType, DiffHunk, parsePatch, splitIntoSmallerHunks } from '../common/diffHunk';
 import { commands } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
+import { Disposable, disposeAll, toDisposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import {
@@ -28,7 +29,7 @@ import {
 import { getReviewMode } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, fromReviewUri, KnownMediaExtensions, PRUriParams, Schemes, toReviewUri } from '../common/uri';
-import { dispose, formatError, groupBy, onceEvent } from '../common/utils';
+import { formatError, groupBy, onceEvent } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -48,14 +49,12 @@ import { ReviewModel } from './reviewModel';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { WebviewViewCoordinator } from './webviewViewCoordinator';
 
-export class ReviewManager {
+export class ReviewManager extends Disposable {
 	public static ID = 'Review';
-	private _localToDispose: vscode.Disposable[] = [];
-	private _disposables: vscode.Disposable[];
+	private readonly _localToDispose: vscode.Disposable[] = [];
 
 	private readonly _reviewModel: ReviewModel = new ReviewModel();
 	private _lastCommitSha?: string;
-	private _updateMessageShown: boolean = false;
 	private _validateStatusInProgress?: Promise<void>;
 	private _reviewCommentController: ReviewCommentController | undefined;
 	private _quickDiffProvider: vscode.Disposable | undefined;
@@ -104,13 +103,14 @@ export class ReviewManager {
 		private _createPullRequestHelper: CreatePullRequestHelper,
 		private _gitApi: GitApiImpl
 	) {
+		super();
 		this._switchingToReviewMode = false;
-		this._disposables = [];
 
 		this._previousRepositoryState = {
 			HEAD: _repository.state.HEAD,
 			remotes: parseRepositoryRemotes(this._repository),
 		};
+		this._register(toDisposable(() => disposeAll(this._localToDispose)));
 
 		this.registerListeners();
 
@@ -121,77 +121,73 @@ export class ReviewManager {
 	}
 
 	private registerListeners(): void {
-		this._disposables.push(
-			this._repository.state.onDidChange(_ => {
-				const oldHead = this._previousRepositoryState.HEAD;
-				const newHead = this._repository.state.HEAD;
+		this._register(this._repository.state.onDidChange(_ => {
+			const oldHead = this._previousRepositoryState.HEAD;
+			const newHead = this._repository.state.HEAD;
 
-				if (!oldHead && !newHead) {
-					// both oldHead and newHead are undefined
-					return;
-				}
+			if (!oldHead && !newHead) {
+				// both oldHead and newHead are undefined
+				return;
+			}
 
-				let sameUpstream: boolean | undefined;
+			let sameUpstream: boolean | undefined;
 
-				if (!oldHead || !newHead) {
-					sameUpstream = false;
-				} else {
-					sameUpstream = !!oldHead.upstream
-						? newHead.upstream &&
-						oldHead.upstream.name === newHead.upstream.name &&
-						oldHead.upstream.remote === newHead.upstream.remote
-						: !newHead.upstream;
-				}
+			if (!oldHead || !newHead) {
+				sameUpstream = false;
+			} else {
+				sameUpstream = !!oldHead.upstream
+					? newHead.upstream &&
+					oldHead.upstream.name === newHead.upstream.name &&
+					oldHead.upstream.remote === newHead.upstream.remote
+					: !newHead.upstream;
+			}
 
-				const sameHead =
-					sameUpstream && // falsy if oldHead or newHead is undefined.
-					oldHead!.ahead === newHead!.ahead &&
-					oldHead!.behind === newHead!.behind &&
-					oldHead!.commit === newHead!.commit &&
-					oldHead!.name === newHead!.name &&
-					oldHead!.remote === newHead!.remote &&
-					oldHead!.type === newHead!.type;
+			const sameHead =
+				sameUpstream && // falsy if oldHead or newHead is undefined.
+				oldHead!.ahead === newHead!.ahead &&
+				oldHead!.behind === newHead!.behind &&
+				oldHead!.commit === newHead!.commit &&
+				oldHead!.name === newHead!.name &&
+				oldHead!.remote === newHead!.remote &&
+				oldHead!.type === newHead!.type;
 
-				const remotes = parseRepositoryRemotes(this._repository);
-				const sameRemotes =
-					this._previousRepositoryState.remotes.length === remotes.length &&
-					this._previousRepositoryState.remotes.every(remote => remotes.some(r => remote.equals(r)));
+			const remotes = parseRepositoryRemotes(this._repository);
+			const sameRemotes =
+				this._previousRepositoryState.remotes.length === remotes.length &&
+				this._previousRepositoryState.remotes.every(remote => remotes.some(r => remote.equals(r)));
 
-				if (!sameHead || !sameRemotes) {
-					this._previousRepositoryState = {
-						HEAD: this._repository.state.HEAD,
-						remotes: remotes,
-					};
+			if (!sameHead || !sameRemotes) {
+				this._previousRepositoryState = {
+					HEAD: this._repository.state.HEAD,
+					remotes: remotes,
+				};
 
-					// The first time this event occurs we do want to do visible updates.
-					// The first time, oldHead will be undefined.
-					// For subsequent changes, we don't want to make visible updates.
-					// This occurs on branch changes.
-					// Note that the visible changes will occur when checking out a PR.
-					this.updateState(true);
-				}
+				// The first time this event occurs we do want to do visible updates.
+				// The first time, oldHead will be undefined.
+				// For subsequent changes, we don't want to make visible updates.
+				// This occurs on branch changes.
+				// Note that the visible changes will occur when checking out a PR.
+				this.updateState(true);
+			}
 
-				if (oldHead && newHead) {
-					this.updateBaseBranchMetadata(oldHead, newHead);
-				}
-			}),
-		);
+			if (oldHead && newHead) {
+				this.updateBaseBranchMetadata(oldHead, newHead);
+			}
+		}));
 
-		this._disposables.push(
-			vscode.workspace.onDidChangeConfiguration(e => {
-				this.updateFocusedViewMode();
-				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${IGNORE_PR_BRANCHES}`)) {
-					this.validateStateAndResetPromise(true, false);
-				}
-			}),
-		);
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			this.updateFocusedViewMode();
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${IGNORE_PR_BRANCHES}`)) {
+				this.validateStateAndResetPromise(true, false);
+			}
+		}));
 
-		this._disposables.push(this._folderRepoManager.onDidChangeActivePullRequest(_ => {
+		this._register(this._folderRepoManager.onDidChangeActivePullRequest(_ => {
 			this.updateFocusedViewMode();
 			this.registerQuickDiff();
 		}));
 
-		GitHubCreatePullRequestLinkProvider.registerProvider(this._disposables, this, this._folderRepoManager);
+		this._register(GitHubCreatePullRequestLinkProvider.registerProvider(this, this._folderRepoManager));
 	}
 
 	private async updateBaseBranchMetadata(oldHead: Branch, newHead: Branch) {
@@ -217,7 +213,7 @@ export class ReviewManager {
 				this._quickDiffProvider = undefined;
 			}
 			const label = this._folderRepoManager.activePullRequest ? vscode.l10n.t('GitHub pull request #{0}', this._folderRepoManager.activePullRequest.number) : vscode.l10n.t('GitHub pull request');
-			this._disposables.push(this._quickDiffProvider = vscode.window.registerQuickDiffProvider({ scheme: 'file' }, {
+			this._register(this._quickDiffProvider = vscode.window.registerQuickDiffProvider({ scheme: 'file' }, {
 				provideOriginalResource: (uri: vscode.Uri) => {
 					const changeNode = this.reviewModel.localFileChanges.find(changeNode => changeNode.changeModel.filePath.toString() === uri.toString());
 					if (changeNode) {
@@ -1362,10 +1358,9 @@ export class ReviewManager {
 				this._statusBarItem.hide();
 			}
 
-			this._updateMessageShown = false;
 			this._reviewModel.clear();
 
-			this._localToDispose.forEach(disposable => disposable.dispose());
+			disposeAll(this._localToDispose);
 			// Ensure file explorer decorations are removed. When switching to a different PR branch,
 			// comments are recalculated when getting the data and the change decoration fired then,
 			// so comments only needs to be emptied in this case.
@@ -1438,9 +1433,9 @@ export class ReviewManager {
 		}
 	}
 
-	dispose() {
+	override dispose() {
+		super.dispose();
 		this.clear(true);
-		dispose(this._disposables);
 	}
 
 	static getReviewManagerForRepository(

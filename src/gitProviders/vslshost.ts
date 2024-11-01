@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { LiveShare, SharedService } from 'vsls/vscode.js';
 import { API } from '../api/api';
+import { Disposable } from '../common/lifecycle';
 import {
 	VSLS_GIT_PR_SESSION_NAME,
 	VSLS_REPOSITORY_INITIALIZATION_NAME,
@@ -13,11 +14,10 @@ import {
 	VSLS_STATE_CHANGE_NOTIFY_NAME,
 } from '../constants';
 
-export class VSLSHost implements vscode.Disposable {
+export class VSLSHost extends Disposable {
 	private _sharedService?: SharedService;
-	private _disposables: vscode.Disposable[];
-	constructor(private _liveShareAPI: LiveShare, private _api: API) {
-		this._disposables = [];
+	constructor(private readonly _liveShareAPI: LiveShare, private _api: API) {
+		super();
 	}
 
 	public async initialize() {
@@ -45,15 +45,15 @@ export class VSLSHost implements vscode.Disposable {
 		if (localRepository) {
 			const commandArgs = args.slice(2);
 			if (type === VSLS_REPOSITORY_INITIALIZATION_NAME) {
-				this._disposables.push(
-					localRepository.state.onDidChange(_ => {
-						this._sharedService!.notify(VSLS_STATE_CHANGE_NOTIFY_NAME, {
-							HEAD: localRepository.state.HEAD,
-							remotes: localRepository.state.remotes,
-							refs: localRepository.state.refs,
-						});
-					}),
-				);
+
+				this._register(localRepository.state.onDidChange(_ => {
+					this._sharedService!.notify(VSLS_STATE_CHANGE_NOTIFY_NAME, {
+						HEAD: localRepository.state.HEAD,
+						remotes: localRepository.state.remotes,
+						refs: localRepository.state.refs,
+					});
+				}));
+
 				return {
 					HEAD: localRepository.state.HEAD,
 					remotes: localRepository.state.remotes,
@@ -77,10 +77,5 @@ export class VSLSHost implements vscode.Disposable {
 		} else {
 			return null;
 		}
-	}
-	public dispose() {
-		this._disposables.forEach(d => d.dispose());
-		this._sharedService = undefined;
-		this._disposables = [];
 	}
 }
