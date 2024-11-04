@@ -112,10 +112,6 @@ export class GitApiImpl extends Disposable implements API, IGit {
 	private _onDidPublish = new vscode.EventEmitter<PublishEvent>();
 	readonly onDidPublish: vscode.Event<PublishEvent> = this._onDidPublish.event;
 
-	constructor() {
-		super();
-	}
-
 	private _updateReposContext() {
 		const reposCount = Array.from(this._providers.values()).reduce((prev, current) => {
 			return prev + current.repositories.length;

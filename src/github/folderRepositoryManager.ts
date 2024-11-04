@@ -2649,8 +2649,8 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	override dispose() {
-		super.dispose();
 		this._onDidDispose.fire();
+		super.dispose();
 	}
 }
 
