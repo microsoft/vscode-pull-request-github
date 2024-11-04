@@ -68,7 +68,7 @@ export interface ITeam {
 	name?: string;
 	avatarUrl?: string;
 	url: string;
-	slug: string;
+	slug?: string;
 	org: string;
 	id: string;
 }
@@ -84,7 +84,7 @@ export function reviewerId(reviewer: ITeam | IAccount): string {
 }
 
 export function reviewerLabel(reviewer: ITeam | IAccount | IActor | any): string {
-	return isTeam(reviewer) ? (reviewer.name ?? reviewer.slug) : (reviewer.specialDisplayName ?? reviewer.login);
+	return isTeam(reviewer) ? (reviewer.name ?? reviewer.slug ?? reviewer.id) : (reviewer.specialDisplayName ?? reviewer.login);
 }
 
 export function isTeam(reviewer: ITeam | IAccount | IActor | any): reviewer is ITeam {
