@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
+import { disposeAll } from './lifecycle';
 import Logger from './logger';
-import { dispose } from './utils';
 
 let tempState: TemporaryState | undefined;
 
@@ -13,17 +13,17 @@ export class TemporaryState extends vscode.Disposable {
 	private readonly disposables: vscode.Disposable[] = [];
 	private readonly persistInSessionDisposables: vscode.Disposable[] = [];
 
-	constructor(private _storageUri: vscode.Uri) {
-		super(() => this.disposables.forEach(disposable => disposable.dispose()));
+	constructor(private readonly _storageUri: vscode.Uri) {
+		super(() => disposeAll(this.disposables));
 	}
 
 	private get path(): vscode.Uri {
 		return vscode.Uri.joinPath(this._storageUri, this.SUBPATH);
 	}
 
-	dispose() {
-		dispose(this.disposables);
-		dispose(this.persistInSessionDisposables);
+	override dispose() {
+		disposeAll(this.disposables);
+		disposeAll(this.persistInSessionDisposables);
 	}
 
 	private addDisposable(disposable: vscode.Disposable, persistInSession: boolean) {

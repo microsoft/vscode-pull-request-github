@@ -4,21 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Disposable, disposeAll } from '../common/lifecycle';
 import { Schemes, toResourceUri } from '../common/uri';
-import { dispose } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 
-export abstract class TreeDecorationProvider implements vscode.FileDecorationProvider {
-	private _disposables: vscode.Disposable[] = [];
-	private _onDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<
+export abstract class TreeDecorationProvider extends Disposable implements vscode.FileDecorationProvider {
+	private _onDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = this._register(new vscode.EventEmitter<
 		vscode.Uri | vscode.Uri[]
-	>();
+	>());
 	onDidChangeFileDecorations?: vscode.Event<vscode.Uri | vscode.Uri[] | undefined> | undefined = this._onDidChangeFileDecorations.event;
 
 	constructor() {
-		this._disposables.push(vscode.window.registerFileDecorationProvider(this));
+		super();
+		this._register(vscode.window.registerFileDecorationProvider(this));
 	}
 
 	abstract provideFileDecoration(uri: unknown, token: unknown): vscode.ProviderResult<vscode.FileDecoration>;
@@ -36,21 +36,18 @@ export abstract class TreeDecorationProvider implements vscode.FileDecorationPro
 			this._onDidChangeFileDecorations.fire(fileChangeUri.with({ scheme: Schemes.Pr, authority: '' }));
 		}
 	}
-
-	dispose() {
-		dispose(this._disposables);
-	}
 }
 
-export class TreeDecorationProviders {
-	private _disposables: vscode.Disposable[] = [];
+export class TreeDecorationProviders extends Disposable {
 	private _gitHubReposListeners: vscode.Disposable[] = [];
 	private _pullRequestListeners: vscode.Disposable[] = [];
 	private _pullRequestPropertyChangeListeners: vscode.Disposable[] = [];
 
 	private _providers: TreeDecorationProvider[] = [];
 
-	constructor(private _repositoriesManager: RepositoriesManager) { }
+	constructor(private _repositoriesManager: RepositoriesManager) {
+		super();
+	}
 
 	public registerProviders(provider: TreeDecorationProvider[]) {
 		this._providers.push(...provider);
@@ -75,32 +72,29 @@ export class TreeDecorationProviders {
 	}
 
 	private _registerRepositoriesChangedListeners() {
-		this._gitHubReposListeners.forEach(disposable => disposable.dispose());
-		this._gitHubReposListeners = [];
-		this._pullRequestListeners.forEach(disposable => disposable.dispose());
-		this._pullRequestListeners = [];
-		this._pullRequestPropertyChangeListeners.forEach(disposable => disposable.dispose());
-		this._pullRequestPropertyChangeListeners = [];
+		disposeAll(this._gitHubReposListeners);
+		disposeAll(this._pullRequestListeners);
+		disposeAll(this._pullRequestPropertyChangeListeners);
 		this._repositoriesManager.folderManagers.forEach(folderManager => {
 			this._gitHubReposListeners.push(folderManager.onDidChangeRepositories(() => {
-				this._registerPullRequestAddedListeners(folderManager,);
+				this._registerPullRequestAddedListeners(folderManager);
 			}));
 		});
 	}
 
 	private _registerListeners() {
 		this._registerRepositoriesChangedListeners();
-		this._disposables.push(this._repositoriesManager.onDidChangeFolderRepositories(() => {
+		this._register(this._repositoriesManager.onDidChangeFolderRepositories(() => {
 			this._registerRepositoriesChangedListeners();
 		}));
 
 	}
 
-	dispose() {
-		dispose(this._disposables);
-		dispose(this._gitHubReposListeners);
-		dispose(this._pullRequestListeners);
-		dispose(this._pullRequestPropertyChangeListeners);
-		dispose(this._providers);
+	override dispose() {
+		super.dispose();
+		disposeAll(this._gitHubReposListeners);
+		disposeAll(this._pullRequestListeners);
+		disposeAll(this._pullRequestPropertyChangeListeners);
+		disposeAll(this._providers);
 	}
 }

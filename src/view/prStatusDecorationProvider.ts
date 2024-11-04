@@ -4,12 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Disposable } from '../common/lifecycle';
 import { createPRNodeUri, fromPRNodeUri, Schemes } from '../common/uri';
-import { dispose } from '../common/utils';
 import { PrsTreeModel, UnsatisfiedChecks } from './prsTreeModel';
 
-export class PRStatusDecorationProvider implements vscode.FileDecorationProvider, vscode.Disposable {
-	private _disposables: vscode.Disposable[] = [];
+export class PRStatusDecorationProvider extends Disposable implements vscode.FileDecorationProvider {
 
 	private _onDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<
 		vscode.Uri | vscode.Uri[]
@@ -17,8 +16,9 @@ export class PRStatusDecorationProvider implements vscode.FileDecorationProvider
 	onDidChangeFileDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeFileDecorations.event;
 
 	constructor(private readonly _prsTreeModel: PrsTreeModel) {
-		this._disposables.push(vscode.window.registerFileDecorationProvider(this));
-		this._disposables.push(
+		super();
+		this._register(vscode.window.registerFileDecorationProvider(this));
+		this._register(
 			this._prsTreeModel.onDidChangePrStatus(identifiers => {
 				this._onDidChangeFileDecorations.fire(identifiers.map(id => createPRNodeUri(id)));
 			})
@@ -84,9 +84,4 @@ export class PRStatusDecorationProvider implements vscode.FileDecorationProvider
 		}
 
 	}
-
-	dispose() {
-		dispose(this._disposables);
-	}
-
 }

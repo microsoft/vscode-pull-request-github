@@ -77,8 +77,6 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 
 	public checkboxState: { state: vscode.TreeItemCheckboxState; tooltip?: string; accessibilityInformation: vscode.AccessibilityInformation };
 
-	public childrenDisposables: vscode.Disposable[] = [];
-
 	get status(): GitChangeType {
 		return this.changeModel.status;
 	}
@@ -100,12 +98,12 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	constructor(
-		public parent: TreeNodeParent,
+		parent: TreeNodeParent,
 		protected readonly pullRequestManager: FolderRepositoryManager,
 		public readonly pullRequest: PullRequestModel & IResolvedPullRequestModel,
 		public readonly changeModel: FileChangeModel
 	) {
-		super();
+		super(parent);
 		const viewed = this.pullRequest.fileChangeViewedState[this.changeModel.fileName] ?? ViewedState.UNVIEWED;
 		this.contextValue = `${Schemes.FileChange}:${GitChangeType[this.changeModel.status]}:${viewed === ViewedState.VIEWED ? 'viewed' : 'unviewed'
 			}`;
@@ -176,7 +174,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
 		this.pullRequestManager.setFileViewedContext();
 	}
 
-	updateFromCheckboxChanged(newState: vscode.TreeItemCheckboxState) {
+	override updateFromCheckboxChanged(newState: vscode.TreeItemCheckboxState) {
 		const viewed = newState === vscode.TreeItemCheckboxState.Checked ? ViewedState.VIEWED : ViewedState.UNVIEWED;
 		this.updateViewed(viewed);
 	}
@@ -223,7 +221,7 @@ export class FileChangeNode extends TreeNode implements vscode.TreeItem {
  * File change node whose content can not be resolved locally and we direct users to GitHub.
  */
 export class RemoteFileChangeNode extends FileChangeNode implements vscode.TreeItem {
-	get description(): string {
+	override get description(): string {
 		let description = vscode.workspace.asRelativePath(path.dirname(this.changeModel.fileName), false);
 		if (description === '.') {
 			description = '';
@@ -232,13 +230,13 @@ export class RemoteFileChangeNode extends FileChangeNode implements vscode.TreeI
 	}
 
 	constructor(
-		public parent: TreeNodeParent,
+		parent: TreeNodeParent,
 		folderRepositoryManager: FolderRepositoryManager,
 		pullRequest: PullRequestModel & IResolvedPullRequestModel,
 		changeModel: RemoteFileChangeModel
 	) {
 		super(parent, folderRepositoryManager, pullRequest, changeModel);
-		this.fileChangeResourceUri = toResourceUri(vscode.Uri.parse(changeModel.blobUrl), changeModel.pullRequest.number, changeModel.fileName, changeModel.status, changeModel.previousFileName);
+		this.fileChangeResourceUri = toResourceUri(vscode.Uri.parse(changeModel.blobUrl!), changeModel.pullRequest.number, changeModel.fileName, changeModel.status, changeModel.previousFileName);
 		this.command = {
 			command: 'pr.openFileOnGitHub',
 			title: 'Open File on GitHub',
@@ -246,11 +244,11 @@ export class RemoteFileChangeNode extends FileChangeNode implements vscode.TreeI
 		};
 	}
 
-	async openDiff(): Promise<void> {
+	override async openDiff(): Promise<void> {
 		return vscode.commands.executeCommand(this.command.command);
 	}
 
-	openFileCommand(): vscode.Command {
+	override openFileCommand(): vscode.Command {
 		return this.command;
 	}
 }
@@ -261,19 +259,15 @@ export class RemoteFileChangeNode extends FileChangeNode implements vscode.TreeI
 export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeItem {
 	constructor(
 		private readonly folderRepositoryManager: FolderRepositoryManager,
-		public parent: TreeNodeParent,
-		public readonly pullRequest: PullRequestModel & IResolvedPullRequestModel,
-		public readonly changeModel: InMemFileChangeModel
+		parent: TreeNodeParent,
+		pullRequest: PullRequestModel & IResolvedPullRequestModel,
+		changeModel: InMemFileChangeModel
 	) {
 		super(parent, folderRepositoryManager, pullRequest, changeModel);
 	}
 
 	get comments(): IComment[] {
 		return this.pullRequest.comments.filter(comment => (comment.path === this.changeModel.fileName) && (comment.position !== null));
-	}
-
-	getTreeItem(): vscode.TreeItem {
-		return this;
 	}
 
 	async resolve(): Promise<void> {
@@ -296,10 +290,10 @@ export class InMemFileChangeNode extends FileChangeNode implements vscode.TreeIt
  */
 export class GitFileChangeNode extends FileChangeNode implements vscode.TreeItem {
 	constructor(
-		public parent: TreeNodeParent,
+		parent: TreeNodeParent,
 		pullRequestManager: FolderRepositoryManager,
-		public readonly pullRequest: PullRequestModel & IResolvedPullRequestModel,
-		public readonly changeModel: GitFileChangeModel,
+		pullRequest: PullRequestModel & IResolvedPullRequestModel,
+		changeModel: GitFileChangeModel,
 		private isCurrent?: boolean,
 		private _comments?: IComment[]
 	) {
@@ -419,7 +413,7 @@ export class GitHubFileChangeNode extends TreeNode implements vscode.TreeItem {
 	public command: vscode.Command;
 
 	constructor(
-		public readonly parent: TreeNodeParent,
+		parent: TreeNodeParent,
 		public readonly fileName: string,
 		public readonly previousFileName: string | undefined,
 		public readonly status: GitChangeType,
@@ -427,7 +421,7 @@ export class GitHubFileChangeNode extends TreeNode implements vscode.TreeItem {
 		public readonly headBranch: string,
 		public readonly isLocal: boolean
 	) {
-		super();
+		super(parent);
 		const scheme = isLocal ? Schemes.GitPr : Schemes.GithubPr;
 		this.label = fileName;
 		this.tooltip = fileName;

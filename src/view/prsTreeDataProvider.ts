@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
+import { Disposable } from '../common/lifecycle';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, QUERIES, REMOTES } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EXTENSION_ID } from '../constants';
@@ -25,14 +26,13 @@ import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 import { TreeUtils } from './treeNodes/treeUtils';
 import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
 
-export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode, vscode.Disposable {
+export class PullRequestsTreeDataProvider extends Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
 	get onDidChange(): vscode.Event<vscode.Uri> {
 		return this._onDidChange.event;
 	}
-	private _disposables: vscode.Disposable[];
 	private _children: WorkspaceFolderNode[] | CategoryTreeNode[];
 	get children() {
 		return this._children;
@@ -46,71 +46,61 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		return this._view;
 	}
 
-	constructor(private _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager) {
-		this._disposables = [];
-		this.prsTreeModel = new PrsTreeModel(this._telemetry, this._reposManager, _context);
-		this._disposables.push(this.prsTreeModel);
-		this._disposables.push(this.prsTreeModel.onDidChangeData(folderManager => folderManager ? this.refreshRepo(folderManager) : this.refresh()));
-		this._disposables.push(new PRStatusDecorationProvider(this.prsTreeModel));
-		this._disposables.push(
-			vscode.commands.registerCommand('pr.refreshList', _ => {
-				this.refresh(undefined, true);
-			}),
-		);
+	constructor(private readonly _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager) {
+		super();
+		this.prsTreeModel = this._register(new PrsTreeModel(this._telemetry, this._reposManager, _context));
+		this._register(this.prsTreeModel.onDidChangeData(folderManager => folderManager ? this.refreshRepo(folderManager) : this.refresh()));
+		this._register(new PRStatusDecorationProvider(this.prsTreeModel));
+		this._register(vscode.commands.registerCommand('pr.refreshList', _ => {
+			this.refresh(undefined, true);
+		}));
 
-		this._disposables.push(
-			vscode.commands.registerCommand('pr.loadMore', (node: CategoryTreeNode) => {
-				node.fetchNextPage = true;
-				this._onDidChangeTreeData.fire(node);
-			}),
-		);
+		this._register(vscode.commands.registerCommand('pr.loadMore', (node: CategoryTreeNode) => {
+			node.fetchNextPage = true;
+			this._onDidChangeTreeData.fire(node);
+		}));
 
-		this._view = vscode.window.createTreeView('pr:github', {
+		this._view = this._register(vscode.window.createTreeView('pr:github', {
 			treeDataProvider: this,
 			showCollapseAll: true,
-		});
+		}));
 
-		this._disposables.push(this._view);
 		this._children = [];
 
-		this._disposables.push(
-			vscode.commands.registerCommand('pr.configurePRViewlet', async () => {
-				const configuration = await vscode.window.showQuickPick([
-					'Configure Remotes...',
-					'Configure Queries...'
-				]);
+		this._register(vscode.commands.registerCommand('pr.configurePRViewlet', async () => {
+			const configuration = await vscode.window.showQuickPick([
+				'Configure Remotes...',
+				'Configure Queries...'
+			]);
 
-				switch (configuration) {
-					case 'Configure Queries...':
-						return vscode.commands.executeCommand(
-							'workbench.action.openSettings',
-							`@ext:${EXTENSION_ID} queries`,
-						);
-					case 'Configure Remotes...':
-						return vscode.commands.executeCommand(
-							'workbench.action.openSettings',
-							`@ext:${EXTENSION_ID} remotes`,
-						);
-					default:
-						return;
-				}
-			}),
-		);
+			switch (configuration) {
+				case 'Configure Queries...':
+					return vscode.commands.executeCommand(
+						'workbench.action.openSettings',
+						`@ext:${EXTENSION_ID} queries`,
+					);
+				case 'Configure Remotes...':
+					return vscode.commands.executeCommand(
+						'workbench.action.openSettings',
+						`@ext:${EXTENSION_ID} remotes`,
+					);
+				default:
+					return;
+			}
+		}));
 
-		this._disposables.push(
-			vscode.workspace.onDidChangeConfiguration(e => {
-				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)) {
-					this._onDidChangeTreeData.fire();
-				}
-			}),
-		);
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)) {
+				this._onDidChangeTreeData.fire();
+			}
+		}));
 
-		this._disposables.push(this._view.onDidChangeCheckboxState(TreeUtils.processCheckboxUpdates));
+		this._register(this._view.onDidChangeCheckboxState(TreeUtils.processCheckboxUpdates));
 
-		this._disposables.push(this._view.onDidExpandElement(expanded => {
+		this._register(this._view.onDidExpandElement(expanded => {
 			this.prsTreeModel.updateExpandedQueries(expanded.element, true);
 		}));
-		this._disposables.push(this._view.onDidCollapseElement(collapsed => {
+		this._register(this._view.onDidCollapseElement(collapsed => {
 			this.prsTreeModel.updateExpandedQueries(collapsed.element, false);
 		}));
 	}
@@ -142,33 +132,28 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		}
 
 		this._initialized = true;
-		this._disposables.push(
+		this._register(
 			this._reposManager.onDidChangeState(() => {
 				this.refresh();
 			}),
 		);
 
-		this._disposables.push(
-			...reviewModels.map(model => {
-				return model.onDidChangeLocalFileChanges(_ => { this.refresh(); });
-			}),
-		);
+		for (const model of reviewModels) {
+			this._register(model.onDidChangeLocalFileChanges(_ => { this.refresh(); }));
+		}
 
-		this.notificationProvider = new NotificationProvider(this, credentialStore, this._reposManager);
-		this._disposables.push(this.notificationProvider);
+		this.notificationProvider = this._register(new NotificationProvider(this, credentialStore, this._reposManager));
 
 		this.initializeCategories();
 		this.refresh();
 	}
 
 	private async initializeCategories() {
-		this._disposables.push(
-			vscode.workspace.onDidChangeConfiguration(async e => {
-				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${QUERIES}`)) {
-					this.refresh();
-				}
-			}),
-		);
+		this._register(vscode.workspace.onDidChangeConfiguration(async e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${QUERIES}`)) {
+				this.refresh();
+			}
+		}));
 	}
 
 	refresh(node?: TreeNode, reset?: boolean): void {
@@ -293,11 +278,7 @@ export class PullRequestsTreeDataProvider implements vscode.TreeDataProvider<Tre
 		return element.getChildren();
 	}
 
-	async getParent(element: TreeNode): Promise<TreeNode | undefined> {
+	async getParent(element: TreeNode) {
 		return element.getParent();
-	}
-
-	dispose() {
-		this._disposables.forEach(dispose => dispose.dispose());
 	}
 }

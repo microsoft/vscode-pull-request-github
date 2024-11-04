@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
 import { commands } from '../common/executeCommands';
+import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import {
 	CREATE_INSERT_FORMAT,
@@ -63,7 +64,7 @@ import {
 
 const CREATING_ISSUE_FROM_FILE_CONTEXT = 'issues.creatingFromFile';
 
-export class IssueFeatureRegistrar implements vscode.Disposable {
+export class IssueFeatureRegistrar extends Disposable {
 	private _stateManager: StateManager;
 	private _newIssueCache: NewIssueCache;
 
@@ -83,15 +84,16 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		private context: vscode.ExtensionContext,
 		private telemetry: ITelemetry,
 	) {
+		super();
 		this._stateManager = new StateManager(gitAPI, this.manager, this.context);
 		this._newIssueCache = new NewIssueCache(context);
 	}
 
 	async initialize() {
-		this.context.subscriptions.push(
+		this._register(
 			vscode.workspace.registerFileSystemProvider(NEW_ISSUE_SCHEME, new IssueFileSystemProvider(this._newIssueCache)),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.languages.registerCompletionItemProvider(
 				{ scheme: NEW_ISSUE_SCHEME },
 				new NewIssueFileCompletionProvider(this.manager),
@@ -103,10 +105,10 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			showCollapseAll: true,
 			treeDataProvider: new IssuesTreeData(this._stateManager, this.manager, this.context),
 		});
-		this.context.subscriptions.push(view);
-		this.context.subscriptions.push(view.onDidCollapseElement(e => updateExpandedQueries(this.context, e.element, false)));
-		this.context.subscriptions.push(view.onDidExpandElement(e => updateExpandedQueries(this.context, e.element, true)));
-		this.context.subscriptions.push(
+		this._register(view);
+		this._register(view.onDidCollapseElement(e => updateExpandedQueries(this.context, e.element, false)));
+		this._register(view.onDidExpandElement(e => updateExpandedQueries(this.context, e.element, true)));
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.createIssueFromSelection',
 				(newIssue?: NewIssue, issueBody?: string) => {
@@ -119,7 +121,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.createIssueFromClipboard',
 				() => {
@@ -132,7 +134,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyGithubPermalink',
 				(context: LinkContext) => {
@@ -145,7 +147,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyGithubHeadLink',
 				(fileUri: any) => {
@@ -158,7 +160,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyGithubPermalinkWithoutRange',
 				(context: LinkContext) => {
@@ -171,7 +173,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyGithubHeadLinkWithoutRange',
 				(fileUri: any) => {
@@ -184,7 +186,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyGithubDevLinkWithoutRange',
 				(context: LinkContext) => {
@@ -197,7 +199,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyGithubDevLink',
 				(context: LinkContext) => {
@@ -210,7 +212,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyGithubDevLinkFile',
 				(context: LinkContext) => {
@@ -223,7 +225,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyMarkdownGithubPermalink',
 				(context: LinkContext) => {
@@ -236,7 +238,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyMarkdownGithubPermalinkWithoutRange',
 				(context: LinkContext) => {
@@ -249,7 +251,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.openGithubPermalink',
 				() => {
@@ -262,8 +264,8 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(new ShareProviderManager(this.manager, this.gitAPI));
-		this.context.subscriptions.push(
+		this._register(new ShareProviderManager(this.manager, this.gitAPI));
+		this._register(
 			vscode.commands.registerCommand('issue.openIssue', (issueModel: any) => {
 				/* __GDPR__
 				"issue.openIssue" : {}
@@ -272,7 +274,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				return this.openIssue(issueModel);
 			}),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.startWorking',
 				(issue: any) => {
@@ -285,7 +287,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.startWorkingBranchDescriptiveTitle',
 				(issue: any) => {
@@ -298,7 +300,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.continueWorking',
 				(issue: any) => {
@@ -311,7 +313,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.startWorkingBranchPrompt',
 				(issueModel: any) => {
@@ -324,7 +326,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.stopWorking',
 				(issueModel: any) => {
@@ -337,7 +339,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.stopWorkingBranchDescriptiveTitle',
 				(issueModel: any) => {
@@ -350,7 +352,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.statusBar',
 				() => {
@@ -363,7 +365,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand('issue.copyIssueNumber', (issueModel: any) => {
 				/* __GDPR__
 				"issue.copyIssueNumber" : {}
@@ -372,7 +374,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				return this.copyIssueNumber(issueModel);
 			}),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand('issue.copyIssueUrl', (issueModel: any) => {
 				/* __GDPR__
 				"issue.copyIssueUrl" : {}
@@ -381,7 +383,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				return this.copyIssueUrl(issueModel);
 			}),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.refresh',
 				() => {
@@ -394,7 +396,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.suggestRefresh',
 				() => {
@@ -407,7 +409,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.getCurrent',
 				() => {
@@ -420,7 +422,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.editQuery',
 				(query: QueryNode) => {
@@ -433,7 +435,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.createIssue',
 				() => {
@@ -446,7 +448,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand(
 				'issue.createIssueFromFile',
 				async () => {
@@ -461,7 +463,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this,
 			),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand('issue.issueCompletion', () => {
 				/* __GDPR__
 				"issue.issueCompletion" : {}
@@ -469,7 +471,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this.telemetry.sendTelemetryEvent('issue.issueCompletion');
 			}),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand('issue.userCompletion', () => {
 				/* __GDPR__
 				"issue.userCompletion" : {}
@@ -477,18 +479,18 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				this.telemetry.sendTelemetryEvent('issue.userCompletion');
 			}),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand('issue.signinAndRefreshList', async () => {
 				return this.manager.authenticate();
 			}),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand('issue.goToLinkedCode', async (issueModel: any) => {
 				return openCodeLink(issueModel, this.manager);
 			}),
 		);
 		const chatCommandID = chatCommand();
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand('issue.chatSummarizeIssue', (issue: any) => {
 				if (!(issue instanceof IssueModel || issue instanceof PRNode)) {
 					return;
@@ -506,7 +508,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				}
 			}),
 		);
-		this.context.subscriptions.push(
+		this._register(
 			vscode.commands.registerCommand('issue.chatSuggestFix', (issue: any) => {
 				if (!(issue instanceof IssueModel)) {
 					return;
@@ -521,22 +523,20 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 		this._stateManager.tryInitializeAndWait().then(() => {
 			this.registerCompletionProviders();
 
-			this.context.subscriptions.push(
+			this._register(
 				vscode.languages.registerHoverProvider(
 					'*',
 					new IssueHoverProvider(this.manager, this._stateManager, this.context, this.telemetry),
 				),
 			);
-			this.context.subscriptions.push(
+			this._register(
 				vscode.languages.registerHoverProvider('*', new UserHoverProvider(this.manager, this.telemetry)),
 			);
-			this.context.subscriptions.push(
+			this._register(
 				vscode.languages.registerCodeActionsProvider('*', new IssueTodoProvider(this.context), { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
 			);
 		});
 	}
-
-	dispose() { }
 
 	private documentFilters: Array<vscode.DocumentFilter | string> = [
 		{ language: 'php' },
@@ -615,7 +615,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 			];
 		for (const element of providers) {
 			if (vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get(element.configuration, true)) {
-				this.context.subscriptions.push(
+				this._register(
 					(element.disposable = vscode.languages.registerCompletionItemProvider(
 						this.documentFilters,
 						new element.provider(this._stateManager, this.manager, this.context),
@@ -624,7 +624,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 				);
 			}
 		}
-		this.context.subscriptions.push(
+		this._register(
 			vscode.workspace.onDidChangeConfiguration(change => {
 				for (const element of providers) {
 					if (change.affectsConfiguration(`${ISSUES_SETTINGS_NAMESPACE}.${element.configuration}`)) {
@@ -635,7 +635,7 @@ export class IssueFeatureRegistrar implements vscode.Disposable {
 							element.disposable.dispose();
 							element.disposable = undefined;
 						} else if (newValue && !element.disposable) {
-							this.context.subscriptions.push(
+							this._register(
 								(element.disposable = vscode.languages.registerCompletionItemProvider(
 									this.documentFilters,
 									new element.provider(this._stateManager, this.manager, this.context),

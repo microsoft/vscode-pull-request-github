@@ -22,10 +22,9 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	public description?: string;
 	readonly collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 
-	private _disposables: vscode.Disposable[] = [];
 
 	constructor(
-		public parent: BaseTreeNode,
+		public override parent: BaseTreeNode,
 		pullRequest: PullRequestModel,
 		private _pullRequestManager: FolderRepositoryManager,
 		private _reviewModel: ReviewModel,
@@ -35,31 +34,27 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 		// Cause tree values to be filled
 		this.getTreeItem();
 
-		this._disposables.push(
-			vscode.window.onDidChangeActiveTextEditor(e => {
-				if (vscode.workspace.getConfiguration(EXPLORER).get(AUTO_REVEAL)) {
-					const tabInput = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
-					if (tabInput instanceof vscode.TabInputTextDiff) {
-						if ((tabInput.original.scheme === Schemes.Review)
-							&& (tabInput.modified.scheme !== Schemes.Review)
-							&& (tabInput.original.path.startsWith('/commit'))) {
-							return;
-						}
+		this._register(vscode.window.onDidChangeActiveTextEditor(e => {
+			if (vscode.workspace.getConfiguration(EXPLORER).get(AUTO_REVEAL)) {
+				const tabInput = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+				if (tabInput instanceof vscode.TabInputTextDiff) {
+					if ((tabInput.original.scheme === Schemes.Review)
+						&& (tabInput.modified.scheme !== Schemes.Review)
+						&& (tabInput.original.path.startsWith('/commit'))) {
+						return;
 					}
-					const activeEditorUri = e?.document.uri.toString();
-					this.revealActiveEditorInTree(activeEditorUri);
 				}
-			}),
-		);
-
-		this._disposables.push(
-			this.parent.view.onDidChangeVisibility(_ => {
-				const activeEditorUri = vscode.window.activeTextEditor?.document.uri.toString();
+				const activeEditorUri = e?.document.uri.toString();
 				this.revealActiveEditorInTree(activeEditorUri);
-			}),
-		);
+			}
+		}));
 
-		this._disposables.push(this.pullRequestModel.onDidInvalidate(() => {
+		this._register(this.parent.view.onDidChangeVisibility(_ => {
+			const activeEditorUri = vscode.window.activeTextEditor?.document.uri.toString();
+			this.revealActiveEditorInTree(activeEditorUri);
+		}));
+
+		this._register(this.pullRequestModel.onDidInvalidate(() => {
 			this.refresh();
 		}));
 	}
@@ -73,7 +68,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 		}
 	}
 
-	async getChildren(): Promise<TreeNode[]> {
+	override async getChildren(): Promise<TreeNode[]> {
 		await this._progress.progress;
 		if (!this._filesCategoryNode || !this._commitsCategoryNode) {
 			Logger.appendLine(`Creating file and commit nodes for PR #${this.pullRequestModel.number}`, PR_TREE);
@@ -96,7 +91,7 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 		}
 	}
 
-	async getTreeItem(): Promise<vscode.TreeItem> {
+	override async getTreeItem(): Promise<vscode.TreeItem> {
 		this.setLabel();
 		this.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this._pullRequestManager.context, [this.pullRequestModel.author], 16, 16))[0];
 		this.description = undefined;
@@ -113,11 +108,5 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 		}
 		this.updateContextValue();
 		return this;
-	}
-
-	dispose() {
-		super.dispose();
-		this._disposables.forEach(d => d.dispose());
-		this._disposables = [];
 	}
 }

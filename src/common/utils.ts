@@ -9,6 +9,7 @@ import dayjs from 'dayjs';
 import * as relativeTime from 'dayjs/plugin/relativeTime';
 import * as updateLocale from 'dayjs/plugin/updateLocale';
 import type { Disposable, Event, ExtensionContext, Uri } from 'vscode';
+import { combinedDisposable } from './lifecycle';
 // TODO: localization for webview needed
 
 dayjs.extend(relativeTime.default, {
@@ -63,19 +64,6 @@ export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
 		seen[key] = true;
 		return true;
 	});
-}
-
-export function dispose<T extends Disposable>(disposables: T[]): T[] {
-	disposables.forEach(d => d.dispose());
-	return [];
-}
-
-export function toDisposable(d: () => void): Disposable {
-	return { dispose: d };
-}
-
-export function combinedDisposable(disposables: Disposable[]): Disposable {
-	return toDisposable(() => dispose(disposables));
 }
 
 export function anyEvent<T>(...events: Event<T>[]): Event<T> {

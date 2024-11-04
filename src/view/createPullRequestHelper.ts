@@ -6,8 +6,8 @@
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { commands } from '../common/executeCommands';
+import { disposeAll } from '../common/lifecycle';
 import { ITelemetry } from '../common/telemetry';
-import { dispose } from '../common/utils';
 import { BaseCreatePullRequestViewProvider, BasePullRequestDataModel, CreatePullRequestViewProvider } from '../github/createPRViewProvider';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -260,7 +260,7 @@ export class CreatePullRequestHelper implements vscode.Disposable {
 		this._postCreateCallback = undefined;
 		this._activeContext = undefined;
 
-		dispose(this._disposables);
+		disposeAll(this._disposables);
 	}
 
 	dispose() {

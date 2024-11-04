@@ -78,7 +78,7 @@ export class GitFileChangeModel extends FileChangeModel {
 		change: SimpleFileChange,
 		filePath: vscode.Uri,
 		parentFilePath: vscode.Uri,
-		public readonly sha: string,
+		sha: string,
 		preload?: boolean
 	) {
 		super(pullRequest, folderRepositoryManager, change, sha);
@@ -96,7 +96,7 @@ export class GitFileChangeModel extends FileChangeModel {
 	private _show: Promise<string | undefined>
 	async showBase(): Promise<string | undefined> {
 		if (!this._show && this.change.status !== GitChangeType.ADD) {
-			const commit = ((this.change instanceof InMemFileChange || this.change instanceof SlimFileChange) ? this.change.baseCommit : this.sha);
+			const commit = ((this.change instanceof InMemFileChange || this.change instanceof SlimFileChange) ? this.change.baseCommit : this.sha!);
 			const absolutePath = vscode.Uri.joinPath(this.folderRepoManager.repository.rootUri, this.fileName).fsPath;
 			this._show = this.folderRepoManager.repository.show(commit, absolutePath);
 		}
@@ -139,13 +139,9 @@ export class InMemFileChangeModel extends FileChangeModel {
 		return this.change.patch;
 	}
 
-	async diffHunks(): Promise<DiffHunk[]> {
-		return this.change.diffHunks;
-	}
-
 	constructor(folderRepositoryManager: FolderRepositoryManager,
 		pullRequest: PullRequestModel & IResolvedPullRequestModel,
-		public readonly change: InMemFileChange,
+		public override readonly change: InMemFileChange,
 		isCurrentPR: boolean,
 		mergeBase: string) {
 		super(pullRequest, folderRepositoryManager, change);
@@ -194,13 +190,9 @@ export class RemoteFileChangeModel extends FileChangeModel {
 		return this.change.previousFileName;
 	}
 
-	get blobUrl(): string {
-		return this.change.blobUrl;
-	}
-
 	constructor(
 		folderRepositoryManager: FolderRepositoryManager,
-		public readonly change: SlimFileChange,
+		public override readonly change: SlimFileChange,
 		pullRequest: PullRequestModel,
 	) {
 		super(pullRequest, folderRepositoryManager, change);

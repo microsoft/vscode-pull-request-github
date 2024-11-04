@@ -733,40 +733,40 @@ export function escapeMarkdown(text: string): string {
 }
 
 export class PlainTextRenderer extends marked.Renderer {
-	code(code: string): string {
+	override code(code: string, _infostring: string | undefined): string {
 		return code;
 	}
-	blockquote(quote: string): string {
+	override blockquote(quote: string): string {
 		return quote;
 	}
-	html(_html: string): string {
+	override html(_html: string): string {
 		return '';
 	}
-	heading(text: string, _level: 1 | 2 | 3 | 4 | 5 | 6, _raw: string, _slugger: marked.Slugger): string {
+	override heading(text: string, _level: 1 | 2 | 3 | 4 | 5 | 6, _raw: string, _slugger: marked.Slugger): string {
 		return text + ' ';
 	}
-	hr(): string {
+	override hr(): string {
 		return '';
 	}
-	list(body: string, _ordered: boolean, _start: number): string {
+	override list(body: string, _ordered: boolean, _start: number): string {
 		return body;
 	}
-	listitem(text: string): string {
+	override listitem(text: string): string {
 		return ' ' + text;
 	}
-	checkbox(_checked: boolean): string {
+	override checkbox(_checked: boolean): string {
 		return '';
 	}
-	paragraph(text: string): string {
+	override paragraph(text: string): string {
 		return text.replace(/\</g, '\\\<').replace(/\>/g, '\\\>') + ' ';
 	}
-	table(header: string, body: string): string {
+	override table(header: string, body: string): string {
 		return header + ' ' + body;
 	}
-	tablerow(content: string): string {
+	override tablerow(content: string): string {
 		return content;
 	}
-	tablecell(
+	override tablecell(
 		content: string,
 		_flags: {
 			header: boolean;
@@ -775,28 +775,28 @@ export class PlainTextRenderer extends marked.Renderer {
 	): string {
 		return content;
 	}
-	strong(text: string): string {
+	override strong(text: string): string {
 		return text;
 	}
-	em(text: string): string {
+	override em(text: string): string {
 		return text;
 	}
-	codespan(code: string): string {
+	override codespan(code: string): string {
 		return `\\\`${code}\\\``;
 	}
-	br(): string {
+	override br(): string {
 		return ' ';
 	}
-	del(text: string): string {
+	override del(text: string): string {
 		return text;
 	}
-	image(_href: string, _title: string, _text: string): string {
+	override image(_href: string, _title: string, _text: string): string {
 		return '';
 	}
-	text(text: string): string {
+	override text(text: string): string {
 		return text;
 	}
-	link(href: string, title: string, text: string): string {
+	override link(href: string, title: string, text: string): string {
 		return text + ' ';
 	}
 }

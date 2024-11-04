@@ -47,9 +47,9 @@ export interface BasePullRequestDataModel {
 	repositoryName: string;
 }
 
-export abstract class BaseCreatePullRequestViewProvider<T extends BasePullRequestDataModel = BasePullRequestDataModel> extends WebviewViewBase implements vscode.WebviewViewProvider, vscode.Disposable {
+export abstract class BaseCreatePullRequestViewProvider<T extends BasePullRequestDataModel = BasePullRequestDataModel> extends WebviewViewBase implements vscode.WebviewViewProvider {
 	protected static readonly ID = 'CreatePullRequestViewProvider';
-	public readonly viewType = 'github:createPullRequestWebview';
+	public override readonly viewType = 'github:createPullRequestWebview';
 
 	protected _onDone = new vscode.EventEmitter<PullRequestModel | undefined>();
 	readonly onDone: vscode.Event<PullRequestModel | undefined> = this._onDone.event;
@@ -67,7 +67,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		super(extensionUri);
 	}
 
-	public resolveWebviewView(
+	public override resolveWebviewView(
 		webviewView: vscode.WebviewView,
 		_context: vscode.WebviewViewResolveContext,
 		_token: vscode.CancellationToken,
@@ -84,7 +84,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		}
 	}
 
-	public show() {
+	public override show() {
 		super.show();
 	}
 
@@ -497,7 +497,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		return this._replyMessage(message, undefined);
 	}
 
-	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
+	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		const result = await super._onDidReceiveMessage(message);
 		if (result !== this.MESSAGE_UNHANDLED) {
 			return;
@@ -536,7 +536,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		}
 	}
 
-	dispose() {
+	override dispose() {
 		super.dispose();
 		this._postMessage({ command: 'reset' });
 	}
@@ -567,8 +567,8 @@ function serializeRemoteInfo(remote: { owner: string, repositoryName: string }) 
 	return { owner: remote.owner, repositoryName: remote.repositoryName };
 }
 
-export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProvider<CreatePullRequestDataModel> implements vscode.WebviewViewProvider, vscode.Disposable {
-	public readonly viewType = 'github:createPullRequestWebview';
+export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProvider<CreatePullRequestDataModel> implements vscode.WebviewViewProvider {
+	public override readonly viewType = 'github:createPullRequestWebview';
 
 	constructor(
 		telemetry: ITelemetry,
@@ -579,7 +579,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	) {
 		super(telemetry, model, extensionUri, folderRepositoryManager, pullRequestDefaults, model.compareBranch);
 
-		this._disposables.push(this.model.onDidChange(async (e) => {
+		this._register(this.model.onDidChange(async (e) => {
 			let baseRemote: RemoteInfo | undefined;
 			let baseBranch: string | undefined;
 			if (e.baseOwner) {
@@ -639,7 +639,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		}
 	}
 
-	public show(compareBranch?: Branch): void {
+	public override show(compareBranch?: Branch): void {
 		if (compareBranch) {
 			this.setDefaultCompareBranch(compareBranch); // don't await, view will be updated when the branch is changed
 		}
@@ -776,7 +776,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		}
 	}
 
-	protected async getCreateParams(): Promise<CreateParamsNew> {
+	protected override async getCreateParams(): Promise<CreateParamsNew> {
 		const params = await super.getCreateParams();
 		this.model.baseOwner = params.defaultBaseRemote!.owner;
 		this.model.baseBranch = params.defaultBaseBranch!;
@@ -1293,7 +1293,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		return this.getTitleAndDescription(compareBranch, this.model.baseBranch);
 	}
 
-	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
+	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		const result = await super._onDidReceiveMessage(message);
 		if (result !== this.MESSAGE_UNHANDLED) {
 			return;

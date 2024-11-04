@@ -6,6 +6,7 @@
 import * as buffer from 'buffer';
 import * as vscode from 'vscode';
 import { commands, contexts } from '../common/executeCommands';
+import { Disposable } from '../common/lifecycle';
 import { ITelemetry } from '../common/telemetry';
 import { Schemes } from '../common/uri';
 import { asPromise } from '../common/utils';
@@ -22,16 +23,18 @@ A
 B
 >>>>>>> fa7472b59e45e5b86c985a175aac33af7a8322a3:file.txt`;
 
-class MergeOutputProvider implements vscode.FileSystemProvider {
+class MergeOutputProvider extends Disposable implements vscode.FileSystemProvider {
 	private _createTime: number = 0;
 	private _modifiedTimes: Map<string, number> = new Map();
 	private _mergedFiles: Map<string, Uint8Array> = new Map();
 	get mergeResults(): Map<string, Uint8Array> {
 		return this._mergedFiles;
 	}
-	private _onDidChangeFile = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
+	private _onDidChangeFile = this._register(new vscode.EventEmitter<vscode.FileChangeEvent[]>());
 	onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._onDidChangeFile.event;
+
 	constructor(private readonly _conflictResolutionModel: ConflictResolutionModel) {
+		super();
 		this._createTime = new Date().getTime();
 	}
 	watch(_uri: vscode.Uri, _options: { readonly recursive: boolean; readonly excludes: readonly string[]; }): vscode.Disposable {
@@ -85,20 +88,18 @@ class MergeOutputProvider implements vscode.FileSystemProvider {
 		this._onDidChangeFile.fire(fileEvents);
 	}
 
-	dispose(): void {
-		this._onDidChangeFile.dispose();
+	override dispose(): void {
+		super.dispose();
 		this._mergedFiles.clear();
 	}
 }
 
-export class ConflictResolutionCoordinator {
-	private _disposables: vscode.Disposable[] = [];
-	private _mergeOutputProvider: MergeOutputProvider;
+export class ConflictResolutionCoordinator extends Disposable {
+	private readonly _mergeOutputProvider: MergeOutputProvider;
 
-	constructor(private readonly _telemetry: ITelemetry,
-		private readonly _conflictResolutionModel: ConflictResolutionModel, private readonly _githubRepositories: GitHubRepository[]) {
-		this._mergeOutputProvider = new MergeOutputProvider(this._conflictResolutionModel);
-		this._disposables.push(this._mergeOutputProvider);
+	constructor(private readonly _telemetry: ITelemetry, private readonly _conflictResolutionModel: ConflictResolutionModel, private readonly _githubRepositories: GitHubRepository[]) {
+		super();
+		this._mergeOutputProvider = this._register(new MergeOutputProvider(this._conflictResolutionModel));
 	}
 
 	private async openConflict(conflict: Conflict) {
@@ -123,25 +124,25 @@ export class ConflictResolutionCoordinator {
 	}
 
 	private register(): void {
-		this._disposables.push(vscode.workspace.registerFileSystemProvider(Schemes.GithubPr, new GitHubContentProvider(this._githubRepositories), { isReadonly: true }));
-		this._disposables.push(vscode.workspace.registerFileSystemProvider(this._conflictResolutionModel.mergeScheme, this._mergeOutputProvider));
-		this._disposables.push(vscode.commands.registerCommand('pr.resolveConflict', (conflict: Conflict) => {
+		this._register(vscode.workspace.registerFileSystemProvider(Schemes.GithubPr, new GitHubContentProvider(this._githubRepositories), { isReadonly: true }));
+		this._register(vscode.workspace.registerFileSystemProvider(this._conflictResolutionModel.mergeScheme, this._mergeOutputProvider));
+		this._register(vscode.commands.registerCommand('pr.resolveConflict', (conflict: Conflict) => {
 			return this.openConflict(conflict);
 		}));
-		this._disposables.push(vscode.commands.registerCommand('pr.acceptMerge', async (uri: vscode.Uri | unknown) => {
+		this._register(vscode.commands.registerCommand('pr.acceptMerge', async (uri: vscode.Uri | unknown) => {
 			return this.acceptMerge(uri);
 		}));
-		this._disposables.push(vscode.commands.registerCommand('pr.exitConflictResolutionMode', async () => {
+		this._register(vscode.commands.registerCommand('pr.exitConflictResolutionMode', async () => {
 			const exit = vscode.l10n.t('Exit and lose changes');
 			const result = await vscode.window.showWarningMessage(vscode.l10n.t('Are you sure you want to exit conflict resolution mode? All changes will be lost.'), { modal: true }, exit);
 			if (result === exit) {
 				return this.exitConflictResolutionMode(false);
 			}
 		}));
-		this._disposables.push(vscode.commands.registerCommand('pr.completeMerge', async () => {
+		this._register(vscode.commands.registerCommand('pr.completeMerge', async () => {
 			return this.exitConflictResolutionMode(true);
 		}));
-		this._disposables.push(new ConflictResolutionTreeView(this._conflictResolutionModel));
+		this._register(new ConflictResolutionTreeView(this._conflictResolutionModel));
 	}
 
 	private async acceptMerge(uri: vscode.Uri | unknown): Promise<void> {
@@ -197,9 +198,5 @@ export class ConflictResolutionCoordinator {
 	async enterConflictResolutionAndWaitForExit(): Promise<boolean> {
 		await this.enterConflictResolutionMode();
 		return asPromise(this._onExitConflictResolutionMode.event);
-	}
-
-	dispose(): void {
-		this._disposables.forEach(d => d.dispose());
 	}
 }

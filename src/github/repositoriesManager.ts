@@ -7,10 +7,11 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
+import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
-import { compareIgnoreCase, dispose, isDescendant } from '../common/utils';
+import { compareIgnoreCase, isDescendant } from '../common/utils';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
 import { IssueModel } from './issueModel';
@@ -28,7 +29,7 @@ export interface PullRequestDefaults {
 	base: string;
 }
 
-export class RepositoriesManager implements vscode.Disposable {
+export class RepositoriesManager extends Disposable {
 	static ID = 'RepositoriesManager';
 
 	private _folderManagers: FolderRepositoryManager[] = [];
@@ -49,6 +50,7 @@ export class RepositoriesManager implements vscode.Disposable {
 		private _credentialStore: CredentialStore,
 		private _telemetry: ITelemetry,
 	) {
+		super();
 		this._subs = new Map();
 		vscode.commands.executeCommand('setContext', ReposManagerStateContext, this._state);
 	}
@@ -109,7 +111,7 @@ export class RepositoriesManager implements vscode.Disposable {
 		);
 		if (existingFolderManagerIndex > -1) {
 			const folderManager = this._folderManagers[existingFolderManagerIndex];
-			dispose(this._subs.get(folderManager)!);
+			disposeAll(this._subs.get(folderManager)!);
 			this._subs.delete(folderManager);
 			this._folderManagers.splice(existingFolderManagerIndex);
 			folderManager.dispose();
@@ -236,8 +238,8 @@ export class RepositoriesManager implements vscode.Disposable {
 		return !!github || !!githubEnterprise;
 	}
 
-	dispose() {
-		this._subs.forEach(sub => dispose(sub));
+	override dispose() {
+		this._subs.forEach(sub => disposeAll(sub));
 	}
 }
 

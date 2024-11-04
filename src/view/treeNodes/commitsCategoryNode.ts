@@ -11,7 +11,6 @@ import { CommitNode } from './commitNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
 export class CommitsNode extends TreeNode implements vscode.TreeItem {
-	public label: string = vscode.l10n.t('Commits');
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	private _folderRepoManager: FolderRepositoryManager;
 	private _pr: PullRequestModel;
@@ -21,8 +20,8 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 		reposManager: FolderRepositoryManager,
 		pr: PullRequestModel,
 	) {
-		super();
-		this.parent = parent;
+		super(parent);
+		this.label = vscode.l10n.t('Commits');
 		this._pr = pr;
 		this._folderRepoManager = reposManager;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
@@ -42,7 +41,7 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 		return this;
 	}
 
-	async getChildren(): Promise<TreeNode[]> {
+	override async getChildren(): Promise<TreeNode[]> {
 		super.getChildren();
 		try {
 			Logger.appendLine(`Getting children for Commits node`, PR_TREE);
