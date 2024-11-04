@@ -616,9 +616,9 @@ export function parseGraphQLReviewers(data: GraphQL.GetReviewRequestsResponse, r
 				name: reviewer.requestedReviewer.name,
 				url: reviewer.requestedReviewer.url,
 				avatarUrl: getAvatarWithEnterpriseFallback(reviewer.requestedReviewer.avatarUrl, undefined, remote.isEnterprise),
-				id: reviewer.requestedReviewer.id!,
+				id: reviewer.requestedReviewer.id,
 				org: remote.owner,
-				slug: reviewer.requestedReviewer.slug!
+				slug: reviewer.requestedReviewer.slug
 			};
 			reviewers.push(team);
 		}
@@ -929,8 +929,8 @@ export function loginComparator(a: IAccount, b: IAccount) {
  * Used for case insensitive sort by team name
  */
 export function teamComparator(a: ITeam, b: ITeam) {
-	const aKey = a.name ?? a.slug;
-	const bKey = b.name ?? b.slug;
+	const aKey = a.name ?? a.slug ?? a.id;
+	const bKey = b.name ?? b.slug ?? b.id;
 	// sensitivity: 'accent' allows case insensitive comparison
 	return aKey.localeCompare(bKey, 'en', { sensitivity: 'accent' });
 }
