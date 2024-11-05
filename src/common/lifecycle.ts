@@ -20,6 +20,11 @@ export function disposeAll(disposables: vscode.Disposable[]) {
 	}
 }
 
+export function addDisposable<T extends vscode.Disposable>(a: T, disposables: vscode.Disposable[]): T {
+	disposables.push(a);
+	return a;
+}
+
 export abstract class Disposable {
 	protected _isDisposed = false;
 

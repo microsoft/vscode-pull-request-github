@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Disposable } from '../common/lifecycle';
+import { addDisposable, Disposable, disposeAll } from '../common/lifecycle';
 import { PullRequestViewProvider } from '../github/activityBarViewProvider';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -13,25 +13,31 @@ import { ReviewManager } from './reviewManager';
 export class WebviewViewCoordinator extends Disposable {
 	private _webviewViewProvider?: PullRequestViewProvider;
 	private _pullRequestModel: Map<PullRequestModel, { folderRepositoryManager: FolderRepositoryManager, reviewManager: ReviewManager }> = new Map();
+	private readonly _currentDisposables: Disposable[] = [];
 
 	constructor(private _context: vscode.ExtensionContext) {
 		super();
 	}
 
-	override dispose() {
+	public override dispose() {
 		super.dispose();
+		this.reset();
+	}
+
+	reset() {
+		disposeAll(this._currentDisposables);
 		this._webviewViewProvider = undefined;
 	}
 
 	private create(pullRequestModel: PullRequestModel, folderRepositoryManager: FolderRepositoryManager, reviewManager: ReviewManager) {
-		this._webviewViewProvider = this._register(new PullRequestViewProvider(this._context.extensionUri, folderRepositoryManager, reviewManager, pullRequestModel));
-		this._register(vscode.window.registerWebviewViewProvider(
+		this._webviewViewProvider = addDisposable(new PullRequestViewProvider(this._context.extensionUri, folderRepositoryManager, reviewManager, pullRequestModel), this._currentDisposables);
+		addDisposable(vscode.window.registerWebviewViewProvider(
 			this._webviewViewProvider.viewType,
 			this._webviewViewProvider,
-		));
-		this._register(vscode.commands.registerCommand('pr.refreshActivePullRequest', _ => {
+		), this._currentDisposables);
+		addDisposable(vscode.commands.registerCommand('pr.refreshActivePullRequest', _ => {
 			this._webviewViewProvider?.refresh();
-		}));
+		}), this._currentDisposables);
 	}
 
 	public setPullRequest(pullRequestModel: PullRequestModel, folderRepositoryManager: FolderRepositoryManager, reviewManager: ReviewManager, replace?: PullRequestModel) {
@@ -45,7 +51,7 @@ export class WebviewViewCoordinator extends Disposable {
 	private updatePullRequest() {
 		const pullRequestModel = Array.from(this._pullRequestModel.keys())[0];
 		if (!pullRequestModel) {
-			this.dispose();
+			this.reset();
 			return;
 		}
 		const { folderRepositoryManager, reviewManager } = this._pullRequestModel.get(pullRequestModel)!;
