@@ -19,7 +19,8 @@
 		"strict": false,
 		"strictNullChecks": false,
 		"target": "es2019",
-		"useDefineForClassFields": true
+		"useDefineForClassFields": true,
+		"noImplicitOverride": true
 	},
 	"include": ["src", "webviews"],
 	"exclude": ["node_modules"]

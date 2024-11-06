@@ -17,7 +17,7 @@ import {
 import { BaseBranchMetadata } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 
-export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
+export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProvider implements vscode.WebviewViewProvider {
 	constructor(
 		telemetry: ITelemetry,
 		model: BasePullRequestDataModel,
@@ -44,11 +44,11 @@ export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProv
 		};
 	}
 
-	protected getTitleAndDescriptionProvider(_name?: string) {
+	protected override getTitleAndDescriptionProvider(_name?: string) {
 		return undefined;
 	}
 
-	protected async getCreateParams(): Promise<CreateParamsNew> {
+	protected override async getCreateParams(): Promise<CreateParamsNew> {
 		const params = await super.getCreateParams();
 		params.canModifyBranches = false;
 		params.actionDetail = vscode.l10n.t('Reverting');
@@ -60,7 +60,7 @@ export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProv
 		return openDescription(this.telemetry, this.pullRequest, undefined, this._folderRepositoryManager, false, true);
 	}
 
-	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
+	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		const result = await super._onDidReceiveMessage(message);
 		if (result !== this.MESSAGE_UNHANDLED) {
 			return;

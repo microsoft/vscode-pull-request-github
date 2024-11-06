@@ -7,10 +7,11 @@ import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
 import { DiffSide, IComment, SubjectType } from '../common/comment';
+import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, Schemes } from '../common/uri';
-import { dispose, groupBy } from '../common/utils';
+import { groupBy } from '../common/utils';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
@@ -32,7 +33,6 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 	private _pendingCommentThreadAdds: GHPRCommentThread[] = [];
 	private _commentHandlerId: string;
 	private _commentThreadCache: { [key: string]: GHPRCommentThread[] } = {};
-	private _disposables: vscode.Disposable[] = [];
 	private readonly _context: vscode.ExtensionContext;
 	private readonly _githubRepositories: GitHubRepository[];
 
@@ -63,15 +63,15 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 	}
 
 	private registerListeners(): void {
-		this._disposables.push(this.pullRequestModel.onDidChangeReviewThreads(e => this.onDidChangeReviewThreads(e)));
+		this._register(this.pullRequestModel.onDidChangeReviewThreads(e => this.onDidChangeReviewThreads(e)));
 
-		this._disposables.push(
+		this._register(
 			vscode.window.tabGroups.onDidChangeTabs(async e => {
 				return this.onDidChangeOpenTabs(e);
 			})
 		);
 
-		this._disposables.push(
+		this._register(
 			this.pullRequestModel.onDidChangePendingReviewState(newDraftMode => {
 				for (const key in this._commentThreadCache) {
 					this._commentThreadCache[key].forEach(thread => {
@@ -81,7 +81,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			}),
 		);
 
-		this._disposables.push(
+		this._register(
 			vscode.window.onDidChangeActiveTextEditor(e => {
 				this.refreshContextKey(e);
 			}),
@@ -525,14 +525,13 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 
 	private removeAllCommentsThreads(): void {
 		Object.keys(this._commentThreadCache).forEach(key => {
-			dispose(this._commentThreadCache[key]);
+			disposeAll(this._commentThreadCache[key]);
 		});
 	}
 
-	dispose() {
+	override dispose() {
+		super.dispose();
 		this.removeAllCommentsThreads();
 		unregisterCommentHandler(this._commentHandlerId);
-
-		this._disposables.forEach(d => d.dispose());
 	}
 }

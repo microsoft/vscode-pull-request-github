@@ -6,8 +6,9 @@
 import * as vscode from 'vscode';
 import { onDidUpdatePR, openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
+import { disposeAll } from '../common/lifecycle';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
-import { dispose, formatError } from '../common/utils';
+import { formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { ReviewManager } from '../view/reviewManager';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -19,9 +20,8 @@ import { isInCodespaces, parseReviewers } from './utils';
 import { MergeArguments, PullRequest, ReviewType } from './views';
 
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
-	public readonly viewType = 'github:activePullRequest';
+	public override readonly viewType = 'github:activePullRequest';
 	private _existingReviewers: ReviewState[] = [];
-	private _prChangeListener: vscode.Disposable | undefined;
 
 	constructor(
 		extensionUri: vscode.Uri,
@@ -31,7 +31,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	) {
 		super(extensionUri);
 
-		onDidUpdatePR(
+		this._register(onDidUpdatePR(
 			pr => {
 				if (pr) {
 					this._item.update(pr);
@@ -41,30 +41,27 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					command: 'update-state',
 					state: this._item.state,
 				});
-			},
-			null,
-			this._disposables,
-		);
+			}));
 
-		this._disposables.push(this._folderRepositoryManager.onDidMergePullRequest(_ => {
+		this._register(this._folderRepositoryManager.onDidMergePullRequest(_ => {
 			this._postMessage({
 				command: 'update-state',
 				state: GithubItemStateEnum.Merged,
 			});
 		}));
 
-		this._disposables.push(vscode.commands.registerCommand('review.approve', (e: { body: string }) => this.approvePullRequestCommand(e)));
-		this._disposables.push(vscode.commands.registerCommand('review.comment', (e: { body: string }) => this.submitReviewCommand(e)));
-		this._disposables.push(vscode.commands.registerCommand('review.requestChanges', (e: { body: string }) => this.requestChangesCommand(e)));
-		this._disposables.push(vscode.commands.registerCommand('review.approveOnDotCom', () => {
+		this._register(vscode.commands.registerCommand('review.approve', (e: { body: string }) => this.approvePullRequestCommand(e)));
+		this._register(vscode.commands.registerCommand('review.comment', (e: { body: string }) => this.submitReviewCommand(e)));
+		this._register(vscode.commands.registerCommand('review.requestChanges', (e: { body: string }) => this.requestChangesCommand(e)));
+		this._register(vscode.commands.registerCommand('review.approveOnDotCom', () => {
 			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 		}));
-		this._disposables.push(vscode.commands.registerCommand('review.requestChangesOnDotCom', () => {
+		this._register(vscode.commands.registerCommand('review.requestChangesOnDotCom', () => {
 			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 		}));
 	}
 
-	public resolveWebviewView(
+	public override resolveWebviewView(
 		webviewView: vscode.WebviewView,
 		_context: vscode.WebviewViewResolveContext,
 		_token: vscode.CancellationToken,
@@ -101,7 +98,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		this._replyMessage(message, result);
 	}
 
-	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
+	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		const result = await super._onDidReceiveMessage(message);
 		if (result !== this.MESSAGE_UNHANDLED) {
 			return;
@@ -202,7 +199,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 	private _prDisposables: vscode.Disposable[] | undefined = undefined;
 	private registerPrSpecificListeners(pullRequestModel: PullRequestModel) {
 		if (this._prDisposables !== undefined) {
-			dispose(this._prDisposables);
+			disposeAll(this._prDisposables);
 		}
 		this._prDisposables = [];
 		this._prDisposables.push(pullRequestModel.onDidInvalidate(() => this.updatePullRequest(pullRequestModel)));

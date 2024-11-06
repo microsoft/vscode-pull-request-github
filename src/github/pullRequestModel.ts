@@ -111,7 +111,7 @@ export type FileViewedState = { [key: string]: ViewedState };
 const BATCH_SIZE = 100;
 
 export class PullRequestModel extends IssueModel<PullRequest> implements IPullRequestModel {
-	static ID = 'PullRequestModel';
+	static override ID = 'PullRequestModel';
 
 	public isDraft?: boolean;
 	public localBranchName?: string;
@@ -192,10 +192,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return this._reviewThreadsCacheInitialized;
 	}
 
-	public get isMerged(): boolean {
-		return this.state === GithubItemStateEnum.Merged;
-	}
-
 	public get hasPendingReview(): boolean {
 		return this._hasPendingReview;
 	}
@@ -237,7 +233,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public isRemoteBaseDeleted?: boolean;
 	public base: GitHubRef;
 
-	protected updateState(state: string) {
+	protected override updateState(state: string) {
 		if (state.toLowerCase() === 'open') {
 			this.state = GithubItemStateEnum.Open;
 		} else if (state.toLowerCase() === 'merged' || this.item.merged) {
@@ -247,7 +243,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	update(item: PullRequest): void {
+	override update(item: PullRequest): void {
 		super.update(item);
 		this.isDraft = item.isDraft;
 		this.suggestedReviewers = item.suggestedReviewers;

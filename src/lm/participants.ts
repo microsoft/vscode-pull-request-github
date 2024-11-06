@@ -6,7 +6,7 @@
 'use strict';
 import { renderPrompt } from '@vscode/prompt-tsx';
 import * as vscode from 'vscode';
-import { dispose } from '../common/utils';
+import { Disposable } from '../common/lifecycle';
 import { ParticipantsPrompt } from './participantsPrompt';
 import { IToolCall, TOOL_COMMAND_RESULT, TOOL_MARKDOWN_RESULT } from './tools/toolsUtils';
 
@@ -55,22 +55,17 @@ export class ChatParticipantState {
 	}
 }
 
-export class ChatParticipant implements vscode.Disposable {
-	private readonly disposables: vscode.Disposable[] = [];
+export class ChatParticipant extends Disposable {
 
 	constructor(context: vscode.ExtensionContext, private readonly state: ChatParticipantState) {
-		const ghprChatParticipant = vscode.chat.createChatParticipant('githubpr', (
+		super();
+		const ghprChatParticipant = this._register(vscode.chat.createChatParticipant('githubpr', (
 			request: vscode.ChatRequest,
 			context: vscode.ChatContext,
 			stream: vscode.ChatResponseStream,
 			token: vscode.CancellationToken
-		) => this.handleParticipantRequest(request, context, stream, token));
+		) => this.handleParticipantRequest(request, context, stream, token)));
 		ghprChatParticipant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'resources/icons/github_logo.png');
-		this.disposables.push(ghprChatParticipant);
-	}
-
-	dispose() {
-		dispose(this.disposables);
 	}
 
 	async handleParticipantRequest(

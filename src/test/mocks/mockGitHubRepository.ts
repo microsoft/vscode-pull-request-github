@@ -44,15 +44,17 @@ export class MockGitHubRepository extends GitHubRepository {
 		this._initialized = true;
 	}
 
-	async ensure() {
+	override async ensure() {
 		return this;
 	}
 
-	query = async <T>(query: QueryOptions): Promise<ApolloQueryResult<T>> =>
-		this.queryProvider.emulateGraphQLQuery(query);
+	override query = async <T>(query: QueryOptions): Promise<ApolloQueryResult<T>> => {
+		return this.queryProvider.emulateGraphQLQuery(query);
+	};
 
-	mutate = async <T>(mutation: MutationOptions<T, OperationVariables>): Promise<FetchResult<T>> =>
-		this.queryProvider.emulateGraphQLMutation(mutation);
+	override mutate = async <T>(mutation: MutationOptions<T, OperationVariables>): Promise<FetchResult<T>> => {
+		return this.queryProvider.emulateGraphQLMutation(mutation);
+	};
 
 	buildMetadata(block: (repoBuilder: RepositoryBuilder, userBuilder: UserBuilder) => void) {
 		const repoBuilder = new RepositoryBuilder();

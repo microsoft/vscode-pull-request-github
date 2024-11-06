@@ -15,12 +15,12 @@ export class ErrorBoundary extends React.Component {
 		return { hasError: true };
 	}
 
-	componentDidCatch(error, errorInfo) {
+	override componentDidCatch(error, errorInfo) {
 		console.log(error);
 		console.log(errorInfo);
 	}
 
-	render() {
+	override render() {
 		if ((this.state as any).hasError) {
 			return <div>Something went wrong.</div>;
 		}

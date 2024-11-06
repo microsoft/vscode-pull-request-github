@@ -5,23 +5,22 @@
 
 import * as vscode from 'vscode';
 import { commands } from '../../common/executeCommands';
-import { dispose } from '../../common/utils';
+import { Disposable } from '../../common/lifecycle';
 import { Conflict, ConflictResolutionModel } from '../../github/conflictResolutionModel';
 
 interface ConflictNode {
 	conflict: Conflict;
 }
 
-export class ConflictResolutionTreeView implements vscode.TreeDataProvider<ConflictNode> {
-	private _disposables: vscode.Disposable[] = [];
+export class ConflictResolutionTreeView extends Disposable implements vscode.TreeDataProvider<ConflictNode> {
 	private readonly _treeView: vscode.TreeView<ConflictNode>;
-	private readonly _onDidChangeTreeData: vscode.EventEmitter<void | ConflictNode[]> = new vscode.EventEmitter<void | ConflictNode[]>();
+	private readonly _onDidChangeTreeData: vscode.EventEmitter<void | ConflictNode[]> = this._register(new vscode.EventEmitter<void | ConflictNode[]>());
 	onDidChangeTreeData: vscode.Event<void | ConflictNode[]> = this._onDidChangeTreeData.event;
 
 	constructor(private readonly _conflictResolutionModel: ConflictResolutionModel) {
-		this._treeView = vscode.window.createTreeView('github:conflictResolution', { treeDataProvider: this });
-		this._disposables.push(this._treeView);
-		this._disposables.push(this._conflictResolutionModel.onAddedResolution(() => this._onDidChangeTreeData.fire()));
+		super();
+		this._treeView = this._register(vscode.window.createTreeView('github:conflictResolution', { treeDataProvider: this }));
+		this._register(this._conflictResolutionModel.onAddedResolution(() => this._onDidChangeTreeData.fire()));
 		commands.focusView('github:conflictResolution');
 	}
 
@@ -71,9 +70,5 @@ export class ConflictResolutionTreeView implements vscode.TreeDataProvider<Confl
 		}
 		(this._treeView as vscode.TreeView2<ConflictNode>).message = exit;
 		return children;
-	}
-
-	dispose(): void {
-		dispose(this._disposables);
 	}
 }
