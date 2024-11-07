@@ -1782,7 +1782,7 @@
 					"when": "false"
 				},
 				{
-					"command": "pr.pr.closeRelatedEditors",
+					"command": "pr.closeRelatedEditors",
 					"when": "gitHubOpenRepositoryCount != 0"
 				},
 				{
