@@ -255,6 +255,7 @@
 	"command.pr.refreshComments.title": "Refresh Pull Request Comments",
 	"command.pr.resolveConflict.title": "Resolve Conflict",
 	"command.pr.acceptMerge.title": "Accept Merge",
+	"command.pr.closeRelatedEditors.title": "Close All Pull Request Editors",
 	"command.issue.copyGithubDevLink.title": "Copy github.dev Link",
 	"command.issue.copyGithubPermalink.title": "Copy GitHub Permalink",
 	"command.issue.copyGithubHeadLink.title": "Copy GitHub Head Link",

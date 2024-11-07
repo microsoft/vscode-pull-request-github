@@ -1191,6 +1191,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.closeRelatedEditors",
+				"title": "%command.pr.closeRelatedEditors.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "review.diffWithPrHead",
 				"title": "%command.review.diffWithPrHead.title%",
 				"category": "%command.pull.request.category%"
@@ -2906,6 +2911,13 @@
 					"command": "issue.copyGithubDevLink",
 					"when": "github:hasGitHubRemotes && remoteName == codespaces && isWeb || github:hasGitHubRemotes && embedderIdentifier == github.dev",
 					"group": "1_cutcopypaste@0"
+				}
+			],
+			"editor/title/context": [
+				{
+					"command": "pr.closeRelatedEditors",
+					"when": "resourceScheme == 'pr' || resourceScheme == 'review' || resourcePath in github:unviewedFiles || resourcePath in github:viewedFiles",
+					"group": "1_close@60"
 				}
 			],
 			"editor/title/context/share": [
