@@ -1782,6 +1782,10 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.pr.closeRelatedEditors",
+					"when": "gitHubOpenRepositoryCount != 0"
+				},
+				{
 					"command": "review.suggestDiff",
 					"when": "false"
 				},
