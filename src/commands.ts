@@ -129,6 +129,18 @@ export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | Pull
 	telemetry.sendTelemetryEvent('pr.openInGitHub');
 }
 
+export async function closeAllPrAndReviewEditors() {
+	const tabs = vscode.window.tabGroups;
+	const editors = tabs.all.map(group => group.tabs).flat();
+
+	for (const tab of editors) {
+		const scheme = tab.input instanceof vscode.TabInputTextDiff ? tab.input.original.scheme : (tab.input instanceof vscode.TabInputText ? tab.input.uri.scheme : undefined);
+		if (scheme && (scheme === Schemes.Pr) || (scheme === Schemes.Review)) {
+			await tabs.close(tab);
+		}
+	}
+}
+
 export function registerCommands(
 	context: vscode.ExtensionContext,
 	reposManager: RepositoriesManager,
@@ -1614,4 +1626,8 @@ ${contents}
 			}
 		}
 	}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.closeRelatedEditors', closeAllPrAndReviewEditors)
+	);
 }
