@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.100.1
+
+### Fixes
+
+- Enterprise 3.9: GraphQL error Fragment on Bot can't be spread inside RequestedReviewer. https://github.com/microsoft/vscode-pull-request-github/issues/6441
+
 ## 0.100.0
 
 ### Changes
