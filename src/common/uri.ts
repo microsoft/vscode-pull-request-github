@@ -41,6 +41,9 @@ export interface PRUriParams {
 }
 
 export function fromPRUri(uri: vscode.Uri): PRUriParams | undefined {
+	if (uri.query === '') {
+		return undefined;
+	}
 	try {
 		return JSON.parse(uri.query) as PRUriParams;
 	} catch (e) { }
@@ -51,6 +54,9 @@ export interface PRNodeUriParams {
 }
 
 export function fromPRNodeUri(uri: vscode.Uri): PRNodeUriParams | undefined {
+	if (uri.query === '') {
+		return undefined;
+	}
 	try {
 		return JSON.parse(uri.query) as PRNodeUriParams;
 	} catch (e) { }
@@ -63,6 +69,9 @@ export interface GitHubUriParams {
 	isEmpty?: boolean;
 }
 export function fromGitHubURI(uri: vscode.Uri): GitHubUriParams | undefined {
+	if (uri.query === '') {
+		return undefined;
+	}
 	try {
 		return JSON.parse(uri.query) as GitHubUriParams;
 	} catch (e) { }
@@ -338,8 +347,11 @@ export function toResourceUri(uri: vscode.Uri, prNumber: number, fileName: strin
 }
 
 export function fromFileChangeNodeUri(uri: vscode.Uri): FileChangeNodeUriParams | undefined {
+	if (uri.query === '') {
+		return undefined;
+	}
 	try {
-		return uri.query ? JSON.parse(uri.query) as FileChangeNodeUriParams : undefined;
+		return JSON.parse(uri.query) as FileChangeNodeUriParams;
 	} catch (e) { }
 }
 
