@@ -21,7 +21,7 @@ export class NotificationSummarizationTool implements vscode.LanguageModelTool<F
 		const type = parameters.itemType === 'issue' ? 'issues' : 'pull';
 		const url = `https://github.com/${parameters.owner}/${parameters.repo}/${type}/${parameters.itemNumber}`;
 		return {
-			invocationMessage: vscode.l10n.t('Summarizing item [#{0}]({1})', parameters.itemNumber, url)
+			invocationMessage: new vscode.MarkdownString(vscode.l10n.t('Summarizing item [#{0}]({1})', parameters.itemNumber, url))
 		};
 	}
 

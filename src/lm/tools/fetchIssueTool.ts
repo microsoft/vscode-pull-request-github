@@ -80,8 +80,9 @@ export class FetchIssueTool extends RepoToolBase<FetchIssueToolParameters> {
 		}
 		const { owner, name } = await this.getRepoInfo({ owner: options.input.repo?.owner, name: options.input.repo?.name });
 		const url = (owner && name) ? `https://github.com/${owner}/${name}/issues/${options.input.issueNumber}` : undefined;
+		const message = url ? new vscode.MarkdownString(vscode.l10n.t('Fetching item [#{0}]({1}) from GitHub', options.input.issueNumber, url)) : vscode.l10n.t('Fetching item #{0} from GitHub', options.input.issueNumber);
 		return {
-			invocationMessage: url ? vscode.l10n.t('Fetching item [#{0}]({1}) from GitHub', options.input.issueNumber, url) : vscode.l10n.t('Fetching item #{0} from GitHub', options.input.issueNumber),
+			invocationMessage: message,
 		};
 	}
 }

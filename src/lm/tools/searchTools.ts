@@ -439,9 +439,12 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<SearchToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		const parameterQuery = options.input.query;
+		const message = new vscode.MarkdownString();
+		message.appendText(vscode.l10n.t('Searching for issues with "{0}".', parameterQuery));
+		message.appendMarkdown(vscode.l10n.t('[Open on GitHub.com]({0})', escapeMarkdown(this.toGitHubUrl(parameterQuery))));
 
 		return {
-			invocationMessage: vscode.l10n.t('Searching for issues with "{0}". [Open on GitHub.com]({1})', escapeMarkdown(parameterQuery), escapeMarkdown(this.toGitHubUrl(parameterQuery)))
+			invocationMessage: message
 		};
 	}
 
