@@ -35,7 +35,7 @@
 	"version": "0.100.1",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.95.0"
+		"vscode": "^1.96.0"
 	},
 	"categories": [
 		"Other",
@@ -3164,7 +3164,7 @@
 				"modelDescription": "Get a GitHub issue/PR's details as a JSON object.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
-				"parametersSchema": {
+				"inputSchema": {
 					"type": "object",
 					"properties": {
 						"repo": {
@@ -3207,7 +3207,7 @@
 				"modelDescription": "Get a GitHub notification's details as a JSON object.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
-				"parametersSchema": {
+				"inputSchema": {
 					"type": "object",
 					"properties": {
 						"thread_id": {
@@ -3233,7 +3233,7 @@
 				"modelDescription": "Summarizes a GitHub issue or pull request. A summary is a great way to describe an issue or pull request.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
-				"parametersSchema": {
+				"inputSchema": {
 					"type": "object",
 					"properties": {
 						"title": {
@@ -3308,7 +3308,7 @@
 				"modelDescription": "Summarizes a GitHub notification. A summary is a great way to describe a notification.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
-				"parametersSchema": {
+				"inputSchema": {
 					"type": "object",
 					"properties": {
 						"lastReadAt": {
@@ -3420,7 +3420,7 @@
 				"modelDescription": "Summarize and suggest a fix for a GitHub issue.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
-				"parametersSchema": {
+				"inputSchema": {
 					"type": "object",
 					"properties": {
 						"repo": {
@@ -3467,7 +3467,7 @@
 				"modelDescription": "Converts natural language to a GitHub search query. Should ALWAYS be called before doing a search.",
 				"icon": "$(search)",
 				"canBeReferencedInPrompt": true,
-				"parametersSchema": {
+				"inputSchema": {
 					"type": "object",
 					"properties": {
 						"repo": {
@@ -3511,7 +3511,7 @@
 				"modelDescription": "Execute a GitHub search given a well formed GitHub search query. Call github-pull-request_formSearchQuery first to get good search syntax and pass the exact result in as the 'query'.",
 				"icon": "$(search)",
 				"canBeReferencedInPrompt": true,
-				"parametersSchema": {
+				"inputSchema": {
 					"type": "object",
 					"properties": {
 						"repo": {
@@ -3557,7 +3557,7 @@
 				"modelDescription": "Render issue items from an issue search in a markdown table. The markdown table will be displayed directly to the user by the tool. No further display should be done after this!",
 				"icon": "$(paintcan)",
 				"canBeReferencedInPrompt": false,
-				"parametersSchema": {
+				"inputSchema": {
 					"type": "object",
 					"properties": {
 						"arrayOfIssues": {
