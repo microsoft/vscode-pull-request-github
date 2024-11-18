@@ -116,48 +116,6 @@ fragment PullRequestFragment on PullRequest {
 	}
 }
 
-fragment ReviewComment on PullRequestReviewComment {
-	id
-	databaseId
-	url
-	author {
-		login
-		avatarUrl
-		url
-		... on User {
-			email
-			id
-		}
-		... on Organization {
-			email
-			id
-		}
-	}
-	path
-	originalPosition
-	body
-	bodyHTML
-	diffHunk
-	position
-	state
-	pullRequestReview {
-		databaseId
-	}
-	commit {
-		oid
-	}
-	replyTo {
-		databaseId
-	}
-	createdAt
-	originalCommit {
-		oid
-	}
-	...Reactable
-	viewerCanUpdate
-	viewerCanDelete
-}
-
 query PullRequest($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
@@ -168,6 +126,7 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 		...RateLimit
 	}
 }
+
 
 query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!) {
 	repository(owner: $owner, name: $name) {
@@ -182,29 +141,6 @@ query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!)
 	}
 }
 
-query GetReviewRequests($owner: String!, $name: String!, $number: Int!) {
-	repository(owner: $owner, name: $name) {
-		pullRequest(number: $number) {
-			reviewRequests(first: 100) {
-				nodes {
-					requestedReviewer {
-						... on User {
-							login
-							avatarUrl
-							id
-							url
-							email
-							name
-						}
-					}
-				}
-			}
-		}
-	}
-	rateLimit {
-		...RateLimit
-	}
-}
 
 mutation CreatePullRequest($input: CreatePullRequestInput!) {
 	createPullRequest(input: $input) {
