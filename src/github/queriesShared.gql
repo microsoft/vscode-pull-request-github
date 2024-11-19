@@ -494,10 +494,10 @@ query PullRequestComments($owner: String!, $name: String!, $number: Int!, $after
 	}
 }
 
-query LegacyPullRequestComments($owner: String!, $name: String!, $number: Int!, $first: Int = 100) {
+query LegacyPullRequestComments($owner: String!, $name: String!, $number: Int!, $after: String) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
-			reviewThreads(first: $first) {
+			reviewThreads(first: 20, after: $after) {
 				nodes {
 					id
 					isResolved
