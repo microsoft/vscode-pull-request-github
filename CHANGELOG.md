@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.100.3
+
+### Fixes
+
+- Can't start a review from a comment due to GraphQL error. https://github.com/microsoft/vscode-pull-request-github/issues/6467
+> Note: This breaks Enterprise 3.9 and earlier again.
+
 ## 0.100.1
 
 ### Fixes
