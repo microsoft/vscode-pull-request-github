@@ -343,6 +343,80 @@ query GetReviewRequestsAdditionalScopes($owner: String!, $name: String!, $number
 	}
 }
 
+query GetReviewRequests($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			reviewRequests(first: 100) {
+				nodes {
+					requestedReviewer {
+						... on User {
+							login
+							avatarUrl
+							id
+							url
+							email
+							name
+						}
+						... on Bot {
+							id
+							login
+							avatarUrl
+						}
+					}
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+fragment ReviewComment on PullRequestReviewComment {
+	id
+	databaseId
+	url
+	author {
+		login
+		avatarUrl
+		url
+		... on User {
+			email
+			id
+		}
+		... on Organization {
+			email
+			id
+		}
+		... on Bot {
+			id
+		}
+	}
+	path
+	originalPosition
+	body
+	bodyHTML
+	diffHunk
+	position
+	state
+	pullRequestReview {
+		databaseId
+	}
+	commit {
+		oid
+	}
+	replyTo {
+		databaseId
+	}
+	createdAt
+	originalCommit {
+		oid
+	}
+	...Reactable
+	viewerCanUpdate
+	viewerCanDelete
+}
+
 query GetParticipants($owner: String!, $name: String!, $number: Int!, $first: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
@@ -420,10 +494,10 @@ query PullRequestComments($owner: String!, $name: String!, $number: Int!, $after
 	}
 }
 
-query LegacyPullRequestComments($owner: String!, $name: String!, $number: Int!, $first: Int = 100) {
+query LegacyPullRequestComments($owner: String!, $name: String!, $number: Int!, $after: String) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
-			reviewThreads(first: $first) {
+			reviewThreads(first: 20, after: $after) {
 				nodes {
 					id
 					isResolved

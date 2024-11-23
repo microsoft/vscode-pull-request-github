@@ -125,51 +125,6 @@ fragment PullRequestFragment on PullRequest {
 	}
 }
 
-fragment ReviewComment on PullRequestReviewComment {
-	id
-	databaseId
-	url
-	author {
-		login
-		avatarUrl
-		url
-		... on User {
-			email
-			id
-		}
-		... on Organization {
-			email
-			id
-		}
-		... on Bot {
-			id
-		}
-	}
-	path
-	originalPosition
-	body
-	bodyHTML
-	diffHunk
-	position
-	state
-	pullRequestReview {
-		databaseId
-	}
-	commit {
-		oid
-	}
-	replyTo {
-		databaseId
-	}
-	createdAt
-	originalCommit {
-		oid
-	}
-	...Reactable
-	viewerCanUpdate
-	viewerCanDelete
-}
-
 query PullRequest($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		pullRequest(number: $number) {
@@ -208,35 +163,6 @@ query PullRequestMergeabilityMergeRequirements($owner: String!, $name: String!, 
 						__typename
 						conflicts
 						isConflictResolvableInWeb
-					}
-				}
-			}
-		}
-	}
-	rateLimit {
-		...RateLimit
-	}
-}
-
-query GetReviewRequests($owner: String!, $name: String!, $number: Int!) {
-	repository(owner: $owner, name: $name) {
-		pullRequest(number: $number) {
-			reviewRequests(first: 100) {
-				nodes {
-					requestedReviewer {
-						... on User {
-							login
-							avatarUrl
-							id
-							url
-							email
-							name
-						}
-						... on Bot {
-							id
-							login
-							avatarUrl
-						}
 					}
 				}
 			}
