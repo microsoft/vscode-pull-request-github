@@ -5,7 +5,7 @@
 
 import * as nodePath from 'path';
 import * as vscode from 'vscode';
-import type { Branch, Repository } from '../api/api';
+import type { Branch, Change, Repository } from '../api/api';
 import { GitApiImpl, GitErrorCodes, Status } from '../api/api1';
 import { openDescription } from '../commands';
 import { DiffChangeType, DiffHunk, parsePatch, splitIntoSmallerHunks } from '../common/diffHunk';
@@ -782,21 +782,50 @@ export class ReviewManager extends Disposable {
 		let hasError: boolean = false;
 		let diff: DiffHunk[] = [];
 		const convertedFiles: vscode.Uri[] = [];
+
+		const convertOneSmallHunk = async (changeFile: Change, hunk: DiffHunk) => {
+			try {
+				await this._reviewCommentController?.createSuggestionsFromChanges(changeFile.uri, this.convertDiffHunkToSuggestion(hunk));
+				convertedFiles.push(changeFile.uri);
+			} catch (e) {
+				hasError = true;
+			}
+		};
+
+		const getDiffFromChange = async (changeFile: Change) => {
+			if (!resourceStrings.includes(changeFile.uri.toString()) || (changeFile.status !== Status.MODIFIED)) {
+				return;
+			}
+			return parsePatch(await this._folderRepoManager.repository.diffWithHEAD(changeFile.uri.fsPath)).map(hunk => splitIntoSmallerHunks(hunk)).flat();
+		};
+
 		await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: 'Converting changes to suggestions' }, async () => {
-			await Promise.all(this._folderRepoManager.repository.state.workingTreeChanges.map(async changeFile => {
-				if (!resourceStrings.includes(changeFile.uri.toString()) || (changeFile.status !== Status.MODIFIED)) {
-					return;
+			// We need to create one suggestion first. This let's us ensure that only one review will be created.
+			let i = 0;
+			for (; (convertedFiles.length === 0) && (i < this._folderRepoManager.repository.state.workingTreeChanges.length); i++) {
+				const changeFile = this._folderRepoManager.repository.state.workingTreeChanges[i];
+				const diff = await getDiffFromChange(changeFile);
+				if (diff) {
+					for (const hunk of diff) {
+						await convertOneSmallHunk(changeFile, hunk);
+					}
 				}
-				diff = parsePatch(await this._folderRepoManager.repository.diffWithHEAD(changeFile.uri.fsPath)).map(hunk => splitIntoSmallerHunks(hunk)).flat();
-				await Promise.allSettled(diff.map(async hunk => {
-					try {
-						await this._reviewCommentController?.createSuggestionsFromChanges(changeFile.uri, this.convertDiffHunkToSuggestion(hunk));
-						convertedFiles.push(changeFile.uri);
-					} catch (e) {
-						hasError = true;
+			}
+
+			// If we have already created a suggestion, we can create the rest in parallel
+			const promises: Promise<void>[] = [];
+			for (; i < this._folderRepoManager.repository.state.workingTreeChanges.length; i++) {
+				const changeFile = this._folderRepoManager.repository.state.workingTreeChanges[i];
+				promises.push(getDiffFromChange(changeFile).then(async (diff) => {
+					if (diff) {
+						await Promise.allSettled(diff.map(async hunk => {
+							return convertOneSmallHunk(changeFile, hunk);
+						}));
 					}
 				}));
-			}));
+			}
+
+			await Promise.all(promises);
 		});
 		if (!hasError) {
 			const checkoutAllFilesResponse = vscode.l10n.t('Reset all changes');
