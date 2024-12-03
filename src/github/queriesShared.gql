@@ -349,18 +349,17 @@ query GetReviewRequests($owner: String!, $name: String!, $number: Int!) {
 			reviewRequests(first: 100) {
 				nodes {
 					requestedReviewer {
-						... on User {
+						... on Actor {
 							login
 							avatarUrl
+						}
+						... on Node {
 							id
+						}
+						... on User {
 							url
 							email
 							name
-						}
-						... on Bot {
-							id
-							login
-							avatarUrl
 						}
 					}
 				}
@@ -380,16 +379,14 @@ fragment ReviewComment on PullRequestReviewComment {
 		login
 		avatarUrl
 		url
+		... on Node {
+			id
+		}
 		... on User {
 			email
-			id
 		}
 		... on Organization {
 			email
-			id
-		}
-		... on Bot {
-			id
 		}
 	}
 	path
