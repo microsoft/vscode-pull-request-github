@@ -126,13 +126,14 @@ fragment Review on PullRequestReview {
 		login
 		avatarUrl
 		url
+		... on Node {
+			id
+		}
 		... on User {
 			email
-			id
 		}
 		... on Organization {
 			email
-			id
 		}
 	}
 	state
@@ -318,20 +319,23 @@ query GetReviewRequestsAdditionalScopes($owner: String!, $name: String!, $number
 			reviewRequests(first: 100) {
 				nodes {
 					requestedReviewer {
-						... on User {
+						... on Node {
+							id
+						}
+						... on Actor {
 							login
 							avatarUrl
-							id
+						}
+						... on User {
 							url
 							email
 							name
 						}
-						... on Team {
+						... on Team { # Team is not an Actor
 							name
 							avatarUrl
 							url
 							slug
-							id
 						}
 					}
 				}
