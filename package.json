@@ -2475,8 +2475,8 @@
 				},
 				{
 					"command": "issue.openIssue",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && !github.copilot-chat.activated",
-					"group": "inline@2"
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
+					"group": "inline@1"
 				},
 				{
 					"command": "issue.chatSummarizeIssue",
@@ -2487,11 +2487,6 @@
 					"command": "issue.chatSummarizeIssue",
 					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
 					"group": "inline@0"
-				},
-				{
-					"command": "issue.chatSuggestFix",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
-					"group": "inline@1"
 				},
 				{
 					"command": "issue.openIssue",
