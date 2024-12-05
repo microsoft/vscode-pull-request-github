@@ -441,7 +441,7 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 		const parameterQuery = options.input.query;
 		const message = new vscode.MarkdownString();
 		message.appendText(vscode.l10n.t('Searching for issues with "{0}".', parameterQuery));
-		message.appendMarkdown(vscode.l10n.t('[Open on GitHub.com]({0})', escapeMarkdown(this.toGitHubUrl(parameterQuery))));
+		message.appendMarkdown(vscode.l10n.t(' [Open on GitHub.com]({0})', escapeMarkdown(this.toGitHubUrl(parameterQuery))));
 
 		return {
 			invocationMessage: message
