@@ -966,8 +966,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 						} else {
 							resolve(undefined);
 						}
-					});
-
+					}).catch(() => resolve(undefined));
 				}));
 			}
 		}
