@@ -157,7 +157,7 @@ export class GitHubRepository extends Disposable {
 			if (!this._initialized) {
 				throw new Error('Call ensure() before accessing this property.');
 			} else {
-				throw new AuthenticationError('Not authenticated.');
+				throw new AuthenticationError();
 			}
 		}
 		return this._hub;
