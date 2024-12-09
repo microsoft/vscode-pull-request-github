@@ -660,6 +660,11 @@
 					"type": "boolean",
 					"default": false,
 					"description": "%githubPullRequests.showPullRequestNumberInTree.description%"
+				},
+				"githubIssues.alwaysPromptForNewIssueRepo": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubIssues.alwaysPromptForNewIssueRepo.description%"
 				}
 			}
 		},
