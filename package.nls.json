@@ -283,7 +283,7 @@
 	"command.issue.goToLinkedCode.title": "Go to Linked Code",
 	"command.issues.openIssuesWebsite.title": "Open on GitHub",
 	"command.issue.chatSummarizeIssue.title": "Summarize With Copilot",
-	"command.issue.chatSuggestFix.title": "Fix With Copilot",
+	"command.issue.chatSuggestFix.title": "Suggest a Fix with Copilot",
 	"command.notifications.category": "GitHub Notifications",
 	"command.notifications.refresh.title": "Refresh",
 	"command.notifications.pri.title": "Prioritize",
