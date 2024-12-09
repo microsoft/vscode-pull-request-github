@@ -1021,7 +1021,8 @@ export function registerCommands(
 
 	const localUriFromReviewUri = (reviewUri: vscode.Uri) => {
 		const { path, rootPath } = fromReviewUri(reviewUri.query);
-		return vscode.Uri.joinPath(vscode.Uri.file(rootPath), path);
+		const workspaceFolder = vscode.workspace.workspaceFolders![0];
+		return vscode.Uri.joinPath(vscode.Uri.file(rootPath), path).with({ scheme: workspaceFolder.uri.scheme, authority: workspaceFolder.uri.authority });
 	};
 
 	context.subscriptions.push(
