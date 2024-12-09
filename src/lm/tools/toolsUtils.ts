@@ -21,10 +21,10 @@ export const TOOL_MARKDOWN_RESULT = 'TOOL_MARKDOWN_RESULT';
 export const TOOL_COMMAND_RESULT = 'TOOL_COMMAND_RESULT';
 
 export interface IssueToolParameters {
-	issueNumber: number;
-	repo: {
-		owner: string;
-		name: string;
+	issueNumber?: number;
+	repo?: {
+		owner?: string;
+		name?: string;
 	};
 }
 
