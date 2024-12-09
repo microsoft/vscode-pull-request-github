@@ -780,7 +780,7 @@ export class ReviewManager extends Disposable {
 	async createSuggestionsFromChanges(resources: vscode.Uri[]) {
 		const resourceStrings = resources.map(resource => resource.toString());
 		let hasError: boolean = false;
-		let diff: DiffHunk[] = [];
+		let diffCount: number = 0;
 		const convertedFiles: vscode.Uri[] = [];
 
 		const convertOneSmallHunk = async (changeFile: Change, hunk: DiffHunk) => {
@@ -799,30 +799,35 @@ export class ReviewManager extends Disposable {
 			return parsePatch(await this._folderRepoManager.repository.diffWithHEAD(changeFile.uri.fsPath)).map(hunk => splitIntoSmallerHunks(hunk)).flat();
 		};
 
+		const convertAllChangesInFile = async (changeFile: Change, parallel: boolean) => {
+			const diff = await getDiffFromChange(changeFile);
+			if (diff) {
+				diffCount += diff.length;
+				if (parallel) {
+					await Promise.allSettled(diff.map(async hunk => {
+						return convertOneSmallHunk(changeFile, hunk);
+					}));
+				} else {
+					for (const hunk of diff) {
+						await convertOneSmallHunk(changeFile, hunk);
+					}
+				}
+			}
+		};
+
 		await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: 'Converting changes to suggestions' }, async () => {
 			// We need to create one suggestion first. This let's us ensure that only one review will be created.
 			let i = 0;
 			for (; (convertedFiles.length === 0) && (i < this._folderRepoManager.repository.state.workingTreeChanges.length); i++) {
 				const changeFile = this._folderRepoManager.repository.state.workingTreeChanges[i];
-				const diff = await getDiffFromChange(changeFile);
-				if (diff) {
-					for (const hunk of diff) {
-						await convertOneSmallHunk(changeFile, hunk);
-					}
-				}
+				await convertAllChangesInFile(changeFile, false);
 			}
 
 			// If we have already created a suggestion, we can create the rest in parallel
 			const promises: Promise<void>[] = [];
 			for (; i < this._folderRepoManager.repository.state.workingTreeChanges.length; i++) {
 				const changeFile = this._folderRepoManager.repository.state.workingTreeChanges[i];
-				promises.push(getDiffFromChange(changeFile).then(async (diff) => {
-					if (diff) {
-						await Promise.allSettled(diff.map(async hunk => {
-							return convertOneSmallHunk(changeFile, hunk);
-						}));
-					}
-				}));
+				promises.push(convertAllChangesInFile(changeFile, true));
 			}
 
 			await Promise.all(promises);
@@ -835,7 +840,7 @@ export class ReviewManager extends Disposable {
 				}
 			});
 		} else if (convertedFiles.length) {
-			vscode.window.showWarningMessage(vscode.l10n.t('Not all changes could be converted to suggestions.'), { detail: vscode.l10n.t('{0} of {1} changes converted. Some of the changes may be outside of commenting ranges.\nYour changes are still available locally.', convertedFiles.length, diff.length), modal: true });
+			vscode.window.showWarningMessage(vscode.l10n.t('Not all changes could be converted to suggestions.'), { detail: vscode.l10n.t('{0} of {1} changes converted. Some of the changes may be outside of commenting ranges.\nYour changes are still available locally.', convertedFiles.length, diffCount), modal: true });
 		} else {
 			vscode.window.showWarningMessage(vscode.l10n.t('No changes could be converted to suggestions.'), { detail: vscode.l10n.t('All of the changes are outside of commenting ranges.'), modal: true });
 		}
