@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.102.0
+
+### Changes
+
+- The command **GitHub Pull Requests: Close All Pull Request Editors** will close all PR related diff editors and PR original file editors.
+- Summarizing a notification with Copilot will print a link to the issue in the Chat view.
+
+![Issue link shown in Copilot summary](./documentation/changelog/0.102.0/issue-link-in-summary.png)
+
+### Fixes
+
+- Enterprise 3.9: GraphQL error Fragment on Bot can't be spread inside RequestedReviewer. https://github.com/microsoft/vscode-pull-request-github/issues/6441
+- Suggestions end up in unsubmittable pending state. https://github.com/microsoft/vscode-pull-request-github/issues/6494
+- Comments not possible to save within a submodule. https://github.com/microsoft/vscode-pull-request-github/issues/6096
+- Globe action to open issue on github.com is missing. https://github.com/microsoft/vscode-pull-request-github/issues/6510
+- PR creation flow is not smooth anymore. https://github.com/microsoft/vscode-pull-request-github/issues/6386
+- PR view buttons overflow in narrow viewports. https://github.com/microsoft/vscode-pull-request-github/issues/6335
+
 ## 0.100.3
 
 ### Fixes
