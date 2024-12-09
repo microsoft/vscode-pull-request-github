@@ -4,44 +4,25 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Remote } from '../api/api';
+import { fromNewIssueUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IProject } from '../github/interface';
 import { RepositoriesManager } from '../github/repositoriesManager';
 
-export const NEW_ISSUE_SCHEME = 'newIssue';
-export const NEW_ISSUE_FILE = 'NewIssue.md';
+export interface NewIssueFileOptions {
+	title?: string;
+	body?: string;
+	assignees?: string[] | undefined,
+	remote?: Remote,
+}
+
 export const ASSIGNEES = vscode.l10n.t('Assignees:');
 export const LABELS = vscode.l10n.t('Labels:');
 export const MILESTONE = vscode.l10n.t('Milestone:');
 export const PROJECTS = vscode.l10n.t('Projects:');
-export const REPO_SCHEME = 'repo';
-export const FOLDER_MANAGER_ROOT_URI_QUERY = 'folderManagerRootUri';
 
 const NEW_ISSUE_CACHE = 'newIssue.cache';
-
-export interface IssueFileQuery {
-	origin: string;
-}
-
-export function extractIssueOriginFromQuery(uri: vscode.Uri): vscode.Uri | undefined {
-	const query: IssueFileQuery = JSON.parse(uri.query);
-	if (query.origin) {
-		return vscode.Uri.parse(query.origin);
-	}
-}
-
-export function extractFolderManagerForRepoUri(manager: RepositoriesManager, uri: vscode.Uri): FolderRepositoryManager | undefined {
-	if (uri.scheme !== REPO_SCHEME) {
-		return undefined;
-	}
-	const queryParams = uri.query.split('&');
-	const folderManagerRootUri = queryParams.find(queryParam => queryParam.startsWith(FOLDER_MANAGER_ROOT_URI_QUERY))?.split('=')[1];
-	if (!folderManagerRootUri) {
-		return undefined;
-	}
-	const queryUri = vscode.Uri.parse(folderManagerRootUri);
-	return manager.folderManagers.find(f => f.repository.rootUri.toString() === queryUri.toString());
-}
 
 export class IssueFileSystemProvider implements vscode.FileSystemProvider {
 	private content: Uint8Array | undefined;
@@ -115,7 +96,7 @@ export class NewIssueFileCompletionProvider implements vscode.CompletionItemProv
 		if (!line.startsWith(LABELS) && !line.startsWith(MILESTONE) && !line.startsWith(PROJECTS)) {
 			return [];
 		}
-		const originFile = extractIssueOriginFromQuery(document.uri);
+		const originFile = fromNewIssueUri(document.uri)?.repoUriParams?.repoRootUri;
 		if (!originFile) {
 			return [];
 		}
@@ -191,17 +172,18 @@ export async function extractMetadataFromFile(repositoriesManager: RepositoriesM
 	let text: string;
 	if (
 		!vscode.window.activeTextEditor ||
-		vscode.window.activeTextEditor.document.uri.scheme !== NEW_ISSUE_SCHEME
+		vscode.window.activeTextEditor.document.uri.scheme !== Schemes.NewIssue
 	) {
 		return;
 	}
-	const originUri = extractIssueOriginFromQuery(vscode.window.activeTextEditor.document.uri);
+	const params = fromNewIssueUri(vscode.window.activeTextEditor.document.uri);
+	const originUri = params?.originUri;
 	if (!originUri) {
 		return;
 	}
 	let folderManager: FolderRepositoryManager | undefined;
-	if (originUri.scheme === REPO_SCHEME) {
-		folderManager = extractFolderManagerForRepoUri(repositoriesManager, originUri);
+	if (params.repoUriParams?.repoRootUri) {
+		folderManager = repositoriesManager.getManagerForFile(params.repoUriParams.repoRootUri);
 	} else {
 		folderManager = repositoriesManager.getManagerForFile(originUri);
 	}
@@ -231,21 +213,12 @@ export async function extractMetadataFromFile(repositoriesManager: RepositoriesM
 	let assignees: string[] | undefined;
 	text = text.substring(indexOfEmptyLine + 2).trim();
 	if (text.startsWith('<!--')) {
-		const nextIndexOfEmptyLineWindows = text.indexOf('\r\n\r\n');
-		const nextIndexOfEmptyLineOther = text.indexOf('\n\n');
-		let nextIndexOfEmptyLine: number;
-		if (nextIndexOfEmptyLineWindows < 0 && nextIndexOfEmptyLineOther < 0) {
+		const indexOfCommentEnd = text.indexOf('-->');
+		if (indexOfCommentEnd < 0) {
 			return;
 		} else {
-			if (nextIndexOfEmptyLineWindows < 0) {
-				nextIndexOfEmptyLine = nextIndexOfEmptyLineOther;
-			} else if (nextIndexOfEmptyLineOther < 0) {
-				nextIndexOfEmptyLine = nextIndexOfEmptyLineWindows;
-			} else {
-				nextIndexOfEmptyLine = Math.min(nextIndexOfEmptyLineWindows, nextIndexOfEmptyLineOther);
-			}
+			text = text.substring(indexOfCommentEnd + 3).trim();
 		}
-		text = text.substring(nextIndexOfEmptyLine + 2).trim();
 	}
 	if (text.startsWith(ASSIGNEES)) {
 		const lines = text.split(/\r\n|\n/, 1);
