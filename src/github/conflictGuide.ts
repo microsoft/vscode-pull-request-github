@@ -6,18 +6,19 @@
 import * as vscode from 'vscode';
 import { Change, Repository } from '../api/api';
 import { commands } from '../common/executeCommands';
-import { asPromise, dispose } from '../common/utils';
+import { Disposable } from '../common/lifecycle';
+import { asPromise } from '../common/utils';
 
-export class ConflictModel implements vscode.Disposable {
+export class ConflictModel extends Disposable {
 	public readonly startingConflictsCount: number;
 	private _lastReportedRemainingCount: number;
-	private _disposables: vscode.Disposable[] = [];
 	private _onConflictCountChanged: vscode.EventEmitter<number> = new vscode.EventEmitter();
 	public readonly onConflictCountChanged: vscode.Event<number> = this._onConflictCountChanged.event; // reports difference in number of conflicts
 	private _finishedCommit: vscode.EventEmitter<boolean> = new vscode.EventEmitter();
 	public readonly message: string;
 
 	constructor(private readonly _repository: Repository, private readonly _upstream: string, private readonly _into: string, public readonly push: boolean) {
+		super();
 		this.startingConflictsCount = this.remainingConflicts.length;
 		this._lastReportedRemainingCount = this.startingConflictsCount;
 		this._repository.inputBox.value = this.message = `Merge branch '${this._upstream}' into ${this._into}`;
@@ -25,13 +26,13 @@ export class ConflictModel implements vscode.Disposable {
 	}
 
 	private _watchForRemainingConflictsChange() {
-		this._disposables.push(vscode.window.tabGroups.onDidChangeTabs(async (e) => {
+		this._register(vscode.window.tabGroups.onDidChangeTabs(async (e) => {
 			if (e.closed.length > 0) {
 				await this._repository.status();
 				this._reportProgress();
 			}
 		}));
-		this._disposables.push(this._repository.state.onDidChange(async () => {
+		this._register(this._repository.state.onDidChange(async () => {
 			this._reportProgress();
 		}));
 	}
@@ -55,12 +56,11 @@ export class ConflictModel implements vscode.Disposable {
 		let localDisposable: vscode.Disposable | undefined;
 		const result = await new Promise<boolean>(resolve => {
 			const startingCommit = this._repository.state.HEAD?.commit;
-			localDisposable = this._repository.state.onDidChange(() => {
+			localDisposable = this._register(this._repository.state.onDidChange(() => {
 				if (this._repository.state.HEAD?.commit !== startingCommit && this._repository.state.indexChanges.length === 0 && this._repository.state.mergeChanges.length === 0) {
 					resolve(true);
 				}
-			});
-			this._disposables.push(localDisposable);
+			}));
 		});
 
 		localDisposable?.dispose();
@@ -89,14 +89,13 @@ export class ConflictModel implements vscode.Disposable {
 		// set up an event to listen for when we are all out of merge changes before closing the merge editors.
 		// Just waiting for the merge doesn't cut it
 		// Even with this, we still need to wait 1 second, and then it still might say there are conflicts. Why is this?
-		const disposable = this._repository.state.onDidChange(async () => {
+		const disposable = this._register(this._repository.state.onDidChange(async () => {
 			if (this._repository.state.mergeChanges.length === 0) {
 				await new Promise<void>(resolve => setTimeout(resolve, 1000));
 				this.closeMergeEditors();
 				disposable.dispose();
 			}
-		});
-		this._disposables.push(disposable);
+		}));
 		await this._repository.mergeAbort();
 		this._finishedCommit.fire(false);
 	}
@@ -115,8 +114,7 @@ export class ConflictModel implements vscode.Disposable {
 		if (model.remainingConflicts.length === 0) {
 			return undefined;
 		}
-		const notification = new ConflictNotification(model, repository);
-		model._disposables.push(notification);
+		model._register(new ConflictNotification(model, repository));
 		model.first();
 		return model;
 	}
@@ -124,30 +122,26 @@ export class ConflictModel implements vscode.Disposable {
 	public finished(): Promise<boolean> {
 		return asPromise(this._finishedCommit.event);
 	}
-
-	dispose() {
-		dispose(this._disposables);
-	}
 }
 
-class ConflictNotification implements vscode.Disposable {
-	private _disposables: vscode.Disposable[] = [];
+class ConflictNotification extends Disposable {
 
 	constructor(private readonly _conflictModel: ConflictModel, private readonly _repository: Repository) {
+		super();
 		vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, cancellable: true }, async (progress, token) => {
 			const report = (increment: number) => {
 				progress.report({ message: vscode.l10n.t('Use the Source Control view to resolve conflicts, {0} of {0} remaining', this._conflictModel.remainingConflicts.length, this._conflictModel.startingConflictsCount), increment });
 			};
 			report(0);
 			return new Promise<boolean>((resolve) => {
-				this._disposables.push(this._conflictModel.onConflictCountChanged((conflictsChangedBy) => {
+				this._register(this._conflictModel.onConflictCountChanged((conflictsChangedBy) => {
 					const increment = conflictsChangedBy * (100 / this._conflictModel.startingConflictsCount);
 					report(increment);
 					if (this._conflictModel.remainingConflicts.length === 0) {
 						resolve(true);
 					}
 				}));
-				this._disposables.push(token.onCancellationRequested(() => {
+				this._register(token.onCancellationRequested(() => {
 					this._conflictModel.abort();
 					resolve(false);
 				}));
@@ -170,9 +164,5 @@ class ConflictNotification implements vscode.Disposable {
 				}
 			}
 		});
-	}
-
-	dispose() {
-		dispose(this._disposables);
 	}
 }

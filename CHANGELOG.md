@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.100.3
+
+### Fixes
+
+- Can't start a review from a comment due to GraphQL error. https://github.com/microsoft/vscode-pull-request-github/issues/6467
+> Note: This breaks Enterprise 3.9 and earlier again.
+
+## 0.100.1
+
+### Fixes
+
+- Enterprise 3.9: GraphQL error Fragment on Bot can't be spread inside RequestedReviewer. https://github.com/microsoft/vscode-pull-request-github/issues/6441
+
+## 0.100.0
+
+### Changes
+
+This month, our focus was on integrating Copilot into GitHub Pull Requests, using the new VS Code extension API, to showcase how Copilot can be added to an extension. These features are behind several settings. To try everything out, you can set the following settings:
+- `"githubPullRequests.experimental.chat": true`
+- `"githubPullRequests.experimental.notificationsView": true`
+
+#### Copilot integration
+
+- The new `@githubpr` Chat Participant can search for issues on GitHub.
+
+![Copilot issue search for most open bugs in November](./documentation/changelog/0.100.0/copilot-issue-search-most-bugs.png)
+
+- When displaying issues, `@githubpr` will show a markdown table and try to pick the best columns to show based on the search.
+
+![Copilot issue search for closed October bugs](./documentation/changelog/0.100.0/copilot-issue-search.png)
+
+- Each issue listed in the "Issues" view has a new action, "Summarize With Copilot", that will reveal the Chat panel and summarize the selected issue. We also added another action, "Fix With Copilot", that will summarize the selected issue and will use the workspace context to suggest a fix for it.
+- We have added an experimental "Notifications" view that lists the user's unread notifications across repositories. By default the notifications are sorted by most recently updated descending, but you can use the "Sort by Priority using Copilot" action from the view title's `...` menu to have Copilot prioritize the notifications. Clicking on each notification trigger an action to summarize the notification using Copilot. The view also contains easily accessible action to mark a notification as read, as well as open the notification on GitHub.com.
+
+### Fixes
+
+- Gift icon is confusing to me here. https://github.com/microsoft/vscode-pull-request-github/issues/6289
+- Cannot get PR to show that is from a fork and main branch. https://github.com/microsoft/vscode-pull-request-github/issues/6267
+- Summary review comment buttons do not disable while review is submitting. https://github.com/microsoft/vscode-pull-request-github/issues/6261
+- Refreshing a PR doesn't refresh comments. https://github.com/microsoft/vscode-pull-request-github/issues/6252
+- Adding a new Review doesn't update the Tree Control Node. https://github.com/microsoft/vscode-pull-request-github/issues/6251
+- pr.markFileAsViewed doesn't update the parent nodes. https://github.com/microsoft/vscode-pull-request-github/issues/6248
+- Infinite error dialogs with GH account mixup. https://github.com/microsoft/vscode-pull-request-github/issues/6245
+- PRs do not refresh after changing account preferences in dropdown. https://github.com/microsoft/vscode-pull-request-github/issues/6244
+- Extension should still work if only upstream requires SAML. https://github.com/microsoft/vscode-pull-request-github/issues/6159
+- Checkbox likes to play Simon Says. https://github.com/microsoft/vscode-pull-request-github/issues/3972
+
 ## 0.98.0
 
 ### Fixes

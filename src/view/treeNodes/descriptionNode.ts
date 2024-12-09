@@ -16,13 +16,14 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 	public iconPath: vscode.ThemeIcon | vscode.Uri | undefined;
 
 	constructor(
-		public parent: TreeNodeParent,
-		public label: string,
+		parent: TreeNodeParent,
+		label: string,
 		public readonly pullRequestModel: PullRequestModel,
 		public readonly repository: Repository,
 		private readonly folderRepositoryManager: FolderRepositoryManager
 	) {
-		super();
+		super(parent);
+		this.label = label;
 
 		this.command = {
 			title: vscode.l10n.t('View Pull Request Description'),

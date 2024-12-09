@@ -147,7 +147,7 @@ async function init(
 		}
 	});
 
-	const changesTree = new PullRequestChangesTreeDataProvider(context, git, reposManager);
+	const changesTree = new PullRequestChangesTreeDataProvider(git, reposManager);
 	context.subscriptions.push(changesTree);
 
 	const activePrViewCoordinator = new WebviewViewCoordinator(context);
@@ -234,12 +234,7 @@ async function init(
 
 	registerPostCommitCommandsProvider(reposManager, git);
 
-	const chatEnabled = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_CHAT, false);
-	if (chatEnabled) {
-		const chatParticipantState = new ChatParticipantState();
-		context.subscriptions.push(new ChatParticipant(context, chatParticipantState));
-		registerTools(context, credentialStore, reposManager, chatParticipantState);
-	}
+	initChat(context, credentialStore, reposManager);
 
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
 	CompareChanges.closeTabs();
@@ -247,6 +242,29 @@ async function init(
 		"startup" : {}
 	*/
 	telemetry.sendTelemetryEvent('startup');
+}
+
+function initChat(context: vscode.ExtensionContext, credentialStore: CredentialStore, reposManager: RepositoriesManager) {
+	const createParticipant = () => {
+		const chatParticipantState = new ChatParticipantState();
+		context.subscriptions.push(new ChatParticipant(context, chatParticipantState));
+		registerTools(context, credentialStore, reposManager, chatParticipantState);
+	};
+
+	const chatEnabled = () => vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_CHAT, false);
+	if (chatEnabled()) {
+		createParticipant();
+	} else {
+		const disposable = vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${EXPERIMENTAL_CHAT}`)) {
+				if (chatEnabled()) {
+					disposable.dispose();
+					createParticipant();
+				}
+			}
+		});
+		context.subscriptions.push(disposable);
+	}
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<GitApiImpl> {

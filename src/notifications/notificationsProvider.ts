@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
+import { Disposable } from '../common/lifecycle';
 import { EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { OctokitCommon } from '../github/common';
 import { CredentialStore, GitHub } from '../github/credentials';
@@ -27,21 +28,21 @@ export interface INotificationPriority {
 	readonly priorityReasoning: string | undefined;
 }
 
-export class NotificationsProvider implements vscode.Disposable {
+export class NotificationsProvider extends Disposable {
 	private _authProvider: AuthProvider | undefined;
 
-	private readonly _disposables: vscode.Disposable[] = [];
 
 	constructor(
 		private readonly _credentialStore: CredentialStore,
 		private readonly _repositoriesManager: RepositoriesManager
 	) {
+		super();
 		if (_credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
 			this._authProvider = AuthProvider.githubEnterprise;
 		} else if (_credentialStore.isAuthenticated(AuthProvider.github)) {
 			this._authProvider = AuthProvider.github;
 		}
-		this._disposables.push(
+		this._register(
 			_credentialStore.onDidChangeSessions(_ => {
 				if (_credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
 					this._authProvider = AuthProvider.githubEnterprise;
@@ -69,7 +70,7 @@ export class NotificationsProvider implements vscode.Disposable {
 		});
 	}
 
-	public async computeNotifications(pageCount: number): Promise<INotifications | undefined> {
+	public async getNotifications(before: string, page: number): Promise<INotifications | undefined> {
 		const gitHub = this._getGitHub();
 		if (gitHub === undefined) {
 			return undefined;
@@ -78,22 +79,11 @@ export class NotificationsProvider implements vscode.Disposable {
 			return undefined;
 		}
 
-		const notificationPromises: Promise<INotifications>[] = [];
-		for (let i = 1; i <= pageCount; i++) {
-			notificationPromises.push(this._getNotificationsPage(gitHub, i));
-		}
-
-		const notifications = await Promise.all(notificationPromises);
-		const hasNextPage = notifications[pageCount - 1].hasNextPage;
-
-		return { notifications: notifications.flatMap(n => n.notifications), hasNextPage };
-	}
-
-	private async _getNotificationsPage(gitHub: GitHub, pageNumber: number): Promise<{ notifications: Notification[]; hasNextPage: boolean }> {
 		const pageSize = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<number>(EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE, 50);
 		const { data, headers } = await gitHub.octokit.call(gitHub.octokit.api.activity.listNotificationsForAuthenticatedUser, {
 			all: false,
-			page: pageNumber,
+			before: before,
+			page: page,
 			per_page: pageSize
 		});
 
@@ -234,10 +224,6 @@ ${comment.body}
 		}
 
 		return updates;
-	}
-
-	dispose() {
-		this._disposables.forEach(d => d.dispose());
 	}
 }
 

@@ -26,7 +26,6 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	private static readonly _viewType: string = 'IssueOverview';
 
 	protected readonly _panel: vscode.WebviewPanel;
-	protected _disposables: vscode.Disposable[] = [];
 	protected _descriptionNode: DescriptionNode;
 	protected _item: TItem;
 	protected _folderRepositoryManager: FolderRepositoryManager;
@@ -90,23 +89,23 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		this._folderRepositoryManager = folderRepositoryManager;
 
 		// Create and show a new webview panel
-		this._panel = vscode.window.createWebviewPanel(type, title, column, {
+		this._panel = this._register(vscode.window.createWebviewPanel(type, title, column, {
 			// Enable javascript in the webview
 			enableScripts: true,
 			retainContextWhenHidden: true,
 
 			// And restrict the webview to only loading content from our extension's `dist` directory.
 			localResourceRoots: [vscode.Uri.joinPath(_extensionUri, 'dist')],
-		});
+		}));
 
 		this._webview = this._panel.webview;
 		super.initialize();
 
 		// Listen for when the panel is disposed
 		// This happens when the user closes the panel or when the panel is closed programmatically
-		this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
+		this._register(this._panel.onDidDispose(() => this.dispose()));
 
-		this._folderRepositoryManager.onDidChangeActiveIssue(
+		this._register(this._folderRepositoryManager.onDidChangeActiveIssue(
 			_ => {
 				if (this._folderRepositoryManager && this._item) {
 					const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activeIssue);
@@ -115,10 +114,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 						isCurrentlyCheckedOut: isCurrentlyCheckedOut,
 					});
 				}
-			},
-			null,
-			this._disposables,
-		);
+			}));
 	}
 
 	public async refreshPanel(): Promise<void> {
@@ -193,7 +189,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return this.updateIssue(issueModel);
 	}
 
-	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
+	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		const result = await super._onDidReceiveMessage(message);
 		if (result !== this.MESSAGE_UNHANDLED) {
 			return;
@@ -377,19 +373,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		IssueOverviewPanel.currentPanel = panel;
 	}
 
-	public dispose() {
+	public override dispose() {
+		super.dispose();
 		this._currentPanel = undefined;
-
-		// Clean up our resources
-		this._panel.dispose();
 		this._webview = undefined;
-
-		while (this._disposables.length) {
-			const x = this._disposables.pop();
-			if (x) {
-				x.dispose();
-			}
-		}
 	}
 
 	protected getHtmlForWebview() {

@@ -8,11 +8,12 @@ import * as vscode from 'vscode';
 import { onDidUpdatePR, openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
 import { commands, contexts } from '../common/executeCommands';
+import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
-import { asPromise, dispose, formatError } from '../common/utils';
+import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
@@ -38,11 +39,11 @@ import { isInCodespaces, parseReviewers, vscodeDevPrLink } from './utils';
 import { MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReviewType } from './views';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
-	public static ID: string = 'PullRequestOverviewPanel';
+	public static override ID: string = 'PullRequestOverviewPanel';
 	/**
 	 * Track the currently panel. Only allow a single panel to exist at a time.
 	 */
-	public static currentPanel?: PullRequestOverviewPanel;
+	public static override currentPanel?: PullRequestOverviewPanel;
 
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[] = [];
@@ -51,7 +52,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private _prListeners: vscode.Disposable[] = [];
 	private _isUpdating: boolean = false;
 
-	public static async createOrShow(
+	public static override async createOrShow(
 		telemetry: ITelemetry,
 		extensionUri: vscode.Uri,
 		folderRepositoryManager: FolderRepositoryManager,
@@ -83,11 +84,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		await PullRequestOverviewPanel.currentPanel!.update(folderRepositoryManager, issue);
 	}
 
-	protected set _currentPanel(panel: PullRequestOverviewPanel | undefined) {
+	protected override set _currentPanel(panel: PullRequestOverviewPanel | undefined) {
 		PullRequestOverviewPanel.currentPanel = panel;
 	}
 
-	public static refresh(): void {
+	public static override refresh(): void {
 		if (this.currentPanel) {
 			this.currentPanel.refreshPanel();
 		}
@@ -109,7 +110,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		super(telemetry, extensionUri, column, title, folderRepositoryManager, PULL_REQUEST_OVERVIEW_VIEW_TYPE);
 
 		this.registerPrListeners();
-		onDidUpdatePR(
+		this._register(onDidUpdatePR(
 			pr => {
 				if (pr) {
 					this._item.update(pr);
@@ -119,39 +120,34 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					command: 'update-state',
 					state: this._item.state,
 				});
-			},
-			null,
-			this._disposables,
-		);
+			}
+		));
 
 		this.setVisibilityContext();
-		this._disposables.push(this._panel.onDidChangeViewState(() => this.setVisibilityContext()));
-		this._disposables.push(
-			folderRepositoryManager.onDidMergePullRequest(_ => {
-				this._postMessage({
-					command: 'update-state',
-					state: GithubItemStateEnum.Merged,
-				});
-			}),
-		);
-		this._disposables.push(folderRepositoryManager.credentialStore.onDidUpgradeSession(() => {
+		this._register(this._panel.onDidChangeViewState(() => this.setVisibilityContext()));
+		this._register(folderRepositoryManager.onDidMergePullRequest(_ => {
+			this._postMessage({
+				command: 'update-state',
+				state: GithubItemStateEnum.Merged,
+			});
+		}));
+		this._register(folderRepositoryManager.credentialStore.onDidUpgradeSession(() => {
 			this.updatePullRequest(this._item);
 		}));
 
-		this._disposables.push(vscode.commands.registerCommand('review.approveDescription', (e) => this.approvePullRequestCommand(e)));
-		this._disposables.push(vscode.commands.registerCommand('review.commentDescription', (e) => this.submitReviewCommand(e)));
-		this._disposables.push(vscode.commands.registerCommand('review.requestChangesDescription', (e) => this.requestChangesCommand(e)));
-		this._disposables.push(vscode.commands.registerCommand('review.approveOnDotComDescription', () => {
+		this._register(vscode.commands.registerCommand('review.approveDescription', (e) => this.approvePullRequestCommand(e)));
+		this._register(vscode.commands.registerCommand('review.commentDescription', (e) => this.submitReviewCommand(e)));
+		this._register(vscode.commands.registerCommand('review.requestChangesDescription', (e) => this.requestChangesCommand(e)));
+		this._register(vscode.commands.registerCommand('review.approveOnDotComDescription', () => {
 			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 		}));
-		this._disposables.push(vscode.commands.registerCommand('review.requestChangesOnDotComDescription', () => {
+		this._register(vscode.commands.registerCommand('review.requestChangesOnDotComDescription', () => {
 			return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 		}));
 	}
 
 	registerPrListeners() {
-		dispose(this._prListeners);
-		this._prListeners = [];
+		disposeAll(this._prListeners);
 		this._prListeners.push(this._folderRepositoryManager.onDidChangeActivePullRequest(_ => {
 			if (this._folderRepositoryManager && this._item) {
 				const isCurrentlyCheckedOut = this._item.equals(this._folderRepositoryManager.activePullRequest);
@@ -323,7 +319,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			});
 	}
 
-	public async update(
+	public override async update(
 		folderRepositoryManager: FolderRepositoryManager,
 		pullRequestModel: PullRequestModel,
 	): Promise<void> {
@@ -344,7 +340,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return vscode.window.withProgress({ location: { viewId: 'pr:github' } }, () => this.updatePullRequest(pullRequestModel));
 	}
 
-	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
+	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		const result = await super._onDidReceiveMessage(message);
 		if (result !== this.MESSAGE_UNHANDLED) {
 			return;
@@ -891,17 +887,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this._replyMessage(message, result);
 	}
 
-	protected editCommentPromise(comment: IComment, text: string): Promise<IComment> {
+	protected override editCommentPromise(comment: IComment, text: string): Promise<IComment> {
 		return this._item.editReviewComment(comment, text);
 	}
 
-	protected deleteCommentPromise(comment: IComment): Promise<void> {
+	protected override deleteCommentPromise(comment: IComment): Promise<void> {
 		return this._item.deleteReviewComment(comment.id.toString());
 	}
 
-	dispose() {
+	override dispose() {
 		super.dispose();
-		dispose(this._prListeners);
+		disposeAll(this._prListeners);
 	}
 }
 

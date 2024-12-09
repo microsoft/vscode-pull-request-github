@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
+
 export enum GitHubServerType {
 	None,
 	GitHubDotCom,
@@ -15,10 +17,8 @@ export enum AuthProvider {
 }
 
 export class AuthenticationError extends Error {
-	name: string;
-	stack?: string;
-	constructor(public message: string) {
-		super(message);
+	constructor() {
+		super(vscode.l10n.t('Not authenticated'));
 	}
 }
 
