@@ -102,7 +102,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 				case 'number':
 					return `[${issue[column]}](${issue.url})`;
 				case 'labels':
-					return issue[column]?.map((label) => label && label.name && label.color ? makeLabel({ name: label.name, color: label.color }) : '').join(', ');
+					return issue[column]?.map((label) => label?.name && label.color ? makeLabel({ name: label.name, color: label.color }) : '').join(', ');
 				case 'assignees':
 					return issue[column]?.map((assignee) => this.renderUser(assignee)).join(', ');
 				case 'author':
