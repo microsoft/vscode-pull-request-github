@@ -547,9 +547,7 @@
 						"type": "string",
 						"description": "%githubIssues.ignoreUserCompletionTrigger.items%"
 					},
-					"default": [
-						"python"
-					],
+					"default": [],
 					"description": "%githubIssues.ignoreUserCompletionTrigger.description%"
 				},
 				"githubIssues.issueBranchTitle": {
