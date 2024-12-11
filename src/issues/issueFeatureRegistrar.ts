@@ -1042,7 +1042,7 @@ export class IssueFeatureRegistrar extends Disposable {
 		const projectsLine = `${PROJECTS} `;
 		const cached = this._newIssueCache.get();
 		const text = (cached && cached !== '') ? cached : `${options?.title ?? vscode.l10n.t('Issue Title')}\n
-${repoRef ? `<!-- ${vscode.l10n.t(`This issue will be created in repo ${repoRef.nameWithOwner} (${repoUrl}). Changing this line has no effect.`)} -->\n` : ''}
+${repoRef ? `<!-- ${vscode.l10n.t('This issue will be created in repo {0} ({1}). Changing this line has no effect.', repoRef.nameWithOwner, repoUrl!)} -->\n` : ''}
 ${assigneeLine}
 ${labelLine}
 ${milestoneLine}
