@@ -71,9 +71,9 @@ export class WebviewViewCoordinator extends Disposable {
 		}
 	}
 
-	public show(pullRequestModel: PullRequestModel) {
+	public show(pullRequestModel: PullRequestModel, preserveFocus?: boolean) {
 		if (this._webviewViewProvider && (this._pullRequestModel.size > 0) && (Array.from(this._pullRequestModel.keys())[0] === pullRequestModel)) {
-			this._webviewViewProvider.show();
+			this._webviewViewProvider.show(preserveFocus);
 		}
 	}
 }

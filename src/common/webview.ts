@@ -122,9 +122,9 @@ export class WebviewViewBase extends WebviewBase {
 		}));
 	}
 
-	public show() {
+	public show(preserveFocus?: boolean) {
 		if (this._view) {
-			this._view.show();
+			this._view.show(preserveFocus);
 		} else {
 			commands.focusView(this.viewType);
 		}

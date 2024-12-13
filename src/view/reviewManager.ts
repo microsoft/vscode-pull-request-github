@@ -631,7 +631,7 @@ export class ReviewManager extends Disposable {
 		if ((shouldShowCommentsView !== 'never') && (pr.hasComments)) {
 			commands.executeCommand('workbench.action.focusCommentsPanel');
 		}
-		this._activePrViewCoordinator.show(pr);
+		this._activePrViewCoordinator.show(pr, true);
 		if (updateLayout) {
 			const focusedMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'firstDiff' | 'overview' | 'multiDiff' | false>(FOCUSED_MODE);
 			if (focusedMode === 'firstDiff') {
