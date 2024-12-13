@@ -2435,7 +2435,7 @@
 				{
 					"command": "review.openFile",
 					"group": "inline@0",
-					"when": "openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
+					"when": "openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/ && config.git.showInlineOpenFileAction"
 				},
 				{
 					"command": "pr.openDiffView",
