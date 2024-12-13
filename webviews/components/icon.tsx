@@ -42,4 +42,4 @@ export const labelIcon = <Icon src={require('../../resources/icons/label.svg')} 
 export const milestoneIcon = <Icon src={require('../../resources/icons/milestone.svg')} />;
 export const projectIcon = <Icon src={require('../../resources/icons/github-project.svg')} />;
 export const sparkleIcon = <Icon src={require('../../resources/icons/sparkle.svg')} />;
-export const stopIcon = <Icon src={require('../../resources/icons/stop.svg')} />;
+export const stopCircleIcon = <Icon src={require('../../resources/icons/stop-circle.svg')} />;
