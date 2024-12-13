@@ -13,7 +13,7 @@ import { DiffSide, IReviewThread, SubjectType } from '../common/comment';
 import { getCommentingRanges } from '../common/commentingRanges';
 import { mapNewPositionToOld, mapOldPositionToNew } from '../common/diffPositionMapping';
 import { commands, contexts } from '../common/executeCommands';
-import { GitChangeType } from '../common/file';
+import { GitChangeType, InMemFileChange } from '../common/file';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { PR_SETTINGS_NAMESPACE, PULL_BRANCH, PULL_PR_BRANCH_BEFORE_CHECKOUT, PullPRBranchVariants } from '../common/settingKeys';
@@ -504,7 +504,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 				const diffHunks = await matchedFile.changeModel.diffHunks();
 				if ((matchedFile.status === GitChangeType.RENAME) && (diffHunks.length === 0)) {
 					Logger.debug('No commenting ranges: File was renamed with no diffs.', ReviewCommentController.ID);
-					return;
+					return { ranges: [], enableFileComments: true };
 				}
 
 				const contentDiff = await this.getContentDiff(document.uri, matchedFile.fileName);
@@ -599,7 +599,9 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 			}
 
 			if (fileChange.fileName !== query.path) {
-				return false;
+				if (!((fileChange.change instanceof InMemFileChange) && fileChange.change.previousFileName === query.path)) {
+					return false;
+				}
 			}
 
 			if (fileChange.filePath.scheme !== 'review') {
