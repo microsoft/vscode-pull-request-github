@@ -1631,4 +1631,21 @@ ${contents}
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.closeRelatedEditors', closeAllPrAndReviewEditors)
 	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('review.copyPrLink', async () => {
+			const activePullRequests: PullRequestModel[] = reposManager.folderManagers
+				.map(folderManager => folderManager.activePullRequest!)
+				.filter(activePR => !!activePR);
+
+			const pr = await chooseItem<PullRequestModel>(
+				activePullRequests,
+				itemValue => `${itemValue.number}: ${itemValue.title}`,
+				{ placeHolder: vscode.l10n.t('Pull request to create a link for') },
+			);
+			if (pr) {
+				return vscode.env.clipboard.writeText(pr.html_url);
+			}
+		})
+	);
 }
