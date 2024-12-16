@@ -1271,6 +1271,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "review.copyPrLink",
+				"title": "%command.review.copyPrLink.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.createPrMenuCreate",
 				"title": "%command.pr.createPrMenuCreate.title%",
 				"category": "%command.pull.request.category%"
@@ -2203,6 +2208,10 @@
 				{
 					"command": "notification.chatSummarizeNotification",
 					"when": "false"
+				},
+				{
+					"command": "review.copyPrLink",
+					"when": "github:inReviewMode"
 				}
 			],
 			"view/title": [
