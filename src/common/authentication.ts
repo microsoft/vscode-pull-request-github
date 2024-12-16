@@ -23,5 +23,5 @@ export class AuthenticationError extends Error {
 }
 
 export function isSamlError(e: { message?: string }): boolean {
-	return !!e.message?.startsWith('Resource protected by organization SAML enforcement.');
+	return !!e.message?.includes('Resource protected by organization SAML enforcement.');
 }

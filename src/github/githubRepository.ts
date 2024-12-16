@@ -1493,7 +1493,7 @@ export class GitHubRepository extends Disposable {
 				},
 			}, true); // There's an issue with the GetChecks that can result in SAML errors.
 		} catch (e) {
-			if (e.message?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
+			if (isSamlError(e.message)) {
 				// There seems to be an issue with fetching status checks if you haven't SAML'd with every org you have
 				// The issue is specifically with the CheckSuite property. Make the query again, but without that property.
 				if (!captureUseFallbackChecks) {
