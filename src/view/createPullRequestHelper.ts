@@ -175,14 +175,17 @@ export class CreatePullRequestHelper extends Disposable {
 		pullRequestModel: PullRequestModel,
 		callback: (pullRequest: PullRequestModel | undefined) => Promise<void>,
 	) {
-		this.reset();
+		const recreate = !this._createPRViewProvider || !(this._createPRViewProvider instanceof RevertPullRequestViewProvider);
+		if (recreate) {
+			this.reset();
+		}
 
 		this._postCreateCallback = callback;
 		await folderRepoManager.loginAndUpdate();
 		this._activeContext = 'github:revertPullRequest';
 		this.setActiveContext(true);
 
-		if (!this._createPRViewProvider || !(this._createPRViewProvider instanceof RevertPullRequestViewProvider)) {
+		if (recreate) {
 			this._createPRViewProvider?.dispose();
 			const model: BasePullRequestDataModel = {
 				baseOwner: pullRequestModel.remote.owner,
@@ -208,7 +211,7 @@ export class CreatePullRequestHelper extends Disposable {
 			);
 		}
 
-		this._createPRViewProvider.show();
+		this._createPRViewProvider!.show();
 	}
 
 	async create(
@@ -218,7 +221,10 @@ export class CreatePullRequestHelper extends Disposable {
 		compareBranch: string | undefined,
 		callback: (pullRequestModel: PullRequestModel | undefined) => Promise<void>,
 	) {
-		this.reset();
+		const recreate = !this._createPRViewProvider || !(this._createPRViewProvider instanceof CreatePullRequestViewProvider);
+		if (recreate) {
+			this.reset();
+		}
 
 		this._postCreateCallback = callback;
 		await folderRepoManager.loginAndUpdate();
@@ -230,7 +236,7 @@ export class CreatePullRequestHelper extends Disposable {
 				folderRepoManager.repository.state.HEAD?.name ? folderRepoManager.repository.state.HEAD : undefined);
 
 		let createViewProvider: CreatePullRequestViewProvider;
-		if (!this._createPRViewProvider || !(this._createPRViewProvider instanceof CreatePullRequestViewProvider)) {
+		if (recreate) {
 			this._createPRViewProvider?.dispose();
 			const pullRequestDefaults = await this.ensureDefaultsAreLocal(
 				folderRepoManager,
@@ -262,7 +268,7 @@ export class CreatePullRequestHelper extends Disposable {
 				this._currentDisposables
 			);
 		} else {
-			createViewProvider = this._createPRViewProvider;
+			createViewProvider = this._createPRViewProvider as CreatePullRequestViewProvider;
 		}
 
 		createViewProvider.show(branch);
