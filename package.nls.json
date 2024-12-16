@@ -209,7 +209,7 @@
 	"command.pr.deleteLocalBranchesNRemotes.title": "Delete local branches and remotes",
 	"command.pr.createComment.title": "Add Review Comment",
 	"command.pr.createSingleComment.title": "Add Comment",
-	"command.pr.makeSuggestion.title": "Make a Suggestion",
+	"command.pr.makeSuggestion.title": "Make Code Suggestion",
 	"command.pr.startReview.title": "Start Review",
 	"command.pr.editComment.title": "Edit Comment",
 	"command.pr.cancelEditComment.title": "Cancel",
