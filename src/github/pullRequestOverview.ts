@@ -108,6 +108,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		folderRepositoryManager: FolderRepositoryManager,
 	) {
 		super(telemetry, extensionUri, column, title, folderRepositoryManager, PULL_REQUEST_OVERVIEW_VIEW_TYPE);
+		this._panel.iconPath = {
+			dark: vscode.Uri.joinPath(extensionUri, 'resources/icons/dark/pr_webview.svg'),
+			light: vscode.Uri.joinPath(extensionUri, 'resources/icons/pr_webview.svg')
+		};
 
 		this.registerPrListeners();
 		this._register(onDidUpdatePR(
