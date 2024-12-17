@@ -2444,12 +2444,12 @@
 				{
 					"command": "review.openFile",
 					"group": "inline@0",
-					"when": "openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/ && config.git.showInlineOpenFileAction"
+					"when": "openDiffOnClick && showInlineOpenFileAction && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
 				},
 				{
 					"command": "pr.openDiffView",
 					"group": "inline@0",
-					"when": "!openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
+					"when": "!openDiffOnClick && showInlineOpenFileAction && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
 				},
 				{
 					"command": "pr.openFileOnGitHub",

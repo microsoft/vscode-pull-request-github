@@ -62,6 +62,7 @@ export const EXPERIMENTAL_NOTIFICATIONS_SCORE = 'experimental.notificationsScore
 export const GIT = 'git';
 export const PULL_BEFORE_CHECKOUT = 'pullBeforeCheckout';
 export const OPEN_DIFF_ON_CLICK = 'openDiffOnClick';
+export const SHOW_INLINE_OPEN_FILE_ACTION = 'showInlineOpenFileAction';
 export const AUTO_STASH = 'autoStash';
 
 // GitHub Enterprise
