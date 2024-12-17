@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { basename } from 'path';
 import * as vscode from 'vscode';
 import { Remote } from '../api/api';
 import { GitApiImpl } from '../api/api1';
@@ -54,6 +55,7 @@ import { UserHoverProvider } from './userHoverProvider';
 import {
 	createGitHubLink,
 	createGithubPermalink,
+	createSinglePermalink,
 	getIssue,
 	IssueTemplate,
 	LinkContext,
@@ -137,12 +139,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyGithubPermalink',
-				(context: LinkContext) => {
+				(context: LinkContext, additional: LinkContext[] | undefined) => {
 					/* __GDPR__
 				"issue.copyGithubPermalink" : {}
 			*/
 					this.telemetry.sendTelemetryEvent('issue.copyGithubPermalink');
-					return this.copyPermalink(this.manager, context);
+					return this.copyPermalink(this.manager, additional && additional.length > 0 ? additional : [context]);
 				},
 				this,
 			),
@@ -150,12 +152,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyGithubHeadLink',
-				(fileUri: any) => {
+				(fileUri: vscode.Uri, additional: vscode.Uri[] | undefined) => {
 					/* __GDPR__
 				"issue.copyGithubHeadLink" : {}
 			*/
 					this.telemetry.sendTelemetryEvent('issue.copyGithubHeadLink');
-					return this.copyHeadLink(fileUri);
+					return this.copyHeadLink(additional && additional.length > 0 ? additional : [fileUri]);
 				},
 				this,
 			),
@@ -163,12 +165,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyGithubPermalinkWithoutRange',
-				(context: LinkContext) => {
+				(context: LinkContext, additional: LinkContext[] | undefined) => {
 					/* __GDPR__
 				"issue.copyGithubPermalinkWithoutRange" : {}
 			*/
 					this.telemetry.sendTelemetryEvent('issue.copyGithubPermalinkWithoutRange');
-					return this.copyPermalink(this.manager, context, false);
+					return this.copyPermalink(this.manager, additional && additional.length > 0 ? additional : [context], false);
 				},
 				this,
 			),
@@ -176,12 +178,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyGithubHeadLinkWithoutRange',
-				(fileUri: any) => {
+				(fileUri: vscode.Uri, additional: vscode.Uri[] | undefined) => {
 					/* __GDPR__
 				"issue.copyGithubHeadLinkWithoutRange" : {}
 			*/
 					this.telemetry.sendTelemetryEvent('issue.copyGithubHeadLinkWithoutRange');
-					return this.copyHeadLink(fileUri, false);
+					return this.copyHeadLink(additional && additional.length > 0 ? additional : [fileUri], false);
 				},
 				this,
 			),
@@ -189,12 +191,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyGithubDevLinkWithoutRange',
-				(context: LinkContext) => {
+				(context: LinkContext, additional: LinkContext[] | undefined) => {
 					/* __GDPR__
 				"issue.copyGithubDevLinkWithoutRange" : {}
 			*/
 					this.telemetry.sendTelemetryEvent('issue.copyGithubDevLinkWithoutRange');
-					return this.copyPermalink(this.manager, context, false, true, true);
+					return this.copyPermalink(this.manager, additional && additional.length > 0 ? additional : [context], false, true, true);
 				},
 				this,
 			),
@@ -202,12 +204,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyGithubDevLink',
-				(context: LinkContext) => {
+				(context: LinkContext, additional: LinkContext[] | undefined) => {
 					/* __GDPR__
 				"issue.copyGithubDevLink" : {}
 			*/
 					this.telemetry.sendTelemetryEvent('issue.copyGithubDevLink');
-					return this.copyPermalink(this.manager, context, true, true, true);
+					return this.copyPermalink(this.manager, additional && additional.length > 0 ? additional : [context], true, true, true);
 				},
 				this,
 			),
@@ -215,12 +217,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyGithubDevLinkFile',
-				(context: LinkContext) => {
+				(context: LinkContext, additional: LinkContext[] | undefined) => {
 					/* __GDPR__
 				"issue.copyGithubDevLinkFile" : {}
 			*/
 					this.telemetry.sendTelemetryEvent('issue.copyGithubDevLinkFile');
-					return this.copyPermalink(this.manager, context, false, true, true);
+					return this.copyPermalink(this.manager, additional && additional.length > 0 ? additional : [context], false, true, true);
 				},
 				this,
 			),
@@ -228,12 +230,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyMarkdownGithubPermalink',
-				(context: LinkContext) => {
+				(context: LinkContext, additional: LinkContext[] | undefined) => {
 					/* __GDPR__
 				"issue.copyMarkdownGithubPermalink" : {}
 			*/
 					this.telemetry.sendTelemetryEvent('issue.copyMarkdownGithubPermalink');
-					return this.copyMarkdownPermalink(this.manager, context);
+					return this.copyMarkdownPermalink(this.manager, additional && additional.length > 0 ? additional : [context]);
 				},
 				this,
 			),
@@ -241,12 +243,12 @@ export class IssueFeatureRegistrar extends Disposable {
 		this._register(
 			vscode.commands.registerCommand(
 				'issue.copyMarkdownGithubPermalinkWithoutRange',
-				(context: LinkContext) => {
+				(context: LinkContext, additional: LinkContext[] | undefined) => {
 					/* __GDPR__
 				"issue.copyMarkdownGithubPermalinkWithoutRange" : {}
 			*/
 					this.telemetry.sendTelemetryEvent('issue.copyMarkdownGithubPermalinkWithoutRange');
-					return this.copyMarkdownPermalink(this.manager, context, false);
+					return this.copyMarkdownPermalink(this.manager, additional && additional.length > 0 ? additional : [context], false);
 				},
 				this,
 			),
@@ -949,7 +951,7 @@ export class IssueFeatureRegistrar extends Disposable {
 			}
 		}
 
-		contents += (await createGithubPermalink(this.manager, this.gitAPI, true, true, newIssue)).permalink;
+		contents += (await createSinglePermalink(this.manager, this.gitAPI, true, true, newIssue)).permalink;
 		return contents;
 	}
 
@@ -1293,7 +1295,7 @@ ${options?.body ?? ''}\n
 			const body: string | undefined =
 				issueBody || newIssue?.document.isUntitled
 					? issueBody
-					: (await createGithubPermalink(this.manager, this.gitAPI, true, true, newIssue)).permalink;
+					: (await createSinglePermalink(this.manager, this.gitAPI, true, true, newIssue)).permalink;
 			const createParams: OctokitCommon.IssuesCreateParams = {
 				owner: origin.owner,
 				repo: origin.repo,
@@ -1343,20 +1345,24 @@ ${options?.body ?? ''}\n
 		});
 	}
 
-	private async getPermalinkWithError(repositoriesManager: RepositoriesManager, includeRange: boolean, includeFile: boolean, context?: LinkContext): Promise<PermalinkInfo> {
-		const link = await createGithubPermalink(repositoriesManager, this.gitAPI, includeRange, includeFile, undefined, context);
-		if (link.error) {
-			vscode.window.showWarningMessage(vscode.l10n.t('Unable to create a GitHub permalink for the selection. {0}', link.error));
+	private async getPermalinkWithError(repositoriesManager: RepositoriesManager, includeRange: boolean, includeFile: boolean, context?: LinkContext[]): Promise<PermalinkInfo[]> {
+		const links = await createGithubPermalink(repositoriesManager, this.gitAPI, includeRange, includeFile, undefined, context);
+		const firstError = links.find(link => link.error);
+		if (firstError) {
+			vscode.window.showWarningMessage(vscode.l10n.t('Unable to create a GitHub permalink for the selection. {0}', firstError.error!));
 		}
-		return link;
+		return links;
 	}
 
-	private async getHeadLinkWithError(context?: vscode.Uri, includeRange?: boolean): Promise<PermalinkInfo> {
-		const link = await createGitHubLink(this.manager, context, includeRange);
-		if (link.error) {
-			vscode.window.showWarningMessage(vscode.l10n.t('Unable to create a GitHub link for the selection. {0}', link.error));
+	private async getHeadLinkWithError(context?: vscode.Uri[], includeRange?: boolean): Promise<PermalinkInfo[]> {
+		const links = await createGitHubLink(this.manager, context, includeRange);
+		if (links.length > 0) {
+			const firstError = links.find(link => link.error);
+			if (firstError) {
+				vscode.window.showWarningMessage(vscode.l10n.t('Unable to create a GitHub link for the selection. {0}', firstError.error!));
+			}
 		}
-		return link;
+		return links;
 	}
 
 	private async getContextualizedLink(file: vscode.Uri, link: string): Promise<string> {
@@ -1376,19 +1382,30 @@ ${options?.body ?? ''}\n
 		return linkUri.with({ authority, path: linkPath }).toString();
 	}
 
-	async copyPermalink(repositoriesManager: RepositoriesManager, context?: LinkContext, includeRange: boolean = true, includeFile: boolean = true, contextualizeLink: boolean = false) {
-		const link = await this.getPermalinkWithError(repositoriesManager, includeRange, includeFile, context);
-		if (link.permalink) {
-			const contextualizedLink = contextualizeLink && link.originalFile ? await this.getContextualizedLink(link.originalFile, link.permalink) : link.permalink;
-			Logger.debug(`writing ${contextualizedLink} to the clipboard`, PERMALINK_COMPONENT);
-			return vscode.env.clipboard.writeText(contextualizedLink);
+	private async permalinkInfoToClipboardText(links: PermalinkInfo[], shouldContextualize: boolean = false): Promise<string | undefined> {
+		const withPermalinks: (PermalinkInfo & { permalink: string })[] = links.filter((link): link is PermalinkInfo & { permalink: string } => !!link.permalink);
+		if (withPermalinks.length !== 0) {
+			const contextualizedLinks = await Promise.all(withPermalinks.map(async link => (shouldContextualize && link.originalFile) ? await this.getContextualizedLink(link.originalFile, link.permalink) : link.permalink));
+			const clipboardText = contextualizedLinks.join('\n');
+			Logger.debug(`Will write ${clipboardText} to the clipboard`, PERMALINK_COMPONENT);
+			return clipboardText;
+		}
+		return undefined;
+	}
+
+	async copyPermalink(repositoriesManager: RepositoriesManager, context?: LinkContext[], includeRange: boolean = true, includeFile: boolean = true, contextualizeLink: boolean = false) {
+		const links = await this.getPermalinkWithError(repositoriesManager, includeRange, includeFile, context);
+		const clipboardText = await this.permalinkInfoToClipboardText(links, contextualizeLink);
+		if (clipboardText) {
+			return vscode.env.clipboard.writeText(clipboardText);
 		}
 	}
 
-	async copyHeadLink(fileUri?: vscode.Uri, includeRange = true) {
+	async copyHeadLink(fileUri?: vscode.Uri[], includeRange = true) {
 		const link = await this.getHeadLinkWithError(fileUri, includeRange);
-		if (link.permalink) {
-			return vscode.env.clipboard.writeText(link.permalink);
+		const clipboardText = await this.permalinkInfoToClipboardText(link);
+		if (clipboardText) {
+			return vscode.env.clipboard.writeText(clipboardText);
 		}
 	}
 
@@ -1414,18 +1431,27 @@ ${options?.body ?? ''}\n
 		return undefined;
 	}
 
-	async copyMarkdownPermalink(repositoriesManager: RepositoriesManager, context: LinkContext, includeRange: boolean = true) {
-		const link = await this.getPermalinkWithError(repositoriesManager, includeRange, true, context);
-		const selection = this.getMarkdownLinkText();
-		if (link.permalink && selection) {
-			return vscode.env.clipboard.writeText(`[${selection.trim()}](${link.permalink})`);
+	async copyMarkdownPermalink(repositoriesManager: RepositoriesManager, context: LinkContext[], includeRange: boolean = true) {
+		const links = await this.getPermalinkWithError(repositoriesManager, includeRange, true, context);
+		const withPermalinks: (PermalinkInfo & { permalink: string })[] = links.filter((link): link is PermalinkInfo & { permalink: string } => !!link.permalink);
+
+		if (withPermalinks.length === 1) {
+			const selection = this.getMarkdownLinkText();
+			if (selection) {
+				return vscode.env.clipboard.writeText(`[${selection.trim()}](${withPermalinks[0].permalink})`);
+			}
 		}
+		const clipboardText = withPermalinks.map(link => `[${basename(link.originalFile?.fsPath ?? '')}](${link.permalink})`).join('\n');
+		Logger.debug(`writing ${clipboardText} to the clipboard`, PERMALINK_COMPONENT);
+		return vscode.env.clipboard.writeText(clipboardText);
 	}
 
 	async openPermalink(repositoriesManager: RepositoriesManager) {
-		const link = await this.getPermalinkWithError(repositoriesManager, true, true);
-		if (link.permalink) {
-			return vscode.env.openExternal(vscode.Uri.parse(link.permalink));
+		const links = await this.getPermalinkWithError(repositoriesManager, true, true);
+		const withPermalinks: (PermalinkInfo & { permalink: string })[] = links.filter((link): link is PermalinkInfo & { permalink: string } => !!link.permalink);
+
+		if (withPermalinks.length > 0) {
+			return vscode.env.openExternal(vscode.Uri.parse(withPermalinks[0].permalink));
 		}
 		return undefined;
 	}
