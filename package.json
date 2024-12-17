@@ -2339,13 +2339,48 @@
 			"view/item/context": [
 				{
 					"command": "pr.pick",
+					"when": "view == pr:github && viewItem =~ /description:nonactive/",
+					"group": "inline@0"
+				},
+				{
+					"command": "pr.pick",
 					"when": "view == pr:github && viewItem =~ /(pullrequest(:local)?:nonactive)|(description:nonactive)/",
 					"group": "1_pullrequest@1"
 				},
 				{
-					"command": "pr.pick",
-					"when": "view == pr:github && viewItem =~ /description:nonactive/",
-					"group": "inline@0"
+					"command": "pr.exit",
+					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:active|description:active/",
+					"group": "1_pullrequest@1"
+				},
+				{
+					"command": "pr.pickOnVscodeDev",
+					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive|description/ && (!isWeb || remoteName != codespaces && virtualWorkspace != vscode-vfs)",
+					"group": "1_pullrequest@2"
+				},
+				{
+					"command": "pr.openPullRequestOnGitHub",
+					"when": "view == pr:github && viewItem =~ /pullrequest|description/",
+					"group": "1_pullrequest@3"
+				},
+				{
+					"command": "pr.refreshPullRequest",
+					"when": "view == pr:github && viewItem =~ /pullrequest|description/",
+					"group": "2_pullrequest@1"
+				},
+				{
+					"command": "pr.deleteLocalBranch",
+					"when": "view == pr:github && viewItem =~ /pullrequest:local:nonactive/",
+					"group": "3_pullrequest@4"
+				},
+				{
+					"command": "pr.dismissNotification",
+					"when": "view == pr:github && viewItem =~ /pullrequest(.*):notification/",
+					"group": "3_pullrequest@5"
+				},
+				{
+					"command": "issue.chatSummarizeIssue",
+					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
+					"group": "4_pullrequest@2"
 				},
 				{
 					"command": "pr.openChanges",
@@ -2401,41 +2436,6 @@
 					"command": "pr.openPullRequestOnGitHub",
 					"group": "inline@3",
 					"when": "view == prStatus:github && viewItem =~ /description/ && github:activePRCount >= 2"
-				},
-				{
-					"command": "pr.exit",
-					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:active|description:active/",
-					"group": "1_pullrequest@1"
-				},
-				{
-					"command": "pr.pickOnVscodeDev",
-					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive|description/ && (!isWeb || remoteName != codespaces && virtualWorkspace != vscode-vfs)",
-					"group": "1_pullrequest@2"
-				},
-				{
-					"command": "pr.refreshPullRequest",
-					"when": "view == pr:github && viewItem =~ /pullrequest|description/",
-					"group": "pullrequest@1"
-				},
-				{
-					"command": "issue.chatSummarizeIssue",
-					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
-					"group": "pullrequest@2"
-				},
-				{
-					"command": "pr.openPullRequestOnGitHub",
-					"when": "view == pr:github && viewItem =~ /pullrequest|description/",
-					"group": "1_pullrequest@3"
-				},
-				{
-					"command": "pr.deleteLocalBranch",
-					"when": "view == pr:github && viewItem =~ /pullrequest:local:nonactive/",
-					"group": "pullrequest@4"
-				},
-				{
-					"command": "pr.dismissNotification",
-					"when": "view == pr:github && viewItem =~ /pullrequest(.*):notification/",
-					"group": "pullrequest@5"
 				},
 				{
 					"command": "pr.copyCommitHash",
