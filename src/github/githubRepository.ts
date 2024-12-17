@@ -1491,9 +1491,10 @@ export class GitHubRepository extends Disposable {
 					name: remote.repositoryName,
 					number: number,
 				},
-			}, true); // There's an issue with the GetChecks that can result in SAML errors.
+			});
 		} catch (e) {
-			if (isSamlError(e.message)) {
+			// There's an issue with the GetChecks that can result in SAML errors.
+			if (isSamlError(e)) {
 				// There seems to be an issue with fetching status checks if you haven't SAML'd with every org you have
 				// The issue is specifically with the CheckSuite property. Make the query again, but without that property.
 				if (!captureUseFallbackChecks) {
