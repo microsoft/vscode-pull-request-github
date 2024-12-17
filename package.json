@@ -26,7 +26,6 @@
 		"contribEditorContentMenu",
 		"contribShareMenu",
 		"diffCommand",
-		"fileComments",
 		"quickDiffProvider",
 		"shareProvider",
 		"tokenInformation",
@@ -35,7 +34,7 @@
 	"version": "0.102.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.96.0"
+		"vscode": "^1.97.0"
 	},
 	"categories": [
 		"Other",
