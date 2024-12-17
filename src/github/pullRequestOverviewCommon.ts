@@ -18,18 +18,19 @@ import { PullRequestModel } from './pullRequestModel';
 export namespace PullRequestView {
 	export async function deleteBranch(folderRepositoryManager: FolderRepositoryManager, item: PullRequestModel): Promise<{ isReply: boolean, message: any }> {
 		const branchInfo = await folderRepositoryManager.getBranchNameForPullRequest(item);
-		const actions: (vscode.QuickPickItem & { type: 'upstream' | 'local' | 'remote' | 'suspend' })[] = [];
+		const actions: (vscode.QuickPickItem & { type: 'remoteHead' | 'local' | 'remote' | 'suspend' })[] = [];
 		const defaultBranch = await folderRepositoryManager.getPullRequestRepositoryDefaultBranch(item);
 
 		if (item.isResolved()) {
 			const branchHeadRef = item.head.ref;
+			const headRepo = folderRepositoryManager.findRepo(repo => repo.remote.owner === item.head.owner && repo.remote.repositoryName === item.remote.repositoryName);
 
 			const isDefaultBranch = defaultBranch === item.head.ref;
 			if (!isDefaultBranch && !item.isRemoteHeadDeleted) {
 				actions.push({
-					label: vscode.l10n.t('Delete remote branch {0}', `${item.remote.remoteName}/${branchHeadRef}`),
-					description: `${item.remote.normalizedHost}/${item.remote.owner}/${item.remote.repositoryName}`,
-					type: 'upstream',
+					label: vscode.l10n.t('Delete remote branch {0}', `${headRepo?.remote.remoteName}/${branchHeadRef}`),
+					description: `${item.remote.normalizedHost}/${item.head.repositoryCloneUrl.owner}/${item.remote.repositoryName}`,
+					type: 'remoteHead',
 					picked: true,
 				});
 			}
@@ -89,7 +90,7 @@ export namespace PullRequestView {
 
 			const promises = selectedActions.map(async action => {
 				switch (action.type) {
-					case 'upstream':
+					case 'remoteHead':
 						await folderRepositoryManager.deleteBranch(item);
 						deletedBranchTypes.push(action.type);
 						await folderRepositoryManager.repository.fetch({ prune: true });
