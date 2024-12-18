@@ -2581,13 +2581,14 @@ export class FolderRepositoryManager extends Disposable {
 		const workingRemoteName: string =
 			matchingRepo.state.remotes.length > 1 ? 'origin' : matchingRepo.state.remotes[0].name;
 		progress.report({ message: vscode.l10n.t('Adding remotes. This may take a few moments.') });
+		const startingRepoCount = this.gitHubRepositories.length;
 		await matchingRepo.renameRemote(workingRemoteName, 'upstream');
 		await matchingRepo.addRemote(workingRemoteName, result);
 		// Now the extension is responding to all the git changes.
 		await new Promise<void>(resolve => {
-			if (this.gitHubRepositories.length === 0) {
+			if (this.gitHubRepositories.length === startingRepoCount) {
 				const disposable = this.onDidChangeRepositories(() => {
-					if (this.gitHubRepositories.length > 0) {
+					if (this.gitHubRepositories.length > startingRepoCount) {
 						disposable.dispose();
 						resolve();
 					}
@@ -2637,6 +2638,65 @@ export class FolderRepositoryManager extends Disposable {
 				return false;
 			default:
 				return undefined;
+		}
+	}
+
+	public async publishBranch(pushRemote: Remote, branchName: string): Promise<GitHubRemote | undefined> {
+		const githubRepo = await this.createGitHubRepository(
+			pushRemote,
+			this.credentialStore,
+		);
+		const permission = await githubRepo.getViewerPermission();
+		let selectedRemote: GitHubRemote | undefined;
+		if (
+			permission === ViewerPermission.Read ||
+			permission === ViewerPermission.Triage ||
+			permission === ViewerPermission.Unknown
+		) {
+			// No permission to publish the branch to the chosen remote. Offer to fork.
+			const fork = await this.tryOfferToFork(githubRepo);
+			if (!fork) {
+				return;
+			}
+
+			selectedRemote = (await this.getGitHubRemotes()).find(element => element.remoteName === fork);
+		} else {
+			selectedRemote = (await this.getGitHubRemotes()).find(element => element.remoteName === pushRemote.remoteName);
+		}
+
+		if (!selectedRemote) {
+			return;
+		}
+
+		try {
+			await this._repository.push(selectedRemote.remoteName, branchName, true);
+			await this._repository.status();
+			return selectedRemote;
+		} catch (err) {
+			if (err.gitErrorCode === GitErrorCodes.PushRejected) {
+				vscode.window.showWarningMessage(
+					vscode.l10n.t(`Can't push refs to remote, try running 'git pull' first to integrate with your change`),
+					{
+						modal: true,
+					},
+				);
+
+				return undefined;
+			}
+
+			if (err.gitErrorCode === GitErrorCodes.RemoteConnectionError) {
+				vscode.window.showWarningMessage(
+					vscode.l10n.t(`Could not read from remote repository '{0}'. Please make sure you have the correct access rights and the repository exists.`, selectedRemote.remoteName),
+					{
+						modal: true,
+					},
+				);
+
+				return undefined;
+			}
+
+			// we can't handle the error
+			throw err;
 		}
 	}
 

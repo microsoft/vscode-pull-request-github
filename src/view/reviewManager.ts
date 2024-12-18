@@ -33,7 +33,7 @@ import { formatError, groupBy, onceEvent } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
-import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
+import { GitHubRepository } from '../github/githubRepository';
 import { GithubItemStateEnum } from '../github/interface';
 import { PullRequestGitHelper, PullRequestMetadata } from '../github/pullRequestGitHelper';
 import { IResolvedPullRequestModel, PullRequestModel } from '../github/pullRequestModel';
@@ -43,7 +43,6 @@ import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } fr
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { ProgressHelper } from './progress';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
-import { RemoteQuickPickItem } from './quickpick';
 import { ReviewCommentController, SuggestionInformation } from './reviewCommentController';
 import { ReviewModel } from './reviewModel';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
@@ -1142,166 +1141,6 @@ export class ReviewManager extends Disposable {
 		this.statusBarItem.text = vscode.l10n.t('Pull Request #{0}', pr.number);
 		this.statusBarItem.command = undefined;
 		this.statusBarItem.show();
-	}
-
-	public async publishBranch(branch: Branch): Promise<Branch | undefined> {
-		const potentialTargetRemotes = await this._folderRepoManager.getAllGitHubRemotes();
-		let selectedRemote = (await this.getRemote(
-			potentialTargetRemotes,
-			vscode.l10n.t(`Pick a remote to publish the branch '{0}' to:`, branch.name!),
-		))!.remote;
-
-		if (!selectedRemote || branch.name === undefined) {
-			return;
-		}
-
-		const githubRepo = await this._folderRepoManager.createGitHubRepository(
-			selectedRemote,
-			this._folderRepoManager.credentialStore,
-		);
-		const permission = await githubRepo.getViewerPermission();
-		if (
-			permission === ViewerPermission.Read ||
-			permission === ViewerPermission.Triage ||
-			permission === ViewerPermission.Unknown
-		) {
-			// No permission to publish the branch to the chosen remote. Offer to fork.
-			const fork = await this._folderRepoManager.tryOfferToFork(githubRepo);
-			if (!fork) {
-				return;
-			}
-			selectedRemote = (await this._folderRepoManager.getGitHubRemotes()).find(element => element.remoteName === fork);
-		}
-
-		if (!selectedRemote) {
-			return;
-		}
-		const remote: Remote = selectedRemote;
-
-		return new Promise<Branch | undefined>(async resolve => {
-			const inputBox = vscode.window.createInputBox();
-			inputBox.value = branch.name!;
-			inputBox.ignoreFocusOut = true;
-			inputBox.prompt =
-				potentialTargetRemotes.length === 1
-					? vscode.l10n.t(`The branch '{0}' is not published yet, pick a name for the upstream branch`, branch.name!)
-					: vscode.l10n.t('Pick a name for the upstream branch');
-			const validate = async function (value: string) {
-				try {
-					inputBox.busy = true;
-					const remoteBranch = await this._reposManager.getBranch(remote, value);
-					if (remoteBranch) {
-						inputBox.validationMessage = vscode.l10n.t(`Branch '{0}' already exists in {1}`, value, `${remote.owner}/${remote.repositoryName}`);
-					} else {
-						inputBox.validationMessage = undefined;
-					}
-				} catch (e) {
-					inputBox.validationMessage = undefined;
-				}
-
-				inputBox.busy = false;
-			};
-			await validate(branch.name!);
-			inputBox.onDidChangeValue(validate.bind(this));
-			inputBox.onDidAccept(async () => {
-				inputBox.validationMessage = undefined;
-				inputBox.hide();
-				try {
-					// since we are probably pushing a remote branch with a different name, we use the complete syntax
-					// git push -u origin local_branch:remote_branch
-					await this._repository.push(remote.remoteName, `${branch.name}:${inputBox.value}`, true);
-				} catch (err) {
-					if (err.gitErrorCode === GitErrorCodes.PushRejected) {
-						vscode.window.showWarningMessage(
-							vscode.l10n.t(`Can't push refs to remote, try running 'git pull' first to integrate with your change`),
-							{
-								modal: true,
-							},
-						);
-
-						resolve(undefined);
-					}
-
-					if (err.gitErrorCode === GitErrorCodes.RemoteConnectionError) {
-						vscode.window.showWarningMessage(
-							vscode.l10n.t(`Could not read from remote repository '{0}'. Please make sure you have the correct access rights and the repository exists.`, remote.remoteName),
-							{
-								modal: true,
-							},
-						);
-
-						resolve(undefined);
-					}
-
-					// we can't handle the error
-					throw err;
-				}
-
-				// we don't want to wait for repository status update
-				const latestBranch = await this._repository.getBranch(branch.name!);
-				if (!latestBranch || !latestBranch.upstream) {
-					resolve(undefined);
-				}
-
-				resolve(latestBranch);
-			});
-
-			inputBox.show();
-		});
-	}
-
-	private async getRemote(
-		potentialTargetRemotes: Remote[],
-		placeHolder: string,
-		defaultUpstream?: RemoteQuickPickItem,
-	): Promise<RemoteQuickPickItem | undefined> {
-		if (!potentialTargetRemotes.length) {
-			vscode.window.showWarningMessage(vscode.l10n.t(`No GitHub remotes found. Add a remote and try again.`));
-			return;
-		}
-
-		if (potentialTargetRemotes.length === 1 && !defaultUpstream) {
-			return RemoteQuickPickItem.fromRemote(potentialTargetRemotes[0]);
-		}
-
-		if (
-			potentialTargetRemotes.length === 1 &&
-			defaultUpstream &&
-			defaultUpstream.owner === potentialTargetRemotes[0].owner &&
-			defaultUpstream.name === potentialTargetRemotes[0].repositoryName
-		) {
-			return defaultUpstream;
-		}
-
-		let defaultUpstreamWasARemote = false;
-		const picks: RemoteQuickPickItem[] = potentialTargetRemotes.map(remote => {
-			const remoteQuickPick = RemoteQuickPickItem.fromRemote(remote);
-			if (defaultUpstream) {
-				const { owner, name } = defaultUpstream;
-				remoteQuickPick.picked = remoteQuickPick.owner === owner && remoteQuickPick.name === name;
-				if (remoteQuickPick.picked) {
-					defaultUpstreamWasARemote = true;
-				}
-			}
-			return remoteQuickPick;
-		});
-		if (!defaultUpstreamWasARemote && defaultUpstream) {
-			picks.unshift(defaultUpstream);
-		}
-
-		const selected: RemoteQuickPickItem | undefined = await vscode.window.showQuickPick<RemoteQuickPickItem>(
-			picks,
-			{
-				ignoreFocusOut: true,
-				placeHolder: placeHolder,
-			},
-		);
-
-		if (!selected) {
-			return;
-		}
-
-		return selected;
 	}
 
 	public async createPullRequest(compareBranch?: string): Promise<void> {
