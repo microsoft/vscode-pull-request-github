@@ -988,7 +988,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				input: {
 					pullRequestId: this.graphNodeId,
 					teamIds: teamReviewers,
-					userIds: reviewers.filter(r => !r.startsWith('BOT')),
+					userIds: reviewers.filter(r => r && !r.startsWith('BOT')),
 				},
 			},
 		});
