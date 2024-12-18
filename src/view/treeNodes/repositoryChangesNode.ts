@@ -22,7 +22,6 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 	public description?: string;
 	readonly collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 
-
 	constructor(
 		public override parent: BaseTreeNode,
 		pullRequest: PullRequestModel,
