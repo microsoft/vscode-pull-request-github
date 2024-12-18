@@ -1020,8 +1020,8 @@ export class GitHubRepository extends Disposable {
 
 	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
 		try {
-			Logger.debug(`Fetch pull request ${id} - enter`, this.id);
 			const { query, remote, schema } = await this.ensure();
+			Logger.debug(`Fetch pull request ${remote.owner}/${remote.repositoryName} ${id} - enter`, this.id);
 
 			const { data } = await query<PullRequestResponse>({
 				query: schema.PullRequest,
