@@ -526,7 +526,7 @@ const StatusCheckDetails = ( { statuses }: { statuses: PullRequestCheckStatus[] 
 					<Avatar for={{ avatarUrl: s.avatarUrl, url: s.url }} />
 					<span className="status-check-detail-text">
 						{/* allow-any-unicode-next-line */}
-						{s.context} {s.description ? `— ${s.description}` : ''}
+						{s.workflowName ? `${s.workflowName} / ` : null}{s.context}{s.event ? ` (${s.event})` : null} {s.description ? `— ${s.description}` : null}
 					</span>
 				</div>
 				<div>
