@@ -83,13 +83,13 @@ export function mapNewPositionToOld(patch: string, line: number): number {
 		} else {
 			// Part of the hunk is before line, part is after.
 			for (const diffLine of diffHunk.diffLines) {
-				if (diffLine.newLineNumber > line) {
-					return line + delta;
-				}
 				if (diffLine.type === DiffChangeType.Add) {
 					delta--;
 				} else if (diffLine.type === DiffChangeType.Delete) {
 					delta++;
+				}
+				if (diffLine.newLineNumber > line) {
+					return line + delta;
 				}
 			}
 			return line + delta;
