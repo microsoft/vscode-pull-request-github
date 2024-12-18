@@ -1536,7 +1536,7 @@ ${contents}
 		}
 
 		const editorUri = editor.document.uri;
-		if (input.original.scheme !== Schemes.Review) {
+		if ((input.original.scheme !== Schemes.Review) && (input.original.scheme !== Schemes.Pr)) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('Current file isn\'t a pull request diff.'));
 		}
 
@@ -1557,6 +1557,10 @@ ${contents}
 				editor.selection = new vscode.Selection(diffRange.start, diffRange.start);
 				return;
 			}
+		}
+
+		if (input.original.scheme === Schemes.Pr) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('No more diffs in this file. Check out the pull request to use this command across files.'));
 		}
 
 		// There is no new range to reveal, time to go to the next file.
