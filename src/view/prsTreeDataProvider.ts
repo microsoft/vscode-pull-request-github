@@ -235,15 +235,16 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			return this.needsRemotes();
 		}
 
+		const gitHubFolderManagers = this._reposManager.folderManagers.filter(manager => manager.gitHubRepositories.length > 0);
 		if (!element) {
 			if (this._children && this._children.length) {
 				this._children.forEach(dispose => dispose.dispose());
 			}
 
 			let result: WorkspaceFolderNode[] | CategoryTreeNode[];
-			if (this._reposManager.folderManagers.length === 1) {
+			if (gitHubFolderManagers.length === 1) {
 				result = WorkspaceFolderNode.getCategoryTreeNodes(
-					this._reposManager.folderManagers[0],
+					gitHubFolderManagers[0],
 					this._telemetry,
 					this,
 					this.notificationProvider,
@@ -251,7 +252,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 					this.prsTreeModel
 				);
 			} else {
-				result = this._reposManager.folderManagers.map(
+				result = gitHubFolderManagers.map(
 					folderManager =>
 						new WorkspaceFolderNode(
 							this,
@@ -270,7 +271,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}
 
 		if (
-			this._reposManager.folderManagers.filter(manager => manager.repository.state.remotes.length > 0).length === 0
+			gitHubFolderManagers.filter(manager => manager.repository.state.remotes.length > 0).length === 0
 		) {
 			return Promise.resolve([new PRCategoryActionNode(this, PRCategoryActionType.Empty)]);
 		}
