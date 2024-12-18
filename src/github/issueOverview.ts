@@ -96,6 +96,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 			// And restrict the webview to only loading content from our extension's `dist` directory.
 			localResourceRoots: [vscode.Uri.joinPath(_extensionUri, 'dist')],
+			enableFindWidget: true
 		}));
 
 		this._webview = this._panel.webview;
