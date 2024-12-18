@@ -1536,6 +1536,8 @@ export class GitHubRepository extends Disposable {
 							state: this.mapStateAsCheckState(context.conclusion),
 							description: context.title,
 							context: context.name,
+							workflowName: context.checkSuite?.workflowRun?.workflow.name,
+							event: context.checkSuite?.workflowRun?.event,
 							targetUrl: context.detailsUrl,
 							isRequired: context.isRequired,
 						};
@@ -1549,6 +1551,8 @@ export class GitHubRepository extends Disposable {
 							state: this.mapStateAsCheckState(context.state),
 							description: context.description,
 							context: context.context,
+							workflowName: undefined,
+							event: undefined,
 							targetUrl: context.targetUrl,
 							isRequired: context.isRequired,
 						};
@@ -1571,6 +1575,8 @@ export class GitHubRepository extends Disposable {
 						state: CheckState.Pending,
 						description: vscode.l10n.t('Waiting for status to be reported'),
 						context: context,
+						workflowName: undefined,
+						event: undefined,
 						targetUrl: prUrl,
 						isRequired: true
 					});

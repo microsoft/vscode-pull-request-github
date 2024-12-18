@@ -1166,6 +1166,12 @@ query GetChecks($owner: String!, $name: String!, $number: Int!) {
 												logoUrl
 												url
 											}
+											workflowRun {
+												event
+												workflow {
+													name
+												}
+											}
 										}
 									}
 								}

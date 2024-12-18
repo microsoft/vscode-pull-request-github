@@ -878,6 +878,12 @@ export interface CheckRun {
 			logoUrl: string;
 			url: string;
 		} | null;
+		workflowRun?: {
+			event: string;
+			workflow: {
+				name: string;
+			};
+		};
 	};
 	isRequired: boolean;
 }
