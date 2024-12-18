@@ -1115,9 +1115,11 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 
 		if (pushRemote && createdPushRemote) {
 			Logger.appendLine(`Found push remote ${pushRemote.name} for ${compareOwner}/${compareRepositoryName} and branch ${compareBranchName}`, CreatePullRequestViewProvider.ID);
-			await this._folderRepositoryManager.repository.push(pushRemote.name, compareBranchName, true);
-			await this._folderRepositoryManager.repository.status();
-			return { compareUpstream: createdPushRemote, repo: this._folderRepositoryManager.findRepo(byRemoteName(createdPushRemote.remoteName)) };
+			const actualPushRemote = await this._folderRepositoryManager.publishBranch(createdPushRemote, compareBranchName);
+			if (!actualPushRemote) {
+				return undefined;
+			}
+			return { compareUpstream: actualPushRemote, repo: this._folderRepositoryManager.findRepo(byRemoteName(actualPushRemote.remoteName)) };
 		}
 	}
 
