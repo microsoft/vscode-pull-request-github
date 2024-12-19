@@ -985,7 +985,7 @@ export class ReviewManager extends Disposable {
 
 			return Promise.resolve(void 0);
 		} catch (e) {
-			Logger.error(`Failed to initialize PR data ${e}`, this.id);
+			Logger.error(`Failed to initialize PR data ${e}: ${e.message}`, this.id);
 		}
 	}
 
