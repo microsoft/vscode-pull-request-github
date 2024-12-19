@@ -302,13 +302,18 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 	override async getChildren(): Promise<TreeNode[]> {
 		await super.getChildren();
-		if (!this._prsTreeModel.hasLoaded) {
-			this.doGetChildren().then(() => this.refresh(this));
-			return [];
+		const isFirstLoad = !this._firstLoad;
+		if (isFirstLoad) {
+			this._firstLoad = this.doGetChildren();
+			if (!this._prsTreeModel.hasLoaded) {
+				this._firstLoad.then(() => this.refresh(this));
+				return [];
+			}
 		}
-		return this.doGetChildren();
+		return isFirstLoad ? this._firstLoad! : this.doGetChildren();
 	}
 
+	private _firstLoad: Promise<TreeNode[]> | undefined;
 	private async doGetChildren(): Promise<TreeNode[]> {
 		let hasMorePages = false;
 		let hasUnsearchedRepositories = false;
