@@ -38,6 +38,7 @@ export class PullRequestChangesTreeDataProvider extends Disposable implements vs
 		this._view = this._register(vscode.window.createTreeView('prStatus:github', {
 			treeDataProvider: this,
 			showCollapseAll: true,
+			canSelectMany: true
 		}));
 
 		this._register(
@@ -54,7 +55,7 @@ export class PullRequestChangesTreeDataProvider extends Disposable implements vs
 			}),
 		);
 
-		this._register(this._view.onDidChangeCheckboxState(TreeUtils.processCheckboxUpdates));
+		this._register(this._view.onDidChangeCheckboxState(e => TreeUtils.processCheckboxUpdates(e, this._view.selection)));
 	}
 
 	refresh(treeNode?: TreeNode) {

@@ -95,7 +95,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			}
 		}));
 
-		this._register(this._view.onDidChangeCheckboxState(TreeUtils.processCheckboxUpdates));
+		this._register(this._view.onDidChangeCheckboxState(e => TreeUtils.processCheckboxUpdates(e, [])));
 
 		this._register(this._view.onDidExpandElement(expanded => {
 			this.prsTreeModel.updateExpandedQueries(expanded.element, true);
