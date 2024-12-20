@@ -355,7 +355,7 @@ export async function parseDiff(
 			continue;
 		}
 
-		const diffHunks = review.patch ? parsePatch(review.patch) : [];
+		const diffHunks = review.patch ? parsePatch(review.patch) : undefined;
 		fileChanges.push(
 			new InMemFileChange(
 				parentCommit,
@@ -364,7 +364,7 @@ export async function parseDiff(
 				review.previous_filename,
 				review.patch ?? '',
 				diffHunks,
-				review.blob_url,
+				review.blob_url
 			),
 		);
 	}
