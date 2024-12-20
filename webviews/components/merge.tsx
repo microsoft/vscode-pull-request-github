@@ -77,6 +77,7 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 						id="status-checks-display-button"
 						className="secondary small-button"
 						onClick={toggleDetails}
+						aria-expanded={showDetails}
 					>
 						{showDetails ? 'Hide' : 'Show'}
 					</button>
