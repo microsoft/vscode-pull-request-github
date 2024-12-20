@@ -526,6 +526,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 	private removeAllCommentsThreads(): void {
 		Object.keys(this._commentThreadCache).forEach(key => {
 			disposeAll(this._commentThreadCache[key]);
+			delete this._commentThreadCache[key];
 		});
 	}
 
