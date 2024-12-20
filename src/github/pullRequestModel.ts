@@ -1263,17 +1263,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	static async openChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel) {
-		const isCurrentPR = folderManager.activePullRequest?.number === pullRequestModel.number;
-		const changes = pullRequestModel.fileChanges.size > 0 ? pullRequestModel.fileChanges.values() : await pullRequestModel.getFileChangesInfo();
+		const changeModels = await PullRequestModel.getChangeModels(folderManager, pullRequestModel);
 		const args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
-
-		for (const change of changes) {
-			let changeModel;
-			if (change instanceof SlimFileChange) {
-				changeModel = new RemoteFileChangeModel(folderManager, change, pullRequestModel);
-			} else {
-				changeModel = new InMemFileChangeModel(folderManager, pullRequestModel as (PullRequestModel & IResolvedPullRequestModel), change, isCurrentPR, pullRequestModel.mergeBase!);
-			}
+		for (const changeModel of changeModels) {
 			args.push([changeModel.filePath, changeModel.parentFilePath, changeModel.filePath]);
 		}
 
@@ -1397,6 +1389,22 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this._fileChanges.set(fileChange.fileName, fileChange);
 		});
 		return parsed;
+	}
+
+	public static async getChangeModels(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel): Promise<(RemoteFileChangeModel | InMemFileChangeModel)[]> {
+		const isCurrentPR = folderManager.activePullRequest?.number === pullRequestModel.number;
+		const changes = pullRequestModel.fileChanges.size > 0 ? pullRequestModel.fileChanges.values() : await pullRequestModel.getFileChangesInfo();
+		const changeModels: (RemoteFileChangeModel | InMemFileChangeModel)[] = [];
+		for (const change of changes) {
+			let changeModel;
+			if (change instanceof SlimFileChange) {
+				changeModel = new RemoteFileChangeModel(folderManager, change, pullRequestModel);
+			} else {
+				changeModel = new InMemFileChangeModel(folderManager, pullRequestModel as (PullRequestModel & IResolvedPullRequestModel), change, isCurrentPR, pullRequestModel.mergeBase!);
+			}
+			changeModels.push(changeModel);
+		}
+		return changeModels;
 	}
 
 	/**
