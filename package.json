@@ -1198,6 +1198,18 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.toggleEditorCommentingOn",
+				"title": "%command.pr.toggleEditorCommentingOn.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(eye-closed)"
+			},
+			{
+				"command": "pr.toggleEditorCommentingOff",
+				"title": "%command.pr.toggleEditorCommentingOff.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(eye)"
+			},
+			{
 				"command": "review.diffWithPrHead",
 				"title": "%command.review.diffWithPrHead.title%",
 				"category": "%command.pull.request.category%"
@@ -1793,6 +1805,14 @@
 					"when": "gitHubOpenRepositoryCount != 0"
 				},
 				{
+					"command": "pr.toggleEditorCommentingOn",
+					"when": "false"
+				},
+				{
+					"command": "pr.toggleEditorCommentingOff",
+					"when": "false"
+				},
+				{
 					"command": "review.suggestDiff",
 					"when": "false"
 				},
@@ -2247,12 +2267,22 @@
 				{
 					"command": "pr.setFileListLayoutAsTree",
 					"when": "view == prStatus:github && fileListLayout:flat",
-					"group": "navigation"
+					"group": "navigation1"
 				},
 				{
 					"command": "pr.setFileListLayoutAsFlat",
 					"when": "view == prStatus:github && !fileListLayout:flat",
-					"group": "navigation"
+					"group": "navigation1"
+				},
+				{
+					"command": "pr.toggleEditorCommentingOn",
+					"when": "view == prStatus:github && !commentingEnabled",
+					"group": "navigation@0"
+				},
+				{
+					"command": "pr.toggleEditorCommentingOff",
+					"when": "view == prStatus:github && commentingEnabled",
+					"group": "navigation@0"
 				},
 				{
 					"command": "issue.createIssue",

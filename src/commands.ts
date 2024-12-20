@@ -44,6 +44,7 @@ import {
 } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { RepositoryChangesNode } from './view/treeNodes/repositoryChangesNode';
+import { commands } from './common/executeCommands';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
 export const onDidUpdatePR: vscode.Event<PullRequest | void> = _onDidUpdatePR.event;
@@ -1485,6 +1486,15 @@ ${contents}
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.addFileComment', async () => {
 			return vscode.commands.executeCommand('workbench.action.addComment', { fileComment: true });
+		}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.toggleEditorCommentingOn', async () => {
+			commands.executeCommand('workbench.action.toggleCommenting');
+		}));
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.toggleEditorCommentingOff', async () => {
+			commands.executeCommand('workbench.action.toggleCommenting');
 		}));
 
 	context.subscriptions.push(
