@@ -1360,9 +1360,9 @@ export function insertNewCommitsSinceReview(
 	}
 }
 
-export function getPRFetchQuery(repo: string, user: string, query: string): string {
+export function getPRFetchQuery(user: string, query: string): string {
 	const filter = query.replace(/\$\{user\}/g, user);
-	return `is:pull-request ${filter} type:pr repo:${repo}`;
+	return `is:pull-request ${filter} type:pr`;
 }
 
 export function isInCodespaces(): boolean {

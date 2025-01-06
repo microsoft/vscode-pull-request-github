@@ -184,15 +184,15 @@
 					"default": [
 						{
 							"label": "%githubPullRequests.queries.waitingForMyReview%",
-							"query": "is:open review-requested:${user}"
+							"query": "repo:${owner}/${repository} is:open review-requested:${user}"
 						},
 						{
 							"label": "%githubPullRequests.queries.assignedToMe%",
-							"query": "is:open assignee:${user}"
+							"query": "repo:${owner}/${repository} is:open assignee:${user}"
 						},
 						{
 							"label": "%githubPullRequests.queries.createdByMe%",
-							"query": "is:open author:${user}"
+							"query": "repo:${owner}/${repository} is:open author:${user}"
 						}
 					]
 				},
