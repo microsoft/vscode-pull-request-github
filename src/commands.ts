@@ -10,6 +10,7 @@ import { Repository } from './api/api';
 import { GitErrorCodes } from './api/api1';
 import { CommentReply, findActiveHandler, resolveCommentHandler } from './commentHandlerResolver';
 import { IComment } from './common/comment';
+import { commands } from './common/executeCommands';
 import Logger from './common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { ITelemetry } from './common/telemetry';
@@ -44,7 +45,6 @@ import {
 } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { RepositoryChangesNode } from './view/treeNodes/repositoryChangesNode';
-import { commands } from './common/executeCommands';
 
 const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
 export const onDidUpdatePR: vscode.Event<PullRequest | void> = _onDidUpdatePR.event;

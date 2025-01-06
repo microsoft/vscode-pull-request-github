@@ -9,7 +9,6 @@ import * as vscode from 'vscode';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { Protocol } from '../common/protocol';
 import { GitHubRemote, parseRemote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
@@ -64,7 +63,6 @@ import {
 	convertRESTPullRequestToRawPullRequest,
 	getAvatarWithEnterpriseFallback,
 	getOverrideBranch,
-	getPRFetchQuery,
 	isInCodespaces,
 	parseGraphQLIssue,
 	parseGraphQLPullRequest,
@@ -880,71 +878,6 @@ export class GitHubRepository extends Disposable {
 			Logger.error(`Unable to fetch authenticated user emails: ${e}`, this.id);
 			return [];
 		}
-	}
-
-	async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
-		let repo: IMetadata | undefined;
-		try {
-			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, this.id);
-			const { octokit, query, schema } = await this.ensure();
-
-			const user = await this.getAuthenticatedUser();
-			// Search api will not try to resolve repo that redirects, so get full name first
-			repo = await this.getMetadata();
-			const { data, headers } = await octokit.call(octokit.api.search.issuesAndPullRequests, {
-				q: getPRFetchQuery(repo.full_name, user, categoryQuery),
-				per_page: PULL_REQUEST_PAGE_SIZE,
-				page: page || 1,
-			});
-
-			const promises: Promise<PullRequestResponse>[] = data.items.map(async (item) => {
-				const prRepo = new Protocol(item.repository_url);
-				const { data } = await query<PullRequestResponse>({
-					query: schema.PullRequest,
-					variables: {
-						owner: prRepo.owner,
-						name: prRepo.repositoryName,
-						number: item.number
-					}
-				});
-				return data;
-			});
-
-			const hasMorePages = !!headers.link && headers.link.indexOf('rel="next"') > -1;
-			const pullRequestResponses = await Promise.all(promises);
-
-			const pullRequests = pullRequestResponses
-				.map(response => {
-					if (!response.repository) {
-						Logger.appendLine('Pull request doesn\'t appear to exist.', this.id);
-						return null;
-					}
-
-					return this.createOrUpdatePullRequestModel(
-						parseGraphQLPullRequest(response.repository.pullRequest, this),
-					);
-				})
-				.filter(item => item !== null) as PullRequestModel[];
-
-			Logger.debug(`Fetch pull request category ${categoryQuery} - done`, this.id);
-
-			return {
-				items: pullRequests,
-				hasMorePages,
-				totalCount: data.total_count
-			};
-		} catch (e) {
-			Logger.error(`Fetching pull request with query failed: ${e}`, this.id);
-			if (e.code === 404) {
-				// not found
-				vscode.window.showWarningMessage(
-					`Fetching pull requests for remote ${this.remote.remoteName} with query failed, please check if the repo ${repo?.full_name} is valid.`,
-				);
-			} else {
-				throw e;
-			}
-		}
-		return undefined;
 	}
 
 	createOrUpdatePullRequestModel(pullRequest: PullRequest): PullRequestModel {

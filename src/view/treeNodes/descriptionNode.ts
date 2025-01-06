@@ -46,6 +46,6 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 			(currentBranchIsForThisPR ? ':active' : ':nonactive') +
 			(this.pullRequestModel.hasChangesSinceLastReview ? ':hasChangesSinceReview' : '') +
 			(this.pullRequestModel.showChangesSinceReview ? ':showingChangesSinceReview' : ':showingAllChanges') +
-			(this.pullRequestModel.item.isRemoteHeadDeleted ? '' : ':hasHeadRef');
+			((this.pullRequestModel.item.isRemoteHeadDeleted || !this.folderRepositoryManager.isPullRequestAssociatedWithOpenRepository(this.pullRequestModel)) ? '' : ':hasHeadRef');
 	}
 }
