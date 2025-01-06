@@ -51,7 +51,7 @@ export abstract class FileChangeModel {
 	async diffHunks(): Promise<DiffHunk[]> {
 		let diffHunks: DiffHunk[] = [];
 
-		if (this.change instanceof InMemFileChange) {
+		if (this.change instanceof InMemFileChange && this.change.diffHunks) {
 			return this.change.diffHunks;
 		} else if (this.status !== GitChangeType.RENAME) {
 			try {
