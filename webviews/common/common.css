@@ -49,14 +49,10 @@ button.select-right {
 
 button:focus,
 input[type='submit']:focus {
-	outline: 1px solid var(--vscode-focusBorder);
+	outline-color: var(--vscode-focusBorder);
+	outline-style: solid;
+	outline-width: 1px;
 	outline-offset: 2px;
-}
-
-button:focus-within,
-input[type='submit']:focus-within {
-	border: 1px solid transparent;
-	outline: 1px solid transparent;
 }
 
 button:hover:enabled,
