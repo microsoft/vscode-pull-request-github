@@ -1776,16 +1776,17 @@ export class FolderRepositoryManager extends Disposable {
 				branchInfos.set(branchName, value!);
 			}
 		});
+		Logger.debug(`Found ${branchInfos.size} possible branches to delete`, this.id);
+		Logger.trace(`Branches to delete: ${JSON.stringify(Array.from(branchInfos.keys()))}`, this.id);
 
 		const actions: (vscode.QuickPickItem & { metadata: PullRequestMetadata; legacy?: boolean })[] = [];
 		branchInfos.forEach((value, key) => {
 			if (value.metadata) {
 				const activePRUrl = this.activePullRequest && this.activePullRequest.base.repositoryCloneUrl;
 				const matchesActiveBranch = activePRUrl
-					? activePRUrl.owner === value.metadata.owner &&
-					activePRUrl.repositoryName === value.metadata.repositoryName &&
-					this.activePullRequest &&
-					this.activePullRequest.number === value.metadata.prNumber
+					? (activePRUrl.owner === value.metadata.owner &&
+						activePRUrl.repositoryName === value.metadata.repositoryName &&
+						this.activePullRequest?.number === value.metadata.prNumber)
 					: false;
 
 				if (!matchesActiveBranch) {
@@ -1796,6 +1797,9 @@ export class FolderRepositoryManager extends Disposable {
 						picked: false,
 						metadata: value.metadata!,
 					});
+				} else {
+					Logger.debug(`Skipping ${value.metadata.prNumber}, active PR is #${this.activePullRequest?.number}`, this.id);
+					Logger.trace(`Skipping active branch ${key}`, this.id);
 				}
 			}
 		});
