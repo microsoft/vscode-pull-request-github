@@ -1411,14 +1411,27 @@ export function sanitizeIssueTitle(title: string): string {
 	return title.replace(regex, '').trim().substring(0, 150).replace(/\s+/g, '-');
 }
 
-const VARIABLE_PATTERN = /\$\{(.*?)\}/g;
+const SINCE_VALUE_PATTERN = /-([0-9]+)([d])/;
+function computeSinceValue(sinceValue: string | undefined): string {
+	const match = sinceValue ? SINCE_VALUE_PATTERN.exec(sinceValue) : undefined;
+	const date = new Date();
+	if (match && match.length === 3 && match[2] === 'd') {
+		const dateOffset = parseInt(match[1]) * (24 * 60 * 60 * 1000);
+		date.setTime(date.getTime() - dateOffset);
+	}
+	const month = `${date.getMonth() + 1}`;
+	const day = `${date.getDate()}`;
+	return `${date.getFullYear()}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
+const VARIABLE_PATTERN = /\$\{([^-]*?)(-.*?)?\}/g;
 export async function variableSubstitution(
 	value: string,
 	issueModel?: IssueModel,
 	defaults?: PullRequestDefaults,
 	user?: string,
 ): Promise<string> {
-	return value.replace(VARIABLE_PATTERN, (match: string, variable: string) => {
+	return value.replace(VARIABLE_PATTERN, (match: string, variable: string, extra: string) => {
 		let result: string;
 		switch (variable) {
 			case 'user':
@@ -1444,6 +1457,9 @@ export async function variableSubstitution(
 				break;
 			case 'sanitizedLowercaseIssueTitle':
 				result = issueModel ? sanitizeIssueTitle(issueModel.title).toLowerCase() : match;
+				break;
+			case 'today':
+				result = computeSinceValue(extra);
 				break;
 			default:
 				result = match;
