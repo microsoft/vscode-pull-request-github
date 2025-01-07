@@ -71,7 +71,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				vscode.l10n.t('Description'),
 				this.pullRequestModel,
 				this.repository,
-				this._folderReposManager
+				this._folderReposManager,
+				this._isLocal
 			);
 
 			if (!this.pullRequestModel.isResolved()) {
@@ -305,7 +306,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				(this._isLocal ? ':local' : '') +
 				(currentBranchIsForThisPR ? ':active' : ':nonactive') +
 				(hasNotification ? ':notification' : '') +
-				((this.pullRequestModel.item.isRemoteHeadDeleted || !this._folderReposManager.isPullRequestAssociatedWithOpenRepository(this.pullRequestModel)) ? '' : ':hasHeadRef'),
+				(((this.pullRequestModel.item.isRemoteHeadDeleted && !this._isLocal) || !this._folderReposManager.isPullRequestAssociatedWithOpenRepository(this.pullRequestModel)) ? '' : ':hasHeadRef'),
 			iconPath: (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
 				?? new vscode.ThemeIcon('github'),
 			accessibilityInformation: {

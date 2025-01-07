@@ -20,7 +20,8 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 		label: string,
 		public readonly pullRequestModel: PullRequestModel,
 		public readonly repository: Repository,
-		private readonly folderRepositoryManager: FolderRepositoryManager
+		private readonly folderRepositoryManager: FolderRepositoryManager,
+		private isLocal: boolean
 	) {
 		super(parent);
 		this.label = label;
@@ -46,6 +47,6 @@ export class DescriptionNode extends TreeNode implements vscode.TreeItem {
 			(currentBranchIsForThisPR ? ':active' : ':nonactive') +
 			(this.pullRequestModel.hasChangesSinceLastReview ? ':hasChangesSinceReview' : '') +
 			(this.pullRequestModel.showChangesSinceReview ? ':showingChangesSinceReview' : ':showingAllChanges') +
-			((this.pullRequestModel.item.isRemoteHeadDeleted || !this.folderRepositoryManager.isPullRequestAssociatedWithOpenRepository(this.pullRequestModel)) ? '' : ':hasHeadRef');
+			(((this.pullRequestModel.item.isRemoteHeadDeleted && !this.isLocal) || !this.folderRepositoryManager.isPullRequestAssociatedWithOpenRepository(this.pullRequestModel)) ? '' : ':hasHeadRef');
 	}
 }
