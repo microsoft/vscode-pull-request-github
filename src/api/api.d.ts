@@ -153,6 +153,7 @@ export interface Repository {
 	 * The counterpart of `getConfig`
 	 */
 	setConfig(key: string, value: string): Promise<string>;
+	unsetConfig?(key: string): Promise<string>;
 	getGlobalConfig(key: string): Promise<string>;
 
 	getObjectDetails(treeish: string, path: string): Promise<{ mode: string; object: string; size: number }>;

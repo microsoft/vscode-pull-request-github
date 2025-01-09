@@ -17,6 +17,7 @@ import { IResolvedPullRequestModel, PullRequestModel } from './pullRequestModel'
 const PullRequestRemoteMetadataKey = 'github-pr-remote';
 export const PullRequestMetadataKey = 'github-pr-owner-number';
 const BaseBranchMetadataKey = 'github-pr-base-branch';
+const VscodeBaseBranchMetadataKey = 'vscode-merge-base';
 const PullRequestBranchRegex = /branch\.(.+)\.github-pr-owner-number/;
 const PullRequestRemoteRegex = /branch\.(.+)\.remote/;
 
@@ -389,7 +390,11 @@ export class PullRequestGitHelper {
 				Logger.appendLine(`associate ${branchName} with Pull Request #${pullRequest.number}`, PullRequestGitHelper.ID);
 			}
 			const prConfigKey = `branch.${branchName}.${PullRequestMetadataKey}`;
-			await repository.setConfig(prConfigKey, pullRequest ? PullRequestGitHelper.buildPullRequestMetadata(pullRequest) : ' ');
+			if (pullRequest) {
+				await repository.setConfig(prConfigKey, PullRequestGitHelper.buildPullRequestMetadata(pullRequest));
+			} else if (repository.unsetConfig) {
+				await repository.unsetConfig(prConfigKey);
+			}
 		} catch (e) {
 			if (pullRequest) {
 				Logger.error(`associate ${branchName} with Pull Request #${pullRequest.number} failed`, PullRequestGitHelper.ID);
@@ -400,16 +405,24 @@ export class PullRequestGitHelper {
 	static async associateBaseBranchWithBranch(
 		repository: Repository,
 		branch: string,
-		owner: string,
-		repo: string,
-		baseBranch: string
+		base: {
+			owner: string,
+			repo: string,
+			branch: string
+		} | undefined
 	) {
 		try {
-			Logger.appendLine(`associate ${branch} with base branch ${owner}/${repo}#${baseBranch}`, PullRequestGitHelper.ID);
 			const prConfigKey = `branch.${branch}.${BaseBranchMetadataKey}`;
-			await repository.setConfig(prConfigKey, PullRequestGitHelper.buildBaseBranchMetadata(owner, repo, baseBranch));
+			if (base) {
+				Logger.appendLine(`associate ${branch} with base branch ${base.owner}/${base.repo}#${base.branch}`, PullRequestGitHelper.ID);
+				await repository.setConfig(prConfigKey, PullRequestGitHelper.buildBaseBranchMetadata(base.owner, base.repo, base.branch));
+			} else if (repository.unsetConfig) {
+				await repository.unsetConfig(prConfigKey);
+				const vscodeBaseBranchConfigKey = `branch.${branch}.${VscodeBaseBranchMetadataKey}`;
+				await repository.unsetConfig(vscodeBaseBranchConfigKey);
+			}
 		} catch (e) {
-			Logger.error(`associate ${branch} with base branch ${owner}/${repo}#${baseBranch} failed`, PullRequestGitHelper.ID);
+			Logger.error(`associate ${branch} with base branch ${base?.owner}/${base?.repo}#${base?.branch} failed`, PullRequestGitHelper.ID);
 		}
 	}
 }
