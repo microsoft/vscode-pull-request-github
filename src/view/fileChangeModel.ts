@@ -13,6 +13,7 @@ import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { IResolvedPullRequestModel, PullRequestModel } from '../github/pullRequestModel';
 
 export abstract class FileChangeModel {
+	private static readonly ID = 'FileChangeModel';
 	protected _filePath: vscode.Uri;
 	get filePath(): vscode.Uri {
 		return this._filePath;
@@ -59,7 +60,7 @@ export abstract class FileChangeModel {
 				const patch = await this.folderRepoManager.repository.diffBetween(this.pullRequest.base.sha, commit, this.fileName);
 				diffHunks = parsePatch(patch);
 			} catch (e) {
-				Logger.error(`Failed to parse patch for outdated comments: ${e}`);
+				Logger.error(`Failed to parse patch for outdated comments: ${e}`, FileChangeModel.ID);
 			}
 		}
 		return diffHunks;

@@ -283,7 +283,7 @@ export namespace DataUri {
 				try {
 					await vscode.workspace.fs.delete(vscode.Uri.joinPath(cacheLocation(context), id));
 				} catch (e) {
-					Logger.error(`Failed to delete avatar from cache: ${e}`);
+					Logger.error(`Failed to delete avatar from cache: ${e}`, 'avatarCirclesAsImageDataUris');
 				}
 			}));
 		}

@@ -114,6 +114,7 @@ class GitCommitNode extends TreeNode {
 }
 
 abstract class CompareChangesTreeProvider extends Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
+	private static readonly ID = 'CompareChangesTreeProvider';
 	private _view: vscode.TreeView<TreeNode>;
 	private _children: TreeNode[] | undefined;
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
@@ -188,7 +189,7 @@ abstract class CompareChangesTreeProvider extends Disposable implements vscode.T
 				this._children = await this.getGitChildren(element);
 			}
 		} catch (e) {
-			Logger.error(`Comparing changes failed: ${e}`);
+			Logger.error(`Comparing changes failed: ${e}`, CompareChangesTreeProvider.ID);
 			return [];
 		}
 		return this._children;

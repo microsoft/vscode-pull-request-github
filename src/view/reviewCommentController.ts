@@ -142,7 +142,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 			const adjustedStartLine = startLine - 1;
 			const adjustedEndLine = endLine - 1;
 			if (adjustedStartLine < 0 || adjustedEndLine < 0) {
-				Logger.error(`Mapped new position for workspace comment thread is invalid. Original: (${thread.startLine}, ${thread.endLine}) New: (${adjustedStartLine}, ${adjustedEndLine})`);
+				Logger.error(`Mapped new position for workspace comment thread is invalid. Original: (${thread.startLine}, ${thread.endLine}) New: (${adjustedStartLine}, ${adjustedEndLine})`, ReviewCommentController.ID);
 			}
 			range = threadRange(adjustedStartLine, adjustedEndLine);
 		}
@@ -541,7 +541,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 			editor => editor.document.uri.toString() === uri.toString(),
 		);
 		if (!this._folderRepoManager.activePullRequest?.head) {
-			Logger.error('Failed to get content diff. Cannot get content diff without an active pull request head.');
+			Logger.error('Failed to get content diff. Cannot get content diff without an active pull request head.', ReviewCommentController.ID);
 			throw new Error('Cannot get content diff without an active pull request head.');
 		}
 
@@ -561,7 +561,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 				return await this._repository.diffWith(this._folderRepoManager.activePullRequest.head.sha, fileName);
 			}
 		} catch (e) {
-			Logger.error(`Failed to get content diff. ${formatError(e)}`);
+			Logger.error(`Failed to get content diff. ${formatError(e)}`, ReviewCommentController.ID);
 			if ((e.stderr as string | undefined)?.includes('bad object')) {
 				if (this._repository.state.HEAD?.upstream && retry) {
 					const pullBeforeCheckoutSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<PullPRBranchVariants>(PULL_PR_BRANCH_BEFORE_CHECKOUT, 'pull');

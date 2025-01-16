@@ -126,7 +126,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 
 			return result;
 		} catch (e) {
-			Logger.error(e);
+			Logger.error(`Error getting children ${e}: ${e.message}`, PRNode.ID);
 			return [];
 		}
 	}

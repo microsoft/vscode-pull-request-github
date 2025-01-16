@@ -276,7 +276,7 @@ export class FolderRepositoryManager extends Disposable {
 		const serverTypes = await Promise.all(
 			potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
 		).catch(e => {
-			Logger.error(`Resolving GitHub remotes failed: ${e}`);
+			Logger.error(`Resolving GitHub remotes failed: ${e}`, this.id);
 			vscode.window.showErrorMessage(vscode.l10n.t('Resolving GitHub remotes failed: {0}', formatError(e)));
 			return [];
 		});
@@ -297,7 +297,7 @@ export class FolderRepositoryManager extends Disposable {
 		const serverTypes = await Promise.all(
 			potentialRemotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
 		).catch(e => {
-			Logger.error(`Resolving GitHub remotes failed: ${e}`);
+			Logger.error(`Resolving GitHub remotes failed: ${e}`, this.id);
 			vscode.window.showErrorMessage(vscode.l10n.t('Resolving GitHub remotes failed: {0}', formatError(e)));
 			return [];
 		});
@@ -316,7 +316,7 @@ export class FolderRepositoryManager extends Disposable {
 		const remotesSetting = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(REMOTES);
 
 		if (!remotesSetting) {
-			Logger.error(`Unable to read remotes setting`);
+			Logger.error(`Unable to read remotes setting`, this.id);
 			return Promise.resolve([]);
 		}
 
@@ -621,7 +621,7 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	private async getCachedFromGlobalState<T>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects'): Promise<{ [key: string]: T[] } | undefined> {
-		Logger.appendLine(`Trying to use globalState for ${userKind}.`);
+		Logger.appendLine(`Trying to use globalState for ${userKind}.`, this.id);
 
 		const usersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, userKind);
 		let usersCacheExists;
@@ -631,7 +631,7 @@ export class FolderRepositoryManager extends Disposable {
 			// file doesn't exit
 		}
 		if (!usersCacheExists) {
-			Logger.appendLine(`GlobalState does not exist for ${userKind}.`);
+			Logger.appendLine(`GlobalState does not exist for ${userKind}.`, this.id);
 			return undefined;
 		}
 
@@ -646,7 +646,7 @@ export class FolderRepositoryManager extends Disposable {
 				cacheAsJson = JSON.parse(repoSpecificCache.toString());
 			} catch (e) {
 				if (e instanceof Error && e.message.includes('Unexpected non-whitespace character after JSON')) {
-					Logger.error(`Error parsing ${userKind} cache for ${repo.remote.remoteName}.`);
+					Logger.error(`Error parsing ${userKind} cache for ${repo.remote.remoteName}.`, this.id);
 				}
 				// file doesn't exist
 			}
@@ -656,11 +656,11 @@ export class FolderRepositoryManager extends Disposable {
 			}
 		}))).every(value => value);
 		if (hasAllRepos) {
-			Logger.appendLine(`Using globalState ${userKind} for ${Object.keys(cache).length}.`);
+			Logger.appendLine(`Using globalState ${userKind} for ${Object.keys(cache).length}.`, this.id);
 			return cache;
 		}
 
-		Logger.appendLine(`No globalState for ${userKind}.`);
+		Logger.appendLine(`No globalState for ${userKind}.`, this.id);
 		return undefined;
 	}
 
@@ -861,7 +861,7 @@ export class FolderRepositoryManager extends Disposable {
 		const serverTypes = await Promise.all(
 			remotes.map(remote => this._githubManager.isGitHub(remote.gitProtocol.normalizeUri()!)),
 		).catch(e => {
-			Logger.error(`Resolving GitHub remotes failed: ${e}`);
+			Logger.error(`Resolving GitHub remotes failed: ${e}`, this.id);
 			vscode.window.showErrorMessage(vscode.l10n.t('Resolving GitHub remotes failed: {0}', formatError(e)));
 			return [];
 		});
@@ -1458,7 +1458,7 @@ export class FolderRepositoryManager extends Disposable {
 					return this.createAndAddGitHubRepository(remote, this._credentialStore);
 				}
 
-				Logger.error(`The remote '${upstreamRef.remote}' is not a GitHub repository.`);
+				Logger.error(`The remote '${upstreamRef.remote}' is not a GitHub repository.`, this.id);
 
 				// No GitHubRepository? We currently won't try pushing elsewhere,
 				// so fail.
@@ -2461,7 +2461,7 @@ export class FolderRepositoryManager extends Disposable {
 					return;
 				}
 			}
-			Logger.error(`Exiting failed: ${e}. Target branch ${branch} used to find branch ${branchObj?.name ?? 'unknown'} with upstream ${branchObj?.upstream?.name ?? 'unknown'}.`);
+			Logger.error(`Exiting failed: ${e}. Target branch ${branch} used to find branch ${branchObj?.name ?? 'unknown'} with upstream ${branchObj?.upstream?.name ?? 'unknown'}.`, this.id);
 			vscode.window.showErrorMessage(`Exiting failed: ${e}`);
 		}
 	}

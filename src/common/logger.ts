@@ -57,7 +57,7 @@ class Log extends Disposable {
 		this._outputChannel.warn(this.logString(message, component));
 	}
 
-	public error(message: any, component?: string) {
+	public error(message: any, component: string) {
 		this._outputChannel.error(this.logString(message, component));
 	}
 }
