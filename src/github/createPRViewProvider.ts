@@ -280,7 +280,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		try {
 			await pr.addAssignees([resolved]);
 		} catch (e) {
-			Logger.error(`Unable to assign pull request to user ${resolved}.`);
+			Logger.error(`Unable to assign pull request to user ${resolved}.`, BaseCreatePullRequestViewProvider.ID);
 		}
 	}
 
@@ -379,7 +379,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 				});
 			}
 		} catch (e) {
-			Logger.error(formatError(e));
+			Logger.error(`Failed to add reviewers: ${formatError(e)}`, BaseCreatePullRequestViewProvider.ID);
 			vscode.window.showErrorMessage(formatError(e));
 		} finally {
 			quickPick?.hide();

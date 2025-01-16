@@ -149,6 +149,7 @@ export function registerCommands(
 	telemetry: ITelemetry,
 	tree: PullRequestsTreeDataProvider,
 ) {
+	const logId = 'RegisterCommands';
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openPullRequestOnGitHub',
@@ -290,7 +291,7 @@ export function registerCommands(
 				await vscode.workspace.fs.delete(tempUri);
 			} catch (err) {
 				const moreError = `${err}${err.stderr ? `\n${err.stderr}` : ''}`;
-				Logger.error(`Applying patch failed: ${moreError}`);
+				Logger.error(`Applying patch failed: ${moreError}`, logId);
 				vscode.window.showErrorMessage(vscode.l10n.t('Applying patch failed: {0}', formatError(err)));
 			}
 		}),
@@ -511,7 +512,7 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
 			if (pr === undefined) {
 				// This is unexpected, but has happened a few times.
-				Logger.error('Unexpectedly received undefined when picking a PR.');
+				Logger.error('Unexpectedly received undefined when picking a PR.', logId);
 				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
 			}
 
@@ -552,7 +553,7 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.openChanges', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
 			if (pr === undefined) {
 				// This is unexpected, but has happened a few times.
-				Logger.error('Unexpectedly received undefined when picking a PR.');
+				Logger.error('Unexpectedly received undefined when picking a PR.', logId);
 				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
 			}
 
@@ -606,7 +607,7 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.pickOnVscodeDev', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
 			if (pr === undefined) {
 				// This is unexpected, but has happened a few times.
-				Logger.error('Unexpectedly received undefined when picking a PR.');
+				Logger.error('Unexpectedly received undefined when picking a PR.', logId);
 				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
 			}
 
@@ -1090,7 +1091,7 @@ export function registerCommands(
 			const commentEditor = vscode.window.activeTextEditor?.document.uri.scheme === Schemes.Comment ? vscode.window.activeTextEditor
 				: vscode.window.visibleTextEditors.find(visible => (visible.document.uri.scheme === Schemes.Comment) && (visible.document.uri.query === ''));
 			if (!commentEditor) {
-				Logger.error('No comment editor visible for making a suggestion.');
+				Logger.error('No comment editor visible for making a suggestion.', logId);
 				vscode.window.showErrorMessage(vscode.l10n.t('No available comment editor to make a suggestion in.'));
 				return;
 			}

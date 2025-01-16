@@ -47,6 +47,7 @@ interface AuthResult {
 }
 
 export class CredentialStore extends Disposable {
+	private static readonly ID = 'Authentication';
 	private _githubAPI: GitHub | undefined;
 	private _sessionId: string | undefined;
 	private _githubEnterpriseAPI: GitHub | undefined;
@@ -204,7 +205,7 @@ export class CredentialStore extends Disposable {
 			}
 			return authResult;
 		} else {
-			Logger.debug(`No GitHub${getGitHubSuffix(authProviderId)} token found.`, 'Authentication');
+			Logger.debug(`No GitHub${getGitHubSuffix(authProviderId)} token found.`, CredentialStore.ID);
 			return authResult;
 		}
 	}
@@ -328,9 +329,9 @@ export class CredentialStore extends Disposable {
 			try {
 				await this.initialize(authProviderId, sessionOptions);
 			} catch (e) {
-				Logger.error(`${errorPrefix}: ${e}`);
+				Logger.error(`Login error: ${errorPrefix}: ${e}`, CredentialStore.ID);
 				if (e instanceof Error && e.stack) {
-					Logger.error(e.stack);
+					Logger.error(e.stack, CredentialStore.ID);
 				}
 				if (e.message === 'Cancelled') {
 					isCanceled = true;

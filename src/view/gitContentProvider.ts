@@ -18,6 +18,7 @@ import { ReviewManager } from './reviewManager';
 import { GitFileChangeNode, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 
 export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
+	private static readonly ID = 'GitContentFileSystemProvider';
 	private _fallback?: (uri: vscode.Uri) => Promise<string>;
 
 	constructor(gitAPI: GitApiImpl, credentialStore: CredentialStore, private readonly getReviewManagers: () => ReviewManager[]) {
@@ -72,17 +73,17 @@ export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
 		const absolutePath = pathLib.join(repository.rootUri.fsPath, path).replace(/\\/g, '/');
 		let content: string | undefined;
 		try {
-			Logger.appendLine(`Getting change model (${repository.rootUri}) content for commit ${commit} and path ${absolutePath}`, 'GitContentFileSystemProvider');
+			Logger.appendLine(`Getting change model (${repository.rootUri}) content for commit ${commit} and path ${absolutePath}`, GitContentFileSystemProvider.ID);
 			content = await this.getChangeModelForFile(uri)?.showBase();
 			if (!content) {
-				Logger.appendLine(`Getting repository (${repository.rootUri}) content for commit ${commit} and path ${absolutePath}`, 'GitContentFileSystemProvider');
+				Logger.appendLine(`Getting repository (${repository.rootUri}) content for commit ${commit} and path ${absolutePath}`, GitContentFileSystemProvider.ID);
 				content = await repository.show(commit, absolutePath);
 			}
 			if (!content) {
 				throw new Error();
 			}
 		} catch (_) {
-			Logger.appendLine('Using fallback content provider.', 'GitContentFileSystemProvider');
+			Logger.appendLine('Using fallback content provider.', GitContentFileSystemProvider.ID);
 			content = await this._fallback(uri);
 			if (!content) {
 				// Content does not exist for the base or modified file for a file deletion or addition.
@@ -91,7 +92,7 @@ export class GitContentFileSystemProvider extends RepositoryFileSystemProvider {
 				try {
 					await repository.getCommit(commit);
 				} catch (err) {
-					Logger.error(err);
+					Logger.error(err, GitContentFileSystemProvider.ID);
 					// Only show the error if we know it's not an outdated commit
 					if (!this.getOutdatedChangeModelForFile(uri)) {
 						vscode.window.showErrorMessage(

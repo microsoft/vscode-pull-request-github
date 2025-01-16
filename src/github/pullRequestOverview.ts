@@ -465,7 +465,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				});
 			}
 		} catch (e) {
-			Logger.error(formatError(e));
+			Logger.error(formatError(e), PullRequestOverviewPanel.ID);
 			vscode.window.showErrorMessage(formatError(e));
 		} finally {
 			quickPick?.hide();

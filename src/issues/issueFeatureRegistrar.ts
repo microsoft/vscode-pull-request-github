@@ -69,6 +69,7 @@ import {
 const CREATING_ISSUE_FROM_FILE_CONTEXT = 'issues.creatingFromFile';
 
 export class IssueFeatureRegistrar extends Disposable {
+	private static readonly ID = 'IssueFeatureRegistrar';
 	private _stateManager: StateManager;
 	private _newIssueCache: NewIssueCache;
 
@@ -1260,7 +1261,7 @@ ${options?.body ?? ''}\n
 			}
 			if (!folderManager) {
 				vscode.window.showErrorMessage(vscode.l10n.t(`Could not find the correct repository for the issue; see logs for more details.`));
-				Logger.error(`Could not find the folder manager for the issue originUri: ${originUri.toString()}`);
+				Logger.error(`Could not find the folder manager for the issue originUri: ${originUri.toString()}`, IssueFeatureRegistrar.ID);
 				return false;
 			}
 		}
