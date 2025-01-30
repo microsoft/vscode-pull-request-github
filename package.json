@@ -1933,6 +1933,18 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.unresolveReviewThread",
+					"when": "false"
+				},
+				{
+					"command": "pr.unresolveReviewThreadFromView",
+					"when": "false"
+				},
+				{
+					"command": "pr.resolveReviewThread",
+					"when": "false"
+				},
+				{
 					"command": "pr.openReview",
 					"when": "false"
 				},
