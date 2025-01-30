@@ -1218,6 +1218,10 @@ ${contents}
 			return vscode.window.showErrorMessage(vscode.l10n.t('Current editor isn\'t a diff editor.'));
 		}
 
+		if (input.original.scheme !== Schemes.Git) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Converting changes to suggestions can only be done from a git diff, not a pull request diff'), { modal: true });
+		}
+
 		const editor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === input.modified.toString());
 		if (!editor) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unexpectedly unable to find the current modified editor.'));
