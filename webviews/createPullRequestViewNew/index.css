@@ -240,6 +240,10 @@ textarea {
 	padding: 2px;
 }
 
+.group-additions ul li .sep {
+	padding-right: 7px;
+}
+
 .labels ul li {
 	border: 1px solid var(--vscode-menu-separatorBackground);
 	border-radius: 2px;
