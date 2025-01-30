@@ -514,7 +514,8 @@ export enum Schemes {
 	MergeOutput = 'merge-output', // Merge output
 	Notification = 'notification', // Notification tree items in the notification view
 	NewIssue = 'newissue', // New issue file
-	Repo = 'repo' // New issue file for passing data
+	Repo = 'repo', // New issue file for passing data
+	Git = 'git', // File content from the git extension
 }
 
 export function resolvePath(from: vscode.Uri, to: string) {
