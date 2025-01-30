@@ -1000,7 +1000,7 @@ export function registerCommands(
 				vscode.window.showErrorMessage(vscode.l10n.t('No active comment thread found'));
 				return;
 			}
-			commentLike = activeHandler.commentController.activeCommentThread as GHPRCommentThread;
+			commentLike = activeHandler.commentController.activeCommentThread as vscode.CommentThread2 as GHPRCommentThread;
 		}
 
 		const { thread, text } = threadAndText(commentLike);
