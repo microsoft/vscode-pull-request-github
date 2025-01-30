@@ -239,7 +239,10 @@ export function splitIntoSmallerHunks(hunk: DiffHunk): DiffHunk[] {
 				}
 				addLineToHunk(nextHunk, line);
 			}
-		} else if (currentHunk) {
+		} else if (currentHunk || ((hunk.oldLineNumber === 1) && ((line.type === DiffChangeType.Delete) || (line.type === DiffChangeType.Add)))) {
+			if (!currentHunk) {
+				currentHunk = newHunk(line);
+			}
 			if (hunkHasSandwichedChanges(currentHunk)) {
 				splitHunks.push(currentHunk);
 				currentHunk = nextHunk!;
