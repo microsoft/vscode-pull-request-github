@@ -315,9 +315,9 @@ export function main() {
 									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeProjects')}
 									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeProjects')}
 								>
-									{params.projects.map(project =>
+									{params.projects.map((project, index) =>
 										<li>
-											<span key={project.id}>{project.title}</span>
+											<span key={project.id}>{index > 0 ? <span className='sep'>&#8226;</span> : null}{project.title}</span>
 										</li>)}
 								</ul>
 							</div>
