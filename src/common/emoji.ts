@@ -6,7 +6,6 @@
 // Copied from https://github.com/microsoft/vscode/blob/af33df91a45498435bc47f16444d91db4582ce48/extensions/git/src/emoji.ts
 
 'use strict';
-import { TextDecoder } from 'util';
 import { ExtensionContext, Uri, workspace } from 'vscode';
 
 const emojiRegex = /:([-+_a-z0-9]+):/g;
