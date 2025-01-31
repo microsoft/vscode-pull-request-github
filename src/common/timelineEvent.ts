@@ -47,6 +47,8 @@ export interface ReviewResolveInfo {
 	isResolved: boolean;
 }
 
+export type ReviewStateValue = 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING' | 'REQUESTED';
+
 export interface ReviewEvent {
 	id: number;
 	reviewThread?: ReviewResolveInfo
@@ -58,7 +60,7 @@ export interface ReviewEvent {
 	htmlUrl: string;
 	user: IAccount;
 	authorAssociation: string;
-	state?: 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING' | 'REQUESTED';
+	state?: ReviewStateValue;
 }
 
 export interface CommitEvent {

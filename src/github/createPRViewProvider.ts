@@ -306,13 +306,13 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 
 	private async setReviewers(pr: PullRequestModel, reviewers: (IAccount | ITeam)[]): Promise<void> {
 		if (reviewers.length) {
-			const users: string[] = [];
-			const teams: string[] = [];
+			const users: IAccount[] = [];
+			const teams: ITeam[] = [];
 			for (const reviewer of reviewers) {
 				if (isTeam(reviewer)) {
-					teams.push(reviewer.id);
+					teams.push(reviewer);
 				} else {
-					users.push(reviewer.id);
+					users.push(reviewer);
 				}
 			}
 			await pr.requestReview(users, teams);

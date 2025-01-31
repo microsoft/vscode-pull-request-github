@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import React, { cloneElement, useContext } from 'react';
 import { ReviewEvent } from '../../src/common/timelineEvent';
-import {  ReviewState } from '../../src/github/interface';
+import { AccountType, isTeam, ReviewState } from '../../src/github/interface';
 import { ariaAnnouncementForReview } from '../common/aria';
 import PullRequestContext from '../common/context';
 import { checkIcon, commentIcon, pendingIcon, requestChanges, syncIcon } from './icon';
@@ -24,7 +24,7 @@ export function Reviewer(reviewInfo: { reviewState: ReviewState, event?: ReviewE
 			</div>
 			<div className="reviewer-icons">
 				{
-					state !== 'REQUESTED' ?
+					((state !== 'REQUESTED') && (isTeam(reviewer) ? true : (reviewer.accountType !== AccountType.Bot))) ?
 						(<button className="icon-button" title="Re-request review" onClick={() => reRequestReview(reviewInfo.reviewState.reviewer.id)}>
 							{syncIcon}️
 						</button>) : null

@@ -52,6 +52,7 @@ import {
 	UpdatePullRequestResponse,
 } from './graphql';
 import {
+	AccountType,
 	GithubItemStateEnum,
 	IAccount,
 	IGitTreeItem,
@@ -971,7 +972,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return [];
 		}
 
-		const reviewers: (IAccount | ITeam)[] = parseGraphQLReviewers(data, remote);
+		const reviewers: (IAccount | ITeam)[] = parseGraphQLReviewers(data, githubRepository);
 		Logger.debug('Get Review Requests - done', PullRequestModel.ID);
 		return reviewers;
 	}
@@ -980,15 +981,15 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Add reviewers to a pull request
 	 * @param reviewers A list of GitHub logins
 	 */
-	async requestReview(reviewers: string[], teamReviewers: string[]): Promise<void> {
+	async requestReview(reviewers: IAccount[], teamReviewers: ITeam[]): Promise<void> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 		await mutate({
 			mutation: schema.AddReviewers,
 			variables: {
 				input: {
 					pullRequestId: this.graphNodeId,
-					teamIds: teamReviewers,
-					userIds: reviewers.filter(r => r && !r.startsWith('BOT')),
+					teamIds: teamReviewers.map(t => t.id),
+					userIds: reviewers.filter(r => r.accountType !== AccountType.Bot).map(r => r.id),
 				},
 			},
 		});
@@ -998,14 +999,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Remove a review request that has not yet been completed
 	 * @param reviewer A GitHub Login
 	 */
-	async deleteReviewRequest(reviewers: string[], teamReviewers: string[]): Promise<void> {
+	async deleteReviewRequest(reviewers: IAccount[], teamReviewers: ITeam[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		await octokit.call(octokit.api.pulls.removeRequestedReviewers, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
-			reviewers,
-			team_reviewers: teamReviewers
+			reviewers: reviewers.filter(r => r.accountType !== AccountType.Bot).map(r => r.id),
+			team_reviewers: teamReviewers.map(t => t.id)
 		});
 	}
 

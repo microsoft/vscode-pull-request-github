@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ReviewStateValue } from '../common/timelineEvent';
+
 export enum PRType {
 	Query,
 	All,
@@ -39,7 +41,7 @@ export enum MergeQueueState {
 
 export interface ReviewState {
 	reviewer: IAccount | ITeam;
-	state: string;
+	state: ReviewStateValue;
 }
 
 export interface ReadyForReview {
@@ -54,6 +56,26 @@ export interface IActor {
 	url: string;
 }
 
+export enum AccountType {
+	User = 'User',
+	Organization = 'Organization',
+	Mannequin = 'Mannequin',
+	Bot = 'Bot'
+}
+
+export function toAccountType(type: string): AccountType {
+	switch (type) {
+		case 'Organization':
+			return AccountType.Organization;
+		case 'Mannequin':
+			return AccountType.Mannequin;
+		case 'Bot':
+			return AccountType.Bot;
+		default:
+			return AccountType.User;
+	}
+}
+
 export interface IAccount extends IActor {
 	login: string;
 	id: string;
@@ -61,7 +83,8 @@ export interface IAccount extends IActor {
 	avatarUrl?: string;
 	url: string;
 	email?: string;
-	specialDisplayName?: string
+	specialDisplayName?: string;
+	accountType: AccountType;
 }
 
 export interface ITeam {
