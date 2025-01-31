@@ -271,6 +271,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 						name: pullRequest.author.name,
 						avatarUrl: pullRequest.userAvatar,
 						url: pullRequest.author.url,
+						accountType: pullRequest.author.accountType
 					},
 					state: pullRequest.state,
 					events: timelineEvents,
@@ -433,20 +434,20 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			quickPick.busy = true;
 
 			if (allReviewers) {
-				const newUserReviewers: string[] = [];
-				const newTeamReviewers: string[] = [];
+				const newUserReviewers: IAccount[] = [];
+				const newTeamReviewers: ITeam[] = [];
 				allReviewers.forEach(reviewer => {
-					const newReviewers = isTeam(reviewer.user) ? newTeamReviewers : newUserReviewers;
-					newReviewers.push(reviewer.user.id);
+					const newReviewers: (IAccount | ITeam)[] = isTeam(reviewer.user) ? newTeamReviewers : newUserReviewers;
+					newReviewers.push(reviewer.user);
 				});
 
-				const removedUserReviewers: string[] = [];
-				const removedTeamReviewers: string[] = [];
+				const removedUserReviewers: IAccount[] = [];
+				const removedTeamReviewers: ITeam[] = [];
 				this._existingReviewers.forEach(existing => {
-					let newReviewers: string[] = isTeam(existing.reviewer) ? newTeamReviewers : newUserReviewers;
-					let removedReviewers: string[] = isTeam(existing.reviewer) ? removedTeamReviewers : removedUserReviewers;
-					if (!newReviewers.find(newTeamReviewer => newTeamReviewer === existing.reviewer.id)) {
-						removedReviewers.push(existing.reviewer.id);
+					let newReviewers: (IAccount | ITeam)[] = isTeam(existing.reviewer) ? newTeamReviewers : newUserReviewers;
+					let removedReviewers: (IAccount | ITeam)[] = isTeam(existing.reviewer) ? removedTeamReviewers : removedUserReviewers;
+					if (!newReviewers.find(newTeamReviewer => newTeamReviewer.id === existing.reviewer.id)) {
+						removedReviewers.push(existing.reviewer);
 					}
 				});
 
@@ -786,12 +787,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private reRequestReview(message: IRequestMessage<string>): void {
 		let targetReviewer: ReviewState | undefined;
-		const userReviewers: string[] = [];
-		const teamReviewers: string[] = [];
+		const userReviewers: IAccount[] = [];
+		const teamReviewers: ITeam[] = [];
 
 		for (const reviewer of this._existingReviewers) {
 			let id: string | undefined;
-			let reviewerArray: string[] | undefined;
+			let reviewerArray: (IAccount | ITeam)[] | undefined;
 			if (reviewer && isTeam(reviewer.reviewer)) {
 				id = reviewer.reviewer.id;
 				reviewerArray = teamReviewers;
@@ -800,7 +801,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				reviewerArray = userReviewers;
 			}
 			if (reviewerArray && id && ((reviewer.state === 'REQUESTED') || (id === message.args))) {
-				reviewerArray.push(id);
+				reviewerArray.push(reviewer.reviewer);
 				if (id === message.args) {
 					targetReviewer = reviewer;
 				}

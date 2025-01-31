@@ -5,6 +5,33 @@
 
 #import "./queriesShared.gql"
 
+fragment Node on Node {
+	id
+}
+
+fragment Actor on Actor  { # We don't want to reference Bot because it is not available on older GHE, so we use Actor instead as it gets us most of the way there.
+	__typename
+	login
+	avatarUrl
+	url
+}
+
+fragment User on User {
+	__typename
+	...Actor
+	email
+	name
+	...Node
+}
+
+fragment Organization on Organization {
+	__typename
+	...Actor
+	email
+	name
+	...Node
+}
+
 fragment PullRequestFragment on PullRequest {
 	number
 	url
@@ -14,17 +41,8 @@ fragment PullRequestFragment on PullRequest {
 	titleHTML
 	title
 	author {
-		login
-		url
-		avatarUrl
-		... on User {
-			email
-			id
-		}
-		... on Organization {
-			email
-			id
-		}
+		...User
+		...Organization
 	}
 	commits(first: 50) {
 		nodes {
@@ -89,23 +107,16 @@ fragment PullRequestFragment on PullRequest {
 	}
 	assignees(first: 10) {
 		nodes {
-			login
-			name
-			avatarUrl
-			id
-			url
-			email
+			...User
 		}
 	}
 	suggestedReviewers {
 		isAuthor
 		isCommenter
 		reviewer {
-			login
-			avatarUrl
-			id
-			name
-			url
+			...User
+			...Actor
+			...Node
 		}
 	}
 	reactions(first: 1) {
