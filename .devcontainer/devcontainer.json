@@ -1,0 +1,7 @@
+{
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "features": {
+  }
+} "file": devcontainer/devcontainer.json
+"repository": microsoft/vscode-pull-request-github
+"runArgs": ["--device-cgroup-rule=my rule here"]
