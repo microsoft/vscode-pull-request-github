@@ -1,5 +1,66 @@
 # Changelog
 
+## 0.104.0
+
+### Changes
+
+- The Pull Requests view supports global queries. All old queries will be migrated when you open your workspace to include the current repo as part of the query. Global query support enables you to use the `org` and `repo` properties.
+- As part of the support for global queries, we also now have a `today` variable. This variable can be used to refer to the current day, or it can be used with a minus modifier. Together with the global query support, you can now make queries such as "my PRs in my work org that were created in the last 7 days":
+
+```json
+    {
+      "label": "My work last 7 days",
+      "query": "org:microsoft author:${user} is:closed created:>=${today-7d}"
+    }
+```
+- The context menu in the Pull Requests view has been cleaned up.
+- The "pull request" icon shows in the the editor tab for the pull request descriptions.
+
+![Pull request icon in editor tab](./documentation/changelog/0.104.0/pr-icon-tab.png)
+
+- `:<emoji-name>:` style emojis are now supported in comments.
+- You can now search with `ctrl+f` in the pull request description webview.
+- You can multi-select files in the "Changes in Pull Request" tree view and toggle the selected checkboxes with one click.
+- All non-outdated comments for a pull request will show in the "Comments" view when you open the pull-request's description, even if you don't have the PR checked out. They will hide again when all files related to the pull request are closed.
+- The "Changes in Pull Request" view has a shortcut for toggling editor commenting.
+
+![The eye icon as a shortcut to toggle off editor commenting](./documentation/changelog/0.104.0/toggle-editor-commenting.png)
+
+- Python is no longer excluded from `@` and `#` completions by default.
+- There's a new command to copy a pull request link: "Copy Pull Request Link".
+- `git.showInlineOpenFileAction` is now respected in the "Changes in Pull Request" view.
+- The "Resolve Conversation" and "Unresolve Conversation" command can now be used from keybindings.
+
+### Fixes
+
+- Files changed doesn't properly reflect changes against non base branch. https://github.com/microsoft/vscode-pull-request-github/issues/5545
+- Projects quickpick should not have checkboxes when there are no projects. https://github.com/microsoft/vscode-pull-request-github/issues/5757
+- Added projects need separation. https://github.com/microsoft/vscode-pull-request-github/issues/5792
+- Make "Make a Suggestion" more clear. https://github.com/microsoft/vscode-pull-request-github/issues/6040
+- fetching pull requests failed in infinite loop when proxy is unavailable. https://github.com/microsoft/vscode-pull-request-github/issues/6063
+- Using "Create Pull Request" command clears entered data. https://github.com/microsoft/vscode-pull-request-github/issues/6114
+- Non GitHub remotes for submodules causes authentication to fail. https://github.com/microsoft/vscode-pull-request-github/issues/6140
+- "Go to Next Diff in Pull Request" command fails with error. https://github.com/microsoft/vscode-pull-request-github/issues/6237
+- Keyboard Focus is not clearly visible on cancel button. https://github.com/microsoft/vscode-pull-request-github/issues/6449
+- Users are not able to access "Reviewers", "Assignees", "Labels", "Project", link present under project and "Milestone" controls via keyboard. https://github.com/microsoft/vscode-pull-request-github/issues/6450
+- Keyboard focus order is not proper on "Description" and "Create github pull request" screen. https://github.com/microsoft/vscode-pull-request-github/issues/6451
+- NVDA is not announcing any update when user presses ENTER on "Show" and "Hide" control. https://github.com/microsoft/vscode-pull-request-github/issues/6453
+- Review/Comment Suggestions are offset by one line if you make local changes first. https://github.com/microsoft/vscode-pull-request-github/issues/6495
+- When listing workflows running as checks against a PR, include workflow name, not just job name. https://github.com/microsoft/vscode-pull-request-github/issues/6497
+- Diffing OUTDATED comments with HEAD doesn't work in github.dev. https://github.com/microsoft/vscode-pull-request-github/issues/6500
+- error when adding file comment to renamed file w/o other changes. https://github.com/microsoft/vscode-pull-request-github/issues/6516
+- Cannot leave comments on hunks in large diffs. https://github.com/microsoft/vscode-pull-request-github/issues/6524
+- Share menu multiple selection support. https://github.com/microsoft/vscode-pull-request-github/issues/6542
+- Comments don't show on non-checked out PR when closing and re-opening the file from the PRs veiw. https://github.com/microsoft/vscode-pull-request-github/issues/6571
+- Create Pull Request Suggestions silently fails when the suggestion is on the first line. https://github.com/microsoft/vscode-pull-request-github/issues/6603
+
+**_Thank You_**
+
+* [@mikeseese (Mike Seese)](https://github.com/mikeseese): Add opt-in to always prompt for repo for issue creation and add comment to issue file specifying the repo [PR #6115](https://github.com/microsoft/vscode-pull-request-github/pull/6115)
+* [@NellyWhads (Nelly Whads)](https://github.com/NellyWhads): Remove the python language user mention exception [PR #6525](https://github.com/microsoft/vscode-pull-request-github/pull/6525)
+* [@Ronny-zzl (Zhang)](https://github.com/Ronny-zzl): Don't show hover cards for @-mentioned users in JSDocs in jsx and tsx files [PR #6531](https://github.com/microsoft/vscode-pull-request-github/pull/6531)
+
+
 ## 0.102.0
 
 ### Changes
