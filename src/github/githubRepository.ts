@@ -441,7 +441,7 @@ export class GitHubRepository extends Disposable {
 			Logger.debug('Fetch pull request templates - done', this.id);
 			return result.data.repository.pullRequestTemplates.map(template => template.body);
 		} catch (e) {
-			Logger.error(`Fetching pull request templates failed: ${e}`, this.id);
+			// The template was not found.
 		}
 	}
 
@@ -837,6 +837,24 @@ export class GitHubRepository extends Disposable {
 				owner: remote.owner,
 				repo: remote.repositoryName,
 			});
+			Logger.debug(`Fork repository - done`, this.id);
+			// GitHub can say the fork succeeded but it isn't actually ready yet.
+			// So we wait up to 5 seconds for the fork to be ready
+			const start = Date.now();
+			let exists = async () => {
+				try {
+					await octokit.call(octokit.api.repos.get, { owner: result.data.owner.login, repo: result.data.name });
+					Logger.appendLine('Fork ready', this.id);
+					return true;
+				} catch (e) {
+					Logger.appendLine('Fork not ready yet', this.id);
+					return false;
+				}
+			};
+			while (!(await exists()) && ((Date.now() - start) < 5000)) {
+				await new Promise(resolve => setTimeout(resolve, 500));
+			}
+
 			return result.data.clone_url;
 		} catch (e) {
 			Logger.error(`GitHubRepository> Forking repository failed: ${e}`, this.id);
