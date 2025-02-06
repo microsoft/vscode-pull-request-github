@@ -64,6 +64,7 @@ import {
 	getAvatarWithEnterpriseFallback,
 	getOverrideBranch,
 	isInCodespaces,
+	parseAccount,
 	parseGraphQLIssue,
 	parseGraphQLPullRequest,
 	parseGraphQLViewerPermission,
@@ -1177,14 +1178,7 @@ export class GitHubRepository extends Disposable {
 
 				ret.push(
 					...result.data.repository.mentionableUsers.nodes.map(node => {
-						return {
-							login: node.login,
-							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.isEnterprise),
-							name: node.name,
-							url: node.url,
-							email: node.email,
-							id: node.id
-						};
+						return parseAccount(node, this);
 					}),
 				);
 
@@ -1226,14 +1220,7 @@ export class GitHubRepository extends Disposable {
 
 				ret.push(
 					...result.data.repository.assignableUsers.nodes.map(node => {
-						return {
-							login: node.login,
-							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.isEnterprise),
-							name: node.name,
-							url: node.url,
-							email: node.email,
-							id: node.id
-						};
+						return parseAccount(node, this);
 					}),
 				);
 
@@ -1370,14 +1357,7 @@ export class GitHubRepository extends Disposable {
 
 			ret.push(
 				...result.data.repository.pullRequest.participants.nodes.map(node => {
-					return {
-						login: node.login,
-						avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.isEnterprise),
-						name: node.name,
-						url: node.url,
-						email: node.email,
-						id: node.id
-					};
+					return parseAccount(node, this);
 				}),
 			);
 		} catch (e) {

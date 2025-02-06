@@ -3,6 +3,41 @@
 #  *  Licensed under the MIT License. See License.txt in the project root for license information.
 #  *--------------------------------------------------------------------------------------------*/
 
+fragment Node on Node {
+	id
+}
+
+fragment Actor on Actor { # We don't want to reference Bot because it is not available on older GHE, so we use Actor instead as it gets us most of the way there.
+	__typename
+	login
+	avatarUrl
+	url
+}
+
+fragment User on User {
+	__typename
+	...Actor
+	email
+	name
+	...Node
+}
+
+fragment Organization on Organization {
+	__typename
+	...Actor
+	email
+	name
+	...Node
+}
+
+fragment Team on Team { # Team is not an Actor
+	name
+	avatarUrl
+	url
+	slug
+	...Node
+}
+
 fragment RateLimit on RateLimit {
 	limit
 	cost
@@ -13,9 +48,8 @@ fragment RateLimit on RateLimit {
 fragment Merged on MergedEvent {
 	id
 	actor {
-		login
-		avatarUrl
-		url
+		...Node
+		...Actor
 	}
 	createdAt
 	mergeRef {
@@ -31,9 +65,8 @@ fragment Merged on MergedEvent {
 fragment HeadRefDeleted on HeadRefDeletedEvent {
 	id
 	actor {
-		login
-		avatarUrl
-		url
+		...Node
+		...Actor
 	}
 	createdAt
 	headRefName
@@ -57,17 +90,8 @@ fragment Comment on IssueComment {
 	databaseId
 	authorAssociation
 	author {
-		login
-		avatarUrl
-		url
-		... on User {
-			email
-			id
-		}
-		... on Organization {
-			email
-			id
-		}
+		...User
+		...Organization
 	}
 	url
 	body
@@ -84,11 +108,7 @@ fragment Commit on PullRequestCommit {
 	commit {
 		author {
 			user {
-				login
-				avatarUrl
-				id
-				url
-				email
+				...User
 			}
 		}
 		committer {
@@ -105,15 +125,11 @@ fragment Commit on PullRequestCommit {
 fragment AssignedEvent on AssignedEvent {
 	id
 	actor {
-		login
-		avatarUrl
-		url
+		...Node
+		...Actor
 	}
 	user {
-		login
-		avatarUrl
-		id
-		url
+		...User
 	}
 }
 
@@ -123,18 +139,10 @@ fragment Review on PullRequestReview {
 	authorAssociation
 	url
 	author {
-		login
-		avatarUrl
-		url
-		... on Node {
-			id
-		}
-		... on User {
-			email
-		}
-		... on Organization {
-			email
-		}
+		...User
+		...Organization
+		...Node
+		...Actor
 	}
 	state
 	body
@@ -290,16 +298,12 @@ query GetOrganizationTeams($login: String!, $after: String, $repoName: String!) 
 	organization(login: $login) {
 		teams(first: 100, after: $after, privacy: VISIBLE) {
 			nodes {
-				name
-				avatarUrl
-				url
+				...Team
 				repositories(first: 5, query: $repoName) {
 					nodes {
 						name
 					}
 				}
-				slug
-				id
 			}
 			totalCount
 			pageInfo {
@@ -319,24 +323,10 @@ query GetReviewRequestsAdditionalScopes($owner: String!, $name: String!, $number
 			reviewRequests(first: 100) {
 				nodes {
 					requestedReviewer {
-						... on Node {
-							id
-						}
-						... on Actor {
-							login
-							avatarUrl
-						}
-						... on User {
-							url
-							email
-							name
-						}
-						... on Team { # Team is not an Actor
-							name
-							avatarUrl
-							url
-							slug
-						}
+						...Node
+						...Actor
+						...User
+						...Team
 					}
 				}
 			}
@@ -353,18 +343,9 @@ query GetReviewRequests($owner: String!, $name: String!, $number: Int!) {
 			reviewRequests(first: 100) {
 				nodes {
 					requestedReviewer {
-						... on Actor {
-							login
-							avatarUrl
-						}
-						... on Node {
-							id
-						}
-						... on User {
-							url
-							email
-							name
-						}
+						...Node
+						...Actor
+						...User
 					}
 				}
 			}
@@ -380,18 +361,10 @@ fragment ReviewComment on PullRequestReviewComment {
 	databaseId
 	url
 	author {
-		login
-		avatarUrl
-		url
-		... on Node {
-			id
-		}
-		... on User {
-			email
-		}
-		... on Organization {
-			email
-		}
+		...Actor
+		...Node
+		...User
+		...Organization
 	}
 	path
 	originalPosition
@@ -423,12 +396,10 @@ query GetParticipants($owner: String!, $name: String!, $number: Int!, $first: In
 		pullRequest(number: $number) {
 			participants(first: $first) {
 				nodes {
-					login
-					avatarUrl
-					id
-					name
-					url
-					email
+					...Node
+					...Actor
+					...User
+					...Organization
 				}
 			}
 		}
@@ -538,12 +509,7 @@ query LegacyPullRequestComments($owner: String!, $name: String!, $number: Int!, 
 
 query Viewer {
 	viewer {
-		login
-		avatarUrl
-		id
-		name
-		url
-		email
+		...User
 	}
 	rateLimit {
 		...RateLimit
@@ -580,27 +546,14 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 			bodyHTML
 			title
 			author {
-				login
-				url
-				avatarUrl
-				... on User {
-					email
-					id
-				}
-				... on Organization {
-					email
-					id
-				}
+				...User
+				...Organization
 			}
 			createdAt
 			updatedAt
 			assignees(first: 10) {
 				nodes {
-					avatarUrl
-					email
-					login
-					url
-					id
+					...User
 				}
 			}
 			labels(first: 50) {
@@ -634,17 +587,8 @@ query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
 			bodyHTML
 			title
 			author {
-				login
-				url
-				avatarUrl
-				... on User {
-					email
-					id
-				}
-				... on Organization {
-					email
-					id
-				}
+				...User
+				...Organization
 			}
 			createdAt
 			updatedAt
@@ -659,17 +603,10 @@ query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
 			comments(first: 50) {
 				nodes {
 					author {
-						login
-						url
-						avatarUrl
-						... on User {
-							email
-							id
-						}
-						... on Organization {
-							email
-							id
-						}
+						...Node
+						...Actor
+						...User
+						...Organization
 					}
 					body
 					databaseId
@@ -681,11 +618,8 @@ query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
 			}
 			assignees(first: 10) {
 				nodes {
-					avatarUrl
-					email
-					login
-					url
-					id
+					...Node
+					...User
 				}
 			}
 			reactions(first: 100) {
@@ -900,12 +834,7 @@ query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after:
 	repository(owner: $owner, name: $name) {
 		mentionableUsers(first: $first, after: $after) {
 			nodes {
-				login
-				avatarUrl
-				name
-				url
-				email
-				id
+				...User
 			}
 			pageInfo {
 				hasNextPage
@@ -922,12 +851,7 @@ query GetAssignableUsers($owner: String!, $name: String!, $first: Int!, $after: 
 	repository(owner: $owner, name: $name) {
 		assignableUsers(first: $first, after: $after) {
 			nodes {
-				login
-				avatarUrl
-				name
-				url
-				email
-				id
+				...User
 			}
 			pageInfo {
 				hasNextPage
@@ -1022,11 +946,7 @@ query Issues($query: String!) {
 					title
 					assignees(first: 10) {
 						nodes {
-							avatarUrl
-							email
-							login
-							url
-							id
+							...User
 						}
 					}
 					author {
