@@ -60,7 +60,6 @@
 * [@NellyWhads (Nelly Whads)](https://github.com/NellyWhads): Remove the python language user mention exception [PR #6525](https://github.com/microsoft/vscode-pull-request-github/pull/6525)
 * [@Ronny-zzl (Zhang)](https://github.com/Ronny-zzl): Don't show hover cards for @-mentioned users in JSDocs in jsx and tsx files [PR #6531](https://github.com/microsoft/vscode-pull-request-github/pull/6531)
 
-
 ## 0.102.0
 
 ### Changes
