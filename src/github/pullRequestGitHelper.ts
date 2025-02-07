@@ -265,6 +265,20 @@ export class PullRequestGitHelper {
 		return null;
 	}
 
+	static async getEmail(repository: Repository): Promise<string | undefined> {
+		try {
+			const email = await repository.getConfig('user.email');
+			if (email) {
+				return email;
+			}
+			const globalEmail = await repository.getGlobalConfig('user.email');
+			return globalEmail;
+		} catch (e) {
+			// email config doesn't exist
+			return undefined;
+		}
+	}
+
 	private static buildPullRequestMetadata(pullRequest: PullRequestModel) {
 		return `${pullRequest.base.repositoryCloneUrl.owner}#${pullRequest.base.repositoryCloneUrl.repositoryName}#${pullRequest.number}`;
 	}

@@ -32,6 +32,7 @@ import {
 	ReviewState,
 } from './interface';
 import { IssueOverviewPanel } from './issueOverview';
+import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { getAssigneesQuickPickItems, getMilestoneFromQuickPick, getProjectFromQuickPick, pickEmail, reviewersQuickPick } from './quickPicks';
@@ -209,7 +210,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName),
 			this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel),
 			pullRequestModel.getMergeability(),
-			this._folderRepositoryManager.credentialStore.getIsEmu(pullRequestModel.remote.authProviderId)])
+			this._folderRepositoryManager.credentialStore.getIsEmu(pullRequestModel.remote.authProviderId),
+			pullRequestModel.githubRepository.getAuthenticatedUserEmails(),
+			PullRequestGitHelper.getEmail(this._folderRepositoryManager.repository)])
 			.then(result => {
 				const [
 					pullRequest,
@@ -225,7 +228,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					mergeQueueMethod,
 					isBranchUpToDateWithBase,
 					mergeability,
-					isEmu
+					isEmu,
+					gitHubEmails,
+					gitEmail
 				] = result;
 				if (!pullRequest) {
 					throw new Error(
@@ -255,6 +260,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				const isUpdateBranchWithGitHubEnabled: boolean = this.isUpdateBranchWithGitHubEnabled();
 				const continueOnGitHub = isCrossRepository && isInCodespaces();
 				const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
+				const emailForCommit = isEmu ? undefined : ((gitEmail && gitHubEmails.find(email => email.toLowerCase() === gitEmail.toLowerCase())) ?? currentUser.email);
+
 				Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
 				const context: Partial<PullRequest> = {
 					number: pullRequest.number,
@@ -304,7 +311,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					milestone: pullRequest.milestone,
 					assignees: pullRequest.assignees,
 					continueOnGitHub,
-					emailForCommit: isEmu ? undefined : currentUser.email,
+					emailForCommit,
 					isAuthor: currentUser.login === pullRequest.author.login,
 					currentUserReviewState: reviewState,
 					isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
