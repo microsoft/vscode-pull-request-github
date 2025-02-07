@@ -74,6 +74,7 @@ export const enum Status {
 }
 
 export class GitApiImpl extends Disposable implements API, IGit {
+	static readonly ID = 'GitAPI';
 	private static _handlePool: number = 0;
 	private _providers = new Map<number, IGit>();
 
@@ -120,13 +121,13 @@ export class GitApiImpl extends Disposable implements API, IGit {
 	}
 
 	registerGitProvider(provider: IGit): vscode.Disposable {
-		Logger.appendLine(`Registering git provider`);
+		Logger.appendLine(`Registering git provider`, GitApiImpl.ID);
 		const handle = this._nextHandle();
 		this._providers.set(handle, provider);
 
 		this._register(provider.onDidCloseRepository(e => this._onDidCloseRepository.fire(e)));
 		this._register(provider.onDidOpenRepository(e => {
-			Logger.appendLine(`Repository ${e.rootUri} has been opened`);
+			Logger.appendLine(`Repository ${e.rootUri} has been opened`, GitApiImpl.ID);
 			this._updateReposContext();
 			this._onDidOpenRepository.fire(e);
 		}));

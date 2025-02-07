@@ -825,7 +825,7 @@ export function registerCommands(
 				}
 
 				if (!pullRequestModel) {
-					Logger.appendLine('No pull request found.');
+					Logger.appendLine('No pull request found.', logId);
 					return;
 				}
 
