@@ -1580,7 +1580,7 @@
 			},
 			{
 				"view": "github:login",
-				"when": "ReposManagerStateContext == NeedsAuthentication && !github:hasGitHubRemotes && gitOpenRepositoryCount",
+				"when": "(ReposManagerStateContext == NeedsAuthentication) && ((!github:hasGitHubRemotes && gitOpenRepositoryCount) || config.github-enterprise.uri)",
 				"contents": "%welcome.github.loginWithEnterprise.contents%"
 			},
 			{
