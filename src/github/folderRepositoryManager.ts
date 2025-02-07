@@ -419,9 +419,9 @@ export class FolderRepositoryManager extends Disposable {
 
 		if (activeRemotes.length) {
 			await vscode.commands.executeCommand('setContext', 'github:hasGitHubRemotes', true);
-			Logger.appendLine(`Found GitHub remote for folder ${this.repository.rootUri.fsPath}`);
+			Logger.appendLine(`Found GitHub remote for folder ${this.repository.rootUri.fsPath}`, this.id);
 		} else {
-			Logger.appendLine(`No GitHub remotes found for folder ${this.repository.rootUri.fsPath}`);
+			Logger.appendLine(`No GitHub remotes found for folder ${this.repository.rootUri.fsPath}`, this.id);
 		}
 
 		return activeRemotes;
@@ -463,7 +463,7 @@ export class FolderRepositoryManager extends Disposable {
 
 	private async doUpdateRepositories(silent: boolean): Promise<boolean> {
 		if (this._git.state === 'uninitialized') {
-			Logger.appendLine('Cannot updates repositories as git is uninitialized');
+			Logger.appendLine('Cannot updates repositories as git is uninitialized', this.id);
 
 			return false;
 		}
@@ -601,7 +601,7 @@ export class FolderRepositoryManager extends Disposable {
 				}
 			}
 		} catch (e) {
-			Logger.appendLine(`Missing upstream check failed: ${e}`);
+			Logger.appendLine(`Missing upstream check failed: ${e}`, this.id);
 			// ignore
 		}
 		return false;
@@ -697,7 +697,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		if (this._mentionableUsers) {
-			Logger.appendLine('Using in-memory cached mentionable users.');
+			Logger.appendLine('Using in-memory cached mentionable users.', this.id);
 			return this._mentionableUsers;
 		}
 
@@ -717,7 +717,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		if (this._assignableUsers) {
-			Logger.appendLine('Using in-memory cached assignable users.');
+			Logger.appendLine('Using in-memory cached assignable users.', this.id);
 			return this._assignableUsers;
 		}
 
@@ -754,7 +754,7 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		if (this._teamReviewers) {
-			Logger.appendLine('Using in-memory cached team reviewers.');
+			Logger.appendLine('Using in-memory cached team reviewers.', this.id);
 			return this._teamReviewers;
 		}
 

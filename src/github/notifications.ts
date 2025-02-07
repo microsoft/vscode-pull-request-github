@@ -283,9 +283,9 @@ export class NotificationProvider extends Disposable {
 		if (pollTimeSuggested !== this._pollingDuration) {
 			this._pollingDuration = pollTimeSuggested;
 			if (this._pollingHandler && NotificationProvider.isPRNotificationsOn()) {
-				Logger.appendLine('Notifications: Clearing interval');
+				Logger.appendLine('Notifications: Clearing interval', NotificationProvider.ID);
 				clearInterval(this._pollingHandler);
-				Logger.appendLine(`Notifications: Starting new polling interval with ${this._pollingDuration}`);
+				Logger.appendLine(`Notifications: Starting new polling interval with ${this._pollingDuration}`, NotificationProvider.ID);
 				this.startPolling();
 			}
 		}

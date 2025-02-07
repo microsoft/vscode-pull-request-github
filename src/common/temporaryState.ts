@@ -9,6 +9,7 @@ import Logger from './logger';
 let tempState: TemporaryState | undefined;
 
 export class TemporaryState extends vscode.Disposable {
+	static readonly ID = 'TemporaryState';
 	private readonly SUBPATH = 'temp';
 	private readonly disposables: vscode.Disposable[] = [];
 	private readonly persistInSessionDisposables: vscode.Disposable[] = [];
@@ -86,12 +87,12 @@ export class TemporaryState extends vscode.Disposable {
 			try {
 				await vscode.workspace.fs.delete(tempState.path, { recursive: true });
 			} catch (e) {
-				Logger.appendLine(`TemporaryState> Error in initialization: ${e.message}`);
+				Logger.appendLine(`Error in initialization: ${e.message}`, TemporaryState.ID);
 			}
 			try {
 				await vscode.workspace.fs.createDirectory(tempState.path);
 			} catch (e) {
-				Logger.appendLine(`TemporaryState> Error in initialization: ${e.message}`);
+				Logger.appendLine(`Error in initialization: ${e.message}`, TemporaryState.ID);
 			}
 			context.subscriptions.push(tempState);
 			return tempState;

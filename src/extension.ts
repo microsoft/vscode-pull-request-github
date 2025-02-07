@@ -48,6 +48,8 @@ const ingestionKey = '0c6ae279ed8443289764825290e4f9e2-1a736e7c-1324-4338-be46-f
 
 let telemetry: ExperimentationTelemetry;
 
+const ACTIVATION = 'Activation';
+
 async function init(
 	context: vscode.ExtensionContext,
 	git: GitApiImpl,
@@ -60,7 +62,7 @@ async function init(
 	createPrHelper: CreatePullRequestHelper
 ): Promise<void> {
 	context.subscriptions.push(Logger);
-	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
+	Logger.appendLine('Git repository found, initializing review manager and pr tree view.', ACTIVATION);
 
 	context.subscriptions.push(credentialStore.onDidChangeSessions(async e => {
 		if (e.provider.id === 'github') {
@@ -163,7 +165,7 @@ async function init(
 	context.subscriptions.push(reviewsManager);
 
 	git.onDidChangeState(() => {
-		Logger.appendLine(`Git initialization state changed: state=${git.state}`);
+		Logger.appendLine(`Git initialization state changed: state=${git.state}`, ACTIVATION);
 		reviewsManager.reviewManagers.forEach(reviewManager => reviewManager.updateState(true));
 	});
 
@@ -172,7 +174,7 @@ async function init(
 			// Make sure we don't already have a folder manager for this repo.
 			const existing = reposManager.folderManagers.find(manager => manager.repository.rootUri.toString() === repo.rootUri.toString());
 			if (existing) {
-				Logger.appendLine(`Repo ${repo.rootUri} has already been setup.`);
+				Logger.appendLine(`Repo ${repo.rootUri} has already been setup.`, ACTIVATION);
 				return;
 			}
 			const newFolderManager = new FolderRepositoryManager(reposManager.folderManagers.length, context, repo, telemetry, git, credentialStore, createPrHelper);
@@ -195,7 +197,7 @@ async function init(
 		addRepo();
 		tree.notificationProvider.refreshOrLaunchPolling();
 		const disposable = repo.state.onDidChange(() => {
-			Logger.appendLine(`Repo state for ${repo.rootUri} changed.`);
+			Logger.appendLine(`Repo state for ${repo.rootUri} changed.`, ACTIVATION);
 			addRepo();
 			disposable.dispose();
 		});
@@ -410,9 +412,9 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	const prTree = new PullRequestsTreeDataProvider(telemetry, context, reposManager);
 	context.subscriptions.push(prTree);
 	context.subscriptions.push(credentialStore.onDidGetSession(() => prTree.refresh(undefined, true)));
-	Logger.appendLine('Looking for git repository');
+	Logger.appendLine('Looking for git repository', ACTIVATION);
 	const repositories = apiImpl.repositories;
-	Logger.appendLine(`Found ${repositories.length} repositories during activation`);
+	Logger.appendLine(`Found ${repositories.length} repositories during activation`, ACTIVATION);
 	const createPrHelper = new CreatePullRequestHelper();
 	context.subscriptions.push(createPrHelper);
 
