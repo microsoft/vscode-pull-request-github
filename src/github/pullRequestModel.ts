@@ -1412,14 +1412,13 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * List the changed files in a pull request.
 	 */
 	private async getRawFileChangesInfo(): Promise<IRawFileChange[]> {
-		Logger.debug(
-			`Fetch file changes, base, head and merge base of PR #${this.number} - enter`,
-			PullRequestModel.ID,
-		);
+		Logger.debug(`Fetch file changes, base, head and merge base of PR #${this.number} - enter`, PullRequestModel.ID);
+
 		const githubRepository = this.githubRepository;
 		const { octokit, remote } = await githubRepository.ensure();
 
 		if (!this.base) {
+			Logger.appendLine('No base branch found for PR, fetching it now', PullRequestModel.ID);
 			const info = await octokit.call(octokit.api.pulls.get, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
@@ -1438,6 +1437,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		if (this.item.merged) {
+			Logger.appendLine('PR is merged, fetching all file changes', PullRequestModel.ID);
 			const response = await restPaginate<typeof octokit.api.pulls.listFiles, IRawFileChange>(octokit.api.pulls.listFiles, {
 				repo: remote.repositoryName,
 				owner: remote.owner,
@@ -1450,6 +1450,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return response;
 		}
 
+		Logger.debug(`Comparing commits for ${remote.owner}/${remote.repositoryName} with base ${this.base.repositoryCloneUrl.owner}:${compareWithBaseRef} and head ${this.head!.repositoryCloneUrl.owner}:${this.head!.sha}`, PullRequestModel.ID);
 		const { data } = await octokit.call(octokit.api.repos.compareCommits, {
 			repo: remote.repositoryName,
 			owner: remote.owner,
@@ -1465,10 +1466,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		if (data.files && data.files.length >= MAX_FILE_CHANGES_IN_COMPARE_COMMITS) {
 			// compareCommits will return a maximum of 100 changed files
 			// If we have (maybe) more than that, we'll need to fetch them with listFiles API call
-			Logger.debug(
-				`More than ${MAX_FILE_CHANGES_IN_COMPARE_COMMITS} files changed, fetching all file changes of PR #${this.number}`,
-				PullRequestModel.ID,
-			);
+			Logger.appendLine(
+				`More than ${MAX_FILE_CHANGES_IN_COMPARE_COMMITS} files changed in #${this.number}`, PullRequestModel.ID);
 			files = await restPaginate<typeof octokit.api.pulls.listFiles, IRawFileChange>(octokit.api.pulls.listFiles, {
 				owner: this.base.repositoryCloneUrl.owner,
 				pull_number: this.number,
