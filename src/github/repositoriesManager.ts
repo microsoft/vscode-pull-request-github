@@ -207,7 +207,15 @@ export class RepositoriesManager extends Disposable {
 					return false;
 				}
 			} else {
-				const setEnterpriseUriPrompt = await vscode.window.showInputBox({ placeHolder: vscode.l10n.t('Set a GitHub Enterprise server URL'), ignoreFocusOut: true });
+				const setEnterpriseUriPrompt = await vscode.window.showInputBox({
+					placeHolder: vscode.l10n.t('Set a GitHub Enterprise server URL'), ignoreFocusOut: true, validateInput: (value) => {
+						const pattern = /^(?:$|(https?):\/\/(?!github\.com).*)/;
+						if (!pattern.test(value)) {
+							return vscode.l10n.t('Please enter a valid GitHub Enterprise server URL. A "github.com" URL is not valid for GitHub Enterprise.');
+						}
+						return undefined;
+					}
+				});
 				if (setEnterpriseUriPrompt) {
 					await setEnterpriseUri(setEnterpriseUriPrompt);
 				} else {
