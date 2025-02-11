@@ -194,20 +194,32 @@ export class RepositoriesManager extends Disposable {
 		const yes = vscode.l10n.t('Yes');
 
 		if (enterprise) {
-			const remoteToUse = getEnterpriseUri()?.toString() ?? (enterpriseRemotes.length ? enterpriseRemotes[0].normalizedHost : (unknownRemotes.length ? unknownRemotes[0].normalizedHost : undefined));
+			let remoteToUse = getEnterpriseUri()?.toString() ?? (enterpriseRemotes.length ? enterpriseRemotes[0].normalizedHost : (unknownRemotes.length ? unknownRemotes[0].normalizedHost : undefined));
 			if (enterpriseRemotes.length === 0 && unknownRemotes.length === 0) {
 				Logger.appendLine(`Enterprise login selected, but no possible enterprise remotes discovered (${dotComRemotes.length} .com)`, RepositoriesManager.ID);
 			}
 			if (remoteToUse) {
+				const no = vscode.l10n.t('No, manually set {0}', 'github-enterprise.uri');
 				const promptResult = await vscode.window.showInformationMessage(vscode.l10n.t('Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server {0}?', remoteToUse),
-					{ modal: true }, yes, vscode.l10n.t('No, manually set {0}', 'github-enterprise.uri'));
+					{ modal: true }, yes, no);
 				if (promptResult === yes) {
 					await setEnterpriseUri(remoteToUse);
+				} else if (promptResult === no) {
+					remoteToUse = undefined;
 				} else {
 					return false;
 				}
-			} else {
-				const setEnterpriseUriPrompt = await vscode.window.showInputBox({ placeHolder: vscode.l10n.t('Set a GitHub Enterprise server URL'), ignoreFocusOut: true });
+			}
+			if (!remoteToUse) {
+				const setEnterpriseUriPrompt = await vscode.window.showInputBox({
+					placeHolder: vscode.l10n.t('Set a GitHub Enterprise server URL'), ignoreFocusOut: true, validateInput: (value) => {
+						const pattern = /^(?:$|(https?):\/\/(?!github\.com).*)/;
+						if (!pattern.test(value)) {
+							return vscode.l10n.t('Please enter a valid GitHub Enterprise server URL. A "github.com" URL is not valid for GitHub Enterprise.');
+						}
+						return undefined;
+					}
+				});
 				if (setEnterpriseUriPrompt) {
 					await setEnterpriseUri(setEnterpriseUriPrompt);
 				} else {
