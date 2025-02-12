@@ -2424,7 +2424,17 @@ export class FolderRepositoryManager extends Disposable {
 
 			// respect the git setting to fetch before checkout
 			if (vscode.workspace.getConfiguration(GIT).get<boolean>(PULL_BEFORE_CHECKOUT, false) && branchObj.upstream) {
-				await this.repository.fetch({ remote: branchObj.upstream.remote, ref: `${branchObj.upstream.name}:${branchObj.name}` });
+				try {
+					await this.repository.fetch({ remote: branchObj.upstream.remote, ref: `${branchObj.upstream.name}:${branchObj.name}` });
+				} catch (e) {
+					if (e.stderr?.startsWith && e.stderr.startsWith('fatal: refusing to fetch into branch')) {
+						// This can happen when there's some state on the "main" branch
+						// This could be unpushed commits or a bisect for example
+						vscode.window.showErrorMessage(vscode.l10n.t('Unable to fetch the {0} branch. There is some state (bisect, unpushed commits, etc.) on {0} that is preventing the fetch.', [branchObj.name]));
+					} else {
+						throw e;
+					}
+				}
 			}
 
 			if (branchObj.upstream && branch === branchObj.upstream.name) {
