@@ -1135,7 +1135,7 @@ export function getReactionGroup(): { title: string; label: string; icon?: vscod
 	return ret;
 }
 
-export async function restPaginate<R extends OctokitTypes.RequestInterface, T>(request: R, variables: Parameters<R>[0]): Promise<T[]> {
+export async function restPaginate<R extends OctokitTypes.RequestInterface, T>(request: R, variables: Parameters<R>[0], per_page: number = 100): Promise<T[]> {
 	let page = 1;
 	let results: T[] = [];
 	let hasNextPage = false;
@@ -1144,7 +1144,7 @@ export async function restPaginate<R extends OctokitTypes.RequestInterface, T>(r
 		const result = await request(
 			{
 				...(variables as any),
-				per_page: 100,
+				per_page,
 				page
 			}
 		);
