@@ -58,7 +58,7 @@ export class SuggestFixTool extends RepoToolBase<IssueToolParameters> {
 			messages.push(vscode.LanguageModelChatMessage.User(`Comment ${index}: ${comment.body}`));
 		});
 
-		const copilotCodebaseResult = await vscode.lm.invokeTool('copilot_codebase', {
+		const copilotCodebaseResult = await vscode.lm.invokeTool('copilot_searchCodebase', {
 			toolInvocationToken: undefined,
 			input: {
 				query: result.title
