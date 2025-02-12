@@ -70,6 +70,7 @@ import {
 	ReviewEvent,
 } from './interface';
 import { IssueModel } from './issueModel';
+import { compareCommits } from './loggingOctokit';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
@@ -1451,32 +1452,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		Logger.debug(`Comparing commits for ${remote.owner}/${remote.repositoryName} with base ${this.base.repositoryCloneUrl.owner}:${compareWithBaseRef} and head ${this.head!.repositoryCloneUrl.owner}:${this.head!.sha}`, PullRequestModel.ID);
-		const { data } = await octokit.call(octokit.api.repos.compareCommits, {
-			repo: remote.repositoryName,
-			owner: remote.owner,
-			base: `${this.base.repositoryCloneUrl.owner}:${compareWithBaseRef}`,
-			head: `${this.head!.repositoryCloneUrl.owner}:${this.head!.sha}`,
-		});
-
-		this.mergeBase = data.merge_base_commit.sha;
-
-		const MAX_FILE_CHANGES_IN_COMPARE_COMMITS = 100;
-		let files: IRawFileChange[] = [];
-
-		if (data.files && data.files.length >= MAX_FILE_CHANGES_IN_COMPARE_COMMITS) {
-			// compareCommits will return a maximum of 100 changed files
-			// If we have (maybe) more than that, we'll need to fetch them with listFiles API call
-			Logger.appendLine(
-				`More than ${MAX_FILE_CHANGES_IN_COMPARE_COMMITS} files changed in #${this.number}`, PullRequestModel.ID);
-			files = await restPaginate<typeof octokit.api.pulls.listFiles, IRawFileChange>(octokit.api.pulls.listFiles, {
-				owner: this.base.repositoryCloneUrl.owner,
-				pull_number: this.number,
-				repo: remote.repositoryName,
-			});
-		} else {
-			// if we're under the limit, just use the result from compareCommits, don't make additional API calls.
-			files = data.files ? data.files as IRawFileChange[] : [];
-		}
+		const { files, mergeBaseSha } = await compareCommits(remote, octokit, this.base, this.head!, compareWithBaseRef, this.number, PullRequestModel.ID);
+		this.mergeBase = mergeBaseSha;
 
 		if (oldHasChangesSinceReview !== undefined && oldHasChangesSinceReview !== this.hasChangesSinceLastReview && this.hasChangesSinceLastReview && this._showChangesSinceReview) {
 			this._onDidChangeChangesSinceReview.fire();
