@@ -31,7 +31,7 @@
 		"tokenInformation",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.104.0",
+	"version": "0.104.1",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.97.0"
