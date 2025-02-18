@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.104.1
+
+### Fixes
+
+- Suggest a fix with Copilot results in an error Tool copilot_codebase was not contributed. https://github.com/microsoft/vscode-pull-request-github/issues/6632
+
 ## 0.104.0
 
 ### Changes
