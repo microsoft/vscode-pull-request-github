@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.106.0
+
+### Changes
+
+- You can provide custom instructions for GitHub Copilot when generating pull request titles and descriptions using the setting `github.copilot.chat.pullRequestDescriptionGeneration.instructions`. You can point the setting to a file in your workspace, or you can provide instructions inline in your settings:
+
+```json
+{
+  "github.copilot.chat.pullRequestDescriptionGeneration.instructions": [
+    {
+      "text": "Prefix every PR title with an emoji."
+    },
+  ],
+}
+```
+
+- We've added validation so that it's harder to accidentally set a `github.com` URL as the GitHub Enterprise URL.
+
+### Fixes
+
+- Unable to authenticate using Github Enterprise. https://github.com/microsoft/vscode-pull-request-github/issues/6426
+- Cannot add Reviewer to PR once github-actions is added as a reviewer. Cannot add Reviewer to PR once github-actions is added as a reviewer
+- On PR to submodule parent package was forked instead of submodule. https://github.com/microsoft/vscode-pull-request-github/issues/6492
+- Email address for merge commit is not remembered (and cannot be set). https://github.com/microsoft/vscode-pull-request-github/issues/6593
+- Copy GitHub Permalink doesn't work with custom SSH. https://github.com/microsoft/vscode-pull-request-github/issues/6668
+
+**_Thank You_**
+
+* [@christianvuerings (Christian Vuerings)](https://github.com/christianvuerings): Fix Copy GitHub Permalink with custom SSH [PR #6669](https://github.com/microsoft/vscode-pull-request-github/pull/6669)
+
 ## 0.104.1
 
 ### Fixes
