@@ -601,7 +601,7 @@ body button .icon {
 
 .comment-container.commit {
 	border: none;
-	padding: 4px 16px;
+	padding: 8px 0;
 }
 
 .comment-container.commit,
@@ -1311,4 +1311,8 @@ code {
 
 .blob-code-marker-deletion::before {
 	content: "- ";
+}
+
+.reviewer-icons {
+	border-radius: 4px;
 }

@@ -225,6 +225,7 @@ body img.avatar {
 .reviewer-icons {
 	display: flex;
 	gap: 4px;
+	border-radius: 4px;
 }
 
 .push-right {

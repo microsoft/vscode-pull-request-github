@@ -29,6 +29,7 @@ textarea {
 
 .reviewer-icons {
 	margin-left: 20px;
+	border-radius: 4px;
 }
 
 #status-checks {
