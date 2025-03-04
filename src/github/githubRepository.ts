@@ -263,7 +263,8 @@ export class GitHubRepository extends Disposable {
 		try {
 			rsp = await gql.query<T>(query);
 		} catch (e) {
-			Logger.error(`Error querying GraphQL API: ${e.message}${e.graphQLErrors ? `. ${(e.graphQLErrors as GraphQLError[]).map(error => error.extensions?.code).join(',')}` : ''}`, this.id);
+			const logInfo = (query.query.definitions[0] as { name: { value: string } | undefined }).name?.value;
+			Logger.error(`Error querying GraphQL API (${logInfo}): ${e.message}${e.graphQLErrors ? `. ${(e.graphQLErrors as GraphQLError[]).map(error => error.extensions?.code).join(',')}` : ''}`, this.id);
 			if (legacyFallback) {
 				query.query = legacyFallback.query;
 				return this.query(query, ignoreSamlErrors);

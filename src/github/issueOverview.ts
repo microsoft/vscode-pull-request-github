@@ -175,7 +175,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				});
 			})
 			.catch(e => {
-				vscode.window.showErrorMessage(formatError(e));
+				vscode.window.showErrorMessage(`Error updating issue description: ${formatError(e)}`);
 			});
 	}
 

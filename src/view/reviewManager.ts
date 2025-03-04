@@ -1105,7 +1105,7 @@ export class ReviewManager extends Disposable {
 				// The pull request was checked out, but the upstream branch was deleted
 				vscode.window.showInformationMessage('The remote branch for this pull request has been deleted. The file contents may not match the remote.');
 			} else {
-				vscode.window.showErrorMessage(formatError(e));
+				vscode.window.showErrorMessage(`Error switching to pull request: ${formatError(e)}`);
 			}
 			// todo, we should try to recover, for example, git checkout succeeds but set config fails.
 			if (this._folderRepoManager.activePullRequest?.number === pr.number) {
