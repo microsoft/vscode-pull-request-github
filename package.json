@@ -3812,8 +3812,8 @@
 		"webpack-cli": "4.2.0"
 	},
 	"dependencies": {
-		"@octokit/rest": "18.2.1",
-		"@octokit/types": "6.10.1",
+		"@octokit/rest": "21.1.1",
+		"@octokit/types": "13.8.0",
 		"@vscode/extension-telemetry": "0.7.5",
 		"@vscode/prompt-tsx": "^0.3.0-alpha.12",
 		"apollo-boost": "^0.4.9",

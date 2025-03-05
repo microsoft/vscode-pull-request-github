@@ -296,13 +296,6 @@ async function getExtensionConfig(target, mode, env) {
 			alias:
 				target === 'webworker'
 					? {
-						'universal-user-agent': path.join(
-							__dirname,
-							'node_modules',
-							'universal-user-agent',
-							'dist-web',
-							'index.js',
-						),
 						'node-fetch': 'cross-fetch',
 						'../env/node/net': path.resolve(__dirname, 'src', 'env', 'browser', 'net'),
 						'../env/node/ssh': path.resolve(__dirname, 'src', 'env', 'browser', 'ssh'),
