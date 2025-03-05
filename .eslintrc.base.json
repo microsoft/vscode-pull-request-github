@@ -102,7 +102,7 @@
 		"import/no-default-export": "off", // TODO@eamodio revisit
 		"import/no-duplicates": "error",
 		"import/no-self-import": "error",
-		"import/no-unresolved": ["warn", { "ignore": ["vscode", "ghpr", "git", "extensionApi"] }],
+		"import/no-unresolved": ["warn", { "ignore": ["vscode", "ghpr", "git", "extensionApi", "@octokit/rest", "@octokit/types"] }],
 		"import/order": [
 			"warn",
 			{

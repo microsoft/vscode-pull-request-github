@@ -36,7 +36,7 @@ export class CreatePullRequestDataModel extends Disposable {
 
 	private _gitHubMergeBase: string | undefined;
 	private _gitHubLog: OctokitCommon.Commit[] | undefined;
-	private _gitHubFiles: OctokitCommon.CommitFile[] | undefined;
+	private _gitHubFiles: OctokitCommon.CommitFiles;
 
 	private _gitHubcontentProvider: GitHubContentProvider;
 	private _gitcontentProvider: GitContentProvider;
@@ -232,7 +232,7 @@ export class CreatePullRequestDataModel extends Disposable {
 		return this._gitHubLog;
 	}
 
-	public async gitHubFiles(): Promise<OctokitCommon.CommitFile[]> {
+	public async gitHubFiles(): Promise<OctokitCommon.CommitFiles> {
 		await this._constructed;
 		if (this._gitHubFiles === undefined) {
 			await this.gitHubCommits();
