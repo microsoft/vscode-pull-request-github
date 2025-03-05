@@ -1,8 +1,12 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { UserBuilder } from './userBuilder';
 import { OrganizationBuilder } from './organizationBuilder';
 import { createBuilderClass, createLink } from '../base';
 import { OctokitCommon } from '../../../github/common';
-import { ForkDetails } from '../../../github/githubRepository';
 
 export type RepoUnion = OctokitCommon.ReposGetResponseData &
 	OctokitCommon.PullsListResponseItemHeadRepo &
@@ -91,6 +95,7 @@ export const RepositoryBuilder = createBuilderClass<RepoUnion>()({
 	has_wiki: { default: true },
 	has_pages: { default: false },
 	has_downloads: { default: true },
+	has_discussions: { default: false },
 	archived: { default: false },
 	pushed_at: { default: '2011-01-26T19:06:43Z' },
 	created_at: { default: '2011-01-26T19:01:12Z' },
