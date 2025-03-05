@@ -327,7 +327,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				}
 			})
 			.catch(e => {
-				vscode.window.showErrorMessage(formatError(e));
+				vscode.window.showErrorMessage(`Error updating pull request description: ${formatError(e)}`);
 			});
 	}
 
