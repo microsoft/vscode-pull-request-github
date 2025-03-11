@@ -978,11 +978,11 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 
 	private async getCommitsAndPatches(): Promise<{ commitMessages: string[], patches: { patch: string, fileUri: string, previousFileUri?: string }[] }> {
 		let commitMessages: string[];
-		let patches: ({ patch: string, fileUri: string, previousFileUri?: string } | undefined)[];
+		let patches: ({ patch: string, fileUri: string, previousFileUri?: string } | undefined)[] | undefined;
 		if (await this.model.getCompareHasUpstream()) {
 			[commitMessages, patches] = await Promise.all([
 				this.model.gitHubCommits().then(rawCommits => rawCommits.map(commit => commit.commit.message)),
-				this.model.gitHubFiles().then(rawPatches => rawPatches.map(file => {
+				this.model.gitHubFiles().then(rawPatches => rawPatches?.map(file => {
 					if (!file.patch) {
 						return;
 					}
@@ -1001,7 +1001,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 				}))]);
 		}
 		const filteredPatches: { patch: string, fileUri: string, previousFileUri?: string }[] =
-			patches.filter<{ patch: string, fileUri: string, previousFileUri?: string }>((patch): patch is { patch: string, fileUri: string, previousFileUri?: string } => !!patch);
+			patches?.filter<{ patch: string, fileUri: string, previousFileUri?: string }>((patch): patch is { patch: string, fileUri: string, previousFileUri?: string } => !!patch) ?? [];
 		return { commitMessages, patches: filteredPatches };
 	}
 

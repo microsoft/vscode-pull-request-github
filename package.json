@@ -3853,7 +3853,7 @@
 		"tunnel": "0.0.6",
 		"url-search-params-polyfill": "^8.1.1",
 		"uuid": "8.3.2",
-		"vscode-tas-client": "^0.1.75",
+		"vscode-tas-client": "^0.1.84",
 		"vsls": "^0.3.967"
 	},
 	"license": "MIT"

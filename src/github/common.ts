@@ -68,7 +68,7 @@ export namespace OctokitCommon {
 	export type SearchReposResponseItem = Endpoints['GET /search/repositories']['response']['data']['items'][0];
 	export type CompareCommits = Endpoints['GET /repos/{owner}/{repo}/compare/{base}...{head}']['response']['data'];
 	export type Commit = CompareCommits['commits'][0];
-	export type CommitFile = (Exclude<CompareCommits['files'], null | undefined>)[0];
+	export type CommitFiles = CompareCommits['files']
 	export type Notification = Endpoints['GET /notifications']['response']['data'][0];
 }
 

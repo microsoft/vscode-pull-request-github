@@ -152,6 +152,11 @@ body .comment-container .review-comment-header {
 	white-space: nowrap;
 }
 
+.review-comment-header.no-details {
+	border-bottom-left-radius: 3px;
+	border-bottom-right-radius: 3px;
+}
+
 .description-header {
 	float: right;
 	height: 32px;

@@ -6,18 +6,18 @@
 import * as vscode from 'vscode';
 
 export namespace contexts {
-	export const VIEWED_FILES = 'github:viewedFiles';
-	export const UNVIEWED_FILES = 'github:unviewedFiles';
-	export const IN_REVIEW_MODE = 'github:inReviewMode';
-	export const REPOS_NOT_IN_REVIEW_MODE = 'github:reposNotInReviewMode';
-	export const REPOS_IN_REVIEW_MODE = 'github:reposInReviewMode';
-	export const ACTIVE_PR_COUNT = 'github:activePRCount';
+	export const VIEWED_FILES = 'github:viewedFiles'; // Array of file paths for viewed files
+	export const UNVIEWED_FILES = 'github:unviewedFiles'; // Array of file paths for unviewed files
+	export const IN_REVIEW_MODE = 'github:inReviewMode'; // Boolean indicating if the extension is currently in "review mode" (has a non-ignored PR checked out)
+	export const REPOS_NOT_IN_REVIEW_MODE = 'github:reposNotInReviewMode'; // Array of URIs for repos that are not in review mode
+	export const REPOS_IN_REVIEW_MODE = 'github:reposInReviewMode'; // Array of URIs for repos that are in review mode
+	export const ACTIVE_PR_COUNT = 'github:activePRCount'; // Number of PRs that are currently checked out
 	export const LOADING_PRS_TREE = 'github:loadingPrsTree';
 	export const LOADING_ISSUES_TREE = 'github:loadingIssuesTree';
 	export const CREATE_PR_PERMISSIONS = 'github:createPrPermissions';
 	export const RESOLVING_CONFLICTS = 'github:resolvingConflicts';
-	export const PULL_REQUEST_DESCRIPTION_VISIBLE = 'github:pullRequestDescriptionVisible';
-	export const ACTIVE_COMMENT_HAS_SUGGESTION = 'github:activeCommentHasSuggestion';
+	export const PULL_REQUEST_DESCRIPTION_VISIBLE = 'github:pullRequestDescriptionVisible'; // Boolean indicating if the pull request description is visible
+	export const ACTIVE_COMMENT_HAS_SUGGESTION = 'github:activeCommentHasSuggestion'; // Boolean indicating if the active comment has a suggestion
 	export const CREATING = 'pr:creating';
 }
 
