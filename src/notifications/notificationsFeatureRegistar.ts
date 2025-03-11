@@ -110,7 +110,7 @@ export class NotificationsFeatureRegister extends Disposable {
 				notificationsManager.markAsRead({ threadId, notificationKey });
 			})
 		);
-		this._register.push(
+		this._register(
 			vscode.commands.registerCommand('notification.markAsDone', (options: any) => {
 				const { threadId, notificationKey } = this._extractMarkAsCommandOptions(options);
 				/* __GDPR__
