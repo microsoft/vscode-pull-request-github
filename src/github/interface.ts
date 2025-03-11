@@ -152,7 +152,7 @@ export interface MergePullRequest {
 
 export interface IRepository {
 	cloneUrl: string;
-	isInOrganization: boolean | string;
+	isInOrganization: boolean;
 	owner: string;
 	name: string;
 }

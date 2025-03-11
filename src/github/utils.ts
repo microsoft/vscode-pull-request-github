@@ -284,7 +284,7 @@ export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListRespons
 		sha: head.sha,
 		repo: {
 			cloneUrl: head.repo.clone_url,
-			isInOrganization: head.repo.owner.organizations_url,
+			isInOrganization: head.repo.owner.type === 'Organization',
 			owner: head.repo.owner!.login,
 			name: head.repo.name
 		},
