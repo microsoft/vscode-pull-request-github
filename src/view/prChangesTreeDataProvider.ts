@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { GitApiImpl } from '../api/api1';
 import { commands, contexts } from '../common/executeCommands';
+import { Disposable } from '../common/lifecycle';
 import Logger, { PR_TREE } from '../common/logger';
 import { FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { isDescendant } from '../common/utils';
@@ -20,10 +21,9 @@ import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 import { TreeUtils } from './treeNodes/treeUtils';
 
-export class PullRequestChangesTreeDataProvider extends vscode.Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
+export class PullRequestChangesTreeDataProvider extends Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
-	private _disposables: vscode.Disposable[] = [];
 
 	private _pullRequestManagerMap: Map<FolderRepositoryManager, RepositoryChangesNode> = new Map();
 	private _view: vscode.TreeView<TreeNode>;
@@ -33,15 +33,15 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 		return this._view;
 	}
 
-	constructor(private _context: vscode.ExtensionContext, private _git: GitApiImpl, private _reposManager: RepositoriesManager) {
-		super(() => this.dispose());
-		this._view = vscode.window.createTreeView('prStatus:github', {
+	constructor(private _git: GitApiImpl, private _reposManager: RepositoriesManager) {
+		super();
+		this._view = this._register(vscode.window.createTreeView('prStatus:github', {
 			treeDataProvider: this,
 			showCollapseAll: true,
-		});
-		this._context.subscriptions.push(this._view);
+			canSelectMany: true
+		}));
 
-		this._disposables.push(
+		this._register(
 			vscode.workspace.onDidChangeConfiguration(async e => {
 				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${FILE_LIST_LAYOUT}`)) {
 					this._onDidChangeTreeData.fire();
@@ -55,7 +55,7 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 			}),
 		);
 
-		this._disposables.push(this._view.onDidChangeCheckboxState(TreeUtils.processCheckboxUpdates));
+		this._register(this._view.onDidChangeCheckboxState(e => TreeUtils.processCheckboxUpdates(e, this._view.selection)));
 	}
 
 	refresh(treeNode?: TreeNode) {
@@ -214,9 +214,5 @@ export class PullRequestChangesTreeDataProvider extends vscode.Disposable implem
 			await element.resolve();
 		}
 		return element;
-	}
-
-	dispose() {
-		this._disposables.forEach(disposable => disposable.dispose());
 	}
 }

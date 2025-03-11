@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Disposable } from '../common/lifecycle';
 import { toNotificationUri } from '../common/uri';
-import { dispose } from '../common/utils';
 import { NotificationSubjectType } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -22,11 +22,11 @@ export enum NotificationsSortMethod {
 	Priority = 'Priority'
 }
 
-export class NotificationsManager implements vscode.TreeDataProvider<NotificationTreeDataItem>, vscode.Disposable {
-	private _onDidChangeTreeData: vscode.EventEmitter<NotificationTreeDataItem | undefined | void> = new vscode.EventEmitter<NotificationTreeDataItem | undefined | void>();
+export class NotificationsManager extends Disposable implements vscode.TreeDataProvider<NotificationTreeDataItem> {
+	private _onDidChangeTreeData: vscode.EventEmitter<NotificationTreeDataItem | undefined | void> = this._register(new vscode.EventEmitter<NotificationTreeDataItem | undefined | void>());
 	readonly onDidChangeTreeData: vscode.Event<NotificationTreeDataItem | undefined | void> = this._onDidChangeTreeData.event;
 
-	private readonly _onDidChangeNotifications = new vscode.EventEmitter<NotificationTreeItem[]>();
+	private readonly _onDidChangeNotifications = this._register(new vscode.EventEmitter<NotificationTreeItem[]>());
 	readonly onDidChangeNotifications = this._onDidChangeNotifications.event;
 
 	private _pageCount: number = 1;
@@ -38,15 +38,10 @@ export class NotificationsManager implements vscode.TreeDataProvider<Notificatio
 	private _sortingMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
 	get sortingMethod(): NotificationsSortMethod { return this._sortingMethod; }
 
-	private readonly _disposable: vscode.Disposable[] = [];
-
 	constructor(private readonly _notificationProvider: NotificationsProvider) {
-		this._disposable.push(this._onDidChangeTreeData);
-		this._disposable.push(this._onDidChangeNotifications);
-	}
-
-	dispose() {
-		dispose(this._disposable);
+		super();
+		this._register(this._onDidChangeTreeData);
+		this._register(this._onDidChangeNotifications);
 	}
 
 	//#region TreeDataProvider

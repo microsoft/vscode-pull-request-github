@@ -12,7 +12,7 @@ import { escapeMarkdown } from '../../issues/util';
 import { concatAsyncIterable, RepoToolBase } from './toolsUtils';
 
 interface ConvertToQuerySyntaxParameters {
-	naturalLanguageString: string;
+	naturalLanguageString?: string;
 	repo?: {
 		owner?: string;
 		name?: string;
@@ -399,33 +399,33 @@ You are getting ready to make a GitHub search query. Given a natural language qu
 type SearchToolParameters = ConvertToQuerySyntaxResult;
 
 export interface IssueSearchResultAccount {
-	login: string;
-	url: string;
+	login?: string;
+	url?: string;
 }
 
 interface IssueSearchResultLabel {
-	name: string;
-	color: string;
+	name?: string;
+	color?: string;
 }
 
 export interface IssueSearchResultItem {
-	title: string;
-	url: string;
-	number: number;
-	labels: IssueSearchResultLabel[];
-	state: string;
-	assignees: IssueSearchResultAccount[] | undefined;
-	createdAt: string;
-	updatedAt: string;
-	author: IssueSearchResultAccount;
-	milestone: string | undefined;
-	commentCount: number;
-	reactionCount: number;
+	title?: string;
+	url?: string;
+	number?: number;
+	labels?: IssueSearchResultLabel[];
+	state?: string;
+	assignees?: IssueSearchResultAccount[] | undefined;
+	createdAt?: string;
+	updatedAt?: string;
+	author?: IssueSearchResultAccount;
+	milestone?: string | undefined;
+	commentCount?: number;
+	reactionCount?: number;
 }
 
 export interface SearchToolResult {
-	arrayOfIssues: IssueSearchResultItem[];
-	totalIssues: number;
+	arrayOfIssues?: IssueSearchResultItem[];
+	totalIssues?: number;
 }
 
 export class SearchTool extends RepoToolBase<SearchToolParameters> {
@@ -439,9 +439,12 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<SearchToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		const parameterQuery = options.input.query;
+		const message = new vscode.MarkdownString();
+		message.appendText(vscode.l10n.t('Searching for issues with "{0}".', parameterQuery));
+		message.appendMarkdown(vscode.l10n.t(' [Open on GitHub.com]({0})', escapeMarkdown(this.toGitHubUrl(parameterQuery))));
 
 		return {
-			invocationMessage: vscode.l10n.t('Searching for issues with "{0}". [Open on GitHub.com]({1})', escapeMarkdown(parameterQuery), escapeMarkdown(this.toGitHubUrl(parameterQuery)))
+			invocationMessage: message
 		};
 	}
 
@@ -476,7 +479,7 @@ export class SearchTool extends RepoToolBase<SearchToolParameters> {
 			}),
 			totalIssues: searchResult.totalCount ?? searchResult.items.length
 		};
-		Logger.debug(`Found ${result.totalIssues} issues, first issue ${result.arrayOfIssues[0]?.number}.`, SearchTool.ID);
+		Logger.debug(`Found ${result.totalIssues} issues, first issue ${result.arrayOfIssues![0]?.number}.`, SearchTool.ID);
 
 		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(result)),
 		new vscode.LanguageModelTextPart(`Above are the issues I found for the query ${parameterQuery} in json format. You can pass these to a tool that can display them, or you can reason over the issues to answer a question.`)]);

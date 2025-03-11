@@ -239,7 +239,10 @@ export function splitIntoSmallerHunks(hunk: DiffHunk): DiffHunk[] {
 				}
 				addLineToHunk(nextHunk, line);
 			}
-		} else if (currentHunk) {
+		} else if (currentHunk || ((hunk.oldLineNumber === 1) && ((line.type === DiffChangeType.Delete) || (line.type === DiffChangeType.Add)))) {
+			if (!currentHunk) {
+				currentHunk = newHunk(line);
+			}
 			if (hunkHasSandwichedChanges(currentHunk)) {
 				splitHunks.push(currentHunk);
 				currentHunk = nextHunk!;
@@ -355,7 +358,7 @@ export async function parseDiff(
 			continue;
 		}
 
-		const diffHunks = review.patch ? parsePatch(review.patch) : [];
+		const diffHunks = review.patch ? parsePatch(review.patch) : undefined;
 		fileChanges.push(
 			new InMemFileChange(
 				parentCommit,
@@ -364,7 +367,7 @@ export async function parseDiff(
 				review.previous_filename,
 				review.patch ?? '',
 				diffHunks,
-				review.blob_url,
+				review.blob_url
 			),
 		);
 	}

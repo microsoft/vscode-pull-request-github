@@ -1,5 +1,132 @@
 # Changelog
 
+## 0.106.0
+
+### Changes
+
+- You can provide custom instructions for GitHub Copilot when generating pull request titles and descriptions using the setting `github.copilot.chat.pullRequestDescriptionGeneration.instructions`. You can point the setting to a file in your workspace, or you can provide instructions inline in your settings:
+
+```json
+{
+  "github.copilot.chat.pullRequestDescriptionGeneration.instructions": [
+    {
+      "text": "Prefix every PR title with an emoji."
+    },
+  ],
+}
+```
+
+- We've added validation so that it's harder to accidentally set a `github.com` URL as the GitHub Enterprise URL.
+
+### Fixes
+
+- Unable to authenticate using Github Enterprise. https://github.com/microsoft/vscode-pull-request-github/issues/6426
+- Cannot add Reviewer to PR once github-actions is added as a reviewer. Cannot add Reviewer to PR once github-actions is added as a reviewer
+- On PR to submodule parent package was forked instead of submodule. https://github.com/microsoft/vscode-pull-request-github/issues/6492
+- Email address for merge commit is not remembered (and cannot be set). https://github.com/microsoft/vscode-pull-request-github/issues/6593
+- Copy GitHub Permalink doesn't work with custom SSH. https://github.com/microsoft/vscode-pull-request-github/issues/6668
+
+**_Thank You_**
+
+* [@christianvuerings (Christian Vuerings)](https://github.com/christianvuerings): Fix Copy GitHub Permalink with custom SSH [PR #6669](https://github.com/microsoft/vscode-pull-request-github/pull/6669)
+
+## 0.104.1
+
+### Fixes
+
+- Suggest a fix with Copilot results in an error Tool copilot_codebase was not contributed. https://github.com/microsoft/vscode-pull-request-github/issues/6632
+
+## 0.104.0
+
+### Changes
+
+- The Pull Requests view supports global queries. All old queries will be migrated when you open your workspace to include the current repo as part of the query. Global query support enables you to use the `org` and `repo` properties.
+- As part of the support for global queries, we also now have a `today` variable. This variable can be used to refer to the current day, or it can be used with a minus modifier. Together with the global query support, you can now make queries such as "my PRs in my work org that were created in the last 7 days":
+
+```json
+    {
+      "label": "My work last 7 days",
+      "query": "org:microsoft author:${user} is:closed created:>=${today-7d}"
+    }
+```
+- The context menu in the Pull Requests view has been cleaned up.
+- The "pull request" icon shows in the the editor tab for the pull request descriptions.
+
+![Pull request icon in editor tab](./documentation/changelog/0.104.0/pr-icon-tab.png)
+
+- `:<emoji-name>:` style emojis are now supported in comments.
+- You can now search with `ctrl+f` in the pull request description webview.
+- You can multi-select files in the "Changes in Pull Request" tree view and toggle the selected checkboxes with one click.
+- All non-outdated comments for a pull request will show in the "Comments" view when you open the pull-request's description, even if you don't have the PR checked out. They will hide again when all files related to the pull request are closed.
+- The "Changes in Pull Request" view has a shortcut for toggling editor commenting.
+
+![The eye icon as a shortcut to toggle off editor commenting](./documentation/changelog/0.104.0/toggle-editor-commenting.png)
+
+- Python is no longer excluded from `@` and `#` completions by default.
+- There's a new command to copy a pull request link: "Copy Pull Request Link".
+- `git.showInlineOpenFileAction` is now respected in the "Changes in Pull Request" view.
+- The "Resolve Conversation" and "Unresolve Conversation" command can now be used from keybindings.
+
+### Fixes
+
+- Files changed doesn't properly reflect changes against non base branch. https://github.com/microsoft/vscode-pull-request-github/issues/5545
+- Projects quickpick should not have checkboxes when there are no projects. https://github.com/microsoft/vscode-pull-request-github/issues/5757
+- Added projects need separation. https://github.com/microsoft/vscode-pull-request-github/issues/5792
+- Make "Make a Suggestion" more clear. https://github.com/microsoft/vscode-pull-request-github/issues/6040
+- fetching pull requests failed in infinite loop when proxy is unavailable. https://github.com/microsoft/vscode-pull-request-github/issues/6063
+- Using "Create Pull Request" command clears entered data. https://github.com/microsoft/vscode-pull-request-github/issues/6114
+- Non GitHub remotes for submodules causes authentication to fail. https://github.com/microsoft/vscode-pull-request-github/issues/6140
+- "Go to Next Diff in Pull Request" command fails with error. https://github.com/microsoft/vscode-pull-request-github/issues/6237
+- Keyboard Focus is not clearly visible on cancel button. https://github.com/microsoft/vscode-pull-request-github/issues/6449
+- Users are not able to access "Reviewers", "Assignees", "Labels", "Project", link present under project and "Milestone" controls via keyboard. https://github.com/microsoft/vscode-pull-request-github/issues/6450
+- Keyboard focus order is not proper on "Description" and "Create github pull request" screen. https://github.com/microsoft/vscode-pull-request-github/issues/6451
+- NVDA is not announcing any update when user presses ENTER on "Show" and "Hide" control. https://github.com/microsoft/vscode-pull-request-github/issues/6453
+- Review/Comment Suggestions are offset by one line if you make local changes first. https://github.com/microsoft/vscode-pull-request-github/issues/6495
+- When listing workflows running as checks against a PR, include workflow name, not just job name. https://github.com/microsoft/vscode-pull-request-github/issues/6497
+- Diffing OUTDATED comments with HEAD doesn't work in github.dev. https://github.com/microsoft/vscode-pull-request-github/issues/6500
+- error when adding file comment to renamed file w/o other changes. https://github.com/microsoft/vscode-pull-request-github/issues/6516
+- Cannot leave comments on hunks in large diffs. https://github.com/microsoft/vscode-pull-request-github/issues/6524
+- Share menu multiple selection support. https://github.com/microsoft/vscode-pull-request-github/issues/6542
+- Comments don't show on non-checked out PR when closing and re-opening the file from the PRs veiw. https://github.com/microsoft/vscode-pull-request-github/issues/6571
+- Create Pull Request Suggestions silently fails when the suggestion is on the first line. https://github.com/microsoft/vscode-pull-request-github/issues/6603
+
+**_Thank You_**
+
+* [@mikeseese (Mike Seese)](https://github.com/mikeseese): Add opt-in to always prompt for repo for issue creation and add comment to issue file specifying the repo [PR #6115](https://github.com/microsoft/vscode-pull-request-github/pull/6115)
+* [@NellyWhads (Nelly Whads)](https://github.com/NellyWhads): Remove the python language user mention exception [PR #6525](https://github.com/microsoft/vscode-pull-request-github/pull/6525)
+* [@Ronny-zzl (Zhang)](https://github.com/Ronny-zzl): Don't show hover cards for @-mentioned users in JSDocs in jsx and tsx files [PR #6531](https://github.com/microsoft/vscode-pull-request-github/pull/6531)
+
+## 0.102.0
+
+### Changes
+
+- The command **GitHub Pull Requests: Close All Pull Request Editors** will close all PR related diff editors and PR original file editors.
+- Summarizing a notification with Copilot will print a link to the issue in the Chat view.
+
+![Issue link shown in Copilot summary](./documentation/changelog/0.102.0/issue-link-in-summary.png)
+
+### Fixes
+
+- Enterprise 3.9: GraphQL error Fragment on Bot can't be spread inside RequestedReviewer. https://github.com/microsoft/vscode-pull-request-github/issues/6441
+- Suggestions end up in unsubmittable pending state. https://github.com/microsoft/vscode-pull-request-github/issues/6494
+- Comments not possible to save within a submodule. https://github.com/microsoft/vscode-pull-request-github/issues/6096
+- Globe action to open issue on github.com is missing. https://github.com/microsoft/vscode-pull-request-github/issues/6510
+- PR creation flow is not smooth anymore. https://github.com/microsoft/vscode-pull-request-github/issues/6386
+- PR view buttons overflow in narrow viewports. https://github.com/microsoft/vscode-pull-request-github/issues/6335
+
+## 0.100.3
+
+### Fixes
+
+- Can't start a review from a comment due to GraphQL error. https://github.com/microsoft/vscode-pull-request-github/issues/6467
+> Note: This breaks Enterprise 3.9 and earlier again.
+
+## 0.100.1
+
+### Fixes
+
+- Enterprise 3.9: GraphQL error Fragment on Bot can't be spread inside RequestedReviewer. https://github.com/microsoft/vscode-pull-request-github/issues/6441
+
 ## 0.100.0
 
 ### Changes

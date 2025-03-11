@@ -21,7 +21,7 @@ export interface IQueryInfo {
 }
 
 export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
-	protected children: CategoryTreeNode[] | undefined = undefined;
+	protected override children: CategoryTreeNode[] | undefined = undefined;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public iconPath?: { light: string | vscode.Uri; dark: string | vscode.Uri };
 
@@ -34,8 +34,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		private context: vscode.ExtensionContext,
 		private readonly _prsTreeModel: PrsTreeModel,
 	) {
-		super();
-		this.parent = parent;
+		super(parent);
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 		this.label = path.basename(uri.fsPath);
 		this.id = folderManager.repository.rootUri.toString();
@@ -64,7 +63,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		return this;
 	}
 
-	async getChildren(): Promise<TreeNode[]> {
+	override async getChildren(): Promise<TreeNode[]> {
 		super.getChildren();
 		this.children = WorkspaceFolderNode.getCategoryTreeNodes(this.folderManager, this.telemetry, this, this.notificationProvider, this.context, this._prsTreeModel);
 		return this.children;

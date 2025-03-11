@@ -485,7 +485,7 @@ export function getOwnerAndRepo(repositoriesManager: RepositoriesManager, reposi
 	}
 }
 
-export async function createGithubPermalink(
+export async function createSinglePermalink(
 	repositoriesManager: RepositoriesManager,
 	gitAPI: GitApiImpl,
 	includeRange: boolean,
@@ -493,60 +493,79 @@ export async function createGithubPermalink(
 	positionInfo?: NewIssue,
 	context?: LinkContext
 ): Promise<PermalinkInfo> {
+	const { uri, range } = getFileAndPosition(context, positionInfo);
+	if (!uri) {
+		return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined };
+	}
+
+	const repository = getRepositoryForFile(gitAPI, uri);
+	if (!repository) {
+		return { permalink: undefined, error: vscode.l10n.t('The current file isn\'t part of repository.'), originalFile: uri };
+	}
+
+	let commitHash: string | undefined;
+	if (uri.scheme === Schemes.Review) {
+		commitHash = fromReviewUri(uri.query).commit;
+	}
+
+	if (!commitHash) {
+		try {
+			const log = await repository.log({ maxEntries: 1, path: uri.fsPath });
+			if (log.length === 0) {
+				return { permalink: undefined, error: vscode.l10n.t('No branch on a remote contains the most recent commit for the file.'), originalFile: uri };
+			}
+			// Now that we know that the file existed at some point in the repo, use the head commit to construct the URI.
+			if (repository.state.HEAD?.commit && (log[0].hash !== repository.state.HEAD?.commit)) {
+				commitHash = repository.state.HEAD.commit;
+			} else {
+				commitHash = log[0].hash;
+			}
+		} catch (e) {
+			commitHash = repository.state.HEAD?.commit;
+		}
+	}
+
+	Logger.debug(`commit hash: ${commitHash}`, PERMALINK_COMPONENT);
+
+	const rawUpstream = await getBestPossibleUpstream(repositoriesManager, repository, commitHash);
+	if (!rawUpstream || !rawUpstream.fetchUrl) {
+		return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri };
+	}
+	const upstream: Remote & { fetchUrl: string } = rawUpstream as any;
+
+	Logger.debug(`upstream: ${upstream.fetchUrl}`, PERMALINK_COMPONENT);
+
+	const encodedPathSegment = encodeURIComponentExceptSlashes(uri.path.substring(repository.rootUri.path.length));
+	const originOfFetchUrl = getUpstreamOrigin(rawUpstream).replace(/\/$/, '');
+	const result = {
+		permalink: (`${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
+			}${includeFile ? `${encodedPathSegment}${includeRange ? rangeString(range) : ''}` : ''}`),
+		error: undefined,
+		originalFile: uri
+	};
+	Logger.debug(`permalink generated: ${result.permalink}`, PERMALINK_COMPONENT);
+	return result;
+}
+
+export async function createGithubPermalink(
+	repositoriesManager: RepositoriesManager,
+	gitAPI: GitApiImpl,
+	includeRange: boolean,
+	includeFile: boolean,
+	positionInfo?: NewIssue,
+	contexts?: LinkContext[]
+): Promise<PermalinkInfo[]> {
 	return vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, async (progress) => {
 		progress.report({ message: vscode.l10n.t('Creating permalink...') });
-		const { uri, range } = getFileAndPosition(context, positionInfo);
-		if (!uri) {
-			return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined };
-		}
+		let contextIndex = 0;
+		let context: LinkContext | undefined = contexts ? contexts[contextIndex++] : undefined;
+		const links: Promise<PermalinkInfo>[] = [];
+		do {
+			links.push(createSinglePermalink(repositoriesManager, gitAPI, includeRange, includeFile, positionInfo, context));
+			context = contexts ? contexts[contextIndex++] : undefined;
+		} while (context);
 
-		const repository = getRepositoryForFile(gitAPI, uri);
-		if (!repository) {
-			return { permalink: undefined, error: vscode.l10n.t('The current file isn\'t part of repository.'), originalFile: uri };
-		}
-
-		let commitHash: string | undefined;
-		if (uri.scheme === Schemes.Review) {
-			commitHash = fromReviewUri(uri.query).commit;
-		}
-
-		if (!commitHash) {
-			try {
-				const log = await repository.log({ maxEntries: 1, path: uri.fsPath });
-				if (log.length === 0) {
-					return { permalink: undefined, error: vscode.l10n.t('No branch on a remote contains the most recent commit for the file.'), originalFile: uri };
-				}
-				// Now that we know that the file existed at some point in the repo, use the head commit to construct the URI.
-				if (repository.state.HEAD?.commit && (log[0].hash !== repository.state.HEAD?.commit)) {
-					commitHash = repository.state.HEAD.commit;
-				} else {
-					commitHash = log[0].hash;
-				}
-			} catch (e) {
-				commitHash = repository.state.HEAD?.commit;
-			}
-		}
-
-		Logger.debug(`commit hash: ${commitHash}`, PERMALINK_COMPONENT);
-
-		const rawUpstream = await getBestPossibleUpstream(repositoriesManager, repository, commitHash);
-		if (!rawUpstream || !rawUpstream.fetchUrl) {
-			return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri };
-		}
-		const upstream: Remote & { fetchUrl: string } = rawUpstream as any;
-
-		Logger.debug(`upstream: ${upstream.fetchUrl}`, PERMALINK_COMPONENT);
-
-		const encodedPathSegment = encodeURIComponentExceptSlashes(uri.path.substring(repository.rootUri.path.length));
-		const originOfFetchUrl = getUpstreamOrigin(rawUpstream).replace(/\/$/, '');
-		const result = {
-			permalink: (`${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
-				}${includeFile ? `${encodedPathSegment}${includeRange ? rangeString(range) : ''}` : ''}`),
-			error: undefined,
-			originalFile: uri
-		};
-		Logger.debug(`permalink generated: ${result.permalink}`, PERMALINK_COMPONENT);
-		return result;
+		return Promise.all(links);
 	});
 }
 
@@ -565,7 +584,7 @@ export function getUpstreamOrigin(upstream: Remote, resultHost: string = 'github
 			fetchUrl = fetchUrl.substr('ssh://'.length);
 		}
 		// upstream's origin by ssh
-		if (fetchUrl.startsWith('git@') && !fetchUrl.startsWith('git@github.com')) {
+		if ((fetchUrl.startsWith('git@') || fetchUrl.includes('@git')) && !fetchUrl.startsWith('git@github.com')) {
 			const host = fetchUrl.split('@')[1]?.split(':')[0];
 			if (host.startsWith(enterpriseUri.authority) || !host.includes('github.com')) {
 				resultHost = enterpriseUri.authority;
@@ -602,9 +621,9 @@ interface EditorLineNumberContext {
 }
 export type LinkContext = vscode.Uri | EditorLineNumberContext | undefined;
 
-export async function createGitHubLink(
+export async function createSingleGitHubLink(
 	managers: RepositoriesManager,
-	context: LinkContext,
+	context?: vscode.Uri,
 	includeRange?: boolean
 ): Promise<PermalinkInfo> {
 	const { uri, range } = getFileAndPosition(context);
@@ -635,6 +654,22 @@ export async function createGitHubLink(
 		error: undefined,
 		originalFile: uri
 	};
+}
+
+export async function createGitHubLink(
+	managers: RepositoriesManager,
+	contexts?: vscode.Uri[],
+	includeRange?: boolean
+): Promise<PermalinkInfo[]> {
+	let contextIndex = 0;
+	let context: vscode.Uri | undefined = contexts ? contexts[contextIndex++] : undefined;
+	const links: Promise<PermalinkInfo>[] = [];
+	do {
+		links.push(createSingleGitHubLink(managers, context, includeRange));
+		context = contexts ? contexts[contextIndex++] : undefined;
+	} while (context);
+
+	return Promise.all(links);
 }
 
 async function commitWithDefault(manager: FolderRepositoryManager, stateManager: StateManager, all: boolean) {
@@ -733,40 +768,40 @@ export function escapeMarkdown(text: string): string {
 }
 
 export class PlainTextRenderer extends marked.Renderer {
-	code(code: string): string {
+	override code(code: string, _infostring: string | undefined): string {
 		return code;
 	}
-	blockquote(quote: string): string {
+	override blockquote(quote: string): string {
 		return quote;
 	}
-	html(_html: string): string {
+	override html(_html: string): string {
 		return '';
 	}
-	heading(text: string, _level: 1 | 2 | 3 | 4 | 5 | 6, _raw: string, _slugger: marked.Slugger): string {
+	override heading(text: string, _level: 1 | 2 | 3 | 4 | 5 | 6, _raw: string, _slugger: marked.Slugger): string {
 		return text + ' ';
 	}
-	hr(): string {
+	override hr(): string {
 		return '';
 	}
-	list(body: string, _ordered: boolean, _start: number): string {
+	override list(body: string, _ordered: boolean, _start: number): string {
 		return body;
 	}
-	listitem(text: string): string {
+	override listitem(text: string): string {
 		return ' ' + text;
 	}
-	checkbox(_checked: boolean): string {
+	override checkbox(_checked: boolean): string {
 		return '';
 	}
-	paragraph(text: string): string {
+	override paragraph(text: string): string {
 		return text.replace(/\</g, '\\\<').replace(/\>/g, '\\\>') + ' ';
 	}
-	table(header: string, body: string): string {
+	override table(header: string, body: string): string {
 		return header + ' ' + body;
 	}
-	tablerow(content: string): string {
+	override tablerow(content: string): string {
 		return content;
 	}
-	tablecell(
+	override tablecell(
 		content: string,
 		_flags: {
 			header: boolean;
@@ -775,28 +810,28 @@ export class PlainTextRenderer extends marked.Renderer {
 	): string {
 		return content;
 	}
-	strong(text: string): string {
+	override strong(text: string): string {
 		return text;
 	}
-	em(text: string): string {
+	override em(text: string): string {
 		return text;
 	}
-	codespan(code: string): string {
+	override codespan(code: string): string {
 		return `\\\`${code}\\\``;
 	}
-	br(): string {
+	override br(): string {
 		return ' ';
 	}
-	del(text: string): string {
+	override del(text: string): string {
 		return text;
 	}
-	image(_href: string, _title: string, _text: string): string {
+	override image(_href: string, _title: string, _text: string): string {
 		return '';
 	}
-	text(text: string): string {
+	override text(text: string): string {
 		return text;
 	}
-	link(href: string, title: string, text: string): string {
+	override link(href: string, title: string, text: string): string {
 		return text + ' ';
 	}
 }

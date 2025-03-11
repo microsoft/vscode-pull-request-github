@@ -7,10 +7,12 @@ import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
 import { DiffSide, IComment, SubjectType } from '../common/comment';
+import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, Schemes } from '../common/uri';
-import { dispose, groupBy } from '../common/utils';
+import { groupBy } from '../common/utils';
+import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
@@ -32,7 +34,6 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 	private _pendingCommentThreadAdds: GHPRCommentThread[] = [];
 	private _commentHandlerId: string;
 	private _commentThreadCache: { [key: string]: GHPRCommentThread[] } = {};
-	private _disposables: vscode.Disposable[] = [];
 	private readonly _context: vscode.ExtensionContext;
 	private readonly _githubRepositories: GitHubRepository[];
 
@@ -63,15 +64,15 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 	}
 
 	private registerListeners(): void {
-		this._disposables.push(this.pullRequestModel.onDidChangeReviewThreads(e => this.onDidChangeReviewThreads(e)));
+		this._register(this.pullRequestModel.onDidChangeReviewThreads(e => this.onDidChangeReviewThreads(e)));
 
-		this._disposables.push(
+		this._register(
 			vscode.window.tabGroups.onDidChangeTabs(async e => {
 				return this.onDidChangeOpenTabs(e);
 			})
 		);
 
-		this._disposables.push(
+		this._register(
 			this.pullRequestModel.onDidChangePendingReviewState(newDraftMode => {
 				for (const key in this._commentThreadCache) {
 					this._commentThreadCache[key].forEach(thread => {
@@ -81,7 +82,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			}),
 		);
 
-		this._disposables.push(
+		this._register(
 			vscode.window.onDidChangeActiveTextEditor(e => {
 				this.refreshContextKey(e);
 			}),
@@ -186,18 +187,35 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		return tabs.filter(tab => tab.input instanceof vscode.TabInputText || tab.input instanceof vscode.TabInputTextDiff).map(tab => tab.input as vscode.TabInputText | vscode.TabInputTextDiff);
 	}
 
+	private prDescriptionOpened(tabs: readonly vscode.Tab[]): boolean {
+		return tabs.some(tab => tab.input instanceof vscode.TabInputWebview && tab.label.includes(`#${this.pullRequestModel.number}`) && tab.input.viewType.includes(PULL_REQUEST_OVERVIEW_VIEW_TYPE));
+	}
+
 	private async cleanClosedPrs() {
 		// Remove comments for which no editors belonging to the same PR are open
 		const allPrEditors = await this.getPREditors(this.allTabs());
-		if (allPrEditors.length === 0) {
+		const prDescriptionOpened = this.prDescriptionOpened(vscode.window.tabGroups.all.map(group => group.tabs).flat());
+		if (allPrEditors.length === 0 && !prDescriptionOpened) {
 			this.removeAllCommentsThreads();
 		}
+	}
+
+	private async openAllTextDocuments(): Promise<vscode.TextDocument[]> {
+		const files = await PullRequestModel.getChangeModels(this._folderRepoManager, this.pullRequestModel);
+		const textDocuments: vscode.TextDocument[] = [];
+		for (const file of files) {
+			textDocuments.push(await vscode.workspace.openTextDocument(file.filePath));
+		}
+		return textDocuments;
 	}
 
 	private async onDidChangeOpenTabs(e: vscode.TabChangeEvent): Promise<void> {
 		const added = await this.getPREditors(this.filterTabsToPrTabs(e.opened));
 		if (added.length) {
 			await this.addThreadsForEditors(added);
+		} else if (this.prDescriptionOpened(e.opened)) {
+			const textDocuments = await this.openAllTextDocuments();
+			await this.addThreadsForEditors(textDocuments);
 		}
 		if (e.closed.length > 0) {
 			// Delay cleaning closed editors to handle the case where a preview tab is replaced
@@ -525,14 +543,14 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 
 	private removeAllCommentsThreads(): void {
 		Object.keys(this._commentThreadCache).forEach(key => {
-			dispose(this._commentThreadCache[key]);
+			disposeAll(this._commentThreadCache[key]);
+			delete this._commentThreadCache[key];
 		});
 	}
 
-	dispose() {
+	override dispose() {
+		super.dispose();
 		this.removeAllCommentsThreads();
 		unregisterCommentHandler(this._commentHandlerId);
-
-		this._disposables.forEach(d => d.dispose());
 	}
 }

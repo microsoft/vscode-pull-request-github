@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { APIState, PublishEvent } from '../@types/git';
+import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { TernarySearchTree } from '../common/utils';
 import { API, IGit, PostCommitCommandsProvider, Repository, ReviewerCommentsProvider, TitleAndDescriptionProvider } from './api';
@@ -72,7 +73,8 @@ export const enum Status {
 	BOTH_MODIFIED,
 }
 
-export class GitApiImpl implements API, IGit, vscode.Disposable {
+export class GitApiImpl extends Disposable implements API, IGit {
+	static readonly ID = 'GitAPI';
 	private static _handlePool: number = 0;
 	private _providers = new Map<number, IGit>();
 
@@ -111,11 +113,6 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 	private _onDidPublish = new vscode.EventEmitter<PublishEvent>();
 	readonly onDidPublish: vscode.Event<PublishEvent> = this._onDidPublish.event;
 
-	private _disposables: vscode.Disposable[];
-	constructor() {
-		this._disposables = [];
-	}
-
 	private _updateReposContext() {
 		const reposCount = Array.from(this._providers.values()).reduce((prev, current) => {
 			return prev + current.repositories.length;
@@ -124,21 +121,21 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 	}
 
 	registerGitProvider(provider: IGit): vscode.Disposable {
-		Logger.appendLine(`Registering git provider`);
+		Logger.appendLine(`Registering git provider`, GitApiImpl.ID);
 		const handle = this._nextHandle();
 		this._providers.set(handle, provider);
 
-		this._disposables.push(provider.onDidCloseRepository(e => this._onDidCloseRepository.fire(e)));
-		this._disposables.push(provider.onDidOpenRepository(e => {
-			Logger.appendLine(`Repository ${e.rootUri} has been opened`);
+		this._register(provider.onDidCloseRepository(e => this._onDidCloseRepository.fire(e)));
+		this._register(provider.onDidOpenRepository(e => {
+			Logger.appendLine(`Repository ${e.rootUri} has been opened`, GitApiImpl.ID);
 			this._updateReposContext();
 			this._onDidOpenRepository.fire(e);
 		}));
 		if (provider.onDidChangeState) {
-			this._disposables.push(provider.onDidChangeState(e => this._onDidChangeState.fire(e)));
+			this._register(provider.onDidChangeState(e => this._onDidChangeState.fire(e)));
 		}
 		if (provider.onDidPublish) {
-			this._disposables.push(provider.onDidPublish(e => this._onDidPublish.fire(e)));
+			this._register(provider.onDidPublish(e => this._onDidPublish.fire(e)));
 		}
 
 		this._updateReposContext();
@@ -188,18 +185,13 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 		return GitApiImpl._handlePool++;
 	}
 
-	dispose() {
-		this._disposables.forEach(disposable => disposable.dispose());
-	}
-
 	private _titleAndDescriptionProviders: Set<{ title: string, provider: TitleAndDescriptionProvider }> = new Set();
 	registerTitleAndDescriptionProvider(title: string, provider: TitleAndDescriptionProvider): vscode.Disposable {
 		const registeredValue = { title, provider };
 		this._titleAndDescriptionProviders.add(registeredValue);
-		const disposable = {
+		const disposable = this._register({
 			dispose: () => this._titleAndDescriptionProviders.delete(registeredValue)
-		};
-		this._disposables.push(disposable);
+		});
 		return disposable;
 	}
 
@@ -219,10 +211,9 @@ export class GitApiImpl implements API, IGit, vscode.Disposable {
 	registerReviewerCommentsProvider(title: string, provider: ReviewerCommentsProvider): vscode.Disposable {
 		const registeredValue = { title, provider };
 		this._reviewerCommentsProviders.add(registeredValue);
-		const disposable = {
+		const disposable = this._register({
 			dispose: () => this._reviewerCommentsProviders.delete(registeredValue)
-		};
-		this._disposables.push(disposable);
+		});
 		return disposable;
 	}
 

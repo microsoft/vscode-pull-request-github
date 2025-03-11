@@ -24,13 +24,20 @@ export class SuggestFixTool extends RepoToolBase<IssueToolParameters> {
 	}
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<IssueToolParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
-		const { folderManager } = await this.getRepoInfo(options.input.repo);
-		if (!folderManager) {
-			throw new Error(`No folder manager found for ${options.input.repo.owner}/${options.input.repo.name}. Make sure to have the repository open.`);
+		const repo = options.input.repo;
+		const owner = repo?.owner;
+		const name = repo?.name;
+		const issueNumber = options.input.issueNumber;
+		if (!repo || !owner || !name || !issueNumber) {
+			return undefined;
 		}
-		const issue = await folderManager.resolveIssue(options.input.repo.owner, options.input.repo.name, options.input.issueNumber, true);
+		const { folderManager } = await this.getRepoInfo(repo);
+		if (!folderManager) {
+			throw new Error(`No folder manager found for ${repo.owner}/${repo.name}. Make sure to have the repository open.`);
+		}
+		const issue = await folderManager.resolveIssue(owner, name, issueNumber, true);
 		if (!issue) {
-			throw new Error(`No issue found for ${options.input.repo.owner}/${options.input.repo.name}/${options.input.issueNumber}. Make sure the issue exists.`);
+			throw new Error(`No issue found for ${repo.owner}/${repo.name}/${options.input.issueNumber}. Make sure the issue exists.`);
 		}
 
 		const result: IssueResult = {
@@ -51,7 +58,12 @@ export class SuggestFixTool extends RepoToolBase<IssueToolParameters> {
 			messages.push(vscode.LanguageModelChatMessage.User(`Comment ${index}: ${comment.body}`));
 		});
 
-		const copilotCodebaseResult = await vscode.lm.invokeTool('copilot_codebase', {
+		const codeSearchTool = vscode.lm.tools.find(value => value.tags.includes('vscode_codesearch'));
+		if (!codeSearchTool) {
+			throw new Error('Could not find the code search tool');
+		}
+
+		const copilotCodebaseResult = await vscode.lm.invokeTool(codeSearchTool.name, {
 			toolInvocationToken: undefined,
 			input: {
 				query: result.title

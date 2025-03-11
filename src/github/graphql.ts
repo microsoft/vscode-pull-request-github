@@ -14,11 +14,7 @@ interface PageInfo {
 export interface MergedEvent {
 	__typename: string;
 	id: string;
-	actor: {
-		login: string;
-		avatarUrl: string;
-		url: string;
-	};
+	actor: Actor;
 	createdAt: string;
 	mergeRef: {
 		name: string;
@@ -33,23 +29,13 @@ export interface MergedEvent {
 export interface HeadRefDeletedEvent {
 	__typename: string;
 	id: string;
-	actor: {
-		login: string;
-		avatarUrl: string;
-		url: string;
-	};
+	actor: Actor;
 	createdAt: string;
 	headRefName: string;
 }
 
 export interface AbbreviatedIssueComment {
-	author: {
-		login: string;
-		avatarUrl: string;
-		url: string;
-		email?: string;
-		id: string;
-	};
+	author: Account;
 	body: string;
 	databaseId: number;
 	reactions: {
@@ -82,16 +68,28 @@ export interface ReactionGroup {
 	};
 }
 
-export interface Account {
+export interface Actor {
+	__typename: string;
+	id: string;
 	login: string;
 	avatarUrl: string;
-	name: string;
 	url: string;
-	email: string;
-	id: string;
 }
 
-interface Team {
+export interface Account extends Actor {
+	name: string;
+	email: string;
+}
+
+export function isAccount(x: Actor | Team | undefined | null): x is Account {
+	return !!x && 'name' in x && 'email' in x;
+}
+
+export function isTeam(x: Actor | Team | undefined | null): x is Team {
+	return !!x && 'slug' in x;
+}
+
+export interface Team {
 	avatarUrl: string;
 	name: string;
 	url: string;
@@ -109,13 +107,7 @@ export interface ReviewComment {
 	id: string;
 	databaseId: number;
 	url: string;
-	author?: {
-		login: string;
-		avatarUrl: string;
-		url: string;
-		id: string;
-		name?: string;
-	};
+	author?: Actor | Account;
 	path: string;
 	originalPosition: number;
 	body: string;
@@ -146,12 +138,7 @@ export interface Commit {
 	id: string;
 	commit: {
 		author: {
-			user: {
-				login: string;
-				avatarUrl: string;
-				url: string;
-				id: string;
-			};
+			user: Account;
 		};
 		committer: {
 			avatarUrl: string;
@@ -168,21 +155,12 @@ export interface Commit {
 export interface AssignedEvent {
 	__typename: string;
 	id: number;
-	actor: {
-		login: string;
-		avatarUrl: string;
-		url: string;
-	};
-	user: {
-		login: string;
-		avatarUrl: string;
-		url: string;
-		id: string;
-	};
+	actor: Actor;
+	user: Account;
 }
 
 export interface MergeQueueEntry {
-	position: number,
+	position: number;
 	state: MergeQueueState;
 	mergeQueue: {
 		url: string;
@@ -195,12 +173,7 @@ export interface Review {
 	databaseId: number;
 	authorAssociation: string;
 	url: string;
-	author: {
-		login: string;
-		avatarUrl: string;
-		url: string;
-		id: string;
-	};
+	author: Actor | Account;
 	state: 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING';
 	body: string;
 	bodyHTML?: string;
@@ -271,18 +244,7 @@ export interface GetReviewRequestsResponse {
 		pullRequest: {
 			reviewRequests: {
 				nodes: {
-					requestedReviewer: {
-						// Shared properties between accounts and teams
-						avatarUrl: string;
-						url: string;
-						name: string;
-						// Account properties
-						login?: string;
-						email?: string;
-						// Team properties
-						slug?: string;
-						id: string;
-					} | null;
+					requestedReviewer: Actor | Account | Team | null;
 				}[];
 			};
 		};
@@ -554,13 +516,7 @@ export interface Ref {
 export interface SuggestedReviewerResponse {
 	isAuthor: boolean;
 	isCommenter: boolean;
-	reviewer: {
-		login: string;
-		avatarUrl: string;
-		name: string;
-		url: string;
-		id: string;
-	};
+	reviewer: Actor | Account;
 }
 
 export type MergeMethod = 'MERGE' | 'REBASE' | 'SQUASH';
@@ -577,20 +533,9 @@ export interface PullRequest {
 	title: string;
 	titleHTML: string;
 	assignees?: {
-		nodes: {
-			login: string;
-			url: string;
-			email: string;
-			avatarUrl: string;
-			id: string;
-		}[];
+		nodes: Account[];
 	};
-	author: {
-		login: string;
-		url: string;
-		avatarUrl: string;
-		id: string;
-	};
+	author: Account;
 	commits: {
 		nodes: {
 			commit: {
@@ -827,6 +772,7 @@ export interface UserResponse {
 		contributionsCollection: ContributionsCollection;
 		url: string;
 		id: string;
+		__typename: string;
 	};
 }
 
@@ -878,6 +824,12 @@ export interface CheckRun {
 			logoUrl: string;
 			url: string;
 		} | null;
+		workflowRun?: {
+			event: string;
+			workflow: {
+				name: string;
+			};
+		};
 	};
 	isRequired: boolean;
 }

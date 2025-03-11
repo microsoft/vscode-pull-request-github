@@ -26,16 +26,15 @@
 		"contribEditorContentMenu",
 		"contribShareMenu",
 		"diffCommand",
-		"fileComments",
 		"quickDiffProvider",
 		"shareProvider",
 		"tokenInformation",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.100.0",
+	"version": "0.106.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.95.0"
+		"vscode": "^1.97.0"
 	},
 	"categories": [
 		"Other",
@@ -185,15 +184,15 @@
 					"default": [
 						{
 							"label": "%githubPullRequests.queries.waitingForMyReview%",
-							"query": "is:open review-requested:${user}"
+							"query": "repo:${owner}/${repository} is:open review-requested:${user}"
 						},
 						{
 							"label": "%githubPullRequests.queries.assignedToMe%",
-							"query": "is:open assignee:${user}"
+							"query": "repo:${owner}/${repository} is:open assignee:${user}"
 						},
 						{
 							"label": "%githubPullRequests.queries.createdByMe%",
-							"query": "is:open author:${user}"
+							"query": "repo:${owner}/${repository} is:open author:${user}"
 						}
 					]
 				},
@@ -547,9 +546,7 @@
 						"type": "string",
 						"description": "%githubIssues.ignoreUserCompletionTrigger.items%"
 					},
-					"default": [
-						"python"
-					],
+					"default": [],
 					"description": "%githubIssues.ignoreUserCompletionTrigger.description%"
 				},
 				"githubIssues.issueBranchTitle": {
@@ -660,6 +657,11 @@
 					"type": "boolean",
 					"default": false,
 					"description": "%githubPullRequests.showPullRequestNumberInTree.description%"
+				},
+				"githubIssues.alwaysPromptForNewIssueRepo": {
+					"type": "boolean",
+					"default": false,
+					"description": "%githubIssues.alwaysPromptForNewIssueRepo.description%"
 				}
 			}
 		},
@@ -1191,6 +1193,23 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.closeRelatedEditors",
+				"title": "%command.pr.closeRelatedEditors.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.toggleEditorCommentingOn",
+				"title": "%command.pr.toggleEditorCommentingOn.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(eye-closed)"
+			},
+			{
+				"command": "pr.toggleEditorCommentingOff",
+				"title": "%command.pr.toggleEditorCommentingOff.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(eye)"
+			},
+			{
 				"command": "review.diffWithPrHead",
 				"title": "%command.review.diffWithPrHead.title%",
 				"category": "%command.pull.request.category%"
@@ -1260,6 +1279,11 @@
 				"command": "review.createSuggestionFromChange",
 				"title": "%command.review.createSuggestionFromChange.title%",
 				"icon": "$(comment)",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "review.copyPrLink",
+				"title": "%command.review.copyPrLink.title%",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -1562,7 +1586,7 @@
 			},
 			{
 				"view": "github:login",
-				"when": "ReposManagerStateContext == NeedsAuthentication && !github:hasGitHubRemotes && gitOpenRepositoryCount",
+				"when": "(ReposManagerStateContext == NeedsAuthentication) && ((!github:hasGitHubRemotes && gitOpenRepositoryCount) || config.github-enterprise.uri)",
 				"contents": "%welcome.github.loginWithEnterprise.contents%"
 			},
 			{
@@ -1783,6 +1807,18 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.closeRelatedEditors",
+					"when": "gitHubOpenRepositoryCount != 0"
+				},
+				{
+					"command": "pr.toggleEditorCommentingOn",
+					"when": "false"
+				},
+				{
+					"command": "pr.toggleEditorCommentingOff",
+					"when": "false"
+				},
+				{
 					"command": "review.suggestDiff",
 					"when": "false"
 				},
@@ -1900,6 +1936,18 @@
 				},
 				{
 					"command": "pr.deleteComment",
+					"when": "false"
+				},
+				{
+					"command": "pr.unresolveReviewThread",
+					"when": "false"
+				},
+				{
+					"command": "pr.unresolveReviewThreadFromView",
+					"when": "false"
+				},
+				{
+					"command": "pr.resolveReviewThread",
 					"when": "false"
 				},
 				{
@@ -2201,6 +2249,10 @@
 				{
 					"command": "notification.chatSummarizeNotification",
 					"when": "false"
+				},
+				{
+					"command": "review.copyPrLink",
+					"when": "github:inReviewMode"
 				}
 			],
 			"view/title": [
@@ -2237,12 +2289,22 @@
 				{
 					"command": "pr.setFileListLayoutAsTree",
 					"when": "view == prStatus:github && fileListLayout:flat",
-					"group": "navigation"
+					"group": "navigation1"
 				},
 				{
 					"command": "pr.setFileListLayoutAsFlat",
 					"when": "view == prStatus:github && !fileListLayout:flat",
-					"group": "navigation"
+					"group": "navigation1"
+				},
+				{
+					"command": "pr.toggleEditorCommentingOn",
+					"when": "view == prStatus:github && !commentingEnabled",
+					"group": "navigation@0"
+				},
+				{
+					"command": "pr.toggleEditorCommentingOff",
+					"when": "view == prStatus:github && commentingEnabled",
+					"group": "navigation@0"
 				},
 				{
 					"command": "issue.createIssue",
@@ -2328,13 +2390,48 @@
 			"view/item/context": [
 				{
 					"command": "pr.pick",
+					"when": "view == pr:github && viewItem =~ /description:nonactive/",
+					"group": "inline@0"
+				},
+				{
+					"command": "pr.pick",
 					"when": "view == pr:github && viewItem =~ /(pullrequest(:local)?:nonactive)|(description:nonactive)/",
 					"group": "1_pullrequest@1"
 				},
 				{
-					"command": "pr.pick",
-					"when": "view == pr:github && viewItem =~ /description:nonactive/",
-					"group": "inline@0"
+					"command": "pr.exit",
+					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:active|description:active/",
+					"group": "1_pullrequest@1"
+				},
+				{
+					"command": "pr.pickOnVscodeDev",
+					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive|description/ && (!isWeb || remoteName != codespaces && virtualWorkspace != vscode-vfs)",
+					"group": "1_pullrequest@2"
+				},
+				{
+					"command": "pr.openPullRequestOnGitHub",
+					"when": "view == pr:github && viewItem =~ /pullrequest|description/",
+					"group": "1_pullrequest@3"
+				},
+				{
+					"command": "pr.refreshPullRequest",
+					"when": "view == pr:github && viewItem =~ /pullrequest|description/",
+					"group": "2_pullrequest@1"
+				},
+				{
+					"command": "pr.deleteLocalBranch",
+					"when": "view == pr:github && viewItem =~ /pullrequest:local:nonactive/",
+					"group": "3_pullrequest@4"
+				},
+				{
+					"command": "pr.dismissNotification",
+					"when": "view == pr:github && viewItem =~ /pullrequest(.*):notification/",
+					"group": "3_pullrequest@5"
+				},
+				{
+					"command": "issue.chatSummarizeIssue",
+					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
+					"group": "4_pullrequest@2"
 				},
 				{
 					"command": "pr.openChanges",
@@ -2402,53 +2499,18 @@
 					"when": "view == prStatus:github && viewItem =~ /description/ && github:activePRCount >= 2"
 				},
 				{
-					"command": "pr.exit",
-					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:active|description:active/",
-					"group": "1_pullrequest@1"
-				},
-				{
-					"command": "pr.pickOnVscodeDev",
-					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive|description/ && (!isWeb || remoteName != codespaces && virtualWorkspace != vscode-vfs)",
-					"group": "1_pullrequest@2"
-				},
-				{
-					"command": "pr.refreshPullRequest",
-					"when": "view == pr:github && viewItem =~ /pullrequest|description/",
-					"group": "pullrequest@1"
-				},
-				{
-					"command": "issue.chatSummarizeIssue",
-					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
-					"group": "pullrequest@2"
-				},
-				{
-					"command": "pr.openPullRequestOnGitHub",
-					"when": "view == pr:github && viewItem =~ /pullrequest|description/",
-					"group": "1_pullrequest@3"
-				},
-				{
-					"command": "pr.deleteLocalBranch",
-					"when": "view == pr:github && viewItem =~ /pullrequest:local:nonactive/",
-					"group": "pullrequest@4"
-				},
-				{
-					"command": "pr.dismissNotification",
-					"when": "view == pr:github && viewItem =~ /pullrequest(.*):notification/",
-					"group": "pullrequest@5"
-				},
-				{
 					"command": "pr.copyCommitHash",
 					"when": "view == prStatus:github && viewItem =~ /commit/"
 				},
 				{
 					"command": "review.openFile",
 					"group": "inline@0",
-					"when": "openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
+					"when": "openDiffOnClick && showInlineOpenFileAction && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
 				},
 				{
 					"command": "pr.openDiffView",
 					"group": "inline@0",
-					"when": "!openDiffOnClick && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
+					"when": "!openDiffOnClick && showInlineOpenFileAction && view == prStatus:github && viewItem =~ /filechange(?!:DELETE)/"
 				},
 				{
 					"command": "pr.openFileOnGitHub",
@@ -2486,8 +2548,8 @@
 				},
 				{
 					"command": "issue.openIssue",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && !github.copilot-chat.activated",
-					"group": "inline@2"
+					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/",
+					"group": "inline@1"
 				},
 				{
 					"command": "issue.chatSummarizeIssue",
@@ -2498,11 +2560,6 @@
 					"command": "issue.chatSummarizeIssue",
 					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
 					"group": "inline@0"
-				},
-				{
-					"command": "issue.chatSuggestFix",
-					"when": "view == issues:github && viewItem =~ /^(link)?(current|continue)?issue/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
-					"group": "inline@1"
 				},
 				{
 					"command": "issue.openIssue",
@@ -2928,6 +2985,13 @@
 					"group": "1_cutcopypaste@0"
 				}
 			],
+			"editor/title/context": [
+				{
+					"command": "pr.closeRelatedEditors",
+					"when": "resourceScheme == 'pr' || resourceScheme == 'review' || resourcePath in github:unviewedFiles || resourcePath in github:viewedFiles",
+					"group": "1_close@60"
+				}
+			],
 			"editor/title/context/share": [
 				{
 					"command": "issue.copyGithubPermalinkWithoutRange",
@@ -3168,7 +3232,7 @@
 				"modelDescription": "Get a GitHub issue/PR's details as a JSON object.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
-				"parametersSchema": {
+				"inputSchema": {
 					"type": "object",
 					"properties": {
 						"repo": {
@@ -3211,7 +3275,7 @@
 				"modelDescription": "Get a GitHub notification's details as a JSON object.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
-				"parametersSchema": {
+				"inputSchema": {
 					"type": "object",
 					"properties": {
 						"thread_id": {
@@ -3237,7 +3301,7 @@
 				"modelDescription": "Summarizes a GitHub issue or pull request. A summary is a great way to describe an issue or pull request.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
-				"parametersSchema": {
+				"inputSchema": {
 					"type": "object",
 					"properties": {
 						"title": {
@@ -3312,7 +3376,7 @@
 				"modelDescription": "Summarizes a GitHub notification. A summary is a great way to describe a notification.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
-				"parametersSchema": {
+				"inputSchema": {
 					"type": "object",
 					"properties": {
 						"lastReadAt": {
@@ -3424,7 +3488,7 @@
 				"modelDescription": "Summarize and suggest a fix for a GitHub issue.",
 				"icon": "$(info)",
 				"canBeReferencedInPrompt": true,
-				"parametersSchema": {
+				"inputSchema": {
 					"type": "object",
 					"properties": {
 						"repo": {
@@ -3471,7 +3535,7 @@
 				"modelDescription": "Converts natural language to a GitHub search query. Should ALWAYS be called before doing a search.",
 				"icon": "$(search)",
 				"canBeReferencedInPrompt": true,
-				"parametersSchema": {
+				"inputSchema": {
 					"type": "object",
 					"properties": {
 						"repo": {
@@ -3515,7 +3579,7 @@
 				"modelDescription": "Execute a GitHub search given a well formed GitHub search query. Call github-pull-request_formSearchQuery first to get good search syntax and pass the exact result in as the 'query'.",
 				"icon": "$(search)",
 				"canBeReferencedInPrompt": true,
-				"parametersSchema": {
+				"inputSchema": {
 					"type": "object",
 					"properties": {
 						"repo": {
@@ -3561,7 +3625,7 @@
 				"modelDescription": "Render issue items from an issue search in a markdown table. The markdown table will be displayed directly to the user by the tool. No further display should be done after this!",
 				"icon": "$(paintcan)",
 				"canBeReferencedInPrompt": false,
-				"parametersSchema": {
+				"inputSchema": {
 					"type": "object",
 					"properties": {
 						"arrayOfIssues": {
@@ -3725,7 +3789,7 @@
 		"constants-browserify": "^1.0.0",
 		"crypto-browserify": "3.12.0",
 		"css-loader": "5.1.3",
-		"esbuild-loader": "2.10.0",
+		"esbuild-loader": "4.2.2",
 		"eslint": "7.22.0",
 		"eslint-cli": "1.1.1",
 		"eslint-plugin-import": "2.22.1",

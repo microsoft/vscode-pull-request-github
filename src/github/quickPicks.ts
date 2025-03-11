@@ -11,7 +11,7 @@ import { DataUri } from '../common/uri';
 import { formatError } from '../common/utils';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
-import { IAccount, ILabel, IMilestone, IProject, isSuggestedReviewer, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
+import { AccountType, IAccount, ILabel, IMilestone, IProject, isSuggestedReviewer, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 
 async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context: vscode.ExtensionContext, skipList: Set<string>, users: T[], picked: boolean, tooManyAssignable: boolean = false): Promise<(vscode.QuickPickItem & { user?: T })[]> {
@@ -125,6 +125,7 @@ function userThemeIcon(user: IAccount | ITeam) {
 async function getReviewersQuickPickItems(folderRepositoryManager: FolderRepositoryManager, remoteName: string, isInOrganization: boolean, author: IAccount, existingReviewers: ReviewState[],
 	suggestedReviewers: ISuggestedReviewer[] | undefined, refreshKind: TeamReviewerRefreshKind,
 ): Promise<(vscode.QuickPickItem & { user?: IAccount | ITeam })[]> {
+	existingReviewers = existingReviewers.filter(reviewer => isTeam(reviewer.reviewer) || (reviewer.reviewer.accountType !== AccountType.Bot));
 	if (!suggestedReviewers) {
 		return [];
 	}
@@ -247,6 +248,9 @@ export async function getProjectFromQuickPick(folderRepoManager: FolderRepositor
 		quickPick.title = vscode.l10n.t('Set projects');
 		quickPick.show();
 		quickPick.items = await getProjectOptions();
+		if (quickPick.items.length === 1) {
+			quickPick.canSelectMany = false;
+		}
 		quickPick.selectedItems = selectedItems;
 		quickPick.busy = false;
 

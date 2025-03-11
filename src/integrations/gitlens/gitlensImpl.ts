@@ -3,28 +3,24 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { commands, Disposable, extensions } from 'vscode';
+import * as vscode from 'vscode';
+import { Disposable } from '../../common/lifecycle';
 import { CreatePullRequestActionContext, GitLensApi } from './gitlens';
 
-export class GitLensIntegration implements Disposable {
-	private _extensionsDisposable: Disposable;
-	private _subscriptions: Disposable[] = [];
+export class GitLensIntegration extends Disposable {
+	private _extensionsDisposable: vscode.Disposable;
 
 	constructor() {
-		this._extensionsDisposable = extensions.onDidChange(this.onExtensionsChanged, this);
+		super();
+		this._extensionsDisposable = this._register(vscode.extensions.onDidChange(this.onExtensionsChanged, this));
 		this.onExtensionsChanged();
-	}
-
-	dispose() {
-		this._extensionsDisposable.dispose();
-		Disposable.from(...this._subscriptions).dispose();
 	}
 
 	private register(api: GitLensApi | undefined) {
 		if (!api) {
 			return;
 		}
-		this._subscriptions.push(
+		this._register(
 			api.registerActionRunner('createPullRequest', {
 				partnerId: 'ghpr',
 				name: 'GitHub Pull Requests and Issues',
@@ -35,7 +31,7 @@ export class GitLensIntegration implements Disposable {
 						return;
 					}
 
-					commands.executeCommand('pr.create', {
+					vscode.commands.executeCommand('pr.create', {
 						repoPath: context.repoPath,
 						compareBranch: context.branch.name,
 					});
@@ -46,8 +42,8 @@ export class GitLensIntegration implements Disposable {
 
 	private async onExtensionsChanged() {
 		const extension =
-			extensions.getExtension<Promise<GitLensApi | undefined>>('eamodio.gitlens') ??
-			extensions.getExtension<Promise<GitLensApi | undefined>>('eamodio.gitlens-insiders');
+			vscode.extensions.getExtension<Promise<GitLensApi | undefined>>('eamodio.gitlens') ??
+			vscode.extensions.getExtension<Promise<GitLensApi | undefined>>('eamodio.gitlens-insiders');
 		if (extension) {
 			this._extensionsDisposable.dispose();
 

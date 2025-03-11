@@ -85,6 +85,7 @@ describe('PullRequestOverview', function () {
 					enableScripts: true,
 					retainContextWhenHidden: true,
 					localResourceRoots: [vscode.Uri.joinPath(EXTENSION_URI, 'dist')],
+					enableFindWidget: true
 				}),
 			);
 			assert.notStrictEqual(PullRequestOverviewPanel.currentPanel, undefined);

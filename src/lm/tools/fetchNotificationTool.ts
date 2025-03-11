@@ -11,26 +11,26 @@ import { getNotificationKey } from '../../github/utils';
 import { RepoToolBase } from './toolsUtils';
 
 interface FetchNotificationToolParameters {
-	thread_id: number;
+	thread_id?: number;
 }
 
 interface FileChange {
-	fileName: string;
-	patch: string;
+	fileName?: string;
+	patch?: string;
 }
 
 export interface FetchNotificationResult {
 	lastReadAt?: string;
-	lastUpdatedAt: string;
-	unread: boolean;
-	title: string;
-	body: string;
+	lastUpdatedAt?: string;
+	unread?: boolean;
+	title?: string;
+	body?: string;
 	comments?: {
-		author: string;
-		body: string;
+		author?: string;
+		body?: string;
 	}[];
-	owner: string;
-	repo: string;
+	owner?: string;
+	repo?: string;
 	itemNumber?: string;
 	itemType?: 'issue' | 'pr';
 	fileChanges?: FileChange[];
@@ -53,6 +53,9 @@ export class FetchNotificationTool extends RepoToolBase<FetchNotificationToolPar
 			return undefined;
 		}
 		const threadId = options.input.thread_id;
+		if (threadId === undefined) {
+			return undefined;
+		}
 		const thread = await github.octokit.api.activity.getThread({
 			thread_id: threadId
 		});

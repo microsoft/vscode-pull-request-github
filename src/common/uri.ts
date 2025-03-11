@@ -41,6 +41,9 @@ export interface PRUriParams {
 }
 
 export function fromPRUri(uri: vscode.Uri): PRUriParams | undefined {
+	if (uri.query === '') {
+		return undefined;
+	}
 	try {
 		return JSON.parse(uri.query) as PRUriParams;
 	} catch (e) { }
@@ -51,6 +54,9 @@ export interface PRNodeUriParams {
 }
 
 export function fromPRNodeUri(uri: vscode.Uri): PRNodeUriParams | undefined {
+	if (uri.query === '') {
+		return undefined;
+	}
 	try {
 		return JSON.parse(uri.query) as PRNodeUriParams;
 	} catch (e) { }
@@ -63,6 +69,9 @@ export interface GitHubUriParams {
 	isEmpty?: boolean;
 }
 export function fromGitHubURI(uri: vscode.Uri): GitHubUriParams | undefined {
+	if (uri.query === '') {
+		return undefined;
+	}
 	try {
 		return JSON.parse(uri.query) as GitHubUriParams;
 	} catch (e) { }
@@ -274,7 +283,7 @@ export namespace DataUri {
 				try {
 					await vscode.workspace.fs.delete(vscode.Uri.joinPath(cacheLocation(context), id));
 				} catch (e) {
-					Logger.error(`Failed to delete avatar from cache: ${e}`);
+					Logger.error(`Failed to delete avatar from cache: ${e}`, 'avatarCirclesAsImageDataUris');
 				}
 			}));
 		}
@@ -338,8 +347,11 @@ export function toResourceUri(uri: vscode.Uri, prNumber: number, fileName: strin
 }
 
 export function fromFileChangeNodeUri(uri: vscode.Uri): FileChangeNodeUriParams | undefined {
+	if (uri.query === '') {
+		return undefined;
+	}
 	try {
-		return uri.query ? JSON.parse(uri.query) as FileChangeNodeUriParams : undefined;
+		return JSON.parse(uri.query) as FileChangeNodeUriParams;
 	} catch (e) { }
 }
 
@@ -420,6 +432,75 @@ export function fromNotificationUri(uri: vscode.Uri): NotificationUriParams | un
 	} catch (e) { }
 }
 
+
+interface IssueFileQuery {
+	origin: string;
+}
+
+export interface NewIssueUriParams {
+	originUri: vscode.Uri;
+	repoUriParams?: RepoUriParams;
+}
+
+interface RepoUriQuery {
+	folderManagerRootUri: string;
+}
+
+export function toNewIssueUri(params: NewIssueUriParams) {
+	const query: IssueFileQuery = {
+		origin: params.originUri.toString()
+	};
+	if (params.repoUriParams) {
+		query.origin = toRepoUri(params.repoUriParams).toString();
+	}
+	return vscode.Uri.from({ scheme: Schemes.NewIssue, path: '/NewIssue.md', query: JSON.stringify(query) });
+}
+
+export function fromNewIssueUri(uri: vscode.Uri): NewIssueUriParams | undefined {
+	if (uri.scheme !== Schemes.NewIssue) {
+		return;
+	}
+	try {
+		const query = JSON.parse(uri.query);
+		const originUri = vscode.Uri.parse(query.origin);
+		const repoUri = fromRepoUri(originUri);
+		return {
+			originUri,
+			repoUriParams: repoUri
+		};
+	} catch (e) { }
+}
+
+export interface RepoUriParams {
+	owner: string;
+	repo: string;
+	repoRootUri: vscode.Uri;
+}
+
+function toRepoUri(params: RepoUriParams) {
+	const repoQuery: RepoUriQuery = {
+		folderManagerRootUri: params.repoRootUri.toString()
+	};
+	return vscode.Uri.from({ scheme: Schemes.Repo, path: `${params.owner}/${params.repo}`, query: JSON.stringify(repoQuery) });
+}
+
+export function fromRepoUri(uri: vscode.Uri): RepoUriParams | undefined {
+	if (uri.scheme !== Schemes.Repo) {
+		return;
+	}
+	const [owner, repo] = uri.path.split('/');
+	try {
+		const query = JSON.parse(uri.query);
+		const repoRootUri = vscode.Uri.parse(query.folderManagerRootUri);
+		return {
+			owner,
+			repo,
+			repoRootUri
+		};
+	} catch (e) { }
+}
+
+
 export enum Schemes {
 	File = 'file',
 	Review = 'review', // File content for a checked out PR
@@ -431,7 +512,10 @@ export enum Schemes {
 	VscodeVfs = 'vscode-vfs', // Remote Repository
 	Comment = 'comment', // Comments from the VS Code comment widget
 	MergeOutput = 'merge-output', // Merge output
-	Notification = 'notification' // Notification tree items in the notification view
+	Notification = 'notification', // Notification tree items in the notification view
+	NewIssue = 'newissue', // New issue file
+	Repo = 'repo', // New issue file for passing data
+	Git = 'git', // File content from the git extension
 }
 
 export function resolvePath(from: vscode.Uri, to: string) {

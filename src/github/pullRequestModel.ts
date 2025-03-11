@@ -52,6 +52,7 @@ import {
 	UpdatePullRequestResponse,
 } from './graphql';
 import {
+	AccountType,
 	GithubItemStateEnum,
 	IAccount,
 	IGitTreeItem,
@@ -69,6 +70,7 @@ import {
 	ReviewEvent,
 } from './interface';
 import { IssueModel } from './issueModel';
+import { compareCommits } from './loggingOctokit';
 import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
@@ -111,7 +113,7 @@ export type FileViewedState = { [key: string]: ViewedState };
 const BATCH_SIZE = 100;
 
 export class PullRequestModel extends IssueModel<PullRequest> implements IPullRequestModel {
-	static ID = 'PullRequestModel';
+	static override ID = 'PullRequestModel';
 
 	public isDraft?: boolean;
 	public localBranchName?: string;
@@ -192,10 +194,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return this._reviewThreadsCacheInitialized;
 	}
 
-	public get isMerged(): boolean {
-		return this.state === GithubItemStateEnum.Merged;
-	}
-
 	public get hasPendingReview(): boolean {
 		return this._hasPendingReview;
 	}
@@ -237,7 +235,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public isRemoteBaseDeleted?: boolean;
 	public base: GitHubRef;
 
-	protected updateState(state: string) {
+	protected override updateState(state: string) {
 		if (state.toLowerCase() === 'open') {
 			this.state = GithubItemStateEnum.Open;
 		} else if (state.toLowerCase() === 'merged' || this.item.merged) {
@@ -247,7 +245,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	update(item: PullRequest): void {
+	override update(item: PullRequest): void {
 		super.update(item);
 		this.isDraft = item.isDraft;
 		this.suggestedReviewers = item.suggestedReviewers;
@@ -975,7 +973,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return [];
 		}
 
-		const reviewers: (IAccount | ITeam)[] = parseGraphQLReviewers(data, remote);
+		const reviewers: (IAccount | ITeam)[] = parseGraphQLReviewers(data, githubRepository);
 		Logger.debug('Get Review Requests - done', PullRequestModel.ID);
 		return reviewers;
 	}
@@ -984,15 +982,15 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Add reviewers to a pull request
 	 * @param reviewers A list of GitHub logins
 	 */
-	async requestReview(reviewers: string[], teamReviewers: string[]): Promise<void> {
+	async requestReview(reviewers: IAccount[], teamReviewers: ITeam[]): Promise<void> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 		await mutate({
 			mutation: schema.AddReviewers,
 			variables: {
 				input: {
 					pullRequestId: this.graphNodeId,
-					teamIds: teamReviewers,
-					userIds: reviewers
+					teamIds: teamReviewers.map(t => t.id),
+					userIds: reviewers.filter(r => r.accountType !== AccountType.Bot).map(r => r.id),
 				},
 			},
 		});
@@ -1002,14 +1000,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Remove a review request that has not yet been completed
 	 * @param reviewer A GitHub Login
 	 */
-	async deleteReviewRequest(reviewers: string[], teamReviewers: string[]): Promise<void> {
+	async deleteReviewRequest(reviewers: IAccount[], teamReviewers: ITeam[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		await octokit.call(octokit.api.pulls.removeRequestedReviewers, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			pull_number: this.number,
-			reviewers,
-			team_reviewers: teamReviewers
+			reviewers: reviewers.filter(r => r.accountType !== AccountType.Bot).map(r => r.id),
+			team_reviewers: teamReviewers.map(t => t.id)
 		});
 	}
 
@@ -1267,17 +1265,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	}
 
 	static async openChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel) {
-		const isCurrentPR = folderManager.activePullRequest?.number === pullRequestModel.number;
-		const changes = pullRequestModel.fileChanges.size > 0 ? pullRequestModel.fileChanges.values() : await pullRequestModel.getFileChangesInfo();
+		const changeModels = await PullRequestModel.getChangeModels(folderManager, pullRequestModel);
 		const args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
-
-		for (const change of changes) {
-			let changeModel;
-			if (change instanceof SlimFileChange) {
-				changeModel = new RemoteFileChangeModel(folderManager, change, pullRequestModel);
-			} else {
-				changeModel = new InMemFileChangeModel(folderManager, pullRequestModel as (PullRequestModel & IResolvedPullRequestModel), change, isCurrentPR, pullRequestModel.mergeBase!);
-			}
+		for (const changeModel of changeModels) {
 			args.push([changeModel.filePath, changeModel.parentFilePath, changeModel.filePath]);
 		}
 
@@ -1403,18 +1393,33 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return parsed;
 	}
 
+	public static async getChangeModels(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel): Promise<(RemoteFileChangeModel | InMemFileChangeModel)[]> {
+		const isCurrentPR = folderManager.activePullRequest?.number === pullRequestModel.number;
+		const changes = pullRequestModel.fileChanges.size > 0 ? pullRequestModel.fileChanges.values() : await pullRequestModel.getFileChangesInfo();
+		const changeModels: (RemoteFileChangeModel | InMemFileChangeModel)[] = [];
+		for (const change of changes) {
+			let changeModel;
+			if (change instanceof SlimFileChange) {
+				changeModel = new RemoteFileChangeModel(folderManager, change, pullRequestModel);
+			} else {
+				changeModel = new InMemFileChangeModel(folderManager, pullRequestModel as (PullRequestModel & IResolvedPullRequestModel), change, isCurrentPR, pullRequestModel.mergeBase!);
+			}
+			changeModels.push(changeModel);
+		}
+		return changeModels;
+	}
+
 	/**
 	 * List the changed files in a pull request.
 	 */
 	private async getRawFileChangesInfo(): Promise<IRawFileChange[]> {
-		Logger.debug(
-			`Fetch file changes, base, head and merge base of PR #${this.number} - enter`,
-			PullRequestModel.ID,
-		);
+		Logger.debug(`Fetch file changes, base, head and merge base of PR #${this.number} - enter`, PullRequestModel.ID);
+
 		const githubRepository = this.githubRepository;
 		const { octokit, remote } = await githubRepository.ensure();
 
 		if (!this.base) {
+			Logger.appendLine('No base branch found for PR, fetching it now', PullRequestModel.ID);
 			const info = await octokit.call(octokit.api.pulls.get, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
@@ -1433,6 +1438,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 
 		if (this.item.merged) {
+			Logger.appendLine('PR is merged, fetching all file changes', PullRequestModel.ID);
 			const response = await restPaginate<typeof octokit.api.pulls.listFiles, IRawFileChange>(octokit.api.pulls.listFiles, {
 				repo: remote.repositoryName,
 				owner: remote.owner,
@@ -1445,34 +1451,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return response;
 		}
 
-		const { data } = await octokit.call(octokit.api.repos.compareCommits, {
-			repo: remote.repositoryName,
-			owner: remote.owner,
-			base: `${this.base.repositoryCloneUrl.owner}:${compareWithBaseRef}`,
-			head: `${this.head!.repositoryCloneUrl.owner}:${this.head!.sha}`,
-		});
-
-		this.mergeBase = data.merge_base_commit.sha;
-
-		const MAX_FILE_CHANGES_IN_COMPARE_COMMITS = 100;
-		let files: IRawFileChange[] = [];
-
-		if (data.files && data.files.length >= MAX_FILE_CHANGES_IN_COMPARE_COMMITS) {
-			// compareCommits will return a maximum of 100 changed files
-			// If we have (maybe) more than that, we'll need to fetch them with listFiles API call
-			Logger.debug(
-				`More than ${MAX_FILE_CHANGES_IN_COMPARE_COMMITS} files changed, fetching all file changes of PR #${this.number}`,
-				PullRequestModel.ID,
-			);
-			files = await restPaginate<typeof octokit.api.pulls.listFiles, IRawFileChange>(octokit.api.pulls.listFiles, {
-				owner: this.base.repositoryCloneUrl.owner,
-				pull_number: this.number,
-				repo: remote.repositoryName,
-			});
-		} else {
-			// if we're under the limit, just use the result from compareCommits, don't make additional API calls.
-			files = data.files ? data.files as IRawFileChange[] : [];
-		}
+		Logger.debug(`Comparing commits for ${remote.owner}/${remote.repositoryName} with base ${this.base.repositoryCloneUrl.owner}:${compareWithBaseRef} and head ${this.head!.repositoryCloneUrl.owner}:${this.head!.sha}`, PullRequestModel.ID);
+		const { files, mergeBaseSha } = await compareCommits(remote, octokit, this.base, this.head!, compareWithBaseRef, this.number, PullRequestModel.ID);
+		this.mergeBase = mergeBaseSha;
 
 		if (oldHasChangesSinceReview !== undefined && oldHasChangesSinceReview !== this.hasChangesSinceLastReview && this.hasChangesSinceLastReview && this._showChangesSinceReview) {
 			this._onDidChangeChangesSinceReview.fire();

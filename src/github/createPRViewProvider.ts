@@ -47,9 +47,9 @@ export interface BasePullRequestDataModel {
 	repositoryName: string;
 }
 
-export abstract class BaseCreatePullRequestViewProvider<T extends BasePullRequestDataModel = BasePullRequestDataModel> extends WebviewViewBase implements vscode.WebviewViewProvider, vscode.Disposable {
+export abstract class BaseCreatePullRequestViewProvider<T extends BasePullRequestDataModel = BasePullRequestDataModel> extends WebviewViewBase implements vscode.WebviewViewProvider {
 	protected static readonly ID = 'CreatePullRequestViewProvider';
-	public readonly viewType = 'github:createPullRequestWebview';
+	public override readonly viewType = 'github:createPullRequestWebview';
 
 	protected _onDone = new vscode.EventEmitter<PullRequestModel | undefined>();
 	readonly onDone: vscode.Event<PullRequestModel | undefined> = this._onDone.event;
@@ -67,7 +67,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		super(extensionUri);
 	}
 
-	public resolveWebviewView(
+	public override resolveWebviewView(
 		webviewView: vscode.WebviewView,
 		_context: vscode.WebviewViewResolveContext,
 		_token: vscode.CancellationToken,
@@ -84,7 +84,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		}
 	}
 
-	public show() {
+	public override show() {
 		super.show();
 	}
 
@@ -280,7 +280,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		try {
 			await pr.addAssignees([resolved]);
 		} catch (e) {
-			Logger.error(`Unable to assign pull request to user ${resolved}.`);
+			Logger.error(`Unable to assign pull request to user ${resolved}.`, BaseCreatePullRequestViewProvider.ID);
 		}
 	}
 
@@ -306,13 +306,13 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 
 	private async setReviewers(pr: PullRequestModel, reviewers: (IAccount | ITeam)[]): Promise<void> {
 		if (reviewers.length) {
-			const users: string[] = [];
-			const teams: string[] = [];
+			const users: IAccount[] = [];
+			const teams: ITeam[] = [];
 			for (const reviewer of reviewers) {
 				if (isTeam(reviewer)) {
-					teams.push(reviewer.id);
+					teams.push(reviewer);
 				} else {
-					users.push(reviewer.id);
+					users.push(reviewer);
 				}
 			}
 			await pr.requestReview(users, teams);
@@ -379,7 +379,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 				});
 			}
 		} catch (e) {
-			Logger.error(formatError(e));
+			Logger.error(`Failed to add reviewers: ${formatError(e)}`, BaseCreatePullRequestViewProvider.ID);
 			vscode.window.showErrorMessage(formatError(e));
 		} finally {
 			quickPick?.hide();
@@ -497,7 +497,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		return this._replyMessage(message, undefined);
 	}
 
-	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
+	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		const result = await super._onDidReceiveMessage(message);
 		if (result !== this.MESSAGE_UNHANDLED) {
 			return;
@@ -536,7 +536,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		}
 	}
 
-	dispose() {
+	override dispose() {
 		super.dispose();
 		this._postMessage({ command: 'reset' });
 	}
@@ -567,8 +567,8 @@ function serializeRemoteInfo(remote: { owner: string, repositoryName: string }) 
 	return { owner: remote.owner, repositoryName: remote.repositoryName };
 }
 
-export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProvider<CreatePullRequestDataModel> implements vscode.WebviewViewProvider, vscode.Disposable {
-	public readonly viewType = 'github:createPullRequestWebview';
+export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProvider<CreatePullRequestDataModel> implements vscode.WebviewViewProvider {
+	public override readonly viewType = 'github:createPullRequestWebview';
 
 	constructor(
 		telemetry: ITelemetry,
@@ -579,7 +579,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	) {
 		super(telemetry, model, extensionUri, folderRepositoryManager, pullRequestDefaults, model.compareBranch);
 
-		this._disposables.push(this.model.onDidChange(async (e) => {
+		this._register(this.model.onDidChange(async (e) => {
 			let baseRemote: RemoteInfo | undefined;
 			let baseBranch: string | undefined;
 			if (e.baseOwner) {
@@ -639,7 +639,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		}
 	}
 
-	public show(compareBranch?: Branch): void {
+	public override show(compareBranch?: Branch): void {
 		if (compareBranch) {
 			this.setDefaultCompareBranch(compareBranch); // don't await, view will be updated when the branch is changed
 		}
@@ -776,7 +776,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		}
 	}
 
-	protected async getCreateParams(): Promise<CreateParamsNew> {
+	protected override async getCreateParams(): Promise<CreateParamsNew> {
 		const params = await super.getCreateParams();
 		this.model.baseOwner = params.defaultBaseRemote!.owner;
 		this.model.baseBranch = params.defaultBaseBranch!;
@@ -966,8 +966,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 						} else {
 							resolve(undefined);
 						}
-					});
-
+					}).catch(() => resolve(undefined));
 				}));
 			}
 		}
@@ -1116,9 +1115,11 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 
 		if (pushRemote && createdPushRemote) {
 			Logger.appendLine(`Found push remote ${pushRemote.name} for ${compareOwner}/${compareRepositoryName} and branch ${compareBranchName}`, CreatePullRequestViewProvider.ID);
-			await this._folderRepositoryManager.repository.push(pushRemote.name, compareBranchName, true);
-			await this._folderRepositoryManager.repository.status();
-			return { compareUpstream: createdPushRemote, repo: this._folderRepositoryManager.findRepo(byRemoteName(createdPushRemote.remoteName)) };
+			const actualPushRemote = await this._folderRepositoryManager.publishBranch(createdPushRemote, compareBranchName);
+			if (!actualPushRemote) {
+				return undefined;
+			}
+			return { compareUpstream: actualPushRemote, repo: this._folderRepositoryManager.findRepo(byRemoteName(actualPushRemote.remoteName)) };
 		}
 	}
 
@@ -1293,7 +1294,7 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		return this.getTitleAndDescription(compareBranch, this.model.baseBranch);
 	}
 
-	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
+	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		const result = await super._onDidReceiveMessage(message);
 		if (result !== this.MESSAGE_UNHANDLED) {
 			return;

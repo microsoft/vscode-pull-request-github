@@ -102,14 +102,16 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 				case 'number':
 					return `[${issue[column]}](${issue.url})`;
 				case 'labels':
-					return issue[column].map((label) => makeLabel(label)).join(', ');
+					return issue[column]?.map((label) => label?.name && label.color ? makeLabel({ name: label.name, color: label.color }) : '').join(', ');
 				case 'assignees':
 					return issue[column]?.map((assignee) => this.renderUser(assignee)).join(', ');
 				case 'author':
-					return this.renderUser(issue[column]);
+					const account = issue[column];
+					return account ? this.renderUser(account) : '';
 				case 'createdAt':
 				case 'updatedAt':
-					return new Date(issue[column]).toLocaleDateString();
+					const updatedAt = issue[column];
+					return updatedAt ? new Date(updatedAt).toLocaleDateString() : '';
 				case 'milestone':
 					return issue[column];
 				default:
@@ -119,7 +121,7 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 	}
 
 	private foundIssuesCount(params: DisplayIssuesParameters): number {
-		return params.totalIssues !== undefined ? params.totalIssues : params.arrayOfIssues.length;
+		return params.totalIssues !== undefined ? params.totalIssues : (params.arrayOfIssues?.length ?? 0);
 	}
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<DisplayIssuesParameters>): Promise<vscode.PreparedToolInvocation> {
@@ -143,8 +145,8 @@ export class DisplayIssuesTool extends ToolBase<DisplayIssuesParameters> {
 
 	async invoke(options: vscode.LanguageModelToolInvocationOptions<DisplayIssuesParameters>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		const issueItemsInfo: vscode.LanguageModelTextPart | undefined = this.chatParticipantState.firstUserMessage;
-		const issueItems: IssueSearchResultItem[] = options.input.arrayOfIssues;
-		if (issueItems.length === 0) {
+		const issueItems: IssueSearchResultItem[] | undefined = options.input.arrayOfIssues;
+		if (!issueItems || issueItems.length === 0) {
 			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(vscode.l10n.t('No issues found. Please try another query.'))]);
 		}
 		Logger.debug(`Displaying ${this.foundIssuesCount(options.input)} issues, first issue ${issueItems[0].number}`, DisplayIssuesTool.ID);

@@ -42,12 +42,12 @@ export class CommentDecorationProvider extends TreeDecorationProvider {
 				}
 			});
 			if (hasComment) {
-				return {
+				const decoration: vscode.FileDecoration2 = {
 					propagate: false,
-					tooltip: 'Commented',
-					// allow-any-unicode-next-line
-					badge: '💬',
+					tooltip: vscode.l10n.t('Commented'),
+					badge: new vscode.ThemeIcon('comment'),
 				};
+				return decoration as vscode.FileDecoration;
 			}
 		}
 		return undefined;

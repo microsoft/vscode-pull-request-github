@@ -21,7 +21,7 @@ export class NotificationSummarizationTool implements vscode.LanguageModelTool<F
 		const type = parameters.itemType === 'issue' ? 'issues' : 'pull';
 		const url = `https://github.com/${parameters.owner}/${parameters.repo}/${type}/${parameters.itemNumber}`;
 		return {
-			invocationMessage: vscode.l10n.t('Summarizing item [#{0}]({1})', parameters.itemNumber, url)
+			invocationMessage: new vscode.MarkdownString(vscode.l10n.t('Summarizing item [#{0}]({1})', parameters.itemNumber, url))
 		};
 	}
 
@@ -86,8 +86,10 @@ Body: ${comment.body}
 			content.push(new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT));
 			content.push(new vscode.LanguageModelTextPart(JSON.stringify(markAsDoneCommand)));
 		}
-		if (model) {
-			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(options.input.owner, options.input.repo))];
+		const owner = options.input.owner;
+		const repo = options.input.repo;
+		if (model && owner && repo) {
+			const messages = [vscode.LanguageModelChatMessage.User(this.summarizeInstructions(owner, repo))];
 			messages.push(vscode.LanguageModelChatMessage.User(`The notification information is as follows:`));
 			messages.push(vscode.LanguageModelChatMessage.User(notificationInfo));
 			const response = await model.sendRequest(messages, {});

@@ -5,6 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { Disposable } from '../common/lifecycle';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -19,13 +20,14 @@ interface PullRequestCommentHandlerInfo {
 	dispose: () => void;
 }
 
-export class PRCommentControllerRegistry implements vscode.CommentingRangeProvider, CommentReactionHandler, vscode.Disposable {
+export class PRCommentControllerRegistry extends Disposable implements vscode.CommentingRangeProvider, CommentReactionHandler {
 	private _prCommentHandlers: { [key: number]: PullRequestCommentHandlerInfo } = {};
 	private _prCommentingRangeProviders: { [key: number]: vscode.CommentingRangeProvider2 } = {};
-	private _activeChangeListeners: Map<FolderRepositoryManager, vscode.Disposable> = new Map();
+	private readonly _activeChangeListeners: Map<FolderRepositoryManager, vscode.Disposable> = new Map();
 	public readonly resourceHints = { schemes: [Schemes.Pr] };
 
-	constructor(public commentsController: vscode.CommentController, private _telemetry: ITelemetry) {
+	constructor(public readonly commentsController: vscode.CommentController, private readonly _telemetry: ITelemetry) {
+		super();
 		this.commentsController.commentingRangeProvider = this;
 		this.commentsController.reactionHandler = this.toggleReaction.bind(this);
 	}
@@ -115,7 +117,8 @@ export class PRCommentControllerRegistry implements vscode.CommentingRangeProvid
 		};
 	}
 
-	dispose() {
+	override dispose() {
+		super.dispose();
 		Object.keys(this._prCommentHandlers).forEach(key => {
 			this._prCommentHandlers[key].handler.dispose();
 		});

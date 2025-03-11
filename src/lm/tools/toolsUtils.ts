@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { AuthProvider } from '../../common/authentication';
+import { AuthenticationError, AuthProvider } from '../../common/authentication';
 import { CredentialStore, GitHub } from '../../github/credentials';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { RepositoriesManager } from '../../github/repositoriesManager';
@@ -21,10 +21,10 @@ export const TOOL_MARKDOWN_RESULT = 'TOOL_MARKDOWN_RESULT';
 export const TOOL_COMMAND_RESULT = 'TOOL_COMMAND_RESULT';
 
 export interface IssueToolParameters {
-	issueNumber: number;
-	repo: {
-		owner: string;
-		name: string;
+	issueNumber?: number;
+	repo?: {
+		owner?: string;
+		name?: string;
 	};
 }
 
@@ -55,6 +55,10 @@ export abstract class RepoToolBase<T> extends ToolBase<T> {
 	}
 
 	protected async getRepoInfo(options: { owner?: string, name?: string }): Promise<{ owner: string; name: string; folderManager: FolderRepositoryManager }> {
+		if (!this.credentialStore.isAnyAuthenticated()) {
+			throw new AuthenticationError();
+		}
+
 		let owner: string | undefined;
 		let name: string | undefined;
 		let folderManager: FolderRepositoryManager | undefined;

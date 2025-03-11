@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Disposable, disposeAll } from '../common/lifecycle';
 import { getReviewMode } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
-import { dispose } from '../common/utils';
 import { FolderRepositoryManager, ItemsResponseResult } from '../github/folderRepositoryManager';
 import { CheckState, PRType, PullRequestChecks, PullRequestReviewRequirement } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -30,16 +30,15 @@ interface PRStatusChange {
 	status: UnsatisfiedChecks;
 }
 
-export class PrsTreeModel implements vscode.Disposable {
-	private readonly _disposables: vscode.Disposable[] = [];
+export class PrsTreeModel extends Disposable {
 	private _activePRDisposables: Map<FolderRepositoryManager, vscode.Disposable[]> = new Map();
-	private readonly _onDidChangePrStatus: vscode.EventEmitter<string[]> = new vscode.EventEmitter();
+	private readonly _onDidChangePrStatus: vscode.EventEmitter<string[]> = this._register(new vscode.EventEmitter<string[]>());
 	public readonly onDidChangePrStatus = this._onDidChangePrStatus.event;
-	private readonly _onDidChangeData: vscode.EventEmitter<FolderRepositoryManager | void> = new vscode.EventEmitter();
+	private readonly _onDidChangeData: vscode.EventEmitter<FolderRepositoryManager | void> = this._register(new vscode.EventEmitter<FolderRepositoryManager | void>());
 	public readonly onDidChangeData = this._onDidChangeData.event;
 	private _expandedQueries: Set<string> = new Set();
 	private _hasLoaded: boolean = false;
-	private _onLoaded: vscode.EventEmitter<void> = new vscode.EventEmitter();
+	private _onLoaded: vscode.EventEmitter<void> = this._register(new vscode.EventEmitter<void>());
 	public readonly onLoaded = this._onLoaded.event;
 
 	// Key is identifier from createPRNodeUri
@@ -48,31 +47,30 @@ export class PrsTreeModel implements vscode.Disposable {
 	private _cachedPRs: Map<FolderRepositoryManager, Map<string | PRType.LocalPullRequest | PRType.All, ItemsResponseResult<PullRequestModel>>> = new Map();
 
 	constructor(private _telemetry: ITelemetry, private readonly _reposManager: RepositoriesManager, private readonly _context: vscode.ExtensionContext) {
+		super();
 		const repoEvents = (manager: FolderRepositoryManager) => {
-			return [
-				manager.onDidChangeActivePullRequest(() => {
-					this.clearRepo(manager);
-					if (this._activePRDisposables.has(manager)) {
-						dispose(this._activePRDisposables.get(manager)!);
-						this._activePRDisposables.delete(manager);
-					}
-					if (manager.activePullRequest) {
-						this._activePRDisposables.set(manager, [
-							manager.activePullRequest.onDidChangeComments(() => {
-								this.clearRepo(manager);
-							})]);
-					}
-				})];
+			this._register(manager.onDidChangeActivePullRequest(() => {
+				this.clearRepo(manager);
+				if (this._activePRDisposables.has(manager)) {
+					disposeAll(this._activePRDisposables.get(manager)!);
+					this._activePRDisposables.delete(manager);
+				}
+				if (manager.activePullRequest) {
+					this._activePRDisposables.set(manager, [
+						manager.activePullRequest.onDidChangeComments(() => {
+							this.clearRepo(manager);
+						})]);
+				}
+			}));
 		};
 
-		this._disposables.push(
-			...(this._reposManager.folderManagers.map(manager => {
-				return repoEvents(manager);
-			}).flat()),
-		);
-		this._disposables.push(this._reposManager.onDidChangeFolderRepositories((changed) => {
+
+		for (const manager of this._reposManager.folderManagers) {
+			repoEvents(manager);
+		}
+		this._register(this._reposManager.onDidChangeFolderRepositories((changed) => {
 			if (changed.added) {
-				this._disposables.push(...repoEvents(changed.added));
+				repoEvents(changed.added);
 				this._onDidChangeData.fire(changed.added);
 			}
 		}));
@@ -81,7 +79,7 @@ export class PrsTreeModel implements vscode.Disposable {
 	}
 
 	public updateExpandedQueries(element: TreeNode, isExpanded: boolean) {
-		if (element instanceof CategoryTreeNode) {
+		if ((element instanceof CategoryTreeNode) && element.id) {
 			if (isExpanded) {
 				this._expandedQueries.add(element.id);
 			} else {
@@ -249,9 +247,9 @@ export class PrsTreeModel implements vscode.Disposable {
 		return prs;
 	}
 
-	dispose() {
-		dispose(this._disposables);
-		dispose(Array.from(this._activePRDisposables.values()).flat());
+	override dispose() {
+		super.dispose();
+		disposeAll(Array.from(this._activePRDisposables.values()).flat());
 	}
 
 }

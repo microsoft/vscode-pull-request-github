@@ -28,7 +28,8 @@ module.exports.unicodeFilter = [
 	'!**/ThirdPartyNotices.txt',
 	'!**/LICENSE.{txt,rtf}',
 	'!**/LICENSE',
-	'!*.yml'
+	'!*.yml',
+	'!resources/emojis.json'
 ];
 
 module.exports.indentationFilter = [
@@ -41,6 +42,7 @@ module.exports.indentationFilter = [
 	'!**/LICENSE.{txt,rtf}',
 	'!**/LICENSE',
 	'!**/*.yml',
+	'!resources/emojis.json',
 
 	// except multiple specific files
 	'!**/package.json',

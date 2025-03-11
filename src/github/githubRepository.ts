@@ -7,8 +7,8 @@ import * as buffer from 'buffer';
 import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
 import * as vscode from 'vscode';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
+import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
-import { Protocol } from '../common/protocol';
 import { GitHubRemote, parseRemote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
@@ -63,8 +63,8 @@ import {
 	convertRESTPullRequestToRawPullRequest,
 	getAvatarWithEnterpriseFallback,
 	getOverrideBranch,
-	getPRFetchQuery,
 	isInCodespaces,
+	parseAccount,
 	parseGraphQLIssue,
 	parseGraphQLPullRequest,
 	parseGraphQLViewerPermission,
@@ -137,19 +137,18 @@ export interface GraphQLError {
 	message?: string;
 }
 
-export class GitHubRepository implements vscode.Disposable {
+export class GitHubRepository extends Disposable {
 	static ID = 'GitHubRepository';
 	protected _initialized: boolean = false;
 	protected _hub: GitHub | undefined;
 	protected _metadata: Promise<IMetadata> | undefined;
-	private _toDispose: vscode.Disposable[] = [];
 	public commentsController?: vscode.CommentController;
 	public commentsHandler?: PRCommentControllerRegistry;
 	private _pullRequestModels = new Map<number, PullRequestModel>();
 	private _queriesSchema: any;
 	private _areQueriesLimited: boolean = false;
 
-	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = new vscode.EventEmitter();
+	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = this._register(new vscode.EventEmitter());
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
 
 	public get hub(): GitHub {
@@ -157,7 +156,7 @@ export class GitHubRepository implements vscode.Disposable {
 			if (!this._initialized) {
 				throw new Error('Call ensure() before accessing this property.');
 			} else {
-				throw new AuthenticationError('Not authenticated.');
+				throw new AuthenticationError();
 			}
 		}
 		return this._hub;
@@ -183,16 +182,15 @@ export class GitHubRepository implements vscode.Disposable {
 				`Pull Request (${this.remote.owner}/${this.remote.repositoryName})`,
 			);
 			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController, this._telemetry);
-			this._toDispose.push(this.commentsHandler);
-			this._toDispose.push(this.commentsController);
+			this._register(this.commentsHandler);
+			this._register(this.commentsController);
 		} catch (e) {
 			console.log(e);
 		}
 	}
 
-	dispose() {
-		this._toDispose.forEach(d => d.dispose());
-		this._toDispose = [];
+	override dispose() {
+		super.dispose();
 		this.commentsController = undefined;
 		this.commentsHandler = undefined;
 	}
@@ -206,13 +204,14 @@ export class GitHubRepository implements vscode.Disposable {
 	}
 
 	constructor(
-		private _id: number,
+		private readonly _id: number,
 		public remote: GitHubRemote,
 		public readonly rootUri: vscode.Uri,
 		private readonly _credentialStore: CredentialStore,
 		private readonly _telemetry: ITelemetry,
 		silent: boolean = false
 	) {
+		super();
 		this._queriesSchema = mergeQuerySchemaWithShared(sharedSchema.default as unknown as Schema, defaultSchema as unknown as Schema);
 		// kick off the comments controller early so that the Comments view is visible and doesn't pop up later in an way that's jarring
 		if (!silent) {
@@ -443,7 +442,7 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.debug('Fetch pull request templates - done', this.id);
 			return result.data.repository.pullRequestTemplates.map(template => template.body);
 		} catch (e) {
-			Logger.error(`Fetching pull request templates failed: ${e}`, this.id);
+			// The template was not found.
 		}
 	}
 
@@ -839,6 +838,24 @@ export class GitHubRepository implements vscode.Disposable {
 				owner: remote.owner,
 				repo: remote.repositoryName,
 			});
+			Logger.debug(`Fork repository - done`, this.id);
+			// GitHub can say the fork succeeded but it isn't actually ready yet.
+			// So we wait up to 5 seconds for the fork to be ready
+			const start = Date.now();
+			let exists = async () => {
+				try {
+					await octokit.call(octokit.api.repos.get, { owner: result.data.owner.login, repo: result.data.name });
+					Logger.appendLine('Fork ready', this.id);
+					return true;
+				} catch (e) {
+					Logger.appendLine('Fork not ready yet', this.id);
+					return false;
+				}
+			};
+			while (!(await exists()) && ((Date.now() - start) < 5000)) {
+				await new Promise(resolve => setTimeout(resolve, 500));
+			}
+
 			return result.data.clone_url;
 		} catch (e) {
 			Logger.error(`GitHubRepository> Forking repository failed: ${e}`, this.id);
@@ -880,71 +897,6 @@ export class GitHubRepository implements vscode.Disposable {
 			Logger.error(`Unable to fetch authenticated user emails: ${e}`, this.id);
 			return [];
 		}
-	}
-
-	async getPullRequestsForCategory(categoryQuery: string, page?: number): Promise<PullRequestData | undefined> {
-		let repo: IMetadata | undefined;
-		try {
-			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, this.id);
-			const { octokit, query, schema } = await this.ensure();
-
-			const user = await this.getAuthenticatedUser();
-			// Search api will not try to resolve repo that redirects, so get full name first
-			repo = await this.getMetadata();
-			const { data, headers } = await octokit.call(octokit.api.search.issuesAndPullRequests, {
-				q: getPRFetchQuery(repo.full_name, user, categoryQuery),
-				per_page: PULL_REQUEST_PAGE_SIZE,
-				page: page || 1,
-			});
-
-			const promises: Promise<PullRequestResponse>[] = data.items.map(async (item) => {
-				const prRepo = new Protocol(item.repository_url);
-				const { data } = await query<PullRequestResponse>({
-					query: schema.PullRequest,
-					variables: {
-						owner: prRepo.owner,
-						name: prRepo.repositoryName,
-						number: item.number
-					}
-				});
-				return data;
-			});
-
-			const hasMorePages = !!headers.link && headers.link.indexOf('rel="next"') > -1;
-			const pullRequestResponses = await Promise.all(promises);
-
-			const pullRequests = pullRequestResponses
-				.map(response => {
-					if (!response.repository) {
-						Logger.appendLine('Pull request doesn\'t appear to exist.', this.id);
-						return null;
-					}
-
-					return this.createOrUpdatePullRequestModel(
-						parseGraphQLPullRequest(response.repository.pullRequest, this),
-					);
-				})
-				.filter(item => item !== null) as PullRequestModel[];
-
-			Logger.debug(`Fetch pull request category ${categoryQuery} - done`, this.id);
-
-			return {
-				items: pullRequests,
-				hasMorePages,
-				totalCount: data.total_count
-			};
-		} catch (e) {
-			Logger.error(`Fetching pull request with query failed: ${e}`, this.id);
-			if (e.code === 404) {
-				// not found
-				vscode.window.showWarningMessage(
-					`Fetching pull requests for remote ${this.remote.remoteName} with query failed, please check if the repo ${repo?.full_name} is valid.`,
-				);
-			} else {
-				throw e;
-			}
-		}
-		return undefined;
 	}
 
 	createOrUpdatePullRequestModel(pullRequest: PullRequest): PullRequestModel {
@@ -1020,8 +972,8 @@ export class GitHubRepository implements vscode.Disposable {
 
 	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
 		try {
-			Logger.debug(`Fetch pull request ${id} - enter`, this.id);
 			const { query, remote, schema } = await this.ensure();
+			Logger.debug(`Fetch pull request ${remote.owner}/${remote.repositoryName} ${id} - enter`, this.id);
 
 			const { data } = await query<PullRequestResponse>({
 				query: schema.PullRequest,
@@ -1066,7 +1018,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 			return new IssueModel(this, remote, parseGraphQLIssue(data.repository.pullRequest, this));
 		} catch (e) {
-			Logger.error(`Unable to fetch PR: ${e}`, this.id);
+			Logger.error(`Unable to fetch issue: ${e}`, this.id);
 			return;
 		}
 	}
@@ -1226,14 +1178,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 				ret.push(
 					...result.data.repository.mentionableUsers.nodes.map(node => {
-						return {
-							login: node.login,
-							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.isEnterprise),
-							name: node.name,
-							url: node.url,
-							email: node.email,
-							id: node.id
-						};
+						return parseAccount(node, this);
 					}),
 				);
 
@@ -1275,14 +1220,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 				ret.push(
 					...result.data.repository.assignableUsers.nodes.map(node => {
-						return {
-							login: node.login,
-							avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.isEnterprise),
-							name: node.name,
-							url: node.url,
-							email: node.email,
-							id: node.id
-						};
+						return parseAccount(node, this);
 					}),
 				);
 
@@ -1419,14 +1357,7 @@ export class GitHubRepository implements vscode.Disposable {
 
 			ret.push(
 				...result.data.repository.pullRequest.participants.nodes.map(node => {
-					return {
-						login: node.login,
-						avatarUrl: getAvatarWithEnterpriseFallback(node.avatarUrl, undefined, this.remote.isEnterprise),
-						name: node.name,
-						url: node.url,
-						email: node.email,
-						id: node.id
-					};
+					return parseAccount(node, this);
 				}),
 			);
 		} catch (e) {
@@ -1491,9 +1422,10 @@ export class GitHubRepository implements vscode.Disposable {
 					name: remote.repositoryName,
 					number: number,
 				},
-			}, true); // There's an issue with the GetChecks that can result in SAML errors.
+			});
 		} catch (e) {
-			if (e.message?.startsWith('GraphQL error: Resource protected by organization SAML enforcement.')) {
+			// There's an issue with the GetChecks that can result in SAML errors.
+			if (isSamlError(e)) {
 				// There seems to be an issue with fetching status checks if you haven't SAML'd with every org you have
 				// The issue is specifically with the CheckSuite property. Make the query again, but without that property.
 				if (!captureUseFallbackChecks) {
@@ -1535,6 +1467,8 @@ export class GitHubRepository implements vscode.Disposable {
 							state: this.mapStateAsCheckState(context.conclusion),
 							description: context.title,
 							context: context.name,
+							workflowName: context.checkSuite?.workflowRun?.workflow.name,
+							event: context.checkSuite?.workflowRun?.event,
 							targetUrl: context.detailsUrl,
 							isRequired: context.isRequired,
 						};
@@ -1548,6 +1482,8 @@ export class GitHubRepository implements vscode.Disposable {
 							state: this.mapStateAsCheckState(context.state),
 							description: context.description,
 							context: context.context,
+							workflowName: undefined,
+							event: undefined,
 							targetUrl: context.targetUrl,
 							isRequired: context.isRequired,
 						};
@@ -1570,6 +1506,8 @@ export class GitHubRepository implements vscode.Disposable {
 						state: CheckState.Pending,
 						description: vscode.l10n.t('Waiting for status to be reported'),
 						context: context,
+						workflowName: undefined,
+						event: undefined,
 						targetUrl: prUrl,
 						isRequired: true
 					});

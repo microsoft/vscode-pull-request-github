@@ -9,12 +9,12 @@ import {
 	ISSUE_COMPLETION_FORMAT_SCM,
 	ISSUES_SETTINGS_NAMESPACE,
 } from '../common/settingKeys';
+import { fromNewIssueUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IMilestone } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getIssueNumberLabel, variableSubstitution } from '../github/utils';
-import { extractIssueOriginFromQuery, NEW_ISSUE_SCHEME } from './issueFile';
 import { IssueQueryResult, StateManager } from './stateManager';
 import {
 	getRootUriFromScmInputUri,
@@ -131,8 +131,8 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 				}
 			}
 		} else {
-			uri = document.uri.scheme === NEW_ISSUE_SCHEME
-				? extractIssueOriginFromQuery(document.uri) ?? document.uri
+			uri = document.uri.scheme === Schemes.NewIssue
+				? fromNewIssueUri(document.uri)?.originUri ?? document.uri
 				: document.uri;
 		}
 		if (!uri) {

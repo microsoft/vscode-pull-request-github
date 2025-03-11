@@ -18,7 +18,7 @@ import { toReviewUri } from '../../common/uri';
 import * as vscode from 'vscode';
 import { PullRequestBuilder } from '../builders/rest/pullRequestBuilder';
 import { convertRESTPullRequestToRawPullRequest } from '../../github/utils';
-import { PullRequestModel } from '../../github/pullRequestModel';
+import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { Protocol } from '../../common/protocol';
 import { GitHubRemote, Remote } from '../../common/remote';
 import { GHPRCommentThread } from '../../github/prComment';
@@ -37,6 +37,8 @@ import { WebviewViewCoordinator } from '../../view/webviewViewCoordinator';
 import { GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { mergeQuerySchemaWithShared } from '../../github/common';
+import { GitHubRef } from '../../common/githubRef';
+import { AccountType } from '../../github/interface';
 const schema = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -79,7 +81,7 @@ describe('ReviewCommentController', function () {
 		gitApiImpl = new GitApiImpl();
 		manager = new FolderRepositoryManager(0, context, repository, telemetry, gitApiImpl, credentialStore, createPrHelper);
 		reposManager.insertFolderManager(manager);
-		const tree = new PullRequestChangesTreeDataProvider(context, gitApiImpl, reposManager);
+		const tree = new PullRequestChangesTreeDataProvider(gitApiImpl, reposManager);
 		reviewManager = new ReviewManager(0, context, repository, manager, telemetry, tree, provider, new ShowPullRequest(), activePrViewCoordinator, createPrHelper, gitApiImpl);
 		sinon.stub(manager, 'createGitHubRepository').callsFake((r, cStore) => {
 			return Promise.resolve(new MockGitHubRepository(GitHubRemote.remoteAsGitHub(r, GitHubServerType.GitHubDotCom), cStore, telemetry, sinon));
@@ -145,7 +147,7 @@ describe('ReviewCommentController', function () {
 		return new GitFileChangeNode(
 			provider,
 			manager,
-			activePullRequest,
+			activePullRequest as any as PullRequestModel & IResolvedPullRequestModel,
 			gitFileChangeModel
 		);
 	}
@@ -208,7 +210,8 @@ describe('ReviewCommentController', function () {
 		sinon.stub(manager, 'getCurrentUser').returns(Promise.resolve({
 			login: 'rmacfarlane',
 			url: 'https://github.com/rmacfarlane',
-			id: '123'
+			id: '123',
+			accountType: AccountType.User
 		}));
 
 		sinon.stub(vscode.workspace, 'getWorkspaceFolder').returns({
@@ -249,7 +252,8 @@ describe('ReviewCommentController', function () {
 			sinon.stub(manager, 'getCurrentUser').returns(Promise.resolve({
 				login: 'rmacfarlane',
 				url: 'https://github.com/rmacfarlane',
-				id: '123'
+				id: '123',
+				accountType: AccountType.User
 			}));
 
 			sinon.stub(vscode.workspace, 'getWorkspaceFolder').returns({

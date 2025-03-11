@@ -4,12 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Disposable } from '../common/lifecycle';
 import { fromPRNodeUri } from '../common/uri';
 import { NotificationProvider } from '../github/notifications';
 
-export class PRNotificationDecorationProvider implements vscode.FileDecorationProvider {
-	private _disposables: vscode.Disposable[] = [];
-
+export class PRNotificationDecorationProvider extends Disposable implements vscode.FileDecorationProvider {
 	private _onDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<
 		vscode.Uri | vscode.Uri[]
 	>();
@@ -17,8 +16,9 @@ export class PRNotificationDecorationProvider implements vscode.FileDecorationPr
 
 
 	constructor(private readonly _notificationProvider: NotificationProvider) {
-		this._disposables.push(vscode.window.registerFileDecorationProvider(this));
-		this._disposables.push(
+		super();
+		this._register(vscode.window.registerFileDecorationProvider(this));
+		this._register(
 			this._notificationProvider.onDidChangeNotifications(PRNodeUris => this._onDidChangeFileDecorations.fire(PRNodeUris))
 		);
 	}
@@ -43,10 +43,5 @@ export class PRNotificationDecorationProvider implements vscode.FileDecorationPr
 		}
 
 		return undefined;
-	}
-
-
-	dispose() {
-		this._disposables.forEach(dispose => dispose.dispose());
 	}
 }

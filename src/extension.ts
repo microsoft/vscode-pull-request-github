@@ -15,7 +15,7 @@ import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
 import { parseRepositoryRemotes } from './common/remote';
 import { Resource } from './common/resources';
-import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, EXPERIMENTAL_NOTIFICATIONS, FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
+import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, EXPERIMENTAL_NOTIFICATIONS, FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE, SHOW_INLINE_OPEN_FILE_ACTION } from './common/settingKeys';
 import { TemporaryState } from './common/temporaryState';
 import { Schemes, handler as uriHandler } from './common/uri';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
@@ -29,6 +29,7 @@ import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
 import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
 import { ChatParticipant, ChatParticipantState } from './lm/participants';
 import { registerTools } from './lm/tools/tools';
+import { migrate } from './migrations';
 import { NotificationsFeatureRegister } from './notifications/notificationsFeatureRegistar';
 import { CommentDecorationProvider } from './view/commentDecorationProvider';
 import { CompareChanges } from './view/compareChangesTreeDataProvider';
@@ -47,8 +48,7 @@ const ingestionKey = '0c6ae279ed8443289764825290e4f9e2-1a736e7c-1324-4338-be46-f
 
 let telemetry: ExperimentationTelemetry;
 
-const PROMPTS_SCOPE = 'prompts';
-const PROMPT_TO_CREATE_PR_ON_PUBLISH_KEY = 'createPROnPublish';
+const ACTIVATION = 'Activation';
 
 async function init(
 	context: vscode.ExtensionContext,
@@ -62,7 +62,7 @@ async function init(
 	createPrHelper: CreatePullRequestHelper
 ): Promise<void> {
 	context.subscriptions.push(Logger);
-	Logger.appendLine('Git repository found, initializing review manager and pr tree view.');
+	Logger.appendLine('Git repository found, initializing review manager and pr tree view.', ACTIVATION);
 
 	context.subscriptions.push(credentialStore.onDidChangeSessions(async e => {
 		if (e.provider.id === 'github') {
@@ -147,7 +147,7 @@ async function init(
 		}
 	});
 
-	const changesTree = new PullRequestChangesTreeDataProvider(context, git, reposManager);
+	const changesTree = new PullRequestChangesTreeDataProvider(git, reposManager);
 	context.subscriptions.push(changesTree);
 
 	const activePrViewCoordinator = new WebviewViewCoordinator(context);
@@ -165,7 +165,7 @@ async function init(
 	context.subscriptions.push(reviewsManager);
 
 	git.onDidChangeState(() => {
-		Logger.appendLine(`Git initialization state changed: state=${git.state}`);
+		Logger.appendLine(`Git initialization state changed: state=${git.state}`, ACTIVATION);
 		reviewsManager.reviewManagers.forEach(reviewManager => reviewManager.updateState(true));
 	});
 
@@ -174,7 +174,7 @@ async function init(
 			// Make sure we don't already have a folder manager for this repo.
 			const existing = reposManager.folderManagers.find(manager => manager.repository.rootUri.toString() === repo.rootUri.toString());
 			if (existing) {
-				Logger.appendLine(`Repo ${repo.rootUri} has already been setup.`);
+				Logger.appendLine(`Repo ${repo.rootUri} has already been setup.`, ACTIVATION);
 				return;
 			}
 			const newFolderManager = new FolderRepositoryManager(reposManager.folderManagers.length, context, repo, telemetry, git, credentialStore, createPrHelper);
@@ -197,7 +197,7 @@ async function init(
 		addRepo();
 		tree.notificationProvider.refreshOrLaunchPolling();
 		const disposable = repo.state.onDidChange(() => {
-			Logger.appendLine(`Repo state for ${repo.rootUri} changed.`);
+			Logger.appendLine(`Repo state for ${repo.rootUri} changed.`, ACTIVATION);
 			addRepo();
 			disposable.dispose();
 		});
@@ -234,12 +234,7 @@ async function init(
 
 	registerPostCommitCommandsProvider(reposManager, git);
 
-	const chatEnabled = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_CHAT, false);
-	if (chatEnabled) {
-		const chatParticipantState = new ChatParticipantState();
-		context.subscriptions.push(new ChatParticipant(context, chatParticipantState));
-		registerTools(context, credentialStore, reposManager, chatParticipantState);
-	}
+	initChat(context, credentialStore, reposManager);
 
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
 	CompareChanges.closeTabs();
@@ -247,6 +242,29 @@ async function init(
 		"startup" : {}
 	*/
 	telemetry.sendTelemetryEvent('startup');
+}
+
+function initChat(context: vscode.ExtensionContext, credentialStore: CredentialStore, reposManager: RepositoriesManager) {
+	const createParticipant = () => {
+		const chatParticipantState = new ChatParticipantState();
+		context.subscriptions.push(new ChatParticipant(context, chatParticipantState));
+		registerTools(context, credentialStore, reposManager, chatParticipantState);
+	};
+
+	const chatEnabled = () => vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_CHAT, false);
+	if (chatEnabled()) {
+		createParticipant();
+	} else {
+		const disposable = vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${EXPERIMENTAL_CHAT}`)) {
+				if (chatEnabled()) {
+					disposable.dispose();
+					createParticipant();
+				}
+			}
+		});
+		context.subscriptions.push(disposable);
+	}
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<GitApiImpl> {
@@ -268,8 +286,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 		await commands.focusView('github:activePullRequest:welcome');
 		showPRController.shouldShow = shouldShow;
 	});
-	const openDiff = vscode.workspace.getConfiguration(GIT, null).get(OPEN_DIFF_ON_CLICK, true);
-	await vscode.commands.executeCommand('setContext', 'openDiffOnClick', openDiff);
+	await setGitSettingContexts(context);
 
 	// initialize resources
 	Resource.initialize(context);
@@ -282,6 +299,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	await deferredActivate(context, apiImpl, showPRController);
 
 	return apiImpl;
+}
+
+async function setGitSettingContexts(context: vscode.ExtensionContext) {
+	// We set contexts instead of using the config directly in package.json because the git extension might not actually be available.
+	const settings: [string, () => void][] = [
+		['openDiffOnClick', () => vscode.workspace.getConfiguration(GIT, null).get(OPEN_DIFF_ON_CLICK, true)],
+		['showInlineOpenFileAction', () => vscode.workspace.getConfiguration(GIT, null).get(SHOW_INLINE_OPEN_FILE_ACTION, true)]
+	];
+	for (const [contextName, setting] of settings) {
+		commands.setContext(contextName, setting());
+		context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${GIT}.${contextName}`)) {
+				commands.setContext(contextName, setting());
+			}
+		}));
+	}
 }
 
 async function doRegisterBuiltinGitProvider(context: vscode.ExtensionContext, credentialStore: CredentialStore, apiImpl: GitApiImpl): Promise<boolean> {
@@ -352,11 +385,7 @@ async function deferredActivateRegisterBuiltInGitProvider(context: vscode.Extens
 async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitApiImpl, showPRController: ShowPullRequest) {
 	Logger.debug('Initializing state.', 'Activation');
 	PersistentState.init(context);
-	// Migrate from state to setting
-	if (PersistentState.fetch(PROMPTS_SCOPE, PROMPT_TO_CREATE_PR_ON_PUBLISH_KEY) === false) {
-		await vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).update(BRANCH_PUBLISH, 'never', vscode.ConfigurationTarget.Global);
-		PersistentState.store(PROMPTS_SCOPE, PROMPT_TO_CREATE_PR_ON_PUBLISH_KEY, true);
-	}
+	await migrate(context);
 	TemporaryState.init(context);
 	Logger.debug('Creating credential store.', 'Activation');
 	const credentialStore = new CredentialStore(telemetry, context);
@@ -383,9 +412,9 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	const prTree = new PullRequestsTreeDataProvider(telemetry, context, reposManager);
 	context.subscriptions.push(prTree);
 	context.subscriptions.push(credentialStore.onDidGetSession(() => prTree.refresh(undefined, true)));
-	Logger.appendLine('Looking for git repository');
+	Logger.appendLine('Looking for git repository', ACTIVATION);
 	const repositories = apiImpl.repositories;
-	Logger.appendLine(`Found ${repositories.length} repositories during activation`);
+	Logger.appendLine(`Found ${repositories.length} repositories during activation`, ACTIVATION);
 	const createPrHelper = new CreatePullRequestHelper();
 	context.subscriptions.push(createPrHelper);
 

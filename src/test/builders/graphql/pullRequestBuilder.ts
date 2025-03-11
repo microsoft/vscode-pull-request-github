@@ -7,6 +7,7 @@ import { createBuilderClass, createLink } from '../base';
 import { BaseRefRepository, DefaultCommitMessage, DefaultCommitTitle, PullRequestResponse, Ref, RefRepository } from '../../../github/graphql';
 
 import { RateLimitBuilder } from './rateLimitBuilder';
+import { AccountType } from '../../../github/interface';
 
 const RefRepositoryBuilder = createBuilderClass<RefRepository>()({
 	isInOrganization: { default: false },
@@ -63,7 +64,9 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 							email: '',
 							login: 'me',
 							url: 'https://github.com/me',
-							id: '123'
+							id: '123',
+							__typename: 'User',
+							name: 'Me'
 						},
 					],
 				},
@@ -73,6 +76,9 @@ export const PullRequestBuilder = createBuilderClass<PullRequestResponse>()({
 				url: { default: 'https://github.com/me' },
 				avatarUrl: { default: 'https://avatars3.githubusercontent.com/u/17565?v=4' },
 				id: { default: '123' },
+				name: { default: 'Me' },
+				email: { default: 'me@me.com' },
+				__typename: { default: AccountType.User },
 			}),
 			createdAt: { default: '2019-01-01T10:00:00Z' },
 			updatedAt: { default: '2019-01-01T11:00:00Z' },

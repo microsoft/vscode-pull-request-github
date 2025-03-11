@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ReviewStateValue } from '../common/timelineEvent';
+
 export enum PRType {
 	Query,
 	All,
@@ -39,7 +41,7 @@ export enum MergeQueueState {
 
 export interface ReviewState {
 	reviewer: IAccount | ITeam;
-	state: string;
+	state: ReviewStateValue;
 }
 
 export interface ReadyForReview {
@@ -54,6 +56,26 @@ export interface IActor {
 	url: string;
 }
 
+export enum AccountType {
+	User = 'User',
+	Organization = 'Organization',
+	Mannequin = 'Mannequin',
+	Bot = 'Bot'
+}
+
+export function toAccountType(type: string): AccountType {
+	switch (type) {
+		case 'Organization':
+			return AccountType.Organization;
+		case 'Mannequin':
+			return AccountType.Mannequin;
+		case 'Bot':
+			return AccountType.Bot;
+		default:
+			return AccountType.User;
+	}
+}
+
 export interface IAccount extends IActor {
 	login: string;
 	id: string;
@@ -61,14 +83,15 @@ export interface IAccount extends IActor {
 	avatarUrl?: string;
 	url: string;
 	email?: string;
-	specialDisplayName?: string
+	specialDisplayName?: string;
+	accountType: AccountType;
 }
 
 export interface ITeam {
 	name?: string;
 	avatarUrl?: string;
 	url: string;
-	slug: string;
+	slug?: string;
 	org: string;
 	id: string;
 }
@@ -84,7 +107,7 @@ export function reviewerId(reviewer: ITeam | IAccount): string {
 }
 
 export function reviewerLabel(reviewer: ITeam | IAccount | IActor | any): string {
-	return isTeam(reviewer) ? (reviewer.name ?? reviewer.slug) : (reviewer.specialDisplayName ?? reviewer.login);
+	return isTeam(reviewer) ? (reviewer.name ?? reviewer.slug ?? reviewer.id) : (reviewer.specialDisplayName ?? reviewer.login);
 }
 
 export function isTeam(reviewer: ITeam | IAccount | IActor | any): reviewer is ITeam {
@@ -306,7 +329,9 @@ export interface PullRequestCheckStatus {
 	state: CheckState;
 	description: string | null;
 	targetUrl: string | null;
-	context: string;
+	context: string; // Job name
+	workflowName: string | undefined;
+	event: string | undefined;
 	isRequired: boolean;
 }
 

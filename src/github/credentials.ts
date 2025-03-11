@@ -10,8 +10,10 @@ import { createHttpLink } from 'apollo-link-http';
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
+import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
+import { GITHUB_ENTERPRISE, URI } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { agent } from '../env/node/net';
 import { IAccount } from './interface';
@@ -45,12 +47,12 @@ interface AuthResult {
 	canceled: boolean;
 }
 
-export class CredentialStore implements vscode.Disposable {
+export class CredentialStore extends Disposable {
+	private static readonly ID = 'Authentication';
 	private _githubAPI: GitHub | undefined;
 	private _sessionId: string | undefined;
 	private _githubEnterpriseAPI: GitHub | undefined;
 	private _enterpriseSessionId: string | undefined;
-	private _disposables: vscode.Disposable[];
 	private _isInitialized: boolean = false;
 	private _onDidInitialize: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidInitialize: vscode.Event<void> = this._onDidInitialize.event;
@@ -68,10 +70,10 @@ export class CredentialStore implements vscode.Disposable {
 	public readonly onDidUpgradeSession = this._onDidUpgradeSession.event;
 
 	constructor(private readonly _telemetry: ITelemetry, private readonly context: vscode.ExtensionContext) {
+		super();
 		this.setScopesFromState();
 
-		this._disposables = [];
-		this._disposables.push(vscode.authentication.onDidChangeSessions((e) => this.handlOnDidChangeSessions(e)));
+		this._register(vscode.authentication.onDidChangeSessions((e) => this.handlOnDidChangeSessions(e)));
 	}
 
 	private async handlOnDidChangeSessions(e: vscode.AuthenticationSessionsChangeEvent) {
@@ -204,7 +206,7 @@ export class CredentialStore implements vscode.Disposable {
 			}
 			return authResult;
 		} else {
-			Logger.debug(`No GitHub${getGitHubSuffix(authProviderId)} token found.`, 'Authentication');
+			Logger.debug(`No GitHub${getGitHubSuffix(authProviderId)} token found.`, CredentialStore.ID);
 			return authResult;
 		}
 	}
@@ -212,8 +214,18 @@ export class CredentialStore implements vscode.Disposable {
 	private async doCreate(options: vscode.AuthenticationGetSessionOptions, additionalScopes: boolean = false): Promise<AuthResult> {
 		const github = await this.initialize(AuthProvider.github, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
 		let enterprise: AuthResult | undefined;
+		const initializeEnterprise = () => this.initialize(AuthProvider.githubEnterprise, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
 		if (hasEnterpriseUri()) {
-			enterprise = await this.initialize(AuthProvider.githubEnterprise, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
+			enterprise = await initializeEnterprise();
+		} else {
+			// Listen for changes to the enterprise URI and try again if it changes.
+			const disposable = vscode.workspace.onDidChangeConfiguration(async e => {
+				if (e.affectsConfiguration(`${GITHUB_ENTERPRISE}.${URI}`) && hasEnterpriseUri()) {
+					enterprise = await initializeEnterprise();
+					disposable.dispose();
+				}
+			});
+			this.context.subscriptions.push(disposable);
 		}
 		return {
 			canceled: github.canceled || !!(enterprise && enterprise.canceled)
@@ -328,9 +340,9 @@ export class CredentialStore implements vscode.Disposable {
 			try {
 				await this.initialize(authProviderId, sessionOptions);
 			} catch (e) {
-				Logger.error(`${errorPrefix}: ${e}`);
+				Logger.error(`Login error: ${errorPrefix}: ${e}`, CredentialStore.ID);
 				if (e instanceof Error && e.stack) {
-					Logger.error(e.stack);
+					Logger.error(e.stack, CredentialStore.ID);
 				}
 				if (e.message === 'Cancelled') {
 					isCanceled = true;
@@ -479,10 +491,6 @@ export class CredentialStore implements vscode.Disposable {
 		};
 		this.setCurrentUser(github);
 		return github;
-	}
-
-	dispose() {
-		this._disposables.forEach(disposable => disposable.dispose());
 	}
 }
 

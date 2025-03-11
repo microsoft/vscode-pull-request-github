@@ -7,10 +7,11 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
+import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
-import { compareIgnoreCase, dispose, isDescendant } from '../common/utils';
+import { compareIgnoreCase, isDescendant } from '../common/utils';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
 import { IssueModel } from './issueModel';
@@ -28,7 +29,7 @@ export interface PullRequestDefaults {
 	base: string;
 }
 
-export class RepositoriesManager implements vscode.Disposable {
+export class RepositoriesManager extends Disposable {
 	static ID = 'RepositoriesManager';
 
 	private _folderManagers: FolderRepositoryManager[] = [];
@@ -49,6 +50,7 @@ export class RepositoriesManager implements vscode.Disposable {
 		private _credentialStore: CredentialStore,
 		private _telemetry: ITelemetry,
 	) {
+		super();
 		this._subs = new Map();
 		vscode.commands.executeCommand('setContext', ReposManagerStateContext, this._state);
 	}
@@ -109,7 +111,7 @@ export class RepositoriesManager implements vscode.Disposable {
 		);
 		if (existingFolderManagerIndex > -1) {
 			const folderManager = this._folderManagers[existingFolderManagerIndex];
-			dispose(this._subs.get(folderManager)!);
+			disposeAll(this._subs.get(folderManager)!);
 			this._subs.delete(folderManager);
 			this._folderManagers.splice(existingFolderManagerIndex);
 			folderManager.dispose();
@@ -192,20 +194,32 @@ export class RepositoriesManager implements vscode.Disposable {
 		const yes = vscode.l10n.t('Yes');
 
 		if (enterprise) {
-			const remoteToUse = getEnterpriseUri()?.toString() ?? (enterpriseRemotes.length ? enterpriseRemotes[0].normalizedHost : (unknownRemotes.length ? unknownRemotes[0].normalizedHost : undefined));
+			let remoteToUse = getEnterpriseUri()?.toString() ?? (enterpriseRemotes.length ? enterpriseRemotes[0].normalizedHost : (unknownRemotes.length ? unknownRemotes[0].normalizedHost : undefined));
 			if (enterpriseRemotes.length === 0 && unknownRemotes.length === 0) {
-				Logger.appendLine(`Enterprise login selected, but no possible enterprise remotes discovered (${dotComRemotes.length} .com)`);
+				Logger.appendLine(`Enterprise login selected, but no possible enterprise remotes discovered (${dotComRemotes.length} .com)`, RepositoriesManager.ID);
 			}
 			if (remoteToUse) {
+				const no = vscode.l10n.t('No, manually set {0}', 'github-enterprise.uri');
 				const promptResult = await vscode.window.showInformationMessage(vscode.l10n.t('Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server {0}?', remoteToUse),
-					{ modal: true }, yes, vscode.l10n.t('No, manually set {0}', 'github-enterprise.uri'));
+					{ modal: true }, yes, no);
 				if (promptResult === yes) {
 					await setEnterpriseUri(remoteToUse);
+				} else if (promptResult === no) {
+					remoteToUse = undefined;
 				} else {
 					return false;
 				}
-			} else {
-				const setEnterpriseUriPrompt = await vscode.window.showInputBox({ placeHolder: vscode.l10n.t('Set a GitHub Enterprise server URL'), ignoreFocusOut: true });
+			}
+			if (!remoteToUse) {
+				const setEnterpriseUriPrompt = await vscode.window.showInputBox({
+					placeHolder: vscode.l10n.t('Set a GitHub Enterprise server URL'), ignoreFocusOut: true, validateInput: (value) => {
+						const pattern = /^(?:$|(https?):\/\/(?!github\.com).*)/;
+						if (!pattern.test(value)) {
+							return vscode.l10n.t('Please enter a valid GitHub Enterprise server URL. A "github.com" URL is not valid for GitHub Enterprise.');
+						}
+						return undefined;
+					}
+				});
 				if (setEnterpriseUriPrompt) {
 					await setEnterpriseUri(setEnterpriseUriPrompt);
 				} else {
@@ -236,8 +250,8 @@ export class RepositoriesManager implements vscode.Disposable {
 		return !!github || !!githubEnterprise;
 	}
 
-	dispose() {
-		this._subs.forEach(sub => dispose(sub));
+	override dispose() {
+		this._subs.forEach(sub => disposeAll(sub));
 	}
 }
 

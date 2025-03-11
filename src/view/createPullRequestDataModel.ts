@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { Change, Commit } from '../api/api';
+import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
@@ -18,7 +19,7 @@ export interface CreateModelChangeEvent {
 	compareBranch?: string;
 }
 
-export class CreatePullRequestDataModel {
+export class CreatePullRequestDataModel extends Disposable {
 	private static ID = 'CreatePullRequestDataModel';
 	private _baseOwner: string;
 	private _baseBranch: string;
@@ -41,6 +42,7 @@ export class CreatePullRequestDataModel {
 	private _gitcontentProvider: GitContentProvider;
 
 	constructor(private readonly folderRepositoryManager: FolderRepositoryManager, baseOwner: string, baseBranch: string, compareOwner: string, compareBranch: string, public readonly repositoryName: string) {
+		super();
 		this._baseOwner = baseOwner;
 		this._baseBranch = baseBranch;
 		this._compareBranch = baseBranch;
@@ -49,6 +51,12 @@ export class CreatePullRequestDataModel {
 		this._gitHubcontentProvider = new GitHubContentProvider(this.folderRepositoryManager.gitHubRepositories);
 		this._constructed = new Promise<void>(resolve => this.setCompareBranch(compareBranch).then(resolve));
 		this.compareOwner = compareOwner;
+		this._register(folderRepositoryManager.repository.state.onDidChange(() => {
+			if (folderRepositoryManager.repository.state.HEAD?.name === this._compareBranch) {
+				// We assume that the commit has changed.
+				this.update({});
+			}
+		}));
 	}
 
 	get gitHubContentProvider(): GitHubContentProvider {

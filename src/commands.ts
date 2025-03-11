@@ -10,6 +10,7 @@ import { Repository } from './api/api';
 import { GitErrorCodes } from './api/api1';
 import { CommentReply, findActiveHandler, resolveCommentHandler } from './commentHandlerResolver';
 import { IComment } from './common/comment';
+import { commands } from './common/executeCommands';
 import Logger from './common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { ITelemetry } from './common/telemetry';
@@ -129,6 +130,18 @@ export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | Pull
 	telemetry.sendTelemetryEvent('pr.openInGitHub');
 }
 
+export async function closeAllPrAndReviewEditors() {
+	const tabs = vscode.window.tabGroups;
+	const editors = tabs.all.map(group => group.tabs).flat();
+
+	for (const tab of editors) {
+		const scheme = tab.input instanceof vscode.TabInputTextDiff ? tab.input.original.scheme : (tab.input instanceof vscode.TabInputText ? tab.input.uri.scheme : undefined);
+		if (scheme && (scheme === Schemes.Pr) || (scheme === Schemes.Review)) {
+			await tabs.close(tab);
+		}
+	}
+}
+
 export function registerCommands(
 	context: vscode.ExtensionContext,
 	reposManager: RepositoriesManager,
@@ -136,6 +149,7 @@ export function registerCommands(
 	telemetry: ITelemetry,
 	tree: PullRequestsTreeDataProvider,
 ) {
+	const logId = 'RegisterCommands';
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openPullRequestOnGitHub',
@@ -277,7 +291,7 @@ export function registerCommands(
 				await vscode.workspace.fs.delete(tempUri);
 			} catch (err) {
 				const moreError = `${err}${err.stderr ? `\n${err.stderr}` : ''}`;
-				Logger.error(`Applying patch failed: ${moreError}`);
+				Logger.error(`Applying patch failed: ${moreError}`, logId);
 				vscode.window.showErrorMessage(vscode.l10n.t('Applying patch failed: {0}', formatError(err)));
 			}
 		}),
@@ -498,7 +512,7 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
 			if (pr === undefined) {
 				// This is unexpected, but has happened a few times.
-				Logger.error('Unexpectedly received undefined when picking a PR.');
+				Logger.error('Unexpectedly received undefined when picking a PR.', logId);
 				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
 			}
 
@@ -539,7 +553,7 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.openChanges', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
 			if (pr === undefined) {
 				// This is unexpected, but has happened a few times.
-				Logger.error('Unexpectedly received undefined when picking a PR.');
+				Logger.error('Unexpectedly received undefined when picking a PR.', logId);
 				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
 			}
 
@@ -593,7 +607,7 @@ export function registerCommands(
 		vscode.commands.registerCommand('pr.pickOnVscodeDev', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
 			if (pr === undefined) {
 				// This is unexpected, but has happened a few times.
-				Logger.error('Unexpectedly received undefined when picking a PR.');
+				Logger.error('Unexpectedly received undefined when picking a PR.', logId);
 				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
 			}
 
@@ -811,7 +825,7 @@ export function registerCommands(
 				}
 
 				if (!pullRequestModel) {
-					Logger.appendLine('No pull request found.');
+					Logger.appendLine('No pull request found.', logId);
 					return;
 				}
 
@@ -967,49 +981,60 @@ export function registerCommands(
 		return { thread, text };
 	}
 
-	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.resolveReviewThread', async (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => {
+	const resolve = async (commentLike: CommentReply | GHPRCommentThread | GHPRComment | undefined, resolve: boolean, focusReply?: boolean) => {
+		if (resolve) {
 			/* __GDPR__
 			"pr.resolveReviewThread" : {}
 			*/
 			telemetry.sendTelemetryEvent('pr.resolveReviewThread');
-			const { thread, text } = threadAndText(commentLike);
-			const handler = resolveCommentHandler(thread);
+		} else {
+			/* __GDPR__
+			"pr.unresolveReviewThread" : {}
+			*/
+			telemetry.sendTelemetryEvent('pr.unresolveReviewThread');
+		}
 
-			if (handler) {
-				await handler.resolveReviewThread(thread, text);
+		if (!commentLike) {
+			const activeHandler = findActiveHandler();
+			if (!activeHandler) {
+				vscode.window.showErrorMessage(vscode.l10n.t('No active comment thread found'));
+				return;
 			}
-		}),
-	);
+			commentLike = activeHandler.commentController.activeCommentThread as vscode.CommentThread2 as GHPRCommentThread;
+		}
 
-	const unresolve = async (commentLike: CommentReply | GHPRCommentThread | GHPRComment, focusReply: boolean) => {
-		/* __GDPR__
-		"pr.unresolveReviewThread" : {}
-		*/
-		telemetry.sendTelemetryEvent('pr.unresolveReviewThread');
 		const { thread, text } = threadAndText(commentLike);
 
 		const handler = resolveCommentHandler(thread);
 
 		if (handler) {
-			await handler.unresolveReviewThread(thread, text);
-			if (focusReply) {
-				thread.reveal(undefined, { focus: vscode.CommentThreadFocus.Reply });
+			if (resolve) {
+				await handler.resolveReviewThread(thread, text);
+			} else {
+				await handler.unresolveReviewThread(thread, text);
+				if (focusReply) {
+					thread.reveal(undefined, { focus: vscode.CommentThreadFocus.Reply });
+				}
 			}
 		}
 	};
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.unresolveReviewThread', (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => unresolve(commentLike, false))
+		vscode.commands.registerCommand('pr.resolveReviewThread', async (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => resolve(commentLike, true))
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.unresolveReviewThreadFromView', (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => unresolve(commentLike, true))
+		vscode.commands.registerCommand('pr.unresolveReviewThread', (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => resolve(commentLike, false, false))
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.unresolveReviewThreadFromView', (commentLike: CommentReply | GHPRCommentThread | GHPRComment) => resolve(commentLike, false, true))
 	);
 
 	const localUriFromReviewUri = (reviewUri: vscode.Uri) => {
 		const { path, rootPath } = fromReviewUri(reviewUri.query);
-		return vscode.Uri.joinPath(vscode.Uri.file(rootPath), path);
+		const workspaceFolder = vscode.workspace.workspaceFolders![0];
+		return vscode.Uri.joinPath(vscode.Uri.file(rootPath), path).with({ scheme: workspaceFolder.uri.scheme, authority: workspaceFolder.uri.authority });
 	};
 
 	context.subscriptions.push(
@@ -1076,7 +1101,7 @@ export function registerCommands(
 			const commentEditor = vscode.window.activeTextEditor?.document.uri.scheme === Schemes.Comment ? vscode.window.activeTextEditor
 				: vscode.window.visibleTextEditors.find(visible => (visible.document.uri.scheme === Schemes.Comment) && (visible.document.uri.query === ''));
 			if (!commentEditor) {
-				Logger.error('No comment editor visible for making a suggestion.');
+				Logger.error('No comment editor visible for making a suggestion.', logId);
 				vscode.window.showErrorMessage(vscode.l10n.t('No available comment editor to make a suggestion in.'));
 				return;
 			}
@@ -1201,6 +1226,10 @@ ${contents}
 		const input = tab?.input;
 		if (!(input instanceof vscode.TabInputTextDiff)) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('Current editor isn\'t a diff editor.'));
+		}
+
+		if (input.original.scheme !== Schemes.Git) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Converting changes to suggestions can only be done from a git diff, not a pull request diff'), { modal: true });
 		}
 
 		const editor = vscode.window.visibleTextEditors.find(editor => editor.document.uri.toString() === input.modified.toString());
@@ -1475,6 +1504,15 @@ ${contents}
 		}));
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.toggleEditorCommentingOn', async () => {
+			commands.executeCommand('workbench.action.toggleCommenting');
+		}));
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.toggleEditorCommentingOff', async () => {
+			commands.executeCommand('workbench.action.toggleCommenting');
+		}));
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('review.diffWithPrHead', async (fileChangeNode: GitFileChangeNode) => {
 			const fileName = fileChangeNode.fileName;
 			let parentURI = toPRUri(
@@ -1523,7 +1561,7 @@ ${contents}
 		}
 
 		const editorUri = editor.document.uri;
-		if (input.original.scheme !== Schemes.Review) {
+		if ((input.original.scheme !== Schemes.Review) && (input.original.scheme !== Schemes.Pr)) {
 			return vscode.window.showErrorMessage(vscode.l10n.t('Current file isn\'t a pull request diff.'));
 		}
 
@@ -1544,6 +1582,10 @@ ${contents}
 				editor.selection = new vscode.Selection(diffRange.start, diffRange.start);
 				return;
 			}
+		}
+
+		if (input.original.scheme === Schemes.Pr) {
+			return vscode.window.showInformationMessage(vscode.l10n.t('No more diffs in this file. Check out the pull request to use this command across files.'));
 		}
 
 		// There is no new range to reveal, time to go to the next file.
@@ -1614,4 +1656,25 @@ ${contents}
 			}
 		}
 	}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.closeRelatedEditors', closeAllPrAndReviewEditors)
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('review.copyPrLink', async () => {
+			const activePullRequests: PullRequestModel[] = reposManager.folderManagers
+				.map(folderManager => folderManager.activePullRequest!)
+				.filter(activePR => !!activePR);
+
+			const pr = await chooseItem<PullRequestModel>(
+				activePullRequests,
+				itemValue => `${itemValue.number}: ${itemValue.title}`,
+				{ placeHolder: vscode.l10n.t('Pull request to create a link for') },
+			);
+			if (pr) {
+				return vscode.env.clipboard.writeText(pr.html_url);
+			}
+		})
+	);
 }

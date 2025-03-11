@@ -47,8 +47,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 	public command?: vscode.Command;
 
 	constructor(parent: TreeNodeParent, type: PRCategoryActionType, node?: CategoryTreeNode) {
-		super();
-		this.parent = parent;
+		super(parent);
 		this.type = type;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.None;
 		switch (type) {
@@ -117,16 +116,14 @@ interface PageInformation {
 }
 
 export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
-	protected children: (PRNode | PRCategoryActionNode)[] | undefined = undefined;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public prs: PullRequestModel[];
 	public fetchNextPage: boolean = false;
 	public repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 	public contextValue: string;
-	public readonly id: string = '';
 
 	constructor(
-		public parent: TreeNodeParent,
+		parent: TreeNodeParent,
 		private _folderRepoManager: FolderRepositoryManager,
 		private _telemetry: ITelemetry,
 		public readonly type: PRType,
@@ -135,7 +132,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		_categoryLabel?: string,
 		private _categoryQuery?: string,
 	) {
-		super();
+		super(parent);
 
 		this.prs = [];
 
@@ -303,15 +300,20 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		inputBox.show();
 	}
 
-	async getChildren(): Promise<TreeNode[]> {
+	override async getChildren(): Promise<TreeNode[]> {
 		await super.getChildren();
-		if (!this._prsTreeModel.hasLoaded) {
-			this.doGetChildren().then(() => this.refresh(this));
-			return [];
+		const isFirstLoad = !this._firstLoad;
+		if (isFirstLoad) {
+			this._firstLoad = this.doGetChildren();
+			if (!this._prsTreeModel.hasLoaded) {
+				this._firstLoad.then(() => this.refresh(this));
+				return [];
+			}
 		}
-		return this.doGetChildren();
+		return isFirstLoad ? this._firstLoad! : this.doGetChildren();
 	}
 
+	private _firstLoad: Promise<TreeNode[]> | undefined;
 	private async doGetChildren(): Promise<TreeNode[]> {
 		let hasMorePages = false;
 		let hasUnsearchedRepositories = false;

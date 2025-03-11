@@ -7,9 +7,13 @@ import { Octokit } from '@octokit/rest';
 import { ApolloClient, ApolloQueryResult, FetchResult, MutationOptions, NormalizedCacheObject, OperationVariables, QueryOptions } from 'apollo-boost';
 import { bulkhead, BulkheadPolicy } from 'cockatiel';
 import * as vscode from 'vscode';
+import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
+import { GitHubRemote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { RateLimit } from './graphql';
+import { IRawFileChange } from './interface';
+import { restPaginate } from './utils';
 
 interface RestResponse {
 	headers: {
@@ -138,4 +142,48 @@ export class LoggingOctokit {
 		this._rateLogger.logRestRateLimit(logInfo, result as Promise<unknown> as Promise<RestResponse>);
 		return result;
 	}
+}
+
+export async function compareCommits(remote: GitHubRemote, octokit: LoggingOctokit, base: GitHubRef, head: GitHubRef, compareWithBaseRef: string, prNumber: number, logId: string): Promise<{ mergeBaseSha: string; files: IRawFileChange[] }> {
+	Logger.debug(`Comparing commits for ${remote.owner}/${remote.repositoryName} with base ${base.repositoryCloneUrl.owner}:${compareWithBaseRef} and head ${head.repositoryCloneUrl.owner}:${head.sha}`, logId);
+	let files: IRawFileChange[] | undefined;
+	let mergeBaseSha: string | undefined;
+
+	const listFiles = async (perPage?: number) => {
+		return restPaginate<typeof octokit.api.pulls.listFiles, IRawFileChange>(octokit.api.pulls.listFiles, {
+			owner: base.repositoryCloneUrl.owner,
+			pull_number: prNumber,
+			repo: remote.repositoryName,
+		}, perPage);
+	};
+
+	try {
+		const { data } = await octokit.call(octokit.api.repos.compareCommits, {
+			repo: remote.repositoryName,
+			owner: remote.owner,
+			base: `${base.repositoryCloneUrl.owner}:${compareWithBaseRef}`,
+			head: `${head.repositoryCloneUrl.owner}:${head.sha}`,
+		});
+		const MAX_FILE_CHANGES_IN_COMPARE_COMMITS = 100;
+
+		if (data.files && data.files.length >= MAX_FILE_CHANGES_IN_COMPARE_COMMITS) {
+			// compareCommits will return a maximum of 100 changed files
+			// If we have (maybe) more than that, we'll need to fetch them with listFiles API call
+			Logger.appendLine(`More than ${MAX_FILE_CHANGES_IN_COMPARE_COMMITS} files changed in #${prNumber}`, logId);
+			files = await listFiles();
+		} else {
+			// if we're under the limit, just use the result from compareCommits, don't make additional API calls.
+			files = data.files ? data.files as IRawFileChange[] : [];
+		}
+		mergeBaseSha = data.merge_base_commit.sha;
+	} catch (e) {
+		if (e.message === 'Server Error') {
+			// Happens when github times out. Let's try to get a few at a time.
+			files = await listFiles(3);
+			mergeBaseSha = base.sha;
+		} else {
+			throw e;
+		}
+	}
+	return { mergeBaseSha, files };
 }

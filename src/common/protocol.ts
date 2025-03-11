@@ -17,6 +17,7 @@ export enum ProtocolType {
 }
 
 export class Protocol {
+	private static readonly ID = 'Protocol';
 	public type: ProtocolType = ProtocolType.OTHER;
 	public host: string = '';
 
@@ -44,7 +45,7 @@ export class Protocol {
 				this.owner = this.getOwnerName(this.url.path) || '';
 			}
 		} catch (e) {
-			Logger.error(`Failed to parse '${uriString}'`);
+			Logger.error(`Failed to parse '${uriString}'`, Protocol.ID);
 			vscode.window.showWarningMessage(
 				vscode.l10n.t('Unable to parse remote \'{0}\'. Please check that it is correctly formatted.', uriString)
 			);
