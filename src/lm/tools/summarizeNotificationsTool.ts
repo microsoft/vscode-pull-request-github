@@ -76,8 +76,15 @@ Body: ${comment.body}
 				command: 'notification.markAsRead',
 				arguments: [{ threadId, notificationKey }]
 			};
+			const markAsDoneCommand: vscode.Command = {
+				title: 'Mark As Done',
+				command: 'notification.markAsDone',
+				arguments: [{ threadId, notificationKey }]
+			};
 			content.push(new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT));
 			content.push(new vscode.LanguageModelTextPart(JSON.stringify(markAsReadCommand)));
+			content.push(new vscode.LanguageModelTextPart(TOOL_COMMAND_RESULT));
+			content.push(new vscode.LanguageModelTextPart(JSON.stringify(markAsDoneCommand)));
 		}
 		const owner = options.input.owner;
 		const repo = options.input.repo;

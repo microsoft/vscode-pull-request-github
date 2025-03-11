@@ -211,6 +211,18 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		}
 	}
 
+	public async markAsDone(notificationIdentifier: { threadId: string, notificationKey: string }): Promise<void> {
+		const notification = this._notifications.get(notificationIdentifier.notificationKey);
+		if (notification) {
+			await this._notificationProvider.markAsDone(notificationIdentifier);
+
+			this._onDidChangeNotifications.fire([notification]);
+			this._notifications.delete(notificationIdentifier.notificationKey);
+
+			this._refresh(false);
+		}
+	}
+
 	public sortNotifications(method: NotificationsSortMethod): void {
 		if (this._sortingMethod === method) {
 			return;

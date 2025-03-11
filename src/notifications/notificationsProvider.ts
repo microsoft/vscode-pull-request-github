@@ -70,6 +70,16 @@ export class NotificationsProvider extends Disposable {
 		});
 	}
 
+	public async markAsDone(notificationIdentifier: { threadId: string, notificationKey: string }): Promise<void> {
+		const gitHub = this._getGitHub();
+		if (gitHub === undefined) {
+			return undefined;
+		}
+		await gitHub.octokit.call(gitHub.octokit.api.activity.markThreadAsDone, {
+			thread_id: Number(notificationIdentifier.threadId)
+		});
+	}
+
 	public async getNotifications(before: string, page: number): Promise<INotifications | undefined> {
 		const gitHub = this._getGitHub();
 		if (gitHub === undefined) {

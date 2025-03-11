@@ -1560,6 +1560,12 @@
 				"title": "%command.notifications.markAsRead.title%",
 				"category": "%command.notifications.category%",
 				"icon": "$(mail-read)"
+			},
+			{
+				"command": "notification.markAsDone",
+				"title": "%command.notifications.markAsDone.title%",
+				"category": "%command.notifications.category%",
+				"icon": "$(check-all)"
 			}
 		],
 		"viewsWelcome": [
@@ -2237,6 +2243,10 @@
 					"when": "false"
 				},
 				{
+					"command": "notification.markAsDone",
+					"when": "false"
+				},
+				{
 					"command": "notification.chatSummarizeNotification",
 					"when": "false"
 				},
@@ -2466,6 +2476,16 @@
 				{
 					"command": "notification.markAsRead",
 					"group": "issues_0@2",
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
+				},
+				{
+					"command": "notification.markAsDone",
+					"group": "inline@4",
+					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
+				},
+				{
+					"command": "notification.markAsDone",
+					"group": "issues_0@3",
 					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
 				},
 				{
