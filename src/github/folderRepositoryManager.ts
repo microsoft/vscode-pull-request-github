@@ -2537,6 +2537,8 @@ export class FolderRepositoryManager extends Disposable {
 					if (e.stderr) {
 						if ((e.stderr as string).startsWith('fatal: couldn\'t find remote ref')) {
 							// We've managed to check out the PR, but the remote has been deleted. This is fine, but we can't fetch now.
+						} else if ((e.stderr as string).includes('key_exchange_identification')) {
+							// Another reason we can't fetch now. https://github.com/microsoft/vscode-pull-request-github/issues/6681
 						} else {
 							vscode.window.showErrorMessage(vscode.l10n.t('An error occurred when fetching the repository: {0}', e.stderr));
 						}
