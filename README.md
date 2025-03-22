@@ -1,85 +1,83 @@
-[![Build Status](https://dev.azure.com/vscode/vscode-pull-request-github/_apis/build/status/vscode-pull-request-github%20%28pr%29?branchName=main)](https://dev.azure.com/vscode/vscode-pull-request-github/_build?definitionId=44&branchName=main)
+# Wacom Ink SDK for Verification - Windows
 
-> Review and manage your GitHub pull requests and issues directly in VS Code
+---
 
-This extension allows you to review and manage GitHub pull requests and issues in Visual Studio Code. The support includes:
+## Introduction
 
-- Authenticating and connecting VS Code to GitHub and GitHub Enterprise.
-- Listing and browsing PRs from within VS Code.
-- Reviewing PRs from within VS Code with in-editor commenting.
-- Validating PRs from within VS Code with easy checkouts.
-- Terminal integration that enables UI and CLIs to co-exist.
-- Listing and browsing issues from within VS Code.
-- Hover cards for "@" mentioned users and for issues.
-- Completion suggestions for users and issues.
-- A "Start working on issue" action which can create a branch for you.
-- Code actions to create issues from "todo" comments.
+The purpose of the WISDK for verification is to verify handwritten signatures.
+It uses and extends the existing verification tools, including the SSV (Static Signature Verification) SDK for processing scanned images, 
+and the DSV (Dynamic Signature Verification) SDK which handles signatures captured in Wacom's proprietary FSS (Forensic Signature Store) format.
+The SDK supports all the functionality of the previous SDKs but handles both formats in a single component and allows individual signing variability to be measured by enrolling signature samples in a template.
 
-![PR Demo](.readme/demo.gif)
 
-![Issue Demo](.readme/issueDemo.gif)
+## Overview
 
-# Getting Started
+The main verification component is the **SignatureEngine** which is a COM component responsible for enrolling and verifying signatures. The SignatureEngine does not store any data but processes signatures and updates a **Template** for each person to record their signing characteristics. It is the responsibility of the calling application to supply the user's template with each signature being verified, and to store the updated version afterwards.
 
-It's easy to get started with GitHub Pull Requests for Visual Studio Code. Simply follow these steps to get started.
+The main features of the SDK's SignatureEngine include the following:-
 
-1. Install the extension from within VS Code or download it from [the marketplace](https://aka.ms/vscodepr-download).
-1. Open your desired GitHub repository in VS Code.
-1. A new viewlet will appear on the activity bar which shows a list of pull requests and issues.
-1. Use the button on the viewlet to sign in to GitHub.
-1. You may need to configure the `githubPullRequests.remotes` setting, by default the extension will look for PRs for `origin` and `upstream`. If you have different remotes, add them to the remotes list.
-1. You should be good to go!
+- A single template can handle either dynamic signatures supplied in FSS format or static signatures supplied as scanned graphical images, or both. In most implementations it is expected than one type or other will be used, but when both types are handled the SignatureEngine checks that the two sets of data are of the same signature. The SignatureEngine will also accept FSS data which is embedded steganographically in a graphical image.
 
-Check out https://www.youtube.com/watch?v=LdSwWxVzUpo for additional getting started tips!
+- When a new person is to be verified the calling system must first create a new template which will record their signing behaviour. There are a number of configuration options that must be set at this stage and which cannot be subsequently changed. These control the way in which the enrollment process is handled and subsequently updated.
 
-# Configuring the extension
+- Once the template has been created signatures can be verified. This is done using the **VerifySignature** method. The method must be supplied with the user's template and the signature.
 
-There are several settings that can be used to configure the extension.
+- After the signature has been processed the following is returned to the calling application:-
+  - A score of between 0 (inconsistent signature) and 1 (consistent signature). Note that for the first signature no comparison is possible and the score is meaningless
+  - A flag indicating the type of verification that was used i.e. dynamic or static
+  - A flag indicating the nature of the comparison that was used to arrive at the score e.g. whether the signatures differed in their geometry, timing, pressure variability etc.
+  - A summary of the status of the template, e.g enrolling, enrolled, updated etc.
+  - The updated template which should be saved for the next verification for the user
+  
+- A user's template becomes fully enrolled when the required number of consistent signatures have been verified. By default the number needed is 6 but different values can be set when the template is created. If when the required number has been received one of the signatures is significantly inconsistent with the others then it is rejected and the enrollment process will continue. Some inconsistent signers may need to verify more than the nominal enrollment number of signatures to become fully enrolled. 
 
-As mentioned above, `githubPullRequests.remotes` is used to specify what remotes the extension should try to fetch pull requests from.
+- During enrollment the verification score for each signature is determined using the conventional DSV or SSV engines depending on the data type. These use 1:1 comparisons which are assessed using average variability characteristics. Once enrollment has been completed each signature being verified is compared against the range of characteristics measured in the enrollment set, which generally reduces the false acceptance error rate significantly. 
 
-To customize the pull request tree, you can use the `githubPullRequests.queries` setting. This setting is a list of labels and search queries which populate the categories of the tree. By default, these queries are "Waiting For My Review", "Assigned To Me", and "Created By Me". An example of adding a "Mentioned Me" category is to change the setting to the following:
+- After enrollment has been completed the reference data set can be periodically updated to track the drift of a user's signing behaviour with time. The minimum elapsed period between updates is set when the template is created
 
-```
-"githubPullRequests.queries": [
-	{
-		"label": "Waiting For My Review",
-		"query": "is:open review-requested:${user}"
-	},
-	{
-		"label": "Assigned To Me",
-		"query": "is:open assignee:${user}"
-	},
-	{
-		"label": "Created By Me",
-		"query": "is:open author:${user}"
-	},
-	{
-		"label": "Mentioned Me",
-		"query": "is:open mentions:${user}"
-	}
-]
-```
 
-Similarly, there is a setting to configure your issues queries: `githubIssues.queries`.
+## SDK Delivery
 
-Queries use [GitHub search syntax](https://help.github.com/en/articles/understanding-the-search-syntax).
 
-To view additional settings for the extension, you can open VS Code settings and search for "github pull requests".
+The verification SDK includes the following:
 
-# Issues
+| Name                      | Description |
+| ------------------------- | ----------- |
+| SignatureEngine Component | The core verification functionality is provided in the form of a COM component. The component is secured using a machine specific license |
+| Documentation             | The SDK is supplied with a detailed doxygen API reference |
+| Installer                 | An MSI installer is provided to install and register the SDK COM components. A licenser app is also included to report the machine identifier and install the machine license key |
 
-This extension is still in development, so please refer to our [issue tracker for known issues](https://github.com/Microsoft/vscode-pull-request-github/issues), and please contribute with additional information if you encounter an issue yourself.
+## SDK Sample Application
 
-## Questions? Authentication? GitHub Enterprise?
+The C# .NET sample application is supplied with source code and demonstrates the following features :
 
-See our [wiki](https://github.com/Microsoft/vscode-pull-request-github/wiki) for our FAQ.
+| Feature                       | Description |
+| ----------------------------- | ----------- |
+| Options                        | A menu item opens a dialog which allows the user to modify the ConfigurationOptions, ImageOptions and the template folder. The user options are used whenever a new template is created |
+| Templates                      | Every template is given a name when it is created. A list of all the templates is displayed in a list box and one of them highlighted as the current template. Controls are provided to delete and reset templates.  Templates are stored in the folder shown on the options dialog |
+|  Verify signature from file    | The app allows the user to drag and drop signature files which are then verified using the currently selected template and the results displayed. Dynamic signatures may be in .FSS or .TXT (Base-64 encoded) form. Signature image files can be in any common format, including .PNG, .TIF, .BMP, .JPG etc.  Images containing stegangraphically embedded data will be processed as FSS data. |
+|  Capture and verify signature  |  A button is provided to capture a signature using the Signature SDK and verify it against the currently selected template  |
 
-## Contributing
+# Additional resources 
 
-If you're interested in contributing, or want to explore the source code of this extension yourself, see our [contributing guide](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing), which includes:
+## Sample Code
+For further samples check Wacom's Developer additional samples, see [https://github.com/Wacom-Developer](https://github.com/Wacom-Developer)
 
-- [How to Build and Run](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#build-and-run)
-- [Architecture](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#architecture)
-- [Making Pull Requests](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#pull-requests)
-- [Code of Conduct](https://github.com/Microsoft/vscode-pull-request-github/wiki/Contributing#code-of-conduct)
+## Documentation
+For further details on using the SDK see [Wacom Ink SDK for verification documentation](http://developer-docs.wacom.com/sdk-for-verification/) 
+
+## Support
+If you experience issues with the technology components, please see related [FAQs](https://developer-support.wacom.com/hc/en-us)
+
+For further support file a ticket in our **Developer Support Portal** described here: [Request Support](https://developer-support.wacom.com/hc/en-us/requests/new)
+
+## Developer Community 
+Join our developer community:
+
+- [LinkedIn - Wacom for Developers](https://www.linkedin.com/company/wacom-for-developers/)
+- [Twitter - Wacom for Developers](https://twitter.com/Wacomdevelopers)
+
+## License 
+This sample code is licensed under the [MIT License](https://choosealicense.com/licenses/mit/)
+
+---
