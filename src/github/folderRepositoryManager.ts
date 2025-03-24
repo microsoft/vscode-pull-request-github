@@ -1205,7 +1205,7 @@ export class FolderRepositoryManager extends Disposable {
 			};
 		} catch (e) {
 			Logger.error(`Fetching pull request with query failed: ${e}`, this.id);
-			if (e.code === 404) {
+			if (e.status === 404) {
 				// not found
 				vscode.window.showWarningMessage(
 					`Fetching pull requests for remote ${githubRepository.remote.remoteName} with query failed, please check if the repo ${repo?.full_name} is valid.`,

@@ -264,13 +264,14 @@ export class GitHubRepository extends Disposable {
 			rsp = await gql.query<T>(query);
 		} catch (e) {
 			const logInfo = (query.query.definitions[0] as { name: { value: string } | undefined }).name?.value;
-			Logger.error(`Error querying GraphQL API (${logInfo}): ${e.message}${e.graphQLErrors ? `. ${(e.graphQLErrors as GraphQLError[]).map(error => error.extensions?.code).join(',')}` : ''}`, this.id);
+			const gqlErrors = e.graphQLErrors ? e.graphQLErrors as GraphQLError[] : undefined;
+			Logger.error(`Error querying GraphQL API (${logInfo}): ${e.message}${gqlErrors ? `. ${gqlErrors.map(error => error.extensions?.code).join(',')}` : ''}`, this.id);
 			if (legacyFallback) {
 				query.query = legacyFallback.query;
 				return this.query(query, ignoreSamlErrors);
 			}
 
-			if (e.graphQLErrors && e.graphQLErrors.length && ((e.graphQLErrors as GraphQLError[]).some(error => error.extensions?.code === 'undefinedField')) && !this._areQueriesLimited) {
+			if (gqlErrors && gqlErrors.length && (gqlErrors.some(error => error.extensions?.code === 'undefinedField')) && !this._areQueriesLimited) {
 				// We're running against a GitHub server that doesn't support the query we're trying to run.
 				// Switch to the limited schema and try again.
 				this._areQueriesLimited = true;
@@ -587,7 +588,7 @@ export class GitHubRepository extends Disposable {
 			};
 		} catch (e) {
 			Logger.error(`Fetching all pull requests failed: ${e}`, this.id);
-			if (e.code === 404) {
+			if (e.status === 404) {
 				// not found
 				vscode.window.showWarningMessage(
 					`Fetching all pull requests for remote '${remote?.remoteName}' failed, please check if the repository ${remote?.owner}/${remote?.repositoryName} is valid.`,
@@ -626,7 +627,7 @@ export class GitHubRepository extends Disposable {
 			}
 		} catch (e) {
 			Logger.error(`Fetching pull request for branch failed: ${e}`, this.id);
-			if (e.code === 404) {
+			if (e.status === 404) {
 				// not found
 				vscode.window.showWarningMessage(
 					`Fetching pull request for branch for remote '${remote?.remoteName}' failed, please check if the repository ${remote?.owner}/${remote?.repositoryName} is valid.`,
@@ -891,7 +892,7 @@ export class GitHubRepository extends Disposable {
 		try {
 			Logger.debug(`Fetch authenticated user emails - enter`, this.id);
 			const { octokit } = await this.ensure();
-			const { data } = await octokit.call(octokit.api.users.listEmailsForAuthenticated, {});
+			const { data } = await octokit.call(octokit.api.users.listEmailsForAuthenticatedUser, {});
 			Logger.debug(`Fetch authenticated user emails - done`, this.id);
 			return data.map(email => email.email);
 		} catch (e) {

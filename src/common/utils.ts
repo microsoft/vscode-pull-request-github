@@ -142,11 +142,11 @@ function isHookError(e: Error): e is HookError {
 	return !!(e as any).errors;
 }
 
-function hasFieldErrors(e: any): e is Error & { errors: { value: string; field: string; code: string }[] } {
+function hasFieldErrors(e: any): e is Error & { errors: { value: string; field: string; status: string }[] } {
 	let areFieldErrors = true;
 	if (!!e.errors && Array.isArray(e.errors)) {
 		for (const error of e.errors) {
-			if (!error.field || !error.value || !error.code) {
+			if (!error.field || !error.value || !error.status) {
 				areFieldErrors = false;
 				break;
 			}
@@ -177,7 +177,7 @@ export function formatError(e: HookError | any): string {
 	if (e.message === 'Validation Failed' && hasFieldErrors(e)) {
 		furtherInfo = e.errors
 			.map(error => {
-				return `Value "${error.value}" cannot be set for field ${error.field} (code: ${error.code})`;
+				return `Value "${error.value}" cannot be set for field ${error.field} (code: ${error.status})`;
 			})
 			.join(', ');
 	} else if (e.message.startsWith('Validation Failed:')) {
