@@ -6,6 +6,10 @@
 
 - Notifications in the experimental Notifications view can be marked as done.
 
+### Fixes
+
+- NewIssue.md template doesn't autocomplete Assignees anymore. https://github.com/microsoft/vscode-pull-request-github/issues/6709
+
 **_Thank You_**
 
 * [@aedm (Gábor Gyebnár)](https://github.com/aedm): Adds `sanitizedLowercaseIssueTitle` to settings docs [PR #6690](https://github.com/microsoft/vscode-pull-request-github/pull/6690)
