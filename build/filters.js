@@ -28,6 +28,7 @@ module.exports.unicodeFilter = [
 	'!**/ThirdPartyNotices.txt',
 	'!**/LICENSE.{txt,rtf}',
 	'!**/LICENSE',
+	'!**/CHANGELOG.md',
 	'!*.yml',
 	'!resources/emojis.json'
 ];

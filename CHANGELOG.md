@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.108.0
+
+### Changes
+
+- Notifications in the experimental Notifications view can be marked as done.
+
+**_Thank You_**
+
+* [@aedm (Gábor Gyebnár)](https://github.com/aedm): Adds `sanitizedLowercaseIssueTitle` to settings docs [PR #6690](https://github.com/microsoft/vscode-pull-request-github/pull/6690)
+
 ## 0.106.0
 
 ### Changes
