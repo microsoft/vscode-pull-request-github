@@ -11,6 +11,7 @@ import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
+import { fromRepoUri, Schemes } from '../common/uri';
 import { compareIgnoreCase, isDescendant } from '../common/utils';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
@@ -132,6 +133,8 @@ export class RepositoriesManager extends Disposable {
 			return this._folderManagers[0];
 		}
 
+		const repoInfo = ((uri.scheme === Schemes.Repo) ? fromRepoUri(uri) : undefined);
+
 		// Prioritize longest path first to handle nested workspaces
 		const folderManagers = this._folderManagers
 			.slice()
@@ -139,11 +142,16 @@ export class RepositoriesManager extends Disposable {
 
 		for (const folderManager of folderManagers) {
 			const managerPath = folderManager.repository.rootUri.path;
-			const testUriRelativePath = uri.path.substring(
-				managerPath.length > 1 ? managerPath.length + 1 : managerPath.length,
-			);
-			if (compareIgnoreCase(vscode.Uri.joinPath(folderManager.repository.rootUri, testUriRelativePath).path, uri.path) === 0) {
+
+			if (repoInfo && folderManager.findExistingGitHubRepository({ owner: repoInfo.owner, repositoryName: repoInfo.repo })) {
 				return folderManager;
+			} else {
+				const testUriRelativePath = uri.path.substring(
+					managerPath.length > 1 ? managerPath.length + 1 : managerPath.length,
+				);
+				if (compareIgnoreCase(vscode.Uri.joinPath(folderManager.repository.rootUri, testUriRelativePath).path, uri.path) === 0) {
+					return folderManager;
+				}
 			}
 		}
 		return undefined;
