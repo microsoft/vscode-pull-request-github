@@ -349,12 +349,7 @@ export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderR
 						await callback(milestone);
 					}
 				} catch (e) {
-					if (e.errors && Array.isArray(e.errors) && e.errors.find(error => error.code === 'already_exists') !== undefined) {
-						vscode.window.showErrorMessage(vscode.l10n.t('Failed to create milestone: The milestone already exists and might be closed'));
-					}
-					else {
-						vscode.window.showErrorMessage(`Failed to create milestone: ${formatError(e)}`);
-					}
+					vscode.window.showErrorMessage(`Failed to create milestone: ${formatError(e)}`);
 				}
 			});
 		});
