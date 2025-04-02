@@ -392,7 +392,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 		const remote = await this.getBaseRemote();
 		const currentRepo = this._folderRepositoryManager.gitHubRepositories.find(repo => repo.remote.owner === remote.owner && repo.remote.repositoryName === remote.repositoryName);
 		const assigneesToAdd = await vscode.window.showQuickPick(getAssigneesQuickPickItems(this._folderRepositoryManager, currentRepo, remote.remoteName, this.assignees, undefined, true),
-			{ canPickMany: true, placeHolder: vscode.l10n.t('Add assignees') });
+			{ canPickMany: true, matchOnDescription: true, placeHolder: vscode.l10n.t('Add assignees') });
 		if (assigneesToAdd) {
 			const seenNewAssignees = new Set<string>();
 			const addedAssignees = assigneesToAdd.map(assignee => assignee.user).filter<IAccount>((assignee): assignee is IAccount => {
@@ -436,7 +436,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 				newLabels = options.newLabels;
 				return options.labelPicks;
 			}) as Promise<vscode.QuickPickItem[]>,
-			{ canPickMany: true, placeHolder: vscode.l10n.t('Apply labels') },
+			{ canPickMany: true, matchOnDescription: true, placeHolder: vscode.l10n.t('Apply labels') },
 		);
 
 		if (labelsToAdd) {
