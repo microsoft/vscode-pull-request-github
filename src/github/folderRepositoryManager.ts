@@ -2240,17 +2240,16 @@ export class FolderRepositoryManager extends Disposable {
 		if (!remoteUrl) {
 			return null;
 		}
-		let headGitHubRepo = this.gitHubRepositories.find(repo => repo.remote.url.toLowerCase() === remoteUrl.toLowerCase());
-		let protocol: Protocol | undefined;
+		const protocol: Protocol = new Protocol(remoteUrl);
+		let headGitHubRepo = this.findRepo((input) => compareIgnoreCase(input.remote.owner, protocol.owner) === 0 && compareIgnoreCase(input.remote.repositoryName, protocol.repositoryName) === 0);
 		if (!headGitHubRepo && this.gitHubRepositories.length > 0) {
-			protocol = new Protocol(remoteUrl);
 			const remote = parseRemote(protocol.repositoryName, remoteUrl, protocol);
 			if (remote) {
 				headGitHubRepo = await this.createGitHubRepository(remote, this.credentialStore, true, true);
 			}
 		}
 		const matchingPR = await this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName);
-		if (matchingPR && (branch.upstream === undefined) && protocol && headGitHubRepo && branch.name) {
+		if (matchingPR && (branch.upstream === undefined) && headGitHubRepo && branch.name) {
 			const newRemote = await PullRequestGitHelper.createRemote(this.repository, headGitHubRepo?.remote, protocol);
 			const trackedBranchName = `refs/remotes/${newRemote}/${matchingPR.model.head?.name}`;
 			await this.repository.fetch({ remote: newRemote, ref: matchingPR.model.head?.name });
