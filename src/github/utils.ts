@@ -179,10 +179,11 @@ export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHP
 	}
 
 	const newResolvedState = isResolvedToResolvedState(reviewThread.isResolved);
-	if (vscodeThread.state?.resolved !== newResolvedState) {
+	const newApplicabilityState = reviewThread.isOutdated ? vscode.CommentThreadApplicability.Outdated : vscode.CommentThreadApplicability.Current;
+	if ((vscodeThread.state?.resolved !== newResolvedState) || (vscodeThread.state?.applicability !== newApplicabilityState)) {
 		vscodeThread.state = {
 			resolved: newResolvedState,
-			applicability: vscodeThread.state?.applicability
+			applicability: newApplicabilityState
 		};
 	}
 	vscodeThread.collapsibleState = getCommentCollapsibleState(reviewThread, expand);
@@ -201,6 +202,7 @@ export function updateThread(context: vscode.ExtensionContext, vscodeThread: GHP
 	} else {
 		vscodeThread.comments = reviewThread.comments.map(c => new GHPRComment(context, c, vscodeThread, githubRepositories));
 	}
+
 	updateCommentThreadLabel(vscodeThread);
 }
 

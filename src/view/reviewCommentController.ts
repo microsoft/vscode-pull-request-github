@@ -325,30 +325,18 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 				});
 
 				e.changed.forEach(thread => {
-					const threadMap = thread.isOutdated
-						? this._obsoleteFileChangeCommentThreads
-						: thread.diffSide === DiffSide.RIGHT
-							? this._workspaceFileChangeCommentThreads
-							: this._reviewSchemeFileChangeCommentThreads;
-
-					const index = threadMap[thread.path] ? threadMap[thread.path].findIndex(t => t.gitHubThreadId === thread.id) : -1;
-					if (index > -1) {
-						const matchingThread = threadMap[thread.path][index];
+					const match = this._findMatchingThread(thread);
+					if (match.index > -1) {
+						const matchingThread = match.threadMap[thread.path][match.index];
 						updateThread(this._context, matchingThread, thread, githubRepositories);
 					}
 				});
 
 				e.removed.forEach(thread => {
-					const threadMap = thread.isOutdated
-						? this._obsoleteFileChangeCommentThreads
-						: thread.diffSide === DiffSide.RIGHT
-							? this._workspaceFileChangeCommentThreads
-							: this._reviewSchemeFileChangeCommentThreads;
-
-					const index = threadMap[thread.path] ? threadMap[thread.path].findIndex(t => t.gitHubThreadId === thread.id) : -1;
-					if (index > -1) {
-						const matchingThread = threadMap[thread.path][index];
-						threadMap[thread.path].splice(index, 1);
+					const match = this._findMatchingThread(thread);
+					if (match.index > -1) {
+						const matchingThread = match.threadMap[thread.path][match.index];
+						match.threadMap[thread.path].splice(match.index, 1);
 						matchingThread.dispose();
 					}
 				});
@@ -357,6 +345,28 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 			}),
 		);
 		this._register(vscode.window.onDidChangeActiveTextEditor(e => this.onDidChangeActiveTextEditor(e)));
+	}
+
+	private _findMatchingThread(thread: IReviewThread): { threadMap: { [key: string]: GHPRCommentThread[] }, index: number } {
+		const threadMap = thread.isOutdated
+			? this._obsoleteFileChangeCommentThreads
+			: thread.diffSide === DiffSide.RIGHT
+				? this._workspaceFileChangeCommentThreads
+				: this._reviewSchemeFileChangeCommentThreads;
+
+		let index = threadMap[thread.path]?.findIndex(t => t.gitHubThreadId === thread.id) ?? -1;
+		if ((index === -1) && thread.isOutdated) {
+			// The thread has become outdated and needs to be moved to the obsolete threads.
+			index = this._workspaceFileChangeCommentThreads[thread.path]?.findIndex(t => t.gitHubThreadId === thread.id) ?? -1;
+			if (index > -1) {
+				const matchingThread = this._workspaceFileChangeCommentThreads[thread.path]!.splice(index, 1)[0];
+				if (!this._obsoleteFileChangeCommentThreads[thread.path]) {
+					this._obsoleteFileChangeCommentThreads[thread.path] = [];
+				}
+				this._obsoleteFileChangeCommentThreads[thread.path]!.push(matchingThread);
+			}
+		}
+		return { threadMap, index };
 	}
 
 	private _commentContentChangedListener: vscode.Disposable | undefined;
