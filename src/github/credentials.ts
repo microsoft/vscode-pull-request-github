@@ -438,14 +438,20 @@ export class CredentialStore extends Disposable {
 	private async createHub(token: string, authProviderId: AuthProvider): Promise<GitHub> {
 		let baseUrl = 'https://api.github.com';
 		let enterpriseServerUri: vscode.Uri | undefined;
+		Logger.appendLine(`Creating hub for ${isEnterprise(authProviderId) ? 'enterprise' : '.com'}`, CredentialStore.ID);
 		if (isEnterprise(authProviderId)) {
 			enterpriseServerUri = getEnterpriseUri();
 		}
 
-		if (enterpriseServerUri && enterpriseServerUri.authority.endsWith('ghe.com')) {
-			baseUrl = `${enterpriseServerUri.scheme}://api.${enterpriseServerUri.authority}`;
-		} else if (enterpriseServerUri) {
-			baseUrl = `${enterpriseServerUri.scheme}://${enterpriseServerUri.authority}/api/v3`;
+		const isGhe = enterpriseServerUri?.authority.endsWith('ghe.com');
+
+		if (enterpriseServerUri) {
+			Logger.appendLine(`Enterprise server authority ${enterpriseServerUri.authority}`, CredentialStore.ID);
+			if (isGhe) {
+				baseUrl = `${enterpriseServerUri.scheme}://api.${enterpriseServerUri.authority}`;
+			} else {
+				baseUrl = `${enterpriseServerUri.scheme}://${enterpriseServerUri.authority}/api/v3`;
+			}
 		}
 
 		let fetchCore: ((url: string, options: { headers?: Record<string, string> }) => any) | undefined;
@@ -470,7 +476,7 @@ export class CredentialStore extends Disposable {
 			baseUrl: baseUrl,
 		});
 
-		if (enterpriseServerUri) {
+		if (enterpriseServerUri && !isGhe) {
 			baseUrl = `${enterpriseServerUri.scheme}://${enterpriseServerUri.authority}/api`;
 		}
 
