@@ -87,7 +87,7 @@
 	"githubPullRequests.createDefaultBaseBranch.createdFromBranch": "The branch that the current branch was created from, if known",
 	"githubPullRequests.createDefaultBaseBranch.auto": "When the current repository is a fork, this will work like \"repositoryDefault\". Otherwise, it will work like \"createdFromBranch\".",
 	"githubPullRequests.experimental.chat.description": "Enables the `@githubpr` Copilot chat participant in the chat view. `@githubpr` can help search for issues and pull requests, suggest fixes for issues, and summarize issues, pull requests, and notifications.",
-	"githubPullRequests.experimental.notificationsView.description": "Enables the notifications view, which shows a list of your GitHub notifications. When combined with `#githubPullRequests.experimental.chat#`, you can have Copilot sort and summarize your notifications.",
+	"githubPullRequests.experimental.notificationsView.description": "Enables the notifications view, which shows a list of your GitHub notifications. When combined with `#githubPullRequests.experimental.chat#`, you can have Copilot sort and summarize your notifications. View will not show in a Codespace accessed from the browser.",
 	"githubPullRequests.experimental.useQuickChat.description": "Controls whether the Copilot \"Summarize\" commands in the Pull Requests, Issues, and Notifications views will use quick chat. Only has an effect if `#githubPullRequests.experimental.chat#` is enabled.",
 	"githubIssues.ignoreMilestones.description": "An array of milestones titles to never show issues from.",
 	"githubIssues.createIssueTriggers.description": "Strings that will cause the 'Create issue from comment' code action to show.",
