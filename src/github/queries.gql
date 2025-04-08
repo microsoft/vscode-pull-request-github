@@ -80,6 +80,13 @@ fragment IssueBase on Issue {
 	reactions(first: 100) {
 		totalCount
 	}
+	repository {
+		name
+		owner {
+			login
+		}
+		url
+	}
 }
 
 fragment IssueFragment on Issue {
@@ -89,7 +96,7 @@ fragment IssueFragment on Issue {
 	}
 }
 
-fragment IssueWithComments on Issue {
+fragment IssueWithCommentsFragment on Issue {
 	...IssueBase
 	comments(first: 50) {
 		nodes {
@@ -231,7 +238,7 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
 		issue(number: $number) {
-			...IssueWithComments
+			...IssueWithCommentsFragment
 		}
 	}
 	rateLimit {
