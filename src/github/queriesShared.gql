@@ -552,6 +552,13 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 			}
 			createdAt
 			updatedAt
+			milestone {
+				title
+				dueOn
+				createdAt
+				id
+				number
+			}
 			assignees(first: 10) {
 				nodes {
 					...User
@@ -617,6 +624,13 @@ query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
 					}
 				}
 				totalCount
+			}
+			milestone {
+				title
+				dueOn
+				createdAt
+				id
+				number
 			}
 			assignees(first: 10) {
 				nodes {
