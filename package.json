@@ -2399,63 +2399,73 @@
 			"view/item/context": [
 				{
 					"command": "pr.pick",
-					"when": "view == pr:github && viewItem =~ /description:nonactive/",
-					"group": "inline@0"
-				},
-				{
-					"command": "pr.pick",
-					"when": "view == pr:github && viewItem =~ /(pullrequest(:local)?:nonactive)|(description:nonactive)/",
+					"when": "view == pr:github && viewItem =~ /(pullrequest(:local)?:nonactive)/",
 					"group": "1_pullrequest@1"
 				},
 				{
 					"command": "pr.exit",
-					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:active|description:active/",
+					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:active/",
 					"group": "1_pullrequest@1"
 				},
 				{
 					"command": "pr.pickOnVscodeDev",
-					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive|description/ && (!isWeb || remoteName != codespaces && virtualWorkspace != vscode-vfs)",
+					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive/ && (!isWeb || remoteName != codespaces && virtualWorkspace != vscode-vfs)",
 					"group": "1_pullrequest@2"
 				},
 				{
+					"command": "pr.openChanges",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/ && config.multiDiffEditor.experimental.enabled",
+					"group": "2_pullrequest@1"
+				},
+				{
+					"command": "pr.openDescriptionToTheSide",
+					"group": "2_pullrequest@2",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/"
+				},
+				{
 					"command": "pr.openPullRequestOnGitHub",
-					"when": "view == pr:github && viewItem =~ /pullrequest|description/",
-					"group": "1_pullrequest@3"
+					"when": "view == pr:github && viewItem =~ /pullrequest/",
+					"group": "2_pullrequest@3"
 				},
 				{
 					"command": "pr.refreshPullRequest",
-					"when": "view == pr:github && viewItem =~ /pullrequest|description/",
-					"group": "2_pullrequest@1"
+					"when": "view == pr:github && viewItem =~ /pullrequest/",
+					"group": "3_pullrequest@1"
 				},
 				{
 					"command": "pr.deleteLocalBranch",
 					"when": "view == pr:github && viewItem =~ /pullrequest:local:nonactive/",
-					"group": "3_pullrequest@4"
+					"group": "4_pullrequest@4"
 				},
 				{
 					"command": "pr.dismissNotification",
 					"when": "view == pr:github && viewItem =~ /pullrequest(.*):notification/",
-					"group": "3_pullrequest@5"
+					"group": "4_pullrequest@5"
 				},
 				{
 					"command": "issue.chatSummarizeIssue",
 					"when": "view == pr:github && viewItem =~ /pullrequest/ && github.copilot-chat.activated && config.githubPullRequests.experimental.chat",
-					"group": "4_pullrequest@2"
+					"group": "5_pullrequest@2"
+				},
+				{
+					"command": "pr.pick",
+					"when": "view == pr:github && viewItem =~ /(pullrequest(:local)?:nonactive)/",
+					"group": "inline@1"
 				},
 				{
 					"command": "pr.openChanges",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description/ && config.multiDiffEditor.experimental.enabled",
-					"group": "inline@1"
+					"when": "view =~ /prStatus:github/ && viewItem =~ /(description)/ && config.multiDiffEditor.experimental.enabled",
+					"group": "inline@0"
 				},
 				{
 					"command": "pr.showDiffSinceLastReview",
 					"group": "inline@1",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:(active|nonactive):hasChangesSinceReview:showingAllChanges/"
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description):(active|nonactive):hasChangesSinceReview:showingAllChanges/"
 				},
 				{
 					"command": "pr.showDiffAll",
 					"group": "inline@1",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description:(active|nonactive):hasChangesSinceReview:showingChangesSinceReview/"
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description):(active|nonactive):hasChangesSinceReview:showingChangesSinceReview/"
 				},
 				{
 					"command": "notification.chatSummarizeNotification",
@@ -2496,11 +2506,6 @@
 					"command": "notification.markAsDone",
 					"group": "issues_0@3",
 					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView"
-				},
-				{
-					"command": "pr.openDescriptionToTheSide",
-					"group": "inline@2",
-					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /description/"
 				},
 				{
 					"command": "pr.openPullRequestOnGitHub",

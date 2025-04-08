@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Repository } from '../../api/api';
 import Logger, { PR_TREE } from '../../common/logger';
 import { AUTO_REVEAL, EXPLORER } from '../../common/settingKeys';
 import { DataUri, Schemes } from '../../common/uri';
@@ -12,24 +13,41 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 import { ProgressHelper } from '../progress';
 import { ReviewModel } from '../reviewModel';
 import { CommitsNode } from './commitsCategoryNode';
-import { DescriptionNode } from './descriptionNode';
 import { FilesCategoryNode } from './filesCategoryNode';
 import { BaseTreeNode, TreeNode } from './treeNode';
 
-export class RepositoryChangesNode extends DescriptionNode implements vscode.TreeItem {
+export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 	private _filesCategoryNode?: FilesCategoryNode;
 	private _commitsCategoryNode?: CommitsNode;
+	public command?: vscode.Command;
+	public contextValue?: string;
+	public tooltip: string;
+	public iconPath: vscode.ThemeIcon | vscode.Uri | undefined;
 	public description?: string;
 	readonly collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+	private isLocal: boolean;
+	public readonly repository: Repository;
 
 	constructor(
 		public override parent: BaseTreeNode,
-		pullRequest: PullRequestModel,
+		public readonly pullRequestModel: PullRequestModel,
 		private _pullRequestManager: FolderRepositoryManager,
 		private _reviewModel: ReviewModel,
 		private _progress: ProgressHelper
 	) {
-		super(parent, pullRequest.title, pullRequest, _pullRequestManager.repository, _pullRequestManager, true);
+		super(parent);
+		this.isLocal = true;
+		this.repository = _pullRequestManager.repository;
+		this.label = pullRequestModel.title;
+
+		this.command = {
+			title: vscode.l10n.t('View Pull Request Description'),
+			command: 'pr.openDescription',
+			arguments: [this],
+		};
+		this.tooltip = vscode.l10n.t('Description of pull request #{0}', pullRequestModel.number);
+		this.accessibilityInformation = { label: vscode.l10n.t('Pull request page of pull request number {0}', pullRequestModel.number), role: 'button' };
+
 		// Cause tree values to be filled
 		this.getTreeItem();
 
@@ -103,9 +121,17 @@ export class RepositoryChangesNode extends DescriptionNode implements vscode.Tre
 			} else {
 				this.description = `${this.pullRequestModel.remote.owner}/${this.pullRequestModel.remote.repositoryName}`;
 			}
-
 		}
 		this.updateContextValue();
 		return this;
+	}
+
+	protected updateContextValue(): void {
+		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._pullRequestManager.activePullRequest);
+		this.contextValue = 'description' +
+			(currentBranchIsForThisPR ? ':active' : ':nonactive') +
+			(this.pullRequestModel.hasChangesSinceLastReview ? ':hasChangesSinceReview' : '') +
+			(this.pullRequestModel.showChangesSinceReview ? ':showingChangesSinceReview' : ':showingAllChanges') +
+			(((this.pullRequestModel.item.isRemoteHeadDeleted && !this.isLocal) || !this._pullRequestManager.isPullRequestAssociatedWithOpenRepository(this.pullRequestModel)) ? '' : ':hasHeadRef');
 	}
 }

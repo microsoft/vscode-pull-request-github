@@ -35,7 +35,6 @@ import { ReviewManager } from './view/reviewManager';
 import { ReviewsManager } from './view/reviewsManager';
 import { CategoryTreeNode } from './view/treeNodes/categoryNode';
 import { CommitNode } from './view/treeNodes/commitNode';
-import { DescriptionNode } from './view/treeNodes/descriptionNode';
 import {
 	FileChangeNode,
 	GitFileChangeNode,
@@ -68,7 +67,7 @@ function ensurePR<TIssue extends Issue, TIssueModel extends IssueModel<TIssue>>(
 export async function openDescription(
 	telemetry: ITelemetry,
 	issueModel: IssueModel,
-	descriptionNode: DescriptionNode | undefined,
+	descriptionNode: PRNode | RepositoryChangesNode | undefined,
 	folderManager: FolderRepositoryManager,
 	revealNode: boolean,
 	preserveFocus: boolean = true,
@@ -120,8 +119,8 @@ async function chooseItem<T>(
 	return (await vscode.window.showQuickPick(items, options))?.itemValue;
 }
 
-export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | IssueModel | NotificationTreeItem, telemetry: ITelemetry) {
-	if (e instanceof PRNode || e instanceof DescriptionNode) {
+export async function openPullRequestOnGitHub(e: PRNode | RepositoryChangesNode | IssueModel | NotificationTreeItem, telemetry: ITelemetry) {
+	if (e instanceof PRNode || e instanceof RepositoryChangesNode) {
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.html_url));
 	} else if (isNotificationTreeItem(e)) {
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.model.html_url));
@@ -158,7 +157,7 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openPullRequestOnGitHub',
-			async (e: PRNode | DescriptionNode | PullRequestModel | undefined) => {
+			async (e: PRNode | RepositoryChangesNode | PullRequestModel | undefined) => {
 				if (!e) {
 					const activePullRequests: PullRequestModel[] = reposManager.folderManagers
 						.map(folderManager => folderManager.activePullRequest!)
@@ -514,7 +513,7 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.pick', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
+		vscode.commands.registerCommand('pr.pick', async (pr: PRNode | RepositoryChangesNode | PullRequestModel) => {
 			if (pr === undefined) {
 				// This is unexpected, but has happened a few times.
 				Logger.error('Unexpectedly received undefined when picking a PR.', logId);
@@ -524,7 +523,7 @@ export function registerCommands(
 			let pullRequestModel: PullRequestModel;
 			let repository: Repository | undefined;
 
-			if (pr instanceof PRNode || pr instanceof DescriptionNode) {
+			if (pr instanceof PRNode || pr instanceof RepositoryChangesNode) {
 				pullRequestModel = pr.pullRequestModel;
 				repository = pr.repository;
 			} else {
@@ -555,7 +554,7 @@ export function registerCommands(
 		}),
 	);
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openChanges', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
+		vscode.commands.registerCommand('pr.openChanges', async (pr: PRNode | RepositoryChangesNode | PullRequestModel) => {
 			if (pr === undefined) {
 				// This is unexpected, but has happened a few times.
 				Logger.error('Unexpectedly received undefined when picking a PR.', logId);
@@ -564,7 +563,7 @@ export function registerCommands(
 
 			let pullRequestModel: PullRequestModel;
 
-			if (pr instanceof PRNode || pr instanceof DescriptionNode) {
+			if (pr instanceof PRNode || pr instanceof RepositoryChangesNode) {
 				pullRequestModel = pr.pullRequestModel;
 			} else {
 				pullRequestModel = pr;
@@ -609,7 +608,7 @@ export function registerCommands(
 	}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.pickOnVscodeDev', async (pr: PRNode | DescriptionNode | PullRequestModel) => {
+		vscode.commands.registerCommand('pr.pickOnVscodeDev', async (pr: PRNode | RepositoryChangesNode | PullRequestModel) => {
 			if (pr === undefined) {
 				// This is unexpected, but has happened a few times.
 				Logger.error('Unexpectedly received undefined when picking a PR.', logId);
@@ -618,7 +617,7 @@ export function registerCommands(
 
 			let pullRequestModel: PullRequestModel;
 
-			if (pr instanceof PRNode || pr instanceof DescriptionNode) {
+			if (pr instanceof PRNode || pr instanceof RepositoryChangesNode) {
 				pullRequestModel = pr.pullRequestModel;
 			} else {
 				pullRequestModel = pr;
@@ -629,10 +628,10 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.exit', async (pr: PRNode | DescriptionNode | PullRequestModel | undefined) => {
+		vscode.commands.registerCommand('pr.exit', async (pr: PRNode | RepositoryChangesNode | PullRequestModel | undefined) => {
 			let pullRequestModel: PullRequestModel | undefined;
 
-			if (pr instanceof PRNode || pr instanceof DescriptionNode) {
+			if (pr instanceof PRNode || pr instanceof RepositoryChangesNode) {
 				pullRequestModel = pr.pullRequestModel;
 			} else if (pr === undefined) {
 				pullRequestModel = await chooseItem<PullRequestModel>(reposManager.folderManagers
@@ -810,7 +809,7 @@ export function registerCommands(
 		}),
 	);
 
-	async function openDescriptionCommand(argument: DescriptionNode | IssueModel | undefined) {
+	async function openDescriptionCommand(argument: PRNode | IssueModel | undefined) {
 		let issueModel: IssueModel | undefined;
 		if (!argument) {
 			const activePullRequests: PullRequestModel[] = reposManager.folderManagers
@@ -823,7 +822,7 @@ export function registerCommands(
 				);
 			}
 		} else {
-			issueModel = argument instanceof DescriptionNode ? argument.pullRequestModel : argument;
+			issueModel = argument instanceof PRNode ? argument.pullRequestModel : argument;
 		}
 
 		if (!issueModel) {
@@ -836,8 +835,8 @@ export function registerCommands(
 			return;
 		}
 
-		let descriptionNode: DescriptionNode | undefined;
-		if (argument instanceof DescriptionNode) {
+		let descriptionNode: PRNode | RepositoryChangesNode | undefined;
+		if (argument instanceof PRNode) {
 			descriptionNode = argument;
 		} else {
 			const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager);
@@ -848,7 +847,7 @@ export function registerCommands(
 			descriptionNode = reviewManager.changesInPrDataProvider.getDescriptionNode(folderManager);
 		}
 
-		const revealDescription = !(argument instanceof DescriptionNode) && (!(argument instanceof IssueModel) || (argument instanceof PullRequestModel));
+		const revealDescription = !(argument instanceof PRNode) && (!(argument instanceof IssueModel) || (argument instanceof PullRequestModel));
 
 		await openDescription(telemetry, issueModel, descriptionNode, folderManager, revealDescription, !(argument instanceof RepositoryChangesNode), tree.notificationProvider);
 	}
@@ -884,7 +883,7 @@ export function registerCommands(
 	));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openDescriptionToTheSide', async (descriptionNode: DescriptionNode) => {
+		vscode.commands.registerCommand('pr.openDescriptionToTheSide', async (descriptionNode: RepositoryChangesNode) => {
 			const folderManager = reposManager.getManagerForIssueModel(descriptionNode.pullRequestModel);
 			if (!folderManager) {
 				return;
@@ -903,13 +902,13 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.showDiffSinceLastReview', async (descriptionNode: DescriptionNode) => {
+		vscode.commands.registerCommand('pr.showDiffSinceLastReview', async (descriptionNode: RepositoryChangesNode) => {
 			descriptionNode.pullRequestModel.showChangesSinceReview = true;
 		}),
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.showDiffAll', async (descriptionNode: DescriptionNode) => {
+		vscode.commands.registerCommand('pr.showDiffAll', async (descriptionNode: RepositoryChangesNode) => {
 			descriptionNode.pullRequestModel.showChangesSinceReview = false;
 		}),
 	);
