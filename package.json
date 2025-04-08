@@ -2076,6 +2076,10 @@
 					"when": "isMergeResultEditor && mergeEditorBaseUri =~ /^(githubpr|gitpr):/"
 				},
 				{
+					"command": "issue.openDescription",
+					"when": "false"
+				},
+				{
 					"command": "issue.copyGithubPermalink",
 					"when": "github:hasGitHubRemotes"
 				},

@@ -450,17 +450,6 @@ export interface DeleteReactionResponse {
 	};
 }
 
-export interface UpdatePullRequestResponse {
-	updatePullRequest: {
-		pullRequest: {
-			body: string;
-			bodyHTML: string;
-			title: string;
-			titleHTML: string;
-		};
-	};
-}
-
 export interface UpdateIssueResponse {
 	updateIssue: {
 		issue: {
@@ -532,7 +521,6 @@ export interface SuggestedReviewerResponse {
 
 export type MergeMethod = 'MERGE' | 'REBASE' | 'SQUASH';
 export type MergeQueueState = 'AWAITING_CHECKS' | 'LOCKED' | 'MERGEABLE' | 'QUEUED' | 'UNMERGEABLE';
-
 
 export interface Issue {
 	id: string;

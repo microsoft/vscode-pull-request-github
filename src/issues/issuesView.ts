@@ -82,7 +82,7 @@ export class IssuesTreeData
 
 		treeItem.command = {
 			command: 'issue.openDescription',
-			title: 'Open Issue Description',
+			title: vscode.l10n.t('View Issue Description'),
 			arguments: [element]
 		};
 
