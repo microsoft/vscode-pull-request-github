@@ -1181,7 +1181,7 @@ export function getRelatedUsersFromTimelineEvents(
 			});
 		}
 
-		if (event.event === Common.EventType.Commented) {
+		if ((event.event === Common.EventType.Commented) && event.user) {
 			ret.push({
 				login: event.user.login,
 				name: event.user.name ?? event.user.login,

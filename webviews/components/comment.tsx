@@ -320,15 +320,6 @@ export function AddComment({
 		textareaRef.current?.focus();
 	});
 
-	const onKeyDown = useCallback(
-		e => {
-			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-				submit(textareaRef.current?.value ?? '');
-			}
-		},
-		[submit],
-	);
-
 	const closeButton = e => {
 		e.preventDefault();
 		const { value } = textareaRef.current!;
@@ -357,6 +348,15 @@ export function AddComment({
 		setBusy(false);
 	}
 
+	const onKeyDown = useCallback(
+		e => {
+			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+				submitAction(currentSelection);
+			}
+		},
+		[submit],
+	);
+
 	async function defaultSubmitAction(): Promise<void> {
 		await submitAction(currentSelection);
 	}
@@ -369,7 +369,7 @@ export function AddComment({
 				[ReviewType.Approve]: 'Approve on github.com',
 				[ReviewType.RequestChanges]: 'Request changes on github.com',
 			}
-			: COMMENT_METHODS;
+			: commentMethods(isIssue);
 
 	return (
 		<form id="comment-form" ref={form as React.MutableRefObject<HTMLFormElement>} className="comment-form main-comment-form" onSubmit={() => submit(textareaRef.current?.value ?? '')}>
@@ -423,8 +423,16 @@ export function AddComment({
 	);
 }
 
-const COMMENT_METHODS = {
+function commentMethods(isIssue: boolean) {
+	return isIssue ? ISSUE_COMMENT_METHODS : COMMENT_METHODS;
+}
+
+const ISSUE_COMMENT_METHODS = {
 	comment: 'Comment',
+};
+
+const COMMENT_METHODS = {
+	...ISSUE_COMMENT_METHODS,
 	approve: 'Approve',
 	requestChanges: 'Request Changes',
 };
@@ -509,7 +517,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 				approve: 'Approve on github.com',
 				requestChanges: 'Request changes on github.com',
 			}
-			: COMMENT_METHODS;
+			: commentMethods(pr.isIssue);
 
 	return (
 		<span className="comment-form">

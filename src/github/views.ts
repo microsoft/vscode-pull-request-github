@@ -90,7 +90,7 @@ export interface PullRequest extends Issue {
 	squashCommitMeta?: { title: string, description: string };
 	reviewers: ReviewState[];
 	isDraft?: boolean;
-	currentUserReviewState: string;
+	currentUserReviewState?: string;
 	hasReviewDraft: boolean;
 	lastReviewType?: ReviewType;
 	revertable?: boolean;

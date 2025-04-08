@@ -9,7 +9,7 @@ import { openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
-import { TimelineEvent } from '../common/timelineEvent';
+import { CommentEvent, EventType, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { DescriptionNode } from '../view/treeNodes/descriptionNode';
@@ -235,8 +235,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				return;
 			case 'pr.close':
 				return this.close(message);
-			case 'pr.comment':
-				return this.createComment(message);
+			case 'pr.submit':
+				return this.submitReviewMessage(message);
 			case 'scroll':
 				this._scrollPosition = message.args.scrollPosition;
 				return;
@@ -278,6 +278,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			default:
 				return this.MESSAGE_UNHANDLED;
 		}
+	}
+
+	protected submitReviewMessage(message: IRequestMessage<string>) {
+		return this.createComment(message);
 	}
 
 	private async addLabels(message: IRequestMessage<void>): Promise<void> {
@@ -520,9 +524,13 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	private createComment(message: IRequestMessage<string>) {
-		this._item.createIssueComment(message.args).then(comment => {
-			this._replyMessage(message, {
-				value: comment,
+		return this._item.createIssueComment(message.args).then(comment => {
+			const commentedEvent: CommentEvent = {
+				...comment,
+				event: EventType.Commented
+			};
+			return this._replyMessage(message, {
+				event: commentedEvent,
 			});
 		});
 	}

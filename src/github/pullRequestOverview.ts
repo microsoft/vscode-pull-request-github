@@ -345,8 +345,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.approvePullRequestMessage(message);
 			case 'pr.request-changes':
 				return this.requestChangesMessage(message);
-			case 'pr.submit':
-				return this.submitReviewMessage(message);
 			case 'pr.checkout-default-branch':
 				return this.checkoutDefaultBranch(message);
 			case 'pr.apply-patch':
@@ -649,7 +647,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this.doReviewCommand(context, ReviewType.Comment, (body) => this.submitReview(body));
 	}
 
-	private submitReviewMessage(message: IRequestMessage<string>) {
+	protected override submitReviewMessage(message: IRequestMessage<string>) {
 		return this.doReviewMessage(message, (body) => this.submitReview(body));
 	}
 
