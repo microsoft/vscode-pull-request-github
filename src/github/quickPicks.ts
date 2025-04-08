@@ -246,8 +246,10 @@ export async function getProjectFromQuickPick(folderRepoManager: FolderRepositor
 		quickPick.busy = true;
 		quickPick.canSelectMany = true;
 		quickPick.title = vscode.l10n.t('Set projects');
+		quickPick.ignoreFocusOut = true;
 		quickPick.show();
 		quickPick.items = await getProjectOptions();
+		quickPick.ignoreFocusOut = false;
 		if (quickPick.items.length === 1) {
 			quickPick.canSelectMany = false;
 		}

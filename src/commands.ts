@@ -848,7 +848,9 @@ export function registerCommands(
 			descriptionNode = reviewManager.changesInPrDataProvider.getDescriptionNode(folderManager);
 		}
 
-		await openDescription(telemetry, issueModel, descriptionNode, folderManager, !(argument instanceof DescriptionNode), !(argument instanceof RepositoryChangesNode), tree.notificationProvider);
+		const revealDescription = !(argument instanceof DescriptionNode) && (!(argument instanceof IssueModel) || (argument instanceof PullRequestModel));
+
+		await openDescription(telemetry, issueModel, descriptionNode, folderManager, revealDescription, !(argument instanceof RepositoryChangesNode), tree.notificationProvider);
 	}
 
 	context.subscriptions.push(

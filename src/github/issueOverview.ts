@@ -427,13 +427,14 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	private async updateProjects(projects: IProject[] | undefined, message: IRequestMessage<void>) {
+		let newProjects: IProjectItem[] = [];
 		if (projects) {
-			const newProjects = await this._item.updateProjects(projects);
-			const projectItemsReply: ProjectItemsReply = {
-				projectItems: newProjects,
-			};
-			return this._replyMessage(message, projectItemsReply);
+			newProjects = (await this._item.updateProjects(projects)) ?? [];
 		}
+		const projectItemsReply: ProjectItemsReply = {
+			projectItems: newProjects,
+		};
+		return this._replyMessage(message, projectItemsReply);
 	}
 
 	private async removeProject(message: IRequestMessage<IProjectItem>): Promise<void> {
