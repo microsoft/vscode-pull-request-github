@@ -19,9 +19,6 @@ import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
 	GithubItemStateEnum,
 	IAccount,
-	IMilestone,
-	IProject,
-	IProjectItem,
 	isTeam,
 	ITeam,
 	MergeMethod,
@@ -35,9 +32,9 @@ import { IssueOverviewPanel } from './issueOverview';
 import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
-import { getAssigneesQuickPickItems, getMilestoneFromQuickPick, getProjectFromQuickPick, pickEmail, reviewersQuickPick } from './quickPicks';
-import { isInCodespaces, parseReviewers, vscodeDevPrLink } from './utils';
-import { MergeArguments, MergeResult, ProjectItemsReply, PullRequest, ReviewType } from './views';
+import { pickEmail, reviewersQuickPick } from './quickPicks';
+import { parseReviewers } from './utils';
+import { MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static override ID: string = 'PullRequestOverviewPanel';
@@ -108,11 +105,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		title: string,
 		folderRepositoryManager: FolderRepositoryManager,
 	) {
-		super(telemetry, extensionUri, column, title, folderRepositoryManager, PULL_REQUEST_OVERVIEW_VIEW_TYPE);
-		this._panel.iconPath = {
-			dark: vscode.Uri.joinPath(extensionUri, 'resources/icons/dark/pr_webview.svg'),
-			light: vscode.Uri.joinPath(extensionUri, 'resources/icons/pr_webview.svg')
-		};
+		super(telemetry, extensionUri, column, title, folderRepositoryManager, PULL_REQUEST_OVERVIEW_VIEW_TYPE, {
+			light: 'resources/icons/pr_webview.svg',
+			dark: 'resources/icons/dark/pr_webview.svg'
+		});
 
 		this.registerPrListeners();
 		this._register(onDidUpdatePR(
@@ -191,6 +187,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this._item.isActive || vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get('experimentalUpdateBranchWithGitHub', false);
 	}
 
+	protected override continueOnGitHub() {
+		const isCrossRepository: boolean =
+			!!this._item.base &&
+			!!this._item.head &&
+			!this._item.base.repositoryCloneUrl.equals(this._item.head.repositoryCloneUrl);
+		return super.continueOnGitHub() && isCrossRepository;
+	}
+
 	private async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
 		return Promise.all([
 			this._folderRepositoryManager.resolvePullRequest(
@@ -245,43 +249,20 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this.setPanelTitle(`Pull Request #${pullRequestModel.number.toString()}`);
 
 				const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
-				const hasWritePermission = repositoryAccess!.hasWritePermission;
 				const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
-				const canEdit = hasWritePermission || viewerCanEdit;
 
 				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
 				this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
 
-				const isCrossRepository =
-					pullRequest.base &&
-					!!pullRequest.head &&
-					!pullRequest.base.repositoryCloneUrl.equals(pullRequest.head.repositoryCloneUrl);
-
 				const isUpdateBranchWithGitHubEnabled: boolean = this.isUpdateBranchWithGitHubEnabled();
-				const continueOnGitHub = isCrossRepository && isInCodespaces();
 				const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
 				const emailForCommit = isEmu ? undefined : ((gitEmail && gitHubEmails.find(email => email.toLowerCase() === gitEmail.toLowerCase())) ?? currentUser.email);
 
 				Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
+				const baseContext = this.getInitializeContext(pullRequest, timelineEvents, repositoryAccess, viewerCanEdit);
+
 				const context: Partial<PullRequest> = {
-					number: pullRequest.number,
-					title: pullRequest.title,
-					titleHTML: pullRequest.titleHTML,
-					url: pullRequest.html_url,
-					createdAt: pullRequest.createdAt,
-					body: pullRequest.body,
-					bodyHTML: pullRequest.bodyHTML,
-					labels: pullRequest.item.labels,
-					author: {
-						id: pullRequest.author.id,
-						login: pullRequest.author.login,
-						name: pullRequest.author.name,
-						avatarUrl: pullRequest.userAvatar,
-						url: pullRequest.author.url,
-						accountType: pullRequest.author.accountType
-					},
-					state: pullRequest.state,
-					events: timelineEvents,
+					...baseContext,
 					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
 					isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
 					base: pullRequest.base.label,
@@ -289,8 +270,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					isLocalHeadDeleted: !branchInfo,
 					head: pullRequest.head?.label ?? '',
 					repositoryDefaultBranch: defaultBranch,
-					canEdit: canEdit,
-					hasWritePermission,
 					status: status[0],
 					reviewRequirement: status[1],
 					canUpdateBranch: pullRequest.item.viewerCanUpdate && !isBranchUpToDateWithBase && isUpdateBranchWithGitHubEnabled,
@@ -307,15 +286,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					mergeCommitMeta: pullRequest.mergeCommitMeta,
 					squashCommitMeta: pullRequest.squashCommitMeta,
 					isIssue: false,
-					projectItems: pullRequest.item.projectItems,
-					milestone: pullRequest.milestone,
-					assignees: pullRequest.assignees,
-					continueOnGitHub,
 					emailForCommit,
 					isAuthor: currentUser.login === pullRequest.author.login,
 					currentUserReviewState: reviewState,
-					isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
-					isEnterprise: pullRequest.githubRepository.remote.isEnterprise,
 					revertable: pullRequest.state === GithubItemStateEnum.Merged
 				};
 				this._postMessage({
@@ -372,8 +345,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.approvePullRequestMessage(message);
 			case 'pr.request-changes':
 				return this.requestChangesMessage(message);
-			case 'pr.submit':
-				return this.submitReviewMessage(message);
 			case 'pr.checkout-default-branch':
 				return this.checkoutDefaultBranch(message);
 			case 'pr.apply-patch':
@@ -386,24 +357,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this._replyMessage(message, await this._item.getMergeability());
 			case 'pr.change-reviewers':
 				return this.changeReviewers(message);
-			case 'pr.remove-milestone':
-				return this.removeMilestone(message);
-			case 'pr.add-milestone':
-				return this.addMilestone(message);
-			case 'pr.change-projects':
-				return this.changeProjects(message);
-			case 'pr.remove-project':
-				return this.removeProject(message);
-			case 'pr.change-assignees':
-				return this.changeAssignees(message);
-			case 'pr.add-assignee-yourself':
-				return this.addAssigneeYourself(message);
-			case 'pr.copy-prlink':
-				return this.copyPrLink();
-			case 'pr.copy-vscodedevlink':
-				return this.copyVscodeDevLink();
-			case 'pr.openOnGitHub':
-				return openPullRequestOnGitHub(this._item, (this._item as any)._telemetry);
 			case 'pr.update-automerge':
 				return this.updateAutoMerge(message);
 			case 'pr.dequeue':
@@ -480,102 +433,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		} finally {
 			quickPick?.hide();
 			quickPick?.dispose();
-		}
-	}
-
-	private async addMilestone(message: IRequestMessage<void>): Promise<void> {
-		return getMilestoneFromQuickPick(this._folderRepositoryManager, this._item.githubRepository, this._item.milestone, (milestone) => this.updateMilestone(milestone, message));
-	}
-
-	private async updateMilestone(milestone: IMilestone | undefined, message: IRequestMessage<void>) {
-		if (!milestone) {
-			return this.removeMilestone(message);
-		}
-		await this._item.updateMilestone(milestone.id);
-		this._replyMessage(message, {
-			added: milestone,
-		});
-	}
-
-	private async removeMilestone(message: IRequestMessage<void>): Promise<void> {
-		try {
-			await this._item.updateMilestone('null');
-			this._replyMessage(message, {});
-		} catch (e) {
-			vscode.window.showErrorMessage(formatError(e));
-		}
-	}
-
-	private async changeProjects(message: IRequestMessage<void>): Promise<void> {
-		return getProjectFromQuickPick(this._folderRepositoryManager, this._item.githubRepository, this._item.item.projectItems?.map(item => item.project), (project) => this.updateProjects(project, message));
-	}
-
-	private async updateProjects(projects: IProject[] | undefined, message: IRequestMessage<void>) {
-		if (projects) {
-			const newProjects = await this._item.updateProjects(projects);
-			const projectItemsReply: ProjectItemsReply = {
-				projectItems: newProjects,
-			};
-			return this._replyMessage(message, projectItemsReply);
-		}
-	}
-
-	private async removeProject(message: IRequestMessage<IProjectItem>): Promise<void> {
-		await this._item.removeProjects([message.args]);
-		return this._replyMessage(message, {});
-	}
-
-	private async changeAssignees(message: IRequestMessage<void>): Promise<void> {
-		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { user?: IAccount }>();
-
-		try {
-			quickPick.busy = true;
-			quickPick.canSelectMany = true;
-			quickPick.matchOnDescription = true;
-			quickPick.show();
-			quickPick.items = await getAssigneesQuickPickItems(this._folderRepositoryManager, undefined, this._item.remote.remoteName, this._item.assignees ?? [], this._item);
-			quickPick.selectedItems = quickPick.items.filter(item => item.picked);
-
-			quickPick.busy = false;
-			const acceptPromise = asPromise<void>(quickPick.onDidAccept).then(() => {
-				return quickPick.selectedItems.filter(item => item.user) as (vscode.QuickPickItem & { user: IAccount })[] | undefined;
-			});
-			const hidePromise = asPromise<void>(quickPick.onDidHide);
-			const allAssignees = await Promise.race<(vscode.QuickPickItem & { user: IAccount })[] | void>([acceptPromise, hidePromise]);
-			quickPick.busy = true;
-
-			if (allAssignees) {
-				const newAssignees: IAccount[] = allAssignees.map(item => item.user);
-				const removeAssignees: IAccount[] = this._item.assignees?.filter(currentAssignee => !newAssignees.find(newAssignee => newAssignee.login === currentAssignee.login)) ?? [];
-				this._item.assignees = newAssignees;
-
-				await this._item.addAssignees(newAssignees.map(assignee => assignee.login));
-				await this._item.deleteAssignees(removeAssignees.map(assignee => assignee.login));
-				await this._replyMessage(message, {
-					assignees: newAssignees,
-				});
-			}
-		} catch (e) {
-			vscode.window.showErrorMessage(formatError(e));
-		} finally {
-			quickPick.hide();
-			quickPick.dispose();
-		}
-	}
-
-	private async addAssigneeYourself(message: IRequestMessage<void>): Promise<void> {
-		try {
-			const currentUser = await this._folderRepositoryManager.getCurrentUser();
-			const alreadyAssigned = this._item.assignees?.find(user => user.login === currentUser.login);
-			if (!alreadyAssigned) {
-				this._item.assignees = this._item.assignees?.concat(currentUser);
-				await this._item.addAssignees([currentUser.login]);
-			}
-			this._replyMessage(message, {
-				assignees: this._item.assignees,
-			});
-		} catch (e) {
-			vscode.window.showErrorMessage(formatError(e));
 		}
 	}
 
@@ -790,7 +647,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this.doReviewCommand(context, ReviewType.Comment, (body) => this.submitReview(body));
 	}
 
-	private submitReviewMessage(message: IRequestMessage<string>) {
+	protected override submitReviewMessage(message: IRequestMessage<string>) {
 		return this.doReviewMessage(message, (body) => this.submitReview(body));
 	}
 
@@ -832,14 +689,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const result: Partial<PullRequest> = { revertable: !pullRequest };
 			return this._replyMessage(message, result);
 		});
-	}
-
-	private async copyPrLink(): Promise<void> {
-		return vscode.env.clipboard.writeText(this._item.html_url);
-	}
-
-	private async copyVscodeDevLink(): Promise<void> {
-		return vscode.env.clipboard.writeText(vscodeDevPrLink(this._item));
 	}
 
 	private async updateAutoMerge(message: IRequestMessage<{ autoMerge?: boolean, autoMergeMethod: MergeMethod }>): Promise<void> {

@@ -79,6 +79,13 @@ export class IssuesTreeData
 		treeItem.iconPath = element.isOpen
 			? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
 			: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed'));
+
+		treeItem.command = {
+			command: 'issue.openDescription',
+			title: vscode.l10n.t('View Issue Description'),
+			arguments: [element]
+		};
+
 		if (this.stateManager.currentIssue(element.uri)?.issue.number === element.number) {
 			treeItem.label = `✓ ${treeItem.label as string}`;
 			treeItem.contextValue = 'currentissue';

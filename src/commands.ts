@@ -67,32 +67,37 @@ function ensurePR<TIssue extends Issue, TIssueModel extends IssueModel<TIssue>>(
 
 export async function openDescription(
 	telemetry: ITelemetry,
-	pullRequestModel: IssueModel,
+	issueModel: IssueModel,
 	descriptionNode: DescriptionNode | undefined,
 	folderManager: FolderRepositoryManager,
 	revealNode: boolean,
 	preserveFocus: boolean = true,
 	notificationProvider?: NotificationProvider
 ) {
-	const pullRequest = ensurePR(folderManager, pullRequestModel);
+	const issue = ensurePR(folderManager, issueModel);
 	if (revealNode) {
 		descriptionNode?.reveal(descriptionNode, { select: true, focus: true });
 	}
 	// Create and show a new webview
-	if (pullRequest instanceof PullRequestModel) {
-		await PullRequestOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, pullRequest, undefined, preserveFocus);
+	if (issue instanceof PullRequestModel) {
+		await PullRequestOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, issue, undefined, preserveFocus);
+		/* __GDPR__
+			"pr.openDescription" : {}
+		*/
+		telemetry.sendTelemetryEvent('pr.openDescription');
 	} else {
-		await IssueOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, pullRequest);
+		await IssueOverviewPanel.createOrShow(telemetry, folderManager.context.extensionUri, folderManager, issue);
+		/* __GDPR__
+			"issue.openDescription" : {}
+		*/
+		telemetry.sendTelemetryEvent('issue.openDescription');
 	}
 
-	if (notificationProvider?.hasNotification(pullRequest)) {
-		notificationProvider.markPrNotificationsAsRead(pullRequest);
+	if (notificationProvider?.hasNotification(issue)) {
+		notificationProvider.markPrNotificationsAsRead(issue);
 	}
 
-	/* __GDPR__
-		"pr.openDescription" : {}
-	*/
-	telemetry.sendTelemetryEvent('pr.openDescription');
+
 }
 
 async function chooseItem<T>(
@@ -115,7 +120,7 @@ async function chooseItem<T>(
 	return (await vscode.window.showQuickPick(items, options))?.itemValue;
 }
 
-export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | PullRequestModel | NotificationTreeItem, telemetry: ITelemetry) {
+export async function openPullRequestOnGitHub(e: PRNode | DescriptionNode | IssueModel | NotificationTreeItem, telemetry: ITelemetry) {
 	if (e instanceof PRNode || e instanceof DescriptionNode) {
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(e.pullRequestModel.html_url));
 	} else if (isNotificationTreeItem(e)) {
@@ -805,50 +810,61 @@ export function registerCommands(
 		}),
 	);
 
+	async function openDescriptionCommand(argument: DescriptionNode | IssueModel | undefined) {
+		let issueModel: IssueModel | undefined;
+		if (!argument) {
+			const activePullRequests: PullRequestModel[] = reposManager.folderManagers
+				.map(manager => manager.activePullRequest!)
+				.filter(activePR => !!activePR);
+			if (activePullRequests.length >= 1) {
+				issueModel = await chooseItem<PullRequestModel>(
+					activePullRequests,
+					itemValue => itemValue.title,
+				);
+			}
+		} else {
+			issueModel = argument instanceof DescriptionNode ? argument.pullRequestModel : argument;
+		}
+
+		if (!issueModel) {
+			Logger.appendLine('No pull request found.', logId);
+			return;
+		}
+
+		const folderManager = reposManager.getManagerForIssueModel(issueModel);
+		if (!folderManager) {
+			return;
+		}
+
+		let descriptionNode: DescriptionNode | undefined;
+		if (argument instanceof DescriptionNode) {
+			descriptionNode = argument;
+		} else {
+			const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager);
+			if (!reviewManager) {
+				return;
+			}
+
+			descriptionNode = reviewManager.changesInPrDataProvider.getDescriptionNode(folderManager);
+		}
+
+		const revealDescription = !(argument instanceof DescriptionNode) && (!(argument instanceof IssueModel) || (argument instanceof PullRequestModel));
+
+		await openDescription(telemetry, issueModel, descriptionNode, folderManager, revealDescription, !(argument instanceof RepositoryChangesNode), tree.notificationProvider);
+	}
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openDescription',
-			async (argument: DescriptionNode | IssueModel | undefined) => {
-				let pullRequestModel: IssueModel | undefined;
-				if (!argument) {
-					const activePullRequests: PullRequestModel[] = reposManager.folderManagers
-						.map(manager => manager.activePullRequest!)
-						.filter(activePR => !!activePR);
-					if (activePullRequests.length >= 1) {
-						pullRequestModel = await chooseItem<PullRequestModel>(
-							activePullRequests,
-							itemValue => itemValue.title,
-						);
-					}
-				} else {
-					pullRequestModel = argument instanceof DescriptionNode ? argument.pullRequestModel : argument;
-				}
+			openDescriptionCommand
+		)
+	);
 
-				if (!pullRequestModel) {
-					Logger.appendLine('No pull request found.', logId);
-					return;
-				}
-
-				const folderManager = reposManager.getManagerForIssueModel(pullRequestModel);
-				if (!folderManager) {
-					return;
-				}
-
-				let descriptionNode: DescriptionNode | undefined;
-				if (argument instanceof DescriptionNode) {
-					descriptionNode = argument;
-				} else {
-					const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager);
-					if (!reviewManager) {
-						return;
-					}
-
-					descriptionNode = reviewManager.changesInPrDataProvider.getDescriptionNode(folderManager);
-				}
-
-				await openDescription(telemetry, pullRequestModel, descriptionNode, folderManager, !(argument instanceof DescriptionNode), !(argument instanceof RepositoryChangesNode), tree.notificationProvider);
-			},
-		),
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'issue.openDescription',
+			openDescriptionCommand
+		)
 	);
 
 	context.subscriptions.push(
@@ -1460,6 +1476,7 @@ ${contents}
 				vscode.env.openExternal(getPullsUrl(githubRepo));
 			}
 		}));
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand('issues.openIssuesWebsite', async () => {
 			const githubRepo = await chooseRepoToOpen();

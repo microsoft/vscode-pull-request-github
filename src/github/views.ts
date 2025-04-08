@@ -25,7 +25,7 @@ export enum ReviewType {
 	RequestChanges = 'requestChanges',
 }
 
-export interface PullRequest {
+export interface Issue {
 	number: number;
 	title: string;
 	titleHTML: string;
@@ -34,20 +34,12 @@ export interface PullRequest {
 	body: string;
 	bodyHTML?: string;
 	author: IAccount;
-	state: GithubItemStateEnum;
+	state: GithubItemStateEnum; // TODO: don't allow merged
 	events: TimelineEvent[];
-	isCurrentlyCheckedOut: boolean;
-	isRemoteBaseDeleted?: boolean;
-	base: string;
-	isRemoteHeadDeleted?: boolean;
-	isLocalHeadDeleted?: boolean;
-	head: string;
 	labels: ILabel[];
 	assignees: IAccount[];
-	commitsCount: number;
 	projectItems: IProjectItem[] | undefined;
 	milestone: IMilestone | undefined;
-	repositoryDefaultBranch: string;
 	/**
 	 * User can edit PR title and description (author or user with push access)
 	 */
@@ -57,9 +49,27 @@ export interface PullRequest {
 	 * edit title/description, assign reviewers/labels etc.
 	 */
 	hasWritePermission: boolean;
-	emailForCommit?: string;
 	pendingCommentText?: string;
 	pendingCommentDrafts?: { [key: string]: string };
+	isIssue: boolean;
+	isAuthor?: boolean;
+	continueOnGitHub: boolean;
+	isDarkTheme: boolean;
+	isEnterprise: boolean;
+	busy?: boolean;
+}
+
+export interface PullRequest extends Issue {
+	isCurrentlyCheckedOut: boolean;
+	isRemoteBaseDeleted?: boolean;
+	base: string;
+	isRemoteHeadDeleted?: boolean;
+	isLocalHeadDeleted?: boolean;
+	head: string;
+	commitsCount: number;
+	projectItems: IProjectItem[] | undefined;
+	repositoryDefaultBranch: string;
+	emailForCommit?: string;
 	pendingReviewType?: ReviewType;
 	status: PullRequestChecks | null;
 	reviewRequirement: PullRequestReviewRequirement | null;
@@ -80,14 +90,8 @@ export interface PullRequest {
 	squashCommitMeta?: { title: string, description: string };
 	reviewers: ReviewState[];
 	isDraft?: boolean;
-	isIssue: boolean;
-	isAuthor?: boolean;
-	continueOnGitHub: boolean;
-	currentUserReviewState: string;
-	isDarkTheme: boolean;
-	isEnterprise: boolean;
+	currentUserReviewState?: string;
 	hasReviewDraft: boolean;
-
 	lastReviewType?: ReviewType;
 	revertable?: boolean;
 	busy?: boolean;
