@@ -15,6 +15,7 @@ import {
 	AddPullRequestToProjectResponse,
 	EditIssueCommentResponse,
 	TimelineEventsResponse,
+	UpdateIssueResponse,
 	UpdatePullRequestResponse,
 } from './graphql';
 import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, IPullRequestEditData, Issue } from './interface';
@@ -157,24 +158,24 @@ export class IssueModel<TItem extends Issue = Issue> {
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
-			const { data } = await mutate<UpdatePullRequestResponse>({
-				mutation: schema.UpdatePullRequest,
+			const { data } = await mutate<UpdateIssueResponse>({
+				mutation: schema.UpdateIssue,
 				variables: {
 					input: {
-						pullRequestId: this.graphNodeId,
+						id: this.graphNodeId,
 						body: toEdit.body,
 						title: toEdit.title,
 					},
 				},
 			});
-			if (data?.updatePullRequest.pullRequest) {
-				this.item.body = data.updatePullRequest.pullRequest.body;
-				this.bodyHTML = data.updatePullRequest.pullRequest.bodyHTML;
-				this.title = data.updatePullRequest.pullRequest.title;
-				this.titleHTML = data.updatePullRequest.pullRequest.titleHTML;
+			if (data?.updateIssue.issue) {
+				this.item.body = data.updateIssue.issue.body;
+				this.bodyHTML = data.updateIssue.issue.bodyHTML;
+				this.title = data.updateIssue.issue.title;
+				this.titleHTML = data.updateIssue.issue.titleHTML;
 				this.invalidate();
 			}
-			return data!.updatePullRequest.pullRequest;
+			return data!.updateIssue.issue;
 		} catch (e) {
 			throw new Error(formatError(e));
 		}
@@ -339,5 +340,44 @@ export class IssueModel<TItem extends Issue = Issue> {
 			console.log(e);
 			return [];
 		}
+	}
+
+	async updateMilestone(id: string): Promise<void> {
+		const { mutate, schema } = await this.githubRepository.ensure();
+		const finalId = id === 'null' ? null : id;
+
+		try {
+			await mutate<UpdateIssueResponse>({
+				mutation: schema.UpdateIssue,
+				variables: {
+					input: {
+						id: this.item.graphNodeId,
+						milestoneId: finalId,
+					},
+				},
+			});
+		} catch (err) {
+			Logger.error(err, IssueModel.ID);
+		}
+	}
+
+	async addAssignees(assignees: string[]): Promise<void> {
+		const { octokit, remote } = await this.githubRepository.ensure();
+		await octokit.call(octokit.api.issues.addAssignees, {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			issue_number: this.number,
+			assignees,
+		});
+	}
+
+	async deleteAssignees(assignees: string[]): Promise<void> {
+		const { octokit, remote } = await this.githubRepository.ensure();
+		await octokit.call(octokit.api.issues.removeAssignees, {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			issue_number: this.number,
+			assignees,
+		});
 	}
 }

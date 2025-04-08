@@ -125,7 +125,7 @@ export class NotificationProvider extends Disposable {
 	}
 
 	private getPrIdentifier(pullRequest: IssueModel | OctokitResponse<any>['data']): string {
-		if (pullRequest instanceof PullRequestModel) {
+		if (pullRequest instanceof IssueModel) {
 			return `${pullRequest.remote.url}:${pullRequest.number}`;
 		}
 		const splitPrUrl = pullRequest.subject.url.split('/');

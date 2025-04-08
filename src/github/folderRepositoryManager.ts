@@ -2087,9 +2087,9 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	async getPullRequestRepositoryAccessAndMergeMethods(
-		pullRequest: PullRequestModel,
+		issue: IssueModel,
 	): Promise<RepoAccessAndMergeMethods> {
-		const mergeOptions = await pullRequest.githubRepository.getRepoAccessAndMergeMethods();
+		const mergeOptions = await issue.githubRepository.getRepoAccessAndMergeMethods();
 		return mergeOptions;
 	}
 

@@ -1317,6 +1317,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "issue.openDescription",
+				"title": "%command.issue.openDescription.title%",
+				"category": "%command.issues.category%"
+			},
+			{
 				"command": "issue.createIssueFromSelection",
 				"title": "%command.issue.createIssueFromSelection.title%",
 				"category": "%command.issues.category%"

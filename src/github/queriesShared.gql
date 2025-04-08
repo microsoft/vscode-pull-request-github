@@ -538,13 +538,14 @@ query PullRequestFiles($owner: String!, $name: String!, $number: Int!, $after: S
 
 query Issue($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
-		pullRequest: issue(number: $number) {
+		issue(number: $number) {
 			number
 			url
 			state
 			body
 			bodyHTML
 			title
+			titleHTML
 			author {
 				...User
 				...Organization
@@ -579,13 +580,14 @@ query Issue($owner: String!, $name: String!, $number: Int!) {
 
 query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
 	repository(owner: $owner, name: $name) {
-		pullRequest: issue(number: $number) {
+		issue(number: $number) {
 			number
 			url
 			state
 			body
 			bodyHTML
 			title
+			titleHTML
 			author {
 				...User
 				...Organization
@@ -797,6 +799,17 @@ mutation DeleteReaction($input: RemoveReactionInput!) {
 		}
 		subject {
 			...Reactable
+		}
+	}
+}
+
+mutation UpdateIssue($input: UpdateIssueInput!) {
+	updateIssue(input: $input) {
+		issue {
+			body
+			bodyHTML
+			title
+			titleHTML
 		}
 	}
 }

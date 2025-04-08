@@ -461,6 +461,17 @@ export interface UpdatePullRequestResponse {
 	};
 }
 
+export interface UpdateIssueResponse {
+	updateIssue: {
+		issue: {
+			body: string;
+			bodyHTML: string;
+			title: string;
+			titleHTML: string;
+		};
+	};
+}
+
 export interface AddPullRequestToProjectResponse {
 	addProjectV2ItemById: {
 		item: {
@@ -522,12 +533,13 @@ export interface SuggestedReviewerResponse {
 export type MergeMethod = 'MERGE' | 'REBASE' | 'SQUASH';
 export type MergeQueueState = 'AWAITING_CHECKS' | 'LOCKED' | 'MERGEABLE' | 'QUEUED' | 'UNMERGEABLE';
 
-export interface PullRequest {
+
+export interface Issue {
 	id: string;
 	databaseId: number;
 	number: number;
 	url: string;
-	state: 'OPEN' | 'CLOSED' | 'MERGED';
+	state: 'OPEN' | 'CLOSED' | 'MERGED'; // TODO: don't allow merged in an issue
 	body: string;
 	bodyHTML: string;
 	title: string;
@@ -536,48 +548,19 @@ export interface PullRequest {
 		nodes: Account[];
 	};
 	author: Account;
-	commits: {
-		nodes: {
-			commit: {
-				message: string;
-			};
-		}[];
-	};
 	comments: {
 		nodes?: AbbreviatedIssueComment[];
 		totalCount: number;
 	};
 	createdAt: string;
 	updatedAt: string;
-	headRef?: Ref;
-	headRefName: string;
-	headRefOid: string;
-	headRepository?: RefRepository;
-	baseRef?: Ref;
-	baseRefName: string;
-	baseRefOid: string;
-	baseRepository: BaseRefRepository;
 	labels: {
 		nodes: {
 			name: string;
 			color: string;
 		}[];
 	};
-	merged: boolean;
-	mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
-	mergeQueueEntry?: MergeQueueEntry | null;
-	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
-	reviewThreads: {
-		totalCount: number;
-	}
-	autoMergeRequest?: {
-		mergeMethod: MergeMethod;
-	};
-	viewerCanEnableAutoMerge: boolean;
-	viewerCanDisableAutoMerge: boolean;
 	viewerCanUpdate: boolean;
-	isDraft?: boolean;
-	suggestedReviewers: SuggestedReviewerResponse[];
 	projectItems?: {
 		nodes: {
 			project: {
@@ -606,6 +589,39 @@ export interface PullRequest {
 	}
 }
 
+
+export interface PullRequest extends Issue {
+	commits: {
+		nodes: {
+			commit: {
+				message: string;
+			};
+		}[];
+	};
+	headRef?: Ref;
+	headRefName: string;
+	headRefOid: string;
+	headRepository?: RefRepository;
+	baseRef?: Ref;
+	baseRefName: string;
+	baseRefOid: string;
+	baseRepository: BaseRefRepository;
+	merged: boolean;
+	mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+	mergeQueueEntry?: MergeQueueEntry | null;
+	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+	reviewThreads: {
+		totalCount: number;
+	}
+	autoMergeRequest?: {
+		mergeMethod: MergeMethod;
+	};
+	viewerCanEnableAutoMerge: boolean;
+	viewerCanDisableAutoMerge: boolean;
+	isDraft?: boolean;
+	suggestedReviewers: SuggestedReviewerResponse[];
+}
+
 export enum DefaultCommitTitle {
 	prTitle = 'PR_TITLE',
 	commitOrPrTitle = 'COMMIT_OR_PR_TITLE',
@@ -622,6 +638,13 @@ export enum DefaultCommitMessage {
 export interface PullRequestResponse {
 	repository: {
 		pullRequest: PullRequest;
+	} | null;
+	rateLimit: RateLimit;
+}
+
+export interface IssueResponse {
+	repository: {
+		issue: PullRequest;
 	} | null;
 	rateLimit: RateLimit;
 }

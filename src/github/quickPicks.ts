@@ -12,7 +12,7 @@ import { formatError } from '../common/utils';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
 import { AccountType, IAccount, ILabel, IMilestone, IProject, isSuggestedReviewer, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
-import { PullRequestModel } from './pullRequestModel';
+import { IssueModel } from './issueModel';
 
 async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context: vscode.ExtensionContext, skipList: Set<string>, users: T[], picked: boolean, tooManyAssignable: boolean = false): Promise<(vscode.QuickPickItem & { user?: T })[]> {
 	const alreadyAssignedItems: (vscode.QuickPickItem & { user?: T })[] = [];
@@ -53,7 +53,7 @@ async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context
 	return alreadyAssignedItems;
 }
 
-export async function getAssigneesQuickPickItems(folderRepositoryManager: FolderRepositoryManager, gitHubRepository: GitHubRepository | undefined, remoteName: string, alreadyAssigned: IAccount[], item?: PullRequestModel, assignYourself?: boolean):
+export async function getAssigneesQuickPickItems(folderRepositoryManager: FolderRepositoryManager, gitHubRepository: GitHubRepository | undefined, remoteName: string, alreadyAssigned: IAccount[], item?: IssueModel, assignYourself?: boolean):
 	Promise<(vscode.QuickPickItem & { user?: IAccount })[]> {
 
 	const [allAssignableUsers, participantsAndViewer] = await Promise.all([

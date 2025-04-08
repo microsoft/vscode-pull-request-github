@@ -56,6 +56,7 @@ import {
 	GithubItemStateEnum,
 	IAccount,
 	IGitTreeItem,
+	IPullRequestEditData,
 	IRawFileChange,
 	IRawFileContent,
 	ISuggestedReviewer,
@@ -306,6 +307,33 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return false;
 	}
 
+	override async edit(toEdit: IPullRequestEditData): Promise<{ body: string; bodyHTML: string; title: string; titleHTML: string }> {
+		try {
+			const { mutate, schema } = await this.githubRepository.ensure();
+
+			const { data } = await mutate<UpdatePullRequestResponse>({
+				mutation: schema.UpdatePullRequest,
+				variables: {
+					input: {
+						id: this.graphNodeId,
+						body: toEdit.body,
+						title: toEdit.title,
+					},
+				},
+			});
+			if (data?.updatePullRequest.pullRequest) {
+				this.item.body = data.updatePullRequest.pullRequest.body;
+				this.bodyHTML = data.updatePullRequest.pullRequest.bodyHTML;
+				this.title = data.updatePullRequest.pullRequest.title;
+				this.titleHTML = data.updatePullRequest.pullRequest.titleHTML;
+				this.invalidate();
+			}
+			return data!.updatePullRequest.pullRequest;
+		} catch (e) {
+			throw new Error(formatError(e));
+		}
+	}
+
 	/**
 	 * Approve the pull request.
 	 * @param message Optional approval comment text.
@@ -443,7 +471,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
-	async updateMilestone(id: string): Promise<void> {
+	override async updateMilestone(id: string): Promise<void> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 		const finalId = id === 'null' ? null : id;
 
@@ -460,16 +488,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		} catch (err) {
 			Logger.error(err, PullRequestModel.ID);
 		}
-	}
-
-	async addAssignees(assignees: string[]): Promise<void> {
-		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.call(octokit.api.issues.addAssignees, {
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			issue_number: this.number,
-			assignees,
-		});
 	}
 
 	/**
@@ -1008,16 +1026,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			pull_number: this.number,
 			reviewers: reviewers.filter(r => r.accountType !== AccountType.Bot).map(r => r.id),
 			team_reviewers: teamReviewers.map(t => t.id)
-		});
-	}
-
-	async deleteAssignees(assignees: string[]): Promise<void> {
-		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.call(octokit.api.issues.removeAssignees, {
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			issue_number: this.number,
-			assignees,
 		});
 	}
 
