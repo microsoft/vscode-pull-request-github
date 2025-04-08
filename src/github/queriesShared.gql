@@ -815,8 +815,8 @@ mutation UpdateIssue($input: UpdateIssueInput!) {
 }
 
 mutation UpdatePullRequest($input: UpdatePullRequestInput!) {
-	updatePullRequest(input: $input) {
-		pullRequest {
+	updateIssue: updatePullRequest(input: $input) {
+		issue: pullRequest {
 			body
 			bodyHTML
 			title

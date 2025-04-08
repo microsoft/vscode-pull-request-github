@@ -16,9 +16,8 @@ import {
 	EditIssueCommentResponse,
 	TimelineEventsResponse,
 	UpdateIssueResponse,
-	UpdatePullRequestResponse,
 } from './graphql';
-import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, IPullRequestEditData, Issue } from './interface';
+import { GithubItemStateEnum, IAccount, IIssueEditData, IMilestone, IProject, IProjectItem, Issue } from './interface';
 import { parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
 
 export class IssueModel<TItem extends Issue = Issue> {
@@ -154,15 +153,25 @@ export class IssueModel<TItem extends Issue = Issue> {
 		return true;
 	}
 
-	async edit(toEdit: IPullRequestEditData): Promise<{ body: string; bodyHTML: string; title: string; titleHTML: string }> {
+	protected updateIssueInput(id: string): Object {
+		return {
+			id
+		};
+	}
+
+	protected updateIssueSchema(schema: any): any {
+		return schema.UpdateIssue;
+	}
+
+	async edit(toEdit: IIssueEditData): Promise<{ body: string; bodyHTML: string; title: string; titleHTML: string }> {
 		try {
 			const { mutate, schema } = await this.githubRepository.ensure();
 
 			const { data } = await mutate<UpdateIssueResponse>({
-				mutation: schema.UpdateIssue,
+				mutation: this.updateIssueSchema(schema),
 				variables: {
 					input: {
-						id: this.graphNodeId,
+						...this.updateIssueInput(this.graphNodeId),
 						body: toEdit.body,
 						title: toEdit.title,
 					},
@@ -348,10 +357,10 @@ export class IssueModel<TItem extends Issue = Issue> {
 
 		try {
 			await mutate<UpdateIssueResponse>({
-				mutation: schema.UpdateIssue,
+				mutation: this.updateIssueSchema(schema),
 				variables: {
 					input: {
-						id: this.item.graphNodeId,
+						...this.updateIssueInput(this.graphNodeId),
 						milestoneId: finalId,
 					},
 				},

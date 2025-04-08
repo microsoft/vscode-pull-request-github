@@ -287,7 +287,7 @@ export interface IPullRequestsPagingOptions {
 	fetchOnePagePerRepo?: boolean;
 }
 
-export interface IPullRequestEditData {
+export interface IIssueEditData {
 	body?: string;
 	title?: string;
 }

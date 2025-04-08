@@ -49,14 +49,12 @@ import {
 	SubmitReviewResponse,
 	TimelineEventsResponse,
 	UnresolveReviewThreadResponse,
-	UpdatePullRequestResponse,
 } from './graphql';
 import {
 	AccountType,
 	GithubItemStateEnum,
 	IAccount,
 	IGitTreeItem,
-	IPullRequestEditData,
 	IRawFileChange,
 	IRawFileContent,
 	ISuggestedReviewer,
@@ -307,31 +305,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return false;
 	}
 
-	override async edit(toEdit: IPullRequestEditData): Promise<{ body: string; bodyHTML: string; title: string; titleHTML: string }> {
-		try {
-			const { mutate, schema } = await this.githubRepository.ensure();
+	protected override updateIssueInput(id: string): Object {
+		return {
+			pullRequestId: id,
+		};
+	}
 
-			const { data } = await mutate<UpdatePullRequestResponse>({
-				mutation: schema.UpdatePullRequest,
-				variables: {
-					input: {
-						id: this.graphNodeId,
-						body: toEdit.body,
-						title: toEdit.title,
-					},
-				},
-			});
-			if (data?.updatePullRequest.pullRequest) {
-				this.item.body = data.updatePullRequest.pullRequest.body;
-				this.bodyHTML = data.updatePullRequest.pullRequest.bodyHTML;
-				this.title = data.updatePullRequest.pullRequest.title;
-				this.titleHTML = data.updatePullRequest.pullRequest.titleHTML;
-				this.invalidate();
-			}
-			return data!.updatePullRequest.pullRequest;
-		} catch (e) {
-			throw new Error(formatError(e));
-		}
+	protected override updateIssueSchema(schema: any): any {
+		return schema.UpdatePullRequest;
 	}
 
 	/**
@@ -468,25 +449,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return reviewEvent;
 		} else {
 			throw new Error(`Submitting review failed, no pending review for current pull request: ${this.number}.`);
-		}
-	}
-
-	override async updateMilestone(id: string): Promise<void> {
-		const { mutate, schema } = await this.githubRepository.ensure();
-		const finalId = id === 'null' ? null : id;
-
-		try {
-			await mutate<UpdatePullRequestResponse>({
-				mutation: schema.UpdatePullRequest,
-				variables: {
-					input: {
-						pullRequestId: this.item.graphNodeId,
-						milestoneId: finalId,
-					},
-				},
-			});
-		} catch (err) {
-			Logger.error(err, PullRequestModel.ID);
 		}
 	}
 
