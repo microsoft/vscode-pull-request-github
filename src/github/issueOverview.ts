@@ -12,7 +12,6 @@ import { ITelemetry } from '../common/telemetry';
 import { CommentEvent, EventType, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
-import { DescriptionNode } from '../view/treeNodes/descriptionNode';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { IAccount, ILabel, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
@@ -30,7 +29,6 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	private static readonly _viewType: string = 'IssueOverview';
 
 	protected readonly _panel: vscode.WebviewPanel;
-	protected _descriptionNode: DescriptionNode;
 	protected _item: TItem;
 	protected _folderRepositoryManager: FolderRepositoryManager;
 	protected _scrollPosition = { x: 0, y: 0 };

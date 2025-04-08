@@ -15,7 +15,6 @@ import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { ProgressHelper } from './progress';
 import { ReviewModel } from './reviewModel';
-import { DescriptionNode } from './treeNodes/descriptionNode';
 import { GitFileChangeNode } from './treeNodes/fileChangeNode';
 import { RepositoryChangesNode } from './treeNodes/repositoryChangesNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
@@ -205,7 +204,7 @@ export class PullRequestChangesTreeDataProvider extends Disposable implements vs
 		}
 	}
 
-	getDescriptionNode(folderRepoManager: FolderRepositoryManager): DescriptionNode | undefined {
+	getDescriptionNode(folderRepoManager: FolderRepositoryManager): RepositoryChangesNode | undefined {
 		return this._pullRequestManagerMap.get(folderRepoManager);
 	}
 

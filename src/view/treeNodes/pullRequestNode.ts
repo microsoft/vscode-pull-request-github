@@ -15,7 +15,6 @@ import { NotificationProvider } from '../../github/notifications';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from '../inMemPRContentProvider';
-import { DescriptionNode } from './descriptionNode';
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
@@ -66,17 +65,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		Logger.debug(`Fetch children of PRNode #${this.pullRequestModel.number}`, PRNode.ID);
 
 		try {
-			const descriptionNode = new DescriptionNode(
-				this,
-				vscode.l10n.t('Description'),
-				this.pullRequestModel,
-				this.repository,
-				this._folderReposManager,
-				this._isLocal
-			);
-
 			if (!this.pullRequestModel.isResolved()) {
-				return [descriptionNode];
+				return [];
 			}
 
 			[, this._fileChanges, ,] = await Promise.all([
@@ -96,7 +86,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				}
 			}
 
-			const result: TreeNode[] = [descriptionNode];
+			const result: TreeNode[] = [];
 			const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 			if (layout === 'tree') {
 				// tree view
@@ -294,6 +284,11 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		const label = `${labelPrefix}${isDraft ? '[DRAFT] ' : ''}${labelTitle}`;
 		const tooltip = `${tooltipPrefix}${title} by @${login}`;
 		const description = `by @${login}`;
+		const command = {
+			title: vscode.l10n.t('View Pull Request Description'),
+			command: 'pr.openDescription',
+			arguments: [this],
+		};
 
 		return {
 			label,
@@ -313,6 +308,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				label: `${isDraft ? 'Draft ' : ''}Pull request number ${formattedPRNumber}: ${title} by ${login}`
 			},
 			resourceUri: createPRNodeUri(this.pullRequestModel),
+			command
 		};
 	}
 
