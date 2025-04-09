@@ -89,11 +89,19 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		item.description = `${notification.owner}/${notification.name}`;
 		item.contextValue = notification.subject.type;
 		item.resourceUri = toNotificationUri({ key: element.notification.key });
-		item.command = {
-			command: 'notification.chatSummarizeNotification',
-			title: 'Summarize Notification',
-			arguments: [element]
-		};
+		if (element.model instanceof PullRequestModel) {
+			item.command = {
+				command: 'pr.openDescription',
+				title: vscode.l10n.t('Open Pull Request Description'),
+				arguments: [element.model]
+			};
+		} else {
+			item.command = {
+				command: 'issue.openDescription',
+				title: vscode.l10n.t('Open Issue Description'),
+				arguments: [element.model]
+			};
+		}
 		return item;
 	}
 

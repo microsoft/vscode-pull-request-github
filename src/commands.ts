@@ -830,15 +830,12 @@ export function registerCommands(
 			return;
 		}
 
-		const folderManager = reposManager.getManagerForIssueModel(issueModel);
-		if (!folderManager) {
-			return;
-		}
+		const folderManager = reposManager.getManagerForIssueModel(issueModel) ?? reposManager.folderManagers[0];
 
 		let descriptionNode: PRNode | RepositoryChangesNode | undefined;
 		if (argument instanceof PRNode) {
 			descriptionNode = argument;
-		} else {
+		} else if ((issueModel instanceof PullRequestModel) && folderManager.activePullRequest?.equals(issueModel)) {
 			const reviewManager = ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, folderManager);
 			if (!reviewManager) {
 				return;
@@ -847,7 +844,7 @@ export function registerCommands(
 			descriptionNode = reviewManager.changesInPrDataProvider.getDescriptionNode(folderManager);
 		}
 
-		const revealDescription = !(argument instanceof PRNode) && (!(argument instanceof IssueModel) || (argument instanceof PullRequestModel));
+		const revealDescription = !(argument instanceof PRNode);
 
 		await openDescription(telemetry, issueModel, descriptionNode, folderManager, revealDescription, !(argument instanceof RepositoryChangesNode), tree.notificationProvider);
 	}
