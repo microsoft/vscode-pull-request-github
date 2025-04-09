@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { issueMarkdown } from '../common/markdownUtils';
 import { ITelemetry } from '../common/telemetry';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { RepositoriesManager } from '../github/repositoriesManager';
@@ -11,7 +12,6 @@ import { ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from
 import { StateManager } from './stateManager';
 import {
 	getIssue,
-	issueMarkdown,
 	shouldShowHover,
 } from './util';
 

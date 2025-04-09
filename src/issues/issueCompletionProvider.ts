@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { issueMarkdown } from '../common/markdownUtils';
 import {
 	IGNORE_COMPLETION_TRIGGER,
 	ISSUE_COMPLETION_FORMAT_SCM,
@@ -19,7 +20,6 @@ import { IssueQueryResult, StateManager } from './stateManager';
 import {
 	getRootUriFromScmInputUri,
 	isComment,
-	issueMarkdown,
 } from './util';
 
 class IssueCompletionItem extends vscode.CompletionItem {
