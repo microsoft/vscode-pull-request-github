@@ -143,7 +143,7 @@
 	"githubPullRequests.labelCreated.description": "Group of labels that you want to add to the pull request automatically. Labels that don't exist in the repository won't be added.",
 	"githubPullRequests.labelCreated.label.description": "Each string element is value of label that you want to add",
 	"githubIssues.alwaysPromptForNewIssueRepo.description": "Enabling will always prompt which repository to create an issue in instead of basing off the current open file.",
-	"view.github.pull.requests.name": "GitHub Pull Requests",
+	"view.github.pull.requests.name": "GitHub",
 	"view.github.pull.request.name": "GitHub Pull Request",
 	"view.github.login.name": "Login",
 	"view.pr.github.name": "Pull Requests",
