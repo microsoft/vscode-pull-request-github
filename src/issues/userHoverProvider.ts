@@ -4,10 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { userMarkdown } from '../common/markdownUtils';
 import { ITelemetry } from '../common/telemetry';
 import { DOXYGEN_NON_USERS, JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { shouldShowHover, USER_EXPRESSION, userMarkdown } from './util';
+import { shouldShowHover, USER_EXPRESSION } from './util';
 
 export class UserHoverProvider implements vscode.HoverProvider {
 	constructor(private manager: RepositoriesManager, private telemetry: ITelemetry) { }

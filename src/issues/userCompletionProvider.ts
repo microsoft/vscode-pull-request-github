@@ -6,6 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import Logger from '../common/logger';
+import { userMarkdown } from '../common/markdownUtils';
 import { IGNORE_USER_COMPLETION_TRIGGER, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { TimelineEvent } from '../common/timelineEvent';
 import { fromNewIssueUri, fromPRUri, Schemes } from '../common/uri';
@@ -17,7 +18,7 @@ import { RepositoriesManager } from '../github/repositoriesManager';
 import { getRelatedUsersFromTimelineEvents } from '../github/utils';
 import { ASSIGNEES } from './issueFile';
 import { StateManager } from './stateManager';
-import { getRootUriFromScmInputUri, isComment, UserCompletion, userMarkdown } from './util';
+import { getRootUriFromScmInputUri, isComment, UserCompletion } from './util';
 
 export class UserCompletionProvider implements vscode.CompletionItemProvider {
 	private static readonly ID: string = 'UserCompletionProvider';
