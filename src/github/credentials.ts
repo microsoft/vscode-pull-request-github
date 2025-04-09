@@ -212,7 +212,6 @@ export class CredentialStore extends Disposable {
 	}
 
 	private async doCreate(options: vscode.AuthenticationGetSessionOptions, additionalScopes: boolean = false): Promise<AuthResult> {
-		const github = await this.initialize(AuthProvider.github, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
 		let enterprise: AuthResult | undefined;
 		const initializeEnterprise = () => this.initialize(AuthProvider.githubEnterprise, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
 		if (hasEnterpriseUri()) {
@@ -227,8 +226,12 @@ export class CredentialStore extends Disposable {
 			});
 			this.context.subscriptions.push(disposable);
 		}
+		let github: AuthResult | undefined;
+		if (!enterprise) {
+			github = await this.initialize(AuthProvider.github, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
+		}
 		return {
-			canceled: github.canceled || !!(enterprise && enterprise.canceled)
+			canceled: !!(github && github.canceled) || !!(enterprise && enterprise.canceled)
 		};
 	}
 
@@ -438,14 +441,20 @@ export class CredentialStore extends Disposable {
 	private async createHub(token: string, authProviderId: AuthProvider): Promise<GitHub> {
 		let baseUrl = 'https://api.github.com';
 		let enterpriseServerUri: vscode.Uri | undefined;
+		Logger.appendLine(`Creating hub for ${isEnterprise(authProviderId) ? 'enterprise' : '.com'}`, CredentialStore.ID);
 		if (isEnterprise(authProviderId)) {
 			enterpriseServerUri = getEnterpriseUri();
 		}
 
-		if (enterpriseServerUri && enterpriseServerUri.authority.endsWith('ghe.com')) {
-			baseUrl = `${enterpriseServerUri.scheme}://api.${enterpriseServerUri.authority}`;
-		} else if (enterpriseServerUri) {
-			baseUrl = `${enterpriseServerUri.scheme}://${enterpriseServerUri.authority}/api/v3`;
+		const isGhe = enterpriseServerUri?.authority.endsWith('ghe.com');
+
+		if (enterpriseServerUri) {
+			Logger.appendLine(`Enterprise server authority ${enterpriseServerUri.authority}`, CredentialStore.ID);
+			if (isGhe) {
+				baseUrl = `${enterpriseServerUri.scheme}://api.${enterpriseServerUri.authority}`;
+			} else {
+				baseUrl = `${enterpriseServerUri.scheme}://${enterpriseServerUri.authority}/api/v3`;
+			}
 		}
 
 		let fetchCore: ((url: string, options: { headers?: Record<string, string> }) => any) | undefined;
@@ -470,12 +479,13 @@ export class CredentialStore extends Disposable {
 			baseUrl: baseUrl,
 		});
 
-		if (enterpriseServerUri) {
-			baseUrl = `${enterpriseServerUri.scheme}://${enterpriseServerUri.authority}/api`;
+		let graphQLBaseUrl = baseUrl;
+		if (enterpriseServerUri && !isGhe) {
+			graphQLBaseUrl = `${enterpriseServerUri.scheme}://${enterpriseServerUri.authority}/api`;
 		}
 
 		const graphql = new ApolloClient({
-			link: link(baseUrl, token || ''),
+			link: link(graphQLBaseUrl, token || ''),
 			cache: new InMemoryCache(),
 			defaultOptions: {
 				query: {
