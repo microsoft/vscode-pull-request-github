@@ -401,7 +401,7 @@
 						"single",
 						"review"
 					],
-					"default": "single",
+					"default": "review",
 					"description": "%githubPullRequests.defaultCommentType.description%",
 					"enumDescriptions": [
 						"%githubPullRequests.defaultCommentType.single%",
