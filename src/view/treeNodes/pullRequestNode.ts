@@ -15,7 +15,6 @@ import { NotificationProvider } from '../../github/notifications';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from '../inMemPRContentProvider';
-import { DescriptionNode } from './descriptionNode';
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
@@ -66,17 +65,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		Logger.debug(`Fetch children of PRNode #${this.pullRequestModel.number}`, PRNode.ID);
 
 		try {
-			const descriptionNode = new DescriptionNode(
-				this,
-				vscode.l10n.t('Description'),
-				this.pullRequestModel,
-				this.repository,
-				this._folderReposManager,
-				this._isLocal
-			);
-
 			if (!this.pullRequestModel.isResolved()) {
-				return [descriptionNode];
+				return [];
 			}
 
 			[, this._fileChanges, ,] = await Promise.all([
@@ -96,7 +86,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				}
 			}
 
-			const result: TreeNode[] = [descriptionNode];
+			const result: TreeNode[] = [];
 			const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 			if (layout === 'tree') {
 				// tree view
@@ -280,7 +270,6 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 
 		const formattedPRNumber = number.toString();
 		let labelPrefix = currentBranchIsForThisPR ? '✓ ' : '';
-		let tooltipPrefix = currentBranchIsForThisPR ? 'Current Branch * ' : '';
 
 		if (
 			vscode.workspace
@@ -288,17 +277,19 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				.get<boolean>(SHOW_PULL_REQUEST_NUMBER_IN_TREE, false)
 		) {
 			labelPrefix += `#${formattedPRNumber}: `;
-			tooltipPrefix += `#${formattedPRNumber}: `;
 		}
 
 		const label = `${labelPrefix}${isDraft ? '[DRAFT] ' : ''}${labelTitle}`;
-		const tooltip = `${tooltipPrefix}${title} by @${login}`;
 		const description = `by @${login}`;
+		const command = {
+			title: vscode.l10n.t('View Pull Request Description'),
+			command: 'pr.openDescription',
+			arguments: [this],
+		};
 
 		return {
 			label,
 			id: `${this.parent instanceof TreeNode ? (this.parent.id ?? this.parent.label) : ''}${html_url}${this._isLocal ? this.pullRequestModel.localBranchName : ''}`, // unique id stable across checkout status
-			tooltip,
 			description,
 			collapsibleState: 1,
 			contextValue:
@@ -313,6 +304,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				label: `${isDraft ? 'Draft ' : ''}Pull request number ${formattedPRNumber}: ${title} by ${login}`
 			},
 			resourceUri: createPRNodeUri(this.pullRequestModel),
+			command
 		};
 	}
 

@@ -42,18 +42,144 @@ fragment Team on Team { # Team is not an Actor
 	...Node
 }
 
+
+fragment IssueBase on Issue {
+	number
+	url
+	state
+	body
+	bodyHTML
+	title
+	titleHTML
+	author {
+		...User
+		...Organization
+	}
+	createdAt
+	updatedAt
+	milestone {
+		title
+		dueOn
+		createdAt
+		id
+		number
+	}
+	assignees(first: 10) {
+		nodes {
+			...User
+		}
+	}
+	labels(first: 50) {
+		nodes {
+			name
+			color
+		}
+	}
+	id
+	databaseId
+	reactions(first: 100) {
+		totalCount
+	}
+	repository {
+		name
+		owner {
+			login
+		}
+		url
+	}
+	projectItems(first: 100) {
+		nodes {
+			id
+			project {
+				title
+				id
+			}
+		}
+	}
+}
+
+fragment IssueFragment on Issue {
+	...IssueBase
+	comments(first: 1) {
+		totalCount
+	}
+}
+
+fragment IssueWithCommentsFragment on Issue {
+	...IssueBase
+	comments(first: 50) {
+		nodes {
+			author {
+				...Node
+				...Actor
+				...User
+				...Organization
+			}
+			body
+			databaseId
+			reactions(first: 100) {
+				totalCount
+			}
+		}
+		totalCount
+	}
+}
+
 fragment PullRequestFragment on PullRequest {
 	number
 	url
 	state
 	body
 	bodyHTML
-	titleHTML
 	title
+	titleHTML
 	author {
 		...User
 		...Organization
 	}
+	createdAt
+	updatedAt
+	milestone {
+		title
+		dueOn
+		createdAt
+		id
+		number
+	}
+	assignees(first: 10) {
+		nodes {
+			...User
+		}
+	}
+	labels(first: 50) {
+		nodes {
+			name
+			color
+		}
+	}
+	id
+	databaseId
+	reactions(first: 100) {
+		totalCount
+	}
+	projectItems(first: 100) {
+		nodes {
+			id
+			project {
+				title
+				id
+			}
+		}
+	}
+
+	comments(first: 1) {
+		totalCount
+	}
+
+	comments(first: 1) {
+		totalCount
+	}
+
 	commits(first: 50) {
 		nodes {
 			commit {
@@ -61,8 +187,6 @@ fragment PullRequestFragment on PullRequest {
 			}
 		}
 	}
-	createdAt
-	updatedAt
 	headRef {
 		...Ref
 	}
@@ -91,12 +215,6 @@ fragment PullRequestFragment on PullRequest {
 		mergeCommitMessage
 		mergeCommitTitle
 	}
-	labels(first: 50) {
-		nodes {
-			name
-			color
-		}
-	}
 	merged
 	mergeable
 	mergeQueueEntry {
@@ -112,30 +230,7 @@ fragment PullRequestFragment on PullRequest {
 	viewerCanEnableAutoMerge
 	viewerCanDisableAutoMerge
 	viewerCanUpdate
-	id
-	databaseId
 	isDraft
-	projectItems(first: 100) {
-		nodes {
-			id
-			project {
-				title
-				id
-			}
-		}
-	}
-	milestone {
-		title
-		dueOn
-		createdAt
-		id
-		number
-	}
-	assignees(first: 10) {
-		nodes {
-			...User
-		}
-	}
 	suggestedReviewers {
 		isAuthor
 		isCommenter
@@ -145,11 +240,45 @@ fragment PullRequestFragment on PullRequest {
 			...Node
 		}
 	}
-	reactions(first: 1) {
-		totalCount
+}
+
+query Issue($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		issue(number: $number) {
+			...IssueFragment
+		}
 	}
-	comments(first: 1) {
-		totalCount
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		issue(number: $number) {
+			...IssueWithCommentsFragment
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query Issues($query: String!) {
+	search(first: 100, type: ISSUE, query: $query) {
+		issueCount
+		pageInfo {
+			hasNextPage
+			endCursor
+		}
+		edges {
+			node {
+				...IssueFragment
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
 	}
 }
 

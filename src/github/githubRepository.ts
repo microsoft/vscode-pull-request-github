@@ -22,6 +22,7 @@ import {
 	GetBranchResponse,
 	GetChecksResponse,
 	isCheckRun,
+	IssueResponse,
 	IssuesSearchResponse,
 	ListBranchesResponse,
 	MaxIssueResponse,
@@ -1003,7 +1004,7 @@ export class GitHubRepository extends Disposable {
 			Logger.debug(`Fetch issue ${id} - enter`, this.id);
 			const { query, remote, schema } = await this.ensure();
 
-			const { data } = await query<PullRequestResponse>({
+			const { data } = await query<IssueResponse>({
 				query: withComments ? schema.IssueWithComments : schema.Issue,
 				variables: {
 					owner: remote.owner,
@@ -1018,7 +1019,7 @@ export class GitHubRepository extends Disposable {
 			}
 			Logger.debug(`Fetch issue ${id} - done`, this.id);
 
-			return new IssueModel(this, remote, parseGraphQLIssue(data.repository.pullRequest, this));
+			return new IssueModel(this, remote, parseGraphQLIssue(data.repository.issue, this));
 		} catch (e) {
 			Logger.error(`Unable to fetch issue: ${e}`, this.id);
 			return;

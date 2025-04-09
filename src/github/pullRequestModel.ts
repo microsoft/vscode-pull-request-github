@@ -49,7 +49,6 @@ import {
 	SubmitReviewResponse,
 	TimelineEventsResponse,
 	UnresolveReviewThreadResponse,
-	UpdatePullRequestResponse,
 } from './graphql';
 import {
 	AccountType,
@@ -306,6 +305,16 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return false;
 	}
 
+	protected override updateIssueInput(id: string): Object {
+		return {
+			pullRequestId: id,
+		};
+	}
+
+	protected override updateIssueSchema(schema: any): any {
+		return schema.UpdatePullRequest;
+	}
+
 	/**
 	 * Approve the pull request.
 	 * @param message Optional approval comment text.
@@ -441,35 +450,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		} else {
 			throw new Error(`Submitting review failed, no pending review for current pull request: ${this.number}.`);
 		}
-	}
-
-	async updateMilestone(id: string): Promise<void> {
-		const { mutate, schema } = await this.githubRepository.ensure();
-		const finalId = id === 'null' ? null : id;
-
-		try {
-			await mutate<UpdatePullRequestResponse>({
-				mutation: schema.UpdatePullRequest,
-				variables: {
-					input: {
-						pullRequestId: this.item.graphNodeId,
-						milestoneId: finalId,
-					},
-				},
-			});
-		} catch (err) {
-			Logger.error(err, PullRequestModel.ID);
-		}
-	}
-
-	async addAssignees(assignees: string[]): Promise<void> {
-		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.call(octokit.api.issues.addAssignees, {
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			issue_number: this.number,
-			assignees,
-		});
 	}
 
 	/**
@@ -1008,16 +988,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			pull_number: this.number,
 			reviewers: reviewers.filter(r => r.accountType !== AccountType.Bot).map(r => r.id),
 			team_reviewers: teamReviewers.map(t => t.id)
-		});
-	}
-
-	async deleteAssignees(assignees: string[]): Promise<void> {
-		const { octokit, remote } = await this.githubRepository.ensure();
-		await octokit.call(octokit.api.issues.removeAssignees, {
-			owner: remote.owner,
-			repo: remote.repositoryName,
-			issue_number: this.number,
-			assignees,
 		});
 	}
 

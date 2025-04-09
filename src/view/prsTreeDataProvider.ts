@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
+import { issueMarkdown } from '../common/markdownUtils';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, QUERIES, REMOTES } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { EXTENSION_ID } from '../constants';
@@ -22,6 +23,7 @@ import { PrsTreeModel } from './prsTreeModel';
 import { ReviewModel } from './reviewModel';
 import { CategoryTreeNode, PRCategoryActionNode, PRCategoryActionType } from './treeNodes/categoryNode';
 import { InMemFileChangeNode } from './treeNodes/fileChangeNode';
+import { PRNode } from './treeNodes/pullRequestNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 import { TreeUtils } from './treeNodes/treeUtils';
 import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
@@ -184,8 +186,11 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	async resolveTreeItem(item: vscode.TreeItem, element: TreeNode): Promise<vscode.TreeItem> {
 		if (element instanceof InMemFileChangeNode) {
 			await element.resolve();
+			item = element.getTreeItem();
+		} else if (element instanceof PRNode) {
+			item.tooltip = await issueMarkdown(element.pullRequestModel, this._context, this._reposManager);
 		}
-		return element;
+		return item;
 	}
 
 	private async needsRemotes() {

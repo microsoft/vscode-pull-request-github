@@ -157,22 +157,26 @@ export class PRContext {
 		this.postMessage({ command: 'pr.apply-patch', args: { comment } });
 	};
 
-	private appendReview({ review, reviewers }: { review?: ReviewEvent, reviewers?: ReviewState[] }) {
+	private appendReview({ event, reviewers }: { event?: ReviewEvent | TimelineEvent, reviewers?: ReviewState[] }) {
 		const state = this.pr;
 		state.busy = false;
-		if (!review || !reviewers) {
+		if (!event) {
 			this.updatePR(state);
 			return;
 		}
-		const events = state.events.filter(e => e.event !== EventType.Reviewed || e.state.toLowerCase() !== 'pending');
+		const events = state.events.filter(e => e.event !== EventType.Reviewed || e.state?.toLowerCase() !== 'pending');
 		events.forEach(event => {
 			if (event.event === EventType.Reviewed) {
 				event.comments.forEach(c => (c.isDraft = false));
 			}
 		});
-		state.reviewers = reviewers;
-		state.events = [...state.events.filter(e => (e.event === EventType.Reviewed ? e.state !== 'PENDING' : e)), review];
-		state.currentUserReviewState = review.state;
+		if (reviewers) {
+			state.reviewers = reviewers;
+		}
+		state.events = [...state.events.filter(e => (e.event === EventType.Reviewed ? e.state !== 'PENDING' : e)), event];
+		if (event.event === EventType.Reviewed) {
+			state.currentUserReviewState = event.state;
+		}
 		state.pendingCommentText = '';
 		state.pendingReviewType = undefined;
 		this.updatePR(state);

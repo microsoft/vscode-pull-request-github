@@ -33,7 +33,7 @@ export interface CommentEvent {
 	htmlUrl: string;
 	body: string;
 	bodyHTML?: string;
-	user: IAccount;
+	user?: IAccount;
 	event: EventType.Commented;
 	canEdit?: boolean;
 	canDelete?: boolean;

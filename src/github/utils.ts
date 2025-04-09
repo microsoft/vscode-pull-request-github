@@ -50,7 +50,6 @@ import {
 } from './interface';
 import { IssueModel } from './issueModel';
 import { GHPRComment, GHPRCommentThread } from './prComment';
-import { PullRequestModel } from './pullRequestModel';
 
 export const ISSUE_EXPRESSION = /(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
 export const ISSUE_OR_URL_EXPRESSION = /(https?:\/\/github\.com\/(([^\s]+)\/([^\s]+))\/([^\s]+\/)?(issues|pull)\/([0-9]+)(#issuecomment\-([0-9]+))?)|(([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+))?(#|GH-)([1-9][0-9]*)($|\b)/;
@@ -858,7 +857,7 @@ function parseComments(comments: GraphQL.AbbreviatedIssueComment[] | undefined, 
 	return parsedComments;
 }
 
-export function parseGraphQLIssue(issue: GraphQL.PullRequest, githubRepository: GitHubRepository): Issue {
+export function parseGraphQLIssue(issue: GraphQL.Issue, githubRepository: GitHubRepository): Issue {
 	return {
 		id: issue.databaseId,
 		graphNodeId: issue.id,
@@ -1182,7 +1181,7 @@ export function getRelatedUsersFromTimelineEvents(
 			});
 		}
 
-		if (event.event === Common.EventType.Commented) {
+		if ((event.event === Common.EventType.Commented) && event.user) {
 			ret.push({
 				login: event.user.login,
 				name: event.user.name ?? event.user.login,
@@ -1513,7 +1512,7 @@ export async function findDotComAndEnterpriseRemotes(folderManagers: FolderRepos
 	return { dotComRemotes, enterpriseRemotes, unknownRemotes };
 }
 
-export function vscodeDevPrLink(pullRequest: PullRequestModel) {
+export function vscodeDevPrLink(pullRequest: IssueModel) {
 	const itemUri = vscode.Uri.parse(pullRequest.html_url);
 	return `https://${vscode.env.appName.toLowerCase().includes('insider') ? 'insiders.' : ''}vscode.dev/github${itemUri.path}`;
 }
