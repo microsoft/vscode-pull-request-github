@@ -45,6 +45,8 @@ export interface GHPRCommentThread extends vscode.CommentThread2 {
 	 */
 	label?: string;
 
+	canReply: boolean | vscode.CommentAuthorInformation;
+
 	/**
 	 * Whether the thread has been marked as resolved.
 	 */

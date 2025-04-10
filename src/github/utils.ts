@@ -18,6 +18,7 @@ import { Remote } from '../common/remote';
 import { Resource } from '../common/resources';
 import { GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
+import { DataUri } from '../common/uri';
 import { gitHubLabelColor, uniqBy } from '../common/utils';
 import { OctokitCommon } from './common';
 import { FolderRepositoryManager, PullRequestDefaults } from './folderRepositoryManager';
@@ -101,7 +102,7 @@ export function createVSCodeCommentThreadForReviewThread(
 	range: vscode.Range | undefined,
 	thread: IReviewThread,
 	commentController: vscode.CommentController,
-	currentUser: string,
+	currentUser: IAccount,
 	githubRepositories?: GitHubRepository[]
 ): GHPRCommentThread {
 	const vscodeThread = commentController.createCommentThread(uri, range, []);
@@ -124,7 +125,14 @@ export function createVSCodeCommentThreadForReviewThread(
 	vscodeThread.state = { resolved, applicability };
 
 	updateCommentThreadLabel(vscodeThread as GHPRCommentThread);
-	vscodeThread.collapsibleState = getCommentCollapsibleState(thread, undefined, currentUser);
+	vscodeThread.collapsibleState = getCommentCollapsibleState(thread, undefined, currentUser.login);
+
+	if (currentUser.avatarUrl) {
+		vscodeThread.canReply = { name: currentUser.name ?? currentUser.login, iconPath: vscode.Uri.parse(currentUser.avatarUrl) };
+		DataUri.avatarCirclesAsImageDataUris(context, [currentUser], 28, 28).then(uri => {
+			vscodeThread.canReply = { name: currentUser.name ?? currentUser.login, iconPath: uri[0] };
+		});
+	}
 
 	return vscodeThread as GHPRCommentThread;
 }
