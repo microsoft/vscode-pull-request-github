@@ -113,7 +113,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		);
 
 		const range = thread.subjectType === SubjectType.FILE ? undefined : threadRange(thread.originalStartLine - 1, thread.originalEndLine - 1);
-		return createVSCodeCommentThreadForReviewThread(this._context, reviewUri, range, thread, this._commentController, (await this._folderRepoManager.getCurrentUser()).login, this.githubReposForPullRequest(this._folderRepoManager.activePullRequest));
+		return createVSCodeCommentThreadForReviewThread(this._context, reviewUri, range, thread, this._commentController, (await this._folderRepoManager.getCurrentUser()), this.githubReposForPullRequest(this._folderRepoManager.activePullRequest));
 	}
 
 	/**
@@ -146,7 +146,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 			}
 			range = threadRange(adjustedStartLine, adjustedEndLine);
 		}
-		return createVSCodeCommentThreadForReviewThread(this._context, uri, range, thread, this._commentController, (await this._folderRepoManager.getCurrentUser()).login, this.githubReposForPullRequest(this._folderRepoManager.activePullRequest));
+		return createVSCodeCommentThreadForReviewThread(this._context, uri, range, thread, this._commentController, (await this._folderRepoManager.getCurrentUser()), this.githubReposForPullRequest(this._folderRepoManager.activePullRequest));
 	}
 
 	/**
@@ -172,7 +172,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		);
 
 		const range = thread.subjectType === SubjectType.FILE ? undefined : threadRange(thread.startLine - 1, thread.endLine - 1);
-		return createVSCodeCommentThreadForReviewThread(this._context, reviewUri, range, thread, this._commentController, (await this._folderRepoManager.getCurrentUser()).login, this.githubReposForPullRequest(this._folderRepoManager.activePullRequest));
+		return createVSCodeCommentThreadForReviewThread(this._context, reviewUri, range, thread, this._commentController, (await this._folderRepoManager.getCurrentUser()), this.githubReposForPullRequest(this._folderRepoManager.activePullRequest));
 	}
 
 	private async doInitializeCommentThreads(reviewThreads: IReviewThread[]): Promise<void> {

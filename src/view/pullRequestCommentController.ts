@@ -166,7 +166,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 							range,
 							thread,
 							this._commentController,
-							currentUser.login,
+							currentUser,
 							this._githubRepositories
 						);
 					});
@@ -260,7 +260,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 						range,
 						thread,
 						this._commentController,
-						(await this._folderRepoManager.getCurrentUser()).login,
+						(await this._folderRepoManager.getCurrentUser()),
 						this._githubRepositories
 					);
 				}
