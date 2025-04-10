@@ -35,7 +35,7 @@
 	"version": "0.108.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.97.0"
+		"vscode": "^1.100.0"
 	},
 	"categories": [
 		"Other",
@@ -2836,29 +2836,29 @@
 			],
 			"comments/comment/title": [
 				{
-					"command": "pr.copyCommentLink",
-					"group": "inline@1",
-					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/"
-				},
-				{
 					"command": "pr.applySuggestion",
 					"group": "inline@0",
 					"when": "commentController =~ /^github-review/ && comment =~ /hasSuggestion/"
 				},
 				{
 					"command": "pr.applySuggestionWithCopilot",
-					"group": "inline@0",
+					"group": "overflow@0",
 					"when": "commentController =~ /^github-review/ && !(comment =~ /hasSuggestion/)"
 				},
 				{
 					"command": "pr.editComment",
-					"group": "inline@2",
+					"group": "overflow@1",
 					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/"
 				},
 				{
 					"command": "pr.deleteComment",
-					"group": "inline@3",
+					"group": "overflow@2",
 					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canDelete/"
+				},
+				{
+					"command": "pr.copyCommentLink",
+					"group": "overflow@3",
+					"when": "commentController =~ /^github-(browse|review)/ && comment =~ /canEdit/"
 				}
 			],
 			"comments/commentThread/title": [

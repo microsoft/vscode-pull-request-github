@@ -352,8 +352,6 @@
 	"welcome.issues.github.noFolder.contents": "You have not yet opened a folder.",
 	"welcome.issues.github.noRepo.contents": "No git repositories found",
 	"welcome.github.activePullRequest.contents": "Loading...",
-	"submenu.github.pullRequests.overflow.label": "More actions...",
-	"submenu.github.issues.overflow.label": "More actions...",
 	"languageModelTools.github-pull-request_issue_fetch.displayName": "Get a GitHub Issue or PR",
 	"languageModelTools.github-pull-request_issue_summarize.displayName": "Summarize a GitHub Issue or PR",
 	"languageModelTools.github-pull-request_notification_fetch.displayName": "Get a GitHub Notification",
