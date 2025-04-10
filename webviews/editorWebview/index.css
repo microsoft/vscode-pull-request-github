@@ -597,6 +597,15 @@ body button .icon {
 	margin-right: 0;
 }
 
+.section .icon-button,
+.section .icon-button .icon {
+	color: currentColor;
+}
+
+.section svg path {
+	fill: currentColor;
+}
+
 .commit svg {
 	width: 16px;
 	height: auto;
