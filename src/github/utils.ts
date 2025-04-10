@@ -1520,5 +1520,14 @@ export function vscodeDevPrLink(pullRequest: IssueModel) {
 export function makeLabel(label: ILabel): string {
 	const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
 	const labelColor = gitHubLabelColor(label.color, isDarkTheme, true);
-	return `<span style="color:${labelColor.textColor};background-color:${labelColor.backgroundColor};">&nbsp;&nbsp;${label.name.trim()}&nbsp;&nbsp;</span>`;
+	return `<span style="color:${labelColor.textColor};background-color:${labelColor.backgroundColor};border-radius:10px;">&nbsp;&nbsp;${label.name.trim()}&nbsp;&nbsp;</span>`;
+}
+
+
+export enum UnsatisfiedChecks {
+	None = 0,
+	ReviewRequired = 1 << 0,
+	ChangesRequested = 1 << 1,
+	CIFailed = 1 << 2,
+	CIPending = 1 << 3
 }

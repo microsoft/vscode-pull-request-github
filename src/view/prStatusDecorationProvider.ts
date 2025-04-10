@@ -6,7 +6,8 @@
 import * as vscode from 'vscode';
 import { Disposable } from '../common/lifecycle';
 import { createPRNodeUri, fromPRNodeUri, Schemes } from '../common/uri';
-import { PrsTreeModel, UnsatisfiedChecks } from './prsTreeModel';
+import { getStatusDecoration } from '../github/markdownUtils';
+import { PrsTreeModel } from './prsTreeModel';
 
 export class PRStatusDecorationProvider extends Disposable implements vscode.FileDecorationProvider {
 
@@ -41,47 +42,6 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 			return;
 		}
 
-		return this._getDecoration(status.status) as vscode.FileDecoration;
-	}
-
-	private _getDecoration(status: UnsatisfiedChecks): vscode.FileDecoration2 | undefined {
-		if ((status & UnsatisfiedChecks.CIFailed) && (status & UnsatisfiedChecks.ReviewRequired)) {
-			return {
-				propagate: false,
-				badge: new vscode.ThemeIcon('close', new vscode.ThemeColor('list.errorForeground')),
-				tooltip: 'Review required and some checks have failed'
-			};
-		} else if (status & UnsatisfiedChecks.CIFailed) {
-			return {
-				propagate: false,
-				badge: new vscode.ThemeIcon('close', new vscode.ThemeColor('list.errorForeground')),
-				tooltip: 'Some checks have failed'
-			};
-		} else if (status & UnsatisfiedChecks.ChangesRequested) {
-			return {
-				propagate: false,
-				badge: new vscode.ThemeIcon('request-changes', new vscode.ThemeColor('list.errorForeground')),
-				tooltip: 'Changes requested'
-			};
-		} else if (status & UnsatisfiedChecks.CIPending) {
-			return {
-				propagate: false,
-				badge: new vscode.ThemeIcon('sync', new vscode.ThemeColor('list.warningForeground')),
-				tooltip: 'Checks pending'
-			};
-		} else if (status & UnsatisfiedChecks.ReviewRequired) {
-			return {
-				propagate: false,
-				badge: new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('list.warningForeground')),
-				tooltip: 'Review required'
-			};
-		} else if (status === UnsatisfiedChecks.None) {
-			return {
-				propagate: false,
-				badge: new vscode.ThemeIcon('check-all', new vscode.ThemeColor('issues.open')),
-				tooltip: 'All checks passed'
-			};
-		}
-
+		return getStatusDecoration(status.status) as vscode.FileDecoration;
 	}
 }

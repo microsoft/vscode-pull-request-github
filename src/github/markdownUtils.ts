@@ -6,14 +6,14 @@
 import * as marked from 'marked';
 import 'url-search-params-polyfill';
 import * as vscode from 'vscode';
-import { PullRequestDefaults } from '../github/folderRepositoryManager';
-import { GithubItemStateEnum, User } from '../github/interface';
-import { IssueModel } from '../github/issueModel';
-import { PullRequestModel } from '../github/pullRequestModel';
-import { RepositoriesManager } from '../github/repositoriesManager';
-import { getIssueNumberLabelFromParsed, ISSUE_OR_URL_EXPRESSION, makeLabel, parseIssueExpressionOutput } from '../github/utils';
+import Logger from '../common/logger';
 import { CODE_PERMALINK, findCodeLinkLocally } from '../issues/issueLinkLookup';
-import Logger from './logger';
+import { PullRequestDefaults } from './folderRepositoryManager';
+import { GithubItemStateEnum, User } from './interface';
+import { IssueModel } from './issueModel';
+import { PullRequestModel } from './pullRequestModel';
+import { RepositoriesManager } from './repositoriesManager';
+import { getIssueNumberLabelFromParsed, ISSUE_OR_URL_EXPRESSION, makeLabel, parseIssueExpressionOutput, UnsatisfiedChecks } from './utils';
 
 function getIconString(issue: IssueModel) {
 	switch (issue.state) {
@@ -155,6 +155,7 @@ export async function issueMarkdown(
 	context: vscode.ExtensionContext,
 	repositoriesManager: RepositoriesManager,
 	commentNumber?: number,
+	prChecks?: UnsatisfiedChecks
 ): Promise<vscode.MarkdownString> {
 	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
 	markdown.supportHtml = true;
@@ -184,9 +185,9 @@ export async function issueMarkdown(
 	body = await findCodeLinksInIssue(body, repositoriesManager);
 
 	markdown.appendMarkdown(body + '  \n');
-	markdown.appendMarkdown('&nbsp;  \n');
 
 	if (issue.item.labels.length > 0) {
+		markdown.appendMarkdown('&nbsp;  \n');
 		issue.item.labels.forEach(label => {
 			markdown.appendMarkdown(
 				`[${makeLabel(label)}](https://github.com/${ownerName}/labels/${encodeURIComponent(
@@ -216,6 +217,15 @@ export async function issueMarkdown(
 			}
 		}
 	}
+
+	if (prChecks) {
+		const statusMessage = getStatusDecoration(prChecks)?.tooltip;
+		if (statusMessage) {
+			markdown.appendMarkdown('  \r\n\r\n');
+			markdown.appendMarkdown(`_${statusMessage}_`);
+		}
+	}
+
 	return markdown;
 }
 
@@ -286,4 +296,45 @@ export class PlainTextRenderer extends marked.Renderer {
 	override link(href: string, title: string, text: string): string {
 		return text + ' ';
 	}
+}
+
+export function getStatusDecoration(status: UnsatisfiedChecks): vscode.FileDecoration2 | undefined {
+	if ((status & UnsatisfiedChecks.CIFailed) && (status & UnsatisfiedChecks.ReviewRequired)) {
+		return {
+			propagate: false,
+			badge: new vscode.ThemeIcon('close', new vscode.ThemeColor('list.errorForeground')),
+			tooltip: 'Review required and some checks have failed'
+		};
+	} else if (status & UnsatisfiedChecks.CIFailed) {
+		return {
+			propagate: false,
+			badge: new vscode.ThemeIcon('close', new vscode.ThemeColor('list.errorForeground')),
+			tooltip: 'Some checks have failed'
+		};
+	} else if (status & UnsatisfiedChecks.ChangesRequested) {
+		return {
+			propagate: false,
+			badge: new vscode.ThemeIcon('request-changes', new vscode.ThemeColor('list.errorForeground')),
+			tooltip: 'Changes requested'
+		};
+	} else if (status & UnsatisfiedChecks.CIPending) {
+		return {
+			propagate: false,
+			badge: new vscode.ThemeIcon('sync', new vscode.ThemeColor('list.warningForeground')),
+			tooltip: 'Checks pending'
+		};
+	} else if (status & UnsatisfiedChecks.ReviewRequired) {
+		return {
+			propagate: false,
+			badge: new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('list.warningForeground')),
+			tooltip: 'Review required'
+		};
+	} else if (status === UnsatisfiedChecks.None) {
+		return {
+			propagate: false,
+			badge: new vscode.ThemeIcon('check-all', new vscode.ThemeColor('issues.open')),
+			tooltip: 'All checks passed'
+		};
+	}
+
 }

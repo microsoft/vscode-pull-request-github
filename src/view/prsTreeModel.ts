@@ -12,18 +12,11 @@ import { FolderRepositoryManager, ItemsResponseResult } from '../github/folderRe
 import { CheckState, PRType, PullRequestChecks, PullRequestReviewRequirement } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { UnsatisfiedChecks } from '../github/utils';
 import { CategoryTreeNode } from './treeNodes/categoryNode';
 import { TreeNode } from './treeNodes/treeNode';
 
 export const EXPANDED_QUERIES_STATE = 'expandedQueries';
-
-export enum UnsatisfiedChecks {
-	None = 0,
-	ReviewRequired = 1 << 0,
-	ChangesRequested = 1 << 1,
-	CIFailed = 1 << 2,
-	CIPending = 1 << 3
-}
 
 interface PRStatusChange {
 	pullRequest: PullRequestModel;

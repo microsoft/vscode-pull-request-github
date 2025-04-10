@@ -6,7 +6,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import Logger from '../common/logger';
-import { userMarkdown } from '../common/markdownUtils';
 import { IGNORE_USER_COMPLETION_TRIGGER, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { TimelineEvent } from '../common/timelineEvent';
 import { fromNewIssueUri, fromPRUri, Schemes } from '../common/uri';
@@ -14,6 +13,7 @@ import { compareIgnoreCase, isDescendant } from '../common/utils';
 import { EXTENSION_ID } from '../constants';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { IAccount, User } from '../github/interface';
+import { userMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getRelatedUsersFromTimelineEvents } from '../github/utils';
 import { ASSIGNEES } from './issueFile';
