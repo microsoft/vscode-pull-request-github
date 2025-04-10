@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { userMarkdown } from '../common/markdownUtils';
 import { ITelemetry } from '../common/telemetry';
 import { DOXYGEN_NON_USERS, JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
+import { userMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { shouldShowHover, USER_EXPRESSION } from './util';
 

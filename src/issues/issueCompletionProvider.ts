@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { issueMarkdown } from '../common/markdownUtils';
 import {
 	IGNORE_COMPLETION_TRIGGER,
 	ISSUE_COMPLETION_FORMAT_SCM,
@@ -14,6 +13,7 @@ import { fromNewIssueUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IMilestone } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
+import { issueMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { getIssueNumberLabel, variableSubstitution } from '../github/utils';
 import { IssueQueryResult, StateManager } from './stateManager';

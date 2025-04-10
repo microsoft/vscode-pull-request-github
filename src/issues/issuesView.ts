@@ -6,11 +6,11 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { commands, contexts } from '../common/executeCommands';
-import { issueMarkdown } from '../common/markdownUtils';
 import { DataUri } from '../common/uri';
 import { groupBy } from '../common/utils';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
 import { IssueModel } from '../github/issueModel';
+import { issueMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { issueBodyHasLink } from './issueLinkLookup';
 import { IssueItem, QueryGroup, StateManager } from './stateManager';

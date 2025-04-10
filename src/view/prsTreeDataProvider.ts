@@ -7,13 +7,14 @@ import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
-import { issueMarkdown } from '../common/markdownUtils';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, QUERIES, REMOTES } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
+import { createPRNodeIdentifier } from '../common/uri';
 import { EXTENSION_ID } from '../constants';
 import { CredentialStore } from '../github/credentials';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
 import { PRType } from '../github/interface';
+import { issueMarkdown } from '../github/markdownUtils';
 import { NotificationProvider } from '../github/notifications';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
@@ -188,7 +189,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			await element.resolve();
 			item = element.getTreeItem();
 		} else if (element instanceof PRNode) {
-			item.tooltip = await issueMarkdown(element.pullRequestModel, this._context, this._reposManager);
+			item.tooltip = await issueMarkdown(element.pullRequestModel, this._context, this._reposManager, undefined, this.prsTreeModel.cachedPRStatus(createPRNodeIdentifier(element.pullRequestModel))?.status);
 		}
 		return item;
 	}
