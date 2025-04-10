@@ -719,8 +719,9 @@ export class IssueFeatureRegistrar extends Disposable {
 			metadata.originUri
 		);
 		this.createIssueInfo = undefined;
-		if (createSucceeded) {
-			await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+		if (createSucceeded && vscode.window.tabGroups.activeTabGroup.activeTab) {
+			await vscode.window.activeTextEditor.document.save();
+			await vscode.window.tabGroups.close(vscode.window.tabGroups.activeTabGroup.activeTab);
 			this._newIssueCache.clear();
 		}
 	}
