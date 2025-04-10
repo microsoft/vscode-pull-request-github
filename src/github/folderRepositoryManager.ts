@@ -2237,6 +2237,8 @@ export class FolderRepositoryManager extends Disposable {
 	async getMatchingPullRequestMetadataFromGitHubWithUrl(branch: Branch, remoteUrl?: string, upstreamBranchName?: string): Promise<
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
+		Logger.debug(`Searching GitHub for a PR with branch ${upstreamBranchName} and remote ${remoteUrl}`, this.id);
+
 		if (!remoteUrl) {
 			return null;
 		}
@@ -2262,6 +2264,7 @@ export class FolderRepositoryManager extends Disposable {
 	async getMatchingPullRequestMetadataFromGitHubWithRemoteName(remoteName?: string, upstreamBranchName?: string): Promise<
 		(PullRequestMetadata & { model: PullRequestModel }) | null
 	> {
+		Logger.debug(`Searching GitHub for a PR with branch ${upstreamBranchName} and remote ${remoteName}`, this.id);
 		if (!remoteName) {
 			return null;
 		}

@@ -345,28 +345,37 @@ export class ReviewManager extends Disposable {
 		return false;
 	}
 
-	private async getUpstreamUrlAndName(branch: Branch): Promise<{ url: string | undefined, branchName: string | undefined, remoteName: string | undefined }> {
+	private async getUpstreamUrlAndName(branch: Branch): Promise<{ remoteUrl: string | undefined, upstreamBranchName: string | undefined, remoteName: string | undefined }> {
 		if (branch.upstream) {
-			return { remoteName: branch.upstream.remote, branchName: branch.upstream.name, url: undefined };
+			Logger.debug(`Upstream for branch ${branch.name} is ${branch.upstream.remote}/${branch.upstream.name}`, this.id);
+			return { remoteName: branch.upstream.remote, upstreamBranchName: branch.upstream.name, remoteUrl: undefined };
 		} else {
 			try {
-				const url = await this.repository.getConfig(`branch.${branch.name}.remote`);
+				const remoteUrl = await this.repository.getConfig(`branch.${branch.name}.remote`);
 				const upstreamBranch = await this.repository.getConfig(`branch.${branch.name}.merge`);
-				let branchName: string | undefined;
+				let upstreamBranchName: string | undefined;
 				if (upstreamBranch) {
-					branchName = upstreamBranch.substring('refs/heads/'.length);
+					upstreamBranchName = upstreamBranch.substring('refs/heads/'.length);
 				}
-				return { url, branchName, remoteName: undefined };
+				Logger.debug(`Upstream for branch ${branch.name} is ${upstreamBranchName} at ${remoteUrl}`, this.id);
+				return { remoteUrl: remoteUrl, upstreamBranchName, remoteName: undefined };
 			} catch (e) {
 				Logger.appendLine(`Failed to get upstream for branch ${branch.name} from git config.`, this.id);
-				return { url: undefined, branchName: undefined, remoteName: undefined };
+				return { remoteUrl: undefined, upstreamBranchName: undefined, remoteName: undefined };
 			}
 		}
 	}
 
 	private async checkGitHubForPrBranch(branch: Branch): Promise<(PullRequestMetadata & { model: PullRequestModel }) | undefined> {
-		const { url, branchName, remoteName } = await this.getUpstreamUrlAndName(this._repository.state.HEAD!);
-		const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub(branch, remoteName, url, branchName);
+
+		let branchToCheck: Branch;
+		if (this._repository.state.HEAD && (branch.name === this._repository.state.HEAD.name)) {
+			branchToCheck = this._repository.state.HEAD;
+		} else {
+			branchToCheck = branch;
+		}
+		const { remoteUrl: url, upstreamBranchName, remoteName } = await this.getUpstreamUrlAndName(branchToCheck);
+		const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub(branchToCheck, remoteName, url, upstreamBranchName);
 		if (metadataFromGithub) {
 			Logger.appendLine(`Found matching pull request metadata on GitHub for current branch ${branch.name}. Repo: ${metadataFromGithub.owner}/${metadataFromGithub.repositoryName} PR: ${metadataFromGithub.prNumber}`, this.id);
 			await PullRequestGitHelper.associateBranchWithPullRequest(
