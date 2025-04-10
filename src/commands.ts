@@ -809,7 +809,7 @@ export function registerCommands(
 		}),
 	);
 
-	async function openDescriptionCommand(argument: PRNode | IssueModel | undefined) {
+	async function openDescriptionCommand(argument: RepositoryChangesNode | PRNode | IssueModel | undefined) {
 		let issueModel: IssueModel | undefined;
 		if (!argument) {
 			const activePullRequests: PullRequestModel[] = reposManager.folderManagers
@@ -822,7 +822,13 @@ export function registerCommands(
 				);
 			}
 		} else {
-			issueModel = argument instanceof PRNode ? argument.pullRequestModel : argument;
+			if (argument instanceof RepositoryChangesNode) {
+				issueModel = argument.pullRequestModel;
+			} else if (argument instanceof PRNode) {
+				issueModel = argument.pullRequestModel;
+			} else {
+				issueModel = argument;
+			}
 		}
 
 		if (!issueModel) {
