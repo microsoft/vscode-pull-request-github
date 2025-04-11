@@ -2470,11 +2470,6 @@
 				},
 				{
 					"command": "notification.chatSummarizeNotification",
-					"group": "inline@1",
-					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView && config.githubPullRequests.experimental.chat"
-				},
-				{
-					"command": "notification.chatSummarizeNotification",
 					"group": "issues_0@0",
 					"when": "view == notifications:github && (viewItem == 'Issue' || viewItem == 'PullRequest') && config.githubPullRequests.experimental.notificationsView && config.githubPullRequests.experimental.chat"
 				},
