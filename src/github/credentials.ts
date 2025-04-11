@@ -180,15 +180,23 @@ export class CredentialStore extends Disposable {
 				github = await this.createHub(session.accessToken, authProviderId);
 			} catch (e) {
 				if ((e.message === 'Bad credentials') && !getAuthSessionOptions.forceNewSession) {
+					Logger.debug(`Creating hub failed ${e.message}`, CredentialStore.ID);
 					getAuthSessionOptions.forceNewSession = true;
 					getAuthSessionOptions.silent = false;
 					return this.initialize(authProviderId, getAuthSessionOptions, scopes, requireScopes);
+				} else {
+					// console.log because we need to see if we can learn more from the error object.
+					console.log(e);
+					Logger.error(`Creating hub failed ${e.message}`, CredentialStore.ID);
+					vscode.window.showErrorMessage(vscode.l10n.t('Unable to sign in with the provided credentials'));
 				}
 			}
 			if (!isEnterprise(authProviderId)) {
+				Logger.debug('Setting hub and scopes', CredentialStore.ID);
 				this._githubAPI = github;
 				this._scopes = usedScopes;
 			} else {
+				Logger.debug('Setting enterprise hub and scopes', CredentialStore.ID);
 				this._githubEnterpriseAPI = github;
 				this._scopesEnterprise = usedScopes;
 			}
