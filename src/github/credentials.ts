@@ -402,8 +402,13 @@ export class CredentialStore extends Disposable {
 
 	private setCurrentUser(github: GitHub): void {
 		const getUser: ReturnType<typeof github.octokit.api.users.getAuthenticated> = new Promise(resolve => {
+			Logger.debug('Getting current user', CredentialStore.ID);
 			github.octokit.call(github.octokit.api.users.getAuthenticated, {}).then(result => {
+				Logger.debug(`Got current user ${result.data.login}`, CredentialStore.ID);
 				resolve(result);
+			}).catch(e => {
+				vscode.window.showErrorMessage(vscode.l10n.t('Unable to get the currently logged in user, GitHub Pull Requests will not work correctly'));
+				Logger.error(`Failed to get current user: ${e}, ${e.message}`, CredentialStore.ID);
 			});
 		});
 		github.currentUser = new Promise(resolve => {
