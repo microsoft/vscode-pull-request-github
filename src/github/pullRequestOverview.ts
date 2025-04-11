@@ -589,7 +589,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this.updateReviewers(review);
 			const reviewMessage = {
 				command: 'pr.append-review',
-				review,
+				event: review,
 				reviewers: this._existingReviewers
 			};
 			await this._postMessage(reviewMessage);
