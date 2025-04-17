@@ -214,9 +214,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName),
 			this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel),
 			pullRequestModel.getMergeability(),
-			this._folderRepositoryManager.credentialStore.getIsEmu(pullRequestModel.remote.authProviderId),
-			pullRequestModel.githubRepository.getAuthenticatedUserEmails(),
-			PullRequestGitHelper.getEmail(this._folderRepositoryManager.repository)])
+			this._folderRepositoryManager.getPreferredEmail(pullRequestModel)])
 			.then(result => {
 				const [
 					pullRequest,
@@ -232,9 +230,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 					mergeQueueMethod,
 					isBranchUpToDateWithBase,
 					mergeability,
-					isEmu,
-					gitHubEmails,
-					gitEmail
+					emailForCommit,
 				] = result;
 				if (!pullRequest) {
 					throw new Error(
@@ -256,7 +252,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 				const isUpdateBranchWithGitHubEnabled: boolean = this.isUpdateBranchWithGitHubEnabled();
 				const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
-				const emailForCommit = isEmu ? undefined : ((gitEmail && gitHubEmails.find(email => email.toLowerCase() === gitEmail.toLowerCase())) ?? currentUser.email);
 
 				Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
 				const baseContext = this.getInitializeContext(pullRequest, timelineEvents, repositoryAccess, viewerCanEdit);
@@ -522,6 +517,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async changeEmail(message: IRequestMessage<string>): Promise<void> {
 		const email = await pickEmail(this._item.githubRepository, message.args);
+		if (email) {
+			this._folderRepositoryManager.saveLastUsedEmail(email);
+		}
 		return this._replyMessage(message, email ?? message.args);
 	}
 
