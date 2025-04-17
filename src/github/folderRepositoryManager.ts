@@ -2802,6 +2802,19 @@ export class FolderRepositoryManager extends Disposable {
 		}
 	}
 
+	public async getPreferredEmail(pullRequest: PullRequestModel): Promise<string | undefined> {
+		const isEmu = await this.credentialStore.getIsEmu(pullRequest.remote.authProviderId);
+		const gitHubEmails = await pullRequest.githubRepository.getAuthenticatedUserEmails();
+		const gitEmail = await PullRequestGitHelper.getEmail(this.repository);
+
+		if (isEmu) {
+			return undefined;
+		}
+
+		// If `gitEmail` is an empty string, then use the first GitHub email
+		return gitEmail && gitHubEmails.find(email => email.toLowerCase() === gitEmail.toLowerCase()) || gitHubEmails[0];
+	}
+
 	public getTitleAndDescriptionProvider(searchTerm?: string) {
 		return this._git.getTitleAndDescriptionProvider(searchTerm);
 	}

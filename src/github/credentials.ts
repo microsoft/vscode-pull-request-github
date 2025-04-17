@@ -419,16 +419,8 @@ export class CredentialStore extends Disposable {
 				Logger.error(`Failed to get current user: ${e}, ${e.message}`, CredentialStore.ID);
 			});
 		});
-		github.currentUser = new Promise(resolve => {
-			getUser.then(result => {
-				resolve(convertRESTUserToAccount(result.data));
-			});
-		});
-		github.isEmu = new Promise(resolve => {
-			getUser.then(result => {
-				resolve(result.data.plan?.name === 'emu_user');
-			});
-		});
+		github.currentUser = getUser.then(result => convertRESTUserToAccount(result.data));
+		github.isEmu = getUser.then(result => result.data.plan?.name === 'emu_user');
 	}
 
 	private async getSession(authProviderId: AuthProvider, getAuthSessionOptions: vscode.AuthenticationGetSessionOptions, scopes: string[], requireScopes: boolean): Promise<{ session: vscode.AuthenticationSession | undefined, isNew: boolean, scopes: string[] }> {
