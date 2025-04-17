@@ -517,6 +517,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	private async changeEmail(message: IRequestMessage<string>): Promise<void> {
 		const email = await pickEmail(this._item.githubRepository, message.args);
+		if (email) {
+			this._folderRepositoryManager.saveLastUsedEmail(email);
+		}
 		return this._replyMessage(message, email ?? message.args);
 	}
 
