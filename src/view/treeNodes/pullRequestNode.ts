@@ -8,9 +8,10 @@ import { Repository } from '../../api/api';
 import { getCommentingRanges } from '../../common/commentingRanges';
 import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
-import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE } from '../../common/settingKeys';
+import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE, TREE_VIEW_ICON_MODE, TreeViewIconMode } from '../../common/settingKeys';
 import { createPRNodeUri, DataUri, fromPRUri, Schemes } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { GithubItemStateEnum } from '../../github/interface';
 import { NotificationProvider } from '../../github/notifications';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
@@ -129,7 +130,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 
 	protected registerConfigurationChange() {
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`)) {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`) || e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${TREE_VIEW_ICON_MODE}`)) {
 				this.refresh();
 			}
 		}));
@@ -262,7 +263,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 	async getTreeItem(): Promise<vscode.TreeItem> {
 		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
 
-		const { title, number, author, isDraft, html_url } = this.pullRequestModel;
+		const { title, number, author, isDraft, html_url, state } = this.pullRequestModel;
 		const labelTitle = this.pullRequestModel.title.length > 50 ? `${this.pullRequestModel.title.substring(0, 50)}...` : this.pullRequestModel.title;
 		const { login } = author;
 
@@ -279,13 +280,35 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 			labelPrefix += `#${formattedPRNumber}: `;
 		}
 
-		const label = `${labelPrefix}${isDraft ? '[DRAFT] ' : ''}${labelTitle}`;
+		const iconMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<TreeViewIconMode>(TREE_VIEW_ICON_MODE, 'author');
+
+		const label = `${labelPrefix}${isDraft && iconMode !== 'state' ? '[DRAFT] ' : ''}${labelTitle}`;
 		const description = `by @${login}`;
 		const command = {
 			title: vscode.l10n.t('View Pull Request Description'),
 			command: 'pr.openDescription',
 			arguments: [this],
 		};
+
+		let iconPath: vscode.Uri | vscode.ThemeIcon = new vscode.ThemeIcon('github');
+		if (iconMode === 'author') {
+			const authorAvatar = (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0];
+			if (authorAvatar) {
+				iconPath = authorAvatar;
+			}
+		} else if (iconMode === 'state') {
+			iconPath = new vscode.ThemeIcon(
+				state === GithubItemStateEnum.Closed ? 'git-pull-request-closed'
+					: state === GithubItemStateEnum.Merged ? 'git-merge'
+						: isDraft ? 'git-pull-request-draft'
+							: 'git-pull-request',
+				new vscode.ThemeColor(
+					state === GithubItemStateEnum.Closed ? 'pullRequests.closed'
+						: state === GithubItemStateEnum.Merged ? 'pullRequests.merged'
+							: isDraft ? 'pullRequests.draft'
+								: 'pullRequests.open'
+				));
+		}
 
 		return {
 			label,
@@ -298,8 +321,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				(currentBranchIsForThisPR ? ':active' : ':nonactive') +
 				(hasNotification ? ':notification' : '') +
 				(((this.pullRequestModel.item.isRemoteHeadDeleted && !this._isLocal) || !this._folderReposManager.isPullRequestAssociatedWithOpenRepository(this.pullRequestModel)) ? '' : ':hasHeadRef'),
-			iconPath: (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
-				?? new vscode.ThemeIcon('github'),
+			iconPath,
 			accessibilityInformation: {
 				label: `${isDraft ? 'Draft ' : ''}Pull request number ${formattedPRNumber}: ${title} by ${login}`
 			},
