@@ -219,7 +219,7 @@ export class ReviewManager extends Disposable {
 						return changeNode.changeModel.parentFilePath;
 					}
 				}
-			}, label, this.repository.rootUri));
+			}, 'github-pr', label, this.repository.rootUri));
 		}
 	}
 
