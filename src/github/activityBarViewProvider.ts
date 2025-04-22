@@ -466,6 +466,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		message: IRequestMessage<MergeArguments>,
 	): Promise<void> {
 		const { title, description, method } = message.args;
+		const email = await this._folderRepositoryManager.getPreferredEmail(this._item);
 		const yes = vscode.l10n.t('Yes');
 		const confirmation = await vscode.window.showInformationMessage(
 			vscode.l10n.t('Merge this pull request?'),
@@ -478,7 +479,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 
 		this._folderRepositoryManager
-			.mergePullRequest(this._item, title, description, method)
+			.mergePullRequest(this._item, title, description, method, email)
 			.then(result => {
 				vscode.commands.executeCommand('pr.refreshList');
 

@@ -33,7 +33,7 @@ import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
 import { batchPromiseAll, compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
-import { NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
+import { LAST_USED_EMAIL, NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
 import { CreatePullRequestHelper } from '../view/createPullRequestHelper';
 import { OctokitCommon } from './common';
@@ -2800,6 +2800,34 @@ export class FolderRepositoryManager extends Disposable {
 			// we can't handle the error
 			throw err;
 		}
+	}
+
+	public saveLastUsedEmail(email: string | undefined) {
+		return this.context.globalState.update(LAST_USED_EMAIL, email);
+	}
+
+	public async getPreferredEmail(pullRequest: PullRequestModel): Promise<string | undefined> {
+		const isEmu = await this.credentialStore.getIsEmu(pullRequest.remote.authProviderId);
+		if (isEmu) {
+			return undefined;
+		}
+
+		const gitHubEmails = await pullRequest.githubRepository.getAuthenticatedUserEmails();
+		const getMatch = (match: string | undefined) => match && gitHubEmails.find(email => email.toLowerCase() === match.toLowerCase());
+
+		const gitEmail = await PullRequestGitHelper.getEmail(this.repository);
+		let match = getMatch(gitEmail);
+		if (match) {
+			return match;
+		}
+
+		const lastUsedEmail = this.context.globalState.get<string>(LAST_USED_EMAIL);
+		match = getMatch(lastUsedEmail);
+		if (match) {
+			return match;
+		}
+
+		return gitHubEmails[0];
 	}
 
 	public getTitleAndDescriptionProvider(searchTerm?: string) {
