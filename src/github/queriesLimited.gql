@@ -41,6 +41,7 @@ fragment IssueBase on Issue {
 	title
 	titleHTML
 	author {
+		...Actor
 		...User
 		...Organization
 	}
@@ -55,6 +56,7 @@ fragment IssueBase on Issue {
 	}
 	assignees(first: 10) {
 		nodes {
+			...Actor
 			...User
 		}
 	}
@@ -114,6 +116,7 @@ fragment PullRequestFragment on PullRequest {
 	title
 	titleHTML
 	author {
+		...Actor
 		...User
 		...Organization
 	}
@@ -128,6 +131,7 @@ fragment PullRequestFragment on PullRequest {
 	}
 	assignees(first: 10) {
 		nodes {
+			...Actor
 			...User
 		}
 	}
@@ -195,8 +199,8 @@ fragment PullRequestFragment on PullRequest {
 		isAuthor
 		isCommenter
 		reviewer {
-			...User
 			...Actor
+			...User
 			...Node
 		}
 	}
