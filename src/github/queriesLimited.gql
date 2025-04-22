@@ -41,6 +41,7 @@ fragment IssueBase on Issue {
 	title
 	titleHTML
 	author {
+		...Node
 		...Actor
 		...User
 		...Organization
@@ -56,6 +57,7 @@ fragment IssueBase on Issue {
 	}
 	assignees(first: 10) {
 		nodes {
+			...Node
 			...Actor
 			...User
 		}
@@ -116,6 +118,7 @@ fragment PullRequestFragment on PullRequest {
 	title
 	titleHTML
 	author {
+		...Node
 		...Actor
 		...User
 		...Organization
@@ -131,6 +134,7 @@ fragment PullRequestFragment on PullRequest {
 	}
 	assignees(first: 10) {
 		nodes {
+			...Node
 			...Actor
 			...User
 		}
@@ -270,6 +274,22 @@ query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!)
 	}
 }
 
+query GetAssignableUsers($owner: String!, $name: String!, $first: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		assignableUsers(first: $first, after: $after) {
+			nodes {
+				...User
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
 
 mutation CreatePullRequest($input: CreatePullRequestInput!) {
 	createPullRequest(input: $input) {

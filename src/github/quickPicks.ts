@@ -6,6 +6,7 @@
 
 import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
+import { SPECIAL_COMMENT_AUTHORS } from '../common/comment';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
 import { formatError } from '../common/utils';
@@ -42,7 +43,7 @@ async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context
 		}
 
 		alreadyAssignedItems.push({
-			label: isTeam(user) ? `${user.org}/${user.slug}` : (user as IAccount).login,
+			label: isTeam(user) ? `${user.org}/${user.slug}` : SPECIAL_COMMENT_AUTHORS[user.login] ? SPECIAL_COMMENT_AUTHORS[user.login].name : user.login,
 			description: user.name,
 			user,
 			picked,

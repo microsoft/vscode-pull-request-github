@@ -582,7 +582,8 @@ export function parseAccount(
 ): IAccount {
 	if (author) {
 		const avatarUrl = 'avatarUrl' in author ? author.avatarUrl : author.avatar_url;
-		const id = 'id' in author ? author.id : author.node_id;
+		const id = 'node_id' in author ? author.node_id : author.id;
+		// In some places, Copilot comes in as a user, and in others as a bot 
 		return {
 			login: author.login,
 			url: author.url,
