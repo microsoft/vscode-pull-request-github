@@ -2803,7 +2803,7 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	public saveLastUsedEmail(email: string | undefined) {
-		this.context.globalState.update(LAST_USED_EMAIL, email);
+		return this.context.globalState.update(LAST_USED_EMAIL, email);
 	}
 
 	public async getPreferredEmail(pullRequest: PullRequestModel): Promise<string | undefined> {
