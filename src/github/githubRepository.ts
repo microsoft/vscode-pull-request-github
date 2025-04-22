@@ -38,6 +38,7 @@ import {
 	PullRequestTemplatesResponse,
 	RepoProjectsResponse,
 	RevertPullRequestResponse,
+	SuggestedActorsResponse,
 	ViewerPermissionResponse,
 } from './graphql';
 import {
@@ -1207,29 +1208,46 @@ export class GitHubRepository extends Disposable {
 
 		do {
 			try {
-				const result: { data: AssignableUsersResponse } = await query<AssignableUsersResponse>({
-					query: schema.GetAssignableUsers,
-					variables: {
-						owner: remote.owner,
-						name: remote.repositoryName,
-						first: 100,
-						after: after,
-					},
-				}, true); // we ignore SAML errors here because this query can happen at startup
+				let result: { data: AssignableUsersResponse | SuggestedActorsResponse } | undefined;
+				if (schema.GetSuggestedActors) {
+					result = await query<SuggestedActorsResponse>({
+						query: schema.GetSuggestedActors,
+						variables: {
+							owner: remote.owner,
+							name: remote.repositoryName,
+							capabilities: ['CAN_BE_ASSIGNED'],
+							first: 100,
+							after: after,
+						},
+					});
+
+				} else {
+					result = await query<AssignableUsersResponse>({
+						query: schema.GetAssignableUsers,
+						variables: {
+							owner: remote.owner,
+							name: remote.repositoryName,
+							first: 100,
+							after: after,
+						},
+					}, true); // we ignore SAML errors here because this query can happen at startup
+				}
 
 				if (result.data.repository === null) {
 					Logger.error('Unexpected null repository when getting assignable users', this.id);
 					return [];
 				}
 
+				const users = (result.data as AssignableUsersResponse).repository?.assignableUsers ?? (result.data as SuggestedActorsResponse).repository?.suggestedActors;
+
 				ret.push(
-					...result.data.repository.assignableUsers.nodes.map(node => {
+					...users?.nodes.map(node => {
 						return parseAccount(node, this);
 					}),
 				);
 
-				hasNextPage = result.data.repository.assignableUsers.pageInfo.hasNextPage;
-				after = result.data.repository.assignableUsers.pageInfo.endCursor;
+				hasNextPage = users?.pageInfo.hasNextPage;
+				after = users?.pageInfo.endCursor;
 			} catch (e) {
 				Logger.debug(`Unable to fetch assignable users: ${e}`, this.id);
 				if (

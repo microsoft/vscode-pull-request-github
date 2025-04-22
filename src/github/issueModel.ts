@@ -370,17 +370,46 @@ export class IssueModel<TItem extends Issue = Issue> {
 		}
 	}
 
-	async addAssignees(assignees: string[]): Promise<void> {
+	async replaceAssignees(allAssignees: IAccount[]): Promise<void> {
+		Logger.debug(`Replace assignees of issue #${this.number} - enter`, IssueModel.ID);
+		const { mutate, schema } = await this.githubRepository.ensure();
+
+		try {
+			if (schema.ReplaceActorsForAssignable) {
+				const assigneeIds = allAssignees.map(assignee => assignee.id);
+				await mutate({
+					mutation: schema.ReplaceActorsForAssignable,
+					variables: {
+						input: {
+							actorIds: assigneeIds,
+							assignableId: this.graphNodeId
+						}
+					}
+				});
+			} else {
+				const addAssignees = allAssignees.map(assignee => assignee.login);
+				const removeAssignees = (this.assignees?.filter(currentAssignee => !allAssignees.find(newAssignee => newAssignee.login === currentAssignee.login)) ?? []).map(assignee => assignee.login);
+				await this.addAssignees(addAssignees);
+				await this.deleteAssignees(removeAssignees);
+			}
+			this.assignees = allAssignees;
+		} catch (e) {
+			Logger.error(e, IssueModel.ID);
+		}
+		Logger.debug(`Replace assignees of issue #${this.number} - done`, IssueModel.ID);
+	}
+
+	async addAssignees(assigneesToAdd: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		await octokit.call(octokit.api.issues.addAssignees, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			issue_number: this.number,
-			assignees,
+			assignees: assigneesToAdd,
 		});
 	}
 
-	async deleteAssignees(assignees: string[]): Promise<void> {
+	private async deleteAssignees(assignees: string[]): Promise<void> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		await octokit.call(octokit.api.issues.removeAssignees, {
 			owner: remote.owner,

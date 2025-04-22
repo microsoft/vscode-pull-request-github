@@ -153,14 +153,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			body: issue.body,
 			bodyHTML: issue.bodyHTML,
 			labels: issue.item.labels,
-			author: {
-				login: issue.author.login,
-				name: issue.author.name,
-				avatarUrl: issue.userAvatar,
-				url: issue.author.url,
-				id: issue.author.id,
-				accountType: issue.author.accountType,
-			},
+			author: issue.author,
 			state: issue.state,
 			events: timelineEvents,
 			continueOnGitHub: this.continueOnGitHub(),
@@ -383,11 +376,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 			if (allAssignees) {
 				const newAssignees: IAccount[] = allAssignees.map(item => item.user);
-				const removeAssignees: IAccount[] = this._item.assignees?.filter(currentAssignee => !newAssignees.find(newAssignee => newAssignee.login === currentAssignee.login)) ?? [];
-				this._item.assignees = newAssignees;
-
-				await this._item.addAssignees(newAssignees.map(assignee => assignee.login));
-				await this._item.deleteAssignees(removeAssignees.map(assignee => assignee.login));
+				await this._item.replaceAssignees(newAssignees);
 				await this._replyMessage(message, {
 					assignees: newAssignees,
 				});
@@ -449,8 +438,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			const currentUser = await this._folderRepositoryManager.getCurrentUser();
 			const alreadyAssigned = this._item.assignees?.find(user => user.login === currentUser.login);
 			if (!alreadyAssigned) {
-				this._item.assignees = this._item.assignees?.concat(currentUser);
-				await this._item.addAssignees([currentUser.login]);
+				const newAssigness = (this._item.assignees ?? []).concat(currentUser);
+				await this._item.replaceAssignees(newAssigness);
 			}
 			this._replyMessage(message, {
 				assignees: this._item.assignees,

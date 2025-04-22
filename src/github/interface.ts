@@ -103,7 +103,8 @@ export interface MergeQueueEntry {
 }
 
 export function reviewerId(reviewer: ITeam | IAccount): string {
-	return isTeam(reviewer) ? reviewer.id : reviewer.login;
+	// We can literally get different login values for copilot depending on where it's coming from (already assignee vs suggested assingee)
+	return isTeam(reviewer) ? reviewer.id : (reviewer.specialDisplayName ?? reviewer.login);
 }
 
 export function reviewerLabel(reviewer: ITeam | IAccount | IActor | any): string {

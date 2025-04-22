@@ -52,6 +52,7 @@ fragment IssueBase on Issue {
 	title
 	titleHTML
 	author {
+		...Node
 		...Actor
 		...User
 		...Organization
@@ -67,6 +68,7 @@ fragment IssueBase on Issue {
 	}
 	assignees(first: 10) {
 		nodes {
+			...Node
 			...Actor
 			...User
 		}
@@ -136,6 +138,7 @@ fragment PullRequestFragment on PullRequest {
 	title
 	titleHTML
 	author {
+		...Node
 		...Actor
 		...User
 		...Organization
@@ -151,6 +154,7 @@ fragment PullRequestFragment on PullRequest {
 	}
 	assignees(first: 10) {
 		nodes {
+			...Node
 			...Actor
 			...User
 		}
@@ -334,10 +338,47 @@ query PullRequestMergeabilityMergeRequirements($owner: String!, $name: String!, 
 	}
 }
 
+query GetSuggestedActors($owner: String!, $name: String!, $capabilities: [RepositorySuggestedActorFilter!]!, $first: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		suggestedActors(first: $first, after: $after, capabilities: $capabilities) {
+			nodes {
+				...Node
+				...Actor
+				...User
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
 mutation CreatePullRequest($input: CreatePullRequestInput!) {
 	createPullRequest(input: $input) {
 		pullRequest {
 			...PullRequestFragment
+		}
+	}
+}
+
+mutation ReplaceActorsForAssignable($input: ReplaceActorsForAssignableInput!) {
+	replaceActorsForAssignable(input: $input) {
+		assignable {
+			assignees(first: 100) {
+				nodes {
+					...Node
+					...Actor
+					...User
+				}
+				pageInfo {
+					hasNextPage
+					endCursor
+				}
+			}
 		}
 	}
 }

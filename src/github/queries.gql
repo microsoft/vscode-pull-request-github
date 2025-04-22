@@ -7,7 +7,6 @@
 
 # Queries that are also in the limit file, but are not limited (by scope or API availability) here
 
-
 fragment Node on Node {
 	id
 }
@@ -52,6 +51,7 @@ fragment IssueBase on Issue {
 	title
 	titleHTML
 	author {
+		...Node
 		...Actor
 		...User
 		...Organization
@@ -67,6 +67,7 @@ fragment IssueBase on Issue {
 	}
 	assignees(first: 10) {
 		nodes {
+			...Node
 			...Actor
 			...User
 		}
@@ -127,6 +128,7 @@ fragment PullRequestFragment on PullRequest {
 	title
 	titleHTML
 	author {
+		...Node
 		...Actor
 		...User
 		...Organization
@@ -142,6 +144,7 @@ fragment PullRequestFragment on PullRequest {
 	}
 	assignees(first: 10) {
 		nodes {
+			...Node
 			...Actor
 			...User
 		}
@@ -334,6 +337,25 @@ mutation RevertPullRequest($input: RevertPullRequestInput!) {
 
 # Queries that only exist in this file and in extra
 
+query GetSuggestedActors($owner: String!, $name: String!, $capabilities: [RepositorySuggestedActorFilter!]!, $first: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		suggestedActors(first: $first, after: $after, capabilities: $capabilities) {
+			nodes {
+				...Node
+				...Actor
+				...User
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
 mutation DequeuePullRequest($input: DequeuePullRequestInput!) {
 	dequeuePullRequest(input: $input) {
 		mergeQueueEntry {
@@ -346,6 +368,24 @@ mutation EnqueuePullRequest($input: EnqueuePullRequestInput!) {
 	enqueuePullRequest(input: $input) {
 		mergeQueueEntry {
 			...MergeQueueEntryFragment
+		}
+	}
+}
+
+mutation ReplaceActorsForAssignable($input: ReplaceActorsForAssignableInput!) {
+	replaceActorsForAssignable(input: $input) {
+		assignable {
+			assignees(first: 100) {
+				nodes {
+					...Node
+					...Actor
+					...User
+				}
+				pageInfo {
+					hasNextPage
+					endCursor
+				}
+			}
 		}
 	}
 }

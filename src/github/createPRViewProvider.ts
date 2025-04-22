@@ -278,6 +278,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			return;
 		}
 		try {
+			// TODO: We need to resolve the user and then use the replace function.
 			await pr.addAssignees([resolved]);
 		} catch (e) {
 			Logger.error(`Unable to assign pull request to user ${resolved}.`, BaseCreatePullRequestViewProvider.ID);
@@ -298,7 +299,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 
 	private async setAssignees(pr: PullRequestModel, assignees: IAccount[]): Promise<void> {
 		if (assignees.length) {
-			await pr.addAssignees(assignees.map(assignee => assignee.login));
+			await pr.replaceAssignees(assignees);
 		} else {
 			await this.autoAssign(pr);
 		}

@@ -300,6 +300,16 @@ export interface AssignableUsersResponse {
 	rateLimit: RateLimit;
 }
 
+export interface SuggestedActorsResponse {
+	repository: {
+		suggestedActors: {
+			nodes: Actor[];
+			pageInfo: PageInfo;
+		};
+	} | null;
+	rateLimit: RateLimit;
+}
+
 export interface OrganizationTeamsCountResponse {
 	organization: {
 		teams: {
