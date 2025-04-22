@@ -81,5 +81,6 @@ const COPILOT_AUTHOR = {
 
 export const SPECIAL_COMMENT_AUTHORS: { [key: string]: { postComment: string, name: string } } = {
 	'copilot-pull-request-reviewer': COPILOT_AUTHOR,
-	'copilot-swe-agent': COPILOT_AUTHOR
+	'copilot-swe-agent': COPILOT_AUTHOR,
+	'Copilot': COPILOT_AUTHOR
 };

@@ -589,7 +589,7 @@ export function parseAccount(
 			avatarUrl: githubRepository ? getAvatarWithEnterpriseFallback(avatarUrl, undefined, githubRepository.remote.isEnterprise) : avatarUrl,
 			email: author.email ?? undefined,
 			id: id,
-			name: author.name ?? undefined,
+			name: author.name ?? SPECIAL_COMMENT_AUTHORS[author.login]?.name ?? undefined,
 			specialDisplayName: SPECIAL_COMMENT_AUTHORS[author.login] ? (author.name ?? SPECIAL_COMMENT_AUTHORS[author.login].name) : undefined,
 			accountType: toAccountType('__typename' in author ? author.__typename : author.type),
 		};

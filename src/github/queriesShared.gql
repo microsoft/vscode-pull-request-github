@@ -90,6 +90,7 @@ fragment Comment on IssueComment {
 	databaseId
 	authorAssociation
 	author {
+		...Actor
 		...User
 		...Organization
 	}
@@ -108,6 +109,7 @@ fragment Commit on PullRequestCommit {
 	commit {
 		author {
 			user {
+				...Actor
 				...User
 			}
 		}
@@ -129,6 +131,7 @@ fragment AssignedEvent on AssignedEvent {
 		...Actor
 	}
 	user {
+		...Actor
 		...User
 	}
 }
@@ -749,6 +752,7 @@ query GetMentionableUsers($owner: String!, $name: String!, $first: Int!, $after:
 	repository(owner: $owner, name: $name) {
 		mentionableUsers(first: $first, after: $after) {
 			nodes {
+				...Actor
 				...User
 			}
 			pageInfo {
@@ -766,6 +770,7 @@ query GetAssignableUsers($owner: String!, $name: String!, $first: Int!, $after: 
 	repository(owner: $owner, name: $name) {
 		assignableUsers(first: $first, after: $after) {
 			nodes {
+				...Actor
 				...User
 			}
 			pageInfo {
