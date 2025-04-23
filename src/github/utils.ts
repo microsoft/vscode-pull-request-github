@@ -458,7 +458,8 @@ export function convertGraphQLEventType(text: string) {
 			return Common.EventType.Reviewed;
 		case 'MergedEvent':
 			return Common.EventType.Merged;
-
+		case 'CrossReferencedEvent':
+			return Common.EventType.CrossReferenced;
 		default:
 			return Common.EventType.Other;
 	}
@@ -964,6 +965,7 @@ export function parseGraphQLTimelineEvents(
 		| GraphQL.Commit
 		| GraphQL.AssignedEvent
 		| GraphQL.HeadRefDeletedEvent
+		| GraphQL.CrossReferencedEvent
 	)[],
 	githubRepository: GitHubRepository,
 ): Common.TimelineEvent[] {
@@ -1037,8 +1039,9 @@ export function parseGraphQLTimelineEvents(
 				normalizedEvents.push({
 					id: assignEv.id,
 					event: type,
-					user: parseAccount(assignEv.user, githubRepository),
-					actor: assignEv.actor,
+					assignee: parseAccount(assignEv.user, githubRepository),
+					actor: parseAccount(assignEv.actor),
+					createdAt: assignEv.createdAt,
 				});
 				return;
 			case Common.EventType.HeadRefDeleted:
@@ -1047,9 +1050,25 @@ export function parseGraphQLTimelineEvents(
 				normalizedEvents.push({
 					id: deletedEv.id,
 					event: type,
-					actor: parseActor(deletedEv.actor, githubRepository),
+					actor: parseAccount(deletedEv.actor, githubRepository),
 					createdAt: deletedEv.createdAt,
 					headRef: deletedEv.headRefName,
+				});
+				return;
+			case Common.EventType.CrossReferenced:
+				const crossRefEv = event as GraphQL.CrossReferencedEvent;
+
+				normalizedEvents.push({
+					id: crossRefEv.id,
+					event: type,
+					actor: parseAccount(crossRefEv.actor, githubRepository),
+					createdAt: crossRefEv.createdAt,
+					source: {
+						url: crossRefEv.source.url,
+						number: crossRefEv.source.number,
+						title: crossRefEv.source.title
+					},
+					willCloseTarget: crossRefEv.willCloseTarget
 				});
 				return;
 			default:

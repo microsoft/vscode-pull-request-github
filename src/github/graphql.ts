@@ -34,6 +34,19 @@ export interface HeadRefDeletedEvent {
 	headRefName: string;
 }
 
+export interface CrossReferencedEvent {
+	__typename: string;
+	id: string;
+	actor: Actor;
+	createdAt: string;
+	source: {
+		number: number;
+		url: string;
+		title: string;
+	};
+	willCloseTarget: boolean;
+}
+
 export interface AbbreviatedIssueComment {
 	author: Account;
 	body: string;
@@ -157,6 +170,7 @@ export interface AssignedEvent {
 	id: number;
 	actor: Actor;
 	user: Account;
+	createdAt: string;
 }
 
 export interface MergeQueueEntry {
