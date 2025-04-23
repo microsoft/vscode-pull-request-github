@@ -5,6 +5,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { SPECIAL_COMMENT_AUTHORS } from '../common/comment';
 import Logger from '../common/logger';
 import { IGNORE_USER_COMPLETION_TRIGGER, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { TimelineEvent } from '../common/timelineEvent';
@@ -108,9 +109,10 @@ export class UserCompletionProvider implements vscode.CompletionItemProvider {
 		let completionItems: vscode.CompletionItem[] = [];
 		const userMap = await this.stateManager.getUserMap(repoUri);
 		userMap.forEach(item => {
+			const login = item.specialDisplayName ?? item.login;
 			const completionItem: UserCompletion = new UserCompletion(
-				{ label: item.login, description: item.name }, vscode.CompletionItemKind.User);
-			completionItem.insertText = `@${item.login}`;
+				{ label: login, description: item.name }, vscode.CompletionItemKind.User);
+			completionItem.insertText = `@${login}`;
 			completionItem.login = item.login;
 			completionItem.uri = repoUri;
 			completionItem.range = range;
