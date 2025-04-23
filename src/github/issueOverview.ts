@@ -85,7 +85,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		column: vscode.ViewColumn,
 		title: string,
 		folderRepositoryManager: FolderRepositoryManager,
-		type: string = IssueOverviewPanel._viewType,
+		private readonly type: string = IssueOverviewPanel._viewType,
 		iconSubpath?: {
 			light: string,
 			dark: string,
@@ -129,6 +129,16 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 					});
 				}
 			}));
+		this.pollForUpdates(true);
+	}
+
+	private pollForUpdates(shorterTimeout: boolean = false): void {
+		const webview = shorterTimeout || vscode.window.tabGroups.all.find(group => group.activeTab?.input instanceof vscode.TabInputWebview && group.activeTab.input.viewType.endsWith(this.type));
+		const timeoutDuration = 1000 * 60 * (webview ? 1 : 5);
+		setTimeout(async () => {
+			await this.refreshPanel();
+			this.pollForUpdates();
+		}, timeoutDuration);
 	}
 
 	public async refreshPanel(): Promise<void> {

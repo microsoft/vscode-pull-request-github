@@ -116,7 +116,6 @@ export class ReviewManager extends Disposable {
 		if (_gitApi.state === 'initialized') {
 			this.updateState(true);
 		}
-		this.pollForStatusChange();
 	}
 
 	private registerListeners(): void {
@@ -239,15 +238,6 @@ export class ReviewManager extends Disposable {
 
 	get reviewModel() {
 		return this._reviewModel;
-	}
-
-	private pollForStatusChange() {
-		setTimeout(async () => {
-			if (!this._validateStatusInProgress && this._folderRepoManager.activePullRequest) {
-				await this.updateComments();
-			}
-			this.pollForStatusChange();
-		}, 1000 * 60 * 5);
 	}
 
 	private get id(): string {
