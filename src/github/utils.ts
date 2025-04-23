@@ -502,7 +502,7 @@ export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: 
 		commitId: comment.commit.oid,
 		originalPosition: comment.originalPosition,
 		originalCommitId: comment.originalCommit && comment.originalCommit.oid,
-		user: comment.author ? { ...parseAccount(comment.author, githubRepository), specialDisplayName: specialAuthor ? (GraphQL.isAccount(comment.author) ? specialAuthor.name : undefined) : undefined } : undefined,
+		user: comment.author ? parseAccount(comment.author, githubRepository) : undefined,
 		createdAt: comment.createdAt,
 		htmlUrl: comment.url,
 		graphNodeId: comment.id,
@@ -583,7 +583,7 @@ export function parseAccount(
 	if (author) {
 		const avatarUrl = 'avatarUrl' in author ? author.avatarUrl : author.avatar_url;
 		const id = 'node_id' in author ? author.node_id : author.id;
-		// In some places, Copilot comes in as a user, and in others as a bot 
+		// In some places, Copilot comes in as a user, and in others as a bot
 		return {
 			login: author.login,
 			url: author.url,

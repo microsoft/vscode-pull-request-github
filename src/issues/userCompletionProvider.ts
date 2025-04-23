@@ -5,7 +5,6 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { SPECIAL_COMMENT_AUTHORS } from '../common/comment';
 import Logger from '../common/logger';
 import { IGNORE_USER_COMPLETION_TRIGGER, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { TimelineEvent } from '../common/timelineEvent';
