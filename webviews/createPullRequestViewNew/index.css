@@ -162,6 +162,13 @@ textarea {
 	color: var(--vscode-inputValidation-errorForeground);
 }
 
+.validation-warning {
+	padding: 5px;
+	border: 1px solid var(--vscode-inputValidation-warningBorder);
+	background-color: var(--vscode-inputValidation-warningBackground);
+	color: var(--vscode-inputValidation-warningForeground);
+}
+
 .below-input-error {
 	border-top: none !important;
 }

@@ -342,6 +342,11 @@ export function main() {
 							{params.createError}
 						</ErrorBoundary>
 					</div>
+					<div className={!!params.warning ? 'wrapper validation-warning' : 'hidden'} aria-live='assertive'>
+						<ErrorBoundary>
+							{params.warning}
+						</ErrorBoundary>
+					</div>
 
 					<div className='group-actions'>
 						<button disabled={isBusy} className='secondary' onClick={() => ctx.cancelCreate()}>

@@ -33,7 +33,7 @@ import {
 } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
 import { IAccount, ILabel, IMilestone, IProject, isTeam, ITeam, MergeMethod, RepoAccessAndMergeMethods } from './interface';
-import { BaseBranchMetadata } from './pullRequestGitHelper';
+import { BaseBranchMetadata, PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick, reviewersQuickPick } from './quickPicks';
@@ -605,7 +605,8 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 				baseRemote,
 				baseBranch,
 				compareRemote,
-				compareBranch
+				compareBranch,
+				warning: await this.existingPRMessage(),
 			};
 			// TODO: consider updating title and description
 			return this._postMessage({
@@ -616,6 +617,11 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		}));
 	}
 
+	private async existingPRMessage(): Promise<string | undefined> {
+		const existingPR = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._folderRepositoryManager.repository, this.model.compareBranch);
+		return existingPR ? vscode.l10n.t('A pull request already exists for this branch.') : '';
+	}
+
 	public async setDefaultCompareBranch(compareBranch: Branch | undefined) {
 		const branchChanged = compareBranch && (compareBranch.name !== this.model.compareBranch);
 		const currentCompareRemote = this._folderRepositoryManager.gitHubRepositories.find(repo => repo.remote.owner === this.model.compareOwner)?.remote.remoteName;
@@ -623,12 +629,13 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 		if (branchChanged || branchRemoteChanged) {
 			this._defaultCompareBranch = compareBranch!.name!;
 			this.model.setCompareBranch(compareBranch!.name);
-			this.changeBranch(compareBranch!.name!, false).then(titleAndDescription => {
+			this.changeBranch(compareBranch!.name!, false).then(async titleAndDescription => {
 				const params: Partial<CreateParamsNew> = {
 					defaultTitle: titleAndDescription.title,
 					defaultDescription: titleAndDescription.description,
 					compareBranch: compareBranch?.name,
-					defaultCompareBranch: compareBranch?.name
+					defaultCompareBranch: compareBranch?.name,
+					warning: await this.existingPRMessage(),
 				};
 				if (!branchRemoteChanged) {
 					return this._postMessage({
