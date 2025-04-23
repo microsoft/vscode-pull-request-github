@@ -121,6 +121,7 @@ export interface CreateParamsNew {
 	validate?: boolean;
 	showTitleValidationError?: boolean;
 	createError?: string;
+	warning?: string;
 
 	autoMergeDefault: boolean;
 	autoMerge?: boolean;

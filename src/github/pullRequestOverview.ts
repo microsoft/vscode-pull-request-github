@@ -29,7 +29,6 @@ import {
 	ReviewState,
 } from './interface';
 import { IssueOverviewPanel } from './issueOverview';
-import { PullRequestGitHelper } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { pickEmail, reviewersQuickPick } from './quickPicks';
