@@ -137,6 +137,29 @@ fragment AssignedEvent on AssignedEvent {
 		...Actor
 		...User
 	}
+	createdAt
+}
+
+fragment CrossReferencedEvent on CrossReferencedEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+	source {
+		... on PullRequest {
+			number
+			url
+			title
+		}
+		... on Issue {
+			number
+			url
+			title
+		}
+	}
+	willCloseTarget
 }
 
 fragment Review on PullRequestReview {
@@ -233,6 +256,7 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 					...Commit
 					...AssignedEvent
 					...HeadRefDeleted
+					...CrossReferencedEvent
 				}
 			}
 		}
@@ -250,6 +274,7 @@ query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last:
 					__typename
 					...Comment
 					...AssignedEvent
+					...CrossReferencedEvent
 				}
 			}
 		}

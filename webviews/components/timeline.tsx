@@ -9,6 +9,7 @@ import {
 	AssignEvent,
 	CommentEvent,
 	CommitEvent,
+	CrossReferencedEvent,
 	EventType,
 	HeadRefDeleteEvent,
 	MergedEvent,
@@ -20,7 +21,7 @@ import { ReviewType } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { CommentView } from './comment';
 import Diff from './diff';
-import { commitIcon, mergeIcon, plusIcon } from './icon';
+import { assigneeIcon, commitIcon, linkIcon, mergeIcon, plusIcon } from './icon';
 import { nbsp } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -41,6 +42,8 @@ export const Timeline = ({ events }: { events: TimelineEvent[] }) => (
 					return <AssignEventView key={`assign${event.id}`} {...event} />;
 				case EventType.HeadRefDeleted:
 					return <HeadDeleteEventView key={`head${event.id}`} {...event} />;
+				case EventType.CrossReferenced:
+					return <CrossReferencedEventView key={`cross${event.id}`} {...event} />;
 				case EventType.NewCommitsSinceReview:
 					return <NewCommitsSinceReviewEventView key={`newCommits${event.id}`} />;
 				default:
@@ -282,6 +285,44 @@ const HeadDeleteEventView = (event: HeadRefDeleteEvent) => (
 	</div>
 );
 
-// TODO: We should show these, but the pre-React overview page didn't. Add
-// support in a separate PR.
-const AssignEventView = (event: AssignEvent) => null;
+const CrossReferencedEventView = (event: CrossReferencedEvent) => {
+	const { source } = event;
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				{linkIcon}
+				{nbsp}
+				<div className="avatar-container">
+					<Avatar for={event.actor} />
+				</div>
+				<AuthorLink for={event.actor} />
+				<div className="message">
+					linked <a href={source.url}>#{source.number}</a> {source.title}
+					{nbsp}
+					{event.willCloseTarget ? 'which will close this issue' : ''}
+				</div>
+			</div>
+			<Timestamp date={event.createdAt} />
+		</div>
+	);
+};
+
+const AssignEventView = (event: AssignEvent) => {
+	const { actor, assignee } = event;
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				{assigneeIcon}
+				{nbsp}
+				<div className="avatar-container">
+					<Avatar for={actor} />
+				</div>
+				<AuthorLink for={actor} />
+				<div className="message">
+					assigned <AuthorLink for={assignee} /> to this pull request
+				</div>
+			</div>
+			<Timestamp date={event.createdAt} />
+		</div>
+	);
+};

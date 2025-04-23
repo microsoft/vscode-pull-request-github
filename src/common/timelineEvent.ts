@@ -18,6 +18,7 @@ export enum EventType {
 	Assigned,
 	HeadRefDeleted,
 	Merged,
+	CrossReferenced,
 	Other,
 }
 
@@ -94,8 +95,9 @@ export interface MergedEvent {
 export interface AssignEvent {
 	id: number;
 	event: EventType.Assigned;
-	user: IAccount;
+	assignee: IAccount;
 	actor: IActor;
+	createdAt: string;
 }
 
 export interface HeadRefDeleteEvent {
@@ -106,4 +108,17 @@ export interface HeadRefDeleteEvent {
 	headRef: string;
 }
 
-export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent;
+export interface CrossReferencedEvent {
+	id: string;
+	event: EventType.CrossReferenced
+	actor: IActor;
+	createdAt: string;
+	source: {
+		number: number;
+		url: string;
+		title: string;
+	};
+	willCloseTarget: boolean;
+}
+
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent | CrossReferencedEvent;
