@@ -2269,9 +2269,22 @@ export class FolderRepositoryManager extends Disposable {
 			return null;
 		}
 
-		const headGitHubRepo = this.gitHubRepositories.find(
+		let headGitHubRepo = this.gitHubRepositories.find(
 			repo => repo.remote.remoteName === remoteName,
 		);
+
+		if (!headGitHubRepo && this.gitHubRepositories.length > 0) {
+			const gitRemote = this.repository.state.remotes.find(remote => remote.name === remoteName);
+			const remoteUrl = gitRemote?.fetchUrl ?? gitRemote?.pushUrl;
+			if (!remoteUrl) {
+				return null;
+			}
+			const protocol = new Protocol(remoteUrl ?? '');
+			const remote = parseRemote(remoteName, remoteUrl, protocol);
+			if (remote) {
+				headGitHubRepo = await this.createGitHubRepository(remote, this.credentialStore, true, true);
+			}
+		}
 
 		return this.doGetMatchingPullRequestMetadataFromGitHub(headGitHubRepo, upstreamBranchName);
 	}
