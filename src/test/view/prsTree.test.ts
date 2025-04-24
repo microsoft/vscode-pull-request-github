@@ -141,6 +141,7 @@ describe('GitHub Pull Requests view', function () {
 				builder.pullRequest(pr => {
 					pr.repository(r =>
 						r.pullRequest(p => {
+							p.databaseId(1111);
 							p.number(1111);
 							p.title('zero');
 							p.author(a => a.login('me').avatarUrl('https://avatars.com/me.jpg').url('https://github.com/me'));
@@ -157,6 +158,7 @@ describe('GitHub Pull Requests view', function () {
 				builder.pullRequest(pr => {
 					pr.repository(r =>
 						r.pullRequest(p => {
+							p.databaseId(2222);
 							p.number(2222);
 							p.title('one');
 							p.author(a => a.login('you').avatarUrl('https://avatars.com/you.jpg'));
