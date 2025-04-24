@@ -7,7 +7,7 @@ import { createContext } from 'react';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, ReadyForReview, ReviewState } from '../../src/github/interface';
-import { MergeArguments, MergeResult, ProjectItemsReply, PullRequest } from '../../src/github/views';
+import { ChangeAssigneesReply, MergeArguments, MergeResult, ProjectItemsReply, PullRequest } from '../../src/github/views';
 import { getState, setState, updateState } from './cache';
 import { getMessageHandler, MessageHandler } from './message';
 
@@ -79,8 +79,8 @@ export class PRContext {
 	public removeProject = (project: IProjectItem) => this.postMessage({ command: 'pr.remove-project', args: project });
 	public addMilestone = () => this.postMessage({ command: 'pr.add-milestone' });
 	public removeMilestone = () => this.postMessage({ command: 'pr.remove-milestone' });
-	public addAssignees = () => this.postMessage({ command: 'pr.change-assignees' });
-	public addAssigneeYourself = () => this.postMessage({ command: 'pr.add-assignee-yourself' });
+	public addAssignees = (): Promise<ChangeAssigneesReply> => this.postMessage({ command: 'pr.change-assignees' });
+	public addAssigneeYourself = (): Promise<ChangeAssigneesReply> => this.postMessage({ command: 'pr.add-assignee-yourself' });
 	public addLabels = () => this.postMessage({ command: 'pr.add-labels' });
 	public create = () => this.postMessage({ command: 'pr.open-create' });
 

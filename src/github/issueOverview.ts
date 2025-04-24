@@ -17,7 +17,7 @@ import { IAccount, ILabel, IMilestone, IProject, IProjectItem, RepoAccessAndMerg
 import { IssueModel } from './issueModel';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
 import { isInCodespaces, vscodeDevPrLink } from './utils';
-import { Issue, ProjectItemsReply } from './views';
+import { ChangeAssigneesReply, Issue, ProjectItemsReply } from './views';
 
 export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends WebviewBase {
 	public static ID: string = 'IssueOverviewPanel';
@@ -387,9 +387,12 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			if (allAssignees) {
 				const newAssignees: IAccount[] = allAssignees.map(item => item.user);
 				await this._item.replaceAssignees(newAssignees);
-				await this._replyMessage(message, {
+				const events = await this._item.getIssueTimelineEvents();
+				const reply: ChangeAssigneesReply = {
 					assignees: newAssignees,
-				});
+					events
+				};
+				await this._replyMessage(message, reply);
 			}
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
@@ -448,12 +451,15 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			const currentUser = await this._folderRepositoryManager.getCurrentUser();
 			const alreadyAssigned = this._item.assignees?.find(user => user.login === currentUser.login);
 			if (!alreadyAssigned) {
-				const newAssigness = (this._item.assignees ?? []).concat(currentUser);
-				await this._item.replaceAssignees(newAssigness);
+				const newAssignees = (this._item.assignees ?? []).concat(currentUser);
+				await this._item.replaceAssignees(newAssignees);
 			}
-			this._replyMessage(message, {
-				assignees: this._item.assignees,
-			});
+			const events = await this._item.getIssueTimelineEvents();
+			const reply: ChangeAssigneesReply = {
+				assignees: this._item.assignees ?? [],
+				events
+			};
+			this._replyMessage(message, reply);
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
 		}

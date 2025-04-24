@@ -21,37 +21,53 @@ import { ReviewType } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { CommentView } from './comment';
 import Diff from './diff';
-import { assigneeIcon, commitIcon, linkIcon, mergeIcon, plusIcon } from './icon';
+import { commitIcon, mergeIcon, plusIcon } from './icon';
 import { nbsp } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
 
-export const Timeline = ({ events }: { events: TimelineEvent[] }) => (
-	<>
-		{events.map(event => {
-			switch (event.event) {
-				case EventType.Committed:
-					return <CommitEventView key={`commit${event.id}`} {...event} />;
-				case EventType.Reviewed:
-					return <ReviewEventView key={`review${event.id}`} {...event} />;
-				case EventType.Commented:
-					return <CommentEventView key={`comment${event.id}`} {...event} />;
-				case EventType.Merged:
-					return <MergedEventView key={`merged${event.id}`} {...event} />;
-				case EventType.Assigned:
-					return <AssignEventView key={`assign${event.id}`} {...event} />;
-				case EventType.HeadRefDeleted:
-					return <HeadDeleteEventView key={`head${event.id}`} {...event} />;
-				case EventType.CrossReferenced:
-					return <CrossReferencedEventView key={`cross${event.id}`} {...event} />;
-				case EventType.NewCommitsSinceReview:
-					return <NewCommitsSinceReviewEventView key={`newCommits${event.id}`} />;
-				default:
-					throw new UnreachableCaseError(event);
+export const Timeline = ({ events }: { events: TimelineEvent[] }) => {
+	const consolidatedEvents: TimelineEvent[] = [];
+	for (let i = 0; i < events.length; i++) {
+		if ((i > 0) && (events[i].event === EventType.Assigned) && (consolidatedEvents[consolidatedEvents.length - 1].event === EventType.Assigned)) {
+			const lastEvent = consolidatedEvents[consolidatedEvents.length - 1] as AssignEvent;
+			const newEvent = events[i] as AssignEvent;
+			if (new Date(lastEvent.createdAt).getTime() + (1000 * 60 * 10) > new Date(newEvent.createdAt).getTime()) { // within 10 minutes
+				if (lastEvent.assignees.every(a => a.id !== newEvent.assignees[0].id)) {
+					lastEvent.assignees = [...lastEvent.assignees, ...newEvent.assignees];
+				}
+				lastEvent.createdAt = newEvent.createdAt;
+			} else {
+				consolidatedEvents.push(newEvent);
 			}
-		})}
-	</>
-);
+		} else {
+			consolidatedEvents.push(events[i]);
+		}
+	}
+
+	return <>{consolidatedEvents.map(event => {
+		switch (event.event) {
+			case EventType.Committed:
+				return <CommitEventView key={`commit${event.id}`} {...event} />;
+			case EventType.Reviewed:
+				return <ReviewEventView key={`review${event.id}`} {...event} />;
+			case EventType.Commented:
+				return <CommentEventView key={`comment${event.id}`} {...event} />;
+			case EventType.Merged:
+				return <MergedEventView key={`merged${event.id}`} {...event} />;
+			case EventType.Assigned:
+				return <AssignEventView key={`assign${event.id}`} {...event} />;
+			case EventType.HeadRefDeleted:
+				return <HeadDeleteEventView key={`head${event.id}`} {...event} />;
+			case EventType.CrossReferenced:
+				return <CrossReferencedEventView key={`cross${event.id}`} {...event} />;
+			case EventType.NewCommitsSinceReview:
+				return <NewCommitsSinceReviewEventView key={`newCommits${event.id}`} />;
+			default:
+				throw new UnreachableCaseError(event);
+		}
+	})}</>;
+};
 
 export default Timeline;
 
@@ -63,7 +79,6 @@ const CommitEventView = (event: CommitEvent) => (
 			<div className="avatar-container">
 				<Avatar for={event.author} />
 			</div>
-			<AuthorLink for={event.author} />
 			<div className="message-container">
 				<a className="message" href={event.htmlUrl} title={event.htmlUrl}>
 					{event.message.substr(0, event.message.indexOf('\n') > -1 ? event.message.indexOf('\n') : event.message.length)}
@@ -290,8 +305,6 @@ const CrossReferencedEventView = (event: CrossReferencedEvent) => {
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
-				{linkIcon}
-				{nbsp}
 				<div className="avatar-container">
 					<Avatar for={event.actor} />
 				</div>
@@ -307,19 +320,24 @@ const CrossReferencedEventView = (event: CrossReferencedEvent) => {
 	);
 };
 
+function joinWithAnd(arr: JSX.Element[]): JSX.Element {
+	if (arr.length === 0) return <></>;
+	if (arr.length === 1) return arr[0];
+	if (arr.length === 2) return <>{arr[0]} and {arr[1]}</>;
+	return <>{arr.slice(0, -1).map(item => <>{item}, </>)} and {arr[arr.length - 1]}</>;
+}
+
 const AssignEventView = (event: AssignEvent) => {
-	const { actor, assignee } = event;
+	const { actor, assignees } = event;
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
-				{assigneeIcon}
-				{nbsp}
 				<div className="avatar-container">
 					<Avatar for={actor} />
 				</div>
 				<AuthorLink for={actor} />
 				<div className="message">
-					assigned <AuthorLink for={assignee} /> to this pull request
+					assigned {joinWithAnd(assignees.map(a => <AuthorLink key={a.id} for={a} />))} to this pull request
 				</div>
 			</div>
 			<Timestamp date={event.createdAt} />
