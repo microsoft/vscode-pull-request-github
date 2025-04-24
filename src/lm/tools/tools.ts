@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { CredentialStore } from '../../github/credentials';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { ChatParticipantState } from '../participants';
+import { ActivePullRequestTool } from './activePullRequestTool';
 import { DisplayIssuesTool } from './displayIssuesTool';
 import { FetchIssueTool } from './fetchIssueTool';
 import { FetchNotificationTool } from './fetchNotificationTool';
@@ -21,6 +22,7 @@ export function registerTools(context: vscode.ExtensionContext, credentialStore:
 	registerSummarizationTools(context);
 	registerSuggestFixTool(context, credentialStore, repositoriesManager, chatParticipantState);
 	registerSearchTools(context, credentialStore, repositoriesManager, chatParticipantState);
+	context.subscriptions.push(vscode.lm.registerTool(ActivePullRequestTool.toolId, new ActivePullRequestTool(repositoriesManager)));
 }
 
 function registerFetchingTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
