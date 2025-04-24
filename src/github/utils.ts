@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
-import { IComment, IReviewThread, Reaction, SPECIAL_COMMENT_AUTHORS, SubjectType } from '../common/comment';
+import { COPILOT_ACCOUNTS, IComment, IReviewThread, Reaction, SubjectType } from '../common/comment';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
@@ -487,7 +487,7 @@ export function parseGraphQLReviewThread(thread: GraphQL.ReviewThread, githubRep
 }
 
 export function parseGraphQLComment(comment: GraphQL.ReviewComment, isResolved: boolean, githubRepository: GitHubRepository): IComment {
-	const specialAuthor = SPECIAL_COMMENT_AUTHORS[comment.author?.login ?? ''];
+	const specialAuthor = COPILOT_ACCOUNTS[comment.author?.login ?? ''];
 	const c: IComment = {
 		id: comment.databaseId,
 		url: comment.url,
@@ -524,7 +524,7 @@ export function parseGraphQlIssueComment(comment: GraphQL.IssueComment, githubRe
 		id: comment.databaseId,
 		url: comment.url,
 		body: comment.body,
-		specialDisplayBodyPostfix: SPECIAL_COMMENT_AUTHORS[comment.author?.login ?? '']?.postComment,
+		specialDisplayBodyPostfix: COPILOT_ACCOUNTS[comment.author?.login ?? '']?.postComment,
 		bodyHTML: comment.bodyHTML,
 		canEdit: comment.viewerCanDelete,
 		canDelete: comment.viewerCanDelete,
@@ -591,8 +591,8 @@ export function parseAccount(
 			avatarUrl: githubRepository ? getAvatarWithEnterpriseFallback(avatarUrl, undefined, githubRepository.remote.isEnterprise) : avatarUrl,
 			email: author.email ?? undefined,
 			id: id,
-			name: author.name ?? SPECIAL_COMMENT_AUTHORS[author.login]?.name ?? undefined,
-			specialDisplayName: SPECIAL_COMMENT_AUTHORS[author.login] ? (author.name ?? SPECIAL_COMMENT_AUTHORS[author.login].name) : undefined,
+			name: author.name ?? COPILOT_ACCOUNTS[author.login]?.name ?? undefined,
+			specialDisplayName: COPILOT_ACCOUNTS[author.login] ? (author.name ?? COPILOT_ACCOUNTS[author.login].name) : undefined,
 			accountType: toAccountType('__typename' in author ? author.__typename : author.type),
 		};
 	} else {

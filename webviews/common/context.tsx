@@ -81,6 +81,7 @@ export class PRContext {
 	public removeMilestone = () => this.postMessage({ command: 'pr.remove-milestone' });
 	public addAssignees = (): Promise<ChangeAssigneesReply> => this.postMessage({ command: 'pr.change-assignees' });
 	public addAssigneeYourself = (): Promise<ChangeAssigneesReply> => this.postMessage({ command: 'pr.add-assignee-yourself' });
+	public addAssigneeCopilot = (): Promise<ChangeAssigneesReply> => this.postMessage({ command: 'pr.add-assignee-copilot' });
 	public addLabels = () => this.postMessage({ command: 'pr.add-labels' });
 	public create = () => this.postMessage({ command: 'pr.open-create' });
 

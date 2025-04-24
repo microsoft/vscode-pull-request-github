@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { openPullRequestOnGitHub } from '../commands';
-import { IComment } from '../common/comment';
+import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { CommentEvent, EventType, TimelineEvent } from '../common/timelineEvent';
@@ -151,7 +151,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return isInCodespaces();
 	}
 
-	protected getInitializeContext(issue: IssueModel, timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean): Issue {
+	protected getInitializeContext(issue: IssueModel, timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Issue {
 		const hasWritePermission = repositoryAccess!.hasWritePermission;
 		const canEdit = hasWritePermission || viewerCanEdit;
 		const context: Issue = {
@@ -174,43 +174,51 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			milestone: issue.milestone,
 			assignees: issue.assignees ?? [],
 			isEnterprise: issue.githubRepository.remote.isEnterprise,
-			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
+			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
+			canAssignCopilot: assignableUsers.find(user => COPILOT_ACCOUNTS[user.login]) !== undefined
 		};
 
 		return context;
 	}
 
 	public async updateIssue(issueModel: IssueModel): Promise<void> {
-		return Promise.all([
-			this._folderRepositoryManager.resolveIssue(
-				issueModel.remote.owner,
-				issueModel.remote.repositoryName,
-				issueModel.number,
-			),
-			issueModel.getIssueTimelineEvents(),
-			this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(issueModel),
-			issueModel.canEdit()
-		])
-			.then(result => {
-				const [issue, timelineEvents, repositoryAccess, viewerCanEdit] = result;
-				if (!issue) {
-					throw new Error(
-						`Fail to resolve issue #${issueModel.number} in ${issueModel.remote.owner}/${issueModel.remote.repositoryName}`,
-					);
-				}
+		try {
+			const [
+				issue,
+				timelineEvents,
+				repositoryAccess,
+				viewerCanEdit,
+				assignableUsers
+			] = await Promise.all([
+				this._folderRepositoryManager.resolveIssue(
+					issueModel.remote.owner,
+					issueModel.remote.repositoryName,
+					issueModel.number,
+				),
+				issueModel.getIssueTimelineEvents(),
+				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(issueModel),
+				issueModel.canEdit(),
+				this._folderRepositoryManager.getAssignableUsers()
+			]);
 
-				this._item = issue as TItem;
-				this.setPanelTitle(`Issue #${issueModel.number.toString()}`);
+			if (!issue) {
+				throw new Error(
+					`Fail to resolve issue #${issueModel.number} in ${issueModel.remote.owner}/${issueModel.remote.repositoryName}`,
+				);
+			}
 
-				Logger.debug('pr.initialize', IssueOverviewPanel.ID);
-				this._postMessage({
-					command: 'pr.initialize',
-					pullrequest: this.getInitializeContext(issue, timelineEvents, repositoryAccess, viewerCanEdit)
-				});
-			})
-			.catch(e => {
-				vscode.window.showErrorMessage(`Error updating issue description: ${formatError(e)}`);
+			this._item = issue as TItem;
+			this.setPanelTitle(`Issue #${issueModel.number.toString()}`);
+
+			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
+			this._postMessage({
+				command: 'pr.initialize',
+				pullrequest: this.getInitializeContext(issue, timelineEvents, repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName]),
 			});
+
+		} catch (e) {
+			vscode.window.showErrorMessage(`Error updating issue description: ${formatError(e)}`);
+		}
 	}
 
 	public async update(foldersManager: FolderRepositoryManager, issueModel: IssueModel): Promise<void> {
@@ -268,6 +276,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				return this.removeProject(message);
 			case 'pr.add-assignee-yourself':
 				return this.addAssigneeYourself(message);
+			case 'pr.add-assignee-copilot':
+				return this.addAssigneeCopilot(message);
 			case 'pr.copy-prlink':
 				return this.copyItemLink();
 			case 'pr.copy-vscodedevlink':
@@ -452,6 +462,24 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			const alreadyAssigned = this._item.assignees?.find(user => user.login === currentUser.login);
 			if (!alreadyAssigned) {
 				const newAssignees = (this._item.assignees ?? []).concat(currentUser);
+				await this._item.replaceAssignees(newAssignees);
+			}
+			const events = await this._item.getIssueTimelineEvents();
+			const reply: ChangeAssigneesReply = {
+				assignees: this._item.assignees ?? [],
+				events
+			};
+			this._replyMessage(message, reply);
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
+		}
+	}
+
+	private async addAssigneeCopilot(message: IRequestMessage<void>): Promise<void> {
+		try {
+			const copilotUser = (await this._folderRepositoryManager.getAssignableUsers())[this._item.remote.remoteName].find(user => COPILOT_ACCOUNTS[user.login]);
+			if (copilotUser) {
+				const newAssignees = (this._item.assignees ?? []).concat(copilotUser);
 				await this._item.replaceAssignees(newAssignees);
 			}
 			const events = await this._item.getIssueTimelineEvents();

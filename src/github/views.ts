@@ -56,6 +56,7 @@ export interface Issue {
 	continueOnGitHub: boolean;
 	isDarkTheme: boolean;
 	isEnterprise: boolean;
+	canAssignCopilot: boolean;
 	busy?: boolean;
 }
 
