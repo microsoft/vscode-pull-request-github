@@ -599,4 +599,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	public getCurrentTitle(): string {
 		return this._panel.title;
 	}
+
+	public getCurrentItem(): TItem | undefined {
+		return this._item;
+	}
 }

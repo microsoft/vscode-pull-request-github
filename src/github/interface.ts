@@ -18,9 +18,9 @@ export enum ReviewEvent {
 }
 
 export enum GithubItemStateEnum {
-	Open,
-	Merged,
-	Closed,
+	Open = 'OPEN',
+	Merged = 'MERGED',
+	Closed = 'CLOSED',
 }
 
 export enum PullRequestMergeability {
