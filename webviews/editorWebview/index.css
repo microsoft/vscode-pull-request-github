@@ -602,6 +602,11 @@ body button .icon {
 	color: currentColor;
 }
 
+.icon-button-group {
+	display: flex;
+	flex-direction: row;
+}
+
 .section svg path {
 	fill: currentColor;
 }

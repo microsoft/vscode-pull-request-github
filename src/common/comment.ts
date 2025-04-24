@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { IAccount } from '../github/interface';
+import { COPILOT_LOGINS } from './copilot';
 import { DiffHunk } from './diffHunk';
 
 export enum DiffSide {
@@ -79,8 +80,5 @@ const COPILOT_AUTHOR = {
 	postComment: vscode.l10n.t('Copilot is powered by AI, so mistakes are possible. Review output carefully before use.')
 };
 
-export const SPECIAL_COMMENT_AUTHORS: { [key: string]: { postComment: string, name: string } } = {
-	'copilot-pull-request-reviewer': COPILOT_AUTHOR,
-	'copilot-swe-agent': COPILOT_AUTHOR,
-	'Copilot': COPILOT_AUTHOR
-};
+export const COPILOT_ACCOUNTS: { [key: string]: { postComment: string, name: string } } =
+	Object.fromEntries(COPILOT_LOGINS.map(login => [login, COPILOT_AUTHOR]));

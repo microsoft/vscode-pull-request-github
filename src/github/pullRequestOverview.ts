@@ -195,107 +195,106 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
-		return Promise.all([
-			this._folderRepositoryManager.resolvePullRequest(
-				pullRequestModel.remote.owner,
-				pullRequestModel.remote.repositoryName,
-				pullRequestModel.number,
-			),
-			pullRequestModel.getTimelineEvents(),
-			this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
-			pullRequestModel.getStatusChecks(),
-			pullRequestModel.getReviewRequests(),
-			this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
-			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
-			this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
-			pullRequestModel.canEdit(),
-			this._folderRepositoryManager.getOrgTeamsCount(pullRequestModel.githubRepository),
-			this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName),
-			this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel),
-			pullRequestModel.getMergeability(),
-			this._folderRepositoryManager.getPreferredEmail(pullRequestModel)])
-			.then(result => {
-				const [
-					pullRequest,
-					timelineEvents,
-					defaultBranch,
-					status,
-					requestedReviewers,
-					repositoryAccess,
-					branchInfo,
-					currentUser,
-					viewerCanEdit,
-					orgTeamsCount,
-					mergeQueueMethod,
-					isBranchUpToDateWithBase,
-					mergeability,
-					emailForCommit,
-				] = result;
-				if (!pullRequest) {
-					throw new Error(
-						`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`,
-					);
-				}
+		try {
+			const [
+				pullRequest,
+				timelineEvents,
+				defaultBranch,
+				status,
+				requestedReviewers,
+				repositoryAccess,
+				branchInfo,
+				currentUser,
+				viewerCanEdit,
+				orgTeamsCount,
+				mergeQueueMethod,
+				isBranchUpToDateWithBase,
+				mergeability,
+				emailForCommit,
+			] = await Promise.all([
+				this._folderRepositoryManager.resolvePullRequest(
+					pullRequestModel.remote.owner,
+					pullRequestModel.remote.repositoryName,
+					pullRequestModel.number,
+				),
+				pullRequestModel.getTimelineEvents(),
+				this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
+				pullRequestModel.getStatusChecks(),
+				pullRequestModel.getReviewRequests(),
+				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
+				this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
+				this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
+				pullRequestModel.canEdit(),
+				this._folderRepositoryManager.getOrgTeamsCount(pullRequestModel.githubRepository),
+				this._folderRepositoryManager.mergeQueueMethodForBranch(pullRequestModel.base.ref, pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName),
+				this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel),
+				pullRequestModel.getMergeability(),
+				this._folderRepositoryManager.getPreferredEmail(pullRequestModel),
+			]);
+			if (!pullRequest) {
+				throw new Error(
+					`Fail to resolve Pull Request #${pullRequestModel.number} in ${pullRequestModel.remote.owner}/${pullRequestModel.remote.repositoryName}`,
+				);
+			}
 
-				this._item = pullRequest;
-				this.registerPrListeners();
-				this._repositoryDefaultBranch = defaultBranch!;
-				this._teamsCount = orgTeamsCount;
-				this.setPanelTitle(`Pull Request #${pullRequestModel.number.toString()}`);
+			this._item = pullRequest;
+			this.registerPrListeners();
+			this._repositoryDefaultBranch = defaultBranch!;
+			this._teamsCount = orgTeamsCount;
+			this.setPanelTitle(`Pull Request #${pullRequestModel.number.toString()}`);
 
-				const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
-				const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
+			const isCurrentlyCheckedOut = pullRequestModel.equals(this._folderRepositoryManager.activePullRequest);
+			const mergeMethodsAvailability = repositoryAccess!.mergeMethodsAvailability;
 
-				const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
-				this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
+			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability);
+			this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
 
-				const isUpdateBranchWithGitHubEnabled: boolean = this.isUpdateBranchWithGitHubEnabled();
-				const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
+			const isUpdateBranchWithGitHubEnabled: boolean = this.isUpdateBranchWithGitHubEnabled();
+			const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
 
-				Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
-				const baseContext = this.getInitializeContext(pullRequest, timelineEvents, repositoryAccess, viewerCanEdit);
+			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
+			const baseContext = this.getInitializeContext(pullRequest, timelineEvents, repositoryAccess, viewerCanEdit, []);
 
-				const context: Partial<PullRequest> = {
-					...baseContext,
-					isCurrentlyCheckedOut: isCurrentlyCheckedOut,
-					isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
-					base: pullRequest.base.label,
-					isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
-					isLocalHeadDeleted: !branchInfo,
-					head: pullRequest.head?.label ?? '',
-					repositoryDefaultBranch: defaultBranch,
-					status: status[0],
-					reviewRequirement: status[1],
-					canUpdateBranch: pullRequest.item.viewerCanUpdate && !isBranchUpToDateWithBase && isUpdateBranchWithGitHubEnabled,
-					mergeable: mergeability.mergeability,
-					reviewers: this._existingReviewers,
-					isDraft: pullRequest.isDraft,
-					mergeMethodsAvailability,
-					defaultMergeMethod,
-					autoMerge: pullRequest.autoMerge,
-					allowAutoMerge: pullRequest.allowAutoMerge,
-					autoMergeMethod: pullRequest.autoMergeMethod,
-					mergeQueueMethod: mergeQueueMethod,
-					mergeQueueEntry: pullRequest.mergeQueueEntry,
-					mergeCommitMeta: pullRequest.mergeCommitMeta,
-					squashCommitMeta: pullRequest.squashCommitMeta,
-					isIssue: false,
-					emailForCommit,
-					isAuthor: currentUser.login === pullRequest.author.login,
-					currentUserReviewState: reviewState,
-					revertable: pullRequest.state === GithubItemStateEnum.Merged
-				};
-				this._postMessage({
-					command: 'pr.initialize',
-					pullrequest: context
-				});
-				if (pullRequest.isResolved()) {
-					this._folderRepositoryManager.checkBranchUpToDate(pullRequest, true);
-				}
-			})
-			.catch(e => {
-				vscode.window.showErrorMessage(`Error updating pull request description: ${formatError(e)}`);
+			const context: Partial<PullRequest> = {
+				...baseContext,
+				isCurrentlyCheckedOut: isCurrentlyCheckedOut,
+				isRemoteBaseDeleted: pullRequest.isRemoteBaseDeleted,
+				base: pullRequest.base.label,
+				isRemoteHeadDeleted: pullRequest.isRemoteHeadDeleted,
+				isLocalHeadDeleted: !branchInfo,
+				head: pullRequest.head?.label ?? '',
+				repositoryDefaultBranch: defaultBranch,
+				status: status[0],
+				reviewRequirement: status[1],
+				canUpdateBranch: pullRequest.item.viewerCanUpdate && !isBranchUpToDateWithBase && isUpdateBranchWithGitHubEnabled,
+				mergeable: mergeability.mergeability,
+				reviewers: this._existingReviewers,
+				isDraft: pullRequest.isDraft,
+				mergeMethodsAvailability,
+				defaultMergeMethod,
+				autoMerge: pullRequest.autoMerge,
+				allowAutoMerge: pullRequest.allowAutoMerge,
+				autoMergeMethod: pullRequest.autoMergeMethod,
+				mergeQueueMethod: mergeQueueMethod,
+				mergeQueueEntry: pullRequest.mergeQueueEntry,
+				mergeCommitMeta: pullRequest.mergeCommitMeta,
+				squashCommitMeta: pullRequest.squashCommitMeta,
+				isIssue: false,
+				emailForCommit,
+				isAuthor: currentUser.login === pullRequest.author.login,
+				currentUserReviewState: reviewState,
+				revertable: pullRequest.state === GithubItemStateEnum.Merged
+			};
+			this._postMessage({
+				command: 'pr.initialize',
+				pullrequest: context
 			});
+			if (pullRequest.isResolved()) {
+				this._folderRepositoryManager.checkBranchUpToDate(pullRequest, true);
+			}
+		} catch (e) {
+			vscode.window.showErrorMessage(`Error updating pull request description: ${formatError(e)}`);
+		}
 	}
 
 	public override async update(

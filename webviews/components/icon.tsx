@@ -45,4 +45,4 @@ export const sparkleIcon = <Icon src={require('../../resources/icons/sparkle.svg
 export const stopCircleIcon = <Icon src={require('../../resources/icons/stop-circle.svg')} />;
 export const issueIcon = <Icon src={require('../../resources/icons/issue.svg')} />;
 export const issueClosedIcon = <Icon src={require('../../resources/icons/issue_closed.svg')} />;
-export const linkIcon = <Icon src={require('../../resources/icons/link.svg')} />;
+export const copilotIcon = <Icon src={require('../../resources/icons/copilot.svg')} />;
