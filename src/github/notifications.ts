@@ -175,7 +175,7 @@ export class NotificationProvider extends Disposable {
 
 			for (const catNode of catNodes) {
 				if (catNode.id === 'All Open') {
-					if (catNode.prs.length === 0) {
+					if (catNode.prs.size === 0) {
 						for (const prNode of await catNode.cachedChildren()) {
 							if (prNode instanceof PRNode) {
 								allPrs.push(prNode.pullRequestModel);
@@ -183,7 +183,7 @@ export class NotificationProvider extends Disposable {
 						}
 					}
 					else {
-						allPrs = catNode.prs;
+						allPrs = Array.from(catNode.prs.values());
 					}
 
 				}
