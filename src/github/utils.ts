@@ -1447,6 +1447,8 @@ function computeSinceValue(sinceValue: string | undefined): string {
 	return `${date.getFullYear()}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 }
 
+const COPILOT_PATTERN = /\:(Copilot|copilot)(\s|$)/g;
+
 const VARIABLE_PATTERN = /\$\{([^-]*?)(-.*?)?\}/g;
 export async function variableSubstitution(
 	value: string,
@@ -1454,7 +1456,7 @@ export async function variableSubstitution(
 	defaults?: PullRequestDefaults,
 	user?: string,
 ): Promise<string> {
-	return value.replace(VARIABLE_PATTERN, (match: string, variable: string, extra: string) => {
+	const withVariables = value.replace(VARIABLE_PATTERN, (match: string, variable: string, extra: string) => {
 		let result: string;
 		switch (variable) {
 			case 'user':
@@ -1491,6 +1493,12 @@ export async function variableSubstitution(
 		Logger.debug(`${match} -> ${result}`, 'VariableSubstitution');
 		return result;
 	});
+
+	// not a variable, but still a substitution that needs to be done
+	const withCopilot = withVariables.replace(COPILOT_PATTERN, () => {
+		return `:copilot-swe-agent[bot]`;
+	});
+	return withCopilot;
 }
 
 export function getIssueNumberLabel(issue: IssueModel, repo?: PullRequestDefaults) {
