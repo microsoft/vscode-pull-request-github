@@ -951,7 +951,7 @@ code {
 
 .timestamp,
 .timestamp:hover {
-	color: inherit;
+	color: var(--vscode-descriptionForeground);;
 	white-space: nowrap;
 }
 

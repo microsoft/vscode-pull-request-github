@@ -1039,7 +1039,7 @@ export function parseGraphQLTimelineEvents(
 				normalizedEvents.push({
 					id: assignEv.id,
 					event: type,
-					assignee: parseAccount(assignEv.user, githubRepository),
+					assignees: [parseAccount(assignEv.user, githubRepository)],
 					actor: parseAccount(assignEv.actor),
 					createdAt: assignEv.createdAt,
 				});

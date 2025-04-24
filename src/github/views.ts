@@ -101,6 +101,11 @@ export interface ProjectItemsReply {
 	projectItems: IProjectItem[] | undefined;
 }
 
+export interface ChangeAssigneesReply {
+	assignees: IAccount[];
+	events: TimelineEvent[];
+}
+
 export interface MergeArguments {
 	title: string | undefined;
 	description: string | undefined;

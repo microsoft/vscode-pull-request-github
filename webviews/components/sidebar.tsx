@@ -62,7 +62,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 			<div id="assignees" className="section">
 				<div className="section-header" onClick={async () => {
 					const newAssignees = await addAssignees();
-					updatePR({ assignees: newAssignees.assignees });
+					updatePR({ assignees: newAssignees.assignees, events: newAssignees.events });
 				}}>
 					<div className="section-title">Assignees</div>
 					{hasWritePermission ? (
@@ -94,7 +94,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 									className="assign-yourself"
 									onClick={async () => {
 										const newAssignees = await addAssigneeYourself();
-										updatePR({ assignees: newAssignees.assignees });
+										updatePR({ assignees: newAssignees.assignees, events: newAssignees.events });
 									}}
 								>
 									assign yourself

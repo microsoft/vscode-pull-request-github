@@ -95,7 +95,7 @@ export interface MergedEvent {
 export interface AssignEvent {
 	id: number;
 	event: EventType.Assigned;
-	assignee: IAccount;
+	assignees: IAccount[];
 	actor: IActor;
 	createdAt: string;
 }
