@@ -115,8 +115,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			}
 		}
 
-		const completionItems: Map<string, vscode.CompletionItem> = new Map();
-		const now = new Date();
+		const completionItems: Map<string, IssueCompletionItem> = new Map();
 		let repo: PullRequestDefaults | undefined;
 		let uri: vscode.Uri | undefined;
 		if (document.languageId === 'scminput') {
@@ -148,26 +147,18 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		}
 		const issueData = this.stateManager.getIssueCollection(folderManager?.repository.rootUri ?? uri);
 
-		// Count up total number of issues. The number of queries is expected to be small.
-		let totalIssues = 0;
-		for (const issueQuery of issueData) {
-			const issuesOrMilestones: IssueQueryResult = await issueQuery[1];
-			totalIssues += (issuesOrMilestones.issues ?? []).length;
-		}
-
 		for (const issueQuery of issueData) {
 			const issuesOrMilestones: IssueQueryResult = await issueQuery[1];
 			if ((issuesOrMilestones.issues ?? []).length === 0) {
 				continue;
 			}
-			let index = 0;
 			for (const issue of (issuesOrMilestones.issues ?? [])) {
 				if (filterOwnerAndRepo && ((issue as IssueModel).remote.owner !== filterOwnerAndRepo.owner || (issue as IssueModel).remote.repositoryName !== filterOwnerAndRepo.repo)) {
 					continue;
 				}
 				completionItems.set(
 					getIssueNumberLabel(issue as IssueModel),
-					await this.completionItemFromIssue(repo, issue as IssueModel, now, range, document, index++, totalIssues),
+					await this.completionItemFromIssue(repo, issue as IssueModel, range, document),
 				);
 			}
 
@@ -178,11 +169,8 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 	private async completionItemFromIssue(
 		repo: PullRequestDefaults | undefined,
 		issue: IssueModel,
-		now: Date,
 		range: vscode.Range,
 		document: vscode.TextDocument,
-		index: number,
-		totalCount: number,
 		milestone?: IMilestone,
 	): Promise<IssueCompletionItem> {
 		const item: IssueCompletionItem = new IssueCompletionItem(issue);
@@ -201,7 +189,7 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		item.documentation = issue.body;
 		item.range = range;
 		item.detail = milestone ? milestone.title : issue.milestone?.title;
-		item.sortText = `${index}`.padStart(`${totalCount}`.length, '0');
+		item.sortText = `${new Date(issue.updatedAt).getTime()}`;
 		item.filterText = `${item.detail} # ${issue.number} ${issue.title} ${item.documentation}`;
 		return item;
 	}
