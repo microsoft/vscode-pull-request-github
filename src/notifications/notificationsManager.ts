@@ -84,7 +84,9 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		if (notification.subject.type === NotificationSubjectType.PullRequest && model instanceof PullRequestModel) {
 			item.iconPath = model.isOpen
 				? new vscode.ThemeIcon('git-pull-request', new vscode.ThemeColor('pullRequests.open'))
-				: new vscode.ThemeIcon('git-pull-request', new vscode.ThemeColor('pullRequests.merged'));
+				: (model.isMerged
+					? new vscode.ThemeIcon('git-pull-request', new vscode.ThemeColor('pullRequests.merged'))
+					: new vscode.ThemeIcon('git-pull-request-closed', new vscode.ThemeColor('pullRequests.closed')));
 		}
 		item.description = `${notification.owner}/${notification.name}`;
 		item.contextValue = notification.subject.type;
