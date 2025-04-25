@@ -6,12 +6,12 @@
 import * as vscode from 'vscode';
 import { ITelemetry } from '../common/telemetry';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
+import { issueMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
 import { StateManager } from './stateManager';
 import {
 	getIssue,
-	issueMarkdown,
 	shouldShowHover,
 } from './util';
 

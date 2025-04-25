@@ -5,6 +5,8 @@
 
 import * as vscode from 'vscode';
 import { Change, Commit } from '../api/api';
+import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
 import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
@@ -17,7 +19,8 @@ export interface CreateModelChangeEvent {
 	compareBranch?: string;
 }
 
-export class CreatePullRequestDataModel {
+export class CreatePullRequestDataModel extends Disposable {
+	private static ID = 'CreatePullRequestDataModel';
 	private _baseOwner: string;
 	private _baseBranch: string;
 	private _compareOwner: string;
@@ -33,19 +36,27 @@ export class CreatePullRequestDataModel {
 
 	private _gitHubMergeBase: string | undefined;
 	private _gitHubLog: OctokitCommon.Commit[] | undefined;
-	private _gitHubFiles: OctokitCommon.CommitFile[] | undefined;
+	private _gitHubFiles: OctokitCommon.CommitFiles;
 
 	private _gitHubcontentProvider: GitHubContentProvider;
 	private _gitcontentProvider: GitContentProvider;
 
 	constructor(private readonly folderRepositoryManager: FolderRepositoryManager, baseOwner: string, baseBranch: string, compareOwner: string, compareBranch: string, public readonly repositoryName: string) {
+		super();
 		this._baseOwner = baseOwner;
 		this._baseBranch = baseBranch;
+		this._compareBranch = baseBranch;
 		this._gitcontentProvider = new GitContentProvider(this.folderRepositoryManager);
 		this._compareGitHubRepository = this.folderRepositoryManager.gitHubRepositories.find(githubRepo => githubRepo.remote.owner === compareOwner && githubRepo.remote.repositoryName === repositoryName);
-		this._gitHubcontentProvider = new GitHubContentProvider(this.folderRepositoryManager, this.folderRepositoryManager.gitHubRepositories[0]);
+		this._gitHubcontentProvider = new GitHubContentProvider(this.folderRepositoryManager.gitHubRepositories);
 		this._constructed = new Promise<void>(resolve => this.setCompareBranch(compareBranch).then(resolve));
 		this.compareOwner = compareOwner;
+		this._register(folderRepositoryManager.repository.state.onDidChange(() => {
+			if (folderRepositoryManager.repository.state.HEAD?.name === this._compareBranch) {
+				// We assume that the commit has changed.
+				this.update({});
+			}
+		}));
 	}
 
 	get gitHubContentProvider(): GitHubContentProvider {
@@ -189,9 +200,11 @@ export class CreatePullRequestDataModel {
 			const startCompare = this._compareBranch;
 			const result = await this.folderRepositoryManager.repository.diffBetween(`${this.baseRemoteName}/${this._baseBranch}`, this._compareBranch);
 			if (startBase !== this._baseBranch || startCompare !== this._compareBranch) {
+				Logger.debug(`Branches have changed while getting git diff. Base: ${startBase} -> ${this._baseBranch}, Compare: ${startCompare} -> ${this._compareBranch}`, CreatePullRequestDataModel.ID);
 				// The branches have changed while we were waiting for the diff. We can use the result, but we shouldn't save it
 				return result;
 			} else {
+				Logger.debug(`Got ${result.length} git file diffs for merging ${this._compareOwner}/${this._compareBranch} in ${this._baseOwner}/${this._baseBranch}`, CreatePullRequestDataModel.ID);
 				this._gitFiles = result;
 			}
 		}
@@ -219,7 +232,7 @@ export class CreatePullRequestDataModel {
 		return this._gitHubLog;
 	}
 
-	public async gitHubFiles(): Promise<OctokitCommon.CommitFile[]> {
+	public async gitHubFiles(): Promise<OctokitCommon.CommitFiles> {
 		await this._constructed;
 		if (this._gitHubFiles === undefined) {
 			await this.gitHubCommits();

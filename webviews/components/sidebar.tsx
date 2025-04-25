@@ -4,20 +4,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useContext } from 'react';
+import { COPILOT_LOGINS } from '../../src/common/copilot';
 import { gitHubLabelColor } from '../../src/common/utils';
 import { IMilestone, IProjectItem, reviewerId } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Label } from '../common/label';
 import { AuthorLink, Avatar } from '../components/user';
-import { closeIcon, settingsIcon } from './icon';
+import { closeIcon, copilotIcon, settingsIcon } from './icon';
 import { Reviewer } from './reviewer';
 
-export default function Sidebar({ reviewers, labels, issues, hasWritePermission, isIssue, projectItems: projects, milestone, assignees }: PullRequest) {
+export default function Sidebar({ reviewers, labels, issues, hasWritePermission, isIssue, projectItems: projects, milestone, assignees, canAssignCopilot }: PullRequest) {
 	const {
 		addReviewers,
 		addAssignees,
 		addAssigneeYourself,
+		addAssigneeCopilot,
 		addLabels,
 		removeLabel,
 		changeProjects,
@@ -25,6 +27,8 @@ export default function Sidebar({ reviewers, labels, issues, hasWritePermission,
 		updatePR,
 		pr,
 	} = useContext(PullRequestContext);
+
+	const shouldShowCopilotButton = canAssignCopilot && assignees.every(assignee => !COPILOT_LOGINS.includes(assignee.login));
 
 	const updateProjects = async () => {
 		const newProjects = await changeProjects();
@@ -60,18 +64,39 @@ export default function Sidebar({ reviewers, labels, issues, hasWritePermission,
 				''
 			)}
 			<div id="assignees" className="section">
-				<div className="section-header" onClick={async () => {
-					const newAssignees = await addAssignees();
-					updatePR({ assignees: newAssignees.assignees });
-				}}>
+				<div
+					className="section-header"
+					onClick={async (e) => {
+						// Only prevent if the "Assign to Copilot" button is clicked (by id)
+						const target = e.target as HTMLElement;
+						if (target.closest('#assign-copilot-btn')) {
+							return;
+						}
+						const newAssignees = await addAssignees();
+						updatePR({ assignees: newAssignees.assignees, events: newAssignees.events });
+					}}
+				>
 					<div className="section-title">Assignees</div>
-					{hasWritePermission ? (
-						<button
-							className="icon-button"
-							title="Add Assignees">
-							{settingsIcon}
-						</button>
-					) : null}
+					{hasWritePermission ?
+						(<div className="icon-button-group">
+							{shouldShowCopilotButton ? (
+								<button
+									id="assign-copilot-btn"
+									className="icon-button"
+									title="Assign to Copilot"
+									onClick={async () => {
+										const newAssignees = await addAssigneeCopilot();
+										updatePR({ assignees: newAssignees.assignees, events: newAssignees.events });
+									}}>
+									{copilotIcon}
+								</button>
+							) : null}
+							<button
+								className="icon-button"
+								title="Add Assignees">
+								{settingsIcon}
+							</button>
+						</div>) : null}
 				</div>
 				{assignees && assignees.length ? (
 					assignees.map((x, i) => {
@@ -94,7 +119,7 @@ export default function Sidebar({ reviewers, labels, issues, hasWritePermission,
 									className="assign-yourself"
 									onClick={async () => {
 										const newAssignees = await addAssigneeYourself();
-										updatePR({ assignees: newAssignees.assignees });
+										updatePR({ assignees: newAssignees.assignees, events: newAssignees.events });
 									}}
 								>
 									assign yourself

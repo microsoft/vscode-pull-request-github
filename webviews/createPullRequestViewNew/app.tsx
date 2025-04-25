@@ -6,13 +6,12 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { render } from 'react-dom';
 import { CreateParamsNew, RemoteInfo } from '../../common/views';
-import { compareIgnoreCase } from '../../src/common/utils';
 import { isTeam, MergeMethod } from '../../src/github/interface';
 import PullRequestContextNew from '../common/createContextNew';
 import { ErrorBoundary } from '../common/errorBoundary';
 import { LabelCreate } from '../common/label';
 import { ContextDropdown } from '../components/contextDropdown';
-import { assigneeIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, projectIcon, reviewerIcon, sparkleIcon, stopIcon } from '../components/icon';
+import { assigneeIcon, labelIcon, milestoneIcon, prBaseIcon, prMergeIcon, projectIcon, reviewerIcon, sparkleIcon, stopCircleIcon } from '../components/icon';
 import { Avatar } from '../components/user';
 
 type CreateMethod = 'create-draft' | 'create' | 'create-automerge-squash' | 'create-automerge-rebase' | 'create-automerge-merge';
@@ -59,7 +58,7 @@ export function main() {
 						label = 'Create';
 					}
 
-					return {value, label};
+					return { value, label };
 				}
 
 				const titleInput = useRef<HTMLInputElement>() as React.MutableRefObject<HTMLInputElement>;
@@ -89,27 +88,18 @@ export function main() {
 					setBusy(false);
 				}
 
-				let isCreateable: boolean = true;
-				if (ctx.createParams.baseRemote && ctx.createParams.compareRemote && ctx.createParams.baseBranch && ctx.createParams.compareBranch
-					&& compareIgnoreCase(ctx.createParams.baseRemote?.owner, ctx.createParams.compareRemote?.owner) === 0
-					&& compareIgnoreCase(ctx.createParams.baseRemote?.repositoryName, ctx.createParams.compareRemote?.repositoryName) === 0
-					&& compareIgnoreCase(ctx.createParams.baseBranch, ctx.createParams.compareBranch) === 0) {
-
-					isCreateable = false;
-				}
-
 				const onKeyDown = useCallback((isTitle: boolean, e) => {
-						if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-							e.preventDefault();
-							create();
-						} else if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
-							if (isTitle) {
-								ctx.popTitle();
-							} else {
-								ctx.popDescription();
-							}
+					if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+						e.preventDefault();
+						create();
+					} else if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+						if (isTitle) {
+							ctx.popTitle();
+						} else {
+							ctx.popDescription();
 						}
-					},
+					}
+				},
 					[create],
 				);
 
@@ -187,6 +177,7 @@ export function main() {
 					setGeneratingTitle(false);
 				}
 
+
 				if (!ctx.initialized) {
 					ctx.initialize();
 				}
@@ -207,19 +198,24 @@ export function main() {
 								defaultBranch={params.baseBranch}
 								remoteCount={params.remoteCount}
 								isBase={true}
-								disabled={!ctx.initialized || isBusy} />
+								disabled={!ctx.initialized || isBusy || !ctx.createParams.canModifyBranches} />
 						</div>
+
 
 						<div className='input-label merge'>
 							<div className="deco">
-								<span title='Merge branch' aria-hidden='true'>{prMergeIcon} Merge</span>
+								<span title='Merge branch' aria-hidden='true'>{prMergeIcon} {params.actionDetail ? params.actionDetail : 'Merge'}</span>
 							</div>
-							<ChooseRemoteAndBranch onClick={ctx.changeMergeRemoteAndBranch}
-								defaultRemote={params.compareRemote}
-								defaultBranch={params.compareBranch}
-								remoteCount={params.remoteCount}
-								isBase={false}
-								disabled={!ctx.initialized || isBusy} />
+							{ctx.createParams.canModifyBranches ?
+								<ChooseRemoteAndBranch onClick={ctx.changeMergeRemoteAndBranch}
+									defaultRemote={params.compareRemote}
+									defaultBranch={params.compareBranch}
+									remoteCount={params.remoteCount}
+									isBase={false}
+									disabled={!ctx.initialized || isBusy} />
+								: params.associatedExistingPullRequest ?
+									<a className='pr-link' onClick={() => ctx.openAssociatedPullRequest()}>#{params.associatedExistingPullRequest}</a>
+									: null}
 						</div>
 					</div>
 
@@ -240,11 +236,11 @@ export function main() {
 							onChange={(e) => updateTitle(e.currentTarget.value)}
 							onKeyDown={(e) => onKeyDown(true, e)}
 							data-vscode-context='{"preventDefaultContextMenuItems": false}'
-							disabled={!ctx.initialized || isBusy || isGeneratingTitle}>
+							disabled={!ctx.initialized || isBusy || isGeneratingTitle || params.reviewing}>
 						</input>
 						{ctx.createParams.generateTitleAndDescriptionTitle ?
 							isGeneratingTitle ?
-								<a title='Cancel' className={`title-action icon-button${isBusy || !ctx.initialized ? ' disabled' : ''}`} onClick={ctx.cancelGenerateTitle} tabIndex={0}>{stopIcon}</a>
+								<a title='Cancel' className={`title-action icon-button${isBusy || !ctx.initialized ? ' disabled' : ''}`} onClick={ctx.cancelGenerateTitle} tabIndex={0}>{stopCircleIcon}</a>
 								: <a title={ctx.createParams.generateTitleAndDescriptionTitle} className={`title-action icon-button${isBusy || !ctx.initialized ? ' disabled' : ''}`} onClick={() => generateTitle()} tabIndex={0}>{sparkleIcon}</a> : null}
 						<div id='title-error' className={params.showTitleValidationError ? 'validation-error below-input-error' : 'hidden'}>A title is required</div>
 					</div>
@@ -296,7 +292,7 @@ export function main() {
 									{params.labels.map(label => <LabelCreate key={label.name} {...label} canDelete isDarkTheme={!!params.isDarkTheme} />)}
 								</ul>
 							</div>
-						: null}
+							: null}
 
 						{params.milestone ?
 							<div className='milestone'>
@@ -319,9 +315,10 @@ export function main() {
 									onClick={(e) => activateCommand(e.nativeEvent, 'pr.changeProjects')}
 									onKeyPress={(e) => activateCommand(e.nativeEvent, 'pr.changeProjects')}
 								>
-									<li>
-										{params.projects.map(project => <span key={project.id}>{project.title}</span>)}
-									</li>
+									{params.projects.map((project, index) =>
+										<li>
+											<span key={project.id}>{index > 0 ? <span className='sep'>&#8226;</span> : null}{project.title}</span>
+										</li>)}
 								</ul>
 							</div>
 							: null}
@@ -337,12 +334,17 @@ export function main() {
 							onChange={(e) => ctx.updateState({ pendingDescription: e.currentTarget.value })}
 							onKeyDown={(e) => onKeyDown(false, e)}
 							data-vscode-context='{"preventDefaultContextMenuItems": false}'
-							disabled={!ctx.initialized || isBusy || isGeneratingTitle}></textarea>
+							disabled={!ctx.initialized || isBusy || isGeneratingTitle || params.reviewing}></textarea>
 					</div>
 
 					<div className={params.validate && !!params.createError ? 'wrapper validation-error' : 'hidden'} aria-live='assertive'>
 						<ErrorBoundary>
 							{params.createError}
+						</ErrorBoundary>
+					</div>
+					<div className={(!!params.warning && !params.creating && !isBusy) ? 'wrapper validation-warning' : 'hidden'} aria-live='assertive'>
+						<ErrorBoundary>
+							{params.warning}
 						</ErrorBoundary>
 					</div>
 
@@ -356,7 +358,7 @@ export function main() {
 							defaultOptionLabel={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).label}
 							defaultOptionValue={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).value}
 							optionsTitle='Create with Option'
-							disabled={isBusy || isGeneratingTitle || !isCreateable || !ctx.initialized}
+							disabled={isBusy || isGeneratingTitle || params.reviewing || !ctx.isCreatable || !ctx.initialized}
 						/>
 
 					</div>

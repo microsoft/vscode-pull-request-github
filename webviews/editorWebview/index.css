@@ -132,7 +132,7 @@ body .comment-container.review {
 	position: relative;
 }
 
-body #main > .comment-container > .review-comment-container > .review-comment-header:not(:nth-last-child(2)) {
+body #main>.comment-container>.review-comment-container>.review-comment-header:not(:nth-last-child(2)) {
 	border-bottom: 1px solid var(--vscode-editorHoverWidget-border);
 }
 
@@ -150,6 +150,11 @@ body .comment-container .review-comment-header {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.review-comment-header.no-details {
+	border-bottom-left-radius: 3px;
+	border-bottom-right-radius: 3px;
 }
 
 .description-header {
@@ -176,6 +181,11 @@ body .comment-container .review-comment-header {
 .comment-actions button svg {
 	margin-right: 0;
 	height: 14px;
+}
+
+.status-scroll {
+	max-height: 220px;
+	overflow-y: auto;
 }
 
 .status-check {
@@ -213,6 +223,11 @@ body .comment-container .review-comment-header {
 	display: flex;
 	gap: 8px;
 	align-items: center;
+}
+
+.status-item .button-container {
+	margin-left: auto;
+	margin-right: 0;
 }
 
 .commit-association {
@@ -255,6 +270,7 @@ button.input-box {
 	fill: var(--vscode-errorForeground);
 }
 
+.status-section .pending svg path,
 .status-section .skip svg path {
 	fill: var(--vscode-list-warningForeground);
 }
@@ -324,11 +340,11 @@ button.input-box {
 	border-bottom-right-radius: 3px;
 }
 
-#status-checks .merge-select-container > * {
+#status-checks .merge-select-container>* {
 	margin-right: 5px;
 }
 
-#status-checks .merge-select-container > select {
+#status-checks .merge-select-container>select {
 	margin-left: 5px;
 }
 
@@ -342,10 +358,10 @@ button.input-box {
 	padding: 16px;
 }
 
-body .comment-container .review-comment-header > span,
-body .comment-container .review-comment-header > a,
-body .commit .commit-message > a,
-body .merged .merged-message > a {
+body .comment-container .review-comment-header>span,
+body .comment-container .review-comment-header>a,
+body .commit .commit-message>a,
+body .merged .merged-message>a {
 	margin-right: 6px;
 }
 
@@ -369,7 +385,8 @@ body .diff .diffPath {
 	margin-right: 4px;
 }
 
-.comment-container form, #merge-comment-form {
+.comment-container form,
+#merge-comment-form {
 	padding: 16px;
 	background-color: var(--vscode-editorWidget-background);
 }
@@ -387,16 +404,16 @@ body .comment-container .review-comment-container .review-comment-body {
 	border: none;
 }
 
-body .comment-container .comment-body > p,
-body .comment-container .comment-body > div > p,
-.comment-container .review-body > p {
+body .comment-container .comment-body>p,
+body .comment-container .comment-body>div>p,
+.comment-container .review-body>p {
 	margin-top: 0;
 	line-height: 1.5em;
 }
 
-body .comment-container .comment-body > p:last-child,
-body .comment-container .comment-body > div > p:last-child,
-.comment-container .review-body > p:last-child {
+body .comment-container .comment-body>p:last-child,
+body .comment-container .comment-body>div>p:last-child,
+.comment-container .review-body>p:last-child {
 	margin-bottom: 0;
 }
 
@@ -492,8 +509,11 @@ body button .icon {
 .small-button {
 	display: flex;
 	font-size: 11px;
-	font-weight: 600;
 	padding: 0 5px;
+}
+
+:not(.status-item)>.small-button {
+	font-weight: 600;
 }
 
 #status {
@@ -577,6 +597,20 @@ body button .icon {
 	margin-right: 0;
 }
 
+.section .icon-button,
+.section .icon-button .icon {
+	color: currentColor;
+}
+
+.icon-button-group {
+	display: flex;
+	flex-direction: row;
+}
+
+.section svg path {
+	fill: currentColor;
+}
+
 .commit svg {
 	width: 16px;
 	height: auto;
@@ -643,7 +677,7 @@ body button .icon {
 	white-space: nowrap;
 }
 
-.sha-with-timestamp {
+.timeline-detail {
 	display: flex;
 	align-items: center;
 	gap: 8px;
@@ -693,7 +727,7 @@ body button .icon {
 	border: none;
 }
 
-.comment-container[data-type='commit'] + .comment-container[data-type='commit'] {
+.comment-container[data-type='commit']+.comment-container[data-type='commit'] {
 	border-top: none;
 }
 
@@ -769,14 +803,18 @@ textarea {
 	justify-content: flex-end;
 }
 
-.comment-form .form-actions > button,
-.comment-form .form-actions > input[type='submit'] {
+.comment-form .form-actions>button,
+.comment-form .form-actions>input[type='submit'] {
 	margin-right: 0;
 	margin-left: 0;
 }
 
 .primary-split-button {
 	flex-grow: unset;
+}
+
+.dropdown-container {
+	justify-content: right;
 }
 
 .form-actions {
@@ -789,7 +827,7 @@ textarea {
 	flex-direction: row-reverse;
 }
 
-.main-comment-form > .form-actions {
+.main-comment-form>.form-actions {
 	margin-bottom: 10px;
 }
 
@@ -858,24 +896,24 @@ h3 {
 	border-collapse: collapse;
 }
 
-.comment-body table > thead > tr > th {
+.comment-body table>thead>tr>th {
 	text-align: left;
 	border-bottom: 1px solid;
 }
 
-.comment-body table > thead > tr > th,
-.comment-body table > thead > tr > td,
-.comment-body table > tbody > tr > th,
-.comment-body table > tbody > tr > td {
+.comment-body table>thead>tr>th,
+.comment-body table>thead>tr>td,
+.comment-body table>tbody>tr>th,
+.comment-body table>tbody>tr>td {
 	padding: 5px 10px;
 }
 
-.comment-body table > tbody > tr + tr > td {
+.comment-body table>tbody>tr+tr>td {
 	border-top: 1px solid;
 }
 
 code {
-	font-family: Menlo, Monaco, Consolas, 'Droid Sans Mono', 'Courier New', monospace, 'Droid Sans Fallback';
+	font-family: var(--vscode-editor-font-family), Menlo, Monaco, Consolas, 'Droid Sans Mono', 'Courier New', monospace, 'Droid Sans Fallback';
 }
 
 .comment-body .snippet-clipboard-content {
@@ -910,7 +948,7 @@ code {
 }
 
 .comment-body pre:not(.hljs),
-.comment-body pre.hljs code > div {
+.comment-body pre.hljs code>div {
 	padding: 16px;
 	border-radius: 3px;
 	overflow: auto;
@@ -918,7 +956,7 @@ code {
 
 .timestamp,
 .timestamp:hover {
-	color: inherit;
+	color: var(--vscode-descriptionForeground);;
 	white-space: nowrap;
 }
 
@@ -934,12 +972,12 @@ code {
 }
 
 .vscode-light .comment-body pre:not(.hljs),
-.vscode-light .comment-body code > div {
+.vscode-light .comment-body code>div {
 	background-color: rgba(220, 220, 220, 0.4);
 }
 
 .vscode-dark .comment-body pre:not(.hljs),
-.vscode-dark .comment-body code > div {
+.vscode-dark .comment-body code>div {
 	background-color: rgba(10, 10, 10, 0.4);
 }
 
@@ -964,23 +1002,23 @@ code {
 	border: 1px solid var(--vscode-panel-border);
 }
 
-.vscode-light .comment-body table > thead > tr > th {
+.vscode-light .comment-body table>thead>tr>th {
 	border-color: rgba(0, 0, 0, 0.69);
 }
 
-.vscode-dark .comment-body table > thead > tr > th {
+.vscode-dark .comment-body table>thead>tr>th {
 	border-color: rgba(255, 255, 255, 0.69);
 }
 
 .vscode-light .comment-body h1,
 .vscode-light .comment-body hr,
-.vscode-light .comment-body table > tbody > tr + tr > td {
+.vscode-light .comment-body table>tbody>tr+tr>td {
 	border-color: rgba(0, 0, 0, 0.18);
 }
 
 .vscode-dark .comment-body h1,
 .vscode-dark .comment-body hr,
-.vscode-dark .comment-body table > tbody > tr + tr > td {
+.vscode-dark .comment-body table>tbody>tr+tr>td {
 	border-color: rgba(255, 255, 255, 0.18);
 }
 
@@ -1034,15 +1072,15 @@ code {
 }
 
 .win32 .diff .diffLine {
-	font-family: Consolas, Inconsolata, 'Courier New', monospace;
+	font-family: var(--vscode-editor-font-family), Consolas, Inconsolata, 'Courier New', monospace;
 }
 
 .darwin .diff .diffLine {
-	font-family: Monaco, Menlo, Inconsolata, 'Courier New', monospace;
+	font-family: var(--vscode-editor-font-family), Monaco, Menlo, Inconsolata, 'Courier New', monospace;
 }
 
 .linux .diff .diffLine {
-	font-family: 'Droid Sans Mono', Inconsolata, 'Courier New', monospace, 'Droid Sans Fallback';
+	font-family: var(--vscode-editor-font-family), 'Droid Sans Mono', Inconsolata, 'Courier New', monospace, 'Droid Sans Fallback';
 }
 
 .diff .diffLine.add {
@@ -1180,8 +1218,8 @@ code {
 	min-width: 42px;
 }
 
-.action-bar > button,
-.flex-action-bar > button {
+.action-bar>button,
+.flex-action-bar>button {
 	margin-left: 4px;
 	margin-right: 4px;
 }
@@ -1190,7 +1228,7 @@ code {
 	flex-grow: 1;
 }
 
-.title-editing-form > .form-actions {
+.title-editing-form>.form-actions {
 	margin-left: 0;
 }
 

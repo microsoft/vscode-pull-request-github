@@ -28,6 +28,7 @@ azure-pipeline.*
 yarn.lock
 **/*.map
 **/*.svg
+!**/pr_webview.svg
 **/*.ts
 *.vsix
 **/*.bak

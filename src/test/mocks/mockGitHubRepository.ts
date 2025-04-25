@@ -27,7 +27,7 @@ export class MockGitHubRepository extends GitHubRepository {
 	readonly queryProvider: QueryProvider;
 
 	constructor(remote: GitHubRemote, credentialStore: CredentialStore, telemetry: MockTelemetry, sinon: SinonSandbox) {
-		super(remote, Uri.file('C:\\users\\test\\repo'), credentialStore, telemetry);
+		super(1, remote, Uri.file('C:\\users\\test\\repo'), credentialStore, telemetry);
 
 		this.queryProvider = new QueryProvider(sinon);
 
@@ -36,32 +36,34 @@ export class MockGitHubRepository extends GitHubRepository {
 			graphql: null,
 		};
 
-		this._metadata = {
+		this._metadata = Promise.resolve({
 			...new RepositoryBuilder().build(),
 			currentUser: new UserBuilder().build(),
-		};
+		});
 
 		this._initialized = true;
 	}
 
-	async ensure() {
+	override async ensure() {
 		return this;
 	}
 
-	query = async <T>(query: QueryOptions): Promise<ApolloQueryResult<T>> =>
-		this.queryProvider.emulateGraphQLQuery(query);
+	override query = async <T>(query: QueryOptions): Promise<ApolloQueryResult<T>> => {
+		return this.queryProvider.emulateGraphQLQuery(query);
+	};
 
-	mutate = async <T>(mutation: MutationOptions<T, OperationVariables>): Promise<FetchResult<T>> =>
-		this.queryProvider.emulateGraphQLMutation(mutation);
+	override mutate = async <T>(mutation: MutationOptions<T, OperationVariables>): Promise<FetchResult<T>> => {
+		return this.queryProvider.emulateGraphQLMutation(mutation);
+	};
 
 	buildMetadata(block: (repoBuilder: RepositoryBuilder, userBuilder: UserBuilder) => void) {
 		const repoBuilder = new RepositoryBuilder();
 		const userBuilder = new UserBuilder();
 		block(repoBuilder, userBuilder);
-		this._metadata = {
+		this._metadata = Promise.resolve({
 			...repoBuilder.build(),
 			currentUser: userBuilder.build(),
-		};
+		});
 	}
 
 	addGraphQLPullRequest(block: (builder: ManagedGraphQLPullRequestBuilder) => void): ManagedPullRequest<'graphql'> {

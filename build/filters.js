@@ -28,7 +28,9 @@ module.exports.unicodeFilter = [
 	'!**/ThirdPartyNotices.txt',
 	'!**/LICENSE.{txt,rtf}',
 	'!**/LICENSE',
-	'!*.yml'
+	'!**/CHANGELOG.md',
+	'!*.yml',
+	'!resources/emojis.json'
 ];
 
 module.exports.indentationFilter = [
@@ -41,11 +43,13 @@ module.exports.indentationFilter = [
 	'!**/LICENSE.{txt,rtf}',
 	'!**/LICENSE',
 	'!**/*.yml',
+	'!resources/emojis.json',
 
 	// except multiple specific files
 	'!**/package.json',
 	'!**/yarn.lock',
-	'!**/yarn-error.log'
+	'!**/yarn-error.log',
+	'!**/fixtures/**/*'
 ];
 
 module.exports.copyrightFilter = [
@@ -55,18 +59,25 @@ module.exports.copyrightFilter = [
 	'!.vscode/**/*',
 	'!.github/**/*',
 	'!.husky/**/*',
+	'!tsconfig.base.json',
+	'!tsconfig.browser.json',
+	'!tsconfig.json',
+	'!tsconfig.test.json',
+	'!tsconfig.webviews.json',
 	'!tsfmt.json',
 	'!**/queries*.gql',
 	'!**/*.yml',
 	'!**/*.md',
 	'!package.nls.json',
 	'!**/*.svg',
-	'!src/integrations/gitlens/gitlens.d.ts'
+	'!src/integrations/gitlens/gitlens.d.ts',
+	'!**/fixtures/**'
 ];
 
 module.exports.tsFormattingFilter = [
 	'src/**/*.ts',
 	'common/**/*.ts',
 	'webviews/**/*.ts',
+	'**/fixtures/**/*'
 ];
 

@@ -12,7 +12,7 @@
 
 const execFile = require('child_process').execFile;
 const path = require('path');
-const { ESBuildMinifyPlugin } = require('esbuild-loader');
+const { EsbuildPlugin } = require('esbuild-loader');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const JSON5 = require('json5');
 const TerserPlugin = require('terser-webpack-plugin');
@@ -84,7 +84,7 @@ async function getWebviewConfig(mode, env, entry) {
 			minimizer: [
 				// @ts-ignore
 				env.esbuild
-					? new ESBuildMinifyPlugin({
+					? new EsbuildPlugin({
 						format: 'cjs',
 						minify: true,
 						treeShaking: true,
@@ -113,7 +113,6 @@ async function getWebviewConfig(mode, env, entry) {
 						? {
 							loader: 'esbuild-loader',
 							options: {
-								loader: 'tsx',
 								target: 'es2019',
 								tsconfigRaw: await resolveTSConfig(path.join(__dirname, 'tsconfig.webviews.json')),
 							},
@@ -143,6 +142,7 @@ async function getWebviewConfig(mode, env, entry) {
 				crypto: require.resolve("crypto-browserify"),
 				path: require.resolve('path-browserify'),
 				stream: require.resolve("stream-browserify"),
+				http: require.resolve("stream-http")
 			},
 		},
 		plugins: plugins,
@@ -218,7 +218,7 @@ async function getExtensionConfig(target, mode, env) {
 			minimizer: [
 				// @ts-ignore
 				env.esbuild
-					? new ESBuildMinifyPlugin({
+					? new EsbuildPlugin({
 						format: 'cjs',
 						minify: true,
 						treeShaking: true,
@@ -248,7 +248,6 @@ async function getExtensionConfig(target, mode, env) {
 						? {
 							loader: 'esbuild-loader',
 							options: {
-								loader: 'ts',
 								target: 'es2019',
 								tsconfigRaw: await resolveTSConfig(
 									path.join(
@@ -297,13 +296,6 @@ async function getExtensionConfig(target, mode, env) {
 			alias:
 				target === 'webworker'
 					? {
-						'universal-user-agent': path.join(
-							__dirname,
-							'node_modules',
-							'universal-user-agent',
-							'dist-web',
-							'index.js',
-						),
 						'node-fetch': 'cross-fetch',
 						'../env/node/net': path.resolve(__dirname, 'src', 'env', 'browser', 'net'),
 						'../env/node/ssh': path.resolve(__dirname, 'src', 'env', 'browser', 'ssh'),
@@ -332,9 +324,12 @@ async function getExtensionConfig(target, mode, env) {
 						'os': require.resolve('os-browserify/browser'),
 						"constants": require.resolve("constants-browserify"),
 						buffer: require.resolve('buffer'),
-						timers: require.resolve('timers-browserify')
+						timers: require.resolve('timers-browserify'),
+						http: require.resolve("stream-http")
 					}
-					: undefined,
+					: {
+						http: require.resolve("stream-http")
+					},
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			symlinks: false,
 		},

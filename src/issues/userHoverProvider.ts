@@ -5,9 +5,10 @@
 
 import * as vscode from 'vscode';
 import { ITelemetry } from '../common/telemetry';
-import { JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
+import { DOXYGEN_NON_USERS, JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
+import { userMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { shouldShowHover, USER_EXPRESSION, userMarkdown } from './util';
+import { shouldShowHover, USER_EXPRESSION } from './util';
 
 export class UserHoverProvider implements vscode.HoverProvider {
 	constructor(private manager: RepositoriesManager, private telemetry: ITelemetry) { }
@@ -32,12 +33,22 @@ export class UserHoverProvider implements vscode.HoverProvider {
 			if (match) {
 				const username = match[1];
 				// JS and TS doc checks
-				if (((document.languageId === 'javascript') || (document.languageId === 'typescript'))
+				const JS_TS_LANGUAGE_IDS = [
+					'javascript',
+					'javascriptreact',
+					'typescript',
+					'typescriptreact',
+				];
+				if (JS_TS_LANGUAGE_IDS.includes(document.languageId)
 					&& JSDOC_NON_USERS.indexOf(username) >= 0) {
 					return;
 				}
 				// PHP doc checks
 				if ((document.languageId === 'php') && PHPDOC_NON_USERS.indexOf(username) >= 0) {
+					return;
+				}
+				const isDoxygenLanguage = document.languageId === 'cpp' || document.languageId === 'c' || document.languageId === 'csharp' || document.languageId === 'java' || document.languageId === 'objective-c' || document.languageId === 'php';
+				if (isDoxygenLanguage && DOXYGEN_NON_USERS.indexOf(username) >= 0) {
 					return;
 				}
 				return this.createHover(document.uri, username, wordPosition);

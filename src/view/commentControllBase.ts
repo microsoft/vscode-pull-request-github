@@ -4,14 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Disposable } from '../common/lifecycle';
+import { ITelemetry } from '../common/telemetry';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
 import { PullRequestModel } from '../github/pullRequestModel';
 
-export abstract class CommentControllerBase {
+export abstract class CommentControllerBase extends Disposable {
 	constructor(
-		protected _folderRepoManager: FolderRepositoryManager
-	) { }
+		protected _folderRepoManager: FolderRepositoryManager,
+		protected _telemetry: ITelemetry
+	) {
+		super();
+	}
 
 	protected _commentController: vscode.CommentController;
 

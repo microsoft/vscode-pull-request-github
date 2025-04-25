@@ -77,6 +77,7 @@ const StatusChecks = ({ pr }: { pr: PullRequest }) => {
 						id="status-checks-display-button"
 						className="secondary small-button"
 						onClick={toggleDetails}
+						aria-expanded={showDetails}
 					>
 						{showDetails ? 'Hide' : 'Show'}
 					</button>
@@ -238,6 +239,9 @@ export const MergeStatus = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpd
 
 	if (isSimple) {
 		icon = null;
+		if (mergeable !== PullRequestMergeability.Conflict) {
+			action = null;
+		}
 	}
 	return (
 		<div className="status-item status-section">
@@ -245,7 +249,13 @@ export const MergeStatus = ({ mergeable, isSimple, isCurrentlyCheckedOut, canUpd
 			<p>
 				{summary}
 			</p>
-			{(action && !isSimple && canUpdateBranch && isCurrentlyCheckedOut) ? <button className="secondary" onClick={onClick} disabled={busy} >{action}</button> : null}
+			{(action && canUpdateBranch) ?
+				<div className="button-container">
+					<button className="secondary" onClick={onClick} disabled={busy} >
+						{action}
+					</button>
+				</div>
+			: null}
 		</div>
 	);
 };
@@ -257,7 +267,8 @@ export const OfferToUpdate = ({ mergeable, isSimple, isCurrentlyCheckedOut, canU
 		setBusy(true);
 		updateBranch().finally(() => setBusy(false));
 	};
-	if (!canUpdateBranch || !isCurrentlyCheckedOut || isSimple || mergeable === PullRequestMergeability.Behind || mergeable === PullRequestMergeability.Conflict || mergeable === PullRequestMergeability.Unknown) {
+	const isNotCheckedoutWithConflicts = !isCurrentlyCheckedOut && mergeable === PullRequestMergeability.Conflict;
+	if (!canUpdateBranch || isNotCheckedoutWithConflicts || isSimple || mergeable === PullRequestMergeability.Behind || mergeable === PullRequestMergeability.Conflict || mergeable === PullRequestMergeability.Unknown) {
 		return null;
 	}
 	return (
@@ -366,12 +377,12 @@ export const MergeOnGitHub = () => {
 export const MergeSimple = (pr: PullRequest) => {
 	const { merge, updatePR } = useContext(PullRequestContext);
 	async function submitAction(selected: MergeMethod): Promise<void> {
-		const { state } = await merge({
+		const newContext = await merge({
 			title: '',
 			description: '',
 			method: selected,
 		});
-		updatePR({ state });
+		updatePR(newContext);
 	}
 
 	const availableOptions = Object.keys(MERGE_METHODS)
@@ -430,13 +441,13 @@ function ConfirmMerge({ pr, method, cancel }: { pr: PullRequest; method: MergeMe
 					try {
 						setBusy(true);
 						const { title, description }: any = event.target;
-						const { state } = await merge({
+						const mergeResult = await merge({
 							title: title?.value,
 							description: description?.value,
 							method,
 							email: emailForCommit
 						});
-						updatePR({ state });
+						updatePR(mergeResult);
 					} finally {
 						setBusy(false);
 					}
@@ -508,7 +519,7 @@ export const MergeSelect = React.forwardRef<HTMLSelectElement, MergeSelectProps>
 );
 
 const StatusCheckDetails = ( { statuses }: { statuses: PullRequestCheckStatus[] }) => (
-	<div>
+	<div className='status-scroll'>
 		{statuses.map(s => (
 			<div key={s.id} className="status-check">
 				<div className="status-check-details">
@@ -516,7 +527,7 @@ const StatusCheckDetails = ( { statuses }: { statuses: PullRequestCheckStatus[] 
 					<Avatar for={{ avatarUrl: s.avatarUrl, url: s.url }} />
 					<span className="status-check-detail-text">
 						{/* allow-any-unicode-next-line */}
-						{s.context} {s.description ? `— ${s.description}` : ''}
+						{s.workflowName ? `${s.workflowName} / ` : null}{s.context}{s.event ? ` (${s.event})` : null} {s.description ? `— ${s.description}` : null}
 					</span>
 				</div>
 				<div>

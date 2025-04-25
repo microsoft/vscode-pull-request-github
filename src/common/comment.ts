@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { IAccount } from '../github/interface';
+import { COPILOT_LOGINS } from './copilot';
 import { DiffHunk } from './diffHunk';
 
 export enum DiffSide {
@@ -64,6 +65,7 @@ export interface IComment {
 	originalCommitId?: string;
 	user?: IAccount;
 	body: string;
+	specialDisplayBodyPostfix?: string;
 	createdAt: string;
 	htmlUrl: string;
 	isDraft?: boolean;
@@ -72,3 +74,11 @@ export interface IComment {
 	reactions?: Reaction[];
 	isResolved?: boolean;
 }
+
+const COPILOT_AUTHOR = {
+	name: 'Copilot', // TODO: The copilot reviewer is a Bot, but per the graphQL schema, Bots don't have a name, just a login. We have it hardcoded here for now.
+	postComment: vscode.l10n.t('Copilot is powered by AI, so mistakes are possible. Review output carefully before use.')
+};
+
+export const COPILOT_ACCOUNTS: { [key: string]: { postComment: string, name: string } } =
+	Object.fromEntries(COPILOT_LOGINS.map(login => [login, COPILOT_AUTHOR]));

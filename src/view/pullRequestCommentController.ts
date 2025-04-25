@@ -3,13 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as path from 'path';
 import { v4 as uuid } from 'uuid';
 import * as vscode from 'vscode';
 import { CommentHandler, registerCommentHandler, unregisterCommentHandler } from '../commentHandlerResolver';
 import { DiffSide, IComment, SubjectType } from '../common/comment';
+import { disposeAll } from '../common/lifecycle';
+import Logger from '../common/logger';
+import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, Schemes } from '../common/uri';
-import { dispose, groupBy } from '../common/utils';
+import { groupBy } from '../common/utils';
+import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
 import { GitHubRepository } from '../github/githubRepository';
 import { GHPRComment, GHPRCommentThread, TemporaryComment } from '../github/prComment';
@@ -27,10 +30,10 @@ import {
 import { CommentControllerBase } from './commentControllBase';
 
 export class PullRequestCommentController extends CommentControllerBase implements CommentHandler, CommentReactionHandler {
+	private static ID = 'PullRequestCommentController';
 	private _pendingCommentThreadAdds: GHPRCommentThread[] = [];
 	private _commentHandlerId: string;
 	private _commentThreadCache: { [key: string]: GHPRCommentThread[] } = {};
-	private _disposables: vscode.Disposable[] = [];
 	private readonly _context: vscode.ExtensionContext;
 	private readonly _githubRepositories: GitHubRepository[];
 
@@ -38,12 +41,13 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		private readonly pullRequestModel: PullRequestModel,
 		folderRepoManager: FolderRepositoryManager,
 		commentController: vscode.CommentController,
+		telemetry: ITelemetry
 	) {
-		super(folderRepoManager);
+		super(folderRepoManager, telemetry);
 		this._commentController = commentController;
 		this._context = folderRepoManager.context;
 		this._commentHandlerId = uuid();
-		registerCommentHandler(this._commentHandlerId, this);
+		registerCommentHandler(this._commentHandlerId, this, folderRepoManager.repository);
 
 		if (this.pullRequestModel.reviewThreadsCacheReady) {
 			this.initializeThreadsInOpenEditors().then(() => {
@@ -60,15 +64,15 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 	}
 
 	private registerListeners(): void {
-		this._disposables.push(this.pullRequestModel.onDidChangeReviewThreads(e => this.onDidChangeReviewThreads(e)));
+		this._register(this.pullRequestModel.onDidChangeReviewThreads(e => this.onDidChangeReviewThreads(e)));
 
-		this._disposables.push(
+		this._register(
 			vscode.window.tabGroups.onDidChangeTabs(async e => {
 				return this.onDidChangeOpenTabs(e);
 			})
 		);
 
-		this._disposables.push(
+		this._register(
 			this.pullRequestModel.onDidChangePendingReviewState(newDraftMode => {
 				for (const key in this._commentThreadCache) {
 					this._commentThreadCache[key].forEach(thread => {
@@ -78,7 +82,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			}),
 		);
 
-		this._disposables.push(
+		this._register(
 			vscode.window.onDidChangeActiveTextEditor(e => {
 				this.refreshContextKey(e);
 			}),
@@ -111,6 +115,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 				if (potentialEditor.editor) {
 					return Promise.resolve(potentialEditor.editor.document);
 				} else {
+					Logger.trace(`Opening text document for PR editor ${potentialEditor.uri.toString()}`, PullRequestCommentController.ID);
 					return vscode.workspace.openTextDocument(potentialEditor.uri);
 				}
 			}
@@ -161,7 +166,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 							range,
 							thread,
 							this._commentController,
-							currentUser.login,
+							currentUser,
 							this._githubRepositories
 						);
 					});
@@ -182,18 +187,35 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		return tabs.filter(tab => tab.input instanceof vscode.TabInputText || tab.input instanceof vscode.TabInputTextDiff).map(tab => tab.input as vscode.TabInputText | vscode.TabInputTextDiff);
 	}
 
+	private prDescriptionOpened(tabs: readonly vscode.Tab[]): boolean {
+		return tabs.some(tab => tab.input instanceof vscode.TabInputWebview && tab.label.includes(`#${this.pullRequestModel.number}`) && tab.input.viewType.includes(PULL_REQUEST_OVERVIEW_VIEW_TYPE));
+	}
+
 	private async cleanClosedPrs() {
 		// Remove comments for which no editors belonging to the same PR are open
 		const allPrEditors = await this.getPREditors(this.allTabs());
-		if (allPrEditors.length === 0) {
+		const prDescriptionOpened = this.prDescriptionOpened(vscode.window.tabGroups.all.map(group => group.tabs).flat());
+		if (allPrEditors.length === 0 && !prDescriptionOpened) {
 			this.removeAllCommentsThreads();
 		}
+	}
+
+	private async openAllTextDocuments(): Promise<vscode.TextDocument[]> {
+		const files = await PullRequestModel.getChangeModels(this._folderRepoManager, this.pullRequestModel);
+		const textDocuments: vscode.TextDocument[] = [];
+		for (const file of files) {
+			textDocuments.push(await vscode.workspace.openTextDocument(file.filePath));
+		}
+		return textDocuments;
 	}
 
 	private async onDidChangeOpenTabs(e: vscode.TabChangeEvent): Promise<void> {
 		const added = await this.getPREditors(this.filterTabsToPrTabs(e.opened));
 		if (added.length) {
 			await this.addThreadsForEditors(added);
+		} else if (this.prDescriptionOpened(e.opened)) {
+			const textDocuments = await this.openAllTextDocuments();
+			await this.addThreadsForEditors(textDocuments);
 		}
 		if (e.closed.length > 0) {
 			// Delay cleaning closed editors to handle the case where a preview tab is replaced
@@ -206,7 +228,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 		e.added.forEach(async (thread) => {
 			const fileName = thread.path;
 			const index = this._pendingCommentThreadAdds.findIndex(t => {
-				const samePath = this.gitRelativeRootPath(t.uri.path) === thread.path;
+				const samePath = this._folderRepoManager.gitRelativeRootPath(t.uri.path) === thread.path;
 				const sameLine = (t.range === undefined && thread.subjectType === SubjectType.FILE) || (t.range && t.range.end.line + 1 === thread.endLine);
 				return samePath && sameLine;
 			});
@@ -238,7 +260,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 						range,
 						thread,
 						this._commentController,
-						(await this._folderRepoManager.getCurrentUser()).login,
+						(await this._folderRepoManager.getCurrentUser()),
 						this._githubRepositories
 					);
 				}
@@ -312,7 +334,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			if (hasExistingComments) {
 				await this.reply(thread, input, isSingleComment);
 			} else {
-				const fileName = this.gitRelativeRootPath(thread.uri.path);
+				const fileName = this._folderRepoManager.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
 				this._pendingCommentThreadAdds.push(thread);
 				await this.pullRequestModel.createReviewThread(
@@ -417,19 +439,15 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 	}
 	// #endregion
 
-	private gitRelativeRootPath(comparePath: string) {
-		// get path relative to git root directory. Handles windows path by converting it to unix path.
-		return path.relative(this._folderRepoManager.repository.rootUri.path, comparePath).replace(/\\/g, '/');
-	}
-
 	// #region Review
 	public async startReview(thread: GHPRCommentThread, input: string): Promise<void> {
 		const hasExistingComments = thread.comments.length;
-		const temporaryCommentId = await this.optimisticallyAddComment(thread, input, true);
+		let temporaryCommentId: number | undefined = undefined;
 
 		try {
+			temporaryCommentId = await this.optimisticallyAddComment(thread, input, true);
 			if (!hasExistingComments) {
-				const fileName = this.gitRelativeRootPath(thread.uri.path);
+				const fileName = this._folderRepoManager.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
 				this._pendingCommentThreadAdds.push(thread);
 				await this.pullRequestModel.createReviewThread(input, fileName, thread.range ? (thread.range.start.line + 1) : undefined, thread.range ? (thread.range.end.line + 1) : undefined, side);
@@ -439,7 +457,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 
 			this.setContextKey(true);
 		} catch (e) {
-			vscode.window.showErrorMessage(`Starting a review failed: ${e}`);
+			vscode.window.showErrorMessage(`Starting review failed. Any review comments may be lost.`, { modal: true, detail: e?.message ?? e });
 
 			thread.comments = thread.comments.map(c => {
 				if (c instanceof TemporaryComment && c.id === temporaryCommentId) {
@@ -453,7 +471,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 
 
 	public async openReview(): Promise<void> {
-		await PullRequestOverviewPanel.createOrShow(this._folderRepoManager.context.extensionUri, this._folderRepoManager, this.pullRequestModel);
+		await PullRequestOverviewPanel.createOrShow(this._telemetry, this._folderRepoManager.context.extensionUri, this._folderRepoManager, this.pullRequestModel);
 		PullRequestOverviewPanel.scrollToReview();
 
 		/* __GDPR__
@@ -525,14 +543,14 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 
 	private removeAllCommentsThreads(): void {
 		Object.keys(this._commentThreadCache).forEach(key => {
-			dispose(this._commentThreadCache[key]);
+			disposeAll(this._commentThreadCache[key]);
+			delete this._commentThreadCache[key];
 		});
 	}
 
-	dispose() {
+	override dispose() {
+		super.dispose();
 		this.removeAllCommentsThreads();
 		unregisterCommentHandler(this._commentHandlerId);
-
-		this._disposables.forEach(d => d.dispose());
 	}
 }

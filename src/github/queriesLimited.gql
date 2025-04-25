@@ -5,27 +5,156 @@
 
 #import "./queriesShared.gql"
 
+fragment Node on Node {
+	id
+}
+
+fragment Actor on Actor  { # We don't want to reference Bot because it is not available on older GHE, so we use Actor instead as it gets us most of the way there.
+	__typename
+	login
+	avatarUrl
+	url
+}
+
+fragment User on User {
+	__typename
+	...Actor
+	email
+	name
+	...Node
+}
+
+fragment Organization on Organization {
+	__typename
+	...Actor
+	email
+	name
+	...Node
+}
+
+fragment IssueBase on Issue {
+	number
+	url
+	state
+	body
+	bodyHTML
+	title
+	titleHTML
+	author {
+		...Node
+		...Actor
+		...User
+		...Organization
+	}
+	createdAt
+	updatedAt
+	milestone {
+		title
+		dueOn
+		createdAt
+		id
+		number
+	}
+	assignees(first: 10) {
+		nodes {
+			...Node
+			...Actor
+			...User
+		}
+	}
+	labels(first: 50) {
+		nodes {
+			name
+			color
+		}
+	}
+	id
+	databaseId
+	reactions(first: 100) {
+		totalCount
+	}
+	repository {
+		name
+		owner {
+			login
+		}
+		url
+	}
+}
+
+fragment IssueFragment on Issue {
+	...IssueBase
+	comments(first: 1) {
+		totalCount
+	}
+}
+
+fragment IssueWithCommentsFragment on Issue {
+	...IssueBase
+	comments(first: 50) {
+		nodes {
+			author {
+				...Node
+				...Actor
+				...User
+				...Organization
+			}
+			body
+			databaseId
+			reactions(first: 100) {
+				totalCount
+			}
+		}
+		totalCount
+	}
+}
+
 fragment PullRequestFragment on PullRequest {
 	number
 	url
 	state
 	body
 	bodyHTML
-	titleHTML
 	title
+	titleHTML
 	author {
-		login
-		url
-		avatarUrl
-		... on User {
-			email
-			id
-		}
-		... on Organization {
-			email
-			id
+		...Node
+		...Actor
+		...User
+		...Organization
+	}
+	createdAt
+	updatedAt
+	milestone {
+		title
+		dueOn
+		createdAt
+		id
+		number
+	}
+	assignees(first: 10) {
+		nodes {
+			...Node
+			...Actor
+			...User
 		}
 	}
+	labels(first: 50) {
+		nodes {
+			name
+			color
+		}
+	}
+	id
+	databaseId
+	reactions(first: 100) {
+		totalCount
+	}
+
+	comments(first: 1) {
+		totalCount
+	}
+
 	commits(first: 50) {
 		nodes {
 			commit {
@@ -33,8 +162,6 @@ fragment PullRequestFragment on PullRequest {
 			}
 		}
 	}
-	createdAt
-	updatedAt
 	headRef {
 		...Ref
 	}
@@ -59,51 +186,67 @@ fragment PullRequestFragment on PullRequest {
 		}
 		url
 	}
-	labels(first: 50) {
-		nodes {
-			name
-			color
-		}
-	}
 	merged
 	mergeable
 	mergeStateStatus
 	autoMergeRequest {
 		mergeMethod
 	}
+	reviewThreads {
+		totalCount
+	}
 	viewerCanEnableAutoMerge
 	viewerCanDisableAutoMerge
 	viewerCanUpdate
-	id
-	databaseId
 	isDraft
-	milestone {
-		title
-		dueOn
-		createdAt
-		id
-		number
-	}
-	assignees(first: 10) {
-		nodes {
-			login
-			name
-			avatarUrl
-			id
-			url
-			email
-		}
-	}
 	suggestedReviewers {
 		isAuthor
 		isCommenter
 		reviewer {
-			login
-			avatarUrl
-			id
-			name
-			url
+			...Actor
+			...User
+			...Node
 		}
+	}
+}
+
+query Issue($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		issue(number: $number) {
+			...IssueFragment
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		issue(number: $number) {
+			...IssueWithCommentsFragment
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query Issues($query: String!) {
+	search(first: 100, type: ISSUE, query: $query) {
+		issueCount
+		pageInfo {
+			hasNextPage
+			endCursor
+		}
+		edges {
+			node {
+				...IssueFragment
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
 	}
 }
 
@@ -118,7 +261,6 @@ query PullRequest($owner: String!, $name: String!, $number: Int!) {
 	}
 }
 
-
 query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!) {
 	repository(owner: $owner, name: $name) {
 		pullRequests(first: 3, headRefName: $headRefName, orderBy: { field: CREATED_AT, direction: DESC }) {
@@ -132,9 +274,34 @@ query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!)
 	}
 }
 
+query GetAssignableUsers($owner: String!, $name: String!, $first: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		assignableUsers(first: $first, after: $after) {
+			nodes {
+				...User
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
 mutation CreatePullRequest($input: CreatePullRequestInput!) {
 	createPullRequest(input: $input) {
 		pullRequest {
+			...PullRequestFragment
+		}
+	}
+}
+
+mutation RevertPullRequest($input: RevertPullRequestInput!) {
+	revertPullRequest(input: $input) {
+		revertPullRequest {
 			...PullRequestFragment
 		}
 	}

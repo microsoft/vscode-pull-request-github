@@ -116,6 +116,7 @@ export function CommentView(commentProps: Props) {
 				body={bodyMd}
 				canApplyPatch={pr.isCurrentlyCheckedOut}
 				allowEmpty={!!commentProps.allowEmpty}
+				specialDisplayBodyPostfix={(comment as IComment).specialDisplayBodyPostfix}
 			/>
 			{children}
 		</CommentBox>
@@ -146,14 +147,14 @@ const reviewDescriptor = (state: string) => DESCRIPTORS[state] || 'reviewed';
 
 function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
 	const htmlUrl = ('htmlUrl' in comment) ? comment.htmlUrl : (comment as PullRequest).url;
-	const isDraft = (comment as IComment).isDraft ?? (isReviewEvent(comment) && (comment.state.toLocaleUpperCase() === 'PENDING'));
+	const isDraft = (comment as IComment).isDraft ?? (isReviewEvent(comment) && (comment.state?.toLocaleUpperCase() === 'PENDING'));
 	const author = ('user' in comment) ? comment.user! : (comment as PullRequest).author!;
 	const createdAt = ('createdAt' in comment) ? comment.createdAt : (comment as ReviewEvent).submittedAt;
 
 	return (
 		<div className="comment-container comment review-comment" {...{ onFocus, onMouseEnter, onMouseLeave }}>
 			<div className="review-comment-container">
-				<h3 className="review-comment-header">
+				<h3 className={`review-comment-header${(isReviewEvent(comment) && comment.comments.length > 0) ? '' : ' no-details'}`}>
 					<Spaced>
 						<Avatar for={author} />
 						<AuthorLink for={author} />
@@ -162,7 +163,7 @@ function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, childre
 
 						{createdAt ? (
 							<>
-								{isReviewEvent(comment) ? reviewDescriptor(comment.state) : 'commented'}
+								{(isReviewEvent(comment) && comment.state) ? reviewDescriptor(comment.state) : 'commented'}
 								{nbsp}
 								<Timestamp href={htmlUrl} date={createdAt} />
 							</>
@@ -262,10 +263,11 @@ export interface Embodied {
 	bodyHTML?: string;
 	body?: string;
 	canApplyPatch: boolean;
-	allowEmpty: boolean
+	allowEmpty: boolean;
+	specialDisplayBodyPostfix?: string;
 }
 
-export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty }: Embodied) => {
+export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty, specialDisplayBodyPostfix }: Embodied) => {
 	if (!body && !bodyHTML) {
 		if (allowEmpty) {
 			return null;
@@ -288,6 +290,8 @@ export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty
 		<div className="comment-body">
 			{renderedBody}
 			{applyPatchButton}
+			{specialDisplayBodyPostfix ? <br/> : null}
+			{specialDisplayBodyPostfix ? <em>{specialDisplayBodyPostfix}</em> : null}
 		</div>
 	);
 };
@@ -310,20 +314,11 @@ export function AddComment({
 	const textareaRef = useRef<HTMLTextAreaElement>();
 
 	emitter.addListener('quoteReply', (message: string) => {
-		const quoted = message.replace(/\n\n/g, '\n\n> ');
+		const quoted = message.replace(/\n/g, '\n> ');
 		updatePR({ pendingCommentText: `> ${quoted} \n\n` });
 		textareaRef.current?.scrollIntoView();
 		textareaRef.current?.focus();
 	});
-
-	const onKeyDown = useCallback(
-		e => {
-			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-				submit(textareaRef.current?.value ?? '');
-			}
-		},
-		[submit],
-	);
 
 	const closeButton = e => {
 		e.preventDefault();
@@ -331,16 +326,16 @@ export function AddComment({
 		close(value);
 	};
 
-	let currentSelection: string = lastReviewType ?? (currentUserReviewState === 'APPROVED' ? 'approve' : (currentUserReviewState === 'CHANGES_REQUESTED' ? 'requestChanges' : 'comment'));
+	let currentSelection: ReviewType = lastReviewType ?? (currentUserReviewState === 'APPROVED' ? ReviewType.Approve : (currentUserReviewState === 'CHANGES_REQUESTED' ? ReviewType.RequestChanges : ReviewType.Comment));
 
-	async function submitAction(): Promise<void> {
+	async function submitAction(action: ReviewType): Promise<void> {
 		const { value } = textareaRef.current!;
-		if (continueOnGitHub && currentSelection !== ReviewType.Comment) {
+		if (continueOnGitHub && action !== ReviewType.Comment) {
 			await openOnGitHub();
 			return;
 		}
 		setBusy(true);
-		switch (currentSelection) {
+		switch (action) {
 			case ReviewType.RequestChanges:
 				await requestChanges(value);
 				break;
@@ -353,15 +348,28 @@ export function AddComment({
 		setBusy(false);
 	}
 
-	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = isAuthor || isDraft
-		? { comment: 'Comment' }
+	const onKeyDown = useCallback(
+		e => {
+			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+				submitAction(currentSelection);
+			}
+		},
+		[submit],
+	);
+
+	async function defaultSubmitAction(): Promise<void> {
+		await submitAction(currentSelection);
+	}
+
+	const availableActions: { [key in ReviewType]?: string } = isAuthor
+		? { [ReviewType.Comment]: 'Comment' }
 		: continueOnGitHub
 			? {
-				comment: 'Comment',
-				approve: 'Approve on github.com',
-				requestChanges: 'Request changes on github.com',
+				[ReviewType.Comment]: 'Comment',
+				[ReviewType.Approve]: 'Approve on github.com',
+				[ReviewType.RequestChanges]: 'Request changes on github.com',
 			}
-			: COMMENT_METHODS;
+			: commentMethods(isIssue);
 
 	return (
 		<form id="comment-form" ref={form as React.MutableRefObject<HTMLFormElement>} className="comment-form main-comment-form" onSubmit={() => submit(textareaRef.current?.value ?? '')}>
@@ -390,9 +398,22 @@ export function AddComment({
 
 				<ContextDropdown
 					optionsContext={() => makeCommentMenuContext(availableActions, pendingCommentText)}
-					defaultAction={submitAction}
-					defaultOptionLabel={() => availableActions[currentSelection]}
+					defaultAction={defaultSubmitAction}
+					defaultOptionLabel={() => availableActions[currentSelection]!}
 					defaultOptionValue={() => currentSelection}
+					allOptions={() => {
+						const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
+						if (availableActions.approve) {
+							actions.push({ label: availableActions[ReviewType.Approve]!, value: ReviewType.Approve, action: () => submitAction(ReviewType.Approve) });
+						}
+						if (availableActions.comment) {
+							actions.push({ label: availableActions[ReviewType.Comment]!, value: ReviewType.Comment, action: () => submitAction(ReviewType.Comment) });
+						}
+						if (availableActions.requestChanges) {
+							actions.push({ label: availableActions[ReviewType.RequestChanges]!, value: ReviewType.RequestChanges, action: () => submitAction(ReviewType.RequestChanges) });
+						}
+						return actions;
+					}}
 					optionsTitle='Submit pull request review'
 					disabled={isBusy || busy}
 					hasSingleAction={Object.keys(availableActions).length === 1}
@@ -402,8 +423,16 @@ export function AddComment({
 	);
 }
 
-const COMMENT_METHODS = {
+function commentMethods(isIssue: boolean) {
+	return isIssue ? ISSUE_COMMENT_METHODS : COMMENT_METHODS;
+}
+
+const ISSUE_COMMENT_METHODS = {
 	comment: 'Comment',
+};
+
+const COMMENT_METHODS = {
+	...ISSUE_COMMENT_METHODS,
 	approve: 'Approve',
 	requestChanges: 'Request Changes',
 };
@@ -439,16 +468,16 @@ export const AddCommentSimple = (pr: PullRequest) => {
 	const { updatePR, requestChanges, approve, submit, openOnGitHub } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>();
-	let currentSelection: string = pr.lastReviewType ?? (pr.currentUserReviewState === 'APPROVED' ? 'approve' : (pr.currentUserReviewState === 'CHANGES_REQUESTED' ? 'requestChanges' : 'comment'));
+	let currentSelection: ReviewType = pr.lastReviewType ?? (pr.currentUserReviewState === 'APPROVED' ? ReviewType.Approve : (pr.currentUserReviewState === 'CHANGES_REQUESTED' ? ReviewType.RequestChanges: ReviewType.Comment));
 
-	async function submitAction(): Promise<void> {
+	async function submitAction(action: ReviewType): Promise<void> {
 		const { value } = textareaRef.current!;
-		if (pr.continueOnGitHub && currentSelection !== ReviewType.Comment) {
+		if (pr.continueOnGitHub && action !== ReviewType.Comment) {
 			await openOnGitHub();
 			return;
 		}
 		setBusy(true);
-		switch (currentSelection) {
+		switch (action) {
 			case ReviewType.RequestChanges:
 				await requestChanges(value);
 				break;
@@ -461,6 +490,10 @@ export const AddCommentSimple = (pr: PullRequest) => {
 		setBusy(false);
 	}
 
+	async function defaultSubmitAction(): Promise<void> {
+		await submitAction(currentSelection);
+	}
+
 	const onChangeTextarea = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
 		updatePR({ pendingCommentText: e.target.value });
 	};
@@ -470,13 +503,13 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
 
 				e.preventDefault();
-				submitAction();
+				defaultSubmitAction();
 			}
 		},
 		[submitAction],
 	);
 
-	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = pr.isAuthor || pr.isDraft
+	const availableActions: { comment?: string, approve?: string, requestChanges?: string } = pr.isAuthor
 		? { comment: 'Comment' }
 		: pr.continueOnGitHub
 			? {
@@ -484,7 +517,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 				approve: 'Approve on github.com',
 				requestChanges: 'Request changes on github.com',
 			}
-			: COMMENT_METHODS;
+			: commentMethods(pr.isIssue);
 
 	return (
 		<span className="comment-form">
@@ -501,9 +534,22 @@ export const AddCommentSimple = (pr: PullRequest) => {
 			<div className='comment-button'>
 				<ContextDropdown
 					optionsContext={() => makeCommentMenuContext(availableActions, pr.pendingCommentText)}
-					defaultAction={submitAction}
-					defaultOptionLabel={() => availableActions[currentSelection]}
+					defaultAction={defaultSubmitAction}
+					defaultOptionLabel={() => availableActions[currentSelection]!}
 					defaultOptionValue={() => currentSelection}
+					allOptions={() => {
+						const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
+						if (availableActions.approve) {
+							actions.push({ label: availableActions[ReviewType.Approve]!, value: ReviewType.Approve, action: () => submitAction(ReviewType.Approve) });
+						}
+						if (availableActions.comment) {
+							actions.push({ label: availableActions[ReviewType.Comment]!, value: ReviewType.Comment, action: () => submitAction(ReviewType.Comment) });
+						}
+						if (availableActions.requestChanges) {
+							actions.push({ label: availableActions[ReviewType.RequestChanges]!, value: ReviewType.RequestChanges, action: () => submitAction(ReviewType.RequestChanges) });
+						}
+						return actions;
+					}}
 					optionsTitle='Submit pull request review'
 					disabled={isBusy || pr.busy}
 					hasSingleAction={Object.keys(availableActions).length === 1}

@@ -9,6 +9,7 @@ import dayjs from 'dayjs';
 import * as relativeTime from 'dayjs/plugin/relativeTime';
 import * as updateLocale from 'dayjs/plugin/updateLocale';
 import type { Disposable, Event, ExtensionContext, Uri } from 'vscode';
+import { combinedDisposable } from './lifecycle';
 // TODO: localization for webview needed
 
 dayjs.extend(relativeTime.default, {
@@ -65,19 +66,6 @@ export function uniqBy<T>(arr: T[], fn: (el: T) => string): T[] {
 	});
 }
 
-export function dispose<T extends Disposable>(disposables: T[]): T[] {
-	disposables.forEach(d => d.dispose());
-	return [];
-}
-
-export function toDisposable(d: () => void): Disposable {
-	return { dispose: d };
-}
-
-export function combinedDisposable(disposables: Disposable[]): Disposable {
-	return toDisposable(() => dispose(disposables));
-}
-
 export function anyEvent<T>(...events: Event<T>[]): Event<T> {
 	return (listener, thisArgs = null, disposables?) => {
 		const result = combinedDisposable(events.map(event => event(i => listener.call(thisArgs, i))));
@@ -114,13 +102,13 @@ function isWindowsPath(path: string): boolean {
 	return /^[a-zA-Z]:\\/.test(path);
 }
 
-export function isDescendant(parent: string, descendant: string): boolean {
+export function isDescendant(parent: string, descendant: string, separator: string = sep): boolean {
 	if (parent === descendant) {
 		return true;
 	}
 
-	if (parent.charAt(parent.length - 1) !== sep) {
-		parent += sep;
+	if (parent.charAt(parent.length - 1) !== separator) {
+		parent += separator;
 	}
 
 	// Windows is case insensitive
@@ -154,11 +142,11 @@ function isHookError(e: Error): e is HookError {
 	return !!(e as any).errors;
 }
 
-function hasFieldErrors(e: any): e is Error & { errors: { value: string; field: string; code: string }[] } {
+function hasFieldErrors(e: any): e is Error & { errors: { value: string; field: string; status: string }[] } {
 	let areFieldErrors = true;
 	if (!!e.errors && Array.isArray(e.errors)) {
 		for (const error of e.errors) {
-			if (!error.field || !error.value || !error.code) {
+			if (!error.field || !error.value || !error.status) {
 				areFieldErrors = false;
 				break;
 			}
@@ -189,7 +177,7 @@ export function formatError(e: HookError | any): string {
 	if (e.message === 'Validation Failed' && hasFieldErrors(e)) {
 		furtherInfo = e.errors
 			.map(error => {
-				return `Value "${error.value}" cannot be set for field ${error.field} (code: ${error.code})`;
+				return `Value "${error.value}" cannot be set for field ${error.field} (code: ${error.status})`;
 			})
 			.join(', ');
 	} else if (e.message.startsWith('Validation Failed:')) {
@@ -997,3 +985,13 @@ export async function stringReplaceAsync(str: string, regex: RegExp, asyncFn: (s
 	let offset = 0;
 	return str.replace(regex, () => data[offset++]);
 }
+
+export async function batchPromiseAll<T>(items: readonly T[], batchSize: number, processFn: (item: T) => Promise<void>): Promise<void> {
+	const batches = Math.ceil(items.length / batchSize);
+
+	for (let i = 0; i < batches; i++) {
+		const batch = items.slice(i * batchSize, (i + 1) * batchSize);
+		await Promise.all(batch.map(processFn));
+	}
+}
+

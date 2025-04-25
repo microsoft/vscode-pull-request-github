@@ -14,11 +14,7 @@ interface PageInfo {
 export interface MergedEvent {
 	__typename: string;
 	id: string;
-	actor: {
-		login: string;
-		avatarUrl: string;
-		url: string;
-	};
+	actor: Actor;
 	createdAt: string;
 	mergeRef: {
 		name: string;
@@ -33,25 +29,32 @@ export interface MergedEvent {
 export interface HeadRefDeletedEvent {
 	__typename: string;
 	id: string;
-	actor: {
-		login: string;
-		avatarUrl: string;
-		url: string;
-	};
+	actor: Actor;
 	createdAt: string;
 	headRefName: string;
 }
 
-export interface AbbreviatedIssueComment {
-	author: {
-		login: string;
-		avatarUrl: string;
+export interface CrossReferencedEvent {
+	__typename: string;
+	id: string;
+	actor: Actor;
+	createdAt: string;
+	source: {
+		number: number;
 		url: string;
-		email?: string;
-		id: string;
+		title: string;
 	};
+	willCloseTarget: boolean;
+}
+
+export interface AbbreviatedIssueComment {
+	author: Account;
 	body: string;
 	databaseId: number;
+	reactions: {
+		totalCount: number;
+	};
+	createdAt: string;
 }
 
 export interface IssueComment extends AbbreviatedIssueComment {
@@ -78,16 +81,28 @@ export interface ReactionGroup {
 	};
 }
 
-export interface Account {
+export interface Actor {
+	__typename: string;
+	id: string;
 	login: string;
 	avatarUrl: string;
-	name: string;
 	url: string;
-	email: string;
-	id: string;
 }
 
-interface Team {
+export interface Account extends Actor {
+	name: string;
+	email: string;
+}
+
+export function isAccount(x: Actor | Team | undefined | null): x is Account {
+	return !!x && 'name' in x && 'email' in x;
+}
+
+export function isTeam(x: Actor | Team | undefined | null): x is Team {
+	return !!x && 'slug' in x;
+}
+
+export interface Team {
 	avatarUrl: string;
 	name: string;
 	url: string;
@@ -105,12 +120,7 @@ export interface ReviewComment {
 	id: string;
 	databaseId: number;
 	url: string;
-	author?: {
-		login: string;
-		avatarUrl: string;
-		url: string;
-		id: string;
-	};
+	author?: Actor | Account;
 	path: string;
 	originalPosition: number;
 	body: string;
@@ -141,12 +151,7 @@ export interface Commit {
 	id: string;
 	commit: {
 		author: {
-			user: {
-				login: string;
-				avatarUrl: string;
-				url: string;
-				id: string;
-			};
+			user: Account;
 		};
 		committer: {
 			avatarUrl: string;
@@ -163,21 +168,13 @@ export interface Commit {
 export interface AssignedEvent {
 	__typename: string;
 	id: number;
-	actor: {
-		login: string;
-		avatarUrl: string;
-		url: string;
-	};
-	user: {
-		login: string;
-		avatarUrl: string;
-		url: string;
-		id: string;
-	};
+	actor: Actor;
+	user: Account;
+	createdAt: string;
 }
 
 export interface MergeQueueEntry {
-	position: number,
+	position: number;
 	state: MergeQueueState;
 	mergeQueue: {
 		url: string;
@@ -190,12 +187,7 @@ export interface Review {
 	databaseId: number;
 	authorAssociation: string;
 	url: string;
-	author: {
-		login: string;
-		avatarUrl: string;
-		url: string;
-		id: string;
-	};
+	author: Actor | Account;
 	state: 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING';
 	body: string;
 	bodyHTML?: string;
@@ -221,7 +213,7 @@ export interface ReviewThread {
 		nodes: ReviewComment[];
 		edges: [{
 			node: {
-				pullRequestReview: {
+				pullRequestReview?: {
 					databaseId: number
 				}
 			}
@@ -266,18 +258,7 @@ export interface GetReviewRequestsResponse {
 		pullRequest: {
 			reviewRequests: {
 				nodes: {
-					requestedReviewer: {
-						// Shared properties between accounts and teams
-						avatarUrl: string;
-						url: string;
-						name: string;
-						// Account properties
-						login?: string;
-						email?: string;
-						// Team properties
-						slug?: string;
-						id: string;
-					} | null;
+					requestedReviewer: Actor | Account | Team | null;
 				}[];
 			};
 		};
@@ -333,6 +314,16 @@ export interface AssignableUsersResponse {
 	rateLimit: RateLimit;
 }
 
+export interface SuggestedActorsResponse {
+	repository: {
+		suggestedActors: {
+			nodes: Actor[];
+			pageInfo: PageInfo;
+		};
+	} | null;
+	rateLimit: RateLimit;
+}
+
 export interface OrganizationTeamsCountResponse {
 	organization: {
 		teams: {
@@ -365,6 +356,12 @@ export interface PullRequestParticipantsResponse {
 export interface CreatePullRequestResponse {
 	createPullRequest: {
 		pullRequest: PullRequest
+	}
+}
+
+export interface RevertPullRequestResponse {
+	revertPullRequest: {
+		revertPullRequest: PullRequest
 	}
 }
 
@@ -477,9 +474,9 @@ export interface DeleteReactionResponse {
 	};
 }
 
-export interface UpdatePullRequestResponse {
-	updatePullRequest: {
-		pullRequest: {
+export interface UpdateIssueResponse {
+	updateIssue: {
+		issue: {
 			body: string;
 			bodyHTML: string;
 			title: string;
@@ -543,43 +540,23 @@ export interface Ref {
 export interface SuggestedReviewerResponse {
 	isAuthor: boolean;
 	isCommenter: boolean;
-	reviewer: {
-		login: string;
-		avatarUrl: string;
-		name: string;
-		url: string;
-		id: string;
-	};
+	reviewer: Actor | Account;
 }
 
 export type MergeMethod = 'MERGE' | 'REBASE' | 'SQUASH';
 export type MergeQueueState = 'AWAITING_CHECKS' | 'LOCKED' | 'MERGEABLE' | 'QUEUED' | 'UNMERGEABLE';
 
-export interface PullRequest {
+export interface Issue {
 	id: string;
 	databaseId: number;
 	number: number;
 	url: string;
-	state: 'OPEN' | 'CLOSED' | 'MERGED';
+	state: 'OPEN' | 'CLOSED' | 'MERGED'; // TODO: don't allow merged in an issue
 	body: string;
 	bodyHTML: string;
 	title: string;
 	titleHTML: string;
 	assignees?: {
-		nodes: {
-			login: string;
-			url: string;
-			email: string;
-			avatarUrl: string;
-			id: string;
-		}[];
-	};
-	author: {
-		login: string;
-		url: string;
-		avatarUrl: string;
-		id: string;
-	};
 	closingIssuesReferences?: {
 		nodes: {
 			id: string;
@@ -589,44 +566,22 @@ export interface PullRequest {
 			state: 'OPEN' | 'CLOSED' | 'MERGED';
 		}[];
 	};
-	commits: {
-		nodes: {
-			commit: {
-				message: string;
-			};
-		}[];
+		nodes: Account[];
 	};
-	comments?: {
-		nodes: AbbreviatedIssueComment[];
+	author: Account;
+	comments: {
+		nodes?: AbbreviatedIssueComment[];
+		totalCount: number;
 	};
 	createdAt: string;
 	updatedAt: string;
-	headRef?: Ref;
-	headRefName: string;
-	headRefOid: string;
-	headRepository?: RefRepository;
-	baseRef?: Ref;
-	baseRefName: string;
-	baseRefOid: string;
-	baseRepository: BaseRefRepository;
 	labels: {
 		nodes: {
 			name: string;
 			color: string;
 		}[];
 	};
-	merged: boolean;
-	mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
-	mergeQueueEntry?: MergeQueueEntry | null;
-	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
-	autoMergeRequest?: {
-		mergeMethod: MergeMethod;
-	};
-	viewerCanEnableAutoMerge: boolean;
-	viewerCanDisableAutoMerge: boolean;
 	viewerCanUpdate: boolean;
-	isDraft?: boolean;
-	suggestedReviewers: SuggestedReviewerResponse[];
 	projectItems?: {
 		nodes: {
 			project: {
@@ -650,6 +605,42 @@ export interface PullRequest {
 		};
 		url: string;
 	};
+	reactions: {
+		totalCount: number;
+	}
+}
+
+
+export interface PullRequest extends Issue {
+	commits: {
+		nodes: {
+			commit: {
+				message: string;
+			};
+		}[];
+	};
+	headRef?: Ref;
+	headRefName: string;
+	headRefOid: string;
+	headRepository?: RefRepository;
+	baseRef?: Ref;
+	baseRefName: string;
+	baseRefOid: string;
+	baseRepository: BaseRefRepository;
+	merged: boolean;
+	mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+	mergeQueueEntry?: MergeQueueEntry | null;
+	mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+	reviewThreads: {
+		totalCount: number;
+	}
+	autoMergeRequest?: {
+		mergeMethod: MergeMethod;
+	};
+	viewerCanEnableAutoMerge: boolean;
+	viewerCanDisableAutoMerge: boolean;
+	isDraft?: boolean;
+	suggestedReviewers: SuggestedReviewerResponse[];
 }
 
 export enum DefaultCommitTitle {
@@ -672,11 +663,25 @@ export interface PullRequestResponse {
 	rateLimit: RateLimit;
 }
 
+export interface IssueResponse {
+	repository: {
+		issue: PullRequest;
+	} | null;
+	rateLimit: RateLimit;
+}
+
 export interface PullRequestMergabilityResponse {
 	repository: {
 		pullRequest: {
 			mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
 			mergeStateStatus: 'BEHIND' | 'BLOCKED' | 'CLEAN' | 'DIRTY' | 'HAS_HOOKS' | 'UNKNOWN' | 'UNSTABLE';
+			mergeRequirements?: {
+				conditions: {
+					__typename: string | 'PullRequestMergeConflictStateCondition';
+					result: 'PASSED' | 'FAILED';
+					conflicts: string[];
+				}[];
+			}
 		};
 	} | null;
 	rateLimit: RateLimit;
@@ -811,6 +816,7 @@ export interface UserResponse {
 		contributionsCollection: ContributionsCollection;
 		url: string;
 		id: string;
+		__typename: string;
 	};
 }
 
@@ -862,6 +868,12 @@ export interface CheckRun {
 			logoUrl: string;
 			url: string;
 		} | null;
+		workflowRun?: {
+			event: string;
+			workflow: {
+				name: string;
+			};
+		};
 	};
 	isRequired: boolean;
 }
@@ -896,7 +908,7 @@ export interface GetChecksResponse {
 					requiresCodeOwnerReviews: boolean;
 					viewerCanPush: boolean;
 				} | null;
-			};
+			} | null;
 			commits: {
 				nodes: {
 					commit: {
@@ -952,5 +964,11 @@ export interface MergePullRequestInput {
 }
 
 export interface MergePullRequestResponse {
-	pullRequest: PullRequest;
+	mergePullRequest: {
+		pullRequest: PullRequest & {
+			timelineItems: {
+				nodes: (MergedEvent | Review | IssueComment | Commit | AssignedEvent | HeadRefDeletedEvent)[]
+			}
+		};
+	}
 }

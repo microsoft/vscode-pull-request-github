@@ -10,13 +10,11 @@ import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE } from '../../common/settingKeys';
 import { createPRNodeUri, DataUri, fromPRUri, Schemes } from '../../common/uri';
-import { dispose } from '../../common/utils';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { NotificationProvider } from '../../github/notifications';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from '../inMemPRContentProvider';
-import { DescriptionNode } from './descriptionNode';
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
@@ -26,7 +24,6 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 
 	private _fileChanges: (RemoteFileChangeNode | InMemFileChangeNode)[] | undefined;
 	private _commentController?: vscode.CommentController;
-	private _disposables: vscode.Disposable[] = [];
 
 	private _inMemPRContentProvider?: vscode.Disposable;
 
@@ -45,17 +42,17 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 	}
 
 	constructor(
-		public parent: TreeNodeParent,
+		parent: TreeNodeParent,
 		private _folderReposManager: FolderRepositoryManager,
 		public pullRequestModel: PullRequestModel,
 		private _isLocal: boolean,
 		private _notificationProvider: NotificationProvider
 	) {
-		super();
+		super(parent);
 		this.registerSinceReviewChange();
 		this.registerConfigurationChange();
-		this._disposables.push(this.pullRequestModel.onDidInvalidate(() => this.refresh(this)));
-		this._disposables.push(this._folderReposManager.onDidChangeActivePullRequest(e => {
+		this._register(this.pullRequestModel.onDidInvalidate(() => this.refresh(this)));
+		this._register(this._folderReposManager.onDidChangeActivePullRequest(e => {
 			if (e.new === this.pullRequestModel.number || e.old === this.pullRequestModel.number) {
 				this.refresh(this);
 			}
@@ -63,21 +60,13 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 	}
 
 	// #region Tree
-	async getChildren(): Promise<TreeNode[]> {
+	override async getChildren(): Promise<TreeNode[]> {
 		super.getChildren();
 		Logger.debug(`Fetch children of PRNode #${this.pullRequestModel.number}`, PRNode.ID);
 
 		try {
-			const descriptionNode = new DescriptionNode(
-				this,
-				vscode.l10n.t('Description'),
-				this.pullRequestModel,
-				this.repository,
-				this._folderReposManager
-			);
-
 			if (!this.pullRequestModel.isResolved()) {
-				return [descriptionNode];
+				return [];
 			}
 
 			[, this._fileChanges, ,] = await Promise.all([
@@ -92,9 +81,12 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 					this.pullRequestModel.number,
 					this.provideDocumentContent.bind(this),
 				);
+				if (this._inMemPRContentProvider) {
+					this._register(this._inMemPRContentProvider);
+				}
 			}
 
-			const result: TreeNode[] = [descriptionNode];
+			const result: TreeNode[] = [];
 			const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 			if (layout === 'tree') {
 				// tree view
@@ -124,27 +116,23 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 
 			return result;
 		} catch (e) {
-			Logger.error(e);
+			Logger.error(`Error getting children ${e}: ${e.message}`, PRNode.ID);
 			return [];
 		}
 	}
 
 	protected registerSinceReviewChange() {
-		this._disposables.push(
-			this.pullRequestModel.onDidChangeChangesSinceReview(_ => {
-				this.refresh(this);
-			})
-		);
+		this._register(this.pullRequestModel.onDidChangeChangesSinceReview(_ => {
+			this.refresh(this);
+		}));
 	}
 
 	protected registerConfigurationChange() {
-		this._disposables.push(
-			vscode.workspace.onDidChangeConfiguration(e => {
-				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`)) {
-					this.refresh();
-				}
-			})
-		);
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${SHOW_PULL_REQUEST_NUMBER_IN_TREE}`)) {
+				this.refresh();
+			}
+		}));
 	}
 
 	public async reopenNewPrDiffs(pullRequest: PullRequestModel) {
@@ -190,36 +178,30 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		await this.pullRequestModel.githubRepository.ensureCommentsController();
 		this._commentController = this.pullRequestModel.githubRepository.commentsController!;
 
-		this._disposables.push(
-			this.pullRequestModel.githubRepository.commentsHandler!.registerCommentingRangeProvider(
-				this.pullRequestModel.number,
-				this,
-			),
-		);
+		this._register(this.pullRequestModel.githubRepository.commentsHandler!.registerCommentingRangeProvider(
+			this.pullRequestModel.number,
+			this
+		));
 
-		this._disposables.push(
-			this.pullRequestModel.githubRepository.commentsHandler!.registerCommentController(
-				this.pullRequestModel.number,
-				this.pullRequestModel,
-				this._folderReposManager,
-			),
-		);
+		this._register(this.pullRequestModel.githubRepository.commentsHandler!.registerCommentController(
+			this.pullRequestModel.number,
+			this.pullRequestModel,
+			this._folderReposManager,
+		));
 
 		this.registerListeners();
 	}
 
 	private registerListeners(): void {
-		this._disposables.push(
-			this.pullRequestModel.onDidChangePendingReviewState(async newDraftMode => {
-				if (!newDraftMode) {
-					(await this.getFileChanges()).forEach(fileChange => {
-						if (fileChange instanceof InMemFileChangeNode) {
-							fileChange.comments.forEach(c => (c.isDraft = newDraftMode));
-						}
-					});
-				}
-			}),
-		);
+		this._register(this.pullRequestModel.onDidChangePendingReviewState(async newDraftMode => {
+			if (!newDraftMode) {
+				(await this.getFileChanges()).forEach(fileChange => {
+					if (fileChange instanceof InMemFileChangeNode) {
+						fileChange.comments.forEach(c => (c.isDraft = newDraftMode));
+					}
+				});
+			}
+		}));
 	}
 
 	public async getFileChanges(noCache: boolean | void): Promise<(RemoteFileChangeNode | InMemFileChangeNode)[]> {
@@ -281,14 +263,13 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
 
 		const { title, number, author, isDraft, html_url } = this.pullRequestModel;
-
+		const labelTitle = this.pullRequestModel.title.length > 50 ? `${this.pullRequestModel.title.substring(0, 50)}...` : this.pullRequestModel.title;
 		const { login } = author;
 
 		const hasNotification = this._notificationProvider.hasNotification(this.pullRequestModel);
 
 		const formattedPRNumber = number.toString();
 		let labelPrefix = currentBranchIsForThisPR ? '✓ ' : '';
-		let tooltipPrefix = currentBranchIsForThisPR ? 'Current Branch * ' : '';
 
 		if (
 			vscode.workspace
@@ -296,34 +277,38 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				.get<boolean>(SHOW_PULL_REQUEST_NUMBER_IN_TREE, false)
 		) {
 			labelPrefix += `#${formattedPRNumber}: `;
-			tooltipPrefix += `#${formattedPRNumber}: `;
 		}
 
-		const label = `${labelPrefix}${isDraft ? '[DRAFT] ' : ''}${title}`;
-		const tooltip = `${tooltipPrefix}${title} by @${login}`;
+		const label = `${labelPrefix}${isDraft ? '[DRAFT] ' : ''}${labelTitle}`;
 		const description = `by @${login}`;
+		const command = {
+			title: vscode.l10n.t('View Pull Request Description'),
+			command: 'pr.openDescription',
+			arguments: [this],
+		};
 
 		return {
 			label,
 			id: `${this.parent instanceof TreeNode ? (this.parent.id ?? this.parent.label) : ''}${html_url}${this._isLocal ? this.pullRequestModel.localBranchName : ''}`, // unique id stable across checkout status
-			tooltip,
 			description,
 			collapsibleState: 1,
 			contextValue:
 				'pullrequest' +
 				(this._isLocal ? ':local' : '') +
 				(currentBranchIsForThisPR ? ':active' : ':nonactive') +
-				(hasNotification ? ':notification' : ''),
+				(hasNotification ? ':notification' : '') +
+				(((this.pullRequestModel.item.isRemoteHeadDeleted && !this._isLocal) || !this._folderReposManager.isPullRequestAssociatedWithOpenRepository(this.pullRequestModel)) ? '' : ':hasHeadRef'),
 			iconPath: (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
 				?? new vscode.ThemeIcon('github'),
 			accessibilityInformation: {
 				label: `${isDraft ? 'Draft ' : ''}Pull request number ${formattedPRNumber}: ${title} by ${login}`
 			},
 			resourceUri: createPRNodeUri(this.pullRequestModel),
+			command
 		};
 	}
 
-	async provideCommentingRanges(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.Range[] | { fileComments: boolean; ranges?: vscode.Range[] } | undefined> {
+	async provideCommentingRanges(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.Range[] | { enableFileComments: boolean; ranges?: vscode.Range[] } | undefined> {
 		if (document.uri.scheme === Schemes.Pr) {
 			const params = fromPRUri(document.uri);
 
@@ -337,14 +322,14 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				return undefined;
 			}
 
-			return { ranges: getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase, PRNode.ID), fileComments: true };
+			return { ranges: getCommentingRanges(await fileChange.changeModel.diffHunks(), params.isBase, PRNode.ID), enableFileComments: true };
 		}
 
 		return undefined;
 	}
 
 	// #region Document Content Provider
-	private async provideDocumentContent(uri: vscode.Uri): Promise<string> {
+	private async provideDocumentContent(uri: vscode.Uri): Promise<string | Uint8Array> {
 		const params = fromPRUri(uri);
 		if (!params) {
 			return '';
@@ -362,16 +347,8 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		return provideDocumentContentForChangeModel(this._folderReposManager, this.pullRequestModel, params, fileChange);
 	}
 
-	dispose(): void {
+	override dispose(): void {
 		super.dispose();
-
-		if (this._inMemPRContentProvider) {
-			this._inMemPRContentProvider.dispose();
-		}
-
 		this._commentController = undefined;
-
-		dispose(this._disposables);
-		this._disposables = [];
 	}
 }

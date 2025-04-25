@@ -5,12 +5,13 @@
 
 import * as nodePath from 'path';
 import * as vscode from 'vscode';
-import type { Branch, Repository } from '../api/api';
-import { GitApiImpl, GitErrorCodes } from '../api/api1';
+import type { Branch, Change, Repository } from '../api/api';
+import { GitApiImpl, GitErrorCodes, Status } from '../api/api1';
 import { openDescription } from '../commands';
-import { DiffChangeType } from '../common/diffHunk';
+import { DiffChangeType, DiffHunk, parsePatch, splitIntoSmallerHunks } from '../common/diffHunk';
 import { commands } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
+import { Disposable, disposeAll, toDisposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { parseRepositoryRemotes, Remote } from '../common/remote';
 import {
@@ -28,35 +29,31 @@ import {
 import { getReviewMode } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { fromPRUri, fromReviewUri, KnownMediaExtensions, PRUriParams, Schemes, toReviewUri } from '../common/uri';
-import { dispose, formatError, groupBy, onceEvent } from '../common/utils';
+import { formatError, groupBy, onceEvent } from '../common/utils';
 import { FOCUS_REVIEW_MODE } from '../constants';
 import { GitHubCreatePullRequestLinkProvider } from '../github/createPRLinkProvider';
 import { FolderRepositoryManager } from '../github/folderRepositoryManager';
-import { GitHubRepository, ViewerPermission } from '../github/githubRepository';
+import { GitHubRepository } from '../github/githubRepository';
 import { GithubItemStateEnum } from '../github/interface';
 import { PullRequestGitHelper, PullRequestMetadata } from '../github/pullRequestGitHelper';
 import { IResolvedPullRequestModel, PullRequestModel } from '../github/pullRequestModel';
 import { CreatePullRequestHelper } from './createPullRequestHelper';
 import { GitFileChangeModel, InMemFileChangeModel, RemoteFileChangeModel } from './fileChangeModel';
-import { getGitHubFileContent } from './gitHubContentProvider';
 import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from './inMemPRContentProvider';
 import { PullRequestChangesTreeDataProvider } from './prChangesTreeDataProvider';
 import { ProgressHelper } from './progress';
 import { PullRequestsTreeDataProvider } from './prsTreeDataProvider';
-import { RemoteQuickPickItem } from './quickpick';
-import { ReviewCommentController } from './reviewCommentController';
+import { ReviewCommentController, SuggestionInformation } from './reviewCommentController';
 import { ReviewModel } from './reviewModel';
 import { GitFileChangeNode, gitFileChangeNodeFilter, RemoteFileChangeNode } from './treeNodes/fileChangeNode';
 import { WebviewViewCoordinator } from './webviewViewCoordinator';
 
-export class ReviewManager {
+export class ReviewManager extends Disposable {
 	public static ID = 'Review';
-	private _localToDispose: vscode.Disposable[] = [];
-	private _disposables: vscode.Disposable[];
+	private readonly _localToDispose: vscode.Disposable[] = [];
 
-	private _reviewModel: ReviewModel = new ReviewModel();
+	private readonly _reviewModel: ReviewModel = new ReviewModel();
 	private _lastCommitSha?: string;
-	private _updateMessageShown: boolean = false;
 	private _validateStatusInProgress?: Promise<void>;
 	private _reviewCommentController: ReviewCommentController | undefined;
 	private _quickDiffProvider: vscode.Disposable | undefined;
@@ -103,96 +100,92 @@ export class ReviewManager {
 		private _showPullRequest: ShowPullRequest,
 		private readonly _activePrViewCoordinator: WebviewViewCoordinator,
 		private _createPullRequestHelper: CreatePullRequestHelper,
-		gitApi: GitApiImpl
+		private _gitApi: GitApiImpl
 	) {
+		super();
 		this._switchingToReviewMode = false;
-		this._disposables = [];
 
 		this._previousRepositoryState = {
 			HEAD: _repository.state.HEAD,
 			remotes: parseRepositoryRemotes(this._repository),
 		};
+		this._register(toDisposable(() => disposeAll(this._localToDispose)));
 
 		this.registerListeners();
 
-		if (gitApi.state === 'initialized') {
+		if (_gitApi.state === 'initialized') {
 			this.updateState(true);
 		}
-		this.pollForStatusChange();
 	}
 
 	private registerListeners(): void {
-		this._disposables.push(
-			this._repository.state.onDidChange(_ => {
-				const oldHead = this._previousRepositoryState.HEAD;
-				const newHead = this._repository.state.HEAD;
+		this._register(this._repository.state.onDidChange(_ => {
+			const oldHead = this._previousRepositoryState.HEAD;
+			const newHead = this._repository.state.HEAD;
 
-				if (!oldHead && !newHead) {
-					// both oldHead and newHead are undefined
-					return;
-				}
+			if (!oldHead && !newHead) {
+				// both oldHead and newHead are undefined
+				return;
+			}
 
-				let sameUpstream: boolean | undefined;
+			let sameUpstream: boolean | undefined;
 
-				if (!oldHead || !newHead) {
-					sameUpstream = false;
-				} else {
-					sameUpstream = !!oldHead.upstream
-						? newHead.upstream &&
-						oldHead.upstream.name === newHead.upstream.name &&
-						oldHead.upstream.remote === newHead.upstream.remote
-						: !newHead.upstream;
-				}
+			if (!oldHead || !newHead) {
+				sameUpstream = false;
+			} else {
+				sameUpstream = !!oldHead.upstream
+					? newHead.upstream &&
+					oldHead.upstream.name === newHead.upstream.name &&
+					oldHead.upstream.remote === newHead.upstream.remote
+					: !newHead.upstream;
+			}
 
-				const sameHead =
-					sameUpstream && // falsy if oldHead or newHead is undefined.
-					oldHead!.ahead === newHead!.ahead &&
-					oldHead!.behind === newHead!.behind &&
-					oldHead!.commit === newHead!.commit &&
-					oldHead!.name === newHead!.name &&
-					oldHead!.remote === newHead!.remote &&
-					oldHead!.type === newHead!.type;
+			const sameHead =
+				sameUpstream && // falsy if oldHead or newHead is undefined.
+				oldHead!.ahead === newHead!.ahead &&
+				oldHead!.behind === newHead!.behind &&
+				oldHead!.commit === newHead!.commit &&
+				oldHead!.name === newHead!.name &&
+				oldHead!.remote === newHead!.remote &&
+				oldHead!.type === newHead!.type;
 
-				const remotes = parseRepositoryRemotes(this._repository);
-				const sameRemotes =
-					this._previousRepositoryState.remotes.length === remotes.length &&
-					this._previousRepositoryState.remotes.every(remote => remotes.some(r => remote.equals(r)));
+			const remotes = parseRepositoryRemotes(this._repository);
+			const sameRemotes =
+				this._previousRepositoryState.remotes.length === remotes.length &&
+				this._previousRepositoryState.remotes.every(remote => remotes.some(r => remote.equals(r)));
 
-				if (!sameHead || !sameRemotes) {
-					this._previousRepositoryState = {
-						HEAD: this._repository.state.HEAD,
-						remotes: remotes,
-					};
+			if (!sameHead || !sameRemotes) {
+				this._previousRepositoryState = {
+					HEAD: this._repository.state.HEAD,
+					remotes: remotes,
+				};
 
-					// The first time this event occurs we do want to do visible updates.
-					// The first time, oldHead will be undefined.
-					// For subsequent changes, we don't want to make visible updates.
-					// This occurs on branch changes.
-					// Note that the visible changes will occur when checking out a PR.
-					this.updateState(true);
-				}
+				// The first time this event occurs we do want to do visible updates.
+				// The first time, oldHead will be undefined.
+				// For subsequent changes, we don't want to make visible updates.
+				// This occurs on branch changes.
+				// Note that the visible changes will occur when checking out a PR.
+				this.updateState(true);
+			}
 
-				if (oldHead && newHead) {
-					this.updateBaseBranchMetadata(oldHead, newHead);
-				}
-			}),
-		);
+			if (oldHead && newHead) {
+				this.updateBaseBranchMetadata(oldHead, newHead);
+			}
+		}));
 
-		this._disposables.push(
-			vscode.workspace.onDidChangeConfiguration(e => {
-				this.updateFocusedViewMode();
-				if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${IGNORE_PR_BRANCHES}`)) {
-					this.validateStateAndResetPromise(true, false);
-				}
-			}),
-		);
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			this.updateFocusedViewMode();
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${IGNORE_PR_BRANCHES}`)) {
+				this.validateStateAndResetPromise(true, false);
+			}
+		}));
 
-		this._disposables.push(this._folderRepoManager.onDidChangeActivePullRequest(_ => {
+		this._register(this._folderRepoManager.onDidChangeActivePullRequest(_ => {
 			this.updateFocusedViewMode();
 			this.registerQuickDiff();
 		}));
 
-		GitHubCreatePullRequestLinkProvider.registerProvider(this._disposables, this, this._folderRepoManager);
+		this._register(GitHubCreatePullRequestLinkProvider.registerProvider(this, this._folderRepoManager));
 	}
 
 	private async updateBaseBranchMetadata(oldHead: Branch, newHead: Branch) {
@@ -207,7 +200,7 @@ export class ReviewManager {
 				// For forks, we use the upstream repo if it's available. Otherwise, fallback to the fork.
 				githubRepository = this._folderRepoManager.gitHubRepositories.find(repo => repo.remote.owner === metadata.parent?.owner?.login && repo.remote.repositoryName === metadata.parent?.name) ?? githubRepository;
 			}
-			return PullRequestGitHelper.associateBaseBranchWithBranch(this.repository, newHead.name, githubRepository.remote.owner, githubRepository.remote.repositoryName, oldHead.name);
+			return PullRequestGitHelper.associateBaseBranchWithBranch(this.repository, newHead.name, { owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, branch: oldHead.name });
 		}
 	}
 
@@ -218,14 +211,14 @@ export class ReviewManager {
 				this._quickDiffProvider = undefined;
 			}
 			const label = this._folderRepoManager.activePullRequest ? vscode.l10n.t('GitHub pull request #{0}', this._folderRepoManager.activePullRequest.number) : vscode.l10n.t('GitHub pull request');
-			this._disposables.push(this._quickDiffProvider = vscode.window.registerQuickDiffProvider({ scheme: 'file' }, {
+			this._register(this._quickDiffProvider = vscode.window.registerQuickDiffProvider({ scheme: 'file' }, {
 				provideOriginalResource: (uri: vscode.Uri) => {
 					const changeNode = this.reviewModel.localFileChanges.find(changeNode => changeNode.changeModel.filePath.toString() === uri.toString());
 					if (changeNode) {
 						return changeNode.changeModel.parentFilePath;
 					}
 				}
-			}, label, this.repository.rootUri));
+			}, 'github-pr', label, this.repository.rootUri));
 		}
 	}
 
@@ -245,15 +238,6 @@ export class ReviewManager {
 
 	get reviewModel() {
 		return this._reviewModel;
-	}
-
-	private pollForStatusChange() {
-		setTimeout(async () => {
-			if (!this._validateStatusInProgress) {
-				await this.updateComments();
-			}
-			this.pollForStatusChange();
-		}, 1000 * 60 * 5);
 	}
 
 	private get id(): string {
@@ -289,8 +273,7 @@ export class ReviewManager {
 					Logger.error('Timeout occurred while validating state.', this.id);
 					/* __GDPR__
 						"pr.checkout" : {
-						{
-							"version" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth"
+							"version" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
 						}
 					*/
 					this._telemetry.sendTelemetryErrorEvent('pr.validateStateTimeout', { version: this._context.extension.packageJSON.version });
@@ -352,30 +335,39 @@ export class ReviewManager {
 		return false;
 	}
 
-	private async getUpstreamUrlAndName(branch: Branch): Promise<{ url: string | undefined, branchName: string | undefined, remoteName: string | undefined }> {
+	private async getUpstreamUrlAndName(branch: Branch): Promise<{ remoteUrl: string | undefined, upstreamBranchName: string | undefined, remoteName: string | undefined }> {
 		if (branch.upstream) {
-			return { remoteName: branch.upstream.remote, branchName: branch.upstream.name, url: undefined };
+			Logger.debug(`Upstream for branch ${branch.name} is ${branch.upstream.remote}/${branch.upstream.name}`, this.id);
+			return { remoteName: branch.upstream.remote, upstreamBranchName: branch.upstream.name, remoteUrl: undefined };
 		} else {
 			try {
-				const url = await this.repository.getConfig(`branch.${branch.name}.remote`);
+				const remoteUrl = await this.repository.getConfig(`branch.${branch.name}.remote`);
 				const upstreamBranch = await this.repository.getConfig(`branch.${branch.name}.merge`);
-				let branchName: string | undefined;
+				let upstreamBranchName: string | undefined;
 				if (upstreamBranch) {
-					branchName = upstreamBranch.substring('refs/heads/'.length);
+					upstreamBranchName = upstreamBranch.substring('refs/heads/'.length);
 				}
-				return { url, branchName, remoteName: undefined };
+				Logger.debug(`Upstream for branch ${branch.name} is ${upstreamBranchName} at ${remoteUrl}`, this.id);
+				return { remoteUrl: remoteUrl, upstreamBranchName, remoteName: undefined };
 			} catch (e) {
 				Logger.appendLine(`Failed to get upstream for branch ${branch.name} from git config.`, this.id);
-				return { url: undefined, branchName: undefined, remoteName: undefined };
+				return { remoteUrl: undefined, upstreamBranchName: undefined, remoteName: undefined };
 			}
 		}
 	}
 
 	private async checkGitHubForPrBranch(branch: Branch): Promise<(PullRequestMetadata & { model: PullRequestModel }) | undefined> {
-		const { url, branchName, remoteName } = await this.getUpstreamUrlAndName(this._repository.state.HEAD!);
-		const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub(branch, remoteName, url, branchName);
+
+		let branchToCheck: Branch;
+		if (this._repository.state.HEAD && (branch.name === this._repository.state.HEAD.name)) {
+			branchToCheck = this._repository.state.HEAD;
+		} else {
+			branchToCheck = branch;
+		}
+		const { remoteUrl: url, upstreamBranchName, remoteName } = await this.getUpstreamUrlAndName(branchToCheck);
+		const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub(branchToCheck, remoteName, url, upstreamBranchName);
 		if (metadataFromGithub) {
-			Logger.appendLine(`Found matching pull request metadata on GitHub for current branch ${branch.name}. Repo: ${metadataFromGithub.owner}/${metadataFromGithub.repositoryName} PR: ${metadataFromGithub.prNumber}`);
+			Logger.appendLine(`Found matching pull request metadata on GitHub for current branch ${branch.name}. Repo: ${metadataFromGithub.owner}/${metadataFromGithub.repositoryName} PR: ${metadataFromGithub.prNumber}`, this.id);
 			await PullRequestGitHelper.associateBranchWithPullRequest(
 				this._repository,
 				metadataFromGithub.model,
@@ -391,9 +383,9 @@ export class ReviewManager {
 
 			const { owner, repositoryName } = metadata;
 			Logger.appendLine('Resolving pull request', this.id);
-			const pr = await this._folderRepoManager.resolvePullRequest(owner, repositoryName, metadata.prNumber);
+			let pr = await this._folderRepoManager.resolvePullRequest(owner, repositoryName, metadata.prNumber);
 
-			if (!pr || !pr.isResolved()) {
+			if (!pr || !pr.isResolved() || !(await pr.githubRepository.hasBranch(pr.base.name))) {
 				await this.clear(true);
 				this._prNumber = undefined;
 				Logger.appendLine('This PR is no longer valid', this.id);
@@ -426,7 +418,8 @@ export class ReviewManager {
 
 		const branch = this._repository.state.HEAD;
 		const ignoreBranches = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(IGNORE_PR_BRANCHES);
-		if (ignoreBranches?.find(value => value === branch.name) && ((branch.remote === 'origin') || !(await this._folderRepoManager.gitHubRepositories.find(repo => repo.remote.remoteName === branch.remote)?.getMetadata())?.fork)) {
+		const remoteName = branch.remote ?? branch.upstream?.remote;
+		if (ignoreBranches?.find(value => value === branch.name) && ((remoteName === 'origin') || !(await this._folderRepoManager.gitHubRepositories.find(repo => repo.remote.remoteName === remoteName)?.getMetadata())?.fork)) {
 			Logger.appendLine(`Branch ${branch.name} is ignored in ${IGNORE_PR_BRANCHES}.`, this.id);
 			await this.clear(true);
 			return;
@@ -633,7 +626,7 @@ export class ReviewManager {
 	private _doFocusShow(pr: PullRequestModel, updateLayout: boolean) {
 		// Respect the setting 'comments.openView' when it's 'never'.
 		const shouldShowCommentsView = vscode.workspace.getConfiguration(COMMENTS).get<'never' | string>(OPEN_VIEW);
-		if (shouldShowCommentsView !== 'never') {
+		if ((shouldShowCommentsView !== 'never') && (pr.hasComments)) {
 			commands.executeCommand('workbench.action.focusCommentsPanel');
 		}
 		this._activePrViewCoordinator.show(pr);
@@ -691,6 +684,164 @@ export class ReviewManager {
 			}
 		}
 		return Promise.all(reopenPromises);
+	}
+
+	async createSuggestionFromChange(editor: vscode.TextDocument, diffLines: vscode.LineChange[]) {
+		const change = this._reviewModel.localFileChanges.find(change => change.changeModel.filePath.toString() === editor.uri.toString());
+
+		if (!change) {
+			return;
+		}
+		const suggestions: (SuggestionInformation & { diffLine: vscode.LineChange })[] = [];
+		for (const line of diffLines) {
+			const content = editor.getText(new vscode.Range(line.modifiedStartLineNumber - 1, 0, line.modifiedEndLineNumber - 1, editor.lineAt(line.modifiedEndLineNumber - 1).range.end.character));
+			const originalEndLineNumber = line.originalEndLineNumber < line.originalStartLineNumber ? line.originalStartLineNumber : line.originalEndLineNumber;
+			suggestions.push({
+				suggestionContent: content,
+				originalLineLength: originalEndLineNumber - line.originalStartLineNumber + 1,
+				originalStartLine: line.originalStartLineNumber,
+				diffLine: line
+			});
+		}
+		await Promise.all(suggestions.map(async (suggestion) => {
+			try {
+				await this._reviewCommentController?.createSuggestionsFromChanges(editor.uri, suggestion);
+				await vscode.commands.executeCommand('git.revertSelectedRanges', suggestion.diffLine);
+			} catch (e) {
+				vscode.window.showErrorMessage(vscode.l10n.t('The change is outside the commenting range.'), { modal: true });
+			}
+		}));
+	}
+
+	private trimContextFromHunk(hunk: DiffHunk) {
+		let oldLineNumber = hunk.oldLineNumber;
+		let oldLength = hunk.oldLength;
+
+		let i = 0;
+		for (; i < hunk.diffLines.length; i++) {
+			const line = hunk.diffLines[i];
+			if (line.type === DiffChangeType.Control) {
+				continue;
+			}
+			if (line.type === DiffChangeType.Context) {
+				oldLineNumber++;
+				oldLength--;
+			} else {
+				break;
+			}
+		}
+		let j = hunk.diffLines.length - 1;
+		for (; j >= 0; j--) {
+			if (hunk.diffLines[j].type === DiffChangeType.Context) {
+				oldLength--;
+			} else {
+				break;
+			}
+		}
+
+		let slice = hunk.diffLines.slice(i, j + 1);
+
+		if (slice.every(line => line.type === DiffChangeType.Add)) {
+			// we have only inserted lines, so we need to include a context line so that
+			// there's a line to anchor the suggestion to
+			if (i > 1) {
+				// include from the beginning of the hunk
+				i--;
+				oldLineNumber--;
+				oldLength++;
+			} else if (j < hunk.diffLines.length - 1) {
+				// include from the end of the hunk
+				j++;
+				oldLength++;
+			} else {
+				// include entire context
+				i = 1;
+				j = hunk.diffLines.length - 1;
+			}
+			slice = hunk.diffLines.slice(i, j + 1);
+		}
+
+		hunk.diffLines = slice;
+		hunk.oldLength = oldLength;
+		hunk.oldLineNumber = oldLineNumber;
+	}
+
+	private convertDiffHunkToSuggestion(hunk: DiffHunk): SuggestionInformation {
+		this.trimContextFromHunk(hunk);
+		return {
+			suggestionContent: hunk.diffLines.filter(line => (line.type === DiffChangeType.Add) || (line.type == DiffChangeType.Context)).map(line => line.text).join('\n'),
+			originalLineLength: hunk.oldLength,
+			originalStartLine: hunk.oldLineNumber,
+		};
+	}
+
+	async createSuggestionsFromChanges(resources: vscode.Uri[]) {
+		const resourceStrings = resources.map(resource => resource.toString());
+		let hasError: boolean = false;
+		let diffCount: number = 0;
+		const convertedFiles: vscode.Uri[] = [];
+
+		const convertOneSmallHunk = async (changeFile: Change, hunk: DiffHunk) => {
+			try {
+				await this._reviewCommentController?.createSuggestionsFromChanges(changeFile.uri, this.convertDiffHunkToSuggestion(hunk));
+				convertedFiles.push(changeFile.uri);
+			} catch (e) {
+				hasError = true;
+			}
+		};
+
+		const getDiffFromChange = async (changeFile: Change) => {
+			if (!resourceStrings.includes(changeFile.uri.toString()) || (changeFile.status !== Status.MODIFIED)) {
+				return;
+			}
+			return parsePatch(await this._folderRepoManager.repository.diffWithHEAD(changeFile.uri.fsPath)).map(hunk => splitIntoSmallerHunks(hunk)).flat();
+		};
+
+		const convertAllChangesInFile = async (changeFile: Change, parallel: boolean) => {
+			const diff = await getDiffFromChange(changeFile);
+			if (diff) {
+				diffCount += diff.length;
+				if (parallel) {
+					await Promise.allSettled(diff.map(async hunk => {
+						return convertOneSmallHunk(changeFile, hunk);
+					}));
+				} else {
+					for (const hunk of diff) {
+						await convertOneSmallHunk(changeFile, hunk);
+					}
+				}
+			}
+		};
+
+		await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: 'Converting changes to suggestions' }, async () => {
+			// We need to create one suggestion first. This let's us ensure that only one review will be created.
+			let i = 0;
+			for (; (convertedFiles.length === 0) && (i < this._folderRepoManager.repository.state.workingTreeChanges.length); i++) {
+				const changeFile = this._folderRepoManager.repository.state.workingTreeChanges[i];
+				await convertAllChangesInFile(changeFile, false);
+			}
+
+			// If we have already created a suggestion, we can create the rest in parallel
+			const promises: Promise<void>[] = [];
+			for (; i < this._folderRepoManager.repository.state.workingTreeChanges.length; i++) {
+				const changeFile = this._folderRepoManager.repository.state.workingTreeChanges[i];
+				promises.push(convertAllChangesInFile(changeFile, true));
+			}
+
+			await Promise.all(promises);
+		});
+		if (!hasError) {
+			const checkoutAllFilesResponse = vscode.l10n.t('Reset all changes');
+			vscode.window.showInformationMessage(vscode.l10n.t('All changes have been converted to suggestions.'), { modal: true, detail: vscode.l10n.t('Do you want to reset your local changes?') }, checkoutAllFilesResponse).then((response) => {
+				if (response === checkoutAllFilesResponse) {
+					return Promise.all(convertedFiles.map(changeFile => this._folderRepoManager.repository.checkout(changeFile.fsPath)));
+				}
+			});
+		} else if (convertedFiles.length) {
+			vscode.window.showWarningMessage(vscode.l10n.t('Not all changes could be converted to suggestions.'), { detail: vscode.l10n.t('{0} of {1} changes converted. Some of the changes may be outside of commenting ranges.\nYour changes are still available locally.', convertedFiles.length, diffCount), modal: true });
+		} else {
+			vscode.window.showWarningMessage(vscode.l10n.t('No changes could be converted to suggestions.'), { detail: vscode.l10n.t('All of the changes are outside of commenting ranges.'), modal: true });
+		}
 	}
 
 	public async updateComments(): Promise<void> {
@@ -833,7 +984,7 @@ export class ReviewManager {
 
 			return Promise.resolve(void 0);
 		} catch (e) {
-			Logger.error(`Failed to initialize PR data ${e}`, this.id);
+			Logger.error(`Failed to initialize PR data ${e}: ${e.message}`, this.id);
 		}
 	}
 
@@ -862,7 +1013,7 @@ export class ReviewManager {
 
 			this._inMemGitHubContentProvider = getInMemPRFileSystemProvider()?.registerTextDocumentContentProvider(
 				pr.number,
-				async (uri: vscode.Uri): Promise<string> => {
+				async (uri: vscode.Uri): Promise<string | Uint8Array> => {
 					const params = fromPRUri(uri);
 					if (!params) {
 						return '';
@@ -877,7 +1028,6 @@ export class ReviewManager {
 					}
 
 					return provideDocumentContentForChangeModel(this._folderRepoManager, pr, params, fileChange);
-
 				},
 			);
 		} catch (e) {
@@ -908,6 +1058,8 @@ export class ReviewManager {
 				this._folderRepoManager,
 				this._repository,
 				this._reviewModel,
+				this._gitApi,
+				this._telemetry
 			);
 
 			await this._reviewCommentController.initialize();
@@ -952,10 +1104,10 @@ export class ReviewManager {
 				// The pull request was checked out, but the upstream branch was deleted
 				vscode.window.showInformationMessage('The remote branch for this pull request has been deleted. The file contents may not match the remote.');
 			} else {
-				vscode.window.showErrorMessage(formatError(e));
+				vscode.window.showErrorMessage(`Error switching to pull request: ${formatError(e)}`);
 			}
 			// todo, we should try to recover, for example, git checkout succeeds but set config fails.
-			if (this._folderRepoManager.activePullRequest) {
+			if (this._folderRepoManager.activePullRequest?.number === pr.number) {
 				this.setStatusForPr(this._folderRepoManager.activePullRequest);
 			} else {
 				this.statusBarItem.hide();
@@ -990,173 +1142,16 @@ export class ReviewManager {
 		this.statusBarItem.show();
 	}
 
-	public async publishBranch(branch: Branch): Promise<Branch | undefined> {
-		const potentialTargetRemotes = await this._folderRepoManager.getAllGitHubRemotes();
-		let selectedRemote = (await this.getRemote(
-			potentialTargetRemotes,
-			vscode.l10n.t(`Pick a remote to publish the branch '{0}' to:`, branch.name!),
-		))!.remote;
-
-		if (!selectedRemote || branch.name === undefined) {
-			return;
-		}
-
-		const githubRepo = await this._folderRepoManager.createGitHubRepository(
-			selectedRemote,
-			this._folderRepoManager.credentialStore,
-		);
-		const permission = await githubRepo.getViewerPermission();
-		if (
-			permission === ViewerPermission.Read ||
-			permission === ViewerPermission.Triage ||
-			permission === ViewerPermission.Unknown
-		) {
-			// No permission to publish the branch to the chosen remote. Offer to fork.
-			const fork = await this._folderRepoManager.tryOfferToFork(githubRepo);
-			if (!fork) {
+	public async createPullRequest(compareBranch?: string): Promise<void> {
+		const postCreate = async (createdPR: PullRequestModel | undefined) => {
+			if (!createdPR) {
 				return;
 			}
-			selectedRemote = (await this._folderRepoManager.getGitHubRemotes()).find(element => element.remoteName === fork);
-		}
 
-		if (!selectedRemote) {
-			return;
-		}
-		const remote: Remote = selectedRemote;
-
-		return new Promise<Branch | undefined>(async resolve => {
-			const inputBox = vscode.window.createInputBox();
-			inputBox.value = branch.name!;
-			inputBox.ignoreFocusOut = true;
-			inputBox.prompt =
-				potentialTargetRemotes.length === 1
-					? vscode.l10n.t(`The branch '{0}' is not published yet, pick a name for the upstream branch`, branch.name!)
-					: vscode.l10n.t('Pick a name for the upstream branch');
-			const validate = async function (value: string) {
-				try {
-					inputBox.busy = true;
-					const remoteBranch = await this._reposManager.getBranch(remote, value);
-					if (remoteBranch) {
-						inputBox.validationMessage = vscode.l10n.t(`Branch '{0}' already exists in {1}`, value, `${remote.owner}/${remote.repositoryName}`);
-					} else {
-						inputBox.validationMessage = undefined;
-					}
-				} catch (e) {
-					inputBox.validationMessage = undefined;
-				}
-
-				inputBox.busy = false;
-			};
-			await validate(branch.name!);
-			inputBox.onDidChangeValue(validate.bind(this));
-			inputBox.onDidAccept(async () => {
-				inputBox.validationMessage = undefined;
-				inputBox.hide();
-				try {
-					// since we are probably pushing a remote branch with a different name, we use the complete syntax
-					// git push -u origin local_branch:remote_branch
-					await this._repository.push(remote.remoteName, `${branch.name}:${inputBox.value}`, true);
-				} catch (err) {
-					if (err.gitErrorCode === GitErrorCodes.PushRejected) {
-						vscode.window.showWarningMessage(
-							vscode.l10n.t(`Can't push refs to remote, try running 'git pull' first to integrate with your change`),
-							{
-								modal: true,
-							},
-						);
-
-						resolve(undefined);
-					}
-
-					if (err.gitErrorCode === GitErrorCodes.RemoteConnectionError) {
-						vscode.window.showWarningMessage(
-							vscode.l10n.t(`Could not read from remote repository '{0}'. Please make sure you have the correct access rights and the repository exists.`, remote.remoteName),
-							{
-								modal: true,
-							},
-						);
-
-						resolve(undefined);
-					}
-
-					// we can't handle the error
-					throw err;
-				}
-
-				// we don't want to wait for repository status update
-				const latestBranch = await this._repository.getBranch(branch.name!);
-				if (!latestBranch || !latestBranch.upstream) {
-					resolve(undefined);
-				}
-
-				resolve(latestBranch);
-			});
-
-			inputBox.show();
-		});
-	}
-
-	private async getRemote(
-		potentialTargetRemotes: Remote[],
-		placeHolder: string,
-		defaultUpstream?: RemoteQuickPickItem,
-	): Promise<RemoteQuickPickItem | undefined> {
-		if (!potentialTargetRemotes.length) {
-			vscode.window.showWarningMessage(vscode.l10n.t(`No GitHub remotes found. Add a remote and try again.`));
-			return;
-		}
-
-		if (potentialTargetRemotes.length === 1 && !defaultUpstream) {
-			return RemoteQuickPickItem.fromRemote(potentialTargetRemotes[0]);
-		}
-
-		if (
-			potentialTargetRemotes.length === 1 &&
-			defaultUpstream &&
-			defaultUpstream.owner === potentialTargetRemotes[0].owner &&
-			defaultUpstream.name === potentialTargetRemotes[0].repositoryName
-		) {
-			return defaultUpstream;
-		}
-
-		let defaultUpstreamWasARemote = false;
-		const picks: RemoteQuickPickItem[] = potentialTargetRemotes.map(remote => {
-			const remoteQuickPick = RemoteQuickPickItem.fromRemote(remote);
-			if (defaultUpstream) {
-				const { owner, name } = defaultUpstream;
-				remoteQuickPick.picked = remoteQuickPick.owner === owner && remoteQuickPick.name === name;
-				if (remoteQuickPick.picked) {
-					defaultUpstreamWasARemote = true;
-				}
-			}
-			return remoteQuickPick;
-		});
-		if (!defaultUpstreamWasARemote && defaultUpstream) {
-			picks.unshift(defaultUpstream);
-		}
-
-		const selected: RemoteQuickPickItem | undefined = await vscode.window.showQuickPick<RemoteQuickPickItem>(
-			picks,
-			{
-				ignoreFocusOut: true,
-				placeHolder: placeHolder,
-			},
-		);
-
-		if (!selected) {
-			return;
-		}
-
-		return selected;
-	}
-
-	public async createPullRequest(compareBranch?: string): Promise<void> {
-		const postCreate = async (createdPR: PullRequestModel) => {
 			const postCreate = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'none' | 'openOverview' | 'checkoutDefaultBranch' | 'checkoutDefaultBranchAndShow' | 'checkoutDefaultBranchAndCopy'>(POST_CREATE, 'openOverview');
 			if (postCreate === 'openOverview') {
 				const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(this._folderRepoManager);
 				await openDescription(
-					this._context,
 					this._telemetry,
 					createdPR,
 					descriptionNode,
@@ -1169,7 +1164,7 @@ export class ReviewManager {
 					if (postCreate === 'checkoutDefaultBranch') {
 						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch);
 					} if (postCreate === 'checkoutDefaultBranchAndShow') {
-						await vscode.commands.executeCommand('pr:github.focus');
+						await commands.executeCommand('pr:github.focus');
 						await this._folderRepoManager.checkoutDefaultBranch(defaultBranch);
 						await this._pullRequestsTree.expandPullRequest(createdPR);
 					} else if (postCreate === 'checkoutDefaultBranchAndCopy') {
@@ -1194,7 +1189,6 @@ export class ReviewManager {
 
 		const descriptionNode = this.changesInPrDataProvider.getDescriptionNode(this._folderRepoManager);
 		await openDescription(
-			this._context,
 			this._telemetry,
 			pullRequest,
 			descriptionNode,
@@ -1236,10 +1230,9 @@ export class ReviewManager {
 				this._statusBarItem.hide();
 			}
 
-			this._updateMessageShown = false;
 			this._reviewModel.clear();
 
-			this._localToDispose.forEach(disposable => disposable.dispose());
+			disposeAll(this._localToDispose);
 			// Ensure file explorer decorations are removed. When switching to a different PR branch,
 			// comments are recalculated when getting the data and the change decoration fired then,
 			// so comments only needs to be emptied in this case.
@@ -1307,14 +1300,14 @@ export class ReviewManager {
 			return ret.join('\n');
 		} else if (base && commit && this._folderRepoManager.activePullRequest) {
 			// We can't get the content from git. Try to get it from github.
-			const content = await getGitHubFileContent(this._folderRepoManager.activePullRequest.githubRepository, path, commit);
+			const content = await this._folderRepoManager.activePullRequest.githubRepository.getFile(path, commit);
 			return content.toString();
 		}
 	}
 
-	dispose() {
+	override dispose() {
+		super.dispose();
 		this.clear(true);
-		dispose(this._disposables);
 	}
 
 	static getReviewManagerForRepository(

@@ -8,7 +8,7 @@ import { GithubItemStateEnum } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
-import { checkIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
+import { checkIcon, issueClosedIcon, issueIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
 import { nbsp } from './space';
 import { AuthorLink, Avatar } from './user';
 
@@ -123,22 +123,22 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 }
 
 function Subtitle({ state, isDraft, isIssue, author, base, head }) {
-	const { text, color, icon } = getStatus(state, isDraft);
+	const { text, color, icon } = getStatus(state, isDraft, isIssue);
 
 	return (
 		<div className="subtitle">
 			<div id="status" className={`status-badge-${color}`}>
-				<span className='icon'>{isIssue ? null : icon}</span>
+				<span className='icon'>{icon}</span>
 				<span>{text}</span>
 			</div>
 			<div className="author">
-				{!isIssue ? <Avatar for={author} /> : null}
-				{!isIssue ? (
-					<div className="merge-branches">
-						<AuthorLink for={author} /> {getActionText(state)} into{' '}
+				{<Avatar for={author} />}
+				<div className="merge-branches">
+					<AuthorLink for={author} /> {!isIssue ? (<>
+						{getActionText(state)} into{' '}
 						<code className="branch-tag">{base}</code> from <code className="branch-tag">{head}</code>
-					</div>
-				) : null}
+					</>) : null}
+				</div>
 			</div>
 		</div>
 	);
@@ -201,13 +201,16 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBran
 	}
 };
 
-export function getStatus(state: GithubItemStateEnum, isDraft: boolean) {
+export function getStatus(state: GithubItemStateEnum, isDraft: boolean, isIssue: boolean) {
+	const closed = isIssue ? issueClosedIcon : prClosedIcon;
+	const open = isIssue ? issueIcon : prOpenIcon;
+
 	if (state === GithubItemStateEnum.Merged) {
 		return { text: 'Merged', color: 'merged', icon: mergeIcon };
 	} else if (state === GithubItemStateEnum.Open) {
-		return isDraft ? { text: 'Draft', color: 'draft', icon: prDraftIcon } : { text: 'Open', color: 'open', icon: prOpenIcon };
+		return isDraft ? { text: 'Draft', color: 'draft', icon: prDraftIcon } : { text: 'Open', color: 'open', icon: open };
 	} else {
-		return { text: 'Closed', color: 'closed', icon: prClosedIcon };
+		return { text: 'Closed', color: 'closed', icon: closed };
 	}
 }
 

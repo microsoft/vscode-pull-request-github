@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Disposable, disposeAll } from '../../common/lifecycle';
 import Logger from '../../common/logger';
-import { dispose } from '../../common/utils';
 
 export interface BaseTreeNode {
 	reveal(element: TreeNode, options?: { select?: boolean; focus?: boolean; expand?: boolean | number }): Thenable<void>;
@@ -16,15 +16,17 @@ export interface BaseTreeNode {
 
 export type TreeNodeParent = TreeNode | BaseTreeNode;
 
-export abstract class TreeNode {
+export abstract class TreeNode extends Disposable {
 	protected children: TreeNode[] | undefined;
-	childrenDisposables: vscode.Disposable[];
-	parent: TreeNodeParent;
+	childrenDisposables: vscode.Disposable[] = [];
 	label?: string;
 	accessibilityInformation?: vscode.AccessibilityInformation;
 	id?: string;
 
-	constructor() { }
+	constructor(public parent: TreeNodeParent) {
+		super();
+	}
+
 	abstract getTreeItem(): vscode.TreeItem | Promise<vscode.TreeItem>;
 	getParent(): TreeNode | undefined {
 		if (this.parent instanceof TreeNode) {
@@ -56,26 +58,25 @@ export abstract class TreeNode {
 
 	async getChildren(shouldDispose: boolean = true): Promise<TreeNode[]> {
 		if (this.children && this.children.length && shouldDispose) {
-			dispose(this.children);
-			this.children = [];
+			disposeAll(this.children);
 		}
 		return [];
 	}
 
 	updateFromCheckboxChanged(_newState: vscode.TreeItemCheckboxState): void { }
 
-	dispose(): void {
+	override dispose(): void {
+		super.dispose();
 		if (this.childrenDisposables) {
-			dispose(this.childrenDisposables);
-			this.childrenDisposables = [];
+			disposeAll(this.childrenDisposables);
 		}
 	}
 }
 
 export class LabelOnlyNode extends TreeNode {
-	public readonly label: string = '';
-	constructor(label: string) {
-		super();
+	public override readonly label: string = '';
+	constructor(parent: TreeNodeParent, label: string) {
+		super(parent);
 		this.label = label;
 	}
 	getTreeItem(): vscode.TreeItem {

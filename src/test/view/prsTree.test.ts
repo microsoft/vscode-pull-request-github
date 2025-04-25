@@ -30,6 +30,7 @@ import { GitHubServerType } from '../../common/authentication';
 import { DataUri } from '../../common/uri';
 import { IAccount, ITeam } from '../../github/interface';
 import { asPromise } from '../../common/utils';
+import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -38,6 +39,8 @@ describe('GitHub Pull Requests view', function () {
 	let provider: PullRequestsTreeDataProvider;
 	let credentialStore: CredentialStore;
 	let reposManager: RepositoriesManager;
+	let createPrHelper: CreatePullRequestHelper;
+
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -52,6 +55,7 @@ describe('GitHub Pull Requests view', function () {
 		);
 		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager);
 		credentialStore = new CredentialStore(telemetry, context);
+		createPrHelper = new CreatePullRequestHelper();
 
 		// For tree view unit tests, we don't test the authentication flow, so `showSignInNotification` returns
 		// a dummy GitHub/Octokit object.
@@ -97,7 +101,7 @@ describe('GitHub Pull Requests view', function () {
 	it('has no children when repositories have not yet been initialized', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
-		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore));
+		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore, createPrHelper));
 		provider.initialize([], credentialStore);
 
 		const rootNodes = await provider.getChildren();
@@ -107,7 +111,7 @@ describe('GitHub Pull Requests view', function () {
 	it('opens the viewlet and displays the default categories', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
-		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore));
+		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore, createPrHelper));
 		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 		await reposManager.folderManagers[0].updateRepositories();
 		provider.initialize([], credentialStore);
@@ -137,6 +141,7 @@ describe('GitHub Pull Requests view', function () {
 				builder.pullRequest(pr => {
 					pr.repository(r =>
 						r.pullRequest(p => {
+							p.databaseId(1111);
 							p.number(1111);
 							p.title('zero');
 							p.author(a => a.login('me').avatarUrl('https://avatars.com/me.jpg').url('https://github.com/me'));
@@ -153,6 +158,7 @@ describe('GitHub Pull Requests view', function () {
 				builder.pullRequest(pr => {
 					pr.repository(r =>
 						r.pullRequest(p => {
+							p.databaseId(2222);
 							p.number(2222);
 							p.title('one');
 							p.author(a => a.login('you').avatarUrl('https://avatars.com/you.jpg'));
@@ -175,7 +181,7 @@ describe('GitHub Pull Requests view', function () {
 
 			await repository.createBranch('non-pr-branch', false);
 
-			const manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore);
+			const manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore, createPrHelper);
 			reposManager.insertFolderManager(manager);
 			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
 				assert.deepStrictEqual(r, remote);
@@ -203,17 +209,17 @@ describe('GitHub Pull Requests view', function () {
 			const [localItem0, localItem1] = await Promise.all(localChildren.map(node => node.getTreeItem()));
 
 			assert.strictEqual(localItem0.label, 'zero');
-			assert.strictEqual(localItem0.tooltip, 'zero by @me');
+			assert.strictEqual(localItem0.tooltip, undefined);
 			assert.strictEqual(localItem0.description, 'by @me');
 			assert.strictEqual(localItem0.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
-			assert.strictEqual(localItem0.contextValue, 'pullrequest:local:nonactive');
+			assert.strictEqual(localItem0.contextValue, 'pullrequest:local:nonactive:hasHeadRef');
 			assert.deepStrictEqual(localItem0.iconPath!.toString(), 'https://avatars.com/me.jpg');
 
 			assert.strictEqual(localItem1.label, '✓ one');
-			assert.strictEqual(localItem1.tooltip, 'Current Branch * one by @you');
+			assert.strictEqual(localItem1.tooltip, undefined);
 			assert.strictEqual(localItem1.description, 'by @you');
 			assert.strictEqual(localItem1.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
-			assert.strictEqual(localItem1.contextValue, 'pullrequest:local:active');
+			assert.strictEqual(localItem1.contextValue, 'pullrequest:local:active:hasHeadRef');
 			assert.deepStrictEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg');
 		});
 	});

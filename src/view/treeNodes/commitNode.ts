@@ -8,9 +8,10 @@ import * as vscode from 'vscode';
 import { getGitChangeType } from '../../common/diffHunk';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from '../../common/settingKeys';
 import { DataUri, toReviewUri } from '../../common/uri';
+import { dateFromNow } from '../../common/utils';
 import { OctokitCommon } from '../../github/common';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
-import { IAccount } from '../../github/interface';
+import { AccountType, IAccount } from '../../github/interface';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { GitFileChangeModel } from '../fileChangeModel';
 import { DirectoryTreeNode } from './directoryTreeNode';
@@ -22,35 +23,37 @@ export class CommitNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public iconPath: vscode.Uri | undefined;
 	public contextValue?: string;
+	public description: string | undefined;
 
 	constructor(
-		public parent: TreeNodeParent,
+		parent: TreeNodeParent,
 		private readonly pullRequestManager: FolderRepositoryManager,
 		private readonly pullRequest: PullRequestModel,
 		private readonly commit: OctokitCommon.PullsListCommitsResponseItem,
 		private readonly isCurrent: boolean
 	) {
-		super();
+		super(parent);
 		this.label = commit.commit.message;
 		this.sha = commit.sha;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 		this.contextValue = 'commit';
+		this.description = commit.commit.author?.date ? dateFromNow(commit.commit.author.date) : undefined;
 	}
 
 	async getTreeItem(): Promise<vscode.TreeItem> {
 		if (this.commit.author) {
-			const author: IAccount = { id: this.commit.author.node_id, login: this.commit.author.login, url: this.commit.author.url, avatarUrl: this.commit.author.avatar_url };
+			const author: IAccount = { id: this.commit.author.node_id, login: this.commit.author.login, url: this.commit.author.url, avatarUrl: this.commit.author.avatar_url, accountType: this.commit.author.type as AccountType };
 			this.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.pullRequestManager.context, [author], 16, 16))[0];
 		}
 		return this;
 	}
 
-	async getChildren(): Promise<TreeNode[]> {
+	override async getChildren(): Promise<TreeNode[]> {
 		super.getChildren();
 		const fileChanges = (await this.pullRequest.getCommitChangedFiles(this.commit)) ?? [];
 
 		if (fileChanges.length === 0) {
-			return [new LabelOnlyNode('No changed files')];
+			return [new LabelOnlyNode(this, 'No changed files')];
 		}
 
 		const fileChangeNodes = fileChanges.map(change => {

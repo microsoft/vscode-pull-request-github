@@ -28,7 +28,7 @@ export const prOpenIcon = <Icon src={require('../../resources/icons/pr.svg')} />
 export const prDraftIcon = <Icon src={require('../../resources/icons/pr_draft.svg')} />;
 export const editIcon = <Icon src={require('../../resources/icons/edit.svg')} />;
 export const plusIcon = <Icon src={require('../../resources/icons/plus.svg')} />;
-export const pendingIcon = <Icon src={require('../../resources/icons/dot.svg')} />;
+export const pendingIcon = <Icon src={require('../../resources/icons/dot.svg')} className='pending' />;
 export const requestChanges = <Icon src={require('../../resources/icons/request_changes.svg')} />;
 export const settingsIcon = <Icon src={require('../../resources/icons/settings.svg')} />;
 export const closeIcon = <Icon src={require('../../resources/icons/close.svg')} className='close' />;
@@ -42,4 +42,7 @@ export const labelIcon = <Icon src={require('../../resources/icons/label.svg')} 
 export const milestoneIcon = <Icon src={require('../../resources/icons/milestone.svg')} />;
 export const projectIcon = <Icon src={require('../../resources/icons/github-project.svg')} />;
 export const sparkleIcon = <Icon src={require('../../resources/icons/sparkle.svg')} />;
-export const stopIcon = <Icon src={require('../../resources/icons/stop.svg')} />;
+export const stopCircleIcon = <Icon src={require('../../resources/icons/stop-circle.svg')} />;
+export const issueIcon = <Icon src={require('../../resources/icons/issue.svg')} />;
+export const issueClosedIcon = <Icon src={require('../../resources/icons/issue_closed.svg')} />;
+export const copilotIcon = <Icon src={require('../../resources/icons/copilot.svg')} />;

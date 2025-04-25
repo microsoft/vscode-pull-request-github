@@ -6,8 +6,10 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
+import { emojify, ensureEmojis } from '../common/emoji';
+import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
-import { JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
+import { ALLOWED_USERS, JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
 import { stringReplaceAsync } from '../common/utils';
 import { GitHubRepository } from './githubRepository';
 import { IAccount } from './interface';
@@ -43,10 +45,14 @@ export interface GHPRCommentThread extends vscode.CommentThread2 {
 	 */
 	label?: string;
 
+	canReply: boolean | vscode.CommentAuthorInformation;
+
 	/**
 	 * Whether the thread has been marked as resolved.
 	 */
-	state: { resolved: vscode.CommentThreadState; applicability: vscode.CommentThreadApplicability };
+	state?: { resolved: vscode.CommentThreadState; applicability?: vscode.CommentThreadApplicability };
+
+	reveal(comment?: vscode.Comment, options?: vscode.CommentThreadRevealOptions): Promise<void>;
 
 	dispose: () => void;
 }
@@ -79,7 +85,12 @@ abstract class CommentBase implements vscode.Comment {
 	/**
 	 * The author of the comment
 	 */
-	public author: vscode.CommentAuthorInformation;
+	public abstract get author(): vscode.CommentAuthorInformation;
+
+	/**
+	 * The author of the comment, before any modifications we make for display purposes.
+	 */
+	public originalAuthor: vscode.CommentAuthorInformation;
 
 	/**
 	 * The label to display on the comment, 'Pending' or nothing
@@ -157,7 +168,7 @@ export class TemporaryComment extends CommentBase {
 	) {
 		super(parent);
 		this.mode = vscode.CommentMode.Preview;
-		this.author = {
+		this.originalAuthor = {
 			name: currentUser.login,
 			iconPath: currentUser.avatarUrl ? vscode.Uri.parse(`${currentUser.avatarUrl}&s=64`) : undefined,
 		};
@@ -182,6 +193,10 @@ export class TemporaryComment extends CommentBase {
 		return new vscode.MarkdownString(this.input);
 	}
 
+	get author(): vscode.CommentAuthorInformation {
+		return this.originalAuthor;
+	}
+
 	commentEditId() {
 		return this.id;
 	}
@@ -192,8 +207,10 @@ export class TemporaryComment extends CommentBase {
 }
 
 const SUGGESTION_EXPRESSION = /```suggestion(\u0020*(\r\n|\n))((?<suggestion>[\s\S]*?)(\r\n|\n))?```/;
+const IMG_EXPRESSION = /<img .*src=['"](?<src>.+?)['"].*?>/g;
 
 export class GHPRComment extends CommentBase {
+	private static ID = 'GHPRComment';
 	public commentId: string;
 	public timestamp: Date;
 
@@ -205,10 +222,10 @@ export class GHPRComment extends CommentBase {
 	private _rawBody: string | vscode.MarkdownString;
 	private replacedBody: string;
 
-	constructor(context: vscode.ExtensionContext, comment: IComment, parent: GHPRCommentThread, private readonly githubRepositories?: GitHubRepository[]) {
+	constructor(private readonly context: vscode.ExtensionContext, comment: IComment, parent: GHPRCommentThread, private readonly githubRepositories?: GitHubRepository[]) {
 		super(parent);
 		this.rawComment = comment;
-		this.author = {
+		this.originalAuthor = {
 			name: comment.user!.login,
 			iconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined,
 		};
@@ -242,6 +259,16 @@ export class GHPRComment extends CommentBase {
 
 		this.contextValue = contextValues.join(',');
 		this.timestamp = new Date(comment.createdAt);
+	}
+
+	get author(): vscode.CommentAuthorInformation {
+		if (!this.rawComment.user?.specialDisplayName) {
+			return this.originalAuthor;
+		}
+		return {
+			name: this.rawComment.user.specialDisplayName,
+			iconPath: this.originalAuthor.iconPath,
+		};
 	}
 
 	update(comment: IComment) {
@@ -299,12 +326,18 @@ export class GHPRComment extends CommentBase {
 		const match = this.rawComment.body.match(SUGGESTION_EXPRESSION);
 		const suggestionBody = match?.groups?.suggestion;
 		if (match) {
-			return suggestionBody ? `${suggestionBody}\n` : '';
+			return suggestionBody ? suggestionBody : '';
 		}
 	}
 
 	public commentEditId() {
 		return this.commentId;
+	}
+
+	private replaceImg(body: string) {
+		return body.replace(IMG_EXPRESSION, (_substring, _1, _2, _3, { src }) => {
+			return `![image](${src})`;
+		});
 	}
 
 	private replaceSuggestion(body: string) {
@@ -320,9 +353,13 @@ ${args[3] ?? ''}
 
 	private async createLocalFilePath(rootUri: vscode.Uri, fileSubPath: string, startLine: number, endLine: number): Promise<string | undefined> {
 		const localFile = vscode.Uri.joinPath(rootUri, fileSubPath);
-		const stat = await vscode.workspace.fs.stat(localFile);
-		if (stat.type === vscode.FileType.File) {
-			return `${localFile.with({ fragment: `${startLine}-${endLine}` }).toString()}`;
+		try {
+			const stat = await vscode.workspace.fs.stat(localFile);
+			if (stat.type === vscode.FileType.File) {
+				return `${localFile.with({ fragment: `${startLine}-${endLine}` }).toString()}`;
+			}
+		} catch (e) {
+			return undefined;
 		}
 	}
 
@@ -365,19 +402,34 @@ ${lineContents}
 		return body.replace(/(?<!\s)(\r\n|\n)/g, '  \n');
 	}
 
+	private postpendSpecialAuthorComment(body: string) {
+		if (!this.rawComment.specialDisplayBodyPostfix) {
+			return body;
+		}
+		return `${body}  \n\n_${this.rawComment.specialDisplayBodyPostfix}_`;
+	}
+
 	private async replaceBody(body: string | vscode.MarkdownString): Promise<string> {
+		const emojiPromise = ensureEmojis(this.context);
+		Logger.trace('Replace comment body', GHPRComment.ID);
 		if (body instanceof vscode.MarkdownString) {
 			const permalinkReplaced = await this.replacePermalink(body.value);
-			return this.replaceSuggestion(permalinkReplaced);
+			return this.replaceImg(this.replaceSuggestion(permalinkReplaced));
 		}
 		const newLinesReplaced = this.replaceNewlines(body);
 		const documentLanguage = (await vscode.workspace.openTextDocument(this.parent.uri)).languageId;
+		const replacerRegex = new RegExp(`([^/\[\`]|^)@(${ALLOWED_USERS})`, 'g');
 		// Replace user
-		const linkified = newLinesReplaced.replace(/([^\[`]|^)\@([^\s`]+)/g, (substring, _1, _2, offset) => {
+		const linkified = newLinesReplaced.replace(replacerRegex, (substring, _1, _2, offset) => {
 			// Do not try to replace user if there's a code block.
 			if ((newLinesReplaced.substring(0, offset).match(/```/g)?.length ?? 0) % 2 === 1) {
 				return substring;
 			}
+			// Do not try to replace user if it might already be part of a link
+			if (substring.includes(']') || substring.includes(')')) {
+				return substring;
+			}
+
 			const username = substring.substring(substring.startsWith('@') ? 1 : 2);
 			if ((((documentLanguage === 'javascript') || (documentLanguage === 'typescript')) && JSDOC_NON_USERS.includes(username))
 				|| ((documentLanguage === 'php') && PHPDOC_NON_USERS.includes(username))) {
@@ -387,7 +439,8 @@ ${lineContents}
 		});
 
 		const permalinkReplaced = await this.replacePermalink(linkified);
-		return this.replaceSuggestion(permalinkReplaced);
+		await emojiPromise;
+		return this.postpendSpecialAuthorComment(emojify(this.replaceImg(this.replaceSuggestion(permalinkReplaced))));
 	}
 
 	protected async doSetBody(body: string | vscode.MarkdownString, refresh: boolean) {

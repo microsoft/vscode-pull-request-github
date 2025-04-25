@@ -170,10 +170,18 @@ button .icon svg {
 	padding-top: 1px;
 }
 
+#status-checks .button-container {
+	padding-top: 16px;
+}
+
 .comment-button {
 	display: flex;
 	flex-grow: 1;
 	min-width: 0;
+}
+
+.dropdown-container {
+	justify-content: center;
 }
 
 button.split-left {

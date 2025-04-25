@@ -10,7 +10,7 @@ declare module 'vscode' {
 	/**
 	 * Commenting range provider for a {@link CommentController comment controller}.
 	 */
-	export interface CommentingRangeProvider2 {
+	export interface CommentingRangeProvider {
 		readonly resourceHints?: { schemes: readonly string[] };
 	}
 }

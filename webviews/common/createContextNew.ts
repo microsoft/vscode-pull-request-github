@@ -5,9 +5,12 @@
 
 import { createContext } from 'react';
 import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, RemoteInfo, ScrollPosition, TitleAndDescriptionArgs, TitleAndDescriptionResult } from '../../common/views';
+import { compareIgnoreCase } from '../../src/common/utils';
+import { PreReviewState } from '../../src/github/views';
 import { getMessageHandler, MessageHandler, vscode } from './message';
 
 const defaultCreateParams: CreateParamsNew = {
+	canModifyBranches: true,
 	defaultBaseRemote: undefined,
 	defaultBaseBranch: undefined,
 	defaultCompareRemote: undefined,
@@ -27,7 +30,10 @@ const defaultCreateParams: CreateParamsNew = {
 	creating: false,
 	generateTitleAndDescriptionTitle: undefined,
 	initializeWithGeneratedTitleAndDescription: false,
-	baseHasMergeQueue: false
+	baseHasMergeQueue: false,
+	preReviewState: PreReviewState.None,
+	preReviewer: undefined,
+	reviewing: false
 };
 
 export class CreatePRContextNew {
@@ -45,7 +51,25 @@ export class CreatePRContextNew {
 		}
 	}
 
+	get isCreatable(): boolean {
+		if (!this.createParams.canModifyBranches) {
+			return true;
+		}
+		if (this.createParams.baseRemote && this.createParams.compareRemote && this.createParams.baseBranch && this.createParams.compareBranch
+			&& compareIgnoreCase(this.createParams.baseRemote?.owner, this.createParams.compareRemote?.owner) === 0
+			&& compareIgnoreCase(this.createParams.baseRemote?.repositoryName, this.createParams.compareRemote?.repositoryName) === 0
+			&& compareIgnoreCase(this.createParams.baseBranch, this.createParams.compareBranch) === 0) {
+
+			return false;
+		}
+		return true;
+	}
+
 	get initialized(): boolean {
+		if (!this.createParams.canModifyBranches) {
+			return true;
+		}
+
 		if (this.createParams.defaultBaseRemote !== undefined
 			|| this.createParams.defaultBaseBranch !== undefined
 			|| this.createParams.defaultCompareRemote !== undefined
@@ -117,6 +141,10 @@ export class CreatePRContextNew {
 		this.updateState(updateValues);
 	};
 
+	public openAssociatedPullRequest = async (): Promise<void> => {
+		return this.postMessage({ command: 'pr.openAssociatedPullRequest' });
+	};
+
 	public changeMergeRemoteAndBranch = async (currentRemote?: RemoteInfo, currentBranch?: string): Promise<void> => {
 		const args: ChooseRemoteAndBranchArgs = {
 			currentRemote,
@@ -178,6 +206,16 @@ export class CreatePRContextNew {
 		}
 	}
 
+	public preReview = async (): Promise<void> => {
+		this.updateState({ reviewing: true });
+		const result: PreReviewState = await this.postMessage({ command: 'pr.preReview' });
+		this.updateState({ preReviewState: result, reviewing: false });
+	}
+
+	public cancelPreReview = async (): Promise<void> => {
+		return this.postMessage({ command: 'pr.cancelPreReview' });
+	}
+
 	public validate = (): boolean => {
 		let isValid = true;
 		if (!this.createParams.pendingTitle) {
@@ -185,7 +223,7 @@ export class CreatePRContextNew {
 			isValid = false;
 		}
 
-		this.updateState({ validate: true, createError: undefined });
+		this.updateState({ validate: true, createError: undefined, creating: false });
 
 		return isValid;
 	};
@@ -284,6 +322,7 @@ export class CreatePRContextNew {
 					this.updateState(defaultCreateParams, true);
 					return;
 				}
+				message.params.creating = message.params.creating ?? false;
 				message.params.pendingTitle = message.params.defaultTitle ?? this.createParams.pendingTitle;
 				message.params.pendingDescription = message.params.defaultDescription ?? this.createParams.pendingDescription;
 				message.params.baseRemote = message.params.defaultBaseRemote ?? this.createParams.baseRemote;
@@ -326,6 +365,12 @@ export class CreatePRContextNew {
 					return;
 				}
 				this.updateState(message.params);
+				return;
+			case 'reviewing':
+				if (!message.params) {
+					return;
+				}
+				this.preReview();
 				return;
 		}
 	};

@@ -5,23 +5,18 @@
 
 import { URL } from 'url';
 import LRUCache from 'lru-cache';
-import * as marked from 'marked';
 import 'url-search-params-polyfill';
 import * as vscode from 'vscode';
-import { gitHubLabelColor } from '../../src/common/utils';
 import { Ref, Remote, Repository, UpstreamRef } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
 import { fromReviewUri, Schemes } from '../common/uri';
 import { FolderRepositoryManager, NoGitHubReposError, PullRequestDefaults } from '../github/folderRepositoryManager';
-import { GithubItemStateEnum, User } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
-import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { getEnterpriseUri, getIssueNumberLabelFromParsed, getRepositoryForFile, ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
+import { getEnterpriseUri, getRepositoryForFile, ISSUE_OR_URL_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
 import { ReviewManager } from '../view/reviewManager';
-import { CODE_PERMALINK, findCodeLinkLocally } from './issueLinkLookup';
 import { StateManager } from './stateManager';
 
 export const USER_EXPRESSION: RegExp = /\@([^\s]+)/;
@@ -80,218 +75,9 @@ export async function getIssue(
 	return undefined;
 }
 
-function repoCommitDate(user: User, repoNameWithOwner: string): string | undefined {
-	let date: string | undefined = undefined;
-	user.commitContributions.forEach(element => {
-		if (repoNameWithOwner.toLowerCase() === element.repoNameWithOwner.toLowerCase()) {
-			date = element.createdAt.toLocaleString('default', { day: 'numeric', month: 'short', year: 'numeric' });
-		}
-	});
-	return date;
-}
-
 export class UserCompletion extends vscode.CompletionItem {
 	login: string;
 	uri: vscode.Uri;
-}
-
-export function userMarkdown(origin: PullRequestDefaults, user: User): vscode.MarkdownString {
-	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
-	markdown.appendMarkdown(
-		`![Avatar](${user.avatarUrl}|height=50,width=50) ${user.name ? `**${user.name}** ` : ''}[${user.login}](${user.url})`,
-	);
-	if (user.bio) {
-		markdown.appendText('  \r\n' + user.bio.replace(/\r\n/g, ' '));
-	}
-
-	const date = repoCommitDate(user, origin.owner + '/' + origin.repo);
-	if (user.location || date) {
-		markdown.appendMarkdown('  \r\n\r\n---');
-	}
-	if (user.location) {
-		markdown.appendMarkdown(`  \r\n${vscode.l10n.t('{0} {1}', '$(location)', user.location)}`);
-	}
-	if (date) {
-		markdown.appendMarkdown(`  \r\n${vscode.l10n.t('{0} Committed to this repository on {1}', '$(git-commit)', date)}`);
-	}
-	if (user.company) {
-		markdown.appendMarkdown(`  \r\n${vscode.l10n.t({ message: '{0} Member of {1}', args: ['$(jersey)', user.company], comment: ['An organization that the user is a member of.', 'The first placeholder is an icon and shouldn\'t be localized.', 'The second placeholder is the name of the organization.'] })}`);
-	}
-	return markdown;
-}
-
-function makeLabel(color: string, text: string): string {
-	const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
-	const labelColor = gitHubLabelColor(color, isDarkTheme, true);
-	return `<span style="color:${labelColor.textColor};background-color:${labelColor.backgroundColor};">&nbsp;&nbsp;${text}&nbsp;&nbsp;</span>`;
-}
-
-async function findAndModifyString(
-	text: string,
-	find: RegExp,
-	transformer: (match: RegExpMatchArray) => Promise<string | undefined>,
-): Promise<string> {
-	let searchResult = text.search(find);
-	let position = 0;
-	while (searchResult >= 0 && searchResult < text.length) {
-		let newBodyFirstPart: string | undefined;
-		if (searchResult === 0 || text.charAt(searchResult - 1) !== '&') {
-			const match = text.substring(searchResult).match(find)!;
-			if (match) {
-				const transformed = await transformer(match);
-				if (transformed) {
-					newBodyFirstPart = text.slice(0, searchResult) + transformed;
-					text = newBodyFirstPart + text.slice(searchResult + match[0].length);
-				}
-			}
-		}
-		position = newBodyFirstPart ? newBodyFirstPart.length : searchResult + 1;
-		const newSearchResult = text.substring(position).search(find);
-		searchResult = newSearchResult > 0 ? position + newSearchResult : newSearchResult;
-	}
-	return text;
-}
-
-function findLinksInIssue(body: string, issue: IssueModel): Promise<string> {
-	return findAndModifyString(body, ISSUE_OR_URL_EXPRESSION, async (match: RegExpMatchArray) => {
-		const tryParse = parseIssueExpressionOutput(match);
-		if (tryParse) {
-			const issueNumberLabel = getIssueNumberLabelFromParsed(tryParse); // get label before setting owner and name.
-			if (!tryParse.owner || !tryParse.name) {
-				tryParse.owner = issue.remote.owner;
-				tryParse.name = issue.remote.repositoryName;
-			}
-			return `[${issueNumberLabel}](https://github.com/${tryParse.owner}/${tryParse.name}/issues/${tryParse.issueNumber})`;
-		}
-		return undefined;
-	});
-}
-
-async function findCodeLinksInIssue(body: string, repositoriesManager: RepositoriesManager) {
-	return findAndModifyString(body, CODE_PERMALINK, async (match: RegExpMatchArray) => {
-		const codeLink = await findCodeLinkLocally(match, repositoriesManager);
-		if (codeLink) {
-			const textDocument = await vscode.workspace.openTextDocument(codeLink?.file);
-			const endingTextDocumentLine = textDocument.lineAt(
-				codeLink.end < textDocument.lineCount ? codeLink.end : textDocument.lineCount - 1,
-			);
-			const query = [
-				codeLink.file,
-				{
-					selection: {
-						start: {
-							line: codeLink.start,
-							character: 0,
-						},
-						end: {
-							line: codeLink.end,
-							character: endingTextDocumentLine.text.length,
-						},
-					},
-				},
-			];
-			const openCommand = vscode.Uri.parse(`command:vscode.open?${encodeURIComponent(JSON.stringify(query))}`);
-			return `[${match[0]}](${openCommand} "Open ${codeLink.file.fsPath}")`;
-		}
-		return undefined;
-	});
-}
-
-export const ISSUE_BODY_LENGTH: number = 200;
-export async function issueMarkdown(
-	issue: IssueModel,
-	context: vscode.ExtensionContext,
-	repositoriesManager: RepositoriesManager,
-	commentNumber?: number,
-): Promise<vscode.MarkdownString> {
-	const markdown: vscode.MarkdownString = new vscode.MarkdownString(undefined, true);
-	markdown.supportHtml = true;
-	const date = new Date(issue.createdAt);
-	const ownerName = `${issue.remote.owner}/${issue.remote.repositoryName}`;
-	markdown.appendMarkdown(
-		`[${ownerName}](https://github.com/${ownerName}) on ${date.toLocaleString('default', {
-			day: 'numeric',
-			month: 'short',
-			year: 'numeric',
-		})}  \n`,
-	);
-	const title = marked
-		.parse(issue.title, {
-			renderer: new PlainTextRenderer(),
-		})
-		.trim();
-	markdown.appendMarkdown(
-		`${getIconMarkdown(issue)} **${title}** [#${issue.number}](${issue.html_url})  \n`,
-	);
-	let body = marked.parse(issue.body, {
-		renderer: new PlainTextRenderer(),
-	});
-	markdown.appendMarkdown('  \n');
-	body = body.length > ISSUE_BODY_LENGTH ? body.substr(0, ISSUE_BODY_LENGTH) + '...' : body;
-	body = await findLinksInIssue(body, issue);
-	body = await findCodeLinksInIssue(body, repositoriesManager);
-
-	markdown.appendMarkdown(body + '  \n');
-	markdown.appendMarkdown('&nbsp;  \n');
-
-	if (issue.item.labels.length > 0) {
-		issue.item.labels.forEach(label => {
-			markdown.appendMarkdown(
-				`[${makeLabel(label.color, label.name)}](https://github.com/${ownerName}/labels/${encodeURIComponent(
-					label.name,
-				)}) `,
-			);
-		});
-	}
-
-	if (issue.item.comments && commentNumber) {
-		for (const comment of issue.item.comments) {
-			if (comment.databaseId === commentNumber) {
-				markdown.appendMarkdown('  \r\n\r\n---\r\n');
-				markdown.appendMarkdown('&nbsp;  \n');
-				markdown.appendMarkdown(
-					`![Avatar](${comment.author.avatarUrl}|height=15,width=15) &nbsp;&nbsp;**${comment.author.login}** commented`,
-				);
-				markdown.appendMarkdown('&nbsp;  \n');
-				let commentText = marked.parse(
-					comment.body.length > ISSUE_BODY_LENGTH
-						? comment.body.substr(0, ISSUE_BODY_LENGTH) + '...'
-						: comment.body,
-					{ renderer: new PlainTextRenderer() },
-				);
-				commentText = await findLinksInIssue(commentText, issue);
-				markdown.appendMarkdown(commentText);
-			}
-		}
-	}
-	return markdown;
-}
-
-function getIconString(issue: IssueModel) {
-	switch (issue.state) {
-		case GithubItemStateEnum.Open: {
-			return issue instanceof PullRequestModel ? '$(git-pull-request)' : '$(issues)';
-		}
-		case GithubItemStateEnum.Closed: {
-			return issue instanceof PullRequestModel ? '$(git-pull-request)' : '$(issue-closed)';
-		}
-		case GithubItemStateEnum.Merged:
-			return '$(git-merge)';
-	}
-}
-
-function getIconMarkdown(issue: IssueModel) {
-	if (issue instanceof PullRequestModel) {
-		return getIconString(issue);
-	}
-	switch (issue.state) {
-		case GithubItemStateEnum.Open: {
-			return `<span style="color:#22863a;">$(issues)</span>`;
-		}
-		case GithubItemStateEnum.Closed: {
-			return `<span style="color:#cb2431;">$(issue-closed)</span>`;
-		}
-	}
 }
 
 export interface NewIssue {
@@ -491,7 +277,7 @@ export function getOwnerAndRepo(repositoriesManager: RepositoriesManager, reposi
 	}
 }
 
-export async function createGithubPermalink(
+export async function createSinglePermalink(
 	repositoriesManager: RepositoriesManager,
 	gitAPI: GitApiImpl,
 	includeRange: boolean,
@@ -499,60 +285,79 @@ export async function createGithubPermalink(
 	positionInfo?: NewIssue,
 	context?: LinkContext
 ): Promise<PermalinkInfo> {
+	const { uri, range } = getFileAndPosition(context, positionInfo);
+	if (!uri) {
+		return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined };
+	}
+
+	const repository = getRepositoryForFile(gitAPI, uri);
+	if (!repository) {
+		return { permalink: undefined, error: vscode.l10n.t('The current file isn\'t part of repository.'), originalFile: uri };
+	}
+
+	let commitHash: string | undefined;
+	if (uri.scheme === Schemes.Review) {
+		commitHash = fromReviewUri(uri.query).commit;
+	}
+
+	if (!commitHash) {
+		try {
+			const log = await repository.log({ maxEntries: 1, path: uri.fsPath });
+			if (log.length === 0) {
+				return { permalink: undefined, error: vscode.l10n.t('No branch on a remote contains the most recent commit for the file.'), originalFile: uri };
+			}
+			// Now that we know that the file existed at some point in the repo, use the head commit to construct the URI.
+			if (repository.state.HEAD?.commit && (log[0].hash !== repository.state.HEAD?.commit)) {
+				commitHash = repository.state.HEAD.commit;
+			} else {
+				commitHash = log[0].hash;
+			}
+		} catch (e) {
+			commitHash = repository.state.HEAD?.commit;
+		}
+	}
+
+	Logger.debug(`commit hash: ${commitHash}`, PERMALINK_COMPONENT);
+
+	const rawUpstream = await getBestPossibleUpstream(repositoriesManager, repository, commitHash);
+	if (!rawUpstream || !rawUpstream.fetchUrl) {
+		return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri };
+	}
+	const upstream: Remote & { fetchUrl: string } = rawUpstream as any;
+
+	Logger.debug(`upstream: ${upstream.fetchUrl}`, PERMALINK_COMPONENT);
+
+	const encodedPathSegment = encodeURIComponentExceptSlashes(uri.path.substring(repository.rootUri.path.length));
+	const originOfFetchUrl = getUpstreamOrigin(rawUpstream).replace(/\/$/, '');
+	const result = {
+		permalink: (`${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
+			}${includeFile ? `${encodedPathSegment}${includeRange ? rangeString(range) : ''}` : ''}`),
+		error: undefined,
+		originalFile: uri
+	};
+	Logger.debug(`permalink generated: ${result.permalink}`, PERMALINK_COMPONENT);
+	return result;
+}
+
+export async function createGithubPermalink(
+	repositoriesManager: RepositoriesManager,
+	gitAPI: GitApiImpl,
+	includeRange: boolean,
+	includeFile: boolean,
+	positionInfo?: NewIssue,
+	contexts?: LinkContext[]
+): Promise<PermalinkInfo[]> {
 	return vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, async (progress) => {
 		progress.report({ message: vscode.l10n.t('Creating permalink...') });
-		const { uri, range } = getFileAndPosition(context, positionInfo);
-		if (!uri) {
-			return { permalink: undefined, error: vscode.l10n.t('No active text editor position to create permalink from.'), originalFile: undefined };
-		}
+		let contextIndex = 0;
+		let context: LinkContext | undefined = contexts ? contexts[contextIndex++] : undefined;
+		const links: Promise<PermalinkInfo>[] = [];
+		do {
+			links.push(createSinglePermalink(repositoriesManager, gitAPI, includeRange, includeFile, positionInfo, context));
+			context = contexts ? contexts[contextIndex++] : undefined;
+		} while (context);
 
-		const repository = getRepositoryForFile(gitAPI, uri);
-		if (!repository) {
-			return { permalink: undefined, error: vscode.l10n.t('The current file isn\'t part of repository.'), originalFile: uri };
-		}
-
-		let commitHash: string | undefined;
-		if (uri.scheme === Schemes.Review) {
-			commitHash = fromReviewUri(uri.query).commit;
-		}
-
-		if (!commitHash) {
-			try {
-				const log = await repository.log({ maxEntries: 1, path: uri.fsPath });
-				if (log.length === 0) {
-					return { permalink: undefined, error: vscode.l10n.t('No branch on a remote contains the most recent commit for the file.'), originalFile: uri };
-				}
-				// Now that we know that the file existed at some point in the repo, use the head commit to construct the URI.
-				if (repository.state.HEAD?.commit && (log[0].hash !== repository.state.HEAD?.commit)) {
-					commitHash = repository.state.HEAD.commit;
-				} else {
-					commitHash = log[0].hash;
-				}
-			} catch (e) {
-				commitHash = repository.state.HEAD?.commit;
-			}
-		}
-
-		Logger.debug(`commit hash: ${commitHash}`, PERMALINK_COMPONENT);
-
-		const rawUpstream = await getBestPossibleUpstream(repositoriesManager, repository, commitHash);
-		if (!rawUpstream || !rawUpstream.fetchUrl) {
-			return { permalink: undefined, error: vscode.l10n.t('The selection may not exist on any remote.'), originalFile: uri };
-		}
-		const upstream: Remote & { fetchUrl: string } = rawUpstream as any;
-
-		Logger.debug(`upstream: ${upstream.fetchUrl}`, PERMALINK_COMPONENT);
-
-		const encodedPathSegment = encodeURIComponentExceptSlashes(uri.path.substring(repository.rootUri.path.length));
-		const originOfFetchUrl = getUpstreamOrigin(rawUpstream).replace(/\/$/, '');
-		const result = {
-			permalink: (`${originOfFetchUrl}/${getOwnerAndRepo(repositoriesManager, repository, upstream)}/blob/${commitHash
-				}${includeFile ? `${encodedPathSegment}${includeRange ? rangeString(range) : ''}` : ''}`),
-			error: undefined,
-			originalFile: uri
-		};
-		Logger.debug(`permalink generated: ${result.permalink}`, PERMALINK_COMPONENT);
-		return result;
+		return Promise.all(links);
 	});
 }
 
@@ -571,7 +376,7 @@ export function getUpstreamOrigin(upstream: Remote, resultHost: string = 'github
 			fetchUrl = fetchUrl.substr('ssh://'.length);
 		}
 		// upstream's origin by ssh
-		if (fetchUrl.startsWith('git@') && !fetchUrl.startsWith('git@github.com')) {
+		if ((fetchUrl.startsWith('git@') || fetchUrl.includes('@git')) && !fetchUrl.startsWith('git@github.com')) {
 			const host = fetchUrl.split('@')[1]?.split(':')[0];
 			if (host.startsWith(enterpriseUri.authority) || !host.includes('github.com')) {
 				resultHost = enterpriseUri.authority;
@@ -608,9 +413,9 @@ interface EditorLineNumberContext {
 }
 export type LinkContext = vscode.Uri | EditorLineNumberContext | undefined;
 
-export async function createGitHubLink(
+export async function createSingleGitHubLink(
 	managers: RepositoriesManager,
-	context: LinkContext,
+	context?: vscode.Uri,
 	includeRange?: boolean
 ): Promise<PermalinkInfo> {
 	const { uri, range } = getFileAndPosition(context);
@@ -641,6 +446,22 @@ export async function createGitHubLink(
 		error: undefined,
 		originalFile: uri
 	};
+}
+
+export async function createGitHubLink(
+	managers: RepositoriesManager,
+	contexts?: vscode.Uri[],
+	includeRange?: boolean
+): Promise<PermalinkInfo[]> {
+	let contextIndex = 0;
+	let context: vscode.Uri | undefined = contexts ? contexts[contextIndex++] : undefined;
+	const links: Promise<PermalinkInfo>[] = [];
+	do {
+		links.push(createSingleGitHubLink(managers, context, includeRange));
+		context = contexts ? contexts[contextIndex++] : undefined;
+	} while (context);
+
+	return Promise.all(links);
 }
 
 async function commitWithDefault(manager: FolderRepositoryManager, stateManager: StateManager, all: boolean) {
@@ -734,71 +555,7 @@ export function getRootUriFromScmInputUri(uri: vscode.Uri): vscode.Uri | undefin
 	return rootUri ? vscode.Uri.parse(rootUri) : undefined;
 }
 
-export class PlainTextRenderer extends marked.Renderer {
-	code(code: string): string {
-		return code;
-	}
-	blockquote(quote: string): string {
-		return quote;
-	}
-	html(_html: string): string {
-		return '';
-	}
-	heading(text: string, _level: 1 | 2 | 3 | 4 | 5 | 6, _raw: string, _slugger: marked.Slugger): string {
-		return text + ' ';
-	}
-	hr(): string {
-		return '';
-	}
-	list(body: string, _ordered: boolean, _start: number): string {
-		return body;
-	}
-	listitem(text: string): string {
-		return ' ' + text;
-	}
-	checkbox(_checked: boolean): string {
-		return '';
-	}
-	paragraph(text: string): string {
-		return text.replace(/\</g, '\\\<').replace(/\>/g, '\\\>') + ' ';
-	}
-	table(header: string, body: string): string {
-		return header + ' ' + body;
-	}
-	tablerow(content: string): string {
-		return content;
-	}
-	tablecell(
-		content: string,
-		_flags: {
-			header: boolean;
-			align: 'center' | 'left' | 'right' | null;
-		},
-	): string {
-		return content;
-	}
-	strong(text: string): string {
-		return text;
-	}
-	em(text: string): string {
-		return text;
-	}
-	codespan(code: string): string {
-		return `\\\`${code}\\\``;
-	}
-	br(): string {
-		return ' ';
-	}
-	del(text: string): string {
-		return text;
-	}
-	image(_href: string, _title: string, _text: string): string {
-		return '';
-	}
-	text(text: string): string {
-		return text;
-	}
-	link(href: string, title: string, text: string): string {
-		return text + ' ';
-	}
+export function escapeMarkdown(text: string): string {
+	return text.replace(/([_~*])/g, '\\$1');
 }
+

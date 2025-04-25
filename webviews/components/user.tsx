@@ -28,7 +28,7 @@ export const Avatar = ({ for: author, link = true }: { for: Partial<IAccount>, l
 };
 
 export const AuthorLink = ({ for: author, text = reviewerLabel(author) }: { for: IActor | ITeam; text?: string }) => (
-	<a className="author-link" href={author.url} title={author.url}>
+	<a className="author-link" href={author.url} aria-label={text} title={author.url} >
 		{text}
 	</a>
 );

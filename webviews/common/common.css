@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 body a {
-	text-decoration: none;
+	text-decoration: var(--text-link-decoration);
 }
 
 h3 {
@@ -49,14 +49,10 @@ button.select-right {
 
 button:focus,
 input[type='submit']:focus {
-	outline: 1px solid var(--vscode-focusBorder);
+	outline-color: var(--vscode-focusBorder);
+	outline-style: solid;
+	outline-width: 1px;
 	outline-offset: 2px;
-}
-
-button:focus-within,
-input[type='submit']:focus-within {
-	border: 1px solid transparent;
-	outline: 1px solid transparent;
 }
 
 button:hover:enabled,
@@ -254,6 +250,11 @@ body img.avatar {
 	display: flex;
 }
 
+.automerge-section,
+.status-section {
+	flex-wrap: wrap;
+}
+
 #status-checks .automerge-section {
 	align-items: center;
 	padding: 16px;
@@ -341,6 +342,7 @@ body img.avatar {
 	display: flex;
 	flex-grow: 1;
 	min-width: 0;
+	max-width: 260px;
 }
 
 button.split-left {
@@ -406,4 +408,20 @@ button.input-box:hover:not(:disabled) {
 
 button.input-box:focus {
 	border-color: var(--vscode-focusBorder) !important;
+}
+
+.dropdown-container {
+	display: flex;
+	flex-grow: 1;
+	min-width: 0;
+	margin: 0;
+	width: 100%;
+}
+
+button.inlined-dropdown {
+	width: 100%;
+	max-width: 150px;
+	margin-right: 5px;
+	display: inline-block;
+	text-align: center;
 }

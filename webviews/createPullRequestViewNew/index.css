@@ -34,9 +34,13 @@ textarea:disabled {
 	margin-bottom: 10px;
 }
 
-.base,
-.merge {
-	display: block !important;
+.input-label.base,
+.input-label.merge {
+	display: block;
+}
+
+.pr-link {
+	cursor: pointer;
 }
 
 .base .deco,
@@ -89,6 +93,7 @@ button.input-box {
 .group-title {
 	position: relative;
 	display: flex;
+	flex-direction: column;
 }
 
 .group-title .title-action:hover {
@@ -118,7 +123,7 @@ button.input-box {
 	padding: 2px;
 }
 
-.group-title .title-action.disabled svg path  {
+.group-title .disabled svg path  {
 	fill: var(--vscode-disabledForeground);
 }
 
@@ -136,6 +141,7 @@ button.input-box {
 .group-description {
 	flex-grow: 1;
 	margin-top: 10px;
+	max-height: 500px;
 }
 
 input[type=text],
@@ -154,6 +160,13 @@ textarea {
 	border: 1px solid var(--vscode-inputValidation-errorBorder);
 	background-color: var(--vscode-inputValidation-errorBackground);
 	color: var(--vscode-inputValidation-errorForeground);
+}
+
+.validation-warning {
+	padding: 5px;
+	border: 1px solid var(--vscode-inputValidation-warningBorder);
+	background-color: var(--vscode-inputValidation-warningBackground);
+	color: var(--vscode-inputValidation-warningForeground);
 }
 
 .below-input-error {
@@ -234,6 +247,10 @@ textarea {
 	padding: 2px;
 }
 
+.group-additions ul li .sep {
+	padding-right: 7px;
+}
+
 .labels ul li {
 	border: 1px solid var(--vscode-menu-separatorBackground);
 	border-radius: 2px;
@@ -249,4 +266,31 @@ textarea {
 	padding-top: 10px;
 	padding-bottom: 20px;
 	width: 100%;
+}
+
+.dropdown-container {
+	justify-content: right;
+}
+
+/* Auto review */
+.pre-review {
+	display: flex;
+	flex-direction: column;
+}
+
+.auto-review {
+	display: flex;
+	justify-content: right;
+	cursor: pointer;
+}
+
+.auto-review.disabled:hover,
+.auto-review.disabled {
+	cursor: default;
+	color: var(--vscode-disabledForeground);
+	text-decoration: none;
+}
+
+.pre-review svg path {
+	fill: currentColor;
 }

@@ -47,8 +47,7 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 	public command?: vscode.Command;
 
 	constructor(parent: TreeNodeParent, type: PRCategoryActionType, node?: CategoryTreeNode) {
-		super();
-		this.parent = parent;
+		super(parent);
 		this.type = type;
 		this.collapsibleState = vscode.TreeItemCollapsibleState.None;
 		switch (type) {
@@ -117,16 +116,14 @@ interface PageInformation {
 }
 
 export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
-	protected children: (PRNode | PRCategoryActionNode)[] | undefined = undefined;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	public prs: PullRequestModel[];
+	public prs: Map<number, PullRequestModel>;
 	public fetchNextPage: boolean = false;
 	public repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 	public contextValue: string;
-	public readonly id: string = '';
 
 	constructor(
-		public parent: TreeNodeParent,
+		parent: TreeNodeParent,
 		private _folderRepoManager: FolderRepositoryManager,
 		private _telemetry: ITelemetry,
 		public readonly type: PRType,
@@ -135,9 +132,9 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		_categoryLabel?: string,
 		private _categoryQuery?: string,
 	) {
-		super();
+		super(parent);
 
-		this.prs = [];
+		this.prs = new Map();
 
 		switch (this.type) {
 			case PRType.All:
@@ -303,22 +300,30 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		inputBox.show();
 	}
 
-	async getChildren(): Promise<TreeNode[]> {
+	override async getChildren(): Promise<TreeNode[]> {
 		await super.getChildren();
-		if (!this._prsTreeModel.hasLoaded) {
-			this.doGetChildren().then(() => this.refresh(this));
-			return [];
+		const isFirstLoad = !this._firstLoad;
+		if (isFirstLoad) {
+			this._firstLoad = this.doGetChildren();
+			if (!this._prsTreeModel.hasLoaded) {
+				this._firstLoad.then(() => this.refresh(this));
+				return [];
+			}
 		}
-		return this.doGetChildren();
+		return isFirstLoad ? this._firstLoad! : this.doGetChildren();
 	}
 
+	private _firstLoad: Promise<TreeNode[]> | undefined;
 	private async doGetChildren(): Promise<TreeNode[]> {
 		let hasMorePages = false;
 		let hasUnsearchedRepositories = false;
 		let needLogin = false;
+		const fetchNextPage = this.fetchNextPage;
+		this.fetchNextPage = false;
 		if (this.type === PRType.LocalPullRequest) {
 			try {
-				this.prs = (await this._prsTreeModel.getLocalPullRequests(this._folderRepoManager)).items;
+				this.prs.clear();
+				(await this._prsTreeModel.getLocalPullRequests(this._folderRepoManager)).items.forEach(item => this.prs.set(item.id, item));
 			} catch (e) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Fetching local pull requests failed: {0}', formatError(e)));
 				needLogin = e instanceof AuthenticationError;
@@ -328,17 +333,16 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				let response: ItemsResponseResult<PullRequestModel>;
 				switch (this.type) {
 					case PRType.All:
-						response = await this._prsTreeModel.getAllPullRequests(this._folderRepoManager, this.fetchNextPage);
+						response = await this._prsTreeModel.getAllPullRequests(this._folderRepoManager, fetchNextPage);
 						break;
 					case PRType.Query:
-						response = await this._prsTreeModel.getPullRequestsForQuery(this._folderRepoManager, this.fetchNextPage, this._categoryQuery!);
+						response = await this._prsTreeModel.getPullRequestsForQuery(this._folderRepoManager, fetchNextPage, this._categoryQuery!);
 						break;
 				}
-				if (!this.fetchNextPage) {
-					this.prs = response.items;
-				} else {
-					this.prs = this.prs.concat(response.items);
+				if (!fetchNextPage) {
+					this.prs.clear();
 				}
+				response.items.forEach(item => this.prs.set(item.id, item));
 				hasMorePages = response.hasMorePages;
 				hasUnsearchedRepositories = response.hasUnsearchedRepositories;
 			} catch (e) {
@@ -348,18 +352,16 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 					actions.push(vscode.l10n.t('Login again'));
 				}
 				vscode.window.showErrorMessage(vscode.l10n.t('Fetching pull requests failed: {0}', formatError(e)), ...actions).then(action => {
-					if (action === actions[0]) {
+					if (action && action === actions[0]) {
 						this._folderRepoManager.credentialStore.recreate(vscode.l10n.t('Your login session is no longer valid.'));
 					}
 				});
 				needLogin = e instanceof AuthenticationError;
-			} finally {
-				this.fetchNextPage = false;
 			}
 		}
 
-		if (this.prs && this.prs.length) {
-			const nodes: (PRNode | PRCategoryActionNode)[] = this.prs.map(
+		if (this.prs.size > 0) {
+			const nodes: (PRNode | PRCategoryActionNode)[] = Array.from(this.prs.values()).map(
 				prItem => new PRNode(this, this._folderRepoManager, prItem, this.type === PRType.LocalPullRequest, this._notificationProvider),
 			);
 			if (hasMorePages) {

@@ -6,13 +6,14 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { commands, contexts } from '../common/executeCommands';
+import { DataUri } from '../common/uri';
 import { groupBy } from '../common/utils';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
 import { IssueModel } from '../github/issueModel';
+import { issueMarkdown } from '../github/markdownUtils';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { issueBodyHasLink } from './issueLinkLookup';
 import { IssueItem, QueryGroup, StateManager } from './stateManager';
-import { issueMarkdown } from './util';
 
 export class QueryNode {
 	constructor(
@@ -74,11 +75,19 @@ export class IssuesTreeData
 		return new vscode.TreeItem(element.group, getQueryExpandState(this.context, element, element.isInFirstQuery ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed));
 	}
 
-	private getIssueTreeItem(element: IssueItem): vscode.TreeItem {
-		const treeItem = new vscode.TreeItem(`${element.number}: ${element.title}`, vscode.TreeItemCollapsibleState.None);
-		treeItem.iconPath = element.isOpen
-			? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
-			: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed'));
+	private async getIssueTreeItem(element: IssueItem): Promise<vscode.TreeItem> {
+		const treeItem = new vscode.TreeItem(element.title, vscode.TreeItemCollapsibleState.None);
+		treeItem.iconPath = (await DataUri.avatarCirclesAsImageDataUris(this.context, [element.author], 16, 16))[0] ??
+			(element.isOpen
+				? new vscode.ThemeIcon('issues', new vscode.ThemeColor('issues.open'))
+				: new vscode.ThemeIcon('issue-closed', new vscode.ThemeColor('issues.closed')));
+
+		treeItem.command = {
+			command: 'issue.openDescription',
+			title: vscode.l10n.t('View Issue Description'),
+			arguments: [element]
+		};
+
 		if (this.stateManager.currentIssue(element.uri)?.issue.number === element.number) {
 			treeItem.label = `✓ ${treeItem.label as string}`;
 			treeItem.contextValue = 'currentissue';
@@ -96,7 +105,7 @@ export class IssuesTreeData
 		return treeItem;
 	}
 
-	getTreeItem(element: FolderRepositoryManager | QueryNode | IssueGroupNode | IssueItem): vscode.TreeItem {
+	async getTreeItem(element: FolderRepositoryManager | QueryNode | IssueGroupNode | IssueItem): Promise<vscode.TreeItem> {
 		if (element instanceof FolderRepositoryManager) {
 			return this.getFolderRepoItem(element);
 		} else if (element instanceof QueryNode) {
@@ -167,7 +176,7 @@ export class IssuesTreeData
 		if (!issueQueryResult) {
 			return [];
 		}
-		return this.getIssueGroupsForGroupIndex(queryNode.repoRootUri, queryNode.queryLabel, queryNode.isFirst, issueQueryResult.groupBy, 0, issueQueryResult.issues);
+		return this.getIssueGroupsForGroupIndex(queryNode.repoRootUri, queryNode.queryLabel, queryNode.isFirst, issueQueryResult.groupBy, 0, issueQueryResult.issues ?? []);
 	}
 
 	private getIssueGroupsForGroupIndex(repoRootUri: vscode.Uri, queryLabel: string, isFirst: boolean, groupByOrder: QueryGroup[], indexInGroupByOrder: number, issues: IssueItem[]): IssueGroupNode[] | IssueItem[] {

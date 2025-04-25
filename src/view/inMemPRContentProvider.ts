@@ -18,7 +18,7 @@ import { FileChangeModel, InMemFileChangeModel, RemoteFileChangeModel } from './
 import { RepositoryFileSystemProvider } from './repositoryFileSystemProvider';
 
 export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
-	private _prFileChangeContentProviders: { [key: number]: (uri: vscode.Uri) => Promise<string> } = {};
+	private _prFileChangeContentProviders: { [key: number]: (uri: vscode.Uri) => Promise<string | Uint8Array> } = {};
 
 	constructor(private reposManagers: RepositoriesManager, gitAPI: GitApiImpl, credentialStore: CredentialStore) {
 		super(gitAPI, credentialStore);
@@ -26,7 +26,7 @@ export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 
 	registerTextDocumentContentProvider(
 		prNumber: number,
-		provider: (uri: vscode.Uri) => Promise<string>,
+		provider: (uri: vscode.Uri) => Promise<string | Uint8Array>,
 	): vscode.Disposable {
 		this._prFileChangeContentProviders[prNumber] = provider;
 
@@ -119,7 +119,11 @@ export class InMemPRFileSystemProvider extends RepositoryFileSystemProvider {
 		const provider = this._prFileChangeContentProviders[prNumber];
 		if (provider) {
 			const content = await provider(uri);
-			return new TextEncoder().encode(content);
+			if (typeof content === 'string') {
+				return new TextEncoder().encode(content);
+			} else {
+				return content;
+			}
 		}
 	}
 
@@ -147,7 +151,7 @@ export function getInMemPRFileSystemProvider(initialize?: { reposManager: Reposi
 	return inMemPRFileSystemProvider;
 }
 
-export async function provideDocumentContentForChangeModel(folderRepoManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, params: PRUriParams, fileChange: FileChangeModel): Promise<string> {
+export async function provideDocumentContentForChangeModel(folderRepoManager: FolderRepositoryManager, pullRequestModel: PullRequestModel, params: PRUriParams, fileChange: FileChangeModel): Promise<string | Uint8Array> {
 	if (
 		(params.isBase && fileChange.status === GitChangeType.ADD) ||
 		(!params.isBase && fileChange.status === GitChangeType.DELETE)
@@ -155,15 +159,22 @@ export async function provideDocumentContentForChangeModel(folderRepoManager: Fo
 		return '';
 	}
 
-	if ((fileChange instanceof RemoteFileChangeModel) || ((fileChange instanceof InMemFileChangeModel) && await fileChange.isPartial())) {
+	const diffHunks = await fileChange.diffHunks();
+	let inMemNeedsFullFile = false;
+	if (fileChange instanceof InMemFileChangeModel) {
+		// Partial or looks like binary.
+		inMemNeedsFullFile = await fileChange.isPartial();
+	}
+
+	if ((fileChange instanceof RemoteFileChangeModel) || ((fileChange instanceof InMemFileChangeModel) && inMemNeedsFullFile)) {
 		try {
 			if (params.isBase) {
-				return pullRequestModel.getFile(
+				return pullRequestModel.githubRepository.getFile(
 					fileChange.previousFileName || fileChange.fileName,
 					params.baseCommit,
 				);
 			} else {
-				return pullRequestModel.getFile(fileChange.fileName, params.headCommit);
+				return pullRequestModel.githubRepository.getFile(fileChange.fileName, params.headCommit);
 			}
 		} catch (e) {
 			Logger.error(`Fetching file content failed: ${e}`, 'PR');
@@ -189,7 +200,6 @@ export async function provideDocumentContentForChangeModel(folderRepoManager: Fo
 			if (params.isBase) {
 				// left
 				const left: string[] = [];
-				const diffHunks = await fileChange.diffHunks();
 				for (let i = 0; i < diffHunks.length; i++) {
 					for (let j = 0; j < diffHunks[i].diffLines.length; j++) {
 						const diffLine = diffHunks[i].diffLines[j];
@@ -208,7 +218,6 @@ export async function provideDocumentContentForChangeModel(folderRepoManager: Fo
 				return left.join('\n');
 			} else {
 				const right: string[] = [];
-				const diffHunks = await fileChange.diffHunks();
 				for (let i = 0; i < diffHunks.length; i++) {
 					for (let j = 0; j < diffHunks[i].diffLines.length; j++) {
 						const diffLine = diffHunks[i].diffLines[j];

@@ -6,13 +6,14 @@
 
 import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
+import { COPILOT_ACCOUNTS } from '../common/comment';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
 import { formatError } from '../common/utils';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
-import { IAccount, ILabel, IMilestone, IProject, isSuggestedReviewer, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
-import { PullRequestModel } from './pullRequestModel';
+import { AccountType, IAccount, ILabel, IMilestone, IProject, isSuggestedReviewer, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
+import { IssueModel } from './issueModel';
 
 async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context: vscode.ExtensionContext, skipList: Set<string>, users: T[], picked: boolean, tooManyAssignable: boolean = false): Promise<(vscode.QuickPickItem & { user?: T })[]> {
 	const alreadyAssignedItems: (vscode.QuickPickItem & { user?: T })[] = [];
@@ -42,7 +43,7 @@ async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context
 		}
 
 		alreadyAssignedItems.push({
-			label: isTeam(user) ? `${user.org}/${user.slug}` : (user as IAccount).login,
+			label: isTeam(user) ? `${user.org}/${user.slug}` : COPILOT_ACCOUNTS[user.login] ? COPILOT_ACCOUNTS[user.login].name : user.login,
 			description: user.name,
 			user,
 			picked,
@@ -53,7 +54,7 @@ async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context
 	return alreadyAssignedItems;
 }
 
-export async function getAssigneesQuickPickItems(folderRepositoryManager: FolderRepositoryManager, gitHubRepository: GitHubRepository | undefined, remoteName: string, alreadyAssigned: IAccount[], item?: PullRequestModel, assignYourself?: boolean):
+export async function getAssigneesQuickPickItems(folderRepositoryManager: FolderRepositoryManager, gitHubRepository: GitHubRepository | undefined, remoteName: string, alreadyAssigned: IAccount[], item?: IssueModel, assignYourself?: boolean):
 	Promise<(vscode.QuickPickItem & { user?: IAccount })[]> {
 
 	const [allAssignableUsers, participantsAndViewer] = await Promise.all([
@@ -125,6 +126,7 @@ function userThemeIcon(user: IAccount | ITeam) {
 async function getReviewersQuickPickItems(folderRepositoryManager: FolderRepositoryManager, remoteName: string, isInOrganization: boolean, author: IAccount, existingReviewers: ReviewState[],
 	suggestedReviewers: ISuggestedReviewer[] | undefined, refreshKind: TeamReviewerRefreshKind,
 ): Promise<(vscode.QuickPickItem & { user?: IAccount | ITeam })[]> {
+	existingReviewers = existingReviewers.filter(reviewer => isTeam(reviewer.reviewer) || (reviewer.reviewer.accountType !== AccountType.Bot));
 	if (!suggestedReviewers) {
 		return [];
 	}
@@ -245,8 +247,13 @@ export async function getProjectFromQuickPick(folderRepoManager: FolderRepositor
 		quickPick.busy = true;
 		quickPick.canSelectMany = true;
 		quickPick.title = vscode.l10n.t('Set projects');
+		quickPick.ignoreFocusOut = true;
 		quickPick.show();
 		quickPick.items = await getProjectOptions();
+		quickPick.ignoreFocusOut = false;
+		if (quickPick.items.length === 1) {
+			quickPick.canSelectMany = false;
+		}
 		quickPick.selectedItems = selectedItems;
 		quickPick.busy = false;
 
@@ -345,12 +352,7 @@ export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderR
 						await callback(milestone);
 					}
 				} catch (e) {
-					if (e.errors && Array.isArray(e.errors) && e.errors.find(error => error.code === 'already_exists') !== undefined) {
-						vscode.window.showErrorMessage(vscode.l10n.t('Failed to create milestone: The milestone already exists and might be closed'));
-					}
-					else {
-						vscode.window.showErrorMessage(`Failed to create milestone: ${formatError(e)}`);
-					}
+					vscode.window.showErrorMessage(`Failed to create milestone: ${formatError(e)}`);
 				}
 			});
 		});
@@ -385,7 +387,7 @@ export async function getLabelOptions(
 	const labelPicks = newLabels.map(label => {
 		return {
 			label: label.name,
-			description: label.description,
+			description: label.description ?? undefined,
 			picked: labels.some(existingLabel => existingLabel.name === label.name),
 			iconPath: DataUri.asImageDataURI(Buffer.from(`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<rect x="2" y="2" width="12" height="12" rx="6" fill="#${label.color}"/>

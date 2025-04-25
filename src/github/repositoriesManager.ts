@@ -7,10 +7,12 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
+import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { EventType } from '../common/timelineEvent';
-import { compareIgnoreCase, dispose } from '../common/utils';
+import { fromPRUri, fromRepoUri, Schemes } from '../common/uri';
+import { compareIgnoreCase, isDescendant } from '../common/utils';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
 import { IssueModel } from './issueModel';
@@ -28,7 +30,7 @@ export interface PullRequestDefaults {
 	base: string;
 }
 
-export class RepositoriesManager implements vscode.Disposable {
+export class RepositoriesManager extends Disposable {
 	static ID = 'RepositoriesManager';
 
 	private _folderManagers: FolderRepositoryManager[] = [];
@@ -49,6 +51,7 @@ export class RepositoriesManager implements vscode.Disposable {
 		private _credentialStore: CredentialStore,
 		private _telemetry: ITelemetry,
 	) {
+		super();
 		this._subs = new Map();
 		vscode.commands.executeCommand('setContext', ReposManagerStateContext, this._state);
 	}
@@ -86,7 +89,7 @@ export class RepositoriesManager implements vscode.Disposable {
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 		if (workspaceFolders) {
 			const index = workspaceFolders.findIndex(
-				folder => folder.uri.toString() === folderManager.repository.rootUri.toString(),
+				folder => isDescendant(folder.uri.fsPath, folderManager.repository.rootUri.fsPath) || isDescendant(folderManager.repository.rootUri.fsPath, folder.uri.fsPath),
 			);
 			if (index > -1) {
 				const arrayEnd = this._folderManagers.slice(index, this._folderManagers.length);
@@ -109,7 +112,7 @@ export class RepositoriesManager implements vscode.Disposable {
 		);
 		if (existingFolderManagerIndex > -1) {
 			const folderManager = this._folderManagers[existingFolderManagerIndex];
-			dispose(this._subs.get(folderManager)!);
+			disposeAll(this._subs.get(folderManager)!);
 			this._subs.delete(folderManager);
 			this._folderManagers.splice(existingFolderManagerIndex);
 			folderManager.dispose();
@@ -122,7 +125,43 @@ export class RepositoriesManager implements vscode.Disposable {
 		if (issueModel === undefined) {
 			return undefined;
 		}
-		const issueRemoteUrl = `${issueModel.remote.owner.toLowerCase()}/${issueModel.remote.repositoryName.toLowerCase()}`;
+		return this.getManagerForRepository(issueModel.remote.owner, issueModel.remote.repositoryName);
+	}
+
+	getManagerForFile(uri: vscode.Uri): FolderRepositoryManager | undefined {
+		if (uri.scheme === 'untitled') {
+			return this._folderManagers[0];
+		}
+
+		const repoInfo = ((uri.scheme === Schemes.Repo) ? fromRepoUri(uri) : undefined);
+		const prInfo = ((uri.scheme === Schemes.Pr) ? fromPRUri(uri) : undefined);
+
+		// Prioritize longest path first to handle nested workspaces
+		const folderManagers = this._folderManagers
+			.slice()
+			.sort((a, b) => b.repository.rootUri.path.length - a.repository.rootUri.path.length);
+
+		for (const folderManager of folderManagers) {
+			const managerPath = folderManager.repository.rootUri.path;
+
+			if (repoInfo && folderManager.findExistingGitHubRepository({ owner: repoInfo.owner, repositoryName: repoInfo.repo })) {
+				return folderManager;
+			} else if (prInfo && folderManager.repository.state.remotes.find(remote => remote.name === prInfo.remoteName)) {
+				return folderManager;
+			} else {
+				const testUriRelativePath = uri.path.substring(
+					managerPath.length > 1 ? managerPath.length + 1 : managerPath.length,
+				);
+				if (compareIgnoreCase(vscode.Uri.joinPath(folderManager.repository.rootUri, testUriRelativePath).path, uri.path) === 0) {
+					return folderManager;
+				}
+			}
+		}
+		return undefined;
+	}
+
+	getManagerForRepository(owner: string, repo: string) {
+		const issueRemoteUrl = `${owner.toLowerCase()}/${repo.toLowerCase()}`;
 		for (const folderManager of this._folderManagers) {
 			if (
 				folderManager.gitHubRepositories
@@ -134,29 +173,6 @@ export class RepositoriesManager implements vscode.Disposable {
 				return folderManager;
 			}
 		}
-		return undefined;
-	}
-
-	getManagerForFile(uri: vscode.Uri): FolderRepositoryManager | undefined {
-		if (uri.scheme === 'untitled') {
-			return this._folderManagers[0];
-		}
-
-		// Prioritize longest path first to handle nested workspaces
-		const folderManagers = this._folderManagers
-			.slice()
-			.sort((a, b) => b.repository.rootUri.path.length - a.repository.rootUri.path.length);
-
-		for (const folderManager of folderManagers) {
-			const managerPath = folderManager.repository.rootUri.path;
-			const testUriRelativePath = uri.path.substring(
-				managerPath.length > 1 ? managerPath.length + 1 : managerPath.length,
-			);
-			if (compareIgnoreCase(vscode.Uri.joinPath(folderManager.repository.rootUri, testUriRelativePath).path, uri.path) === 0) {
-				return folderManager;
-			}
-		}
-		return undefined;
 	}
 
 	get state() {
@@ -189,20 +205,32 @@ export class RepositoriesManager implements vscode.Disposable {
 		const yes = vscode.l10n.t('Yes');
 
 		if (enterprise) {
-			const remoteToUse = getEnterpriseUri()?.toString() ?? (enterpriseRemotes.length ? enterpriseRemotes[0].normalizedHost : (unknownRemotes.length ? unknownRemotes[0].normalizedHost : undefined));
+			let remoteToUse = getEnterpriseUri()?.toString() ?? (enterpriseRemotes.length ? enterpriseRemotes[0].normalizedHost : (unknownRemotes.length ? unknownRemotes[0].normalizedHost : undefined));
 			if (enterpriseRemotes.length === 0 && unknownRemotes.length === 0) {
-				Logger.appendLine(`Enterprise login selected, but no possible enterprise remotes discovered (${dotComRemotes.length} .com)`);
+				Logger.appendLine(`Enterprise login selected, but no possible enterprise remotes discovered (${dotComRemotes.length} .com)`, RepositoriesManager.ID);
 			}
 			if (remoteToUse) {
+				const no = vscode.l10n.t('No, manually set {0}', 'github-enterprise.uri');
 				const promptResult = await vscode.window.showInformationMessage(vscode.l10n.t('Would you like to set up GitHub Pull Requests and Issues to authenticate with the enterprise server {0}?', remoteToUse),
-					{ modal: true }, yes, vscode.l10n.t('No, manually set {0}', 'github-enterprise.uri'));
+					{ modal: true }, yes, no);
 				if (promptResult === yes) {
 					await setEnterpriseUri(remoteToUse);
+				} else if (promptResult === no) {
+					remoteToUse = undefined;
 				} else {
 					return false;
 				}
-			} else {
-				const setEnterpriseUriPrompt = await vscode.window.showInputBox({ placeHolder: vscode.l10n.t('Set a GitHub Enterprise server URL'), ignoreFocusOut: true });
+			}
+			if (!remoteToUse) {
+				const setEnterpriseUriPrompt = await vscode.window.showInputBox({
+					placeHolder: vscode.l10n.t('Set a GitHub Enterprise server URL'), ignoreFocusOut: true, validateInput: (value) => {
+						const pattern = /^(?:$|(https?):\/\/(?!github\.com).*)/;
+						if (!pattern.test(value)) {
+							return vscode.l10n.t('Please enter a valid GitHub Enterprise server URL. A "github.com" URL is not valid for GitHub Enterprise.');
+						}
+						return undefined;
+					}
+				});
 				if (setEnterpriseUriPrompt) {
 					await setEnterpriseUri(setEnterpriseUriPrompt);
 				} else {
@@ -233,8 +261,8 @@ export class RepositoriesManager implements vscode.Disposable {
 		return !!github || !!githubEnterprise;
 	}
 
-	dispose() {
-		this._subs.forEach(sub => dispose(sub));
+	override dispose() {
+		this._subs.forEach(sub => disposeAll(sub));
 	}
 }
 

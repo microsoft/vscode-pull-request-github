@@ -7,27 +7,168 @@
 
 # Queries that are also in the limit file, but are not limited (by scope or API availability) here
 
+fragment Node on Node {
+	id
+}
+
+fragment Actor on Actor { # We don't want to reference Bot because it is not available on older GHE, so we use Actor instead as it gets us most of the way there.
+	__typename
+	login
+	avatarUrl
+	url
+}
+
+fragment User on User {
+	__typename
+	...Actor
+	email
+	name
+	...Node
+}
+
+fragment Organization on Organization {
+	__typename
+	...Actor
+	email
+	name
+	...Node
+}
+
+fragment Team on Team { # Team is not an Actor
+	name
+	avatarUrl
+	url
+	slug
+	...Node
+}
+
+fragment IssueBase on Issue {
+	number
+	url
+	state
+	body
+	bodyHTML
+	title
+	titleHTML
+	author {
+		...Node
+		...Actor
+		...User
+		...Organization
+	}
+	createdAt
+	updatedAt
+	milestone {
+		title
+		dueOn
+		createdAt
+		id
+		number
+	}
+	assignees(first: 10) {
+		nodes {
+			...Node
+			...Actor
+			...User
+		}
+	}
+	labels(first: 50) {
+		nodes {
+			name
+			color
+		}
+	}
+	id
+	databaseId
+	reactions(first: 100) {
+		totalCount
+	}
+	repository {
+		name
+		owner {
+			login
+		}
+		url
+	}
+}
+
+fragment IssueFragment on Issue {
+	...IssueBase
+	comments(first: 1) {
+		totalCount
+	}
+}
+
+fragment IssueWithCommentsFragment on Issue {
+	...IssueBase
+	comments(first: 50) {
+		nodes {
+			author {
+				...Node
+				...Actor
+				...User
+				...Organization
+			}
+			body
+			databaseId
+			reactions(first: 100) {
+				totalCount
+			}
+		}
+		totalCount
+	}
+}
+
 fragment PullRequestFragment on PullRequest {
 	number
 	url
 	state
 	body
 	bodyHTML
-	titleHTML
 	title
+	titleHTML
 	author {
-		login
-		url
-		avatarUrl
-		... on User {
-			email
-			id
-		}
-		... on Organization {
-			email
-			id
+		...Node
+		...Actor
+		...User
+		...Organization
+	}
+	createdAt
+	updatedAt
+	milestone {
+		title
+		dueOn
+		createdAt
+		id
+		number
+	}
+	assignees(first: 10) {
+		nodes {
+			...Node
+			...Actor
+			...User
 		}
 	}
+	labels(first: 50) {
+		nodes {
+			name
+			color
+		}
+	}
+	id
+	databaseId
+	reactions(first: 100) {
+		totalCount
+	}
+
+	comments(first: 1) {
+		totalCount
+	}
+
+	comments(first: 1) {
+		totalCount
+	}
+
 	commits(first: 50) {
 		nodes {
 			commit {
@@ -35,8 +176,6 @@ fragment PullRequestFragment on PullRequest {
 			}
 		}
 	}
-	createdAt
-	updatedAt
 	headRef {
 		...Ref
 	}
@@ -65,12 +204,6 @@ fragment PullRequestFragment on PullRequest {
 		mergeCommitMessage
 		mergeCommitTitle
 	}
-	labels(first: 50) {
-		nodes {
-			name
-			color
-		}
-	}
 	merged
 	mergeable
 	mergeQueueEntry {
@@ -80,39 +213,61 @@ fragment PullRequestFragment on PullRequest {
 	autoMergeRequest {
 		mergeMethod
 	}
+	reviewThreads {
+		totalCount
+	}
 	viewerCanEnableAutoMerge
 	viewerCanDisableAutoMerge
 	viewerCanUpdate
-	id
-	databaseId
 	isDraft
-	milestone {
-		title
-		dueOn
-		createdAt
-		id
-		number
-	}
-	assignees(first: 10) {
-		nodes {
-			login
-			name
-			avatarUrl
-			id
-			url
-			email
-		}
-	}
 	suggestedReviewers {
 		isAuthor
 		isCommenter
 		reviewer {
-			login
-			avatarUrl
-			id
-			name
-			url
+			...Actor
+			...User
+			...Node
 		}
+	}
+}
+
+query Issue($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		issue(number: $number) {
+			...IssueFragment
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query IssueWithComments($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		issue(number: $number) {
+			...IssueWithCommentsFragment
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
+query Issues($query: String!) {
+	search(first: 100, type: ISSUE, query: $query) {
+		issueCount
+		pageInfo {
+			hasNextPage
+			endCursor
+		}
+		edges {
+			node {
+				...IssueFragment
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
 	}
 }
 
@@ -141,6 +296,29 @@ query PullRequestForHead($owner: String!, $name: String!, $headRefName: String!)
 	}
 }
 
+query PullRequestMergeabilityMergeRequirements($owner: String!, $name: String!, $number: Int!) {
+	repository(owner: $owner, name: $name) {
+		pullRequest(number: $number) {
+			mergeable
+			mergeStateStatus
+			mergeRequirements { # This is a privage field we're testing
+				state
+				conditions {
+					result
+					... on PullRequestMergeConflictStateCondition {
+						__typename
+						conflicts
+						isConflictResolvableInWeb
+					}
+				}
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
+
 mutation CreatePullRequest($input: CreatePullRequestInput!) {
 	createPullRequest(input: $input) {
 		pullRequest {
@@ -149,7 +327,34 @@ mutation CreatePullRequest($input: CreatePullRequestInput!) {
 	}
 }
 
+mutation RevertPullRequest($input: RevertPullRequestInput!) {
+	revertPullRequest(input: $input) {
+		revertPullRequest {
+			...PullRequestFragment
+		}
+	}
+}
+
 # Queries that only exist in this file and in extra
+
+query GetSuggestedActors($owner: String!, $name: String!, $capabilities: [RepositorySuggestedActorFilter!]!, $first: Int!, $after: String) {
+	repository(owner: $owner, name: $name) {
+		suggestedActors(first: $first, after: $after, capabilities: $capabilities) {
+			nodes {
+				...Node
+				...Actor
+				...User
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+	rateLimit {
+		...RateLimit
+	}
+}
 
 mutation DequeuePullRequest($input: DequeuePullRequestInput!) {
 	dequeuePullRequest(input: $input) {
@@ -163,6 +368,24 @@ mutation EnqueuePullRequest($input: EnqueuePullRequestInput!) {
 	enqueuePullRequest(input: $input) {
 		mergeQueueEntry {
 			...MergeQueueEntryFragment
+		}
+	}
+}
+
+mutation ReplaceActorsForAssignable($input: ReplaceActorsForAssignableInput!) {
+	replaceActorsForAssignable(input: $input) {
+		assignable {
+			assignees(first: 100) {
+				nodes {
+					...Node
+					...Actor
+					...User
+				}
+				pageInfo {
+					hasNextPage
+					endCursor
+				}
+			}
 		}
 	}
 }

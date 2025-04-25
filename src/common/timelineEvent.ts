@@ -18,6 +18,7 @@ export enum EventType {
 	Assigned,
 	HeadRefDeleted,
 	Merged,
+	CrossReferenced,
 	Other,
 }
 
@@ -33,7 +34,7 @@ export interface CommentEvent {
 	htmlUrl: string;
 	body: string;
 	bodyHTML?: string;
-	user: IAccount;
+	user?: IAccount;
 	event: EventType.Commented;
 	canEdit?: boolean;
 	canDelete?: boolean;
@@ -47,6 +48,8 @@ export interface ReviewResolveInfo {
 	isResolved: boolean;
 }
 
+export type ReviewStateValue = 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING' | 'REQUESTED';
+
 export interface ReviewEvent {
 	id: number;
 	reviewThread?: ReviewResolveInfo
@@ -58,7 +61,7 @@ export interface ReviewEvent {
 	htmlUrl: string;
 	user: IAccount;
 	authorAssociation: string;
-	state: 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING' | 'REQUESTED';
+	state?: ReviewStateValue;
 }
 
 export interface CommitEvent {
@@ -92,8 +95,9 @@ export interface MergedEvent {
 export interface AssignEvent {
 	id: number;
 	event: EventType.Assigned;
-	user: IAccount;
+	assignees: IAccount[];
 	actor: IActor;
+	createdAt: string;
 }
 
 export interface HeadRefDeleteEvent {
@@ -104,4 +108,17 @@ export interface HeadRefDeleteEvent {
 	headRef: string;
 }
 
-export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent;
+export interface CrossReferencedEvent {
+	id: string;
+	event: EventType.CrossReferenced
+	actor: IActor;
+	createdAt: string;
+	source: {
+		number: number;
+		url: string;
+		title: string;
+	};
+	willCloseTarget: boolean;
+}
+
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent | CrossReferencedEvent;
