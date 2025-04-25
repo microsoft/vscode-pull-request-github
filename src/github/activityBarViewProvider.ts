@@ -157,23 +157,21 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		const teamReviewers: ITeam[] = [];
 
 		for (const reviewer of this._existingReviewers) {
-			let id: string | undefined;
-			let reviewerArray: (IAccount | ITeam)[] | undefined;
-			if (reviewer && isTeam(reviewer.reviewer)) {
-				id = reviewer.reviewer.id;
-				reviewerArray = teamReviewers;
-			} else if (reviewer && !isTeam(reviewer.reviewer)) {
-				id = reviewer.reviewer.id;
-				reviewerArray = userReviewers;
-			}
-			if (reviewerArray && id && ((reviewer.state === 'REQUESTED') || (id === message.args))) {
-				reviewerArray.push(reviewer.reviewer);
+			let id = reviewer.reviewer.id;
+			if (id && ((reviewer.state === 'REQUESTED') || (id === message.args))) {
 				if (id === message.args) {
 					targetReviewer = reviewer;
 				}
 			}
 		}
-		this._item.requestReview(userReviewers, teamReviewers).then(() => {
+
+		if (targetReviewer && isTeam(targetReviewer.reviewer)) {
+			teamReviewers.push(targetReviewer.reviewer);
+		} else if (targetReviewer && !isTeam(targetReviewer.reviewer)) {
+			userReviewers.push(targetReviewer.reviewer);
+		}
+
+		this._item.requestReview(userReviewers, teamReviewers, true).then(() => {
 			if (targetReviewer) {
 				targetReviewer.state = 'REQUESTED';
 			}
