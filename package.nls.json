@@ -300,6 +300,7 @@
 	"command.notifications.markAsRead.title": "Mark as Read",
 	"command.notifications.markAsDone.title": "Mark as Done",
 	"command.notifications.markMergedPullRequestsAsRead.title": "Mark Merged Pull Requests as Read",
+	"command.notifications.markMergedPullRequestsAsDone.title": "Mark Merged Pull Requests as Done",
 	"command.notification.chatSummarizeNotification.title": "Summarize With Copilot",
 	"welcome.github.login.contents": {
 		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)",

@@ -57,7 +57,6 @@ export const EXPERIMENTAL_USE_QUICK_CHAT = 'experimental.useQuickChat';
 export const EXPERIMENTAL_NOTIFICATIONS = 'experimental.notificationsView';
 export const EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE = 'experimental.notificationsViewPageSize';
 export const EXPERIMENTAL_NOTIFICATIONS_SCORE = 'experimental.notificationsScore';
-export const EXPERIMENTAL_NOTIFICATIONS_MARK_PRS = 'experimental.notificationsMarkPullRequests';
 
 // git
 export const GIT = 'git';

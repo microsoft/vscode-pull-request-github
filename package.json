@@ -1584,6 +1584,12 @@
 				"title": "%command.notifications.markMergedPullRequestsAsRead.title%",
 				"category": "%command.notifications.category%",
 				"icon": "$(git-pull-request)"
+			},
+			{
+				"command": "notifications.markMergedPullRequestsAsDone",
+				"title": "%command.notifications.markMergedPullRequestsAsDone.title%",
+				"category": "%command.notifications.category%",
+				"icon": "$(git-pull-request)"
 			}
 		],
 		"viewsWelcome": [
@@ -2277,6 +2283,10 @@
 					"when": "false"
 				},
 				{
+					"command": "notifications.markMergedPullRequestsAsDone",
+					"when": "false"
+				},
+				{
 					"command": "review.copyPrLink",
 					"when": "github:inReviewMode"
 				}
@@ -2409,7 +2419,12 @@
 				},
 				{
 					"command": "notifications.markMergedPullRequestsAsRead",
-					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github && config.githubPullRequests.experimental.notificationsMarkPullRequests != none",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github && config.githubPullRequests.experimental.notificationsMarkPullRequests == markAsRead",
+					"group": "navigation@0"
+				},
+				{
+					"command": "notifications.markMergedPullRequestsAsDone",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github && config.githubPullRequests.experimental.notificationsMarkPullRequests == markAsDone",
 					"group": "navigation@0"
 				},
 				{
