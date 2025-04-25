@@ -27,7 +27,7 @@ export class NotificationsFeatureRegister extends Disposable {
 		const notificationsProvider = new NotificationsProvider(credentialStore, this._repositoriesManager);
 		this._register(notificationsProvider);
 
-		const notificationsManager = new NotificationsManager(notificationsProvider);
+		const notificationsManager = new NotificationsManager(notificationsProvider, credentialStore);
 		this._register(notificationsManager);
 
 		// Decorations
@@ -118,6 +118,16 @@ export class NotificationsFeatureRegister extends Disposable {
 				*/
 				this._telemetry.sendTelemetryEvent('notification.markAsDone');
 				notificationsManager.markAsDone({ threadId, notificationKey });
+			})
+		);
+
+		this._register(
+			vscode.commands.registerCommand('notifications.markMergedPullRequestsAsRead', () => {
+				/* __GDPR__
+					"notifications.markMergedPullRequestsAsRead" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('notifications.markMergedPullRequestsAsRead');
+				return notificationsManager.markMergedPullRequestAsRead();
 			})
 		);
 
