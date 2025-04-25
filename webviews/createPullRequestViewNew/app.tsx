@@ -342,7 +342,7 @@ export function main() {
 							{params.createError}
 						</ErrorBoundary>
 					</div>
-					<div className={!!params.warning ? 'wrapper validation-warning' : 'hidden'} aria-live='assertive'>
+					<div className={(!!params.warning && !params.creating && !isBusy) ? 'wrapper validation-warning' : 'hidden'} aria-live='assertive'>
 						<ErrorBoundary>
 							{params.warning}
 						</ErrorBoundary>
