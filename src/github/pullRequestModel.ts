@@ -962,7 +962,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Add reviewers to a pull request
 	 * @param reviewers A list of GitHub logins
 	 */
-	async requestReview(reviewers: IAccount[], teamReviewers: ITeam[]): Promise<void> {
+	async requestReview(reviewers: IAccount[], teamReviewers: ITeam[], union: boolean = false): Promise<void> {
 		const { mutate, schema } = await this.githubRepository.ensure();
 		await mutate({
 			mutation: schema.AddReviewers,
@@ -971,6 +971,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					pullRequestId: this.graphNodeId,
 					teamIds: teamReviewers.map(t => t.id),
 					userIds: reviewers.filter(r => r.accountType !== AccountType.Bot).map(r => r.id),
+					union
 				},
 			},
 		});

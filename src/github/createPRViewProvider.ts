@@ -316,7 +316,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 					users.push(reviewer);
 				}
 			}
-			await pr.requestReview(users, teams);
+			await pr.requestReview(users, teams, true);
 		}
 	}
 
