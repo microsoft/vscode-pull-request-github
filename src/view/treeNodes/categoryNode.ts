@@ -117,7 +117,7 @@ interface PageInformation {
 
 export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public collapsibleState: vscode.TreeItemCollapsibleState;
-	public prs: PullRequestModel[];
+	public prs: Map<number, PullRequestModel>;
 	public fetchNextPage: boolean = false;
 	public repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 	public contextValue: string;
@@ -134,7 +134,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	) {
 		super(parent);
 
-		this.prs = [];
+		this.prs = new Map();
 
 		switch (this.type) {
 			case PRType.All:
@@ -322,7 +322,8 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		this.fetchNextPage = false;
 		if (this.type === PRType.LocalPullRequest) {
 			try {
-				this.prs = (await this._prsTreeModel.getLocalPullRequests(this._folderRepoManager)).items;
+				this.prs.clear();
+				(await this._prsTreeModel.getLocalPullRequests(this._folderRepoManager)).items.forEach(item => this.prs.set(item.id, item));
 			} catch (e) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Fetching local pull requests failed: {0}', formatError(e)));
 				needLogin = e instanceof AuthenticationError;
@@ -339,10 +340,9 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 						break;
 				}
 				if (!fetchNextPage) {
-					this.prs = response.items;
-				} else {
-					this.prs = this.prs.concat(response.items);
+					this.prs.clear();
 				}
+				response.items.forEach(item => this.prs.set(item.id, item));
 				hasMorePages = response.hasMorePages;
 				hasUnsearchedRepositories = response.hasUnsearchedRepositories;
 			} catch (e) {
@@ -360,8 +360,8 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 			}
 		}
 
-		if (this.prs && this.prs.length) {
-			const nodes: (PRNode | PRCategoryActionNode)[] = this.prs.map(
+		if (this.prs.size > 0) {
+			const nodes: (PRNode | PRCategoryActionNode)[] = Array.from(this.prs.values()).map(
 				prItem => new PRNode(this, this._folderRepoManager, prItem, this.type === PRType.LocalPullRequest, this._notificationProvider),
 			);
 			if (hasMorePages) {
