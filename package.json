@@ -471,6 +471,12 @@
 					"markdownDescription": "%githubPullRequests.experimental.notificationsView.description%",
 					"default": false
 				},
+				"githubPullRequests.experimental.notificationsMarkPullRequests": {
+					"type": "string",
+					"markdownDescription": "%githubPullRequests.experimental.notificationsMarkPullRequests.description%",
+					"enum": ["markAsDone", "markAsRead", "none"],
+					"default": "none"
+				},
 				"githubPullRequests.experimental.useQuickChat": {
 					"type": "boolean",
 					"markdownDescription": "%githubPullRequests.experimental.useQuickChat.description%",
@@ -1572,6 +1578,12 @@
 				"title": "%command.notifications.markAsDone.title%",
 				"category": "%command.notifications.category%",
 				"icon": "$(check-all)"
+			},
+			{
+				"command": "notifications.markMergedPullRequestsAsRead",
+				"title": "%command.notifications.markMergedPullRequestsAsRead.title%",
+				"category": "%command.notifications.category%",
+				"icon": "$(git-pull-request)"
 			}
 		],
 		"viewsWelcome": [
@@ -2261,6 +2273,10 @@
 					"when": "false"
 				},
 				{
+					"command": "notifications.markMergedPullRequestsAsRead",
+					"when": "false"
+				},
+				{
 					"command": "review.copyPrLink",
 					"when": "github:inReviewMode"
 				}
@@ -2390,6 +2406,11 @@
 					"command": "notifications.sortByPriority",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
 					"group": "sortNotifications@2"
+				},
+				{
+					"command": "notifications.markMergedPullRequestsAsRead",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github && config.githubPullRequests.experimental.notificationsMarkPullRequests != none",
+					"group": "navigation@0"
 				},
 				{
 					"command": "notifications.refresh",

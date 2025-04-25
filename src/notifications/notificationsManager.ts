@@ -5,7 +5,10 @@
 
 import * as vscode from 'vscode';
 import { Disposable } from '../common/lifecycle';
+import { EXPERIMENTAL_NOTIFICATIONS_MARK_PRS } from '../common/settingKeys';
+import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { toNotificationUri } from '../common/uri';
+import { CredentialStore } from '../github/credentials';
 import { NotificationSubjectType } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -38,7 +41,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 	private _sortingMethod: NotificationsSortMethod = NotificationsSortMethod.Timestamp;
 	get sortingMethod(): NotificationsSortMethod { return this._sortingMethod; }
 
-	constructor(private readonly _notificationProvider: NotificationsProvider) {
+	constructor(private readonly _notificationProvider: NotificationsProvider, private readonly _credentialStore: CredentialStore) {
 		super();
 		this._register(this._onDidChangeTreeData);
 		this._register(this._onDidChangeNotifications);
@@ -231,6 +234,73 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 
 			this._refresh(false);
 		}
+	}
+
+	private _getMeaningfulEventTime(event: TimelineEvent, currentUser: string, isCurrentUser: boolean): Date | undefined {
+		const userCheck = (testUser?: string) => {
+			if (isCurrentUser) {
+				return testUser === currentUser;
+			} else if (!isCurrentUser) {
+				return testUser !== currentUser;
+			}
+		};
+
+		if (event.event === EventType.Committed) {
+			if (userCheck(event.author.login)) {
+				return new Date(event.authoredDate);
+			}
+		} else if (event.event === EventType.Commented) {
+			if (userCheck(event.user?.login)) {
+				return new Date(event.createdAt);
+			}
+		} else if (event.event === EventType.Reviewed) {
+			// We only count empty reviews as meaningful if the user is the current user
+			if (isCurrentUser || (event.comments.length > 0 || event.body.length > 0)) {
+				if (userCheck(event.user?.login)) {
+					return new Date(event.submittedAt);
+				}
+			}
+		}
+	}
+
+	public async markMergedPullRequestAsRead(): Promise<void> {
+		const markAsDone = vscode.workspace.getConfiguration('githubPullRequests').get<'markAsRead' | 'markAsDone'>(EXPERIMENTAL_NOTIFICATIONS_MARK_PRS, 'markAsRead') === 'markAsDone';
+		const filteredNotifications = Array.from(this._notifications.values()).filter(notification => notification.notification.subject.type === NotificationSubjectType.PullRequest && notification.model.isMerged);
+		const timlines = await Promise.all(filteredNotifications.map(notification => (notification.model as PullRequestModel).getTimelineEvents()));
+
+		const markPromises: Promise<void>[] = [];
+
+		for (const [index, notification] of filteredNotifications.entries()) {
+			const currentUser = await this._credentialStore.getCurrentUser(notification.model.remote.authProviderId);
+
+			// Check that there have been no comments, reviews, or commits, since last read
+			const timeline = timlines[index];
+			let userLastEvent: Date | undefined = undefined;
+			let nonUserLastEvent: Date | undefined = undefined;
+			for (let i = timeline.length - 1; i >= 0; i--) {
+				const event = timeline[i];
+				if (!userLastEvent) {
+					userLastEvent = this._getMeaningfulEventTime(event, currentUser.login, true);
+				}
+				if (!nonUserLastEvent) {
+					nonUserLastEvent = this._getMeaningfulEventTime(event, currentUser.login, false);
+				}
+				if (userLastEvent && nonUserLastEvent) {
+					break;
+				}
+			}
+
+			if (!nonUserLastEvent || (userLastEvent && (userLastEvent.getTime() > nonUserLastEvent.getTime()))) {
+				if (markAsDone) {
+					markPromises.push(this._notificationProvider.markAsDone({ threadId: notification.notification.id, notificationKey: notification.notification.key }));
+				} else {
+					markPromises.push(this._notificationProvider.markAsRead({ threadId: notification.notification.id, notificationKey: notification.notification.key }));
+				}
+				this._notifications.delete(notification.notification.key);
+			}
+		}
+		await Promise.all(markPromises);
+		this.refresh();
 	}
 
 	public sortNotifications(method: NotificationsSortMethod): void {
