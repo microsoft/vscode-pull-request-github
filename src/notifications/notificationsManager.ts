@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import { Disposable } from '../common/lifecycle';
-import { EXPERIMENTAL_NOTIFICATIONS_MARK_PRS } from '../common/settingKeys';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { toNotificationUri } from '../common/uri';
 import { CredentialStore } from '../github/credentials';
@@ -263,8 +262,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		}
 	}
 
-	public async markMergedPullRequestAsRead(): Promise<void> {
-		const markAsDone = vscode.workspace.getConfiguration('githubPullRequests').get<'markAsRead' | 'markAsDone'>(EXPERIMENTAL_NOTIFICATIONS_MARK_PRS, 'markAsRead') === 'markAsDone';
+	public async markMergedPullRequest(markAsDone: boolean = false): Promise<void> {
 		const filteredNotifications = Array.from(this._notifications.values()).filter(notification => notification.notification.subject.type === NotificationSubjectType.PullRequest && notification.model.isMerged);
 		const timlines = await Promise.all(filteredNotifications.map(notification => (notification.model as PullRequestModel).getTimelineEvents()));
 
