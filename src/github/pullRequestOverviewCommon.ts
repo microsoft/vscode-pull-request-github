@@ -86,7 +86,7 @@ export namespace PullRequestView {
 		const deletedBranchTypes: string[] = [];
 
 		if (selectedActions) {
-			const isBranchActive = item.equals(folderRepositoryManager.activePullRequest);
+			const isBranchActive = item.equals(folderRepositoryManager.activePullRequest) || (folderRepositoryManager.repository.state.HEAD?.name && folderRepositoryManager.repository.state.HEAD.name === branchInfo?.branch);
 
 			const promises = selectedActions.map(async action => {
 				switch (action.type) {
