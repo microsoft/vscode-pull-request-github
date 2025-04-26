@@ -57,7 +57,6 @@ import {
 	IGitTreeItem,
 	IRawFileChange,
 	IRawFileContent,
-	Issue,
 	ISuggestedReviewer,
 	ITeam,
 	MergeMethod,
@@ -122,7 +121,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public conflicts?: string[];
 	public suggestedReviewers?: ISuggestedReviewer[];
 	public hasChangesSinceLastReview?: boolean;
-	public closingIssues: Pick<Issue, 'id' | 'title' | 'number'>[];
+	public closingIssues: Pick<IssueModel, 'id' | 'title' | 'number' | 'state'>[];
 	private _showChangesSinceReview: boolean;
 	private _hasPendingReview: boolean = false;
 	private _onDidChangePendingReviewState: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
@@ -250,8 +249,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		super.update(item);
 		this.isDraft = item.isDraft;
 		this.suggestedReviewers = item.suggestedReviewers;
-		this.closingIssues = item.closingIssues ?? [];
-
+		this.closingIssues = (item.closingIssues ?? []).map(issue => ({
+			...issue,
+			state: issue.state as GithubItemStateEnum
+		}));
 		if (item.isRemoteHeadDeleted != null) {
 			this.isRemoteHeadDeleted = item.isRemoteHeadDeleted;
 		}

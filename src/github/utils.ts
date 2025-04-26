@@ -26,6 +26,7 @@ import { GitHubRepository, ViewerPermission } from './githubRepository';
 import * as GraphQL from './graphql';
 import {
 	AccountType,
+	GithubItemStateEnum,
 	IAccount,
 	IActor,
 	IGitHubRef,
@@ -924,8 +925,8 @@ function parseSuggestedReviewers(
 }
 
 function parseClosingIssuesReferences(
-	closingIssuesReferences: Array<{ id: number, number: number, title: string }> | undefined
-): Array<{ id: number, number: number, title: string }> {
+	closingIssuesReferences: Array<{ id: number, number: number, title: string, state: 'CLOSED' | 'OPEN' }> | undefined
+): Array<{ id: number, number: number, title: string, state: GithubItemStateEnum }> {
 	if (!closingIssuesReferences) {
 		return [];
 	}
@@ -933,7 +934,8 @@ function parseClosingIssuesReferences(
 	return closingIssuesReferences.map(issue => ({
 		id: issue.id,
 		number: issue.number,
-		title: issue.title
+		title: issue.title,
+		state: issue.state as GithubItemStateEnum
 	}));
 }
 

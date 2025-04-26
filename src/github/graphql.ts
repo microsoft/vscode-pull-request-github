@@ -636,8 +636,8 @@ export interface PullRequest extends Issue {
 		nodes: {
 			id: number,
 			title: string,
-			number: number
-
+			number: number,
+			state: 'CLOSED' | 'OPEN'
 		}[];
 	};
 }

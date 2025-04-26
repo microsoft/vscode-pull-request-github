@@ -6,7 +6,7 @@
 import React, { useContext } from 'react';
 import { COPILOT_LOGINS } from '../../src/common/copilot';
 import { gitHubLabelColor } from '../../src/common/utils';
-import { IMilestone, IProjectItem, reviewerId } from '../../src/github/interface';
+import { IMilestone, IProjectItem, Issue, reviewerId, } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { Label } from '../common/label';
@@ -54,7 +54,7 @@ export default function Sidebar({ reviewers, labels, closingIssues, hasWritePerm
 					</div>
 					{reviewers && reviewers.length ? (
 						reviewers.map(state => (
-							<Reviewer key={reviewerId(state.reviewer)} {...{reviewState: state}} />
+							<Reviewer key={reviewerId(state.reviewer)} {...{ reviewState: state }} />
 						))
 					) : (
 						<div className="section-placeholder">None yet</div>
@@ -199,32 +199,29 @@ export default function Sidebar({ reviewers, labels, closingIssues, hasWritePerm
 				{milestone ? (
 					<Milestone key={milestone.title} {...milestone} canDelete={hasWritePermission} />
 				) : (
-				<>
-					<div className="section-placeholder">No milestoooone</div>
-					<button onClick={() => {
-							console.log('Sidebar props:', { reviewers, labels, closingIssues, hasWritePermission, isIssue, projects, milestone, assignees, canAssignCopilot });
-
-					}}>Click me to test</button>
-				</>
+					<>
+						<div className="section-placeholder">No milestone</div>
+					</>
 				)}
 			</div>
-			{/* <div id="linked-issues" className="section">
-				<div className="section-header" onClick={async () => {
-					const newMilestone = await addMilestone();
-					updatePR({ milestone: newMilestone.added });
-				}}>
-					<div className="section-title">Linked issues</div>
+			<div id="closingIssues" className="section">
+				<div className="section-header">
+					<div className="section-title">Linked Issues</div>
 				</div>
-				{closingIssues.length ? (
-					<div className="issues-list">
+				{closingIssues.length > 0 ? (
+					<div className="p-2">
 						{closingIssues.map(issue => (
-							<Issue key={issue.title} {...issue} />
+							<div className="section-item reviewer">
+								<div className="avatar-with-author gap-2">
+									<IssueItem key={issue.title} issue={issue} />
+								</div>
+							</div>
 						))}
 					</div>
 				) : (
-					<div className="section-placeholder">None yet</div>
+					<div className="p-4 text-sm text-gray-500 text-center">None yet</div>
 				)}
-			</div> */}
+			</div>
 		</div>
 	);
 }
@@ -297,13 +294,26 @@ function Project(project: IProjectItem & { canDelete: boolean }) {
 	);
 }
 
-function Issue(issue: any) {
+function IssueItem({ issue }: { issue: Pick<Issue, 'title' | 'number' | 'state'> }) {
 	return (
-		<div className="issues-list">
-			<div className="issue-item">
-				<h1>{issue.title}</h1>
-				{/* Add more details about the issue as needed */}
-			</div>
-		</div>
+		<>
+			<IssueStateIcon state={issue.state} />
+			<span className="h2">{issue.title}</span>
+		</>
+
 	);
 }
+
+function IssueStateIcon({ state }: { state: string }) {
+	const normalizedState = state.toLowerCase().trim();
+
+	switch (normalizedState) {
+		case 'open':
+			return settingsIcon;
+		case 'closed':
+			return closeIcon;
+		default:
+			return closeIcon;
+	}
+}
+

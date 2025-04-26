@@ -209,6 +209,7 @@ fragment PullRequestFragment on PullRequest {
 			id
 			number
 			title
+			state
 		}
 	}
 	merged
