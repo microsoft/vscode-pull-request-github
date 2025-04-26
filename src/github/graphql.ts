@@ -632,6 +632,14 @@ export interface PullRequest extends Issue {
 	viewerCanDisableAutoMerge: boolean;
 	isDraft?: boolean;
 	suggestedReviewers: SuggestedReviewerResponse[];
+	closingIssuesReferences?: {
+		nodes: {
+			id: number,
+			title: string,
+			number: number
+
+		}[];
+	};
 }
 
 export enum DefaultCommitTitle {

@@ -14,7 +14,7 @@ import { AuthorLink, Avatar } from '../components/user';
 import { closeIcon, copilotIcon, settingsIcon } from './icon';
 import { Reviewer } from './reviewer';
 
-export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue, projectItems: projects, milestone, assignees, canAssignCopilot }: PullRequest) {
+export default function Sidebar({ reviewers, labels, closingIssues, hasWritePermission, isIssue, projectItems: projects, milestone, assignees, canAssignCopilot }: PullRequest) {
 	const {
 		addReviewers,
 		addAssignees,
@@ -199,9 +199,32 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 				{milestone ? (
 					<Milestone key={milestone.title} {...milestone} canDelete={hasWritePermission} />
 				) : (
-					<div className="section-placeholder">No milestone</div>
+				<>
+					<div className="section-placeholder">No milestoooone</div>
+					<button onClick={() => {
+							console.log('Sidebar props:', { reviewers, labels, closingIssues, hasWritePermission, isIssue, projects, milestone, assignees, canAssignCopilot });
+
+					}}>Click me to test</button>
+				</>
 				)}
 			</div>
+			{/* <div id="linked-issues" className="section">
+				<div className="section-header" onClick={async () => {
+					const newMilestone = await addMilestone();
+					updatePR({ milestone: newMilestone.added });
+				}}>
+					<div className="section-title">Linked issues</div>
+				</div>
+				{closingIssues.length ? (
+					<div className="issues-list">
+						{closingIssues.map(issue => (
+							<Issue key={issue.title} {...issue} />
+						))}
+					</div>
+				) : (
+					<div className="section-placeholder">None yet</div>
+				)}
+			</div> */}
 		</div>
 	);
 }
@@ -269,6 +292,17 @@ function Project(project: IProjectItem & { canDelete: boolean }) {
 						{closeIcon}️
 					</button>
 				) : null}
+			</div>
+		</div>
+	);
+}
+
+function Issue(issue: any) {
+	return (
+		<div className="issues-list">
+			<div className="issue-item">
+				<h1>{issue.title}</h1>
+				{/* Add more details about the issue as needed */}
 			</div>
 		</div>
 	);

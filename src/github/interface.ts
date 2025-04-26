@@ -223,6 +223,7 @@ export interface PullRequest extends Issue {
 	mergeCommitMeta?: { title: string, description: string };
 	squashCommitMeta?: { title: string, description: string };
 	suggestedReviewers?: ISuggestedReviewer[];
+	closingIssues?: Pick<Issue, 'id' | 'title' | 'number'>[]
 	hasComments?: boolean;
 }
 

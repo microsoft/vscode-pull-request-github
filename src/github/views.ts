@@ -96,6 +96,7 @@ export interface PullRequest extends Issue {
 	lastReviewType?: ReviewType;
 	revertable?: boolean;
 	busy?: boolean;
+	closingIssues: Pick<Issue, 'title' | 'number'>[];
 }
 
 export interface ProjectItemsReply {

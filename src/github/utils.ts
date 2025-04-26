@@ -780,6 +780,7 @@ export function parseGraphQLPullRequest(
 		commits: parseCommits(graphQLPullRequest.commits.nodes),
 		reactionCount: graphQLPullRequest.reactions.totalCount,
 		commentCount: graphQLPullRequest.comments.totalCount,
+		closingIssues: parseClosingIssuesReferences(graphQLPullRequest.closingIssuesReferences?.nodes)
 	};
 	pr.mergeCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.mergeCommitTitle, graphQLPullRequest.baseRepository.mergeCommitMessage, pr);
 	pr.squashCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.squashMergeCommitTitle, graphQLPullRequest.baseRepository.squashMergeCommitMessage, pr);
@@ -920,6 +921,20 @@ function parseSuggestedReviewers(
 	});
 
 	return ret.sort(loginComparator);
+}
+
+function parseClosingIssuesReferences(
+	closingIssuesReferences: Array<{ id: number, number: number, title: string }> | undefined
+): Array<{ id: number, number: number, title: string }> {
+	if (!closingIssuesReferences) {
+		return [];
+	}
+
+	return closingIssuesReferences.map(issue => ({
+		id: issue.id,
+		number: issue.number,
+		title: issue.title
+	}));
 }
 
 /**
