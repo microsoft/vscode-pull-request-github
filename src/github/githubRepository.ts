@@ -988,7 +988,6 @@ export class GitHubRepository extends Disposable {
 					number: id,
 				},
 			}, true);
-			console.log('data:', data);
 			if (data.repository === null) {
 				Logger.error('Unexpected null repository when getting PR', this.id);
 				return;
