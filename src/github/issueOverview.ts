@@ -213,7 +213,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
 			this._postMessage({
 				command: 'pr.initialize',
-				pullrequest: this.getInitializeContext(issue, timelineEvents, repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName]),
+				pullrequest: this.getInitializeContext(issue, timelineEvents, repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []),
 			});
 
 		} catch (e) {
