@@ -96,6 +96,17 @@ export function threadRange(startLine: number, endLine: number, endCharacter?: n
 	return new vscode.Range(startLine, 0, endLine, endCharacter);
 }
 
+export async function setReplyAuthor(thread: vscode.CommentThread | vscode.CommentThread2, currentUser: IAccount, context: vscode.ExtensionContext) {
+	if (currentUser.avatarUrl) {
+		const thread2 = thread as vscode.CommentThread2;
+		thread2.canReply = { name: currentUser.name ?? currentUser.login, iconPath: vscode.Uri.parse(currentUser.avatarUrl) };
+		const uri = await DataUri.avatarCirclesAsImageDataUris(context, [currentUser], 28, 28);
+		thread2.canReply = { name: currentUser.name ?? currentUser.login, iconPath: uri[0] };
+	} else {
+		thread.canReply = true;
+	}
+}
+
 export function createVSCodeCommentThreadForReviewThread(
 	context: vscode.ExtensionContext,
 	uri: vscode.Uri,
@@ -127,12 +138,7 @@ export function createVSCodeCommentThreadForReviewThread(
 	updateCommentThreadLabel(vscodeThread as GHPRCommentThread);
 	vscodeThread.collapsibleState = getCommentCollapsibleState(thread, undefined, currentUser.login);
 
-	if (currentUser.avatarUrl) {
-		vscodeThread.canReply = { name: currentUser.name ?? currentUser.login, iconPath: vscode.Uri.parse(currentUser.avatarUrl) };
-		DataUri.avatarCirclesAsImageDataUris(context, [currentUser], 28, 28).then(uri => {
-			vscodeThread.canReply = { name: currentUser.name ?? currentUser.login, iconPath: uri[0] };
-		});
-	}
+	setReplyAuthor(vscodeThread, currentUser, context);
 
 	return vscodeThread as GHPRCommentThread;
 }
