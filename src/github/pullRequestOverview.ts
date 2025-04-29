@@ -387,6 +387,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const hidePromise = asPromise<void>(quickPick.onDidHide);
 			const allReviewers = await Promise.race<(IAccount | ITeam)[] | void>([acceptPromise, hidePromise]);
 			quickPick.busy = true;
+			quickPick.enabled = false;
 
 			if (allReviewers) {
 				const newUserReviewers: IAccount[] = [];

@@ -316,6 +316,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			const hidePromise = asPromise<void>(quickPick.onDidHide);
 			const labelsToAdd = await Promise.race<readonly vscode.QuickPickItem[] | void>([acceptPromise, hidePromise]);
 			quickPick.busy = true;
+			quickPick.enabled = false;
 
 			if (labelsToAdd) {
 				await this._item.setLabels(labelsToAdd.map(r => r.label));
@@ -393,6 +394,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			const hidePromise = asPromise<void>(quickPick.onDidHide);
 			const allAssignees = await Promise.race<(vscode.QuickPickItem & { user: IAccount })[] | void>([acceptPromise, hidePromise]);
 			quickPick.busy = true;
+			quickPick.enabled = false;
 
 			if (allAssignees) {
 				const newAssignees: IAccount[] = allAssignees.map(item => item.user);
