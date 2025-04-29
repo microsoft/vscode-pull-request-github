@@ -38,6 +38,7 @@ export class NotificationsFeatureRegister extends Disposable {
 		this._register(vscode.window.createTreeView<any>('notifications:github', {
 			treeDataProvider: notificationsManager
 		}));
+		notificationsManager.refresh();
 
 		// Commands
 		this._register(

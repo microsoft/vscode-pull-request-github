@@ -19,3 +19,15 @@ export function getReviewMode(): { merged: boolean, closed: boolean } {
 	}
 	return desktopDefaults;
 }
+
+export function initBasedOnSettingChange(namespace: string, key: string, isEnabled: () => boolean, initializer: () => void, disposables: vscode.Disposable[]): void {
+	const eventDisposable = vscode.workspace.onDidChangeConfiguration((e) => {
+		if (e.affectsConfiguration(`${namespace}.${key}`)) {
+			if (isEnabled()) {
+				initializer();
+				eventDisposable.dispose();
+			}
+		}
+	});
+	disposables.push(eventDisposable);
+}
