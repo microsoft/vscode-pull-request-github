@@ -21,6 +21,7 @@ import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import {
 	CommentReactionHandler,
 	createVSCodeCommentThreadForReviewThread,
+	setReplyAuthor,
 	threadRange,
 	updateCommentReviewState,
 	updateCommentThreadLabel,
@@ -337,14 +338,15 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 				const fileName = this._folderRepoManager.gitRelativeRootPath(thread.uri.path);
 				const side = this.getCommentSide(thread);
 				this._pendingCommentThreadAdds.push(thread);
-				await this.pullRequestModel.createReviewThread(
+				await Promise.all([this.pullRequestModel.createReviewThread(
 					input,
 					fileName,
 					thread.range ? (thread.range.start.line + 1) : undefined,
 					thread.range ? (thread.range.end.line + 1) : undefined,
 					side,
 					isSingleComment,
-				);
+				),
+				setReplyAuthor(thread, await this._folderRepoManager.getCurrentUser(this.pullRequestModel.githubRepository), this._context)]);
 			}
 
 			if (isSingleComment) {

@@ -28,6 +28,7 @@ import {
 	createVSCodeCommentThreadForReviewThread,
 	getRepositoryForFile,
 	isFileInRepo,
+	setReplyAuthor,
 	threadRange,
 	updateCommentReviewState,
 	updateCommentThreadLabel,
@@ -682,7 +683,9 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 					endLine++;
 				}
 
-				await this._folderRepoManager.activePullRequest!.createReviewThread(input, fileName, startLine, endLine, side);
+				await Promise.all([this._folderRepoManager.activePullRequest!.createReviewThread(input, fileName, startLine, endLine, side),
+				setReplyAuthor(thread, await this._folderRepoManager.getCurrentUser(this._folderRepoManager.activePullRequest!.githubRepository), this._context)
+				]);
 			} else {
 				const comment = thread.comments[0];
 				if (comment instanceof GHPRComment) {
@@ -787,14 +790,17 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 					startLine++;
 					endLine++;
 				}
-				await this._folderRepoManager.activePullRequest.createReviewThread(
-					input,
-					fileName,
-					startLine,
-					endLine,
-					side,
-					isSingleComment,
-				);
+				await Promise.all([
+					this._folderRepoManager.activePullRequest.createReviewThread(
+						input,
+						fileName,
+						startLine,
+						endLine,
+						side,
+						isSingleComment,
+					),
+					setReplyAuthor(thread, await this._folderRepoManager.getCurrentUser(this._folderRepoManager.activePullRequest.githubRepository), this._context)
+				]);
 			} else {
 				const comment = thread.comments[0];
 				if (comment instanceof GHPRComment) {
