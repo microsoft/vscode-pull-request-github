@@ -16,6 +16,7 @@ import * as PersistentState from './common/persistentState';
 import { parseRepositoryRemotes } from './common/remote';
 import { Resource } from './common/resources';
 import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, EXPERIMENTAL_NOTIFICATIONS, FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE, SHOW_INLINE_OPEN_FILE_ACTION } from './common/settingKeys';
+import { initBasedOnSettingChange } from './common/settingsUtils';
 import { TemporaryState } from './common/temporaryState';
 import { Schemes, handler as uriHandler } from './common/uri';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
@@ -222,10 +223,15 @@ async function init(
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
 
-	const notificationsViewEnabled = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_NOTIFICATIONS, false);
-	if (notificationsViewEnabled) {
+	const notificationsViewEnabled = () => vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_NOTIFICATIONS, false);
+	const initNotifications = () => {
 		const notificationsFeatures = new NotificationsFeatureRegister(credentialStore, reposManager, telemetry);
 		context.subscriptions.push(notificationsFeatures);
+	};
+	if (notificationsViewEnabled()) {
+		initNotifications();
+	} else {
+		initBasedOnSettingChange(PR_SETTINGS_NAMESPACE, EXPERIMENTAL_NOTIFICATIONS, notificationsViewEnabled, initNotifications, context.subscriptions);
 	}
 
 	context.subscriptions.push(new GitLensIntegration());
@@ -255,15 +261,7 @@ function initChat(context: vscode.ExtensionContext, credentialStore: CredentialS
 	if (chatEnabled()) {
 		createParticipant();
 	} else {
-		const disposable = vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${EXPERIMENTAL_CHAT}`)) {
-				if (chatEnabled()) {
-					disposable.dispose();
-					createParticipant();
-				}
-			}
-		});
-		context.subscriptions.push(disposable);
+		initBasedOnSettingChange(PR_SETTINGS_NAMESPACE, EXPERIMENTAL_CHAT, chatEnabled, createParticipant, context.subscriptions);
 	}
 }
 

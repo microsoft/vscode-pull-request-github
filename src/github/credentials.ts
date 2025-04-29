@@ -14,6 +14,7 @@ import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import * as PersistentState from '../common/persistentState';
 import { GITHUB_ENTERPRISE, URI } from '../common/settingKeys';
+import { initBasedOnSettingChange } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { agent } from '../env/node/net';
 import { IAccount } from './interface';
@@ -221,18 +222,14 @@ export class CredentialStore extends Disposable {
 
 	private async doCreate(options: vscode.AuthenticationGetSessionOptions, additionalScopes: boolean = false): Promise<AuthResult> {
 		let enterprise: AuthResult | undefined;
-		const initializeEnterprise = () => this.initialize(AuthProvider.githubEnterprise, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
+		const initializeEnterprise = async () => {
+			enterprise = await this.initialize(AuthProvider.githubEnterprise, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
+		};
 		if (hasEnterpriseUri()) {
-			enterprise = await initializeEnterprise();
+			await initializeEnterprise();
 		} else {
 			// Listen for changes to the enterprise URI and try again if it changes.
-			const disposable = vscode.workspace.onDidChangeConfiguration(async e => {
-				if (e.affectsConfiguration(`${GITHUB_ENTERPRISE}.${URI}`) && hasEnterpriseUri()) {
-					enterprise = await initializeEnterprise();
-					disposable.dispose();
-				}
-			});
-			this.context.subscriptions.push(disposable);
+			initBasedOnSettingChange(GITHUB_ENTERPRISE, URI, hasEnterpriseUri, initializeEnterprise, this.context.subscriptions);
 		}
 		let github: AuthResult | undefined;
 		if (!enterprise) {
