@@ -284,7 +284,18 @@ export async function getMilestoneFromQuickPick(folderRepositoryManager: FolderR
 		};
 		let selectedItem: vscode.QuickPickItem | undefined;
 		async function getMilestoneOptions(): Promise<(MilestoneQuickPickItem | vscode.QuickPickItem)[]> {
-			const milestones = await githubRepository.getMilestones();
+			const milestones = (await githubRepository.getMilestones())?.sort((a, b) => {
+				// Milestones with a date should be first, and sorted by due date
+				if (a.dueOn && b.dueOn) {
+					return new Date(a.dueOn).getTime() - new Date(b.dueOn).getTime();
+				} else if (a.dueOn) {
+					return -1;
+				} else if (b.dueOn) {
+					return 1;
+				} else {
+					return a.title.localeCompare(b.title);
+				}
+			});
 			if (!milestones || !milestones.length) {
 				return [
 					{
