@@ -1688,6 +1688,16 @@
 				"view": "github:activePullRequest:welcome",
 				"when": "!github:stateValidated",
 				"contents": "%welcome.github.activePullRequest.contents%"
+			},
+			{
+				"view": "notifications:github",
+				"when": "!github:notificationCount",
+				"contents": "%welcome.github.notificationsLoading.contents%"
+			},
+			{
+				"view": "notifications:github",
+				"when": "ReposManagerStateContext == RepositoriesLoaded && github:notificationCount == 0",
+				"contents": "%welcome.github.notifications.contents%"
 			}
 		],
 		"keybindings": [

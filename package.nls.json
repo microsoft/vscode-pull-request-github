@@ -353,6 +353,8 @@
 			"Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
 		]
 	},
+	"welcome.github.notificationsLoading.contents": "Loading...",
+	"welcome.github.notifications.contents": "No notifications, your inbox is empty $(rocket)",
 	"welcome.issues.github.uninitialized.contents": "Loading...",
 	"welcome.issues.github.noFolder.contents": "You have not yet opened a folder.",
 	"welcome.issues.github.noRepo.contents": "No git repositories found",
