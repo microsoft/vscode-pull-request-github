@@ -288,6 +288,7 @@
 	"command.issue.signinAndRefreshList.title": "Sign in and Refresh",
 	"command.issue.goToLinkedCode.title": "Go to Linked Code",
 	"command.issues.openIssuesWebsite.title": "Open on GitHub",
+	"command.issues.configureIssuesViewlet.title": "Configure...",
 	"command.issue.chatSummarizeIssue.title": "Summarize With Copilot",
 	"command.issue.chatSuggestFix.title": "Suggest a Fix with Copilot",
 	"command.notifications.category": "GitHub Notifications",
@@ -301,6 +302,7 @@
 	"command.notifications.markAsDone.title": "Mark as Done",
 	"command.notifications.markPullRequestsAsRead.title": "Mark Pull Requests as Read",
 	"command.notifications.markPullRequestsAsDone.title": "Mark Pull Requests as Done",
+	"command.notifications.configureNotificationsViewlet.title": "Configure...",
 	"command.notification.chatSummarizeNotification.title": "Summarize With Copilot",
 	"welcome.github.login.contents": {
 		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)",

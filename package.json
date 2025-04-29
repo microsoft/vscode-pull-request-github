@@ -1534,6 +1534,12 @@
 				"icon": "$(sparkle)"
 			},
 			{
+				"command": "issues.configureIssuesViewlet",
+				"title": "%command.issues.configureIssuesViewlet.title%",
+				"category": "%command.issues.category%",
+				"icon": "$(gear)"
+			},
+			{
 				"command": "notifications.refresh",
 				"title": "%command.notifications.refresh.title%",
 				"category": "%command.notifications.category%",
@@ -1589,6 +1595,12 @@
 				"title": "%command.notifications.markPullRequestsAsDone.title%",
 				"category": "%command.notifications.category%",
 				"icon": "$(git-pull-request)"
+			},
+			{
+				"command": "notifications.configureNotificationsViewlet",
+				"title": "%command.notifications.configureNotificationsViewlet.title%",
+				"category": "%command.notifications.category%",
+				"icon": "$(gear)"
 			}
 		],
 		"viewsWelcome": [
@@ -2218,6 +2230,10 @@
 					"when": "false"
 				},
 				{
+					"command": "issues.configureIssuesViewlet",
+					"when": "false"
+				},
+				{
 					"command": "pr.refreshActivePullRequest",
 					"when": "false"
 				},
@@ -2283,6 +2299,10 @@
 				},
 				{
 					"command": "notifications.markPullRequestsAsDone",
+					"when": "false"
+				},
+				{
+					"command": "notifications.configureNotificationsViewlet",
 					"when": "false"
 				},
 				{
@@ -2357,7 +2377,7 @@
 					"group": "overflow@1"
 				},
 				{
-					"command": "pr.configurePRViewlet",
+					"command": "issues.configureIssuesViewlet",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == issues:github",
 					"group": "overflow@2"
 				},
@@ -2415,6 +2435,11 @@
 					"command": "notifications.sortByPriority",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
 					"group": "sortNotifications@2"
+				},
+				{
+					"command": "notifications.configureNotificationsViewlet",
+					"when": "view == notifications:github",
+					"group": "sortNotifications@3"
 				},
 				{
 					"command": "notifications.markPullRequestsAsRead",

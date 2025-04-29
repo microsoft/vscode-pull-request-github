@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { Disposable } from '../common/lifecycle';
 import { ITelemetry } from '../common/telemetry';
 import { onceEvent } from '../common/utils';
+import { EXTENSION_ID } from '../constants';
 import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { chatCommand } from '../lm/utils';
@@ -139,6 +140,18 @@ export class NotificationsFeatureRegister extends Disposable {
 				*/
 				this._telemetry.sendTelemetryEvent('notifications.markPullRequestsAsDone');
 				return notificationsManager.markPullRequests(true);
+			})
+		);
+		this._register(
+			vscode.commands.registerCommand('notifications.configureNotificationsViewlet', () => {
+				/* __GDPR__
+					"notifications.configureNotificationsViewlet" : {}
+				*/
+				this._telemetry.sendTelemetryEvent('notifications.configureNotificationsViewlet');
+				return vscode.commands.executeCommand(
+					'workbench.action.openSettings',
+					`@ext:${EXTENSION_ID} notifications`,
+				);
 			})
 		);
 
