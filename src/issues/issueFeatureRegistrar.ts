@@ -21,6 +21,7 @@ import {
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { fromRepoUri, RepoUriParams, Schemes, toNewIssueUri } from '../common/uri';
+import { EXTENSION_ID } from '../constants';
 import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IProject } from '../github/interface';
@@ -523,6 +524,15 @@ export class IssueFeatureRegistrar extends Disposable {
 				commands.executeCommand(chatCommandID, vscode.l10n.t('@githubpr Find a fix for issue {0}/{1}#{2}', issue.remote.owner, issue.remote.repositoryName, issue.number));
 			}),
 		);
+		this._register(vscode.commands.registerCommand('issues.configureIssuesViewlet', async () => {
+			/* __GDPR__
+				"issues.configureIssuesViewlet" : {}
+			*/
+			return vscode.commands.executeCommand(
+				'workbench.action.openSettings',
+				`@ext:${EXTENSION_ID} issues`,
+			);
+		}));
 		this._stateManager.tryInitializeAndWait().then(() => {
 			this.registerCompletionProviders();
 

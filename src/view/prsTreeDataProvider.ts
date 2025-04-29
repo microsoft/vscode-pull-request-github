@@ -73,19 +73,25 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._register(vscode.commands.registerCommand('pr.configurePRViewlet', async () => {
 			const configuration = await vscode.window.showQuickPick([
 				'Configure Remotes...',
-				'Configure Queries...'
+				'Configure Queries...',
+				'Configure All Pull Request Settings...'
 			]);
 
 			switch (configuration) {
 				case 'Configure Queries...':
 					return vscode.commands.executeCommand(
 						'workbench.action.openSettings',
-						`@ext:${EXTENSION_ID} queries`,
+						`@ext:${EXTENSION_ID} pull request queries`,
 					);
 				case 'Configure Remotes...':
 					return vscode.commands.executeCommand(
 						'workbench.action.openSettings',
 						`@ext:${EXTENSION_ID} remotes`,
+					);
+				case 'Configure All Pull Request Settings...':
+					return vscode.commands.executeCommand(
+						'workbench.action.openSettings',
+						`@ext:${EXTENSION_ID} pull request`,
 					);
 				default:
 					return;
