@@ -122,22 +122,22 @@ export class NotificationsFeatureRegister extends Disposable {
 		);
 
 		this._register(
-			vscode.commands.registerCommand('notifications.markMergedPullRequestsAsRead', () => {
+			vscode.commands.registerCommand('notifications.markPullRequestsAsRead', () => {
 				/* __GDPR__
-					"notifications.markMergedPullRequestsAsRead" : {}
+					"notifications.markPullRequestsAsRead" : {}
 				*/
-				this._telemetry.sendTelemetryEvent('notifications.markMergedPullRequestsAsRead');
-				return notificationsManager.markMergedPullRequest();
+				this._telemetry.sendTelemetryEvent('notifications.markPullRequestsAsRead');
+				return notificationsManager.markPullRequests();
 			})
 		);
 
 		this._register(
-			vscode.commands.registerCommand('notifications.markMergedPullRequestsAsDone', () => {
+			vscode.commands.registerCommand('notifications.markPullRequestsAsDone', () => {
 				/* __GDPR__
-					"notifications.markMergedPullRequestsAsDone" : {}
+					"notifications.markPullRequestsAsDone" : {}
 				*/
-				this._telemetry.sendTelemetryEvent('notifications.markMergedPullRequestsAsDone');
-				return notificationsManager.markMergedPullRequest(true);
+				this._telemetry.sendTelemetryEvent('notifications.markPullRequestsAsDone');
+				return notificationsManager.markPullRequests(true);
 			})
 		);
 
