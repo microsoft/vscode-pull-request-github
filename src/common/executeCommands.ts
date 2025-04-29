@@ -19,6 +19,7 @@ export namespace contexts {
 	export const PULL_REQUEST_DESCRIPTION_VISIBLE = 'github:pullRequestDescriptionVisible'; // Boolean indicating if the pull request description is visible
 	export const ACTIVE_COMMENT_HAS_SUGGESTION = 'github:activeCommentHasSuggestion'; // Boolean indicating if the active comment has a suggestion
 	export const CREATING = 'pr:creating';
+	export const NOTIFICATION_COUNT = 'github:notificationCount'; // Number of notifications in the notifications view
 }
 
 export namespace commands {
