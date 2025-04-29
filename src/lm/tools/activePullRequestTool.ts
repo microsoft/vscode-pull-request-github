@@ -38,6 +38,7 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 			title: pullRequest.title,
 			body: pullRequest.body,
 			author: pullRequest.author,
+			assignees: pullRequest.assignees,
 			comments: pullRequest.comments.map(comment => {
 				return {
 					author: comment.user?.login,
