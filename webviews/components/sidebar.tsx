@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { COPILOT_LOGINS } from '../../src/common/copilot';
 import { gitHubLabelColor } from '../../src/common/utils';
 import { IMilestone, IProjectItem, reviewerId } from '../../src/github/interface';
@@ -27,6 +27,8 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 		updatePR,
 		pr,
 	} = useContext(PullRequestContext);
+
+	const [assigningCopilot, setAssigningCopilot] = useState(false);
 
 	const shouldShowCopilotButton = canAssignCopilot && assignees.every(assignee => !COPILOT_LOGINS.includes(assignee.login));
 
@@ -84,9 +86,15 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 									id="assign-copilot-btn"
 									className="icon-button"
 									title="Assign to Copilot"
+									disabled={assigningCopilot}
 									onClick={async () => {
-										const newAssignees = await addAssigneeCopilot();
-										updatePR({ assignees: newAssignees.assignees, events: newAssignees.events });
+										setAssigningCopilot(true);
+										try {
+											const newAssignees = await addAssigneeCopilot();
+											updatePR({ assignees: newAssignees.assignees, events: newAssignees.events });
+										} finally {
+											setAssigningCopilot(false);
+										}
 									}}>
 									{copilotIcon}
 								</button>
