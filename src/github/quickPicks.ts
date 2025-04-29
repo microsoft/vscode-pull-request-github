@@ -393,6 +393,12 @@ export async function getLabelOptions(
 				<rect x="2" y="2" width="12" height="12" rx="6" fill="#${label.color}"/>
 				</svg>`, 'utf8'))
 		};
+	}).sort((a, b) => {
+		// Sort so that already picked labels are at the top
+		if (a.picked === b.picked) {
+			return a.label.localeCompare(b.label);
+		}
+		return a.picked ? -1 : 1;
 	});
 	return { newLabels, labelPicks };
 }
