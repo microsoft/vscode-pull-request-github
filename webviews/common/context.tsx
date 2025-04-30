@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createContext } from 'react';
+import { CloseResult } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, ReadyForReview, ReviewState } from '../../src/github/interface';
@@ -136,12 +137,18 @@ export class PRContext {
 
 	public close = async (body?: string) => {
 		try {
-			const result = await this.postMessage({ command: 'pr.close', args: body });
-			const newComment = result.value;
-			newComment.event = EventType.Commented;
+			const result: CloseResult = await this.postMessage({ command: 'pr.close', args: body });
+			let events: TimelineEvent[] = [...this.pr.events];
+			if (result.commentEvent) {
+				events.push(result.commentEvent);
+			}
+			if (result.closeEvent) {
+				events.push(result.closeEvent);
+			}
 			this.updatePR({
-				events: [...this.pr.events, newComment],
+				events,
 				pendingCommentText: '',
+				state: result.state
 			});
 		} catch (_) {
 			// Ignore

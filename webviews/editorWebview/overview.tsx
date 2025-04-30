@@ -57,7 +57,7 @@ const Main = (pr: PullRequest) => (
 		<div id="description">
 			<CommentView isPRDescription comment={pr} />
 		</div>
-		<Timeline events={pr.events} />
+		<Timeline events={pr.events} isIssue={pr.isIssue} />
 		<StatusChecksSection pr={pr} isSimple={false} />
 		<AddComment {...pr} />
 	</div>

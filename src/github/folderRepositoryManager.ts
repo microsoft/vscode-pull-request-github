@@ -1154,7 +1154,7 @@ export class FolderRepositoryManager extends Disposable {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, this.id);
 			const { octokit, query, schema } = await githubRepository.ensure();
 
-			const user = await githubRepository.getAuthenticatedUser();
+			const user = (await githubRepository.getAuthenticatedUser()).login;
 			// Search api will not try to resolve repo that redirects, so get full name first
 			repo = await githubRepository.getMetadata();
 			const { data, headers } = await octokit.call(octokit.api.search.issuesAndPullRequests, {

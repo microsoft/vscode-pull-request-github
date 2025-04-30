@@ -47,6 +47,20 @@ export interface CrossReferencedEvent {
 	willCloseTarget: boolean;
 }
 
+export interface ClosedEvent {
+	__typename: string;
+	id: string;
+	actor: Actor;
+	createdAt: string;
+}
+
+export interface ReopenedEvent {
+	__typename: string;
+	id: string;
+	actor: Actor;
+	createdAt: string;
+}
+
 export interface AbbreviatedIssueComment {
 	author: Account;
 	body: string;

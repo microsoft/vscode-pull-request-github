@@ -9,7 +9,6 @@ import * as vscode from 'vscode';
 import { Repository } from './api/api';
 import { GitErrorCodes } from './api/api1';
 import { CommentReply, findActiveHandler, resolveCommentHandler } from './commentHandlerResolver';
-import { IComment } from './common/comment';
 import { commands } from './common/executeCommands';
 import Logger from './common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
@@ -19,7 +18,7 @@ import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
-import { Issue, PullRequest } from './github/interface';
+import { Issue } from './github/interface';
 import { IssueModel } from './github/issueModel';
 import { IssueOverviewPanel } from './github/issueOverview';
 import { NotificationProvider } from './github/notifications';
@@ -44,9 +43,6 @@ import {
 } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { RepositoryChangesNode } from './view/treeNodes/repositoryChangesNode';
-
-const _onDidUpdatePR = new vscode.EventEmitter<PullRequest | void>();
-export const onDidUpdatePR: vscode.Event<PullRequest | void> = _onDidUpdatePR.event;
 
 function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode): PullRequestModel;
 function ensurePR<TIssue extends Issue, TIssueModel extends IssueModel<TIssue>>(folderRepoManager: FolderRepositoryManager, pr?: TIssueModel): TIssueModel;
@@ -744,56 +740,6 @@ export function registerCommands(
 							return isDraft;
 						}
 					}
-				});
-		}),
-	);
-
-	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.close', async (pr?: PRNode | PullRequestModel, message?: string) => {
-			let pullRequestModel: PullRequestModel | undefined;
-			if (pr) {
-				pullRequestModel = pr instanceof PullRequestModel ? pr : pr.pullRequestModel;
-			} else {
-				const activePullRequests: PullRequestModel[] = reposManager.folderManagers
-					.map(folderManager => folderManager.activePullRequest!)
-					.filter(activePR => !!activePR);
-				pullRequestModel = await chooseItem<PullRequestModel>(
-					activePullRequests,
-					itemValue => `${itemValue.number}: ${itemValue.title}`,
-					{ placeHolder: vscode.l10n.t('Pull request to close') },
-				);
-			}
-			if (!pullRequestModel) {
-				return;
-			}
-			const pullRequest: PullRequestModel = pullRequestModel;
-			const yes = vscode.l10n.t('Yes');
-			return vscode.window
-				.showWarningMessage(
-					vscode.l10n.t('Are you sure you want to close this pull request on GitHub? This will close the pull request without merging.'),
-					{ modal: true },
-					yes,
-					vscode.l10n.t('No'),
-				)
-				.then(async value => {
-					if (value === yes) {
-						try {
-							let newComment: IComment | undefined = undefined;
-							if (message) {
-								newComment = await pullRequest.createIssueComment(message);
-							}
-
-							const newPR = await pullRequest.close();
-							vscode.commands.executeCommand('pr.refreshList');
-							_onDidUpdatePR.fire(newPR);
-							return newComment;
-						} catch (e) {
-							vscode.window.showErrorMessage(`Unable to close pull request. ${formatError(e)}`);
-							_onDidUpdatePR.fire();
-						}
-					}
-
-					_onDidUpdatePR.fire();
 				});
 		}),
 	);

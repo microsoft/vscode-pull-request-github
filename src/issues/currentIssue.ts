@@ -150,7 +150,7 @@ export class CurrentIssue extends Disposable {
 
 	private async getUser(): Promise<string> {
 		if (!this.user) {
-			this.user = await this.issueModel.githubRepository.getAuthenticatedUser();
+			this.user = (await this.issueModel.githubRepository.getAuthenticatedUser()).login;
 		}
 		return this.user;
 	}
