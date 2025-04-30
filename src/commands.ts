@@ -1280,7 +1280,10 @@ ${contents}
 		vscode.commands.registerCommand('pr.refreshChanges', _ => {
 			reviewsManager.reviewManagers.forEach(reviewManager => {
 				vscode.window.withProgress({ location: { viewId: 'prStatus:github' } }, async () => {
-					await reviewManager.updateComments();
+					await Promise.all([
+						reviewManager.repository.pull(false),
+						reviewManager.updateComments()
+					]);
 					PullRequestOverviewPanel.refresh();
 					reviewManager.changesInPrDataProvider.refresh();
 				});
