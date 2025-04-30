@@ -13,6 +13,7 @@ import { IComment } from './common/comment';
 import { commands } from './common/executeCommands';
 import Logger from './common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
+import { editQuery } from './common/settingsUtils';
 import { ITelemetry } from './common/telemetry';
 import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes, toPRUri } from './common/uri';
 import { formatError } from './common/utils';
@@ -1151,7 +1152,10 @@ ${contents}
 			"pr.editQuery" : {}
 		*/
 			telemetry.sendTelemetryEvent('pr.editQuery');
-			return query.editQuery();
+			if (query.label === undefined) {
+				return;
+			}
+			return editQuery(PR_SETTINGS_NAMESPACE, query.label);
 		}),
 	);
 

@@ -16,9 +16,9 @@ import {
 	ENABLED,
 	ISSUE_COMPLETIONS,
 	ISSUES_SETTINGS_NAMESPACE,
-	QUERIES,
 	USER_COMPLETIONS,
 } from '../common/settingKeys';
+import { editQuery } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
 import { fromRepoUri, RepoUriParams, Schemes, toNewIssueUri } from '../common/uri';
 import { EXTENSION_ID } from '../constants';
@@ -434,7 +434,7 @@ export class IssueFeatureRegistrar extends Disposable {
 				"issue.editQuery" : {}
 			*/
 					this.telemetry.sendTelemetryEvent('issue.editQuery');
-					return this.editQuery(query);
+					return editQuery(ISSUES_SETTINGS_NAMESPACE, query.queryLabel);
 				},
 				this,
 			),
@@ -733,32 +733,6 @@ export class IssueFeatureRegistrar extends Disposable {
 			await vscode.window.activeTextEditor.document.save();
 			await vscode.window.tabGroups.close(vscode.window.tabGroups.activeTabGroup.activeTab);
 			this._newIssueCache.clear();
-		}
-	}
-
-	async editQuery(query: QueryNode) {
-		const config = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE, null);
-		const inspect = config.inspect<{ label: string; query: string }[]>(QUERIES);
-		let command: string;
-		if (inspect?.workspaceValue) {
-			command = 'workbench.action.openWorkspaceSettingsFile';
-		} else {
-			const value = config.get<{ label: string; query: string }[]>(QUERIES);
-			if (inspect?.defaultValue && JSON.stringify(inspect?.defaultValue) === JSON.stringify(value)) {
-				config.update(QUERIES, inspect.defaultValue, vscode.ConfigurationTarget.Global);
-			}
-			command = 'workbench.action.openSettingsJson';
-		}
-		await vscode.commands.executeCommand(command);
-		const editor = vscode.window.activeTextEditor;
-		if (editor) {
-			const text = editor.document.getText();
-			const search = text.search(query.queryLabel);
-			if (search >= 0) {
-				const position = editor.document.positionAt(search);
-				editor.revealRange(new vscode.Range(position, position));
-				editor.selection = new vscode.Selection(position, position);
-			}
 		}
 	}
 
