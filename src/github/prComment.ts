@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { IComment } from '../common/comment';
+import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
@@ -435,7 +435,8 @@ ${lineContents}
 				|| ((documentLanguage === 'php') && PHPDOC_NON_USERS.includes(username))) {
 				return substring;
 			}
-			return `${substring.startsWith('@') ? '' : substring.charAt(0)}[@${username}](${path.dirname(this.rawComment.user!.url)}/${username})`;
+			const url = COPILOT_ACCOUNTS[username]?.url ?? `${path.dirname(this.rawComment.user!.url)}/${username}`;
+			return `${substring.startsWith('@') ? '' : substring.charAt(0)}[@${username}](${url})`;
 		});
 
 		const permalinkReplaced = await this.replacePermalink(linkified);

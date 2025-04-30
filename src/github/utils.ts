@@ -584,19 +584,20 @@ function parseRef(refName: string, oid: string, repository?: GraphQL.RefReposito
 }
 
 export function parseAccount(
-	author: { login: string; url: string; avatarUrl: string; email?: string, id: string, name?: string, __typename: string } | { login: string; url: string; avatar_url: string; email?: string | null, node_id: string, name?: string | null, type: string } | null,
+	author: { login: string; url: string; avatarUrl: string; email?: string, id: string, name?: string, __typename: string } | { login: string; html_url: string; avatar_url: string; email?: string | null, node_id: string, name?: string | null, type: string } | null,
 	githubRepository?: GitHubRepository,
 ): IAccount {
 	if (author) {
 		const avatarUrl = 'avatarUrl' in author ? author.avatarUrl : author.avatar_url;
 		const id = 'node_id' in author ? author.node_id : author.id;
+		const url = 'html_url' in author ? author.html_url : author.url;
 		// In some places, Copilot comes in as a user, and in others as a bot
 		return {
 			login: author.login,
-			url: author.url,
+			url,
 			avatarUrl: githubRepository ? getAvatarWithEnterpriseFallback(avatarUrl, undefined, githubRepository.remote.isEnterprise) : avatarUrl,
 			email: author.email ?? undefined,
-			id: id,
+			id,
 			name: author.name ?? COPILOT_ACCOUNTS[author.login]?.name ?? undefined,
 			specialDisplayName: COPILOT_ACCOUNTS[author.login] ? (author.name ?? COPILOT_ACCOUNTS[author.login].name) : undefined,
 			accountType: toAccountType('__typename' in author ? author.__typename : author.type),
