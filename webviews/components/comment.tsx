@@ -86,7 +86,7 @@ export function CommentView(commentProps: Props) {
 			onMouseLeave={() => setShowActionBar(false)}
 			onFocus={() => setShowActionBar(true)}
 		>
-			{ariaAnnouncement ? <div role='alert' aria-label={ariaAnnouncement}/> : null}
+			{ariaAnnouncement ? <div role='alert' aria-label={ariaAnnouncement} /> : null}
 			<div className="action-bar comment-actions" style={{ display: showActionBar ? 'flex' : 'none' }}>
 				<button
 					title="Quote reply"
@@ -290,8 +290,45 @@ export const CommentBody = ({ comment, bodyHTML, body, canApplyPatch, allowEmpty
 		<div className="comment-body">
 			{renderedBody}
 			{applyPatchButton}
-			{specialDisplayBodyPostfix ? <br/> : null}
+			{specialDisplayBodyPostfix ? <br /> : null}
 			{specialDisplayBodyPostfix ? <em>{specialDisplayBodyPostfix}</em> : null}
+			<CommentReactions reactions={comment?.reactions} />
+		</div>
+	);
+};
+
+type CommentReactionsProps = {
+	reactions?: { label: string; count: number; reactors: readonly string[] }[];
+};
+
+const CommentReactions = ({ reactions }: CommentReactionsProps) => {
+	if (!Array.isArray(reactions) || reactions.length === 0) return null;
+	const filtered = reactions.filter(r => r.count > 0);
+	if (filtered.length === 0) return null;
+	return (
+		<div className="comment-reactions" style={{ marginTop: 6 }}>
+			{filtered.map((reaction, idx) => {
+				const maxReactors = 10;
+				const reactors = reaction.reactors || [];
+				const displayReactors = reactors.slice(0, maxReactors);
+				const moreCount = reactors.length > maxReactors ? reactors.length - maxReactors : 0;
+				let title: string = '';
+				if (displayReactors.length > 0) {
+					if (moreCount > 0) {
+						title = `${joinWithAnd(displayReactors)} and ${moreCount} more reacted with ${reaction.label}`;
+					} else {
+						title = `${joinWithAnd(displayReactors)} reacted with ${reaction.label}`;
+					}
+				}
+				return (
+					<div
+						key={reaction.label + idx}
+						title={title}
+					>
+						<span className="reaction-label">{reaction.label}</span>{nbsp}{reaction.count > 1 ? <span className="reaction-count">{reaction.count}</span> : null}
+					</div>
+				);
+			})}
 		</div>
 	);
 };
@@ -302,7 +339,6 @@ export function AddComment({
 	hasWritePermission,
 	isIssue,
 	isAuthor,
-	isDraft,
 	continueOnGitHub,
 	currentUserReviewState,
 	lastReviewType,
@@ -468,7 +504,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 	const { updatePR, requestChanges, approve, submit, openOnGitHub } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>();
-	let currentSelection: ReviewType = pr.lastReviewType ?? (pr.currentUserReviewState === 'APPROVED' ? ReviewType.Approve : (pr.currentUserReviewState === 'CHANGES_REQUESTED' ? ReviewType.RequestChanges: ReviewType.Comment));
+	let currentSelection: ReviewType = pr.lastReviewType ?? (pr.currentUserReviewState === 'APPROVED' ? ReviewType.Approve : (pr.currentUserReviewState === 'CHANGES_REQUESTED' ? ReviewType.RequestChanges : ReviewType.Comment));
 
 	async function submitAction(action: ReviewType): Promise<void> {
 		const { value } = textareaRef.current!;
@@ -558,3 +594,10 @@ export const AddCommentSimple = (pr: PullRequest) => {
 		</span>
 	);
 };
+
+function joinWithAnd(arr: string[]): string {
+	if (arr.length === 0) return '';
+	if (arr.length === 1) return arr[0];
+	if (arr.length === 2) return `${arr[0]} and ${arr[1]}`;
+	return `${arr.slice(0, -1).join(', ')} and ${arr[arr.length - 1]}`;
+}

@@ -81,6 +81,23 @@ span.lineContent {
 	overflow-wrap: anywhere;
 }
 
+.comment-reactions {
+	display: flex;
+	flex-direction: row;
+}
+
+.comment-reactions div {
+	font-size: 1.1em;
+	cursor: pointer;
+	user-select: none;
+}
+
+.comment-reactions .reaction-label {
+	border-radius: 5px;
+	border: 1px solid var(--vscode-panel-border);
+	width: 14px;
+}
+
 #title:empty {
 	border: none;
 }

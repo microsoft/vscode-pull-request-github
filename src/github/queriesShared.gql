@@ -190,6 +190,9 @@ fragment Reactable on Reactable {
 				... on User {
 					login
 				}
+				... on Actor {
+					login
+				}
 			}
 			totalCount
 		}
