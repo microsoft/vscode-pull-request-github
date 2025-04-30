@@ -169,7 +169,7 @@ export class TemporaryComment extends CommentBase {
 		super(parent);
 		this.mode = vscode.CommentMode.Preview;
 		this.originalAuthor = {
-			name: currentUser.login,
+			name: currentUser.specialDisplayName ?? currentUser.login,
 			iconPath: currentUser.avatarUrl ? vscode.Uri.parse(`${currentUser.avatarUrl}&s=64`) : undefined,
 		};
 		this.label = isDraft ? vscode.l10n.t('Pending') : undefined;
@@ -226,7 +226,7 @@ export class GHPRComment extends CommentBase {
 		super(parent);
 		this.rawComment = comment;
 		this.originalAuthor = {
-			name: comment.user!.login,
+			name: comment.user?.specialDisplayName ?? comment.user!.login,
 			iconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined,
 		};
 

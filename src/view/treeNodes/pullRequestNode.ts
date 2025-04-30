@@ -264,7 +264,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 
 		const { title, number, author, isDraft, html_url } = this.pullRequestModel;
 		const labelTitle = this.pullRequestModel.title.length > 50 ? `${this.pullRequestModel.title.substring(0, 50)}...` : this.pullRequestModel.title;
-		const { login } = author;
+		const login = author.specialDisplayName ?? author.login;
 
 		const hasNotification = this._notificationProvider.hasNotification(this.pullRequestModel);
 
