@@ -556,7 +556,7 @@ export function parseGraphQLReaction(reactionGroups: GraphQL.ReactionGroup[]): R
 				count: group.reactors.totalCount,
 				icon: reactionContentEmojiMapping[group.content].icon,
 				viewerHasReacted: group.viewerHasReacted,
-				reactors: group.reactors.nodes.map(node => COPILOT_ACCOUNTS[node.login].name ?? node.login)
+				reactors: group.reactors.nodes.map(node => COPILOT_ACCOUNTS[node.login]?.name ?? node.login)
 			};
 
 			return reaction;
