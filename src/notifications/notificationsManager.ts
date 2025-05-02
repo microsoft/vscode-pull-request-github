@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { toNotificationUri } from '../common/uri';
@@ -172,6 +173,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		}
 
 		const notifications = Array.from(this._notifications.values());
+		this._updateContext();
 		this._onDidChangeNotifications.fire(notifications);
 
 		return {
@@ -179,6 +181,12 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 			hasNextPage: this._hasNextPage
 		};
 	}
+
+	private _updateContext(): void {
+		const notificationCount = this._notifications.size;
+		commands.setContext(contexts.NOTIFICATION_COUNT, notificationCount === 0 ? -1 : notificationCount);
+	}
+
 
 	public getNotification(key: string): NotificationTreeItem | undefined {
 		return this._notifications.get(key);
@@ -218,6 +226,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 
 			this._onDidChangeNotifications.fire([notification]);
 			this._notifications.delete(notificationIdentifier.notificationKey);
+			this._updateContext();
 
 			this._refresh(false);
 		}
@@ -230,6 +239,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 
 			this._onDidChangeNotifications.fire([notification]);
 			this._notifications.delete(notificationIdentifier.notificationKey);
+			this._updateContext();
 
 			this._refresh(false);
 		}

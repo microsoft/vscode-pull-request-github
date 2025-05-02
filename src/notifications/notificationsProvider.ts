@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
-import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import { EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { OctokitCommon } from '../github/common';
@@ -102,7 +101,6 @@ export class NotificationsProvider extends Disposable {
 			.map((notification: OctokitCommon.Notification) => parseNotification(notification))
 			.filter(notification => !!notification) as Notification[];
 
-		commands.setContext(contexts.NOTIFICATION_COUNT, notifications.length);
 		return { notifications, hasNextPage: headers.link?.includes(`rel="next"`) === true };
 	}
 
