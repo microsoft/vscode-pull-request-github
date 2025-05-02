@@ -20,7 +20,6 @@ import { GitHubRemote, parseRemote, parseRepositoryRemotes, Remote } from '../co
 import {
 	ALLOW_FETCH,
 	AUTO_STASH,
-	DEFAULT_MERGE_METHOD,
 	GIT,
 	PR_SETTINGS_NAMESPACE,
 	PULL_BEFORE_CHECKOUT,
@@ -29,7 +28,7 @@ import {
 	UPSTREAM_REMOTE,
 } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { EventType, TimelineEvent } from '../common/timelineEvent';
+import { EventType } from '../common/timelineEvent';
 import { Schemes } from '../common/uri';
 import { batchPromiseAll, compareIgnoreCase, formatError, Predicate } from '../common/utils';
 import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
@@ -41,8 +40,8 @@ import { ConflictModel } from './conflictGuide';
 import { ConflictResolutionCoordinator } from './conflictResolutionCoordinator';
 import { Conflict, ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
-import { GitHubRepository, GraphQLError, GraphQLErrorType, IMetadata, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
-import { MergeMethod as GraphQLMergeMethod, MergePullRequestInput, MergePullRequestResponse, PullRequestResponse, PullRequestState, UserResponse } from './graphql';
+import { GitHubRepository, IMetadata, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
+import { PullRequestResponse, PullRequestState, UserResponse } from './graphql';
 import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
@@ -54,7 +53,6 @@ import {
 	getPRFetchQuery,
 	loginComparator,
 	parseGraphQLPullRequest,
-	parseGraphQLTimelineEvents,
 	parseGraphQLUser,
 	teamComparator,
 	variableSubstitution,
@@ -1655,93 +1653,93 @@ export class FolderRepositoryManager extends Disposable {
 		description?: string,
 		method?: 'merge' | 'squash' | 'rebase',
 		email?: string,
-	): Promise<{ merged: boolean, message: string, timeline?: TimelineEvent[] }> {
+	): Promise<void> {
 		Logger.debug(`Merging PR: ${pullRequest.number} method: ${method} for user: "${email}" - enter`, this.id);
-		const { mutate, schema } = await pullRequest.githubRepository.ensure();
+		// const { mutate, schema } = await pullRequest.githubRepository.ensure();
 
-		const activePRSHA = this.activePullRequest && this.activePullRequest.head && this.activePullRequest.head.sha;
-		const workingDirectorySHA = this.repository.state.HEAD && this.repository.state.HEAD.commit;
-		const mergingPRSHA = pullRequest.head && pullRequest.head.sha;
-		const workingDirectoryIsDirty = this.repository.state.workingTreeChanges.length > 0;
-		let expectedHeadOid: string | undefined = pullRequest.head?.sha;
+		// const activePRSHA = this.activePullRequest && this.activePullRequest.head && this.activePullRequest.head.sha;
+		// const workingDirectorySHA = this.repository.state.HEAD && this.repository.state.HEAD.commit;
+		// const mergingPRSHA = pullRequest.head && pullRequest.head.sha;
+		// const workingDirectoryIsDirty = this.repository.state.workingTreeChanges.length > 0;
+		// let expectedHeadOid: string | undefined = pullRequest.head?.sha;
 
-		if (activePRSHA === mergingPRSHA) {
-			// We're on the branch of the pr being merged.
-			expectedHeadOid = workingDirectorySHA;
-			if (workingDirectorySHA !== mergingPRSHA) {
-				// We are looking at different commit than what will be merged
-				const { ahead } = this.repository.state.HEAD!;
-				const pluralMessage = vscode.l10n.t('You have {0} unpushed commits on this PR branch.\n\nWould you like to proceed anyway?', ahead ?? 'unknown');
-				const singularMessage = vscode.l10n.t('You have 1 unpushed commit on this PR branch.\n\nWould you like to proceed anyway?');
-				if (ahead &&
-					(await vscode.window.showWarningMessage(
-						ahead > 1 ? pluralMessage : singularMessage,
-						{ modal: true },
-						vscode.l10n.t('Yes'),
-					)) === undefined) {
+		// if (activePRSHA === mergingPRSHA) {
+		// 	// We're on the branch of the pr being merged.
+		// 	expectedHeadOid = workingDirectorySHA;
+		// 	if (workingDirectorySHA !== mergingPRSHA) {
+		// 		// We are looking at different commit than what will be merged
+		// 		const { ahead } = this.repository.state.HEAD!;
+		// 		const pluralMessage = vscode.l10n.t('You have {0} unpushed commits on this PR branch.\n\nWould you like to proceed anyway?', ahead ?? 'unknown');
+		// 		const singularMessage = vscode.l10n.t('You have 1 unpushed commit on this PR branch.\n\nWould you like to proceed anyway?');
+		// 		if (ahead &&
+		// 			(await vscode.window.showWarningMessage(
+		// 				ahead > 1 ? pluralMessage : singularMessage,
+		// 				{ modal: true },
+		// 				vscode.l10n.t('Yes'),
+		// 			)) === undefined) {
 
-					return {
-						merged: false,
-						message: vscode.l10n.t('unpushed changes'),
-					};
-				}
-			}
+		// 			return {
+		// 				merged: false,
+		// 				message: vscode.l10n.t('unpushed changes'),
+		// 			};
+		// 		}
+		// 	}
 
-			if (workingDirectoryIsDirty) {
-				// We have made changes to the PR that are not committed
-				if (
-					(await vscode.window.showWarningMessage(
-						vscode.l10n.t('You have uncommitted changes on this PR branch.\n\n Would you like to proceed anyway?'),
-						{ modal: true },
-						vscode.l10n.t('Yes'),
-					)) === undefined
-				) {
-					return {
-						merged: false,
-						message: vscode.l10n.t('uncommitted changes'),
-					};
-				}
-			}
-		}
-		const input: MergePullRequestInput = {
-			pullRequestId: pullRequest.graphNodeId,
-			commitHeadline: title,
-			commitBody: description,
-			expectedHeadOid,
-			authorEmail: email,
-			mergeMethod:
-				(method?.toUpperCase() ??
-					vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'merge' | 'squash' | 'rebase'>(DEFAULT_MERGE_METHOD, 'merge')?.toUpperCase()) as GraphQLMergeMethod,
-		};
+		// 	if (workingDirectoryIsDirty) {
+		// 		// We have made changes to the PR that are not committed
+		// 		if (
+		// 			(await vscode.window.showWarningMessage(
+		// 				vscode.l10n.t('You have uncommitted changes on this PR branch.\n\n Would you like to proceed anyway?'),
+		// 				{ modal: true },
+		// 				vscode.l10n.t('Yes'),
+		// 			)) === undefined
+		// 		) {
+		// 			return {
+		// 				merged: false,
+		// 				message: vscode.l10n.t('uncommitted changes'),
+		// 			};
+		// 		}
+		// 	}
+		// }
+		// const input: MergePullRequestInput = {
+		// 	pullRequestId: pullRequest.graphNodeId,
+		// 	commitHeadline: title,
+		// 	commitBody: description,
+		// 	expectedHeadOid,
+		// 	authorEmail: email,
+		// 	mergeMethod:
+		// 		(method?.toUpperCase() ??
+		// 			vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'merge' | 'squash' | 'rebase'>(DEFAULT_MERGE_METHOD, 'merge')?.toUpperCase()) as GraphQLMergeMethod,
+		// };
 
-		return mutate<MergePullRequestResponse>({
-			mutation: schema.MergePullRequest,
-			variables: {
-				input
-			}
-		})
-			.then(result => {
-				Logger.debug(`Merging PR: ${pullRequest.number}} - done`, this.id);
+		// return mutate<MergePullRequestResponse>({
+		// 	mutation: schema.MergePullRequest,
+		// 	variables: {
+		// 		input
+		// 	}
+		// })
+		// 	.then(result => {
+		// 		Logger.debug(`Merging PR: ${pullRequest.number}} - done`, this.id);
 
-				/* __GDPR__
-					"pr.merge.success" : {}
-				*/
-				this.telemetry.sendTelemetryEvent('pr.merge.success');
-				this._onDidMergePullRequest.fire();
-				return { merged: true, message: '', timeline: parseGraphQLTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], pullRequest.githubRepository) };
-			})
-			.catch(e => {
-				/* __GDPR__
-					"pr.merge.failure" : {}
-				*/
-				this.telemetry.sendTelemetryErrorEvent('pr.merge.failure');
-				const graphQLErrors = e.graphQLErrors as GraphQLError[] | undefined;
-				if (graphQLErrors?.length && graphQLErrors.find(error => error.type === GraphQLErrorType.Unprocessable && error.message?.includes('Head branch was modified'))) {
-					return { merged: false, message: vscode.l10n.t('Head branch was modified. Pull, review, then try again.') };
-				} else {
-					throw e;
-				}
-			});
+		// 		/* __GDPR__
+		// 			"pr.merge.success" : {}
+		// 		*/
+		// 		this.telemetry.sendTelemetryEvent('pr.merge.success');
+		// 		this._onDidMergePullRequest.fire();
+		// 		return { merged: true, message: '', timeline: parseGraphQLTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], pullRequest.githubRepository) };
+		// 	})
+		// 	.catch(e => {
+		// 		/* __GDPR__
+		// 			"pr.merge.failure" : {}
+		// 		*/
+		// 		this.telemetry.sendTelemetryErrorEvent('pr.merge.failure');
+		// 		const graphQLErrors = e.graphQLErrors as GraphQLError[] | undefined;
+		// 		if (graphQLErrors?.length && graphQLErrors.find(error => error.type === GraphQLErrorType.Unprocessable && error.message?.includes('Head branch was modified'))) {
+		// 			return { merged: false, message: vscode.l10n.t('Head branch was modified. Pull, review, then try again.') };
+		// 		} else {
+		// 			throw e;
+		// 		}
+		// 	});
 	}
 
 	async deleteBranch(pullRequest: PullRequestModel) {

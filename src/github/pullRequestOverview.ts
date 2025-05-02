@@ -33,7 +33,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
-import { MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
+import { MergeArguments, PullRequest, ReviewType } from './views';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static override ID: string = 'PullRequestOverviewPanel';
@@ -494,20 +494,20 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		const { title, description, method, email } = message.args;
 		this._folderRepositoryManager
 			.mergePullRequest(this._item, title, description, method, email)
-			.then(result => {
-				vscode.commands.executeCommand('pr.refreshList');
+			// .then(result => {
+			// 	vscode.commands.executeCommand('pr.refreshList');
 
-				if (!result.merged) {
-					vscode.window.showErrorMessage(`Merging PR failed: ${result.message}`);
-				}
+			// 	if (!result.merged) {
+			// 		vscode.window.showErrorMessage(`Merging PR failed: ${result.message}`);
+			// 	}
 
-				const mergeResult: MergeResult = {
-					state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
-					revertable: result.merged,
-					events: result.timeline
-				};
-				this._replyMessage(message, mergeResult);
-			})
+			// 	const mergeResult: MergeResult = {
+			// 		state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
+			// 		revertable: result.merged,
+			// 		events: result.timeline
+			// 	};
+			// 	this._replyMessage(message, mergeResult);
+			// })
 			.catch(e => {
 				vscode.window.showErrorMessage(`Unable to merge pull request. ${formatError(e)}`);
 				this._throwError(message, {});

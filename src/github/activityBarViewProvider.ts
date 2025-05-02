@@ -478,17 +478,17 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 
 		this._folderRepositoryManager
 			.mergePullRequest(this._item, title, description, method, email)
-			.then(result => {
-				vscode.commands.executeCommand('pr.refreshList');
+			// .then(result => {
+			// 	vscode.commands.executeCommand('pr.refreshList');
 
-				if (!result.merged) {
-					vscode.window.showErrorMessage(vscode.l10n.t('Merging PR failed: {0}', result?.message ?? ''));
-				}
+			// 	if (!result.merged) {
+			// 		vscode.window.showErrorMessage(vscode.l10n.t('Merging PR failed: {0}', result?.message ?? ''));
+			// 	}
 
-				this._replyMessage(message, {
-					state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
-				});
-			})
+			// 	this._replyMessage(message, {
+			// 		state: result.merged ? GithubItemStateEnum.Merged : GithubItemStateEnum.Open,
+			// 	});
+			// })
 			.catch(e => {
 				vscode.window.showErrorMessage(vscode.l10n.t('Unable to merge pull request. {0}', formatError(e)));
 				this._throwError(message, {});
