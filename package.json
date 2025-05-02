@@ -1696,7 +1696,7 @@
 			},
 			{
 				"view": "notifications:github",
-				"when": "ReposManagerStateContext == RepositoriesLoaded && github:notificationCount == 0",
+				"when": "ReposManagerStateContext == RepositoriesLoaded && github:notificationCount == -1",
 				"contents": "%welcome.github.notifications.contents%"
 			}
 		],
