@@ -165,7 +165,7 @@ export class StateManager {
 						await that.setCurrentIssueFromBranch(state, newBranch, true);
 					}
 				} else {
-					await that.setCurrentIssue(state, undefined, true);
+					await that.setCurrentIssue(state, undefined, !!newBranch);
 				}
 			}
 			state.lastHead = repository.state.HEAD ? repository.state.HEAD.commit : undefined;
