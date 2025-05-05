@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.110.0
+
+### Changes
+
+- In preparation for the release of [Project Padawan](https://github.blog/news-insights/product-news/github-copilot-the-agent-awakens/), we added support for assigning to Copilot in the issue webview and @-mentioning Copilot in comments within files.
+- There's a new tool and context available in Copilot chat: `#activePullRequest`. This tool gives Copilot chat information about the pull request you have currently open in a webview (or checked out if no webview is open).
+
+![Ask Copilot to address the comments in the active pull request](./documentation/changelog/0.110.0/copilot-address-comments.png)
+
+- The issue webview will show when an issue is opened from the "Issues" view or from the notifications view.
+
+![Issue webview](./documentation/changelog/0.110.0/issue-webview.png)
+
+- We revisited the top level actions in the Notifications view to make it cleaner, and aligned the display of the Pull Requests view and the Issues view so that they're more consistent.
+
+- There's a new warning before you try to create a pull request when there's already a pull request open for the same branch.
+
+![Warning shown when there's already a pull request for a branch](./documentation/changelog/0.110.0/already-pr-branch.png)
+
+- Pull Request webviews and issue webviews are refreshed every 60 seconds when they are the active tab.
+- The default action when adding a comment in a file is now to start a review rather than submit a single comment.
+- There's a new action on the Notifications view to mark all pull request notifications with "trivial" updates as done. Enable the action with `githubPullRequests.experimental.notificationsMarkPullRequests`.
+- Comment reactions are shown as readonly in the pull request webview (previously not shown at all).
+
+### Fixes
+
+- Extension fails to detect PR branch when using gh co <PR>. https://github.com/microsoft/vscode-pull-request-github/issues/6378
+- Extension fails to detect PR branch when using gh co <PR> - v0.109.2025040408. https://github.com/microsoft/vscode-pull-request-github/issues/6761
+- Element with id All Openhttps://github.com/microsoft/vscode/pull/238345 is already registered. https://github.com/microsoft/vscode-pull-request-github/issues/6615
+- Creating a new issue with keyboard only is disrupted by system dialog. https://github.com/microsoft/vscode-pull-request-github/issues/6666
+- GraphQL error invalid email address when merging PRs. https://github.com/microsoft/vscode-pull-request-github/issues/6696
+- Usability of PR Summarization in Chat. https://github.com/microsoft/vscode-pull-request-github/issues/6698
+- deleting branch after squashing PR not working anymore since vscode 1.98.0. https://github.com/microsoft/vscode-pull-request-github/issues/6699
+- Comments sometimes not resolvable. https://github.com/microsoft/vscode-pull-request-github/issues/6702
+- Can't search for full name when assigning issues. https://github.com/microsoft/vscode-pull-request-github/issues/6748
+- removed request for code owners. https://github.com/microsoft/vscode-pull-request-github/issues/6788
+
+**_Thank You_**
+
+* [@kabel (Kevin Abel)](https://github.com/kabel): Fix merge email confirmation when git config fails [PR #6797](https://github.com/microsoft/vscode-pull-request-github/pull/6797)
+* [@timrogers (Tim Rogers)](https://github.com/timrogers): When `copilot-swe-agent` is the author of a comment, render with the Copilot identity [PR #6794](https://github.com/microsoft/vscode-pull-request-github/pull/6794)
+
 ## 0.108.0
 
 ### Changes
