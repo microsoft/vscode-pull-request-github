@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Reaction } from '../common/comment';
 import { TimelineEvent } from '../common/timelineEvent';
 import {
 	GithubItemStateEnum,
@@ -57,6 +58,7 @@ export interface Issue {
 	isDarkTheme: boolean;
 	isEnterprise: boolean;
 	canAssignCopilot: boolean;
+	reactions: Reaction[];
 	busy?: boolean;
 }
 

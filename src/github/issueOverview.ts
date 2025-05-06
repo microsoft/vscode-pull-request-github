@@ -175,7 +175,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			assignees: issue.assignees ?? [],
 			isEnterprise: issue.githubRepository.remote.isEnterprise,
 			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
-			canAssignCopilot: assignableUsers.find(user => COPILOT_ACCOUNTS[user.login]) !== undefined
+			canAssignCopilot: assignableUsers.find(user => COPILOT_ACCOUNTS[user.login]) !== undefined,
+			reactions: issue.item.reactions
 		};
 
 		return context;

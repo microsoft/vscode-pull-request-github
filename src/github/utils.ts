@@ -355,6 +355,7 @@ export function convertRESTPullRequestToRawPullRequest(
 		projectItems: [], // projects only available through GraphQL API
 		commits: [], // commits only available through GraphQL API
 		reactionCount: 0, // reaction count only available through GraphQL API
+		reactions: [], // reactions only available through GraphQL API
 		commentCount: 0 // comment count only available through GraphQL API
 	};
 
@@ -408,6 +409,7 @@ export function convertRESTIssueToRawPullRequest(
 		),
 		projectItems: [], // projects only available through GraphQL API
 		reactionCount: 0, // reaction count only available through GraphQL API
+		reactions: [], // reactions only available through GraphQL API
 		commentCount: comments
 	};
 
@@ -786,6 +788,7 @@ export function parseGraphQLPullRequest(
 		assignees: graphQLPullRequest.assignees?.nodes.map(assignee => parseAccount(assignee, githubRepository)),
 		commits: parseCommits(graphQLPullRequest.commits.nodes),
 		reactionCount: graphQLPullRequest.reactions.totalCount,
+		reactions: parseGraphQLReaction(graphQLPullRequest.reactionGroups),
 		commentCount: graphQLPullRequest.comments.totalCount,
 	};
 	pr.mergeCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.mergeCommitTitle, graphQLPullRequest.baseRepository.mergeCommitMessage, pr);
@@ -897,6 +900,7 @@ export function parseGraphQLIssue(issue: GraphQL.Issue, githubRepository: GitHub
 		projectItems: parseProjectItems(issue.projectItems?.nodes),
 		comments: issue.comments.nodes?.map(comment => parseIssueComment(comment, githubRepository)),
 		reactionCount: issue.reactions.totalCount,
+		reactions: parseGraphQLReaction(issue.reactionGroups),
 		commentCount: issue.comments.totalCount
 	};
 }
