@@ -42,6 +42,24 @@ fragment Team on Team { # Team is not an Actor
 	...Node
 }
 
+fragment Reactable on Reactable {
+	reactionGroups {
+		content
+		viewerHasReacted
+		reactors(first: 10) {
+			nodes {
+				... on User {
+					login
+				}
+				... on Actor {
+					login
+				}
+			}
+			totalCount
+		}
+	}
+}
+
 fragment IssueBase on Issue {
 	number
 	url
@@ -83,6 +101,7 @@ fragment IssueBase on Issue {
 	reactions(first: 100) {
 		totalCount
 	}
+	...Reactable
 	repository {
 		name
 		owner {
@@ -160,7 +179,7 @@ fragment PullRequestFragment on PullRequest {
 	reactions(first: 100) {
 		totalCount
 	}
-
+	...Reactable
 	comments(first: 1) {
 		totalCount
 	}

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IAccount } from '../github/interface';
+import { IAccount, Reaction } from '../github/interface';
 import { COPILOT_LOGINS } from './copilot';
 import { DiffHunk } from './diffHunk';
 
@@ -17,14 +17,6 @@ export enum ViewedState {
 	DISMISSED = 'DISMISSED',
 	VIEWED = 'VIEWED',
 	UNVIEWED = 'UNVIEWED'
-}
-
-export interface Reaction {
-	label: string;
-	count: number;
-	icon?: vscode.Uri;
-	viewerHasReacted: boolean;
-	reactors: readonly string[];
 }
 
 export enum SubjectType {

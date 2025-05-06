@@ -599,6 +599,7 @@ export interface Issue {
 	reactions: {
 		totalCount: number;
 	}
+	reactionGroups: ReactionGroup[];
 }
 
 

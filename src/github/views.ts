@@ -16,6 +16,7 @@ import {
 	PullRequestChecks,
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
+	Reaction,
 	ReviewState,
 } from './interface';
 
@@ -57,6 +58,7 @@ export interface Issue {
 	isDarkTheme: boolean;
 	isEnterprise: boolean;
 	canAssignCopilot: boolean;
+	reactions: Reaction[];
 	busy?: boolean;
 }
 

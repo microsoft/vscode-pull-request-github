@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 import { ReviewStateValue } from '../common/timelineEvent';
 
 export enum PRType {
@@ -179,6 +180,14 @@ export interface IIssueComment {
 	createdAt: string;
 }
 
+export interface Reaction {
+	label: string;
+	count: number;
+	icon?: vscode.Uri;
+	viewerHasReacted: boolean;
+	reactors: readonly string[];
+}
+
 export interface Issue {
 	id: number;
 	graphNodeId: string;
@@ -202,6 +211,7 @@ export interface Issue {
 	comments?: IIssueComment[];
 	commentCount: number;
 	reactionCount: number;
+	reactions: Reaction[];
 }
 
 export interface PullRequest extends Issue {

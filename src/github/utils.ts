@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
-import { COPILOT_ACCOUNTS, IComment, IReviewThread, Reaction, SubjectType } from '../common/comment';
+import { COPILOT_ACCOUNTS, IComment, IReviewThread, SubjectType } from '../common/comment';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
@@ -43,6 +43,7 @@ import {
 	NotificationSubjectType,
 	PullRequest,
 	PullRequestMergeability,
+	Reaction,
 	reviewerId,
 	reviewerLabel,
 	ReviewState,
@@ -355,6 +356,7 @@ export function convertRESTPullRequestToRawPullRequest(
 		projectItems: [], // projects only available through GraphQL API
 		commits: [], // commits only available through GraphQL API
 		reactionCount: 0, // reaction count only available through GraphQL API
+		reactions: [], // reactions only available through GraphQL API
 		commentCount: 0 // comment count only available through GraphQL API
 	};
 
@@ -408,6 +410,7 @@ export function convertRESTIssueToRawPullRequest(
 		),
 		projectItems: [], // projects only available through GraphQL API
 		reactionCount: 0, // reaction count only available through GraphQL API
+		reactions: [], // reactions only available through GraphQL API
 		commentCount: comments
 	};
 
@@ -786,6 +789,7 @@ export function parseGraphQLPullRequest(
 		assignees: graphQLPullRequest.assignees?.nodes.map(assignee => parseAccount(assignee, githubRepository)),
 		commits: parseCommits(graphQLPullRequest.commits.nodes),
 		reactionCount: graphQLPullRequest.reactions.totalCount,
+		reactions: parseGraphQLReaction(graphQLPullRequest.reactionGroups),
 		commentCount: graphQLPullRequest.comments.totalCount,
 	};
 	pr.mergeCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.mergeCommitTitle, graphQLPullRequest.baseRepository.mergeCommitMessage, pr);
@@ -897,6 +901,7 @@ export function parseGraphQLIssue(issue: GraphQL.Issue, githubRepository: GitHub
 		projectItems: parseProjectItems(issue.projectItems?.nodes),
 		comments: issue.comments.nodes?.map(comment => parseIssueComment(comment, githubRepository)),
 		reactionCount: issue.reactions.totalCount,
+		reactions: parseGraphQLReaction(issue.reactionGroups),
 		commentCount: issue.comments.totalCount
 	};
 }
