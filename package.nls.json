@@ -90,7 +90,7 @@
 	"githubPullRequests.experimental.notificationsView.description": "Enables the notifications view, which shows a list of your GitHub notifications. When combined with `#githubPullRequests.experimental.chat#`, you can have Copilot sort and summarize your notifications. View will not show in a Codespace accessed from the browser.",
 	"githubPullRequests.experimental.notificationsMarkPullRequests.description": "Adds an action in the Notifications view to mark pull requests with no non-empty reviews, comments, or commits since you last viewed the pull request as read.",
 	"githubPullRequests.experimental.useQuickChat.description": "Controls whether the Copilot \"Summarize\" commands in the Pull Requests, Issues, and Notifications views will use quick chat. Only has an effect if `#githubPullRequests.experimental.chat#` is enabled.",
-	"githubPullRequests.webviewRefreshInterval.description": "The interval at which the pull request and issues webviews are refreshed when the webview is the active tab.",
+	"githubPullRequests.webviewRefreshInterval.description": "The interval, in seconds, at which the pull request and issues webviews are refreshed when the webview is the active tab.",
 	"githubIssues.ignoreMilestones.description": "An array of milestones titles to never show issues from.",
 	"githubIssues.createIssueTriggers.description": "Strings that will cause the 'Create issue from comment' code action to show.",
 	"githubIssues.createIssueTriggers.items": "String that enables the 'Create issue from comment' code action. Should not contain whitespace.",
