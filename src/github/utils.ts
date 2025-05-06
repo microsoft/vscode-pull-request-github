@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
-import { COPILOT_ACCOUNTS, IComment, IReviewThread, Reaction, SubjectType } from '../common/comment';
+import { COPILOT_ACCOUNTS, IComment, IReviewThread, SubjectType } from '../common/comment';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
@@ -43,6 +43,7 @@ import {
 	NotificationSubjectType,
 	PullRequest,
 	PullRequestMergeability,
+	Reaction,
 	reviewerId,
 	reviewerLabel,
 	ReviewState,

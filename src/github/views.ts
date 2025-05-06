@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Reaction } from '../common/comment';
 import { TimelineEvent } from '../common/timelineEvent';
 import {
 	GithubItemStateEnum,
@@ -17,6 +16,7 @@ import {
 	PullRequestChecks,
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
+	Reaction,
 	ReviewState,
 } from './interface';
 
