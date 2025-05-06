@@ -481,6 +481,11 @@
 					"markdownDescription": "%githubPullRequests.experimental.useQuickChat.description%",
 					"default": false
 				},
+				"githubPullRequests.webviewRefreshInterval": {
+					"type": "number",
+					"markdownDescription": "%githubPullRequests.webviewRefreshInterval.description%",
+					"default": 60
+				},
 				"githubIssues.ignoreMilestones": {
 					"type": "array",
 					"default": [],
