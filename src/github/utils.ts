@@ -26,6 +26,7 @@ import { GitHubRepository, ViewerPermission } from './githubRepository';
 import * as GraphQL from './graphql';
 import {
 	AccountType,
+	GithubItemStateEnum,
 	IAccount,
 	IActor,
 	IGitHubRef,
@@ -801,6 +802,7 @@ export function parseGraphQLPullRequest(
 		reactionCount: graphQLPullRequest.reactions.totalCount,
 		reactions: parseGraphQLReaction(graphQLPullRequest.reactionGroups),
 		commentCount: graphQLPullRequest.comments.totalCount,
+		closingIssues: parseClosingIssuesReferences(graphQLPullRequest.closingIssuesReferences?.nodes)
 	};
 	pr.mergeCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.mergeCommitTitle, graphQLPullRequest.baseRepository.mergeCommitMessage, pr);
 	pr.squashCommitMeta = parseCommitMeta(graphQLPullRequest.baseRepository.squashMergeCommitTitle, graphQLPullRequest.baseRepository.squashMergeCommitMessage, pr);
@@ -942,6 +944,21 @@ function parseSuggestedReviewers(
 	});
 
 	return ret.sort(loginComparator);
+}
+
+function parseClosingIssuesReferences(
+	closingIssuesReferences: Array<{ id: number, number: number, title: string, state: 'CLOSED' | 'OPEN' }> | undefined
+): Array<{ id: number, number: number, title: string, state: GithubItemStateEnum }> {
+	if (!closingIssuesReferences) {
+		return [];
+	}
+
+	return closingIssuesReferences.map(issue => ({
+		id: issue.id,
+		number: issue.number,
+		title: issue.title,
+		state: issue.state as GithubItemStateEnum
+	}));
 }
 
 /**

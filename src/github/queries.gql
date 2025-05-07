@@ -223,6 +223,14 @@ fragment PullRequestFragment on PullRequest {
 		mergeCommitMessage
 		mergeCommitTitle
 	}
+	closingIssuesReferences(first: 50) {
+		nodes {
+			id
+			number
+			title
+			state
+		}
+	}
 	merged
 	mergeable
 	mergeQueueEntry {
