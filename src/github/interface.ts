@@ -204,6 +204,13 @@ export interface Issue {
 	reactionCount: number;
 }
 
+export interface IssueReference {
+	id: number;
+	number: number;
+	title: string;
+	state: GithubItemStateEnum;
+}
+
 export interface PullRequest extends Issue {
 	isDraft?: boolean;
 	isRemoteHeadDeleted?: boolean;
@@ -223,7 +230,7 @@ export interface PullRequest extends Issue {
 	mergeCommitMeta?: { title: string, description: string };
 	squashCommitMeta?: { title: string, description: string };
 	suggestedReviewers?: ISuggestedReviewer[];
-	closingIssues?: Pick<Issue, 'id' | 'title' | 'number' | 'state'>[]
+	closingIssues?: IssueReference[]
 	hasComments?: boolean;
 }
 

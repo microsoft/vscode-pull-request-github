@@ -742,6 +742,16 @@ export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFL
 	return parsed;
 }
 
+export function parsePullRequestState(state: string): GithubItemStateEnum {
+	if (state.toLowerCase() === 'open') {
+		return GithubItemStateEnum.Open;
+	} else if (state.toLowerCase() === 'merged') {
+		return GithubItemStateEnum.Merged;
+	} else {
+		return GithubItemStateEnum.Closed;
+	}
+}
+
 export function parseGraphQLPullRequest(
 	graphQLPullRequest: GraphQL.PullRequest,
 	githubRepository: GitHubRepository,
@@ -925,7 +935,7 @@ function parseSuggestedReviewers(
 }
 
 function parseClosingIssuesReferences(
-	closingIssuesReferences: Array<{ id: number, number: number, title: string, state: 'CLOSED' | 'OPEN' }> | undefined
+	closingIssuesReferences: Array<{ id: number, number: number, title: string, state: string }> | undefined
 ): Array<{ id: number, number: number, title: string, state: GithubItemStateEnum }> {
 	if (!closingIssuesReferences) {
 		return [];
@@ -935,7 +945,7 @@ function parseClosingIssuesReferences(
 		id: issue.id,
 		number: issue.number,
 		title: issue.title,
-		state: issue.state as GithubItemStateEnum
+		state: parsePullRequestState(issue.state)
 	}));
 }
 

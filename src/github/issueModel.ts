@@ -18,7 +18,7 @@ import {
 	UpdateIssueResponse,
 } from './graphql';
 import { GithubItemStateEnum, IAccount, IIssueEditData, IMilestone, IProject, IProjectItem, Issue } from './interface';
-import { parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
+import { parseGraphQlIssueComment, parseGraphQLTimelineEvents, parsePullRequestState } from './utils';
 
 export class IssueModel<TItem extends Issue = Issue> {
 	static ID = 'IssueModel';
@@ -104,11 +104,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 	}
 
 	protected updateState(state: string) {
-		if (state.toLowerCase() === 'open') {
-			this.state = GithubItemStateEnum.Open;
-		} else {
-			this.state = GithubItemStateEnum.Closed;
-		}
+		this.state = parsePullRequestState(state);
 	}
 
 	update(issue: TItem): void {

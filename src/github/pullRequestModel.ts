@@ -57,6 +57,7 @@ import {
 	IGitTreeItem,
 	IRawFileChange,
 	IRawFileContent,
+	IssueReference,
 	ISuggestedReviewer,
 	ITeam,
 	MergeMethod,
@@ -83,6 +84,7 @@ import {
 	parseGraphQLTimelineEvents,
 	parseMergeability,
 	parseMergeQueueEntry,
+	parsePullRequestState,
 	restPaginate,
 } from './utils';
 
@@ -121,7 +123,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public conflicts?: string[];
 	public suggestedReviewers?: ISuggestedReviewer[];
 	public hasChangesSinceLastReview?: boolean;
-	public closingIssues: Pick<IssueModel, 'id' | 'title' | 'number' | 'state'>[];
+	public closingIssues: IssueReference[];
 	private _showChangesSinceReview: boolean;
 	private _hasPendingReview: boolean = false;
 	private _onDidChangePendingReviewState: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
@@ -236,23 +238,15 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	public base: GitHubRef;
 
 	protected override updateState(state: string) {
-		if (state.toLowerCase() === 'open') {
-			this.state = GithubItemStateEnum.Open;
-		} else if (state.toLowerCase() === 'merged' || this.item.merged) {
-			this.state = GithubItemStateEnum.Merged;
-		} else {
-			this.state = GithubItemStateEnum.Closed;
-		}
+		const newState = parsePullRequestState(state);
+		this.state = this.item.merged ? GithubItemStateEnum.Merged : newState;
 	}
 
 	override update(item: PullRequest): void {
 		super.update(item);
 		this.isDraft = item.isDraft;
 		this.suggestedReviewers = item.suggestedReviewers;
-		this.closingIssues = (item.closingIssues ?? []).map(issue => ({
-			...issue,
-			state: issue.state as GithubItemStateEnum
-		}));
+		this.closingIssues = item.closingIssues ?? [];
 		if (item.isRemoteHeadDeleted != null) {
 			this.isRemoteHeadDeleted = item.isRemoteHeadDeleted;
 		}
