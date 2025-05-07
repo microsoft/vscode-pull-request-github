@@ -586,8 +586,18 @@ function parseRef(refName: string, oid: string, repository?: GraphQL.RefReposito
 	};
 }
 
+export interface RestAccount {
+	login: string;
+	html_url: string;
+	avatar_url: string;
+	email?: string | null;
+	node_id: string;
+	name?: string | null;
+	type: string;
+}
+
 export function parseAccount(
-	author: { login: string; url: string; avatarUrl: string; email?: string, id: string, name?: string, __typename: string } | { login: string; html_url: string; avatar_url: string; email?: string | null, node_id: string, name?: string | null, type: string } | null,
+	author: { login: string; url: string; avatarUrl: string; email?: string, id: string, name?: string, __typename: string } | RestAccount | null,
 	githubRepository?: GitHubRepository,
 ): IAccount {
 	if (author) {

@@ -165,7 +165,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return isInCodespaces();
 	}
 
-	protected getInitializeContext(issue: IssueModel, timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Issue {
+	protected getInitializeContext(currentUser: IAccount, issue: IssueModel, coAuthors: IAccount[], timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Issue {
 		const hasWritePermission = repositoryAccess!.hasWritePermission;
 		const canEdit = hasWritePermission || viewerCanEdit;
 		const context: Issue = {
@@ -190,7 +190,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			isEnterprise: issue.githubRepository.remote.isEnterprise,
 			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
 			canAssignCopilot: assignableUsers.find(user => COPILOT_ACCOUNTS[user.login]) !== undefined,
-			reactions: issue.item.reactions
+			reactions: issue.item.reactions,
+			isAuthor: [issue.author, ...coAuthors].find(user => user.login === currentUser.login) !== undefined,
 		};
 
 		return context;
@@ -203,7 +204,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				timelineEvents,
 				repositoryAccess,
 				viewerCanEdit,
-				assignableUsers
+				assignableUsers,
+				currentUser
 			] = await Promise.all([
 				this._folderRepositoryManager.resolveIssue(
 					issueModel.remote.owner,
@@ -213,7 +215,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				issueModel.getIssueTimelineEvents(),
 				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(issueModel),
 				issueModel.canEdit(),
-				this._folderRepositoryManager.getAssignableUsers()
+				this._folderRepositoryManager.getAssignableUsers(),
+				this._folderRepositoryManager.getCurrentUser(),
 			]);
 
 			if (!issue) {
@@ -228,7 +231,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
 			this._postMessage({
 				command: 'pr.initialize',
-				pullrequest: this.getInitializeContext(issue, timelineEvents, repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []),
+				pullrequest: this.getInitializeContext(currentUser, issue, [], timelineEvents, repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []),
 			});
 
 		} catch (e) {

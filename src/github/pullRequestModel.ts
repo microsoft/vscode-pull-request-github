@@ -9,7 +9,7 @@ import equals from 'fast-deep-equal';
 import gql from 'graphql-tag';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
-import { DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
+import { COPILOT_ACCOUNTS, DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
 import { getModifiedContentFromDiffHunk, parseDiff } from '../common/diffHunk';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
@@ -75,6 +75,7 @@ import {
 	convertRESTReviewEvent,
 	getReactionGroup,
 	insertNewCommitsSinceReview,
+	parseAccount,
 	parseGraphQLComment,
 	parseGraphQLReaction,
 	parseGraphQLReviewers,
@@ -83,6 +84,7 @@ import {
 	parseGraphQLTimelineEvents,
 	parseMergeability,
 	parseMergeQueueEntry,
+	RestAccount,
 	restPaginate,
 } from './utils';
 
@@ -1126,6 +1128,22 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			vscode.window.showErrorMessage(`Fetching commit file changes failed: ${formatError(e)}`);
 			return [];
 		}
+	}
+
+	async getCoAuthors(): Promise<IAccount[]> {
+		// To save time, we only do for Copilot now as that's where we need it
+		if (!COPILOT_ACCOUNTS[this.item.user.login]) {
+			return [];
+		}
+		const { octokit, remote } = await this.githubRepository.ensure();
+		const timeline = await octokit.call(octokit.api.issues.listEventsForTimeline, {
+			issue_number: this.number,
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			per_page: 100
+		});
+		const workStartedInitiator = (timeline.data.find(event => event.event === 'copilot_work_started') as { actor: RestAccount } | undefined)?.actor;
+		return workStartedInitiator ? [parseAccount(workStartedInitiator, this.githubRepository)] : [];
 	}
 
 	/**

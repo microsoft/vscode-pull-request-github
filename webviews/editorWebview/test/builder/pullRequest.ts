@@ -28,6 +28,7 @@ export const PullRequestBuilder = createBuilderClass<PullRequest>()({
 	isLocalHeadDeleted: { default: false },
 	head: { default: 'my-fork:my-branch' },
 	labels: { default: [] },
+	isAuthor: { default: true },
 	commitsCount: { default: 10 },
 	repositoryDefaultBranch: { default: 'main' },
 	canEdit: { default: true },

@@ -53,7 +53,7 @@ export interface Issue {
 	pendingCommentText?: string;
 	pendingCommentDrafts?: { [key: string]: string };
 	isIssue: boolean;
-	isAuthor?: boolean;
+	isAuthor: boolean;
 	continueOnGitHub: boolean;
 	isDarkTheme: boolean;
 	isEnterprise: boolean;
