@@ -95,13 +95,11 @@ export interface Account extends Actor {
 }
 
 export function isAccount(x: Actor | Team | undefined | null): x is Account {
-	const asAccount = x as Partial<Account>;
-	return !!asAccount && !!asAccount?.name && !!asAccount?.email;
+	return !!x && 'name' in x && 'email' in x;
 }
 
 export function isTeam(x: Actor | Team | undefined | null): x is Team {
-	const asTeam = x as Partial<Team>;
-	return !!asTeam && !!asTeam?.slug;
+	return !!x && 'slug' in x;
 }
 
 export interface Team {

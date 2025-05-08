@@ -361,8 +361,8 @@ export function convertRESTPullRequestToRawPullRequest(
 	};
 
 	// mergeable is not included in the list response, will need to fetch later
-	if ((pullRequest as OctokitCommon.PullsGetResponseData).mergeable !== undefined) {
-		item.mergeable = (pullRequest as OctokitCommon.PullsGetResponseData).mergeable
+	if ('mergeable' in pullRequest) {
+		item.mergeable = pullRequest.mergeable
 			? PullRequestMergeability.Mergeable
 			: PullRequestMergeability.NotMergeable;
 	}
@@ -596,39 +596,14 @@ export interface RestAccount {
 	type: string;
 }
 
-export interface GraphQLAccount {
-	login: string;
-	url: string;
-	avatarUrl: string;
-	email?: string;
-	id: string;
-	name?: string;
-	__typename: string;
-}
-
 export function parseAccount(
-	author: GraphQLAccount | RestAccount | null,
+	author: { login: string; url: string; avatarUrl: string; email?: string, id: string, name?: string, __typename: string } | RestAccount | null,
 	githubRepository?: GitHubRepository,
 ): IAccount {
 	if (author) {
-		let avatarUrl: string;
-		let id: string;
-		let url: string;
-		let accountType: string;
-		if ((author as RestAccount).html_url) {
-			const asRestAccount = author as RestAccount;
-			avatarUrl = asRestAccount.avatar_url;
-			id = asRestAccount.node_id;
-			url = asRestAccount.html_url;
-			accountType = asRestAccount.type;
-		} else {
-			const asGraphQLAccount = author as GraphQLAccount;
-			avatarUrl = asGraphQLAccount.avatarUrl;
-			id = asGraphQLAccount.id;
-			url = asGraphQLAccount.url;
-			accountType = asGraphQLAccount.__typename;
-		}
-
+		const avatarUrl = 'avatarUrl' in author ? author.avatarUrl : author.avatar_url;
+		const id = 'node_id' in author ? author.node_id : author.id;
+		const url = 'html_url' in author ? author.html_url : author.url;
 		// In some places, Copilot comes in as a user, and in others as a bot
 		return {
 			login: author.login,
@@ -638,7 +613,7 @@ export function parseAccount(
 			id,
 			name: author.name ?? COPILOT_ACCOUNTS[author.login]?.name ?? undefined,
 			specialDisplayName: COPILOT_ACCOUNTS[author.login] ? (author.name ?? COPILOT_ACCOUNTS[author.login].name) : undefined,
-			accountType: toAccountType(accountType),
+			accountType: toAccountType('__typename' in author ? author.__typename : author.type),
 		};
 	} else {
 		return {

@@ -23,8 +23,3 @@ export interface NotificationTreeItem {
 export function isNotificationTreeItem(item: any): item is NotificationTreeItem {
 	return item.kind === 'notification';
 }
-
-export interface NotificationID {
-	threadId: string;
-	notificationKey: string;
-}

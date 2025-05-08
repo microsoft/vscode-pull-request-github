@@ -1222,20 +1222,12 @@ ${contents}
 		}),
 	);
 
-	interface SCMResourceStates {
-		resourceStates: { resourceUri: vscode.Uri }[];
-	}
-	interface SCMResourceUri {
-		resourceUri: vscode.Uri;
-	}
-	context.subscriptions.push(vscode.commands.registerCommand('review.createSuggestionsFromChanges', async (value: SCMResourceStates | SCMResourceUri, ...additionalSelected: SCMResourceUri[]) => {
+	context.subscriptions.push(vscode.commands.registerCommand('review.createSuggestionsFromChanges', async (value: ({ resourceStates: { resourceUri }[] }) | ({ resourceUri: vscode.Uri }), ...additionalSelected: ({ resourceUri: vscode.Uri })[]) => {
 		let resources: vscode.Uri[];
-		const asResourceStates = value as Partial<SCMResourceStates>;
-		if (asResourceStates.resourceStates) {
-			resources = asResourceStates.resourceStates.map(resource => resource.resourceUri);
+		if ('resourceStates' in value) {
+			resources = value.resourceStates.map(resource => resource.resourceUri);
 		} else {
-			const asResourceUri = value as SCMResourceUri;
-			resources = [asResourceUri.resourceUri];
+			resources = [value.resourceUri];
 			if (additionalSelected) {
 				resources.push(...additionalSelected.map(resource => resource.resourceUri));
 			}

@@ -1108,14 +1108,20 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		commit: OctokitCommon.PullsListCommitsResponseData[0],
 	): Promise<OctokitCommon.ReposGetCommitResponseFiles> {
 		try {
-			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${this.number} - enter`, PullRequestModel.ID,);
+			Logger.debug(
+				`Fetch file changes of commit ${commit.sha} in PR #${this.number} - enter`,
+				PullRequestModel.ID,
+			);
 			const { octokit, remote } = await this.githubRepository.ensure();
 			const fullCommit = await octokit.call(octokit.api.repos.getCommit, {
 				owner: remote.owner,
 				repo: remote.repositoryName,
 				ref: commit.sha,
 			});
-			Logger.debug(`Fetch file changes of commit ${commit.sha} in PR #${this.number} - done`, PullRequestModel.ID,);
+			Logger.debug(
+				`Fetch file changes of commit ${commit.sha} in PR #${this.number} - done`,
+				PullRequestModel.ID,
+			);
 
 			return fullCommit.data.files ?? [];
 		} catch (e) {
@@ -1442,7 +1448,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this._onDidChangeChangesSinceReview.fire();
 		}
 
-		Logger.debug(`Fetch file changes and merge base of PR #${this.number} - done, total files ${files.length} `, PullRequestModel.ID,);
+		Logger.debug(
+			`Fetch file changes and merge base of PR #${this.number} - done, total files ${files.length} `,
+			PullRequestModel.ID,
+		);
 		return files;
 	}
 

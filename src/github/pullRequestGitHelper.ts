@@ -340,7 +340,10 @@ export class PullRequestGitHelper {
 
 	static async isRemoteCreatedForPullRequest(repository: Repository, remoteName: string) {
 		try {
-			Logger.debug(`Check if remote '${remoteName}' is created for pull request - start`, PullRequestGitHelper.ID);
+			Logger.debug(
+				`Check if remote '${remoteName}' is created for pull request - start`,
+				PullRequestGitHelper.ID,
+			);
 			const isForPR = await repository.getConfig(`remote.${remoteName}.${PullRequestRemoteMetadataKey}`);
 			Logger.debug(`Check if remote '${remoteName}' is created for pull request - end`, PullRequestGitHelper.ID);
 			return isForPR === 'true';
