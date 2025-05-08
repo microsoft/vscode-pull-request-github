@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { openPullRequestOnGitHub } from '../commands';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import Logger from '../common/logger';
-import { WEBVIEW_REFRESH_INTERVAL } from '../common/settingKeys';
+import { PR_SETTINGS_NAMESPACE, WEBVIEW_REFRESH_INTERVAL } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { CommentEvent, EventType, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
@@ -130,29 +130,39 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 					});
 				}
 			}));
-		this.pollForUpdates(true);
+
+		this._register(this._panel.onDidChangeViewState(e => this.onDidChangeViewState(e)));
+		this.pollForUpdates();
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${WEBVIEW_REFRESH_INTERVAL}`)) {
+				this.pollForUpdates();
+			}
+		}));
+
 	}
 
 	private getRefreshInterval(): number {
-		return vscode.workspace.getConfiguration().get<number>(`githubPullRequests.${WEBVIEW_REFRESH_INTERVAL}`) || 60;
+		return vscode.workspace.getConfiguration().get<number>(`${PR_SETTINGS_NAMESPACE}.${WEBVIEW_REFRESH_INTERVAL}`) || 60;
 	}
 
-	private refreshIntervalSetting: vscode.Disposable | undefined;
-	private pollForUpdates(shorterTimeout: boolean = false): void {
-		const webview = shorterTimeout || vscode.window.tabGroups.all.find(group => group.activeTab?.input instanceof vscode.TabInputWebview && group.activeTab.input.viewType.endsWith(this.type));
+	protected onDidChangeViewState(e: vscode.WebviewPanelOnDidChangeViewStateEvent): void {
+		if (e.webviewPanel.visible) {
+			this.pollForUpdates(true);
+		}
+	}
+
+	private timeout: NodeJS.Timeout | undefined = undefined;
+	private pollForUpdates(refreshImmediately: boolean = false): void {
+		clearTimeout(this.timeout);
+		if (refreshImmediately) {
+			this.refreshPanel();
+		}
+		const webview = vscode.window.tabGroups.all.find(group => group.activeTab?.input instanceof vscode.TabInputWebview && group.activeTab.input.viewType.endsWith(this.type));
 		const timeoutDuration = 1000 * (webview ? this.getRefreshInterval() : (5 * 60));
-		const timeout = setTimeout(async () => {
+		this.timeout = setTimeout(async () => {
 			await this.refreshPanel();
 			this.pollForUpdates();
 		}, timeoutDuration);
-		if (!this.refreshIntervalSetting) {
-			this.refreshIntervalSetting = vscode.workspace.onDidChangeConfiguration(e => {
-				if (e.affectsConfiguration(`githubPullRequests.${WEBVIEW_REFRESH_INTERVAL}`)) {
-					clearTimeout(timeout);
-					this.pollForUpdates(true);
-				}
-			});
-		}
 	}
 
 	public async refreshPanel(): Promise<void> {
