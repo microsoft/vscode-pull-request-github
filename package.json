@@ -1593,13 +1593,13 @@
 				"command": "notifications.markPullRequestsAsRead",
 				"title": "%command.notifications.markPullRequestsAsRead.title%",
 				"category": "%command.notifications.category%",
-				"icon": "$(git-pull-request)"
+				"icon": "$(git-pull-request-done)"
 			},
 			{
 				"command": "notifications.markPullRequestsAsDone",
 				"title": "%command.notifications.markPullRequestsAsDone.title%",
 				"category": "%command.notifications.category%",
-				"icon": "$(git-pull-request)"
+				"icon": "$(git-pull-request-done)"
 			},
 			{
 				"command": "notifications.configureNotificationsViewlet",
