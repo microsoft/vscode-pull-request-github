@@ -124,7 +124,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		));
 
 		this.setVisibilityContext();
-		this._register(this._panel.onDidChangeViewState(() => this.setVisibilityContext()));
 		this._register(folderRepositoryManager.onDidMergePullRequest(_ => {
 			this._postMessage({
 				command: 'update-state',
@@ -165,6 +164,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				}
 			}));
 		}
+	}
+
+	protected override onDidChangeViewState(e: vscode.WebviewPanelOnDidChangeViewStateEvent): void {
+		super.onDidChangeViewState(e);
+		this.setVisibilityContext();
 	}
 
 	private setVisibilityContext() {
