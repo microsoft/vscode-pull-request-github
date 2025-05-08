@@ -189,7 +189,8 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 		item.documentation = issue.body;
 		item.range = range;
 		item.detail = milestone ? milestone.title : issue.milestone?.title;
-		item.sortText = `${new Date(issue.updatedAt).getTime()}`;
+		const sortTime = Number.MAX_SAFE_INTEGER - new Date(issue.updatedAt).getTime();
+		item.sortText = sortTime.toString().padStart(15, '0');
 		item.filterText = `${item.detail} # ${issue.number} ${issue.title} ${item.documentation}`;
 		return item;
 	}
