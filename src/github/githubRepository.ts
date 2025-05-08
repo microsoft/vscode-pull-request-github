@@ -897,7 +897,10 @@ export class GitHubRepository extends Disposable {
 			const { data } = await octokit.call(octokit.api.users.listEmailsForAuthenticatedUser, {});
 			Logger.debug(`Fetch authenticated user emails - done`, this.id);
 			// sort the primary email to the first index
-			return data.filter(email => email.visibility === 'public' || email.email.toLowerCase().endsWith('@users.noreply.github.com')).sort((a, b) => +b.primary - +a.primary).map(email => email.email);
+			const hasPrivate = data.some(email => email.visibility === 'private');
+			return data.filter(email => hasPrivate ? email.email.endsWith('@users.noreply.github.com') : email.verified)
+				.sort((a, b) => +b.primary - +a.primary)
+				.map(email => email.email);
 		} catch (e) {
 			Logger.error(`Unable to fetch authenticated user emails: ${e}`, this.id);
 			return [];
