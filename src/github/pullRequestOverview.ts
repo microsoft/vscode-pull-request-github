@@ -19,7 +19,7 @@ import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
 	GithubItemStateEnum,
 	IAccount,
-	isTeam,
+	isITeam,
 	ITeam,
 	MergeMethod,
 	MergeMethodsAvailability,
@@ -382,7 +382,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			quickPick.busy = false;
 			const acceptPromise: Promise<(IAccount | ITeam)[]> = asPromise<void>(quickPick.onDidAccept).then(() => {
 				const pickedReviewers: (IAccount | ITeam)[] | undefined = quickPick?.selectedItems.filter(item => item.user).map(item => item.user) as (IAccount | ITeam)[];
-				const botReviewers = this._existingReviewers.filter(reviewer => !isTeam(reviewer.reviewer) && reviewer.reviewer.accountType === 'Bot').map(reviewer => reviewer.reviewer);
+				const botReviewers = this._existingReviewers.filter(reviewer => !isITeam(reviewer.reviewer) && reviewer.reviewer.accountType === 'Bot').map(reviewer => reviewer.reviewer);
 				return pickedReviewers.concat(botReviewers);
 			});
 			const hidePromise = asPromise<void>(quickPick.onDidHide);
@@ -394,15 +394,15 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				const newUserReviewers: IAccount[] = [];
 				const newTeamReviewers: ITeam[] = [];
 				allReviewers.forEach(reviewer => {
-					const newReviewers: (IAccount | ITeam)[] = isTeam(reviewer) ? newTeamReviewers : newUserReviewers;
+					const newReviewers: (IAccount | ITeam)[] = isITeam(reviewer) ? newTeamReviewers : newUserReviewers;
 					newReviewers.push(reviewer);
 				});
 
 				const removedUserReviewers: IAccount[] = [];
 				const removedTeamReviewers: ITeam[] = [];
 				this._existingReviewers.forEach(existing => {
-					let newReviewers: (IAccount | ITeam)[] = isTeam(existing.reviewer) ? newTeamReviewers : newUserReviewers;
-					let removedReviewers: (IAccount | ITeam)[] = isTeam(existing.reviewer) ? removedTeamReviewers : removedUserReviewers;
+					let newReviewers: (IAccount | ITeam)[] = isITeam(existing.reviewer) ? newTeamReviewers : newUserReviewers;
+					let removedReviewers: (IAccount | ITeam)[] = isITeam(existing.reviewer) ? removedTeamReviewers : removedUserReviewers;
 					if (!newReviewers.find(newTeamReviewer => newTeamReviewer.id === existing.reviewer.id)) {
 						removedReviewers.push(existing.reviewer);
 					}
@@ -663,9 +663,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			}
 		}
 
-		if (targetReviewer && isTeam(targetReviewer.reviewer)) {
+		if (targetReviewer && isITeam(targetReviewer.reviewer)) {
 			teamReviewers.push(targetReviewer.reviewer);
-		} else if (targetReviewer && !isTeam(targetReviewer.reviewer)) {
+		} else if (targetReviewer && !isITeam(targetReviewer.reviewer)) {
 			userReviewers.push(targetReviewer.reviewer);
 		}
 
