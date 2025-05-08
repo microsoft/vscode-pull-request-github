@@ -19,6 +19,8 @@ export enum EventType {
 	HeadRefDeleted,
 	Merged,
 	CrossReferenced,
+	Closed,
+	Reopened,
 	Other,
 }
 
@@ -121,4 +123,18 @@ export interface CrossReferencedEvent {
 	willCloseTarget: boolean;
 }
 
-export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent | CrossReferencedEvent;
+export interface ClosedEvent {
+	id: string
+	event: EventType.Closed;
+	actor: IActor;
+	createdAt: string;
+}
+
+export interface ReopenedEvent {
+	id: string;
+	event: EventType.Reopened;
+	actor: IActor;
+	createdAt: string;
+}
+
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent;

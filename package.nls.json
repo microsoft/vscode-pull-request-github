@@ -173,7 +173,6 @@
 	"command.pr.dismissNotification.title": "Dismiss Notification",
 	"command.pr.merge.title": "Merge Pull Request",
 	"command.pr.readyForReview.title": "Mark Pull Request Ready For Review",
-	"command.pr.close.title": "Close Pull Request",
 	"command.pr.openPullRequestOnGitHub.title": "Open Pull Request on GitHub",
 	"command.pr.openAllDiffs.title": "Open All Diffs",
 	"command.pr.refreshPullRequest.title": "Refresh Pull Request",

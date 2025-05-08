@@ -886,8 +886,8 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	async getAuthenticatedUser(): Promise<string> {
-		return (await this._credentialStore.getCurrentUser(this.remote.authProviderId)).login;
+	async getAuthenticatedUser(): Promise<IAccount> {
+		return await this._credentialStore.getCurrentUser(this.remote.authProviderId);
 	}
 
 	async getAuthenticatedUserEmails(): Promise<string[]> {

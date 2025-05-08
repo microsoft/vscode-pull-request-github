@@ -5,6 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { CloseResult } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import Logger from '../common/logger';
@@ -14,7 +15,7 @@ import { CommentEvent, EventType, TimelineEvent } from '../common/timelineEvent'
 import { asPromise, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { IAccount, ILabel, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
+import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
 import { isInCodespaces, vscodeDevPrLink } from './utils';
@@ -570,18 +571,21 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			});
 	}
 
-	private close(message: IRequestMessage<string>) {
-		vscode.commands
-			.executeCommand<IComment>('pr.close', this._item, message.args)
-			.then(comment => {
-				if (comment) {
-					this._replyMessage(message, {
-						value: comment,
-					});
-				} else {
-					this._throwError(message, 'Close cancelled');
-				}
-			});
+	protected async close(message: IRequestMessage<string>) {
+		let comment: IComment | undefined;
+		if (message.args) {
+			comment = await this._item.createIssueComment(message.args);
+		}
+		const closeUpdate = await this._item.close();
+		const result: CloseResult = {
+			state: closeUpdate.item.state.toUpperCase() as GithubItemStateEnum,
+			commentEvent: comment ? {
+				...comment,
+				event: EventType.Commented
+			} : undefined,
+			closeEvent: closeUpdate.closedEvent
+		};
+		this._replyMessage(message, result);
 	}
 
 	private createComment(message: IRequestMessage<string>) {

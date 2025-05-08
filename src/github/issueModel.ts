@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { TimelineEvent } from '../common/timelineEvent';
+import { ClosedEvent, EventType, TimelineEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { GitHubRepository } from './githubRepository';
 import {
@@ -18,7 +18,7 @@ import {
 	UpdateIssueResponse,
 } from './graphql';
 import { GithubItemStateEnum, IAccount, IIssueEditData, IMilestone, IProject, IProjectItem, Issue } from './interface';
-import { parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
+import { convertRESTIssueToRawPullRequest, parseGraphQlIssueComment, parseGraphQLTimelineEvents } from './utils';
 
 export class IssueModel<TItem extends Issue = Issue> {
 	static ID = 'IssueModel';
@@ -417,5 +417,29 @@ export class IssueModel<TItem extends Issue = Issue> {
 			issue_number: this.number,
 			assignees,
 		});
+	}
+
+	async close(): Promise<{ item: Issue, closedEvent: ClosedEvent }> {
+		const { octokit, remote } = await this.githubRepository.ensure();
+		const ret = await octokit.call(octokit.api.issues.update, {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			issue_number: this.number,
+			state: 'closed'
+		});
+
+		return {
+			item: convertRESTIssueToRawPullRequest(ret.data, this.githubRepository),
+			closedEvent: {
+				createdAt: ret.data.closed_at ?? '',
+				event: EventType.Closed,
+				id: `${ret.data.id}`,
+				actor: {
+					login: ret.data.closed_by!.login,
+					avatarUrl: ret.data.closed_by!.avatar_url,
+					url: ret.data.closed_by!.url
+				}
+			}
+		};
 	}
 }

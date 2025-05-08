@@ -16,7 +16,7 @@ import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
-import { ReviewEvent as CommonReviewEvent, EventType, TimelineEvent } from '../common/timelineEvent';
+import { ClosedEvent, ReviewEvent as CommonReviewEvent, EventType, TimelineEvent } from '../common/timelineEvent';
 import { resolvePath, Schemes, toPRUri, toReviewUri } from '../common/uri';
 import { formatError, isDescendant } from '../common/utils';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
@@ -376,7 +376,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	/**
 	 * Close the pull request.
 	 */
-	async close(): Promise<PullRequest> {
+	override async close(): Promise<{ item: PullRequest; closedEvent: ClosedEvent }> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 		const ret = await octokit.call(octokit.api.pulls.update, {
 			owner: remote.owner,
@@ -389,8 +389,20 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			"pr.close" : {}
 		*/
 		this._telemetry.sendTelemetryEvent('pr.close');
-
-		return convertRESTPullRequestToRawPullRequest(ret.data, this.githubRepository);
+		const user = await this.githubRepository.getAuthenticatedUser();
+		return {
+			item: convertRESTPullRequestToRawPullRequest(ret.data, this.githubRepository),
+			closedEvent: {
+				createdAt: ret.data.closed_at ?? '',
+				event: EventType.Closed,
+				id: `${ret.data.id}`,
+				actor: {
+					login: user.login,
+					avatarUrl: user.avatarUrl,
+					url: user.url
+				}
+			}
+		};
 	}
 
 	/**
@@ -459,7 +471,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 */
 	async getPendingReviewId(): Promise<string | undefined> {
 		const { query, schema } = await this.githubRepository.ensure();
-		const currentUser = await this.githubRepository.getAuthenticatedUser();
+		const currentUser = (await this.githubRepository.getAuthenticatedUser()).login;
 		try {
 			const { data } = await query<PendingReviewIdResponse>({
 				query: schema.GetPendingReviewId,
@@ -1164,7 +1176,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					},
 				}),
 				this.getViewerLatestReviewCommit(),
-				this.githubRepository.getAuthenticatedUser(),
+				(await this.githubRepository.getAuthenticatedUser()).login,
 				this.getReviewThreads()
 			]);
 
