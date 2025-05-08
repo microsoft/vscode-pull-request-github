@@ -1749,8 +1749,12 @@ export class FolderRepositoryManager extends Disposable {
 	}
 
 	private async getBranchDeletionItems() {
+		interface BranchDeletionMetadata extends PullRequestMetadata {
+			isOpen?: boolean;
+		}
+
 		const allConfigs = await this.repository.getConfigs();
-		const branchInfos: Map<string, { remote?: string; metadata?: PullRequestMetadata }> = new Map();
+		const branchInfos: Map<string, { remote?: string; metadata?: BranchDeletionMetadata[] }> = new Map();
 
 		allConfigs.forEach(config => {
 			const key = config.key;
@@ -1763,14 +1767,23 @@ export class FolderRepositoryManager extends Disposable {
 					branchInfos.set(branchName, {});
 				}
 
-				const value = branchInfos.get(branchName);
+				const value = branchInfos.get(branchName)!;
 				if (matches[2] === 'remote') {
-					value!['remote'] = config.value;
+					value['remote'] = config.value;
 				}
 
 				if (matches[2] === 'github-pr-owner-number') {
 					const metadata = PullRequestGitHelper.parsePullRequestMetadata(config.value);
-					value!['metadata'] = metadata;
+					if (!value?.metadata) {
+						value['metadata'] = [];
+					}
+					if (metadata) {
+						// Check if the metadata already exists in the array
+						const existingMetadata = value.metadata.find(m => m.owner === metadata.owner && m.repositoryName === metadata.repositoryName && m.prNumber === metadata.prNumber);
+						if (!existingMetadata) {
+							value['metadata'].push(metadata);
+						}
+					}
 				}
 
 				branchInfos.set(branchName, value!);
@@ -1779,26 +1792,24 @@ export class FolderRepositoryManager extends Disposable {
 		Logger.debug(`Found ${branchInfos.size} possible branches to delete`, this.id);
 		Logger.trace(`Branches to delete: ${JSON.stringify(Array.from(branchInfos.keys()))}`, this.id);
 
-		const actions: (vscode.QuickPickItem & { metadata: PullRequestMetadata; legacy?: boolean })[] = [];
+		const actions: (vscode.QuickPickItem & { metadata: BranchDeletionMetadata[]; legacy?: boolean })[] = [];
 		branchInfos.forEach((value, key) => {
 			if (value.metadata) {
 				const activePRUrl = this.activePullRequest && this.activePullRequest.base.repositoryCloneUrl;
-				const matchesActiveBranch = activePRUrl
-					? (activePRUrl.owner === value.metadata.owner &&
-						activePRUrl.repositoryName === value.metadata.repositoryName &&
-						this.activePullRequest?.number === value.metadata.prNumber)
-					: false;
+				const activeMetadata = value.metadata.find(metadata =>
+					metadata.owner === activePRUrl?.owner &&
+					metadata.repositoryName === activePRUrl?.repositoryName &&
+					metadata.prNumber === this.activePullRequest?.number
+				);
 
-				if (!matchesActiveBranch) {
+				if (!activeMetadata) {
 					actions.push({
 						label: `${key}`,
-						description: `${value.metadata!.repositoryName}/${value.metadata!.owner} #${value.metadata.prNumber
-							}`,
 						picked: false,
-						metadata: value.metadata!,
+						metadata: value.metadata,
 					});
 				} else {
-					Logger.debug(`Skipping ${value.metadata.prNumber}, active PR is #${this.activePullRequest?.number}`, this.id);
+					Logger.debug(`Skipping ${activeMetadata.prNumber}, active PR is #${this.activePullRequest?.number}`, this.id);
 					Logger.trace(`Skipping active branch ${key}`, this.id);
 				}
 			}
@@ -1806,40 +1817,48 @@ export class FolderRepositoryManager extends Disposable {
 
 		const results = await Promise.all(
 			actions.map(async action => {
-				const metadata = action.metadata;
-				const githubRepo = this._githubRepositories.find(
-					repo =>
-						repo.remote.owner.toLowerCase() === metadata!.owner.toLowerCase() &&
-						repo.remote.repositoryName.toLowerCase() === metadata!.repositoryName.toLowerCase(),
-				);
+				const allOld = (await Promise.all(
+					action.metadata.map(async metadata => {
+						const githubRepo = this._githubRepositories.find(
+							repo =>
+								repo.remote.owner.toLowerCase() === metadata!.owner.toLowerCase() &&
+								repo.remote.repositoryName.toLowerCase() === metadata!.repositoryName.toLowerCase(),
+						);
 
-				if (!githubRepo) {
-					return action;
+						if (!githubRepo) {
+							return action;
+						}
+
+						const { remote, query, schema } = await githubRepo.ensure();
+						try {
+							const { data } = await query<PullRequestState>({
+								query: schema.PullRequestState,
+								variables: {
+									owner: remote.owner,
+									name: remote.repositoryName,
+									number: metadata!.prNumber,
+								},
+							});
+							metadata.isOpen = data.repository?.pullRequest.state === 'OPEN';
+							return data.repository?.pullRequest.state !== 'OPEN';
+						} catch { }
+						return false;
+					}))).every(result => result);
+				if (allOld) {
+					action.legacy = true;
 				}
-
-				const { remote, query, schema } = await githubRepo.ensure();
-				try {
-					const { data } = await query<PullRequestState>({
-						query: schema.PullRequestState,
-						variables: {
-							owner: remote.owner,
-							name: remote.repositoryName,
-							number: metadata!.prNumber,
-						},
-					});
-
-					action.legacy = data.repository?.pullRequest.state !== 'OPEN';
-				} catch { }
 
 				return action;
 			}),
 		);
 
 		results.forEach(result => {
+			result.description = `${result.metadata[0].repositoryName}/${result.metadata[0].owner} ${result.metadata.map(metadata => {
+				const prString = `#${metadata.prNumber}`;
+				return metadata.isOpen ? vscode.l10n.t('{0} is open', prString) : prString;
+			}).join(', ')}`;
 			if (result.legacy) {
 				result.picked = true;
-			} else {
-				result.description = vscode.l10n.t('{0} is still Open', result.description!);
 			}
 		});
 
@@ -2011,7 +2030,7 @@ export class FolderRepositoryManager extends Disposable {
 			quickPick.items = results;
 			quickPick.selectedItems = results.filter(result => {
 				// Do not pick the default branch for the repo.
-				return result.picked && !((result.label === defaults.base) && (result.metadata.owner === defaults.owner) && (result.metadata.repositoryName === defaults.repo));
+				return result.picked && !((result.label === defaults.base) && (result.metadata.find(metadata => metadata.owner === defaults.owner && metadata.repositoryName === defaults.repo)));
 			});
 			quickPick.busy = false;
 			if (results.length === 0) {
