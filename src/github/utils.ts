@@ -645,7 +645,7 @@ export function parseGraphQLReviewers(data: GraphQL.GetReviewRequestsResponse, r
 		if (GraphQL.isTeam(reviewer.requestedReviewer)) {
 			const team: ITeam = parseTeam(reviewer.requestedReviewer, repository);
 			reviewers.push(team);
-		} else {
+		} else if (GraphQL.isAccount(reviewer.requestedReviewer)) {
 			const account: IAccount = parseAccount(reviewer.requestedReviewer, repository);
 			reviewers.push(account);
 		}

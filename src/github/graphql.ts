@@ -81,6 +81,10 @@ export interface ReactionGroup {
 	};
 }
 
+export interface Node {
+	id: string;
+}
+
 export interface Actor {
 	__typename: string;
 	id: string;
@@ -94,11 +98,11 @@ export interface Account extends Actor {
 	email: string;
 }
 
-export function isAccount(x: Actor | Team | undefined | null): x is Account {
+export function isAccount(x: Actor | Team | Node | undefined | null): x is Account {
 	return !!x && 'name' in x && 'email' in x;
 }
 
-export function isTeam(x: Actor | Team | undefined | null): x is Team {
+export function isTeam(x: Actor | Team | Node | undefined | null): x is Team {
 	return !!x && 'slug' in x;
 }
 
@@ -258,7 +262,7 @@ export interface GetReviewRequestsResponse {
 		pullRequest: {
 			reviewRequests: {
 				nodes: {
-					requestedReviewer: Actor | Account | Team | null;
+					requestedReviewer: Actor | Account | Team | Node | null;
 				}[];
 			};
 		};
