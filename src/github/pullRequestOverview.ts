@@ -118,9 +118,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				state: GithubItemStateEnum.Merged,
 			});
 		}));
-		this._register(folderRepositoryManager.credentialStore.onDidUpgradeSession(() => {
-			this.updatePullRequest(this._item);
-		}));
 
 		this._register(vscode.commands.registerCommand('review.approveDescription', (e) => this.approvePullRequestCommand(e)));
 		this._register(vscode.commands.registerCommand('review.commentDescription', (e) => this.submitReviewCommand(e)));
@@ -186,7 +183,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return super.continueOnGitHub() && isCrossRepository;
 	}
 
-	private async updatePullRequest(pullRequestModel: PullRequestModel): Promise<void> {
+	protected override async updateItem(pullRequestModel: PullRequestModel): Promise<void> {
 		try {
 			const [
 				pullRequest,
@@ -308,7 +305,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._panel.webview.html = this.getHtmlForWebview();
 		}
 
-		return vscode.window.withProgress({ location: { viewId: 'pr:github' } }, () => this.updatePullRequest(pullRequestModel));
+		return vscode.window.withProgress({ location: { viewId: 'pr:github' } }, () => this.updateItem(pullRequestModel));
 	}
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {

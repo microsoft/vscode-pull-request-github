@@ -132,6 +132,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				}
 			}));
 
+		this._register(folderRepositoryManager.credentialStore.onDidUpgradeSession(() => {
+			this.updateItem(this._item);
+		}));
+
 		this._register(this._panel.onDidChangeViewState(e => this.onDidChangeViewState(e)));
 		this.pollForUpdates();
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
@@ -208,7 +212,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return context;
 	}
 
-	public async updateIssue(issueModel: IssueModel): Promise<void> {
+	protected async updateItem(issueModel: TItem): Promise<void> {
 		try {
 			const [
 				issue,
@@ -250,7 +254,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 	}
 
-	public async update(foldersManager: FolderRepositoryManager, issueModel: IssueModel): Promise<void> {
+	public async update(foldersManager: FolderRepositoryManager, issueModel: TItem): Promise<void> {
 		this._folderRepositoryManager = foldersManager;
 		this._postMessage({
 			command: 'set-scroll',
@@ -258,7 +262,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		});
 
 		this._panel.webview.html = this.getHtmlForWebview();
-		return this.updateIssue(issueModel);
+		return this.updateItem(issueModel);
 	}
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
