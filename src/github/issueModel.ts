@@ -14,6 +14,9 @@ import {
 	AddIssueCommentResponse,
 	AddPullRequestToProjectResponse,
 	EditIssueCommentResponse,
+	LatestCommit,
+	LatestReviewThread,
+	LatestUpdatesResponse,
 	TimelineEventsResponse,
 	UpdateIssueResponse,
 } from './graphql';
@@ -348,6 +351,52 @@ export class IssueModel<TItem extends Issue = Issue> {
 		} catch (e) {
 			console.log(e);
 			return [];
+		}
+	}
+
+	protected getUpdatesQuery(schema: any): any {
+		return schema.LatestIssueUpdates;
+	}
+
+	async getLastUpdateTime(time: Date): Promise<Date> {
+		Logger.debug(`Fetch timeline events of issue #${this.number} - enter`, IssueModel.ID);
+		const githubRepository = this.githubRepository;
+		const { query, remote, schema } = await githubRepository.ensure();
+		try {
+			const { data } = await query<LatestUpdatesResponse>({
+				query: this.getUpdatesQuery(schema),
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: this.number,
+					since: new Date(time),
+				}
+			});
+
+			const times = [
+				time,
+				new Date(data.repository.pullRequest.updatedAt),
+				...(data.repository.pullRequest.reactions.nodes.map(node => new Date(node.createdAt))),
+				...(data.repository.pullRequest.comments.nodes.map(node => new Date(node.updatedAt))),
+				...(data.repository.pullRequest.comments.nodes.flatMap(node => node.reactions.nodes.map(reaction => new Date(reaction.createdAt)))),
+				...(data.repository.pullRequest.timelineItems.nodes.map(node => {
+					const latestCommit = node as Partial<LatestCommit>;
+					if (latestCommit.commit?.authoredDate) {
+						return new Date(latestCommit.commit.authoredDate);
+					}
+					const latestReviewThread = node as Partial<LatestReviewThread>;
+					if ((latestReviewThread.comments?.nodes.length ?? 0) > 0) {
+						return new Date(latestReviewThread.comments!.nodes[0].createdAt);
+					}
+					return new Date((node as { createdAt: string }).createdAt);
+				}))
+			];
+
+			// Sort times and return the most recent one
+			return new Date(Math.max(...times.map(t => t.getTime())));
+		} catch (e) {
+			Logger.error(`Error fetching timeline events of issue #${this.number} - ${formatError(e)}`, IssueModel.ID);
+			return time; // Return the original time in case of an error
 		}
 	}
 

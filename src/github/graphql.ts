@@ -250,6 +250,48 @@ export interface TimelineEventsResponse {
 	rateLimit: RateLimit;
 }
 
+export interface LatestCommit {
+	commit: {
+		authoredDate: string;
+	}
+}
+
+export interface LatestReviewThread {
+	comments: {
+		nodes: {
+			createdAt: string;
+		}[];
+	}
+}
+
+export interface LatestUpdatesResponse {
+	repository: {
+		pullRequest: {
+			reactions: {
+				nodes: {
+					createdAt: string;
+				}[];
+			}
+			updatedAt: string;
+			comments: {
+				nodes: {
+					updatedAt: string;
+					reactions: {
+						nodes: {
+							createdAt: string;
+						}[];
+					}
+				}[];
+			}
+			timelineItems: {
+				nodes: ({
+					createdAt: string;
+				} | LatestCommit | LatestReviewThread)[];
+			}
+		}
+	}
+}
+
 export interface LatestReviewCommitResponse {
 	repository: {
 		pullRequest: {
