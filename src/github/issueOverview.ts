@@ -137,10 +137,11 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}));
 
 		this._register(this._panel.onDidChangeViewState(e => this.onDidChangeViewState(e)));
-		this.pollForUpdates();
+		this.lastRefreshTime = new Date();
+		this.pollForUpdates(true);
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${WEBVIEW_REFRESH_INTERVAL}`)) {
-				this.pollForUpdates();
+				this.pollForUpdates(this._panel.visible, true);
 			}
 		}));
 
@@ -157,16 +158,25 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	private timeout: NodeJS.Timeout | undefined = undefined;
-	private pollForUpdates(refreshImmediately: boolean = false): void {
+	private lastRefreshTime: Date;
+	private pollForUpdates(isVisible: boolean, refreshImmediately: boolean = false): void {
 		clearTimeout(this.timeout);
+		const refresh = async () => {
+			const previousRefreshTime = this.lastRefreshTime;
+			this.lastRefreshTime = await this._item.getLastUpdateTime(previousRefreshTime);
+			if (this.lastRefreshTime.getTime() > previousRefreshTime.getTime()) {
+				return this.refreshPanel();
+			}
+		};
+
 		if (refreshImmediately) {
-			this.refreshPanel();
+			refresh();
 		}
-		const webview = vscode.window.tabGroups.all.find(group => group.activeTab?.input instanceof vscode.TabInputWebview && group.activeTab.input.viewType.endsWith(this.type));
+		const webview = isVisible || vscode.window.tabGroups.all.find(group => group.activeTab?.input instanceof vscode.TabInputWebview && group.activeTab.input.viewType.endsWith(this.type));
 		const timeoutDuration = 1000 * (webview ? this.getRefreshInterval() : (5 * 60));
 		this.timeout = setTimeout(async () => {
-			await this.refreshPanel();
-			this.pollForUpdates();
+			await refresh();
+			this.pollForUpdates(this._panel.visible);
 		}, timeoutDuration);
 	}
 

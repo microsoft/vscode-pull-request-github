@@ -1198,6 +1198,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		}
 	}
 
+	protected override getUpdatesQuery(schema: any): any {
+		return schema.LatestUpdates;
+	}
+
 	private addReviewTimelineEventComments(events: TimelineEvent[], reviewThreads: IReviewThread[]): void {
 		interface CommentNode extends IComment {
 			childComments?: CommentNode[];
