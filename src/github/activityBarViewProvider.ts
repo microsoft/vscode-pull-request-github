@@ -7,12 +7,12 @@ import * as vscode from 'vscode';
 import { openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
 import { disposeAll } from '../common/lifecycle';
-import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
+import { ReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewViewBase } from '../common/webview';
 import { ReviewManager } from '../view/reviewManager';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, IAccount, isTeam, ITeam, PullRequestMergeability, reviewerId, ReviewEvent, ReviewState } from './interface';
+import { GithubItemStateEnum, IAccount, isTeam, ITeam, PullRequestMergeability, reviewerId, ReviewEventEnum, ReviewState } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
@@ -337,7 +337,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		});
 	}
 
-	private updateReviewers(review?: CommonReviewEvent): void {
+	private updateReviewers(review?: ReviewEvent): void {
 		if (review && review.state) {
 			const existingReviewer = this._existingReviewers.find(
 				reviewer => review.user.login === reviewerId(reviewer.reviewer),
@@ -353,7 +353,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 	}
 
-	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<CommonReviewEvent>) {
+	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
 		const submittingMessage = {
 			command: 'pr.submitting-review',
 			lastReviewType: reviewType
@@ -375,7 +375,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 	}
 
-	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<CommonReviewEvent>) {
+	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>) {
 		try {
 			const review = await action(message.args);
 			this.updateReviewers(review);
@@ -389,7 +389,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		}
 	}
 
-	private approvePullRequest(body: string): Promise<CommonReviewEvent> {
+	private approvePullRequest(body: string): Promise<ReviewEvent> {
 		return this._item.approve(this._folderRepositoryManager.repository, body);
 	}
 
@@ -401,7 +401,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		return this.doReviewCommand(context, ReviewType.Approve, (body) => this.approvePullRequest(body));
 	}
 
-	private requestChanges(body: string): Promise<CommonReviewEvent> {
+	private requestChanges(body: string): Promise<ReviewEvent> {
 		return this._item.requestChanges(body);
 	}
 
@@ -413,8 +413,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		return this.doReviewMessage(message, (body) => this.requestChanges(body));
 	}
 
-	private submitReview(body: string): Promise<CommonReviewEvent> {
-		return this._item.submitReview(ReviewEvent.Comment, body);
+	private submitReview(body: string): Promise<ReviewEvent> {
+		return this._item.submitReview(ReviewEventEnum.Comment, body);
 	}
 
 	private submitReviewCommand(context: { body: string }) {

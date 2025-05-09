@@ -7,8 +7,8 @@ import { createContext } from 'react';
 import { CloseResult } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, TimelineEvent } from '../../src/common/timelineEvent';
-import { IProjectItem, MergeMethod, ReadyForReview, ReviewState } from '../../src/github/interface';
-import { ChangeAssigneesReply, MergeArguments, MergeResult, ProjectItemsReply, PullRequest } from '../../src/github/views';
+import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
+import { ChangeAssigneesReply, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, SubmitReviewReply } from '../../src/github/views';
 import { getState, setState, updateState } from './cache';
 import { getMessageHandler, MessageHandler } from './message';
 
@@ -165,7 +165,8 @@ export class PRContext {
 		this.postMessage({ command: 'pr.apply-patch', args: { comment } });
 	};
 
-	private appendReview({ event, reviewers }: { event?: ReviewEvent | TimelineEvent, reviewers?: ReviewState[] }) {
+	private appendReview(reply: SubmitReviewReply) {
+		const { event, reviewers } = reply;
 		const state = this.pr;
 		state.busy = false;
 		if (!event) {

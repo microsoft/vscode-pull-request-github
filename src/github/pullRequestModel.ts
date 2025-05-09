@@ -16,7 +16,7 @@ import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
-import { ClosedEvent, ReviewEvent as CommonReviewEvent, EventType, TimelineEvent } from '../common/timelineEvent';
+import { ClosedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { resolvePath, Schemes, toPRUri, toReviewUri } from '../common/uri';
 import { formatError, isDescendant } from '../common/utils';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
@@ -66,7 +66,7 @@ import {
 	PullRequestMergeability,
 	PullRequestReviewRequirement,
 	ReadyForReview,
-	ReviewEvent,
+	ReviewEventEnum,
 } from './interface';
 import { IssueModel } from './issueModel';
 import { compareCommits } from './loggingOctokit';
@@ -321,7 +321,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Approve the pull request.
 	 * @param message Optional approval comment text.
 	 */
-	async approve(repository: Repository, message?: string): Promise<CommonReviewEvent> {
+	async approve(repository: Repository, message?: string): Promise<ReviewEvent> {
 		// Check that the remote head of the PR branch matches the local head of the PR branch
 		let remoteHead: string | undefined;
 		let localHead: string | undefined;
@@ -340,9 +340,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			return Promise.reject(rejectMessage);
 		}
 
-		const action: Promise<CommonReviewEvent> = (await this.getPendingReviewId())
-			? this.submitReview(ReviewEvent.Approve, message)
-			: this.createReview(ReviewEvent.Approve, message);
+		const action: Promise<ReviewEvent> = (await this.getPendingReviewId())
+			? this.submitReview(ReviewEventEnum.Approve, message)
+			: this.createReview(ReviewEventEnum.Approve, message);
 
 		return action.then(x => {
 			/* __GDPR__
@@ -358,10 +358,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Request changes on the pull request.
 	 * @param message Optional comment text to leave with the review.
 	 */
-	async requestChanges(message?: string): Promise<CommonReviewEvent> {
-		const action: Promise<CommonReviewEvent> = (await this.getPendingReviewId())
-			? this.submitReview(ReviewEvent.RequestChanges, message)
-			: this.createReview(ReviewEvent.RequestChanges, message);
+	async requestChanges(message?: string): Promise<ReviewEvent> {
+		const action: Promise<ReviewEvent> = (await this.getPendingReviewId())
+			? this.submitReview(ReviewEventEnum.RequestChanges, message)
+			: this.createReview(ReviewEventEnum.RequestChanges, message);
 
 		return action.then(x => {
 			/* __GDPR__
@@ -410,7 +410,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param event The type of review to create, an approval, request for changes, or comment.
 	 * @param message The summary comment text.
 	 */
-	private async createReview(event: ReviewEvent, message?: string): Promise<CommonReviewEvent> {
+	private async createReview(event: ReviewEventEnum, message?: string): Promise<ReviewEvent> {
 		const { octokit, remote } = await this.githubRepository.ensure();
 
 		const { data } = await octokit.call(octokit.api.pulls.createReview, {
@@ -429,11 +429,11 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * @param event The type of review to create, an approval, request for changes, or comment.
 	 * @param body The summary comment text.
 	 */
-	async submitReview(event?: ReviewEvent, body?: string): Promise<CommonReviewEvent> {
+	async submitReview(event?: ReviewEventEnum, body?: string): Promise<ReviewEvent> {
 		let pendingReviewId = await this.getPendingReviewId();
 		const { mutate, schema } = await this.githubRepository.ensure();
 
-		if (!pendingReviewId && (event === ReviewEvent.Comment)) {
+		if (!pendingReviewId && (event === ReviewEventEnum.Comment)) {
 			// Create a new review so that we can comment on it.
 			pendingReviewId = await this.startReview();
 		}
@@ -443,7 +443,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				mutation: schema.SubmitReview,
 				variables: {
 					id: pendingReviewId,
-					event: event || ReviewEvent.Comment,
+					event: event || ReviewEventEnum.Comment,
 					body,
 				},
 			});
@@ -1203,14 +1203,14 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			childComments?: CommentNode[];
 		}
 
-		const reviewEvents = events.filter((e): e is CommonReviewEvent => e.event === EventType.Reviewed);
+		const reviewEvents = events.filter((e): e is ReviewEvent => e.event === EventType.Reviewed);
 		const reviewComments = reviewThreads.reduce((previous, current) => (previous as IComment[]).concat(current.comments), []);
 
 		const reviewEventsById = reviewEvents.reduce((index, evt) => {
 			index[evt.id] = evt;
 			evt.comments = [];
 			return index;
-		}, {} as { [key: number]: CommonReviewEvent });
+		}, {} as { [key: number]: ReviewEvent });
 
 		const commentsById = reviewComments.reduce((index, evt) => {
 			index[evt.id] = evt;

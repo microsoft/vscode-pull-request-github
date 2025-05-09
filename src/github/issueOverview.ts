@@ -148,7 +148,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	protected onDidChangeViewState(e: vscode.WebviewPanelOnDidChangeViewStateEvent): void {
 		if (e.webviewPanel.visible) {
-			this.pollForUpdates(true);
+			this.pollForUpdates(!!this._item);
 		}
 	}
 
