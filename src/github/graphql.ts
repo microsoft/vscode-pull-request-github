@@ -47,6 +47,20 @@ export interface CrossReferencedEvent {
 	willCloseTarget: boolean;
 }
 
+export interface ClosedEvent {
+	__typename: string;
+	id: string;
+	actor: Actor;
+	createdAt: string;
+}
+
+export interface ReopenedEvent {
+	__typename: string;
+	id: string;
+	actor: Actor;
+	createdAt: string;
+}
+
 export interface AbbreviatedIssueComment {
 	author: Account;
 	body: string;
@@ -81,6 +95,10 @@ export interface ReactionGroup {
 	};
 }
 
+export interface Node {
+	id: string;
+}
+
 export interface Actor {
 	__typename: string;
 	id: string;
@@ -94,12 +112,12 @@ export interface Account extends Actor {
 	email: string;
 }
 
-export function isAccount(x: Actor | Team | undefined | null): x is Account {
+export function isAccount(x: Actor | Team | Node | undefined | null): x is Account {
 	const asAccount = x as Partial<Account>;
 	return !!asAccount && !!asAccount?.name && !!asAccount?.email;
 }
 
-export function isTeam(x: Actor | Team | undefined | null): x is Team {
+export function isTeam(x: Actor | Team | Node | undefined | null): x is Team {
 	const asTeam = x as Partial<Team>;
 	return !!asTeam && !!asTeam?.slug;
 }
@@ -260,7 +278,7 @@ export interface GetReviewRequestsResponse {
 		pullRequest: {
 			reviewRequests: {
 				nodes: {
-					requestedReviewer: Actor | Account | Team | null;
+					requestedReviewer: Actor | Account | Team | Node | null;
 				}[];
 			};
 		};

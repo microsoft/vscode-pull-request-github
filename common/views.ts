@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IAccount, ILabel, IMilestone, IProject, ITeam, MergeMethod, MergeMethodsAvailability } from '../src/github/interface';
+import { ClosedEvent, CommentEvent } from '../src/common/timelineEvent';
+import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, ITeam, MergeMethod, MergeMethodsAvailability } from '../src/github/interface';
 import { PreReviewState } from '../src/github/views';
 
 export interface RemoteInfo {
@@ -166,6 +167,12 @@ export interface TitleAndDescriptionArgs {
 export interface TitleAndDescriptionResult {
 	title: string | undefined;
 	description: string | undefined;
+}
+
+export interface CloseResult {
+	state: GithubItemStateEnum;
+	commentEvent?: CommentEvent;
+	closeEvent: ClosedEvent;
 }
 
 // #endregion

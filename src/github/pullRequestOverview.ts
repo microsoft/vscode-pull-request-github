@@ -5,7 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { onDidUpdatePR, openPullRequestOnGitHub } from '../commands';
+import { openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
 import { commands, contexts } from '../common/executeCommands';
 import { disposeAll } from '../common/lifecycle';
@@ -110,21 +110,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		});
 
 		this.registerPrListeners();
-		this._register(onDidUpdatePR(
-			pr => {
-				if (pr) {
-					this._item.update(pr);
-				}
-
-				this._postMessage({
-					command: 'update-state',
-					state: this._item.state,
-				});
-			}
-		));
 
 		this.setVisibilityContext();
-		this._register(this._panel.onDidChangeViewState(() => this.setVisibilityContext()));
 		this._register(folderRepositoryManager.onDidMergePullRequest(_ => {
 			this._postMessage({
 				command: 'update-state',
@@ -165,6 +152,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				}
 			}));
 		}
+	}
+
+	protected override onDidChangeViewState(e: vscode.WebviewPanelOnDidChangeViewStateEvent): void {
+		super.onDidChangeViewState(e);
+		this.setVisibilityContext();
 	}
 
 	private setVisibilityContext() {

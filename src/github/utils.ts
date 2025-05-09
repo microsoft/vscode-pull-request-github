@@ -469,6 +469,10 @@ export function convertGraphQLEventType(text: string) {
 			return Common.EventType.Merged;
 		case 'CrossReferencedEvent':
 			return Common.EventType.CrossReferenced;
+		case 'ClosedEvent':
+			return Common.EventType.Closed;
+		case 'ReopenedEvent':
+			return Common.EventType.Reopened;
 		default:
 			return Common.EventType.Other;
 	}
@@ -670,7 +674,7 @@ export function parseGraphQLReviewers(data: GraphQL.GetReviewRequestsResponse, r
 		if (GraphQL.isTeam(reviewer.requestedReviewer)) {
 			const team: ITeam = parseTeam(reviewer.requestedReviewer, repository);
 			reviewers.push(team);
-		} else {
+		} else if (GraphQL.isAccount(reviewer.requestedReviewer)) {
 			const account: IAccount = parseAccount(reviewer.requestedReviewer, repository);
 			reviewers.push(account);
 		}
@@ -1116,6 +1120,26 @@ export function parseGraphQLTimelineEvents(
 						title: crossRefEv.source.title
 					},
 					willCloseTarget: crossRefEv.willCloseTarget
+				});
+				return;
+			case Common.EventType.Closed:
+				const closedEv = event as GraphQL.ClosedEvent;
+
+				normalizedEvents.push({
+					id: closedEv.id,
+					event: type,
+					actor: parseAccount(closedEv.actor, githubRepository),
+					createdAt: closedEv.createdAt,
+				});
+				return;
+			case Common.EventType.Reopened:
+				const reopenedEv = event as GraphQL.ReopenedEvent;
+
+				normalizedEvents.push({
+					id: reopenedEv.id,
+					event: type,
+					actor: parseAccount(reopenedEv.actor, githubRepository),
+					createdAt: reopenedEv.createdAt,
 				});
 				return;
 			default:

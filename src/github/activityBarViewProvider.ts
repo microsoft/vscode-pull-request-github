@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { onDidUpdatePR, openPullRequestOnGitHub } from '../commands';
+import { openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
 import { disposeAll } from '../common/lifecycle';
 import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
@@ -30,18 +30,6 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		private _item: PullRequestModel,
 	) {
 		super(extensionUri);
-
-		this._register(onDidUpdatePR(
-			pr => {
-				if (pr) {
-					this._item.update(pr);
-				}
-
-				this._postMessage({
-					command: 'update-state',
-					state: this._item.state,
-				});
-			}));
 
 		this._register(this._folderRepositoryManager.onDidMergePullRequest(_ => {
 			this._postMessage({

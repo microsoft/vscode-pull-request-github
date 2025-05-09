@@ -162,6 +162,24 @@ fragment CrossReferencedEvent on CrossReferencedEvent {
 	willCloseTarget
 }
 
+fragment ClosedEvent on ClosedEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+}
+
+fragment ReopenedEvent on ReopenedEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	createdAt
+}
+
 fragment Review on PullRequestReview {
 	id
 	databaseId
@@ -260,6 +278,8 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 					...AssignedEvent
 					...HeadRefDeleted
 					...CrossReferencedEvent
+					...ClosedEvent
+					...ReopenedEvent
 				}
 			}
 		}
@@ -278,6 +298,8 @@ query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last:
 					...Comment
 					...AssignedEvent
 					...CrossReferencedEvent
+					...ClosedEvent
+					...ReopenedEvent
 				}
 			}
 		}

@@ -829,11 +829,6 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
-				"command": "pr.close",
-				"title": "%command.pr.close.title%",
-				"category": "%command.pull.request.category%"
-			},
-			{
 				"command": "pr.openPullRequestOnGitHub",
 				"title": "%command.pr.openPullRequestOnGitHub.title%",
 				"category": "%command.pull.request.category%",
@@ -1593,13 +1588,13 @@
 				"command": "notifications.markPullRequestsAsRead",
 				"title": "%command.notifications.markPullRequestsAsRead.title%",
 				"category": "%command.notifications.category%",
-				"icon": "$(git-pull-request)"
+				"icon": "$(git-pull-request-done)"
 			},
 			{
 				"command": "notifications.markPullRequestsAsDone",
 				"title": "%command.notifications.markPullRequestsAsDone.title%",
 				"category": "%command.notifications.category%",
-				"icon": "$(git-pull-request)"
+				"icon": "$(git-pull-request-done)"
 			},
 			{
 				"command": "notifications.configureNotificationsViewlet",
@@ -1775,10 +1770,6 @@
 				{
 					"command": "review.openLocalFile",
 					"when": "false"
-				},
-				{
-					"command": "pr.close",
-					"when": "gitHubOpenRepositoryCount != 0 && github:inReviewMode"
 				},
 				{
 					"command": "pr.create",

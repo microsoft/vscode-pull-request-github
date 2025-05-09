@@ -421,7 +421,7 @@ export function AddComment({
 				placeholder="Leave a comment"
 			/>
 			<div className="form-actions">
-				{(hasWritePermission || isAuthor) && !isIssue ? (
+				{(hasWritePermission || isAuthor) ? (
 					<button
 						id="close"
 						className="secondary"
@@ -429,7 +429,7 @@ export function AddComment({
 						onClick={closeButton}
 						data-command="close"
 					>
-						Close Pull Request
+						{isIssue ? 'Close issue' : 'Close pull request'}
 					</button>
 				) : null}
 

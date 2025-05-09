@@ -7,12 +7,14 @@ import React, { useContext, useRef, useState } from 'react';
 import { IComment } from '../../src/common/comment';
 import {
 	AssignEvent,
+	ClosedEvent,
 	CommentEvent,
 	CommitEvent,
 	CrossReferencedEvent,
 	EventType,
 	HeadRefDeleteEvent,
 	MergedEvent,
+	ReopenedEvent,
 	ReviewEvent,
 	TimelineEvent,
 } from '../../src/common/timelineEvent';
@@ -26,7 +28,7 @@ import { nbsp } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
 
-export const Timeline = ({ events }: { events: TimelineEvent[] }) => {
+export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue: boolean }) => {
 	const consolidatedEvents: TimelineEvent[] = [];
 	for (let i = 0; i < events.length; i++) {
 		if ((i > 0) && (events[i].event === EventType.Assigned) && (consolidatedEvents[consolidatedEvents.length - 1].event === EventType.Assigned)) {
@@ -56,11 +58,15 @@ export const Timeline = ({ events }: { events: TimelineEvent[] }) => {
 			case EventType.Merged:
 				return <MergedEventView key={`merged${event.id}`} {...event} />;
 			case EventType.Assigned:
-				return <AssignEventView key={`assign${event.id}`} {...event} />;
+				return <AssignEventView key={`assign${event.id}`} event={event} isIssue={isIssue} />;
 			case EventType.HeadRefDeleted:
 				return <HeadDeleteEventView key={`head${event.id}`} {...event} />;
 			case EventType.CrossReferenced:
 				return <CrossReferencedEventView key={`cross${event.id}`} {...event} />;
+			case EventType.Closed:
+				return <ClosedEventView key={`closed${event.id}`} event={event} isIssue={isIssue} />;
+			case EventType.Reopened:
+				return <ReopenedEventView key={`reopened${event.id}`} event={event} isIssue={isIssue} />;
 			case EventType.NewCommitsSinceReview:
 				return <NewCommitsSinceReviewEventView key={`newCommits${event.id}`} />;
 			default:
@@ -327,8 +333,9 @@ function joinWithAnd(arr: JSX.Element[]): JSX.Element {
 	return <>{arr.slice(0, -1).map(item => <>{item}, </>)} and {arr[arr.length - 1]}</>;
 }
 
-const AssignEventView = (event: AssignEvent) => {
+const AssignEventView = ({ event, isIssue }: { event: AssignEvent, isIssue: boolean }) => {
 	const { actor, assignees } = event;
+	const joinedAssignees = joinWithAnd(assignees.map(a => <AuthorLink key={a.id} for={a} />));
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
@@ -337,10 +344,44 @@ const AssignEventView = (event: AssignEvent) => {
 				</div>
 				<AuthorLink for={actor} />
 				<div className="message">
-					assigned {joinWithAnd(assignees.map(a => <AuthorLink key={a.id} for={a} />))} to this pull request
+					{isIssue
+						? <>assigned {joinedAssignees}</>
+						: <>assigned {joinedAssignees} to this pull request</>}
 				</div>
 			</div>
 			<Timestamp date={event.createdAt} />
+		</div>
+	);
+};
+
+const ClosedEventView = ({ event, isIssue }: { event: ClosedEvent, isIssue: boolean }) => {
+	const { actor, createdAt } = event;
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				<div className="avatar-container">
+					<Avatar for={actor} />
+				</div>
+				<AuthorLink for={actor} />
+				<div className="message">{isIssue ? 'closed this issue' : 'closed this pull request'}</div>
+			</div>
+			<Timestamp date={createdAt} />
+		</div>
+	);
+};
+
+const ReopenedEventView = ({ event, isIssue }: { event: ReopenedEvent, isIssue: boolean }) => {
+	const { actor, createdAt } = event;
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				<div className="avatar-container">
+					<Avatar for={actor} />
+				</div>
+				<AuthorLink for={actor} />
+				<div className="message">{isIssue ? 'reopened this issue' : 'reopened this pull request'}</div>
+			</div>
+			<Timestamp date={createdAt} />
 		</div>
 	);
 };

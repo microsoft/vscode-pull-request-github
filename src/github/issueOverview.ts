@@ -5,16 +5,17 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { CloseResult } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import Logger from '../common/logger';
-import { WEBVIEW_REFRESH_INTERVAL } from '../common/settingKeys';
+import { PR_SETTINGS_NAMESPACE, WEBVIEW_REFRESH_INTERVAL } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { CommentEvent, EventType, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { IAccount, ILabel, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
+import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
 import { isInCodespaces, vscodeDevPrLink } from './utils';
@@ -130,29 +131,39 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 					});
 				}
 			}));
-		this.pollForUpdates(true);
+
+		this._register(this._panel.onDidChangeViewState(e => this.onDidChangeViewState(e)));
+		this.pollForUpdates();
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${WEBVIEW_REFRESH_INTERVAL}`)) {
+				this.pollForUpdates();
+			}
+		}));
+
 	}
 
 	private getRefreshInterval(): number {
-		return vscode.workspace.getConfiguration().get<number>(`githubPullRequests.${WEBVIEW_REFRESH_INTERVAL}`) || 60;
+		return vscode.workspace.getConfiguration().get<number>(`${PR_SETTINGS_NAMESPACE}.${WEBVIEW_REFRESH_INTERVAL}`) || 60;
 	}
 
-	private refreshIntervalSetting: vscode.Disposable | undefined;
-	private pollForUpdates(shorterTimeout: boolean = false): void {
-		const webview = shorterTimeout || vscode.window.tabGroups.all.find(group => group.activeTab?.input instanceof vscode.TabInputWebview && group.activeTab.input.viewType.endsWith(this.type));
+	protected onDidChangeViewState(e: vscode.WebviewPanelOnDidChangeViewStateEvent): void {
+		if (e.webviewPanel.visible) {
+			this.pollForUpdates(true);
+		}
+	}
+
+	private timeout: NodeJS.Timeout | undefined = undefined;
+	private pollForUpdates(refreshImmediately: boolean = false): void {
+		clearTimeout(this.timeout);
+		if (refreshImmediately) {
+			this.refreshPanel();
+		}
+		const webview = vscode.window.tabGroups.all.find(group => group.activeTab?.input instanceof vscode.TabInputWebview && group.activeTab.input.viewType.endsWith(this.type));
 		const timeoutDuration = 1000 * (webview ? this.getRefreshInterval() : (5 * 60));
-		const timeout = setTimeout(async () => {
+		this.timeout = setTimeout(async () => {
 			await this.refreshPanel();
 			this.pollForUpdates();
 		}, timeoutDuration);
-		if (!this.refreshIntervalSetting) {
-			this.refreshIntervalSetting = vscode.workspace.onDidChangeConfiguration(e => {
-				if (e.affectsConfiguration(`githubPullRequests.${WEBVIEW_REFRESH_INTERVAL}`)) {
-					clearTimeout(timeout);
-					this.pollForUpdates(true);
-				}
-			});
-		}
 	}
 
 	public async refreshPanel(): Promise<void> {
@@ -560,18 +571,21 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			});
 	}
 
-	private close(message: IRequestMessage<string>) {
-		vscode.commands
-			.executeCommand<IComment>('pr.close', this._item, message.args)
-			.then(comment => {
-				if (comment) {
-					this._replyMessage(message, {
-						value: comment,
-					});
-				} else {
-					this._throwError(message, 'Close cancelled');
-				}
-			});
+	protected async close(message: IRequestMessage<string>) {
+		let comment: IComment | undefined;
+		if (message.args) {
+			comment = await this._item.createIssueComment(message.args);
+		}
+		const closeUpdate = await this._item.close();
+		const result: CloseResult = {
+			state: closeUpdate.item.state.toUpperCase() as GithubItemStateEnum,
+			commentEvent: comment ? {
+				...comment,
+				event: EventType.Commented
+			} : undefined,
+			closeEvent: closeUpdate.closedEvent
+		};
+		this._replyMessage(message, result);
 	}
 
 	private createComment(message: IRequestMessage<string>) {
