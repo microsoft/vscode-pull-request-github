@@ -7,6 +7,10 @@ import { Disposable } from './lifecycle';
 
 export const PR_TREE = 'PullRequestTree';
 
+interface Stringish {
+	toString: () => string;
+}
+
 class Log extends Disposable {
 	private readonly _outputChannel: vscode.LogOutputChannel;
 	private readonly _activePerfMarkers: Map<string, number> = new Map();
@@ -28,36 +32,40 @@ class Log extends Disposable {
 		this._activePerfMarkers.delete(marker);
 	}
 
-	private logString(message: any, component?: string): string {
+	private logString(message: string | Error | Stringish | Object, component?: string): string {
+		let logMessage: string;
 		if (typeof message !== 'string') {
+			const asString = message as Partial<Stringish>;
 			if (message instanceof Error) {
-				message = message.message;
-			} else if ('toString' in message) {
-				message = message.toString();
+				logMessage = message.message;
+			} else if (asString.toString) {
+				logMessage = asString.toString();
 			} else {
-				message = JSON.stringify(message);
+				logMessage = JSON.stringify(message);
 			}
+		} else {
+			logMessage = message;
 		}
-		return component ? `[${component}] ${message}` : message;
+		return component ? `[${component}] ${logMessage}` : logMessage;
 	}
 
-	public trace(message: any, component: string) {
+	public trace(message: string | Error | Stringish | Object, component: string) {
 		this._outputChannel.trace(this.logString(message, component));
 	}
 
-	public debug(message: any, component: string) {
+	public debug(message: string | Error | Stringish | Object, component: string) {
 		this._outputChannel.debug(this.logString(message, component));
 	}
 
-	public appendLine(message: any, component: string) {
+	public appendLine(message: string | Error | Stringish | Object, component: string) {
 		this._outputChannel.info(this.logString(message, component));
 	}
 
-	public warn(message: any, component?: string) {
+	public warn(message: string | Error | Stringish | Object, component?: string) {
 		this._outputChannel.warn(this.logString(message, component));
 	}
 
-	public error(message: any, component: string) {
+	public error(message: string | Error | Stringish | Object, component: string) {
 		this._outputChannel.error(this.logString(message, component));
 	}
 }
