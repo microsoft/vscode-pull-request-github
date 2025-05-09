@@ -12,7 +12,7 @@ export enum PRType {
 	LocalPullRequest,
 }
 
-export enum ReviewEvent {
+export enum ReviewEventEnum {
 	Approve = 'APPROVE',
 	RequestChanges = 'REQUEST_CHANGES',
 	Comment = 'COMMENT',

@@ -12,7 +12,7 @@ import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { ReviewEvent as CommonReviewEvent } from '../common/timelineEvent';
+import { ReviewEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -25,7 +25,7 @@ import {
 	MergeMethodsAvailability,
 	PullRequestMergeability,
 	reviewerId,
-	ReviewEvent,
+	ReviewEventEnum,
 	ReviewState,
 } from './interface';
 import { IssueOverviewPanel } from './issueOverview';
@@ -33,7 +33,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
-import { MergeArguments, MergeResult, PullRequest, ReviewType } from './views';
+import { MergeArguments, MergeResult, PullRequest, ReviewType, SubmitReviewReply } from './views';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static override ID: string = 'PullRequestOverviewPanel';
@@ -549,7 +549,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private updateReviewers(review?: CommonReviewEvent): void {
+	private updateReviewers(review?: ReviewEvent): void {
 		if (review && review.state) {
 			const existingReviewer = this._existingReviewers.find(
 				reviewer => review.user.login === (reviewer.reviewer as IAccount).login,
@@ -565,7 +565,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<CommonReviewEvent>) {
+	private async doReviewCommand(context: { body: string }, reviewType: ReviewType, action: (body: string) => Promise<ReviewEvent>) {
 		const submittingMessage = {
 			command: 'pr.submitting-review',
 			lastReviewType: reviewType
@@ -588,21 +588,22 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<CommonReviewEvent>) {
+	private async doReviewMessage(message: IRequestMessage<string>, action: (body) => Promise<ReviewEvent>) {
 		try {
 			const review = await action(message.args);
 			this.updateReviewers(review);
-			this._replyMessage(message, {
-				review: review,
+			const reply: SubmitReviewReply = {
+				event: review,
 				reviewers: this._existingReviewers,
-			});
+			};
+			this._replyMessage(message, reply);
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
 			this._throwError(message, `${formatError(e)}`);
 		}
 	}
 
-	private approvePullRequest(body: string): Promise<CommonReviewEvent> {
+	private approvePullRequest(body: string): Promise<ReviewEvent> {
 		return this._item.approve(this._folderRepositoryManager.repository, body);
 	}
 
@@ -614,7 +615,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this.doReviewCommand(context, ReviewType.Approve, (body) => this.approvePullRequest(body));
 	}
 
-	private requestChanges(body: string): Promise<CommonReviewEvent> {
+	private requestChanges(body: string): Promise<ReviewEvent> {
 		return this._item.requestChanges(body);
 	}
 
@@ -626,8 +627,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return this.doReviewMessage(message, (body) => this.requestChanges(body));
 	}
 
-	private submitReview(body: string): Promise<CommonReviewEvent> {
-		return this._item.submitReview(ReviewEvent.Comment, body);
+	private submitReview(body: string): Promise<ReviewEvent> {
+		return this._item.submitReview(ReviewEventEnum.Comment, body);
 	}
 
 	private submitReviewCommand(context: { body: string }) {
