@@ -17,7 +17,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { getDefaultMergeMethod } from './pullRequestOverview';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { isInCodespaces, parseReviewers } from './utils';
-import { MergeArguments, PullRequest, ReviewType } from './views';
+import { MergeArguments, PullRequest, ReviewType, SubmitReviewReply } from './views';
 
 export class PullRequestViewProvider extends WebviewViewBase implements vscode.WebviewViewProvider {
 	public override readonly viewType = 'github:activePullRequest';
@@ -362,7 +362,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		try {
 			const review = await action(context.body);
 			this.updateReviewers(review);
-			const reviewMessage = {
+			const reviewMessage: SubmitReviewReply & { command: string } = {
 				command: 'pr.append-review',
 				event: review,
 				reviewers: this._existingReviewers
@@ -379,10 +379,11 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		try {
 			const review = await action(message.args);
 			this.updateReviewers(review);
-			this._replyMessage(message, {
-				review: review,
+			const reviewMessage: SubmitReviewReply = {
+				event: review,
 				reviewers: this._existingReviewers,
-			});
+			};
+			this._replyMessage(message, reviewMessage);
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
 			this._throwError(message, `${formatError(e)}`);
