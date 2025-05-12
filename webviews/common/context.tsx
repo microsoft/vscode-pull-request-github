@@ -126,14 +126,20 @@ export class PRContext {
 		this.updatePR({ pendingCommentDrafts: pendingCommentDrafts });
 	};
 
-	public requestChanges = async (body: string) =>
-		this.appendReview(await this.postMessage({ command: 'pr.request-changes', args: body }));
+	private async submitReviewCommand(command: string, body: string) {
+		try {
+			const result: SubmitReviewReply = await this.postMessage({ command, args: body });
+			return this.appendReview(result);
+		} catch (error) {
+			return this.updatePR({ busy: false });
+		}
+	}
 
-	public approve = async (body: string) =>
-		this.appendReview(await this.postMessage({ command: 'pr.approve', args: body }));
+	public requestChanges = (body: string) => this.submitReviewCommand('pr.request-changes', body);
 
-	public submit = async (body: string) =>
-		this.appendReview(await this.postMessage({ command: 'pr.submit', args: body }));
+	public approve = (body: string) => this.submitReviewCommand('pr.approve', body);
+
+	public submit = (body: string) => this.submitReviewCommand('pr.submit', body);
 
 	public close = async (body?: string) => {
 		try {

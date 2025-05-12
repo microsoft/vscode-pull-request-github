@@ -209,7 +209,7 @@ function AddReviewSummaryComment() {
 	const comment = useRef<HTMLTextAreaElement>();
 	const [isBusy, setBusy] = useState(false);
 
-	async function submitAction(event: React.MouseEvent, action: ReviewType): Promise<void> {
+	async function submitAction(event: React.MouseEvent | React.KeyboardEvent, action: ReviewType): Promise<void> {
 		event.preventDefault();
 		const { value } = comment.current!;
 		setBusy(true);
@@ -226,9 +226,20 @@ function AddReviewSummaryComment() {
 		setBusy(false);
 	}
 
+	const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+		if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+			submitAction(event, ReviewType.Comment);
+		}
+	};
+
 	return (
 		<form>
-			<textarea id='pending-review' ref={comment} placeholder="Leave a review summary comment"></textarea>
+			<textarea
+				id='pending-review'
+				ref={comment}
+				placeholder="Leave a review summary comment"
+				onKeyDown={onKeyDown}
+			></textarea>
 			<div className="form-actions">
 				{isAuthor ? null : (
 					<button
