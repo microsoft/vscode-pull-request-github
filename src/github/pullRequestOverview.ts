@@ -574,7 +574,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		try {
 			const review = await action(context.body);
 			this.updateReviewers(review);
-			const reviewMessage = {
+			const reviewMessage: SubmitReviewReply & { command: string } = {
 				command: 'pr.append-review',
 				event: review,
 				reviewers: this._existingReviewers
