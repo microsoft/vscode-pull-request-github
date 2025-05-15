@@ -18,7 +18,7 @@ import { Resource } from './common/resources';
 import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, EXPERIMENTAL_NOTIFICATIONS, FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE, SHOW_INLINE_OPEN_FILE_ACTION } from './common/settingKeys';
 import { initBasedOnSettingChange } from './common/settingsUtils';
 import { TemporaryState } from './common/temporaryState';
-import { Schemes, handler as uriHandler } from './common/uri';
+import { Schemes } from './common/uri';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
 import { CredentialStore } from './github/credentials';
@@ -32,6 +32,7 @@ import { ChatParticipant, ChatParticipantState } from './lm/participants';
 import { registerTools } from './lm/tools/tools';
 import { migrate } from './migrations';
 import { NotificationsFeatureRegister } from './notifications/notificationsFeatureRegistar';
+import { UriHandler } from './uriHandler';
 import { CommentDecorationProvider } from './view/commentDecorationProvider';
 import { CompareChanges } from './view/compareChangesTreeDataProvider';
 import { CreatePullRequestHelper } from './view/createPullRequestHelper';
@@ -118,8 +119,6 @@ async function init(
 			}
 		}),
 	);
-
-	context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 
 	// Sort the repositories to match folders in a multiroot workspace (if possible).
 	const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -241,6 +240,7 @@ async function init(
 	registerPostCommitCommandsProvider(reposManager, git);
 
 	initChat(context, credentialStore, reposManager);
+	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, telemetry, context)));
 
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
 	CompareChanges.closeTabs();

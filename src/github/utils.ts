@@ -18,7 +18,7 @@ import { Remote } from '../common/remote';
 import { Resource } from '../common/resources';
 import { GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
-import { DataUri } from '../common/uri';
+import { DataUri, toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
 import { gitHubLabelColor, uniqBy } from '../common/utils';
 import { OctokitCommon } from './common';
 import { FolderRepositoryManager, PullRequestDefaults } from './folderRepositoryManager';
@@ -983,7 +983,7 @@ export function parseGraphQLReviewEvent(
 	};
 }
 
-export function parseGraphQLTimelineEvents(
+export async function parseGraphQLTimelineEvents(
 	events: (
 		| GraphQL.MergedEvent
 		| GraphQL.Review
@@ -994,9 +994,9 @@ export function parseGraphQLTimelineEvents(
 		| GraphQL.CrossReferencedEvent
 	)[],
 	githubRepository: GitHubRepository,
-): Common.TimelineEvent[] {
+): Promise<Common.TimelineEvent[]> {
 	const normalizedEvents: Common.TimelineEvent[] = [];
-	events.forEach(event => {
+	for (const event of events) {
 		const type = convertGraphQLEventType(event.__typename);
 
 		switch (type) {
@@ -1014,7 +1014,7 @@ export function parseGraphQLTimelineEvents(
 					graphNodeId: commentEvent.id,
 					createdAt: commentEvent.createdAt,
 				});
-				return;
+				break;
 			case Common.EventType.Reviewed:
 				const reviewEvent = event as GraphQL.Review;
 				normalizedEvents.push({
@@ -1029,7 +1029,7 @@ export function parseGraphQLTimelineEvents(
 					state: reviewEvent.state,
 					id: reviewEvent.databaseId,
 				});
-				return;
+				break;
 			case Common.EventType.Committed:
 				const commitEv = event as GraphQL.Commit;
 				normalizedEvents.push({
@@ -1043,7 +1043,7 @@ export function parseGraphQLTimelineEvents(
 					message: commitEv.commit.message,
 					authoredDate: new Date(commitEv.commit.authoredDate),
 				} as Common.CommitEvent); // TODO remove cast
-				return;
+				break;
 			case Common.EventType.Merged:
 				const mergeEv = event as GraphQL.MergedEvent;
 
@@ -1058,7 +1058,7 @@ export function parseGraphQLTimelineEvents(
 					url: mergeEv.url,
 					graphNodeId: mergeEv.id,
 				});
-				return;
+				break;
 			case Common.EventType.Assigned:
 				const assignEv = event as GraphQL.AssignedEvent;
 
@@ -1069,7 +1069,7 @@ export function parseGraphQLTimelineEvents(
 					actor: parseAccount(assignEv.actor),
 					createdAt: assignEv.createdAt,
 				});
-				return;
+				break;
 			case Common.EventType.HeadRefDeleted:
 				const deletedEv = event as GraphQL.HeadRefDeletedEvent;
 
@@ -1080,10 +1080,13 @@ export function parseGraphQLTimelineEvents(
 					createdAt: deletedEv.createdAt,
 					headRef: deletedEv.headRefName,
 				});
-				return;
+				break;
 			case Common.EventType.CrossReferenced:
 				const crossRefEv = event as GraphQL.CrossReferencedEvent;
-
+				const isIssue = crossRefEv.source.__typename === 'Issue';
+				const extensionUrl = isIssue
+					? await toOpenIssueWebviewUri({ owner: crossRefEv.source.repository.owner.login, repo: crossRefEv.source.repository.name, issueNumber: crossRefEv.source.number })
+					: await toOpenPullRequestWebviewUri({ owner: crossRefEv.source.repository.owner.login, repo: crossRefEv.source.repository.name, pullRequestNumber: crossRefEv.source.number });
 				normalizedEvents.push({
 					id: crossRefEv.id,
 					event: type,
@@ -1091,12 +1094,14 @@ export function parseGraphQLTimelineEvents(
 					createdAt: crossRefEv.createdAt,
 					source: {
 						url: crossRefEv.source.url,
+						extensionUrl: extensionUrl.toString(),
 						number: crossRefEv.source.number,
-						title: crossRefEv.source.title
+						title: crossRefEv.source.title,
+						isIssue
 					},
 					willCloseTarget: crossRefEv.willCloseTarget
 				});
-				return;
+				break;
 			case Common.EventType.Closed:
 				const closedEv = event as GraphQL.ClosedEvent;
 
@@ -1106,7 +1111,7 @@ export function parseGraphQLTimelineEvents(
 					actor: parseAccount(closedEv.actor, githubRepository),
 					createdAt: closedEv.createdAt,
 				});
-				return;
+				break;
 			case Common.EventType.Reopened:
 				const reopenedEv = event as GraphQL.ReopenedEvent;
 
@@ -1116,11 +1121,11 @@ export function parseGraphQLTimelineEvents(
 					actor: parseAccount(reopenedEv.actor, githubRepository),
 					createdAt: reopenedEv.createdAt,
 				});
-				return;
+				break;
 			default:
 				break;
 		}
-	});
+	}
 
 	return normalizedEvents;
 }

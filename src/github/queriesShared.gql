@@ -152,11 +152,23 @@ fragment CrossReferencedEvent on CrossReferencedEvent {
 			number
 			url
 			title
+			repository: baseRepository {
+				owner {
+					login
+				}
+				name
+			}
 		}
 		... on Issue {
 			number
 			url
 			title
+			repository {
+				owner {
+					login
+				}
+				name
+			}
 		}
 	}
 	willCloseTarget

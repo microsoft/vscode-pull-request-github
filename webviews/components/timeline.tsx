@@ -327,7 +327,7 @@ const CrossReferencedEventView = (event: CrossReferencedEvent) => {
 				</div>
 				<AuthorLink for={event.actor} />
 				<div className="message">
-					linked <a href={source.url}>#{source.number}</a> {source.title}
+					linked <a href={source.extensionUrl}>#{source.number}</a> {source.title}
 					{nbsp}
 					{event.willCloseTarget ? 'which will close this issue' : ''}
 				</div>
