@@ -1853,6 +1853,9 @@ export class FolderRepositoryManager extends Disposable {
 		);
 
 		results.forEach(result => {
+			if (result.metadata.length === 0) {
+				return;
+			}
 			result.description = `${result.metadata[0].repositoryName}/${result.metadata[0].owner} ${result.metadata.map(metadata => {
 				const prString = `#${metadata.prNumber}`;
 				return metadata.isOpen ? vscode.l10n.t('{0} is open', prString) : prString;
