@@ -1547,7 +1547,7 @@ export async function variableSubstitution(
 
 	// not a variable, but still a substitution that needs to be done
 	const withCopilot = withVariables.replace(COPILOT_PATTERN, () => {
-		return `:copilot-swe-agent[bot]`;
+		return `:copilot-swe-agent[bot] `;
 	});
 	return withCopilot;
 }
