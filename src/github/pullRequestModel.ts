@@ -1185,7 +1185,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			}
 
 			const ret = data.repository?.pullRequest.timelineItems.nodes;
-			const events = ret ? parseGraphQLTimelineEvents(ret, this.githubRepository) : [];
+			const events = ret ? await parseGraphQLTimelineEvents(ret, this.githubRepository) : [];
 
 			this.addReviewTimelineEventComments(events, reviewThreads);
 			insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, this.head);

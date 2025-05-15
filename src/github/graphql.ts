@@ -40,9 +40,16 @@ export interface CrossReferencedEvent {
 	actor: Actor;
 	createdAt: string;
 	source: {
+		__typename: string;
 		number: number;
 		url: string;
 		title: string;
+		repository: {
+			name: string;
+			owner: {
+				login: string;
+			};
+		}
 	};
 	willCloseTarget: boolean;
 }

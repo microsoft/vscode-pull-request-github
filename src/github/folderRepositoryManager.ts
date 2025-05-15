@@ -1720,7 +1720,7 @@ export class FolderRepositoryManager extends Disposable {
 				input
 			}
 		})
-			.then(result => {
+			.then(async (result) => {
 				Logger.debug(`Merging PR: ${pullRequest.number}} - done`, this.id);
 
 				/* __GDPR__
@@ -1728,7 +1728,7 @@ export class FolderRepositoryManager extends Disposable {
 				*/
 				this.telemetry.sendTelemetryEvent('pr.merge.success');
 				this._onDidMergePullRequest.fire();
-				return { merged: true, message: '', timeline: parseGraphQLTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], pullRequest.githubRepository) };
+				return { merged: true, message: '', timeline: await parseGraphQLTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], pullRequest.githubRepository) };
 			})
 			.catch(e => {
 				/* __GDPR__

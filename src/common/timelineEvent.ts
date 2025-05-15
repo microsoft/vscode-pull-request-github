@@ -118,7 +118,9 @@ export interface CrossReferencedEvent {
 	source: {
 		number: number;
 		url: string;
+		extensionUrl: string;
 		title: string;
+		isIssue: boolean;
 	};
 	willCloseTarget: boolean;
 }

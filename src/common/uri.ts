@@ -10,11 +10,13 @@ import * as pathUtils from 'path';
 import fetch from 'cross-fetch';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
+import { EXTENSION_ID } from '../constants';
 import { IAccount, ITeam, reviewerId } from '../github/interface';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { GitChangeType } from './file';
 import Logger from './logger';
 import { TemporaryState } from './temporaryState';
+import { compareIgnoreCase } from './utils';
 
 export interface ReviewUriParams {
 	path: string;
@@ -500,6 +502,64 @@ export function fromRepoUri(uri: vscode.Uri): RepoUriParams | undefined {
 	} catch (e) { }
 }
 
+export enum UriHandlerPaths {
+	OpenIssueWebview = '/open-issue-webview',
+	OpenPullRequestWebview = '/open-pull-request-webview',
+}
+
+export interface OpenIssueWebviewUriParams {
+	owner: string;
+	repo: string;
+	issueNumber: number;
+}
+
+export async function toOpenIssueWebviewUri(params: OpenIssueWebviewUriParams): Promise<vscode.Uri> {
+	const query = JSON.stringify(params);
+	return vscode.env.asExternalUri(vscode.Uri.from({ scheme: vscode.env.uriScheme, authority: EXTENSION_ID, path: UriHandlerPaths.OpenIssueWebview, query }));
+}
+
+export function fromOpenIssueWebviewUri(uri: vscode.Uri): OpenIssueWebviewUriParams | undefined {
+	if (compareIgnoreCase(uri.authority, EXTENSION_ID) !== 0) {
+		return;
+	}
+	if (uri.path !== UriHandlerPaths.OpenIssueWebview) {
+		return;
+	}
+	try {
+		const query = JSON.parse(uri.query.split('&')[0]);
+		if (!query.owner || !query.repo || !query.issueNumber) {
+			return;
+		}
+		return query;
+	} catch (e) { }
+}
+
+export interface OpenPullRequestWebviewUriParams {
+	owner: string;
+	repo: string;
+	pullRequestNumber: number;
+}
+
+export async function toOpenPullRequestWebviewUri(params: OpenPullRequestWebviewUriParams): Promise<vscode.Uri> {
+	const query = JSON.stringify(params);
+	return vscode.env.asExternalUri(vscode.Uri.from({ scheme: vscode.env.uriScheme, authority: EXTENSION_ID, path: UriHandlerPaths.OpenPullRequestWebview, query }));
+}
+
+export function fromOpenPullRequestWebviewUri(uri: vscode.Uri): OpenPullRequestWebviewUriParams | undefined {
+	if (compareIgnoreCase(uri.authority, EXTENSION_ID) !== 0) {
+		return;
+	}
+	if (uri.path !== UriHandlerPaths.OpenPullRequestWebview) {
+		return;
+	}
+	try {
+		const query = JSON.parse(uri.query.split('&')[0]);
+		if (!query.owner || !query.repo || !query.pullRequestNumber) {
+			return;
+		}
+		return query;
+	} catch (e) { }
+}
 
 export enum Schemes {
 	File = 'file',
@@ -525,11 +585,3 @@ export function resolvePath(from: vscode.Uri, to: string) {
 		return pathUtils.posix.resolve(from.path, to);
 	}
 }
-
-class UriEventHandler extends vscode.EventEmitter<vscode.Uri> implements vscode.UriHandler {
-	public handleUri(uri: vscode.Uri) {
-		this.fire(uri);
-	}
-}
-
-export const handler = new UriEventHandler();

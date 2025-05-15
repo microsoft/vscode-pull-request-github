@@ -345,7 +345,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 				return [];
 			}
 			const ret = data.repository.pullRequest.timelineItems.nodes;
-			const events = parseGraphQLTimelineEvents(ret, githubRepository);
+			const events = await parseGraphQLTimelineEvents(ret, githubRepository);
 
 			return events;
 		} catch (e) {
