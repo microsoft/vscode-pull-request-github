@@ -255,7 +255,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 			let result: WorkspaceFolderNode[] | CategoryTreeNode[];
 			if (gitHubFolderManagers.length === 1) {
-				result = WorkspaceFolderNode.getCategoryTreeNodes(
+				result = await WorkspaceFolderNode.getCategoryTreeNodes(
 					gitHubFolderManagers[0],
 					this._telemetry,
 					this,
