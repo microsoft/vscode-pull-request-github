@@ -1181,8 +1181,8 @@ export class FolderRepositoryManager extends Disposable {
 			const hasMorePages = !!headers.link && headers.link.indexOf('rel="next"') > -1;
 			const pullRequestResponses = await Promise.all(promises);
 
-			const pullRequests = pullRequestResponses
-				.map(response => {
+			const pullRequests = (await Promise.all(pullRequestResponses
+				.map(async response => {
 					if (!response?.data.repository) {
 						Logger.appendLine('Pull request doesn\'t appear to exist.', this.id);
 						return null;
@@ -1191,9 +1191,9 @@ export class FolderRepositoryManager extends Disposable {
 					// Pull requests fetched with a query can be from any repo.
 					// We need to use the correct GitHubRepository for this PR.
 					return response.repo.createOrUpdatePullRequestModel(
-						parseGraphQLPullRequest(response.data.repository.pullRequest, response.repo),
+						await parseGraphQLPullRequest(response.data.repository.pullRequest, response.repo),
 					);
-				})
+				})))
 				.filter(item => item !== null) as PullRequestModel[];
 
 			Logger.debug(`Fetch pull request category ${categoryQuery} - done`, this.id);

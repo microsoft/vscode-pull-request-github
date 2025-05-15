@@ -620,7 +620,7 @@ export class GitHubRepository extends Disposable {
 			Logger.debug(`Fetch pull requests for branch - done`, this.id);
 
 			if (data?.repository && data.repository.pullRequests.nodes.length > 0) {
-				const prs = data.repository.pullRequests.nodes.map(node => parseGraphQLPullRequest(node, this)).filter(pr => pr.head?.repo.owner === headOwner);
+				const prs = (await Promise.all(data.repository.pullRequests.nodes.map(node => parseGraphQLPullRequest(node, this)))).filter(pr => pr.head?.repo.owner === headOwner);
 				if (prs.length === 0) {
 					return undefined;
 				}
@@ -775,11 +775,11 @@ export class GitHubRepository extends Disposable {
 
 			const issues: Issue[] = [];
 			if (data && data.search.edges) {
-				data.search.edges.forEach(raw => {
+				await Promise.all(data.search.edges.map(async raw => {
 					if (raw.node.id) {
-						issues.push(parseGraphQLIssue(raw.node, this));
+						issues.push(await parseGraphQLIssue(raw.node, this));
 					}
-				});
+				}));
 			}
 			return {
 				items: issues,
@@ -944,7 +944,7 @@ export class GitHubRepository extends Disposable {
 			if (!data) {
 				throw new Error('Failed to create pull request.');
 			}
-			return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data.createPullRequest.pullRequest, this));
+			return this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.createPullRequest.pullRequest, this));
 		} catch (e) {
 			Logger.error(`Unable to create PR: ${e}`, this.id);
 			throw e;
@@ -971,7 +971,7 @@ export class GitHubRepository extends Disposable {
 			if (!data) {
 				throw new Error('Failed to create revert pull request.');
 			}
-			return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data.revertPullRequest.revertPullRequest, this));
+			return this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.revertPullRequest.revertPullRequest, this));
 		} catch (e) {
 			Logger.error(`Unable to create revert PR: ${e}`, this.id);
 			throw e;
@@ -997,7 +997,7 @@ export class GitHubRepository extends Disposable {
 			}
 
 			Logger.debug(`Fetch pull request ${id} - done`, this.id);
-			return this.createOrUpdatePullRequestModel(parseGraphQLPullRequest(data.repository.pullRequest, this));
+			return this.createOrUpdatePullRequestModel(await parseGraphQLPullRequest(data.repository.pullRequest, this));
 		} catch (e) {
 			Logger.error(`Unable to fetch PR: ${e}`, this.id);
 			return;
@@ -1024,7 +1024,7 @@ export class GitHubRepository extends Disposable {
 			}
 			Logger.debug(`Fetch issue ${id} - done`, this.id);
 
-			return new IssueModel(this, remote, parseGraphQLIssue(data.repository.issue, this));
+			return new IssueModel(this, remote, await parseGraphQLIssue(data.repository.issue, this));
 		} catch (e) {
 			Logger.error(`Unable to fetch issue: ${e}`, this.id);
 			return;
