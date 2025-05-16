@@ -345,7 +345,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 				per_page: 100
 			});
 
-			return parseSelectRestTimelineEvents(timeline);
+			return parseSelectRestTimelineEvents(this, timeline);
 		} catch (e) {
 			Logger.error(`Error fetching Copilot timeline events of issue #${this.number} - ${formatError(e)}`, IssueModel.ID);
 			return [];

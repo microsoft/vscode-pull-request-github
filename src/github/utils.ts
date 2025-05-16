@@ -984,13 +984,16 @@ export function parseGraphQLReviewEvent(
 }
 
 export function parseSelectRestTimelineEvents(
+	issueModel: IssueModel,
 	events: OctokitCommon.ListEventsForTimelineResponse[]
 ): Common.TimelineEvent[] {
 	const parsedEvents: Common.TimelineEvent[] = [];
+	let indexLastStart = -1;
 	for (const event of events) {
 		const eventNode = event as { created_at?: string; node_id?: string; actor: RestAccount };
 		if (eventNode.created_at && eventNode.node_id) {
 			if (event.event === 'copilot_work_started') {
+				indexLastStart = parsedEvents.length;
 				parsedEvents.push({
 					id: eventNode.node_id,
 					event: Common.EventType.CopilotStarted,
@@ -1006,6 +1009,10 @@ export function parseSelectRestTimelineEvents(
 				});
 			}
 		}
+	}
+	if (indexLastStart > -1) {
+		const startEvent: Common.CopilotStartedEvent = parsedEvents[indexLastStart] as Common.CopilotStartedEvent;
+		startEvent.sessionUrl = `https://${issueModel.githubRepository.remote.gitProtocol.host}/${issueModel.githubRepository.remote.owner}/${issueModel.githubRepository.remote.repositoryName}/pull/${issueModel.number}/agent-sessions`;
 	}
 	return parsedEvents;
 }

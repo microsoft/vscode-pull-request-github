@@ -146,6 +146,7 @@ export interface CopilotStartedEvent {
 	event: EventType.CopilotStarted;
 	createdAt: string;
 	onBehalfOf: IAccount;
+	sessionUrl?: string;
 }
 
 export interface CopilotFinishedEvent {

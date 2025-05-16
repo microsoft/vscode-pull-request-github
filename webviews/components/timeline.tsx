@@ -404,7 +404,8 @@ const ReopenedEventView = ({ event, isIssue }: { event: ReopenedEvent, isIssue: 
 };
 
 const CopilotStartedEventView = (event: CopilotStartedEvent) => {
-	const { createdAt, onBehalfOf } = event;
+	const { createdAt, onBehalfOf, sessionUrl } = event;
+
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
@@ -412,6 +413,11 @@ const CopilotStartedEventView = (event: CopilotStartedEvent) => {
 				{nbsp}
 				<div className="message">Copilot started work on behalf of <AuthorLink for={onBehalfOf} /></div>
 			</div>
+			{sessionUrl ? (
+				<div className="timeline-detail">
+					<a href={sessionUrl}><button className='secondary'>View session</button></a>
+				</div>)
+			: null}
 			<Timestamp date={createdAt} />
 		</div>
 	);
