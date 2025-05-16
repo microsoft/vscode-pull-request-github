@@ -53,8 +53,8 @@ import {
 	getOverrideBranch,
 	getPRFetchQuery,
 	loginComparator,
+	parseCombinedTimelineEvents,
 	parseGraphQLPullRequest,
-	parseGraphQLTimelineEvents,
 	parseGraphQLUser,
 	teamComparator,
 	variableSubstitution,
@@ -1728,7 +1728,7 @@ export class FolderRepositoryManager extends Disposable {
 				*/
 				this.telemetry.sendTelemetryEvent('pr.merge.success');
 				this._onDidMergePullRequest.fire();
-				return { merged: true, message: '', timeline: await parseGraphQLTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], pullRequest.githubRepository) };
+				return { merged: true, message: '', timeline: await parseCombinedTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], await pullRequest.getRestOnlyTimelineEvents(), pullRequest.githubRepository) };
 			})
 			.catch(e => {
 				/* __GDPR__

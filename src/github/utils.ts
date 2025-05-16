@@ -983,7 +983,23 @@ export function parseGraphQLReviewEvent(
 	};
 }
 
-export async function parseGraphQLTimelineEvents(
+export function parseSelectRestTimelineEvents(
+	events: { created_at?: string; node_id?: string; event?: 'copilot_work_started' | 'copilot_work_finished' | string }[]
+): Common.TimelineEvent[] {
+	const parsedEvents: Common.TimelineEvent[] = [];
+	for (const event of events) {
+		if ((event.event === 'copilot_work_started' || event.event === 'copilot_work_finished') && event.created_at && event.node_id) {
+			parsedEvents.push({
+				id: event.node_id,
+				event: event.event === 'copilot_work_started' ? Common.EventType.CopilotStarted : Common.EventType.CopilotFinished,
+				createdAt: event.created_at,
+			});
+		}
+	}
+	return parsedEvents;
+}
+
+export async function parseCombinedTimelineEvents(
 	events: (
 		| GraphQL.MergedEvent
 		| GraphQL.Review
@@ -993,9 +1009,11 @@ export async function parseGraphQLTimelineEvents(
 		| GraphQL.HeadRefDeletedEvent
 		| GraphQL.CrossReferencedEvent
 	)[],
+	restEvents: Common.TimelineEvent[],
 	githubRepository: GitHubRepository,
 ): Promise<Common.TimelineEvent[]> {
 	const normalizedEvents: Common.TimelineEvent[] = [];
+	// TODO: work the rest events into the appropriate place in the timeline
 	for (const event of events) {
 		const type = convertGraphQLEventType(event.__typename);
 

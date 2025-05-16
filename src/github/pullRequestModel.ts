@@ -76,12 +76,12 @@ import {
 	getReactionGroup,
 	insertNewCommitsSinceReview,
 	parseAccount,
+	parseCombinedTimelineEvents,
 	parseGraphQLComment,
 	parseGraphQLReaction,
 	parseGraphQLReviewers,
 	parseGraphQLReviewEvent,
 	parseGraphQLReviewThread,
-	parseGraphQLTimelineEvents,
 	parseMergeability,
 	parseMergeQueueEntry,
 	RestAccount,
@@ -1165,6 +1165,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		Logger.debug(`Fetch timeline events of PR #${this.number} - enter`, PullRequestModel.ID);
 		const { query, remote, schema } = await this.githubRepository.ensure();
 
+
 		try {
 			const [{ data }, latestReviewCommitInfo, currentUser, reviewThreads] = await Promise.all([
 				query<TimelineEventsResponse>({
@@ -1185,7 +1186,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			}
 
 			const ret = data.repository?.pullRequest.timelineItems.nodes;
-			const events = ret ? await parseGraphQLTimelineEvents(ret, this.githubRepository) : [];
+			const events = ret ? await parseCombinedTimelineEvents(ret, await this.getRestOnlyTimelineEvents(), this.githubRepository) : [];
 
 			this.addReviewTimelineEventComments(events, reviewThreads);
 			insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, this.head);

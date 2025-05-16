@@ -21,6 +21,8 @@ export enum EventType {
 	CrossReferenced,
 	Closed,
 	Reopened,
+	CopilotStarted,
+	CopilotFinished,
 	Other,
 }
 
@@ -139,4 +141,16 @@ export interface ReopenedEvent {
 	createdAt: string;
 }
 
-export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent;
+export interface CopilotStartedEvent {
+	id: string;
+	event: EventType.CopilotStarted;
+	createdAt: string;
+}
+
+export interface CopilotFinishedEvent {
+	id: string;
+	event: EventType.CopilotFinished;
+	createdAt: string;
+}
+
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent | CopilotStartedEvent | CopilotFinishedEvent;
