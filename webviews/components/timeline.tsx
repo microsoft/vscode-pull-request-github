@@ -10,6 +10,8 @@ import {
 	ClosedEvent,
 	CommentEvent,
 	CommitEvent,
+	CopilotFinishedEvent,
+	CopilotStartedEvent,
 	CrossReferencedEvent,
 	EventType,
 	HeadRefDeleteEvent,
@@ -23,7 +25,7 @@ import { ReviewType } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { CommentView } from './comment';
 import Diff from './diff';
-import { commitIcon, mergeIcon, plusIcon } from './icon';
+import { briefcaseIcon, commitIcon, mergeIcon, plusIcon, tasklistIcon } from './icon';
 import { nbsp } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -69,6 +71,10 @@ export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue
 				return <ReopenedEventView key={`reopened${event.id}`} event={event} isIssue={isIssue} />;
 			case EventType.NewCommitsSinceReview:
 				return <NewCommitsSinceReviewEventView key={`newCommits${event.id}`} />;
+			case EventType.CopilotStarted:
+				return <CopilotStartedEventView key={`copilotStarted${event.id}`} {...event} />;
+			case EventType.CopilotFinished:
+				return <CopilotFinishedEventView key={`copilotFinished${event.id}`} {...event} />;
 			default:
 				throw new UnreachableCaseError(event);
 		}
@@ -391,6 +397,34 @@ const ReopenedEventView = ({ event, isIssue }: { event: ReopenedEvent, isIssue: 
 				</div>
 				<AuthorLink for={actor} />
 				<div className="message">{isIssue ? 'reopened this issue' : 'reopened this pull request'}</div>
+			</div>
+			<Timestamp date={createdAt} />
+		</div>
+	);
+};
+
+const CopilotStartedEventView = (event: CopilotStartedEvent) => {
+	const { createdAt, onBehalfOf } = event;
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				{briefcaseIcon}
+				{nbsp}
+				<div className="message">Copilot started work on behalf of <AuthorLink for={onBehalfOf} /></div>
+			</div>
+			<Timestamp date={createdAt} />
+		</div>
+	);
+};
+
+const CopilotFinishedEventView = (event: CopilotFinishedEvent) => {
+	const { createdAt, onBehalfOf } = event;
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				{tasklistIcon}
+				{nbsp}
+				<div className="message">Copilot finished work on behalf of <AuthorLink for={onBehalfOf} /></div>
 			</div>
 			<Timestamp date={createdAt} />
 		</div>

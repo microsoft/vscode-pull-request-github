@@ -984,16 +984,27 @@ export function parseGraphQLReviewEvent(
 }
 
 export function parseSelectRestTimelineEvents(
-	events: { created_at?: string; node_id?: string; event?: 'copilot_work_started' | 'copilot_work_finished' | string }[]
+	events: OctokitCommon.ListEventsForTimelineResponse[]
 ): Common.TimelineEvent[] {
 	const parsedEvents: Common.TimelineEvent[] = [];
 	for (const event of events) {
-		if ((event.event === 'copilot_work_started' || event.event === 'copilot_work_finished') && event.created_at && event.node_id) {
-			parsedEvents.push({
-				id: event.node_id,
-				event: event.event === 'copilot_work_started' ? Common.EventType.CopilotStarted : Common.EventType.CopilotFinished,
-				createdAt: event.created_at,
-			});
+		const eventNode = event as { created_at?: string; node_id?: string; actor: RestAccount };
+		if (eventNode.created_at && eventNode.node_id) {
+			if (event.event === 'copilot_work_started') {
+				parsedEvents.push({
+					id: eventNode.node_id,
+					event: Common.EventType.CopilotStarted,
+					createdAt: eventNode.created_at,
+					onBehalfOf: parseAccount(eventNode.actor)
+				});
+			} else if (event.event === 'copilot_work_finished') {
+				parsedEvents.push({
+					id: eventNode.node_id,
+					event: Common.EventType.CopilotFinished,
+					createdAt: eventNode.created_at,
+					onBehalfOf: parseAccount(eventNode.actor)
+				});
+			}
 		}
 	}
 	return parsedEvents;

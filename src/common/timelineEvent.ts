@@ -145,12 +145,14 @@ export interface CopilotStartedEvent {
 	id: string;
 	event: EventType.CopilotStarted;
 	createdAt: string;
+	onBehalfOf: IAccount;
 }
 
 export interface CopilotFinishedEvent {
 	id: string;
 	event: EventType.CopilotFinished;
 	createdAt: string;
+	onBehalfOf: IAccount;
 }
 
 export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent | CopilotStartedEvent | CopilotFinishedEvent;
