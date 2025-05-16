@@ -995,7 +995,41 @@ export function parseGraphQLReviewEvent(
 	};
 }
 
-export async function parseGraphQLTimelineEvents(
+export function parseSelectRestTimelineEvents(
+	issueModel: IssueModel,
+	events: OctokitCommon.ListEventsForTimelineResponse[]
+): Common.TimelineEvent[] {
+	const parsedEvents: Common.TimelineEvent[] = [];
+	let indexLastStart = -1;
+	for (const event of events) {
+		const eventNode = event as { created_at?: string; node_id?: string; actor: RestAccount };
+		if (eventNode.created_at && eventNode.node_id) {
+			if (event.event === 'copilot_work_started') {
+				indexLastStart = parsedEvents.length;
+				parsedEvents.push({
+					id: eventNode.node_id,
+					event: Common.EventType.CopilotStarted,
+					createdAt: eventNode.created_at,
+					onBehalfOf: parseAccount(eventNode.actor)
+				});
+			} else if (event.event === 'copilot_work_finished') {
+				parsedEvents.push({
+					id: eventNode.node_id,
+					event: Common.EventType.CopilotFinished,
+					createdAt: eventNode.created_at,
+					onBehalfOf: parseAccount(eventNode.actor)
+				});
+			}
+		}
+	}
+	if (indexLastStart > -1) {
+		const startEvent: Common.CopilotStartedEvent = parsedEvents[indexLastStart] as Common.CopilotStartedEvent;
+		startEvent.sessionUrl = `https://${issueModel.githubRepository.remote.gitProtocol.host}/${issueModel.githubRepository.remote.owner}/${issueModel.githubRepository.remote.repositoryName}/pull/${issueModel.number}/agent-sessions`;
+	}
+	return parsedEvents;
+}
+
+export async function parseCombinedTimelineEvents(
 	events: (
 		| GraphQL.MergedEvent
 		| GraphQL.Review
@@ -1005,9 +1039,11 @@ export async function parseGraphQLTimelineEvents(
 		| GraphQL.HeadRefDeletedEvent
 		| GraphQL.CrossReferencedEvent
 	)[],
+	restEvents: Common.TimelineEvent[],
 	githubRepository: GitHubRepository,
 ): Promise<Common.TimelineEvent[]> {
 	const normalizedEvents: Common.TimelineEvent[] = [];
+	// TODO: work the rest events into the appropriate place in the timeline
 	for (const event of events) {
 		const type = convertGraphQLEventType(event.__typename);
 

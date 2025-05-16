@@ -673,6 +673,10 @@ body button .icon {
 	flex-shrink: 0;
 }
 
+.commit-message .icon {
+	padding-top: 2px;
+}
+
 .commit .avatar-container .avatar,
 .commit .avatar-container .avatar-icon,
 .commit .avatar-container .avatar-icon svg,
@@ -973,13 +977,14 @@ code {
 
 .timestamp,
 .timestamp:hover {
-	color: var(--vscode-descriptionForeground);;
+	color: var(--vscode-descriptionForeground);
 	white-space: nowrap;
 }
 
 .timestamp {
 	overflow: hidden;
 	text-overflow: ellipsis;
+	padding-left: 8px;
 }
 
 /** Theming */
