@@ -19,7 +19,7 @@ import { Resource } from '../common/resources';
 import { GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { DataUri, toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
-import { gitHubLabelColor, uniqBy } from '../common/utils';
+import { gitHubLabelColor, stringReplaceAsync, uniqBy } from '../common/utils';
 import { OctokitCommon } from './common';
 import { FolderRepositoryManager, PullRequestDefaults } from './folderRepositoryManager';
 import { GitHubRepository, ViewerPermission } from './githubRepository';
@@ -305,6 +305,18 @@ export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListRespons
 			name: head.repo.name
 		},
 	};
+}
+
+async function transformHtmlUrlsToExtensionUrls(body: string, githubRepository: GitHubRepository): Promise<string> {
+	const issueRegex = new RegExp(
+		`href="https?:\/\/${githubRepository.remote.gitProtocol.url.authority}\\/${githubRepository.remote.owner}\\/${githubRepository.remote.repositoryName}\\/(issues|pull)\\/([0-9]+)"`);
+	return stringReplaceAsync(body, issueRegex, async (match: string, issuesOrPull: string, number: string) => {
+		if (issuesOrPull === 'issues') {
+			return `href="${(await toOpenIssueWebviewUri({ owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, issueNumber: Number(number) })).toString()}""`;
+		} else {
+			return `href="${(await toOpenPullRequestWebviewUri({ owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, pullRequestNumber: Number(number) })).toString()}"`;
+		}
+	});
 }
 
 export function convertRESTPullRequestToRawPullRequest(
@@ -765,10 +777,10 @@ export function parseMergeability(mergeability: 'UNKNOWN' | 'MERGEABLE' | 'CONFL
 	return parsed;
 }
 
-export function parseGraphQLPullRequest(
+export async function parseGraphQLPullRequest(
 	graphQLPullRequest: GraphQL.PullRequest,
 	githubRepository: GitHubRepository,
-): PullRequest {
+): Promise<PullRequest> {
 	const pr: PullRequest = {
 		id: graphQLPullRequest.databaseId,
 		graphNodeId: graphQLPullRequest.id,
@@ -776,7 +788,7 @@ export function parseGraphQLPullRequest(
 		number: graphQLPullRequest.number,
 		state: graphQLPullRequest.state,
 		body: graphQLPullRequest.body,
-		bodyHTML: graphQLPullRequest.bodyHTML,
+		bodyHTML: await transformHtmlUrlsToExtensionUrls(graphQLPullRequest.bodyHTML, githubRepository),
 		title: graphQLPullRequest.title,
 		titleHTML: graphQLPullRequest.titleHTML,
 		createdAt: graphQLPullRequest.createdAt,
@@ -892,7 +904,7 @@ function parseComments(comments: GraphQL.AbbreviatedIssueComment[] | undefined, 
 	return parsedComments;
 }
 
-export function parseGraphQLIssue(issue: GraphQL.Issue, githubRepository: GitHubRepository): Issue {
+export async function parseGraphQLIssue(issue: GraphQL.Issue, githubRepository: GitHubRepository): Promise<Issue> {
 	return {
 		id: issue.databaseId,
 		graphNodeId: issue.id,
@@ -900,7 +912,7 @@ export function parseGraphQLIssue(issue: GraphQL.Issue, githubRepository: GitHub
 		number: issue.number,
 		state: issue.state,
 		body: issue.body,
-		bodyHTML: issue.bodyHTML,
+		bodyHTML: await transformHtmlUrlsToExtensionUrls(issue.bodyHTML, githubRepository),
 		title: issue.title,
 		titleHTML: issue.titleHTML,
 		createdAt: issue.createdAt,
