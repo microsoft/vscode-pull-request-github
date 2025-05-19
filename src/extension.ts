@@ -15,7 +15,7 @@ import Logger from './common/logger';
 import * as PersistentState from './common/persistentState';
 import { parseRepositoryRemotes } from './common/remote';
 import { Resource } from './common/resources';
-import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, EXPERIMENTAL_NOTIFICATIONS, FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE, SHOW_INLINE_OPEN_FILE_ACTION } from './common/settingKeys';
+import { BRANCH_PUBLISH, EXPERIMENTAL_CHAT, FILE_LIST_LAYOUT, GIT, OPEN_DIFF_ON_CLICK, PR_SETTINGS_NAMESPACE, SHOW_INLINE_OPEN_FILE_ACTION } from './common/settingKeys';
 import { initBasedOnSettingChange } from './common/settingsUtils';
 import { TemporaryState } from './common/temporaryState';
 import { Schemes } from './common/uri';
@@ -222,16 +222,8 @@ async function init(
 	context.subscriptions.push(issuesFeatures);
 	await issuesFeatures.initialize();
 
-	const notificationsViewEnabled = () => vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_NOTIFICATIONS, false);
-	const initNotifications = () => {
-		const notificationsFeatures = new NotificationsFeatureRegister(credentialStore, reposManager, telemetry);
-		context.subscriptions.push(notificationsFeatures);
-	};
-	if (notificationsViewEnabled()) {
-		initNotifications();
-	} else {
-		initBasedOnSettingChange(PR_SETTINGS_NAMESPACE, EXPERIMENTAL_NOTIFICATIONS, notificationsViewEnabled, initNotifications, context.subscriptions);
-	}
+	const notificationsFeatures = new NotificationsFeatureRegister(credentialStore, reposManager, telemetry);
+	context.subscriptions.push(notificationsFeatures);
 
 	context.subscriptions.push(new GitLensIntegration());
 
