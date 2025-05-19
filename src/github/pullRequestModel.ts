@@ -1165,7 +1165,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		Logger.debug(`Fetch timeline events of PR #${this.number} - enter`, PullRequestModel.ID);
 		const { query, remote, schema } = await this.githubRepository.ensure();
 
-
 		try {
 			const [{ data }, latestReviewCommitInfo, currentUser, reviewThreads] = await Promise.all([
 				query<TimelineEventsResponse>({

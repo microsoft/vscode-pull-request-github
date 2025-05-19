@@ -46,7 +46,6 @@ fragment RateLimit on RateLimit {
 }
 
 fragment Merged on MergedEvent {
-	__typename
 	id
 	actor {
 		...Node
@@ -64,7 +63,6 @@ fragment Merged on MergedEvent {
 }
 
 fragment HeadRefDeleted on HeadRefDeletedEvent {
-	__typename
 	id
 	actor {
 		...Node
@@ -88,7 +86,6 @@ fragment Ref on Ref {
 }
 
 fragment Comment on IssueComment {
-	__typename
 	id
 	databaseId
 	authorAssociation
@@ -109,7 +106,6 @@ fragment Comment on IssueComment {
 }
 
 fragment Commit on PullRequestCommit {
-	__typename
 	id
 	commit {
 		author {
@@ -131,7 +127,6 @@ fragment Commit on PullRequestCommit {
 }
 
 fragment AssignedEvent on AssignedEvent {
-	__typename
 	id
 	actor {
 		...Node
@@ -146,7 +141,6 @@ fragment AssignedEvent on AssignedEvent {
 }
 
 fragment CrossReferencedEvent on CrossReferencedEvent {
-	__typename
 	id
 	actor {
 		...Node
@@ -181,7 +175,6 @@ fragment CrossReferencedEvent on CrossReferencedEvent {
 }
 
 fragment ClosedEvent on ClosedEvent {
-	__typename
 	id
 	actor {
 		...Node
@@ -191,7 +184,6 @@ fragment ClosedEvent on ClosedEvent {
 }
 
 fragment ReopenedEvent on ReopenedEvent {
-	__typename
 	id
 	actor {
 		...Node
@@ -201,7 +193,6 @@ fragment ReopenedEvent on ReopenedEvent {
 }
 
 fragment Review on PullRequestReview {
-	__typename
 	id
 	databaseId
 	authorAssociation
@@ -291,6 +282,7 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 		pullRequest(number: $number) {
 			timelineItems(last: $last) {
 				nodes {
+					__typename
 					...Merged
 					...Comment
 					...Review
