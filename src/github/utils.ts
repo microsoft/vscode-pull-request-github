@@ -471,6 +471,8 @@ export function convertGraphQLEventType(text: string) {
 			return Common.EventType.Milestoned;
 		case 'AssignedEvent':
 			return Common.EventType.Assigned;
+		case 'UnassignedEvent':
+			return Common.EventType.Unassigned;
 		case 'HeadRefDeletedEvent':
 			return Common.EventType.HeadRefDeleted;
 		case 'IssueComment':
@@ -1080,6 +1082,17 @@ export async function parseGraphQLTimelineEvents(
 					assignees: [parseAccount(assignEv.user, githubRepository)],
 					actor: parseAccount(assignEv.actor),
 					createdAt: assignEv.createdAt,
+				});
+				break;
+			case Common.EventType.Unassigned:
+				const unassignEv = event as GraphQL.UnassignedEvent;
+
+				normalizedEvents.push({
+					id: unassignEv.id,
+					event: type,
+					unassignees: [parseAccount(unassignEv.user, githubRepository)],
+					actor: parseAccount(unassignEv.actor),
+					createdAt: unassignEv.createdAt,
 				});
 				break;
 			case Common.EventType.HeadRefDeleted:
