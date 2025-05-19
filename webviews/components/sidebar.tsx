@@ -85,7 +85,7 @@ export default function Sidebar({ reviewers, labels, hasWritePermission, isIssue
 								<button
 									id="assign-copilot-btn"
 									className="icon-button"
-									title="Assign to Copilot"
+									title="Assign for Copilot to work on"
 									disabled={assigningCopilot}
 									onClick={async () => {
 										setAssigningCopilot(true);
