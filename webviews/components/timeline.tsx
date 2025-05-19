@@ -17,8 +17,10 @@ import {
 	ReopenedEvent,
 	ReviewEvent,
 	TimelineEvent,
+	UnassignEvent,
 } from '../../src/common/timelineEvent';
 import { groupBy, UnreachableCaseError } from '../../src/common/utils';
+import { IAccount, IActor } from '../../src/github/interface';
 import { ReviewType } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { CommentView } from './comment';
@@ -28,16 +30,32 @@ import { nbsp } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
 
+function isAssignUnassignEvent(event: TimelineEvent | ConsolidatedAssignUnassignEvent): event is AssignEvent | UnassignEvent {
+	return event.event === EventType.Assigned || event.event === EventType.Unassigned;
+}
+
+interface ConsolidatedAssignUnassignEvent {
+	id: number;
+	event: EventType.Assigned | EventType.Unassigned;
+	assignees?: IAccount[];
+	unassignees?: IAccount[];
+	actor: IActor;
+	createdAt: string;
+}
+
 export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue: boolean }) => {
-	const consolidatedEvents: TimelineEvent[] = [];
+	const consolidatedEvents: (TimelineEvent | ConsolidatedAssignUnassignEvent)[] = [];
 	for (let i = 0; i < events.length; i++) {
-		if ((i > 0) && (events[i].event === EventType.Assigned) && (consolidatedEvents[consolidatedEvents.length - 1].event === EventType.Assigned)) {
-			const lastEvent = consolidatedEvents[consolidatedEvents.length - 1] as AssignEvent;
-			const newEvent = events[i] as AssignEvent;
-			if (new Date(lastEvent.createdAt).getTime() + (1000 * 60 * 10) > new Date(newEvent.createdAt).getTime()) { // within 10 minutes
-				if (lastEvent.assignees.every(a => a.id !== newEvent.assignees[0].id)) {
-					lastEvent.assignees = [...lastEvent.assignees, ...newEvent.assignees];
-				}
+		if ((i > 0) && isAssignUnassignEvent(events[i]) && isAssignUnassignEvent(consolidatedEvents[consolidatedEvents.length - 1])) {
+			const lastEvent = consolidatedEvents[consolidatedEvents.length - 1] as ConsolidatedAssignUnassignEvent;
+			const newEvent = events[i] as ConsolidatedAssignUnassignEvent;
+			if ((lastEvent.actor.login === newEvent.actor.login) && (new Date(lastEvent.createdAt).getTime() + (1000 * 60 * 10) > new Date(newEvent.createdAt).getTime())) { // within 10 minutes
+				const assignees = lastEvent.assignees || [];
+				const unassignees = lastEvent.unassignees || [];
+				const newAssignees = newEvent.assignees?.filter(a => !assignees.some(b => b.id === a.id)) ?? [];
+				const newUnassignees = newEvent.unassignees?.filter(a => !unassignees.some(b => b.id === a.id)) ?? [];
+				lastEvent.assignees = [...assignees, ...newAssignees];
+				lastEvent.unassignees = [...unassignees, ...newUnassignees];
 				lastEvent.createdAt = newEvent.createdAt;
 			} else {
 				consolidatedEvents.push(newEvent);
@@ -58,7 +76,9 @@ export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue
 			case EventType.Merged:
 				return <MergedEventView key={`merged${event.id}`} {...event} />;
 			case EventType.Assigned:
-				return <AssignEventView key={`assign${event.id}`} event={event} isIssue={isIssue} />;
+				return <AssignUnassignEventView key={`assign${event.id}`} event={event} />;
+			case EventType.Unassigned:
+				return <AssignUnassignEventView key={`unassign${event.id}`} event={event} />;
 			case EventType.HeadRefDeleted:
 				return <HeadDeleteEventView key={`head${event.id}`} {...event} />;
 			case EventType.CrossReferenced:
@@ -344,9 +364,22 @@ function joinWithAnd(arr: JSX.Element[]): JSX.Element {
 	return <>{arr.slice(0, -1).map(item => <>{item}, </>)} and {arr[arr.length - 1]}</>;
 }
 
-const AssignEventView = ({ event, isIssue }: { event: AssignEvent, isIssue: boolean }) => {
-	const { actor, assignees } = event;
+const AssignUnassignEventView = ({ event }: { event: AssignEvent | UnassignEvent | ConsolidatedAssignUnassignEvent }) => {
+	const { actor } = event;
+	const assignees = (event as AssignEvent).assignees || [];
+	const unassignees = (event as UnassignEvent).unassignees || [];
 	const joinedAssignees = joinWithAnd(assignees.map(a => <AuthorLink key={a.id} for={a} />));
+	const joinedUnassignees = joinWithAnd(unassignees.map(a => <AuthorLink key={a.id} for={a} />));
+
+	let message: JSX.Element;
+	if (assignees.length > 0 && unassignees.length > 0) {
+		message = <>assigned {joinedAssignees} and unassigned {joinedUnassignees}</>;
+	} else if (assignees.length > 0) {
+		message = <>assigned {joinedAssignees}</>;
+	} else {
+		message = <>unassigned {joinedUnassignees}</>;
+	}
+
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
@@ -355,9 +388,7 @@ const AssignEventView = ({ event, isIssue }: { event: AssignEvent, isIssue: bool
 				</div>
 				<AuthorLink for={actor} />
 				<div className="message">
-					{isIssue
-						? <>assigned {joinedAssignees}</>
-						: <>assigned {joinedAssignees} to this pull request</>}
+					{message}
 				</div>
 			</div>
 			<Timestamp date={event.createdAt} />

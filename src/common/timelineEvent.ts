@@ -16,6 +16,7 @@ export enum EventType {
 	Labeled,
 	Milestoned,
 	Assigned,
+	Unassigned,
 	HeadRefDeleted,
 	Merged,
 	CrossReferenced,
@@ -102,6 +103,14 @@ export interface AssignEvent {
 	createdAt: string;
 }
 
+export interface UnassignEvent {
+	id: number;
+	event: EventType.Unassigned;
+	unassignees: IAccount[];
+	actor: IActor;
+	createdAt: string;
+}
+
 export interface HeadRefDeleteEvent {
 	id: string;
 	event: EventType.HeadRefDeleted;
@@ -139,4 +148,4 @@ export interface ReopenedEvent {
 	createdAt: string;
 }
 
-export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent;
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | UnassignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent;
