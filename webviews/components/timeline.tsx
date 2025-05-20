@@ -312,12 +312,12 @@ const MergedEventView = (event: MergedEvent) => {
 					into {event.mergeRef}
 					{nbsp}
 				</div>
-				<Timestamp href={event.url} date={event.createdAt} />
 			</div>
 			{pr.revertable ?
 				<div className="timeline-detail">
 					<button className='secondary' disabled={pr.busy} onClick={revert}>Revert</button>
 				</div> : null}
+			<Timestamp href={event.url} date={event.createdAt} />
 		</div>
 	);
 };
@@ -332,8 +332,8 @@ const HeadDeleteEventView = (event: HeadRefDeleteEvent) => (
 			<div className="message">
 				deleted the {event.headRef} branch{nbsp}
 			</div>
-			<Timestamp date={event.createdAt} />
 		</div>
+		<Timestamp date={event.createdAt} />
 	</div>
 );
 
