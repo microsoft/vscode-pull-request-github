@@ -1546,6 +1546,9 @@ mutation MergePullRequest($input: MergePullRequestInput!, $last: Int = 150) {
 					...Commit
 					...AssignedEvent
 					...HeadRefDeleted
+					...CrossReferencedEvent
+					...ClosedEvent
+					...ReopenedEvent
 				}
 			}
 		}

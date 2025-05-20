@@ -973,13 +973,14 @@ code {
 
 .timestamp,
 .timestamp:hover {
-	color: var(--vscode-descriptionForeground);;
+	color: var(--vscode-descriptionForeground);
 	white-space: nowrap;
 }
 
 .timestamp {
 	overflow: hidden;
 	text-overflow: ellipsis;
+	padding-left: 8px;
 }
 
 /** Theming */
