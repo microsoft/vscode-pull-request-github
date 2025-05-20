@@ -208,6 +208,7 @@ export class TemporaryComment extends CommentBase {
 
 const SUGGESTION_EXPRESSION = /```suggestion(\u0020*(\r\n|\n))((?<suggestion>[\s\S]*?)(\r\n|\n))?```/;
 const IMG_EXPRESSION = /<img .*src=['"](?<src>.+?)['"].*?>/g;
+const UUID_EXPRESSION = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}/;
 
 export class GHPRComment extends CommentBase {
 	private static ID = 'GHPRComment';
@@ -398,6 +399,28 @@ ${lineContents}
 		});
 	}
 
+	private replaceImages(body: string): string {
+		const html = this.rawComment.bodyHTML;
+		if (!html) {
+			return body;
+		}
+
+		const originalExpression = new RegExp(`https:\/\/github.com\/user\-attachments\/assets\/(?<uuid>${UUID_EXPRESSION.source})`);
+		let originalMatch = body.match(originalExpression);
+
+		while (originalMatch) {
+			if (originalMatch.groups?.uuid) {
+				const htmlExpression = new RegExp(`https:\/\/private-user-images\.githubusercontent\.com\/[0-9]+\/[^-]+\-${originalMatch.groups.uuid}[^"]+`);
+				const htmlMatch = html.match(htmlExpression);
+				if (htmlMatch && htmlMatch[0]) {
+					body = body.replace(originalMatch[0], htmlMatch[0]);
+				}
+			}
+			originalMatch = body.match(originalExpression);
+		}
+		return body;
+	}
+
 	private replaceNewlines(body: string) {
 		return body.replace(/(?<!\s)(\r\n|\n)/g, '  \n');
 	}
@@ -416,7 +439,8 @@ ${lineContents}
 			const permalinkReplaced = await this.replacePermalink(body.value);
 			return this.replaceImg(this.replaceSuggestion(permalinkReplaced));
 		}
-		const newLinesReplaced = this.replaceNewlines(body);
+		const imagesReplaced = this.replaceImages(body);
+		const newLinesReplaced = this.replaceNewlines(imagesReplaced);
 		const documentLanguage = (await vscode.workspace.openTextDocument(this.parent.uri)).languageId;
 		const replacerRegex = new RegExp(`([^/\[\`]|^)@(${ALLOWED_USERS})`, 'g');
 		// Replace user
