@@ -30,7 +30,7 @@ test again
 ![image](https://test.ghe.com/user-attachments/assets/d81c6ab2-52a6-4ebf-b0c8-125492bd9662)`;
 		const htmlBody = `
 <p dir="auto">Test image</p>
-<p dir="auto"><a target="_blank" rel="noopener noreferrer" href="https://test.ghe.com/github-production-user-asset-6210df/11296/2514616-d81c6ab2-52a6-4ebf-b0c8-125492bd9662.png?TEST"><img src="https://objects-origin.staffship-01.ghe.com/github-production-user-asset-6210df/11296/2514616-d81c6ab2-52a6-4ebf-b0c8-125492bd9662.png?TEST" alt="image" style="max-width: 100%;"></a></p>`;
+<p dir="auto"><a target="_blank" rel="noopener noreferrer" href="https://test.ghe.com/github-production-user-asset-6210df/11296/2514616-d81c6ab2-52a6-4ebf-b0c8-125492bd9662.png?TEST"><img src="https://objects-origin.test.ghe.com/github-production-user-asset-6210df/11296/2514616-d81c6ab2-52a6-4ebf-b0c8-125492bd9662.png?TEST" alt="image" style="max-width: 100%;"></a></p>`;
 		const host = 'test.ghe.com';
 		const replaced = replaceImages(markdownBody, htmlBody, host);
 		const expected = `Test image
