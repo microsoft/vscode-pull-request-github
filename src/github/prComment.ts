@@ -222,14 +222,17 @@ export class GHPRComment extends CommentBase {
 
 	private _rawBody: string | vscode.MarkdownString;
 	private replacedBody: string;
+	private githubRepository: GitHubRepository | undefined;
 
-	constructor(private readonly context: vscode.ExtensionContext, comment: IComment, parent: GHPRCommentThread, private readonly githubRepositories?: GitHubRepository[]) {
+	constructor(private readonly context: vscode.ExtensionContext, comment: IComment, parent: GHPRCommentThread, githubRepositories?: GitHubRepository[]) {
 		super(parent);
 		this.rawComment = comment;
 		this.originalAuthor = {
 			name: comment.user?.specialDisplayName ?? comment.user!.login,
 			iconPath: comment.user && comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined,
 		};
+		const url = vscode.Uri.parse(comment.url);
+		this.githubRepository = githubRepositories?.find(repo => repo.remote.host === url.authority);
 
 		const avatarUrisPromise = comment.user ? DataUri.avatarCirclesAsImageDataUris(context, [comment.user], 28, 28) : Promise.resolve([]);
 		this.doSetBody(comment.body, !comment.user).then(async () => { // only refresh if there's no user. If there's a user, we'll refresh in the then.
@@ -365,20 +368,17 @@ ${args[3] ?? ''}
 	}
 
 	private async replacePermalink(body: string): Promise<string> {
-		const githubRepositories = this.githubRepositories;
-		if (!githubRepositories || githubRepositories.length === 0) {
+		const githubRepository = this.githubRepository;
+		if (!githubRepository) {
 			return body;
 		}
 
-		const expression = new RegExp(`https://github.com/(.+)/${githubRepositories[0].remote.repositoryName}/blob/([0-9a-f]{40})/(.*)#L([0-9]+)(-L([0-9]+))?`, 'g');
+		const expression = new RegExp(`https://github.com/(.+)/${githubRepository.remote.repositoryName}/blob/([0-9a-f]{40})/(.*)#L([0-9]+)(-L([0-9]+))?`, 'g');
 		return stringReplaceAsync(body, expression, async (match: string, owner: string, sha: string, file: string, start: string, _endGroup?: string, end?: string, index?: number) => {
 			if (index && (index > 0) && (body.charAt(index - 1) === '(')) {
 				return match;
 			}
-			const githubRepository = githubRepositories.find(repository => repository.remote.owner.toLocaleLowerCase() === owner.toLocaleLowerCase());
-			if (!githubRepository) {
-				return match;
-			}
+
 			const startLine = parseInt(start);
 			const endLine = end ? parseInt(end) : startLine + 1;
 			const lineContents = await githubRepository.getLines(sha, file, startLine, endLine);
@@ -405,20 +405,7 @@ ${lineContents}
 			return body;
 		}
 
-		const originalExpression = new RegExp(`https:\/\/github.com\/user\-attachments\/assets\/(?<uuid>${UUID_EXPRESSION.source})`);
-		let originalMatch = body.match(originalExpression);
-
-		while (originalMatch) {
-			if (originalMatch.groups?.uuid) {
-				const htmlExpression = new RegExp(`https:\/\/private-user-images\.githubusercontent\.com\/[0-9]+\/[^-]+\-${originalMatch.groups.uuid}[^"]+`);
-				const htmlMatch = html.match(htmlExpression);
-				if (htmlMatch && htmlMatch[0]) {
-					body = body.replace(originalMatch[0], htmlMatch[0]);
-				}
-			}
-			originalMatch = body.match(originalExpression);
-		}
-		return body;
+		return replaceImages(body, html, this.githubRepository?.remote.host);
 	}
 
 	private replaceNewlines(body: string) {
@@ -494,4 +481,24 @@ ${lineContents}
 	protected getCancelEditBody() {
 		return new vscode.MarkdownString(this.rawComment.body);
 	}
+}
+
+export function replaceImages(markdownBody: string, htmlBody: string, host: string = 'github.com') {
+	const originalExpression = new RegExp(`https:\/\/${host}\/.+\/assets\/([^\/]+\/)?(?<uuid>${UUID_EXPRESSION.source})`);
+	let originalMatch = markdownBody.match(originalExpression);
+	const htmlHost = host === 'github.com' ? 'githubusercontent.com' : host;
+
+	while (originalMatch) {
+		if (originalMatch.groups?.uuid) {
+			const htmlExpression = new RegExp(`https:\/\/([^"]*${htmlHost})\/[^?]+${originalMatch.groups.uuid}[^"]+`);
+			const htmlMatch = htmlBody.match(htmlExpression);
+			if (htmlMatch && htmlMatch[0]) {
+				markdownBody = markdownBody.replace(originalMatch[0], htmlMatch[0]);
+			} else {
+				return markdownBody;
+			}
+		}
+		originalMatch = markdownBody.match(originalExpression);
+	}
+	return markdownBody;
 }
