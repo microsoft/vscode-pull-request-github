@@ -16,7 +16,6 @@ import {
 	WORKING_ISSUE_FORMAT_SCM,
 } from '../common/settingKeys';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
-import { GithubItemStateEnum } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
 import { variableSubstitution } from '../github/utils';
 import { IssueState, StateManager } from './stateManager';
@@ -130,19 +129,30 @@ export class CurrentIssue extends Disposable {
 		return undefined;
 	}
 
-	private async createOrCheckoutBranch(branch: string): Promise<boolean> {
+	private async createOrCheckoutBranch(branch: string, silent: boolean): Promise<boolean> {
+		let localBranchName = branch;
 		try {
-			if (await this.getBranch(branch)) {
-				await this.manager.repository.checkout(branch);
+			const isRemoteBranch = branch.startsWith('origin/');
+			if (isRemoteBranch) {
+				localBranchName = branch.substring('origin/'.length);
+			}
+			const localBranch = await this.getBranch(localBranchName);
+			if (localBranch) {
+				await this.manager.repository.checkout(localBranchName);
+			} else if (isRemoteBranch) {
+				await this.manager.repository.createBranch(localBranchName, true, branch);
+				console.log('Setting upstream');
+				console.log(localBranchName, '->', branch);
+				await this.manager.repository.setBranchUpstream(localBranchName, branch);
 			} else {
-				await this.manager.repository.createBranch(branch, true);
+				await this.manager.repository.createBranch(localBranchName, true);
 			}
 			return true;
-		} catch (e) {
+		} catch (e: any) {
 			if (e.message !== 'User aborted') {
-				vscode.window.showErrorMessage(
-					`Unable to checkout branch ${branch}. There may be file conflicts that prevent this branch change. Git error: ${e.error}`,
-				);
+				if (!silent) {
+					vscode.window.showErrorMessage(`Unable to checkout branch ${localBranchName}. There may be file conflicts that prevent this branch change. Git error: ${e.message}`);
+				}
 			}
 			return false;
 		}
@@ -156,10 +166,12 @@ export class CurrentIssue extends Disposable {
 	}
 
 	private async getBranchTitle(): Promise<string> {
-		return (
-			vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<string>(ISSUE_BRANCH_TITLE) ??
-			this.getBasicBranchName(await this.getUser())
-		);
+		const branchTitleSetting = vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<string>(ISSUE_BRANCH_TITLE);
+		const branchTitle = branchTitleSetting
+			? await variableSubstitution(branchTitleSetting, this.issue, undefined, await this.getUser())
+			: this.getBasicBranchName(await this.getUser());
+
+		return branchTitle;
 	}
 
 	private validateBranchName(branch: string): string | undefined {
@@ -171,9 +183,12 @@ export class CurrentIssue extends Disposable {
 		return undefined;
 	}
 
-	private showBranchNameError(error: string) {
-		const editSetting = `Edit Setting`;
-		vscode.window.showErrorMessage(error, editSetting).then(result => {
+	private showBranchNameError(error: string, silent: boolean) {
+		if (silent) {
+			return;
+		}
+		const editSetting = 'Edit Setting';
+		vscode.window.showErrorMessage(error, editSetting).then((result) => {
 			if (result === editSetting) {
 				vscode.commands.executeCommand(
 					'workbench.action.openSettings',
@@ -183,75 +198,124 @@ export class CurrentIssue extends Disposable {
 		});
 	}
 
-	private async offerNewBranch(branch: Branch, branchNameConfig: string, branchNameMatch: RegExpMatchArray | null | undefined): Promise<string> {
-		// Check if this branch has a merged PR associated with it.
-		// If so, offer to create a new branch.
-		const pr = await this.manager.getMatchingPullRequestMetadataFromGitHub(branch, branch.upstream?.remote, branch.upstream?.name);
-		if (pr && (pr.model.state !== GithubItemStateEnum.Open)) {
-			const mergedMessage = vscode.l10n.t('The pull request for {0} has been merged. Do you want to create a new branch?', branch.name ?? 'unknown branch');
-			const closedMessage = vscode.l10n.t('The pull request for {0} has been closed. Do you want to create a new branch?', branch.name ?? 'unknown branch');
-			const createBranch = vscode.l10n.t('Create New Branch');
-			const createNew = await vscode.window.showInformationMessage(pr.model.state === GithubItemStateEnum.Merged ? mergedMessage : closedMessage,
-				{
-					modal: true
-				}, createBranch);
-			if (createNew === createBranch) {
-				const number = (branchNameMatch?.length === 4 ? (Number(branchNameMatch[3]) + 1) : 1);
-				return `${branchNameConfig}_${number}`;
-			}
-		}
-		return branchNameConfig;
-	}
-
 	private async createIssueBranch(silent: boolean): Promise<boolean> {
 		const createBranchConfig = this.shouldPromptForBranch
 			? 'prompt'
 			: vscode.workspace.getConfiguration(ISSUES_SETTINGS_NAMESPACE).get<string>(USE_BRANCH_FOR_ISSUES);
-		if (createBranchConfig === 'off') {
-			return true;
-		}
+
+		if (createBranchConfig === 'off') return true;
+
 		const state: IssueState = this.stateManager.getSavedIssueState(this.issueModel.number);
-		this._branchName = this.shouldPromptForBranch ? undefined : state.branch;
-		const branchNameConfig = await variableSubstitution(
-			await this.getBranchTitle(),
-			this.issue,
-			undefined,
-			await this.getUser(),
-		);
-		const branchNameMatch = this._branchName?.match(new RegExp('^(' + branchNameConfig + ')(_)?(\\d*)'));
-		if ((createBranchConfig === 'on')) {
-			const branch = await this.getBranch(this._branchName!);
-			if (!branch) {
-				if (!branchNameMatch) {
-					this._branchName = branchNameConfig;
-				}
-			} else if (!silent) {
-				this._branchName = await this.offerNewBranch(branch, branchNameConfig, branchNameMatch);
+		const issueNumberStr = this.issueModel.number.toString();
+		const issueTitle = this.issueModel.title;
+		const suggestedBranchName = (await this.getBranchTitle()).toLocaleLowerCase();
+
+		this._branchName = undefined;
+
+		const branches = await this.manager.repository.getBranches({ remote: true });
+		const branchesWithIssueMatch: vscode.QuickPickItem[] = [];
+		const otherBranches: vscode.QuickPickItem[] = [];
+
+		branches.forEach((branch) => {
+			const isRemote = branch.name?.startsWith('origin/');
+			const displayName = branch.name ?? '';
+			const branchItem = {
+				label: `${isRemote ? '$(cloud)' : '$(git-branch)'} ${displayName}`,
+				description: `${isRemote ? 'Remote' : 'Local'} branch`,
+			};
+
+			if (
+				branch.name?.toLowerCase().includes(issueNumberStr.toLowerCase()) ||
+				branch.name?.toLowerCase().includes(issueTitle.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase()) ||
+				branch.name?.toLowerCase().includes(issueTitle.replace(/[^a-zA-Z0-9-]/g, '_').toLowerCase())
+			) {
+				branchesWithIssueMatch.push(branchItem);
+			} else {
+				otherBranches.push(branchItem);
 			}
+		});
+
+		// Create QuickPick items
+		const branchItems: vscode.QuickPickItem[] = [
+			{ label: 'Suggested branch', kind: vscode.QuickPickItemKind.Separator },
+			{
+				label: `$(lightbulb) ${suggestedBranchName}`,
+				description: '',
+				detail: 'Recommended branch name based on settings',
+				picked: true,
+			},
+		];
+
+		if (branchesWithIssueMatch.length > 0) {
+			branchItems.push({ label: 'Branches matching', kind: vscode.QuickPickItemKind.Separator });
+			branchItems.push(...branchesWithIssueMatch);
 		}
-		if (!this._branchName) {
-			this._branchName = await vscode.window.showInputBox({
-				value: branchNameConfig,
-				prompt: vscode.l10n.t('Enter the label for the new branch.'),
+
+		if (otherBranches.length > 0) {
+			branchItems.push({ label: 'Other branches', kind: vscode.QuickPickItemKind.Separator });
+			branchItems.push(...otherBranches);
+		}
+
+		branchItems.push(
+			{ label: 'Custom branch name:', kind: vscode.QuickPickItemKind.Separator },
+			{ label: '$(pencil) Enter a custom branch name...', description: 'Choose this to type your own branch name' }
+		);
+
+		// Show QuickPick for branch selection
+		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem>();
+		quickPick.items = branchItems;
+		quickPick.placeholder = 'Select a branch or create a new one for this issue';
+		quickPick.ignoreFocusOut = true;
+		quickPick.activeItems = [branchItems[1]];
+		quickPick.show();
+
+		const selectedBranch = await new Promise<vscode.QuickPickItem | undefined>((resolve) => {
+			quickPick.onDidAccept(() => {
+				resolve(quickPick.selectedItems[0]);
+				quickPick.hide();
 			});
-		}
-		if (!this._branchName) {
-			// user has cancelled
+			quickPick.onDidHide(() => resolve(undefined));
+		});
+
+		quickPick.dispose();
+
+		if (!selectedBranch) {
+			if (!silent) vscode.window.showInformationMessage('Branch selection cancelled.');
 			return false;
+		}
+
+		if (selectedBranch.label === '$(pencil) Enter a custom branch name...') {
+			const customBranchName = await vscode.window.showInputBox({
+				prompt: 'Enter your custom branch name',
+				placeHolder: 'e.g., feature/my-custom-branch',
+				value: suggestedBranchName,
+				validateInput: (input) => (input.trim() === '' ? 'Branch name cannot be empty.' : undefined),
+			});
+
+			if (!customBranchName) {
+				if (!silent) vscode.window.showInformationMessage('Branch creation cancelled.');
+				return false;
+			}
+
+			this._branchName = customBranchName.trim();
+		} else {
+			this._branchName = selectedBranch.label.replace(/^\$\([^\)]+\)\s*/, '').trim();
 		}
 
 		const validateBranchName = this.validateBranchName(this._branchName);
 		if (validateBranchName) {
-			this.showBranchNameError(validateBranchName);
+			this.showBranchNameError(validateBranchName, silent);
 			return false;
 		}
 
 		state.branch = this._branchName;
 		await this.stateManager.setSavedIssueState(this.issueModel, state);
-		if (!(await this.createOrCheckoutBranch(this._branchName))) {
+
+		if (!(await this.createOrCheckoutBranch(this._branchName, silent))) {
 			this._branchName = undefined;
 			return false;
 		}
+
 		return true;
 	}
 
