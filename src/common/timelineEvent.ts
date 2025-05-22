@@ -76,7 +76,7 @@ export interface CommitEvent {
 	htmlUrl: string;
 	message: string;
 	bodyHTML?: string;
-	authoredDate: Date;
+	committedDate: Date;
 }
 
 export interface NewCommitsSinceReviewEvent {

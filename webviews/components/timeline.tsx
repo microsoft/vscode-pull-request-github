@@ -101,7 +101,7 @@ const CommitEventView = (event: CommitEvent) => (
 			<a className="sha" href={event.htmlUrl} title={event.htmlUrl}>
 				{event.sha.slice(0, 7)}
 			</a>
-			<Timestamp date={event.authoredDate} />
+			<Timestamp date={event.committedDate} />
 		</div>
 	</div>
 );

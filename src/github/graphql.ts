@@ -184,7 +184,7 @@ export interface Commit {
 		};
 		oid: string;
 		message: string;
-		authoredDate: Date;
+		committedDate: Date;
 	};
 
 	url: string;
@@ -259,7 +259,7 @@ export interface TimelineEventsResponse {
 
 export interface LatestCommit {
 	commit: {
-		authoredDate: string;
+		committedDate: string;
 	}
 }
 

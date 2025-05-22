@@ -1162,40 +1162,45 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	 * Get the timeline events of a pull request, including comments, reviews, commits, merges, deletes, and assigns.
 	 */
 	async getTimelineEvents(): Promise<TimelineEvent[]> {
-		Logger.debug(`Fetch timeline events of PR #${this.number} - enter`, PullRequestModel.ID);
-		const { query, remote, schema } = await this.githubRepository.ensure();
-
-		try {
-			const [{ data }, latestReviewCommitInfo, currentUser, reviewThreads] = await Promise.all([
-				query<TimelineEventsResponse>({
+		const getTimelineEvents = async () => {
+			Logger.debug(`Fetch timeline events of PR #${this.number} - enter`, PullRequestModel.ID);
+			const { query, remote, schema } = await this.githubRepository.ensure();
+			try {
+				const { data } = await query<TimelineEventsResponse>({
 					query: schema.TimelineEvents,
 					variables: {
 						owner: remote.owner,
 						name: remote.repositoryName,
 						number: this.number,
 					},
-				}),
-				this.getViewerLatestReviewCommit(),
-				(await this.githubRepository.getAuthenticatedUser()).login,
-				this.getReviewThreads()
-			]);
+				});
 
-			if (data.repository === null) {
-				Logger.error('Unexpected null repository when fetching timeline', PullRequestModel.ID);
+				if (data.repository === null) {
+					Logger.error('Unexpected null repository when fetching timeline', PullRequestModel.ID);
+				}
+				return data;
+			} catch (e) {
+				Logger.error(`Failed to get pull request timeline events: ${e}`, PullRequestModel.ID);
+				console.log(e);
+				return undefined;
 			}
+		};
 
-			const ret = data.repository?.pullRequest.timelineItems.nodes;
-			const events = ret ? await parseCombinedTimelineEvents(ret, await this.getRestOnlyTimelineEvents(), this.githubRepository) : [];
+		const [data, latestReviewCommitInfo, currentUser, reviewThreads] = await Promise.all([
+			getTimelineEvents(),
+			this.getViewerLatestReviewCommit(),
+			(await this.githubRepository.getAuthenticatedUser()).login,
+			this.getReviewThreads()
+		]);
 
-			this.addReviewTimelineEventComments(events, reviewThreads);
-			insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, this.head);
-			Logger.debug(`Fetch timeline events of PR #${this.number} - done`, PullRequestModel.ID);
-			return events;
-		} catch (e) {
-			Logger.error(`Failed to get pull request timeline events: ${e}`, PullRequestModel.ID);
-			console.log(e);
-			return [];
-		}
+
+		const ret = data?.repository?.pullRequest.timelineItems.nodes ?? [];
+		const events = await parseCombinedTimelineEvents(ret, await this.getRestOnlyTimelineEvents(), this.githubRepository);
+
+		this.addReviewTimelineEventComments(events, reviewThreads);
+		insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, this.head);
+		Logger.debug(`Fetch timeline events of PR #${this.number} - done`, PullRequestModel.ID);
+		return events;
 	}
 
 	protected override getUpdatesQuery(schema: any): any {

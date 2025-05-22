@@ -408,8 +408,8 @@ export class IssueModel<TItem extends Issue = Issue> {
 				...(data.repository.pullRequest.comments.nodes.flatMap(node => node.reactions.nodes.map(reaction => new Date(reaction.createdAt)))),
 				...(data.repository.pullRequest.timelineItems.nodes.map(node => {
 					const latestCommit = node as Partial<LatestCommit>;
-					if (latestCommit.commit?.authoredDate) {
-						return new Date(latestCommit.commit.authoredDate);
+					if (latestCommit.commit?.committedDate) {
+						return new Date(latestCommit.commit.committedDate);
 					}
 					const latestReviewThread = node as Partial<LatestReviewThread>;
 					if ((latestReviewThread.comments?.nodes.length ?? 0) > 0) {

@@ -256,7 +256,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 
 		if (event.event === EventType.Committed) {
 			if (userCheck(event.author.login)) {
-				return new Date(event.authoredDate);
+				return new Date(event.committedDate);
 			}
 		} else if (event.event === EventType.Commented) {
 			if (userCheck(event.user?.login)) {
