@@ -427,7 +427,7 @@ export function AddComment({
 						onClick={closeButton}
 						data-command="close"
 					>
-						{isIssue ? 'Close issue' : 'Close pull request'}
+						{isIssue ? 'Close Issue' : 'Close Pull Request'}
 					</button>
 				) : null}
 
