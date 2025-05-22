@@ -257,7 +257,7 @@ export function main() {
 										<li>
 											<span title={assignee.name} aria-label={assignee.name}>
 												<Avatar for={assignee} link={false} />
-												{assignee.login}
+												{assignee.specialDisplayName ?? assignee.login}
 											</span>
 										</li>)}
 								</ul>
@@ -275,7 +275,7 @@ export function main() {
 										<li>
 											<span title={reviewer.name} aria-label={reviewer.name}>
 												<Avatar for={reviewer} link={false} />
-												{isTeam(reviewer) ? reviewer.slug : reviewer.login}
+												{isTeam(reviewer) ? reviewer.slug : (reviewer.specialDisplayName ?? reviewer.login)}
 											</span>
 										</li>)}
 								</ul>

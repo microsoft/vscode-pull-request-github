@@ -5,6 +5,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { COPILOT_ACCOUNTS } from '../../common/comment';
 import { PR_SETTINGS_NAMESPACE, QUERIES } from '../../common/settingKeys';
 import { ITelemetry } from '../../common/telemetry';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
@@ -51,12 +52,22 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		return false;
 	}
 
-	private static getQueries(folderManager: FolderRepositoryManager): IQueryInfo[] {
-		return (
-			vscode.workspace
-				.getConfiguration(PR_SETTINGS_NAMESPACE, folderManager.repository.rootUri)
-				.get<IQueryInfo[]>(QUERIES) || []
-		);
+	private static async getQueries(folderManager: FolderRepositoryManager): Promise<IQueryInfo[]> {
+		const configuration = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE, folderManager.repository.rootUri);
+		const queries = (configuration.get<IQueryInfo[]>(QUERIES) ?? []);
+		const defaultQueries = configuration.inspect(QUERIES)?.defaultValue as IQueryInfo[] | undefined;
+		if (queries.toString() === defaultQueries?.toString()) {
+			const assignableUsers = await folderManager.getAssignableUsers(false);
+			const hasCopilot = folderManager.gitHubRepositories.some(repo => assignableUsers[repo.remote.remoteName].some(user => COPILOT_ACCOUNTS[user.login]));
+			if (hasCopilot) {
+				queries.unshift({
+					label: vscode.l10n.t('Copilot on My Behalf'),
+					// eslint-disable-next-line no-template-curly-in-string
+					query: 'repo:${owner}/${repository} is:open author:copilot involves:${user}'
+				});
+			}
+		}
+		return queries;
 	}
 
 	getTreeItem(): vscode.TreeItem {
@@ -65,11 +76,11 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 
 	override async getChildren(): Promise<TreeNode[]> {
 		super.getChildren();
-		this.children = WorkspaceFolderNode.getCategoryTreeNodes(this.folderManager, this.telemetry, this, this.notificationProvider, this.context, this._prsTreeModel);
+		this.children = await WorkspaceFolderNode.getCategoryTreeNodes(this.folderManager, this.telemetry, this, this.notificationProvider, this.context, this._prsTreeModel);
 		return this.children;
 	}
 
-	public static getCategoryTreeNodes(
+	public static async getCategoryTreeNodes(
 		folderManager: FolderRepositoryManager,
 		telemetry: ITelemetry,
 		parent: TreeNodeParent,
@@ -77,7 +88,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		context: vscode.ExtensionContext,
 		prsTreeModel: PrsTreeModel,
 	) {
-		const queryCategories = WorkspaceFolderNode.getQueries(folderManager).map(
+		const queryCategories = (await WorkspaceFolderNode.getQueries(folderManager)).map(
 			queryInfo =>
 				new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, notificationProvider, prsTreeModel, queryInfo.label, queryInfo.query),
 		);

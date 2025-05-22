@@ -198,6 +198,14 @@ export interface AssignedEvent {
 	createdAt: string;
 }
 
+export interface UnassignedEvent {
+	__typename: string;
+	id: number;
+	actor: Actor;
+	user: Account;
+	createdAt: string;
+}
+
 export interface MergeQueueEntry {
 	position: number;
 	state: MergeQueueState;

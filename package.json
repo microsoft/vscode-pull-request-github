@@ -465,11 +465,6 @@
 					"markdownDescription": "%githubPullRequests.experimental.chat.description%",
 					"default": false
 				},
-				"githubPullRequests.experimental.notificationsView": {
-					"type": "boolean",
-					"markdownDescription": "%githubPullRequests.experimental.notificationsView.description%",
-					"default": false
-				},
 				"githubPullRequests.experimental.notificationsMarkPullRequests": {
 					"type": "string",
 					"markdownDescription": "%githubPullRequests.experimental.notificationsMarkPullRequests.description%",
@@ -717,7 +712,8 @@
 					"name": "%view.notifications.github.name%",
 					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts && config.githubPullRequests.experimental.notificationsView && (remoteName != codespaces || !isWeb)",
 					"icon": "$(bell)",
-					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%"
+					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%",
+					"visibility": "collapsed"
 				},
 				{
 					"id": "github:conflictResolution",
@@ -732,6 +728,7 @@
 					"type": "webview",
 					"name": "%view.github.create.pull.request.name%",
 					"when": "github:createPullRequest || github:revertPullRequest",
+					"icon": "$(git-pull-request-create)",
 					"visibility": "visible",
 					"initialSize": 2
 				},
@@ -739,6 +736,7 @@
 					"id": "github:compareChangesFiles",
 					"name": "%view.github.compare.changes.name%",
 					"when": "github:createPullRequest",
+					"icon": "$(git-compare)",
 					"visibility": "visible",
 					"initialSize": 1
 				},
@@ -746,6 +744,7 @@
 					"id": "github:compareChangesCommits",
 					"name": "%view.github.compare.changesCommits.name%",
 					"when": "github:createPullRequest",
+					"icon": "$(git-compare)",
 					"visibility": "visible",
 					"initialSize": 1
 				},
@@ -762,12 +761,14 @@
 					"type": "webview",
 					"name": "%view.github.active.pull.request.name%",
 					"when": "github:inReviewMode && github:focusedReview && !github:createPullRequest && !github:revertPullRequest && github:activePRCount <= 1",
+					"icon": "$(git-pull-request)",
 					"initialSize": 2
 				},
 				{
 					"id": "github:activePullRequest:welcome",
 					"name": "%view.github.active.pull.request.welcome.name%",
-					"when": "!github:stateValidated && github:focusedReview"
+					"when": "!github:stateValidated && github:focusedReview",
+					"icon": "$(git-pull-request)"
 				}
 			]
 		},

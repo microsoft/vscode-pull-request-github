@@ -140,6 +140,20 @@ fragment AssignedEvent on AssignedEvent {
 	createdAt
 }
 
+fragment UnassignedEvent on UnassignedEvent {
+	id
+	actor {
+		...Node
+		...Actor
+	}
+	user {
+		...Node
+		...Actor
+		...User
+	}
+	createdAt
+}
+
 fragment CrossReferencedEvent on CrossReferencedEvent {
 	id
 	actor {
@@ -288,6 +302,7 @@ query TimelineEvents($owner: String!, $name: String!, $number: Int!, $last: Int 
 					...Review
 					...Commit
 					...AssignedEvent
+					...UnassignedEvent
 					...HeadRefDeleted
 					...CrossReferencedEvent
 					...ClosedEvent
@@ -309,6 +324,7 @@ query IssueTimelineEvents($owner: String!, $name: String!, $number: Int!, $last:
 					__typename
 					...Comment
 					...AssignedEvent
+					...UnassignedEvent
 					...CrossReferencedEvent
 					...ClosedEvent
 					...ReopenedEvent
@@ -1545,7 +1561,11 @@ mutation MergePullRequest($input: MergePullRequestInput!, $last: Int = 150) {
 					...Review
 					...Commit
 					...AssignedEvent
+					...UnassignedEvent
 					...HeadRefDeleted
+					...CrossReferencedEvent
+					...ClosedEvent
+					...ReopenedEvent
 				}
 			}
 		}
