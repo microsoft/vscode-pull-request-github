@@ -10,7 +10,7 @@ import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
 import { ALLOWED_USERS, JSDOC_NON_USERS, PHPDOC_NON_USERS } from '../common/user';
-import { stringReplaceAsync } from '../common/utils';
+import { escapeRegExp, stringReplaceAsync } from '../common/utils';
 import { GitHubRepository } from './githubRepository';
 import { IAccount } from './interface';
 import { updateCommentReactions } from './utils';
@@ -373,7 +373,8 @@ ${args[3] ?? ''}
 			return body;
 		}
 
-		const expression = new RegExp(`https://github.com/(.+)/${githubRepository.remote.repositoryName}/blob/([0-9a-f]{40})/(.*)#L([0-9]+)(-L([0-9]+))?`, 'g');
+		const repoName = escapeRegExp(githubRepository.remote.repositoryName);
+		const expression = new RegExp(`https://github.com/(.+)/${repoName}/blob/([0-9a-f]{40})/(.*)#L([0-9]+)(-L([0-9]+))?`, 'g');
 		return stringReplaceAsync(body, expression, async (match: string, owner: string, sha: string, file: string, start: string, _endGroup?: string, end?: string, index?: number) => {
 			if (index && (index > 0) && (body.charAt(index - 1) === '(')) {
 				return match;
@@ -486,11 +487,12 @@ ${lineContents}
 export function replaceImages(markdownBody: string, htmlBody: string, host: string = 'github.com') {
 	const originalExpression = new RegExp(`https:\/\/${host}\/.+\/assets\/([^\/]+\/)?(?<uuid>${UUID_EXPRESSION.source})`);
 	let originalMatch = markdownBody.match(originalExpression);
-	const htmlHost = host === 'github.com' ? 'githubusercontent.com' : host;
+	const htmlHost = escapeRegExp(host === 'github.com' ? 'githubusercontent.com' : host);
 
 	while (originalMatch) {
 		if (originalMatch.groups?.uuid) {
-			const htmlExpression = new RegExp(`https:\/\/([^"]*${htmlHost})\/[^?]+${originalMatch.groups.uuid}[^"]+`);
+			const uuid = escapeRegExp(originalMatch.groups.uuid);
+			const htmlExpression = new RegExp(`https:\/\/([^"]*${htmlHost})\/[^?]+${uuid}[^"]+`);
 			const htmlMatch = htmlBody.match(htmlExpression);
 			if (htmlMatch && htmlMatch[0]) {
 				markdownBody = markdownBody.replace(originalMatch[0], htmlMatch[0]);

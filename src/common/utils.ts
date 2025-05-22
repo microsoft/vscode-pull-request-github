@@ -995,3 +995,7 @@ export async function batchPromiseAll<T>(items: readonly T[], batchSize: number,
 	}
 }
 
+export function escapeRegExp(string: string) {
+	return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+

@@ -5,12 +5,9 @@
 
 import * as vscode from 'vscode';
 import { CREATE_ISSUE_TRIGGERS, ISSUES_SETTINGS_NAMESPACE } from '../common/settingKeys';
+import { escapeRegExp } from '../common/utils';
 import { ISSUE_OR_URL_EXPRESSION } from '../github/utils';
 import { MAX_LINE_LENGTH } from './util';
-
-function escapeRegExp(string: string) {
-	return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 export class IssueTodoProvider implements vscode.CodeActionProvider {
 	private expression: RegExp | undefined;
