@@ -19,7 +19,7 @@ import { Resource } from '../common/resources';
 import { GITHUB_ENTERPRISE, OVERRIDE_DEFAULT_BRANCH, PR_SETTINGS_NAMESPACE, URI } from '../common/settingKeys';
 import * as Common from '../common/timelineEvent';
 import { DataUri, toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
-import { gitHubLabelColor, stringReplaceAsync, uniqBy } from '../common/utils';
+import { escapeRegExp, gitHubLabelColor, stringReplaceAsync, uniqBy } from '../common/utils';
 import { OctokitCommon } from './common';
 import { FolderRepositoryManager, PullRequestDefaults } from './folderRepositoryManager';
 import { GitHubRepository, ViewerPermission } from './githubRepository';
@@ -309,7 +309,7 @@ export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListRespons
 
 async function transformHtmlUrlsToExtensionUrls(body: string, githubRepository: GitHubRepository): Promise<string> {
 	const issueRegex = new RegExp(
-		`href="https?:\/\/${githubRepository.remote.gitProtocol.url.authority}\\/${githubRepository.remote.owner}\\/${githubRepository.remote.repositoryName}\\/(issues|pull)\\/([0-9]+)"`);
+		`href="https?:\/\/${escapeRegExp(githubRepository.remote.gitProtocol.url.authority)}\\/${escapeRegExp(githubRepository.remote.owner)}\\/${escapeRegExp(githubRepository.remote.repositoryName)}\\/(issues|pull)\\/([0-9]+)"`);
 	return stringReplaceAsync(body, issueRegex, async (match: string, issuesOrPull: string, number: string) => {
 		if (issuesOrPull === 'issues') {
 			return `href="${(await toOpenIssueWebviewUri({ owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, issueNumber: Number(number) })).toString()}""`;

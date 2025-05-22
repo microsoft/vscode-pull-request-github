@@ -15,6 +15,7 @@ import {
 	USE_BRANCH_FOR_ISSUES,
 	WORKING_ISSUE_FORMAT_SCM,
 } from '../common/settingKeys';
+import { escapeRegExp } from '../common/utils';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { GithubItemStateEnum } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
@@ -218,7 +219,7 @@ export class CurrentIssue extends Disposable {
 			undefined,
 			await this.getUser(),
 		);
-		const branchNameMatch = this._branchName?.match(new RegExp('^(' + branchNameConfig + ')(_)?(\\d*)'));
+		const branchNameMatch = this._branchName?.match(new RegExp('^(' + escapeRegExp(branchNameConfig) + ')(_)?(\\d*)'));
 		if ((createBranchConfig === 'on')) {
 			const branch = await this.getBranch(this._branchName!);
 			if (!branch) {
