@@ -673,6 +673,10 @@ body button .icon {
 	flex-shrink: 0;
 }
 
+.commit-message .icon {
+	padding-top: 2px;
+}
+
 .commit .avatar-container .avatar,
 .commit .avatar-container .avatar-icon,
 .commit .avatar-container .avatar-icon svg,

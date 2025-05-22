@@ -997,7 +997,62 @@ export function parseGraphQLReviewEvent(
 	};
 }
 
-export async function parseGraphQLTimelineEvents(
+export function parseSelectRestTimelineEvents(
+	issueModel: IssueModel,
+	events: OctokitCommon.ListEventsForTimelineResponse[]
+): Common.TimelineEvent[] {
+	const parsedEvents: Common.TimelineEvent[] = [];
+	let indexLastStart = -1;
+	for (const event of events) {
+		const eventNode = event as { created_at?: string; node_id?: string; actor: RestAccount };
+		if (eventNode.created_at && eventNode.node_id) {
+			if (event.event === 'copilot_work_started') {
+				indexLastStart = parsedEvents.length;
+				parsedEvents.push({
+					id: eventNode.node_id,
+					event: Common.EventType.CopilotStarted,
+					createdAt: eventNode.created_at,
+					onBehalfOf: parseAccount(eventNode.actor)
+				});
+			} else if (event.event === 'copilot_work_finished') {
+				parsedEvents.push({
+					id: eventNode.node_id,
+					event: Common.EventType.CopilotFinished,
+					createdAt: eventNode.created_at,
+					onBehalfOf: parseAccount(eventNode.actor)
+				});
+			}
+		}
+	}
+	if (indexLastStart > -1) {
+		const startEvent: Common.CopilotStartedEvent = parsedEvents[indexLastStart] as Common.CopilotStartedEvent;
+		startEvent.sessionUrl = `https://${issueModel.githubRepository.remote.gitProtocol.host}/${issueModel.githubRepository.remote.owner}/${issueModel.githubRepository.remote.repositoryName}/pull/${issueModel.number}/agent-sessions`;
+	}
+	return parsedEvents;
+}
+
+function eventTime(event: Common.TimelineEvent): Date | undefined {
+	switch (event.event) {
+		case Common.EventType.Committed:
+			return new Date(event.committedDate);
+		case Common.EventType.Commented:
+		case Common.EventType.Assigned:
+		case Common.EventType.HeadRefDeleted:
+		case Common.EventType.Merged:
+		case Common.EventType.CrossReferenced:
+		case Common.EventType.Closed:
+		case Common.EventType.Reopened:
+		case Common.EventType.CopilotStarted:
+		case Common.EventType.CopilotFinished:
+			return new Date(event.createdAt);
+		case Common.EventType.Reviewed:
+			return new Date(event.submittedAt);
+		default:
+			return undefined;
+	}
+}
+
+export async function parseCombinedTimelineEvents(
 	events: (
 		| GraphQL.MergedEvent
 		| GraphQL.Review
@@ -1007,16 +1062,40 @@ export async function parseGraphQLTimelineEvents(
 		| GraphQL.HeadRefDeletedEvent
 		| GraphQL.CrossReferencedEvent
 	)[],
+	restEvents: Common.TimelineEvent[],
 	githubRepository: GitHubRepository,
 ): Promise<Common.TimelineEvent[]> {
 	const normalizedEvents: Common.TimelineEvent[] = [];
+	let restEventIndex = -1;
+	let restEventTime: number | undefined;
+	const incrementRestEvent = () => {
+		restEventIndex++;
+		restEventTime = restEvents.length > restEventIndex ? eventTime(restEvents[restEventIndex])?.getTime() : undefined;
+	};
+	incrementRestEvent();
+	const addTimelineEvent = (event: Common.TimelineEvent) => {
+		if (!restEventTime) {
+			normalizedEvents.push(event);
+			return;
+		}
+		const newEventTime = eventTime(event)?.getTime();
+		if (newEventTime) {
+			while (restEventTime && newEventTime > restEventTime) {
+				normalizedEvents.push(restEvents[restEventIndex]);
+				incrementRestEvent();
+			}
+		}
+		normalizedEvents.push(event);
+	};
+
+	// TODO: work the rest events into the appropriate place in the timeline
 	for (const event of events) {
 		const type = convertGraphQLEventType(event.__typename);
 
 		switch (type) {
 			case Common.EventType.Commented:
 				const commentEvent = event as GraphQL.IssueComment;
-				normalizedEvents.push({
+				addTimelineEvent({
 					htmlUrl: commentEvent.url,
 					body: commentEvent.body,
 					bodyHTML: commentEvent.bodyHTML,
@@ -1031,7 +1110,7 @@ export async function parseGraphQLTimelineEvents(
 				break;
 			case Common.EventType.Reviewed:
 				const reviewEvent = event as GraphQL.Review;
-				normalizedEvents.push({
+				addTimelineEvent({
 					event: type,
 					comments: [],
 					submittedAt: reviewEvent.submittedAt,
@@ -1046,7 +1125,7 @@ export async function parseGraphQLTimelineEvents(
 				break;
 			case Common.EventType.Committed:
 				const commitEv = event as GraphQL.Commit;
-				normalizedEvents.push({
+				addTimelineEvent({
 					id: commitEv.id,
 					event: type,
 					sha: commitEv.commit.oid,
@@ -1055,13 +1134,13 @@ export async function parseGraphQLTimelineEvents(
 						: { login: commitEv.commit.committer.name },
 					htmlUrl: commitEv.url,
 					message: commitEv.commit.message,
-					authoredDate: new Date(commitEv.commit.authoredDate),
+					committedDate: new Date(commitEv.commit.committedDate),
 				} as Common.CommitEvent); // TODO remove cast
 				break;
 			case Common.EventType.Merged:
 				const mergeEv = event as GraphQL.MergedEvent;
 
-				normalizedEvents.push({
+				addTimelineEvent({
 					id: mergeEv.id,
 					event: type,
 					user: parseActor(mergeEv.actor, githubRepository),
@@ -1076,7 +1155,7 @@ export async function parseGraphQLTimelineEvents(
 			case Common.EventType.Assigned:
 				const assignEv = event as GraphQL.AssignedEvent;
 
-				normalizedEvents.push({
+				addTimelineEvent({
 					id: assignEv.id,
 					event: type,
 					assignees: [parseAccount(assignEv.user, githubRepository)],
@@ -1098,7 +1177,7 @@ export async function parseGraphQLTimelineEvents(
 			case Common.EventType.HeadRefDeleted:
 				const deletedEv = event as GraphQL.HeadRefDeletedEvent;
 
-				normalizedEvents.push({
+				addTimelineEvent({
 					id: deletedEv.id,
 					event: type,
 					actor: parseAccount(deletedEv.actor, githubRepository),
@@ -1112,7 +1191,7 @@ export async function parseGraphQLTimelineEvents(
 				const extensionUrl = isIssue
 					? await toOpenIssueWebviewUri({ owner: crossRefEv.source.repository.owner.login, repo: crossRefEv.source.repository.name, issueNumber: crossRefEv.source.number })
 					: await toOpenPullRequestWebviewUri({ owner: crossRefEv.source.repository.owner.login, repo: crossRefEv.source.repository.name, pullRequestNumber: crossRefEv.source.number });
-				normalizedEvents.push({
+				addTimelineEvent({
 					id: crossRefEv.id,
 					event: type,
 					actor: parseAccount(crossRefEv.actor, githubRepository),
@@ -1130,7 +1209,7 @@ export async function parseGraphQLTimelineEvents(
 			case Common.EventType.Closed:
 				const closedEv = event as GraphQL.ClosedEvent;
 
-				normalizedEvents.push({
+				addTimelineEvent({
 					id: closedEv.id,
 					event: type,
 					actor: parseAccount(closedEv.actor, githubRepository),
@@ -1140,7 +1219,7 @@ export async function parseGraphQLTimelineEvents(
 			case Common.EventType.Reopened:
 				const reopenedEv = event as GraphQL.ReopenedEvent;
 
-				normalizedEvents.push({
+				addTimelineEvent({
 					id: reopenedEv.id,
 					event: type,
 					actor: parseAccount(reopenedEv.actor, githubRepository),
@@ -1152,6 +1231,11 @@ export async function parseGraphQLTimelineEvents(
 		}
 	}
 
+	// Add any remaining rest events
+	while (restEventTime) {
+		normalizedEvents.push(restEvents[restEventIndex]);
+		incrementRestEvent();
+	}
 	return normalizedEvents;
 }
 

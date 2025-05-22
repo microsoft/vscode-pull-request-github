@@ -46,3 +46,5 @@ export const stopCircleIcon = <Icon src={require('../../resources/icons/stop-cir
 export const issueIcon = <Icon src={require('../../resources/icons/issue.svg')} />;
 export const issueClosedIcon = <Icon src={require('../../resources/icons/issue_closed.svg')} />;
 export const copilotIcon = <Icon src={require('../../resources/icons/copilot.svg')} />;
+export const briefcaseIcon = <Icon src={require('../../resources/icons/briefcase.svg')} />;
+export const tasklistIcon = <Icon src={require('../../resources/icons/tasklist.svg')} />;

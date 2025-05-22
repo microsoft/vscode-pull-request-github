@@ -71,6 +71,7 @@ export namespace OctokitCommon {
 	export type Commit = CompareCommits['commits'][0];
 	export type CommitFiles = CompareCommits['files']
 	export type Notification = Endpoints['GET /notifications']['response']['data'][0];
+	export type ListEventsForTimelineResponse = Endpoints['GET /repos/{owner}/{repo}/issues/{issue_number}/timeline']['response']['data'][0];
 }
 
 export type Schema = { [key: string]: any, definitions: any[]; };

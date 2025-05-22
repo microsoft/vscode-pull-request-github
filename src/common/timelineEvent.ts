@@ -22,6 +22,8 @@ export enum EventType {
 	CrossReferenced,
 	Closed,
 	Reopened,
+	CopilotStarted,
+	CopilotFinished,
 	Other,
 }
 
@@ -75,7 +77,7 @@ export interface CommitEvent {
 	htmlUrl: string;
 	message: string;
 	bodyHTML?: string;
-	authoredDate: Date;
+	committedDate: Date;
 }
 
 export interface NewCommitsSinceReviewEvent {
@@ -148,4 +150,19 @@ export interface ReopenedEvent {
 	createdAt: string;
 }
 
-export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | UnassignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent;
+export interface CopilotStartedEvent {
+	id: string;
+	event: EventType.CopilotStarted;
+	createdAt: string;
+	onBehalfOf: IAccount;
+	sessionUrl?: string;
+}
+
+export interface CopilotFinishedEvent {
+	id: string;
+	event: EventType.CopilotFinished;
+	createdAt: string;
+	onBehalfOf: IAccount;
+}
+
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | UnassignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent | CopilotStartedEvent | CopilotFinishedEvent;

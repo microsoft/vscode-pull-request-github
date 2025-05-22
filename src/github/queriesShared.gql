@@ -121,7 +121,7 @@ fragment Commit on PullRequestCommit {
 		}
 		oid
 		message
-		authoredDate
+		committedDate
 	}
 	url
 }
@@ -480,7 +480,7 @@ query LatestUpdates($owner: String!, $name: String!, $number: Int!, $since: Date
 					}
 					... on PullRequestCommit {
 						commit {
-							authoredDate
+							committedDate
 						}
 					}
 					... on PullRequestReview {
