@@ -13,7 +13,7 @@ import { PRType } from '../../github/interface';
 import { NotificationProvider } from '../../github/notifications';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { PrsTreeModel } from '../prsTreeModel';
-import { CategoryTreeNode } from './categoryNode';
+import { CategoryTreeNode, isAllQuery, isLocalQuery } from './categoryNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
 
 export interface IQueryInfo {
@@ -58,7 +58,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		const defaultQueries = configuration.inspect(QUERIES)?.defaultValue as IQueryInfo[] | undefined;
 		if (queries.toString() === defaultQueries?.toString()) {
 			const assignableUsers = await folderManager.getAssignableUsers(false);
-			const hasCopilot = folderManager.gitHubRepositories.some(repo => assignableUsers[repo.remote.remoteName].some(user => COPILOT_ACCOUNTS[user.login]));
+			const hasCopilot = folderManager.gitHubRepositories.some(repo => assignableUsers[repo.remote.remoteName]?.some(user => COPILOT_ACCOUNTS[user.login]));
 			if (hasCopilot) {
 				queries.unshift({
 					label: vscode.l10n.t('Copilot on My Behalf'),
@@ -89,13 +89,15 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		prsTreeModel: PrsTreeModel,
 	) {
 		const queryCategories = (await WorkspaceFolderNode.getQueries(folderManager)).map(
-			queryInfo =>
-				new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, notificationProvider, prsTreeModel, queryInfo.label, queryInfo.query),
+			queryInfo => {
+				if (isLocalQuery(queryInfo)) {
+					return new CategoryTreeNode(parent, folderManager, telemetry, PRType.LocalPullRequest, notificationProvider, prsTreeModel);
+				} else if (isAllQuery(queryInfo)) {
+					return new CategoryTreeNode(parent, folderManager, telemetry, PRType.All, notificationProvider, prsTreeModel);
+				}
+				return new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, notificationProvider, prsTreeModel, queryInfo.label, queryInfo.query);
+			}
 		);
-		return [
-			new CategoryTreeNode(parent, folderManager, telemetry, PRType.LocalPullRequest, notificationProvider, prsTreeModel),
-			...queryCategories,
-			new CategoryTreeNode(parent, folderManager, telemetry, PRType.All, notificationProvider, prsTreeModel),
-		];
+		return queryCategories;
 	}
 }
