@@ -177,22 +177,30 @@
 								"type": "string",
 								"description": "%githubPullRequests.queries.query.description%"
 							}
+						},
+						"default":							{
+							"label": "%githubPullRequests.queries.assignedToMe%",
+							"query": "repo:${owner}/${repository} is:open assignee:${user}"
 						}
 					},
 					"scope": "resource",
 					"markdownDescription": "%githubPullRequests.queries.markdownDescription%",
 					"default": [
 						{
+							"label": "Local Pull Request Branches",
+							"query": "default"
+						},
+						{
 							"label": "%githubPullRequests.queries.waitingForMyReview%",
 							"query": "repo:${owner}/${repository} is:open review-requested:${user}"
 						},
 						{
-							"label": "%githubPullRequests.queries.assignedToMe%",
-							"query": "repo:${owner}/${repository} is:open assignee:${user}"
-						},
-						{
 							"label": "%githubPullRequests.queries.createdByMe%",
 							"query": "repo:${owner}/${repository} is:open author:${user}"
+						},
+						{
+							"label": "All Open",
+							"query": "default"
 						}
 					]
 				},
