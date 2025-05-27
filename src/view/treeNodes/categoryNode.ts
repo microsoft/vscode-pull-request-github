@@ -14,6 +14,7 @@ import { PullRequestModel } from '../../github/pullRequestModel';
 import { PrsTreeModel } from '../prsTreeModel';
 import { PRNode } from './pullRequestNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
+import { IQueryInfo } from './workspaceFolderNode';
 
 export enum PRCategoryActionType {
 	Empty,
@@ -99,6 +100,24 @@ export class PRCategoryActionNode extends TreeNode implements vscode.TreeItem {
 interface PageInformation {
 	pullRequestPage: number;
 	hasMorePages: boolean;
+}
+
+export namespace DefaultQueries {
+	export namespace Queries {
+		export const LOCAL = 'Local Pull Request Branches';
+		export const ALL = 'All Open';
+	}
+	export namespace Values {
+		export const DEFAULT = 'default';
+	}
+}
+
+export function isLocalQuery(queryInfo: IQueryInfo): boolean {
+	return queryInfo.label === DefaultQueries.Queries.LOCAL && queryInfo.query === DefaultQueries.Values.DEFAULT;
+}
+
+export function isAllQuery(queryInfo: IQueryInfo): boolean {
+	return queryInfo.label === DefaultQueries.Queries.ALL && queryInfo.query === DefaultQueries.Values.DEFAULT;
 }
 
 export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
