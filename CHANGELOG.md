@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.112.0
+
+### Changes
+- Images in comments from private repositories are now shown in pull request file comments.
+- The "Notifications" view is now shown by default, collapsed.
+- Issue and pull request links in the timeline an in the issue/pull request body are now opened in VS Code, rather than going to the browser.
+- The "Assigned to Me" query in the "Pull Requests" view has been removed, and the "Local Pull Request Branches" and "All Open" queries can be removed using the setting `githubPullRequests.queries`. For repositories with Copilot, a "Copilot on My Behalf" query is added when the setting is unconfigured.
+- Unassigned events are now shown in the timeline.
+- Copilot "start working", "stop working", and "View Session" are now shown in the timeline.
+
+![Copilot start and stop working](./documentation/changelog/0.112.0/copilot-start-stop.png)
+
+### Fixes
+
+- Interference with interactive rebase. https://github.com/microsoft/vscode-pull-request-github/issues/4904
+- Closed PRs get associated with new branches of the same name. https://github.com/microsoft/vscode-pull-request-github/issues/6711
+- Fails to open PR's description in some repos on GitHub Enterprise. https://github.com/microsoft/vscode-pull-request-github/issues/6736
+- Support closing an issue. https://github.com/microsoft/vscode-pull-request-github/issues/6864
+- Pull request diff shows outdated diff. https://github.com/microsoft/vscode-pull-request-github/issues/6889
+
 ## 0.110.0
 
 ### Changes
