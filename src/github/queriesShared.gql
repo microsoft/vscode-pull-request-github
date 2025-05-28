@@ -442,12 +442,6 @@ query LatestUpdates($owner: String!, $name: String!, $number: Int!, $since: Date
 					... on IssueTypeAddedEvent {
 						createdAt
 					}
-					... on IssueTypeChangedEvent {
-						createdAt
-					}
-					... on IssueTypeRemovedEvent {
-						createdAt
-					}
 					... on LabeledEvent {
 						createdAt
 					}
@@ -467,12 +461,6 @@ query LatestUpdates($owner: String!, $name: String!, $number: Int!, $since: Date
 						createdAt
 					}
 					... on MovedColumnsInProjectEvent {
-						createdAt
-					}
-					... on ParentIssueAddedEvent {
-						createdAt
-					}
-					... on ParentIssueRemovedEvent {
 						createdAt
 					}
 					... on PinnedEvent {
@@ -521,12 +509,6 @@ query LatestUpdates($owner: String!, $name: String!, $number: Int!, $since: Date
 						createdAt
 					}
 					... on ReviewRequestedEvent {
-						createdAt
-					}
-					... on SubIssueAddedEvent {
-						createdAt
-					}
-					... on SubIssueRemovedEvent {
 						createdAt
 					}
 					... on SubscribedEvent {
@@ -622,12 +604,6 @@ query LatestIssueUpdates($owner: String!, $name: String!, $number: Int!, $since:
 					... on IssueTypeAddedEvent {
 						createdAt
 					}
-					... on IssueTypeChangedEvent {
-						createdAt
-					}
-					... on IssueTypeRemovedEvent {
-						createdAt
-					}
 					... on LabeledEvent {
 						createdAt
 					}
@@ -646,12 +622,6 @@ query LatestIssueUpdates($owner: String!, $name: String!, $number: Int!, $since:
 					... on MovedColumnsInProjectEvent {
 						createdAt
 					}
-					... on ParentIssueAddedEvent {
-						createdAt
-					}
-					... on ParentIssueRemovedEvent {
-						createdAt
-					}
 					... on PinnedEvent {
 						createdAt
 					}
@@ -665,12 +635,6 @@ query LatestIssueUpdates($owner: String!, $name: String!, $number: Int!, $since:
 						createdAt
 					}
 					... on ReopenedEvent {
-						createdAt
-					}
-					... on SubIssueAddedEvent {
-						createdAt
-					}
-					... on SubIssueRemovedEvent {
 						createdAt
 					}
 					... on SubscribedEvent {
