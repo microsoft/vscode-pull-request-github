@@ -172,9 +172,10 @@ export class CreatePRContextNew {
 			command: 'pr.generateTitleAndDescription',
 			args
 		});
-		const updateValues: { pendingTitle?: string, pendingDescription?: string } = {};
+		const updateValues: { pendingTitle?: string, pendingDescription?: string, showTitleValidationError?: boolean } = {};
 		if (response.title) {
 			updateValues.pendingTitle = response.title;
+			updateValues.showTitleValidationError = false;
 		}
 		if (response.description) {
 			updateValues.pendingDescription = response.description;
