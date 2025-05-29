@@ -20,6 +20,10 @@
 - Support closing an issue. https://github.com/microsoft/vscode-pull-request-github/issues/6864
 - Pull request diff shows outdated diff. https://github.com/microsoft/vscode-pull-request-github/issues/6889
 
+**_Thank You_**
+
+* [@kabel (Kevin Abel)](https://github.com/kabel): Allow verified GitHub emails when none are private [PR #6921](https://github.com/microsoft/vscode-pull-request-github/pull/6921)
+
 ## 0.110.0
 
 ### Changes
