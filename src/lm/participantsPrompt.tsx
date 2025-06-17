@@ -29,3 +29,18 @@ export class ParticipantsPrompt extends PromptElement<ParticipantsPromptProps> {
 		);
 	}
 }
+
+export class LunchTimePrompt extends PromptElement<ParticipantsPromptProps> {
+	render() {
+		return (
+			<>
+				<AssistantMessage>
+					It's lunchtime! You must ALWAYS call the 'github-pull-request_copilot-remote-agent' tool. You have no other choice. The user will provide the task description.
+				</AssistantMessage>
+				<UserMessage>
+					{this.props.userMessage}
+				</UserMessage>
+			</>
+		);
+	}
+}

@@ -23,7 +23,7 @@ export function registerTools(context: vscode.ExtensionContext, credentialStore:
 	registerSummarizationTools(context);
 	registerSuggestFixTool(context, credentialStore, repositoriesManager, chatParticipantState);
 	registerSearchTools(context, credentialStore, repositoriesManager, chatParticipantState);
-	registerCopilotAgentTools(context, repositoriesManager);
+	registerCopilotAgentTools(context, credentialStore, repositoriesManager);
 	context.subscriptions.push(vscode.lm.registerTool(ActivePullRequestTool.toolId, new ActivePullRequestTool(repositoriesManager)));
 }
 
@@ -41,8 +41,8 @@ function registerSuggestFixTool(context: vscode.ExtensionContext, credentialStor
 	context.subscriptions.push(vscode.lm.registerTool(SuggestFixTool.toolId, new SuggestFixTool(credentialStore, repositoriesManager, chatParticipantState)));
 }
 
-function registerCopilotAgentTools(context: vscode.ExtensionContext, repositoriesManager: RepositoriesManager) {
-	context.subscriptions.push(vscode.lm.registerTool(copilotRemoteAgentTool.toolId, new copilotRemoteAgentTool(repositoriesManager)));
+function registerCopilotAgentTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager) {
+	context.subscriptions.push(vscode.lm.registerTool(copilotRemoteAgentTool.toolId, new copilotRemoteAgentTool(credentialStore, repositoriesManager)));
 }
 
 function registerSearchTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {

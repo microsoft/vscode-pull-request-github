@@ -4,9 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
+
 import * as vscode from 'vscode';
+import { AuthProvider } from '../../common/authentication';
 import { COPILOT_LOGINS } from '../../common/copilot';
 import { OctokitCommon } from '../../github/common';
+import { CredentialStore } from '../../github/credentials';
 import { IssueModel } from '../../github/issueModel';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 
@@ -17,63 +20,56 @@ export interface copilotRemoteAgentToolParameters {
 	};
 	title: string;
 	body?: string;
-	mode?: 'issue' | 'remote-agent';
+	// mode?: 'issue' | 'remote-agent' | 'continue';
 }
 
-export class copilotRemoteAgentTool
-	implements vscode.LanguageModelTool<copilotRemoteAgentToolParameters> {
-	public static readonly toolId = 'github-pull-request_copilot-remote-agent';
-	private repositoriesManager: RepositoriesManager;
 
-	constructor(repositoriesManager: RepositoriesManager) {
-		this.repositoriesManager = repositoriesManager;
-	}
+export enum CopilotRemoteAgentMode {
+	default, // Trigger remote agent on 'main'
+	continue, // Push pending changes and then trigger remote agent on that ref
+	issue // Don't use
+}
 
-	async prepareInvocation(): Promise<vscode.PreparedToolInvocation> {
-		return {
-			invocationMessage: vscode.l10n.t(
-				'Creating an issue and assigning Copilot'
-			),
-		};
-	}
 
-	async invoke(
-		options: vscode.LanguageModelToolInvocationOptions<copilotRemoteAgentToolParameters>,
-		_: vscode.CancellationToken
-	): Promise<vscode.LanguageModelToolResult | undefined> {
-		const repo = options.input.repo;
-		const owner = repo?.owner;
-		const name = repo?.name;
-		const title = options.input.title;
-		const body = options.input.body || '';
-		const mode = options.input.mode || 'remote-agent';
-		if (!repo || !owner || !name || !title) {
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(
-					'Missing required repo, owner, name, or title.'
-				),
-			]);
-		}
+export class CopilotRemoteAgentService {
+	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager) { }
 
-		if (mode === 'remote-agent') {
-			return this.invokeRemoteAgent(owner, name, title, body);
-		} else {
-			return this.invokeIssueAssign(owner, name, title, body);
-		}
-	}
-
-	private async invokeRemoteAgent(owner: string, name: string, title: string, body: string): Promise<vscode.LanguageModelToolResult> {
+	async invokeRemoteAgent(owner: string, name: string, title: string, body: string, mode: CopilotRemoteAgentMode): Promise<string> {
 		try {
 			const repoSlug = `${owner}/${name}`;
 			const apiUrl = `https://api.githubcopilot.com/agents/swe/jobs/${repoSlug}`;
-			// TODO: Grab the session from credential store?
-			const session = await vscode.authentication.getSession('github', ['read:user', 'repo'], { createIfNone: true, silent: false });
-			const githubToken = session?.accessToken;
-			if (!githubToken) {
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('Could not retrieve GitHub token')
-				]);
+			const gh = await this.credentialStore.getHubOrLogin(AuthProvider.github);
+			const { token } = await gh?.octokit.api.auth() as { token: string };
+			if (!token) {
+				throw new Error('Could not retrieve GitHub token');
 			}
+
+			let baseRef = 'refs/heads/main'; // TODO: Don't assume this
+			if (mode === CopilotRemoteAgentMode.continue) {
+				let folderManager = this.repositoriesManager.getManagerForRepository(owner, name);
+				if (!folderManager && this.repositoriesManager.folderManagers.length > 0) {
+					folderManager = this.repositoriesManager.folderManagers[0];
+				}
+				if (!folderManager) {
+					throw new Error(`No folder manager found for ${owner}/${name}. Make sure to have the repository open.`);
+				}
+				const repo = folderManager.repository;
+				const currentBranch = repo.state.HEAD?.name;
+				if (!currentBranch) {
+					throw new Error('No current branch detected in the repository.');
+				}
+				const asyncBranch = `continue-from-${Date.now()}`;
+				try {
+					await repo.createBranch(asyncBranch, true);
+					await repo.add([]); // stage all changes
+					await repo.commit('Checkpoint for Copilot Agent async session', { signCommit: false });
+					await repo.push('origin', asyncBranch, true);
+				} catch (e) {
+					throw new Error(`Failed to push changes to new branch: ${e}`);
+				}
+				baseRef = `refs/heads/${asyncBranch}`;
+			}
+
 			const payload = {
 				problem_statement: title,
 				content_filter_mode: 'hidden_characters',
@@ -81,8 +77,7 @@ export class copilotRemoteAgentTool
 					title: title,
 					body_placeholder: body,
 					body_suffix: 'Created from VS Code',
-					base_ref: 'refs/heads/main',
-					labels: ['']
+					base_ref: baseRef,
 				},
 				run_name: 'Copilot Agent Run'
 			};
@@ -91,7 +86,7 @@ export class copilotRemoteAgentTool
 				method: 'POST',
 				headers: {
 					'Copilot-Integration-Id': 'copilot-developer-dev',
-					'Authorization': `Bearer ${githubToken}`,
+					'Authorization': `Bearer ${token}`,
 					'Content-Type': 'application/json',
 					'Accept': 'application/json'
 				},
@@ -99,39 +94,24 @@ export class copilotRemoteAgentTool
 			});
 			if (!response.ok) {
 				const text = await response.text();
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart(`Remote agent API error: ${response.status} ${text}`)
-				]);
+				throw new Error(`Remote agent API error: ${response.status} ${text}`);
 			}
 			const result = await response.json();
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(JSON.stringify(result))
-			]);
+			const prUrl = result?.pull_request?.html_url || result?.pull_request?.url;
+			return prUrl || JSON.stringify(result);
 		} catch (e) {
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(`Remote agent API call failed: ${e}`)
-			]);
+			throw new Error(`Remote agent API call failed: ${e}`);
 		}
 	}
 
-	private async invokeIssueAssign(owner: string, name: string, title: string, body: string): Promise<vscode.LanguageModelToolResult> {
-		// Find the folder manager for the repo
-		let folderManager = this.repositoriesManager.getManagerForRepository(
-			owner,
-			name
-		);
+	async invokeIssueAssign(owner: string, name: string, title: string, body: string): Promise<any> {
+		let folderManager = this.repositoriesManager.getManagerForRepository(owner, name);
 		if (!folderManager && this.repositoriesManager.folderManagers.length > 0) {
 			folderManager = this.repositoriesManager.folderManagers[0];
 		}
 		if (!folderManager) {
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(
-					`No folder manager found for ${owner}/${name}. Make sure to have the repository open.`
-				),
-			]);
+			throw new Error(`No folder manager found for ${owner}/${name}. Make sure to have the repository open.`);
 		}
-
-		// Create the issue using OctokitCommon.IssuesCreateParams
 		const params: OctokitCommon.IssuesCreateParams = {
 			owner,
 			repo: name,
@@ -142,21 +122,11 @@ export class copilotRemoteAgentTool
 		try {
 			createdIssue = await folderManager.createIssue(params);
 		} catch (e) {
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(
-					`Failed to create issue for ${owner}/${name}: ${e}`
-				),
-			]);
+			throw new Error(`Failed to create issue for ${owner}/${name}: ${e}`);
 		}
 		if (!createdIssue) {
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(
-					`Failed to create issue for ${owner}/${name}.`
-				),
-			]);
+			throw new Error(`Failed to create issue for ${owner}/${name}.`);
 		}
-
-		// Assign Copilot (swe-agent) to the issue using assignable user object and replaceAssignees
 		try {
 			const assignableUsersMap = await folderManager.getAssignableUsers();
 			let assignableUsers: any[] = [];
@@ -171,31 +141,18 @@ export class copilotRemoteAgentTool
 				assignableUsers = ([] as any[]).concat(...Object.values(assignableUsersMap));
 			}
 			if (!assignableUsers || assignableUsers.length === 0) {
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart(
-						`Issue created, but no assignable users found for ${owner}/${name}.`
-					),
-				]);
+				throw new Error(`Issue created, but no assignable users found for ${owner}/${name}.`);
 			}
 			const copilotUser = assignableUsers.find((user: any) =>
 				COPILOT_LOGINS.includes(user.login)
 			);
 			if (!copilotUser) {
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart(
-						`Issue created, but Copilot user was not found in assignable users for ${owner}/${name}.`
-					),
-				]);
+				throw new Error(`Issue created, but Copilot user was not found in assignable users for ${owner}/${name}.`);
 			}
 			await createdIssue.replaceAssignees([copilotUser]);
 		} catch (e) {
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(
-					`Issue created, but failed to assign Copilot: ${e}`
-				),
-			]);
+			throw new Error(`Issue created, but failed to assign Copilot: ${e}`);
 		}
-
 		const issueInfo = {
 			number: createdIssue.number,
 			title: createdIssue.title,
@@ -204,8 +161,92 @@ export class copilotRemoteAgentTool
 			url: createdIssue.html_url,
 			state: createdIssue.state,
 		};
-		return new vscode.LanguageModelToolResult([
-			new vscode.LanguageModelTextPart(JSON.stringify(issueInfo)),
-		]);
+		return issueInfo;
+	}
+}
+
+
+export class copilotRemoteAgentTool implements vscode.LanguageModelTool<copilotRemoteAgentToolParameters> {
+	public static readonly toolId = 'github-pull-request_copilot-remote-agent';
+	private service: CopilotRemoteAgentService;
+
+	constructor(credentialStore: CredentialStore, repositoriesManager: RepositoriesManager) {
+		this.service = new CopilotRemoteAgentService(credentialStore, repositoriesManager);
+	}
+
+	async prepareInvocation(): Promise<vscode.PreparedToolInvocation> {
+		return {
+			invocationMessage: vscode.l10n.t('Assigning task to Copilot'),
+		};
+	}
+
+	async invoke(
+		options: vscode.LanguageModelToolInvocationOptions<copilotRemoteAgentToolParameters>,
+		_: vscode.CancellationToken
+	): Promise<vscode.LanguageModelToolResult | undefined> {
+		const repo = options.input.repo;
+		let owner = repo?.owner;
+		let name = repo?.name;
+		const title = options.input.title;
+		const body = options.input.body || '';
+
+		let mode: CopilotRemoteAgentMode = CopilotRemoteAgentMode.default;
+		// Use first folder manager as fallback for owner/repo
+		const fm = this.service.repositoriesManager.folderManagers[0];
+
+		const ignoreModelInterredRepoEntirelyTODO = true;
+		if (ignoreModelInterredRepoEntirelyTODO || !repo || !owner) {
+			if (!fm) {
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart(
+						'No folder manager found. Make sure to have a repository open or specify your target \'owner/repo\''
+					),
+				]);
+			}
+			const defaults = await fm.getPullRequestDefaults();
+			if (defaults) {
+				owner = defaults.owner;
+				name = defaults.repo;
+			}
+		}
+
+		if (!owner || !name || !title) {
+			return new vscode.LanguageModelToolResult([
+				new vscode.LanguageModelTextPart(
+					'Missing required repo, owner, name, or title.'
+				),
+			]);
+		}
+
+		const preferIssueMode = vscode.workspace.getConfiguration('github').get<boolean>('copilotRemoteAgent.preferIssueMode', false);
+		if (preferIssueMode) {
+			mode = CopilotRemoteAgentMode.issue;
+			try {
+				const issueInfo = await this.service.invokeIssueAssign(owner, name, title, body);
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart(JSON.stringify(issueInfo))
+				]);
+			} catch (e: any) {
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart(e.message)
+				]);
+			}
+		}
+		if (fm) {
+			const state = fm.repository.state;
+			if (state.workingTreeChanges.length > 0 || state.indexChanges.length > 0) {
+				mode = CopilotRemoteAgentMode.continue;
+			}
+		}
+		try {
+			const prUrl = await this.service.invokeRemoteAgent(owner, name, title, body, mode);
+			return new vscode.LanguageModelToolResult([
+				new vscode.LanguageModelTextPart(prUrl)
+			]);
+		} catch (e: any) {
+			return new vscode.LanguageModelToolResult([
+				new vscode.LanguageModelTextPart(e.message)
+			]);
+		}
 	}
 }

@@ -67,7 +67,13 @@
 				"name": "githubpr",
 				"fullName": "GitHub Pull Requests",
 				"description": "Chat participant for GitHub Pull Requests extension",
-				"when": "config.githubPullRequests.experimental.chat"
+				"when": "config.githubPullRequests.experimental.chat",
+				"commands": [
+					{
+						"name": "lunchTime",
+						"description": "Assign a task for GitHub Copilot to complete asynchronously (e.g during your lunch break)"
+					}
+				]
 			}
 		],
 		"configuration": {
@@ -3297,50 +3303,40 @@
 		"languageModelTools": [
 			{
 				"name": "github-pull-request_copilot-remote-agent",
-				"displayName": "Assign Copilot a Task",
-				"modelDescription": "Creates a task for the Copilot Remote Agent to work on, using the current chat context.",
+				"displayName": "Assign Copilot work to complete asynchronously",
+				"modelDescription": "Asynchronously perform a task with GitHub Copilot remote agent using the current chat context. Use this tool if you see the terms like 'asynchronous', 'copilot agent', or 'remotely'",
 				"when": "config.githubPullRequests.experimental.chat",
 				"icon": "resources/icons/copilot.svg",
 				"canBeReferencedInPrompt": true,
 				"toolReferenceName": "copilotRemoteAgentTool",
-			   "userDescription": "Assign a task for Copilot to complete asynchronously using the current chat context.\n\nSet 'mode' to 'remote-agent' to use the new Copilot Remote Agent API (recommended for agent/automation workflows, does not create a GitHub issue).\nSet 'mode' to 'issue' (or omit) to create a GitHub issue and assign Copilot (for legacy or manual workflows).",
+			   "userDescription": "Assign a task for Copilot to complete asynchronously using the current chat context.",
 				"inputSchema": {
 					"type": "object",
 					"required": [
-						"repo",
 						"title"
 					],
 					"properties": {
 						"repo": {
 							"type": "object",
-							"description": "The repository to get the issue/PR from.",
+							"description": "The target repository",
 							"properties": {
 								"owner": {
 									"type": "string",
-									"description": "The owner of the target repository. Try to infer from the workspace's current repository if not clear from context."
+									"description": "The owner of the target repository. Only populate this if explicitly stated.  If the user is referring to the current workspace, omit this field."
 								},
 								"name": {
 									"type": "string",
-									"description": "The name of the target repository. Try to infer from the workspace's current repository if not clear from context."
+									"description": "The name of the target repository. Only populate this if explicitly stated. If the user is referring to the current workspace, omit this field."
 								}
-							},
-							"required": [
-								"owner",
-								"name"
-							]
+							}
 						},
 						"title": {
 							"type": "string",
-							"description": "The title of the issue.  This is populated from chat context."
+							"description": "The title of the issue. Populate from chat context."
 						},
 					   "body": {
 						   "type": "string",
-						   "description": "The body/description of the issue. This is populated from chat context."
-					   },
-					   "mode": {
-						   "type": "string",
-						   "enum": ["issue", "remote-agent"],
-						   "description": "Which workflow to use: 'remote-agent' (recommended, uses Copilot Remote Agent API, does not create a GitHub issue) or 'issue' (legacy, creates a GitHub issue and assigns Copilot). Default is 'issue'."
+						   "description": "The body/description of the issue. Populate from chat context."
 					   }
 					}
 				}
