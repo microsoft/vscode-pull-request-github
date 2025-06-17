@@ -7,7 +7,7 @@
 import { renderPrompt } from '@vscode/prompt-tsx';
 import * as vscode from 'vscode';
 import { Disposable } from '../common/lifecycle';
-import { LunchTimePrompt, ParticipantsPrompt } from './participantsPrompt';
+import { ParticipantsPrompt } from './participantsPrompt';
 import { IToolCall, TOOL_COMMAND_RESULT, TOOL_MARKDOWN_RESULT } from './tools/toolsUtils';
 
 export class ChatParticipantState {
@@ -89,15 +89,8 @@ export class ChatParticipant extends Disposable {
 			};
 		});
 
-		let hungry = false;
-		if (request.command && request.command === 'lunchTime') {
-			// allow-any-unicode-next-line
-			stream.markdown(vscode.l10n.t('I will work diligently on your request while you enjoy your lunch! 🥪'));
-			hungry = true;
-		}
-
 		const { messages } = await renderPrompt(
-			hungry ? LunchTimePrompt : ParticipantsPrompt,
+			ParticipantsPrompt,
 			{ userMessage: request.prompt },
 			{ modelMaxPromptTokens: model.maxInputTokens },
 			model);

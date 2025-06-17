@@ -34,7 +34,7 @@ export enum CopilotRemoteAgentMode {
 export class CopilotRemoteAgentService {
 	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager) { }
 
-	async invokeRemoteAgent(owner: string, name: string, title: string, body: string, mode: CopilotRemoteAgentMode): Promise<string> {
+	async invokeRemoteAgent(owner: string, name: string, title: string, body: string, mode: CopilotRemoteAgentMode = CopilotRemoteAgentMode.continue): Promise<string> {
 		try {
 			const repoSlug = `${owner}/${name}`;
 			const apiUrl = `https://api.githubcopilot.com/agents/swe/jobs/${repoSlug}`;

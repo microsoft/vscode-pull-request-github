@@ -213,7 +213,7 @@ async function init(
 
 	context.subscriptions.push(new PRNotificationDecorationProvider(tree.notificationProvider));
 
-	registerCommands(context, reposManager, reviewsManager, telemetry, tree);
+	registerCommands(context, reposManager, reviewsManager, telemetry, tree, credentialStore);
 
 	const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
@@ -421,6 +421,10 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	const readOnlyMessage = new vscode.MarkdownString(vscode.l10n.t('Cannot edit this pull request file. [Check out](command:pr.checkoutFromReadonlyFile) this pull request to edit.'));
 	readOnlyMessage.isTrusted = { enabledCommands: ['pr.checkoutFromReadonlyFile'] };
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.Pr, inMemPRFileSystemProvider, { isReadonly: readOnlyMessage }));
+
+	const sandwich = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+	sandwich.command = 'pr.continueAsyncWithCopilot';
+	context.subscriptions.push(sandwich);
 
 	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper);
 }

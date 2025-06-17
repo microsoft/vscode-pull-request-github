@@ -1166,6 +1166,12 @@
 				"icon": "$(sparkle)"
 			},
 			{
+				"command": "pr.continueAsyncWithCopilot",
+				"title": "Continue Asynchronously with Copilot",
+				"category": "%command.pull.request.category%",
+				"icon": "./resources/icons/sandwich.svg"
+			},
+			{
 				"command": "pr.addAssigneesToNewPr",
 				"title": "%command.pr.addAssigneesToNewPr.title%",
 				"category": "%command.pull.request.category%",
