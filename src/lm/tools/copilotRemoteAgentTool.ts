@@ -17,7 +17,7 @@ export interface copilotRemoteAgentToolParameters {
 	};
 	title: string;
 	body?: string;
-	mode?: 'issue' | 'remote-agent'; // 'issue' (default) or 'remote-agent'
+	mode?: 'issue' | 'remote-agent';
 }
 
 export class copilotRemoteAgentTool
@@ -46,7 +46,7 @@ export class copilotRemoteAgentTool
 		const name = repo?.name;
 		const title = options.input.title;
 		const body = options.input.body || '';
-		const mode = options.input.mode || 'issue';
+		const mode = options.input.mode || 'remote-agent';
 		if (!repo || !owner || !name || !title) {
 			return new vscode.LanguageModelToolResult([
 				new vscode.LanguageModelTextPart(
@@ -56,64 +56,65 @@ export class copilotRemoteAgentTool
 		}
 
 		if (mode === 'remote-agent') {
-			// Use the new remote agent API
-			try {
-				// Compose the API URL and payload
-				const repoSlug = `${owner}/${name}`;
-				const apiUrl = `https://api.githubcopilot.com/agents/swe/jobs/${repoSlug}`;
-				// Get the GitHub token from the credential store (using VS Code authentication API)
-				let githubToken: string | undefined;
-				// Use the default GitHub auth provider
-				// TODO: Can probably reuse the existing token from this extension somewhere?
-				const session = await vscode.authentication.getSession('github', ['read:user', 'repo'], { createIfNone: true, silent: false });
-				githubToken = session?.accessToken;
-				if (!githubToken) {
-					return new vscode.LanguageModelToolResult([
-						new vscode.LanguageModelTextPart('Could not retrieve GitHub token for remote-agent API.')
-					]);
-				}
-				const payload = {
-					problem_statement: title,
-					content_filter_mode: 'hidden_characters',
-					pull_request: {
-						title: title,
-						body_placeholder: body || 'Welcome to this cool PR.',
-						body_suffix: 'Good luck with the review!',
-						base_ref: 'refs/heads/main',
-						labels: ['copilot-agent']
-					},
-					run_name: 'Copilot Agent Run'
-				};
-				// Use fetch API (node-fetch or global fetch)
-				const fetchImpl = (globalThis as any).fetch || require('node-fetch');
-				const response = await fetchImpl(apiUrl, {
-					method: 'POST',
-					headers: {
-						'Copilot-Integration-Id': 'copilot-developer-dev',
-						'Authorization': `Bearer ${githubToken}`,
-						'Content-Type': 'application/json',
-						'Accept': 'application/json'
-					},
-					body: JSON.stringify(payload)
-				});
-				if (!response.ok) {
-					const text = await response.text();
-					return new vscode.LanguageModelToolResult([
-						new vscode.LanguageModelTextPart(`Remote agent API error: ${response.status} ${text}`)
-					]);
-				}
-				const result = await response.json();
+			return this.invokeRemoteAgent(owner, name, title, body);
+		} else {
+			return this.invokeIssueAssign(owner, name, title, body);
+		}
+	}
+
+	private async invokeRemoteAgent(owner: string, name: string, title: string, body: string): Promise<vscode.LanguageModelToolResult> {
+		try {
+			const repoSlug = `${owner}/${name}`;
+			const apiUrl = `https://api.githubcopilot.com/agents/swe/jobs/${repoSlug}`;
+			// TODO: Grab the session from credential store?
+			const session = await vscode.authentication.getSession('github', ['read:user', 'repo'], { createIfNone: true, silent: false });
+			const githubToken = session?.accessToken;
+			if (!githubToken) {
 				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart(JSON.stringify(result))
-				]);
-			} catch (e) {
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart(`Remote agent API call failed: ${e}`)
+					new vscode.LanguageModelTextPart('Could not retrieve GitHub token')
 				]);
 			}
+			const payload = {
+				problem_statement: title,
+				content_filter_mode: 'hidden_characters',
+				pull_request: {
+					title: title,
+					body_placeholder: body,
+					body_suffix: 'Created from VS Code',
+					base_ref: 'refs/heads/main',
+					labels: ['']
+				},
+				run_name: 'Copilot Agent Run'
+			};
+			const fetchImpl = (globalThis as any).fetch || require('node-fetch');
+			const response = await fetchImpl(apiUrl, {
+				method: 'POST',
+				headers: {
+					'Copilot-Integration-Id': 'copilot-developer-dev',
+					'Authorization': `Bearer ${githubToken}`,
+					'Content-Type': 'application/json',
+					'Accept': 'application/json'
+				},
+				body: JSON.stringify(payload)
+			});
+			if (!response.ok) {
+				const text = await response.text();
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart(`Remote agent API error: ${response.status} ${text}`)
+				]);
+			}
+			const result = await response.json();
+			return new vscode.LanguageModelToolResult([
+				new vscode.LanguageModelTextPart(JSON.stringify(result))
+			]);
+		} catch (e) {
+			return new vscode.LanguageModelToolResult([
+				new vscode.LanguageModelTextPart(`Remote agent API call failed: ${e}`)
+			]);
 		}
+	}
 
-		// Default: legacy issue+assign mode
+	private async invokeIssueAssign(owner: string, name: string, title: string, body: string): Promise<vscode.LanguageModelToolResult> {
 		// Find the folder manager for the repo
 		let folderManager = this.repositoriesManager.getManagerForRepository(
 			owner,
@@ -157,7 +158,6 @@ export class copilotRemoteAgentTool
 
 		// Assign Copilot (swe-agent) to the issue using assignable user object and replaceAssignees
 		try {
-			// Get assignable users for all remotes (returns a map of remoteName to IAccount[])
 			const assignableUsersMap = await folderManager.getAssignableUsers();
 			let assignableUsers: any[] = [];
 			if (
@@ -168,7 +168,6 @@ export class copilotRemoteAgentTool
 			) {
 				assignableUsers = assignableUsersMap[createdIssue.remote.remoteName];
 			} else {
-				// fallback: flatten all arrays in the map
 				assignableUsers = ([] as any[]).concat(...Object.values(assignableUsersMap));
 			}
 			if (!assignableUsers || assignableUsers.length === 0) {
@@ -178,7 +177,6 @@ export class copilotRemoteAgentTool
 					),
 				]);
 			}
-			// Find the Copilot user object (by login)
 			const copilotUser = assignableUsers.find((user: any) =>
 				COPILOT_LOGINS.includes(user.login)
 			);
@@ -189,10 +187,8 @@ export class copilotRemoteAgentTool
 					),
 				]);
 			}
-			// Use replaceAssignees to assign Copilot
 			await createdIssue.replaceAssignees([copilotUser]);
 		} catch (e) {
-			// If replaceAssignees fails, return error but still return the created issue
 			return new vscode.LanguageModelToolResult([
 				new vscode.LanguageModelTextPart(
 					`Issue created, but failed to assign Copilot: ${e}`
