@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { AssistantMessage, BasePromptElementProps, PromptElement, UserMessage } from "@vscode/prompt-tsx";
+import { AssistantMessage, BasePromptElementProps, PromptElement, UserMessage } from '@vscode/prompt-tsx';
 
 interface ParticipantsPromptProps extends BasePromptElementProps {
 	readonly userMessage: string;

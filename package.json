@@ -178,7 +178,7 @@
 								"description": "%githubPullRequests.queries.query.description%"
 							}
 						},
-						"default":							{
+						"default": {
 							"label": "%githubPullRequests.queries.assignedToMe%",
 							"query": "repo:${owner}/${repository} is:open assignee:${user}"
 						}
@@ -459,7 +459,11 @@
 				},
 				"githubPullRequests.createDefaultBaseBranch": {
 					"type": "string",
-					"enum": ["repositoryDefault", "createdFromBranch", "auto"],
+					"enum": [
+						"repositoryDefault",
+						"createdFromBranch",
+						"auto"
+					],
 					"markdownEnumDescriptions": [
 						"%githubPullRequests.createDefaultBaseBranch.repositoryDefault%",
 						"%githubPullRequests.createDefaultBaseBranch.createdFromBranch%",
@@ -476,7 +480,11 @@
 				"githubPullRequests.experimental.notificationsMarkPullRequests": {
 					"type": "string",
 					"markdownDescription": "%githubPullRequests.experimental.notificationsMarkPullRequests.description%",
-					"enum": ["markAsDone", "markAsRead", "none"],
+					"enum": [
+						"markAsDone",
+						"markAsRead",
+						"none"
+					],
 					"default": "none"
 				},
 				"githubPullRequests.experimental.useQuickChat": {
@@ -630,7 +638,9 @@
 						{
 							"label": "%githubIssues.queries.default.myIssues%",
 							"query": "is:open assignee:${user} repo:${owner}/${repository}",
-							"groupBy": ["milestone"]
+							"groupBy": [
+								"milestone"
+							]
 						},
 						{
 							"label": "%githubIssues.queries.default.createdIssues%",
@@ -3285,6 +3295,51 @@
 			}
 		],
 		"languageModelTools": [
+			{
+				"name": "github-pull-request_copilot-remote-agent",
+				"displayName": "Assign Copilot a Task",
+				"modelDescription": "Creates a task for the Copilot Remote Agent to work on, using the current chat context.",
+				"when": "config.githubPullRequests.experimental.chat",
+				"icon": "resources/icons/copilot.svg",
+				"canBeReferencedInPrompt": true,
+				"toolReferenceName": "copilotRemoteAgentTool",
+				"userDescription": "Assign a task for copilot to complete asynchronously using the current chat context.",
+				"inputSchema": {
+					"type": "object",
+					"required": [
+						"repo",
+						"title"
+					],
+					"properties": {
+						"repo": {
+							"type": "object",
+							"description": "The repository to get the issue/PR from.",
+							"properties": {
+								"owner": {
+									"type": "string",
+									"description": "The owner of the target repository. Try to infer from the workspace's current repository if not clear from context."
+								},
+								"name": {
+									"type": "string",
+									"description": "The name of the target repository. Try to infer from the workspace's current repository if not clear from context."
+								}
+							},
+							"required": [
+								"owner",
+								"name"
+							]
+						},
+						"title": {
+							"type": "string",
+							"description": "The title of the issue.  This is populated from chat context."
+						},
+						"body": {
+							"type": "string",
+							"description": "The body/description of the issue. This is populated from chat context."
+						}
+					}
+				}
+			},
 			{
 				"name": "github-pull-request_issue_fetch",
 				"tags": [
