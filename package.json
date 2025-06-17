@@ -3303,7 +3303,7 @@
 				"icon": "resources/icons/copilot.svg",
 				"canBeReferencedInPrompt": true,
 				"toolReferenceName": "copilotRemoteAgentTool",
-				"userDescription": "Assign a task for copilot to complete asynchronously using the current chat context.",
+			   "userDescription": "Assign a task for Copilot to complete asynchronously using the current chat context.\n\nSet 'mode' to 'remote-agent' to use the new Copilot Remote Agent API (recommended for agent/automation workflows, does not create a GitHub issue).\nSet 'mode' to 'issue' (or omit) to create a GitHub issue and assign Copilot (for legacy or manual workflows).",
 				"inputSchema": {
 					"type": "object",
 					"required": [
@@ -3333,10 +3333,15 @@
 							"type": "string",
 							"description": "The title of the issue.  This is populated from chat context."
 						},
-						"body": {
-							"type": "string",
-							"description": "The body/description of the issue. This is populated from chat context."
-						}
+					   "body": {
+						   "type": "string",
+						   "description": "The body/description of the issue. This is populated from chat context."
+					   },
+					   "mode": {
+						   "type": "string",
+						   "enum": ["issue", "remote-agent"],
+						   "description": "Which workflow to use: 'remote-agent' (recommended, uses Copilot Remote Agent API, does not create a GitHub issue) or 'issue' (legacy, creates a GitHub issue and assigns Copilot). Default is 'issue'."
+					   }
 					}
 				}
 			},
