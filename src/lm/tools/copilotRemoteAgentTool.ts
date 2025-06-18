@@ -2,13 +2,13 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-'use strict';
 
 
 import * as vscode from 'vscode';
 import { AuthProvider } from '../../common/authentication';
 import { COPILOT_LOGINS } from '../../common/copilot';
 import { OctokitCommon } from '../../github/common';
+import { CopilotApi } from '../../github/CopilotApi';
 import { CredentialStore } from '../../github/credentials';
 import { IssueModel } from '../../github/issueModel';
 import { RepositoriesManager } from '../../github/repositoriesManager';
@@ -23,21 +23,34 @@ export interface copilotRemoteAgentToolParameters {
 	// mode?: 'issue' | 'remote-agent' | 'continue';
 }
 
-
 export enum CopilotRemoteAgentMode {
 	default, // Trigger remote agent on 'main'
 	continue, // Push pending changes and then trigger remote agent on that ref
 	issue // Don't use
 }
 
-
 export class CopilotRemoteAgentService {
 	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager) { }
 
+	private _copilotApiPromise?: Promise<CopilotApi>;
+	private get copilotApi(): Promise<CopilotApi> {
+		if (!this._copilotApiPromise) {
+			this._copilotApiPromise = this.initializeCopilotApi();
+		}
+		return this._copilotApiPromise;
+	}
+
+	private async initializeCopilotApi(): Promise<CopilotApi> {
+		const gh = await this.credentialStore.getHubOrLogin(AuthProvider.github);
+		const { token } = await gh?.octokit.api.auth() as { token: string };
+		if (!token) {
+			throw new Error('Could not retrieve GitHub token');
+		}
+		return new CopilotApi(token);
+	}
+
 	async invokeRemoteAgent(owner: string, name: string, title: string, body: string, mode: CopilotRemoteAgentMode = CopilotRemoteAgentMode.continue): Promise<string> {
 		try {
-			const repoSlug = `${owner}/${name}`;
-			const apiUrl = `https://api.githubcopilot.com/agents/swe/jobs/${repoSlug}`;
 			const gh = await this.credentialStore.getHubOrLogin(AuthProvider.github);
 			const { token } = await gh?.octokit.api.auth() as { token: string };
 			if (!token) {
@@ -81,22 +94,9 @@ export class CopilotRemoteAgentService {
 				},
 				run_name: 'Copilot Agent Run'
 			};
-			const fetchImpl = (globalThis as any).fetch || require('node-fetch');
-			const response = await fetchImpl(apiUrl, {
-				method: 'POST',
-				headers: {
-					'Copilot-Integration-Id': 'copilot-developer-dev',
-					'Authorization': `Bearer ${token}`,
-					'Content-Type': 'application/json',
-					'Accept': 'application/json'
-				},
-				body: JSON.stringify(payload)
-			});
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`Remote agent API error: ${response.status} ${text}`);
-			}
-			const result = await response.json();
+
+			const capi = await this.copilotApi;
+			const result = await capi.postRemoteAgentJob(owner, name, payload);
 			const prUrl = result?.pull_request?.html_url || result?.pull_request?.url;
 			return prUrl || JSON.stringify(result);
 		} catch (e) {

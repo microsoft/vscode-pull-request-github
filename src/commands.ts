@@ -29,6 +29,7 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, vscodeDevPrLink } from './github/utils';
+import { CopilotRemoteAgentService } from './lm/tools/copilotRemoteAgentTool';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewCommentController } from './view/reviewCommentController';
@@ -45,7 +46,6 @@ import {
 } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { RepositoryChangesNode } from './view/treeNodes/repositoryChangesNode';
-import { CopilotRemoteAgentService } from './lm/tools/copilotRemoteAgentTool';
 
 function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode): PullRequestModel;
 function ensurePR<TIssue extends Issue, TIssueModel extends IssueModel<TIssue>>(folderRepoManager: FolderRepositoryManager, pr?: TIssueModel): TIssueModel;
