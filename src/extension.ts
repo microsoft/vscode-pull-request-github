@@ -21,6 +21,7 @@ import { TemporaryState } from './common/temporaryState';
 import { Schemes } from './common/uri';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
+import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { RepositoriesManager } from './github/repositoriesManager';
@@ -213,7 +214,10 @@ async function init(
 
 	context.subscriptions.push(new PRNotificationDecorationProvider(tree.notificationProvider));
 
-	registerCommands(context, reposManager, reviewsManager, telemetry, tree, credentialStore);
+	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager);
+	context.subscriptions.push(copilotRemoteAgentManager);
+
+	registerCommands(context, reposManager, reviewsManager, telemetry, tree, credentialStore, copilotRemoteAgentManager);
 
 	const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
@@ -231,7 +235,7 @@ async function init(
 
 	registerPostCommitCommandsProvider(reposManager, git);
 
-	initChat(context, credentialStore, reposManager);
+	initChat(context, credentialStore, reposManager, copilotRemoteAgentManager);
 	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, telemetry, context)));
 
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
@@ -242,11 +246,11 @@ async function init(
 	telemetry.sendTelemetryEvent('startup');
 }
 
-function initChat(context: vscode.ExtensionContext, credentialStore: CredentialStore, reposManager: RepositoriesManager) {
+function initChat(context: vscode.ExtensionContext, credentialStore: CredentialStore, reposManager: RepositoriesManager, copilotRemoteManager: CopilotRemoteAgentManager) {
 	const createParticipant = () => {
 		const chatParticipantState = new ChatParticipantState();
 		context.subscriptions.push(new ChatParticipant(context, chatParticipantState));
-		registerTools(context, credentialStore, reposManager, chatParticipantState);
+		registerTools(context, credentialStore, reposManager, chatParticipantState, copilotRemoteManager);
 	};
 
 	const chatEnabled = () => vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_CHAT, false);

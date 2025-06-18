@@ -29,7 +29,6 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, vscodeDevPrLink } from './github/utils';
-import { CopilotRemoteAgentService } from './lm/tools/copilotRemoteAgentTool';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewCommentController } from './view/reviewCommentController';
@@ -46,6 +45,7 @@ import {
 } from './view/treeNodes/fileChangeNode';
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { RepositoryChangesNode } from './view/treeNodes/repositoryChangesNode';
+import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
 
 function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode): PullRequestModel;
 function ensurePR<TIssue extends Issue, TIssueModel extends IssueModel<TIssue>>(folderRepoManager: FolderRepositoryManager, pr?: TIssueModel): TIssueModel;
@@ -152,6 +152,7 @@ export function registerCommands(
 	telemetry: ITelemetry,
 	tree: PullRequestsTreeDataProvider,
 	credentialStore: CredentialStore,
+	copilotRemoteAgentManager: CopilotRemoteAgentManager,
 ) {
 	const logId = 'RegisterCommands';
 	context.subscriptions.push(
@@ -1457,55 +1458,7 @@ ${contents}
 			}
 		}));
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.continueAsyncWithCopilot', async () => {
-			const service = new CopilotRemoteAgentService(credentialStore, reposManager);
-			const body = await vscode.window.showInputBox({
-				prompt: 'What should Copilot continue working on?',
-				placeHolder: 'Finish writing my unit tests',
-				ignoreFocusOut: true,
-				validateInput: (value) => {
-					if (!value || value.trim().length === 0) {
-						return 'Description cannot be empty';
-					}
-					return undefined;
-				}
-			});
-
-			if (!body) {
-				return;
-			}
-
-			await vscode.window.withProgress(
-				{
-					location: vscode.ProgressLocation.Notification,
-					title: 'Copilot Agent',
-					cancellable: false
-				},
-				async (progress) => {
-					progress.report({ message: 'Starting remote agent...' });
-					const target = await service.repositoriesManager?.folderManagers[0]?.getPullRequestDefaults();
-					if (!target) {
-						vscode.window.showErrorMessage(vscode.l10n.t('Open a workspace to use \'Continue with Copilot\''));
-						return;
-					}
-					const link = await service.invokeRemoteAgent(target.owner, target.repo, 'Continuing from VS Code', body);
-					if (!link) {
-						vscode.window.showErrorMessage(vscode.l10n.t('Failed to start remote agent. Please try again later.'));
-						return;
-					}
-					const openLink = vscode.l10n.t('Open Link');
-					vscode.window.showInformationMessage(
-						// allow-any-unicode-next-line
-						vscode.l10n.t('🚀 Remote agent started! Track progress at {0}', link),
-						openLink
-					).then(selection => {
-						if (selection === openLink) {
-							vscode.env.openExternal(vscode.Uri.parse(link));
-						}
-					});
-				}
-			);
-		})
+		vscode.commands.registerCommand('pr.continueAsyncWithCopilot', async () => copilotRemoteAgentManager.commandImpl())
 	);
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.applySuggestionWithCopilot', async (comment: GHPRComment) => {

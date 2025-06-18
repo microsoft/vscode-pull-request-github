@@ -5,11 +5,12 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { CredentialStore } from '../../github/credentials';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { ChatParticipantState } from '../participants';
 import { ActivePullRequestTool } from './activePullRequestTool';
-import { copilotRemoteAgentTool } from './copilotRemoteAgentTool';
+import { CopilotRemoteAgentTool } from './copilotRemoteAgentTool';
 import { DisplayIssuesTool } from './displayIssuesTool';
 import { FetchIssueTool } from './fetchIssueTool';
 import { FetchNotificationTool } from './fetchNotificationTool';
@@ -18,12 +19,12 @@ import { SuggestFixTool } from './suggestFixTool';
 import { IssueSummarizationTool } from './summarizeIssueTool';
 import { NotificationSummarizationTool } from './summarizeNotificationsTool';
 
-export function registerTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {
+export function registerTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState, copilotRemoteAgentManager: CopilotRemoteAgentManager) {
 	registerFetchingTools(context, credentialStore, repositoriesManager, chatParticipantState);
 	registerSummarizationTools(context);
 	registerSuggestFixTool(context, credentialStore, repositoriesManager, chatParticipantState);
 	registerSearchTools(context, credentialStore, repositoriesManager, chatParticipantState);
-	registerCopilotAgentTools(context, credentialStore, repositoriesManager);
+	registerCopilotAgentTools(context, copilotRemoteAgentManager);
 	context.subscriptions.push(vscode.lm.registerTool(ActivePullRequestTool.toolId, new ActivePullRequestTool(repositoriesManager)));
 }
 
@@ -41,8 +42,8 @@ function registerSuggestFixTool(context: vscode.ExtensionContext, credentialStor
 	context.subscriptions.push(vscode.lm.registerTool(SuggestFixTool.toolId, new SuggestFixTool(credentialStore, repositoriesManager, chatParticipantState)));
 }
 
-function registerCopilotAgentTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager) {
-	context.subscriptions.push(vscode.lm.registerTool(copilotRemoteAgentTool.toolId, new copilotRemoteAgentTool(credentialStore, repositoriesManager)));
+function registerCopilotAgentTools(context: vscode.ExtensionContext, copilotRemoteAgentManager: CopilotRemoteAgentManager) {
+	context.subscriptions.push(vscode.lm.registerTool(CopilotRemoteAgentTool.toolId, new CopilotRemoteAgentTool(copilotRemoteAgentManager)));
 }
 
 function registerSearchTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {

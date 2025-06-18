@@ -483,6 +483,14 @@
 					"markdownDescription": "%githubPullRequests.experimental.chat.description%",
 					"default": false
 				},
+				"githubPullRequests.codingAgent": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%githubPullRequests.codingAgent.description%",
+					"tags": [
+						"experimental"
+					]
+				},
 				"githubPullRequests.experimental.notificationsMarkPullRequests": {
 					"type": "string",
 					"markdownDescription": "%githubPullRequests.experimental.notificationsMarkPullRequests.description%",
@@ -1169,7 +1177,8 @@
 				"command": "pr.continueAsyncWithCopilot",
 				"title": "Continue Asynchronously with Copilot",
 				"category": "%command.pull.request.category%",
-				"icon": "./resources/icons/sandwich.svg"
+				"icon": "$(copilot)",
+				"enablement": "config.githubPullRequests.codingAgent"
 			},
 			{
 				"command": "pr.addAssigneesToNewPr",
