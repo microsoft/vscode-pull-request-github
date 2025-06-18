@@ -78,13 +78,7 @@ export class ChatParticipant extends Disposable {
 
 		// context.history
 
-		let useCodingAgent = false;
-		if (request.command && request.command === 'codingAgent') {
-			// allow-any-unicode-next-line
-			stream.markdown(vscode.l10n.t('Communicating with Copilot Coding Agent...'));
-			useCodingAgent = true;
-		}
-
+		const useCodingAgent = request.command && request.command === 'codingAgent';
 		const models = await vscode.lm.selectChatModels({
 			vendor: 'copilot',
 			family: 'gpt-4o'

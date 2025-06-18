@@ -422,9 +422,12 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	readOnlyMessage.isTrusted = { enabledCommands: ['pr.checkoutFromReadonlyFile'] };
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.Pr, inMemPRFileSystemProvider, { isReadonly: readOnlyMessage }));
 
-	const sandwich = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-	sandwich.command = 'pr.continueAsyncWithCopilot';
-	context.subscriptions.push(sandwich);
+	const continueWithCopilot = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+	continueWithCopilot.command = 'pr.continueAsyncWithCopilot';
+	context.subscriptions.push(continueWithCopilot);
+	continueWithCopilot.text = vscode.l10n.t('Assign to Coding Agent...');
+	continueWithCopilot.tooltip = vscode.l10n.t('Assign your in-progress work to be completed the Copilot Coding Agent. A pull request will be created and completed in the background.');
+	continueWithCopilot.show();
 
 	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper);
 }

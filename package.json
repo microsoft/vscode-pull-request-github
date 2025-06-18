@@ -3310,7 +3310,7 @@
 			{
 				"name": "github-pull-request_copilot-coding-agent",
 				"displayName": "Assign Copilot work to complete asynchronously",
-				"modelDescription": "Asynchronously perform a task with GitHub Copilot Coding Agent using the current chat context.",
+				"modelDescription": "Completes the provided task using an asynchronous coding agent.",
 				"when": "config.githubPullRequests.experimental.chat",
 				"icon": "resources/icons/copilot.svg",
 				"canBeReferencedInPrompt": true,
