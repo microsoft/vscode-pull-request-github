@@ -70,8 +70,8 @@
 				"when": "config.githubPullRequests.experimental.chat",
 				"commands": [
 					{
-						"name": "lunchTime",
-						"description": "Assign a task for GitHub Copilot to complete asynchronously (e.g during your lunch break)"
+						"name": "codingAgent",
+						"description": "Provide a task for the Copilot Coding Agent to complete asynchronously"
 					}
 				]
 			}
@@ -3308,13 +3308,13 @@
 		],
 		"languageModelTools": [
 			{
-				"name": "github-pull-request_copilot-remote-agent",
+				"name": "github-pull-request_copilot-coding-agent",
 				"displayName": "Assign Copilot work to complete asynchronously",
-				"modelDescription": "Asynchronously perform a task with GitHub Copilot remote agent using the current chat context. Use this tool if you see the terms like 'asynchronous', 'copilot agent', or 'remotely'",
+				"modelDescription": "Asynchronously perform a task with GitHub Copilot Coding Agent using the current chat context.",
 				"when": "config.githubPullRequests.experimental.chat",
 				"icon": "resources/icons/copilot.svg",
 				"canBeReferencedInPrompt": true,
-				"toolReferenceName": "copilotRemoteAgentTool",
+				"toolReferenceName": "codingAgent",
 			   "userDescription": "Assign a task for Copilot to complete asynchronously using the current chat context.",
 				"inputSchema": {
 					"type": "object",

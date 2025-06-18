@@ -7,7 +7,7 @@
 import { renderPrompt } from '@vscode/prompt-tsx';
 import * as vscode from 'vscode';
 import { Disposable } from '../common/lifecycle';
-import { ParticipantsPrompt } from './participantsPrompt';
+import { CodingAgentPrompt, ParticipantsPrompt } from './participantsPrompt';
 import { IToolCall, TOOL_COMMAND_RESULT, TOOL_MARKDOWN_RESULT } from './tools/toolsUtils';
 
 export class ChatParticipantState {
@@ -76,6 +76,15 @@ export class ChatParticipant extends Disposable {
 	): Promise<void> {
 		this.state.reset();
 
+		// context.history
+
+		let useCodingAgent = false;
+		if (request.command && request.command === 'codingAgent') {
+			// allow-any-unicode-next-line
+			stream.markdown(vscode.l10n.t('Communicating with Copilot Coding Agent...'));
+			useCodingAgent = true;
+		}
+
 		const models = await vscode.lm.selectChatModels({
 			vendor: 'copilot',
 			family: 'gpt-4o'
@@ -90,7 +99,7 @@ export class ChatParticipant extends Disposable {
 		});
 
 		const { messages } = await renderPrompt(
-			ParticipantsPrompt,
+			useCodingAgent ? CodingAgentPrompt : ParticipantsPrompt,
 			{ userMessage: request.prompt },
 			{ modelMaxPromptTokens: model.maxInputTokens },
 			model);

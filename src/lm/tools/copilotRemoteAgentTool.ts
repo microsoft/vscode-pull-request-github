@@ -167,7 +167,7 @@ export class CopilotRemoteAgentService {
 
 
 export class copilotRemoteAgentTool implements vscode.LanguageModelTool<copilotRemoteAgentToolParameters> {
-	public static readonly toolId = 'github-pull-request_copilot-remote-agent';
+	public static readonly toolId = 'github-pull-request_copilot-coding-agent';
 	private service: CopilotRemoteAgentService;
 
 	constructor(credentialStore: CredentialStore, repositoriesManager: RepositoriesManager) {
