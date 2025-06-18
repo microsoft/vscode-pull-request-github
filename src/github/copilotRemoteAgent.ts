@@ -44,6 +44,18 @@ export class CopilotRemoteAgentManager extends Disposable {
 			.getConfiguration('githubPullRequests').get('codingAgent') ?? false;
 	}
 
+	async targetRepo(): Promise<{ owner: string; repo: string } | undefined> {
+		const folderManager = this.repositoriesManager.folderManagers[0];
+		if (!folderManager) {
+			return;
+		}
+		const { owner, repo } = await folderManager.getPullRequestDefaults();
+		if (!owner || !repo) {
+			return;
+		}
+		return { owner, repo };
+	}
+
 	async commandImpl() {
 		const body = await vscode.window.showInputBox({
 			prompt: vscode.l10n.t('What should Copilot continue working on?'),
@@ -69,12 +81,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 			},
 			async (progress) => {
 				progress.report({ message: vscode.l10n.t('Starting remote agent...') });
-				const target = await this.repositoriesManager?.folderManagers[0]?.getPullRequestDefaults();
-				if (!target) {
+				const targetRepo = await this.targetRepo();
+				if (!targetRepo) {
 					vscode.window.showErrorMessage(vscode.l10n.t('Open a workspace to use \'Continue with Copilot\''));
 					return;
 				}
-				const link = await this.invokeRemoteAgent(target.owner, target.repo, vscode.l10n.t('Continuing from VS Code'), body);
+				const link = await this.invokeRemoteAgent(targetRepo.owner, targetRepo.repo, vscode.l10n.t('Continuing from VS Code'), body);
 				if (!link) {
 					vscode.window.showErrorMessage(vscode.l10n.t('Failed to start remote agent. Please try again later.'));
 					return;
