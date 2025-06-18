@@ -368,6 +368,8 @@
 	"languageModelTools.github-pull-request_doSearch.displayName": "Execute a GitHub search",
 	"languageModelTools.github-pull-request_renderIssues.displayName": "Render issue items in a markdown table",
 	"languageModelTools.github-pull-request_activePullRequest.displayName": "Active Pull Request",
-	"languageModelTools.github-pull-request_activePullRequest.description": "Get information about the active GitHub pull request. This information includes: comments, files changed, pull request title + description, pull request state, and pull request status checks/CI."
+	"languageModelTools.github-pull-request_activePullRequest.description": "Get information about the active GitHub pull request. This information includes: comments, files changed, pull request title + description, pull request state, and pull request status checks/CI.",
+	"languageModelTools.github-pull-request_activeCopilotAgentSession.displayName": "Copilot Agent Session for Active Pull Request",
+	"languageModelTools.github-pull-request_activeCopilotAgentSession.description": "Get information about the latest GitHub coding agent for your PR. This information includes the thinking logic and processing that the Copilot Agent did for a specific job in a pull request."
 
 }

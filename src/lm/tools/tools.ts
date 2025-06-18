@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { CredentialStore } from '../../github/credentials';
 import { RepositoriesManager } from '../../github/repositoriesManager';
 import { ChatParticipantState } from '../participants';
+import { ActiveCopilotAgentSession } from './activeCopilotAgentSession';
 import { ActivePullRequestTool } from './activePullRequestTool';
 import { DisplayIssuesTool } from './displayIssuesTool';
 import { FetchIssueTool } from './fetchIssueTool';
@@ -23,6 +24,7 @@ export function registerTools(context: vscode.ExtensionContext, credentialStore:
 	registerSuggestFixTool(context, credentialStore, repositoriesManager, chatParticipantState);
 	registerSearchTools(context, credentialStore, repositoriesManager, chatParticipantState);
 	context.subscriptions.push(vscode.lm.registerTool(ActivePullRequestTool.toolId, new ActivePullRequestTool(repositoriesManager)));
+	context.subscriptions.push(vscode.lm.registerTool(ActiveCopilotAgentSession.toolId, new ActiveCopilotAgentSession(repositoriesManager, credentialStore)));
 }
 
 function registerFetchingTools(context: vscode.ExtensionContext, credentialStore: CredentialStore, repositoriesManager: RepositoriesManager, chatParticipantState: ChatParticipantState) {

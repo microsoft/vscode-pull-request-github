@@ -12,6 +12,7 @@
 	},
 	"enabledApiProposals": [
 		"activeComment",
+		"chatParticipantAdditions",
 		"codiconDecoration",
 		"codeActionRanges",
 		"commentingRangeHint",
@@ -3816,6 +3817,20 @@
 				"icon": "$(git-pull-request)",
 				"canBeReferencedInPrompt": true,
 				"userDescription": "%languageModelTools.github-pull-request_activePullRequest.description%",
+				"when": "config.githubPullRequests.experimental.chat"
+			},
+			{
+				"name": "github-pull-request_activeCopilotAgentSession",
+				"tags": [
+					"github",
+					"copilot agent session"
+				],
+				"toolReferenceName": "activeCopilotAgentSession",
+				"displayName": "%languageModelTools.github-pull-request_activeCopilotAgentSession.displayName%",
+				"modelDescription": "Get information about the latest coding agent session executed by GitHub Copilot in order to work on the current PR. This information includes the thinking process and steps the agent took to fix the issue. When asked about the copilot agent session, agent run or agent logs, do this first!",
+				"icon": "$(extensions-info-message)",
+				"canBeReferencedInPrompt": true,
+				"userDescription": "%languageModelTools.github-pull-request_activeCopilotAgentSession.description%",
 				"when": "config.githubPullRequests.experimental.chat"
 			}
 		]
