@@ -72,7 +72,7 @@
 					{
 						"name": "codingAgent",
 						"description": "Provide a task for the Copilot Coding Agent to complete asynchronously",
-						"when": "config.githubPullRequests.codingAgent"
+						"when": "config.githubPullRequests.codingAgent.enabled"
 					}
 				]
 			}
@@ -484,10 +484,18 @@
 					"markdownDescription": "%githubPullRequests.experimental.chat.description%",
 					"default": false
 				},
-				"githubPullRequests.codingAgent": {
+				"githubPullRequests.codingAgent.enabled": {
 					"type": "boolean",
 					"default": false,
 					"markdownDescription": "%githubPullRequests.codingAgent.description%",
+					"tags": [
+						"experimental"
+					]
+				},
+				"githubPullRequests.codingAgent.autoCommitAndPush": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%githubPullRequests.codingAgent.autoCommitAndPush.description%",
 					"tags": [
 						"experimental"
 					]
@@ -1179,7 +1187,7 @@
 				"title": "Continue Asynchronously with Copilot",
 				"category": "%command.pull.request.category%",
 				"icon": "$(copilot)",
-				"enablement": "config.githubPullRequests.codingAgent"
+				"enablement": "config.githubPullRequests.codingAgent.enabled"
 			},
 			{
 				"command": "pr.addAssigneesToNewPr",
@@ -3321,11 +3329,11 @@
 				"name": "github-pull-request_copilot-coding-agent",
 				"displayName": "Assign Copilot work to complete asynchronously",
 				"modelDescription": "Completes the provided task using an asynchronous coding agent. Use when the user wants copilot continue completing a task in the background or asynchronously.",
-				"when": "config.githubPullRequests.codingAgent",
+				"when": "config.githubPullRequests.codingAgent.enabled",
 				"icon": "resources/icons/copilot.svg",
 				"canBeReferencedInPrompt": true,
 				"toolReferenceName": "codingAgent",
-			   "userDescription": "Complete a task asynchronously using the current chat context and in-progress work.",
+				"userDescription": "Complete a task asynchronously using the current chat context and in-progress work.",
 				"inputSchema": {
 					"type": "object",
 					"required": [
@@ -3337,10 +3345,10 @@
 							"type": "string",
 							"description": "The title of the issue. Populate from chat context."
 						},
-					   "body": {
-						   "type": "string",
-						   "description": "The body/description of the issue. Populate from chat context."
-					   }
+						"body": {
+							"type": "string",
+							"description": "The body/description of the issue. Populate from chat context."
+						}
 					}
 				}
 			},

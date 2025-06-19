@@ -5,7 +5,7 @@
 
 
 import * as vscode from 'vscode';
-import { CopilotRemoteAgentManager, CopilotRemoteAgentMode } from '../../github/copilotRemoteAgent';
+import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 
 export interface CopilotRemoteAgentToolParameters {
 	// The LLM is inconsistent in providing repo information.
@@ -16,7 +16,6 @@ export interface CopilotRemoteAgentToolParameters {
 	// };
 	title: string;
 	body?: string;
-	// mode?: 'issue' | 'remote-agent' | 'continue';
 }
 
 export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotRemoteAgentToolParameters> {
@@ -27,13 +26,14 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<CopilotRemoteAgentToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		const { title } = options.input;
 		const targetRepo = await this.manager.targetRepo();
+		const autoPushEnabled = this.manager.autoCommitAndPushEnabled();
 		return {
-			invocationMessage: vscode.l10n.t('Delegating task to coding agent'),
+			invocationMessage: vscode.l10n.t('Launching remote coding agent...'),
 			confirmationMessages: {
-				message: targetRepo
-					? vscode.l10n.t('Your in-progress changes will be pushed to \'{0}/{1}\' for the coding agent to continue working on \'{2}\'', targetRepo.owner, targetRepo.repo, title)
-					: vscode.l10n.t('TODO'),
-				title: vscode.l10n.t('Allow coding agent to continue working?'),
+				message: targetRepo && autoPushEnabled
+					? vscode.l10n.t('The coding agent will continue work on "{0}" in a new branch on "{1}/{2}". Any uncommitted changes will be **automatically pushed to your default remote** and included.', title, targetRepo.owner, targetRepo.repo)
+					: vscode.l10n.t('The coding agent will start working on "{0}"', title),
+				title: vscode.l10n.t('Start remote coding agent?'),
 			}
 		};
 	}
@@ -42,41 +42,20 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 		options: vscode.LanguageModelToolInvocationOptions<CopilotRemoteAgentToolParameters>,
 		_: vscode.CancellationToken
 	): Promise<vscode.LanguageModelToolResult | undefined> {
-		// const repo = options.input.repo;
-		// let owner = repo?.owner;
-		// let name = repo?.name;
 		const title = options.input.title;
 		const body = options.input.body || '';
-
-		let mode: CopilotRemoteAgentMode = CopilotRemoteAgentMode.Default;
-		// Use first folder manager as fallback for owner/repo
-		const fm = this.manager.repositoriesManager.folderManagers[0];
-		if (fm) {
-			const state = fm.repository.state;
-			if (state.workingTreeChanges.length > 0 || state.indexChanges.length > 0) {
-				mode = CopilotRemoteAgentMode.Continue;
-			}
-		}
-
 		const targetRepo = await this.manager.targetRepo();
 		if (!targetRepo) {
 			return new vscode.LanguageModelToolResult([
 				new vscode.LanguageModelTextPart(vscode.l10n.t('No repository informationfound. Please open a workspace with a Git repository.'))
 			]);
 		}
-
-		try {
-			const prUrl = await this.manager.invokeRemoteAgent(targetRepo.owner, targetRepo.repo, title, body, mode);
-			if (!prUrl) {
-				throw new Error('Failed to start remote agent. Please try again later.');
-			}
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(prUrl)
-			]);
-		} catch (e: any) {
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(e.message)
-			]);
+		const result = await this.manager.invokeRemoteAgent(targetRepo.owner, targetRepo.repo, title, body);
+		if (result.state === 'error') {
+			throw new Error(result.error);
 		}
+		return new vscode.LanguageModelToolResult([
+			new vscode.LanguageModelTextPart(result.link)
+		]);
 	}
 }
