@@ -552,7 +552,6 @@ export function registerCommands(
 						vscode.commands.executeCommand('workbench.action.chat.open', {
 							toolIds: [
 								'github-pull-request_activePullRequest',
-								'github-pull-request_activeCopilotAgentSession'
 							]
 						});
 					}
