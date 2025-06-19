@@ -502,6 +502,32 @@ export function fromRepoUri(uri: vscode.Uri): RepoUriParams | undefined {
 	} catch (e) { }
 }
 
+const ownerRegex = /^(?!-)(?!.*--)[a-zA-Z0-9-]+(?<!-)$/;
+const repoRegex = /^[a-zA-Z0-9_.-]+$/;
+
+function validateOpenWebviewParams(owner?: string, repo?: string, number?: string): boolean {
+	if (!owner || !repo || !number) {
+		return false;
+	}
+	const asNumber = Number(number);
+	if (isNaN(asNumber) || asNumber <= 0) {
+		return false;
+	}
+	if (isNaN(Number(number))) {
+		return false;
+	}
+	if (owner.length === 0 || repo.length === 0) {
+		return false;
+	}
+	if (!ownerRegex.test(owner)) {
+		return false;
+	}
+	if (!repoRegex.test(repo)) {
+		return false;
+	}
+	return true;
+}
+
 export enum UriHandlerPaths {
 	OpenIssueWebview = '/open-issue-webview',
 	OpenPullRequestWebview = '/open-pull-request-webview',
@@ -527,7 +553,7 @@ export function fromOpenIssueWebviewUri(uri: vscode.Uri): OpenIssueWebviewUriPar
 	}
 	try {
 		const query = JSON.parse(uri.query.split('&')[0]);
-		if (!query.owner || !query.repo || !query.issueNumber) {
+		if (!validateOpenWebviewParams(query.owner, query.repo, query.issueNumber)) {
 			return;
 		}
 		return query;
@@ -554,7 +580,7 @@ export function fromOpenPullRequestWebviewUri(uri: vscode.Uri): OpenPullRequestW
 	}
 	try {
 		const query = JSON.parse(uri.query.split('&')[0]);
-		if (!query.owner || !query.repo || !query.pullRequestNumber) {
+		if (!validateOpenWebviewParams(query.owner, query.repo, query.pullRequestNumber)) {
 			return;
 		}
 		return query;
