@@ -31,7 +31,7 @@
 		"tokenInformation",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.110.0",
+	"version": "0.112.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.100.0"
@@ -718,7 +718,7 @@
 				{
 					"id": "notifications:github",
 					"name": "%view.notifications.github.name%",
-					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts && config.githubPullRequests.experimental.notificationsView && (remoteName != codespaces || !isWeb)",
+					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts && (remoteName != codespaces || !isWeb)",
 					"icon": "$(bell)",
 					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%",
 					"visibility": "collapsed"
