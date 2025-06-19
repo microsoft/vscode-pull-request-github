@@ -5,6 +5,17 @@
 
 import fetch from 'cross-fetch';
 
+export interface RemoteAgentJobPayload {
+	problem_statement: string;
+	pull_request?: {
+		title?: string;
+		body_placeholder?: string;
+		body_suffix?: string;
+		base_ref?: string;
+	};
+	run_name?: string;
+}
+
 export class CopilotApi {
 	constructor(private token: string) { }
 
@@ -15,8 +26,8 @@ export class CopilotApi {
 	async postRemoteAgentJob(
 		owner: string,
 		name: string,
-		payload: {}
-	): Promise<any> {
+		payload: RemoteAgentJobPayload,
+	): Promise<string> {
 		const repoSlug = `${owner}/${name}`;
 		const apiUrl = `${this.baseUrl}/agents/swe/jobs/${repoSlug}`;
 		const response = await fetch(apiUrl, {
@@ -33,6 +44,7 @@ export class CopilotApi {
 			const text = await response.text();
 			throw new Error(`Remote agent API error: ${response.status} ${text}`);
 		}
-		return response.json();
+		const data = await response.json();
+		return data?.pull_request?.html_url || data?.pull_request?.url;
 	}
 }

@@ -216,6 +216,9 @@ async function init(
 
 	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager);
 	context.subscriptions.push(copilotRemoteAgentManager);
+	if (copilotRemoteAgentManager.enabled()) {
+		context.subscriptions.push(copilotRemoteAgentManager.statusBarItemImpl());
+	}
 
 	registerCommands(context, reposManager, reviewsManager, telemetry, tree, credentialStore, copilotRemoteAgentManager);
 
@@ -425,13 +428,6 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	const readOnlyMessage = new vscode.MarkdownString(vscode.l10n.t('Cannot edit this pull request file. [Check out](command:pr.checkoutFromReadonlyFile) this pull request to edit.'));
 	readOnlyMessage.isTrusted = { enabledCommands: ['pr.checkoutFromReadonlyFile'] };
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.Pr, inMemPRFileSystemProvider, { isReadonly: readOnlyMessage }));
-
-	const continueWithCopilot = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-	continueWithCopilot.command = 'pr.continueAsyncWithCopilot';
-	context.subscriptions.push(continueWithCopilot);
-	continueWithCopilot.text = vscode.l10n.t('Assign to Coding Agent...');
-	continueWithCopilot.tooltip = vscode.l10n.t('Assign your in-progress work to be completed the Copilot Coding Agent. A pull request will be created and completed in the background.');
-	continueWithCopilot.show();
 
 	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper);
 }

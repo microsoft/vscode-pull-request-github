@@ -76,8 +76,6 @@ export class ChatParticipant extends Disposable {
 	): Promise<void> {
 		this.state.reset();
 
-		// context.history
-
 		const useCodingAgent = request.command && request.command === 'codingAgent';
 		const models = await vscode.lm.selectChatModels({
 			vendor: 'copilot',
