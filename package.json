@@ -71,7 +71,8 @@
 				"commands": [
 					{
 						"name": "codingAgent",
-						"description": "Provide a task for the Copilot Coding Agent to complete asynchronously"
+						"description": "Provide a task for the Copilot Coding Agent to complete asynchronously",
+						"when": "config.githubPullRequests.codingAgent"
 					}
 				]
 			}
@@ -3319,32 +3320,19 @@
 			{
 				"name": "github-pull-request_copilot-coding-agent",
 				"displayName": "Assign Copilot work to complete asynchronously",
-				"modelDescription": "Completes the provided task using an asynchronous coding agent.",
-				"when": "config.githubPullRequests.experimental.chat",
+				"modelDescription": "Completes the provided task using an asynchronous coding agent. Use when the user wants copilot continue completing a task in the background or asynchronously.",
+				"when": "config.githubPullRequests.codingAgent",
 				"icon": "resources/icons/copilot.svg",
 				"canBeReferencedInPrompt": true,
 				"toolReferenceName": "codingAgent",
-			   "userDescription": "Assign a task for Copilot to complete asynchronously using the current chat context.",
+			   "userDescription": "Complete a task asynchronously using the current chat context and in-progress work.",
 				"inputSchema": {
 					"type": "object",
 					"required": [
-						"title"
+						"title",
+						"body"
 					],
 					"properties": {
-						"repo": {
-							"type": "object",
-							"description": "The target repository",
-							"properties": {
-								"owner": {
-									"type": "string",
-									"description": "The owner of the target repository. Only populate this if explicitly stated.  If the user is referring to the current workspace, omit this field."
-								},
-								"name": {
-									"type": "string",
-									"description": "The name of the target repository. Only populate this if explicitly stated. If the user is referring to the current workspace, omit this field."
-								}
-							}
-						},
 						"title": {
 							"type": "string",
 							"description": "The title of the issue. Populate from chat context."
