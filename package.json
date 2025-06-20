@@ -3327,13 +3327,13 @@
 		"languageModelTools": [
 			{
 				"name": "github-pull-request_copilot-coding-agent",
-				"displayName": "Assign Copilot work to complete asynchronously",
+				"displayName": "%languageModelTools.github-pull-request_copilot-coding-agent.displayName%",
 				"modelDescription": "Completes the provided task using an asynchronous coding agent. Use when the user wants copilot continue completing a task in the background or asynchronously.",
 				"when": "config.githubPullRequests.codingAgent.enabled",
 				"icon": "resources/icons/copilot.svg",
 				"canBeReferencedInPrompt": true,
 				"toolReferenceName": "codingAgent",
-				"userDescription": "Complete a task asynchronously using the current chat context and in-progress work.",
+				"userDescription": "%languageModelTools.github-pull-request_copilot-coding-agent.userDescription%",
 				"inputSchema": {
 					"type": "object",
 					"required": [
