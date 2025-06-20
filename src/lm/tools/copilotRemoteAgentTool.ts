@@ -55,7 +55,7 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 			throw new Error(result.error);
 		}
 		return new vscode.LanguageModelToolResult([
-			new vscode.LanguageModelTextPart(result.llmDetails || result.link)
+			new vscode.LanguageModelTextPart(result.llmDetails)
 		]);
 	}
 }

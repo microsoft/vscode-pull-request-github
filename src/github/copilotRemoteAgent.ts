@@ -8,11 +8,12 @@ import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
 import { Disposable } from '../common/lifecycle';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
+import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { CopilotApi, RemoteAgentJobPayload } from './copilotApi';
 import { CredentialStore } from './credentials';
 import { RepositoriesManager } from './repositoriesManager';
 
-type RemoteAgentSuccessResult = { link: string; state: 'success', llmDetails?: string };
+type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number; webviewUri: vscode.Uri, llmDetails: string };
 type RemoteAgentErrorResult = { error: string; state: 'error' };
 type RemoteAgentResult = RemoteAgentSuccessResult | RemoteAgentErrorResult;
 
@@ -137,25 +138,20 @@ export class CopilotRemoteAgentManager extends Disposable {
 			},
 			async (progress) => {
 				progress.report({ message: vscode.l10n.t('Starting remote agent...') });
-				const targetRepo = await this.repoInfo();
-				if (!targetRepo) {
-					vscode.window.showErrorMessage(vscode.l10n.t('Open a workspace to use the coding agent'));
-					return;
-				}
 				const result = await this.invokeRemoteAgent(vscode.l10n.t('Continuing from VS Code'), body, autoPushAndCommit);
 				if (result.state === 'error') {
 					vscode.window.showErrorMessage(result.error);
 					return;
 				}
-				const { link } = result;
-				const openLink = vscode.l10n.t('Open Link');
+				const { webviewUri, link } = result;
+				const openLink = vscode.l10n.t('View');
 				vscode.window.showInformationMessage(
 					// allow-any-unicode-next-line
 					vscode.l10n.t('🚀 Remote agent started! Track progress at {0}', link),
 					openLink
 				).then(selection => {
 					if (selection === openLink) {
-						vscode.env.openExternal(vscode.Uri.parse(link));
+						vscode.env.openExternal(webviewUri);
 					}
 				});
 			}
@@ -212,13 +208,14 @@ export class CopilotRemoteAgentManager extends Disposable {
 				base_ref: ref,
 			}
 		};
-		const prUrl = await capiClient.postRemoteAgentJob(owner, repo, payload);
-		if (!prUrl) {
-			return { error: vscode.l10n.t('Unexpected response from Copilot API'), state: 'error' };
-		}
-		const prLlmString = `The remote agent has started work. It can be tracked by visiting ${prUrl}.`;
+		const { pull_request } = await capiClient.postRemoteAgentJob(owner, repo, payload);
+		const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: pull_request.number });
+		const prLlmString = `The remote agent has begun work. The user can track progress by visiting ${pull_request.html_url} or from the PR extension.`;
 		return {
-			link: prUrl, state: 'success',
+			state: 'success',
+			number: pull_request.number,
+			link: pull_request.html_url,
+			webviewUri,
 			llmDetails: hasChanges ? `The pending changes have been pushed to branch '${ref}'. ${prLlmString}` : prLlmString
 		};
 	}
