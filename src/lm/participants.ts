@@ -82,17 +82,11 @@ export class ChatParticipant extends Disposable {
 			family: 'gpt-4o'
 		});
 		const model = models[0];
-		const allTools = useCodingAgent
+
+		const allTools = (useCodingAgent
 			? vscode.lm.tools
 				.filter(tool => tool.name === 'github-pull-request_copilot-coding-agent')
-				.map((tool): vscode.LanguageModelChatTool => {
-					return {
-						name: tool.name,
-						description: tool.description,
-						inputSchema: tool.inputSchema ?? {}
-					};
-				})
-			: vscode.lm.tools.map((tool): vscode.LanguageModelChatTool => {
+			: vscode.lm.tools).map((tool): vscode.LanguageModelChatTool => {
 				return {
 					name: tool.name,
 					description: tool.description,

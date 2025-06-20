@@ -18,7 +18,6 @@ import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes, toPRUri } from './
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
 import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
-import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
 import { Issue } from './github/interface';
@@ -151,7 +150,6 @@ export function registerCommands(
 	reviewsManager: ReviewsManager,
 	telemetry: ITelemetry,
 	tree: PullRequestsTreeDataProvider,
-	credentialStore: CredentialStore,
 	copilotRemoteAgentManager: CopilotRemoteAgentManager,
 ) {
 	const logId = 'RegisterCommands';

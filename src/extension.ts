@@ -220,7 +220,7 @@ async function init(
 		context.subscriptions.push(copilotRemoteAgentManager.statusBarItemImpl());
 	}
 
-	registerCommands(context, reposManager, reviewsManager, telemetry, tree, credentialStore, copilotRemoteAgentManager);
+	registerCommands(context, reposManager, reviewsManager, telemetry, tree, copilotRemoteAgentManager);
 
 	const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
 	await vscode.commands.executeCommand('setContext', 'fileListLayout:flat', layout === 'flat');
