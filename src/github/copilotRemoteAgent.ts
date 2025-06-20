@@ -52,12 +52,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	enabled(): boolean {
 		return vscode.workspace
-			.getConfiguration(CODING_AGENT).get(CODING_AGENT_ENABLED) ?? false;
+			.getConfiguration(CODING_AGENT).get(CODING_AGENT_ENABLED, false);
 	}
 
 	autoCommitAndPushEnabled(): boolean {
 		return vscode.workspace
-			.getConfiguration(CODING_AGENT).get(CODING_AGENT_AUTO_COMMIT_AND_PUSH) ?? false;
+			.getConfiguration(CODING_AGENT).get(CODING_AGENT_AUTO_COMMIT_AND_PUSH, false);
 	}
 
 	private getFolderManagerForRepo(owner?: string, repo?: string) {
@@ -81,7 +81,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 		const { owner, repo } = await fm.getPullRequestDefaults();
 		const remotes = repository.state.remotes;
-		let baseRef = repository.state.HEAD?.name; // TODO: Consider edge cases
+		const baseRef = repository.state.HEAD?.name; // TODO: Consider edge cases
 		const remote = remotes.find(r => r.name === 'origin')?.name || remotes.find(r => r.pushUrl)?.name;
 		if (!owner || !repo || !remote || !baseRef || !repository) {
 			return;
