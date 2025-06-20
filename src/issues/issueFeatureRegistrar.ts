@@ -1269,10 +1269,11 @@ ${options?.body ?? ''}\n
 			if (!folderManager) {
 				return false;
 			}
+			const constFolderManager: FolderRepositoryManager = folderManager;
 			progress.report({ message: vscode.l10n.t('Verifying that issue data is valid...') });
 			try {
 				if (!origin) {
-					origin = await folderManager.getPullRequestDefaults();
+					origin = await constFolderManager.getPullRequestDefaults();
 				}
 			} catch (e) {
 				// There is no remote
@@ -1293,11 +1294,11 @@ ${options?.body ?? ''}\n
 				milestone
 			};
 
-			if (!(await this.verifyLabels(folderManager, createParams))) {
+			if (!(await this.verifyLabels(constFolderManager, createParams))) {
 				return false;
 			}
 			progress.report({ message: vscode.l10n.t('Creating issue in {0}...', `${createParams.owner}/${createParams.repo}`) });
-			const issue = await folderManager.createIssue(createParams);
+			const issue = await constFolderManager.createIssue(createParams);
 			if (issue) {
 				if (projects) {
 					await issue.updateProjects(projects);
@@ -1320,9 +1321,7 @@ ${options?.body ?? ''}\n
 								await vscode.env.clipboard.writeText(issue.html_url);
 								break;
 							case openIssue:
-								if (folderManager) {
-									await IssueOverviewPanel.createOrShow(this.telemetry, this.context.extensionUri, folderManager, issue);
-								}
+								await IssueOverviewPanel.createOrShow(this.telemetry, this.context.extensionUri, constFolderManager, issue);
 								break;
 						}
 					});
