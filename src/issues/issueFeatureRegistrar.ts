@@ -26,6 +26,7 @@ import { OctokitCommon } from '../github/common';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IProject } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
+import { IssueOverviewPanel } from '../github/issueOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput } from '../github/utils';
 import { chatCommand } from '../lm/utils';
@@ -1312,14 +1313,16 @@ ${options?.body ?? ''}\n
 					await vscode.workspace.applyEdit(edit);
 				} else {
 					const copyIssueUrl = vscode.l10n.t('Copy Issue Link');
-					const openIssue = vscode.l10n.t({ message: 'Open Issue', comment: 'Open the issue description in the browser to see it\'s full contents.' });
+					const openIssue = vscode.l10n.t({ message: 'Open Issue', comment: 'Open the issue description in the editor to see it\'s full contents.' });
 					vscode.window.showInformationMessage(vscode.l10n.t('Issue created'), copyIssueUrl, openIssue).then(async result => {
 						switch (result) {
 							case copyIssueUrl:
 								await vscode.env.clipboard.writeText(issue.html_url);
 								break;
 							case openIssue:
-								await vscode.env.openExternal(vscode.Uri.parse(issue.html_url));
+								if (folderManager) {
+									await IssueOverviewPanel.createOrShow(this.telemetry, this.context.extensionUri, folderManager, issue);
+								}
 								break;
 						}
 					});
