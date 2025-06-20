@@ -16,8 +16,8 @@ type RemoteAgentSuccessResult = { link: string; state: 'success', llmDetails?: s
 type RemoteAgentErrorResult = { error: string; state: 'error' };
 type RemoteAgentResult = RemoteAgentSuccessResult | RemoteAgentErrorResult;
 
-const YES_QUICK_PICK = vscode.l10n.t('Push my in-progress work to a new branch');
-const NO_QUICK_PICK = vscode.l10n.t('Do not push my in-progress work');
+const YES_QUICK_PICK = vscode.l10n.t('Push my pending work');
+const NO_QUICK_PICK = vscode.l10n.t('Do not push my pending work');
 
 export class CopilotRemoteAgentManager extends Disposable {
 	public static ID = 'CopilotRemoteAgentManager';
@@ -121,7 +121,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 		const autoPushQuickPick = await vscode.window.showQuickPick(
 			[
-				{ label: YES_QUICK_PICK, description: vscode.l10n.t('The coding agent will push your pending work to {0} and continue iterating in a new branch.', `${repoInfo.owner}/${repoInfo.repo}`) },
+				{ label: YES_QUICK_PICK, description: vscode.l10n.t('Push pending work to a new branch in {0} where the coding agent will continue your work', `${repoInfo.owner}/${repoInfo.repo}`) },
 				{ label: NO_QUICK_PICK, description: vscode.l10n.t('The coding agent will continue from the last commit on {0}', repoInfo.baseRef) }
 			],
 		);
