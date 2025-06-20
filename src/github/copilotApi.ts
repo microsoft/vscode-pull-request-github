@@ -49,7 +49,7 @@ export class CopilotApi {
 		});
 		if (!response.ok) {
 			const text = await response.text();
-			throw new Error(`Remote agent API error: ${response.status} ${text}`);
+			throw new Error(`Coding agent API error: ${response.status} ${text}`);
 		}
 		const data = await response.json();
 		this.validateRemoteAgentJobResponse(data);
