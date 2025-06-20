@@ -143,7 +143,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				cancellable: false
 			},
 			async (progress) => {
-				progress.report({ message: vscode.l10n.t('Starting remote agent...') });
+				progress.report({ message: vscode.l10n.t('Initializing coding agent...') });
 				const result = await this.invokeRemoteAgent(vscode.l10n.t('Continuing from VS Code'), body, autoPushAndCommit);
 				if (result.state === 'error') {
 					vscode.window.showErrorMessage(result.error);
@@ -153,7 +153,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				const openLink = vscode.l10n.t('View');
 				vscode.window.showInformationMessage(
 					// allow-any-unicode-next-line
-					vscode.l10n.t('🚀 Remote agent started! Track progress at {0}', link),
+					vscode.l10n.t('🚀 Coding agent started! Track progress at {0}', link),
 					openLink
 				).then(selection => {
 					if (selection === openLink) {
