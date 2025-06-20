@@ -17,6 +17,7 @@ import { ITelemetry } from './common/telemetry';
 import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes, toPRUri } from './common/uri';
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
+import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
 import { Issue } from './github/interface';
@@ -149,6 +150,7 @@ export function registerCommands(
 	reviewsManager: ReviewsManager,
 	telemetry: ITelemetry,
 	tree: PullRequestsTreeDataProvider,
+	copilotRemoteAgentManager: CopilotRemoteAgentManager,
 ) {
 	const logId = 'RegisterCommands';
 	context.subscriptions.push(
@@ -1453,6 +1455,9 @@ ${contents}
 				handler.applySuggestion(comment);
 			}
 		}));
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.continueAsyncWithCopilot', async () => copilotRemoteAgentManager.commandImpl())
+	);
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.applySuggestionWithCopilot', async (comment: GHPRComment) => {
 			/* __GDPR__
