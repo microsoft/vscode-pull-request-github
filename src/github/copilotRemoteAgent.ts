@@ -13,7 +13,7 @@ import { CopilotApi, RemoteAgentJobPayload } from './copilotApi';
 import { CredentialStore } from './credentials';
 import { RepositoriesManager } from './repositoriesManager';
 
-type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number; webviewUri: vscode.Uri, llmDetails: string };
+type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number; webviewUri: vscode.Uri; llmDetails: string };
 type RemoteAgentErrorResult = { error: string; state: 'error' };
 type RemoteAgentResult = RemoteAgentSuccessResult | RemoteAgentErrorResult;
 
@@ -29,7 +29,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		super();
 		this._register(this.credentialStore.onDidChangeSessions((e: vscode.AuthenticationSessionsChangeEvent) => {
 			if (e.provider.id === 'github') {
-				this._copilotApiPromise = Promise.resolve(undefined); // Invalidate cached session
+				this._copilotApiPromise = undefined; // Invalidate cached session
 			}
 		}));
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
@@ -39,7 +39,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}));
 	}
 
-	private _copilotApiPromise: Promise<CopilotApi | undefined>;
+	private _copilotApiPromise: Promise<CopilotApi | undefined> | undefined;
 	private get copilotApi(): Promise<CopilotApi | undefined> {
 		if (!this._copilotApiPromise) {
 			this._copilotApiPromise = this.initializeCopilotApi();
@@ -99,7 +99,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const continueWithCopilot = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
 		continueWithCopilot.command = 'pr.continueAsyncWithCopilot';
 		continueWithCopilot.text = vscode.l10n.t('$(cloud-upload) Finish with coding agent');
-		continueWithCopilot.tooltip = vscode.l10n.t('Assign your in-progress work to be completed the Copilot Coding Agent. Your current changes will be pushed to a branch and your task will be completed in the background.');
+		continueWithCopilot.tooltip = vscode.l10n.t('Complete your current work with the Copilot coding agent. Your current changes will be pushed to a branch and your task will be completed in the background.');
 		continueWithCopilot.show();
 		return continueWithCopilot;
 	}
