@@ -159,10 +159,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	async invokeRemoteAgent(title: string, body: string, autoPushAndCommit = true): Promise<RemoteAgentResult> {
-		if (!this.enabled()) {
-			return { error: vscode.l10n.t('Please enable \'Copilot Coding Agent\' in your VS Code settings to continue'), state: 'error' };
-		}
-
 		// TODO: Check that the user has a valid copilot subscription
 		const capiClient = await this.copilotApi;
 		if (!capiClient) {
