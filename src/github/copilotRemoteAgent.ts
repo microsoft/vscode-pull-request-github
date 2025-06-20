@@ -21,6 +21,8 @@ const YES_QUICK_PICK = vscode.l10n.t('Push my pending work');
 const NO_QUICK_PICK = vscode.l10n.t('Do not push my pending work');
 
 export class CopilotRemoteAgentManager extends Disposable {
+	private readonly _onDidChangeEnabled = new vscode.EventEmitter<boolean>();
+	public readonly onDidChangeEnabled: vscode.Event<boolean> = this._onDidChangeEnabled.event;
 	public static ID = 'CopilotRemoteAgentManager';
 
 	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager) {
@@ -28,7 +30,11 @@ export class CopilotRemoteAgentManager extends Disposable {
 		this._register(this.credentialStore.onDidChangeSessions((e: vscode.AuthenticationSessionsChangeEvent) => {
 			if (e.provider.id === 'github') {
 				this._copilotApiPromise = Promise.resolve(undefined); // Invalidate cached session
-
+			}
+		}));
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(`${CODING_AGENT}.${CODING_AGENT_ENABLED}`)) {
+				this._onDidChangeEnabled.fire(this.enabled());
 			}
 		}));
 	}
