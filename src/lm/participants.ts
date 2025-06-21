@@ -7,7 +7,7 @@
 import { renderPrompt } from '@vscode/prompt-tsx';
 import * as vscode from 'vscode';
 import { Disposable } from '../common/lifecycle';
-import { ParticipantsPrompt } from './participantsPrompt';
+import { CodingAgentPrompt, ParticipantsPrompt } from './participantsPrompt';
 import { IToolCall, TOOL_COMMAND_RESULT, TOOL_MARKDOWN_RESULT } from './tools/toolsUtils';
 
 export class ChatParticipantState {
@@ -76,21 +76,26 @@ export class ChatParticipant extends Disposable {
 	): Promise<void> {
 		this.state.reset();
 
+		const useCodingAgent = request.command && request.command === 'codingAgent';
 		const models = await vscode.lm.selectChatModels({
 			vendor: 'copilot',
 			family: 'gpt-4o'
 		});
 		const model = models[0];
-		const allTools = vscode.lm.tools.map((tool): vscode.LanguageModelChatTool => {
-			return {
-				name: tool.name,
-				description: tool.description,
-				inputSchema: tool.inputSchema ?? {}
-			};
-		});
+
+		const allTools = (useCodingAgent
+			? vscode.lm.tools
+				.filter(tool => tool.name === 'github-pull-request_copilot-coding-agent')
+			: vscode.lm.tools).map((tool): vscode.LanguageModelChatTool => {
+				return {
+					name: tool.name,
+					description: tool.description,
+					inputSchema: tool.inputSchema ?? {}
+				};
+			});
 
 		const { messages } = await renderPrompt(
-			ParticipantsPrompt,
+			useCodingAgent ? CodingAgentPrompt : ParticipantsPrompt,
 			{ userMessage: request.prompt },
 			{ modelMaxPromptTokens: model.maxInputTokens },
 			model);

@@ -32,7 +32,7 @@
 		"tokenInformation",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.110.0",
+	"version": "0.112.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.100.0"
@@ -68,7 +68,14 @@
 				"name": "githubpr",
 				"fullName": "GitHub Pull Requests",
 				"description": "Chat participant for GitHub Pull Requests extension",
-				"when": "config.githubPullRequests.experimental.chat"
+				"when": "config.githubPullRequests.experimental.chat",
+				"commands": [
+					{
+						"name": "codingAgent",
+						"description": "Provide a task for the Copilot Coding Agent to complete asynchronously",
+						"when": "config.githubPullRequests.codingAgent.enabled"
+					}
+				]
 			}
 		],
 		"configuration": {
@@ -179,7 +186,7 @@
 								"description": "%githubPullRequests.queries.query.description%"
 							}
 						},
-						"default":							{
+						"default": {
 							"label": "%githubPullRequests.queries.assignedToMe%",
 							"query": "repo:${owner}/${repository} is:open assignee:${user}"
 						}
@@ -460,7 +467,11 @@
 				},
 				"githubPullRequests.createDefaultBaseBranch": {
 					"type": "string",
-					"enum": ["repositoryDefault", "createdFromBranch", "auto"],
+					"enum": [
+						"repositoryDefault",
+						"createdFromBranch",
+						"auto"
+					],
 					"markdownEnumDescriptions": [
 						"%githubPullRequests.createDefaultBaseBranch.repositoryDefault%",
 						"%githubPullRequests.createDefaultBaseBranch.createdFromBranch%",
@@ -474,10 +485,30 @@
 					"markdownDescription": "%githubPullRequests.experimental.chat.description%",
 					"default": false
 				},
+				"githubPullRequests.codingAgent.enabled": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%githubPullRequests.codingAgent.description%",
+					"tags": [
+						"experimental"
+					]
+				},
+				"githubPullRequests.codingAgent.autoCommitAndPush": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%githubPullRequests.codingAgent.autoCommitAndPush.description%",
+					"tags": [
+						"experimental"
+					]
+				},
 				"githubPullRequests.experimental.notificationsMarkPullRequests": {
 					"type": "string",
 					"markdownDescription": "%githubPullRequests.experimental.notificationsMarkPullRequests.description%",
-					"enum": ["markAsDone", "markAsRead", "none"],
+					"enum": [
+						"markAsDone",
+						"markAsRead",
+						"none"
+					],
 					"default": "none"
 				},
 				"githubPullRequests.experimental.useQuickChat": {
@@ -631,7 +662,9 @@
 						{
 							"label": "%githubIssues.queries.default.myIssues%",
 							"query": "is:open assignee:${user} repo:${owner}/${repository}",
-							"groupBy": ["milestone"]
+							"groupBy": [
+								"milestone"
+							]
 						},
 						{
 							"label": "%githubIssues.queries.default.createdIssues%",
@@ -719,7 +752,7 @@
 				{
 					"id": "notifications:github",
 					"name": "%view.notifications.github.name%",
-					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts && config.githubPullRequests.experimental.notificationsView && (remoteName != codespaces || !isWeb)",
+					"when": "ReposManagerStateContext != NeedsAuthentication && !github:resolvingConflicts && (remoteName != codespaces || !isWeb)",
 					"icon": "$(bell)",
 					"accessibilityHelpContent": "%view.pr.github.accessibilityHelpContent%",
 					"visibility": "collapsed"
@@ -1149,6 +1182,13 @@
 				"title": "%command.pr.applySuggestionWithCopilot.title%",
 				"category": "%command.pull.request.category%",
 				"icon": "$(sparkle)"
+			},
+			{
+				"command": "pr.continueAsyncWithCopilot",
+				"title": "Continue Asynchronously with Copilot",
+				"category": "%command.pull.request.category%",
+				"icon": "$(copilot)",
+				"enablement": "config.githubPullRequests.codingAgent.enabled"
 			},
 			{
 				"command": "pr.addAssigneesToNewPr",
@@ -3286,6 +3326,33 @@
 			}
 		],
 		"languageModelTools": [
+			{
+				"name": "github-pull-request_copilot-coding-agent",
+				"displayName": "%languageModelTools.github-pull-request_copilot-coding-agent.displayName%",
+				"modelDescription": "Completes the provided task using an asynchronous coding agent. Use when the user wants copilot continue completing a task in the background or asynchronously.",
+				"when": "config.githubPullRequests.codingAgent.enabled",
+				"icon": "resources/icons/copilot.svg",
+				"canBeReferencedInPrompt": true,
+				"toolReferenceName": "codingAgent",
+				"userDescription": "%languageModelTools.github-pull-request_copilot-coding-agent.userDescription%",
+				"inputSchema": {
+					"type": "object",
+					"required": [
+						"title",
+						"body"
+					],
+					"properties": {
+						"title": {
+							"type": "string",
+							"description": "The title of the issue. Populate from chat context."
+						},
+						"body": {
+							"type": "string",
+							"description": "The body/description of the issue. Populate from chat context."
+						}
+					}
+				}
+			},
 			{
 				"name": "github-pull-request_issue_fetch",
 				"tags": [

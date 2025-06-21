@@ -80,3 +80,9 @@ export const OPEN_VIEW = 'openView';
 // Explorer
 export const EXPLORER = 'explorer';
 export const AUTO_REVEAL = 'autoReveal';
+
+// Coding Agent
+
+export const CODING_AGENT = `${PR_SETTINGS_NAMESPACE}.codingAgent`;
+export const CODING_AGENT_ENABLED = 'enabled';
+export const CODING_AGENT_AUTO_COMMIT_AND_PUSH = 'autoCommitAndPush';
