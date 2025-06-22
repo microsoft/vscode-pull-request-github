@@ -25,12 +25,17 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 		return folderManager?.activePullRequest ?? PullRequestOverviewPanel.currentPanel?.getCurrentItem();
 	}
 
+	private shouldIncludeCodingAgentSession(pullRequest?: PullRequestModel): boolean {
+		return !!pullRequest && this.copilotRemoteAgentManager.enabled() && COPILOT_LOGINS.includes(pullRequest.author.login);
+	}
+
+
 	async prepareInvocation(): Promise<vscode.PreparedToolInvocation> {
 		const pullRequest = this._findActivePullRequest();
 		let confirmationMessages: vscode.LanguageModelToolConfirmationMessages | undefined;
-		if (pullRequest?.author.login && COPILOT_LOGINS.includes(pullRequest.author.login)) {
+		if (this.shouldIncludeCodingAgentSession(pullRequest)) {
 			confirmationMessages = {
-				title: vscode.l10n.t('Fetching coding agent session logs for pull request "{0}"', pullRequest.title),
+				title: vscode.l10n.t('Fetching coding agent session logs for pull request "{0}"', pullRequest?.title || ''),
 				message: vscode.l10n.t('This will fetch the coding agent session logs for the active pull request. The logs will be summarized and provided as context for the current conversation.'),
 			};
 		}
@@ -113,7 +118,7 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 		}
 
 		let codingAgentSession: string | string[] = [];
-		if (this.copilotRemoteAgentManager.enabled() && COPILOT_LOGINS.includes(pullRequest.author.login) && options.model) {
+		if (this.shouldIncludeCodingAgentSession(pullRequest) && options.model) {
 			codingAgentSession = await this.fetchCodingAgentSession(pullRequest, options.model, token);
 		}
 
