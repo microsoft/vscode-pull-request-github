@@ -550,7 +550,7 @@ export function registerCommands(
 						repository
 					)?.switch(pullRequestModel);
 
-					if (COPILOT_LOGINS.includes(pullRequestModel.author.login)) {
+					if (copilotRemoteAgentManager.enabled() && COPILOT_LOGINS.includes(pullRequestModel.author.login)) {
 						vscode.commands.executeCommand('workbench.action.chat.open', {
 							toolIds: [
 								'github-pull-request_activePullRequest',

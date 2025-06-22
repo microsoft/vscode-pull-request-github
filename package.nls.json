@@ -372,5 +372,5 @@
 	"languageModelTools.github-pull-request_activePullRequest.displayName": "Active Pull Request",
 	"languageModelTools.github-pull-request_activePullRequest.description": "Get information about the active GitHub pull request. This information includes: comments, files changed, pull request title + description, pull request state, and pull request status checks/CI.",
 	"languageModelTools.github-pull-request_copilot-coding-agent.displayName": "Copilot Coding Agent",
-	"languageModelTools.github-pull-request_copilot-coding-agent.userDescription": "Complete a task asynchronously using the current chat context and in-progress work.",
+	"languageModelTools.github-pull-request_copilot-coding-agent.userDescription": "Complete a task asynchronously using the current chat context and in-progress work."
 }

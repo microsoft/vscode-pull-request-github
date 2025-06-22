@@ -4,22 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import JSZip from 'jszip';
 import * as vscode from 'vscode';
-import { AuthProvider } from '../../common/authentication';
 import { COPILOT_LOGINS } from '../../common/copilot';
-import { CredentialStore, GitHub } from '../../github/credentials';
+import Logger from '../../common/logger';
+import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../../github/pullRequestOverview';
 import { RepositoriesManager } from '../../github/repositoriesManager';
-import { hasEnterpriseUri } from '../../github/utils';
 import { FetchIssueResult } from './fetchIssueTool';
 
 export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssueResult> {
 	public static readonly toolId = 'github-pull-request_activePullRequest';
 	constructor(
 		private readonly folderManagers: RepositoriesManager,
-		private readonly credentialStore: CredentialStore,
+		private readonly copilotRemoteAgentManager: CopilotRemoteAgentManager
 	) { }
 
 	private _findActivePullRequest(): PullRequestModel | undefined {
@@ -44,7 +42,6 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 
 	private parseCopilotEventStream(logsResponseText: string): string[] {
 		const result: string[] = [];
-
 		logsResponseText
 			.split('\n')
 			.filter(line => line.startsWith('data:'))
@@ -66,53 +63,15 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 	}
 
 	async fallbackSessionLogs(
-		token: string,
-		github: GitHub,
 		pullRequest: PullRequestModel,
 		model: vscode.LanguageModelChat,
 		cancellationToken: vscode.CancellationToken
 	) {
-		const runs = await github.octokit.api.actions.listWorkflowRunsForRepo(
-			{
-				owner: pullRequest.githubRepository.remote.owner,
-				repo: pullRequest.githubRepository.remote.repositoryName,
-				event: 'dynamic'
-			}
-		);
-		const padawanRuns: any[] = runs.data.workflow_runs
-			.filter((run: any) => run.path && run.path.startsWith('dynamic/copilot-swe-agent'))
-			.filter((run: any) => run.pull_requests?.some((pr: any) => pr.id === pullRequest.id));
-
-		const lastRun = padawanRuns.reduce((latest: any, run: any) => {
-			return !latest || new Date(run.created_at) > new Date(latest.created_at)
-				? run
-				: latest;
-		}, null);
-
-		if (!lastRun) {
-			return '';
-		}
-
-		const logsZip = await fetch(lastRun.logs_url, {
-			headers: {
-				Authorization: `Bearer ${token}`,
-				Accept: 'application/json',
-			},
-		});
-		const logsText = await logsZip.arrayBuffer();
-		const copilotSteps: string[] = [];
-		const zip = await JSZip.loadAsync(logsText);
-		for (const fileName of Object.keys(zip.files)) {
-			const file = zip.files[fileName];
-			if (!file.dir && fileName.endsWith('Processing Request.txt')) {
-				const content = await file.async('string');
-				copilotSteps.push(...content.split('\n'));
-			}
-		}
+		const logs = await this.copilotRemoteAgentManager.getSessionLogsFromAction(pullRequest);
 		// Summarize the Copilot agent's thinking process using the model
 		const messages = [
 			vscode.LanguageModelChatMessage.Assistant('You are an expert summarizer. The following logs show the thinking process and performed actions of a GitHub Copilot agent that was in charge of working on the current pull request. Read the logs and always maintain the thinking process. You can remove information on the tool call results that you think are not necessary for building context.'),
-			vscode.LanguageModelChatMessage.User(`Copilot Agent Logs (JSON):\n${JSON.stringify(copilotSteps)}`)
+			vscode.LanguageModelChatMessage.User(`Copilot Agent Logs (JSON):\n${JSON.stringify(logs)}`)
 		];
 
 		let summaryText: string | undefined;
@@ -129,54 +88,18 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 	async fetchCodingAgentSession(
 		pullRequest: PullRequestModel,
 		model: vscode.LanguageModelChat,
-		cancellationToken: vscode.CancellationToken
+		token: vscode.CancellationToken
 	): Promise<string | string[]> {
-		let authProvider: AuthProvider | undefined;
-		if (this.credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
-			authProvider = AuthProvider.githubEnterprise;
-		} else if (this.credentialStore.isAuthenticated(AuthProvider.github)) {
-			authProvider = AuthProvider.github;
-		} else {
-			return [];
-		}
-		const github = this.credentialStore.getHub(authProvider);
-		const { token } = await github?.octokit.api.auth() as { token: string };
 		let copilotSteps: string | string[] = [];
 		try {
-			const sessionsResponse = await fetch(`https://api.githubcopilot.com/agents/sessions/resource/pull/${pullRequest.id}`, {
-				headers: {
-					Authorization: `Bearer ${token}`,
-					Accept: 'application/json',
-				},
-			});
-			if (!sessionsResponse.ok) {
-				throw new Error(`Failed to fetch sessions: ${sessionsResponse.statusText}`);
-			}
-			const sessions = await sessionsResponse.json();
-			const completedSessions = sessions.sessions.filter((s: any) => s.state === 'completed');
-			const mostRecentSession = completedSessions.reduce((latest: any, session: any) => {
-				return !latest || new Date(session.last_updated_at) > new Date(latest.last_updated_at)
-					? session
-					: latest;
-			}, null);
-
-			const logsResponse = await fetch(`https://api.githubcopilot.com/agents/sessions/${mostRecentSession.id}/logs`, {
-				method: 'GET',
-				headers: {
-					'Authorization': `Bearer ${token}`,
-					'Content-Type': 'application/json',
-				},
-			});
-			if (!logsResponse.ok) {
-				throw new Error(`Failed to fetch logs: ${logsResponse.statusText}`);
-			}
-			const logsResponseText = await logsResponse.text();
+			const logsResponseText = await this.copilotRemoteAgentManager.getSessionLogsFromAPI(pullRequest);
 			copilotSteps = this.parseCopilotEventStream(logsResponseText);
-			if (!copilotSteps.length) {
-				throw new Error('No Copilot steps found in the logs.');
+			if (copilotSteps.length === 0) {
+				throw new Error('Empty Copilot agent logs received');
 			}
 		} catch (e) {
-			copilotSteps = await this.fallbackSessionLogs(token, github!, pullRequest, model, cancellationToken);
+			Logger.debug(`Failed to fetch Copilot agent logs from API: ${e}.`, ActivePullRequestTool.toolId);
+			copilotSteps = await this.fallbackSessionLogs(pullRequest, model, token);
 		}
 
 		return copilotSteps;
@@ -190,7 +113,7 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 		}
 
 		let codingAgentSession: string | string[] = [];
-		if (COPILOT_LOGINS.includes(pullRequest.author.login) && options.model) {
+		if (this.copilotRemoteAgentManager.enabled() && COPILOT_LOGINS.includes(pullRequest.author.login) && options.model) {
 			codingAgentSession = await this.fetchCodingAgentSession(pullRequest, options.model, token);
 		}
 
