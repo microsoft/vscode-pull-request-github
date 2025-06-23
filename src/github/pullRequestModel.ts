@@ -1274,7 +1274,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return this.githubRepository.getStatusChecks(this.number);
 	}
 
-	static async openChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel) {
+	static async openChanges(folderManager: FolderRepositoryManager, pullRequestModel: PullRequestModel): Promise<void> {
 		const changeModels = await PullRequestModel.getChangeModels(folderManager, pullRequestModel);
 		const args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
 		for (const changeModel of changeModels) {

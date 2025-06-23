@@ -33,6 +33,8 @@ export class PRContext {
 
 	public checkout = () => this.postMessage({ command: 'pr.checkout' });
 
+	public openChanges = () => this.postMessage({ command: 'pr.open-changes' });
+
 	public copyPrLink = () => this.postMessage({ command: 'pr.copy-prlink' });
 
 	public copyVscodeDevLink = () => this.postMessage({ command: 'pr.copy-vscodedevlink' });

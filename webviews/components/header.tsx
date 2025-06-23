@@ -97,11 +97,14 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 }
 
 function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaultBranch, setEditMode }) {
-	const { refresh, copyPrLink, copyVscodeDevLink } = useContext(PullRequestContext);
+	const { refresh, copyPrLink, copyVscodeDevLink, openChanges } = useContext(PullRequestContext);
 
 	return (
 		<div className="button-group">
 			<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
+			<button title="Open Changes" onClick={openChanges} className="small-button">
+				Open Changes
+			</button>
 			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary small-button">
 				Refresh
 			</button>
