@@ -48,3 +48,4 @@ export const issueClosedIcon = <Icon src={require('../../resources/icons/issue_c
 export const copilotIcon = <Icon src={require('../../resources/icons/copilot.svg')} />;
 export const threeBars = <Icon src={require('../../resources/icons/three-bars.svg')} />;
 export const tasklistIcon = <Icon src={require('../../resources/icons/tasklist.svg')} />;
+export const errorIcon = <Icon src={require('../../resources/icons/error.svg')} />;

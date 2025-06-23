@@ -660,11 +660,24 @@ body button .icon {
 }
 
 .commit .commit-message,
+.commit .timeline-with-detail,
 .merged .merged-message {
-	display: flex;
 	align-items: center;
 	overflow: hidden;
 	flex-grow: 1;
+}
+
+.commit .commit-message,
+.merged .merged-message {
+	display: flex;
+}
+
+.commit .timeline-with-detail {
+	display: block;
+}
+
+.commit-message-detail {
+	margin-left: 20px;
 }
 
 .commit .commit-message .avatar-container,
