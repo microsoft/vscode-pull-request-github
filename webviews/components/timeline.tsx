@@ -10,6 +10,7 @@ import {
 	ClosedEvent,
 	CommentEvent,
 	CommitEvent,
+	CopilotFinishedErrorEvent,
 	CopilotFinishedEvent,
 	CopilotStartedEvent,
 	CrossReferencedEvent,
@@ -27,7 +28,7 @@ import { ReviewType } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { CommentView } from './comment';
 import Diff from './diff';
-import { briefcaseIcon, commitIcon, mergeIcon, plusIcon, tasklistIcon } from './icon';
+import { briefcaseIcon, commitIcon, errorIcon, mergeIcon, plusIcon, tasklistIcon } from './icon';
 import { nbsp } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -95,6 +96,8 @@ export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue
 				return <CopilotStartedEventView key={`copilotStarted${event.id}`} {...event} />;
 			case EventType.CopilotFinished:
 				return <CopilotFinishedEventView key={`copilotFinished${event.id}`} {...event} />;
+			case EventType.CopilotFinishedError:
+				return <CopilotFinishedErrorEventView key={`copilotFinishedError${event.id}`} {...event} />;
 			default:
 				throw new UnreachableCaseError(event);
 		}
@@ -462,6 +465,25 @@ const CopilotFinishedEventView = (event: CopilotFinishedEvent) => {
 				{tasklistIcon}
 				{nbsp}
 				<div className="message">Copilot finished work on behalf of <AuthorLink for={onBehalfOf} /></div>
+			</div>
+			<Timestamp date={createdAt} />
+		</div>
+	);
+};
+
+const CopilotFinishedErrorEventView = (event: CopilotFinishedErrorEvent) => {
+	const { createdAt, onBehalfOf } = event;
+	return (
+		<div className="comment-container commit">
+			<div className='timeline-with-detail'>
+				<div className='commit-message'>
+					{errorIcon}
+					{nbsp}
+					<div className="message">Copilot stopped work on behalf of <AuthorLink for={onBehalfOf} /> due to an error</div>
+				</div>
+				<div className="commit-message-detail">
+					<a href={event.sessionUrl}>Copilot has encountered an error. See logs for additional details.</a>
+				</div>
 			</div>
 			<Timestamp date={createdAt} />
 		</div>

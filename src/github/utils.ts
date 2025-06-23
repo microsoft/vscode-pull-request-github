@@ -1002,6 +1002,7 @@ export function parseSelectRestTimelineEvents(
 	events: OctokitCommon.ListEventsForTimelineResponse[]
 ): Common.TimelineEvent[] {
 	const parsedEvents: Common.TimelineEvent[] = [];
+	const sessionUrl = `https://${issueModel.githubRepository.remote.gitProtocol.host}/${issueModel.githubRepository.remote.owner}/${issueModel.githubRepository.remote.repositoryName}/pull/${issueModel.number}/agent-sessions`;
 	let indexLastStart = -1;
 	for (const event of events) {
 		const eventNode = event as { created_at?: string; node_id?: string; actor: RestAccount };
@@ -1021,12 +1022,20 @@ export function parseSelectRestTimelineEvents(
 					createdAt: eventNode.created_at,
 					onBehalfOf: parseAccount(eventNode.actor)
 				});
+			} else if (event.event === 'copilot_work_finished_failure') {
+				parsedEvents.push({
+					id: eventNode.node_id,
+					event: Common.EventType.CopilotFinishedError,
+					createdAt: eventNode.created_at,
+					onBehalfOf: parseAccount(eventNode.actor),
+					sessionUrl
+				});
 			}
 		}
 	}
 	if (indexLastStart > -1) {
 		const startEvent: Common.CopilotStartedEvent = parsedEvents[indexLastStart] as Common.CopilotStartedEvent;
-		startEvent.sessionUrl = `https://${issueModel.githubRepository.remote.gitProtocol.host}/${issueModel.githubRepository.remote.owner}/${issueModel.githubRepository.remote.repositoryName}/pull/${issueModel.number}/agent-sessions`;
+		startEvent.sessionUrl = sessionUrl;
 	}
 	return parsedEvents;
 }
@@ -1044,6 +1053,7 @@ function eventTime(event: Common.TimelineEvent): Date | undefined {
 		case Common.EventType.Reopened:
 		case Common.EventType.CopilotStarted:
 		case Common.EventType.CopilotFinished:
+		case Common.EventType.CopilotFinishedError:
 			return new Date(event.createdAt);
 		case Common.EventType.Reviewed:
 			return new Date(event.submittedAt);

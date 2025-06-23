@@ -24,6 +24,7 @@ export enum EventType {
 	Reopened,
 	CopilotStarted,
 	CopilotFinished,
+	CopilotFinishedError,
 	Other,
 }
 
@@ -165,4 +166,12 @@ export interface CopilotFinishedEvent {
 	onBehalfOf: IAccount;
 }
 
-export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | UnassignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent | CopilotStartedEvent | CopilotFinishedEvent;
+export interface CopilotFinishedErrorEvent {
+	id: string;
+	event: EventType.CopilotFinishedError;
+	createdAt: string;
+	onBehalfOf: IAccount;
+	sessionUrl: string;
+}
+
+export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | UnassignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent | CopilotStartedEvent | CopilotFinishedEvent | CopilotFinishedErrorEvent;
