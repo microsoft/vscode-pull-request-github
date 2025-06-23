@@ -7,6 +7,7 @@ import { basename } from 'path';
 import * as vscode from 'vscode';
 import { Remote } from '../api/api';
 import { GitApiImpl } from '../api/api1';
+import { COPILOT_ACCOUNTS } from '../common/comment';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -1264,6 +1265,9 @@ ${options?.body ?? ''}\n
 			folderManager = await this.chooseRepo(vscode.l10n.t('Choose where to create the issue.'));
 		}
 
+		const assigneesWithoutCopilot = assignees?.filter(assignee => !COPILOT_ACCOUNTS[assignee]);
+		const copilotAssignee = !!assignees?.find(assignee => COPILOT_ACCOUNTS[assignee]);
+
 		return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Creating issue') }, async (progress) => {
 			if (!folderManager) {
 				return false;
@@ -1287,7 +1291,7 @@ ${options?.body ?? ''}\n
 				repo: origin.repo,
 				title,
 				body,
-				assignees,
+				assignees: assigneesWithoutCopilot,
 				labels,
 				milestone
 			};
@@ -1298,6 +1302,12 @@ ${options?.body ?? ''}\n
 			progress.report({ message: vscode.l10n.t('Creating issue in {0}...', `${createParams.owner}/${createParams.repo}`) });
 			const issue = await folderManager.createIssue(createParams);
 			if (issue) {
+				if (copilotAssignee) {
+					const copilotUser = (await folderManager.getAssignableUsers())[issue.remote.remoteName].find(user => COPILOT_ACCOUNTS[user.login]);
+					if (copilotUser) {
+						await issue.replaceAssignees([...(issue.assignees ?? []), copilotUser]);
+					}
+				}
 				if (projects) {
 					await issue.updateProjects(projects);
 				}
