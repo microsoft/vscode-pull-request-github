@@ -221,7 +221,6 @@ export class CredentialStore extends Disposable {
 	}
 
 	private async doCreate(options: vscode.AuthenticationGetSessionOptions, additionalScopes: boolean = false): Promise<AuthResult> {
-		const github = await this.initialize(AuthProvider.github, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
 		let enterprise: AuthResult | undefined;
 		const initializeEnterprise = async () => {
 			enterprise = await this.initialize(AuthProvider.githubEnterprise, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
@@ -232,6 +231,11 @@ export class CredentialStore extends Disposable {
 			// Listen for changes to the enterprise URI and try again if it changes.
 			initBasedOnSettingChange(GITHUB_ENTERPRISE, URI, hasEnterpriseUri, initializeEnterprise, this.context.subscriptions);
 		}
+		const githubOptions = { ...options };
+		if (enterprise && !enterprise.canceled) {
+			githubOptions.silent = true;
+		}
+		const github = await this.initialize(AuthProvider.github, githubOptions, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
 		return {
 			canceled: github.canceled || !!(enterprise && enterprise.canceled)
 		};
