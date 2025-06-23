@@ -182,35 +182,55 @@ export class CopilotRemoteAgentManager extends Disposable {
 		// We only create a new branch and commit if there are staged or working changes.
 		// This could be improved if we add lower-level APIs to our git extension (e.g. in-memory temp git index).
 
-		let ref = baseRef;
-		const hasChanges = repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0;
-		if (hasChanges && autoPushAndCommit) {
+		let headRef: string | undefined;
+		const pushLocalChanged = autoPushAndCommit && (repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0);
+		if (pushLocalChanged) {
 			if (!this.autoCommitAndPushEnabled()) {
 				return { error: vscode.l10n.t('Uncommitted changes detected. Please commit or stash your changes before starting the remote agent. Enable \'{0}\' to push your changes automatically.', CODING_AGENT_AUTO_COMMIT_AND_PUSH), state: 'error' };
 			}
-			const asyncBranch = `continue-from-${Date.now()}`;
+			headRef = `copilot/vscode-${Date.now()}`;
 			try {
-				await repository.createBranch(asyncBranch, true);
+				await repository.createBranch(headRef, true);
 				await repository.add([]);
 				if (repository.state.indexChanges.length > 0) {
 					// TODO: there is an issue here if the user has GPG signing enabled.
-					await repository.commit('Checkpoint for Copilot Agent async session', { signCommit: false });
+					await repository.commit('Checkpoint for copilot coding agent async session', { signCommit: false });
 				}
-				await repository.push(remote, asyncBranch, true);
+				await repository.push(remote, headRef, true);
 			} catch (e) {
-				return { error: vscode.l10n.t(`Could not auto-commit pending changes. Please disable GPG signing, or manually commit/stash your changes before starting the remote agent. Error: ${e.message}`), state: 'error' };
+				return { error: vscode.l10n.t(`Could not auto-commit pending changes. Please disable GPG signing, confirm pre-commit hooks succeed, or manually commit/stash your changes before starting the remote agent. Error: ${e.message}`), state: 'error' };
+			} finally {
+				// Swap back to the original branch without your pending changes
+				// TODO: Better if we show a confirmation dialog in chat
+				if (repository.state.HEAD?.name !== baseRef) {
+					// show notification asking the user if they want to switch back to the original branch
+					const SWAP_BACK_TO_ORIGINAL_BRANCH = vscode.l10n.t(`Swap back to '{0}'`, baseRef);
+					vscode.window.showInformationMessage(
+						vscode.l10n.t(`The coding agent has pushed your pending changes to '${headRef}'. Switch back to your original branch?`),
+						SWAP_BACK_TO_ORIGINAL_BRANCH,
+					).then(async (selection) => {
+						if (selection === SWAP_BACK_TO_ORIGINAL_BRANCH) {
+							await repository.checkout(baseRef);
+						}
+					});
+				}
 			}
-			ref = `refs/heads/${asyncBranch}`;
 		}
 
-		const payload: RemoteAgentJobPayload = {
-			problem_statement: title,
+		let payload: RemoteAgentJobPayload = {
+			problem_statement: `${title}: ${body}`,
 			pull_request: {
-				title: title,
+				title,
 				body_placeholder: body,
-				base_ref: ref,
+				// base_ref: baseRef,
+				base_ref: baseRef,
 			}
 		};
+
+		if (headRef && payload.pull_request) {
+			payload.pull_request.head_ref = headRef;
+		}
+
 		const { pull_request } = await capiClient.postRemoteAgentJob(owner, repo, payload);
 		const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: pull_request.number });
 		const prLlmString = `The remote agent has begun work. The user can track progress by visiting ${pull_request.html_url} or from the PR extension.`;
@@ -219,7 +239,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			number: pull_request.number,
 			link: pull_request.html_url,
 			webviewUri,
-			llmDetails: hasChanges ? `The pending changes have been pushed to branch '${ref}'. ${prLlmString}` : prLlmString
+			llmDetails: pushLocalChanged ? `The local pending changes have been committed and pushed to branch '${headRef}'. The final pull request will target '${baseRef}'. ${prLlmString}` : prLlmString
 		};
 	}
 
