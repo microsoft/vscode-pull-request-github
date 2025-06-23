@@ -2570,7 +2570,7 @@
 				},
 				{
 					"command": "pr.openChanges",
-					"when": "view =~ /prStatus:github/ && viewItem =~ /(description)/ && config.multiDiffEditor.experimental.enabled",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/ && config.multiDiffEditor.experimental.enabled",
 					"group": "inline@0"
 				},
 				{
