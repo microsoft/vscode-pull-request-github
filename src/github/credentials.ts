@@ -231,12 +231,13 @@ export class CredentialStore extends Disposable {
 			// Listen for changes to the enterprise URI and try again if it changes.
 			initBasedOnSettingChange(GITHUB_ENTERPRISE, URI, hasEnterpriseUri, initializeEnterprise, this.context.subscriptions);
 		}
-		let github: AuthResult | undefined;
-		if (!enterprise) {
-			github = await this.initialize(AuthProvider.github, options, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
+		const githubOptions = { ...options };
+		if (enterprise && !enterprise.canceled) {
+			githubOptions.silent = true;
 		}
+		const github = await this.initialize(AuthProvider.github, githubOptions, additionalScopes ? SCOPES_WITH_ADDITIONAL : undefined, additionalScopes);
 		return {
-			canceled: !!(github && github.canceled) || !!(enterprise && enterprise.canceled)
+			canceled: github.canceled || !!(enterprise && enterprise.canceled)
 		};
 	}
 
