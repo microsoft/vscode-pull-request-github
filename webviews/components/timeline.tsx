@@ -27,7 +27,7 @@ import { ReviewType } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { CommentView } from './comment';
 import Diff from './diff';
-import { briefcaseIcon, commitIcon, mergeIcon, plusIcon, tasklistIcon } from './icon';
+import { commitIcon, mergeIcon, plusIcon, tasklistIcon, threeBars } from './icon';
 import { nbsp } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -440,7 +440,7 @@ const CopilotStartedEventView = (event: CopilotStartedEvent) => {
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
-				{briefcaseIcon}
+				{threeBars}
 				{nbsp}
 				<div className="message">Copilot started work on behalf of <AuthorLink for={onBehalfOf} /></div>
 			</div>
