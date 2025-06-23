@@ -134,6 +134,10 @@ async function getWebviewConfig(mode, env, entry) {
 					test: /\.svg/,
 					use: ['svg-inline-loader'],
 				},
+				{
+					test: /\.ttf$/,
+					type: 'asset/resource'
+				},
 			],
 		},
 		resolve: {
@@ -378,6 +382,7 @@ module.exports =
 				'webview-pr-description': './webviews/editorWebview/index.ts',
 				'webview-open-pr-view': './webviews/activityBarView/index.ts',
 				'webview-create-pr-view-new': './webviews/createPullRequestViewNew/index.ts',
+				'webview-session-log-view': './webviews/sessionLogView/index.tsx',
 			}),
 		]);
 	};

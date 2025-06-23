@@ -1,0 +1,97 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.session-container {
+	margin: 0 auto;
+	max-width: 800px;
+	position: relative;
+}
+
+.session-header {
+	display: flex;
+	gap: 20px;
+
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--vscode-widget-border);
+}
+
+
+.codeview-wrapper {
+	border: 1px solid var(--vscode-widget-border);
+	border-radius: 4px;
+	overflow: hidden;
+	/* background: var(--vs); */
+	margin: 8px 0;
+}
+
+.codeview-header {
+	display: flex;
+	align-items: center;
+	justify-content: left;
+
+	padding: 6px 12px;
+	background: #232323;
+	color: #fff;
+	font-size: 13px;
+	gap: 8px;
+}
+
+.codeview-toggle {
+	margin-left: 8px;
+	background: none;
+	border: none;
+	color: #fff;
+	cursor: pointer;
+	font-size: 13px;
+	padding: 2px 8px;
+}
+
+.codeview-title {
+	color: var(--vscode-descriptionForeground);
+}
+
+.codeview-description {
+	color: var(--vscode-foreground);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-size: 12px;
+}
+
+.codeview-content {
+	display: none;
+	width: 100%;
+	background: var(--vscode-editor-background);
+	transition: max-height 0.2s;
+}
+
+.codeview-editor-container {
+	width: 100%;
+	position: relative;
+	overflow: hidden;
+}
+
+.codeview-wrapper.collapsed .codeview-editor-container {
+	mask-image: linear-gradient(to bottom, var(--vscode-editor-background) 80%, #0000 100%)
+}
+
+.codeview-expand {
+	display: block;
+	width: 100%;
+	margin: 8px 0 0 0;
+	background: none;
+	border: none;
+	color: #fff;
+	cursor: pointer;
+	font-size: 13px;
+	padding: 8px 0;
+	text-align: center;
+	transition: background 0.15s;
+}
+
+.codeview-expand:hover,
+.codeview-expand:focus {
+	background: rgba(255, 255, 255, 0.08);
+}

@@ -44,6 +44,7 @@ import { PRNotificationDecorationProvider } from './view/prNotificationDecoratio
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager, ShowPullRequest } from './view/reviewManager';
 import { ReviewsManager } from './view/reviewsManager';
+import { registerPadawanCommands } from './view/sessionLogView/sessionViewer';
 import { TreeDecorationProviders } from './view/treeDecorationProviders';
 import { WebviewViewCoordinator } from './view/webviewViewCoordinator';
 
@@ -245,6 +246,8 @@ async function init(
 	context.subscriptions.push(notificationsFeatures);
 
 	context.subscriptions.push(new GitLensIntegration());
+
+	context.subscriptions.push(registerPadawanCommands(credentialStore, context));
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 
