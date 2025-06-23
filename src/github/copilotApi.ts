@@ -4,6 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import fetch from 'cross-fetch';
+import JSZip from 'jszip';
+import { OctokitCommon } from './common';
+import { LoggingOctokit } from './loggingOctokit';
+import { PullRequestModel } from './pullRequestModel';
 
 export interface RemoteAgentJobPayload {
 	problem_statement: string;
@@ -24,7 +28,7 @@ export interface RemoteAgentJobResponse {
 }
 
 export class CopilotApi {
-	constructor(private token: string) { }
+	constructor(private octokit: LoggingOctokit, private token: string) { }
 
 	private get baseUrl(): string {
 		return 'https://api.githubcopilot.com';
@@ -69,5 +73,74 @@ export class CopilotApi {
 		if (typeof data.pull_request.number !== 'number') {
 			throw new Error('Invalid pull_request.number in response');
 		}
+	}
+
+	public async getWorkflowRunsFromAction(pullRequest: PullRequestModel): Promise<OctokitCommon.ListWorkflowRunsForRepo> {
+		const runs = await this.octokit.api.actions.listWorkflowRunsForRepo(
+			{
+				owner: pullRequest.githubRepository.remote.owner,
+				repo: pullRequest.githubRepository.remote.repositoryName,
+				event: 'dynamic'
+			}
+		);
+		if (runs.status !== 200) {
+			throw new Error(`Failed to fetch workflow runs: ${runs.status}`);
+		}
+		return runs.data.workflow_runs;
+	}
+
+	public async getLogsFromZipUrl(logsUrl: string): Promise<string[]> {
+		const logsZip = await fetch(logsUrl, {
+			headers: {
+				Authorization: `Bearer ${this.token}`,
+				Accept: 'application/json',
+			},
+		});
+		if (!logsZip.ok) {
+			throw new Error(`Failed to fetch logs zip: ${logsZip.statusText}`);
+		}
+		const logsText = await logsZip.arrayBuffer();
+		const copilotSteps: string[] = [];
+		const zip = await JSZip.loadAsync(logsText);
+		for (const fileName of Object.keys(zip.files)) {
+			const file = zip.files[fileName];
+			if (!file.dir && fileName.endsWith('Processing Request.txt')) {
+				const content = await file.async('string');
+				copilotSteps.push(...content.split('\n'));
+			}
+		}
+		return copilotSteps;
+	}
+
+	public async getAllSessions(pullRequest: PullRequestModel): Promise<{
+		id: string;
+		state: string;
+		last_updated_at: string;
+	}[]> {
+		const response = await fetch(`https://api.githubcopilot.com/agents/sessions/resource/pull/${pullRequest.id}`, {
+			headers: {
+				Authorization: `Bearer ${this.token}`,
+				Accept: 'application/json',
+			},
+		});
+		if (!response.ok) {
+			throw new Error(`Failed to fetch sessions: ${response.statusText}`);
+		}
+		const sessions = await response.json();
+		return sessions.sessions;
+	}
+
+	public async getLogsFromSession(sessionId: string): Promise<string> {
+		const logsResponse = await fetch(`https://api.githubcopilot.com/agents/sessions/${sessionId}/logs`, {
+			method: 'GET',
+			headers: {
+				'Authorization': `Bearer ${this.token}`,
+				'Content-Type': 'application/json',
+			},
+		});
+		if (!logsResponse.ok) {
+			throw new Error(`Failed to fetch logs: ${logsResponse.statusText}`);
+		}
+		return await logsResponse.text();
 	}
 }

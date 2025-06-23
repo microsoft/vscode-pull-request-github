@@ -5,6 +5,9 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { COPILOT_LOGINS } from '../../common/copilot';
+import Logger from '../../common/logger';
+import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { PullRequestModel } from '../../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../../github/pullRequestOverview';
 import { RepositoriesManager } from '../../github/repositoriesManager';
@@ -12,25 +15,111 @@ import { FetchIssueResult } from './fetchIssueTool';
 
 export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssueResult> {
 	public static readonly toolId = 'github-pull-request_activePullRequest';
-	constructor(private readonly folderManagers: RepositoriesManager) { }
+	constructor(
+		private readonly folderManagers: RepositoriesManager,
+		private readonly copilotRemoteAgentManager: CopilotRemoteAgentManager
+	) { }
 
 	private _findActivePullRequest(): PullRequestModel | undefined {
 		const folderManager = this.folderManagers.folderManagers.find((manager) => manager.activePullRequest);
 		return folderManager?.activePullRequest ?? PullRequestOverviewPanel.currentPanel?.getCurrentItem();
 	}
 
+	private shouldIncludeCodingAgentSession(pullRequest?: PullRequestModel): boolean {
+		return !!pullRequest && this.copilotRemoteAgentManager.enabled() && COPILOT_LOGINS.includes(pullRequest.author.login);
+	}
+
+
 	async prepareInvocation(): Promise<vscode.PreparedToolInvocation> {
 		const pullRequest = this._findActivePullRequest();
+		let confirmationMessages: vscode.LanguageModelToolConfirmationMessages | undefined;
+		if (this.shouldIncludeCodingAgentSession(pullRequest)) {
+			confirmationMessages = {
+				title: vscode.l10n.t('Fetching coding agent session logs for pull request "{0}"', pullRequest?.title || ''),
+				message: vscode.l10n.t('This will fetch the coding agent session logs for the active pull request. The logs will be summarized and provided as context for the current conversation.'),
+			};
+		}
 		return {
+			confirmationMessages,
 			invocationMessage: pullRequest ? vscode.l10n.t('Pull request "{0}"', pullRequest.title) : vscode.l10n.t('Active pull request'),
 		};
 	}
 
-	async invoke(_options: vscode.LanguageModelToolInvocationOptions<any>, _token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
+	private parseCopilotEventStream(logsResponseText: string): string[] {
+		const result: string[] = [];
+		logsResponseText
+			.split('\n')
+			.filter(line => line.startsWith('data:'))
+			.forEach(line => {
+				try {
+					const obj = JSON.parse(line.replace(/^data:\s*/, ''));
+					if (Array.isArray(obj.choices)) {
+						for (const choice of obj.choices) {
+							const delta = choice.delta || {};
+							if (typeof delta.content === 'string' && !!delta.role) {
+								result.push(delta.content);
+							}
+						}
+					}
+				} catch { /* ignore parse errors */ }
+			});
+
+		return result;
+	}
+
+	async fallbackSessionLogs(
+		pullRequest: PullRequestModel,
+		model: vscode.LanguageModelChat,
+		cancellationToken: vscode.CancellationToken
+	) {
+		const logs = await this.copilotRemoteAgentManager.getSessionLogsFromAction(pullRequest);
+		// Summarize the Copilot agent's thinking process using the model
+		const messages = [
+			vscode.LanguageModelChatMessage.Assistant('You are an expert summarizer. The following logs show the thinking process and performed actions of a GitHub Copilot agent that was in charge of working on the current pull request. Read the logs and always maintain the thinking process. You can remove information on the tool call results that you think are not necessary for building context.'),
+			vscode.LanguageModelChatMessage.User(`Copilot Agent Logs (JSON):\n${JSON.stringify(logs)}`)
+		];
+
+		let summaryText: string | undefined;
+		try {
+			const response = await model.sendRequest(messages, { justification: 'Summarizing Copilot agent logs for the active pull request.' }, cancellationToken);
+			summaryText = await (typeof response.text === 'string' ? response.text : (typeof response.text?.[Symbol.asyncIterator] === 'function' ? (async () => { let out = ''; for await (const chunk of response.text) { out += chunk; } return out; })() : ''));
+		} catch (e) {
+			summaryText = '';
+		}
+
+		return summaryText;
+	}
+
+	async fetchCodingAgentSession(
+		pullRequest: PullRequestModel,
+		model: vscode.LanguageModelChat,
+		token: vscode.CancellationToken
+	): Promise<string | string[]> {
+		let copilotSteps: string | string[] = [];
+		try {
+			const logsResponseText = await this.copilotRemoteAgentManager.getSessionLogsFromAPI(pullRequest);
+			copilotSteps = this.parseCopilotEventStream(logsResponseText);
+			if (copilotSteps.length === 0) {
+				throw new Error('Empty Copilot agent logs received');
+			}
+		} catch (e) {
+			Logger.debug(`Failed to fetch Copilot agent logs from API: ${e}.`, ActivePullRequestTool.toolId);
+			copilotSteps = await this.fallbackSessionLogs(pullRequest, model, token);
+		}
+
+		return copilotSteps;
+	}
+
+	async invoke(options: vscode.LanguageModelToolInvocationOptions<any>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | undefined> {
 		let pullRequest = this._findActivePullRequest();
 
 		if (!pullRequest) {
 			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart('There is no active pull request')]);
+		}
+
+		let codingAgentSession: string | string[] = [];
+		if (this.shouldIncludeCodingAgentSession(pullRequest) && options.model) {
+			codingAgentSession = await this.fetchCodingAgentSession(pullRequest, options.model, token);
 		}
 
 		const status = await pullRequest.getStatusChecks();
@@ -63,6 +152,7 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 				areChangesRequested: (status[1]?.requestedChanges.length ?? 0) > 0,
 			},
 			isDraft: pullRequest.isDraft,
+			codingAgentSession,
 		};
 
 		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(pullRequestInfo))]);

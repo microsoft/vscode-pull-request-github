@@ -11,6 +11,7 @@ import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED }
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { CopilotApi, RemoteAgentJobPayload } from './copilotApi';
 import { CredentialStore } from './credentials';
+import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
 
 type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number; webviewUri: vscode.Uri; llmDetails: string };
@@ -50,10 +51,10 @@ export class CopilotRemoteAgentManager extends Disposable {
 	private async initializeCopilotApi(): Promise<CopilotApi | undefined> {
 		const gh = await this.credentialStore.getHubOrLogin(AuthProvider.github);
 		const { token } = await gh?.octokit.api.auth() as { token: string };
-		if (!token) {
+		if (!token || !gh?.octokit) {
 			return;
 		}
-		return new CopilotApi(token);
+		return new CopilotApi(gh.octokit, token);
 	}
 
 	enabled(): boolean {
@@ -220,5 +221,49 @@ export class CopilotRemoteAgentManager extends Disposable {
 			webviewUri,
 			llmDetails: hasChanges ? `The pending changes have been pushed to branch '${ref}'. ${prLlmString}` : prLlmString
 		};
+	}
+
+	async getSessionLogsFromAction(pullRequest: PullRequestModel) {
+		const capi = await this.copilotApi;
+		if (!capi) {
+			return [];
+		}
+		const runs = await capi.getWorkflowRunsFromAction(pullRequest);
+		const padawanRuns = runs
+			.filter(run => run.path && run.path.startsWith('dynamic/copilot-swe-agent'))
+			.filter(run => run.pull_requests?.some(pr => pr.id === pullRequest.id));
+
+		const lastRun = this.getLatestRun(padawanRuns);
+
+		if (!lastRun) {
+			return [];
+		}
+
+		return await capi.getLogsFromZipUrl(lastRun.logs_url);
+	}
+
+	async getSessionLogsFromAPI(pullRequest: PullRequestModel): Promise<string> {
+		const capi = await this.copilotApi;
+		if (!capi) {
+			return '';
+		}
+
+		const logs = await capi.getAllSessions(pullRequest);
+		const completedSessions = logs.filter(s => s.state === 'completed');
+		if (completedSessions.length === 0) {
+			return '';
+		}
+		const mostRecentSession = this.getLatestRun(completedSessions);
+		return await capi.getLogsFromSession(mostRecentSession.id);
+	}
+
+	private getLatestRun<T extends { last_updated_at?: string; updated_at?: string }>(runs: T[]): T {
+		return runs
+			.slice()
+			.sort((a, b) => {
+				const dateA = new Date(a.last_updated_at ?? a.updated_at ?? 0).getTime();
+				const dateB = new Date(b.last_updated_at ?? b.updated_at ?? 0).getTime();
+				return dateB - dateA;
+			})[0];
 	}
 }
