@@ -12,9 +12,10 @@ import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { ReviewEvent } from '../common/timelineEvent';
+import { ReviewEvent, SessionLinkInfo } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
+import { SessionLogViewManager } from '../view/sessionLogView';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
 	GithubItemStateEnum,
@@ -356,6 +357,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.reRequestReview(message);
 			case 'pr.revert':
 				return this.revert(message);
+			case 'pr.open-session-log':
+				return this.openSessionLog(message.args.link);
 		}
 	}
 
@@ -448,6 +451,14 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			return PullRequestModel.openDiffFromComment(this._folderRepositoryManager, this._item, comment);
 		} catch (e) {
 			Logger.error(`Open diff view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+		}
+	}
+
+	private async openSessionLog(_message: IRequestMessage<{ link: SessionLinkInfo }>): Promise<void> {
+		try {
+			SessionLogViewManager.instance?.openForPull(this._item);
+		} catch (e) {
+			Logger.error(`Open session log view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}
 	}
 

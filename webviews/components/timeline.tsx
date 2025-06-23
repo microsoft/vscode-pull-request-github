@@ -438,7 +438,8 @@ const ReopenedEventView = ({ event, isIssue }: { event: ReopenedEvent, isIssue: 
 };
 
 const CopilotStartedEventView = (event: CopilotStartedEvent) => {
-	const { createdAt, onBehalfOf, sessionUrl } = event;
+	const { createdAt, onBehalfOf, sessionLink } = event;
+	const { openSessionLog } = useContext(PullRequestContext);
 
 	return (
 		<div className="comment-container commit">
@@ -447,11 +448,11 @@ const CopilotStartedEventView = (event: CopilotStartedEvent) => {
 				{nbsp}
 				<div className="message">Copilot started work on behalf of <AuthorLink for={onBehalfOf} /></div>
 			</div>
-			{sessionUrl ? (
+			{sessionLink ? (
 				<div className="timeline-detail">
-					<a href={sessionUrl}><button className='secondary'>View session</button></a>
+					<a onClick={() => openSessionLog(sessionLink)}><button className='secondary'>View session</button></a>
 				</div>)
-			: null}
+				: null}
 			<Timestamp date={createdAt} />
 		</div>
 	);
@@ -473,6 +474,8 @@ const CopilotFinishedEventView = (event: CopilotFinishedEvent) => {
 
 const CopilotFinishedErrorEventView = (event: CopilotFinishedErrorEvent) => {
 	const { createdAt, onBehalfOf } = event;
+	const { openSessionLog } = useContext(PullRequestContext);
+
 	return (
 		<div className="comment-container commit">
 			<div className='timeline-with-detail'>
@@ -482,7 +485,7 @@ const CopilotFinishedErrorEventView = (event: CopilotFinishedErrorEvent) => {
 					<div className="message">Copilot stopped work on behalf of <AuthorLink for={onBehalfOf} /> due to an error</div>
 				</div>
 				<div className="commit-message-detail">
-					<a href={event.sessionUrl}>Copilot has encountered an error. See logs for additional details.</a>
+					<a onClick={() => openSessionLog(event.sessionLink)}>Copilot has encountered an error. See logs for additional details.</a>
 				</div>
 			</div>
 			<Timestamp date={createdAt} />
