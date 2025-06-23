@@ -197,10 +197,25 @@ export class CopilotRemoteAgentManager extends Disposable {
 					await repository.commit('Checkpoint for Copilot Agent async session', { signCommit: false });
 				}
 				await repository.push(remote, asyncBranch, true);
+				ref = asyncBranch;
 			} catch (e) {
 				return { error: vscode.l10n.t(`Could not auto-commit pending changes. Please disable GPG signing, or manually commit/stash your changes before starting the remote agent. Error: ${e.message}`), state: 'error' };
+			} finally {
+				// Swap back to the original branch without your pending changes
+				// TODO: Better if we show a confirmation dialog in chat
+				if (repository.state.HEAD?.name !== baseRef) {
+					// show notification asking the user if they want to switch back to the original branch
+					const SWAP_BACK_TO_ORIGINAL_BRANCH = vscode.l10n.t(`Swap back to '{0}'`, baseRef);
+					vscode.window.showInformationMessage(
+						vscode.l10n.t(`Your pending changes have been pushed to remote branch '{0}.`, ref),
+						SWAP_BACK_TO_ORIGINAL_BRANCH,
+					).then(async (selection) => {
+						if (selection === SWAP_BACK_TO_ORIGINAL_BRANCH) {
+							await repository.checkout(baseRef);
+						}
+					});
+				}
 			}
-			ref = `refs/heads/${asyncBranch}`;
 		}
 
 		const payload: RemoteAgentJobPayload = {
