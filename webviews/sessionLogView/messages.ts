@@ -9,4 +9,10 @@ export interface InitMessage {
 	type: 'init';
 	info: SessionInfo;
 	logs: string;
+	themeData: any;
+}
+
+export interface ChangeThemeMessage {
+	type: 'changeTheme';
+	themeData: any;
 }

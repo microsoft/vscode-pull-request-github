@@ -5,13 +5,13 @@
 
 import * as React from 'react';
 import { render } from 'react-dom';
+import { App } from './app';
+
 import '../common/common.css';
 import './index.css';
-import { App } from './app';
 
 function main() {
 	render(<App />, document.getElementById('app'));
 }
 
 main();
-

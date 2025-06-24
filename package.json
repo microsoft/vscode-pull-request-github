@@ -3986,6 +3986,7 @@
 	"dependencies": {
 		"@octokit/rest": "20.1.2",
 		"@octokit/types": "13.8.0",
+		"@shikijs/monaco": "^3.7.0",
 		"@vscode/extension-telemetry": "0.7.5",
 		"@vscode/prompt-tsx": "^0.3.0-alpha.12",
 		"apollo-boost": "^0.4.9",
@@ -4003,6 +4004,7 @@
 		"monaco-editor": "^0.52.2",
 		"react": "^16.12.0",
 		"react-dom": "^16.12.0",
+		"shiki": "^3.7.0",
 		"ssh-config": "4.1.1",
 		"stream-http": "^3.2.0",
 		"tunnel": "0.0.6",

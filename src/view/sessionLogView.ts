@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import type * as messages from '../../webviews/sessionLogView/messages';
 import { AuthProvider } from '../common/authentication';
 import { Disposable } from '../common/lifecycle';
-import { CopilotApi } from '../github/copilotApi';
+import { CopilotApi, SessionInfo } from '../github/copilotApi';
 import { CredentialStore } from '../github/credentials';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { hasEnterpriseUri } from '../github/utils';
@@ -92,7 +92,7 @@ export class SessionLogViewManager extends Disposable {
 			<meta charset="UTF-8">
 			<meta name="viewport" content="width=device-width, initial-scale=1.0">
 			<title>Session Log</title>
-			<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' ${webviewPanel.webview.cspSource}; script-src ${webviewPanel.webview.cspSource};">
+			<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' ${webviewPanel.webview.cspSource}; script-src ${webviewPanel.webview.cspSource} 'unsafe-eval';">
 		</head>
 		<body>
 			<div id="app"></div>
@@ -106,12 +106,87 @@ export class SessionLogViewManager extends Disposable {
 			copilotApi.getLogsFromSession(sessionId)
 		]);
 
-		webviewPanel.webview.postMessage({
-			type: 'init',
-			info,
-			logs,
-		} as messages.InitMessage);
+		new SessionLogView(info, logs, webviewPanel);
 	}
+}
+
+class SessionLogView extends Disposable {
+	constructor(
+		info: SessionInfo,
+		logs: string,
+		webviewPanel: vscode.WebviewPanel
+	) {
+		super();
+
+		loadCurrentThemeData().then(themeData => {
+			webviewPanel.webview.postMessage({
+				type: 'init',
+				info,
+				logs,
+				themeData,
+			} as messages.InitMessage);
+		});
+
+		this._register(webviewPanel.onDidDispose(() => {
+			this.dispose();
+		}));
+
+		this._register(vscode.workspace.onDidChangeConfiguration(async e => {
+			if (e.affectsConfiguration('workbench.colorTheme')) {
+				const themeData = await loadCurrentThemeData();
+				webviewPanel.webview.postMessage({
+					type: 'changeTheme',
+					themeData,
+				} as messages.ChangeThemeMessage);
+			}
+		}));
+	}
+}
+
+
+async function loadCurrentThemeData(): Promise<any> {
+	let themeData: any = null;
+	const currentThemeName = vscode.workspace.getConfiguration('workbench').get<string>('colorTheme');
+	if (currentThemeName) {
+		const path = getCurrentThemePath(currentThemeName);
+		if (path) {
+			themeData = await loadThemeFromFile(path);
+		}
+	}
+	return themeData;
+}
+
+async function loadThemeFromFile(path: vscode.Uri): Promise<any> {
+	const decoder = new TextDecoder();
+
+	let themeData = JSON.parse(decoder.decode(await vscode.workspace.fs.readFile(path)));
+
+	// Also load the include file if specified
+	if (themeData.include) {
+		try {
+			const includePath = vscode.Uri.joinPath(path, '..', themeData.include);
+			const includeData = await loadThemeFromFile(includePath);
+			themeData = {
+				...themeData,
+				colors: {
+					...(includeData.colors || {}),
+					...(themeData.colors || {}),
+				},
+				tokenColors: [
+					...(includeData.tokenColors || []),
+					...(themeData.tokenColors || []),
+				],
+				semanticTokenColors: {
+					...(includeData.semanticTokenColors || {}),
+					...(themeData.semanticTokenColors || {}),
+				},
+			};
+		} catch (error) {
+			console.warn(`Failed to load theme include file: ${error}`);
+		}
+	}
+
+	return themeData;
 }
 
 async function getCopilotApi(credentialStore: CredentialStore): Promise<CopilotApi | undefined> {
@@ -131,4 +206,17 @@ async function getCopilotApi(credentialStore: CredentialStore): Promise<CopilotA
 
 	const { token } = await github.octokit.api.auth() as { token: string };
 	return new CopilotApi(github.octokit, token);
+}
+
+function getCurrentThemePath(themeName: string): vscode.Uri | undefined {
+	for (const ext of vscode.extensions.all) {
+		const themes = ext.packageJSON.contributes && ext.packageJSON.contributes.themes;
+		if (!themes) {
+			continue;
+		}
+		const theme = themes.find(theme => theme.label === themeName || theme.id === themeName);
+		if (theme) {
+			return vscode.Uri.joinPath(ext.extensionUri, theme.path);
+		}
+	}
 }
