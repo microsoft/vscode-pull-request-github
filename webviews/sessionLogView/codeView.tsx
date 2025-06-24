@@ -32,7 +32,8 @@ export const CodeView: React.FC<CodeViewProps> = ({ label, description, content 
 				value: content.value,
 				language: content.lang || 'plaintext',
 				readOnly: true,
-				theme: 'vs-dark',
+				theme: 'vscode-theme',
+				bracketPairColorization: { enabled: false },
 				minimap: { enabled: false },
 				scrollbar: {
 					vertical: 'hidden',

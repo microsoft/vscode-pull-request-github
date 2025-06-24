@@ -32,7 +32,7 @@
 	justify-content: left;
 
 	padding: 6px 12px;
-	background: #232323;
+	background: var(--vscode-editorWidget-background);
 	color: #fff;
 	font-size: 13px;
 	gap: 8px;
@@ -42,7 +42,7 @@
 	margin-left: 8px;
 	background: none;
 	border: none;
-	color: #fff;
+	color: var(--vscode-descriptionForeground);
 	cursor: pointer;
 	font-size: 13px;
 	padding: 2px 8px;
