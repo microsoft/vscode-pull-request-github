@@ -329,7 +329,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 	/**
 	 * TODO: @alexr00 we should delete this https://github.com/microsoft/vscode-pull-request-github/issues/6965
 	 */
-	async getRestOnlyTimelineEvents(): Promise<TimelineEvent[]> {
+	async getCopilotTimelineEvents(): Promise<TimelineEvent[]> {
 		if (!COPILOT_ACCOUNTS[this.author.login]) {
 			return [];
 		}
@@ -372,7 +372,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 				return [];
 			}
 			const ret = data.repository.pullRequest.timelineItems.nodes;
-			const events = await parseCombinedTimelineEvents(ret, await this.getRestOnlyTimelineEvents(), githubRepository);
+			const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(), githubRepository);
 
 			return events;
 		} catch (e) {

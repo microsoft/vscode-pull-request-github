@@ -31,6 +31,7 @@ import { DataUri } from '../../common/uri';
 import { IAccount, ITeam } from '../../github/interface';
 import { asPromise } from '../../common/utils';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
+import { CopilotStateModel } from '../../github/copilotPrWatcher';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -40,7 +41,7 @@ describe('GitHub Pull Requests view', function () {
 	let credentialStore: CredentialStore;
 	let reposManager: RepositoriesManager;
 	let createPrHelper: CreatePullRequestHelper;
-
+	let copilotStateModel: CopilotStateModel;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -53,7 +54,8 @@ describe('GitHub Pull Requests view', function () {
 			credentialStore,
 			telemetry,
 		);
-		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager);
+		copilotStateModel = new CopilotStateModel();
+		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotStateModel);
 		credentialStore = new CredentialStore(telemetry, context);
 		createPrHelper = new CreatePullRequestHelper();
 
@@ -124,7 +126,7 @@ describe('GitHub Pull Requests view', function () {
 		assert(treeItems[treeItems.length - 1].collapsibleState === vscode.TreeItemCollapsibleState.Expanded);
 		assert.deepStrictEqual(
 			treeItems.map(n => n.label),
-			['Local Pull Request Branches', 'Waiting For My Review', 'Created By Me', 'All Open'],
+			['Copilot on My Behalf', 'Local Pull Request Branches', 'Waiting For My Review', 'Created By Me', 'All Open'],
 		);
 	});
 
