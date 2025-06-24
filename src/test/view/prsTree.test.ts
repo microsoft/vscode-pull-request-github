@@ -101,7 +101,7 @@ describe('GitHub Pull Requests view', function () {
 	it('has no children when repositories have not yet been initialized', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
-		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore, createPrHelper));
+		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper));
 		provider.initialize([], credentialStore);
 
 		const rootNodes = await provider.getChildren();
@@ -111,7 +111,7 @@ describe('GitHub Pull Requests view', function () {
 	it('opens the viewlet and displays the default categories', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
-		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore, createPrHelper));
+		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper));
 		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 		await reposManager.folderManagers[0].updateRepositories();
 		provider.initialize([], credentialStore);
@@ -181,7 +181,7 @@ describe('GitHub Pull Requests view', function () {
 
 			await repository.createBranch('non-pr-branch', false);
 
-			const manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore, createPrHelper);
+			const manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper);
 			reposManager.insertFolderManager(manager);
 			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
 				assert.deepStrictEqual(r, remote);

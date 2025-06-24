@@ -78,7 +78,7 @@ describe('ReviewCommentController', function () {
 		const activePrViewCoordinator = new WebviewViewCoordinator(context);
 		const createPrHelper = new CreatePullRequestHelper();
 		Resource.initialize(context);
-		gitApiImpl = new GitApiImpl();
+		gitApiImpl = new GitApiImpl(reposManager);
 		manager = new FolderRepositoryManager(0, context, repository, telemetry, gitApiImpl, credentialStore, createPrHelper);
 		reposManager.insertFolderManager(manager);
 		const tree = new PullRequestChangesTreeDataProvider(gitApiImpl, reposManager);
