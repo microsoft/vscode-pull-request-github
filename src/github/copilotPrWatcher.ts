@@ -116,6 +116,7 @@ export class CopilotPRWatcher extends Disposable {
 				this._pollForChanges();
 			}
 		}));
+		this._register({ dispose: () => this._timeout && clearTimeout(this._timeout) });
 	}
 
 	private _queriesIncludeCopilot(): string | undefined {
@@ -123,6 +124,7 @@ export class CopilotPRWatcher extends Disposable {
 		return queries.find(query => isCopilotQuery(query.query))?.query;
 	}
 
+	private _timeout: NodeJS.Timeout | undefined;
 	private async _pollForChanges(): Promise<void> {
 		const query = this._queriesIncludeCopilot();
 		if (!query) {
@@ -131,10 +133,9 @@ export class CopilotPRWatcher extends Disposable {
 
 		await this._getStateChanges(query);
 
-		const timeout = setTimeout(() => {
+		this._timeout = setTimeout(() => {
 			this._pollForChanges();
 		}, 60 * 1000); // Poll every minute
-		this._register({ dispose: () => clearTimeout(timeout) });
 	}
 
 	private _currentUser: string | undefined;
