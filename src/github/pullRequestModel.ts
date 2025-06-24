@@ -1195,7 +1195,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 
 		const ret = data?.repository?.pullRequest.timelineItems.nodes ?? [];
-		const events = await parseCombinedTimelineEvents(ret, await this.getRestOnlyTimelineEvents(), this.githubRepository);
+		const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(), this.githubRepository);
 
 		this.addReviewTimelineEventComments(events, reviewThreads);
 		insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, this.head);

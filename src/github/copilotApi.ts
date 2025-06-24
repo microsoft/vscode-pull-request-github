@@ -112,22 +112,37 @@ export class CopilotApi {
 		return copilotSteps;
 	}
 
-	public async getAllSessions(pullRequest: PullRequestModel): Promise<{
-		id: string;
-		state: string;
-		last_updated_at: string;
-	}[]> {
-		const response = await fetch(`https://api.githubcopilot.com/agents/sessions/resource/pull/${pullRequest.id}`, {
-			headers: {
-				Authorization: `Bearer ${this.token}`,
-				Accept: 'application/json',
-			},
-		});
+	public async getAllSessions(pullRequest: PullRequestModel | undefined): Promise<SessionInfo[]> {
+		const response = await fetch(
+			pullRequest
+				? `https://api.githubcopilot.com/agents/sessions/resource/pull/${pullRequest.id}`
+				: 'https://api.githubcopilot.com/agents/sessions',
+			{
+				headers: {
+					Authorization: `Bearer ${this.token}`,
+					Accept: 'application/json',
+				},
+			});
 		if (!response.ok) {
 			throw new Error(`Failed to fetch sessions: ${response.statusText}`);
 		}
 		const sessions = await response.json();
 		return sessions.sessions;
+	}
+
+	public async getSessionInfo(sessionId: string): Promise<SessionInfo> {
+		const response = await fetch(`https://api.githubcopilot.com/agents/sessions/${sessionId}`, {
+			method: 'GET',
+			headers: {
+				Authorization: `Bearer ${this.token}`,
+				'Accept': 'application/json'
+			}
+		});
+		if (!response.ok) {
+			throw new Error(`Failed to fetch session: ${response.statusText}`);
+		}
+
+		return (await response.json()) as SessionInfo;
 	}
 
 	public async getLogsFromSession(sessionId: string): Promise<string> {
@@ -143,4 +158,26 @@ export class CopilotApi {
 		}
 		return await logsResponse.text();
 	}
+}
+
+
+export interface SessionInfo {
+	id: string;
+	name: string;
+	user_id: number;
+	agent_id: number;
+	logs: string;
+	logs_blob_id: string;
+	state: string;
+	owner_id: number;
+	repo_id: number;
+	resource_type: string;
+	resource_id: number;
+	last_updated_at: string;
+	created_at: string;
+	completed_at: string;
+	event_type: string;
+	workflow_run_id: number;
+	premium_requests: number;
+	error: string | null;
 }

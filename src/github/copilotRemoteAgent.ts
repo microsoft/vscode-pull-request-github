@@ -10,6 +10,7 @@ import { Disposable } from '../common/lifecycle';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { CopilotApi, RemoteAgentJobPayload } from './copilotApi';
+import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { CredentialStore } from './credentials';
 import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
@@ -26,7 +27,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	public readonly onDidChangeEnabled: vscode.Event<boolean> = this._onDidChangeEnabled.event;
 	public static ID = 'CopilotRemoteAgentManager';
 
-	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager) {
+	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, stateModel: CopilotStateModel) {
 		super();
 		this._register(this.credentialStore.onDidChangeSessions((e: vscode.AuthenticationSessionsChangeEvent) => {
 			if (e.provider.id === 'github') {
@@ -38,6 +39,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 				this._onDidChangeEnabled.fire(this.enabled());
 			}
 		}));
+		this._register(new CopilotPRWatcher(this.repositoriesManager, stateModel));
+
 	}
 
 	private _copilotApiPromise: Promise<CopilotApi | undefined> | undefined;
