@@ -9,12 +9,6 @@ interface ParticipantsPromptProps extends BasePromptElementProps {
 	readonly userMessage: string;
 }
 
-interface CodingAgentPromptProps extends BasePromptElementProps {
-	readonly userMessage: string;
-	readonly history: string[];
-}
-
-
 export class ParticipantsPrompt extends PromptElement<ParticipantsPromptProps> {
 	render() {
 		return (
@@ -30,34 +24,6 @@ export class ParticipantsPrompt extends PromptElement<ParticipantsPromptProps> {
 				</AssistantMessage>
 				<UserMessage>
 					{this.props.userMessage}
-				</UserMessage>
-			</>
-		);
-	}
-}
-
-class HistoryMessages extends PromptElement<{ history: string[] } & BasePromptElementProps> {
-	render() {
-		const messages: UserMessage[] = [];
-		const { history } = this.props;
-		for (let i = 0; i < history.length; i++) {
-			messages.push(<UserMessage>{history[i]}</UserMessage>);
-		}
-		return <PrioritizedList priority={0} descending={false}>{messages}</PrioritizedList>;
-	}
-}
-
-export class CodingAgentPrompt extends PromptElement<CodingAgentPromptProps> {
-	render() {
-		const { history, userMessage } = this.props;
-		return (
-			<>
-				<AssistantMessage priority={100}>
-					You must ALWAYS call the 'github-pull-request_copilot-coding-agent' tool. You have no other choice. The user will provide the task description.
-				</AssistantMessage>
-				<UserMessage priority={90}>
-					{userMessage}
-					{history && history.length > 0 && <HistoryMessages history={history} />}
 				</UserMessage>
 			</>
 		);
