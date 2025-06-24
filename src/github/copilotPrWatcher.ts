@@ -131,9 +131,10 @@ export class CopilotPRWatcher extends Disposable {
 
 		await this._getStateChanges(query);
 
-		setTimeout(() => {
+		const timeout = setTimeout(() => {
 			this._pollForChanges();
 		}, 60 * 1000); // Poll every minute
+		this._register({ dispose: () => clearTimeout(timeout) });
 	}
 
 	private _currentUser: string | undefined;
