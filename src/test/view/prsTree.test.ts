@@ -126,7 +126,7 @@ describe('GitHub Pull Requests view', function () {
 		assert(treeItems[treeItems.length - 1].collapsibleState === vscode.TreeItemCollapsibleState.Expanded);
 		assert.deepStrictEqual(
 			treeItems.map(n => n.label),
-			['Local Pull Request Branches', 'Waiting For My Review', 'Created By Me', 'All Open'],
+			['Copilot on My Behalf', 'Local Pull Request Branches', 'Waiting For My Review', 'Created By Me', 'All Open'],
 		);
 	});
 
