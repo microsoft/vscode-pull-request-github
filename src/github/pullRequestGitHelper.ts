@@ -182,17 +182,17 @@ export class PullRequestGitHelper {
 			try {
 				const branchName = pullRequest.head.ref;
 				Logger.debug(`No PR metadata found, trying to checkout local branch ${branchName}`, PullRequestGitHelper.ID);
-				
+
 				// Check if a local branch with this name exists
 				await repository.getBranch(branchName);
-				
+
 				// If we get here, the branch exists - checkout and associate with PR
 				progress.report({ message: vscode.l10n.t('Checking out branch {0}', branchName) });
 				await repository.checkout(branchName);
-				
+
 				// Associate the branch with the pull request for future reference
 				await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest, branchName);
-				
+
 				return true;
 			} catch (err) {
 				// No matching local branch found
