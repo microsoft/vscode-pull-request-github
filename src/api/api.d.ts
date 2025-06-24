@@ -265,6 +265,8 @@ export interface RepositoryDescription {
 	pullRequest?: {
 		title: string;
 		url: string;
+		number: number;
+		id: number;
 	};
 }
 

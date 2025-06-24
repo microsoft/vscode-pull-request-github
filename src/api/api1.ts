@@ -257,6 +257,8 @@ export class GitApiImpl extends Disposable implements API, IGit {
 					pullRequest: pullRequest ? {
 						title: pullRequest.title,
 						url: pullRequest.html_url,
+						number: pullRequest.number,
+						id: pullRequest.id
 					} : undefined
 				};
 			}

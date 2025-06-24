@@ -408,7 +408,6 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	const showBadge = (vscode.env.appHost === 'desktop');
 	await credentialStore.create(showBadge ? undefined : { silent: true });
 
-	Logger.debug('Creating tree view.', 'Activation');
 	const reposManager = new RepositoriesManager(credentialStore, telemetry);
 	context.subscriptions.push(reposManager);
 	// API
