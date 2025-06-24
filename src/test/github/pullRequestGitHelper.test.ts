@@ -96,4 +96,66 @@ describe('PullRequestGitHelper', function () {
 			assert.strictEqual(await repository.getConfig('branch.pr/me/100.github-pr-owner-number'), 'owner#name#100');
 		});
 	});
+
+	describe('checkoutExistingPullRequestBranch', function () {
+		it('should checkout a local branch that matches PR head ref even without PR metadata', async function () {
+			const url = 'git@github.com:owner/name.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+
+			const prItem = convertRESTPullRequestToRawPullRequest(
+				new PullRequestBuilder()
+					.number(100)
+					.user(u => u.login('me'))
+					.base(b => {
+						(b.repo)(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
+					})
+					.head(h => {
+						h.repo(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
+						h.ref('feature-branch');
+					})
+					.build(),
+				gitHubRepository,
+			);
+
+			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+
+			// Create a local branch with the same name as the PR head ref, but without PR metadata
+			await repository.createBranch('feature-branch', false, 'abc123');
+
+			const result = await PullRequestGitHelper.checkoutExistingPullRequestBranch(repository, pullRequest, { report: () => undefined });
+
+			// Should successfully checkout the local branch even without PR metadata
+			assert.strictEqual(result, true);
+			assert.strictEqual(repository.state.HEAD?.name, 'feature-branch');
+		});
+
+		it('should return false when no matching local branch exists', async function () {
+			const url = 'git@github.com:owner/name.git';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+
+			const prItem = convertRESTPullRequestToRawPullRequest(
+				new PullRequestBuilder()
+					.number(100)
+					.user(u => u.login('me'))
+					.base(b => {
+						(b.repo)(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
+					})
+					.head(h => {
+						h.repo(r => (<RepositoryBuilder>r).clone_url('git@github.com:owner/name.git'));
+						h.ref('nonexistent-branch');
+					})
+					.build(),
+				gitHubRepository,
+			);
+
+			const pullRequest = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
+
+			const result = await PullRequestGitHelper.checkoutExistingPullRequestBranch(repository, pullRequest, { report: () => undefined });
+
+			// Should return false when no matching branch exists
+			assert.strictEqual(result, false);
+		});
+	});
 });
