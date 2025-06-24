@@ -69,14 +69,7 @@
 				"name": "githubpr",
 				"fullName": "GitHub Pull Requests",
 				"description": "Chat participant for GitHub Pull Requests extension",
-				"when": "config.githubPullRequests.experimental.chat",
-				"commands": [
-					{
-						"name": "codingAgent",
-						"description": "Provide a task for the Copilot Coding Agent to complete asynchronously",
-						"when": "config.githubPullRequests.codingAgent.enabled"
-					}
-				]
+				"when": "config.githubPullRequests.experimental.chat"
 			}
 		],
 		"configuration": {
