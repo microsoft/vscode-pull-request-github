@@ -44,6 +44,7 @@ import { PRNotificationDecorationProvider } from './view/prNotificationDecoratio
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewManager, ShowPullRequest } from './view/reviewManager';
 import { ReviewsManager } from './view/reviewsManager';
+import { SessionLogViewManager } from './view/sessionLogView';
 import { TreeDecorationProviders } from './view/treeDecorationProviders';
 import { WebviewViewCoordinator } from './view/webviewViewCoordinator';
 
@@ -245,6 +246,9 @@ async function init(
 	context.subscriptions.push(notificationsFeatures);
 
 	context.subscriptions.push(new GitLensIntegration());
+
+	const sessionLogViewManager = new SessionLogViewManager(credentialStore, context);
+	context.subscriptions.push(sessionLogViewManager);
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
 
