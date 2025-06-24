@@ -228,21 +228,13 @@ export class GitApiImpl extends Disposable implements API, IGit {
 		return this._reviewerCommentsProviders.size > 0 ? this._reviewerCommentsProviders.values().next().value : undefined;
 	}
 
-	async getRepositoryDescription() {
-		let repo: Repository | undefined;
-		const allRepos = this.repositories;
-		if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
-			for (const folder of vscode.workspace.workspaceFolders) {
-				repo = allRepos.find(r => r.rootUri.fsPath === folder.uri.fsPath);
-				if (repo) {
-					break;
-				}
-			}
-		}
+	async getRepositoryDescription(uri: vscode.Uri) {
+		const repo = this.getGitProvider(uri)?.repositories.find(r => r.rootUri.fsPath === uri.fsPath);
 		if (!repo) {
-			return;
+			Logger.appendLine(`No repository found for uri: ${uri.fsPath}`, GitApiImpl.ID);
+			return undefined;
 		}
-		const folderManagerForRepo = this.repositoriesManager.folderManagers.find((manager) => manager.gitHubRepositories.some(r => r.rootUri.fsPath === repo!.rootUri.fsPath));
+		const folderManagerForRepo = this.repositoriesManager.folderManagers.find((manager) => manager.gitHubRepositories.some(r => r.rootUri.fsPath === repo?.rootUri.fsPath));
 		const folderManagerForPR = this.repositoriesManager.folderManagers.find((manager) => manager.activePullRequest);
 
 		if (folderManagerForRepo && folderManagerForRepo.gitHubRepositories.length > 0) {
@@ -253,7 +245,7 @@ export class GitApiImpl extends Disposable implements API, IGit {
 					owner: repositoryMetadata.owner.login,
 					repositoryName: repositoryMetadata.name,
 					defaultBranch: repositoryMetadata.default_branch,
-					currentBranch: repo.state.HEAD?.name,
+					currentBranch: repo?.state.HEAD?.name,
 					pullRequest: pullRequest ? {
 						title: pullRequest.title,
 						url: pullRequest.html_url,

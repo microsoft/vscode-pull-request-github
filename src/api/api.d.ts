@@ -295,11 +295,11 @@ export interface API {
 	registerReviewerCommentsProvider(title: string, provider: ReviewerCommentsProvider): Disposable;
 
 	/**
-	 * Get the repository description for the current workspace.
+	 * Get the repository description for a given URI.
 	 * This includes the owner, repository name, default branch, current branch (if applicable),
 	 * and pull request information (if applicable).
 	 *
 	 * @returns A promise that resolves to a `RepositoryDescription` object or `undefined` if no repository is found.
 	 */
-	getRepositoryDescription(): Promise<RepositoryDescription | undefined>;
+	getRepositoryDescription(uri: vscode.Uri): Promise<RepositoryDescription | undefined>;
 }
