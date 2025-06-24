@@ -45,6 +45,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	private _initialized: boolean = false;
 	public notificationProvider: NotificationProvider;
 	public readonly prsTreeModel: PrsTreeModel;
+	private _notificationClearTimeout: NodeJS.Timeout | undefined;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
@@ -72,12 +73,25 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._register(this._view.onDidChangeVisibility(e => {
 			if (e.visible) {
 				// Clear notifications with a delay of 5 seconds
-				setTimeout(() => {
+				if (this._notificationClearTimeout) {
+					clearTimeout(this._notificationClearTimeout);
+				}
+				this._notificationClearTimeout = setTimeout(() => {
 					_copilotStateModel.clearNotifications();
 					this._view.badge = undefined;
+					this._notificationClearTimeout = undefined;
 				}, 5000);
 			}
 		}));
+
+		this._register({
+			dispose: () => {
+				if (this._notificationClearTimeout) {
+					clearTimeout(this._notificationClearTimeout);
+					this._notificationClearTimeout = undefined;
+				}
+			}
+		});
 
 		this._register(_copilotStateModel.onDidChangeStates(() => {
 			if (_copilotStateModel.notifications.size > 0) {
