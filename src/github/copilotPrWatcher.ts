@@ -41,8 +41,10 @@ export class CopilotStateModel extends Disposable {
 	private _isInitialized = false;
 	private readonly _states: Map<string, CopilotPRStatus> = new Map();
 	private readonly _showNotification: Set<string> = new Set();
-	private readonly _onDidChange = this._register(new vscode.EventEmitter<void>());
-	readonly onDidChange = this._onDidChange.event;
+	private readonly _onDidChangeStates = this._register(new vscode.EventEmitter<void>());
+	readonly onDidChangeStates = this._onDidChangeStates.event;
+	private readonly _onDidChangeNotifications = this._register(new vscode.EventEmitter<void>());
+	readonly onDidChangeNotifications = this._onDidChangeNotifications.event;
 
 	makeKey(owner: string, repo: string, prNumber: number): string {
 		return `${owner}/${repo}#${prNumber}`;
@@ -57,8 +59,9 @@ export class CopilotStateModel extends Disposable {
 			this._states.delete(key);
 			if (this._showNotification.has(key)) {
 				this._showNotification.delete(key);
+				this._onDidChangeNotifications.fire();
 			}
-			this._onDidChange.fire();
+			this._onDidChangeStates.fire();
 		}
 	}
 
@@ -71,8 +74,9 @@ export class CopilotStateModel extends Disposable {
 		this._states.set(key, status);
 		if (this._isInitialized) {
 			this._showNotification.add(key);
+			this._onDidChangeNotifications.fire();
 		}
-		this._onDidChange.fire();
+		this._onDidChangeStates.fire();
 	}
 
 	get(owner: string, repo: string, prNumber: number): CopilotPRStatus {
@@ -86,6 +90,7 @@ export class CopilotStateModel extends Disposable {
 
 	clearNotifications(): void {
 		this._showNotification.clear();
+		this._onDidChangeNotifications.fire();
 	}
 
 	get notifications(): ReadonlySet<string> {
