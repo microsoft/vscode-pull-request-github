@@ -194,6 +194,10 @@
 					"markdownDescription": "%githubPullRequests.queries.markdownDescription%",
 					"default": [
 						{
+							"label": "%githubPullRequests.queries.copilotOnMyBehalf%",
+							"query": "repo:${owner}/${repository} is:open author:copilot involves:${user}"
+						},
+						{
 							"label": "Local Pull Request Branches",
 							"query": "default"
 						},

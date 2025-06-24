@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { AuthenticationError } from '../../common/authentication';
 import { ITelemetry } from '../../common/telemetry';
 import { formatError } from '../../common/utils';
+import { CopilotStateModel, isCopilotQuery } from '../../github/copilotPrWatcher';
 import { FolderRepositoryManager, ItemsResponseResult } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
 import { NotificationProvider } from '../../github/notifications';
@@ -126,6 +127,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public fetchNextPage: boolean = false;
 	public repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 	public contextValue: string;
+	public iconPath: vscode.ThemeIcon | undefined;
 
 	constructor(
 		parent: TreeNodeParent,
@@ -134,6 +136,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		public readonly type: PRType,
 		private _notificationProvider: NotificationProvider,
 		private _prsTreeModel: PrsTreeModel,
+		private _copilotStateModel: CopilotStateModel,
 		_categoryLabel?: string,
 		private _categoryQuery?: string,
 	) {
@@ -141,11 +144,18 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		this.prs = new Map();
 
+		const hasCopilotChanges = _categoryQuery && isCopilotQuery(_categoryQuery) && this._copilotStateModel.notifications.size > 0;
+
 		switch (this.type) {
 			case PRType.All:
 				this.label = vscode.l10n.t('All Open');
 				break;
 			case PRType.Query:
+				if (hasCopilotChanges) {
+					this.iconPath = new vscode.ThemeIcon('copilot');
+				} else {
+					this.iconPath = undefined;
+				}
 				this.label = _categoryLabel!;
 				break;
 			case PRType.LocalPullRequest:
@@ -158,7 +168,9 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		this.id = parent instanceof TreeNode ? `${parent.id ?? parent.label}/${this.label}` : this.label;
 
-		if ((this._prsTreeModel.expandedQueries.size === 0) && (this.type === PRType.All)) {
+		if (hasCopilotChanges) {
+			this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+		} else if ((this._prsTreeModel.expandedQueries.size === 0) && (this.type === PRType.All)) {
 			this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 		} else {
 			this.collapsibleState =

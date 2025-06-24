@@ -21,6 +21,7 @@ import { TemporaryState } from './common/temporaryState';
 import { Schemes } from './common/uri';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
+import { CopilotStateModel } from './github/copilotPrWatcher';
 import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
@@ -62,7 +63,8 @@ async function init(
 	liveshareApiPromise: Promise<LiveShare | undefined>,
 	showPRController: ShowPullRequest,
 	reposManager: RepositoriesManager,
-	createPrHelper: CreatePullRequestHelper
+	createPrHelper: CreatePullRequestHelper,
+	copilotStateModel: CopilotStateModel
 ): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.', ACTIVATION);
@@ -162,7 +164,7 @@ async function init(
 	context.subscriptions.push(treeDecorationProviders);
 	treeDecorationProviders.registerProviders([new FileTypeDecorationProvider(), new CommentDecorationProvider(reposManager)]);
 
-	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, credentialStore, git);
+	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, credentialStore, git, copilotStateModel);
 	context.subscriptions.push(reviewsManager);
 
 	git.onDidChangeState(() => {
@@ -214,7 +216,7 @@ async function init(
 
 	context.subscriptions.push(new PRNotificationDecorationProvider(tree.notificationProvider));
 
-	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager);
+	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager, copilotStateModel);
 
 	context.subscriptions.push(copilotRemoteAgentManager);
 	let remoteAgentStatusBarItem: vscode.Disposable | undefined;
@@ -418,7 +420,8 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	const reposManager = new RepositoriesManager(credentialStore, telemetry);
 	context.subscriptions.push(reposManager);
 
-	const prTree = new PullRequestsTreeDataProvider(telemetry, context, reposManager);
+	const copilotStateModel = new CopilotStateModel();
+	const prTree = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotStateModel);
 	context.subscriptions.push(prTree);
 	context.subscriptions.push(credentialStore.onDidGetSession(() => prTree.refresh(undefined, true)));
 	Logger.appendLine('Looking for git repository', ACTIVATION);
@@ -441,7 +444,7 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	readOnlyMessage.isTrusted = { enabledCommands: ['pr.checkoutFromReadonlyFile'] };
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.Pr, inMemPRFileSystemProvider, { isReadonly: readOnlyMessage }));
 
-	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper);
+	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper, copilotStateModel);
 }
 
 export async function deactivate() {
