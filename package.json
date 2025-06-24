@@ -13,6 +13,7 @@
 	"enabledApiProposals": [
 		"activeComment",
 		"chatParticipantAdditions",
+		"chatParticipantPrivate",
 		"codiconDecoration",
 		"codeActionRanges",
 		"commentingRangeHint",
@@ -35,7 +36,7 @@
 	"version": "0.112.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.100.0"
+		"vscode": "^1.102.0"
 	},
 	"categories": [
 		"Other",
