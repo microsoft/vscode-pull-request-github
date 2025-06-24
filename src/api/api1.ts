@@ -242,7 +242,7 @@ export class GitApiImpl extends Disposable implements API, IGit {
 		if (!repo) {
 			return;
 		}
-		const folderManagerForRepo = this.repositoriesManager.folderManagers.find((manager) => manager.gitHubRepositories.some(r => r.rootUri.fsPath === repo.rootUri.fsPath));
+		const folderManagerForRepo = this.repositoriesManager.folderManagers.find((manager) => manager.gitHubRepositories.some(r => r.rootUri.fsPath === repo!.rootUri.fsPath));
 		const folderManagerForPR = this.repositoriesManager.folderManagers.find((manager) => manager.activePullRequest);
 
 		if (folderManagerForRepo && folderManagerForRepo.gitHubRepositories.length > 0) {
