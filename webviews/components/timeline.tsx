@@ -59,7 +59,6 @@ export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue
 				const newUnassignees = newEvent.unassignees?.filter(a => !unassignees.some(b => b.id === a.id)) ?? [];
 				lastEvent.assignees = [...assignees, ...newAssignees];
 				lastEvent.unassignees = [...unassignees, ...newUnassignees];
-				// Keep the original createdAt time (earliest time) to match GitHub.com behavior
 			} else {
 				consolidatedEvents.push(newEvent);
 			}
