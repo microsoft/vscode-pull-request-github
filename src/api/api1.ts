@@ -8,6 +8,8 @@ import { APIState, PublishEvent } from '../@types/git';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { TernarySearchTree } from '../common/utils';
+import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
+import { RepositoriesManager } from '../github/repositoriesManager';
 import { API, IGit, PostCommitCommandsProvider, Repository, ReviewerCommentsProvider, TitleAndDescriptionProvider } from './api';
 
 export const enum RefType {
@@ -77,6 +79,11 @@ export class GitApiImpl extends Disposable implements API, IGit {
 	static readonly ID = 'GitAPI';
 	private static _handlePool: number = 0;
 	private _providers = new Map<number, IGit>();
+
+	public constructor(
+		private readonly repositoriesManager: RepositoriesManager) {
+		super();
+	}
 
 	public get repositories(): Repository[] {
 		const ret: Repository[] = [];
@@ -219,5 +226,40 @@ export class GitApiImpl extends Disposable implements API, IGit {
 
 	getReviewerCommentsProvider(): { title: string, provider: ReviewerCommentsProvider } | undefined {
 		return this._reviewerCommentsProviders.size > 0 ? this._reviewerCommentsProviders.values().next().value : undefined;
+	}
+
+	async getRepositoryDescription() {
+		let repo: Repository | undefined;
+		const allRepos = this.repositories;
+		if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+			for (const folder of vscode.workspace.workspaceFolders) {
+				repo = allRepos.find(r => r.rootUri.fsPath === folder.uri.fsPath);
+				if (repo) {
+					break;
+				}
+			}
+		}
+		if (!repo) {
+			return;
+		}
+		const folderManagerForRepo = this.repositoriesManager.folderManagers.find((manager) => manager.gitHubRepositories.some(r => r.rootUri.fsPath === repo.rootUri.fsPath));
+		const folderManagerForPR = this.repositoriesManager.folderManagers.find((manager) => manager.activePullRequest);
+
+		if (folderManagerForRepo && folderManagerForRepo.gitHubRepositories.length > 0) {
+			const repositoryMetadata = await folderManagerForRepo.gitHubRepositories[0].getMetadata();
+			const pullRequest = folderManagerForPR?.activePullRequest ?? PullRequestOverviewPanel.currentPanel?.getCurrentItem();
+			if (repositoryMetadata) {
+				return {
+					owner: repositoryMetadata.owner.login,
+					repositoryName: repositoryMetadata.name,
+					defaultBranch: repositoryMetadata.default_branch,
+					currentBranch: repo.state.HEAD?.name,
+					pullRequest: pullRequest ? {
+						title: pullRequest.title,
+						url: pullRequest.html_url,
+					} : undefined
+				};
+			}
+		}
 	}
 }

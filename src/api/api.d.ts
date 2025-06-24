@@ -257,6 +257,17 @@ export interface ReviewerCommentsProvider {
 	provideReviewerComments(context: { repositoryRoot: string, commitMessages: string[], patches: { patch: string, fileUri: string, previousFileUri?: string }[] }, token: CancellationToken): Promise<ReviewerComments>;
 }
 
+export interface RepositoryDescription {
+	owner: string;
+	repositoryName: string;
+	defaultBranch: string;
+	currentBranch?: string;
+	pullRequest?: {
+		title: string;
+		url: string;
+	};
+}
+
 export interface API {
 	/**
 	 * Register a [git provider](#IGit)
@@ -280,4 +291,13 @@ export interface API {
 	 * Register a PR reviewer comments provider.
 	 */
 	registerReviewerCommentsProvider(title: string, provider: ReviewerCommentsProvider): Disposable;
+
+	/**
+	 * Get the repository description for the current workspace.
+	 * This includes the owner, repository name, default branch, current branch (if applicable),
+	 * and pull request information (if applicable).
+	 *
+	 * @returns A promise that resolves to a `RepositoryDescription` object or `undefined` if no repository is found.
+	 */
+	getRepositoryDescription(): Promise<RepositoryDescription | undefined>;
 }
