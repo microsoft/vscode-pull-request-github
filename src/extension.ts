@@ -249,7 +249,7 @@ async function init(
 
 	context.subscriptions.push(new GitLensIntegration());
 
-	const sessionLogViewManager = new SessionLogViewManager(credentialStore, context);
+	const sessionLogViewManager = new SessionLogViewManager(credentialStore, context, reposManager, telemetry);
 	context.subscriptions.push(sessionLogViewManager);
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);

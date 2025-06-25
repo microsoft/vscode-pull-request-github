@@ -12,7 +12,7 @@ import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { ReviewEvent, SessionLinkInfo } from '../common/timelineEvent';
+import { ReviewEvent, SessionPullInfo } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { SessionLogViewManager } from '../view/sessionLogView';
@@ -454,7 +454,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async openSessionLog(_message: IRequestMessage<{ link: SessionLinkInfo }>): Promise<void> {
+	private async openSessionLog(_message: IRequestMessage<{ link: SessionPullInfo }>): Promise<void> {
 		try {
 			SessionLogViewManager.instance?.openForPull(this._item);
 		} catch (e) {

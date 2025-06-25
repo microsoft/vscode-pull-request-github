@@ -6,7 +6,7 @@
 import { createContext } from 'react';
 import { CloseResult } from '../../common/views';
 import { IComment } from '../../src/common/comment';
-import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
+import { EventType, ReviewEvent, SessionPullInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
 import { ChangeAssigneesReply, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, SubmitReviewReply } from '../../src/github/views';
 import { getState, setState, updateState } from './cache';
@@ -256,7 +256,7 @@ export class PRContext {
 		});
 	};
 
-	public openSessionLog = (link: SessionLinkInfo) => this.postMessage({ command: 'pr.open-session-log', args: { link } });
+	public openSessionLog = (link: SessionPullInfo) => this.postMessage({ command: 'pr.open-session-log', args: { link } });
 
 	setPR = (pr: PullRequest) => {
 		this.pr = pr;

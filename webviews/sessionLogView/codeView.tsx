@@ -34,6 +34,7 @@ export const CodeView: React.FC<CodeViewProps> = ({ label, description, content 
 				readOnly: true,
 				theme: 'vscode-theme',
 				bracketPairColorization: { enabled: false },
+				overflowWidgetsDomNode: editorContainerRef.current.parentElement!,
 				minimap: { enabled: false },
 				scrollbar: {
 					vertical: 'hidden',
@@ -116,14 +117,11 @@ export const CodeView: React.FC<CodeViewProps> = ({ label, description, content 
 						toggleOpen();
 					}}
 				>
-					<span
-						className="codeview-toggle"
+					<span className="icon codeview-toggle"
 						aria-label="Toggle code section"
 						title={open ? 'Hide code' : 'Show code'}
-					>
-						{/* allow-any-unicode-next-line */}
-						{open ? '▼' : '►'}
-					</span>
+					><i className={'codicon ' + (open ? 'codicon-chevron-down' : 'codicon-chevron-right')}></i></span>
+
 					<span className="codeview-title">{label}</span>
 					{description && <span className="codeview-description">{description}</span>}
 				</summary>
@@ -144,8 +142,9 @@ export const CodeView: React.FC<CodeViewProps> = ({ label, description, content 
 								type="button"
 								className="codeview-expand"
 								onClick={toggleExpanded}
-								style={{ display: 'block' }}
+								style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5em' }}
 							>
+								<div className="icon"><i className={'codicon ' + (expanded ? 'codicon-fold' : 'codicon-unfold')}></i></div>
 								{expanded ? 'Show less' : 'Show more'}
 							</button>
 						)}
