@@ -22,10 +22,16 @@ type RemoteAgentResult = RemoteAgentSuccessResult | RemoteAgentErrorResult;
 const YES_QUICK_PICK = vscode.l10n.t('Push my pending work');
 const NO_QUICK_PICK = vscode.l10n.t('Do not push my pending work');
 
+export interface IAPISessionLogs {
+	sessionId: string;
+	logs: string;
+}
+
 export class CopilotRemoteAgentManager extends Disposable {
 	private readonly _onDidChangeEnabled = new vscode.EventEmitter<boolean>();
 	public readonly onDidChangeEnabled: vscode.Event<boolean> = this._onDidChangeEnabled.event;
 	public static ID = 'CopilotRemoteAgentManager';
+	private readonly workflowRunUrlBase = 'https://github.com/microsoft/vscode/actions/runs/';
 
 	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, stateModel: CopilotStateModel) {
 		super();
@@ -289,19 +295,45 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return await capi.getLogsFromZipUrl(lastRun.logs_url);
 	}
 
-	async getSessionLogsFromAPI(pullRequest: PullRequestModel): Promise<string> {
+	async getSessionLogsFromPullRequest(pullRequest: PullRequestModel): Promise<IAPISessionLogs> {
 		const capi = await this.copilotApi;
 		if (!capi) {
-			return '';
+			return { sessionId: '', logs: '' };
 		}
 
-		const logs = await capi.getAllSessions(pullRequest);
-		const completedSessions = logs.filter(s => s.state === 'completed');
+		const sessions = await capi.getAllSessions(pullRequest);
+		const completedSessions = sessions.filter(s => s.state === 'completed');
 		if (completedSessions.length === 0) {
-			return '';
+			return { sessionId: '', logs: '' };
 		}
 		const mostRecentSession = this.getLatestRun(completedSessions);
-		return await capi.getLogsFromSession(mostRecentSession.id);
+		const logs = await capi.getLogsFromSession(mostRecentSession.id);
+		return { sessionId: mostRecentSession.id, logs };
+	}
+
+	async getSessionUrlFromPullRequest(pullRequest: PullRequestModel): Promise<string | undefined> {
+		const capi = await this.copilotApi;
+		if (!capi) {
+			return undefined;
+		}
+
+		const sessions = await capi.getAllSessions(pullRequest);
+		const completedSessions = sessions.filter(s => s.state === 'completed');
+		if (completedSessions.length === 0) {
+			return undefined;
+		}
+		const mostRecentSession = this.getLatestRun(completedSessions);
+		return `${this.workflowRunUrlBase}${mostRecentSession.workflow_run_id}`;
+	}
+
+	async getSessionLogsFromSessionId(sessionId: string): Promise<IAPISessionLogs> {
+		const capi = await this.copilotApi;
+		if (!capi) {
+			return { sessionId: '', logs: '' };
+		}
+
+		const logs = await capi.getLogsFromSession(sessionId);
+		return { sessionId, logs };
 	}
 
 	private getLatestRun<T extends { last_updated_at?: string; updated_at?: string }>(runs: T[]): T {
