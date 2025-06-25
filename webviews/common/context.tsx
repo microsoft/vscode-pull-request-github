@@ -35,6 +35,8 @@ export class PRContext {
 
 	public openChanges = () => this.postMessage({ command: 'pr.open-changes' });
 
+	public applyPRPatch = () => this.postMessage({ command: 'pr.apply-pr-patch' });
+
 	public copyPrLink = () => this.postMessage({ command: 'pr.copy-prlink' });
 
 	public copyVscodeDevLink = () => this.postMessage({ command: 'pr.copy-vscodedevlink' });

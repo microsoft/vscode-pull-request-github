@@ -4046,5 +4046,8 @@
 		"vscode-tas-client": "^0.1.84",
 		"vsls": "^0.3.967"
 	},
-	"license": "MIT"
+	"license": "MIT",
+	"optionalDependencies": {
+		"@esbuild/linux-x64": "^0.25.5"
+	}
 }

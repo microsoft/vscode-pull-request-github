@@ -108,6 +108,7 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 	return (
 		<div className="button-group">
 			<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
+			<AdditionalActionsButton {...{ isCurrentlyCheckedOut, isIssue }} />
 			<button title="Open Changes" onClick={openChanges} className="small-button">
 				Open Changes
 			</button>
@@ -154,6 +155,67 @@ function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boole
 			</button>
 		</div>
 		: null;
+}
+
+function AdditionalActionsButton({ isCurrentlyCheckedOut, isIssue }: { isCurrentlyCheckedOut: boolean, isIssue: boolean }) {
+	const { applyPRPatch } = useContext(PullRequestContext);
+	const [isDropdownOpen, setDropdownOpen] = useState(false);
+	const [isBusy, setBusy] = useState(false);
+
+	// Only show additional actions if PR is not checked out and it's not an issue
+	const hasAdditionalActions = !isCurrentlyCheckedOut && !isIssue;
+
+	// Close dropdown when clicking outside
+	React.useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+			const target = event.target as Element;
+			if (!target.closest('.additional-actions-container')) {
+				setDropdownOpen(false);
+			}
+		};
+
+		if (isDropdownOpen) {
+			document.addEventListener('click', handleClickOutside);
+		}
+
+		return () => {
+			document.removeEventListener('click', handleClickOutside);
+		};
+	}, [isDropdownOpen]);
+
+	if (!hasAdditionalActions) {
+		return null;
+	}
+
+	const onApplyPatch = async () => {
+		try {
+			setBusy(true);
+			setDropdownOpen(false);
+			await applyPRPatch();
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	return (
+		<div className="additional-actions-container">
+			<button 
+				title="Additional Actions" 
+				onClick={() => setDropdownOpen(!isDropdownOpen)}
+				className="secondary small-button"
+				disabled={isBusy}
+			>
+				⋯
+			</button>
+			{isDropdownOpen && (
+				<div className="additional-actions-dropdown">
+					<button onClick={onApplyPatch} disabled={isBusy}>
+						Apply patch of changes to current branch
+					</button>
+				</div>
+			)}
+		</div>
+	);
 }
 
 function Subtitle({ state, isDraft, isIssue, author, base, head }) {
