@@ -425,3 +425,44 @@ button.inlined-dropdown {
 	display: inline-block;
 	text-align: center;
 }
+
+.additional-actions-container {
+	position: relative;
+	display: inline-block;
+}
+
+.additional-actions-dropdown {
+	position: absolute;
+	top: 100%;
+	right: 0;
+	background-color: var(--vscode-dropdown-background);
+	border: 1px solid var(--vscode-dropdown-border);
+	border-radius: 3px;
+	box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+	z-index: 1000;
+	min-width: 200px;
+	margin-top: 2px;
+}
+
+.additional-actions-dropdown button {
+	display: block;
+	width: 100%;
+	padding: 8px 12px;
+	border: none;
+	background: none;
+	color: var(--vscode-dropdown-foreground);
+	text-align: left;
+	font-size: 13px;
+	line-height: 18px;
+	cursor: pointer;
+}
+
+.additional-actions-dropdown button:hover:not(:disabled) {
+	background-color: var(--vscode-list-hoverBackground);
+}
+
+.additional-actions-dropdown button:disabled {
+	opacity: 0.6;
+	cursor: default;
+}
+}

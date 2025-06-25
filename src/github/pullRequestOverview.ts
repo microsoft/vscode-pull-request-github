@@ -363,6 +363,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.openSessionLog(message.args.link);
 			case 'pr.cancel-coding-agent':
 				return this.cancelCodingAgent(message);
+			case 'pr.apply-pr-patch':
+				return this.applyPRPatch(message);
 		}
 	}
 
@@ -446,6 +448,36 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		} catch (e) {
 			Logger.error(`Applying patch failed: ${e}`, PullRequestOverviewPanel.ID);
 			vscode.window.showErrorMessage(`Applying patch failed: ${formatError(e)}`);
+		}
+	}
+
+	private async applyPRPatch(message: IRequestMessage<void>): Promise<void> {
+		try {
+			this._replyMessage(message, {});
+			const { octokit, remote } = await this._item.githubRepository.ensure();
+			
+			// Get the PR diff in patch format using the GitHub API
+			const response = await octokit.call(octokit.api.pulls.get, {
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				pull_number: this._item.number,
+				headers: {
+					accept: 'application/vnd.github.v3.diff'
+				}
+			});
+
+			const patch = response.data as string;
+			const tempUri = vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, '.git', `pr-${this._item.number}.diff`);
+
+			const encoder = new TextEncoder();
+			await vscode.workspace.fs.writeFile(tempUri, encoder.encode(patch));
+			await this._folderRepositoryManager.repository.apply(tempUri.fsPath);
+			await vscode.workspace.fs.delete(tempUri);
+			
+			vscode.window.showInformationMessage(vscode.l10n.t('Pull request changes applied to current branch!'));
+		} catch (e) {
+			Logger.error(`Applying PR patch failed: ${e}`, PullRequestOverviewPanel.ID);
+			vscode.window.showErrorMessage(vscode.l10n.t('Applying pull request patch failed: {0}', formatError(e)));
 		}
 	}
 
