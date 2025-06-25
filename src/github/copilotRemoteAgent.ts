@@ -108,7 +108,37 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return continueWithCopilot;
 	}
 
-	async commandImpl() {
+	async commandImpl(args?: any) {
+		// https://github.com/microsoft/vscode-copilot/issues/18918
+		if (args?.userPrompt) {
+			const userPrompt: string = args.userPrompt;
+			const summary: string | undefined = args.summary;
+
+			if (!userPrompt || userPrompt.trim().length === 0) {
+				vscode.window.showErrorMessage(vscode.l10n.t('User prompt cannot be empty'));
+				return;
+			}
+
+			const result = await this.invokeRemoteAgent(userPrompt, summary || 'No summary provided...oops.');
+			if (result.state !== 'success') {
+				vscode.window.showErrorMessage(result.error);
+				return;
+			}
+
+			const { webviewUri, link } = result;
+			const openLink = vscode.l10n.t('View');
+			vscode.window.showInformationMessage(
+				// allow-any-unicode-next-line
+				vscode.l10n.t('🚀 Coding agent started! Track progress at {0}', link)
+				, openLink
+			).then(selection => {
+				if (selection === openLink) {
+					vscode.env.openExternal(webviewUri);
+				}
+			});
+			return;
+		}
+
 		const body = await vscode.window.showInputBox({
 			prompt: vscode.l10n.t('Describe a task for the coding agent'),
 			title: vscode.l10n.t('Finish With Coding Agent'),
@@ -168,7 +198,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		);
 	}
 
-	async invokeRemoteAgent(title: string, body: string, autoPushAndCommit = true): Promise<RemoteAgentResult> {
+	async invokeRemoteAgent(prompt: string, problemContext: string, autoPushAndCommit = true): Promise<RemoteAgentResult> {
 		// TODO: Check that the user has a valid copilot subscription
 		const capiClient = await this.copilotApi;
 		if (!capiClient) {
@@ -197,6 +227,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				await repository.add([]);
 				if (repository.state.indexChanges.length > 0) {
 					// TODO: there is an issue here if the user has GPG signing enabled.
+					//       https://github.com/microsoft/vscode/pull/252263
 					await repository.commit('Checkpoint for Copilot Agent async session', { signCommit: false });
 				}
 				await repository.push(remote, asyncBranch, true);
@@ -221,11 +252,18 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 		}
 
+		let title = prompt;
+		const titleMatch = problemContext.match(/TITLE: \s*(.*)/i);
+		if (titleMatch && titleMatch[1]) {
+			title = titleMatch[1].trim();
+		}
+
+		const problemStatement: string = `${prompt} ${problemContext ? `: ${problemContext}` : ''}`;
 		const payload: RemoteAgentJobPayload = {
-			problem_statement: title,
+			problem_statement: problemStatement,
 			pull_request: {
-				title: title,
-				body_placeholder: body,
+				title,
+				body_placeholder: problemContext,
 				base_ref: ref,
 			}
 		};
