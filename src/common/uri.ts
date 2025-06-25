@@ -576,7 +576,10 @@ export enum Schemes {
 	NewIssue = 'newissue', // New issue file
 	Repo = 'repo', // New issue file for passing data
 	Git = 'git', // File content from the git extension
+	PRQuery = 'prquery', // PR query tree item
 }
+
+export const COPILOT_QUERY = vscode.Uri.from({ scheme: Schemes.PRQuery, path: 'copilot' });
 
 export function resolvePath(from: vscode.Uri, to: string) {
 	if (from.scheme === Schemes.File) {

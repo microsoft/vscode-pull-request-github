@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { AuthenticationError } from '../../common/authentication';
 import { ITelemetry } from '../../common/telemetry';
+import { COPILOT_QUERY, Schemes } from '../../common/uri';
 import { formatError } from '../../common/utils';
 import { CopilotStateModel, isCopilotQuery } from '../../github/copilotPrWatcher';
 import { FolderRepositoryManager, ItemsResponseResult } from '../../github/folderRepositoryManager';
@@ -127,7 +128,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public fetchNextPage: boolean = false;
 	public repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 	public contextValue: string;
-	public iconPath: vscode.ThemeIcon | undefined;
+	public resourceUri: vscode.Uri;
 
 	constructor(
 		parent: TreeNodeParent,
@@ -151,11 +152,6 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				this.label = vscode.l10n.t('All Open');
 				break;
 			case PRType.Query:
-				if (hasCopilotChanges) {
-					this.iconPath = new vscode.ThemeIcon('copilot');
-				} else {
-					this.iconPath = undefined;
-				}
 				this.label = _categoryLabel!;
 				break;
 			case PRType.LocalPullRequest:
@@ -168,8 +164,11 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		this.id = parent instanceof TreeNode ? `${parent.id ?? parent.label}/${this.label}` : this.label;
 
+		this.resourceUri = vscode.Uri.parse(Schemes.PRQuery);
+
 		if (hasCopilotChanges) {
 			this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+			this.resourceUri = COPILOT_QUERY;
 		} else if ((this._prsTreeModel.expandedQueries.size === 0) && (this.type === PRType.All)) {
 			this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 		} else {
