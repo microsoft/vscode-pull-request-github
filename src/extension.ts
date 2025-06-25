@@ -218,22 +218,7 @@ async function init(
 	context.subscriptions.push(new PRNotificationDecorationProvider(tree.notificationProvider));
 
 	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager, copilotStateModel);
-
 	context.subscriptions.push(copilotRemoteAgentManager);
-	let remoteAgentStatusBarItem: vscode.Disposable | undefined;
-	if (copilotRemoteAgentManager.enabled()) {
-		remoteAgentStatusBarItem = copilotRemoteAgentManager.statusBarItemImpl();
-		context.subscriptions.push(remoteAgentStatusBarItem);
-	}
-	context.subscriptions.push(copilotRemoteAgentManager.onDidChangeEnabled((enabled: boolean) => {
-		if (enabled && !remoteAgentStatusBarItem) {
-			remoteAgentStatusBarItem = copilotRemoteAgentManager.statusBarItemImpl();
-			context.subscriptions.push(remoteAgentStatusBarItem);
-		} else if (!enabled && remoteAgentStatusBarItem) {
-			remoteAgentStatusBarItem.dispose();
-			remoteAgentStatusBarItem = undefined;
-		}
-	}));
 
 	registerCommands(context, reposManager, reviewsManager, telemetry, tree, copilotRemoteAgentManager);
 
