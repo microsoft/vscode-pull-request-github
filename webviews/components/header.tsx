@@ -5,7 +5,7 @@
 
 import React, { useContext, useState } from 'react';
 import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../../src/common/copilot';
-import { TimelineEvent } from '../../src/common/timelineEvent';
+import { CopilotStartedEvent, TimelineEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
@@ -150,7 +150,7 @@ function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boole
 	};
 
 	// Extract sessionLink from the coding agent event
-	const sessionLink = codingAgentEvent && 'sessionLink' in codingAgentEvent ? codingAgentEvent.sessionLink : undefined;
+	const sessionLink = (codingAgentEvent as CopilotStartedEvent)?.sessionLink;
 
 	return (canEdit && codingAgentEvent && copilotEventToStatus(codingAgentEvent) === CopilotPRStatus.Started)
 		? <div className="button-group">
