@@ -212,7 +212,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			if (!this.autoCommitAndPushEnabled()) {
 				return { error: vscode.l10n.t('Uncommitted changes detected. Please commit or stash your changes before starting the remote agent. Enable \'{0}\' to push your changes automatically.', CODING_AGENT_AUTO_COMMIT_AND_PUSH), state: 'error' };
 			}
-			const asyncBranch = `continue-from-${Date.now()}`;
+			const asyncBranch = `copilot/vscode${Date.now()}`;
 			try {
 				await repository.createBranch(asyncBranch, true);
 				await repository.add([]);

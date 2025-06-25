@@ -26,11 +26,11 @@ describe('CopilotApi Tests', function () {
 					title: 'Test title',
 					body_placeholder: 'Test body',
 					base_ref: 'main',
-					head_ref: 'continue-from-1234567890'
+					head_ref: 'copilot/vscode1234567890'
 				}
 			};
 			
-			assert.strictEqual(payloadWithHeadRef.pull_request?.head_ref, 'continue-from-1234567890');
+			assert.strictEqual(payloadWithHeadRef.pull_request?.head_ref, 'copilot/vscode1234567890');
 			assert.strictEqual(payloadWithHeadRef.pull_request?.base_ref, 'main');
 		});
 
@@ -38,7 +38,7 @@ describe('CopilotApi Tests', function () {
 			const hasChanges = true;
 			const autoPushAndCommit = true;
 			const baseRef = 'main';
-			const ref = 'continue-from-1234567890';
+			const ref = 'copilot/vscode1234567890';
 
 			// Simulate the logic from copilotRemoteAgent.ts
 			const payload: RemoteAgentJobPayload = {
@@ -47,12 +47,12 @@ describe('CopilotApi Tests', function () {
 					title: 'Test title',
 					body_placeholder: 'Test body',
 					base_ref: hasChanges && autoPushAndCommit ? baseRef : ref,
-					...(hasChanges && autoPushAndCommit && { head_ref: ref })
+					...(hasChanges && autoPushAndCommit ? { head_ref: ref } : {})
 				}
 			};
 
 			assert.strictEqual(payload.pull_request?.base_ref, 'main');
-			assert.strictEqual(payload.pull_request?.head_ref, 'continue-from-1234567890');
+			assert.strictEqual(payload.pull_request?.head_ref, 'copilot/vscode1234567890');
 		});
 
 		it('should not include head_ref when not pushing', () => {
@@ -68,7 +68,7 @@ describe('CopilotApi Tests', function () {
 					title: 'Test title',
 					body_placeholder: 'Test body',
 					base_ref: hasChanges && autoPushAndCommit ? baseRef : ref,
-					...(hasChanges && autoPushAndCommit && { head_ref: ref })
+					...(hasChanges && autoPushAndCommit ? { head_ref: ref } : {})
 				}
 			};
 
