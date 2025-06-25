@@ -154,14 +154,14 @@ function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boole
 
 	return (canEdit && codingAgentEvent && copilotEventToStatus(codingAgentEvent) === CopilotPRStatus.Started)
 		? <div className="button-group">
-			<button title="Cancel Coding Agent" disabled={isBusy} className="small-button danger" onClick={cancel}>
-				Cancel Coding Agent
-			</button>
 			{sessionLink && (
 				<button title="View Session" className="secondary small-button" onClick={() => openSessionLog(sessionLink)}>
 					View Session
 				</button>
 			)}
+			<button title="Cancel Coding Agent" disabled={isBusy} className="small-button danger" onClick={cancel}>
+				Cancel Coding Agent
+			</button>
 		</div>
 		: null;
 }
