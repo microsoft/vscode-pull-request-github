@@ -1509,7 +1509,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			const { query, remote, schema } = await this.githubRepository.ensure();
 
 			// hard code the users for selfhost purposes
-			const { data } = (schema.PullRequestMergeabilityMergeRequirements && ((await this.credentialStore.getCurrentUser(this.remote.authProviderId))?.login === 'alexr00')) ? await query<PullRequestMergabilityResponse>({
+			const { data } = /*(schema.PullRequestMergeabilityMergeRequirements && ((await this.credentialStore.getCurrentUser(this.remote.authProviderId))?.login === 'alexr00')) ? await query<PullRequestMergabilityResponse>({
 				query: schema.PullRequestMergeabilityMergeRequirements,
 				variables: {
 					owner: remote.owner,
@@ -1521,7 +1521,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 						'GraphQL-Features': 'pull_request_merge_requirements_api' // This flag allows specific users to test a private field.
 					}
 				}
-			}) : await query<PullRequestMergabilityResponse>({
+			}) : */await query<PullRequestMergabilityResponse>({
 				query: schema.PullRequestMergeability,
 				variables: {
 					owner: remote.owner,
