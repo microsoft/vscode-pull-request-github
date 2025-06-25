@@ -529,6 +529,18 @@ body button .icon {
 	padding: 0 5px;
 }
 
+.header-actions {
+	display: flex;
+}
+
+.header-actions>div:first-of-type {
+	flex: 1;
+}
+
+.danger {
+	background-color: var(--vscode-errorForeground);
+}
+
 :not(.status-item)>.small-button {
 	font-weight: 600;
 }

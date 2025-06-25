@@ -4,37 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { COPILOT_LOGINS } from '../common/copilot';
+import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus } from '../common/copilot';
 import { Disposable } from '../common/lifecycle';
 import { PR_SETTINGS_NAMESPACE, QUERIES } from '../common/settingKeys';
-import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { RepositoriesManager } from './repositoriesManager';
 import { variableSubstitution } from './utils';
 
-export enum CopilotPRStatus {
-	None = 0,
-	Started = 1,
-	Completed = 2,
-	Failed = 3,
-}
-
 export function isCopilotQuery(query: string): boolean {
 	const lowerQuery = query.toLowerCase();
 	return COPILOT_LOGINS.some(login => lowerQuery.includes(`author:${login.toLowerCase()}`));
-}
-
-function copilotEventToStatus(event: TimelineEvent): CopilotPRStatus {
-	switch (event.event) {
-		case EventType.CopilotStarted:
-			return CopilotPRStatus.Started;
-		case EventType.CopilotFinished:
-			return CopilotPRStatus.Completed;
-		case EventType.CopilotFinishedError:
-			return CopilotPRStatus.Failed;
-		default:
-			return CopilotPRStatus.None;
-	}
 }
 
 export class CopilotStateModel extends Disposable {

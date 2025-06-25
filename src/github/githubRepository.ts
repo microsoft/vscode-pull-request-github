@@ -1269,6 +1269,22 @@ export class GitHubRepository extends Disposable {
 		return ret;
 	}
 
+	async cancelWorkflow(workflowRunId: number): Promise<boolean> {
+		Logger.debug(`Cancel workflow run - enter`, this.id);
+		const { octokit, remote } = await this.ensure();
+		try {
+			const result = await octokit.call(octokit.api.actions.cancelWorkflowRun, {
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				run_id: workflowRunId,
+			});
+			return result.status === 202;
+		} catch (e) {
+			Logger.error(`Unable to cancel workflow run: ${e}`, this.id);
+			return false;
+		}
+	}
+
 	async getOrgTeamsCount(): Promise<number> {
 		Logger.debug(`Fetch Teams Count - enter`, this.id);
 		if (!this._credentialStore.isAuthenticatedWithAdditionalScopes(this.remote.authProviderId)) {

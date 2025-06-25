@@ -5,16 +5,14 @@
 
 import * as vscode from 'vscode';
 import type * as messages from '../../webviews/sessionLogView/messages';
-import { AuthProvider } from '../common/authentication';
 import { Disposable } from '../common/lifecycle';
 import { ITelemetry } from '../common/telemetry';
 import { SessionPullInfo } from '../common/timelineEvent';
-import { CopilotApi } from '../github/copilotApi';
+import { CopilotApi, getCopilotApi } from '../github/copilotApi';
 import { CredentialStore } from '../github/credentials';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import { hasEnterpriseUri } from '../github/utils';
 
 export class SessionLogViewManager extends Disposable implements vscode.WebviewPanelSerializer {
 	public static instance: SessionLogViewManager | undefined;
@@ -307,26 +305,6 @@ class SessionLogView extends Disposable {
 		}
 	}
 }
-
-async function getCopilotApi(credentialStore: CredentialStore): Promise<CopilotApi | undefined> {
-	let authProvider: AuthProvider | undefined;
-	if (credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
-		authProvider = AuthProvider.githubEnterprise;
-	} else if (credentialStore.isAuthenticated(AuthProvider.github)) {
-		authProvider = AuthProvider.github;
-	} else {
-		return;
-	}
-
-	const github = credentialStore.getHub(authProvider);
-	if (!github || !github.octokit) {
-		return;
-	}
-
-	const { token } = await github.octokit.api.auth() as { token: string };
-	return new CopilotApi(github.octokit, token);
-}
-
 
 async function loadCurrentThemeData(): Promise<any> {
 	let themeData: any = null;

@@ -8,7 +8,7 @@ import { CloseResult } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionPullInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
-import { ChangeAssigneesReply, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, SubmitReviewReply } from '../../src/github/views';
+import { CancelCodingAgentReply, ChangeAssigneesReply, MergeArguments, MergeResult, ProjectItemsReply, PullRequest, SubmitReviewReply } from '../../src/github/views';
 import { getState, setState, updateState } from './cache';
 import { getMessageHandler, MessageHandler } from './message';
 
@@ -38,6 +38,8 @@ export class PRContext {
 	public copyPrLink = () => this.postMessage({ command: 'pr.copy-prlink' });
 
 	public copyVscodeDevLink = () => this.postMessage({ command: 'pr.copy-vscodedevlink' });
+
+	public cancelCodingAgent = (event: TimelineEvent): Promise<CancelCodingAgentReply> => this.postMessage({ command: 'pr.cancel-coding-agent', args: event });
 
 	public exitReviewMode = async () => {
 		if (!this.pr) {
