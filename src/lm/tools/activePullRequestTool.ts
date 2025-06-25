@@ -6,6 +6,7 @@
 
 import * as vscode from 'vscode';
 import { COPILOT_LOGINS } from '../../common/copilot';
+import { GitChangeType, InMemFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { PullRequestModel } from '../../github/pullRequestModel';
@@ -153,6 +154,13 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 			},
 			isDraft: pullRequest.isDraft,
 			codingAgentSession,
+			changes: (await pullRequest.getFileChangesInfo()).map(change => {
+				if (change instanceof InMemFileChange) {
+					return change.diffHunks?.map(hunk => hunk.diffLines.map(line => line.raw).join('\n')).join('\n') || '';
+				} else {
+					return `File: ${change.fileName} was ${change.status === GitChangeType.ADD ? 'added' : change.status === GitChangeType.DELETE ? 'deleted' : 'modified'}.`;
+				}
+			})
 		};
 
 		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(pullRequestInfo))]);
