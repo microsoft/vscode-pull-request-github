@@ -7,12 +7,12 @@ import vscode from 'vscode';
 import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
 import { Disposable } from '../common/lifecycle';
+import { Remote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { CopilotApi, RemoteAgentJobPayload } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { CredentialStore } from './credentials';
-import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
 
 type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number; webviewUri: vscode.Uri; llmDetails: string };
@@ -23,11 +23,19 @@ const YES_QUICK_PICK = vscode.l10n.t('Push my pending work');
 const NO_QUICK_PICK = vscode.l10n.t('Do not push my pending work');
 
 export class CopilotRemoteAgentManager extends Disposable {
-	private readonly _onDidChangeEnabled = new vscode.EventEmitter<boolean>();
-	public readonly onDidChangeEnabled: vscode.Event<boolean> = this._onDidChangeEnabled.event;
 	public static ID = 'CopilotRemoteAgentManager';
 
-	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, stateModel: CopilotStateModel) {
+	private _statusBarItem: vscode.StatusBarItem | undefined;
+
+	private readonly _stateModel: CopilotStateModel;
+	private readonly _onDidChangeStates = this._register(new vscode.EventEmitter<void>());
+	readonly onDidChangeStates = this._onDidChangeStates.event;
+	private readonly _onDidChangeNotifications = this._register(new vscode.EventEmitter<void>());
+	readonly onDidChangeNotifications = this._onDidChangeNotifications.event;
+	private readonly _onDidCreatePullRequest = this._register(new vscode.EventEmitter<number>());
+	readonly onDidCreatePullRequest = this._onDidCreatePullRequest.event;
+
+	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager) {
 		super();
 		this._register(this.credentialStore.onDidChangeSessions((e: vscode.AuthenticationSessionsChangeEvent) => {
 			if (e.provider.id === 'github') {
@@ -36,11 +44,22 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}));
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(`${CODING_AGENT}.${CODING_AGENT_ENABLED}`)) {
-				this._onDidChangeEnabled.fire(this.enabled());
+				this.toggleEnablement();
 			}
 		}));
-		this._register(new CopilotPRWatcher(this.repositoriesManager, stateModel));
-
+		this.toggleEnablement();
+		this._stateModel = new CopilotStateModel();
+		this._register(new CopilotPRWatcher(this.repositoriesManager, this._stateModel));
+		this._register(this._stateModel.onDidChangeStates(() => this._onDidChangeStates.fire()));
+		this._register(this._stateModel.onDidChangeNotifications(() => this._onDidChangeNotifications.fire()));
+		this._register({
+			dispose: () => {
+				if (this._statusBarItem) {
+					this._statusBarItem.dispose();
+					this._statusBarItem = undefined;
+				}
+			}
+		});
 	}
 
 	private _copilotApiPromise: Promise<CopilotApi | undefined> | undefined;
@@ -99,13 +118,22 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return { owner, repo, remote, baseRef, repository };
 	}
 
-	statusBarItemImpl(): vscode.StatusBarItem {
+	private statusBarItemImpl(): vscode.StatusBarItem {
 		const continueWithCopilot = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
 		continueWithCopilot.command = 'pr.continueAsyncWithCopilot';
 		continueWithCopilot.text = vscode.l10n.t('$(cloud-upload) Finish with coding agent');
 		continueWithCopilot.tooltip = vscode.l10n.t('Complete your current work with the Copilot coding agent. Your current changes will be pushed to a branch and your task will be completed in the background.');
 		continueWithCopilot.show();
 		return continueWithCopilot;
+	}
+
+	private toggleEnablement() {
+		if (this.enabled() && !this._statusBarItem) {
+			this._statusBarItem = this.statusBarItemImpl();
+		} else if (!this.enabled() && this._statusBarItem) {
+			this._statusBarItem.dispose();
+			this._statusBarItem = undefined;
+		}
 	}
 
 	async commandImpl(args?: any) {
@@ -270,6 +298,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const { pull_request } = await capiClient.postRemoteAgentJob(owner, repo, payload);
 		const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: pull_request.number });
 		const prLlmString = `The remote agent has begun work. The user can track progress by visiting ${pull_request.html_url} or from the PR extension.`;
+		this._onDidCreatePullRequest.fire(pull_request.number);
 		return {
 			state: 'success',
 			number: pull_request.number,
@@ -279,15 +308,15 @@ export class CopilotRemoteAgentManager extends Disposable {
 		};
 	}
 
-	async getSessionLogsFromAction(pullRequest: PullRequestModel) {
+	async getSessionLogsFromAction(remote: Remote, pullRequestId: number) {
 		const capi = await this.copilotApi;
 		if (!capi) {
 			return [];
 		}
-		const runs = await capi.getWorkflowRunsFromAction(pullRequest);
+		const runs = await capi.getWorkflowRunsFromAction(remote);
 		const padawanRuns = runs
 			.filter(run => run.path && run.path.startsWith('dynamic/copilot-swe-agent'))
-			.filter(run => run.pull_requests?.some(pr => pr.id === pullRequest.id));
+			.filter(run => run.pull_requests?.some(pr => pr.id === pullRequestId));
 
 		const lastRun = this.getLatestRun(padawanRuns);
 
@@ -298,13 +327,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return await capi.getLogsFromZipUrl(lastRun.logs_url);
 	}
 
-	async getSessionLogsFromAPI(pullRequest: PullRequestModel): Promise<string> {
+	async getSessionLogsFromAPI(pullRequestId: number | undefined): Promise<string> {
 		const capi = await this.copilotApi;
 		if (!capi) {
 			return '';
 		}
 
-		const logs = await capi.getAllSessions(pullRequest);
+		const logs = await capi.getAllSessions(pullRequestId);
 		const completedSessions = logs.filter(s => s.state === 'completed');
 		if (completedSessions.length === 0) {
 			return '';
@@ -321,5 +350,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 				const dateB = new Date(b.last_updated_at ?? b.updated_at ?? 0).getTime();
 				return dateB - dateA;
 			})[0];
+	}
+
+	clearNotifications() {
+		this._stateModel.clearNotifications();
+	}
+
+	get notifications(): ReadonlySet<string> {
+		return this._stateModel.notifications;
 	}
 }

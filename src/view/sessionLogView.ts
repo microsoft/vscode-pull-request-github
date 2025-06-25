@@ -88,7 +88,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 			return;
 		}
 
-		const sessionId = (await copilotApi.getAllSessions(pullRequest))[0].id;
+		const sessionId = (await copilotApi.getAllSessions(pullRequest.id))[0].id;
 		if (!sessionId) {
 			vscode.window.showErrorMessage(vscode.l10n.t('No sessions found for this pull request.'));
 			return;

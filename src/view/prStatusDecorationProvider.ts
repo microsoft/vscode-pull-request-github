@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { Disposable } from '../common/lifecycle';
 import { COPILOT_QUERY, createPRNodeUri, fromPRNodeUri, Schemes } from '../common/uri';
-import { CopilotStateModel } from '../github/copilotPrWatcher';
+import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { getStatusDecoration } from '../github/markdownUtils';
 import { PrsTreeModel } from './prsTreeModel';
 
@@ -17,7 +17,7 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 	>();
 	onDidChangeFileDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeFileDecorations.event;
 
-	constructor(private readonly _prsTreeModel: PrsTreeModel, private readonly _copilotStateModel: CopilotStateModel) {
+	constructor(private readonly _prsTreeModel: PrsTreeModel, private readonly _copilotManager: CopilotRemoteAgentManager) {
 		super();
 		this._register(vscode.window.registerFileDecorationProvider(this));
 		this._register(
@@ -26,7 +26,7 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 			})
 		);
 
-		this._register(this._copilotStateModel.onDidChangeNotifications(() => {
+		this._register(this._copilotManager.onDidChangeNotifications(() => {
 			this._onDidChangeFileDecorations.fire(COPILOT_QUERY);
 		}));
 	}
@@ -56,9 +56,9 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 
 	private _queryDecoration(uri: vscode.Uri): vscode.ProviderResult<vscode.FileDecoration> {
 		if (uri.path === 'copilot') {
-			if (this._copilotStateModel.notifications.size > 0) {
+			if (this._copilotManager.notifications.size > 0) {
 				return {
-					tooltip: vscode.l10n.t('Coding agent has made changes', this._copilotStateModel.notifications.size),
+					tooltip: vscode.l10n.t('Coding agent has made changes', this._copilotManager.notifications.size),
 					badge: new vscode.ThemeIcon('copilot') as any,
 					color: new vscode.ThemeColor('pullRequests.notification'),
 				};

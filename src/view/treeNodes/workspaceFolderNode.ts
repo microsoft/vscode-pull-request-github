@@ -7,7 +7,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { PR_SETTINGS_NAMESPACE, QUERIES } from '../../common/settingKeys';
 import { ITelemetry } from '../../common/telemetry';
-import { CopilotStateModel } from '../../github/copilotPrWatcher';
+import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
 import { NotificationProvider } from '../../github/notifications';
@@ -34,7 +34,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		private notificationProvider: NotificationProvider,
 		private context: vscode.ExtensionContext,
 		private readonly _prsTreeModel: PrsTreeModel,
-		private readonly _copilotStateModel: CopilotStateModel
+		private readonly _copilotMananger: CopilotRemoteAgentManager
 	) {
 		super(parent);
 		this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
@@ -65,7 +65,7 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 
 	override async getChildren(): Promise<TreeNode[]> {
 		super.getChildren();
-		this.children = await WorkspaceFolderNode.getCategoryTreeNodes(this.folderManager, this.telemetry, this, this.notificationProvider, this.context, this._prsTreeModel, this._copilotStateModel);
+		this.children = await WorkspaceFolderNode.getCategoryTreeNodes(this.folderManager, this.telemetry, this, this.notificationProvider, this.context, this._prsTreeModel, this._copilotMananger);
 		return this.children;
 	}
 
@@ -76,16 +76,16 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		notificationProvider: NotificationProvider,
 		context: vscode.ExtensionContext,
 		prsTreeModel: PrsTreeModel,
-		copilotStateModel: CopilotStateModel
+		copilotManager: CopilotRemoteAgentManager
 	) {
 		const queryCategories = (await WorkspaceFolderNode.getQueries(folderManager)).map(
 			queryInfo => {
 				if (isLocalQuery(queryInfo)) {
-					return new CategoryTreeNode(parent, folderManager, telemetry, PRType.LocalPullRequest, notificationProvider, prsTreeModel, copilotStateModel);
+					return new CategoryTreeNode(parent, folderManager, telemetry, PRType.LocalPullRequest, notificationProvider, prsTreeModel, copilotManager);
 				} else if (isAllQuery(queryInfo)) {
-					return new CategoryTreeNode(parent, folderManager, telemetry, PRType.All, notificationProvider, prsTreeModel, copilotStateModel);
+					return new CategoryTreeNode(parent, folderManager, telemetry, PRType.All, notificationProvider, prsTreeModel, copilotManager);
 				}
-				return new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, notificationProvider, prsTreeModel, copilotStateModel, queryInfo.label, queryInfo.query);
+				return new CategoryTreeNode(parent, folderManager, telemetry, PRType.Query, notificationProvider, prsTreeModel, copilotManager, queryInfo.label, queryInfo.query);
 			}
 		);
 		return queryCategories;
