@@ -261,7 +261,6 @@ export interface RepositoryDescription {
 	owner: string;
 	repositoryName: string;
 	defaultBranch: string;
-	currentBranch?: string;
 	pullRequest?: {
 		title: string;
 		url: string;

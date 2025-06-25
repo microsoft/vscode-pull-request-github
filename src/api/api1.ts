@@ -229,23 +229,17 @@ export class GitApiImpl extends Disposable implements API, IGit {
 	}
 
 	async getRepositoryDescription(uri: vscode.Uri) {
-		const repo = this.getGitProvider(uri)?.repositories.find(r => r.rootUri.fsPath === uri.fsPath);
-		if (!repo) {
-			Logger.appendLine(`No repository found for uri: ${uri.fsPath}`, GitApiImpl.ID);
-			return undefined;
-		}
-		const folderManagerForRepo = this.repositoriesManager.folderManagers.find((manager) => manager.gitHubRepositories.some(r => r.rootUri.fsPath === repo?.rootUri.fsPath));
+		const folderManagerForRepo = this.repositoriesManager.getManagerForFile(uri);
 		const folderManagerForPR = this.repositoriesManager.folderManagers.find((manager) => manager.activePullRequest);
 
 		if (folderManagerForRepo && folderManagerForRepo.gitHubRepositories.length > 0) {
 			const repositoryMetadata = await folderManagerForRepo.gitHubRepositories[0].getMetadata();
-			const pullRequest = folderManagerForPR?.activePullRequest ?? PullRequestOverviewPanel.currentPanel?.getCurrentItem();
+			const pullRequest = folderManagerForPR?.activePullRequest;
 			if (repositoryMetadata) {
 				return {
 					owner: repositoryMetadata.owner.login,
 					repositoryName: repositoryMetadata.name,
 					defaultBranch: repositoryMetadata.default_branch,
-					currentBranch: repo?.state.HEAD?.name,
 					pullRequest: pullRequest ? {
 						title: pullRequest.title,
 						url: pullRequest.html_url,
