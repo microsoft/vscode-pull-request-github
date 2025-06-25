@@ -29,6 +29,7 @@
 		"contribShareMenu",
 		"diffCommand",
 		"quickDiffProvider",
+		"remoteCodingAgents",
 		"shareProvider",
 		"tokenInformation",
 		"treeViewMarkdownMessage"
@@ -64,6 +65,14 @@
 		"virtualWorkspaces": true
 	},
 	"contributes": {
+		"remoteCodingAgents": [
+			{
+				"command": "githubpr.remoteAgent",
+				"displayName": "GitHub Coding Agent",
+				"description": "The GitHub Coding Agent.",
+				"when": "config.githubPullRequests.codingAgent.enabled"
+			}
+		],
 		"chatParticipants": [
 			{
 				"id": "githubpr",
@@ -814,6 +823,11 @@
 			]
 		},
 		"commands": [
+			{
+				"command": "githubpr.remoteAgent",
+				"title": "Remote agent integration",
+				"enablement": "config.githubPullRequests.codingAgent.enabled"
+			},
 			{
 				"command": "github.api.preloadPullRequest",
 				"title": "Preload Pull Request",
@@ -1788,6 +1802,10 @@
 			"commandPalette": [
 				{
 					"command": "github.api.preloadPullRequest",
+					"when": "false"
+				},
+				{
+					"command": "githubpr.remoteAgent",
 					"when": "false"
 				},
 				{
