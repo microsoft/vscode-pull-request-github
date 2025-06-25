@@ -466,7 +466,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				}
 			});
 
-			const patch = response.data as string;
+			const patch = response.data as unknown as string;
 			const tempUri = vscode.Uri.joinPath(this._folderRepositoryManager.repository.rootUri, '.git', `pr-${this._item.number}.diff`);
 
 			const encoder = new TextEncoder();
