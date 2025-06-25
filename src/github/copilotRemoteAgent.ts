@@ -255,7 +255,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 			pull_request: {
 				title,
 				body_placeholder: problemContext,
-				base_ref: ref,
+				base_ref: hasChanges && autoPushAndCommit ? baseRef : ref,
+				...(hasChanges && autoPushAndCommit && { head_ref: ref })
 			}
 		};
 		const { pull_request } = await capiClient.postRemoteAgentJob(owner, repo, payload);
