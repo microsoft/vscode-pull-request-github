@@ -99,15 +99,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return { owner, repo, remote, baseRef, repository };
 	}
 
-	statusBarItemImpl(): vscode.StatusBarItem {
-		const continueWithCopilot = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-		continueWithCopilot.command = 'pr.continueAsyncWithCopilot';
-		continueWithCopilot.text = vscode.l10n.t('$(cloud-upload) Finish with coding agent');
-		continueWithCopilot.tooltip = vscode.l10n.t('Complete your current work with the Copilot coding agent. Your current changes will be pushed to a branch and your task will be completed in the background.');
-		continueWithCopilot.show();
-		return continueWithCopilot;
-	}
-
 	async commandImpl(args?: any) {
 		// https://github.com/microsoft/vscode-copilot/issues/18918
 		if (args?.userPrompt) {
