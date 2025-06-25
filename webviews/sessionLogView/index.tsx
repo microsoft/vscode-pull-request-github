@@ -9,6 +9,7 @@ import { App } from './app';
 
 import '../common/common.css';
 import './index.css';
+import '@vscode/codicons/dist/codicon.css';
 
 function main() {
 	render(<App />, document.getElementById('app'));

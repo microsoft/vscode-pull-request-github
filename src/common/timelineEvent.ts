@@ -151,7 +151,7 @@ export interface ReopenedEvent {
 	createdAt: string;
 }
 
-export interface SessionLinkInfo {
+export interface SessionPullInfo {
 	host: string;
 	owner: string;
 	repo: string;
@@ -163,7 +163,7 @@ export interface CopilotStartedEvent {
 	event: EventType.CopilotStarted;
 	createdAt: string;
 	onBehalfOf: IAccount;
-	sessionLink?: SessionLinkInfo;
+	sessionLink?: SessionPullInfo;
 }
 
 export interface CopilotFinishedEvent {
@@ -178,7 +178,7 @@ export interface CopilotFinishedErrorEvent {
 	event: EventType.CopilotFinishedError;
 	createdAt: string;
 	onBehalfOf: IAccount;
-	sessionLink: SessionLinkInfo;
+	sessionLink: SessionPullInfo;
 }
 
 export type TimelineEvent = CommitEvent | ReviewEvent | CommentEvent | NewCommitsSinceReviewEvent | MergedEvent | AssignEvent | UnassignEvent | HeadRefDeleteEvent | CrossReferencedEvent | ClosedEvent | ReopenedEvent | CopilotStartedEvent | CopilotFinishedEvent | CopilotFinishedErrorEvent;

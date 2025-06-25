@@ -17,6 +17,7 @@ const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const JSON5 = require('json5');
 const TerserPlugin = require('terser-webpack-plugin');
 const webpack = require('webpack');
+const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
 async function resolveTSConfig(configFile) {
 	const data = await new Promise((resolve, reject) => {
@@ -68,6 +69,7 @@ async function getWebviewConfig(mode, env, entry) {
 				configFile: path.join(__dirname, 'tsconfig.webviews.json'),
 			},
 		}),
+		new MonacoWebpackPlugin(),
 	];
 
 	return {

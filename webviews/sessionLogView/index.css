@@ -4,17 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 .session-container {
-	margin: 0 auto;
-	max-width: 800px;
 	position: relative;
+	max-width: 800px;
+	margin: 0 auto;
 }
 
 .session-header {
 	display: flex;
 	gap: 20px;
 
+	margin: 10px 0;
 	padding-bottom: 8px;
-	border-bottom: 1px solid var(--vscode-widget-border);
+	border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
 }
 
 
@@ -32,8 +33,9 @@
 	justify-content: left;
 
 	padding: 6px 12px;
-	background: var(--vscode-editorWidget-background);
-	color: #fff;
+	background: var(--vscode-sideBarSectionHeader-background);
+	border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+	color: var(--vscode-sideBarSectionHeader-foreground);
 	font-size: 13px;
 	gap: 8px;
 }
@@ -77,18 +79,24 @@
 	mask-image: linear-gradient(to bottom, var(--vscode-editor-background) 80%, #0000 100%)
 }
 
-.codeview-expand {
-	display: block;
+button.codeview-expand {
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	width: 100%;
-	margin: 8px 0 0 0;
-	background: none;
+	margin-top: 4px;
+	;
+	padding: 4px 0;
+	background-color: var(--vscode-button-secondaryBackground) !important;
+	color: var(--vscode-button-secondaryForeground);
 	border: none;
-	color: #fff;
-	cursor: pointer;
-	font-size: 13px;
-	padding: 8px 0;
-	text-align: center;
 	transition: background 0.15s;
+	line-height: inherit;
+	border-radius: 0;
+}
+
+button.codeview-expand:hover {
+	background-color: var(--vscode-button-secondaryHoverBackground) !important;
 }
 
 .codeview-expand:hover,
