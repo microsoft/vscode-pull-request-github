@@ -37,9 +37,8 @@ import { WebviewViewCoordinator } from '../../view/webviewViewCoordinator';
 import { GitHubServerType } from '../../common/authentication';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { mergeQuerySchemaWithShared } from '../../github/common';
-import { GitHubRef } from '../../common/githubRef';
 import { AccountType } from '../../github/interface';
-import { CopilotStateModel } from '../../github/copilotPrWatcher';
+import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 const schema = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -63,7 +62,7 @@ describe('ReviewCommentController', function () {
 	let reviewManager: ReviewManager;
 	let reposManager: RepositoriesManager;
 	let gitApiImpl: GitApiImpl;
-	let copilotStateModel: CopilotStateModel;
+	let copilotManager: CopilotRemoteAgentManager;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
@@ -76,12 +75,12 @@ describe('ReviewCommentController', function () {
 		repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
 		reposManager = new RepositoriesManager(credentialStore, telemetry);
-		copilotStateModel = new CopilotStateModel();
-		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotStateModel);
+		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager);
+		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotManager);
 		const activePrViewCoordinator = new WebviewViewCoordinator(context);
 		const createPrHelper = new CreatePullRequestHelper();
 		Resource.initialize(context);
-		gitApiImpl = new GitApiImpl();
+		gitApiImpl = new GitApiImpl(reposManager);
 		manager = new FolderRepositoryManager(0, context, repository, telemetry, gitApiImpl, credentialStore, createPrHelper);
 		reposManager.insertFolderManager(manager);
 		const tree = new PullRequestChangesTreeDataProvider(gitApiImpl, reposManager);

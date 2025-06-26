@@ -8,7 +8,8 @@ import { AuthenticationError } from '../../common/authentication';
 import { ITelemetry } from '../../common/telemetry';
 import { COPILOT_QUERY, Schemes } from '../../common/uri';
 import { formatError } from '../../common/utils';
-import { CopilotStateModel, isCopilotQuery } from '../../github/copilotPrWatcher';
+import { isCopilotQuery } from '../../github/copilotPrWatcher';
+import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager, ItemsResponseResult } from '../../github/folderRepositoryManager';
 import { PRType } from '../../github/interface';
 import { NotificationProvider } from '../../github/notifications';
@@ -132,12 +133,12 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 	constructor(
 		parent: TreeNodeParent,
-		private _folderRepoManager: FolderRepositoryManager,
+		readonly folderRepoManager: FolderRepositoryManager,
 		private _telemetry: ITelemetry,
 		public readonly type: PRType,
 		private _notificationProvider: NotificationProvider,
 		private _prsTreeModel: PrsTreeModel,
-		private _copilotStateModel: CopilotStateModel,
+		private _copilotManager: CopilotRemoteAgentManager,
 		_categoryLabel?: string,
 		private _categoryQuery?: string,
 	) {
@@ -145,7 +146,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		this.prs = new Map();
 
-		const hasCopilotChanges = _categoryQuery && isCopilotQuery(_categoryQuery) && this._copilotStateModel.notifications.size > 0;
+		const hasCopilotChanges = _categoryQuery && isCopilotQuery(_categoryQuery) && this._copilotManager.notifications.size > 0;
 
 		switch (this.type) {
 			case PRType.All:
@@ -229,7 +230,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		if (this.type === PRType.LocalPullRequest) {
 			try {
 				this.prs.clear();
-				(await this._prsTreeModel.getLocalPullRequests(this._folderRepoManager)).items.forEach(item => this.prs.set(item.id, item));
+				(await this._prsTreeModel.getLocalPullRequests(this.folderRepoManager)).items.forEach(item => this.prs.set(item.id, item));
 			} catch (e) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Fetching local pull requests failed: {0}', formatError(e)));
 				needLogin = e instanceof AuthenticationError;
@@ -239,10 +240,10 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				let response: ItemsResponseResult<PullRequestModel>;
 				switch (this.type) {
 					case PRType.All:
-						response = await this._prsTreeModel.getAllPullRequests(this._folderRepoManager, fetchNextPage);
+						response = await this._prsTreeModel.getAllPullRequests(this.folderRepoManager, fetchNextPage);
 						break;
 					case PRType.Query:
-						response = await this._prsTreeModel.getPullRequestsForQuery(this._folderRepoManager, fetchNextPage, this._categoryQuery!);
+						response = await this._prsTreeModel.getPullRequestsForQuery(this.folderRepoManager, fetchNextPage, this._categoryQuery!);
 						break;
 				}
 				if (!fetchNextPage) {
@@ -259,7 +260,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				}
 				vscode.window.showErrorMessage(vscode.l10n.t('Fetching pull requests failed: {0}', formatError(e)), ...actions).then(action => {
 					if (action && action === actions[0]) {
-						this._folderRepoManager.credentialStore.recreate(vscode.l10n.t('Your login session is no longer valid.'));
+						this.folderRepoManager.credentialStore.recreate(vscode.l10n.t('Your login session is no longer valid.'));
 					}
 				});
 				needLogin = e instanceof AuthenticationError;
@@ -268,7 +269,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		if (this.prs.size > 0) {
 			const nodes: (PRNode | PRCategoryActionNode)[] = Array.from(this.prs.values()).map(
-				prItem => new PRNode(this, this._folderRepoManager, prItem, this.type === PRType.LocalPullRequest, this._notificationProvider),
+				prItem => new PRNode(this, this.folderRepoManager, prItem, this.type === PRType.LocalPullRequest, this._notificationProvider),
 			);
 			if (hasMorePages) {
 				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.More, this));

@@ -237,7 +237,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 					issueModel.remote.repositoryName,
 					issueModel.number,
 				),
-				issueModel.getIssueTimelineEvents(),
+				issueModel.githubRepository.getIssueTimelineEvents(issueModel),
 				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(issueModel),
 				issueModel.canEdit(),
 				this._folderRepositoryManager.getAssignableUsers(),
@@ -321,8 +321,6 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				return this.addAssigneeYourself(message);
 			case 'pr.add-assignee-copilot':
 				return this.addAssigneeCopilot(message);
-			case 'pr.copy-prlink':
-				return this.copyItemLink();
 			case 'pr.copy-vscodedevlink':
 				return this.copyVscodeDevLink();
 			case 'pr.openOnGitHub':
@@ -442,7 +440,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			if (allAssignees) {
 				const newAssignees: IAccount[] = allAssignees.map(item => item.user);
 				await this._item.replaceAssignees(newAssignees);
-				const events = await this._item.getIssueTimelineEvents();
+				const events = await this._item.githubRepository.getIssueTimelineEvents(this._item);
 				const reply: ChangeAssigneesReply = {
 					assignees: newAssignees,
 					events
@@ -509,7 +507,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				const newAssignees = (this._item.assignees ?? []).concat(currentUser);
 				await this._item.replaceAssignees(newAssignees);
 			}
-			const events = await this._item.getIssueTimelineEvents();
+			const events = await this._item.githubRepository.getIssueTimelineEvents(this._item);
 			const reply: ChangeAssigneesReply = {
 				assignees: this._item.assignees ?? [],
 				events
@@ -527,7 +525,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				const newAssignees = (this._item.assignees ?? []).concat(copilotUser);
 				await this._item.replaceAssignees(newAssignees);
 			}
-			const events = await this._item.getIssueTimelineEvents();
+			const events = await this._item.githubRepository.getIssueTimelineEvents(this._item);
 			const reply: ChangeAssigneesReply = {
 				assignees: this._item.assignees ?? [],
 				events

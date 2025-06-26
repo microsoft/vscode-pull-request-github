@@ -8,14 +8,14 @@ import type monacoType from 'monaco-editor';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.main';
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
-import type { SessionPullInfo } from '../../src/common/timelineEvent';
+import { vscode } from '../common/message';
 import { CodeView } from './codeView';
 import './index.css'; // Create this file for styling
+import { PullInfo } from './messages';
 import { parseDiff, type SessionInfo, type SessionResponseLogChunk } from './sessionsApi';
-import { vscode } from '../common/message';
 
 interface SessionViewProps {
-	readonly pullInfo: SessionPullInfo | undefined;
+	readonly pullInfo: PullInfo | undefined;
 	readonly info: SessionInfo;
 	readonly logs: readonly SessionResponseLogChunk[];
 }
@@ -31,7 +31,7 @@ export const SessionView: React.FC<SessionViewProps> = (props) => {
 
 // Session Header component
 interface SessionHeaderProps {
-	pullInfo: SessionPullInfo | undefined;
+	pullInfo: PullInfo | undefined;
 	info: SessionInfo;
 }
 
@@ -44,29 +44,38 @@ const SessionHeader: React.FC<SessionHeaderProps> = ({ info, pullInfo }) => {
 	return (
 		<header className="session-header">
 			{pullInfo && (
-				<button
-					className="session-pull-button"
-					onClick={() => {
-						vscode.postMessage({ type: 'openPullRequestView' });
-					}}>
-					<span className="icon"><i className={'codicon codicon-left'}></i></span>
-					Back to Pull Request
-				</button>
+				<div className='session-header-title'>
+					<button
+						className="session-pull-button"
+						onClick={() => {
+							vscode.postMessage({ type: 'openPullRequestView' });
+						}}>
+						<span className="icon"><i className={'codicon codicon-chevron-left'}></i></span>
+						Back to Pull Request
+					</button>
+
+					<h1>Coding Agent Session Log</h1>
+					<h2>
+						<span className="icon"><i className={'codicon codicon-git-pull-request'}></i></span> {pullInfo.title}
+					</h2>
+				</div>
 			)}
 
-			<div className="session-status">
-				<div className="session-label">Status</div>
-				<div className="session-value">{info.state}</div>
-			</div>
+			<div className="session-header-info">
+				<div className="session-status">
+					<div className="session-label">Status</div>
+					<div className="session-value">{info.state}</div>
+				</div>
 
-			<div className="session-duration">
-				<div className="session-label">Duration</div>
-				<div className="session-value">{durationSec}s</div>
-			</div>
+				<div className="session-duration">
+					<div className="session-label">Duration</div>
+					<div className="session-value">{durationSec}s</div>
+				</div>
 
-			<div className="session-premium">
-				<div className="session-label">Premium requests</div>
-				<div className="session-value">{info.premium_requests}</div>
+				<div className="session-premium">
+					<div className="session-label">Premium requests</div>
+					<div className="session-value">{info.premium_requests}</div>
+				</div>
 			</div>
 		</header>
 	);
@@ -232,5 +241,5 @@ function getLanguageForResource(filePath: string): string | undefined {
 
 function toFileLabel(file: string): string {
 	const parts = file.split('/');
-	return parts.slice(4).join('/');
+	return parts.slice(5).join('/');
 }

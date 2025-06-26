@@ -4,12 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
+import { IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { ClosedEvent, EventType, TimelineEvent } from '../common/timelineEvent';
+import { ClosedEvent, EventType } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
-import { OctokitCommon } from './common';
 import { GitHubRepository } from './githubRepository';
 import {
 	AddIssueCommentResponse,
@@ -18,11 +17,10 @@ import {
 	LatestCommit,
 	LatestReviewThread,
 	LatestUpdatesResponse,
-	TimelineEventsResponse,
 	UpdateIssueResponse,
 } from './graphql';
 import { GithubItemStateEnum, IAccount, IIssueEditData, IMilestone, IProject, IProjectItem, Issue } from './interface';
-import { convertRESTIssueToRawPullRequest, parseCombinedTimelineEvents, parseGraphQlIssueComment, parseSelectRestTimelineEvents, restPaginate } from './utils';
+import { convertRESTIssueToRawPullRequest, parseGraphQlIssueComment } from './utils';
 
 export class IssueModel<TItem extends Issue = Issue> {
 	static ID = 'IssueModel';
@@ -324,61 +322,6 @@ export class IssueModel<TItem extends Issue = Issue> {
 		await this.removeProjects(projectsToRemove);
 		await this.addProjects(projectsToAdd);
 		return this.item.projectItems;
-	}
-
-	/**
-	 * TODO: @alexr00 we should delete this https://github.com/microsoft/vscode-pull-request-github/issues/6965
-	 */
-	async getCopilotTimelineEvents(): Promise<TimelineEvent[]> {
-		if (!COPILOT_ACCOUNTS[this.author.login]) {
-			return [];
-		}
-
-		Logger.debug(`Fetch Copilot timeline events of issue #${this.number} - enter`, IssueModel.ID);
-
-		const { octokit, remote } = await this.githubRepository.ensure();
-		try {
-			const timeline = await restPaginate<typeof octokit.api.issues.listEventsForTimeline, OctokitCommon.ListEventsForTimelineResponse>(octokit.api.issues.listEventsForTimeline, {
-				issue_number: this.number,
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				per_page: 100
-			});
-
-			return parseSelectRestTimelineEvents(this, timeline);
-		} catch (e) {
-			Logger.error(`Error fetching Copilot timeline events of issue #${this.number} - ${formatError(e)}`, IssueModel.ID);
-			return [];
-		}
-	}
-
-	async getIssueTimelineEvents(): Promise<TimelineEvent[]> {
-		Logger.debug(`Fetch timeline events of issue #${this.number} - enter`, IssueModel.ID);
-		const githubRepository = this.githubRepository;
-		const { query, remote, schema } = await githubRepository.ensure();
-
-		try {
-			const { data } = await query<TimelineEventsResponse>({
-				query: schema.IssueTimelineEvents,
-				variables: {
-					owner: remote.owner,
-					name: remote.repositoryName,
-					number: this.number,
-				},
-			});
-
-			if (data.repository === null) {
-				Logger.error('Unexpected null repository when getting issue timeline events', IssueModel.ID);
-				return [];
-			}
-			const ret = data.repository.pullRequest.timelineItems.nodes;
-			const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(), githubRepository);
-
-			return events;
-		} catch (e) {
-			console.log(e);
-			return [];
-		}
 	}
 
 	protected getUpdatesQuery(schema: any): any {

@@ -11,7 +11,7 @@ import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, QUERIES, REMOTES } from '../co
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { EXTENSION_ID } from '../constants';
-import { CopilotStateModel } from '../github/copilotPrWatcher';
+import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { CredentialStore } from '../github/credentials';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
 import { PRType } from '../github/interface';
@@ -51,11 +51,11 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		return this._view;
 	}
 
-	constructor(private readonly _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager, private readonly _copilotStateModel: CopilotStateModel) {
+	constructor(private readonly _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager, private readonly _copilotManager: CopilotRemoteAgentManager) {
 		super();
 		this.prsTreeModel = this._register(new PrsTreeModel(this._telemetry, this._reposManager, _context));
 		this._register(this.prsTreeModel.onDidChangeData(folderManager => folderManager ? this.refreshRepo(folderManager) : this.refresh()));
-		this._register(new PRStatusDecorationProvider(this.prsTreeModel, this._copilotStateModel));
+		this._register(new PRStatusDecorationProvider(this.prsTreeModel, this._copilotManager));
 		this._register(vscode.commands.registerCommand('pr.refreshList', _ => {
 			this.refresh(undefined, true);
 		}));
@@ -77,7 +77,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 					clearTimeout(this._notificationClearTimeout);
 				}
 				this._notificationClearTimeout = setTimeout(() => {
-					_copilotStateModel.clearNotifications();
+					_copilotManager.clearNotifications();
 					this._view.badge = undefined;
 					this._notificationClearTimeout = undefined;
 				}, 5000);
@@ -93,17 +93,19 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			}
 		});
 
-		this._register(_copilotStateModel.onDidChangeStates(() => {
-			if (_copilotStateModel.notifications.size > 0) {
+		this._register(this._copilotManager.onDidChangeStates(() => {
+			if (this._copilotManager.notifications.size > 0) {
 				this._view.badge = {
-					tooltip: _copilotStateModel.notifications.size === 1 ? vscode.l10n.t('Coding agent has 1 change to view') : vscode.l10n.t('Coding agent has {0} changes to view', _copilotStateModel.notifications.size),
-					value: _copilotStateModel.notifications.size
+					tooltip: this._copilotManager.notifications.size === 1 ? vscode.l10n.t('Coding agent has 1 change to view') : vscode.l10n.t('Coding agent has {0} changes to view', this._copilotManager.notifications.size),
+					value: this._copilotManager.notifications.size
 				};
 				this.refresh();
 			} else {
 				this._view.badge = undefined;
 			}
 		}));
+
+		this._register(this._copilotManager.onDidCreatePullRequest(() => this.refresh()));
 
 		this._children = [];
 
@@ -210,8 +212,8 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	}
 
 	private refreshRepo(manager: FolderRepositoryManager): void {
-		if (this._children.length === 0) {
-			return this.refresh();
+		if ((this._children.length === 0) || (this._children[0] instanceof CategoryTreeNode && this._children[0].folderRepoManager === manager)) {
+			return this.refresh(undefined, true);
 		}
 		if (this._children[0] instanceof WorkspaceFolderNode) {
 			const children: WorkspaceFolderNode[] = this._children as WorkspaceFolderNode[];
@@ -299,7 +301,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 					this.notificationProvider,
 					this._context,
 					this.prsTreeModel,
-					this._copilotStateModel,
+					this._copilotManager,
 				);
 			} else {
 				result = gitHubFolderManagers.map(
@@ -312,7 +314,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 							this.notificationProvider,
 							this._context,
 							this.prsTreeModel,
-							this._copilotStateModel
+							this._copilotManager
 						),
 				);
 			}

@@ -5,7 +5,7 @@
 
 import React, { useContext, useState } from 'react';
 import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../../src/common/copilot';
-import { TimelineEvent } from '../../src/common/timelineEvent';
+import { CopilotStartedEvent, TimelineEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
@@ -103,7 +103,7 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 }
 
 function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaultBranch, setEditMode }) {
-	const { refresh, copyPrLink, copyVscodeDevLink, openChanges } = useContext(PullRequestContext);
+	const { refresh, copyVscodeDevLink, openChanges } = useContext(PullRequestContext);
 
 	return (
 		<div className="button-group">
@@ -121,9 +121,6 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 					<button title="Rename" onClick={setEditMode} className="secondary small-button">
 						Rename
 					</button>
-					<button title="Copy GitHub pull request link" onClick={copyPrLink} className="secondary small-button">
-						Copy Link
-					</button>
 					<button title="Copy vscode.dev link for viewing this pull request in VS Code for the Web" onClick={copyVscodeDevLink} className="secondary small-button">
 						Copy vscode.dev Link
 					</button>
@@ -134,7 +131,7 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 }
 
 function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boolean, codingAgentEvent: TimelineEvent | undefined }) {
-	const { cancelCodingAgent, updatePR } = useContext(PullRequestContext);
+	const { cancelCodingAgent, updatePR, openSessionLog } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 
 	const cancel = async () => {
@@ -149,8 +146,16 @@ function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boole
 		setBusy(false);
 	};
 
+	// Extract sessionLink from the coding agent event
+	const sessionLink = (codingAgentEvent as CopilotStartedEvent)?.sessionLink;
+
 	return (canEdit && codingAgentEvent && copilotEventToStatus(codingAgentEvent) === CopilotPRStatus.Started)
 		? <div className="button-group">
+			{sessionLink && (
+				<button title="View Session" className="secondary small-button" onClick={() => openSessionLog(sessionLink)}>
+					View Session
+				</button>
+			)}
 			<button title="Cancel Coding Agent" disabled={isBusy} className="small-button danger" onClick={cancel}>
 				Cancel Coding Agent
 			</button>
@@ -206,9 +211,6 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBran
 	if (isCurrentlyCheckedOut) {
 		return (
 			<>
-				<button aria-live="polite" className="checkedOut small-button" disabled>
-					{checkIcon}{nbsp} Checked Out
-				</button>
 				<button
 					aria-live="polite"
 					title="Switch to a different branch than this pull request branch"
@@ -216,7 +218,7 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBran
 					className='small-button'
 					onClick={() => onClick('exitReviewMode')}
 				>
-					Checkout '{repositoryDefaultBranch}'
+					{checkIcon}{nbsp} Checkout '{repositoryDefaultBranch}'
 				</button>
 			</>
 		);

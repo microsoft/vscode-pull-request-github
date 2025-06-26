@@ -521,6 +521,8 @@ body button .icon {
 .button-group {
 	display: flex;
 	gap: 8px;
+	flex-wrap: wrap;
+	align-items: flex-start;
 }
 
 .small-button {
@@ -531,6 +533,7 @@ body button .icon {
 
 .header-actions {
 	display: flex;
+	gap: 8px;
 }
 
 .header-actions>div:first-of-type {
