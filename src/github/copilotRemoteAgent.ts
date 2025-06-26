@@ -324,18 +324,18 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return await capi.getLogsFromZipUrl(lastRun.logs_url);
 	}
 
-	async getSessionLogsFromPullRequest(pullRequestId: number): Promise<IAPISessionLogs> {
+	async getMostRecentSessionLogsFromPullRequest(pullRequestId: number, completedOnly = true): Promise<IAPISessionLogs | undefined> {
 		const capi = await this.copilotApi;
 		if (!capi) {
-			return { sessionId: '', logs: '' };
+			return undefined;
 		}
 
 		const sessions = await capi.getAllSessions(pullRequestId);
-		const completedSessions = sessions.filter(s => s.state === 'completed');
-		if (completedSessions.length === 0) {
-			return { sessionId: '', logs: '' };
+		const mostRecentSession = sessions.filter(s => !completedOnly || s.state === 'completed').at(0);
+		if (!mostRecentSession) {
+			return undefined;
 		}
-		const mostRecentSession = this.getLatestRun(completedSessions);
+
 		const logs = await capi.getLogsFromSession(mostRecentSession.id);
 		return { sessionId: mostRecentSession.id, logs };
 	}
