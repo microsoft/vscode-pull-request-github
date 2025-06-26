@@ -6,6 +6,8 @@
 import vscode from 'vscode';
 import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
+import { COPILOT_LOGINS } from '../common/copilot';
+import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import { Remote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
@@ -24,9 +26,12 @@ export interface IAPISessionLogs {
 	logs: string;
 }
 
+const LEARN_MORE = vscode.l10n.t('Learn about Coding Agent');
+// Without Pending Changes
+const CONTINUE = vscode.l10n.t('Continue');
+// With Pending Changes
 const PUSH_CHANGES = vscode.l10n.t('Include changes');
 const CONTINUE_WITHOUT_PUSHING = vscode.l10n.t('Ignore changes');
-const LEARN_MORE = vscode.l10n.t('Learn about Coding Agent');
 
 export class CopilotRemoteAgentManager extends Disposable {
 	public static ID = 'CopilotRemoteAgentManager';
@@ -52,6 +57,28 @@ export class CopilotRemoteAgentManager extends Disposable {
 		this._register(new CopilotPRWatcher(this.repositoriesManager, this._stateModel));
 		this._register(this._stateModel.onDidChangeStates(() => this._onDidChangeStates.fire()));
 		this._register(this._stateModel.onDidChangeNotifications(() => this._onDidChangeNotifications.fire()));
+
+		this._register(this.repositoriesManager.onDidChangeFolderRepositories((event) => {
+			if (event.added) {
+				this._register(event.added.onDidChangeAssignableUsers(() => {
+					this.updateAssignabilityContext();
+				}));
+			}
+			this.updateAssignabilityContext();
+		}));
+		this.repositoriesManager.folderManagers.forEach(manager => {
+			this._register(manager.onDidChangeAssignableUsers(() => {
+				this.updateAssignabilityContext();
+			}));
+		});
+		this._register(vscode.workspace.onDidChangeConfiguration((e) => {
+			if (e.affectsConfiguration(CODING_AGENT)) {
+				this.updateAssignabilityContext();
+			}
+		}));
+
+		// Set initial context
+		this.updateAssignabilityContext();
 	}
 
 	private _copilotApiPromise: Promise<CopilotApi | undefined> | undefined;
@@ -74,6 +101,61 @@ export class CopilotRemoteAgentManager extends Disposable {
 	enabled(): boolean {
 		return vscode.workspace
 			.getConfiguration(CODING_AGENT).get(CODING_AGENT_ENABLED, false);
+	}
+
+	async isAssignable(): Promise<boolean> {
+		const repoInfo = await this.repoInfo();
+		if (!repoInfo) {
+			return false;
+		}
+
+		const { owner, repo } = repoInfo;
+		const folderManager = this.getFolderManagerForRepo(owner, repo);
+
+		try {
+			// Ensure assignable users are loaded
+			await folderManager.getAssignableUsers();
+			const allAssignableUsers = folderManager.getAllAssignableUsers();
+
+			if (!allAssignableUsers) {
+				return false;
+			}
+
+			// Check if any of the copilot logins are in the assignable users
+			return allAssignableUsers.some(user => COPILOT_LOGINS.includes(user.login));
+		} catch (error) {
+			// If there's an error fetching assignable users, assume not assignable
+			return false;
+		}
+	}
+
+	async isAvailable(): Promise<boolean> {
+		// Check if the manager is enabled, copilot API is available, and it's assignable
+		if (!this.enabled()) {
+			return false;
+		}
+
+		const repoInfo = await this.repoInfo();
+		if (!repoInfo) {
+			return false;
+		}
+
+		const copilotApi = await this.copilotApi;
+		if (!copilotApi) {
+			return false;
+		}
+
+		return await this.isAssignable();
+	}
+
+	private async updateAssignabilityContext(): Promise<void> {
+		try {
+			const available = await this.isAvailable();
+			commands.setContext('copilotCodingAgentAssignable', available);
+		} catch (error) {
+			// Presume false
+			commands.setContext('copilotCodingAgentAssignable', false);
+		}
 	}
 
 	autoCommitAndPushEnabled(): boolean {
@@ -128,13 +210,18 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		const hasChanges = repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0;
 
+		const learnMoreCb = async () => {
+			vscode.env.openExternal(vscode.Uri.parse('https://docs.github.com/copilot/using-github-copilot/coding-agent'));
+		};
+
 		let autoPushAndCommit = false;
+		const message = vscode.l10n.t('GitHub Coding Agent will continue your work in \'{0}\'', repoName);
 		if (hasChanges && this.autoCommitAndPushEnabled()) {
 			const modalResult = await vscode.window.showInformationMessage(
-				vscode.l10n.t('GitHub Coding Agent will continue your work in \'{0}\'', repoName),
+				message,
 				{
 					modal: true,
-					detail: vscode.l10n.t('Uncommitted local changes detected'),
+					detail: vscode.l10n.t('Local changes detected'),
 				},
 				PUSH_CHANGES,
 				CONTINUE_WITHOUT_PUSHING,
@@ -146,15 +233,31 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 
 			if (modalResult === LEARN_MORE) {
-				vscode.env.openExternal(vscode.Uri.parse('https://docs.github.com/copilot/using-github-copilot/coding-agent'));
+				learnMoreCb();
 				return;
 			}
 
 			if (modalResult === PUSH_CHANGES) {
 				autoPushAndCommit = true;
 			}
-		}
+		} else {
+			const modalResult = await vscode.window.showInformationMessage(
+				message,
+				{
+					modal: true,
+				},
+				CONTINUE,
+				LEARN_MORE,
+			);
+			if (!modalResult) {
+				return;
+			}
 
+			if (modalResult === LEARN_MORE) {
+				learnMoreCb();
+				return;
+			}
+		}
 
 		const result = await this.invokeRemoteAgent(
 			userPrompt,
@@ -273,18 +376,18 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return await capi.getLogsFromZipUrl(lastRun.logs_url);
 	}
 
-	async getSessionLogsFromPullRequest(pullRequestId: number): Promise<IAPISessionLogs> {
+	async getMostRecentSessionLogsFromPullRequest(pullRequestId: number, completedOnly = true): Promise<IAPISessionLogs | undefined> {
 		const capi = await this.copilotApi;
 		if (!capi) {
-			return { sessionId: '', logs: '' };
+			return undefined;
 		}
 
 		const sessions = await capi.getAllSessions(pullRequestId);
-		const completedSessions = sessions.filter(s => s.state === 'completed');
-		if (completedSessions.length === 0) {
-			return { sessionId: '', logs: '' };
+		const mostRecentSession = sessions.filter(s => !completedOnly || s.state === 'completed').at(0);
+		if (!mostRecentSession) {
+			return undefined;
 		}
-		const mostRecentSession = this.getLatestRun(completedSessions);
+
 		const logs = await capi.getLogsFromSession(mostRecentSession.id);
 		return { sessionId: mostRecentSession.id, logs };
 	}

@@ -44,7 +44,7 @@ export class CopilotApi {
 		payload: RemoteAgentJobPayload,
 	): Promise<RemoteAgentJobResponse> {
 		const repoSlug = `${owner}/${name}`;
-		const apiUrl = `${this.baseUrl}/agents/swe/jobs/${repoSlug}`;
+		const apiUrl = `${this.baseUrl}/agents/swe/v0/jobs/${repoSlug}`;
 		const response = await fetch(apiUrl, {
 			method: 'POST',
 			headers: {

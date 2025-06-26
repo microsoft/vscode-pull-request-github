@@ -67,10 +67,11 @@
 	"contributes": {
 		"remoteCodingAgents": [
 			{
+				"id": "githubCodingAgent",
 				"command": "githubpr.remoteAgent",
 				"displayName": "GitHub Coding Agent",
 				"description": "The GitHub Coding Agent.",
-				"when": "config.githubPullRequests.codingAgent.enabled"
+				"when": "config.githubPullRequests.codingAgent.enabled && copilotCodingAgentAssignable"
 			}
 		],
 		"chatParticipants": [
@@ -1662,11 +1663,6 @@
 				"command": "codingAgent.openSessionLog",
 				"title": "Open Coding Agent Session Log",
 				"category": "%command.pull.request.category%"
-			},
-			{
-				"command": "sessionLog.openOnWeb",
-				"title": "Open on Web",
-				"icon": "$(globe)"
 			}
 		],
 		"viewsWelcome": [
@@ -2384,10 +2380,6 @@
 				{
 					"command": "review.copyPrLink",
 					"when": "github:inReviewMode"
-				},
-				{
-					"command": "sessionLog.openOnWeb",
-					"when": "false"
 				}
 			],
 			"view/title": [
@@ -2854,11 +2846,6 @@
 					"command": "pr.addFileComment",
 					"group": "navigation",
 					"when": "(resourceScheme == pr) || (resourcePath in github:viewedFiles) || (resourcePath in github:unviewedFiles)"
-				},
-				{
-					"command": "sessionLog.openOnWeb",
-					"group": "navigation",
-					"when": "activeWebviewPanelId == 'pr.codingAgentSessionLogView'"
 				}
 			],
 			"editor/content": [
