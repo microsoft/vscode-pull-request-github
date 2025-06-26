@@ -55,44 +55,27 @@ export class CopilotRemoteAgentManager extends Disposable {
 		this._register(this._stateModel.onDidChangeStates(() => this._onDidChangeStates.fire()));
 		this._register(this._stateModel.onDidChangeNotifications(() => this._onDidChangeNotifications.fire()));
 
-		// Listen for repository changes and assignable user changes to update context
 		this._register(this.repositoriesManager.onDidChangeFolderRepositories((event) => {
-			// Listen to assignable users changes for newly added folder managers
 			if (event.added) {
 				this._register(event.added.onDidChangeAssignableUsers(() => {
-					this.updateAssignabilityContext().catch(err => {
-						// Silently ignore errors in context update
-					});
+					this.updateAssignabilityContext();
 				}));
 			}
-			
-			this.updateAssignabilityContext().catch(err => {
-				// Silently ignore errors in context update
-			});
+			this.updateAssignabilityContext();
 		}));
-
-		// Listen for assignable users changes in existing folder managers
 		this.repositoriesManager.folderManagers.forEach(manager => {
 			this._register(manager.onDidChangeAssignableUsers(() => {
-				this.updateAssignabilityContext().catch(err => {
-					// Silently ignore errors in context update
-				});
+				this.updateAssignabilityContext();
 			}));
 		});
-
-		// Listen for configuration changes that might affect availability
 		this._register(vscode.workspace.onDidChangeConfiguration((e) => {
 			if (e.affectsConfiguration(CODING_AGENT)) {
-				this.updateAssignabilityContext().catch(err => {
-					// Silently ignore errors in context update
-				});
+				this.updateAssignabilityContext();
 			}
 		}));
 
 		// Set initial context
-		this.updateAssignabilityContext().catch(err => {
-			// Silently ignore errors in initial context update
-		});
+		this.updateAssignabilityContext();
 	}
 
 	private _copilotApiPromise: Promise<CopilotApi | undefined> | undefined;
@@ -125,12 +108,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		const { owner, repo } = repoInfo;
 		const folderManager = this.getFolderManagerForRepo(owner, repo);
-		
+
 		try {
 			// Ensure assignable users are loaded
 			await folderManager.getAssignableUsers();
 			const allAssignableUsers = folderManager.getAllAssignableUsers();
-			
+
 			if (!allAssignableUsers) {
 				return false;
 			}
@@ -167,7 +150,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			const available = await this.isAvailable();
 			commands.setContext('copilotCodingAgentAssignable', available);
 		} catch (error) {
-			// If there's an error checking availability, set context to false
+			// Presume false
 			commands.setContext('copilotCodingAgentAssignable', false);
 		}
 	}
