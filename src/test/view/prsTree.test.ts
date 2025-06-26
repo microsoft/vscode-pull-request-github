@@ -31,7 +31,7 @@ import { DataUri } from '../../common/uri';
 import { IAccount, ITeam } from '../../github/interface';
 import { asPromise } from '../../common/utils';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
-import { CopilotStateModel } from '../../github/copilotPrWatcher';
+import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -41,7 +41,7 @@ describe('GitHub Pull Requests view', function () {
 	let credentialStore: CredentialStore;
 	let reposManager: RepositoriesManager;
 	let createPrHelper: CreatePullRequestHelper;
-	let copilotStateModel: CopilotStateModel;
+	let copilotManager: CopilotRemoteAgentManager;
 
 	beforeEach(function () {
 		sinon = createSandbox();
@@ -54,9 +54,9 @@ describe('GitHub Pull Requests view', function () {
 			credentialStore,
 			telemetry,
 		);
-		copilotStateModel = new CopilotStateModel();
-		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotStateModel);
 		credentialStore = new CredentialStore(telemetry, context);
+		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager);
+		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotManager);
 		createPrHelper = new CreatePullRequestHelper();
 
 		// For tree view unit tests, we don't test the authentication flow, so `showSignInNotification` returns

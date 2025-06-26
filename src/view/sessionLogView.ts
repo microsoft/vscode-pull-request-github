@@ -100,7 +100,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 
 	async openForPull(pullRequest: PullRequestModel): Promise<void> {
 		try {
-			const sessionLogs = await this.copilotAgentManager.getSessionLogsFromPullRequest(pullRequest);
+			const sessionLogs = await this.copilotAgentManager.getSessionLogsFromPullRequest(pullRequest.id);
 			if (!sessionLogs) {
 				throw new Error('No sessions found for this pull request.');
 			}
@@ -108,7 +108,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 			return this.open(sessionLogs, pullRequest);
 		} catch (error) {
 			Logger.error(`Failed to retrieve session logs: ${error}`, 'SessionLogViewManager');
-			const url = await this.copilotAgentManager.getSessionUrlFromPullRequest(pullRequest);
+			const url = await this.copilotAgentManager.getSessionUrlFromPullRequest(pullRequest.id);
 			if (!url) {
 				vscode.window.showErrorMessage(vscode.l10n.t('No sessions found for this pull request.'));
 				return;

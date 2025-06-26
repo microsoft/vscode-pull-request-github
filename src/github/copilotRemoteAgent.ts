@@ -7,12 +7,12 @@ import vscode from 'vscode';
 import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
 import { Disposable } from '../common/lifecycle';
+import { Remote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { CopilotApi, RemoteAgentJobPayload } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { CredentialStore } from './credentials';
-import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
 
 type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number; webviewUri: vscode.Uri; llmDetails: string };
@@ -25,25 +25,29 @@ export interface IAPISessionLogs {
 }
 
 export class CopilotRemoteAgentManager extends Disposable {
-	private readonly _onDidChangeEnabled = new vscode.EventEmitter<boolean>();
-	public readonly onDidChangeEnabled: vscode.Event<boolean> = this._onDidChangeEnabled.event;
 	public static ID = 'CopilotRemoteAgentManager';
 	private readonly workflowRunUrlBase = 'https://github.com/microsoft/vscode/actions/runs/';
 
-	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, stateModel: CopilotStateModel) {
+	private readonly _stateModel: CopilotStateModel;
+	private readonly _onDidChangeStates = this._register(new vscode.EventEmitter<void>());
+	readonly onDidChangeStates = this._onDidChangeStates.event;
+	private readonly _onDidChangeNotifications = this._register(new vscode.EventEmitter<void>());
+	readonly onDidChangeNotifications = this._onDidChangeNotifications.event;
+	private readonly _onDidCreatePullRequest = this._register(new vscode.EventEmitter<number>());
+	readonly onDidCreatePullRequest = this._onDidCreatePullRequest.event;
+
+	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager) {
 		super();
 		this._register(this.credentialStore.onDidChangeSessions((e: vscode.AuthenticationSessionsChangeEvent) => {
 			if (e.provider.id === 'github') {
 				this._copilotApiPromise = undefined; // Invalidate cached session
 			}
 		}));
-		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(`${CODING_AGENT}.${CODING_AGENT_ENABLED}`)) {
-				this._onDidChangeEnabled.fire(this.enabled());
-			}
-		}));
-		this._register(new CopilotPRWatcher(this.repositoriesManager, stateModel));
 
+		this._stateModel = new CopilotStateModel();
+		this._register(new CopilotPRWatcher(this.repositoriesManager, this._stateModel));
+		this._register(this._stateModel.onDidChangeStates(() => this._onDidChangeStates.fire()));
+		this._register(this._stateModel.onDidChangeNotifications(() => this._onDidChangeNotifications.fire()));
 	}
 
 	private _copilotApiPromise: Promise<CopilotApi | undefined> | undefined;
@@ -258,6 +262,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const { pull_request } = await capiClient.postRemoteAgentJob(owner, repo, payload);
 		const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: pull_request.number });
 		const prLlmString = `The remote agent has begun work. The user can track progress by visiting ${pull_request.html_url} or from the PR extension.`;
+		this._onDidCreatePullRequest.fire(pull_request.number);
 		return {
 			state: 'success',
 			number: pull_request.number,
@@ -267,15 +272,15 @@ export class CopilotRemoteAgentManager extends Disposable {
 		};
 	}
 
-	async getSessionLogsFromAction(pullRequest: PullRequestModel) {
+	async getSessionLogsFromAction(remote: Remote, pullRequestId: number) {
 		const capi = await this.copilotApi;
 		if (!capi) {
 			return [];
 		}
-		const runs = await capi.getWorkflowRunsFromAction(pullRequest);
+		const runs = await capi.getWorkflowRunsFromAction(remote);
 		const padawanRuns = runs
 			.filter(run => run.path && run.path.startsWith('dynamic/copilot-swe-agent'))
-			.filter(run => run.pull_requests?.some(pr => pr.id === pullRequest.id));
+			.filter(run => run.pull_requests?.some(pr => pr.id === pullRequestId));
 
 		const lastRun = this.getLatestRun(padawanRuns);
 
@@ -286,13 +291,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return await capi.getLogsFromZipUrl(lastRun.logs_url);
 	}
 
-	async getSessionLogsFromPullRequest(pullRequest: PullRequestModel): Promise<IAPISessionLogs> {
+	async getSessionLogsFromPullRequest(pullRequestId: number): Promise<IAPISessionLogs> {
 		const capi = await this.copilotApi;
 		if (!capi) {
 			return { sessionId: '', logs: '' };
 		}
 
-		const sessions = await capi.getAllSessions(pullRequest);
+		const sessions = await capi.getAllSessions(pullRequestId);
 		const completedSessions = sessions.filter(s => s.state === 'completed');
 		if (completedSessions.length === 0) {
 			return { sessionId: '', logs: '' };
@@ -302,13 +307,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return { sessionId: mostRecentSession.id, logs };
 	}
 
-	async getSessionUrlFromPullRequest(pullRequest: PullRequestModel): Promise<string | undefined> {
+	async getSessionUrlFromPullRequest(pullRequestId: number | undefined): Promise<string | undefined> {
 		const capi = await this.copilotApi;
 		if (!capi) {
 			return undefined;
 		}
 
-		const sessions = await capi.getAllSessions(pullRequest);
+		const sessions = await capi.getAllSessions(pullRequestId);
 		const completedSessions = sessions.filter(s => s.state === 'completed');
 		if (completedSessions.length === 0) {
 			return undefined;
@@ -335,5 +340,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 				const dateB = new Date(b.last_updated_at ?? b.updated_at ?? 0).getTime();
 				return dateB - dateA;
 			})[0];
+	}
+
+	clearNotifications() {
+		this._stateModel.clearNotifications();
+	}
+
+	get notifications(): ReadonlySet<string> {
+		return this._stateModel.notifications;
 	}
 }
