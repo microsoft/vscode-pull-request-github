@@ -267,7 +267,7 @@ class SessionLogView extends Disposable {
 		super.dispose();
 	}
 
-	async refreshContent(logs: IAPISessionLogs, pullInfo: SessionPullInfo | undefined): Promise<void> {
+	async refreshContent(_logs: IAPISessionLogs, _pullInfo: SessionPullInfo | undefined): Promise<void> {
 		// For session reuse, we simply re-initialize to refresh the content
 		// The sessionId is the same, so the content should be current
 		await this.initialize();
