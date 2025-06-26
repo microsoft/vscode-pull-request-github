@@ -45,12 +45,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				this._copilotApiPromise = undefined; // Invalidate cached session
 			}
 		}));
-		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(`${CODING_AGENT}.${CODING_AGENT_ENABLED}`)) {
-				this.toggleEnablement();
-			}
-		}));
-		this.toggleEnablement();
+
 		this._stateModel = new CopilotStateModel();
 		this._register(new CopilotPRWatcher(this.repositoriesManager, this._stateModel));
 		this._register(this._stateModel.onDidChangeStates(() => this._onDidChangeStates.fire()));
@@ -119,24 +114,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return;
 		}
 		return { owner, repo, remote, baseRef, repository };
-	}
-
-	private statusBarItemImpl(): vscode.StatusBarItem {
-		const continueWithCopilot = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-		continueWithCopilot.command = 'pr.continueAsyncWithCopilot';
-		continueWithCopilot.text = vscode.l10n.t('$(cloud-upload) Finish with coding agent');
-		continueWithCopilot.tooltip = vscode.l10n.t('Complete your current work with the Copilot coding agent. Your current changes will be pushed to a branch and your task will be completed in the background.');
-		continueWithCopilot.show();
-		return continueWithCopilot;
-	}
-
-	private toggleEnablement() {
-		if (this.enabled() && !this._statusBarItem) {
-			this._statusBarItem = this.statusBarItemImpl();
-		} else if (!this.enabled() && this._statusBarItem) {
-			this._statusBarItem.dispose();
-			this._statusBarItem = undefined;
-		}
 	}
 
 	async commandImpl(args?: any) {
