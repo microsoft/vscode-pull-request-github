@@ -287,14 +287,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<GitApi
 	// initialize resources
 	Resource.initialize(context);
 	Logger.debug('Creating API implementation.', 'Activation');
-	const apiImpl = new GitApiImpl();
 
 	telemetry = new ExperimentationTelemetry(new TelemetryReporter(ingestionKey));
 	context.subscriptions.push(telemetry);
 
-	await deferredActivate(context, apiImpl, showPRController);
-
-	return apiImpl;
+	return await deferredActivate(context, showPRController);
 }
 
 async function setGitSettingContexts(context: vscode.ExtensionContext) {
@@ -378,7 +375,7 @@ async function deferredActivateRegisterBuiltInGitProvider(context: vscode.Extens
 	}
 }
 
-async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitApiImpl, showPRController: ShowPullRequest) {
+async function deferredActivate(context: vscode.ExtensionContext, showPRController: ShowPullRequest) {
 	Logger.debug('Initializing state.', 'Activation');
 	PersistentState.init(context);
 	await migrate(context);
@@ -392,6 +389,12 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	const showBadge = (vscode.env.appHost === 'desktop');
 	await credentialStore.create(showBadge ? undefined : { silent: true });
 
+	const reposManager = new RepositoriesManager(credentialStore, telemetry);
+	context.subscriptions.push(reposManager);
+	// API
+	const apiImpl = new GitApiImpl(reposManager);
+	context.subscriptions.push(apiImpl);
+
 	deferredActivateRegisterBuiltInGitProvider(context, apiImpl, credentialStore);
 
 	Logger.debug('Registering live share git provider.', 'Activation');
@@ -402,8 +405,6 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	context.subscriptions.push(apiImpl);
 
 	Logger.debug('Creating tree view.', 'Activation');
-	const reposManager = new RepositoriesManager(credentialStore, telemetry);
-	context.subscriptions.push(reposManager);
 
 	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager);
 	context.subscriptions.push(copilotRemoteAgentManager);
@@ -432,6 +433,7 @@ async function deferredActivate(context: vscode.ExtensionContext, apiImpl: GitAp
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.Pr, inMemPRFileSystemProvider, { isReadonly: readOnlyMessage }));
 
 	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper, copilotRemoteAgentManager);
+	return apiImpl;
 }
 
 export async function deactivate() {

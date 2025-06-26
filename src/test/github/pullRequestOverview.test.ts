@@ -24,6 +24,7 @@ import { GitHubServerType } from '../../common/authentication';
 import { GitHubRemote } from '../../common/remote';
 import { CheckState } from '../../github/interface';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
+import { RepositoriesManager } from '../../github/repositoriesManager';
 
 const EXTENSION_URI = vscode.Uri.joinPath(vscode.Uri.file(__dirname), '../../..');
 
@@ -45,7 +46,8 @@ describe('PullRequestOverview', function () {
 		telemetry = new MockTelemetry();
 		credentialStore = new CredentialStore(telemetry, context);
 		const createPrHelper = new CreatePullRequestHelper();
-		pullRequestManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(), credentialStore, createPrHelper);
+		const repositoriesManager = new RepositoriesManager(credentialStore, telemetry);
+		pullRequestManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(repositoriesManager), credentialStore, createPrHelper);
 
 		const url = 'https://github.com/aaa/bbb';
 		remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
