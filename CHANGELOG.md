@@ -1727,7 +1727,7 @@ We saw a huge amount of community participation this release, thank you so much 
 - Initialize extension with repository that is currently selected in the source control view [#1330](https://github.com/microsoft/vscode-pull-request-github/issues/1330)
 - Handle error on unshallow [#1328](https://github.com/microsoft/vscode-pull-request-github/issues/1328)
 
-## 0.1## 0.0
+## 0.10.0
 
 ### Changes
 
