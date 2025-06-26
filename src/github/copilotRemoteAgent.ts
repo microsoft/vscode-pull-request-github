@@ -159,15 +159,28 @@ export class CopilotRemoteAgentManager extends Disposable {
 				return;
 			}
 
-			const { webviewUri, link } = result;
+			const { webviewUri, link, number } = result;
 			const openLink = vscode.l10n.t('View');
 			vscode.window.showInformationMessage(
 				// allow-any-unicode-next-line
 				vscode.l10n.t('🚀 Coding agent started! Track progress at {0}', link)
 				, openLink
-			).then(selection => {
+			).then(async selection => {
 				if (selection === openLink) {
-					vscode.env.openExternal(webviewUri);
+					try {
+						const folderManager = this.repositoriesManager.getManagerForRepository(repoInfo.owner, repoInfo.repo);
+						if (folderManager) {
+							const pr = await folderManager.resolvePullRequest(repoInfo.owner, repoInfo.repo, number);
+							if (pr) {
+								await vscode.commands.executeCommand('pr.openDescription', pr);
+								return;
+							}
+						}
+
+						vscode.env.openExternal(webviewUri);
+					} catch (e) {
+						vscode.env.openExternal(webviewUri);
+					}
 				}
 			});
 		});
