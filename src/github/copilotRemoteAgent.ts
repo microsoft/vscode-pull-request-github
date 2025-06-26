@@ -7,6 +7,7 @@ import vscode from 'vscode';
 import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
 import { COPILOT_LOGINS } from '../common/copilot';
+import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import { Remote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
@@ -53,6 +54,45 @@ export class CopilotRemoteAgentManager extends Disposable {
 		this._register(new CopilotPRWatcher(this.repositoriesManager, this._stateModel));
 		this._register(this._stateModel.onDidChangeStates(() => this._onDidChangeStates.fire()));
 		this._register(this._stateModel.onDidChangeNotifications(() => this._onDidChangeNotifications.fire()));
+
+		// Listen for repository changes and assignable user changes to update context
+		this._register(this.repositoriesManager.onDidChangeFolderRepositories((event) => {
+			// Listen to assignable users changes for newly added folder managers
+			if (event.added) {
+				this._register(event.added.onDidChangeAssignableUsers(() => {
+					this.updateAssignabilityContext().catch(err => {
+						// Silently ignore errors in context update
+					});
+				}));
+			}
+			
+			this.updateAssignabilityContext().catch(err => {
+				// Silently ignore errors in context update
+			});
+		}));
+
+		// Listen for assignable users changes in existing folder managers
+		this.repositoriesManager.folderManagers.forEach(manager => {
+			this._register(manager.onDidChangeAssignableUsers(() => {
+				this.updateAssignabilityContext().catch(err => {
+					// Silently ignore errors in context update
+				});
+			}));
+		});
+
+		// Listen for configuration changes that might affect availability
+		this._register(vscode.workspace.onDidChangeConfiguration((e) => {
+			if (e.affectsConfiguration(CODING_AGENT)) {
+				this.updateAssignabilityContext().catch(err => {
+					// Silently ignore errors in context update
+				});
+			}
+		}));
+
+		// Set initial context
+		this.updateAssignabilityContext().catch(err => {
+			// Silently ignore errors in initial context update
+		});
 	}
 
 	private _copilotApiPromise: Promise<CopilotApi | undefined> | undefined;
@@ -104,8 +144,32 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	async isAvailable(): Promise<boolean> {
-		// Check both configuration and assignability
-		return this.enabled() && await this.isAssignable();
+		// Check if the manager is enabled, copilot API is available, and it's assignable
+		if (!this.enabled()) {
+			return false;
+		}
+
+		const repoInfo = await this.repoInfo();
+		if (!repoInfo) {
+			return false;
+		}
+
+		const copilotApi = await this.copilotApi;
+		if (!copilotApi) {
+			return false;
+		}
+
+		return await this.isAssignable();
+	}
+
+	private async updateAssignabilityContext(): Promise<void> {
+		try {
+			const available = await this.isAvailable();
+			commands.setContext('copilotCodingAgentAssignable', available);
+		} catch (error) {
+			// If there's an error checking availability, set context to false
+			commands.setContext('copilotCodingAgentAssignable', false);
+		}
 	}
 
 	autoCommitAndPushEnabled(): boolean {
