@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import type * as messages from '../../webviews/sessionLogView/messages';
 import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { SessionPullInfo } from '../common/timelineEvent';
 import { CopilotApi, getCopilotApi } from '../github/copilotApi';
@@ -14,7 +15,6 @@ import { CredentialStore } from '../github/credentials';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
-import Logger from '../common/logger';
 
 export class SessionLogViewManager extends Disposable implements vscode.WebviewPanelSerializer {
 	public static instance: SessionLogViewManager | undefined;
@@ -117,6 +117,15 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 			return;
 		}
 
+		// Check if a panel already exists for this session
+		const existingPanel = this.findPanelBySessionId(logs.sessionId);
+		if (existingPanel) {
+			// Reveal the existing panel and refresh its content
+			existingPanel.panel.reveal(vscode.ViewColumn.Active);
+			await existingPanel.refreshContent(logs, pullInfo);
+			return;
+		}
+
 		const webviewPanel = vscode.window.createWebviewPanel(
 			SessionLogViewManager.viewType,
 			vscode.l10n.t('Session Log'),
@@ -143,6 +152,15 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 		}
 
 		await this.setupWebview(webviewPanel, state.sessionId, state.pullInfo, copilotApi);
+	}
+
+	private findPanelBySessionId(sessionId: string): SessionLogView | undefined {
+		for (const panel of Array.from(this._panels)) {
+			if (panel.sessionId === sessionId) {
+				return panel;
+			}
+		}
+		return undefined;
 	}
 
 	private async setupWebview(webviewPanel: vscode.WebviewPanel, sessionId: string, pullInfo: SessionPullInfo | undefined, copilotApi: CopilotApi): Promise<void> {
@@ -190,6 +208,10 @@ class SessionLogView extends Disposable {
 
 	private readonly _onDidDispose = new vscode.EventEmitter<void>();
 	public readonly onDidDispose = this._onDidDispose.event;
+
+	public get panel(): vscode.WebviewPanel {
+		return this.webviewPanel;
+	}
 
 	constructor(
 		public readonly sessionId: string,
@@ -245,7 +267,13 @@ class SessionLogView extends Disposable {
 		super.dispose();
 	}
 
-	private async initialize() {
+	async refreshContent(logs: IAPISessionLogs, pullInfo: SessionPullInfo | undefined): Promise<void> {
+		// For session reuse, we simply re-initialize to refresh the content
+		// The sessionId is the same, so the content should be current
+		await this.initialize();
+	}
+
+	public async initialize() {
 		let readyResolve: (value: void | PromiseLike<void>) => void;
 		const ready = new Promise<void>(resolve => { readyResolve = resolve; });
 		this._register(this.webviewPanel.webview.onDidReceiveMessage((message: any) => {
