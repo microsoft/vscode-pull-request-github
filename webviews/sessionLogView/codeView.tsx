@@ -25,36 +25,38 @@ export const CodeView: React.FC<CodeViewProps> = ({ label, description, content 
 	const editorContainerRef = React.useRef<HTMLDivElement>(null);
 	const contentRef = React.useRef<HTMLDivElement>(null);
 
-	// Initialize editor when component mounts or open state changes
+	// Initialize editor when component mounts
 	React.useEffect(() => {
-		if (open && editorContainerRef.current && !editor) {
-			const newEditor = monaco.editor.create(editorContainerRef.current, {
-				value: content.value,
-				language: content.lang || 'plaintext',
-				readOnly: true,
-				theme: 'vscode-theme',
-				bracketPairColorization: { enabled: false },
-				overflowWidgetsDomNode: editorContainerRef.current.parentElement!,
-				minimap: { enabled: false },
-				scrollbar: {
-					vertical: 'hidden',
-					horizontal: 'hidden',
-					alwaysConsumeMouseWheel: false,
-				},
-				scrollBeyondLastLine: false,
-				lineNumbers: 'off',
-				renderLineHighlight: 'none',
-				automaticLayout: false,
-				fontSize: 13,
-				wordWrap: 'on',
-				rulers: [],
-				overviewRulerLanes: 0,
-				renderFinalNewline: 'off',
-			});
-
-			setEditor(newEditor);
-			updateEditorHeight(newEditor);
+		if (!editorContainerRef.current) {
+			return;
 		}
+
+		const editor = monaco.editor.create(editorContainerRef.current, {
+			value: content.value,
+			language: content.lang || 'plaintext',
+			readOnly: true,
+			theme: 'vscode-theme',
+			bracketPairColorization: { enabled: false },
+			overflowWidgetsDomNode: editorContainerRef.current.parentElement!,
+			minimap: { enabled: false },
+			scrollbar: {
+				vertical: 'hidden',
+				horizontal: 'hidden',
+				alwaysConsumeMouseWheel: false,
+			},
+			scrollBeyondLastLine: false,
+			lineNumbers: 'off',
+			renderLineHighlight: 'none',
+			automaticLayout: true,
+			fontSize: 12,
+			wordWrap: 'on',
+			rulers: [],
+			overviewRulerLanes: 0,
+			renderFinalNewline: 'off',
+		});
+
+		setEditor(editor);
+		updateEditorHeight(editor);
 
 		// Cleanup
 		return () => {
@@ -63,7 +65,7 @@ export const CodeView: React.FC<CodeViewProps> = ({ label, description, content 
 				setEditor(undefined);
 			}
 		};
-	}, [open, content.value, content.lang]);
+	}, [editorContainerRef]);
 
 	// Update editor height when expanded state changes
 	React.useEffect(() => {
@@ -126,30 +128,28 @@ export const CodeView: React.FC<CodeViewProps> = ({ label, description, content 
 					{description && <span className="codeview-description">{description}</span>}
 				</summary>
 
-				{open && (
+				<div
+					className="codeview-content"
+					style={{ display: open ? 'block' : 'none' }}
+					ref={contentRef}
+				>
 					<div
-						className="codeview-content"
-						style={{ display: 'block' }}
-						ref={contentRef}
-					>
-						<div
-							className="codeview-editor-container"
-							ref={editorContainerRef}
-						/>
+						className="codeview-editor-container"
+						ref={editorContainerRef}
+					/>
 
-						{hasExpandableContent && (
-							<button
-								type="button"
-								className="codeview-expand"
-								onClick={toggleExpanded}
-								style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5em' }}
-							>
-								<div className="icon"><i className={'codicon ' + (expanded ? 'codicon-fold' : 'codicon-unfold')}></i></div>
-								{expanded ? 'Show less' : 'Show more'}
-							</button>
-						)}
-					</div>
-				)}
+					{hasExpandableContent && (
+						<button
+							type="button"
+							className="codeview-expand"
+							onClick={toggleExpanded}
+							style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5em' }}
+						>
+							<span className="icon"><i className={'codicon ' + (expanded ? 'codicon-fold' : 'codicon-unfold')}></i></span>
+							{expanded ? 'Show less' : 'Show more'}
+						</button>
+					)}
+				</div>
 			</details>
 		</div>
 	);

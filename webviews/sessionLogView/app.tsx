@@ -7,7 +7,6 @@ import { shikiToMonaco } from '@shikijs/monaco';
 import * as monaco from 'monaco-editor';
 import * as React from 'react';
 import { createHighlighter } from 'shiki';
-import { SessionPullInfo } from '../../src/common/timelineEvent';
 import { vscode } from '../common/message';
 import type * as messages from './messages';
 import { parseSessionLogs, SessionInfo, SessionResponseLogChunk } from './sessionsApi';
@@ -21,7 +20,7 @@ type SessionViewState =
 
 export function App() {
 	const [state, setState] = React.useState<SessionViewState>({ state: 'loading' });
-	const [pullInfo, setPullInfo] = React.useState<SessionPullInfo | undefined>(undefined);
+	const [pullInfo, setPullInfo] = React.useState<messages.PullInfo | undefined>(undefined);
 
 	React.useEffect(() => {
 		let themeP: Promise<void> | undefined;
@@ -119,10 +118,16 @@ async function registerMonacoTheme(themeData: any) {
 		langs: langs,
 	});
 
+	const transparent = '#00000000';
 	await highlighter.loadTheme({
 		...themeData,
 		name: themeName,
-		bg: 'transparent' // Don't set a background color
+		bg: 'transparent', // Don't set a background color
+		colors: {
+			...(themeData.colors ?? {}),
+			'editor.background': transparent,
+			'editorGutter.background': transparent
+		}
 	});
 	highlighter.setTheme(themeName);
 

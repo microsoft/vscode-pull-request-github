@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import type * as messages from '../../webviews/sessionLogView/messages';
-import { Disposable } from '../common/lifecycle';
+import { Disposable, disposeAll } from '../common/lifecycle';
 import { ITelemetry } from '../common/telemetry';
 import { SessionPullInfo } from '../common/timelineEvent';
 import { CopilotApi, getCopilotApi } from '../github/copilotApi';
@@ -17,9 +17,9 @@ import { RepositoriesManager } from '../github/repositoriesManager';
 export class SessionLogViewManager extends Disposable implements vscode.WebviewPanelSerializer {
 	public static instance: SessionLogViewManager | undefined;
 
-	public static readonly viewType = 'pr.padawanSessionLogView';
+	public static readonly viewType = 'pr.codingAgentSessionLogView';
 
-	private readonly _panels = new Set<SessionLogView>();
+	private readonly _panels = new Set<{ readonly view: SessionLogView; readonly disposables: vscode.Disposable[] }>();
 
 	private _activePanel: SessionLogView | undefined;
 
@@ -35,7 +35,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 
 		this._register(vscode.window.registerWebviewPanelSerializer(SessionLogViewManager.viewType, this));
 
-		this._register(vscode.commands.registerCommand('padawan.openSessionLog', async () => {
+		this._register(vscode.commands.registerCommand('codingAgent.openSessionLog', async () => {
 			const copilotApi = await getCopilotApi(credentialStore);
 			if (!copilotApi) {
 				vscode.window.showErrorMessage(vscode.l10n.t('You must be authenticated to view sessions.'));
@@ -77,9 +77,20 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 				return;
 			}
 
+
 			const sessionUrl = vscode.Uri.parse(`https://${pullInfo.host}/${pullInfo.owner}/${pullInfo.repo}/pull/${pullInfo.pullId}/agent-sessions/${this._activePanel.sessionId}`);
 			return vscode.env.openExternal(sessionUrl);
 		}));
+	}
+
+	public override dispose() {
+		SessionLogViewManager.instance = undefined;
+
+		for (const panelEntry of this._panels) {
+			disposeAll(panelEntry.disposables);
+		}
+
+		super.dispose();
 	}
 
 	async openForPull(pullRequest: PullRequestModel): Promise<void> {
@@ -94,17 +105,10 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 			return;
 		}
 
-		const pullInfo: SessionPullInfo = {
-			host: pullRequest.githubRepository.remote.gitProtocol.host,
-			owner: pullRequest.githubRepository.remote.owner,
-			repo: pullRequest.githubRepository.remote.repositoryName,
-			pullId: pullRequest.number,
-		};
-
-		return this.open(sessionId, pullInfo);
+		return this.open(sessionId, pullRequest);
 	}
 
-	async open(sessionId: string, pullInfo: SessionPullInfo | undefined): Promise<void> {
+	async open(sessionId: string, pullRequest: PullRequestModel | undefined): Promise<void> {
 		const copilotApi = await getCopilotApi(this.credentialStore);
 		if (!copilotApi) {
 			return;
@@ -112,7 +116,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 
 		const webviewPanel = vscode.window.createWebviewPanel(
 			SessionLogViewManager.viewType,
-			vscode.l10n.t('Session Log'),
+			pullRequest ? vscode.l10n.t(`Session Log (Pull #{0})`, pullRequest.number) : vscode.l10n.t('Session Log'),
 			vscode.ViewColumn.Active,
 			{
 				retainContextWhenHidden: true,
@@ -120,7 +124,15 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 			}
 		);
 
-		await this.setupWebview(webviewPanel, sessionId, pullInfo, copilotApi);
+		const pullInfo: SessionPullInfo & { title: string } | undefined = pullRequest ? {
+			host: pullRequest.githubRepository.remote.gitProtocol.host,
+			owner: pullRequest.githubRepository.remote.owner,
+			repo: pullRequest.githubRepository.remote.repositoryName,
+			pullId: pullRequest.number,
+			title: pullRequest.title,
+		} : undefined;
+
+		return this.setupWebview(webviewPanel, sessionId, pullInfo, copilotApi);
 	}
 
 	async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: messages.WebviewState): Promise<void> {
@@ -138,7 +150,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 		await this.setupWebview(webviewPanel, state.sessionId, state.pullInfo, copilotApi);
 	}
 
-	private async setupWebview(webviewPanel: vscode.WebviewPanel, sessionId: string, pullInfo: SessionPullInfo | undefined, copilotApi: CopilotApi): Promise<void> {
+	private async setupWebview(webviewPanel: vscode.WebviewPanel, sessionId: string, pullInfo: SessionPullInfo & { title: string } | undefined, copilotApi: CopilotApi): Promise<void> {
 		const distDir = vscode.Uri.joinPath(this.context.extensionUri, 'dist');
 
 		webviewPanel.webview.options = {
@@ -163,19 +175,22 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 			</html>`;
 
 		const logView = new SessionLogView(sessionId, pullInfo, webviewPanel, copilotApi, this.context, this.reposManagers, this.telemetry);
-		this._panels.add(logView);
+		const panelDisposables: vscode.Disposable[] = [];
+		const panelEntry = { view: logView, disposables: panelDisposables };
+		this._panels.add(panelEntry);
 
-		logView.onDidDispose(() => {
-			this._panels.delete(logView);
-		});
+		panelDisposables.push(logView.onDidDispose(() => {
+			this._panels.delete(panelEntry);
+			disposeAll(panelDisposables);
+		}));
 
-		webviewPanel.onDidChangeViewState(() => {
+		panelDisposables.push(webviewPanel.onDidChangeViewState(() => {
 			if (webviewPanel.active) {
 				this._activePanel = logView;
 			} else if (this._activePanel === logView && !webviewPanel.active) {
 				this._activePanel = undefined;
 			}
-		});
+		}));
 	}
 }
 
@@ -186,7 +201,7 @@ class SessionLogView extends Disposable {
 
 	constructor(
 		public readonly sessionId: string,
-		public readonly pullInfo: SessionPullInfo | undefined,
+		public readonly pullInfo: SessionPullInfo & { title: string } | undefined,
 		private readonly webviewPanel: vscode.WebviewPanel,
 		private readonly copilotApi: CopilotApi,
 		context: vscode.ExtensionContext,
@@ -211,16 +226,19 @@ class SessionLogView extends Disposable {
 
 		this._register(this.webviewPanel.webview.onDidReceiveMessage(async (message: any) => {
 			if (message.type === 'openPullRequestView') {
-				if (!this.pullInfo) {
+
+				let pullRequest: PullRequestModel | undefined;
+				if (pullInfo) {
+					const folderManager = reposManagers.getManagerForRepository(pullInfo.owner, pullInfo.repo) ?? reposManagers.folderManagers.at(0);
+					pullRequest = await folderManager?.resolvePullRequest(pullInfo.owner, pullInfo.repo, pullInfo.pullId);
+				}
+
+				if (!pullRequest) {
 					vscode.window.showErrorMessage(vscode.l10n.t('No pull request information available for this session.'));
 					return;
 				}
 
-				const folderManager = reposManagers.getManagerForRepository(this.pullInfo.owner, this.pullInfo.repo) ?? reposManagers.folderManagers[0];
-				const pullRequest = await folderManager.resolvePullRequest(this.pullInfo.owner, this.pullInfo.repo, this.pullInfo.pullId);
-				if (!pullRequest) {
-					return;
-				}
+				const folderManager = reposManagers.getManagerForIssueModel(pullRequest) ?? reposManagers.folderManagers[0];
 				await PullRequestOverviewPanel.createOrShow(telemetry, context.extensionUri, folderManager, pullRequest);
 			}
 		}));
@@ -258,10 +276,10 @@ class SessionLogView extends Disposable {
 		}
 
 		await ready;
-
 		if (this._isDisposed) {
 			return;
 		}
+
 
 		this.webviewPanel.webview.postMessage({
 			type: 'init',
