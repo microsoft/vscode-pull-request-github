@@ -7,10 +7,13 @@ import * as buffer from 'buffer';
 import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
 import * as vscode from 'vscode';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
+import { COPILOT_ACCOUNTS } from '../common/comment';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { GitHubRemote, parseRemote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
+import * as Common from '../common/timelineEvent';
+import { compareIgnoreCase, formatError } from '../common/utils';
 import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
 import { mergeQuerySchemaWithShared, OctokitCommon, Schema } from './common';
 import { CredentialStore, GitHub } from './credentials';
@@ -39,6 +42,7 @@ import {
 	RepoProjectsResponse,
 	RevertPullRequestResponse,
 	SuggestedActorsResponse,
+	TimelineEventsResponse,
 	ViewerPermissionResponse,
 } from './graphql';
 import {
@@ -67,11 +71,14 @@ import {
 	getOverrideBranch,
 	isInCodespaces,
 	parseAccount,
+	parseCombinedTimelineEvents,
 	parseGraphQLIssue,
 	parseGraphQLPullRequest,
 	parseGraphQLViewerPermission,
 	parseMergeMethod,
 	parseMilestone,
+	parseSelectRestTimelineEvents,
+	restPaginate,
 } from './utils';
 
 export const PULL_REQUEST_PAGE_SIZE = 20;
@@ -152,6 +159,8 @@ export class GitHubRepository extends Disposable {
 
 	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = this._register(new vscode.EventEmitter());
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
+	private _onDidChangePullRequests: vscode.EventEmitter<void> = this._register(new vscode.EventEmitter());
+	public readonly onDidChangePullRequests: vscode.Event<void> = this._onDidChangePullRequests.event;
 
 	public get hub(): GitHub {
 		if (!this._hub) {
@@ -1441,6 +1450,81 @@ export class GitHubRepository extends Disposable {
 
 	isCurrentUser(login: string): Promise<boolean> {
 		return this._credentialStore.isCurrentUser(login);
+	}
+
+
+	/**
+	 * TODO: @alexr00 we should delete this https://github.com/microsoft/vscode-pull-request-github/issues/6965
+	 */
+	async getCopilotTimelineEvents(issueModel: IssueModel): Promise<Common.TimelineEvent[]> {
+		if (!COPILOT_ACCOUNTS[issueModel.author.login]) {
+			return [];
+		}
+
+		Logger.debug(`Fetch Copilot timeline events of issue #${issueModel.number} - enter`, GitHubRepository.ID);
+
+		const { octokit, remote } = await this.ensure();
+		try {
+			const timeline = await restPaginate<typeof octokit.api.issues.listEventsForTimeline, OctokitCommon.ListEventsForTimelineResponse>(octokit.api.issues.listEventsForTimeline, {
+				issue_number: issueModel.number,
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				per_page: 100
+			});
+
+			return parseSelectRestTimelineEvents(issueModel, timeline);
+		} catch (e) {
+			Logger.error(`Error fetching Copilot timeline events of issue #${issueModel.number} - ${formatError(e)}`, GitHubRepository.ID);
+			return [];
+		}
+	}
+
+	async getIssueTimelineEvents(issueModel: IssueModel): Promise<Common.TimelineEvent[]> {
+		Logger.debug(`Fetch timeline events of issue #${issueModel.number} - enter`, GitHubRepository.ID);
+		const { query, remote, schema } = await this.ensure();
+
+		try {
+			const { data } = await query<TimelineEventsResponse>({
+				query: schema.IssueTimelineEvents,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: issueModel.number,
+				},
+			});
+
+			if (data.repository === null) {
+				Logger.error('Unexpected null repository when getting issue timeline events', GitHubRepository.ID);
+				return [];
+			}
+			const ret = data.repository.pullRequest.timelineItems.nodes;
+			const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(issueModel), this);
+
+			const crossRefs = new Map(events
+				.filter((event): event is Common.CrossReferencedEvent => {
+					if ((event.event === Common.EventType.CrossReferenced) && !event.source.isIssue) {
+						return (compareIgnoreCase(event.source.owner, issueModel.remote.owner) === 0 && compareIgnoreCase(event.source.repo, issueModel.remote.repositoryName) === 0);
+					}
+					return false;
+
+				}).map((event: Common.CrossReferencedEvent) => {
+					return [event.source.url, event];
+				}));
+
+			for (const model of this._pullRequestModels.values()) {
+				if (crossRefs.has(model.html_url)) {
+					crossRefs.delete(model.html_url);
+				}
+			}
+			if (crossRefs.size > 0) {
+				this._onDidChangePullRequests.fire();
+			}
+
+			return events;
+		} catch (e) {
+			console.log(e);
+			return [];
+		}
 	}
 
 	/**
