@@ -192,14 +192,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return { owner, repo, remote, baseRef, repository };
 	}
 
-	async commandImpl(args?: any) {
-		// Check if the coding agent is available (enabled and assignable)
-		const isAvailable = await this.isAvailable();
-		if (!isAvailable) {
-			vscode.window.showWarningMessage(vscode.l10n.t('GitHub Coding Agent is not available for this repository. Make sure the agent is enabled and assignable to this repository.'));
-			return;
-		}
-
+	async commandImpl(args?: any): Promise<string | undefined> {
 		// https://github.com/microsoft/vscode-copilot/issues/18918
 		const userPrompt: string | undefined = args.userPrompt;
 		const summary: string | undefined = args.summary;
@@ -266,47 +259,20 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 		}
 
-		await vscode.window.withProgress({
-			location: vscode.ProgressLocation.Notification,
-			title: vscode.l10n.t('Initializing Coding Agent...'),
-			cancellable: false
-		}, async (_) => {
-			const result = await this.invokeRemoteAgent(
-				userPrompt,
-				summary || '',
-				autoPushAndCommit
-			);
+		const result = await this.invokeRemoteAgent(
+			userPrompt,
+			summary || userPrompt,
+			autoPushAndCommit,
+		);
 
-			if (result.state !== 'success') {
-				vscode.window.showErrorMessage(result.error);
-				return;
-			}
+		if (result.state !== 'success') {
+			vscode.window.showErrorMessage(result.error);
+			return;
+		}
 
-			const { webviewUri, link, number } = result;
-			const openLink = vscode.l10n.t('View');
-			vscode.window.showInformationMessage(
-				// allow-any-unicode-next-line
-				vscode.l10n.t('🚀 Coding agent started! Track progress at {0}', link)
-				, openLink
-			).then(async selection => {
-				if (selection === openLink) {
-					try {
-						const folderManager = this.repositoriesManager.getManagerForRepository(repoInfo.owner, repoInfo.repo);
-						if (folderManager) {
-							const pr = await folderManager.resolvePullRequest(repoInfo.owner, repoInfo.repo, number);
-							if (pr) {
-								await vscode.commands.executeCommand('pr.openDescription', pr);
-								return;
-							}
-						}
-
-						vscode.env.openExternal(webviewUri);
-					} catch (e) {
-						vscode.env.openExternal(webviewUri);
-					}
-				}
-			});
-		});
+		const { webviewUri, link, number } = result;
+		// allow-any-unicode-next-line
+		return vscode.l10n.t('🚀 Coding agent will continue work in [#{0}]({1}).  Track progress [here]({2}).', number, link, webviewUri.toString());
 	}
 
 	async invokeRemoteAgent(prompt: string, problemContext: string, autoPushAndCommit = true): Promise<RemoteAgentResult> {

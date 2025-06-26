@@ -1463,7 +1463,7 @@ ${contents}
 			}
 		}));
 	context.subscriptions.push(
-		vscode.commands.registerCommand('githubpr.remoteAgent', async (args) => copilotRemoteAgentManager.commandImpl(args))
+		vscode.commands.registerCommand('githubpr.remoteAgent', async (args) => await copilotRemoteAgentManager.commandImpl(args))
 	);
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.applySuggestionWithCopilot', async (comment: GHPRComment) => {
