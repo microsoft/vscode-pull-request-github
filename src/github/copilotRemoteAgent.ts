@@ -24,9 +24,12 @@ export interface IAPISessionLogs {
 	logs: string;
 }
 
+const LEARN_MORE = vscode.l10n.t('Learn about Coding Agent');
+// Without Pending Changes
+const CONTINUE = vscode.l10n.t('Continue');
+// With Pending Changes
 const PUSH_CHANGES = vscode.l10n.t('Include changes');
 const CONTINUE_WITHOUT_PUSHING = vscode.l10n.t('Ignore changes');
-const LEARN_MORE = vscode.l10n.t('Learn about Coding Agent');
 
 export class CopilotRemoteAgentManager extends Disposable {
 	public static ID = 'CopilotRemoteAgentManager';
@@ -128,13 +131,18 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		const hasChanges = repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0;
 
+		const learnMoreCb = async () => {
+			vscode.env.openExternal(vscode.Uri.parse('https://docs.github.com/copilot/using-github-copilot/coding-agent'));
+		};
+
 		let autoPushAndCommit = false;
+		const message = vscode.l10n.t('GitHub Coding Agent will continue your work in \'{0}\'', repoName);
 		if (hasChanges && this.autoCommitAndPushEnabled()) {
 			const modalResult = await vscode.window.showInformationMessage(
-				vscode.l10n.t('GitHub Coding Agent will continue your work in \'{0}\'', repoName),
+				message,
 				{
 					modal: true,
-					detail: vscode.l10n.t('Uncommitted local changes detected'),
+					detail: vscode.l10n.t('Local changes detected'),
 				},
 				PUSH_CHANGES,
 				CONTINUE_WITHOUT_PUSHING,
@@ -146,15 +154,31 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 
 			if (modalResult === LEARN_MORE) {
-				vscode.env.openExternal(vscode.Uri.parse('https://docs.github.com/copilot/using-github-copilot/coding-agent'));
+				learnMoreCb();
 				return;
 			}
 
 			if (modalResult === PUSH_CHANGES) {
 				autoPushAndCommit = true;
 			}
-		}
+		} else {
+			const modalResult = await vscode.window.showInformationMessage(
+				message,
+				{
+					modal: true,
+				},
+				CONTINUE,
+				LEARN_MORE,
+			);
+			if (!modalResult) {
+				return;
+			}
 
+			if (modalResult === LEARN_MORE) {
+				learnMoreCb();
+				return;
+			}
+		}
 
 		await vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
