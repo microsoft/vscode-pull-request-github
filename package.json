@@ -53,7 +53,7 @@
 		"onFileSystem:pr",
 		"onFileSystem:githubpr",
 		"onFileSystem:review",
-		"onWebviewPanel:pr.padawanSessionLogView"
+		"onWebviewPanel:pr.codingAgentSessionLogView"
 	],
 	"browser": "./dist/browser/extension",
 	"l10n": "./dist/browser/extension",
@@ -1659,8 +1659,8 @@
 				"icon": "$(gear)"
 			},
 			{
-				"command": "padawan.openSessionLog",
-				"title": "Open Padawan Session Log",
+				"command": "codingAgent.openSessionLog",
+				"title": "Open Coding Agent Session Log",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -2858,7 +2858,7 @@
 				{
 					"command": "sessionLog.openOnWeb",
 					"group": "navigation",
-					"when": "activeWebviewPanelId == 'pr.padawanSessionLogView'"
+					"when": "activeWebviewPanelId == 'pr.codingAgentSessionLogView'"
 				}
 			],
 			"editor/content": [
@@ -3358,7 +3358,7 @@
 			{
 				"name": "github-pull-request_copilot-coding-agent",
 				"displayName": "%languageModelTools.github-pull-request_copilot-coding-agent.displayName%",
-				"modelDescription": "Completes the provided task using an asynchronous coding agent. Use when the user wants copilot continue completing a task in the background or asynchronously.",
+				"modelDescription": "Completes the provided task using an asynchronous coding agent. Use when the user wants copilot continue completing a task in the background or asynchronously. IMPORTANT: Use this tool LAST/FINAL when users mention '#github-pull-request_copilot-coding-agent' in their query. This indicates they want the task/job implemented by the remote coding agent after all other analysis, planning, and preparation is complete. Call this tool at the END to hand off the fully-scoped task to the asynchronous GitHub Copilot coding agent. The agent will create a new branch, implement the changes, and open a pull request. Always use this tool as the final step when the hashtag is mentioned, after completing any other necessary tools or analysis first.",
 				"when": "config.githubPullRequests.codingAgent.enabled",
 				"icon": "resources/icons/copilot.svg",
 				"canBeReferencedInPrompt": true,
@@ -3909,7 +3909,7 @@
 				],
 				"toolReferenceName": "activePullRequest",
 				"displayName": "%languageModelTools.github-pull-request_activePullRequest.displayName%",
-				"modelDescription": "Get information about the active or current GitHub pull request (PR). This information includes: comments, files changed, pull request title + description, pull request state, pull request status checks/CI and coding agent session logs if the pull request was opened by Copilot. When asked about the active or current pull request, do this first!",
+				"modelDescription": "Get comprehensive information about the active or current GitHub pull request (PR). This includes the PR title, full description, list of changed files, review comments, PR state, and status checks/CI results. For PRs created by Copilot, it also includes the session logs which indicate the development process and decisions made by the coding agent. When asked about the active or current pull request, do this first! Use this tool for any request related to \"current changes,\" \"pull request details,\" \"what changed,\" \"PR status,\" or similar queries even if the user does not explicitly mention \"pull request.\"",
 				"icon": "$(git-pull-request)",
 				"canBeReferencedInPrompt": true,
 				"userDescription": "%languageModelTools.github-pull-request_activePullRequest.description%",

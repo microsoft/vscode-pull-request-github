@@ -3,13 +3,21 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+.loading-indicator {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+}
+
 .session-container {
 	position: relative;
 	max-width: 800px;
 	margin: 0 auto;
+	padding-top: 1em;
 }
 
-.session-header {
+.session-header-info {
 	display: flex;
 	gap: 20px;
 
@@ -18,6 +26,27 @@
 	border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
 }
 
+.session-header-title {
+	h1 .codicon {
+		font-size: inherit;
+	}
+
+	h1,
+	h2 {
+		margin: 0.4em 0;
+	}
+}
+
+.session-pull-button {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+
+	.icon {
+		font-size: inherit;
+		line-height: 1em;
+	}
+}
 
 .codeview-wrapper {
 	border: 1px solid var(--vscode-widget-border);
@@ -31,6 +60,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: left;
+	user-select: none;
 
 	padding: 6px 12px;
 	background: var(--vscode-sideBarSectionHeader-background);
@@ -63,9 +93,8 @@
 }
 
 .codeview-content {
-	display: none;
 	width: 100%;
-	background: var(--vscode-editor-background);
+	background: var(--vscode-notebook-cellEditorBackground);
 	transition: max-height 0.2s;
 }
 
@@ -73,10 +102,15 @@
 	width: 100%;
 	position: relative;
 	overflow: hidden;
+	padding: 0.5em 0;
+
+	.monaco-editor {
+		outline: none;
+	}
 }
 
 .codeview-wrapper.collapsed .codeview-editor-container {
-	mask-image: linear-gradient(to bottom, var(--vscode-editor-background) 80%, #0000 100%)
+	mask-image: linear-gradient(to bottom, var(--vscode-notebook-cellEditorBackground) 80%, #0000 100%)
 }
 
 button.codeview-expand {
@@ -85,18 +119,18 @@ button.codeview-expand {
 	justify-content: center;
 	width: 100%;
 	margin-top: 4px;
-	;
-	padding: 4px 0;
-	background-color: var(--vscode-button-secondaryBackground) !important;
-	color: var(--vscode-button-secondaryForeground);
+	padding: 6px 0;
+	background: none !important;
+	color: var(--vscode-descriptionForeground);
 	border: none;
 	transition: background 0.15s;
-	line-height: inherit;
+	line-height: 0;
 	border-radius: 0;
 }
 
 button.codeview-expand:hover {
 	background-color: var(--vscode-button-secondaryHoverBackground) !important;
+	color: var(--vscode-button-secondaryForeground);
 }
 
 .codeview-expand:hover,

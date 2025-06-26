@@ -13,7 +13,7 @@ import { AuthProvider, GitHubServerType } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import { InMemFileChange, SlimFileChange } from '../common/file';
 import { findLocalRepoRemoteFromGitHubRef } from '../common/githubRef';
-import { Disposable } from '../common/lifecycle';
+import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Protocol, ProtocolType } from '../common/protocol';
 import { GitHubRemote, parseRemote, parseRepositoryRemotes, Remote } from '../common/remote';
@@ -213,6 +213,10 @@ export class FolderRepositoryManager extends Disposable {
 	private _onDidChangeGithubRepositories = this._register(new vscode.EventEmitter<GitHubRepository[]>());
 	readonly onDidChangeGithubRepositories: vscode.Event<GitHubRepository[]> = this._onDidChangeGithubRepositories.event;
 
+	private _onDidChangePullRequestsEvents: vscode.Disposable[] = [];
+	private readonly _onDidChangeAnyPullRequests = this._register(new vscode.EventEmitter<void>());
+	readonly onDidChangeAnyPullRequests: vscode.Event<void> = this._onDidChangeAnyPullRequests.event;
+
 	private _onDidDispose = this._register(new vscode.EventEmitter<void>());
 	readonly onDidDispose: vscode.Event<void> = this._onDidDispose.event;
 
@@ -240,6 +244,7 @@ export class FolderRepositoryManager extends Disposable {
 		);
 
 		this._register(_credentialStore.onDidInitialize(() => this.updateRepositories()));
+		this._register({ dispose: () => disposeAll(this._onDidChangePullRequestsEvents) });
 
 		this.cleanStoredRepoState();
 	}
@@ -524,7 +529,11 @@ export class FolderRepositoryManager extends Disposable {
 				}
 			}
 
+			disposeAll(this._onDidChangePullRequestsEvents);
 			this._githubRepositories = repositories;
+			for (const repo of this._githubRepositories) {
+				this._onDidChangePullRequestsEvents.push(repo.onDidChangePullRequests(() => this._onDidChangeAnyPullRequests.fire()));
+			}
 			oldRepositories.filter(old => this._githubRepositories.indexOf(old) < 0).forEach(repo => repo.dispose());
 
 			const repositoriesAdded =
@@ -1728,7 +1737,7 @@ export class FolderRepositoryManager extends Disposable {
 				*/
 				this.telemetry.sendTelemetryEvent('pr.merge.success');
 				this._onDidMergePullRequest.fire();
-				return { merged: true, message: '', timeline: await parseCombinedTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], await pullRequest.getCopilotTimelineEvents(), pullRequest.githubRepository) };
+				return { merged: true, message: '', timeline: await parseCombinedTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], await pullRequest.githubRepository.getCopilotTimelineEvents(pullRequest), pullRequest.githubRepository) };
 			})
 			.catch(e => {
 				/* __GDPR__

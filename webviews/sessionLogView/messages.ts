@@ -6,10 +6,14 @@
 import { SessionPullInfo } from '../../src/common/timelineEvent';
 import { SessionInfo } from './sessionsApi';
 
+export type PullInfo = SessionPullInfo & {
+	title: string;
+};
+
 export interface InitMessage {
 	type: 'init';
 	sessionId: string;
-	pullInfo: SessionPullInfo | undefined;
+	pullInfo: PullInfo | undefined;
 	themeData: any;
 }
 
@@ -26,5 +30,5 @@ export interface ChangeThemeMessage {
 
 export interface WebviewState {
 	readonly sessionId: string;
-	readonly pullInfo: SessionPullInfo | undefined;
+	readonly pullInfo: PullInfo | undefined;
 }

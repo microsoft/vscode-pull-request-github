@@ -145,7 +145,7 @@ export class CopilotPRWatcher extends Disposable {
 			const prs = await folderManager.getPullRequestsForCategory(githubRepository, await variableSubstitution(query, undefined, await folderManager.getPullRequestDefaults(), await this._getCurrentUser(folderManager)));
 			for (const pr of prs?.items ?? []) {
 				unseenKeys.delete(this._model.makeKey(pr.remote.owner, pr.remote.repositoryName, pr.number));
-				const copilotEvents = await pr.getCopilotTimelineEvents();
+				const copilotEvents = await pr.githubRepository.getCopilotTimelineEvents(pr);
 				if (copilotEvents.length === 0) {
 					continue;
 				}

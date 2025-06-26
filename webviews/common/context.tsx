@@ -35,8 +35,6 @@ export class PRContext {
 
 	public openChanges = () => this.postMessage({ command: 'pr.open-changes' });
 
-	public copyPrLink = () => this.postMessage({ command: 'pr.copy-prlink' });
-
 	public copyVscodeDevLink = () => this.postMessage({ command: 'pr.copy-vscodedevlink' });
 
 	public cancelCodingAgent = (event: TimelineEvent): Promise<CancelCodingAgentReply> => this.postMessage({ command: 'pr.cancel-coding-agent', args: event });

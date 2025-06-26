@@ -1216,7 +1216,9 @@ export async function parseCombinedTimelineEvents(
 						extensionUrl: extensionUrl.toString(),
 						number: crossRefEv.source.number,
 						title: crossRefEv.source.title,
-						isIssue
+						isIssue,
+						owner: crossRefEv.source.repository.owner.login,
+						repo: crossRefEv.source.repository.name,
 					},
 					willCloseTarget: crossRefEv.willCloseTarget
 				});

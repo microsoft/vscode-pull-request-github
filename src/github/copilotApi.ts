@@ -6,10 +6,10 @@
 import fetch from 'cross-fetch';
 import JSZip from 'jszip';
 import { AuthProvider } from '../common/authentication';
+import { Remote } from '../common/remote';
 import { OctokitCommon } from './common';
 import { CredentialStore } from './credentials';
 import { LoggingOctokit } from './loggingOctokit';
-import { PullRequestModel } from './pullRequestModel';
 import { hasEnterpriseUri } from './utils';
 
 export interface RemoteAgentJobPayload {
@@ -19,6 +19,7 @@ export interface RemoteAgentJobPayload {
 		body_placeholder?: string;
 		body_suffix?: string;
 		base_ref?: string;
+		head_ref?: string;
 	};
 	run_name?: string;
 }
@@ -78,11 +79,11 @@ export class CopilotApi {
 		}
 	}
 
-	public async getWorkflowRunsFromAction(pullRequest: PullRequestModel): Promise<OctokitCommon.ListWorkflowRunsForRepo> {
+	public async getWorkflowRunsFromAction(remote: Remote): Promise<OctokitCommon.ListWorkflowRunsForRepo> {
 		const runs = await this.octokit.api.actions.listWorkflowRunsForRepo(
 			{
-				owner: pullRequest.githubRepository.remote.owner,
-				repo: pullRequest.githubRepository.remote.repositoryName,
+				owner: remote.owner,
+				repo: remote.repositoryName,
 				event: 'dynamic'
 			}
 		);
@@ -115,10 +116,10 @@ export class CopilotApi {
 		return copilotSteps;
 	}
 
-	public async getAllSessions(pullRequest: PullRequestModel | undefined): Promise<SessionInfo[]> {
+	public async getAllSessions(pullRequestId: number | undefined): Promise<SessionInfo[]> {
 		const response = await fetch(
-			pullRequest
-				? `https://api.githubcopilot.com/agents/sessions/resource/pull/${pullRequest.id}`
+			pullRequestId
+				? `https://api.githubcopilot.com/agents/sessions/resource/pull/${pullRequestId}`
 				: 'https://api.githubcopilot.com/agents/sessions',
 			{
 				headers: {

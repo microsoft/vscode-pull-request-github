@@ -474,7 +474,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			} else {
 				const copilotApi = await getCopilotApi(this._folderRepositoryManager.credentialStore, this._item.remote.authProviderId);
 				if (copilotApi) {
-					const session = (await copilotApi.getAllSessions(this._item))[0];
+					const session = (await copilotApi.getAllSessions(this._item.id))[0];
 					if (session.state !== 'completed') {
 						result = await this._item.githubRepository.cancelWorkflow(session.workflow_run_id);
 					}

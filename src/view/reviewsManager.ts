@@ -10,7 +10,7 @@ import { Disposable } from '../common/lifecycle';
 import { ITelemetry } from '../common/telemetry';
 import { Schemes } from '../common/uri';
 import { isDescendant } from '../common/utils';
-import { CopilotStateModel } from '../github/copilotPrWatcher';
+import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { CredentialStore } from '../github/credentials';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { GitContentFileSystemProvider } from './gitContentProvider';
@@ -30,7 +30,7 @@ export class ReviewsManager extends Disposable {
 		private _telemetry: ITelemetry,
 		private _credentialStore: CredentialStore,
 		private _gitApi: GitApiImpl,
-		private _copilotStateModel: CopilotStateModel
+		private _copilotManager: CopilotRemoteAgentManager
 	) {
 		super();
 		const gitContentProvider = new GitContentFileSystemProvider(_gitApi, _credentialStore, () => this._reviewManagers);
@@ -57,7 +57,7 @@ export class ReviewsManager extends Disposable {
 				}
 
 				this._prsTreeDataProvider.dispose();
-				this._prsTreeDataProvider = this._register(new PullRequestsTreeDataProvider(this._telemetry, this._context, this._reposManager, this._copilotStateModel));
+				this._prsTreeDataProvider = this._register(new PullRequestsTreeDataProvider(this._telemetry, this._context, this._reposManager, this._copilotManager));
 				this._prsTreeDataProvider.initialize(this._reviewManagers.map(manager => manager.reviewModel), this._credentialStore);
 			}
 		}));
