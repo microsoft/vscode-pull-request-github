@@ -108,9 +108,11 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 	return (
 		<div className="button-group">
 			<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
-			<button title="Open Changes" onClick={openChanges} className="small-button">
-				Open Changes
-			</button>
+			{!isIssue && (
+				<button title="Open Changes" onClick={openChanges} className="small-button">
+					Open Changes
+				</button>
+			)}
 			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary small-button">
 				Refresh
 			</button>

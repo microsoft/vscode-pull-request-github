@@ -98,8 +98,8 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 	): Promise<string | string[]> {
 		let copilotSteps: string | string[] = [];
 		try {
-			const logsResponseText = await this.copilotRemoteAgentManager.getSessionLogsFromAPI(pullRequest.id);
-			copilotSteps = this.parseCopilotEventStream(logsResponseText);
+			const logsResponseText = await this.copilotRemoteAgentManager.getSessionLogsFromPullRequest(pullRequest.id);
+			copilotSteps = this.parseCopilotEventStream(logsResponseText.logs);
 			if (copilotSteps.length === 0) {
 				throw new Error('Empty Copilot agent logs received');
 			}
