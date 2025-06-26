@@ -145,7 +145,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		await vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
-			title: vscode.l10n.t('Starting Coding Agent...'),
+			title: vscode.l10n.t('Initializing Coding Agent...'),
 			cancellable: false
 		}, async (_) => {
 			const result = await this.invokeRemoteAgent(
