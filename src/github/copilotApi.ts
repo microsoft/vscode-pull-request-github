@@ -19,6 +19,7 @@ export interface RemoteAgentJobPayload {
 		body_placeholder?: string;
 		body_suffix?: string;
 		base_ref?: string;
+		head_ref?: string;
 	};
 	run_name?: string;
 }
