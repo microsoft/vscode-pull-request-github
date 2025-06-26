@@ -4,45 +4,26 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { COPILOT_LOGINS } from '../common/copilot';
+import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus } from '../common/copilot';
 import { Disposable } from '../common/lifecycle';
 import { PR_SETTINGS_NAMESPACE, QUERIES } from '../common/settingKeys';
-import { EventType, TimelineEvent } from '../common/timelineEvent';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { RepositoriesManager } from './repositoriesManager';
 import { variableSubstitution } from './utils';
-
-export enum CopilotPRStatus {
-	None = 0,
-	Started = 1,
-	Completed = 2,
-	Failed = 3,
-}
 
 export function isCopilotQuery(query: string): boolean {
 	const lowerQuery = query.toLowerCase();
 	return COPILOT_LOGINS.some(login => lowerQuery.includes(`author:${login.toLowerCase()}`));
 }
 
-function copilotEventToStatus(event: TimelineEvent): CopilotPRStatus {
-	switch (event.event) {
-		case EventType.CopilotStarted:
-			return CopilotPRStatus.Started;
-		case EventType.CopilotFinished:
-			return CopilotPRStatus.Completed;
-		case EventType.CopilotFinishedError:
-			return CopilotPRStatus.Failed;
-		default:
-			return CopilotPRStatus.None;
-	}
-}
-
 export class CopilotStateModel extends Disposable {
 	private _isInitialized = false;
 	private readonly _states: Map<string, CopilotPRStatus> = new Map();
 	private readonly _showNotification: Set<string> = new Set();
-	private readonly _onDidChange = this._register(new vscode.EventEmitter<void>());
-	readonly onDidChange = this._onDidChange.event;
+	private readonly _onDidChangeStates = this._register(new vscode.EventEmitter<void>());
+	readonly onDidChangeStates = this._onDidChangeStates.event;
+	private readonly _onDidChangeNotifications = this._register(new vscode.EventEmitter<void>());
+	readonly onDidChangeNotifications = this._onDidChangeNotifications.event;
 
 	makeKey(owner: string, repo: string, prNumber: number): string {
 		return `${owner}/${repo}#${prNumber}`;
@@ -57,8 +38,9 @@ export class CopilotStateModel extends Disposable {
 			this._states.delete(key);
 			if (this._showNotification.has(key)) {
 				this._showNotification.delete(key);
+				this._onDidChangeNotifications.fire();
 			}
-			this._onDidChange.fire();
+			this._onDidChangeStates.fire();
 		}
 	}
 
@@ -71,8 +53,9 @@ export class CopilotStateModel extends Disposable {
 		this._states.set(key, status);
 		if (this._isInitialized) {
 			this._showNotification.add(key);
+			this._onDidChangeNotifications.fire();
 		}
-		this._onDidChange.fire();
+		this._onDidChangeStates.fire();
 	}
 
 	get(owner: string, repo: string, prNumber: number): CopilotPRStatus {
@@ -86,6 +69,7 @@ export class CopilotStateModel extends Disposable {
 
 	clearNotifications(): void {
 		this._showNotification.clear();
+		this._onDidChangeNotifications.fire();
 	}
 
 	get notifications(): ReadonlySet<string> {

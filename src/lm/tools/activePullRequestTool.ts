@@ -6,6 +6,7 @@
 
 import * as vscode from 'vscode';
 import { COPILOT_LOGINS } from '../../common/copilot';
+import { GitChangeType, InMemFileChange } from '../../common/file';
 import Logger from '../../common/logger';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { PullRequestModel } from '../../github/pullRequestModel';
@@ -72,7 +73,7 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 		model: vscode.LanguageModelChat,
 		cancellationToken: vscode.CancellationToken
 	) {
-		const logs = await this.copilotRemoteAgentManager.getSessionLogsFromAction(pullRequest);
+		const logs = await this.copilotRemoteAgentManager.getSessionLogsFromAction(pullRequest.remote, pullRequest.id);
 		// Summarize the Copilot agent's thinking process using the model
 		const messages = [
 			vscode.LanguageModelChatMessage.Assistant('You are an expert summarizer. The following logs show the thinking process and performed actions of a GitHub Copilot agent that was in charge of working on the current pull request. Read the logs and always maintain the thinking process. You can remove information on the tool call results that you think are not necessary for building context.'),
@@ -97,8 +98,8 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 	): Promise<string | string[]> {
 		let copilotSteps: string | string[] = [];
 		try {
-			const logsResponseText = await this.copilotRemoteAgentManager.getSessionLogsFromAPI(pullRequest);
-			copilotSteps = this.parseCopilotEventStream(logsResponseText);
+			const logsResponseText = await this.copilotRemoteAgentManager.getSessionLogsFromPullRequest(pullRequest.id);
+			copilotSteps = this.parseCopilotEventStream(logsResponseText.logs);
 			if (copilotSteps.length === 0) {
 				throw new Error('Empty Copilot agent logs received');
 			}
@@ -153,6 +154,13 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 			},
 			isDraft: pullRequest.isDraft,
 			codingAgentSession,
+			changes: (await pullRequest.getFileChangesInfo()).map(change => {
+				if (change instanceof InMemFileChange) {
+					return change.diffHunks?.map(hunk => hunk.diffLines.map(line => line.raw).join('\n')).join('\n') || '';
+				} else {
+					return `File: ${change.fileName} was ${change.status === GitChangeType.ADD ? 'added' : change.status === GitChangeType.DELETE ? 'deleted' : 'modified'}.`;
+				}
+			})
 		};
 
 		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(JSON.stringify(pullRequestInfo))]);

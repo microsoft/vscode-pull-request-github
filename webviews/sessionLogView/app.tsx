@@ -7,7 +7,8 @@ import { shikiToMonaco } from '@shikijs/monaco';
 import * as monaco from 'monaco-editor';
 import * as React from 'react';
 import { createHighlighter } from 'shiki';
-import { ChangeThemeMessage, InitMessage } from './messages';
+import { vscode } from '../common/message';
+import type * as messages from './messages';
 import { parseSessionLogs, SessionInfo, SessionResponseLogChunk } from './sessionsApi';
 import { SessionView } from './sessionView';
 
@@ -15,18 +16,34 @@ const themeName = 'vscode-theme';
 
 type SessionViewState =
 	{ state: 'loading' }
-	| { state: 'ready'; readonly info: SessionInfo; readonly logs: SessionResponseLogChunk[]; themeData: any }
-
+	| { state: 'ready'; readonly info: SessionInfo; readonly logs: SessionResponseLogChunk[] }
 
 export function App() {
 	const [state, setState] = React.useState<SessionViewState>({ state: 'loading' });
+	const [pullInfo, setPullInfo] = React.useState<messages.PullInfo | undefined>(undefined);
 
 	React.useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			const message = event.data as InitMessage | ChangeThemeMessage;
+		let themeP: Promise<void> | undefined;
+		const handleMessage = async (event: MessageEvent) => {
+			const message = event.data as messages.InitMessage | messages.ChangeThemeMessage | messages.LoadedMessage;
 			switch (message?.type) {
 				case 'init': {
-					init(message);
+					themeP = registerMonacoTheme(message.themeData);
+					const state: messages.WebviewState = {
+						sessionId: message.sessionId,
+						pullInfo: message.pullInfo,
+					};
+					vscode.setState(state);
+					setPullInfo(message.pullInfo);
+					break;
+				}
+				case 'loaded': {
+					await themeP;
+					setState({
+						state: 'ready',
+						info: message.info,
+						logs: parseSessionLogs(message.logs),
+					});
 					break;
 				}
 				case 'changeTheme': {
@@ -37,24 +54,16 @@ export function App() {
 		};
 
 		window.addEventListener('message', handleMessage);
+
+		vscode.postMessage({ type: 'ready' });
+
 		return () => window.removeEventListener('message', handleMessage);
 	}, []);
 
 	if (state.state === 'loading') {
 		return <div className="loading-indicator">Loading session logs...</div>;
 	} else {
-		return <SessionView info={state.info} logs={state.logs} />;
-	}
-
-	async function init(message: InitMessage) {
-		await registerMonacoTheme(message.themeData);
-
-		setState({
-			state: 'ready',
-			info: message.info,
-			logs: parseSessionLogs(message.logs),
-			themeData: message.themeData,
-		});
+		return <SessionView info={state.info} logs={state.logs} pullInfo={pullInfo} />;
 	}
 }
 
@@ -109,10 +118,16 @@ async function registerMonacoTheme(themeData: any) {
 		langs: langs,
 	});
 
+	const transparent = '#00000000';
 	await highlighter.loadTheme({
 		...themeData,
 		name: themeName,
-		bg: 'transparent' // Don't set a background color
+		bg: 'transparent', // Don't set a background color
+		colors: {
+			...(themeData.colors ?? {}),
+			'editor.background': transparent,
+			'editorGutter.background': transparent
+		}
 	});
 	highlighter.setTheme(themeName);
 

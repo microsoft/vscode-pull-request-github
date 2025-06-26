@@ -7,40 +7,47 @@ import vscode from 'vscode';
 import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
 import { Disposable } from '../common/lifecycle';
+import { Remote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { CopilotApi, RemoteAgentJobPayload } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { CredentialStore } from './credentials';
-import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
 
 type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number; webviewUri: vscode.Uri; llmDetails: string };
 type RemoteAgentErrorResult = { error: string; state: 'error' };
 type RemoteAgentResult = RemoteAgentSuccessResult | RemoteAgentErrorResult;
 
-const YES_QUICK_PICK = vscode.l10n.t('Push my pending work');
-const NO_QUICK_PICK = vscode.l10n.t('Do not push my pending work');
+export interface IAPISessionLogs {
+	sessionId: string;
+	logs: string;
+}
 
 export class CopilotRemoteAgentManager extends Disposable {
-	private readonly _onDidChangeEnabled = new vscode.EventEmitter<boolean>();
-	public readonly onDidChangeEnabled: vscode.Event<boolean> = this._onDidChangeEnabled.event;
 	public static ID = 'CopilotRemoteAgentManager';
+	private readonly workflowRunUrlBase = 'https://github.com/microsoft/vscode/actions/runs/';
 
-	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, stateModel: CopilotStateModel) {
+	private readonly _stateModel: CopilotStateModel;
+	private readonly _onDidChangeStates = this._register(new vscode.EventEmitter<void>());
+	readonly onDidChangeStates = this._onDidChangeStates.event;
+	private readonly _onDidChangeNotifications = this._register(new vscode.EventEmitter<void>());
+	readonly onDidChangeNotifications = this._onDidChangeNotifications.event;
+	private readonly _onDidCreatePullRequest = this._register(new vscode.EventEmitter<number>());
+	readonly onDidCreatePullRequest = this._onDidCreatePullRequest.event;
+
+	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager) {
 		super();
 		this._register(this.credentialStore.onDidChangeSessions((e: vscode.AuthenticationSessionsChangeEvent) => {
 			if (e.provider.id === 'github') {
 				this._copilotApiPromise = undefined; // Invalidate cached session
 			}
 		}));
-		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(`${CODING_AGENT}.${CODING_AGENT_ENABLED}`)) {
-				this._onDidChangeEnabled.fire(this.enabled());
-			}
-		}));
-		this._register(new CopilotPRWatcher(this.repositoriesManager, stateModel));
 
+		this._stateModel = new CopilotStateModel();
+		this._register(new CopilotPRWatcher(this.repositoriesManager, this._stateModel));
+		this._register(this._stateModel.onDidChangeStates(() => this._onDidChangeStates.fire()));
+		this._register(this._stateModel.onDidChangeNotifications(() => this._onDidChangeNotifications.fire()));
 	}
 
 	private _copilotApiPromise: Promise<CopilotApi | undefined> | undefined;
@@ -99,76 +106,91 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return { owner, repo, remote, baseRef, repository };
 	}
 
-	statusBarItemImpl(): vscode.StatusBarItem {
-		const continueWithCopilot = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-		continueWithCopilot.command = 'pr.continueAsyncWithCopilot';
-		continueWithCopilot.text = vscode.l10n.t('$(cloud-upload) Finish with coding agent');
-		continueWithCopilot.tooltip = vscode.l10n.t('Complete your current work with the Copilot coding agent. Your current changes will be pushed to a branch and your task will be completed in the background.');
-		continueWithCopilot.show();
-		return continueWithCopilot;
-	}
+	async commandImpl(args?: any) {
+		// https://github.com/microsoft/vscode-copilot/issues/18918
+		const userPrompt: string | undefined = args.userPrompt;
+		const summary: string | undefined = args.summary;
 
-	async commandImpl() {
-		const body = await vscode.window.showInputBox({
-			prompt: vscode.l10n.t('Describe a task for the coding agent'),
-			title: vscode.l10n.t('Finish With Coding Agent'),
-			placeHolder: vscode.l10n.t('Finish writing my unit tests...'),
-			ignoreFocusOut: true,
-			validateInput: (value: string) => {
-				if (!value || value.trim().length === 0) {
-					return vscode.l10n.t('Description cannot be empty');
-				}
-				return;
-			}
-		});
-
-		if (!body) {
+		if (!userPrompt || userPrompt.trim().length === 0) {
 			return;
 		}
+
 		const repoInfo = await this.repoInfo();
 		if (!repoInfo) {
-			vscode.window.showErrorMessage(vscode.l10n.t('Open a workspace to use the coding agent'));
 			return;
 		}
-		const autoPushQuickPick = await vscode.window.showQuickPick(
-			[
-				{ label: YES_QUICK_PICK, description: vscode.l10n.t('Push pending work to a new branch in {0} where the coding agent will continue your work', `${repoInfo.owner}/${repoInfo.repo}`) },
-				{ label: NO_QUICK_PICK, description: vscode.l10n.t('The coding agent will continue from the last commit on {0}', repoInfo.baseRef) }
-			],
-		);
-		if (!autoPushQuickPick) {
-			return; // Cancelled
+		const { repository } = repoInfo;
+
+		const hasChanges = repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0;
+		const PUSH_CHANGES = vscode.l10n.t('Include uncommitted changes');
+		const CONTINUE_WITHOUT_PUSHING = vscode.l10n.t('Start from \'{0}\'', `${repoInfo.remote}/${repoInfo.baseRef}`);
+
+		let autoPushAndCommit = false;
+		if (hasChanges && this.autoCommitAndPushEnabled()) {
+			const modalResult = await vscode.window.showInformationMessage(
+				vscode.l10n.t('Coding Agent'),
+				{
+					modal: true,
+					detail: vscode.l10n.t('Coding agent will continue your work in \'{0}\' targetting \'{1}\'.', `${repoInfo.owner}/${repoInfo.repo}`, `${repoInfo.remote}/${repoInfo.baseRef}`),
+				},
+				PUSH_CHANGES,
+				CONTINUE_WITHOUT_PUSHING,
+			);
+
+			if (!modalResult) {
+				return;
+			}
+
+			if (modalResult === PUSH_CHANGES) {
+				autoPushAndCommit = true;
+			}
 		}
-		const autoPushAndCommit = autoPushQuickPick?.label === YES_QUICK_PICK;
-		await vscode.window.withProgress(
-			{
-				location: vscode.ProgressLocation.Notification,
-				title: vscode.l10n.t('Copilot Coding Agent'),
-				cancellable: false
-			},
-			async (progress) => {
-				progress.report({ message: vscode.l10n.t('Initializing coding agent...') });
-				const result = await this.invokeRemoteAgent(vscode.l10n.t('Continuing from VS Code'), body, autoPushAndCommit);
-				if (result.state === 'error') {
-					vscode.window.showErrorMessage(result.error);
-					return;
-				}
-				const { webviewUri, link } = result;
-				const openLink = vscode.l10n.t('View');
-				vscode.window.showInformationMessage(
-					// allow-any-unicode-next-line
-					vscode.l10n.t('🚀 Coding agent started! Track progress at {0}', link),
-					openLink
-				).then(selection => {
-					if (selection === openLink) {
+
+
+		await vscode.window.withProgress({
+			location: vscode.ProgressLocation.Notification,
+			title: vscode.l10n.t('Initializing Coding Agent...'),
+			cancellable: false
+		}, async (_) => {
+			const result = await this.invokeRemoteAgent(
+				userPrompt,
+				summary || '',
+				autoPushAndCommit
+			);
+
+			if (result.state !== 'success') {
+				vscode.window.showErrorMessage(result.error);
+				return;
+			}
+
+			const { webviewUri, link, number } = result;
+			const openLink = vscode.l10n.t('View');
+			vscode.window.showInformationMessage(
+				// allow-any-unicode-next-line
+				vscode.l10n.t('🚀 Coding agent started! Track progress at {0}', link)
+				, openLink
+			).then(async selection => {
+				if (selection === openLink) {
+					try {
+						const folderManager = this.repositoriesManager.getManagerForRepository(repoInfo.owner, repoInfo.repo);
+						if (folderManager) {
+							const pr = await folderManager.resolvePullRequest(repoInfo.owner, repoInfo.repo, number);
+							if (pr) {
+								await vscode.commands.executeCommand('pr.openDescription', pr);
+								return;
+							}
+						}
+
+						vscode.env.openExternal(webviewUri);
+					} catch (e) {
 						vscode.env.openExternal(webviewUri);
 					}
-				});
-			}
-		);
+				}
+			});
+		});
 	}
 
-	async invokeRemoteAgent(title: string, body: string, autoPushAndCommit = true): Promise<RemoteAgentResult> {
+	async invokeRemoteAgent(prompt: string, problemContext: string, autoPushAndCommit = true): Promise<RemoteAgentResult> {
 		// TODO: Check that the user has a valid copilot subscription
 		const capiClient = await this.copilotApi;
 		if (!capiClient) {
@@ -197,6 +219,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				await repository.add([]);
 				if (repository.state.indexChanges.length > 0) {
 					// TODO: there is an issue here if the user has GPG signing enabled.
+					//       https://github.com/microsoft/vscode/pull/252263
 					await repository.commit('Checkpoint for Copilot Agent async session', { signCommit: false });
 				}
 				await repository.push(remote, asyncBranch, true);
@@ -221,17 +244,25 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 		}
 
+		let title = prompt;
+		const titleMatch = problemContext.match(/TITLE: \s*(.*)/i);
+		if (titleMatch && titleMatch[1]) {
+			title = titleMatch[1].trim();
+		}
+
+		const problemStatement: string = `${prompt} ${problemContext ? `: ${problemContext}` : ''}`;
 		const payload: RemoteAgentJobPayload = {
-			problem_statement: title,
+			problem_statement: problemStatement,
 			pull_request: {
-				title: title,
-				body_placeholder: body,
+				title,
+				body_placeholder: problemContext,
 				base_ref: ref,
 			}
 		};
 		const { pull_request } = await capiClient.postRemoteAgentJob(owner, repo, payload);
 		const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: pull_request.number });
 		const prLlmString = `The remote agent has begun work. The user can track progress by visiting ${pull_request.html_url} or from the PR extension.`;
+		this._onDidCreatePullRequest.fire(pull_request.number);
 		return {
 			state: 'success',
 			number: pull_request.number,
@@ -241,15 +272,15 @@ export class CopilotRemoteAgentManager extends Disposable {
 		};
 	}
 
-	async getSessionLogsFromAction(pullRequest: PullRequestModel) {
+	async getSessionLogsFromAction(remote: Remote, pullRequestId: number) {
 		const capi = await this.copilotApi;
 		if (!capi) {
 			return [];
 		}
-		const runs = await capi.getWorkflowRunsFromAction(pullRequest);
+		const runs = await capi.getWorkflowRunsFromAction(remote);
 		const padawanRuns = runs
 			.filter(run => run.path && run.path.startsWith('dynamic/copilot-swe-agent'))
-			.filter(run => run.pull_requests?.some(pr => pr.id === pullRequest.id));
+			.filter(run => run.pull_requests?.some(pr => pr.id === pullRequestId));
 
 		const lastRun = this.getLatestRun(padawanRuns);
 
@@ -260,19 +291,45 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return await capi.getLogsFromZipUrl(lastRun.logs_url);
 	}
 
-	async getSessionLogsFromAPI(pullRequest: PullRequestModel): Promise<string> {
+	async getSessionLogsFromPullRequest(pullRequestId: number): Promise<IAPISessionLogs> {
 		const capi = await this.copilotApi;
 		if (!capi) {
-			return '';
+			return { sessionId: '', logs: '' };
 		}
 
-		const logs = await capi.getAllSessions(pullRequest);
-		const completedSessions = logs.filter(s => s.state === 'completed');
+		const sessions = await capi.getAllSessions(pullRequestId);
+		const completedSessions = sessions.filter(s => s.state === 'completed');
 		if (completedSessions.length === 0) {
-			return '';
+			return { sessionId: '', logs: '' };
 		}
 		const mostRecentSession = this.getLatestRun(completedSessions);
-		return await capi.getLogsFromSession(mostRecentSession.id);
+		const logs = await capi.getLogsFromSession(mostRecentSession.id);
+		return { sessionId: mostRecentSession.id, logs };
+	}
+
+	async getSessionUrlFromPullRequest(pullRequestId: number | undefined): Promise<string | undefined> {
+		const capi = await this.copilotApi;
+		if (!capi) {
+			return undefined;
+		}
+
+		const sessions = await capi.getAllSessions(pullRequestId);
+		const completedSessions = sessions.filter(s => s.state === 'completed');
+		if (completedSessions.length === 0) {
+			return undefined;
+		}
+		const mostRecentSession = this.getLatestRun(completedSessions);
+		return `${this.workflowRunUrlBase}${mostRecentSession.workflow_run_id}`;
+	}
+
+	async getSessionLogsFromSessionId(sessionId: string): Promise<IAPISessionLogs> {
+		const capi = await this.copilotApi;
+		if (!capi) {
+			return { sessionId: '', logs: '' };
+		}
+
+		const logs = await capi.getLogsFromSession(sessionId);
+		return { sessionId, logs };
 	}
 
 	private getLatestRun<T extends { last_updated_at?: string; updated_at?: string }>(runs: T[]): T {
@@ -283,5 +340,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 				const dateB = new Date(b.last_updated_at ?? b.updated_at ?? 0).getTime();
 				return dateB - dateA;
 			})[0];
+	}
+
+	clearNotifications() {
+		this._stateModel.clearNotifications();
+	}
+
+	get notifications(): ReadonlySet<string> {
+		return this._stateModel.notifications;
 	}
 }

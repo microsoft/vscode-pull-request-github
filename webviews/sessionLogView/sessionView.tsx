@@ -8,12 +8,14 @@ import type monacoType from 'monaco-editor';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.main';
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
+import { vscode } from '../common/message';
 import { CodeView } from './codeView';
 import './index.css'; // Create this file for styling
+import { PullInfo } from './messages';
 import { parseDiff, type SessionInfo, type SessionResponseLogChunk } from './sessionsApi';
 
-
 interface SessionViewProps {
+	readonly pullInfo: PullInfo | undefined;
 	readonly info: SessionInfo;
 	readonly logs: readonly SessionResponseLogChunk[];
 }
@@ -21,7 +23,7 @@ interface SessionViewProps {
 export const SessionView: React.FC<SessionViewProps> = (props) => {
 	return (
 		<div className="session-container">
-			<SessionHeader info={props.info} />
+			<SessionHeader info={props.info} pullInfo={props.pullInfo} />
 			<SessionLog logs={props.logs} />
 		</div>
 	);
@@ -29,10 +31,11 @@ export const SessionView: React.FC<SessionViewProps> = (props) => {
 
 // Session Header component
 interface SessionHeaderProps {
+	pullInfo: PullInfo | undefined;
 	info: SessionInfo;
 }
 
-const SessionHeader: React.FC<SessionHeaderProps> = ({ info }) => {
+const SessionHeader: React.FC<SessionHeaderProps> = ({ info, pullInfo }) => {
 	const createdAt = new Date(info.created_at);
 	const completedAt = info.completed_at ? new Date(info.completed_at) : new Date();
 	const durationMs = completedAt.getTime() - createdAt.getTime();
@@ -40,19 +43,39 @@ const SessionHeader: React.FC<SessionHeaderProps> = ({ info }) => {
 
 	return (
 		<header className="session-header">
-			<div className="session-status">
-				<div className="session-label">Status</div>
-				<div className="session-value">{info.state}</div>
-			</div>
+			{pullInfo && (
+				<div className='session-header-title'>
+					<button
+						className="session-pull-button"
+						onClick={() => {
+							vscode.postMessage({ type: 'openPullRequestView' });
+						}}>
+						<span className="icon"><i className={'codicon codicon-chevron-left'}></i></span>
+						Back to Pull Request
+					</button>
 
-			<div className="session-duration">
-				<div className="session-label">Duration</div>
-				<div className="session-value">{durationSec}s</div>
-			</div>
+					<h1>Coding Agent Session Log</h1>
+					<h2>
+						<span className="icon"><i className={'codicon codicon-git-pull-request'}></i></span> {pullInfo.title}
+					</h2>
+				</div>
+			)}
 
-			<div className="session-premium">
-				<div className="session-label">Premium requests</div>
-				<div className="session-value">{info.premium_requests}</div>
+			<div className="session-header-info">
+				<div className="session-status">
+					<div className="session-label">Status</div>
+					<div className="session-value">{info.state}</div>
+				</div>
+
+				<div className="session-duration">
+					<div className="session-label">Duration</div>
+					<div className="session-value">{durationSec}s</div>
+				</div>
+
+				<div className="session-premium">
+					<div className="session-label">Premium requests</div>
+					<div className="session-value">{info.premium_requests}</div>
+				</div>
 			</div>
 		</header>
 	);
@@ -95,11 +118,12 @@ const SessionLog: React.FC<SessionLogProps> = ({ logs }) => {
 					if (content) {
 						const file = content.fileA ?? content.fileB;
 						const lang = (file && getLanguageForResource(file)) ?? 'plaintext';
+
 						return (
 							<CodeView
 								key={`view-${index}`}
 								label="View"
-								description={file}
+								description={file && toFileLabel(file)}
 								content={{ value: content.content, lang }}
 							/>
 						);
@@ -214,3 +238,8 @@ function getLanguageForResource(filePath: string): string | undefined {
 	return undefined;
 }
 
+
+function toFileLabel(file: string): string {
+	const parts = file.split('/');
+	return parts.slice(5).join('/');
+}

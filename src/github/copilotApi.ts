@@ -5,9 +5,12 @@
 
 import fetch from 'cross-fetch';
 import JSZip from 'jszip';
+import { AuthProvider } from '../common/authentication';
+import { Remote } from '../common/remote';
 import { OctokitCommon } from './common';
+import { CredentialStore } from './credentials';
 import { LoggingOctokit } from './loggingOctokit';
-import { PullRequestModel } from './pullRequestModel';
+import { hasEnterpriseUri } from './utils';
 
 export interface RemoteAgentJobPayload {
 	problem_statement: string;
@@ -75,11 +78,11 @@ export class CopilotApi {
 		}
 	}
 
-	public async getWorkflowRunsFromAction(pullRequest: PullRequestModel): Promise<OctokitCommon.ListWorkflowRunsForRepo> {
+	public async getWorkflowRunsFromAction(remote: Remote): Promise<OctokitCommon.ListWorkflowRunsForRepo> {
 		const runs = await this.octokit.api.actions.listWorkflowRunsForRepo(
 			{
-				owner: pullRequest.githubRepository.remote.owner,
-				repo: pullRequest.githubRepository.remote.repositoryName,
+				owner: remote.owner,
+				repo: remote.repositoryName,
 				event: 'dynamic'
 			}
 		);
@@ -112,10 +115,10 @@ export class CopilotApi {
 		return copilotSteps;
 	}
 
-	public async getAllSessions(pullRequest: PullRequestModel | undefined): Promise<SessionInfo[]> {
+	public async getAllSessions(pullRequestId: number | undefined): Promise<SessionInfo[]> {
 		const response = await fetch(
-			pullRequest
-				? `https://api.githubcopilot.com/agents/sessions/resource/pull/${pullRequest.id}`
+			pullRequestId
+				? `https://api.githubcopilot.com/agents/sessions/resource/pull/${pullRequestId}`
 				: 'https://api.githubcopilot.com/agents/sessions',
 			{
 				headers: {
@@ -168,7 +171,7 @@ export interface SessionInfo {
 	agent_id: number;
 	logs: string;
 	logs_blob_id: string;
-	state: string;
+	state: 'completed' | 'in_progress' | string;
 	owner_id: number;
 	repo_id: number;
 	resource_type: string;
@@ -180,4 +183,24 @@ export interface SessionInfo {
 	workflow_run_id: number;
 	premium_requests: number;
 	error: string | null;
+}
+
+export async function getCopilotApi(credentialStore: CredentialStore, authProvider?: AuthProvider): Promise<CopilotApi | undefined> {
+	if (!authProvider) {
+		if (credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
+			authProvider = AuthProvider.githubEnterprise;
+		} else if (credentialStore.isAuthenticated(AuthProvider.github)) {
+			authProvider = AuthProvider.github;
+		} else {
+			return;
+		}
+	}
+
+	const github = credentialStore.getHub(authProvider);
+	if (!github || !github.octokit) {
+		return;
+	}
+
+	const { token } = await github.octokit.api.auth() as { token: string };
+	return new CopilotApi(github.octokit, token);
 }

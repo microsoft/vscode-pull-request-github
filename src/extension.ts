@@ -21,7 +21,6 @@ import { TemporaryState } from './common/temporaryState';
 import { Schemes } from './common/uri';
 import { EXTENSION_ID, FOCUS_REVIEW_MODE } from './constants';
 import { createExperimentationService, ExperimentationTelemetry } from './experimentationService';
-import { CopilotStateModel } from './github/copilotPrWatcher';
 import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
 import { CredentialStore } from './github/credentials';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
@@ -65,7 +64,7 @@ async function init(
 	showPRController: ShowPullRequest,
 	reposManager: RepositoriesManager,
 	createPrHelper: CreatePullRequestHelper,
-	copilotStateModel: CopilotStateModel
+	copilotRemoteAgentManager: CopilotRemoteAgentManager,
 ): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.', ACTIVATION);
@@ -165,7 +164,7 @@ async function init(
 	context.subscriptions.push(treeDecorationProviders);
 	treeDecorationProviders.registerProviders([new FileTypeDecorationProvider(), new CommentDecorationProvider(reposManager)]);
 
-	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, credentialStore, git, copilotStateModel);
+	const reviewsManager = new ReviewsManager(context, reposManager, reviewManagers, tree, changesTree, telemetry, credentialStore, git, copilotRemoteAgentManager);
 	context.subscriptions.push(reviewsManager);
 
 	git.onDidChangeState(() => {
@@ -217,24 +216,6 @@ async function init(
 
 	context.subscriptions.push(new PRNotificationDecorationProvider(tree.notificationProvider));
 
-	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager, copilotStateModel);
-
-	context.subscriptions.push(copilotRemoteAgentManager);
-	let remoteAgentStatusBarItem: vscode.Disposable | undefined;
-	if (copilotRemoteAgentManager.enabled()) {
-		remoteAgentStatusBarItem = copilotRemoteAgentManager.statusBarItemImpl();
-		context.subscriptions.push(remoteAgentStatusBarItem);
-	}
-	context.subscriptions.push(copilotRemoteAgentManager.onDidChangeEnabled((enabled: boolean) => {
-		if (enabled && !remoteAgentStatusBarItem) {
-			remoteAgentStatusBarItem = copilotRemoteAgentManager.statusBarItemImpl();
-			context.subscriptions.push(remoteAgentStatusBarItem);
-		} else if (!enabled && remoteAgentStatusBarItem) {
-			remoteAgentStatusBarItem.dispose();
-			remoteAgentStatusBarItem = undefined;
-		}
-	}));
-
 	registerCommands(context, reposManager, reviewsManager, telemetry, tree, copilotRemoteAgentManager);
 
 	const layout = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string>(FILE_LIST_LAYOUT);
@@ -249,7 +230,7 @@ async function init(
 
 	context.subscriptions.push(new GitLensIntegration());
 
-	const sessionLogViewManager = new SessionLogViewManager(credentialStore, context);
+	const sessionLogViewManager = new SessionLogViewManager(credentialStore, context, reposManager, telemetry, copilotRemoteAgentManager);
 	context.subscriptions.push(sessionLogViewManager);
 
 	await vscode.commands.executeCommand('setContext', 'github:initialized', true);
@@ -425,8 +406,10 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 
 	Logger.debug('Creating tree view.', 'Activation');
 
-	const copilotStateModel = new CopilotStateModel();
-	const prTree = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotStateModel);
+	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager);
+	context.subscriptions.push(copilotRemoteAgentManager);
+
+	const prTree = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotRemoteAgentManager);
 	context.subscriptions.push(prTree);
 	context.subscriptions.push(credentialStore.onDidGetSession(() => prTree.refresh(undefined, true)));
 	Logger.appendLine('Looking for git repository', ACTIVATION);
@@ -449,7 +432,7 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	readOnlyMessage.isTrusted = { enabledCommands: ['pr.checkoutFromReadonlyFile'] };
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.Pr, inMemPRFileSystemProvider, { isReadonly: readOnlyMessage }));
 
-	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper, copilotStateModel);
+	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper, copilotRemoteAgentManager);
 	return apiImpl;
 }
 

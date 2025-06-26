@@ -8,7 +8,6 @@ import { APIState, PublishEvent } from '../@types/git';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { TernarySearchTree } from '../common/utils';
-import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { API, IGit, PostCommitCommandsProvider, Repository, ReviewerCommentsProvider, TitleAndDescriptionProvider } from './api';
 
