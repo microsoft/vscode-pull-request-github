@@ -19,9 +19,6 @@ type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number
 type RemoteAgentErrorResult = { error: string; state: 'error' };
 type RemoteAgentResult = RemoteAgentSuccessResult | RemoteAgentErrorResult;
 
-const YES_QUICK_PICK = vscode.l10n.t('Push my pending work');
-const NO_QUICK_PICK = vscode.l10n.t('Do not push my pending work');
-
 export interface IAPISessionLogs {
 	sessionId: string;
 	logs: string;
@@ -146,26 +143,33 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 
 
-		const result = await this.invokeRemoteAgent(
-			userPrompt,
-			summary || '',
-			autoPushAndCommit
-		);
-		if (result.state !== 'success') {
-			vscode.window.showErrorMessage(result.error);
-			return;
-		}
+		await vscode.window.withProgress({
+			location: vscode.ProgressLocation.Notification,
+			title: vscode.l10n.t('Starting Coding Agent...'),
+			cancellable: false
+		}, async (_) => {
+			const result = await this.invokeRemoteAgent(
+				userPrompt,
+				summary || '',
+				autoPushAndCommit
+			);
 
-		const { webviewUri, link } = result;
-		const openLink = vscode.l10n.t('View');
-		vscode.window.showInformationMessage(
-			// allow-any-unicode-next-line
-			vscode.l10n.t('🚀 Coding agent started! Track progress at {0}', link)
-			, openLink
-		).then(selection => {
-			if (selection === openLink) {
-				vscode.env.openExternal(webviewUri);
+			if (result.state !== 'success') {
+				vscode.window.showErrorMessage(result.error);
+				return;
 			}
+
+			const { webviewUri, link } = result;
+			const openLink = vscode.l10n.t('View');
+			vscode.window.showInformationMessage(
+				// allow-any-unicode-next-line
+				vscode.l10n.t('🚀 Coding agent started! Track progress at {0}', link)
+				, openLink
+			).then(selection => {
+				if (selection === openLink) {
+					vscode.env.openExternal(webviewUri);
+				}
+			});
 		});
 	}
 
