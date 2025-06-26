@@ -45,6 +45,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	private _initialized: boolean = false;
 	public notificationProvider: NotificationProvider;
 	public readonly prsTreeModel: PrsTreeModel;
+	private _notificationClearTimeout: NodeJS.Timeout | undefined;
 
 	get view(): vscode.TreeView<TreeNode> {
 		return this._view;
@@ -54,7 +55,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		super();
 		this.prsTreeModel = this._register(new PrsTreeModel(this._telemetry, this._reposManager, _context));
 		this._register(this.prsTreeModel.onDidChangeData(folderManager => folderManager ? this.refreshRepo(folderManager) : this.refresh()));
-		this._register(new PRStatusDecorationProvider(this.prsTreeModel));
+		this._register(new PRStatusDecorationProvider(this.prsTreeModel, this._copilotStateModel));
 		this._register(vscode.commands.registerCommand('pr.refreshList', _ => {
 			this.refresh(undefined, true);
 		}));
@@ -71,12 +72,28 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 		this._register(this._view.onDidChangeVisibility(e => {
 			if (e.visible) {
-				_copilotStateModel.clearNotifications();
-				this._view.badge = undefined;
+				// Clear notifications with a delay of 5 seconds
+				if (this._notificationClearTimeout) {
+					clearTimeout(this._notificationClearTimeout);
+				}
+				this._notificationClearTimeout = setTimeout(() => {
+					_copilotStateModel.clearNotifications();
+					this._view.badge = undefined;
+					this._notificationClearTimeout = undefined;
+				}, 5000);
 			}
 		}));
 
-		this._register(_copilotStateModel.onDidChange(() => {
+		this._register({
+			dispose: () => {
+				if (this._notificationClearTimeout) {
+					clearTimeout(this._notificationClearTimeout);
+					this._notificationClearTimeout = undefined;
+				}
+			}
+		});
+
+		this._register(_copilotStateModel.onDidChangeStates(() => {
 			if (_copilotStateModel.notifications.size > 0) {
 				this._view.badge = {
 					tooltip: _copilotStateModel.notifications.size === 1 ? vscode.l10n.t('Coding agent has 1 change to view') : vscode.l10n.t('Coding agent has {0} changes to view', _copilotStateModel.notifications.size),

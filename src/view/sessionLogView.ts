@@ -5,23 +5,38 @@
 
 import * as vscode from 'vscode';
 import type * as messages from '../../webviews/sessionLogView/messages';
-import { AuthProvider } from '../common/authentication';
 import { Disposable } from '../common/lifecycle';
-import { CopilotApi, SessionInfo } from '../github/copilotApi';
+import { ITelemetry } from '../common/telemetry';
+import { SessionPullInfo } from '../common/timelineEvent';
+import { CopilotApi, getCopilotApi } from '../github/copilotApi';
+import { CopilotRemoteAgentManager, IAPISessionLogs } from '../github/copilotRemoteAgent';
 import { CredentialStore } from '../github/credentials';
 import { PullRequestModel } from '../github/pullRequestModel';
-import { hasEnterpriseUri } from '../github/utils';
+import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
+import { RepositoriesManager } from '../github/repositoriesManager';
+import Logger from '../common/logger';
 
-export class SessionLogViewManager extends Disposable {
-	static instance: SessionLogViewManager | undefined;
+export class SessionLogViewManager extends Disposable implements vscode.WebviewPanelSerializer {
+	public static instance: SessionLogViewManager | undefined;
+
+	public static readonly viewType = 'pr.padawanSessionLogView';
+
+	private readonly _panels = new Set<SessionLogView>();
+
+	private _activePanel: SessionLogView | undefined;
 
 	constructor(
 		private readonly credentialStore: CredentialStore,
 		private readonly context: vscode.ExtensionContext,
+		private readonly reposManagers: RepositoriesManager,
+		private readonly telemetry: ITelemetry,
+		private readonly copilotAgentManager: CopilotRemoteAgentManager,
 	) {
 		super();
 
 		SessionLogViewManager.instance = this;
+
+		this._register(vscode.window.registerWebviewPanelSerializer(SessionLogViewManager.viewType, this));
 
 		this._register(vscode.commands.registerCommand('padawan.openSessionLog', async () => {
 			const copilotApi = await getCopilotApi(credentialStore);
@@ -51,33 +66,86 @@ export class SessionLogViewManager extends Disposable {
 				return;
 			}
 
-			return this.open(picked.sessionId);
+			const sessionLogs = await copilotAgentManager.getSessionLogsFromSessionId(picked.sessionId);
+
+			return this.open(sessionLogs, undefined);
+		}));
+
+		this._register(vscode.commands.registerCommand('sessionLog.openOnWeb', async () => {
+			if (!this._activePanel) {
+				return;
+			}
+
+			const pullInfo = this._activePanel.pullInfo;
+			if (!pullInfo) {
+				vscode.window.showErrorMessage(vscode.l10n.t('No pull for this session.'));
+				return;
+			}
+
+			const sessionUrl = vscode.Uri.parse(`https://${pullInfo.host}/${pullInfo.owner}/${pullInfo.repo}/pull/${pullInfo.pullId}/agent-sessions/${this._activePanel.sessionId}`);
+			return vscode.env.openExternal(sessionUrl);
 		}));
 	}
 
 	async openForPull(pullRequest: PullRequestModel): Promise<void> {
-		const copilotApi = await getCopilotApi(this.credentialStore);
-		if (!copilotApi) {
-			return;
+		try {
+			const sessionLogs = await this.copilotAgentManager.getSessionLogsFromPullRequest(pullRequest);
+			if (!sessionLogs) {
+				throw new Error('No sessions found for this pull request.');
+			}
+			const pullInfo: SessionPullInfo = {
+				host: pullRequest.githubRepository.remote.gitProtocol.host,
+				owner: pullRequest.githubRepository.remote.owner,
+				repo: pullRequest.githubRepository.remote.repositoryName,
+				pullId: pullRequest.number,
+			};
+			return this.open(sessionLogs, pullInfo);
+		} catch (error) {
+			Logger.error(`Failed to retrieve session logs: ${error}`, 'SessionLogViewManager');
+			const url = await this.copilotAgentManager.getSessionUrlFromPullRequest(pullRequest);
+			if (!url) {
+				vscode.window.showErrorMessage(vscode.l10n.t('No sessions found for this pull request.'));
+				return;
+			}
+			vscode.env.openExternal(vscode.Uri.parse(url));
 		}
-
-		const sessionId = (await copilotApi.getAllSessions(pullRequest))[0].id;
-		if (!sessionId) {
-			vscode.window.showErrorMessage(vscode.l10n.t('No sessions found for this pull request.'));
-			return;
-		}
-
-		return this.open(sessionId);
 	}
 
-	async open(sessionId: string): Promise<void> {
+	async open(logs: IAPISessionLogs, pullInfo: SessionPullInfo | undefined): Promise<void> {
 		const copilotApi = await getCopilotApi(this.credentialStore);
 		if (!copilotApi) {
 			return;
 		}
 
-		const webviewPanel = vscode.window.createWebviewPanel('padawanSessionView', vscode.l10n.t('Session Logs'), vscode.ViewColumn.Active);
+		const webviewPanel = vscode.window.createWebviewPanel(
+			SessionLogViewManager.viewType,
+			vscode.l10n.t('Session Log'),
+			vscode.ViewColumn.Active,
+			{
+				retainContextWhenHidden: true,
+				enableFindWidget: true
+			}
+		);
 
+		await this.setupWebview(webviewPanel, logs.sessionId, pullInfo, copilotApi);
+	}
+
+	async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: messages.WebviewState): Promise<void> {
+		if (!state || !state.sessionId) {
+			webviewPanel.dispose();
+			return;
+		}
+
+		const copilotApi = await getCopilotApi(this.credentialStore);
+		if (!copilotApi) {
+			webviewPanel.dispose();
+			return;
+		}
+
+		await this.setupWebview(webviewPanel, state.sessionId, state.pullInfo, copilotApi);
+	}
+
+	private async setupWebview(webviewPanel: vscode.WebviewPanel, sessionId: string, pullInfo: SessionPullInfo | undefined, copilotApi: CopilotApi): Promise<void> {
 		const distDir = vscode.Uri.joinPath(this.context.extensionUri, 'dist');
 
 		webviewPanel.webview.options = {
@@ -87,45 +155,52 @@ export class SessionLogViewManager extends Disposable {
 			]
 		};
 		webviewPanel.webview.html = `<!DOCTYPE html>
-		<html lang="en">
-		<head>
-			<meta charset="UTF-8">
-			<meta name="viewport" content="width=device-width, initial-scale=1.0">
-			<title>Session Log</title>
-			<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' ${webviewPanel.webview.cspSource}; script-src ${webviewPanel.webview.cspSource} 'unsafe-eval';">
-		</head>
-		<body>
-			<div id="app"></div>
+			<html lang="en">
+			<head>
+				<meta charset="UTF-8">
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				<title>${vscode.l10n.t('Session Log')}</title>
+				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' ${webviewPanel.webview.cspSource}; script-src ${webviewPanel.webview.cspSource} 'unsafe-eval'; font-src ${webviewPanel.webview.cspSource};">
+			</head>
+			<body>
+				<div id="app"></div>
 
-			<script type="module" src="${webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(distDir, 'webview-session-log-view.js'))}"></script>
-		</body>
-		</html>`;
+				<script type="module" src="${webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(distDir, 'webview-session-log-view.js'))}"></script>
+			</body>
+			</html>`;
 
-		const [info, logs] = await Promise.all([
-			copilotApi.getSessionInfo(sessionId),
-			copilotApi.getLogsFromSession(sessionId)
-		]);
+		const logView = new SessionLogView(sessionId, pullInfo, webviewPanel, copilotApi, this.context, this.reposManagers, this.telemetry);
+		this._panels.add(logView);
 
-		new SessionLogView(info, logs, webviewPanel);
+		logView.onDidDispose(() => {
+			this._panels.delete(logView);
+		});
+
+		webviewPanel.onDidChangeViewState(() => {
+			if (webviewPanel.active) {
+				this._activePanel = logView;
+			} else if (this._activePanel === logView && !webviewPanel.active) {
+				this._activePanel = undefined;
+			}
+		});
 	}
 }
 
 class SessionLogView extends Disposable {
+
+	private readonly _onDidDispose = new vscode.EventEmitter<void>();
+	public readonly onDidDispose = this._onDidDispose.event;
+
 	constructor(
-		info: SessionInfo,
-		logs: string,
-		webviewPanel: vscode.WebviewPanel
+		public readonly sessionId: string,
+		public readonly pullInfo: SessionPullInfo | undefined,
+		private readonly webviewPanel: vscode.WebviewPanel,
+		private readonly copilotApi: CopilotApi,
+		context: vscode.ExtensionContext,
+		reposManagers: RepositoriesManager,
+		telemetry: ITelemetry,
 	) {
 		super();
-
-		loadCurrentThemeData().then(themeData => {
-			webviewPanel.webview.postMessage({
-				type: 'init',
-				info,
-				logs,
-				themeData,
-			} as messages.InitMessage);
-		});
 
 		this._register(webviewPanel.onDidDispose(() => {
 			this.dispose();
@@ -140,9 +215,103 @@ class SessionLogView extends Disposable {
 				} as messages.ChangeThemeMessage);
 			}
 		}));
+
+		this._register(this.webviewPanel.webview.onDidReceiveMessage(async (message: any) => {
+			if (message.type === 'openPullRequestView') {
+				if (!this.pullInfo) {
+					vscode.window.showErrorMessage(vscode.l10n.t('No pull request information available for this session.'));
+					return;
+				}
+
+				const folderManager = reposManagers.getManagerForRepository(this.pullInfo.owner, this.pullInfo.repo) ?? reposManagers.folderManagers[0];
+				const pullRequest = await folderManager.resolvePullRequest(this.pullInfo.owner, this.pullInfo.repo, this.pullInfo.pullId);
+				if (!pullRequest) {
+					return;
+				}
+				await PullRequestOverviewPanel.createOrShow(telemetry, context.extensionUri, folderManager, pullRequest);
+			}
+		}));
+
+		this.initialize();
+	}
+
+	override dispose(): void {
+		if (this._isDisposed) {
+			return;
+		}
+
+		this._onDidDispose.fire();
+		this._onDidDispose.dispose();
+		super.dispose();
+	}
+
+	private async initialize() {
+		let readyResolve: (value: void | PromiseLike<void>) => void;
+		const ready = new Promise<void>(resolve => { readyResolve = resolve; });
+		this._register(this.webviewPanel.webview.onDidReceiveMessage((message: any) => {
+			if (message.type === 'ready') {
+				readyResolve();
+			}
+		}));
+
+		const apiPromises = Promise.all([
+			this.copilotApi.getSessionInfo(this.sessionId),
+			this.copilotApi.getLogsFromSession(this.sessionId)
+		]);
+
+		const themeData = await loadCurrentThemeData();
+		if (this._isDisposed) {
+			return;
+		}
+
+		await ready;
+
+		if (this._isDisposed) {
+			return;
+		}
+
+		this.webviewPanel.webview.postMessage({
+			type: 'init',
+			themeData,
+			sessionId: this.sessionId,
+			pullInfo: this.pullInfo,
+		} as messages.InitMessage);
+
+		const [info, logs] = await apiPromises;
+		if (this._isDisposed) {
+			return;
+		}
+
+		this.webviewPanel.webview.postMessage({
+			type: 'loaded',
+			info,
+			logs,
+		} as messages.LoadedMessage);
+
+		if (info.state === 'in_progress') {
+			// Poll for updates every 5 seconds
+			const interval = setInterval(async () => {
+				if (this._isDisposed) {
+					clearInterval(interval);
+					return;
+				}
+
+				const updatedInfo = await this.copilotApi.getSessionInfo(this.sessionId);
+				if (updatedInfo.state !== info.state) {
+					this.webviewPanel.webview.postMessage({
+						type: 'loaded',
+						info: updatedInfo,
+						logs,
+					} as messages.LoadedMessage);
+				}
+			}, 5000);
+
+			this._register({
+				dispose: () => clearInterval(interval)
+			});
+		}
 	}
 }
-
 
 async function loadCurrentThemeData(): Promise<any> {
 	let themeData: any = null;
@@ -187,25 +356,6 @@ async function loadThemeFromFile(path: vscode.Uri): Promise<any> {
 	}
 
 	return themeData;
-}
-
-async function getCopilotApi(credentialStore: CredentialStore): Promise<CopilotApi | undefined> {
-	let authProvider: AuthProvider | undefined;
-	if (credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
-		authProvider = AuthProvider.githubEnterprise;
-	} else if (credentialStore.isAuthenticated(AuthProvider.github)) {
-		authProvider = AuthProvider.github;
-	} else {
-		return;
-	}
-
-	const github = credentialStore.getHub(authProvider);
-	if (!github || !github.octokit) {
-		return;
-	}
-
-	const { token } = await github.octokit.api.auth() as { token: string };
-	return new CopilotApi(github.octokit, token);
 }
 
 function getCurrentThemePath(themeName: string): vscode.Uri | undefined {

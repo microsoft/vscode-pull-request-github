@@ -29,6 +29,7 @@
 		"contribShareMenu",
 		"diffCommand",
 		"quickDiffProvider",
+		"remoteCodingAgents",
 		"shareProvider",
 		"tokenInformation",
 		"treeViewMarkdownMessage"
@@ -51,7 +52,8 @@
 		"onFileSystem:newIssue",
 		"onFileSystem:pr",
 		"onFileSystem:githubpr",
-		"onFileSystem:review"
+		"onFileSystem:review",
+		"onWebviewPanel:pr.padawanSessionLogView"
 	],
 	"browser": "./dist/browser/extension",
 	"l10n": "./dist/browser/extension",
@@ -63,6 +65,14 @@
 		"virtualWorkspaces": true
 	},
 	"contributes": {
+		"remoteCodingAgents": [
+			{
+				"command": "githubpr.remoteAgent",
+				"displayName": "GitHub Coding Agent",
+				"description": "The GitHub Coding Agent.",
+				"when": "config.githubPullRequests.codingAgent.enabled"
+			}
+		],
 		"chatParticipants": [
 			{
 				"id": "githubpr",
@@ -814,6 +824,11 @@
 		},
 		"commands": [
 			{
+				"command": "githubpr.remoteAgent",
+				"title": "Remote agent integration",
+				"enablement": "config.githubPullRequests.codingAgent.enabled"
+			},
+			{
 				"command": "github.api.preloadPullRequest",
 				"title": "Preload Pull Request",
 				"category": "%command.pull.request.category%"
@@ -1180,13 +1195,6 @@
 				"title": "%command.pr.applySuggestionWithCopilot.title%",
 				"category": "%command.pull.request.category%",
 				"icon": "$(sparkle)"
-			},
-			{
-				"command": "pr.continueAsyncWithCopilot",
-				"title": "Continue Asynchronously with Copilot",
-				"category": "%command.pull.request.category%",
-				"icon": "$(copilot)",
-				"enablement": "config.githubPullRequests.codingAgent.enabled"
 			},
 			{
 				"command": "pr.addAssigneesToNewPr",
@@ -1654,6 +1662,11 @@
 				"command": "padawan.openSessionLog",
 				"title": "Open Padawan Session Log",
 				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "sessionLog.openOnWeb",
+				"title": "Open on Web",
+				"icon": "$(globe)"
 			}
 		],
 		"viewsWelcome": [
@@ -1782,6 +1795,10 @@
 			"commandPalette": [
 				{
 					"command": "github.api.preloadPullRequest",
+					"when": "false"
+				},
+				{
+					"command": "githubpr.remoteAgent",
 					"when": "false"
 				},
 				{
@@ -2367,6 +2384,10 @@
 				{
 					"command": "review.copyPrLink",
 					"when": "github:inReviewMode"
+				},
+				{
+					"command": "sessionLog.openOnWeb",
+					"when": "false"
 				}
 			],
 			"view/title": [
@@ -2833,6 +2854,11 @@
 					"command": "pr.addFileComment",
 					"group": "navigation",
 					"when": "(resourceScheme == pr) || (resourcePath in github:viewedFiles) || (resourcePath in github:unviewedFiles)"
+				},
+				{
+					"command": "sessionLog.openOnWeb",
+					"group": "navigation",
+					"when": "activeWebviewPanelId == 'pr.padawanSessionLogView'"
 				}
 			],
 			"editor/content": [
@@ -3918,6 +3944,7 @@
 		"prepare": "husky install"
 	},
 	"devDependencies": {
+		"@shikijs/monaco": "^3.7.0",
 		"@types/chai": "^4.1.4",
 		"@types/glob": "7.1.3",
 		"@types/lru-cache": "^5.1.0",
@@ -3953,18 +3980,21 @@
 		"jsdom": "19.0.0",
 		"jsdom-global": "3.0.2",
 		"json5": "2.2.2",
+		"markdown-it": "^14.1.0",
 		"merge-options": "3.0.4",
 		"minimist": "^1.2.6",
 		"mkdirp": "1.0.4",
 		"mocha": "^9.0.1",
 		"mocha-junit-reporter": "1.23.0",
 		"mocha-multi-reporters": "1.1.7",
+		"monaco-editor-webpack-plugin": "^7.1.0",
 		"os-browserify": "^0.3.0",
 		"p-all": "^1.0.0",
 		"path-browserify": "1.0.1",
 		"process": "^0.11.10",
 		"raw-loader": "4.0.2",
 		"react-testing-library": "7.0.1",
+		"shiki": "^3.7.0",
 		"sinon": "9.0.0",
 		"source-map-support": "0.5.19",
 		"stream-browserify": "^3.0.0",
@@ -3984,7 +4014,7 @@
 	"dependencies": {
 		"@octokit/rest": "20.1.2",
 		"@octokit/types": "13.8.0",
-		"@shikijs/monaco": "^3.7.0",
+		"@vscode/codicons": "^0.0.36",
 		"@vscode/extension-telemetry": "0.7.5",
 		"@vscode/prompt-tsx": "^0.3.0-alpha.12",
 		"apollo-boost": "^0.4.9",
@@ -3997,12 +4027,10 @@
 		"fast-deep-equal": "^3.1.3",
 		"jszip": "^3.10.1",
 		"lru-cache": "6.0.0",
-		"markdown-it": "^14.1.0",
 		"marked": "^4.0.10",
 		"monaco-editor": "^0.52.2",
 		"react": "^16.12.0",
 		"react-dom": "^16.12.0",
-		"shiki": "^3.7.0",
 		"ssh-config": "4.1.1",
 		"stream-http": "^3.2.0",
 		"tunnel": "0.0.6",

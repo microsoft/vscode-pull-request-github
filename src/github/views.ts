@@ -133,3 +133,7 @@ export enum PreReviewState {
 	ReviewedWithComments,
 	ReviewedWithoutComments
 }
+
+export interface CancelCodingAgentReply {
+	events: TimelineEvent[];
+}

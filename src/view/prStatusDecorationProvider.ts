@@ -5,7 +5,8 @@
 
 import * as vscode from 'vscode';
 import { Disposable } from '../common/lifecycle';
-import { createPRNodeUri, fromPRNodeUri, Schemes } from '../common/uri';
+import { COPILOT_QUERY, createPRNodeUri, fromPRNodeUri, Schemes } from '../common/uri';
+import { CopilotStateModel } from '../github/copilotPrWatcher';
 import { getStatusDecoration } from '../github/markdownUtils';
 import { PrsTreeModel } from './prsTreeModel';
 
@@ -16,7 +17,7 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 	>();
 	onDidChangeFileDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeFileDecorations.event;
 
-	constructor(private readonly _prsTreeModel: PrsTreeModel) {
+	constructor(private readonly _prsTreeModel: PrsTreeModel, private readonly _copilotStateModel: CopilotStateModel) {
 		super();
 		this._register(vscode.window.registerFileDecorationProvider(this));
 		this._register(
@@ -24,12 +25,20 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 				this._onDidChangeFileDecorations.fire(identifiers.map(id => createPRNodeUri(id)));
 			})
 		);
+
+		this._register(this._copilotStateModel.onDidChangeNotifications(() => {
+			this._onDidChangeFileDecorations.fire(COPILOT_QUERY);
+		}));
 	}
 
 	provideFileDecoration(
 		uri: vscode.Uri,
 		_token: vscode.CancellationToken,
 	): vscode.ProviderResult<vscode.FileDecoration> {
+		if (uri.scheme === Schemes.PRQuery) {
+			return this._queryDecoration(uri);
+		}
+
 		if (uri.scheme !== Schemes.PRNode) {
 			return;
 		}
@@ -43,5 +52,17 @@ export class PRStatusDecorationProvider extends Disposable implements vscode.Fil
 		}
 
 		return getStatusDecoration(status.status) as vscode.FileDecoration;
+	}
+
+	private _queryDecoration(uri: vscode.Uri): vscode.ProviderResult<vscode.FileDecoration> {
+		if (uri.path === 'copilot') {
+			if (this._copilotStateModel.notifications.size > 0) {
+				return {
+					tooltip: vscode.l10n.t('Coding agent has made changes', this._copilotStateModel.notifications.size),
+					badge: new vscode.ThemeIcon('copilot') as any,
+					color: new vscode.ThemeColor('pullRequests.notification'),
+				};
+			}
+		}
 	}
 }

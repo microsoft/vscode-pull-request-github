@@ -1002,7 +1002,7 @@ export function parseSelectRestTimelineEvents(
 	events: OctokitCommon.ListEventsForTimelineResponse[]
 ): Common.TimelineEvent[] {
 	const parsedEvents: Common.TimelineEvent[] = [];
-	const sessionLink: Common.SessionLinkInfo = {
+	const sessionLink: Common.SessionPullInfo = {
 		host: issueModel.githubRepository.remote.gitProtocol.host,
 		owner: issueModel.githubRepository.remote.owner,
 		repo: issueModel.githubRepository.remote.repositoryName,

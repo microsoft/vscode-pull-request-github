@@ -5,9 +5,12 @@
 
 import fetch from 'cross-fetch';
 import JSZip from 'jszip';
+import { AuthProvider } from '../common/authentication';
 import { OctokitCommon } from './common';
+import { CredentialStore } from './credentials';
 import { LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
+import { hasEnterpriseUri } from './utils';
 
 export interface RemoteAgentJobPayload {
 	problem_statement: string;
@@ -168,7 +171,7 @@ export interface SessionInfo {
 	agent_id: number;
 	logs: string;
 	logs_blob_id: string;
-	state: string;
+	state: 'completed' | 'in_progress' | string;
 	owner_id: number;
 	repo_id: number;
 	resource_type: string;
@@ -180,4 +183,24 @@ export interface SessionInfo {
 	workflow_run_id: number;
 	premium_requests: number;
 	error: string | null;
+}
+
+export async function getCopilotApi(credentialStore: CredentialStore, authProvider?: AuthProvider): Promise<CopilotApi | undefined> {
+	if (!authProvider) {
+		if (credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
+			authProvider = AuthProvider.githubEnterprise;
+		} else if (credentialStore.isAuthenticated(AuthProvider.github)) {
+			authProvider = AuthProvider.github;
+		} else {
+			return;
+		}
+	}
+
+	const github = credentialStore.getHub(authProvider);
+	if (!github || !github.octokit) {
+		return;
+	}
+
+	const { token } = await github.octokit.api.auth() as { token: string };
+	return new CopilotApi(github.octokit, token);
 }

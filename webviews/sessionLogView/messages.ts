@@ -3,16 +3,28 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { SessionPullInfo } from '../../src/common/timelineEvent';
 import { SessionInfo } from './sessionsApi';
 
 export interface InitMessage {
 	type: 'init';
+	sessionId: string;
+	pullInfo: SessionPullInfo | undefined;
+	themeData: any;
+}
+
+export interface LoadedMessage {
+	type: 'loaded';
 	info: SessionInfo;
 	logs: string;
-	themeData: any;
 }
 
 export interface ChangeThemeMessage {
 	type: 'changeTheme';
 	themeData: any;
+}
+
+export interface WebviewState {
+	readonly sessionId: string;
+	readonly pullInfo: SessionPullInfo | undefined;
 }

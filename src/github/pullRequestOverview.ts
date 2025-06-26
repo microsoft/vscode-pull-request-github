@@ -7,15 +7,17 @@
 import * as vscode from 'vscode';
 import { openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
+import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands, contexts } from '../common/executeCommands';
 import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { ReviewEvent, SessionLinkInfo } from '../common/timelineEvent';
+import { EventType, ReviewEvent, SessionPullInfo, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { SessionLogViewManager } from '../view/sessionLogView';
+import { getCopilotApi } from './copilotApi';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import {
 	GithubItemStateEnum,
@@ -34,7 +36,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
-import { MergeArguments, MergeResult, PullRequest, ReviewType, SubmitReviewReply } from './views';
+import { CancelCodingAgentReply, MergeArguments, MergeResult, PullRequest, ReviewType, SubmitReviewReply } from './views';
 
 export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestModel> {
 	public static override ID: string = 'PullRequestOverviewPanel';
@@ -359,6 +361,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.revert(message);
 			case 'pr.open-session-log':
 				return this.openSessionLog(message.args.link);
+			case 'pr.cancel-coding-agent':
+				return this.cancelCodingAgent(message);
 		}
 	}
 
@@ -454,11 +458,46 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async openSessionLog(_message: IRequestMessage<{ link: SessionLinkInfo }>): Promise<void> {
+	private async openSessionLog(_message: IRequestMessage<{ link: SessionPullInfo }>): Promise<void> {
 		try {
 			SessionLogViewManager.instance?.openForPull(this._item);
 		} catch (e) {
 			Logger.error(`Open session log view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+		}
+	}
+
+	private async cancelCodingAgent(message: IRequestMessage<TimelineEvent>): Promise<void> {
+		try {
+			let result = false;
+			if (message.args.event !== EventType.CopilotStarted) {
+				return this._replyMessage(message, { success: false, error: 'Invalid event type' });
+			} else {
+				const copilotApi = await getCopilotApi(this._folderRepositoryManager.credentialStore, this._item.remote.authProviderId);
+				if (copilotApi) {
+					const session = (await copilotApi.getAllSessions(this._item))[0];
+					if (session.state !== 'completed') {
+						result = await this._item.githubRepository.cancelWorkflow(session.workflow_run_id);
+					}
+				}
+			}
+			// need to wait until we get the updated timeline events
+			let events: TimelineEvent[] = [];
+			if (result) {
+				do {
+					events = await this._item.getTimelineEvents();
+				} while (copilotEventToStatus(mostRecentCopilotEvent(events)) !== CopilotPRStatus.Completed && await new Promise<boolean>(c => setTimeout(() => c(true), 2000)));
+			}
+			const reply: CancelCodingAgentReply = {
+				events
+			};
+			this._replyMessage(message, reply);
+		} catch (e) {
+			Logger.error(`Cancelling coding agent failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
+			vscode.window.showErrorMessage(vscode.l10n.t('Cannot cancel coding agent'));
+			const reply: CancelCodingAgentReply = {
+				events: [],
+			};
+			this._replyMessage(message, reply);
 		}
 	}
 

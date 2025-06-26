@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useContext, useState } from 'react';
+import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../../src/common/copilot';
+import { TimelineEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
@@ -26,6 +28,7 @@ export function Header({
 	isDraft,
 	isIssue,
 	repositoryDefaultBranch,
+	events
 }: PullRequest) {
 	const [currentTitle, setCurrentTitle] = useStateProp(title);
 	const [inEditMode, setEditMode] = useState(false);
@@ -42,13 +45,16 @@ export function Header({
 				setCurrentTitle={setCurrentTitle}
 			/>
 			<Subtitle state={state} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} />
-			<ButtonGroup
-				isCurrentlyCheckedOut={isCurrentlyCheckedOut}
-				isIssue={isIssue}
-				canEdit={canEdit}
-				repositoryDefaultBranch={repositoryDefaultBranch}
-				setEditMode={setEditMode}
-			/>
+			<div className="header-actions">
+				<ButtonGroup
+					isCurrentlyCheckedOut={isCurrentlyCheckedOut}
+					isIssue={isIssue}
+					canEdit={canEdit}
+					repositoryDefaultBranch={repositoryDefaultBranch}
+					setEditMode={setEditMode}
+				/>
+				<CancelCodingAgentButton canEdit={canEdit} codingAgentEvent={mostRecentCopilotEvent(events)} />
+			</div>
 		</>
 	);
 }
@@ -102,9 +108,11 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 	return (
 		<div className="button-group">
 			<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
-			<button title="Open Changes" onClick={openChanges} className="small-button">
-				Open Changes
-			</button>
+			{!isIssue && (
+				<button title="Open Changes" onClick={openChanges} className="small-button">
+					Open Changes
+				</button>
+			)}
 			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary small-button">
 				Refresh
 			</button>
@@ -123,6 +131,31 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 			)}
 		</div>
 	);
+}
+
+function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boolean, codingAgentEvent: TimelineEvent | undefined }) {
+	const { cancelCodingAgent, updatePR } = useContext(PullRequestContext);
+	const [isBusy, setBusy] = useState(false);
+
+	const cancel = async () => {
+		if (!codingAgentEvent) {
+			return;
+		}
+		setBusy(true);
+		const result = await cancelCodingAgent(codingAgentEvent);
+		if (result.events.length > 0) {
+			updatePR(result);
+		}
+		setBusy(false);
+	};
+
+	return (canEdit && codingAgentEvent && copilotEventToStatus(codingAgentEvent) === CopilotPRStatus.Started)
+		? <div className="button-group">
+			<button title="Cancel Coding Agent" disabled={isBusy} className="small-button danger" onClick={cancel}>
+				Cancel Coding Agent
+			</button>
+		</div>
+		: null;
 }
 
 function Subtitle({ state, isDraft, isIssue, author, base, head }) {
