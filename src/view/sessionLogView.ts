@@ -6,9 +6,11 @@
 import * as vscode from 'vscode';
 import type * as messages from '../../webviews/sessionLogView/messages';
 import { Disposable, disposeAll } from '../common/lifecycle';
+import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { SessionPullInfo } from '../common/timelineEvent';
 import { CopilotApi, getCopilotApi } from '../github/copilotApi';
+import { CopilotRemoteAgentManager, IAPISessionLogs } from '../github/copilotRemoteAgent';
 import { CredentialStore } from '../github/credentials';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
@@ -28,6 +30,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 		private readonly context: vscode.ExtensionContext,
 		private readonly reposManagers: RepositoriesManager,
 		private readonly telemetry: ITelemetry,
+		private readonly copilotAgentManager: CopilotRemoteAgentManager,
 	) {
 		super();
 
@@ -63,7 +66,9 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 				return;
 			}
 
-			return this.open(picked.sessionId, undefined);
+			const sessionLogs = await copilotAgentManager.getSessionLogsFromSessionId(picked.sessionId);
+
+			return this.open(sessionLogs, undefined);
 		}));
 
 		this._register(vscode.commands.registerCommand('sessionLog.openOnWeb', async () => {
@@ -94,21 +99,25 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 	}
 
 	async openForPull(pullRequest: PullRequestModel): Promise<void> {
-		const copilotApi = await getCopilotApi(this.credentialStore);
-		if (!copilotApi) {
-			return;
-		}
+		try {
+			const sessionLogs = await this.copilotAgentManager.getSessionLogsFromPullRequest(pullRequest);
+			if (!sessionLogs) {
+				throw new Error('No sessions found for this pull request.');
+			}
 
-		const sessionId = (await copilotApi.getAllSessions(pullRequest))[0].id;
-		if (!sessionId) {
-			vscode.window.showErrorMessage(vscode.l10n.t('No sessions found for this pull request.'));
-			return;
+			return this.open(sessionLogs, pullRequest);
+		} catch (error) {
+			Logger.error(`Failed to retrieve session logs: ${error}`, 'SessionLogViewManager');
+			const url = await this.copilotAgentManager.getSessionUrlFromPullRequest(pullRequest);
+			if (!url) {
+				vscode.window.showErrorMessage(vscode.l10n.t('No sessions found for this pull request.'));
+				return;
+			}
+			vscode.env.openExternal(vscode.Uri.parse(url));
 		}
-
-		return this.open(sessionId, pullRequest);
 	}
 
-	async open(sessionId: string, pullRequest: PullRequestModel | undefined): Promise<void> {
+	async open(logs: IAPISessionLogs, pullRequest: PullRequestModel | undefined): Promise<void> {
 		const copilotApi = await getCopilotApi(this.credentialStore);
 		if (!copilotApi) {
 			return;
@@ -132,7 +141,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 			title: pullRequest.title,
 		} : undefined;
 
-		return this.setupWebview(webviewPanel, sessionId, pullInfo, copilotApi);
+		return this.setupWebview(webviewPanel, logs.sessionId, pullInfo, copilotApi);
 	}
 
 	async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: messages.WebviewState): Promise<void> {

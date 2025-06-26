@@ -1197,13 +1197,6 @@
 				"icon": "$(sparkle)"
 			},
 			{
-				"command": "pr.continueAsyncWithCopilot",
-				"title": "Continue Asynchronously with Copilot",
-				"category": "%command.pull.request.category%",
-				"icon": "$(copilot)",
-				"enablement": "config.githubPullRequests.codingAgent.enabled"
-			},
-			{
 				"command": "pr.addAssigneesToNewPr",
 				"title": "%command.pr.addAssigneesToNewPr.title%",
 				"category": "%command.pull.request.category%",

@@ -1463,9 +1463,6 @@ ${contents}
 			}
 		}));
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.continueAsyncWithCopilot', async () => copilotRemoteAgentManager.commandImpl())
-	);
-	context.subscriptions.push(
 		vscode.commands.registerCommand('githubpr.remoteAgent', async (args) => copilotRemoteAgentManager.commandImpl(args))
 	);
 	context.subscriptions.push(
