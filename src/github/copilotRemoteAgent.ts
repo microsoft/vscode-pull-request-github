@@ -271,8 +271,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		};
 		const { pull_request } = await capiClient.postRemoteAgentJob(owner, repo, payload);
 		const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: pull_request.number });
-		const prLlmString = `The remote agent has begun work. The user can track progress by visiting ${pull_request.html_url} or from the PR extension.`;
-		this._onDidCreatePullRequest.fire(pull_request.number);
+		const prLlmString = `The remote agent has begun work. The user can track progress by visiting ${pull_request.html_url} or from the PR extension. Format this VS Code webview link so the user can click it to also track progress: ${webviewUri.toString()}`;
 		return {
 			state: 'success',
 			number: pull_request.number,
