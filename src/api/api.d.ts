@@ -294,8 +294,8 @@ export interface API {
 	registerReviewerCommentsProvider(title: string, provider: ReviewerCommentsProvider): Disposable;
 
 	/**
-	 * Get the repository description for a given URI.
-	 * This includes the owner, repository name, default branch, current branch (if applicable),
+	 * Get the repository description for a given URI, where the URI is a subpath of one of the workspace folders.
+	 * This includes the owner, repository name, default branch,
 	 * and pull request information (if applicable).
 	 *
 	 * @returns A promise that resolves to a `RepositoryDescription` object or `undefined` if no repository is found.

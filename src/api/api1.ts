@@ -230,11 +230,10 @@ export class GitApiImpl extends Disposable implements API, IGit {
 
 	async getRepositoryDescription(uri: vscode.Uri) {
 		const folderManagerForRepo = this.repositoriesManager.getManagerForFile(uri);
-		const folderManagerForPR = this.repositoriesManager.folderManagers.find((manager) => manager.activePullRequest);
 
 		if (folderManagerForRepo && folderManagerForRepo.gitHubRepositories.length > 0) {
 			const repositoryMetadata = await folderManagerForRepo.gitHubRepositories[0].getMetadata();
-			const pullRequest = folderManagerForPR?.activePullRequest;
+			const pullRequest = folderManagerForRepo.activePullRequest;
 			if (repositoryMetadata) {
 				return {
 					owner: repositoryMetadata.owner.login,
