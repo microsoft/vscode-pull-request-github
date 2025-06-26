@@ -24,6 +24,10 @@ export interface IAPISessionLogs {
 	logs: string;
 }
 
+const PUSH_CHANGES = vscode.l10n.t('Include changes');
+const CONTINUE_WITHOUT_PUSHING = vscode.l10n.t('Ignore changes');
+const LEARN_MORE = vscode.l10n.t('Learn about Coding Agent');
+
 export class CopilotRemoteAgentManager extends Disposable {
 	public static ID = 'CopilotRemoteAgentManager';
 	private readonly workflowRunUrlBase = 'https://github.com/microsoft/vscode/actions/runs/';
@@ -119,25 +123,30 @@ export class CopilotRemoteAgentManager extends Disposable {
 		if (!repoInfo) {
 			return;
 		}
-		const { repository } = repoInfo;
+		const { repository, owner, repo } = repoInfo;
+		const repoName = `${owner}/${repo}`; // TODO: Make sure this is where we'll push to
 
 		const hasChanges = repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0;
-		const PUSH_CHANGES = vscode.l10n.t('Include uncommitted changes');
-		const CONTINUE_WITHOUT_PUSHING = vscode.l10n.t('Start from \'{0}\'', `${repoInfo.remote}/${repoInfo.baseRef}`);
 
 		let autoPushAndCommit = false;
 		if (hasChanges && this.autoCommitAndPushEnabled()) {
 			const modalResult = await vscode.window.showInformationMessage(
-				vscode.l10n.t('Coding Agent'),
+				vscode.l10n.t('GitHub Coding Agent will continue your work in \'{0}\'', repoName),
 				{
 					modal: true,
-					detail: vscode.l10n.t('Coding agent will continue your work in \'{0}\' targetting \'{1}\'.', `${repoInfo.owner}/${repoInfo.repo}`, `${repoInfo.remote}/${repoInfo.baseRef}`),
+					detail: vscode.l10n.t('Uncommitted local changes detected'),
 				},
 				PUSH_CHANGES,
 				CONTINUE_WITHOUT_PUSHING,
+				LEARN_MORE,
 			);
 
 			if (!modalResult) {
+				return;
+			}
+
+			if (modalResult === LEARN_MORE) {
+				vscode.env.openExternal(vscode.Uri.parse('https://docs.github.com/copilot/using-github-copilot/coding-agent'));
 				return;
 			}
 
