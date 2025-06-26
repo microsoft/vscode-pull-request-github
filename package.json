@@ -53,7 +53,7 @@
 		"onFileSystem:pr",
 		"onFileSystem:githubpr",
 		"onFileSystem:review",
-		"onWebviewPanel:pr.padawanSessionLogView"
+		"onWebviewPanel:pr.codingAgentSessionLogView"
 	],
 	"browser": "./dist/browser/extension",
 	"l10n": "./dist/browser/extension",
@@ -1659,8 +1659,8 @@
 				"icon": "$(gear)"
 			},
 			{
-				"command": "padawan.openSessionLog",
-				"title": "Open Padawan Session Log",
+				"command": "codingAgent.openSessionLog",
+				"title": "Open Coding Agent Session Log",
 				"category": "%command.pull.request.category%"
 			},
 			{
@@ -2858,7 +2858,7 @@
 				{
 					"command": "sessionLog.openOnWeb",
 					"group": "navigation",
-					"when": "activeWebviewPanelId == 'pr.padawanSessionLogView'"
+					"when": "activeWebviewPanelId == 'pr.codingAgentSessionLogView'"
 				}
 			],
 			"editor/content": [
