@@ -6,6 +6,7 @@
 import vscode from 'vscode';
 import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
+import { COPILOT_LOGINS } from '../common/copilot';
 import { Disposable } from '../common/lifecycle';
 import { Remote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
@@ -72,6 +73,37 @@ export class CopilotRemoteAgentManager extends Disposable {
 			.getConfiguration(CODING_AGENT).get(CODING_AGENT_ENABLED, false);
 	}
 
+	async isAssignable(): Promise<boolean> {
+		const repoInfo = await this.repoInfo();
+		if (!repoInfo) {
+			return false;
+		}
+
+		const { owner, repo } = repoInfo;
+		const folderManager = this.getFolderManagerForRepo(owner, repo);
+		
+		try {
+			// Ensure assignable users are loaded
+			await folderManager.getAssignableUsers();
+			const allAssignableUsers = folderManager.getAllAssignableUsers();
+			
+			if (!allAssignableUsers) {
+				return false;
+			}
+
+			// Check if any of the copilot logins are in the assignable users
+			return allAssignableUsers.some(user => COPILOT_LOGINS.includes(user.login));
+		} catch (error) {
+			// If there's an error fetching assignable users, assume not assignable
+			return false;
+		}
+	}
+
+	async isAvailable(): Promise<boolean> {
+		// Check both configuration and assignability
+		return this.enabled() && await this.isAssignable();
+	}
+
 	autoCommitAndPushEnabled(): boolean {
 		return vscode.workspace
 			.getConfiguration(CODING_AGENT).get(CODING_AGENT_AUTO_COMMIT_AND_PUSH, false);
@@ -107,6 +139,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	async commandImpl(args?: any) {
+		// Check if the coding agent is available (enabled and assignable)
+		const isAvailable = await this.isAvailable();
+		if (!isAvailable) {
+			vscode.window.showWarningMessage(vscode.l10n.t('GitHub Coding Agent is not available for this repository. Make sure the agent is enabled and assignable to this repository.'));
+			return;
+		}
+
 		// https://github.com/microsoft/vscode-copilot/issues/18918
 		const userPrompt: string | undefined = args.userPrompt;
 		const summary: string | undefined = args.summary;

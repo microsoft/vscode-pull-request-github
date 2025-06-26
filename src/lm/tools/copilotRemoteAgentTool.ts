@@ -25,6 +25,13 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<CopilotRemoteAgentToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		const { title } = options.input;
+		
+		// Check if the coding agent is available (enabled and assignable)
+		const isAvailable = await this.manager.isAvailable();
+		if (!isAvailable) {
+			throw new Error(vscode.l10n.t('GitHub Coding Agent is not available for this repository. Make sure the agent is enabled and assignable to this repository.'));
+		}
+
 		const targetRepo = await this.manager.repoInfo();
 		const autoPushEnabled = this.manager.autoCommitAndPushEnabled();
 		return {
