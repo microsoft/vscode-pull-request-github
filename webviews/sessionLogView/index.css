@@ -24,6 +24,14 @@
 	margin: 10px 0;
 	padding-bottom: 8px;
 	border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+
+	.session-label {
+		padding-bottom: 0.2em;
+	}
+
+	.session-value {
+		color: var(--vscode-descriptionForeground);
+	}
 }
 
 .session-header-title {
@@ -33,7 +41,20 @@
 
 	h1,
 	h2 {
-		margin: 0.4em 0;
+		margin: 0a.4em 0;
+	}
+
+	h2 a {
+		color: inherit;
+
+		.pull-request-id {
+			color: var(--vscode-textLink-foreground);
+		}
+	}
+
+	nav ul {
+		list-style: none;
+		padding: 0;
 	}
 }
 

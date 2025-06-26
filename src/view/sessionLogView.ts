@@ -70,22 +70,6 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 
 			return this.open(sessionLogs, undefined);
 		}));
-
-		this._register(vscode.commands.registerCommand('sessionLog.openOnWeb', async () => {
-			if (!this._activePanel) {
-				return;
-			}
-
-			const pullInfo = this._activePanel.pullInfo;
-			if (!pullInfo) {
-				vscode.window.showErrorMessage(vscode.l10n.t('No pull for this session.'));
-				return;
-			}
-
-
-			const sessionUrl = vscode.Uri.parse(`https://${pullInfo.host}/${pullInfo.owner}/${pullInfo.repo}/pull/${pullInfo.pullId}/agent-sessions/${this._activePanel.sessionId}`);
-			return vscode.env.openExternal(sessionUrl);
-		}));
 	}
 
 	public override dispose() {
@@ -100,12 +84,18 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 
 	async openForPull(pullRequest: PullRequestModel): Promise<void> {
 		try {
-			const sessionLogs = await this.copilotAgentManager.getSessionLogsFromPullRequest(pullRequest.id);
+			const sessionLogs = await this.copilotAgentManager.getMostRecentSessionLogsFromPullRequest(pullRequest.id, false);
 			if (!sessionLogs) {
 				throw new Error('No sessions found for this pull request.');
 			}
 
-			return this.open(sessionLogs, pullRequest);
+			const existingPanel = this.getPanelForPullRequest(pullRequest);
+			if (existingPanel) {
+				existingPanel.revealAndRefresh(sessionLogs);
+				return;
+			} else {
+				return this.open(sessionLogs, pullRequest);
+			}
 		} catch (error) {
 			Logger.error(`Failed to retrieve session logs: ${error}`, 'SessionLogViewManager');
 			const url = await this.copilotAgentManager.getSessionUrlFromPullRequest(pullRequest.id);
@@ -115,6 +105,10 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 			}
 			vscode.env.openExternal(vscode.Uri.parse(url));
 		}
+	}
+
+	private getPanelForPullRequest(pullRequest: PullRequestModel): SessionLogView | undefined {
+		return Array.from(this._panels).find(panel => panel.view.isForPullRequest(pullRequest))?.view;
 	}
 
 	async open(logs: IAPISessionLogs, pullRequest: PullRequestModel | undefined): Promise<void> {
@@ -133,14 +127,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 			}
 		);
 
-		const pullInfo: SessionPullInfo & { title: string } | undefined = pullRequest ? {
-			host: pullRequest.githubRepository.remote.gitProtocol.host,
-			owner: pullRequest.githubRepository.remote.owner,
-			repo: pullRequest.githubRepository.remote.repositoryName,
-			pullId: pullRequest.number,
-			title: pullRequest.title,
-		} : undefined;
-
+		const pullInfo = pullRequest ? toPullInfo(pullRequest) : undefined;
 		return this.setupWebview(webviewPanel, logs.sessionId, pullInfo, copilotApi);
 	}
 
@@ -160,29 +147,6 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 	}
 
 	private async setupWebview(webviewPanel: vscode.WebviewPanel, sessionId: string, pullInfo: SessionPullInfo & { title: string } | undefined, copilotApi: CopilotApi): Promise<void> {
-		const distDir = vscode.Uri.joinPath(this.context.extensionUri, 'dist');
-
-		webviewPanel.webview.options = {
-			enableScripts: true,
-			localResourceRoots: [
-				distDir
-			]
-		};
-		webviewPanel.webview.html = `<!DOCTYPE html>
-			<html lang="en">
-			<head>
-				<meta charset="UTF-8">
-				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-				<title>${vscode.l10n.t('Session Log')}</title>
-				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' ${webviewPanel.webview.cspSource}; script-src ${webviewPanel.webview.cspSource} 'unsafe-eval'; font-src ${webviewPanel.webview.cspSource};">
-			</head>
-			<body>
-				<div id="app"></div>
-
-				<script type="module" src="${webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(distDir, 'webview-session-log-view.js'))}"></script>
-			</body>
-			</html>`;
-
 		const logView = new SessionLogView(sessionId, pullInfo, webviewPanel, copilotApi, this.context, this.reposManagers, this.telemetry);
 		const panelDisposables: vscode.Disposable[] = [];
 		const panelEntry = { view: logView, disposables: panelDisposables };
@@ -213,7 +177,7 @@ class SessionLogView extends Disposable {
 		public readonly pullInfo: SessionPullInfo & { title: string } | undefined,
 		private readonly webviewPanel: vscode.WebviewPanel,
 		private readonly copilotApi: CopilotApi,
-		context: vscode.ExtensionContext,
+		private readonly context: vscode.ExtensionContext,
 		reposManagers: RepositoriesManager,
 		telemetry: ITelemetry,
 	) {
@@ -235,7 +199,6 @@ class SessionLogView extends Disposable {
 
 		this._register(this.webviewPanel.webview.onDidReceiveMessage(async (message: any) => {
 			if (message.type === 'openPullRequestView') {
-
 				let pullRequest: PullRequestModel | undefined;
 				if (pullInfo) {
 					const folderManager = reposManagers.getManagerForRepository(pullInfo.owner, pullInfo.repo) ?? reposManagers.folderManagers.at(0);
@@ -249,6 +212,14 @@ class SessionLogView extends Disposable {
 
 				const folderManager = reposManagers.getManagerForIssueModel(pullRequest) ?? reposManagers.folderManagers[0];
 				await PullRequestOverviewPanel.createOrShow(telemetry, context.extensionUri, folderManager, pullRequest);
+			} else if (message.type === 'openOnWeb') {
+				if (!pullInfo) {
+					vscode.window.showErrorMessage(vscode.l10n.t('No pull request information available for this session.'));
+					return;
+				}
+
+				const sessionUrl = vscode.Uri.parse(`https://${pullInfo.host}/${pullInfo.owner}/${pullInfo.repo}/pull/${pullInfo.pullId}/agent-sessions/${this.sessionId}`);
+				return vscode.env.openExternal(sessionUrl);
 			}
 		}));
 
@@ -265,7 +236,45 @@ class SessionLogView extends Disposable {
 		super.dispose();
 	}
 
+	public isForPullRequest(pullRequest: PullRequestModel): boolean {
+		if (!this.pullInfo) {
+			return false;
+		}
+		const inInfo = toPullInfo(pullRequest);
+		return arePullInfosEqual(this.pullInfo, inInfo);
+	}
+
+	public revealAndRefresh(_sessionLogs: IAPISessionLogs) {
+		// TODO: handle opening different session from pull
+		this.initialize();
+		this.webviewPanel.reveal();
+	}
+
 	private async initialize() {
+		const distDir = vscode.Uri.joinPath(this.context.extensionUri, 'dist');
+
+		this.webviewPanel.webview.options = {
+			enableScripts: true,
+			localResourceRoots: [
+				distDir
+			]
+		};
+		this.webviewPanel.webview.html = `<!DOCTYPE html>
+			<html lang="en">
+			<head>
+				<meta charset="UTF-8">
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				<title>${vscode.l10n.t('Session Log')}</title>
+				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' ${this.webviewPanel.webview.cspSource}; script-src ${this.webviewPanel.webview.cspSource} 'unsafe-eval'; font-src ${this.webviewPanel.webview.cspSource};">
+			</head>
+			<body>
+				<div id="app"></div>
+
+				<script type="module" src="${this.webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(distDir, 'webview-session-log-view.js'))}"></script>
+			</body>
+			</html>`;
+
+
 		let readyResolve: (value: void | PromiseLike<void>) => void;
 		const ready = new Promise<void>(resolve => { readyResolve = resolve; });
 		this._register(this.webviewPanel.webview.onDidReceiveMessage((message: any) => {
@@ -288,7 +297,6 @@ class SessionLogView extends Disposable {
 		if (this._isDisposed) {
 			return;
 		}
-
 
 		this.webviewPanel.webview.postMessage({
 			type: 'init',
@@ -331,6 +339,23 @@ class SessionLogView extends Disposable {
 			});
 		}
 	}
+}
+
+function toPullInfo(pullRequest: PullRequestModel): SessionPullInfo & { title: string; } {
+	return {
+		host: pullRequest.githubRepository.remote.gitProtocol.host,
+		owner: pullRequest.githubRepository.remote.owner,
+		repo: pullRequest.githubRepository.remote.repositoryName,
+		pullId: pullRequest.number,
+		title: pullRequest.title,
+	};
+}
+
+function arePullInfosEqual(a: SessionPullInfo, b: SessionPullInfo): boolean {
+	return a.host === b.host &&
+		a.owner === b.owner &&
+		a.repo === b.repo &&
+		a.pullId === b.pullId;
 }
 
 async function loadCurrentThemeData(): Promise<any> {
