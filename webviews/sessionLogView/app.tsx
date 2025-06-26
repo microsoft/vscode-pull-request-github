@@ -25,7 +25,7 @@ export function App() {
 	React.useEffect(() => {
 		let themeP: Promise<void> | undefined;
 		const handleMessage = async (event: MessageEvent) => {
-			const message = event.data as messages.InitMessage | messages.ChangeThemeMessage | messages.LoadedMessage;
+			const message = event.data as messages.InitMessage | messages.ChangeThemeMessage | messages.LoadedMessage | messages.UpdateMessage;
 			switch (message?.type) {
 				case 'init': {
 					themeP = registerMonacoTheme(message.themeData);
@@ -37,7 +37,9 @@ export function App() {
 					setPullInfo(message.pullInfo);
 					break;
 				}
-				case 'loaded': {
+
+				case 'loaded':
+				case 'update': {
 					await themeP;
 					setState({
 						state: 'ready',

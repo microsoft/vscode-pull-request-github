@@ -313,26 +313,32 @@ class SessionLogView extends Disposable {
 		this.webviewPanel.webview.postMessage({
 			type: 'loaded',
 			info,
-			logs,
+			logs
 		} as messages.LoadedMessage);
 
 		if (info.state === 'in_progress') {
-			// Poll for updates every 5 seconds
+			// Poll for updates
 			const interval = setInterval(async () => {
 				if (this._isDisposed) {
 					clearInterval(interval);
 					return;
 				}
 
-				const updatedInfo = await this.copilotApi.getSessionInfo(this.sessionId);
-				if (updatedInfo.state !== info.state) {
-					this.webviewPanel.webview.postMessage({
-						type: 'loaded',
-						info: updatedInfo,
-						logs,
-					} as messages.LoadedMessage);
+				const [newInfo, newLogs] = await Promise.all([
+					this.copilotApi.getSessionInfo(this.sessionId),
+					this.copilotApi.getLogsFromSession(this.sessionId)
+				]);
+
+				this.webviewPanel.webview.postMessage({
+					type: 'update',
+					info: newInfo,
+					logs: newLogs
+				} as messages.UpdateMessage);
+
+				if (newInfo.state !== 'in_progress') {
+					clearInterval(interval);
 				}
-			}, 5000);
+			}, 3000);
 
 			this._register({
 				dispose: () => clearInterval(interval)

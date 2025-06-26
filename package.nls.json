@@ -13,9 +13,9 @@
 	"githubPullRequests.defaultCreateOption.createAutoMerge": "The pull request will be created with auto-merge enabled. The merge method selected will be the default for the repo or the value of `githubPullRequests.defaultMergeMethod` if set.",
 	"githubPullRequests.createDraft": "Whether the \"Draft\" checkbox will be checked by default when creating a pull request.",
 	"githubPullRequests.logLevel.description": "Logging for GitHub Pull Request extension. The log is emitted to the output channel named as GitHub Pull Request.",
-	"githubPullRequests.logLevel.markdownDeprecationMessage":{
+	"githubPullRequests.logLevel.markdownDeprecationMessage": {
 		"message": "Log level is now controlled by the [Developer: Set Log Level...](command:workbench.action.setLogLevel) command. You can set the log level for the current session and also the default log level from there.",
-		"comment" : [
+		"comment": [
 			"Do not translate what's inside of (...). It is link syntax.",
 			"{Locked='](command:workbench.action.setLogLevel)'}"
 		]
@@ -153,7 +153,7 @@
 	"view.github.login.name": "Login",
 	"view.pr.github.name": "Pull Requests",
 	"view.pr.github.accessibilityHelpContent": {
-		"message":"Helpful commands include:\n-GitHub Pull Requests: Refresh Pull Requests List<keybinding:pr.refreshList>\n-GitHub Pull Requests: Focus on Issues View<keybinding:issues:github.focus> \n-GitHub Pull Requests: Focus on Pull Requests View<keybinding:pr:github.focus>\n-GitHub Issues: Copy GitHub Permalink<keybinding:issue.copyGithubPermalink>\n-GitHub Issues: Create an Issue<keybinding:issue.createIssueFromFile>\n-GitHub Pull Requests: Create Pull Request<keybinding:pr.create>",
+		"message": "Helpful commands include:\n-GitHub Pull Requests: Refresh Pull Requests List<keybinding:pr.refreshList>\n-GitHub Pull Requests: Focus on Issues View<keybinding:issues:github.focus> \n-GitHub Pull Requests: Focus on Pull Requests View<keybinding:pr:github.focus>\n-GitHub Issues: Copy GitHub Permalink<keybinding:issue.copyGithubPermalink>\n-GitHub Issues: Create an Issue<keybinding:issue.createIssueFromFile>\n-GitHub Pull Requests: Create Pull Request<keybinding:pr.create>",
 		"comment": [
 			"Do not translate the contents of (...) or <...> in the message. They are commands that will be replaced with the actual command name and keybinding."
 		]
@@ -307,9 +307,10 @@
 	"command.notifications.markPullRequestsAsDone.title": "Mark Pull Requests as Done",
 	"command.notifications.configureNotificationsViewlet.title": "Configure...",
 	"command.notification.chatSummarizeNotification.title": "Summarize With Copilot",
+	"command.codingAgent.openSessionLog.title": "Open Coding Agent Session Log",
 	"welcome.github.login.contents": {
 		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signin)",
-		"comment" : [
+		"comment": [
 			"Do not translate what's inside of (...). It is link syntax.",
 			"{Locked='](command:pr.signin)'}"
 		]
@@ -317,7 +318,7 @@
 	"welcome.github.noGit.contents": "Git is not installed or otherwise not available. Install git or fix your git installation and then reload.",
 	"welcome.github.loginNoEnterprise.contents": {
 		"message": "You have not yet signed in with GitHub\n[Sign in](command:pr.signinNoEnterprise)",
-		"comment" : [
+		"comment": [
 			"Do not translate what's inside of (...). It is link syntax.",
 			"{Locked='](command:pr.signinNoEnterprise)'}"
 		]
@@ -332,7 +333,7 @@
 	"welcome.pr.github.uninitialized.contents": "Loading...",
 	"welcome.pr.github.noFolder.contents": {
 		"message": "You have not yet opened a folder.\n[Open Folder](command:workbench.action.files.openFolder)",
-		"comment" : [
+		"comment": [
 			"Do not translate what's inside of (...). It is link syntax.",
 			"{Locked='](command:workbench.action.files.openFolder)'}"
 		]
