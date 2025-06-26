@@ -38,11 +38,18 @@ export class PrsTreeModel extends Disposable {
 	private readonly _queriedPullRequests: Map<string, PRStatusChange> = new Map();
 
 	private _cachedPRs: Map<FolderRepositoryManager, Map<string | PRType.LocalPullRequest | PRType.All, ItemsResponseResult<PullRequestModel>>> = new Map();
+	private readonly _repoEvents: Map<FolderRepositoryManager, vscode.Disposable[]> = new Map();
 
 	constructor(private _telemetry: ITelemetry, private readonly _reposManager: RepositoriesManager, private readonly _context: vscode.ExtensionContext) {
 		super();
 		const repoEvents = (manager: FolderRepositoryManager) => {
-			this._register(manager.onDidChangeActivePullRequest(() => {
+			if (this._repoEvents.has(manager)) {
+				disposeAll(this._repoEvents.get(manager)!);
+			} else {
+				this._repoEvents.set(manager, []);
+			}
+
+			this._repoEvents.get(manager)!.push(manager.onDidChangeActivePullRequest(() => {
 				this.clearRepo(manager);
 				if (this._activePRDisposables.has(manager)) {
 					disposeAll(this._activePRDisposables.get(manager)!);
@@ -55,8 +62,11 @@ export class PrsTreeModel extends Disposable {
 						})]);
 				}
 			}));
+			this._repoEvents.get(manager)!.push(manager.onDidChangeAnyPullRequests(() => {
+				this._onDidChangeData.fire(manager);
+			}));
 		};
-
+		this._register({ dispose: () => this._repoEvents.forEach((disposables) => disposeAll(disposables)) });
 
 		for (const manager of this._reposManager.folderManagers) {
 			repoEvents(manager);

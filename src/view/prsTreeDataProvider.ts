@@ -212,8 +212,8 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	}
 
 	private refreshRepo(manager: FolderRepositoryManager): void {
-		if (this._children.length === 0) {
-			return this.refresh();
+		if ((this._children.length === 0) || (this._children[0] instanceof CategoryTreeNode && this._children[0].folderRepoManager === manager)) {
+			return this.refresh(undefined, true);
 		}
 		if (this._children[0] instanceof WorkspaceFolderNode) {
 			const children: WorkspaceFolderNode[] = this._children as WorkspaceFolderNode[];

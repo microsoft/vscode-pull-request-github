@@ -133,6 +133,8 @@ export interface CrossReferencedEvent {
 		extensionUrl: string;
 		title: string;
 		isIssue: boolean;
+		owner: string;
+		repo: string;
 	};
 	willCloseTarget: boolean;
 }
