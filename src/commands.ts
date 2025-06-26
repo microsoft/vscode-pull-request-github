@@ -47,6 +47,63 @@ import {
 import { PRNode } from './view/treeNodes/pullRequestNode';
 import { RepositoryChangesNode } from './view/treeNodes/repositoryChangesNode';
 
+// Modal dialog options for handling uncommitted changes during PR checkout
+const STAGE_CHANGES = vscode.l10n.t('Stage changes');
+const DISCARD_CHANGES = vscode.l10n.t('Discard changes');
+const CANCEL_CHECKOUT = vscode.l10n.t('Cancel');
+
+/**
+ * Shows a modal dialog when there are uncommitted changes during PR checkout
+ * @param repository The git repository with uncommitted changes
+ * @returns Promise<boolean> true if user chose to proceed (after staging/discarding), false if cancelled
+ */
+async function handleUncommittedChanges(repository: Repository): Promise<boolean> {
+	const hasWorkingTreeChanges = repository.state.workingTreeChanges.length > 0;
+	const hasIndexChanges = repository.state.indexChanges.length > 0;
+	
+	if (!hasWorkingTreeChanges && !hasIndexChanges) {
+		return true; // No uncommitted changes, proceed
+	}
+
+	const modalResult = await vscode.window.showInformationMessage(
+		vscode.l10n.t('You have uncommitted changes that would be overwritten by checking out this pull request.'),
+		{
+			modal: true,
+			detail: vscode.l10n.t('Choose how to handle your uncommitted changes before checking out the pull request.'),
+		},
+		STAGE_CHANGES,
+		DISCARD_CHANGES,
+		CANCEL_CHECKOUT,
+	);
+
+	if (!modalResult || modalResult === CANCEL_CHECKOUT) {
+		return false; // User cancelled
+	}
+
+	try {
+		if (modalResult === STAGE_CHANGES) {
+			// Stage all changes (working tree changes + any unstaged changes)
+			const allChangedFiles = [
+				...repository.state.workingTreeChanges.map(change => change.uri.fsPath),
+				...repository.state.indexChanges.map(change => change.uri.fsPath),
+			];
+			if (allChangedFiles.length > 0) {
+				await repository.add(allChangedFiles);
+			}
+		} else if (modalResult === DISCARD_CHANGES) {
+			// Discard all working tree changes
+			const workingTreeFiles = repository.state.workingTreeChanges.map(change => change.uri.fsPath);
+			if (workingTreeFiles.length > 0) {
+				await repository.clean(workingTreeFiles);
+			}
+		}
+		return true; // Successfully handled changes, proceed with checkout
+	} catch (error) {
+		vscode.window.showErrorMessage(vscode.l10n.t('Failed to handle uncommitted changes: {0}', formatError(error)));
+		return false;
+	}
+}
+
 function ensurePR(folderRepoManager: FolderRepositoryManager, pr?: PRNode): PullRequestModel;
 function ensurePR<TIssue extends Issue, TIssueModel extends IssueModel<TIssue>>(folderRepoManager: FolderRepositoryManager, pr?: TIssueModel): TIssueModel;
 function ensurePR<TIssue extends Issue, TIssueModel extends IssueModel<TIssue>>(folderRepoManager: FolderRepositoryManager, pr?: PRNode | TIssueModel): TIssueModel {
@@ -528,6 +585,21 @@ export function registerCommands(
 				repository = pr.repository;
 			} else {
 				pullRequestModel = pr;
+			}
+
+			// Get the folder manager to access the repository
+			const folderManager = reposManager.getManagerForIssueModel(pullRequestModel);
+			if (!folderManager) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('Unable to find repository for this pull request.'));
+			}
+
+			// If we don't have a repository from the node, use the one from the folder manager
+			const repositoryToCheck = repository || folderManager.repository;
+
+			// Check for uncommitted changes before proceeding with checkout
+			const shouldProceed = await handleUncommittedChanges(repositoryToCheck);
+			if (!shouldProceed) {
+				return; // User cancelled or there was an error handling changes
 			}
 
 			const fromDescriptionPage = pr instanceof PullRequestModel;
