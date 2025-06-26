@@ -28,8 +28,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 	public static ID = 'CopilotRemoteAgentManager';
 	private readonly workflowRunUrlBase = 'https://github.com/microsoft/vscode/actions/runs/';
 
-	private _statusBarItem: vscode.StatusBarItem | undefined;
-
 	private readonly _stateModel: CopilotStateModel;
 	private readonly _onDidChangeStates = this._register(new vscode.EventEmitter<void>());
 	readonly onDidChangeStates = this._onDidChangeStates.event;
@@ -50,14 +48,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 		this._register(new CopilotPRWatcher(this.repositoriesManager, this._stateModel));
 		this._register(this._stateModel.onDidChangeStates(() => this._onDidChangeStates.fire()));
 		this._register(this._stateModel.onDidChangeNotifications(() => this._onDidChangeNotifications.fire()));
-		this._register({
-			dispose: () => {
-				if (this._statusBarItem) {
-					this._statusBarItem.dispose();
-					this._statusBarItem = undefined;
-				}
-			}
-		});
 	}
 
 	private _copilotApiPromise: Promise<CopilotApi | undefined> | undefined;
