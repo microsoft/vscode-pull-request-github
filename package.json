@@ -67,10 +67,11 @@
 	"contributes": {
 		"remoteCodingAgents": [
 			{
+				"id": "githubCodingAgent",
 				"command": "githubpr.remoteAgent",
 				"displayName": "GitHub Coding Agent",
 				"description": "The GitHub Coding Agent.",
-				"when": "config.githubPullRequests.codingAgent.enabled"
+				"when": "config.githubPullRequests.codingAgent.enabled && copilotCodingAgentAssignable"
 			}
 		],
 		"chatParticipants": [
