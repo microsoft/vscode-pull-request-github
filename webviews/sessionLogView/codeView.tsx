@@ -53,6 +53,7 @@ export const CodeView: React.FC<CodeViewProps> = ({ label, description, content 
 			rulers: [],
 			overviewRulerLanes: 0,
 			renderFinalNewline: 'off',
+			stickyScroll: { enabled: false }
 		});
 
 		setEditor(editor);
