@@ -41,8 +41,7 @@ export const reviewerIcon = <Icon src={require('../../resources/icons/reviewer.s
 export const labelIcon = <Icon src={require('../../resources/icons/label.svg')} />;
 export const milestoneIcon = <Icon src={require('../../resources/icons/milestone.svg')} />;
 export const projectIcon = <Icon src={require('../../resources/icons/github-project.svg')} />;
-export const commentDraftIcon = <Icon src={require('../../resources/icons/comment-draft.svg')} />;
-export const sparkleIcon = <Icon src={require('../../resources/icons/comment-draft.svg')} />;
+export const sparkleIcon = <Icon src={require('../../resources/icons/sparkle.svg')} />;
 export const stopCircleIcon = <Icon src={require('../../resources/icons/stop-circle.svg')} />;
 export const issueIcon = <Icon src={require('../../resources/icons/issue.svg')} />;
 export const issueClosedIcon = <Icon src={require('../../resources/icons/issue_closed.svg')} />;
