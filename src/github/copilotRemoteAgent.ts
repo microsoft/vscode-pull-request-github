@@ -19,9 +19,6 @@ type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number
 type RemoteAgentErrorResult = { error: string; state: 'error' };
 type RemoteAgentResult = RemoteAgentSuccessResult | RemoteAgentErrorResult;
 
-const YES_QUICK_PICK = vscode.l10n.t('Push my pending work');
-const NO_QUICK_PICK = vscode.l10n.t('Do not push my pending work');
-
 export interface IAPISessionLogs {
 	sessionId: string;
 	logs: string;
@@ -107,16 +104,56 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	async commandImpl(args?: any) {
 		// https://github.com/microsoft/vscode-copilot/issues/18918
-		if (args?.userPrompt) {
-			const userPrompt: string = args.userPrompt;
-			const summary: string | undefined = args.summary;
+		const userPrompt: string | undefined = args.userPrompt;
+		const summary: string | undefined = args.summary;
 
-			if (!userPrompt || userPrompt.trim().length === 0) {
-				vscode.window.showErrorMessage(vscode.l10n.t('User prompt cannot be empty'));
+		if (!userPrompt || userPrompt.trim().length === 0) {
+			return;
+		}
+
+		const repoInfo = await this.repoInfo();
+		if (!repoInfo) {
+			return;
+		}
+		const { repository } = repoInfo;
+
+		const hasChanges = repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0;
+		const PUSH_CHANGES = vscode.l10n.t('Include uncommitted changes');
+		const CONTINUE_WITHOUT_PUSHING = vscode.l10n.t('Start from \'{0}\'', `${repoInfo.remote}/${repoInfo.baseRef}`);
+
+		let autoPushAndCommit = false;
+		if (hasChanges && this.autoCommitAndPushEnabled()) {
+			const modalResult = await vscode.window.showInformationMessage(
+				vscode.l10n.t('Coding Agent'),
+				{
+					modal: true,
+					detail: vscode.l10n.t('Coding agent will continue your work in \'{0}\' targetting \'{1}\'.', `${repoInfo.owner}/${repoInfo.repo}`, `${repoInfo.remote}/${repoInfo.baseRef}`),
+				},
+				PUSH_CHANGES,
+				CONTINUE_WITHOUT_PUSHING,
+			);
+
+			if (!modalResult) {
 				return;
 			}
 
-			const result = await this.invokeRemoteAgent(userPrompt, summary || 'No summary provided...oops.');
+			if (modalResult === PUSH_CHANGES) {
+				autoPushAndCommit = true;
+			}
+		}
+
+
+		await vscode.window.withProgress({
+			location: vscode.ProgressLocation.Notification,
+			title: vscode.l10n.t('Initializing Coding Agent...'),
+			cancellable: false
+		}, async (_) => {
+			const result = await this.invokeRemoteAgent(
+				userPrompt,
+				summary || '',
+				autoPushAndCommit
+			);
+
 			if (result.state !== 'success') {
 				vscode.window.showErrorMessage(result.error);
 				return;
@@ -133,66 +170,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 					vscode.env.openExternal(webviewUri);
 				}
 			});
-			return;
-		}
-
-		const body = await vscode.window.showInputBox({
-			prompt: vscode.l10n.t('Describe a task for the coding agent'),
-			title: vscode.l10n.t('Finish With Coding Agent'),
-			placeHolder: vscode.l10n.t('Finish writing my unit tests...'),
-			ignoreFocusOut: true,
-			validateInput: (value: string) => {
-				if (!value || value.trim().length === 0) {
-					return vscode.l10n.t('Description cannot be empty');
-				}
-				return;
-			}
 		});
-
-		if (!body) {
-			return;
-		}
-		const repoInfo = await this.repoInfo();
-		if (!repoInfo) {
-			vscode.window.showErrorMessage(vscode.l10n.t('Open a workspace to use the coding agent'));
-			return;
-		}
-		const autoPushQuickPick = await vscode.window.showQuickPick(
-			[
-				{ label: YES_QUICK_PICK, description: vscode.l10n.t('Push pending work to a new branch in {0} where the coding agent will continue your work', `${repoInfo.owner}/${repoInfo.repo}`) },
-				{ label: NO_QUICK_PICK, description: vscode.l10n.t('The coding agent will continue from the last commit on {0}', repoInfo.baseRef) }
-			],
-		);
-		if (!autoPushQuickPick) {
-			return; // Cancelled
-		}
-		const autoPushAndCommit = autoPushQuickPick?.label === YES_QUICK_PICK;
-		await vscode.window.withProgress(
-			{
-				location: vscode.ProgressLocation.Notification,
-				title: vscode.l10n.t('Copilot Coding Agent'),
-				cancellable: false
-			},
-			async (progress) => {
-				progress.report({ message: vscode.l10n.t('Initializing coding agent...') });
-				const result = await this.invokeRemoteAgent(vscode.l10n.t('Continuing from VS Code'), body, autoPushAndCommit);
-				if (result.state === 'error') {
-					vscode.window.showErrorMessage(result.error);
-					return;
-				}
-				const { webviewUri, link } = result;
-				const openLink = vscode.l10n.t('View');
-				vscode.window.showInformationMessage(
-					// allow-any-unicode-next-line
-					vscode.l10n.t('🚀 Coding agent started! Track progress at {0}', link),
-					openLink
-				).then(selection => {
-					if (selection === openLink) {
-						vscode.env.openExternal(webviewUri);
-					}
-				});
-			}
-		);
 	}
 
 	async invokeRemoteAgent(prompt: string, problemContext: string, autoPushAndCommit = true): Promise<RemoteAgentResult> {
