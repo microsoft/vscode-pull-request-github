@@ -199,6 +199,9 @@ async function getExtensionConfig(target, mode, env) {
 				'process',
 				'browser.js')
 		}));
+		plugins.push(new webpack.ProvidePlugin({
+			Buffer: ['buffer', 'Buffer']
+		}));
 	}
 
 	const entry = {
