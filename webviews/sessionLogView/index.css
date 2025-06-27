@@ -14,7 +14,19 @@
 	position: relative;
 	max-width: 800px;
 	margin: 0 auto;
-	padding-top: 1em;
+	padding: 1em 0;
+}
+
+.session-in-progress-indicator {
+	margin-top: 1em;
+	text-align: center;
+	color: var(--vscode-descriptionForeground);
+
+	.codicon {
+		margin-right: 0.5em;
+		transform: rotate(0);
+		animation: spin 1s linear infinite;
+	}
 }
 
 .session-header-info {
@@ -157,4 +169,10 @@ button.codeview-expand:hover {
 .codeview-expand:hover,
 .codeview-expand:focus {
 	background: rgba(255, 255, 255, 0.08);
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
 }

@@ -8,6 +8,7 @@ import type monacoType from 'monaco-editor';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.main';
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
+import { Temporal } from 'temporal-polyfill';
 import { vscode } from '../common/message';
 import { CodeView } from './codeView';
 import './index.css'; // Create this file for styling
@@ -25,6 +26,11 @@ export const SessionView: React.FC<SessionViewProps> = (props) => {
 		<div className="session-container">
 			<SessionHeader info={props.info} pullInfo={props.pullInfo} />
 			<SessionLog logs={props.logs} />
+			{props.info.state === 'in_progress' && (
+				<div className="session-in-progress-indicator">
+					<span className="icon"><i className="codicon codicon-loading"></i></span>
+					Session is in progress...</div>
+			)}
 		</div>
 	);
 };
@@ -36,10 +42,11 @@ interface SessionHeaderProps {
 }
 
 const SessionHeader: React.FC<SessionHeaderProps> = ({ info, pullInfo }) => {
-	const createdAt = new Date(info.created_at);
-	const completedAt = info.completed_at ? new Date(info.completed_at) : new Date();
-	const durationMs = completedAt.getTime() - createdAt.getTime();
-	const durationSec = Math.round(durationMs / 1000);
+	const createdAt = Temporal.Instant.from(info.created_at);
+	const completedAt = info.completed_at ? Temporal.Instant.from(info.completed_at) : undefined;
+	const duration = completedAt && completedAt.epochMilliseconds > 0
+		? completedAt.since(createdAt, { smallestUnit: 'second', largestUnit: 'hour' })
+		: undefined;
 
 	return (
 		<header className="session-header">
@@ -73,10 +80,12 @@ const SessionHeader: React.FC<SessionHeaderProps> = ({ info, pullInfo }) => {
 					<div className="session-value">{info.state}</div>
 				</div>
 
-				<div className="session-duration">
-					<div className="session-label">Duration</div>
-					<div className="session-value">{durationSec}s</div>
-				</div>
+				{duration && (
+					<div className="session-duration">
+						<div className="session-label">Duration</div>
+						<div className="session-value">{duration.toLocaleString()}</div>
+					</div>
+				)}
 
 				<div className="session-premium">
 					<div className="session-label">Premium requests</div>

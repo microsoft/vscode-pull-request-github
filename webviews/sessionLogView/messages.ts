@@ -23,6 +23,12 @@ export interface LoadedMessage {
 	logs: string;
 }
 
+export interface UpdateMessage {
+	type: 'update';
+	info: SessionInfo;
+	logs: string;
+}
+
 export interface ChangeThemeMessage {
 	type: 'changeTheme';
 	themeData: any;
