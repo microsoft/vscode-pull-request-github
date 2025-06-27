@@ -26,6 +26,12 @@ export interface IAPISessionLogs {
 	logs: string;
 }
 
+export interface ICopilotRemoteAgentCommandArgs {
+	userPrompt: string;
+	summary?: string;
+	source?: string;
+}
+
 const LEARN_MORE = vscode.l10n.t('Learn about Coding Agent');
 // Without Pending Changes
 const CONTINUE = vscode.l10n.t('Continue');
@@ -192,12 +198,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return { owner, repo, remote, baseRef, repository };
 	}
 
-	async commandImpl(args?: any): Promise<string | undefined> {
-		// https://github.com/microsoft/vscode-copilot/issues/18918
-		const userPrompt: string | undefined = args.userPrompt;
-		const summary: string | undefined = args.summary;
-		const source: string | undefined = args.source;
+	async commandImpl(args?: ICopilotRemoteAgentCommandArgs): Promise<string | undefined> {
+		if (!args) {
+			return;
+		}
 
+		const { userPrompt, summary, source } = args;
 		if (!userPrompt || userPrompt.trim().length === 0) {
 			return;
 		}
