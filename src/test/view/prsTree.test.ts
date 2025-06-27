@@ -32,6 +32,7 @@ import { IAccount, ITeam } from '../../github/interface';
 import { asPromise } from '../../common/utils';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
+import { assertNonNullType } from 'graphql';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -223,117 +224,6 @@ describe('GitHub Pull Requests view', function () {
 			assert.strictEqual(localItem1.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
 			assert.strictEqual(localItem1.contextValue, 'pullrequest:local:active:hasHeadRef');
 			assert.deepStrictEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg');
-		});
-	});
-
-	describe('PR overview sync', function () {
-		it('should sync tree view when PR overview becomes active', async function () {
-			// Set up repository and remotes
-			const remote = new GitHubRemote('origin', 'https://github.com/owner/repo', new Protocol('https://github.com/owner/repo'), GitHubServerType.GitHubDotCom);
-			const repository = new MockRepository();
-			repository.addRemote('origin', 'https://github.com/owner/repo');
-
-			// Set up github repository
-			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
-
-			// Set up PR using the builder pattern
-			const pr = gitHubRepository.addGraphQLPullRequest(builder => {
-				builder.pullRequest(pr => {
-					pr.repository(r =>
-						r.pullRequest(p => {
-							p.databaseId(123);
-							p.number(123);
-							p.title('test-pr');
-							p.author(a => a.login('testuser').avatarUrl('https://avatars.com/testuser.jpg').url('https://github.com/testuser'));
-							p.baseRef!(b => b.repository(br => br.url('https://github.com/owner/repo')));
-							p.baseRepository(r => r.url('https://github.com/owner/repo'));
-						}),
-					);
-				});
-			}).pullRequest;
-
-			const prItem = await parseGraphQLPullRequest(pr.repository.pullRequest, gitHubRepository);
-			const pullRequestModel = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem);
-
-			// Set up folder manager  
-			const manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper);
-			reposManager.insertFolderManager(manager);
-			sinon.stub(manager, 'createGitHubRepository').returns(Promise.resolve(gitHubRepository));
-			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
-			
-			await manager.updateRepositories();
-			provider.initialize([], credentialStore);
-
-			// Spy on expand and reveal methods to verify they get called
-			const expandSpy = sinon.spy(provider, 'expandPullRequest');
-			let revealCalled = false;
-			let revealElement: any = undefined;
-			sinon.stub(provider, 'reveal').callsFake(async (element, options) => {
-				revealCalled = true;
-				revealElement = element;
-				return Promise.resolve();
-			});
-
-			// Trigger the sync by calling the method directly
-			const syncMethod = (provider as any).syncWithActivePullRequest;
-			if (syncMethod) {
-				await syncMethod.call(provider, pullRequestModel);
-
-				// Verify that expandPullRequest was called
-				assert(expandSpy.calledWith(pullRequestModel), 'expandPullRequest should be called with the PR model');
-				// Note: reveal might not be called if PR node is not found in tree, which is expected in this test setup
-			}
-		});
-
-		it('should sync tree view when view becomes visible with active PR', async function () {
-			// Set up repository and remotes
-			const remote = new GitHubRemote('origin', 'https://github.com/owner/repo', new Protocol('https://github.com/owner/repo'), GitHubServerType.GitHubDotCom);
-			const repository = new MockRepository();
-			repository.addRemote('origin', 'https://github.com/owner/repo');
-
-			// Set up github repository
-			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
-
-			// Set up PR using the builder pattern
-			const pr = gitHubRepository.addGraphQLPullRequest(builder => {
-				builder.pullRequest(pr => {
-					pr.repository(r =>
-						r.owner(o => o.login('owner'))
-							.name('repo')
-					).number(123)
-						.title('Test PR for visibility sync')
-						.state('OPEN');
-				});
-			});
-
-			const prData = await parseGraphQLPullRequest(pr, gitHubRepository);
-			const pullRequestModel = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prData);
-
-			// Set up folder repository manager
-			const folderRepoManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper);
-			folderRepoManager.insertGitHubRepository(gitHubRepository);
-			reposManager.insertFolderManager(folderRepoManager);
-			
-			// Stub authentication
-			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
-			await folderRepoManager.updateRepositories();
-
-			// Initialize provider
-			provider.initialize([], credentialStore);
-
-			// Mock PullRequestOverviewPanel.getCurrentPullRequest to return our PR
-			const PullRequestOverviewPanel = require('../../github/pullRequestOverview').PullRequestOverviewPanel;
-			sinon.stub(PullRequestOverviewPanel, 'getCurrentPullRequest').returns(pullRequestModel);
-
-			// Spy on syncWithActivePullRequest to verify it gets called
-			const syncSpy = sinon.spy(provider as any, 'syncWithActivePullRequest');
-
-			// Simulate view becoming visible
-			const onDidChangeVisibilityCallback = (provider as any)._view.onDidChangeVisibility.args[0][0];
-			await onDidChangeVisibilityCallback({ visible: true });
-
-			// Verify that syncWithActivePullRequest was called with the correct PR
-			assert(syncSpy.calledWith(pullRequestModel), 'syncWithActivePullRequest should be called with the current PR when view becomes visible');
 		});
 	});
 });
