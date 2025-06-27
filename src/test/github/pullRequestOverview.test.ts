@@ -155,7 +155,7 @@ describe('PullRequestOverview', function () {
 			// Listen for the event
 			let eventFired = false;
 			let eventPR: PullRequestModel | undefined;
-			const disposable = PullRequestOverviewPanel.onDidChangeActivePullRequest(pr => {
+			const disposable = PullRequestOverviewPanel.onVisible(pr => {
 				eventFired = true;
 				eventPR = pr;
 			});
@@ -193,7 +193,7 @@ describe('PullRequestOverview', function () {
 			// Listen for the event
 			let eventCount = 0;
 			let lastEventPR: PullRequestModel | undefined;
-			const disposable = PullRequestOverviewPanel.onDidChangeActivePullRequest(pr => {
+			const disposable = PullRequestOverviewPanel.onVisible(pr => {
 				eventCount++;
 				lastEventPR = pr;
 			});

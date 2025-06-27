@@ -48,8 +48,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	/**
 	 * Event emitter for when a PR overview becomes active
 	 */
-	private static _onDidChangeActivePullRequest = new vscode.EventEmitter<PullRequestModel>();
-	public static readonly onDidChangeActivePullRequest = PullRequestOverviewPanel._onDidChangeActivePullRequest.event;
+	private static _onVisible = new vscode.EventEmitter<PullRequestModel>();
+	public static readonly onVisible = PullRequestOverviewPanel._onVisible.event;
 
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[] = [];
@@ -163,10 +163,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	protected override onDidChangeViewState(e: vscode.WebviewPanelOnDidChangeViewStateEvent): void {
 		super.onDidChangeViewState(e);
 		this.setVisibilityContext();
-		
+
 		// If the panel becomes visible and we have an item, notify that this PR is active
 		if (this._panel.visible && this._item) {
-			PullRequestOverviewPanel._onDidChangeActivePullRequest.fire(this._item);
+			PullRequestOverviewPanel._onVisible.fire(this._item);
 		}
 	}
 
@@ -320,10 +320,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 
 		const result = vscode.window.withProgress({ location: { viewId: 'pr:github' } }, () => this.updateItem(pullRequestModel));
-		
+
 		// Notify that this PR overview is now active
-		PullRequestOverviewPanel._onDidChangeActivePullRequest.fire(pullRequestModel);
-		
+		PullRequestOverviewPanel._onVisible.fire(pullRequestModel);
+
 		return result;
 	}
 
@@ -824,7 +824,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 * Static dispose method to clean up static resources
 	 */
 	public static dispose() {
-		PullRequestOverviewPanel._onDidChangeActivePullRequest.dispose();
+		PullRequestOverviewPanel._onVisible.dispose();
 	}
 }
 

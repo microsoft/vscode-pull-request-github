@@ -109,7 +109,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._register(this._copilotManager.onDidCreatePullRequest(() => this.refresh()));
 
 		// Listen for PR overview panel changes to sync the tree view
-		this._register(PullRequestOverviewPanel.onDidChangeActivePullRequest(pullRequest => {
+		this._register(PullRequestOverviewPanel.onVisible(pullRequest => {
 			this.syncWithActivePullRequest(pullRequest);
 		}));
 
@@ -187,7 +187,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		try {
 			// First expand the pull request in the tree to make sure it's visible
 			await this.expandPullRequest(pullRequest);
-			
+
 			// Find the PR node in the tree and reveal it
 			const prNode = await this.findPRNode(pullRequest);
 			if (prNode) {
@@ -213,7 +213,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 				if (found) return found;
 			} else if (child instanceof CategoryTreeNode) {
 				const found = await this.findPRNodeInCategory(child, pullRequest);
-				if (found) return found;  
+				if (found) return found;
 			}
 		}
 		return undefined;
