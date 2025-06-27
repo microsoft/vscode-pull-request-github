@@ -7,7 +7,23 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 export class Resource {
-	static icons: any;
+	static icons: {
+		reactions: {
+			THUMBS_UP: string;
+			THUMBS_DOWN: string;
+			CONFUSED: string;
+			EYES: string;
+			HEART: string;
+			HOORAY: string;
+			LAUGH: string;
+			ROCKET: string;
+		};
+		copilot: {
+			SUCCESS: string;
+			INPROGRESS: string;
+			ERROR: string;
+		};
+	};
 
 	static initialize(context: vscode.ExtensionContext) {
 		Resource.icons = {
@@ -21,6 +37,11 @@ export class Resource {
 				LAUGH: context.asAbsolutePath(path.join('resources', 'icons', 'reactions', 'laugh.png')),
 				ROCKET: context.asAbsolutePath(path.join('resources', 'icons', 'reactions', 'rocket.png')),
 			},
+			copilot: {
+				SUCCESS: context.asAbsolutePath(path.join('resources', 'icons', 'copilot-success.svg')),
+				INPROGRESS: context.asAbsolutePath(path.join('resources', 'icons', 'copilot-in-progress.svg')),
+				ERROR: context.asAbsolutePath(path.join('resources', 'icons', 'copilot-error.svg')),
+			}
 		};
 	}
 }

@@ -8,6 +8,7 @@ import { Repository } from '../../api/api';
 import { getCommentingRanges } from '../../common/commentingRanges';
 import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
+import { Resource } from '../../common/resources';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE } from '../../common/settingKeys';
 import { createPRNodeUri, DataUri, fromPRUri, Schemes } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
@@ -260,15 +261,24 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		});
 	}
 
-	private async _getIcon(): Promise<vscode.Uri | vscode.ThemeIcon> {
+	private async _getIcon(): Promise<vscode.Uri | vscode.ThemeIcon | { light: string | vscode.Uri; dark: string | vscode.Uri }> {
 		const copilotWorkingStatus = await this.pullRequestModel.githubRepository.copilotWorkingStatus(this.pullRequestModel);
 		switch (copilotWorkingStatus) {
 			case CopilotWorkingStatus.InProgress:
-				return new vscode.ThemeIcon('copilot-in-progress');
+				return {
+					light: Resource.icons.copilot.INPROGRESS,
+					dark: Resource.icons.copilot.INPROGRESS
+				};
 			case CopilotWorkingStatus.Done:
-				return new vscode.ThemeIcon('copilot-success');
+				return {
+					light: Resource.icons.copilot.SUCCESS,
+					dark: Resource.icons.copilot.SUCCESS
+				};
 			case CopilotWorkingStatus.Error:
-				return new vscode.ThemeIcon('copilot-error');
+				return {
+					light: Resource.icons.copilot.ERROR,
+					dark: Resource.icons.copilot.ERROR
+				};
 			case CopilotWorkingStatus.NotCopilotIssue:
 			default:
 				return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
