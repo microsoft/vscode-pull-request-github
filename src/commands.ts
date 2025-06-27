@@ -18,7 +18,7 @@ import { ITelemetry } from './common/telemetry';
 import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes, toPRUri } from './common/uri';
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
-import { CopilotRemoteAgentManager } from './github/copilotRemoteAgent';
+import { CopilotRemoteAgentManager, ICopilotRemoteAgentCommandArgs } from './github/copilotRemoteAgent';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
 import { Issue } from './github/interface';
@@ -1534,7 +1534,7 @@ ${contents}
 			}
 		}));
 	context.subscriptions.push(
-		vscode.commands.registerCommand('githubpr.remoteAgent', async (args) => await copilotRemoteAgentManager.commandImpl(args))
+		vscode.commands.registerCommand('githubpr.remoteAgent', async (args: ICopilotRemoteAgentCommandArgs) => await copilotRemoteAgentManager.commandImpl(args))
 	);
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.applySuggestionWithCopilot', async (comment: GHPRComment) => {
