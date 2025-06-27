@@ -73,6 +73,7 @@ export namespace OctokitCommon {
 	export type Notification = Endpoints['GET /notifications']['response']['data'][0];
 	export type ListEventsForTimelineResponse = Endpoints['GET /repos/{owner}/{repo}/issues/{issue_number}/timeline']['response']['data'][0];
 	export type ListWorkflowRunsForRepo = Endpoints['GET /repos/{owner}/{repo}/actions/runs']['response']['data']['workflow_runs'];
+	export type WorkflowRun = Endpoints['GET /repos/{owner}/{repo}/actions/runs']['response']['data']['workflow_runs'][0];
 }
 
 export type Schema = { [key: string]: any, definitions: any[]; };
