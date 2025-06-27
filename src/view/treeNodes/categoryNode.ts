@@ -207,8 +207,11 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		return false;
 	}
 
-	override async getChildren(): Promise<TreeNode[]> {
-		await super.getChildren();
+	override async getChildren(shouldDispose: boolean = true): Promise<TreeNode[]> {
+		await super.getChildren(shouldDispose);
+		if (!shouldDispose && this.children) {
+			return this.children;
+		}
 		const isFirstLoad = !this._firstLoad;
 		if (isFirstLoad) {
 			this._firstLoad = this.doGetChildren();

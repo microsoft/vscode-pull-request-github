@@ -45,6 +45,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 */
 	public static override currentPanel?: PullRequestOverviewPanel;
 
+	/**
+	 * Event emitter for when a PR overview becomes active
+	 */
+	private static _onVisible = new vscode.EventEmitter<PullRequestModel>();
+	public static readonly onVisible = PullRequestOverviewPanel._onVisible.event;
+
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[] = [];
 	private _teamsCount = 0;
@@ -98,6 +104,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		if (this.currentPanel) {
 			this.currentPanel._postMessage({ command: 'pr.scrollToPendingReview' });
 		}
+	}
+
+	/**
+	 * Get the currently active pull request from the current panel
+	 */
+	public static getCurrentPullRequest(): PullRequestModel | undefined {
+		return this.currentPanel?._item;
 	}
 
 	protected constructor(
@@ -157,6 +170,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	protected override onDidChangeViewState(e: vscode.WebviewPanelOnDidChangeViewStateEvent): void {
 		super.onDidChangeViewState(e);
 		this.setVisibilityContext();
+
+		// If the panel becomes visible and we have an item, notify that this PR is active
+		if (this._panel.visible && this._item) {
+			PullRequestOverviewPanel._onVisible.fire(this._item);
+		}
 	}
 
 	private setVisibilityContext() {
@@ -308,7 +326,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._panel.webview.html = this.getHtmlForWebview();
 		}
 
-		return vscode.window.withProgress({ location: { viewId: 'pr:github' } }, () => this.updateItem(pullRequestModel));
+		const result = vscode.window.withProgress({ location: { viewId: 'pr:github' } }, () => this.updateItem(pullRequestModel));
+
+		// Notify that this PR overview is now active
+		PullRequestOverviewPanel._onVisible.fire(pullRequestModel);
+
+		return result;
 	}
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
@@ -802,6 +825,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	override dispose() {
 		super.dispose();
 		disposeAll(this._prListeners);
+	}
+
+	/**
+	 * Static dispose method to clean up static resources
+	 */
+	public static dispose() {
+		PullRequestOverviewPanel._onVisible.dispose();
 	}
 }
 

@@ -18,6 +18,7 @@ import { PRType } from '../github/interface';
 import { issueMarkdown } from '../github/markdownUtils';
 import { NotificationProvider } from '../github/notifications';
 import { PullRequestModel } from '../github/pullRequestModel';
+import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { findDotComAndEnterpriseRemotes } from '../github/utils';
 import { PRStatusDecorationProvider } from './prStatusDecorationProvider';
@@ -29,6 +30,7 @@ import { PRNode } from './treeNodes/pullRequestNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 import { TreeUtils } from './treeNodes/treeUtils';
 import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
+import Logger from '../common/logger';
 
 export class PullRequestsTreeDataProvider extends Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
@@ -81,6 +83,12 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 					this._view.badge = undefined;
 					this._notificationClearTimeout = undefined;
 				}, 5000);
+
+				// Sync with currently active PR when view becomes visible
+				const currentPR = PullRequestOverviewPanel.getCurrentPullRequest();
+				if (currentPR) {
+					this.syncWithActivePullRequest(currentPR);
+				}
 			}
 		}));
 
@@ -106,6 +114,14 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}));
 
 		this._register(this._copilotManager.onDidCreatePullRequest(() => this.refresh()));
+
+		// Listen for PR overview panel changes to sync the tree view
+		this._register(PullRequestOverviewPanel.onVisible(pullRequest => {
+			// Only sync if view is already visible (don't open the view)
+			if (this._view.visible) {
+				this.syncWithActivePullRequest(pullRequest);
+			}
+		}));
 
 		this._children = [];
 
@@ -172,6 +188,73 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 	async reveal(element: TreeNode, options?: { select?: boolean, focus?: boolean, expand?: boolean }): Promise<void> {
 		return this._view.reveal(element, options);
+	}
+
+	/**
+	 * Sync the tree view with the currently active PR overview
+	 */
+	private async syncWithActivePullRequest(pullRequest: PullRequestModel): Promise<void> {
+		const alreadySelected = this._view.selection.find(child => child instanceof PRNode && (child.pullRequestModel.number === pullRequest.number) && (child.pullRequestModel.remote.owner === pullRequest.remote.owner) && (child.pullRequestModel.remote.repositoryName === pullRequest.remote.repositoryName));
+		if (alreadySelected) {
+			return;
+		}
+		try {
+			// Find the PR node in the tree and reveal it
+			const prNode = await this.findPRNode(pullRequest);
+			if (prNode) {
+				await this.reveal(prNode, { select: true, focus: false, expand: false });
+			}
+		} catch (error) {
+			// Silently ignore errors to avoid disrupting the user experience
+			Logger.warn(`Failed to sync tree view with active PR: ${error}`);
+		}
+	}
+
+	/**
+	 * Find a PR node in the tree structure
+	 */
+	private async findPRNode(pullRequest: PullRequestModel): Promise<PRNode | undefined> {
+		if (this._children.length === 0) {
+			await this.getChildren();
+		}
+
+		for (const child of this._children) {
+			if (child instanceof WorkspaceFolderNode) {
+				const found = await this.findPRNodeInWorkspaceFolder(child, pullRequest);
+				if (found) return found;
+			} else if (child instanceof CategoryTreeNode) {
+				const found = await this.findPRNodeInCategory(child, pullRequest);
+				if (found) return found;
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Search for PR node within a workspace folder node
+	 */
+	private async findPRNodeInWorkspaceFolder(workspaceNode: WorkspaceFolderNode, pullRequest: PullRequestModel): Promise<PRNode | undefined> {
+		const children = await workspaceNode.getChildren(false);
+		for (const child of children) {
+			if (child instanceof CategoryTreeNode) {
+				const found = await this.findPRNodeInCategory(child, pullRequest);
+				if (found) return found;
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Search for PR node within a category node
+	 */
+	private async findPRNodeInCategory(categoryNode: CategoryTreeNode, pullRequest: PullRequestModel): Promise<PRNode | undefined> {
+		const children = await categoryNode.getChildren(false);
+		for (const child of children) {
+			if (child instanceof PRNode && (child.pullRequestModel.number === pullRequest.number) && (child.pullRequestModel.remote.owner === pullRequest.remote.owner) && (child.pullRequestModel.remote.repositoryName === pullRequest.remote.repositoryName)) {
+				return child;
+			}
+		}
+		return undefined;
 	}
 
 	initialize(reviewModels: ReviewModel[], credentialStore: CredentialStore) {

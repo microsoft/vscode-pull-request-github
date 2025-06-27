@@ -92,6 +92,7 @@
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--extensionTestsPath=${workspaceFolder}/out/src/test",
 				"--disable-extensions",
+				"--user-data-dir=${workspaceFolder}/.vscode-test"
 			],
 			"preLaunchTask": "npm: test:preprocess",
 			"smartStep": true,
