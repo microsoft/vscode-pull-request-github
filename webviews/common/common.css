@@ -34,7 +34,7 @@ input[type='submit'] {
 	user-select: none;
 }
 
-button:not(.icon-button):not(.danger),
+button:not(.icon-button):not(.danger):not(.secondary),
 input[type='submit'] {
 	background-color: var(--vscode-button-background);
 }
