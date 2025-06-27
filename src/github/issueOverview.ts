@@ -321,6 +321,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				return this.addAssigneeYourself(message);
 			case 'pr.add-assignee-copilot':
 				return this.addAssigneeCopilot(message);
+			case 'pr.copy-prlink':
+				return this.copyItemLink();
 			case 'pr.copy-vscodedevlink':
 				return this.copyVscodeDevLink();
 			case 'pr.openOnGitHub':

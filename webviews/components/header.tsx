@@ -103,7 +103,7 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 }
 
 function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaultBranch, setEditMode }) {
-	const { refresh, copyVscodeDevLink, openChanges } = useContext(PullRequestContext);
+	const { refresh, copyPrLink, copyVscodeDevLink, openChanges } = useContext(PullRequestContext);
 
 	return (
 		<div className="button-group">
@@ -120,6 +120,9 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 				<>
 					<button title="Rename" onClick={setEditMode} className="secondary small-button">
 						Rename
+					</button>
+					<button title="Copy GitHub pull request link" onClick={copyPrLink} className="secondary small-button">
+						Copy Link
 					</button>
 					<button title="Copy vscode.dev link for viewing this pull request in VS Code for the Web" onClick={copyVscodeDevLink} className="secondary small-button">
 						Copy vscode.dev Link
