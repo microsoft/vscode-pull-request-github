@@ -22,20 +22,9 @@ export function Root({ children }) {
 		setPR(ctx.pr);
 	}, []);
 
-	useEffect(() => {
-		const handleKeyDown = (event: KeyboardEvent) => {
-			// Handle Cmd+R (Mac) or Ctrl+R (Windows/Linux) to refresh
-			if (event.key === 'r' && (event.metaKey || event.ctrlKey)) {
-				event.preventDefault();
-				ctx.refresh();
-			}
-		};
-
-		document.addEventListener('keydown', handleKeyDown);
-		return () => {
-			document.removeEventListener('keydown', handleKeyDown);
-		};
-	}, [ctx]);
+	// Removed keyboard handling for Cmd+R refresh to avoid conflicts with VSCode keybindings
+	// The refresh functionality is now handled exclusively through the VSCode keybinding:
+	// "pr.refreshDescription" command with "when": "github:pullRequestDescriptionVisible"
 
 	window.onscroll = debounce(() => {
 		ctx.postMessage({
