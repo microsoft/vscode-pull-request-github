@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
 import { commands, contexts } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, QUERIES, REMOTES } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
@@ -30,7 +31,6 @@ import { PRNode } from './treeNodes/pullRequestNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 import { TreeUtils } from './treeNodes/treeUtils';
 import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
-import Logger from '../common/logger';
 
 export class PullRequestsTreeDataProvider extends Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
