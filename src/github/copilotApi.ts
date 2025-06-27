@@ -56,12 +56,34 @@ export class CopilotApi {
 			body: JSON.stringify(payload)
 		});
 		if (!response.ok) {
-			const text = await response.text();
-			throw new Error(`Coding agent API error: ${response.status} ${text}`);
+			throw new Error(this.formatRemoteAgentJobError(response.status));
 		}
 		const data = await response.json();
 		this.validateRemoteAgentJobResponse(data);
 		return data;
+	}
+
+
+	// https://github.com/github/sweagentd/blob/371ea6db280b9aecf790ccc20660e39a7ecb8d1c/internal/api/jobapi/handler.go#L110-L120
+	private formatRemoteAgentJobError(status: number) {
+		switch (status) {
+			case 400:
+				return 'Bad request';
+			case 401:
+				return 'Unauthorized';
+			case 402:
+				return 'Premium request quota exceeded';
+			case 403:
+				return 'GitHub Coding Agent is not enabled for this repository';
+			case 404:
+				return 'Repository not found';
+			case 409:
+				return 'A Coding Agent pull request already exists';
+			case 500:
+				return 'Server error';
+			default:
+				return `Error: ${status}`;
+		}
 	}
 
 	private validateRemoteAgentJobResponse(data: any): asserts data is RemoteAgentJobResponse {

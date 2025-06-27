@@ -276,7 +276,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	async invokeRemoteAgent(prompt: string, problemContext: string, autoPushAndCommit = true): Promise<RemoteAgentResult> {
-		// TODO: Check that the user has a valid copilot subscription
 		const capiClient = await this.copilotApi;
 		if (!capiClient) {
 			return { error: vscode.l10n.t('Failed to initialize Copilot API'), state: 'error' };
@@ -303,14 +302,17 @@ export class CopilotRemoteAgentManager extends Disposable {
 				await repository.createBranch(asyncBranch, true);
 				await repository.add([]);
 				if (repository.state.indexChanges.length > 0) {
-					// TODO: there is an issue here if the user has GPG signing enabled.
-					//       https://github.com/microsoft/vscode/pull/252263
-					await repository.commit('Checkpoint for Copilot Agent async session', { signCommit: false });
+					try {
+						await repository.commit('Checkpoint for Copilot Agent async session', { signCommit: false });
+					} catch (e) {
+						// https://github.com/microsoft/vscode/pull/252263
+						return { error: vscode.l10n.t('Could not \'git commit\' pending changes. If GPG signing or git hooks are enabled, please first commit or stash your changes and try again. ({0})', e.message), state: 'error' };
+					}
 				}
 				await repository.push(remote, asyncBranch, true);
 				ref = asyncBranch;
 			} catch (e) {
-				return { error: vscode.l10n.t(`Could not auto-commit pending changes. Please disable GPG signing, or manually commit/stash your changes before starting the remote agent. Error: ${e.message}`), state: 'error' };
+				return { error: vscode.l10n.t('Could not auto-push pending changes. Manually commit or stash your changes and try again. ({0})', e.message), state: 'error' };
 			} finally {
 				// Swap back to the original branch without your pending changes
 				// TODO: Better if we show a confirmation dialog in chat
@@ -318,7 +320,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 					// show notification asking the user if they want to switch back to the original branch
 					const SWAP_BACK_TO_ORIGINAL_BRANCH = vscode.l10n.t(`Swap back to '{0}'`, baseRef);
 					vscode.window.showInformationMessage(
-						vscode.l10n.t(`Your pending changes have been pushed to remote branch '{0}.`, ref),
+						vscode.l10n.t(`Pending changes pushed to remote branch '{0}'.`, ref),
 						SWAP_BACK_TO_ORIGINAL_BRANCH,
 					).then(async (selection) => {
 						if (selection === SWAP_BACK_TO_ORIGINAL_BRANCH) {
@@ -345,16 +347,21 @@ export class CopilotRemoteAgentManager extends Disposable {
 				...(hasChanges && autoPushAndCommit && { head_ref: ref })
 			}
 		};
-		const { pull_request } = await capiClient.postRemoteAgentJob(owner, repo, payload);
-		const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: pull_request.number });
-		const prLlmString = `The remote agent has begun work. The user can track progress by visiting ${pull_request.html_url} or from the PR extension. Format this VS Code webview link so the user can click it to also track progress: ${webviewUri.toString()}`;
-		return {
-			state: 'success',
-			number: pull_request.number,
-			link: pull_request.html_url,
-			webviewUri,
-			llmDetails: hasChanges ? `The pending changes have been pushed to branch '${ref}'. ${prLlmString}` : prLlmString
-		};
+
+		try {
+			const { pull_request } = await capiClient.postRemoteAgentJob(owner, repo, payload);
+			const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: pull_request.number });
+			const prLlmString = `The remote agent has begun work. The user can track progress by visiting ${pull_request.html_url} or from the PR extension. Format this VS Code webview link so the user can click it to also track progress: ${webviewUri.toString()}`;
+			return {
+				state: 'success',
+				number: pull_request.number,
+				link: pull_request.html_url,
+				webviewUri,
+				llmDetails: hasChanges ? `The pending changes have been pushed to branch '${ref}'. ${prLlmString}` : prLlmString
+			};
+		} catch (error) {
+			return { error: error.message, state: 'error' };
+		}
 	}
 
 	async getSessionLogsFromAction(remote: Remote, pullRequestId: number) {
