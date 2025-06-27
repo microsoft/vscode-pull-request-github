@@ -45,6 +45,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	 */
 	public static override currentPanel?: PullRequestOverviewPanel;
 
+	/**
+	 * Event emitter for when a PR overview becomes active
+	 */
+	private static _onDidChangeActivePullRequest = new vscode.EventEmitter<PullRequestModel>();
+	public static readonly onDidChangeActivePullRequest = PullRequestOverviewPanel._onDidChangeActivePullRequest.event;
+
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[] = [];
 	private _teamsCount = 0;
@@ -157,6 +163,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	protected override onDidChangeViewState(e: vscode.WebviewPanelOnDidChangeViewStateEvent): void {
 		super.onDidChangeViewState(e);
 		this.setVisibilityContext();
+		
+		// If the panel becomes visible and we have an item, notify that this PR is active
+		if (this._panel.visible && this._item) {
+			PullRequestOverviewPanel._onDidChangeActivePullRequest.fire(this._item);
+		}
 	}
 
 	private setVisibilityContext() {
@@ -308,7 +319,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			this._panel.webview.html = this.getHtmlForWebview();
 		}
 
-		return vscode.window.withProgress({ location: { viewId: 'pr:github' } }, () => this.updateItem(pullRequestModel));
+		const result = vscode.window.withProgress({ location: { viewId: 'pr:github' } }, () => this.updateItem(pullRequestModel));
+		
+		// Notify that this PR overview is now active
+		PullRequestOverviewPanel._onDidChangeActivePullRequest.fire(pullRequestModel);
+		
+		return result;
 	}
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
@@ -802,6 +818,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	override dispose() {
 		super.dispose();
 		disposeAll(this._prListeners);
+	}
+
+	/**
+	 * Static dispose method to clean up static resources
+	 */
+	public static dispose() {
+		PullRequestOverviewPanel._onDidChangeActivePullRequest.dispose();
 	}
 }
 
