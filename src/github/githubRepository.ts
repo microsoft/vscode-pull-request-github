@@ -146,6 +146,13 @@ export interface GraphQLError {
 	message?: string;
 }
 
+export enum CopilotWorkingStatus {
+	NotCopilotIssue = 'NotCopilotIssue',
+	InProgress = 'InProgress',
+	Error = 'Error',
+	Done = 'Done',
+}
+
 export class GitHubRepository extends Disposable {
 	static ID = 'GitHubRepository';
 	protected _initialized: boolean = false;
@@ -1525,6 +1532,21 @@ export class GitHubRepository extends Disposable {
 			console.log(e);
 			return [];
 		}
+	}
+
+	async copilotWorkingStatus(issueModel: IssueModel): Promise<CopilotWorkingStatus | undefined> {
+		const copilotEvents = await this.getCopilotTimelineEvents(issueModel);
+		if (copilotEvents.length > 0) {
+			const lastEvent = copilotEvents[copilotEvents.length - 1];
+			if (lastEvent.event === Common.EventType.CopilotFinished) {
+				return CopilotWorkingStatus.Done;
+			} else if (lastEvent.event === Common.EventType.CopilotStarted) {
+				return CopilotWorkingStatus.InProgress;
+			} else if (lastEvent.event === Common.EventType.CopilotFinishedError) {
+				return CopilotWorkingStatus.Error;
+			}
+		}
+		return CopilotWorkingStatus.NotCopilotIssue;
 	}
 
 	/**
