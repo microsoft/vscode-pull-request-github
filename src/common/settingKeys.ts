@@ -81,6 +81,10 @@ export const OPEN_VIEW = 'openView';
 export const EXPLORER = 'explorer';
 export const AUTO_REVEAL = 'autoReveal';
 
+// Workbench
+export const WORKBENCH = 'workbench';
+export const COLOR_THEME = 'colorTheme';
+
 // Coding Agent
 
 export const CODING_AGENT = `${PR_SETTINGS_NAMESPACE}.codingAgent`;
