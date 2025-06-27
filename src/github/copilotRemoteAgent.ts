@@ -376,35 +376,34 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return await capi.getLogsFromZipUrl(lastRun.logs_url);
 	}
 
-	async getMostRecentSessionLogsFromPullRequest(pullRequestId: number, completedOnly = true): Promise<IAPISessionLogs | undefined> {
+	async getSessionLogFromPullRequest(pullRequestId: number, sessionIndex = 0, completedOnly = true): Promise<IAPISessionLogs | undefined> {
 		const capi = await this.copilotApi;
 		if (!capi) {
 			return undefined;
 		}
 
 		const sessions = await capi.getAllSessions(pullRequestId);
-		const mostRecentSession = sessions.filter(s => !completedOnly || s.state === 'completed').at(0);
-		if (!mostRecentSession) {
+		const session = sessions.filter(s => !completedOnly || s.state === 'completed').at(sessionIndex);
+		if (!session) {
 			return undefined;
 		}
 
-		const logs = await capi.getLogsFromSession(mostRecentSession.id);
-		return { sessionId: mostRecentSession.id, logs };
+		const logs = await capi.getLogsFromSession(session.id);
+		return { sessionId: session.id, logs };
 	}
 
-	async getSessionUrlFromPullRequest(pullRequestId: number | undefined): Promise<string | undefined> {
+	async getSessionUrlFromPullRequest(pullRequestId: number, sessionIndex = 0, completedOnly = true): Promise<string | undefined> {
 		const capi = await this.copilotApi;
 		if (!capi) {
 			return undefined;
 		}
 
 		const sessions = await capi.getAllSessions(pullRequestId);
-		const completedSessions = sessions.filter(s => s.state === 'completed');
-		if (completedSessions.length === 0) {
+		const session = sessions.filter(s => !completedOnly || s.state === 'completed').at(sessionIndex);
+		if (!session) {
 			return undefined;
 		}
-		const mostRecentSession = this.getLatestRun(completedSessions);
-		return `${this.workflowRunUrlBase}${mostRecentSession.workflow_run_id}`;
+		return `${this.workflowRunUrlBase}${session.workflow_run_id}`;
 	}
 
 	async getSessionLogsFromSessionId(sessionId: string): Promise<IAPISessionLogs> {

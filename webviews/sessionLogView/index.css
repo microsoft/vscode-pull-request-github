@@ -47,26 +47,35 @@
 }
 
 .session-header-title {
-	h1 .codicon {
-		font-size: inherit;
+	margin-bottom: 1em;
+
+	.codicon {
+		font-size: inherit !important;
 	}
 
 	h1,
-	h2 {
-		margin: 0a.4em 0;
+	h2,
+	h3 {
+		display: block;
+		margin: 0.4em 0;
 	}
 
-	h2 a {
+	h2 {
+		font-size: 1.2em;
+		margin-bottom: 0.5em;
+
+	}
+
+	.pull-request-info {
+		margin-bottom: 1em;
+	}
+
+	.pull-request-link {
 		color: inherit;
 
 		.pull-request-id {
 			color: var(--vscode-textLink-foreground);
 		}
-	}
-
-	nav ul {
-		list-style: none;
-		padding: 0;
 	}
 }
 
