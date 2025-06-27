@@ -21,6 +21,22 @@ export function Root({ children }) {
 		ctx.onchange = setPR;
 		setPR(ctx.pr);
 	}, []);
+
+	useEffect(() => {
+		const handleKeyDown = (event: KeyboardEvent) => {
+			// Handle Cmd+R (Mac) or Ctrl+R (Windows/Linux) to refresh
+			if (event.key === 'r' && (event.metaKey || event.ctrlKey)) {
+				event.preventDefault();
+				ctx.refresh();
+			}
+		};
+
+		document.addEventListener('keydown', handleKeyDown);
+		return () => {
+			document.removeEventListener('keydown', handleKeyDown);
+		};
+	}, [ctx]);
+
 	window.onscroll = debounce(() => {
 		ctx.postMessage({
 			command: 'scroll',

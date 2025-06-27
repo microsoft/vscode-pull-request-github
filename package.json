@@ -1785,6 +1785,12 @@
 				"mac": "cmd+k m",
 				"command": "pr.makeSuggestion",
 				"when": "commentEditorFocused"
+			},
+			{
+				"key": "ctrl+r",
+				"mac": "cmd+r",
+				"command": "pr.refreshDescription",
+				"when": "github:pullRequestDescriptionVisible"
 			}
 		],
 		"menus": {
