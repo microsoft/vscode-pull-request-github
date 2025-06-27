@@ -321,7 +321,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				await repository.add([]);
 				if (repository.state.indexChanges.length > 0) {
 					try {
-						await repository.commit('Checkpoint for Copilot Agent async session', { signCommit: false });
+						await repository.commit('Checkpoint for Copilot Agent async session');
 					} catch (e) {
 						// https://github.com/microsoft/vscode/pull/252263
 						return { error: vscode.l10n.t('Could not \'git commit\' pending changes. If GPG signing or git hooks are enabled, please first commit or stash your changes and try again. ({0})', e.message), state: 'error' };
