@@ -35,7 +35,7 @@ import { batchPromiseAll, compareIgnoreCase, formatError, Predicate } from '../c
 import { PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { LAST_USED_EMAIL, NEVER_SHOW_PULL_NOTIFICATION, REPO_KEYS, ReposState } from '../extensionState';
 import { git } from '../gitProviders/gitCommands';
-import { ThemeWatcher } from '../themeWatcher';
+import { IThemeWatcher } from '../themeWatcher';
 import { CreatePullRequestHelper } from '../view/createPullRequestHelper';
 import { OctokitCommon } from './common';
 import { ConflictModel } from './conflictGuide';
@@ -231,7 +231,7 @@ export class FolderRepositoryManager extends Disposable {
 		private readonly _git: GitApiImpl,
 		private readonly _credentialStore: CredentialStore,
 		public readonly createPullRequestHelper: CreatePullRequestHelper,
-		public readonly themeWatcher: ThemeWatcher
+		public readonly themeWatcher: IThemeWatcher
 	) {
 		super();
 		this._githubRepositories = [];

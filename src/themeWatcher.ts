@@ -8,7 +8,12 @@ import { Disposable } from './common/lifecycle';
 import { COLOR_THEME, WORKBENCH } from './common/settingKeys';
 import { loadCurrentThemeData, ThemeData } from './view/theme';
 
-export class ThemeWatcher extends Disposable {
+export interface IThemeWatcher {
+	readonly onDidChangeTheme: vscode.Event<ThemeData | undefined>;
+	readonly themeData: ThemeData | undefined;
+}
+
+export class ThemeWatcher extends Disposable implements IThemeWatcher {
 	private _themeData: ThemeData | undefined;
 	private _onDidChangeTheme = this._register(new vscode.EventEmitter<ThemeData | undefined>());
 	readonly onDidChangeTheme = this._onDidChangeTheme.event;
@@ -25,7 +30,7 @@ export class ThemeWatcher extends Disposable {
 		this.updateTheme();
 	}
 
-	async updateTheme() {
+	private async updateTheme() {
 		this._themeData = await loadCurrentThemeData();
 		this._onDidChangeTheme.fire(this._themeData);
 	}

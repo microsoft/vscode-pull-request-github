@@ -39,6 +39,7 @@ import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { mergeQuerySchemaWithShared } from '../../github/common';
 import { AccountType } from '../../github/interface';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
+import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 const schema = mergeQuerySchemaWithShared(require('../../github/queries.gql'), require('../../github/queriesShared.gql')) as any;
 
 const protocol = new Protocol('https://github.com/github/test.git');
@@ -63,10 +64,12 @@ describe('ReviewCommentController', function () {
 	let reposManager: RepositoriesManager;
 	let gitApiImpl: GitApiImpl;
 	let copilotManager: CopilotRemoteAgentManager;
+	let mockThemeWatcher: MockThemeWatcher;
 
 	beforeEach(async function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
+		mockThemeWatcher = new MockThemeWatcher();
 
 		telemetry = new MockTelemetry();
 		const context = new MockExtensionContext();
@@ -81,7 +84,7 @@ describe('ReviewCommentController', function () {
 		const createPrHelper = new CreatePullRequestHelper();
 		Resource.initialize(context);
 		gitApiImpl = new GitApiImpl(reposManager);
-		manager = new FolderRepositoryManager(0, context, repository, telemetry, gitApiImpl, credentialStore, createPrHelper);
+		manager = new FolderRepositoryManager(0, context, repository, telemetry, gitApiImpl, credentialStore, createPrHelper, mockThemeWatcher);
 		reposManager.insertFolderManager(manager);
 		const tree = new PullRequestChangesTreeDataProvider(gitApiImpl, reposManager);
 		reviewManager = new ReviewManager(0, context, repository, manager, telemetry, tree, provider, new ShowPullRequest(), activePrViewCoordinator, createPrHelper, gitApiImpl);
