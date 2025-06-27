@@ -87,7 +87,7 @@ async function handleUncommittedChanges(repository: Repository): Promise<boolean
 			];
 			if (allChangedFiles.length > 0) {
 				await repository.add(allChangedFiles);
-				await repository.stash(vscode.l10n.t('Uncommitted changes from PR checkout'));
+				await vscode.commands.executeCommand('git.stash', repository);
 			}
 		} else if (modalResult === DISCARD_CHANGES) {
 			// Discard all working tree changes
