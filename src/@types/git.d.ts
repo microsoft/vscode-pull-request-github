@@ -238,8 +238,9 @@ export interface Repository {
 	mergeAbort(): Promise<void>;
 	
 	stash(message?: string, includeUntracked?: boolean): Promise<void>;
-	stashPop(index?: number): Promise<void>;
-	stashApply(index?: number): Promise<void>;
+	applyStash(index?: number): Promise<void>;
+	popStash(index?: number): Promise<void>;
+	dropStash(index?: number): Promise<void>;
 }
 
 export interface RemoteSource {
