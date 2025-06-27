@@ -32,6 +32,7 @@ import { IAccount, ITeam } from '../../github/interface';
 import { asPromise } from '../../common/utils';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
+import { MockThemeWatcher } from '../mocks/mockThemeWatcher';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
@@ -42,10 +43,12 @@ describe('GitHub Pull Requests view', function () {
 	let reposManager: RepositoriesManager;
 	let createPrHelper: CreatePullRequestHelper;
 	let copilotManager: CopilotRemoteAgentManager;
+	let mockThemeWatcher: MockThemeWatcher;
 
 	beforeEach(function () {
 		sinon = createSandbox();
 		MockCommandRegistry.install(sinon);
+		mockThemeWatcher = new MockThemeWatcher();
 
 		context = new MockExtensionContext();
 
@@ -103,7 +106,7 @@ describe('GitHub Pull Requests view', function () {
 	it('has no children when repositories have not yet been initialized', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
-		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper));
+		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
 		provider.initialize([], credentialStore);
 
 		const rootNodes = await provider.getChildren();
@@ -113,7 +116,7 @@ describe('GitHub Pull Requests view', function () {
 	it('opens the viewlet and displays the default categories', async function () {
 		const repository = new MockRepository();
 		repository.addRemote('origin', 'git@github.com:aaa/bbb');
-		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper));
+		reposManager.insertFolderManager(new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher));
 		sinon.stub(credentialStore, 'isAuthenticated').returns(true);
 		await reposManager.folderManagers[0].updateRepositories();
 		provider.initialize([], credentialStore);
@@ -183,7 +186,7 @@ describe('GitHub Pull Requests view', function () {
 
 			await repository.createBranch('non-pr-branch', false);
 
-			const manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper);
+			const manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
 			reposManager.insertFolderManager(manager);
 			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
 				assert.deepStrictEqual(r, remote);

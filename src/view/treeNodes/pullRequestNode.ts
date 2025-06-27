@@ -16,6 +16,7 @@ import { NotificationProvider } from '../../github/notifications';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from '../inMemPRContentProvider';
+import { getIconForeground, getListErrorForeground, getListWarningForeground, getNotebookStatusSuccessIconForeground } from '../theme';
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
@@ -57,6 +58,9 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 			if (e.new === this.pullRequestModel.number || e.old === this.pullRequestModel.number) {
 				this.refresh(this);
 			}
+		}));
+		this._register(this._folderReposManager.themeWatcher.onDidChangeTheme(() => {
+			this.refresh(this);
 		}));
 	}
 
@@ -260,20 +264,32 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		});
 	}
 
-	private async _getIcon(): Promise<vscode.Uri | vscode.ThemeIcon> {
+	private async _getIcon(): Promise<vscode.Uri | vscode.ThemeIcon | { light: string | vscode.Uri; dark: string | vscode.Uri }> {
 		const copilotWorkingStatus = await this.pullRequestModel.githubRepository.copilotWorkingStatus(this.pullRequestModel);
+		const theme = this._folderReposManager.themeWatcher.themeData;
+		if (!theme || copilotWorkingStatus === CopilotWorkingStatus.NotCopilotIssue) {
+			return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
+				?? new vscode.ThemeIcon('github');
+		}
 		switch (copilotWorkingStatus) {
 			case CopilotWorkingStatus.InProgress:
-				return new vscode.ThemeIcon('copilot-in-progress');
+				return {
+					light: DataUri.copilotInProgressAsImageDataURI(getIconForeground(theme, 'light'), getListWarningForeground(theme, 'light')),
+					dark: DataUri.copilotInProgressAsImageDataURI(getIconForeground(theme, 'dark'), getListWarningForeground(theme, 'dark'))
+				};
 			case CopilotWorkingStatus.Done:
-				return new vscode.ThemeIcon('copilot-success');
+				return {
+					light: DataUri.copilotSuccessAsImageDataURI(getIconForeground(theme, 'light'), getNotebookStatusSuccessIconForeground(theme, 'light')),
+					dark: DataUri.copilotSuccessAsImageDataURI(getIconForeground(theme, 'dark'), getNotebookStatusSuccessIconForeground(theme, 'dark'))
+				};
 			case CopilotWorkingStatus.Error:
-				return new vscode.ThemeIcon('copilot-error');
-			case CopilotWorkingStatus.NotCopilotIssue:
+				return {
+					light: DataUri.copilotErrorAsImageDataURI(getIconForeground(theme, 'light'), getListErrorForeground(theme, 'light')),
+					dark: DataUri.copilotErrorAsImageDataURI(getIconForeground(theme, 'dark'), getListErrorForeground(theme, 'dark'))
+				};
 			default:
 				return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
 					?? new vscode.ThemeIcon('github');
-
 		}
 	}
 

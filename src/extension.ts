@@ -33,6 +33,7 @@ import { ChatParticipant, ChatParticipantState } from './lm/participants';
 import { registerTools } from './lm/tools/tools';
 import { migrate } from './migrations';
 import { NotificationsFeatureRegister } from './notifications/notificationsFeatureRegistar';
+import { ThemeWatcher } from './themeWatcher';
 import { UriHandler } from './uriHandler';
 import { CommentDecorationProvider } from './view/commentDecorationProvider';
 import { CompareChanges } from './view/compareChangesTreeDataProvider';
@@ -65,6 +66,7 @@ async function init(
 	reposManager: RepositoriesManager,
 	createPrHelper: CreatePullRequestHelper,
 	copilotRemoteAgentManager: CopilotRemoteAgentManager,
+	themeWatcher: ThemeWatcher
 ): Promise<void> {
 	context.subscriptions.push(Logger);
 	Logger.appendLine('Git repository found, initializing review manager and pr tree view.', ACTIVATION);
@@ -180,7 +182,7 @@ async function init(
 				Logger.appendLine(`Repo ${repo.rootUri} has already been setup.`, ACTIVATION);
 				return;
 			}
-			const newFolderManager = new FolderRepositoryManager(reposManager.folderManagers.length, context, repo, telemetry, git, credentialStore, createPrHelper);
+			const newFolderManager = new FolderRepositoryManager(reposManager.folderManagers.length, context, repo, telemetry, git, credentialStore, createPrHelper, themeWatcher);
 			reposManager.insertFolderManager(newFolderManager);
 			const newReviewManager = new ReviewManager(
 				reviewManagerIndex++,
@@ -418,9 +420,12 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	const createPrHelper = new CreatePullRequestHelper();
 	context.subscriptions.push(createPrHelper);
 
+	const themeWatcher = new ThemeWatcher();
+	context.subscriptions.push(themeWatcher);
+
 	let folderManagerIndex = 0;
 	const folderManagers = repositories.map(
-		repository => new FolderRepositoryManager(folderManagerIndex++, context, repository, telemetry, apiImpl, credentialStore, createPrHelper),
+		repository => new FolderRepositoryManager(folderManagerIndex++, context, repository, telemetry, apiImpl, credentialStore, createPrHelper, themeWatcher),
 	);
 	context.subscriptions.push(...folderManagers);
 	for (const folderManager of folderManagers) {
@@ -432,7 +437,7 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	readOnlyMessage.isTrusted = { enabledCommands: ['pr.checkoutFromReadonlyFile'] };
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(Schemes.Pr, inMemPRFileSystemProvider, { isReadonly: readOnlyMessage }));
 
-	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper, copilotRemoteAgentManager);
+	await init(context, apiImpl, credentialStore, repositories, prTree, liveshareApiPromise, showPRController, reposManager, createPrHelper, copilotRemoteAgentManager, themeWatcher);
 	return apiImpl;
 }
 
