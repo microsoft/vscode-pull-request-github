@@ -12,6 +12,7 @@
 - **Activation Events**: Only add new activation events if absolutely necessary.
 - **Webviews**: Place webview code in the `webviews/` directory. Use the shared `common/` code where possible.
 - **Commands**: Register new commands in `package.json` and implement them in `src/commands.ts` or a relevant module.
+- **Logging**: Use the `Logger` utility for all logging purposes. Don't use console.log or similar methods directly.
 
 ---
 _Last updated: 2025-06-20_

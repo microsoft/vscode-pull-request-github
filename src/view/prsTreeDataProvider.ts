@@ -30,6 +30,7 @@ import { PRNode } from './treeNodes/pullRequestNode';
 import { BaseTreeNode, TreeNode } from './treeNodes/treeNode';
 import { TreeUtils } from './treeNodes/treeUtils';
 import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
+import Logger from '../common/logger';
 
 export class PullRequestsTreeDataProvider extends Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
 	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
@@ -205,7 +206,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			}
 		} catch (error) {
 			// Silently ignore errors to avoid disrupting the user experience
-			console.warn('Failed to sync tree view with active PR:', error);
+			Logger.warn(`Failed to sync tree view with active PR: ${error}`);
 		}
 	}
 
