@@ -11,6 +11,7 @@ import Logger from '../../common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE } from '../../common/settingKeys';
 import { createPRNodeUri, DataUri, fromPRUri, Schemes } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
+import { CopilotWorkingStatus } from '../../github/githubRepository';
 import { NotificationProvider } from '../../github/notifications';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
@@ -259,6 +260,23 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		});
 	}
 
+	private async _getIcon(): Promise<vscode.Uri | vscode.ThemeIcon> {
+		const copilotWorkingStatus = await this.pullRequestModel.githubRepository.copilotWorkingStatus(this.pullRequestModel);
+		switch (copilotWorkingStatus) {
+			case CopilotWorkingStatus.InProgress:
+				return new vscode.ThemeIcon('copilot-in-progress');
+			case CopilotWorkingStatus.Done:
+				return new vscode.ThemeIcon('copilot-success');
+			case CopilotWorkingStatus.Error:
+				return new vscode.ThemeIcon('copilot-error');
+			case CopilotWorkingStatus.NotCopilotIssue:
+			default:
+				return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
+					?? new vscode.ThemeIcon('github');
+
+		}
+	}
+
 	async getTreeItem(): Promise<vscode.TreeItem> {
 		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
 
@@ -298,8 +316,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				(currentBranchIsForThisPR ? ':active' : ':nonactive') +
 				(hasNotification ? ':notification' : '') +
 				(((this.pullRequestModel.item.isRemoteHeadDeleted && !this._isLocal) || !this._folderReposManager.isPullRequestAssociatedWithOpenRepository(this.pullRequestModel)) ? '' : ':hasHeadRef'),
-			iconPath: (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
-				?? new vscode.ThemeIcon('github'),
+			iconPath: await this._getIcon(),
 			accessibilityInformation: {
 				label: `${isDraft ? 'Draft ' : ''}Pull request number ${formattedPRNumber}: ${title} by ${login}`
 			},
