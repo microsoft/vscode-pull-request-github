@@ -184,14 +184,15 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	 * Sync the tree view with the currently active PR overview
 	 */
 	private async syncWithActivePullRequest(pullRequest: PullRequestModel): Promise<void> {
+		const alreadySelected = this._view.selection.find(child => child instanceof PRNode && (child.pullRequestModel.number === pullRequest.number) && (child.pullRequestModel.remote.owner === pullRequest.remote.owner) && (child.pullRequestModel.remote.repositoryName === pullRequest.remote.repositoryName));
+		if (alreadySelected || !this._view.visible) {
+			return;
+		}
 		try {
-			// First expand the pull request in the tree to make sure it's visible
-			await this.expandPullRequest(pullRequest);
-
 			// Find the PR node in the tree and reveal it
 			const prNode = await this.findPRNode(pullRequest);
 			if (prNode) {
-				await this.reveal(prNode, { select: true, focus: false, expand: true });
+				await this.reveal(prNode, { select: true, focus: false, expand: false });
 			}
 		} catch (error) {
 			// Silently ignore errors to avoid disrupting the user experience
@@ -223,7 +224,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	 * Search for PR node within a workspace folder node
 	 */
 	private async findPRNodeInWorkspaceFolder(workspaceNode: WorkspaceFolderNode, pullRequest: PullRequestModel): Promise<PRNode | undefined> {
-		const children = await workspaceNode.getChildren();
+		const children = await workspaceNode.getChildren(false);
 		for (const child of children) {
 			if (child instanceof CategoryTreeNode) {
 				const found = await this.findPRNodeInCategory(child, pullRequest);
@@ -237,9 +238,9 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	 * Search for PR node within a category node
 	 */
 	private async findPRNodeInCategory(categoryNode: CategoryTreeNode, pullRequest: PullRequestModel): Promise<PRNode | undefined> {
-		const children = await categoryNode.getChildren();
+		const children = await categoryNode.getChildren(false);
 		for (const child of children) {
-			if (child instanceof PRNode && child.pullRequestModel.number === pullRequest.number) {
+			if (child instanceof PRNode && (child.pullRequestModel.number === pullRequest.number) && (child.pullRequestModel.remote.owner === pullRequest.remote.owner) && (child.pullRequestModel.remote.repositoryName === pullRequest.remote.repositoryName)) {
 				return child;
 			}
 		}

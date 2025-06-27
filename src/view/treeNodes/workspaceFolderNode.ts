@@ -63,8 +63,11 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 		return this;
 	}
 
-	override async getChildren(): Promise<TreeNode[]> {
-		super.getChildren();
+	override async getChildren(shouldDispose: boolean = true): Promise<TreeNode[]> {
+		super.getChildren(shouldDispose);
+		if (!shouldDispose && this.children) {
+			return this.children;
+		}
 		this.children = await WorkspaceFolderNode.getCategoryTreeNodes(this.folderManager, this.telemetry, this, this.notificationProvider, this.context, this._prsTreeModel, this._copilotMananger);
 		return this.children;
 	}
