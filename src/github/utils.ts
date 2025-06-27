@@ -567,7 +567,7 @@ export function parseGraphQLReaction(reactionGroups: GraphQL.ReactionGroup[]): R
 	const reactionContentEmojiMapping = getReactionGroup().reduce((prev, curr) => {
 		prev[curr.title] = curr;
 		return prev;
-	}, {} as { [key: string]: { title: string; label: string; icon?: string } });
+	}, {} as { [key: string]: { title: string; label: string; icon?: vscode.Uri } });
 
 	const reactions = reactionGroups
 		.filter(group => group.reactors.totalCount > 0)
@@ -1293,7 +1293,7 @@ function parseGraphQLCommitContributions(
 	return items;
 }
 
-export function getReactionGroup(): { title: string; label: string; icon?: string }[] {
+export function getReactionGroup(): { title: string; label: string; icon?: vscode.Uri }[] {
 	const ret = [
 		{
 			title: 'THUMBS_UP',

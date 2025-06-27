@@ -44,7 +44,6 @@ module.exports.indentationFilter = [
 	'!**/LICENSE',
 	'!**/*.yml',
 	'!resources/emojis.json',
-	'!**/*.svg',
 
 	// except multiple specific files
 	'!**/package.json',
