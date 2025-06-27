@@ -5,6 +5,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { DataUri } from './uri';
 
 export class Resource {
 	static icons: {
@@ -19,9 +20,9 @@ export class Resource {
 			ROCKET: string;
 		};
 		copilot: {
-			SUCCESS: string;
-			INPROGRESS: string;
-			ERROR: string;
+			SUCCESS: vscode.Uri;
+			INPROGRESS: vscode.Uri;
+			ERROR: vscode.Uri;
 		};
 	};
 
@@ -38,9 +39,9 @@ export class Resource {
 				ROCKET: context.asAbsolutePath(path.join('resources', 'icons', 'reactions', 'rocket.png')),
 			},
 			copilot: {
-				SUCCESS: context.asAbsolutePath(path.join('resources', 'icons', 'copilot-success.svg')),
-				INPROGRESS: context.asAbsolutePath(path.join('resources', 'icons', 'copilot-in-progress.svg')),
-				ERROR: context.asAbsolutePath(path.join('resources', 'icons', 'copilot-error.svg')),
+				SUCCESS: DataUri.copilotSuccessAsImageDataURI(),
+				INPROGRESS: DataUri.copilotInProgressAsImageDataURI(),
+				ERROR: DataUri.copilotErrorAsImageDataURI(),
 			}
 		};
 	}
