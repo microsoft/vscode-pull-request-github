@@ -16,6 +16,7 @@ import * as PersistentState from '../common/persistentState';
 import { GITHUB_ENTERPRISE, URI } from '../common/settingKeys';
 import { initBasedOnSettingChange } from '../common/settingsUtils';
 import { ITelemetry } from '../common/telemetry';
+import { VerificationCode, VerificationCodeManager, VerificationCodeOptions } from '../common/utils';
 import { agent } from '../env/node/net';
 import { IAccount } from './interface';
 import { LoggingApolloClient, LoggingOctokit, RateLogger } from './loggingOctokit';
@@ -61,6 +62,11 @@ export class CredentialStore extends Disposable {
 	private _scopesEnterprise: string[] = SCOPES_OLD;
 	private _isSamling: boolean = false;
 
+	// Session timeout and verification code management
+	private _sessionTimeouts: Map<string, NodeJS.Timeout> = new Map();
+	private _verificationCodes: Map<string, VerificationCode> = new Map();
+	private static readonly SESSION_TIMEOUT_MINUTES = 60; // Default session timeout
+
 	private _onDidChangeSessions: vscode.EventEmitter<vscode.AuthenticationSessionsChangeEvent> = new vscode.EventEmitter();
 	public readonly onDidChangeSessions = this._onDidChangeSessions.event;
 
@@ -69,6 +75,12 @@ export class CredentialStore extends Disposable {
 
 	private _onDidUpgradeSession: vscode.EventEmitter<void> = new vscode.EventEmitter();
 	public readonly onDidUpgradeSession = this._onDidUpgradeSession.event;
+
+	private _onVerificationCodeGenerated: vscode.EventEmitter<{ sessionId: string; code: VerificationCode }> = new vscode.EventEmitter();
+	public readonly onVerificationCodeGenerated = this._onVerificationCodeGenerated.event;
+
+	private _onSessionTimeout: vscode.EventEmitter<{ sessionId: string; authProvider: AuthProvider }> = new vscode.EventEmitter();
+	public readonly onSessionTimeout = this._onSessionTimeout.event;
 
 	constructor(private readonly _telemetry: ITelemetry, private readonly context: vscode.ExtensionContext) {
 		super();
@@ -504,6 +516,186 @@ export class CredentialStore extends Disposable {
 		};
 		this.setCurrentUser(github);
 		return github;
+	}
+
+	/**
+	 * Generates a verification code for enhanced authentication
+	 * @param sessionId - The session identifier
+	 * @param options - Verification code options
+	 * @returns The generated verification code
+	 */
+	public generateVerificationCode(sessionId: string, options?: VerificationCodeOptions): VerificationCode {
+		const verificationCode = VerificationCodeManager.generateVerificationCode(options);
+		this._verificationCodes.set(sessionId, verificationCode);
+		
+		// Fire event for UI to handle showing the verification code
+		this._onVerificationCodeGenerated.fire({ sessionId, code: verificationCode });
+		
+		Logger.appendLine(`Generated verification code for session ${sessionId}`, CredentialStore.ID);
+		return verificationCode;
+	}
+
+	/**
+	 * Validates a verification code for a given session
+	 * @param sessionId - The session identifier
+	 * @param inputCode - The code to validate
+	 * @returns Validation result with retry information
+	 */
+	public validateVerificationCode(sessionId: string, inputCode: string): { isValid: boolean; canRetry: boolean } {
+		const verificationCode = this._verificationCodes.get(sessionId);
+		if (!verificationCode) {
+			Logger.appendLine(`No verification code found for session ${sessionId}`, CredentialStore.ID);
+			return { isValid: false, canRetry: false };
+		}
+
+		const result = VerificationCodeManager.validateCode(verificationCode, inputCode);
+		
+		if (!result.canRetry) {
+			// Clean up expired or exhausted codes
+			this._verificationCodes.delete(sessionId);
+			Logger.appendLine(`Verification code expired or exhausted for session ${sessionId}`, CredentialStore.ID);
+		}
+
+		return result;
+	}
+
+	/**
+	 * Resends verification code for a session (generates a new one)
+	 * @param sessionId - The session identifier
+	 * @param options - Verification code options
+	 * @returns The new verification code if resend is allowed
+	 */
+	public resendVerificationCode(sessionId: string, options?: VerificationCodeOptions): VerificationCode | null {
+		const existingCode = this._verificationCodes.get(sessionId);
+		
+		// Only allow resend if the existing code is expired or doesn't exist
+		if (existingCode && !VerificationCodeManager.isExpired(existingCode)) {
+			const remainingTime = VerificationCodeManager.getRemainingTime(existingCode);
+			Logger.appendLine(`Cannot resend verification code for session ${sessionId}. ${remainingTime} minutes remaining.`, CredentialStore.ID);
+			return null;
+		}
+
+		// Generate new code
+		const newCode = this.generateVerificationCode(sessionId, options);
+		Logger.appendLine(`Resent verification code for session ${sessionId}`, CredentialStore.ID);
+		return newCode;
+	}
+
+	/**
+	 * Sets up session timeout for enhanced security
+	 * @param sessionId - The session identifier
+	 * @param authProvider - The authentication provider
+	 * @param timeoutMinutes - Timeout in minutes (optional)
+	 */
+	public setupSessionTimeout(sessionId: string, authProvider: AuthProvider, timeoutMinutes?: number): void {
+		const timeout = timeoutMinutes || CredentialStore.SESSION_TIMEOUT_MINUTES;
+		
+		// Clear any existing timeout for this session
+		this.clearSessionTimeout(sessionId);
+		
+		const timeoutHandle = setTimeout(() => {
+			Logger.appendLine(`Session ${sessionId} timed out after ${timeout} minutes`, CredentialStore.ID);
+			this.handleSessionTimeout(sessionId, authProvider);
+		}, timeout * 60 * 1000);
+
+		this._sessionTimeouts.set(sessionId, timeoutHandle);
+		Logger.appendLine(`Set session timeout for ${sessionId} (${timeout} minutes)`, CredentialStore.ID);
+	}
+
+	/**
+	 * Clears session timeout
+	 * @param sessionId - The session identifier
+	 */
+	public clearSessionTimeout(sessionId: string): void {
+		const timeoutHandle = this._sessionTimeouts.get(sessionId);
+		if (timeoutHandle) {
+			clearTimeout(timeoutHandle);
+			this._sessionTimeouts.delete(sessionId);
+			Logger.appendLine(`Cleared session timeout for ${sessionId}`, CredentialStore.ID);
+		}
+	}
+
+	/**
+	 * Handles session timeout by clearing the session and notifying listeners
+	 * @param sessionId - The session identifier
+	 * @param authProvider - The authentication provider
+	 */
+	private handleSessionTimeout(sessionId: string, authProvider: AuthProvider): void {
+		// Clear the session
+		if (authProvider === AuthProvider.github && this._sessionId === sessionId) {
+			this._githubAPI = undefined;
+			this._sessionId = undefined;
+		} else if (authProvider === AuthProvider.githubEnterprise && this._enterpriseSessionId === sessionId) {
+			this._githubEnterpriseAPI = undefined;
+			this._enterpriseSessionId = undefined;
+		}
+
+		// Clean up related data
+		this._verificationCodes.delete(sessionId);
+		this.clearSessionTimeout(sessionId);
+
+		// Fire timeout event
+		this._onSessionTimeout.fire({ sessionId, authProvider });
+	}
+
+	/**
+	 * Gets the verification code for a session (if exists and not expired)
+	 * @param sessionId - The session identifier
+	 * @returns The verification code or undefined
+	 */
+	public getVerificationCode(sessionId: string): VerificationCode | undefined {
+		const code = this._verificationCodes.get(sessionId);
+		if (code && !VerificationCodeManager.isExpired(code)) {
+			return code;
+		}
+		
+		// Clean up expired codes
+		if (code) {
+			this._verificationCodes.delete(sessionId);
+		}
+		
+		return undefined;
+	}
+
+	/**
+	 * Enhanced login with verification code support
+	 * @param authProviderId - The authentication provider
+	 * @param requireVerification - Whether to require verification code
+	 * @param verificationOptions - Options for verification code generation
+	 * @returns The GitHub API instance
+	 */
+	public async loginWithVerification(
+		authProviderId: AuthProvider, 
+		requireVerification: boolean = false,
+		verificationOptions?: VerificationCodeOptions
+	): Promise<GitHub | undefined> {
+		const github = await this.login(authProviderId);
+		
+		if (github && requireVerification) {
+			const sessionId = authProviderId === AuthProvider.github ? this._sessionId : this._enterpriseSessionId;
+			if (sessionId) {
+				this.generateVerificationCode(sessionId, verificationOptions);
+				this.setupSessionTimeout(sessionId, authProviderId);
+			}
+		}
+		
+		return github;
+	}
+
+	/**
+	 * Dispose override to clean up timeouts and verification codes
+	 */
+	public override dispose(): void {
+		// Clear all session timeouts
+		for (const [, timeoutHandle] of this._sessionTimeouts) {
+			clearTimeout(timeoutHandle);
+		}
+		this._sessionTimeouts.clear();
+		
+		// Clear all verification codes
+		this._verificationCodes.clear();
+		
+		super.dispose();
 	}
 }
 

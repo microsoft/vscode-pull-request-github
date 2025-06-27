@@ -220,6 +220,105 @@ export async function promiseWithTimeout<T>(promise: Promise<T>, ms: number): Pr
 	})]);
 }
 
+// Authentication verification utilities
+export interface VerificationCode {
+	code: string;
+	expiresAt: Date;
+	attempts: number;
+	maxAttempts: number;
+	createdAt: Date;
+}
+
+export interface VerificationCodeOptions {
+	expirationMinutes?: number;
+	maxAttempts?: number;
+	codeLength?: number;
+}
+
+export class VerificationCodeManager {
+	private static readonly DEFAULT_EXPIRATION_MINUTES = 10;
+	private static readonly DEFAULT_MAX_ATTEMPTS = 3;
+	private static readonly DEFAULT_CODE_LENGTH = 6;
+
+	/**
+	 * Generates a verification code with expiration handling
+	 */
+	public static generateVerificationCode(options: VerificationCodeOptions = {}): VerificationCode {
+		const {
+			expirationMinutes = this.DEFAULT_EXPIRATION_MINUTES,
+			maxAttempts = this.DEFAULT_MAX_ATTEMPTS,
+			codeLength = this.DEFAULT_CODE_LENGTH
+		} = options;
+
+		const code = this.generateNumericCode(codeLength);
+		const now = new Date();
+		const expiresAt = new Date(now.getTime() + (expirationMinutes * 60 * 1000));
+
+		return {
+			code,
+			expiresAt,
+			attempts: 0,
+			maxAttempts,
+			createdAt: now
+		};
+	}
+
+	/**
+	 * Checks if a verification code has expired
+	 */
+	public static isExpired(verificationCode: VerificationCode): boolean {
+		return new Date() > verificationCode.expiresAt;
+	}
+
+	/**
+	 * Checks if a verification code has exceeded maximum attempts
+	 */
+	public static hasExceededAttempts(verificationCode: VerificationCode): boolean {
+		return verificationCode.attempts >= verificationCode.maxAttempts;
+	}
+
+	/**
+	 * Validates a verification code and increments attempt count
+	 */
+	public static validateCode(verificationCode: VerificationCode, inputCode: string): { isValid: boolean; canRetry: boolean } {
+		verificationCode.attempts++;
+
+		if (this.isExpired(verificationCode)) {
+			return { isValid: false, canRetry: false };
+		}
+
+		if (this.hasExceededAttempts(verificationCode)) {
+			return { isValid: false, canRetry: false };
+		}
+
+		const isValid = verificationCode.code === inputCode;
+		const canRetry = !isValid && verificationCode.attempts < verificationCode.maxAttempts;
+
+		return { isValid, canRetry };
+	}
+
+	/**
+	 * Gets the remaining time in minutes before the code expires
+	 */
+	public static getRemainingTime(verificationCode: VerificationCode): number {
+		if (this.isExpired(verificationCode)) {
+			return 0;
+		}
+		const now = new Date();
+		const diff = verificationCode.expiresAt.getTime() - now.getTime();
+		return Math.ceil(diff / (60 * 1000));
+	}
+
+	private static generateNumericCode(length: number): string {
+		const digits = '0123456789';
+		let result = '';
+		for (let i = 0; i < length; i++) {
+			result += digits.charAt(Math.floor(Math.random() * digits.length));
+		}
+		return result;
+	}
+}
+
 export function dateFromNow(date: Date | string): string {
 	const djs = dayjs(date);
 
