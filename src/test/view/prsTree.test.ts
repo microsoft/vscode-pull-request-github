@@ -32,7 +32,6 @@ import { IAccount, ITeam } from '../../github/interface';
 import { asPromise } from '../../common/utils';
 import { CreatePullRequestHelper } from '../../view/createPullRequestHelper';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
-import { assertNonNullType } from 'graphql';
 
 describe('GitHub Pull Requests view', function () {
 	let sinon: SinonSandbox;
