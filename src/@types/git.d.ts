@@ -236,6 +236,10 @@ export interface Repository {
 	commit(message: string, opts?: CommitOptions): Promise<void>;
 	merge(ref: string): Promise<void>;
 	mergeAbort(): Promise<void>;
+	
+	stash(message?: string, includeUntracked?: boolean): Promise<void>;
+	stashPop(index?: number): Promise<void>;
+	stashApply(index?: number): Promise<void>;
 }
 
 export interface RemoteSource {

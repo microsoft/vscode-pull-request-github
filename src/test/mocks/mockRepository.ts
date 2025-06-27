@@ -331,4 +331,19 @@ export class MockRepository implements Repository {
 	mergeAbort(): Promise<void> {
 		return Promise.reject(new Error(`Unexpected mergeAbort`));
 	}
+
+	async stash(message?: string, includeUntracked?: boolean): Promise<void> {
+		// Mock implementation for stash
+		return Promise.resolve();
+	}
+
+	async stashPop(index?: number): Promise<void> {
+		// Mock implementation for stash pop
+		return Promise.resolve();
+	}
+
+	async stashApply(index?: number): Promise<void> {
+		// Mock implementation for stash apply
+		return Promise.resolve();
+	}
 }

@@ -209,6 +209,10 @@ export interface Repository {
 	add(paths: string[]): Promise<void>;
 	merge(ref: string): Promise<void>;
 	mergeAbort(): Promise<void>;
+	
+	stash(message?: string, includeUntracked?: boolean): Promise<void>;
+	stashPop(index?: number): Promise<void>;
+	stashApply(index?: number): Promise<void>;
 }
 
 /**
