@@ -626,7 +626,7 @@
 				},
 				"githubIssues.issueCompletionFormatScm": {
 					"type": "string",
-					"default": "${issueTitle} ${issueNumberLabel}",
+					"default": "${issueTitle}\nFixes ${issueNumberLabel}",
 					"markdownDescription": "%githubIssues.issueCompletionFormatScm.markdownDescription%"
 				},
 				"githubIssues.workingIssueFormatScm": {
