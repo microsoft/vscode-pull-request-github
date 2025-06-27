@@ -137,4 +137,81 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(panel0!.getCurrentTitle(), 'Pull Request #2000');
 		});
 	});
+
+	describe('PR overview sync', function () {
+		it('emits event when PR overview becomes active', async function () {
+			// Set up PR model
+			repo.addGraphQLPullRequest(builder => {
+				builder.pullRequest(response => {
+					response.repository(r => {
+						r.pullRequest(pr => pr.number(1000));
+					});
+				});
+			});
+
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+
+			// Listen for the event
+			let eventFired = false;
+			let eventPR: PullRequestModel | undefined;
+			const disposable = PullRequestOverviewPanel.onDidChangeActivePullRequest(pr => {
+				eventFired = true;
+				eventPR = pr;
+			});
+
+			try {
+				// Create and show the panel - this should trigger the event
+				await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel);
+
+				// Verify event was fired with correct PR
+				assert.strictEqual(eventFired, true, 'Event should have been fired when PR overview became active');
+				assert.strictEqual(eventPR?.number, 1000, 'Event should contain the correct PR model');
+			} finally {
+				disposable.dispose();
+			}
+		});
+
+		it('emits event when panel visibility changes', async function () {
+			// Set up PR model
+			repo.addGraphQLPullRequest(builder => {
+				builder.pullRequest(response => {
+					response.repository(r => {
+						r.pullRequest(pr => pr.number(2000));
+					});
+				});
+			});
+
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(2000).build(), repo);
+			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+
+			// Create panel first
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel);
+			const panel = PullRequestOverviewPanel.currentPanel;
+			assert.notStrictEqual(panel, undefined);
+
+			// Listen for the event
+			let eventCount = 0;
+			let lastEventPR: PullRequestModel | undefined;
+			const disposable = PullRequestOverviewPanel.onDidChangeActivePullRequest(pr => {
+				eventCount++;
+				lastEventPR = pr;
+			});
+
+			try {
+				// Reset event count to track only visibility changes
+				eventCount = 0;
+
+				// Simulate panel becoming visible - this should trigger the event
+				// We simulate this by calling the method directly since testing webview visibility is complex
+				(panel as any).onDidChangeViewState({ webviewPanel: { visible: true } });
+
+				// Verify event was fired
+				assert.strictEqual(eventCount, 1, 'Event should have been fired when panel became visible');
+				assert.strictEqual(lastEventPR?.number, 2000, 'Event should contain the correct PR model');
+			} finally {
+				disposable.dispose();
+			}
+		});
+	});
 });
