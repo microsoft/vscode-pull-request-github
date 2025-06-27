@@ -48,9 +48,8 @@ import { PRNode } from './view/treeNodes/pullRequestNode';
 import { RepositoryChangesNode } from './view/treeNodes/repositoryChangesNode';
 
 // Modal dialog options for handling uncommitted changes during PR checkout
-const STAGE_CHANGES = vscode.l10n.t('Stage changes');
+const STASH_CHANGES = vscode.l10n.t('Stash changes');
 const DISCARD_CHANGES = vscode.l10n.t('Discard changes');
-const CANCEL_CHECKOUT = vscode.l10n.t('Cancel');
 
 /**
  * Shows a modal dialog when there are uncommitted changes during PR checkout
@@ -60,7 +59,7 @@ const CANCEL_CHECKOUT = vscode.l10n.t('Cancel');
 async function handleUncommittedChanges(repository: Repository): Promise<boolean> {
 	const hasWorkingTreeChanges = repository.state.workingTreeChanges.length > 0;
 	const hasIndexChanges = repository.state.indexChanges.length > 0;
-	
+
 	if (!hasWorkingTreeChanges && !hasIndexChanges) {
 		return true; // No uncommitted changes, proceed
 	}
@@ -71,24 +70,24 @@ async function handleUncommittedChanges(repository: Repository): Promise<boolean
 			modal: true,
 			detail: vscode.l10n.t('Choose how to handle your uncommitted changes before checking out the pull request.'),
 		},
-		STAGE_CHANGES,
+		STASH_CHANGES,
 		DISCARD_CHANGES,
-		CANCEL_CHECKOUT,
 	);
 
-	if (!modalResult || modalResult === CANCEL_CHECKOUT) {
+	if (!modalResult) {
 		return false; // User cancelled
 	}
 
 	try {
-		if (modalResult === STAGE_CHANGES) {
-			// Stage all changes (working tree changes + any unstaged changes)
+		if (modalResult === STASH_CHANGES) {
+			// Stash all changes (working tree changes + any unstaged changes)
 			const allChangedFiles = [
 				...repository.state.workingTreeChanges.map(change => change.uri.fsPath),
 				...repository.state.indexChanges.map(change => change.uri.fsPath),
 			];
 			if (allChangedFiles.length > 0) {
 				await repository.add(allChangedFiles);
+				await vscode.commands.executeCommand('git.stash', repository);
 			}
 		} else if (modalResult === DISCARD_CHANGES) {
 			// Discard all working tree changes
