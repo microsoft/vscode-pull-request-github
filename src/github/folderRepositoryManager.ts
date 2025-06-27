@@ -41,7 +41,7 @@ import { ConflictModel } from './conflictGuide';
 import { ConflictResolutionCoordinator } from './conflictResolutionCoordinator';
 import { Conflict, ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
-import { GitHubRepository, GraphQLError, GraphQLErrorType, IMetadata, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
+import { CopilotWorkingStatus, GitHubRepository, GraphQLError, GraphQLErrorType, IMetadata, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
 import { MergeMethod as GraphQLMergeMethod, MergePullRequestInput, MergePullRequestResponse, PullRequestResponse, PullRequestState, UserResponse } from './graphql';
 import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
@@ -2539,6 +2539,12 @@ export class FolderRepositoryManager extends Disposable {
 
 	private async promptPullBrach(pr: PullRequestModel, branch: Branch, autoStashSetting?: boolean) {
 		if (!this._updateMessageShown || autoStashSetting) {
+			// When the PR is from Copilot, we only want to show the notification when Copilot is done working
+			const copilotStatus = await pr.githubRepository.copilotWorkingStatus(pr);
+			if (copilotStatus === CopilotWorkingStatus.InProgress) {
+				return;
+			}
+
 			this._updateMessageShown = true;
 			const pull = vscode.l10n.t('Pull');
 			const always = vscode.l10n.t('Always Pull');
