@@ -1002,23 +1002,28 @@ export function parseSelectRestTimelineEvents(
 	events: OctokitCommon.ListEventsForTimelineResponse[]
 ): Common.TimelineEvent[] {
 	const parsedEvents: Common.TimelineEvent[] = [];
-	const sessionLink: Common.SessionPullInfo = {
+
+	const prSessionLink = {
 		host: issueModel.githubRepository.remote.gitProtocol.host,
 		owner: issueModel.githubRepository.remote.owner,
 		repo: issueModel.githubRepository.remote.repositoryName,
-		pullId: issueModel.number
+		pullId: issueModel.number,
 	};
-	let indexLastStart = -1;
+
+	let sessionIndex = 0;
 	for (const event of events) {
 		const eventNode = event as { created_at?: string; node_id?: string; actor: RestAccount };
 		if (eventNode.created_at && eventNode.node_id) {
 			if (event.event === 'copilot_work_started') {
-				indexLastStart = parsedEvents.length;
 				parsedEvents.push({
 					id: eventNode.node_id,
 					event: Common.EventType.CopilotStarted,
 					createdAt: eventNode.created_at,
-					onBehalfOf: parseAccount(eventNode.actor)
+					onBehalfOf: parseAccount(eventNode.actor),
+					sessionLink: {
+						...prSessionLink,
+						sessionIndex
+					}
 				});
 			} else if (event.event === 'copilot_work_finished') {
 				parsedEvents.push({
@@ -1027,21 +1032,23 @@ export function parseSelectRestTimelineEvents(
 					createdAt: eventNode.created_at,
 					onBehalfOf: parseAccount(eventNode.actor)
 				});
+				sessionIndex++;
 			} else if (event.event === 'copilot_work_finished_failure') {
+				sessionIndex++;
 				parsedEvents.push({
 					id: eventNode.node_id,
 					event: Common.EventType.CopilotFinishedError,
 					createdAt: eventNode.created_at,
 					onBehalfOf: parseAccount(eventNode.actor),
-					sessionLink
+					sessionLink: {
+						...prSessionLink,
+						sessionIndex
+					}
 				});
 			}
 		}
 	}
-	if (indexLastStart > -1) {
-		const startEvent: Common.CopilotStartedEvent = parsedEvents[indexLastStart] as Common.CopilotStartedEvent;
-		startEvent.sessionLink = sessionLink;
-	}
+
 	return parsedEvents;
 }
 

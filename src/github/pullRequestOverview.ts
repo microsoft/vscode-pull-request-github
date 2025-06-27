@@ -13,7 +13,7 @@ import { disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { DEFAULT_MERGE_METHOD, PR_SETTINGS_NAMESPACE } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { EventType, ReviewEvent, SessionPullInfo, TimelineEvent } from '../common/timelineEvent';
+import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
 import { SessionLogViewManager } from '../view/sessionLogView';
@@ -360,7 +360,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			case 'pr.revert':
 				return this.revert(message);
 			case 'pr.open-session-log':
-				return this.openSessionLog(message.args.link);
+				return this.openSessionLog(message);
 			case 'pr.cancel-coding-agent':
 				return this.cancelCodingAgent(message);
 		}
@@ -458,9 +458,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async openSessionLog(_message: IRequestMessage<{ link: SessionPullInfo }>): Promise<void> {
+	private async openSessionLog(_message: IRequestMessage<{ link: SessionLinkInfo }>): Promise<void> {
 		try {
-			SessionLogViewManager.instance?.openForPull(this._item);
+			await SessionLogViewManager.instance?.openForPull(this._item, _message.args.link);
 		} catch (e) {
 			Logger.error(`Open session log view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}

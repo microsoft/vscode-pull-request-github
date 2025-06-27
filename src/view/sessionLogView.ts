@@ -8,7 +8,7 @@ import type * as messages from '../../webviews/sessionLogView/messages';
 import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
-import { SessionPullInfo } from '../common/timelineEvent';
+import { SessionLinkInfo, SessionPullInfo } from '../common/timelineEvent';
 import { CopilotApi, getCopilotApi } from '../github/copilotApi';
 import { CopilotRemoteAgentManager, IAPISessionLogs } from '../github/copilotRemoteAgent';
 import { CredentialStore } from '../github/credentials';
@@ -82,11 +82,17 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 		super.dispose();
 	}
 
-	async openForPull(pullRequest: PullRequestModel): Promise<void> {
+	async openForPull(pullRequest: PullRequestModel, link: SessionLinkInfo): Promise<void> {
 		try {
-			const sessionLogs = await this.copilotAgentManager.getMostRecentSessionLogsFromPullRequest(pullRequest.id, false);
+			// TODO: We should not block opening the webview here. When does this actually fail?
+
+			// Session indexes are oldest to newest
+			// But the sessions api returns newest to oldest
+			// Use a reverse index to get the correct session
+			const sessionLogs = await this.copilotAgentManager.getSessionLogFromPullRequest(pullRequest.id, -1 - link.sessionIndex, false);
 			if (!sessionLogs) {
-				throw new Error('No sessions found for this pull request.');
+				vscode.window.showErrorMessage(vscode.l10n.t('Could not find session.'));
+				return;
 			}
 
 			const existingPanel = this.getPanelForPullRequest(pullRequest);

@@ -3,10 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { SessionPullInfo } from '../../src/common/timelineEvent';
+import { SessionLinkInfo } from '../../src/common/timelineEvent';
 import { SessionInfo } from './sessionsApi';
 
-export type PullInfo = SessionPullInfo & {
+export type PullInfo = SessionLinkInfo & {
 	title: string;
 };
 

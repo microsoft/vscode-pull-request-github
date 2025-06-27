@@ -52,24 +52,21 @@ const SessionHeader: React.FC<SessionHeaderProps> = ({ info, pullInfo }) => {
 		<header className="session-header">
 			<div className='session-header-title'>
 				<h1>Coding Agent Session Log</h1>
+				<h2>{info.name}</h2>
 
 				{pullInfo && <>
-					<h2>
-						<a onClick={() => {
+					<h3 className='pull-request-info'>
+						<a className='pull-request-link' onClick={() => {
 							vscode.postMessage({ type: 'openPullRequestView' });
 						}} title='Back to pull request'>
 							<span className="icon"><i className={'codicon codicon-git-pull-request'}></i></span> {pullInfo.title} <span className="pull-request-id">#{pullInfo.pullId}</span>
 						</a>
-					</h2>
+					</h3>
 
 					<nav>
-						<ul>
-							<li>
-								<button onClick={() => {
-									vscode.postMessage({ type: 'openOnWeb' });
-								}}>Open on GitHub</button>
-							</li>
-						</ul>
+						<button onClick={() => {
+							vscode.postMessage({ type: 'openOnWeb' });
+						}} title='Open session log on GitHub.com'>Open on GitHub</button>
 					</nav>
 				</>}
 			</div>
