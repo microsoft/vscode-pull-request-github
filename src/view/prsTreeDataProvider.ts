@@ -82,6 +82,12 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 					this._view.badge = undefined;
 					this._notificationClearTimeout = undefined;
 				}, 5000);
+
+				// Sync with currently active PR when view becomes visible
+				const currentPR = PullRequestOverviewPanel.getCurrentPullRequest();
+				if (currentPR) {
+					this.syncWithActivePullRequest(currentPR);
+				}
 			}
 		}));
 
@@ -110,7 +116,10 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 		// Listen for PR overview panel changes to sync the tree view
 		this._register(PullRequestOverviewPanel.onVisible(pullRequest => {
-			this.syncWithActivePullRequest(pullRequest);
+			// Only sync if view is already visible (don't open the view)
+			if (this._view.visible) {
+				this.syncWithActivePullRequest(pullRequest);
+			}
 		}));
 
 		this._children = [];
@@ -185,7 +194,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	 */
 	private async syncWithActivePullRequest(pullRequest: PullRequestModel): Promise<void> {
 		const alreadySelected = this._view.selection.find(child => child instanceof PRNode && (child.pullRequestModel.number === pullRequest.number) && (child.pullRequestModel.remote.owner === pullRequest.remote.owner) && (child.pullRequestModel.remote.repositoryName === pullRequest.remote.repositoryName));
-		if (alreadySelected || !this._view.visible) {
+		if (alreadySelected) {
 			return;
 		}
 		try {

@@ -213,5 +213,23 @@ describe('PullRequestOverview', function () {
 				disposable.dispose();
 			}
 		});
+
+		it('getCurrentPullRequest should return the current PR when panel exists', async function () {
+			// Initially no current panel
+			assert.strictEqual(PullRequestOverviewPanel.getCurrentPullRequest(), undefined, 'Should return undefined when no panel exists');
+
+			// Create a PR
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(3000).title('Test getCurrentPullRequest').build(), repo);
+			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+
+			// Create and show the panel
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel);
+
+			// Should now return the current PR
+			const currentPR = PullRequestOverviewPanel.getCurrentPullRequest();
+			assert.notStrictEqual(currentPR, undefined, 'Should return the current PR when panel exists');
+			assert.strictEqual(currentPR?.number, 3000, 'Should return the correct PR model');
+			assert.strictEqual(currentPR?.title, 'Test getCurrentPullRequest', 'Should return the correct PR model');
+		});
 	});
 });

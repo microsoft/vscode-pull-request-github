@@ -106,6 +106,13 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
+	/**
+	 * Get the currently active pull request from the current panel
+	 */
+	public static getCurrentPullRequest(): PullRequestModel | undefined {
+		return this.currentPanel?._item;
+	}
+
 	protected constructor(
 		telemetry: ITelemetry,
 		extensionUri: vscode.Uri,

@@ -284,5 +284,56 @@ describe('GitHub Pull Requests view', function () {
 				// Note: reveal might not be called if PR node is not found in tree, which is expected in this test setup
 			}
 		});
+
+		it('should sync tree view when view becomes visible with active PR', async function () {
+			// Set up repository and remotes
+			const remote = new GitHubRemote('origin', 'https://github.com/owner/repo', new Protocol('https://github.com/owner/repo'), GitHubServerType.GitHubDotCom);
+			const repository = new MockRepository();
+			repository.addRemote('origin', 'https://github.com/owner/repo');
+
+			// Set up github repository
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+
+			// Set up PR using the builder pattern
+			const pr = gitHubRepository.addGraphQLPullRequest(builder => {
+				builder.pullRequest(pr => {
+					pr.repository(r =>
+						r.owner(o => o.login('owner'))
+							.name('repo')
+					).number(123)
+						.title('Test PR for visibility sync')
+						.state('OPEN');
+				});
+			});
+
+			const prData = await parseGraphQLPullRequest(pr, gitHubRepository);
+			const pullRequestModel = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prData);
+
+			// Set up folder repository manager
+			const folderRepoManager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper);
+			folderRepoManager.insertGitHubRepository(gitHubRepository);
+			reposManager.insertFolderManager(folderRepoManager);
+			
+			// Stub authentication
+			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+			await folderRepoManager.updateRepositories();
+
+			// Initialize provider
+			provider.initialize([], credentialStore);
+
+			// Mock PullRequestOverviewPanel.getCurrentPullRequest to return our PR
+			const PullRequestOverviewPanel = require('../../github/pullRequestOverview').PullRequestOverviewPanel;
+			sinon.stub(PullRequestOverviewPanel, 'getCurrentPullRequest').returns(pullRequestModel);
+
+			// Spy on syncWithActivePullRequest to verify it gets called
+			const syncSpy = sinon.spy(provider as any, 'syncWithActivePullRequest');
+
+			// Simulate view becoming visible
+			const onDidChangeVisibilityCallback = (provider as any)._view.onDidChangeVisibility.args[0][0];
+			await onDidChangeVisibilityCallback({ visible: true });
+
+			// Verify that syncWithActivePullRequest was called with the correct PR
+			assert(syncSpy.calledWith(pullRequestModel), 'syncWithActivePullRequest should be called with the current PR when view becomes visible');
+		});
 	});
 });
