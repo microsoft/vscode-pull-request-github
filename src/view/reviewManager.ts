@@ -632,6 +632,11 @@ export class ReviewManager extends Disposable {
 		this._activePrViewCoordinator.show(pr);
 		if (updateLayout) {
 			const focusedMode = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<'firstDiff' | 'overview' | 'multiDiff' | false>(FOCUSED_MODE);
+			if (focusedMode && pr.fileChanges.size === 0) {
+				// If there are no file changes, the only useful thing to show is the overview
+				return this.openDescription();
+			}
+
 			if (focusedMode === 'firstDiff') {
 				if (this._reviewModel.localFileChanges.length) {
 					this.openDiff();
