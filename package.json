@@ -707,6 +707,12 @@
 						"multiDiff",
 						false
 					],
+					"enumDescriptions": [
+						"%githubPullRequests.focusedMode.firstDiff%",
+						"%githubPullRequests.focusedMode.overview%",
+						"%githubPullRequests.focusedMode.multiDiff%",
+						"%githubPullRequests.focusedMode.false%"
+					],
 					"default": "multiDiff",
 					"description": "%githubPullRequests.focusedMode.description%"
 				},
