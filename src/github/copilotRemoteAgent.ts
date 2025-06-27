@@ -196,6 +196,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		// https://github.com/microsoft/vscode-copilot/issues/18918
 		const userPrompt: string | undefined = args.userPrompt;
 		const summary: string | undefined = args.summary;
+		const source: string | undefined = args.source;
 
 		if (!userPrompt || userPrompt.trim().length === 0) {
 			return;
@@ -216,7 +217,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		let autoPushAndCommit = false;
 		const message = vscode.l10n.t('GitHub Coding Agent will continue your work in \'{0}\'', repoName);
-		if (hasChanges && this.autoCommitAndPushEnabled()) {
+		if (source !== 'prompt' && hasChanges && this.autoCommitAndPushEnabled()) {
 			const modalResult = await vscode.window.showInformationMessage(
 				message,
 				{
@@ -242,7 +243,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 		} else {
 			const modalResult = await vscode.window.showInformationMessage(
-				message,
+				(source !== 'prompt' ? message : vscode.l10n.t('GitHub Coding Agent will implement the specification outlined in this prompt file')),
 				{
 					modal: true,
 				},
@@ -271,6 +272,17 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 
 		const { webviewUri, link, number } = result;
+
+		if (source === 'prompt') {
+			const VIEW = vscode.l10n.t('View');
+			const finished = vscode.l10n.t('Coding agent has begun work on your prompt in #{0}', number);
+			vscode.window.showInformationMessage(finished, VIEW).then((value) => {
+				if (value === VIEW) {
+					vscode.commands.executeCommand('vscode.open', webviewUri);
+				}
+			});
+		}
+
 		// allow-any-unicode-next-line
 		return vscode.l10n.t('🚀 Coding agent will continue work in [#{0}]({1}).  Track progress [here]({2}).', number, link, webviewUri.toString());
 	}
