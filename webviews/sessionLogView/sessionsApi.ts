@@ -64,7 +64,7 @@ export function parseSessionLogs(rawText: string): SessionResponseLogChunk[] {
 
 	return parts as SessionResponseLogChunk[];
 }
-// Utility functions
+
 export function parseDiff(content: string): { content: string; fileA: string | undefined; fileB: string | undefined; } | undefined {
 	const lines = content.split(/\r?\n/g);
 	let fileA: string | undefined;
@@ -90,8 +90,8 @@ export function parseDiff(content: string): { content: string; fileA: string | u
 
 	return {
 		content: lines.slice(startDiffLineIndex).join('\n'),
-		fileA,
-		fileB
+		fileA: typeof fileA === 'string' ? '/' + fileA : undefined,
+		fileB: typeof fileB === 'string' ? '/' + fileB : undefined
 	};
 }
 

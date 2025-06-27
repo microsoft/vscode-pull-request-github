@@ -19,6 +19,7 @@ interface CodeViewProps {
 
 export const CodeView: React.FC<CodeViewProps> = ({ label, description, content }) => {
 	const [open, setOpen] = React.useState<boolean>(true);
+	const [hasExpandableContent, setHasExpandableContent] = React.useState<boolean>(false);
 	const [expanded, setExpanded] = React.useState<boolean>(false);
 	const [editor, setEditor] = React.useState<monaco.editor.IStandaloneCodeEditor | undefined>(undefined);
 
@@ -47,7 +48,6 @@ export const CodeView: React.FC<CodeViewProps> = ({ label, description, content 
 			scrollBeyondLastLine: false,
 			lineNumbers: 'off',
 			renderLineHighlight: 'none',
-			automaticLayout: true,
 			fontSize: 12,
 			wordWrap: 'on',
 			rulers: [],
@@ -57,43 +57,59 @@ export const CodeView: React.FC<CodeViewProps> = ({ label, description, content 
 		});
 
 		setEditor(editor);
-		updateEditorHeight(editor);
+		updateEditorDimensions(editor);
 
-		// Cleanup
+		// Check if content exceeds collapsed height and should show expand button
+		setHasExpandableContent(editor.getContentHeight() > collapsedHeight);
+
+		// Listen for width changes and relayout editor
+		let lastObservedWidth = editorContainerRef.current.clientWidth;
+		const resizeObserver = new ResizeObserver(entries => {
+			const newWidth = entries.at(0)?.contentRect.width;
+			if (newWidth && newWidth !== lastObservedWidth) {
+				lastObservedWidth = newWidth;
+				updateEditorDimensions(editor, lastObservedWidth);
+			}
+		});
+		resizeObserver.observe(editorContainerRef.current);
+
 		return () => {
+			resizeObserver.disconnect();
 			if (editor) {
 				editor.dispose();
 				setEditor(undefined);
 			}
 		};
+
 	}, [editorContainerRef]);
 
 	// Update editor height when expanded state changes
 	React.useEffect(() => {
 		if (editor) {
-			updateEditorHeight(editor);
+			updateEditorDimensions(editor);
 		}
 	}, [expanded]);
 
-	const updateEditorHeight = (editorInstance: monaco.editor.IStandaloneCodeEditor) => {
-		if (!editorContainerRef.current) return;
+	const updateEditorDimensions = (editorInstance: monaco.editor.IStandaloneCodeEditor, containerWidthHint?: number) => {
+		if (!editorContainerRef.current) {
+			return;
+		}
 
 		const contentHeight = editorInstance.getContentHeight();
-		const width = editorContainerRef.current.clientWidth || 300;
+		const width = containerWidthHint ?? (editorContainerRef.current.clientWidth || 300);
 
 		if (expanded) {
 			if (editorContainerRef.current) {
 				editorContainerRef.current.style.height = `${contentHeight}px`;
 			}
-			editorInstance.layout({ width, height: contentHeight });
 		} else {
 			const newContentHeight = Math.min(contentHeight, collapsedHeight);
 			if (editorContainerRef.current) {
 				editorContainerRef.current.style.height = `${newContentHeight}px`;
 			}
-			// Always lay the editor out for the full height
-			editorInstance.layout({ width, height: contentHeight });
 		}
+
+		editorInstance.layout({ width, height: contentHeight });
 	};
 
 	const toggleExpanded = () => {
@@ -103,9 +119,6 @@ export const CodeView: React.FC<CodeViewProps> = ({ label, description, content 
 	const toggleOpen = () => {
 		setOpen(!open);
 	};
-
-	// Check if content exceeds collapsed height and should show expand button
-	const hasExpandableContent = editor ? editor.getContentHeight() > collapsedHeight : false;
 
 	return (
 		<div className={`codeview-wrapper ${!expanded && hasExpandableContent ? 'collapsed' : ''}`}>

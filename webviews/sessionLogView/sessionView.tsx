@@ -130,12 +130,13 @@ const SessionLog: React.FC<SessionLogProps> = ({ logs }) => {
 					if (content) {
 						const file = content.fileA ?? content.fileB;
 						const lang = (file && getLanguageForResource(file)) ?? 'plaintext';
+						const fileLabel = file && toFileLabel(file);
 
 						return (
 							<CodeView
 								key={`view-${index}`}
-								label="View"
-								description={file && toFileLabel(file)}
+								label={fileLabel === '' ? 'View repository' : 'View'}
+								description={fileLabel}
 								content={{ value: content.content, lang }}
 							/>
 						);
@@ -145,7 +146,7 @@ const SessionLog: React.FC<SessionLogProps> = ({ logs }) => {
 						<CodeView
 							key={`edit-${index}`}
 							label="Edit"
-							description={args.path}
+							description={args.path && toFileLabel(args.path)}
 							content={{ value: choice.delta.content, lang: 'diff' }}
 						/>
 					);
@@ -168,11 +169,22 @@ const SessionLog: React.FC<SessionLogProps> = ({ logs }) => {
 					/>
 				);
 			} else if (name === 'bash') {
+				let command: string | undefined;
+				try {
+					const args = choice.delta.tool_calls.at(0)?.function.arguments;
+					command = args && JSON.parse(args).command;
+					if (command) {
+						command = '$ ' + command;
+					}
+				} catch (error) {
+					console.warn(`Failed to parse bash command arguments: ${error}`);
+				}
+
 				return (
 					<CodeView
 						key={`bash-${index}`}
 						label="Run Bash command"
-						content={{ value: choice.delta.content, lang: 'markdown' }}
+						content={{ value: [command, choice.delta.content].filter(Boolean).join('\n'), lang: 'bash' }}
 					/>
 				);
 			}
@@ -252,6 +264,7 @@ function getLanguageForResource(filePath: string): string | undefined {
 
 
 function toFileLabel(file: string): string {
+	// File paths are absolute and look like: `/home/runner/work/repo/repo/<path>`
 	const parts = file.split('/');
-	return parts.slice(5).join('/');
+	return parts.slice(6).join('/');
 }

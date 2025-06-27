@@ -271,7 +271,7 @@ class SessionLogView extends Disposable {
 				<meta charset="UTF-8">
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				<title>${vscode.l10n.t('Session Log')}</title>
-				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' ${this.webviewPanel.webview.cspSource}; script-src ${this.webviewPanel.webview.cspSource} 'unsafe-eval'; font-src ${this.webviewPanel.webview.cspSource};">
+				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' ${this.webviewPanel.webview.cspSource}; script-src ${this.webviewPanel.webview.cspSource} 'unsafe-eval' blob:; font-src ${this.webviewPanel.webview.cspSource};">
 			</head>
 			<body>
 				<div id="app"></div>
