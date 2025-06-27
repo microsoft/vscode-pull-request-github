@@ -357,23 +357,27 @@ export class ReviewManager extends Disposable {
 	}
 
 	private async checkGitHubForPrBranch(branch: Branch): Promise<(PullRequestMetadata & { model: PullRequestModel }) | undefined> {
-
-		let branchToCheck: Branch;
-		if (this._repository.state.HEAD && (branch.name === this._repository.state.HEAD.name)) {
-			branchToCheck = this._repository.state.HEAD;
-		} else {
-			branchToCheck = branch;
-		}
-		const { remoteUrl: url, upstreamBranchName, remoteName } = await this.getUpstreamUrlAndName(branchToCheck);
-		const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub(branchToCheck, remoteName, url, upstreamBranchName);
-		if (metadataFromGithub) {
-			Logger.appendLine(`Found matching pull request metadata on GitHub for current branch ${branch.name}. Repo: ${metadataFromGithub.owner}/${metadataFromGithub.repositoryName} PR: ${metadataFromGithub.prNumber}`, this.id);
-			await PullRequestGitHelper.associateBranchWithPullRequest(
-				this._repository,
-				metadataFromGithub.model,
-				branch.name!,
-			);
-			return metadataFromGithub;
+		try {
+			let branchToCheck: Branch;
+			if (this._repository.state.HEAD && (branch.name === this._repository.state.HEAD.name)) {
+				branchToCheck = this._repository.state.HEAD;
+			} else {
+				branchToCheck = branch;
+			}
+			const { remoteUrl: url, upstreamBranchName, remoteName } = await this.getUpstreamUrlAndName(branchToCheck);
+			const metadataFromGithub = await this._folderRepoManager.getMatchingPullRequestMetadataFromGitHub(branchToCheck, remoteName, url, upstreamBranchName);
+			if (metadataFromGithub) {
+				Logger.appendLine(`Found matching pull request metadata on GitHub for current branch ${branch.name}. Repo: ${metadataFromGithub.owner}/${metadataFromGithub.repositoryName} PR: ${metadataFromGithub.prNumber}`, this.id);
+				await PullRequestGitHelper.associateBranchWithPullRequest(
+					this._repository,
+					metadataFromGithub.model,
+					branch.name!,
+				);
+				return metadataFromGithub;
+			}
+		} catch (e) {
+			Logger.warn(`Failed to check GitHub for PR branch: ${e.message}`, this.id);
+			return undefined;
 		}
 	}
 
@@ -440,13 +444,6 @@ export class ReviewManager extends Disposable {
 			return;
 		}
 		Logger.appendLine(`Found matching pull request metadata for current branch ${branch.name}. Repo: ${matchingPullRequestMetadata.owner}/${matchingPullRequestMetadata.repositoryName} PR: ${matchingPullRequestMetadata.prNumber}`, this.id);
-
-		const remote = branch.upstream ? branch.upstream.remote : null;
-		if (!remote) {
-			Logger.appendLine(`Current branch ${this._repository.state.HEAD.name} hasn't setup remote yet`, this.id);
-			await this.clear(true);
-			return;
-		}
 
 		// we switch to another PR, let's clean up first.
 		Logger.appendLine(
