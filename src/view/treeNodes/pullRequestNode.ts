@@ -8,7 +8,6 @@ import { Repository } from '../../api/api';
 import { getCommentingRanges } from '../../common/commentingRanges';
 import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
-import { Resource } from '../../common/resources';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE, SHOW_PULL_REQUEST_NUMBER_IN_TREE } from '../../common/settingKeys';
 import { createPRNodeUri, DataUri, fromPRUri, Schemes } from '../../common/uri';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
@@ -17,6 +16,7 @@ import { NotificationProvider } from '../../github/notifications';
 import { IResolvedPullRequestModel, PullRequestModel } from '../../github/pullRequestModel';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../fileChangeModel';
 import { getInMemPRFileSystemProvider, provideDocumentContentForChangeModel } from '../inMemPRContentProvider';
+import { loadCurrentThemeData } from '../theme';
 import { DirectoryTreeNode } from './directoryTreeNode';
 import { InMemFileChangeNode, RemoteFileChangeNode } from './fileChangeNode';
 import { TreeNode, TreeNodeParent } from './treeNode';
@@ -263,21 +263,22 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 
 	private async _getIcon(): Promise<vscode.Uri | vscode.ThemeIcon | { light: string | vscode.Uri; dark: string | vscode.Uri }> {
 		const copilotWorkingStatus = await this.pullRequestModel.githubRepository.copilotWorkingStatus(this.pullRequestModel);
+		const theme = await loadCurrentThemeData();
 		switch (copilotWorkingStatus) {
 			case CopilotWorkingStatus.InProgress:
 				return {
-					light: Resource.icons.copilot.INPROGRESS,
-					dark: Resource.icons.copilot.INPROGRESS
+					light: DataUri.copilotInProgressAsImageDataURI(theme.colors['icon.foreground'], theme.colors['list.warningForeground']),
+					dark: DataUri.copilotInProgressAsImageDataURI(theme.colors['icon.foreground'], theme.colors['list.warningForeground'])
 				};
 			case CopilotWorkingStatus.Done:
 				return {
-					light: Resource.icons.copilot.SUCCESS,
-					dark: Resource.icons.copilot.SUCCESS
+					light: DataUri.copilotSuccessAsImageDataURI(theme.colors['icon.foreground'], theme.colors['notebookStatusSuccessIcon.foreground']),
+					dark: DataUri.copilotSuccessAsImageDataURI(theme.colors['icon.foreground'], theme.colors['notebookStatusSuccessIcon.foreground'])
 				};
 			case CopilotWorkingStatus.Error:
 				return {
-					light: Resource.icons.copilot.ERROR,
-					dark: Resource.icons.copilot.ERROR
+					light: DataUri.copilotErrorAsImageDataURI(theme.colors['icon.foreground'], theme.colors['list.errorForeground']),
+					dark: DataUri.copilotErrorAsImageDataURI(theme.colors['icon.foreground'], theme.colors['list.errorForeground'])
 				};
 			case CopilotWorkingStatus.NotCopilotIssue:
 			default:

@@ -15,6 +15,7 @@ import { CredentialStore } from '../github/credentials';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { PullRequestOverviewPanel } from '../github/pullRequestOverview';
 import { RepositoriesManager } from '../github/repositoriesManager';
+import { loadCurrentThemeData } from './theme';
 
 export class SessionLogViewManager extends Disposable implements vscode.WebviewPanelSerializer {
 	public static instance: SessionLogViewManager | undefined;
@@ -368,62 +369,4 @@ function arePullInfosEqual(a: SessionPullInfo, b: SessionPullInfo): boolean {
 		a.owner === b.owner &&
 		a.repo === b.repo &&
 		a.pullId === b.pullId;
-}
-
-async function loadCurrentThemeData(): Promise<any> {
-	let themeData: any = null;
-	const currentThemeName = vscode.workspace.getConfiguration('workbench').get<string>('colorTheme');
-	if (currentThemeName) {
-		const path = getCurrentThemePath(currentThemeName);
-		if (path) {
-			themeData = await loadThemeFromFile(path);
-		}
-	}
-	return themeData;
-}
-
-async function loadThemeFromFile(path: vscode.Uri): Promise<any> {
-	const decoder = new TextDecoder();
-
-	let themeData = JSON.parse(decoder.decode(await vscode.workspace.fs.readFile(path)));
-
-	// Also load the include file if specified
-	if (themeData.include) {
-		try {
-			const includePath = vscode.Uri.joinPath(path, '..', themeData.include);
-			const includeData = await loadThemeFromFile(includePath);
-			themeData = {
-				...themeData,
-				colors: {
-					...(includeData.colors || {}),
-					...(themeData.colors || {}),
-				},
-				tokenColors: [
-					...(includeData.tokenColors || []),
-					...(themeData.tokenColors || []),
-				],
-				semanticTokenColors: {
-					...(includeData.semanticTokenColors || {}),
-					...(themeData.semanticTokenColors || {}),
-				},
-			};
-		} catch (error) {
-			console.warn(`Failed to load theme include file: ${error}`);
-		}
-	}
-
-	return themeData;
-}
-
-function getCurrentThemePath(themeName: string): vscode.Uri | undefined {
-	for (const ext of vscode.extensions.all) {
-		const themes = ext.packageJSON.contributes && ext.packageJSON.contributes.themes;
-		if (!themes) {
-			continue;
-		}
-		const theme = themes.find(theme => theme.label === themeName || theme.id === themeName);
-		if (theme) {
-			return vscode.Uri.joinPath(ext.extensionUri, theme.path);
-		}
-	}
 }
