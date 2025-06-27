@@ -5,6 +5,7 @@
 
 import fetch from 'cross-fetch';
 import JSZip from 'jszip';
+import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
 import { Remote } from '../common/remote';
 import { OctokitCommon } from './common';
@@ -68,21 +69,21 @@ export class CopilotApi {
 	private formatRemoteAgentJobError(status: number) {
 		switch (status) {
 			case 400:
-				return 'Bad request';
+				return vscode.l10n.t('Bad request');
 			case 401:
-				return 'Unauthorized';
+				return vscode.l10n.t('Unauthorized');
 			case 402:
-				return 'Premium request quota exceeded';
+				return vscode.l10n.t('Premium request quota exceeded');
 			case 403:
-				return 'GitHub Coding Agent is not enabled for this repository';
+				return vscode.l10n.t('GitHub Coding Agent is not enabled for this repository');
 			case 404:
-				return 'Repository not found';
+				return vscode.l10n.t('Repository not found');
 			case 409:
-				return 'A Coding Agent pull request already exists';
+				return vscode.l10n.t('A Coding Agent pull request already exists');
 			case 500:
-				return 'Server error';
+				return vscode.l10n.t('Server error');
 			default:
-				return `Error: ${status}`;
+				return vscode.l10n.t('Error: {0}', status);
 		}
 	}
 

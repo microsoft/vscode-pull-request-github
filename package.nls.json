@@ -172,6 +172,7 @@
 	"view.github.active.pull.request.name": "Review Pull Request",
 	"view.github.active.pull.request.welcome.name": "Active Pull Request",
 	"command.pull.request.category": "GitHub Pull Requests",
+	"command.githubpr.remoteAgent.title": "Remote agent integration",
 	"command.pr.create.title": "Create Pull Request",
 	"command.pr.pick.title": "Checkout Pull Request",
 	"command.pr.openChanges.title": "Open Changes",
