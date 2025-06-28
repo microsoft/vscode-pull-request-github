@@ -106,8 +106,8 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 	const { refresh, copyPrLink, copyVscodeDevLink, openChanges } = useContext(PullRequestContext);
 
 	const handleOpenChangesClick = (e: React.MouseEvent) => {
-		const inSecondEditorGroup = e.ctrlKey || e.metaKey;
-		openChanges(inSecondEditorGroup);
+		const openToTheSide = e.ctrlKey || e.metaKey;
+		openChanges(openToTheSide);
 	};
 
 	return (

@@ -33,7 +33,7 @@ export class PRContext {
 
 	public checkout = () => this.postMessage({ command: 'pr.checkout' });
 
-	public openChanges = (inSecondEditorGroup?: boolean) => this.postMessage({ command: 'pr.open-changes', args: { inSecondEditorGroup } });
+	public openChanges = (openToTheSide?: boolean) => this.postMessage({ command: 'pr.open-changes', args: { openToTheSide } });
 
 	public copyPrLink = () => this.postMessage({ command: 'pr.copy-prlink' });
 
@@ -258,7 +258,7 @@ export class PRContext {
 		});
 	};
 
-	public openSessionLog = (link: SessionLinkInfo, inSecondEditorGroup?: boolean) => this.postMessage({ command: 'pr.open-session-log', args: { link, inSecondEditorGroup } });
+	public openSessionLog = (link: SessionLinkInfo, openToTheSide?: boolean) => this.postMessage({ command: 'pr.open-session-log', args: { link, openToTheSide } });
 
 	setPR = (pr: PullRequest) => {
 		this.pr = pr;

@@ -442,8 +442,8 @@ const CopilotStartedEventView = (event: CopilotStartedEvent) => {
 
 	const handleSessionLogClick = (e: React.MouseEvent) => {
 		if (sessionLink) {
-			const inSecondEditorGroup = e.ctrlKey || e.metaKey;
-			openSessionLog(sessionLink, inSecondEditorGroup);
+			const openToTheSide = e.ctrlKey || e.metaKey;
+			openSessionLog(sessionLink, openToTheSide);
 		}
 	};
 
@@ -483,8 +483,8 @@ const CopilotFinishedErrorEventView = (event: CopilotFinishedErrorEvent) => {
 	const { openSessionLog } = useContext(PullRequestContext);
 
 	const handleSessionLogClick = (e: React.MouseEvent) => {
-		const inSecondEditorGroup = e.ctrlKey || e.metaKey;
-		openSessionLog(event.sessionLink, inSecondEditorGroup);
+		const openToTheSide = e.ctrlKey || e.metaKey;
+		openSessionLog(event.sessionLink, openToTheSide);
 	};
 
 	return (

@@ -481,10 +481,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo; inSecondEditorGroup?: boolean }>): Promise<void> {
+	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo; openToTheSide?: boolean }>): Promise<void> {
 		try {
-			const inSecondEditorGroup = message.args.inSecondEditorGroup || false;
-			await SessionLogViewManager.instance?.openForPull(this._item, message.args.link, inSecondEditorGroup);
+			const openToTheSide = message.args.openToTheSide || false;
+			await SessionLogViewManager.instance?.openForPull(this._item, message.args.link, openToTheSide);
 		} catch (e) {
 			Logger.error(`Open session log view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}
@@ -525,9 +525,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async openChanges(message?: IRequestMessage<{ inSecondEditorGroup?: boolean }>): Promise<void> {
-		const inSecondEditorGroup = message?.args?.inSecondEditorGroup || false;
-		return PullRequestModel.openChanges(this._folderRepositoryManager, this._item, inSecondEditorGroup);
+	private async openChanges(message?: IRequestMessage<{ openToTheSide?: boolean }>): Promise<void> {
+		const openToTheSide = message?.args?.openToTheSide || false;
+		return PullRequestModel.openChanges(this._folderRepositoryManager, this._item, openToTheSide);
 	}
 
 	private async resolveCommentThread(message: IRequestMessage<{ threadId: string, toResolve: boolean, thread: IComment[] }>) {

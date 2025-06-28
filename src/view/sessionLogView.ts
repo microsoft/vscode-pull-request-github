@@ -83,7 +83,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 		super.dispose();
 	}
 
-	async openForPull(pullRequest: PullRequestModel, link: SessionLinkInfo, inSecondEditorGroup?: boolean): Promise<void> {
+	async openForPull(pullRequest: PullRequestModel, link: SessionLinkInfo, openToTheSide?: boolean): Promise<void> {
 		try {
 			// TODO: We should not block opening the webview here. When does this actually fail?
 
@@ -101,7 +101,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 				existingPanel.revealAndRefresh(sessionLogs);
 				return;
 			} else {
-				return this.open(sessionLogs, pullRequest, inSecondEditorGroup);
+				return this.open(sessionLogs, pullRequest, openToTheSide);
 			}
 		} catch (error) {
 			Logger.error(`Failed to retrieve session logs: ${error}`, 'SessionLogViewManager');
@@ -118,13 +118,13 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 		return Array.from(this._panels).find(panel => panel.view.isForPullRequest(pullRequest))?.view;
 	}
 
-	async open(logs: IAPISessionLogs, pullRequest: PullRequestModel | undefined, inSecondEditorGroup?: boolean): Promise<void> {
+	async open(logs: IAPISessionLogs, pullRequest: PullRequestModel | undefined, openToTheSide?: boolean): Promise<void> {
 		const copilotApi = await getCopilotApi(this.credentialStore);
 		if (!copilotApi) {
 			return;
 		}
 
-		const viewColumn = inSecondEditorGroup ? vscode.ViewColumn.Two : vscode.ViewColumn.Active;
+		const viewColumn = openToTheSide ? vscode.ViewColumn.Two : vscode.ViewColumn.Active;
 
 		const webviewPanel = vscode.window.createWebviewPanel(
 			SessionLogViewManager.viewType,

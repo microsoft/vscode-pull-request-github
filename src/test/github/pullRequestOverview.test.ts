@@ -159,7 +159,7 @@ describe('PullRequestOverview', function () {
 			sinon.stub(prModel, 'getTimelineEvents').resolves([]);
 			sinon.stub(prModel, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
 			sinon.stub(prModel, 'getFileChangesInfo').resolves([]);
-			
+
 			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel);
 
 			const panel = PullRequestOverviewPanel.currentPanel!;
@@ -168,10 +168,10 @@ describe('PullRequestOverview', function () {
 			// Simulate message from frontend for opening changes in second editor group
 			await panel['handleMessage']({
 				command: 'pr.open-changes',
-				args: { inSecondEditorGroup: true }
+				args: { openToTheSide: true }
 			});
 
-			// Verify that the split and focus commands were called when inSecondEditorGroup is true
+			// Verify that the split and focus commands were called when openToTheSide is true
 			assert(executeCommand.calledWith('workbench.action.splitEditor'));
 			assert(executeCommand.calledWith('workbench.action.focusSecondEditorGroup'));
 			assert(executeCommand.calledWith('vscode.changes', sinonMatch.string, sinonMatch.array));
@@ -194,7 +194,7 @@ describe('PullRequestOverview', function () {
 			sinon.stub(prModel, 'getReviewRequests').resolves([]);
 			sinon.stub(prModel, 'getTimelineEvents').resolves([]);
 			sinon.stub(prModel, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
-			
+
 			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel);
 
 			const panel = PullRequestOverviewPanel.currentPanel!;
@@ -211,7 +211,7 @@ describe('PullRequestOverview', function () {
 			const sessionLink = { sessionIndex: 0 };
 			await panel['handleMessage']({
 				command: 'pr.open-session-log',
-				args: { link: sessionLink, inSecondEditorGroup: true }
+				args: { link: sessionLink, openToTheSide: true }
 			});
 
 			// Verify that openForPull was called with the correct parameters
