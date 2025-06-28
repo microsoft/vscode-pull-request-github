@@ -9,12 +9,13 @@ import { AuthProvider } from '../common/authentication';
 import { COPILOT_LOGINS } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
-import { Remote } from '../common/remote';
+import { GitHubRemote, Remote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { CopilotApi, RemoteAgentJobPayload } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { CredentialStore } from './credentials';
+import { FolderRepositoryManager } from './folderRepositoryManager';
 import { RepositoriesManager } from './repositoriesManager';
 
 type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number; webviewUri: vscode.Uri; llmDetails: string };
@@ -115,13 +116,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return false;
 		}
 
-		const { owner, repo } = repoInfo;
-		const folderManager = this.getFolderManagerForRepo(owner, repo);
+		const { fm } = repoInfo;
 
 		try {
 			// Ensure assignable users are loaded
-			await folderManager.getAssignableUsers();
-			const allAssignableUsers = folderManager.getAllAssignableUsers();
+			await fm.getAssignableUsers();
+			const allAssignableUsers = fm.getAllAssignableUsers();
 
 			if (!allAssignableUsers) {
 				return false;
@@ -169,33 +169,32 @@ export class CopilotRemoteAgentManager extends Disposable {
 			.getConfiguration(CODING_AGENT).get(CODING_AGENT_AUTO_COMMIT_AND_PUSH, false);
 	}
 
-	private getFolderManagerForRepo(owner?: string, repo?: string) {
-		let folderManager = (owner && repo)
-			? this.repositoriesManager.getManagerForRepository(owner, repo)
-			: undefined;
-		if (!folderManager && this.repositoriesManager.folderManagers.length > 0) {
-			folderManager = this.repositoriesManager.folderManagers[0];
+	async repoInfo(): Promise<{ owner: string; repo: string; baseRef: string; remote: GitHubRemote; repository: Repository; fm: FolderRepositoryManager } | undefined> {
+		if (!this.repositoriesManager.folderManagers.length) {
+			return;
 		}
-		if (!folderManager) {
-			throw new Error('No folder manager found for the repository. Open a workspace with a Git repository.');
-		}
-		return folderManager;
-	}
-
-	async repoInfo(): Promise<{ owner: string; repo: string; remote: string; baseRef: string; repository: Repository } | undefined> {
-		const fm = this.getFolderManagerForRepo();
+		const fm = this.repositoriesManager.folderManagers[0];
 		const repository = fm?.repository;
-		if (!fm || !repository) {
+		if (!repository) {
 			return;
 		}
-		const { owner, repo } = await fm.getPullRequestDefaults();
-		const remotes = repository.state.remotes;
+
 		const baseRef = repository.state.HEAD?.name; // TODO: Consider edge cases
-		const remote = remotes.find(r => r.name === 'origin')?.name || remotes.find(r => r.pushUrl)?.name;
-		if (!owner || !repo || !remote || !baseRef || !repository) {
+		const ghRemotes = await fm.getGitHubRemotes();
+		if (!ghRemotes || ghRemotes.length === 0) {
 			return;
 		}
-		return { owner, repo, remote, baseRef, repository };
+
+		const remote =
+			ghRemotes.find(remote => remote.remoteName === 'origin')
+			|| ghRemotes[0]; // Fallback to the first remote
+
+		// Extract repo data from target remote
+		const { owner, repositoryName: repo } = remote;
+		if (!owner || !repo || !baseRef || !repository) {
+			return;
+		}
+		return { owner, repo, baseRef, remote, repository, fm };
 	}
 
 	async commandImpl(args?: ICopilotRemoteAgentCommandArgs): Promise<string | undefined> {
@@ -214,9 +213,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 		const { repository, owner, repo } = repoInfo;
 		const repoName = `${owner}/${repo}`; // TODO: Make sure this is where we'll push to
-
 		const hasChanges = repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0;
-
 		const learnMoreCb = async () => {
 			vscode.env.openExternal(vscode.Uri.parse('https://docs.github.com/copilot/using-github-copilot/coding-agent'));
 		};
@@ -301,7 +298,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		const repoInfo = await this.repoInfo();
 		if (!repoInfo) {
-			return { error: vscode.l10n.t('No repository information found. Please open a workspace with a Git repository.'), state: 'error' };
+			return { error: vscode.l10n.t('No repository information found. Please open a workspace with a GitHub repository.'), state: 'error' };
 		}
 		const { owner, repo, remote, repository, baseRef } = repoInfo;
 
@@ -327,7 +324,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 						return { error: vscode.l10n.t('Could not \'git commit\' pending changes. If GPG signing or git hooks are enabled, please first commit or stash your changes and try again. ({0})', e.message), state: 'error' };
 					}
 				}
-				await repository.push(remote, asyncBranch, true);
+				await repository.push(remote.remoteName, asyncBranch, true);
 				ref = asyncBranch;
 			} catch (e) {
 				return { error: vscode.l10n.t('Could not auto-push pending changes. Manually commit or stash your changes and try again. ({0})', e.message), state: 'error' };
