@@ -361,7 +361,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			case 'pr.open-diff':
 				return this.openDiff(message);
 			case 'pr.open-changes':
-				return this.openChanges();
+				return this.openChanges(message);
 			case 'pr.resolve-comment-thread':
 				return this.resolveCommentThread(message);
 			case 'pr.checkMergeability':
@@ -481,9 +481,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo }>): Promise<void> {
+	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo; inSecondEditorGroup?: boolean }>): Promise<void> {
 		try {
-			await SessionLogViewManager.instance?.openForPull(this._item, message.args.link);
+			const inSecondEditorGroup = message.args.inSecondEditorGroup || false;
+			await SessionLogViewManager.instance?.openForPull(this._item, message.args.link, inSecondEditorGroup);
 		} catch (e) {
 			Logger.error(`Open session log view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}
@@ -524,8 +525,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async openChanges(): Promise<void> {
-		return PullRequestModel.openChanges(this._folderRepositoryManager, this._item);
+	private async openChanges(message?: IRequestMessage<{ inSecondEditorGroup?: boolean }>): Promise<void> {
+		const inSecondEditorGroup = message?.args?.inSecondEditorGroup || false;
+		return PullRequestModel.openChanges(this._folderRepositoryManager, this._item, inSecondEditorGroup);
 	}
 
 	private async resolveCommentThread(message: IRequestMessage<{ threadId: string, toResolve: boolean, thread: IComment[] }>) {

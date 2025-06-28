@@ -69,7 +69,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 
 			const sessionLogs = await copilotAgentManager.getSessionLogsFromSessionId(picked.sessionId);
 
-			return this.open(sessionLogs, undefined);
+			return this.open(sessionLogs, undefined, false);
 		}));
 	}
 
@@ -83,7 +83,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 		super.dispose();
 	}
 
-	async openForPull(pullRequest: PullRequestModel, link: SessionLinkInfo): Promise<void> {
+	async openForPull(pullRequest: PullRequestModel, link: SessionLinkInfo, inSecondEditorGroup?: boolean): Promise<void> {
 		try {
 			// TODO: We should not block opening the webview here. When does this actually fail?
 
@@ -101,7 +101,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 				existingPanel.revealAndRefresh(sessionLogs);
 				return;
 			} else {
-				return this.open(sessionLogs, pullRequest);
+				return this.open(sessionLogs, pullRequest, inSecondEditorGroup);
 			}
 		} catch (error) {
 			Logger.error(`Failed to retrieve session logs: ${error}`, 'SessionLogViewManager');
@@ -118,16 +118,18 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 		return Array.from(this._panels).find(panel => panel.view.isForPullRequest(pullRequest))?.view;
 	}
 
-	async open(logs: IAPISessionLogs, pullRequest: PullRequestModel | undefined): Promise<void> {
+	async open(logs: IAPISessionLogs, pullRequest: PullRequestModel | undefined, inSecondEditorGroup?: boolean): Promise<void> {
 		const copilotApi = await getCopilotApi(this.credentialStore);
 		if (!copilotApi) {
 			return;
 		}
 
+		const viewColumn = inSecondEditorGroup ? vscode.ViewColumn.Two : vscode.ViewColumn.Active;
+
 		const webviewPanel = vscode.window.createWebviewPanel(
 			SessionLogViewManager.viewType,
 			pullRequest ? vscode.l10n.t(`Session Log (Pull #{0})`, pullRequest.number) : vscode.l10n.t('Session Log'),
-			vscode.ViewColumn.Active,
+			viewColumn,
 			{
 				retainContextWhenHidden: true,
 				enableFindWidget: true
