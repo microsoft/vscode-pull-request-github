@@ -310,8 +310,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 		// This could be improved if we add lower-level APIs to our git extension (e.g. in-memory temp git index).
 
 		let ref = baseRef;
-		const hasChanges = repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0;
-		if (hasChanges && autoPushAndCommit) {
+		const hasChanges = autoPushAndCommit && (repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0);
+		if (hasChanges) {
 			if (!this.autoCommitAndPushEnabled()) {
 				return { error: vscode.l10n.t('Uncommitted changes detected. Please commit or stash your changes before starting the remote agent. Enable \'{0}\' to push your changes automatically.', CODING_AGENT_AUTO_COMMIT_AND_PUSH), state: 'error' };
 			}
@@ -349,6 +349,10 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 		}
 
+		const base_ref = hasChanges ? baseRef : ref;
+		// Confirm that the remote has base_ref, otherwise server will 500
+		// TODOs
+
 		let title = prompt;
 		const titleMatch = problemContext.match(/TITLE: \s*(.*)/i);
 		if (titleMatch && titleMatch[1]) {
@@ -361,8 +365,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 			pull_request: {
 				title,
 				body_placeholder: problemContext,
-				base_ref: hasChanges && autoPushAndCommit ? baseRef : ref,
-				...(hasChanges && autoPushAndCommit && { head_ref: ref })
+				base_ref,
+				...(hasChanges && { head_ref: ref })
 			}
 		};
 
