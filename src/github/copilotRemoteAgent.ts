@@ -18,6 +18,7 @@ import { CredentialStore } from './credentials';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { RepositoriesManager } from './repositoriesManager';
 import { GitHubRepository } from './githubRepository';
+import Logger from '../common/logger';
 
 type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number; webviewUri: vscode.Uri; llmDetails: string };
 type RemoteAgentErrorResult = { error: string; state: 'error' };
@@ -356,6 +357,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 					return { error: vscode.l10n.t('The branch \'{0}\' does not exist on the remote repository \'{1}/{2}\'. Please create the remote branch first.', base_ref, owner, repo), state: 'error' };
 				}
 				// Push the branch
+				Logger.appendLine(`Base ref needs to exist on remote.  Auto pushing base_ref '${base_ref}' to remote repository '${owner}/${repo}'`, CopilotRemoteAgentManager.ID);
 				await repository.push(remote.remoteName, base_ref, true);
 			}
 		} catch (error) {
