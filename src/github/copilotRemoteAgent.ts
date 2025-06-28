@@ -9,6 +9,7 @@ import { AuthProvider } from '../common/authentication';
 import { COPILOT_LOGINS } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
@@ -353,11 +354,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 		
 		// Confirm that the remote has base_ref, otherwise server will 500
 		try {
+			Logger.appendLine(`Checking if base_ref '${base_ref}' exists on remote`, CopilotRemoteAgentManager.ID);
 			const folderManager = this.getFolderManagerForRepo(owner, repo);
 			const githubRepository = await folderManager.getOrigin();
 			
 			const branchExists = await githubRepository.hasBranch(base_ref);
 			if (!branchExists) {
+				Logger.appendLine(`Branch '${base_ref}' does not exist on remote, falling back to default branch`, CopilotRemoteAgentManager.ID);
 				// Fallback to default branch if base_ref doesn't exist on remote
 				const defaults = await folderManager.getPullRequestDefaults();
 				const defaultBranch = defaults.base;
@@ -365,16 +368,22 @@ export class CopilotRemoteAgentManager extends Disposable {
 				// Check if default branch exists
 				const defaultBranchExists = await githubRepository.hasBranch(defaultBranch);
 				if (!defaultBranchExists) {
+					Logger.appendLine(`Default branch '${defaultBranch}' also does not exist on remote`, CopilotRemoteAgentManager.ID);
 					return { error: vscode.l10n.t('Neither the target branch \'{0}\' nor the default branch \'{1}\' exist on the remote repository.', base_ref, defaultBranch), state: 'error' };
 				}
 				
+				Logger.appendLine(`Using default branch '${defaultBranch}' as base_ref`, CopilotRemoteAgentManager.ID);
 				base_ref = defaultBranch;
 				// Inform user about the fallback
 				vscode.window.showWarningMessage(vscode.l10n.t('Target branch \'{0}\' does not exist on remote. Using default branch \'{1}\' instead.', hasChanges ? baseRef : ref, base_ref));
+			} else {
+				Logger.appendLine(`Branch '${base_ref}' exists on remote, proceeding`, CopilotRemoteAgentManager.ID);
 			}
 		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			Logger.appendLine(`Error checking branch existence: ${errorMessage}`, CopilotRemoteAgentManager.ID);
 			// If we can't check branch existence, proceed with original logic but warn user
-			vscode.window.showWarningMessage(vscode.l10n.t('Could not verify branch existence on remote: {0}', error.message));
+			vscode.window.showWarningMessage(vscode.l10n.t('Could not verify branch existence on remote: {0}', errorMessage));
 		}
 
 		let title = prompt;
