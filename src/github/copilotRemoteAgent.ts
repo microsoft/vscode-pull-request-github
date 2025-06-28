@@ -290,6 +290,84 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return vscode.l10n.t('🚀 Coding agent will continue work in [#{0}]({1}).  Track progress [here]({2}).', number, link, webviewUri.toString());
 	}
 
+	/**
+	 * Opens a terminal and waits for user to successfully commit
+	 * @param repository The git repository
+	 * @param commitMessage The commit message to suggest
+	 * @returns Promise<boolean> true if commit was successful, false if cancelled
+	 */
+	private async handleInteractiveCommit(repository: Repository, commitMessage: string): Promise<boolean> {
+		return new Promise<boolean>((resolve) => {
+			const startingCommit = repository.state.HEAD?.commit;
+			
+			// Create terminal with git commit command
+			const terminal = vscode.window.createTerminal({
+				name: 'GitHub Copilot Commit',
+				cwd: repository.rootUri.fsPath,
+				message: vscode.l10n.t('Complete the commit to continue with GitHub Copilot Remote Agent')
+			});
+			
+			// Show terminal and send commit command
+			terminal.show();
+			terminal.sendText(`git commit -m "${commitMessage}"`);
+			
+			let disposed = false;
+			let timeoutId: NodeJS.Timeout;
+			let stateListener: vscode.Disposable | undefined;
+			let disposalListener: vscode.Disposable | undefined;
+			
+			const cleanup = () => {
+				if (disposed) return;
+				disposed = true;
+				clearTimeout(timeoutId);
+				stateListener?.dispose();
+				disposalListener?.dispose();
+				terminal.dispose();
+			};
+			
+			// Listen for repository state changes
+			stateListener = repository.state.onDidChange(() => {
+				// Check if commit was successful (HEAD changed and no more staged changes)
+				if (repository.state.HEAD?.commit !== startingCommit && 
+					repository.state.indexChanges.length === 0) {
+					cleanup();
+					resolve(true);
+				}
+			});
+			
+			// Set a timeout to avoid waiting forever
+			timeoutId = setTimeout(() => {
+				cleanup();
+				vscode.window.showWarningMessage(
+					vscode.l10n.t('Commit timeout. Please try the operation again after committing your changes.')
+				);
+				resolve(false);
+			}, 5 * 60 * 1000); // 5 minutes timeout
+			
+			// Listen for terminal disposal (user closed it)
+			disposalListener = vscode.window.onDidCloseTerminal((closedTerminal) => {
+				if (closedTerminal === terminal) {
+					// Give a brief moment for potential state changes to propagate
+					setTimeout(() => {
+						if (!disposed) {
+							cleanup();
+							// Check one more time if commit happened just before terminal was closed
+							if (repository.state.HEAD?.commit !== startingCommit && 
+								repository.state.indexChanges.length === 0) {
+								resolve(true);
+							} else {
+								vscode.window.showInformationMessage(
+									vscode.l10n.t('Commit cancelled. GitHub Copilot Remote Agent operation was aborted.')
+								);
+								resolve(false);
+							}
+						}
+					}, 1000);
+				}
+			});
+		});
+	}
+
 	async invokeRemoteAgent(prompt: string, problemContext: string, autoPushAndCommit = true): Promise<RemoteAgentResult> {
 		const capiClient = await this.copilotApi;
 		if (!capiClient) {
@@ -317,11 +395,21 @@ export class CopilotRemoteAgentManager extends Disposable {
 				await repository.createBranch(asyncBranch, true);
 				await repository.add([]);
 				if (repository.state.indexChanges.length > 0) {
+					const commitMessage = 'Checkpoint for Copilot Agent async session';
 					try {
-						await repository.commit('Checkpoint for Copilot Agent async session');
+						await repository.commit(commitMessage);
 					} catch (e) {
+						// Instead of immediately failing, open terminal for interactive commit
 						// https://github.com/microsoft/vscode/pull/252263
-						return { error: vscode.l10n.t('Could not \'git commit\' pending changes. If GPG signing or git hooks are enabled, please first commit or stash your changes and try again. ({0})', e.message), state: 'error' };
+						vscode.window.showInformationMessage(
+							vscode.l10n.t('Automatic commit failed due to GPG signing or git hooks. Please complete the commit in the terminal to continue.'),
+							{ modal: false }
+						);
+						
+						const commitSuccessful = await this.handleInteractiveCommit(repository, commitMessage);
+						if (!commitSuccessful) {
+							return { error: vscode.l10n.t('Commit was not completed. GitHub Copilot Remote Agent operation was cancelled.'), state: 'error' };
+						}
 					}
 				}
 				await repository.push(remote.remoteName, asyncBranch, true);
