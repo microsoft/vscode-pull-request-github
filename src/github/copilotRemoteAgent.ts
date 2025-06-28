@@ -9,12 +9,12 @@ import { AuthProvider } from '../common/authentication';
 import { COPILOT_LOGINS } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
-import { Remote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { CopilotApi, RemoteAgentJobPayload } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { CredentialStore } from './credentials';
+import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
 
 type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number; webviewUri: vscode.Uri; llmDetails: string };
@@ -382,15 +382,15 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
-	async getSessionLogsFromAction(remote: Remote, pullRequestId: number) {
+	async getSessionLogsFromAction(pullRequest: PullRequestModel) {
 		const capi = await this.copilotApi;
 		if (!capi) {
 			return [];
 		}
-		const runs = await capi.getWorkflowRunsFromAction(remote);
+		const runs = await capi.getWorkflowRunsFromAction(pullRequest);
 		const padawanRuns = runs
 			.filter(run => run.path && run.path.startsWith('dynamic/copilot-swe-agent'))
-			.filter(run => run.pull_requests?.some(pr => pr.id === pullRequestId));
+			.filter(run => run.pull_requests?.some(pr => pr.id === pullRequest.id));
 
 		const lastRun = this.getLatestRun(padawanRuns);
 
