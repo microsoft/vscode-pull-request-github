@@ -17,6 +17,7 @@ import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { RepositoriesManager } from './repositoriesManager';
+import { GitHubRepository } from './githubRepository';
 
 type RemoteAgentSuccessResult = { link: string; state: 'success'; number: number; webviewUri: vscode.Uri; llmDetails: string };
 type RemoteAgentErrorResult = { error: string; state: 'error' };
@@ -169,13 +170,14 @@ export class CopilotRemoteAgentManager extends Disposable {
 			.getConfiguration(CODING_AGENT).get(CODING_AGENT_AUTO_COMMIT_AND_PUSH, false);
 	}
 
-	async repoInfo(): Promise<{ owner: string; repo: string; baseRef: string; remote: GitHubRemote; repository: Repository; fm: FolderRepositoryManager } | undefined> {
+	async repoInfo(): Promise<{ owner: string; repo: string; baseRef: string; remote: GitHubRemote; repository: Repository; ghRepository: GitHubRepository; fm: FolderRepositoryManager } | undefined> {
 		if (!this.repositoriesManager.folderManagers.length) {
 			return;
 		}
 		const fm = this.repositoriesManager.folderManagers[0];
 		const repository = fm?.repository;
-		if (!repository) {
+		const ghRepository = fm?.gitHubRepositories.find(repo => repo.remote instanceof GitHubRemote) as GitHubRepository | undefined;
+		if (!repository || !ghRepository) {
 			return;
 		}
 
@@ -194,7 +196,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		if (!owner || !repo || !baseRef || !repository) {
 			return;
 		}
-		return { owner, repo, baseRef, remote, repository, fm };
+		return { owner, repo, baseRef, remote, repository, ghRepository, fm };
 	}
 
 	async commandImpl(args?: ICopilotRemoteAgentCommandArgs): Promise<string | undefined> {
@@ -212,7 +214,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return;
 		}
 		const { repository, owner, repo } = repoInfo;
-		const repoName = `${owner}/${repo}`; // TODO: Make sure this is where we'll push to
+		const repoName = `${owner}/${repo}`;
 		const hasChanges = repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0;
 		const learnMoreCb = async () => {
 			vscode.env.openExternal(vscode.Uri.parse('https://docs.github.com/copilot/using-github-copilot/coding-agent'));
@@ -300,7 +302,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		if (!repoInfo) {
 			return { error: vscode.l10n.t('No repository information found. Please open a workspace with a GitHub repository.'), state: 'error' };
 		}
-		const { owner, repo, remote, repository, baseRef } = repoInfo;
+		const { owner, repo, remote, repository, ghRepository, baseRef } = repoInfo;
 
 		// NOTE: This is as unobtrusive as possible with the current high-level APIs.
 		// We only create a new branch and commit if there are staged or working changes.
@@ -347,8 +349,18 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 
 		const base_ref = hasChanges ? baseRef : ref;
-		// Confirm that the remote has base_ref, otherwise server will 500
-		// TODOs
+		try {
+			if (!(await ghRepository.hasBranch(base_ref))) {
+				if (!this.autoCommitAndPushEnabled()) {
+					// We won't auto-push a branch if the user has disabled the setting
+					return { error: vscode.l10n.t('The branch \'{0}\' does not exist on the remote repository \'{1}/{2}\'. Please create the remote branch first.', base_ref, owner, repo), state: 'error' };
+				}
+				// Push the branch
+				await repository.push(remote.remoteName, base_ref, true);
+			}
+		} catch (error) {
+			return { error: vscode.l10n.t('Failed to configure base branch \'{0}\' does not exist on the remote repository \'{1}/{2}\'. Please create the remote branch first.', base_ref, owner, repo), state: 'error' };
+		}
 
 		let title = prompt;
 		const titleMatch = problemContext.match(/TITLE: \s*(.*)/i);
