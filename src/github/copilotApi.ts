@@ -13,6 +13,9 @@ import { CredentialStore } from './credentials';
 import { LoggingOctokit } from './loggingOctokit';
 import { hasEnterpriseUri } from './utils';
 
+const LEARN_MORE_URL = 'https://docs.github.com/en/copilot/how-tos/agents/copilot-coding-agent';
+const PREMIUM_REQUESTS_URL = 'https://docs.github.com/en/copilot/concepts/copilot-billing/understanding-and-managing-requests-in-copilot#what-are-premium-requests';
+
 export interface RemoteAgentJobPayload {
 	problem_statement: string;
 	pull_request?: {
@@ -57,7 +60,7 @@ export class CopilotApi {
 			body: JSON.stringify(payload)
 		});
 		if (!response.ok) {
-			throw new Error(this.formatRemoteAgentJobError(response.status));
+			throw new Error(this.formatRemoteAgentJobError(response.status, repoSlug));
 		}
 		const data = await response.json();
 		this.validateRemoteAgentJobResponse(data);
@@ -66,18 +69,18 @@ export class CopilotApi {
 
 
 	// https://github.com/github/sweagentd/blob/371ea6db280b9aecf790ccc20660e39a7ecb8d1c/internal/api/jobapi/handler.go#L110-L120
-	private formatRemoteAgentJobError(status: number) {
+	private formatRemoteAgentJobError(status: number, repoSlug: string): string {
 		switch (status) {
 			case 400:
 				return vscode.l10n.t('Bad request');
 			case 401:
 				return vscode.l10n.t('Unauthorized');
 			case 402:
-				return vscode.l10n.t('Premium request quota exceeded');
+				return vscode.l10n.t('[Premium request]({0}) quota exceeded', PREMIUM_REQUESTS_URL);
 			case 403:
-				return vscode.l10n.t('GitHub Coding Agent is not enabled for this repository');
+				return vscode.l10n.t('[GitHub Coding Agent]({0}) is not enabled for repository \'{1}\'', LEARN_MORE_URL, repoSlug);
 			case 404:
-				return vscode.l10n.t('Repository not found');
+				return vscode.l10n.t('Repository \'{0}\' not found', repoSlug);
 			case 409:
 				return vscode.l10n.t('A Coding Agent pull request already exists');
 			case 500:

@@ -25,7 +25,7 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<CopilotRemoteAgentToolParameters>): Promise<vscode.PreparedToolInvocation> {
 		const { title } = options.input;
-		
+
 		// Check if the coding agent is available (enabled and assignable)
 		const isAvailable = await this.manager.isAvailable();
 		if (!isAvailable) {
@@ -39,7 +39,7 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 			invocationMessage: vscode.l10n.t('Launching coding agent'),
 			confirmationMessages: {
 				message: targetRepo && autoPushEnabled
-					? vscode.l10n.t('The coding agent will continue work on "**{0}**" in a new branch on "**{1}/{2}**". Any uncommitted changes will be **automatically pushed to your default remote ({3})** and included.', title, targetRepo.owner, targetRepo.repo, targetRepo.remote)
+					? vscode.l10n.t('The coding agent will continue work on "**{0}**" in a new branch on "**{1}/{2}**". Any uncommitted changes will be **automatically pushed**.', title, targetRepo.owner, targetRepo.repo)
 					: vscode.l10n.t('The coding agent will start working on "**{0}**"', title),
 				title: vscode.l10n.t('Start coding agent?'),
 			}
