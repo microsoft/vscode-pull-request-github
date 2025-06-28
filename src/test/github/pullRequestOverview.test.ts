@@ -139,5 +139,83 @@ describe('PullRequestOverview', function () {
 			assert.strictEqual(createWebviewPanel.callCount, 1);
 			assert.strictEqual(panel0!.getCurrentTitle(), 'Pull Request #2000');
 		});
+
+		it('handles open changes message with second editor group flag', async function () {
+			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
+			const executeCommand = sinon.spy(vscode.commands, 'executeCommand');
+
+			repo.addGraphQLPullRequest(builder => {
+				builder.pullRequest(response => {
+					response.repository(r => {
+						r.pullRequest(pr => pr.number(1000));
+					});
+				});
+			});
+
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+			sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel);
+			sinon.stub(prModel, 'getReviewRequests').resolves([]);
+			sinon.stub(prModel, 'getTimelineEvents').resolves([]);
+			sinon.stub(prModel, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
+			sinon.stub(prModel, 'getFileChangesInfo').resolves([]);
+			
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel);
+
+			const panel = PullRequestOverviewPanel.currentPanel!;
+			assert.notStrictEqual(panel, undefined);
+
+			// Simulate message from frontend for opening changes in second editor group
+			await panel['handleMessage']({
+				command: 'pr.open-changes',
+				args: { inSecondEditorGroup: true }
+			});
+
+			// Verify that the split and focus commands were called when inSecondEditorGroup is true
+			assert(executeCommand.calledWith('workbench.action.splitEditor'));
+			assert(executeCommand.calledWith('workbench.action.focusSecondEditorGroup'));
+			assert(executeCommand.calledWith('vscode.changes', sinonMatch.string, sinonMatch.array));
+		});
+
+		it('handles open session log message with second editor group flag', async function () {
+			const createWebviewPanel = sinon.spy(vscode.window, 'createWebviewPanel');
+
+			repo.addGraphQLPullRequest(builder => {
+				builder.pullRequest(response => {
+					response.repository(r => {
+						r.pullRequest(pr => pr.number(1000));
+					});
+				});
+			});
+
+			const prItem = convertRESTPullRequestToRawPullRequest(new PullRequestBuilder().number(1000).build(), repo);
+			const prModel = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem);
+			sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel);
+			sinon.stub(prModel, 'getReviewRequests').resolves([]);
+			sinon.stub(prModel, 'getTimelineEvents').resolves([]);
+			sinon.stub(prModel, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
+			
+			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel);
+
+			const panel = PullRequestOverviewPanel.currentPanel!;
+			assert.notStrictEqual(panel, undefined);
+
+			// Mock SessionLogViewManager
+			const { SessionLogViewManager } = await import('../../view/sessionLogView');
+			const mockSessionLogViewManager = {
+				openForPull: sinon.stub().resolves()
+			};
+			SessionLogViewManager.instance = mockSessionLogViewManager as any;
+
+			// Simulate message from frontend for opening session log in second editor group
+			const sessionLink = { sessionIndex: 0 };
+			await panel['handleMessage']({
+				command: 'pr.open-session-log',
+				args: { link: sessionLink, inSecondEditorGroup: true }
+			});
+
+			// Verify that openForPull was called with the correct parameters
+			assert(mockSessionLogViewManager.openForPull.calledWith(prModel, sessionLink, true));
+		});
 	});
 });
