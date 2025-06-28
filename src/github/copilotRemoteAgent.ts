@@ -309,6 +309,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 			
 			// Show terminal and send commit command
 			terminal.show();
+			terminal.sendText(`# GitHub Copilot Remote Agent - Interactive Commit`);
+			terminal.sendText(`# Complete this commit to continue with your coding session`);
 			terminal.sendText(`git commit -m "${commitMessage}"`);
 			
 			let disposed = false;
