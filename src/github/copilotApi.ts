@@ -12,6 +12,7 @@ import { OctokitCommon } from './common';
 import { CredentialStore } from './credentials';
 import { LoggingOctokit } from './loggingOctokit';
 import { hasEnterpriseUri } from './utils';
+import Logger from '../common/logger';
 
 const LEARN_MORE_URL = 'https://docs.github.com/en/copilot/how-tos/agents/copilot-coding-agent';
 const PREMIUM_REQUESTS_URL = 'https://docs.github.com/en/copilot/concepts/copilot-billing/understanding-and-managing-requests-in-copilot#what-are-premium-requests';
@@ -36,6 +37,8 @@ export interface RemoteAgentJobResponse {
 }
 
 export class CopilotApi {
+	protected static readonly ID = 'copilotApi';
+
 	constructor(private octokit: LoggingOctokit, private token: string) { }
 
 	private get baseUrl(): string {
@@ -60,7 +63,7 @@ export class CopilotApi {
 			body: JSON.stringify(payload)
 		});
 		if (!response.ok) {
-			throw new Error(this.formatRemoteAgentJobError(response.status, repoSlug));
+			throw new Error(await this.formatRemoteAgentJobError(response.status, repoSlug, response));
 		}
 		const data = await response.json();
 		this.validateRemoteAgentJobResponse(data);
@@ -69,7 +72,7 @@ export class CopilotApi {
 
 
 	// https://github.com/github/sweagentd/blob/371ea6db280b9aecf790ccc20660e39a7ecb8d1c/internal/api/jobapi/handler.go#L110-L120
-	private formatRemoteAgentJobError(status: number, repoSlug: string): string {
+	private async formatRemoteAgentJobError(status: number, repoSlug: string, response: Response): Promise<string> {
 		switch (status) {
 			case 400:
 				return vscode.l10n.t('Bad request');
@@ -84,7 +87,8 @@ export class CopilotApi {
 			case 409:
 				return vscode.l10n.t('A Coding Agent pull request already exists');
 			case 500:
-				return vscode.l10n.t('Server error');
+				Logger.error(`Server error in remote agent job: ${await response.text()}`, CopilotApi.ID);
+				return vscode.l10n.t('Server error. Please try again later.');
 			default:
 				return vscode.l10n.t('Error: {0}', status);
 		}
