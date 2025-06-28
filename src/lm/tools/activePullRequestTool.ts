@@ -73,7 +73,7 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 		model: vscode.LanguageModelChat,
 		cancellationToken: vscode.CancellationToken
 	) {
-		const logs = await this.copilotRemoteAgentManager.getSessionLogsFromAction(pullRequest.remote, pullRequest.id);
+		const logs = await this.copilotRemoteAgentManager.getSessionLogsFromAction(pullRequest);
 		// Summarize the Copilot agent's thinking process using the model
 		const messages = [
 			vscode.LanguageModelChatMessage.Assistant('You are an expert summarizer. The following logs show the thinking process and performed actions of a GitHub Copilot agent that was in charge of working on the current pull request. Read the logs and always maintain the thinking process. You can remove information on the tool call results that you think are not necessary for building context.'),

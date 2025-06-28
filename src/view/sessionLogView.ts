@@ -105,7 +105,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 			}
 		} catch (error) {
 			Logger.error(`Failed to retrieve session logs: ${error}`, 'SessionLogViewManager');
-			const url = await this.copilotAgentManager.getSessionUrlFromPullRequest(pullRequest.id);
+			const url = await this.copilotAgentManager.getSessionUrlFromPullRequest(pullRequest);
 			if (!url) {
 				vscode.window.showErrorMessage(vscode.l10n.t('No sessions found for this pull request.'));
 				return;
