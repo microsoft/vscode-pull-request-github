@@ -349,9 +349,33 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 		}
 
-		const base_ref = hasChanges ? baseRef : ref;
+		let base_ref = hasChanges ? baseRef : ref;
+		
 		// Confirm that the remote has base_ref, otherwise server will 500
-		// TODOs
+		try {
+			const folderManager = this.getFolderManagerForRepo(owner, repo);
+			const githubRepository = await folderManager.getOrigin();
+			
+			const branchExists = await githubRepository.hasBranch(base_ref);
+			if (!branchExists) {
+				// Fallback to default branch if base_ref doesn't exist on remote
+				const defaults = await folderManager.getPullRequestDefaults();
+				const defaultBranch = defaults.base;
+				
+				// Check if default branch exists
+				const defaultBranchExists = await githubRepository.hasBranch(defaultBranch);
+				if (!defaultBranchExists) {
+					return { error: vscode.l10n.t('Neither the target branch \'{0}\' nor the default branch \'{1}\' exist on the remote repository.', base_ref, defaultBranch), state: 'error' };
+				}
+				
+				base_ref = defaultBranch;
+				// Inform user about the fallback
+				vscode.window.showWarningMessage(vscode.l10n.t('Target branch \'{0}\' does not exist on remote. Using default branch \'{1}\' instead.', hasChanges ? baseRef : ref, base_ref));
+			}
+		} catch (error) {
+			// If we can't check branch existence, proceed with original logic but warn user
+			vscode.window.showWarningMessage(vscode.l10n.t('Could not verify branch existence on remote: {0}', error.message));
+		}
 
 		let title = prompt;
 		const titleMatch = problemContext.match(/TITLE: \s*(.*)/i);
