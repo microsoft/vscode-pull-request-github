@@ -19,6 +19,7 @@
 - Fails to open PR's description in some repos on GitHub Enterprise. https://github.com/microsoft/vscode-pull-request-github/issues/6736
 - Support closing an issue. https://github.com/microsoft/vscode-pull-request-github/issues/6864
 - Pull request diff shows outdated diff. https://github.com/microsoft/vscode-pull-request-github/issues/6889
+- Fixed conflict with customized Cmd+R/Ctrl+R keybindings in pull request webview. The refresh functionality now works exclusively through VSCode keybindings, allowing users to customize the shortcut without conflicts.
 
 **_Thank You_**
 
