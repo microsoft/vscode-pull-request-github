@@ -440,6 +440,13 @@ const CopilotStartedEventView = (event: CopilotStartedEvent) => {
 	const { createdAt, onBehalfOf, sessionLink } = event;
 	const { openSessionLog } = useContext(PullRequestContext);
 
+	const handleSessionLogClick = (e: React.MouseEvent) => {
+		if (sessionLink) {
+			const openToTheSide = e.ctrlKey || e.metaKey;
+			openSessionLog(sessionLink, openToTheSide);
+		}
+	};
+
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
@@ -449,7 +456,7 @@ const CopilotStartedEventView = (event: CopilotStartedEvent) => {
 			</div>
 			{sessionLink ? (
 				<div className="timeline-detail">
-					<a onClick={() => openSessionLog(sessionLink)}><button className='secondary'>View session</button></a>
+					<a onClick={handleSessionLogClick}><button className='secondary' title="View session log (Ctrl/Cmd+Click to open in second editor group)">View session</button></a>
 				</div>)
 				: null}
 			<Timestamp date={createdAt} />
@@ -475,6 +482,11 @@ const CopilotFinishedErrorEventView = (event: CopilotFinishedErrorEvent) => {
 	const { createdAt, onBehalfOf } = event;
 	const { openSessionLog } = useContext(PullRequestContext);
 
+	const handleSessionLogClick = (e: React.MouseEvent) => {
+		const openToTheSide = e.ctrlKey || e.metaKey;
+		openSessionLog(event.sessionLink, openToTheSide);
+	};
+
 	return (
 		<div className="comment-container commit">
 			<div className='timeline-with-detail'>
@@ -484,7 +496,7 @@ const CopilotFinishedErrorEventView = (event: CopilotFinishedErrorEvent) => {
 					<div className="message">Copilot stopped work on behalf of <AuthorLink for={onBehalfOf} /> due to an error</div>
 				</div>
 				<div className="commit-message-detail">
-					<a onClick={() => openSessionLog(event.sessionLink)}>Copilot has encountered an error. See logs for additional details.</a>
+					<a onClick={handleSessionLogClick} title="View session log (Ctrl/Cmd+Click to open in second editor group)">Copilot has encountered an error. See logs for additional details.</a>
 				</div>
 			</div>
 			<Timestamp date={createdAt} />

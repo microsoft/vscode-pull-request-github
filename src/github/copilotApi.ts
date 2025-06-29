@@ -7,12 +7,12 @@ import fetch from 'cross-fetch';
 import JSZip from 'jszip';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
+import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { OctokitCommon } from './common';
 import { CredentialStore } from './credentials';
 import { LoggingOctokit } from './loggingOctokit';
 import { hasEnterpriseUri } from './utils';
-import Logger from '../common/logger';
 
 const LEARN_MORE_URL = 'https://docs.github.com/en/copilot/how-tos/agents/copilot-coding-agent';
 const PREMIUM_REQUESTS_URL = 'https://docs.github.com/en/copilot/concepts/copilot-billing/understanding-and-managing-requests-in-copilot#what-are-premium-requests';
