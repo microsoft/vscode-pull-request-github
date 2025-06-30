@@ -832,7 +832,7 @@
 		"commands": [
 			{
 				"command": "githubpr.remoteAgent",
-				"title": "Remote agent integration",
+				"title": "%command.githubpr.remoteAgent.title%",
 				"enablement": "config.githubPullRequests.codingAgent.enabled"
 			},
 			{
