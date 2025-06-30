@@ -194,7 +194,7 @@ export class IssueModel<TItem extends Issue = Issue> {
 
 	canEdit(): Promise<boolean> {
 		const username = this.author && this.author.login;
-		return this.githubRepository.isCurrentUser(username);
+		return this.githubRepository.isCurrentUser(this.remote.authProviderId, username);
 	}
 
 	async createIssueComment(text: string): Promise<IComment> {
