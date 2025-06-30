@@ -71,7 +71,7 @@
 				"command": "githubpr.remoteAgent",
 				"displayName": "GitHub Coding Agent",
 				"description": "The GitHub Coding Agent.",
-				"when": "config.githubPullRequests.codingAgent.enabled && copilotCodingAgentAssignable"
+				"when": "config.githubPullRequests.codingAgent.enabled && config.githubPullRequests.codingAgent.uiIntegration && copilotCodingAgentAssignable"
 			}
 		],
 		"chatParticipants": [
@@ -496,7 +496,7 @@
 				},
 				"githubPullRequests.codingAgent.enabled": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"markdownDescription": "%githubPullRequests.codingAgent.description%",
 					"tags": [
 						"experimental"
@@ -506,6 +506,14 @@
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "%githubPullRequests.codingAgent.autoCommitAndPush.description%",
+					"tags": [
+						"experimental"
+					]
+				},
+				"githubPullRequests.codingAgent.uiIntegration": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%githubPullRequests.codingAgent.uiIntegration.description%",
 					"tags": [
 						"experimental"
 					]
