@@ -204,6 +204,33 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return { owner, repo, baseRef, remote, repository, ghRepository, fm };
 	}
 
+	private parseFollowup(followup: string | undefined, repoInfo: { owner: string; repo: string }): number | undefined {
+		if (!followup) {
+			return;
+		}
+		const match = followup.match(FOLLOW_UP_REGEX);
+		if (!match || match.length < 2) {
+			Logger.error(`Ignoring. Invalid followup format: ${followup}`, CopilotRemoteAgentManager.ID);
+			return;
+		}
+
+		try {
+			const followUpData = JSON.parse(decodeURIComponent(match[1]));
+			if (!followUpData || !followUpData.owner || !followUpData.repo || !followUpData.pullRequestNumber) {
+				Logger.error(`Ignoring. Invalid followup data: ${followUpData}`, CopilotRemoteAgentManager.ID);
+				return;
+			}
+
+			if (repoInfo.owner !== followUpData.owner || repoInfo.repo !== followUpData.repo) {
+				Logger.error(`Ignoring. Follow up data does not match current repository: ${JSON.stringify(followUpData)}`, CopilotRemoteAgentManager.ID);
+				return;
+			}
+			return followUpData.pullRequestNumber;
+		} catch (error) {
+			Logger.error(`Ignoring. Error while parsing follow up data: ${followup}`, CopilotRemoteAgentManager.ID);
+		}
+	}
+
 	async commandImpl(args?: ICopilotRemoteAgentCommandArgs): Promise<string | undefined> {
 		if (!args) {
 			return;
@@ -223,28 +250,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		// If this is a followup, parse out the necessary data
 		// Group 2 is this, url-encoded:
 		// {"owner":"monalisa","repo":"app","pullRequestNumber":18}
-		let followUpPR: number | undefined;
-		if (followup) {
-			const match = followup.match(FOLLOW_UP_REGEX);
-			if (!match || match.length < 2) {
-				Logger.error(`Ignoring. Invalid followup format: ${followup}`, CopilotRemoteAgentManager.ID);
-			} else {
-				try {
-					const followUpData = JSON.parse(decodeURIComponent(match[1]));
-					if (followUpData && followUpData.owner && followUpData.repo && followUpData.pullRequestNumber) {
-						if (owner !== followUpData.owner || repository !== followUpData.repo) {
-							Logger.error(`Ignoring. Follow up data does not match current repository: ${JSON.stringify(followUpData)}`, CopilotRemoteAgentManager.ID);
-						}
-						followUpPR = followUpData.pullRequestNumber;
-					} else {
-						Logger.error(`Ignoring. Invalid followup data: ${followUpData}`, CopilotRemoteAgentManager.ID);
-					}
-				} catch (error) {
-					Logger.error(`Ignoring. Error while parsing follow up data: ${followup}`, CopilotRemoteAgentManager.ID);
-				}
-			}
-		}
-
+		let followUpPR: number | undefined = this.parseFollowup(followup, repoInfo);
 		if (followUpPR) {
 			try {
 				const ghRepo = repoInfo.ghRepository;
