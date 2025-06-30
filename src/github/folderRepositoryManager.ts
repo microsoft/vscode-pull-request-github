@@ -2740,7 +2740,7 @@ export class FolderRepositoryManager extends Disposable {
 		await matchingRepo.addRemote(workingRemoteName, result);
 		// Now the extension is responding to all the git changes.
 		await new Promise<void>(resolve => {
-			if (this.gitHubRepositories.length === startingRepoCount) {
+			if ((this.gitHubRepositories.length === startingRepoCount) && vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<string[]>(REMOTES)?.includes('upstream')) {
 				const disposable = this.onDidChangeRepositories(() => {
 					if (this.gitHubRepositories.length > startingRepoCount) {
 						disposable.dispose();
