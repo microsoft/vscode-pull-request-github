@@ -113,7 +113,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			}
 		}));
 
-		this._register(this._copilotManager.onDidCreatePullRequest(() => this.refresh()));
+		this._register(this._copilotManager.onDidCreatePullRequest(() => this.refresh(undefined, true)));
 
 		// Listen for PR overview panel changes to sync the tree view
 		this._register(PullRequestOverviewPanel.onVisible(pullRequest => {
