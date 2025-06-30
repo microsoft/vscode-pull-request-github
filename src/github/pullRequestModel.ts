@@ -1287,10 +1287,10 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		folderManager.telemetry.sendTelemetryEvent('pr.openChanges');
 
 		if (openToTheSide) {
-			// Open changes in the second editor group by using ViewColumn.Two
-			// Note: vscode.changes doesn't support ViewColumn directly, so we'll try a workaround
-			// by ensuring the second editor group exists and then calling the command
-			await vscode.commands.executeCommand('workbench.action.splitEditor');
+			if (vscode.window.tabGroups.all.length < 2) {
+				await vscode.commands.executeCommand('workbench.action.splitEditor');
+			}
+
 			await vscode.commands.executeCommand('workbench.action.focusSecondEditorGroup');
 		}
 

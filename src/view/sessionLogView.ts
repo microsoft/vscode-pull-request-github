@@ -124,8 +124,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 			return;
 		}
 
-		const viewColumn = openToTheSide ? vscode.ViewColumn.Two : vscode.ViewColumn.Active;
-
+		const viewColumn = openToTheSide ? vscode.ViewColumn.Beside : vscode.ViewColumn.Active;
 		const webviewPanel = vscode.window.createWebviewPanel(
 			SessionLogViewManager.viewType,
 			pullRequest ? vscode.l10n.t(`Session Log (Pull #{0})`, pullRequest.number) : vscode.l10n.t('Session Log'),
