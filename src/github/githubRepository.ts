@@ -1469,8 +1469,8 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	isCurrentUser(login: string): Promise<boolean> {
-		return this._credentialStore.isCurrentUser(login);
+	isCurrentUser(authProviderId: AuthProvider, login: string): Promise<boolean> {
+		return this._credentialStore.isCurrentUser(authProviderId, login);
 	}
 
 
