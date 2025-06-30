@@ -75,7 +75,7 @@
 		color: inherit;
 
 		.pull-request-id {
-			color: var(--vscode-textLink-foreground);
+			color: var(--vscode-descriptionForeground);
 		}
 	}
 }
