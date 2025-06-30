@@ -850,6 +850,20 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
+	public async getWorkflowRunsFromAction(fromDate: string): Promise<OctokitCommon.ListWorkflowRunsForRepo> {
+		const { octokit, remote } = await this.ensure();
+		const createdDate = new Date(fromDate);
+		const created = `>=${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}-${String(createdDate.getDate()).padStart(2, '0')}`;
+		const allRuns = await restPaginate<typeof octokit.api.actions.listWorkflowRunsForRepo, OctokitCommon.ListWorkflowRunsForRepo[0]>(octokit.api.actions.listWorkflowRunsForRepo, {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			event: 'dynamic',
+			created
+		});
+
+		return allRuns;
+	}
+
 	async fork(): Promise<string | undefined> {
 		try {
 			Logger.debug(`Fork repository`, this.id);
