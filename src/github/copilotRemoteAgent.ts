@@ -13,6 +13,7 @@ import Logger from '../common/logger';
 import { GitHubRemote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
+import { OctokitCommon } from './common';
 import { CopilotApi, RemoteAgentJobPayload } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { CredentialStore } from './credentials';
@@ -45,7 +46,6 @@ const CONTINUE_WITHOUT_PUSHING = vscode.l10n.t('Ignore changes');
 
 export class CopilotRemoteAgentManager extends Disposable {
 	public static ID = 'CopilotRemoteAgentManager';
-	private readonly workflowRunUrlBase = 'https://github.com/microsoft/vscode/actions/runs/';
 
 	private readonly _stateModel: CopilotStateModel;
 	private readonly _onDidChangeStates = this._register(new vscode.EventEmitter<void>());
@@ -403,18 +403,30 @@ export class CopilotRemoteAgentManager extends Disposable {
 		if (!capi) {
 			return [];
 		}
-		const runs = await capi.getWorkflowRunsFromAction(pullRequest);
-		const padawanRuns = runs
-			.filter(run => run.path && run.path.startsWith('dynamic/copilot-swe-agent'))
-			.filter(run => run.pull_requests?.some(pr => pr.id === pullRequest.id));
-
-		const lastRun = this.getLatestRun(padawanRuns);
-
+		const lastRun = await this.getLatestCodingAgentFromAction(pullRequest);
 		if (!lastRun) {
 			return [];
 		}
 
 		return await capi.getLogsFromZipUrl(lastRun.logs_url);
+	}
+
+	async getLatestCodingAgentFromAction(pullRequest: PullRequestModel, sessionIndex = 0, completedOnly = true): Promise<OctokitCommon.WorkflowRun | undefined> {
+		const capi = await this.copilotApi;
+		if (!capi) {
+			return;
+		}
+		const runs = await capi.getWorkflowRunsFromAction(pullRequest);
+		const padawanRuns = runs
+			.filter(run => run.path && run.path.startsWith('dynamic/copilot-swe-agent'))
+			.filter(run => run.pull_requests?.some(pr => pr.id === pullRequest.id));
+
+		const session = padawanRuns.filter(s => !completedOnly || s.status === 'completed').at(sessionIndex);
+		if (!session) {
+			return;
+		}
+
+		return this.getLatestRun(padawanRuns);
 	}
 
 	async getSessionLogFromPullRequest(pullRequestId: number, sessionIndex = 0, completedOnly = true): Promise<IAPISessionLogs | undefined> {
@@ -433,18 +445,17 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return { sessionId: session.id, logs };
 	}
 
-	async getSessionUrlFromPullRequest(pullRequestId: number, sessionIndex = 0, completedOnly = true): Promise<string | undefined> {
+	async getSessionUrlFromPullRequest(pullRequest: PullRequestModel): Promise<string | undefined> {
 		const capi = await this.copilotApi;
 		if (!capi) {
-			return undefined;
+			return;
 		}
 
-		const sessions = await capi.getAllSessions(pullRequestId);
-		const session = sessions.filter(s => !completedOnly || s.state === 'completed').at(sessionIndex);
-		if (!session) {
-			return undefined;
+		const sessions = await this.getLatestCodingAgentFromAction(pullRequest);
+		if (!sessions) {
+			return;
 		}
-		return `${this.workflowRunUrlBase}${session.workflow_run_id}`;
+		return sessions.html_url;
 	}
 
 	async getSessionLogsFromSessionId(sessionId: string): Promise<IAPISessionLogs> {
