@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.loading-indicator {
+.loading-indicator,
+.error-view {
 	position: fixed;
 	top: 50%;
 	left: 50%;

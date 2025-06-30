@@ -14,7 +14,7 @@ import { GitHubRemote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { OctokitCommon } from './common';
-import { CopilotApi, RemoteAgentJobPayload } from './copilotApi';
+import { CopilotApi, RemoteAgentJobPayload, SessionInfo } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -27,8 +27,8 @@ type RemoteAgentErrorResult = { error: string; state: 'error' };
 type RemoteAgentResult = RemoteAgentSuccessResult | RemoteAgentErrorResult;
 
 export interface IAPISessionLogs {
-	sessionId: string;
-	logs: string;
+	readonly info: SessionInfo;
+	readonly logs: string;
 }
 
 export interface ICopilotRemoteAgentCommandArgs {
@@ -443,7 +443,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 
 		const logs = await capi.getLogsFromSession(session.id);
-		return { sessionId: session.id, logs };
+		return { info: session, logs };
 	}
 
 	async getSessionUrlFromPullRequest(pullRequest: PullRequestModel): Promise<string | undefined> {
@@ -457,16 +457,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return;
 		}
 		return sessions.html_url;
-	}
-
-	async getSessionLogsFromSessionId(sessionId: string): Promise<IAPISessionLogs> {
-		const capi = await this.copilotApi;
-		if (!capi) {
-			return { sessionId: '', logs: '' };
-		}
-
-		const logs = await capi.getLogsFromSession(sessionId);
-		return { sessionId, logs };
 	}
 
 	private getLatestRun<T extends { last_updated_at?: string; updated_at?: string }>(runs: T[]): T {
