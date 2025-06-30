@@ -35,6 +35,7 @@ export interface ICopilotRemoteAgentCommandArgs {
 	userPrompt: string;
 	summary?: string;
 	source?: string;
+	followup?: string;
 }
 
 const LEARN_MORE = vscode.l10n.t('Learn about Coding Agent');
@@ -43,6 +44,9 @@ const CONTINUE = vscode.l10n.t('Continue');
 // With Pending Changes
 const PUSH_CHANGES = vscode.l10n.t('Include changes');
 const CONTINUE_WITHOUT_PUSHING = vscode.l10n.t('Ignore changes');
+
+const FOLLOW_UP_REGEX = /open-pull-request-webview.*((%7B.*?%7D)|(\{.*?\}))/;
+const COPILOT = '@copilot';
 
 export class CopilotRemoteAgentManager extends Disposable {
 	public static ID = 'CopilotRemoteAgentManager';
@@ -201,12 +205,39 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return { owner, repo, baseRef, remote, repository, ghRepository, fm };
 	}
 
+	private parseFollowup(followup: string | undefined, repoInfo: { owner: string; repo: string }): number | undefined {
+		if (!followup) {
+			return;
+		}
+		const match = followup.match(FOLLOW_UP_REGEX);
+		if (!match || match.length < 2) {
+			Logger.error(`Ignoring. Invalid followup format: ${followup}`, CopilotRemoteAgentManager.ID);
+			return;
+		}
+
+		try {
+			const followUpData = JSON.parse(decodeURIComponent(match[1]));
+			if (!followUpData || !followUpData.owner || !followUpData.repo || !followUpData.pullRequestNumber) {
+				Logger.error(`Ignoring. Invalid followup data: ${followUpData}`, CopilotRemoteAgentManager.ID);
+				return;
+			}
+
+			if (repoInfo.owner !== followUpData.owner || repoInfo.repo !== followUpData.repo) {
+				Logger.error(`Ignoring. Follow up data does not match current repository: ${JSON.stringify(followUpData)}`, CopilotRemoteAgentManager.ID);
+				return;
+			}
+			return followUpData.pullRequestNumber;
+		} catch (error) {
+			Logger.error(`Ignoring. Error while parsing follow up data: ${followup}`, CopilotRemoteAgentManager.ID);
+		}
+	}
+
 	async commandImpl(args?: ICopilotRemoteAgentCommandArgs): Promise<string | undefined> {
 		if (!args) {
 			return;
 		}
 
-		const { userPrompt, summary, source } = args;
+		const { userPrompt, summary, source, followup } = args;
 		if (!userPrompt || userPrompt.trim().length === 0) {
 			return;
 		}
@@ -216,6 +247,36 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return;
 		}
 		const { repository, owner, repo } = repoInfo;
+
+		// If this is a followup, parse out the necessary data
+		// Group 2 is this, url-encoded:
+		// {"owner":"monalisa","repo":"app","pullRequestNumber":18}
+		let followUpPR: number | undefined = this.parseFollowup(followup, repoInfo);
+		if (followUpPR) {
+			try {
+				const ghRepo = repoInfo.ghRepository;
+				// Fetch the PullRequestModel by number
+				const pr = await ghRepo.getPullRequest(followUpPR);
+				if (!pr) {
+					Logger.error(`Could not find pull request #${followUpPR}`, CopilotRemoteAgentManager.ID);
+					return;
+				}
+				// Add a comment tagging @copilot with the user's prompt
+				const commentBody = `${COPILOT} ${userPrompt} \n\n --- \n\n ${summary ?? ''}`;
+				const commentResult = await pr.createIssueComment(commentBody);
+				if (!commentResult) {
+					Logger.error(`Failed to add comment to PR #${followUpPR}`, CopilotRemoteAgentManager.ID);
+					return;
+				}
+				Logger.appendLine(`Added comment ${commentResult.htmlUrl}`, CopilotRemoteAgentManager.ID);
+				// allow-any-unicode-next-line
+				return vscode.l10n.t('🚀 Follow-up comment added to [#{0}]({1})', followUpPR, commentResult.htmlUrl);
+			} catch (err) {
+				Logger.error(`Failed to add follow-up comment to PR #${followUpPR}: ${err}`, CopilotRemoteAgentManager.ID);
+				return;
+			}
+		}
+
 		const repoName = `${owner}/${repo}`;
 		const hasChanges = repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0;
 		const learnMoreCb = async () => {

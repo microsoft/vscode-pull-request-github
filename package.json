@@ -71,6 +71,7 @@
 				"command": "githubpr.remoteAgent",
 				"displayName": "GitHub Coding Agent",
 				"description": "The GitHub Coding Agent.",
+				"followUpRegex": "open-pull-request-webview.*((%7B.*?%7D)|(\\{.*?\\}))",
 				"when": "config.githubPullRequests.codingAgent.enabled && config.githubPullRequests.codingAgent.uiIntegration && copilotCodingAgentAssignable"
 			}
 		],
