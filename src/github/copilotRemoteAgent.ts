@@ -46,6 +46,7 @@ const PUSH_CHANGES = vscode.l10n.t('Include changes');
 const CONTINUE_WITHOUT_PUSHING = vscode.l10n.t('Ignore changes');
 
 const FOLLOW_UP_REGEX = /open-pull-request-webview.*((%7B.*?%7D)|(\{.*?\}))/;
+const COPILOT = '@copilot';
 
 export class CopilotRemoteAgentManager extends Disposable {
 	public static ID = 'CopilotRemoteAgentManager';
@@ -261,7 +262,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 					return;
 				}
 				// Add a comment tagging @copilot with the user's prompt
-				const commentBody = `@copilot ${userPrompt}`;
+				const commentBody = `${COPILOT} ${userPrompt} \n\n --- \n\n ${summary ?? ''}`;
 				const commentResult = await pr.createIssueComment(commentBody);
 				if (!commentResult) {
 					Logger.error(`Failed to add comment to PR #${followUpPR}`, CopilotRemoteAgentManager.ID);
