@@ -59,7 +59,7 @@ const SessionHeader: React.FC<SessionHeaderProps> = ({ info, pullInfo }) => {
 						<a className='pull-request-link' onClick={() => {
 							vscode.postMessage({ type: 'openPullRequestView' });
 						}} title='Back to pull request' style={{ cursor: 'pointer' }}>
-							<span className="icon"><i className={'codicon codicon-git-pull-request'}></i></span> {pullInfo.title} <span className="pull-request-id">#{pullInfo.pullId}</span>
+							<span className="icon"><i className={'codicon codicon-git-pull-request'}></i></span> {pullInfo.title} <span className="pull-request-id">#{pullInfo.pullNumber}</span>
 						</a>
 					</h3>
 

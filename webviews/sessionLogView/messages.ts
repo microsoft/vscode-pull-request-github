@@ -12,26 +12,35 @@ export type PullInfo = SessionLinkInfo & {
 
 export interface InitMessage {
 	type: 'init';
-	sessionId: string;
-	pullInfo: PullInfo | undefined;
 	themeData: any;
 }
 
 export interface LoadedMessage {
 	type: 'loaded';
+	pullInfo: PullInfo | undefined;
 	info: SessionInfo;
 	logs: string;
 }
 
 export interface UpdateMessage {
 	type: 'update';
+	pullInfo: PullInfo | undefined;
 	info: SessionInfo;
 	logs: string;
+}
+
+export interface ResetMessage {
+	type: 'reset';
 }
 
 export interface ChangeThemeMessage {
 	type: 'changeTheme';
 	themeData: any;
+}
+
+export interface ErrorMessage {
+	type: 'error';
+	logsWebLink: string | undefined;
 }
 
 export interface WebviewState {

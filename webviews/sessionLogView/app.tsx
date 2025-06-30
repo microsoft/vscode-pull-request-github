@@ -15,41 +15,53 @@ import { SessionView } from './sessionView';
 const themeName = 'vscode-theme';
 
 type SessionViewState =
-	{ state: 'loading' }
-	| { state: 'ready'; readonly info: SessionInfo; readonly logs: SessionResponseLogChunk[] }
+	| { state: 'loading' }
+	| { state: 'ready'; readonly info: SessionInfo; readonly logs: readonly SessionResponseLogChunk[]; readonly pullInfo: messages.PullInfo | undefined }
+	| { state: 'error'; readonly url: string | undefined }
+	;
 
 export function App() {
 	const [state, setState] = React.useState<SessionViewState>({ state: 'loading' });
-	const [pullInfo, setPullInfo] = React.useState<messages.PullInfo | undefined>(undefined);
 
 	React.useEffect(() => {
 		let themeP: Promise<void> | undefined;
 		const handleMessage = async (event: MessageEvent) => {
-			const message = event.data as messages.InitMessage | messages.ChangeThemeMessage | messages.LoadedMessage | messages.UpdateMessage;
+			const message = event.data as messages.InitMessage | messages.ChangeThemeMessage | messages.LoadedMessage | messages.UpdateMessage | messages.ErrorMessage | messages.ResetMessage;
 			switch (message?.type) {
 				case 'init': {
 					themeP = registerMonacoTheme(message.themeData);
+					break;
+				}
+				case 'reset': {
+					setState({ state: 'loading' });
+					break;
+				}
+				case 'loaded':
+				case 'update': {
 					const state: messages.WebviewState = {
-						sessionId: message.sessionId,
+						sessionId: message.info.id,
 						pullInfo: message.pullInfo,
 					};
 					vscode.setState(state);
-					setPullInfo(message.pullInfo);
-					break;
-				}
 
-				case 'loaded':
-				case 'update': {
 					await themeP;
 					setState({
 						state: 'ready',
 						info: message.info,
 						logs: parseSessionLogs(message.logs),
+						pullInfo: message.pullInfo
 					});
 					break;
 				}
 				case 'changeTheme': {
 					registerMonacoTheme(message.themeData);
+					break;
+				}
+				case 'error': {
+					setState({
+						state: 'error',
+						url: message.logsWebLink,
+					});
 					break;
 				}
 			}
@@ -62,10 +74,22 @@ export function App() {
 		return () => window.removeEventListener('message', handleMessage);
 	}, []);
 
+
 	if (state.state === 'loading') {
 		return <div className="loading-indicator">Loading session logs...</div>;
+	} else if (state.state === 'error') {
+		return (
+			<div className="error-view">
+				<p>Failed to load session logs</p>
+				{state.url && (
+					<p>
+						<a href={state.url}>Try viewing logs in your browser</a>.
+					</p>
+				)}
+			</div>
+		);
 	} else {
-		return <SessionView info={state.info} logs={state.logs} pullInfo={pullInfo} />;
+		return <SessionView info={state.info} logs={state.logs} pullInfo={state.pullInfo} />;
 	}
 }
 

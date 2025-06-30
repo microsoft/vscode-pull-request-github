@@ -154,10 +154,11 @@ export interface ReopenedEvent {
 }
 
 export interface SessionPullInfo {
+	id: number;
 	host: string;
 	owner: string;
 	repo: string;
-	pullId: number;
+	pullNumber: number;
 }
 
 export interface SessionLinkInfo extends SessionPullInfo {
