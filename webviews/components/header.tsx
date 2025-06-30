@@ -105,11 +105,16 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaultBranch, setEditMode }) {
 	const { refresh, copyPrLink, copyVscodeDevLink, openChanges } = useContext(PullRequestContext);
 
+	const handleOpenChangesClick = (e: React.MouseEvent) => {
+		const openToTheSide = e.ctrlKey || e.metaKey;
+		openChanges(openToTheSide);
+	};
+
 	return (
 		<div className="button-group">
 			<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
 			{!isIssue && (
-				<button title="Open Changes" onClick={openChanges} className="small-button">
+				<button title="Open Changes (Ctrl/Cmd+Click to open in second editor group)" onClick={handleOpenChangesClick} className="small-button">
 					Open Changes
 				</button>
 			)}
