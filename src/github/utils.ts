@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as crypto from 'crypto';
 import * as OctokitTypes from '@octokit/types';
+import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';
@@ -1003,11 +1003,12 @@ export function parseSelectRestTimelineEvents(
 ): Common.TimelineEvent[] {
 	const parsedEvents: Common.TimelineEvent[] = [];
 
-	const prSessionLink = {
+	const prSessionLink: Common.SessionPullInfo = {
+		id: issueModel.id,
 		host: issueModel.githubRepository.remote.gitProtocol.host,
 		owner: issueModel.githubRepository.remote.owner,
 		repo: issueModel.githubRepository.remote.repositoryName,
-		pullId: issueModel.number,
+		pullNumber: issueModel.number,
 	};
 
 	let sessionIndex = 0;
