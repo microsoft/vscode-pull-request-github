@@ -33,15 +33,8 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 
 	async prepareInvocation(): Promise<vscode.PreparedToolInvocation> {
 		const pullRequest = this._findActivePullRequest();
-		let confirmationMessages: vscode.LanguageModelToolConfirmationMessages | undefined;
-		if (this.shouldIncludeCodingAgentSession(pullRequest)) {
-			confirmationMessages = {
-				title: vscode.l10n.t('Fetching coding agent session logs for pull request "{0}"', pullRequest?.title || ''),
-				message: vscode.l10n.t('This will fetch the coding agent session logs for the active pull request. The logs will be summarized and provided as context for the current conversation.'),
-			};
-		}
 		return {
-			confirmationMessages,
+			confirmationMessages: undefined,
 			invocationMessage: pullRequest ? vscode.l10n.t('Pull request "{0}"', pullRequest.title) : vscode.l10n.t('Active pull request'),
 		};
 	}
