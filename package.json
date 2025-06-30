@@ -3380,6 +3380,10 @@
 						"body": {
 							"type": "string",
 							"description": "The body/description of the issue. Populate from chat context."
+						},
+						"existingPullRequest": {
+							"type": "number",
+							"description": "The number of an existing pull request that is connected to the current Coding Agent task. Look in the history for this number.  In the chat it may look like 'Coding agent will continue work in #17...'. In this example, return just '17'."
 						}
 					}
 				}

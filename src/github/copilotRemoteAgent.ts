@@ -232,6 +232,34 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
+	async addFollowUpToExistingPR(pullRequestNumber: number, userPrompt: string, summary?: string): Promise<string | undefined> {
+		const repoInfo = await this.repoInfo();
+		if (!repoInfo) {
+			return;
+		}
+		try {
+			const ghRepo = repoInfo.ghRepository;
+			const pr = await ghRepo.getPullRequest(pullRequestNumber);
+			if (!pr) {
+				Logger.error(`Could not find pull request #${pullRequestNumber}`, CopilotRemoteAgentManager.ID);
+				return;
+			}
+			// Add a comment tagging @copilot with the user's prompt
+			const commentBody = `${COPILOT} ${userPrompt} \n\n --- \n\n ${summary ?? ''}`;
+			const commentResult = await pr.createIssueComment(commentBody);
+			if (!commentResult) {
+				Logger.error(`Failed to add comment to PR #${pullRequestNumber}`, CopilotRemoteAgentManager.ID);
+				return;
+			}
+			Logger.appendLine(`Added comment ${commentResult.htmlUrl}`, CopilotRemoteAgentManager.ID);
+			// allow-any-unicode-next-line
+			return vscode.l10n.t('🚀 Follow-up comment added to [#{0}]({1})', pullRequestNumber, commentResult.htmlUrl);
+		} catch (err) {
+			Logger.error(`Failed to add follow-up comment to PR #${pullRequestNumber}: ${err}`, CopilotRemoteAgentManager.ID);
+			return;
+		}
+	}
+
 	async commandImpl(args?: ICopilotRemoteAgentCommandArgs): Promise<string | undefined> {
 		if (!args) {
 			return;
@@ -253,28 +281,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		// {"owner":"monalisa","repo":"app","pullRequestNumber":18}
 		let followUpPR: number | undefined = this.parseFollowup(followup, repoInfo);
 		if (followUpPR) {
-			try {
-				const ghRepo = repoInfo.ghRepository;
-				// Fetch the PullRequestModel by number
-				const pr = await ghRepo.getPullRequest(followUpPR);
-				if (!pr) {
-					Logger.error(`Could not find pull request #${followUpPR}`, CopilotRemoteAgentManager.ID);
-					return;
-				}
-				// Add a comment tagging @copilot with the user's prompt
-				const commentBody = `${COPILOT} ${userPrompt} \n\n --- \n\n ${summary ?? ''}`;
-				const commentResult = await pr.createIssueComment(commentBody);
-				if (!commentResult) {
-					Logger.error(`Failed to add comment to PR #${followUpPR}`, CopilotRemoteAgentManager.ID);
-					return;
-				}
-				Logger.appendLine(`Added comment ${commentResult.htmlUrl}`, CopilotRemoteAgentManager.ID);
-				// allow-any-unicode-next-line
-				return vscode.l10n.t('🚀 Follow-up comment added to [#{0}]({1})', followUpPR, commentResult.htmlUrl);
-			} catch (err) {
-				Logger.error(`Failed to add follow-up comment to PR #${followUpPR}: ${err}`, CopilotRemoteAgentManager.ID);
-				return;
-			}
+			return this.addFollowUpToExistingPR(followUpPR, userPrompt, summary);
 		}
 
 		const repoName = `${owner}/${repo}`;
