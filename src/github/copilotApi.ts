@@ -8,10 +8,10 @@ import JSZip from 'jszip';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
 import Logger from '../common/logger';
-import { Remote } from '../common/remote';
 import { OctokitCommon } from './common';
 import { CredentialStore } from './credentials';
 import { LoggingOctokit } from './loggingOctokit';
+import { PullRequestModel } from './pullRequestModel';
 import { hasEnterpriseUri } from './utils';
 
 const LEARN_MORE_URL = 'https://docs.github.com/en/copilot/how-tos/agents/copilot-coding-agent';
@@ -109,18 +109,35 @@ export class CopilotApi {
 		}
 	}
 
-	public async getWorkflowRunsFromAction(remote: Remote): Promise<OctokitCommon.ListWorkflowRunsForRepo> {
-		const runs = await this.octokit.api.actions.listWorkflowRunsForRepo(
-			{
-				owner: remote.owner,
-				repo: remote.repositoryName,
-				event: 'dynamic'
+	public async getWorkflowRunsFromAction(pullRequest: PullRequestModel): Promise<OctokitCommon.ListWorkflowRunsForRepo> {
+		const createdDate = new Date(pullRequest.createdAt);
+		const created = `>=${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}-${String(createdDate.getDate()).padStart(2, '0')}`;
+		const allRuns: any[] = [];
+		let page = 1;
+		let hasMore = true;
+		const per_page = 100;
+		while (hasMore) {
+			const runs = await this.octokit.api.actions.listWorkflowRunsForRepo({
+				owner: pullRequest.remote.owner,
+				repo: pullRequest.remote.repositoryName,
+				event: 'dynamic',
+				created,
+				per_page,
+				page
+			});
+			if (runs.status !== 200) {
+				throw new Error(`Failed to fetch workflow runs: ${runs.status}`);
 			}
-		);
-		if (runs.status !== 200) {
-			throw new Error(`Failed to fetch workflow runs: ${runs.status}`);
+			if (Array.isArray(runs.data.workflow_runs)) {
+				allRuns.push(...runs.data.workflow_runs);
+				hasMore = runs.data.total_count > allRuns.length;
+				page++;
+			} else {
+				hasMore = false;
+			}
 		}
-		return runs.data.workflow_runs;
+		// Return only the workflow_runs array for compatibility
+		return allRuns as unknown as OctokitCommon.ListWorkflowRunsForRepo;
 	}
 
 	public async getLogsFromZipUrl(logsUrl: string): Promise<string[]> {
