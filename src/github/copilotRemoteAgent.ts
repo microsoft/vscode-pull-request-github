@@ -9,11 +9,15 @@ import { AuthProvider } from '../common/authentication';
 import { COPILOT_LOGINS } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
+import Logger from '../common/logger';
+import { GitHubRemote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { CopilotApi, RemoteAgentJobPayload } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { CredentialStore } from './credentials';
+import { FolderRepositoryManager } from './folderRepositoryManager';
+import { GitHubRepository } from './githubRepository';
 import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
 
@@ -115,13 +119,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return false;
 		}
 
-		const { owner, repo } = repoInfo;
-		const folderManager = this.getFolderManagerForRepo(owner, repo);
+		const { fm } = repoInfo;
 
 		try {
 			// Ensure assignable users are loaded
-			await folderManager.getAssignableUsers();
-			const allAssignableUsers = folderManager.getAllAssignableUsers();
+			await fm.getAssignableUsers();
+			const allAssignableUsers = fm.getAllAssignableUsers();
 
 			if (!allAssignableUsers) {
 				return false;
@@ -169,33 +172,33 @@ export class CopilotRemoteAgentManager extends Disposable {
 			.getConfiguration(CODING_AGENT).get(CODING_AGENT_AUTO_COMMIT_AND_PUSH, false);
 	}
 
-	private getFolderManagerForRepo(owner?: string, repo?: string) {
-		let folderManager = (owner && repo)
-			? this.repositoriesManager.getManagerForRepository(owner, repo)
-			: undefined;
-		if (!folderManager && this.repositoriesManager.folderManagers.length > 0) {
-			folderManager = this.repositoriesManager.folderManagers[0];
+	async repoInfo(): Promise<{ owner: string; repo: string; baseRef: string; remote: GitHubRemote; repository: Repository; ghRepository: GitHubRepository; fm: FolderRepositoryManager } | undefined> {
+		if (!this.repositoriesManager.folderManagers.length) {
+			return;
 		}
-		if (!folderManager) {
-			throw new Error('No folder manager found for the repository. Open a workspace with a Git repository.');
-		}
-		return folderManager;
-	}
-
-	async repoInfo(): Promise<{ owner: string; repo: string; remote: string; baseRef: string; repository: Repository } | undefined> {
-		const fm = this.getFolderManagerForRepo();
+		const fm = this.repositoriesManager.folderManagers[0];
 		const repository = fm?.repository;
-		if (!fm || !repository) {
+		const ghRepository = fm?.gitHubRepositories.find(repo => repo.remote instanceof GitHubRemote) as GitHubRepository | undefined;
+		if (!repository || !ghRepository) {
 			return;
 		}
-		const { owner, repo } = await fm.getPullRequestDefaults();
-		const remotes = repository.state.remotes;
+
 		const baseRef = repository.state.HEAD?.name; // TODO: Consider edge cases
-		const remote = remotes.find(r => r.name === 'origin')?.name || remotes.find(r => r.pushUrl)?.name;
-		if (!owner || !repo || !remote || !baseRef || !repository) {
+		const ghRemotes = await fm.getGitHubRemotes();
+		if (!ghRemotes || ghRemotes.length === 0) {
 			return;
 		}
-		return { owner, repo, remote, baseRef, repository };
+
+		const remote =
+			ghRemotes.find(remote => remote.remoteName === 'origin')
+			|| ghRemotes[0]; // Fallback to the first remote
+
+		// Extract repo data from target remote
+		const { owner, repositoryName: repo } = remote;
+		if (!owner || !repo || !baseRef || !repository) {
+			return;
+		}
+		return { owner, repo, baseRef, remote, repository, ghRepository, fm };
 	}
 
 	async commandImpl(args?: ICopilotRemoteAgentCommandArgs): Promise<string | undefined> {
@@ -213,10 +216,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return;
 		}
 		const { repository, owner, repo } = repoInfo;
-		const repoName = `${owner}/${repo}`; // TODO: Make sure this is where we'll push to
-
+		const repoName = `${owner}/${repo}`;
 		const hasChanges = repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0;
-
 		const learnMoreCb = async () => {
 			vscode.env.openExternal(vscode.Uri.parse('https://docs.github.com/copilot/using-github-copilot/coding-agent'));
 		};
@@ -301,17 +302,17 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		const repoInfo = await this.repoInfo();
 		if (!repoInfo) {
-			return { error: vscode.l10n.t('No repository information found. Please open a workspace with a Git repository.'), state: 'error' };
+			return { error: vscode.l10n.t('No repository information found. Please open a workspace with a GitHub repository.'), state: 'error' };
 		}
-		const { owner, repo, remote, repository, baseRef } = repoInfo;
+		const { owner, repo, remote, repository, ghRepository, baseRef } = repoInfo;
 
 		// NOTE: This is as unobtrusive as possible with the current high-level APIs.
 		// We only create a new branch and commit if there are staged or working changes.
 		// This could be improved if we add lower-level APIs to our git extension (e.g. in-memory temp git index).
 
 		let ref = baseRef;
-		const hasChanges = repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0;
-		if (hasChanges && autoPushAndCommit) {
+		const hasChanges = autoPushAndCommit && (repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0);
+		if (hasChanges) {
 			if (!this.autoCommitAndPushEnabled()) {
 				return { error: vscode.l10n.t('Uncommitted changes detected. Please commit or stash your changes before starting the remote agent. Enable \'{0}\' to push your changes automatically.', CODING_AGENT_AUTO_COMMIT_AND_PUSH), state: 'error' };
 			}
@@ -321,13 +322,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 				await repository.add([]);
 				if (repository.state.indexChanges.length > 0) {
 					try {
-						await repository.commit('Checkpoint for Copilot Agent async session', { signCommit: false });
+						await repository.commit('Checkpoint for Copilot Agent async session');
 					} catch (e) {
 						// https://github.com/microsoft/vscode/pull/252263
 						return { error: vscode.l10n.t('Could not \'git commit\' pending changes. If GPG signing or git hooks are enabled, please first commit or stash your changes and try again. ({0})', e.message), state: 'error' };
 					}
 				}
-				await repository.push(remote, asyncBranch, true);
+				await repository.push(remote.remoteName, asyncBranch, true);
 				ref = asyncBranch;
 			} catch (e) {
 				return { error: vscode.l10n.t('Could not auto-push pending changes. Manually commit or stash your changes and try again. ({0})', e.message), state: 'error' };
@@ -349,6 +350,21 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 		}
 
+		const base_ref = hasChanges ? baseRef : ref;
+		try {
+			if (!(await ghRepository.hasBranch(base_ref))) {
+				if (!this.autoCommitAndPushEnabled()) {
+					// We won't auto-push a branch if the user has disabled the setting
+					return { error: vscode.l10n.t('The branch \'{0}\' does not exist on the remote repository \'{1}/{2}\'. Please create the remote branch first.', base_ref, owner, repo), state: 'error' };
+				}
+				// Push the branch
+				Logger.appendLine(`Base ref needs to exist on remote.  Auto pushing base_ref '${base_ref}' to remote repository '${owner}/${repo}'`, CopilotRemoteAgentManager.ID);
+				await repository.push(remote.remoteName, base_ref, true);
+			}
+		} catch (error) {
+			return { error: vscode.l10n.t('Failed to configure base branch \'{0}\' does not exist on the remote repository \'{1}/{2}\'. Please create the remote branch first.', base_ref, owner, repo), state: 'error' };
+		}
+
 		let title = prompt;
 		const titleMatch = problemContext.match(/TITLE: \s*(.*)/i);
 		if (titleMatch && titleMatch[1]) {
@@ -361,8 +377,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 			pull_request: {
 				title,
 				body_placeholder: problemContext,
-				base_ref: hasChanges && autoPushAndCommit ? baseRef : ref,
-				...(hasChanges && autoPushAndCommit && { head_ref: ref })
+				base_ref,
+				...(hasChanges && { head_ref: ref })
 			}
 		};
 
