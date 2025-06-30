@@ -16,6 +16,7 @@ export interface CopilotRemoteAgentToolParameters {
 	// };
 	title: string;
 	body?: string;
+	existingPullRequest?: string;
 }
 
 export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotRemoteAgentToolParameters> {
@@ -24,7 +25,7 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 	constructor(private manager: CopilotRemoteAgentManager) { }
 
 	async prepareInvocation(options: vscode.LanguageModelToolInvocationPrepareOptions<CopilotRemoteAgentToolParameters>): Promise<vscode.PreparedToolInvocation> {
-		const { title } = options.input;
+		const { title, existingPullRequest } = options.input;
 
 		// Check if the coding agent is available (enabled and assignable)
 		const isAvailable = await this.manager.isAvailable();
@@ -38,9 +39,11 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 			pastTenseMessage: vscode.l10n.t('Launched coding agent'),
 			invocationMessage: vscode.l10n.t('Launching coding agent'),
 			confirmationMessages: {
-				message: targetRepo && autoPushEnabled
-					? vscode.l10n.t('The coding agent will continue work on "**{0}**" in a new branch on "**{1}/{2}**". Any uncommitted changes will be **automatically pushed**.', title, targetRepo.owner, targetRepo.repo)
-					: vscode.l10n.t('The coding agent will start working on "**{0}**"', title),
+				message: existingPullRequest
+					? vscode.l10n.t('The coding agent will incorporate your feedback on existing pull request **#{0}**.', existingPullRequest)
+					: (targetRepo && autoPushEnabled
+						? vscode.l10n.t('The coding agent will continue work on "**{0}**" in a new branch on "**{1}/{2}**". Any uncommitted changes will be **automatically pushed**.', title, targetRepo.owner, targetRepo.repo)
+						: vscode.l10n.t('The coding agent will start working on "**{0}**"', title)),
 				title: vscode.l10n.t('Start coding agent?'),
 			}
 		};
@@ -52,12 +55,27 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 	): Promise<vscode.LanguageModelToolResult | undefined> {
 		const title = options.input.title;
 		const body = options.input.body || '';
+		const existingPullRequest = options.input.existingPullRequest || '';
 		const targetRepo = await this.manager.repoInfo();
 		if (!targetRepo) {
 			return new vscode.LanguageModelToolResult([
 				new vscode.LanguageModelTextPart(vscode.l10n.t('No repository information found. Please open a workspace with a Git repository.'))
 			]);
 		}
+
+		if (existingPullRequest) {
+			const pullRequestNumber = parseInt(existingPullRequest, 10);
+			if (isNaN(pullRequestNumber)) {
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart(vscode.l10n.t('Invalid pull request number: {0}', existingPullRequest))
+				]);
+			}
+			const result = await this.manager.addFollowUpToExistingPR(pullRequestNumber, title, body);
+			return new vscode.LanguageModelToolResult([
+				new vscode.LanguageModelTextPart(vscode.l10n.t('Follow-up added to pull request #{0}.', pullRequestNumber)),
+			]);
+		}
+
 		const result = await this.manager.invokeRemoteAgent(title, body);
 		if (result.state === 'error') {
 			throw new Error(result.error);
