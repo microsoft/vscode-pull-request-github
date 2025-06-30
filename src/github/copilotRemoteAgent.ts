@@ -416,7 +416,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		if (!capi) {
 			return;
 		}
-		const runs = await capi.getWorkflowRunsFromAction(pullRequest.remote);
+		const runs = await capi.getWorkflowRunsFromAction(pullRequest);
 		const padawanRuns = runs
 			.filter(run => run.path && run.path.startsWith('dynamic/copilot-swe-agent'))
 			.filter(run => run.pull_requests?.some(pr => pr.id === pullRequest.id));
