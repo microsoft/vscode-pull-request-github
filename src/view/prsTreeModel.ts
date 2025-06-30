@@ -29,7 +29,7 @@ export class PrsTreeModel extends Disposable {
 	public readonly onDidChangePrStatus = this._onDidChangePrStatus.event;
 	private readonly _onDidChangeData: vscode.EventEmitter<FolderRepositoryManager | void> = this._register(new vscode.EventEmitter<FolderRepositoryManager | void>());
 	public readonly onDidChangeData = this._onDidChangeData.event;
-	private _expandedQueries: Set<string> = new Set();
+	private _expandedQueries: Set<string> | undefined;
 	private _hasLoaded: boolean = false;
 	private _onLoaded: vscode.EventEmitter<void> = this._register(new vscode.EventEmitter<void>());
 	public readonly onLoaded = this._onLoaded.event;
@@ -78,10 +78,16 @@ export class PrsTreeModel extends Disposable {
 			}
 		}));
 
-		this._expandedQueries = new Set(this._context.workspaceState.get(EXPANDED_QUERIES_STATE, [] as string[]));
+		const expandedQueries = this._context.workspaceState.get(EXPANDED_QUERIES_STATE, undefined);
+		if (expandedQueries) {
+			this._expandedQueries = new Set(expandedQueries);
+		}
 	}
 
 	public updateExpandedQueries(element: TreeNode, isExpanded: boolean) {
+		if (!this._expandedQueries) {
+			this._expandedQueries = new Set();
+		}
 		if ((element instanceof CategoryTreeNode) && element.id) {
 			if (isExpanded) {
 				this._expandedQueries.add(element.id);
@@ -92,8 +98,8 @@ export class PrsTreeModel extends Disposable {
 		}
 	}
 
-	get expandedQueries(): Set<string> {
-		if (this._reposManager.folderManagers.length > 3 && this._expandedQueries.size > 0) {
+	get expandedQueries(): Set<string> | undefined {
+		if (this._reposManager.folderManagers.length > 3 && this._expandedQueries && this._expandedQueries.size > 0) {
 			return new Set();
 		}
 		return this._expandedQueries;
