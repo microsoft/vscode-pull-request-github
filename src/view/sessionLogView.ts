@@ -91,7 +91,12 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 	}
 
 	async openForPull(pullRequest: PullRequestModel, link: SessionLinkInfo, openToTheSide?: boolean): Promise<void> {
-		const source: SessionLogSource = { type: 'pull', pullRequest: toPullInfo(pullRequest), link };
+		const source: SessionLogSource = {
+			type: 'pull', pullRequest: {
+				...link,
+				title: pullRequest.title
+			}, link
+		};
 		const existingPanel = this.getPanelForPullRequest(pullRequest);
 		if (existingPanel) {
 			existingPanel.revealAndRefresh(source);
@@ -167,7 +172,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 }
 
 type SessionLogSource =
-	| { type: 'pull', readonly pullRequest: SessionPullInfo & { title: string }; readonly link: SessionLinkInfo }
+	| { type: 'pull', readonly pullRequest: SessionLinkInfo & { title: string }; readonly link: SessionLinkInfo }
 	| { type: 'session', readonly sessionId: string }
 	;
 
@@ -256,11 +261,7 @@ class SessionLogView extends Disposable {
 	}
 
 	public isForPullRequest(pullRequest: PullRequestModel): boolean {
-		if (this._source.type !== 'pull') {
-			return false;
-		}
-		const inInfo = toPullInfo(pullRequest);
-		return arePullInfosEqual(this._source.pullRequest, inInfo);
+		return this._source.type === 'pull' && this._source.pullRequest.id === pullRequest.id;
 	}
 
 	public isForSession(sessionId: string): boolean {
@@ -270,7 +271,7 @@ class SessionLogView extends Disposable {
 	public revealAndRefresh(source: SessionLogSource): void {
 		if (
 			(this._source.type === 'session' && source.type === 'session' && this._source.sessionId === source.sessionId)
-			|| (this._source.type === 'pull' && source.type === 'pull' && arePullInfosEqual(this._source.pullRequest, source.pullRequest))
+			|| (this._source.type === 'pull' && source.type === 'pull' && arePullLinksEqual(this._source.pullRequest, source.pullRequest))
 		) {
 			// No need to reload content
 			this.webviewPanel.reveal();
@@ -283,6 +284,10 @@ class SessionLogView extends Disposable {
 
 	private async initialize() {
 		this.webviewPanel.title = this._source.type === 'pull' ? vscode.l10n.t(`Session Log (Pull #{0})`, this._source.pullRequest.pullNumber) : vscode.l10n.t('Session Log');
+		this.webviewPanel.iconPath = {
+			light: vscode.Uri.joinPath(this.context.extensionUri, 'resources/icons/output.svg'),
+			dark: vscode.Uri.joinPath(this.context.extensionUri, 'resources/icons/dark/output.svg')
+		};
 
 		const distDir = vscode.Uri.joinPath(this.context.extensionUri, 'dist');
 
@@ -393,6 +398,7 @@ class SessionLogView extends Disposable {
 
 		this.webviewPanel.webview.postMessage({
 			type: 'loaded',
+			pullInfo: this._source.type === 'pull' ? this._source.pullRequest : undefined,
 			info: apiResponse.info,
 			logs: apiResponse.logs
 		} as messages.LoadedMessage);
@@ -413,6 +419,7 @@ class SessionLogView extends Disposable {
 
 				this.webviewPanel.webview.postMessage({
 					type: 'update',
+					pullInfo: this._source.type === 'pull' ? this._source.pullRequest : undefined,
 					info: apiResult.info,
 					logs: apiResult.logs
 				} as messages.UpdateMessage);
@@ -434,17 +441,6 @@ class SessionLogView extends Disposable {
 	}
 }
 
-function toPullInfo(pullRequest: PullRequestModel): SessionPullInfo & { title: string; } {
-	return {
-		id: pullRequest.id,
-		host: pullRequest.githubRepository.remote.gitProtocol.host,
-		owner: pullRequest.githubRepository.remote.owner,
-		repo: pullRequest.githubRepository.remote.repositoryName,
-		pullNumber: pullRequest.number,
-		title: pullRequest.title,
-	};
-}
-
-function arePullInfosEqual(a: SessionPullInfo, b: SessionPullInfo): boolean {
-	return a.id === b.id;
+function arePullLinksEqual(a: SessionLinkInfo, b: SessionLinkInfo): boolean {
+	return a.id === b.id && a.sessionIndex === b.sessionIndex;
 }
