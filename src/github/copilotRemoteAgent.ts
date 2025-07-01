@@ -6,7 +6,7 @@
 import vscode from 'vscode';
 import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
-import { COPILOT_LOGINS } from '../common/copilot';
+import { COPILOT_LOGINS, CopilotPRStatus } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -280,6 +280,15 @@ export class CopilotRemoteAgentManager extends Disposable {
 		// Group 2 is this, url-encoded:
 		// {"owner":"monalisa","repo":"app","pullRequestNumber":18}
 		let followUpPR: number | undefined = this.parseFollowup(followup, repoInfo);
+		
+		// Check if the currently active PR is a coding agent PR
+		if (!followUpPR) {
+			const activePR = repoInfo.fm.activePullRequest;
+			if (activePR && this._stateModel.get(owner, repo, activePR.number) !== CopilotPRStatus.None) {
+				followUpPR = activePR.number;
+			}
+		}
+		
 		if (followUpPR) {
 			return this.addFollowUpToExistingPR(followUpPR, userPrompt, summary);
 		}
