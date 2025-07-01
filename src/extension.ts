@@ -239,7 +239,7 @@ async function init(
 
 	registerPostCommitCommandsProvider(reposManager, git);
 
-	initChat(context, credentialStore, reposManager, copilotRemoteAgentManager);
+	initChat(context, credentialStore, reposManager, copilotRemoteAgentManager, telemetry);
 	context.subscriptions.push(vscode.window.registerUriHandler(new UriHandler(reposManager, telemetry, context)));
 
 	// Make sure any compare changes tabs, which come from the create flow, are closed.
@@ -250,11 +250,11 @@ async function init(
 	telemetry.sendTelemetryEvent('startup');
 }
 
-function initChat(context: vscode.ExtensionContext, credentialStore: CredentialStore, reposManager: RepositoriesManager, copilotRemoteManager: CopilotRemoteAgentManager) {
+function initChat(context: vscode.ExtensionContext, credentialStore: CredentialStore, reposManager: RepositoriesManager, copilotRemoteManager: CopilotRemoteAgentManager, telemetry: ExperimentationTelemetry) {
 	const createParticipant = () => {
 		const chatParticipantState = new ChatParticipantState();
 		context.subscriptions.push(new ChatParticipant(context, chatParticipantState));
-		registerTools(context, credentialStore, reposManager, chatParticipantState, copilotRemoteManager);
+		registerTools(context, credentialStore, reposManager, chatParticipantState, copilotRemoteManager, telemetry);
 	};
 
 	const chatEnabled = () => vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE).get<boolean>(EXPERIMENTAL_CHAT, false);
@@ -408,7 +408,7 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 
 	Logger.debug('Creating tree view.', 'Activation');
 
-	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager);
+	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry);
 	context.subscriptions.push(copilotRemoteAgentManager);
 
 	const prTree = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotRemoteAgentManager);

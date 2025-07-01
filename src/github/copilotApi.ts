@@ -8,6 +8,7 @@ import JSZip from 'jszip';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
 import Logger from '../common/logger';
+import { ITelemetry } from '../common/telemetry';
 import { CredentialStore } from './credentials';
 import { LoggingOctokit } from './loggingOctokit';
 import { hasEnterpriseUri } from './utils';
@@ -37,7 +38,7 @@ export interface RemoteAgentJobResponse {
 export class CopilotApi {
 	protected static readonly ID = 'copilotApi';
 
-	constructor(private octokit: LoggingOctokit, private token: string) { }
+	constructor(private octokit: LoggingOctokit, private token: string, private telemetry: ITelemetry) { }
 
 	private get baseUrl(): string {
 		return 'https://api.githubcopilot.com';
@@ -48,24 +49,59 @@ export class CopilotApi {
 		name: string,
 		payload: RemoteAgentJobPayload,
 	): Promise<RemoteAgentJobResponse> {
+		/* __GDPR__
+			"copilot.remoteAgent.apiCall" : {
+				"status" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"repoSlug" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"outcome" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
 		const repoSlug = `${owner}/${name}`;
 		const apiUrl = `${this.baseUrl}/agents/swe/v0/jobs/${repoSlug}`;
-		const response = await fetch(apiUrl, {
-			method: 'POST',
-			headers: {
-				'Copilot-Integration-Id': 'copilot-developer-dev',
-				'Authorization': `Bearer ${this.token}`,
-				'Content-Type': 'application/json',
-				'Accept': 'application/json'
-			},
-			body: JSON.stringify(payload)
-		});
-		if (!response.ok) {
-			throw new Error(await this.formatRemoteAgentJobError(response.status, repoSlug, response));
+		
+		try {
+			const response = await fetch(apiUrl, {
+				method: 'POST',
+				headers: {
+					'Copilot-Integration-Id': 'copilot-developer-dev',
+					'Authorization': `Bearer ${this.token}`,
+					'Content-Type': 'application/json',
+					'Accept': 'application/json'
+				},
+				body: JSON.stringify(payload)
+			});
+			
+			const status = response.status;
+			
+			if (!response.ok) {
+				this.telemetry.sendTelemetryEvent('copilot.remoteAgent.apiCall', {
+					status: status.toString(),
+					repoSlug,
+					outcome: 'error'
+				});
+				throw new Error(await this.formatRemoteAgentJobError(response.status, repoSlug, response));
+			}
+			
+			this.telemetry.sendTelemetryEvent('copilot.remoteAgent.apiCall', {
+				status: status.toString(),
+				repoSlug,
+				outcome: 'success'
+			});
+			
+			const data = await response.json();
+			this.validateRemoteAgentJobResponse(data);
+			return data;
+		} catch (error) {
+			// If we haven't already logged the error status, log it as a generic error
+			if (!(error instanceof Error && error.message.includes('Error: '))) {
+				this.telemetry.sendTelemetryErrorEvent('copilot.remoteAgent.apiCall', {
+					repoSlug,
+					outcome: 'exception',
+					errorType: error instanceof Error ? error.constructor.name : 'unknown'
+				});
+			}
+			throw error;
 		}
-		const data = await response.json();
-		this.validateRemoteAgentJobResponse(data);
-		return data;
 	}
 
 
@@ -200,7 +236,7 @@ export interface SessionInfo {
 	error: string | null;
 }
 
-export async function getCopilotApi(credentialStore: CredentialStore, authProvider?: AuthProvider): Promise<CopilotApi | undefined> {
+export async function getCopilotApi(credentialStore: CredentialStore, telemetry: ITelemetry, authProvider?: AuthProvider): Promise<CopilotApi | undefined> {
 	if (!authProvider) {
 		if (credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
 			authProvider = AuthProvider.githubEnterprise;
@@ -217,5 +253,5 @@ export async function getCopilotApi(credentialStore: CredentialStore, authProvid
 	}
 
 	const { token } = await github.octokit.api.auth() as { token: string };
-	return new CopilotApi(github.octokit, token);
+	return new CopilotApi(github.octokit, token, telemetry);
 }
