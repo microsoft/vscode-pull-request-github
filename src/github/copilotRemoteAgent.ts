@@ -284,7 +284,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		// Check if the currently active PR is a coding agent PR
 		if (!followUpPR) {
 			const activePR = repoInfo.fm.activePullRequest;
-			if (activePR && this._stateModel.get(owner, repo, activePR.number) !== CopilotPRStatus.None) {
+			if (activePR && this._stateModel.get(owner, repo, activePR.number)) {
 				followUpPR = activePR.number;
 			}
 		}
