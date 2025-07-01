@@ -493,7 +493,7 @@
 				"githubPullRequests.experimental.chat": {
 					"type": "boolean",
 					"markdownDescription": "%githubPullRequests.experimental.chat.description%",
-					"default": false
+					"default": true
 				},
 				"githubPullRequests.codingAgent.enabled": {
 					"type": "boolean",
