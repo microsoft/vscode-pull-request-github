@@ -38,7 +38,7 @@ export interface ICopilotRemoteAgentCommandArgs {
 	followup?: string;
 }
 
-const LEARN_MORE = vscode.l10n.t('Learn about Coding Agent');
+const LEARN_MORE = vscode.l10n.t('Learn about coding agent');
 // Without Pending Changes
 const CONTINUE = vscode.l10n.t('Continue');
 // With Pending Changes
@@ -291,7 +291,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		};
 
 		let autoPushAndCommit = false;
-		const message = vscode.l10n.t('GitHub Coding Agent will continue your work in \'{0}\'', repoName);
+		const message = vscode.l10n.t('Copilot coding agent will continue your work in \'{0}\'', repoName);
 		if (source !== 'prompt' && hasChanges && this.autoCommitAndPushEnabled()) {
 			const modalResult = await vscode.window.showInformationMessage(
 				message,
@@ -318,7 +318,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 		} else {
 			const modalResult = await vscode.window.showInformationMessage(
-				(source !== 'prompt' ? message : vscode.l10n.t('GitHub Coding Agent will implement the specification outlined in this prompt file')),
+				(source !== 'prompt' ? message : vscode.l10n.t('Copilot coding agent will implement the specification outlined in this prompt file')),
 				{
 					modal: true,
 				},
@@ -374,12 +374,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 			const terminal = vscode.window.createTerminal({
 				name: 'GitHub Coding Agent',
 				cwd: repository.rootUri.fsPath,
-				message: vscode.l10n.t('Commit your changes to continue Coding Agent session')
+				message: vscode.l10n.t('Commit your changes to continue coding agent session')
 			});
 
 			// Show terminal and send commit command
 			terminal.show();
-			terminal.sendText(`# Complete this commit to continue with your Coding Agent session. Ctrl+C to cancel.`);
+			terminal.sendText(`# Complete this commit to continue with your coding agent session. Ctrl+C to cancel.`);
 			terminal.sendText(`git commit -m "${commitMessage}"`);
 
 			let disposed = false;
@@ -457,7 +457,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			const asyncBranch = `copilot/vscode${Date.now()}`;
 			try {
 				await repository.createBranch(asyncBranch, true);
-				const commitMessage = 'Checkpoint for VS Code Coding Agent Session';
+				const commitMessage = 'Checkpoint from VS Code for coding agent session';
 				try {
 					await repository.commit(commitMessage, { all: true });
 					if (repository.state.HEAD?.name !== asyncBranch || repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0) {

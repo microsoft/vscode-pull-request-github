@@ -79,11 +79,11 @@ export class CopilotApi {
 			case 402:
 				return vscode.l10n.t('[Premium request]({0}) quota exceeded', PREMIUM_REQUESTS_URL);
 			case 403:
-				return vscode.l10n.t('[GitHub Coding Agent]({0}) is not enabled for repository \'{1}\'', LEARN_MORE_URL, repoSlug);
+				return vscode.l10n.t('[GitHub coding agent]({0}) is not enabled for repository \'{1}\'', LEARN_MORE_URL, repoSlug);
 			case 404:
 				return vscode.l10n.t('Repository \'{0}\' not found', repoSlug);
 			case 409:
-				return vscode.l10n.t('A Coding Agent pull request already exists');
+				return vscode.l10n.t('A coding agent pull request already exists');
 			case 500:
 				Logger.error(`Server error in remote agent job: ${await response.text()}`, CopilotApi.ID);
 				return vscode.l10n.t('Server error. Please try again later.');
