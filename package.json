@@ -69,8 +69,8 @@
 			{
 				"id": "githubCodingAgent",
 				"command": "githubpr.remoteAgent",
-				"displayName": "GitHub Coding Agent",
-				"description": "The GitHub Coding Agent.",
+				"displayName": "GitHub Copilot coding agent",
+				"description": "Copilot coding agent is a remote, autonomous software development agent. Developers delegate tasks to the agent, which iterates on pull requests based on feedback and reviews.",
 				"followUpRegex": "open-pull-request-webview.*((%7B.*?%7D)|(\\{.*?\\}))",
 				"when": "config.githubPullRequests.codingAgent.enabled && config.githubPullRequests.codingAgent.uiIntegration && copilotCodingAgentAssignable"
 			}
@@ -3364,7 +3364,7 @@
 				"when": "config.githubPullRequests.codingAgent.enabled",
 				"icon": "resources/icons/copilot.svg",
 				"canBeReferencedInPrompt": true,
-				"toolReferenceName": "codingAgent",
+				"toolReferenceName": "copilotCodingAgent",
 				"userDescription": "%languageModelTools.github-pull-request_copilot-coding-agent.userDescription%",
 				"inputSchema": {
 					"type": "object",
@@ -3383,7 +3383,7 @@
 						},
 						"existingPullRequest": {
 							"type": "number",
-							"description": "The number of an existing pull request that is connected to the current Coding Agent task. Look in the history for this number.  In the chat it may look like 'Coding agent will continue work in #17...'. In this example, return just '17'."
+							"description": "The number of an existing pull request related to the current coding agent task. Look in the chat history for this number.  In the chat it may look like 'Coding agent will continue work in #17...'. In this example, you should return '17'."
 						}
 					}
 				}
