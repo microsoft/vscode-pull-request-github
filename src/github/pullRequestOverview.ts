@@ -655,9 +655,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		try {
 			const review = await action(context.body);
 			this.updateReviewers(review);
+			const allEvents = await this._item.getTimelineEvents();
 			const reviewMessage: SubmitReviewReply & { command: string } = {
 				command: 'pr.append-review',
-				event: review,
+				reviewedEvent: review,
+				events: allEvents,
 				reviewers: this._existingReviewers
 			};
 			await this._postMessage(reviewMessage);
@@ -673,8 +675,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		try {
 			const review = await action(message.args);
 			this.updateReviewers(review);
+			const allEvents = await this._item.getTimelineEvents();
 			const reply: SubmitReviewReply = {
-				event: review,
+				reviewedEvent: review,
+				events: allEvents,
 				reviewers: this._existingReviewers,
 			};
 			this._replyMessage(message, reply);
