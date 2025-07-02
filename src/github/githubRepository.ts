@@ -7,7 +7,7 @@ import * as buffer from 'buffer';
 import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
 import * as vscode from 'vscode';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
-import { COPILOT_ACCOUNTS } from '../common/comment';
+import { COPILOT_ACCOUNTS, IComment, IReviewThread } from '../common/comment';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { GitHubRemote, parseRemote } from '../common/remote';
@@ -69,6 +69,7 @@ import {
 	convertRESTPullRequestToRawPullRequest,
 	getAvatarWithEnterpriseFallback,
 	getOverrideBranch,
+	insertNewCommitsSinceReview,
 	isInCodespaces,
 	parseAccount,
 	parseCombinedTimelineEvents,
@@ -1537,10 +1538,13 @@ export class GitHubRepository extends Disposable {
 					crossRefs.delete(model.html_url);
 				}
 			}
+			const oldEvents = issueModel.timelineEvents;
+			issueModel.timelineEvents = events;
 			if (crossRefs.size > 0) {
 				this._onDidChangePullRequests.fire();
+			} else if (oldEvents.length !== events.length) {
+				this._onDidChangePullRequests.fire();
 			}
-
 			return events;
 		} catch (e) {
 			console.log(e);
@@ -1561,6 +1565,116 @@ export class GitHubRepository extends Disposable {
 			}
 		}
 		return CopilotWorkingStatus.NotCopilotIssue;
+	}
+
+	/**
+	 * Get the timeline events of a pull request, including comments, reviews, commits, merges, deletes, and assigns.
+	 */
+	async getTimelineEvents(pullRequestModel: PullRequestModel): Promise<Common.TimelineEvent[]> {
+		const getTimelineEvents = async () => {
+			Logger.debug(`Fetch timeline events of PR #${pullRequestModel.number} - enter`, PullRequestModel.ID);
+			const { query, remote, schema } = await this.ensure();
+			try {
+				const { data } = await query<TimelineEventsResponse>({
+					query: schema.TimelineEvents,
+					variables: {
+						owner: remote.owner,
+						name: remote.repositoryName,
+						number: pullRequestModel.number,
+					},
+				});
+
+				if (data.repository === null) {
+					Logger.error('Unexpected null repository when fetching timeline', PullRequestModel.ID);
+				}
+				return data;
+			} catch (e) {
+				Logger.error(`Failed to get pull request timeline events: ${e}`, PullRequestModel.ID);
+				console.log(e);
+				return undefined;
+			}
+		};
+
+		const [data, latestReviewCommitInfo, currentUser, reviewThreads] = await Promise.all([
+			getTimelineEvents(),
+			pullRequestModel.getViewerLatestReviewCommit(),
+			(await this.getAuthenticatedUser()).login,
+			pullRequestModel.getReviewThreads()
+		]);
+
+
+		const ret = data?.repository?.pullRequest.timelineItems.nodes ?? [];
+		const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(pullRequestModel), this);
+
+		this.addReviewTimelineEventComments(events, reviewThreads);
+		insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, pullRequestModel.head);
+		Logger.debug(`Fetch timeline events of PR #${pullRequestModel.number} - done`, PullRequestModel.ID);
+		const oldEvents = pullRequestModel.timelineEvents;
+		pullRequestModel.timelineEvents = events;
+		if (oldEvents.length !== events.length) {
+			this._onDidChangePullRequests.fire();
+		}
+		return events;
+	}
+
+	private addReviewTimelineEventComments(events: Common.TimelineEvent[], reviewThreads: IReviewThread[]): void {
+		interface CommentNode extends IComment {
+			childComments?: CommentNode[];
+		}
+
+		const reviewEvents = events.filter((e): e is Common.ReviewEvent => e.event === Common.EventType.Reviewed);
+		const reviewComments = reviewThreads.reduce((previous, current) => (previous as IComment[]).concat(current.comments), []);
+
+		const reviewEventsById = reviewEvents.reduce((index, evt) => {
+			index[evt.id] = evt;
+			evt.comments = [];
+			return index;
+		}, {} as { [key: number]: Common.ReviewEvent });
+
+		const commentsById = reviewComments.reduce((index, evt) => {
+			index[evt.id] = evt;
+			return index;
+		}, {} as { [key: number]: CommentNode });
+
+		const roots: CommentNode[] = [];
+		let i = reviewComments.length;
+		while (i-- > 0) {
+			const c: CommentNode = reviewComments[i];
+			if (!c.inReplyToId) {
+				roots.unshift(c);
+				continue;
+			}
+			const parent = commentsById[c.inReplyToId];
+			parent.childComments = parent.childComments || [];
+			parent.childComments = [c, ...(c.childComments || []), ...parent.childComments];
+		}
+
+		roots.forEach(c => {
+			const review = reviewEventsById[c.pullRequestReviewId!];
+			if (review) {
+				review.comments = review.comments.concat(c).concat(c.childComments || []);
+			}
+		});
+
+		reviewThreads.forEach(thread => {
+			if (!thread.prReviewDatabaseId || !reviewEventsById[thread.prReviewDatabaseId]) {
+				return;
+			}
+			const prReviewThreadEvent = reviewEventsById[thread.prReviewDatabaseId];
+			prReviewThreadEvent.reviewThread = {
+				threadId: thread.id,
+				canResolve: thread.viewerCanResolve,
+				canUnresolve: thread.viewerCanUnresolve,
+				isResolved: thread.isResolved
+			};
+
+		});
+
+		const pendingReview = reviewEvents.filter(r => r.state?.toLowerCase() === 'pending')[0];
+		if (pendingReview) {
+			// Ensures that pending comments made in reply to other reviews are included for the pending review
+			pendingReview.comments = reviewComments.filter(c => c.isDraft);
+		}
 	}
 
 	/**

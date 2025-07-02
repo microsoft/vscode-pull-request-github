@@ -89,11 +89,10 @@ export class CopilotPRWatcher extends Disposable {
 
 	constructor(private readonly _reposManager: RepositoriesManager, private readonly _model: CopilotStateModel) {
 		super();
-		const query = this._queriesIncludeCopilot();
-		if (query) {
-			this._getStateChanges(query);
-		}
+
+		this._getStateChanges();
 		this._pollForChanges();
+		this._register(this._reposManager.onDidChangeAnyPullRequests(() => this._getStateChanges()));
 
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${QUERIES}`)) {
@@ -110,16 +109,13 @@ export class CopilotPRWatcher extends Disposable {
 
 	private _timeout: NodeJS.Timeout | undefined;
 	private async _pollForChanges(): Promise<void> {
-		const query = this._queriesIncludeCopilot();
-		if (!query) {
-			return;
+		const shouldContinue = await this._getStateChanges();
+
+		if (shouldContinue) {
+			this._timeout = setTimeout(() => {
+				this._pollForChanges();
+			}, 60 * 1000); // Poll every minute
 		}
-
-		await this._getStateChanges(query);
-
-		this._timeout = setTimeout(() => {
-			this._pollForChanges();
-		}, 60 * 1000); // Poll every minute
 	}
 
 	private _currentUser: string | undefined;
@@ -130,7 +126,11 @@ export class CopilotPRWatcher extends Disposable {
 		return this._currentUser;
 	}
 
-	private async _getStateChanges(query: string) {
+	private async _getStateChanges(): Promise<boolean> {
+		const query = this._queriesIncludeCopilot();
+		if (!query) {
+			return false;
+		}
 		const stateChanges: { owner: string; repo: string; prNumber: number; status: CopilotPRStatus }[] = [];
 		const unseenKeys: Set<string> = new Set(this._model.keys());
 		let initialized = 0;
@@ -170,9 +170,9 @@ export class CopilotPRWatcher extends Disposable {
 			if ((initialized === this._reposManager.folderManagers.length) && (this._reposManager.folderManagers.length > 0)) {
 				this._model.setInitialized();
 			}
-			return [];
+			return true;
 		} else {
-			return stateChanges;
+			return true;
 		}
 	}
 }

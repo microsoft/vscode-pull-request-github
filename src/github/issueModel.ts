@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { ClosedEvent, EventType } from '../common/timelineEvent';
+import { ClosedEvent, EventType, TimelineEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
 import { GitHubRepository } from './githubRepository';
 import {
@@ -41,6 +41,8 @@ export class IssueModel<TItem extends Issue = Issue> {
 	public item: TItem;
 	public bodyHTML?: string;
 
+	private _timelineEvents: readonly TimelineEvent[] | undefined;
+
 	private _onDidInvalidate = new vscode.EventEmitter<void>();
 	public onDidInvalidate = this._onDidInvalidate.event;
 
@@ -52,6 +54,14 @@ export class IssueModel<TItem extends Issue = Issue> {
 		if (!skipUpdate) {
 			this.update(item);
 		}
+	}
+
+	get timelineEvents(): readonly TimelineEvent[] {
+		return this._timelineEvents ?? [];
+	}
+
+	set timelineEvents(timelineEvents: readonly TimelineEvent[]) {
+		this._timelineEvents = timelineEvents;
 	}
 
 	public invalidate() {
