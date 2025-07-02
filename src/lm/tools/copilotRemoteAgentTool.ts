@@ -96,6 +96,12 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 
 		const result = await this.manager.invokeRemoteAgent(title, body);
 		if (result.state === 'error') {
+			/* __GDPR__
+				"remoteAgent.tool.invoke" : {
+					"reason" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
+			*/
+			this.telemetry.sendTelemetryErrorEvent('copilot.remoteAgent.tool.error', { reason: 'invocationError' });
 			throw new Error(result.error);
 		}
 		return new vscode.LanguageModelToolResult([
