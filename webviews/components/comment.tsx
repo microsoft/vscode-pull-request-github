@@ -136,6 +136,11 @@ function isReviewEvent(comment: IComment | ReviewEvent | PullRequest | CommentEv
 	return (comment as ReviewEvent).authorAssociation !== undefined;
 }
 
+function isIComment(comment: any): comment is IComment {
+	return comment && typeof comment === 'object' &&
+		typeof comment.body === 'string' && typeof comment.diffHunk === 'string';
+}
+
 const DESCRIPTORS = {
 	PENDING: 'will review',
 	COMMENTED: 'reviewed',
@@ -147,7 +152,7 @@ const reviewDescriptor = (state: string) => DESCRIPTORS[state] || 'reviewed';
 
 function CommentBox({ for: comment, onFocus, onMouseEnter, onMouseLeave, children }: CommentBoxProps) {
 	const htmlUrl = ('htmlUrl' in comment) ? comment.htmlUrl : (comment as PullRequest).url;
-	const isDraft = (comment as IComment).isDraft ?? (isReviewEvent(comment) && (comment.state?.toLocaleUpperCase() === 'PENDING'));
+	const isDraft = (isIComment(comment) && comment.isDraft) ?? (isReviewEvent(comment) && (comment.state?.toLocaleUpperCase() === 'PENDING'));
 	const author = ('user' in comment) ? comment.user! : (comment as PullRequest).author!;
 	const createdAt = ('createdAt' in comment) ? comment.createdAt : (comment as ReviewEvent).submittedAt;
 
