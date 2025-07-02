@@ -54,7 +54,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	private readonly _stateModel: CopilotStateModel;
 	private readonly _onDidChangeStates = this._register(new vscode.EventEmitter<void>());
 	readonly onDidChangeStates = this._onDidChangeStates.event;
-	private readonly _onDidChangeNotifications = this._register(new vscode.EventEmitter<void>());
+	private readonly _onDidChangeNotifications = this._register(new vscode.EventEmitter<PullRequestModel[]>());
 	readonly onDidChangeNotifications = this._onDidChangeNotifications.event;
 	private readonly _onDidCreatePullRequest = this._register(new vscode.EventEmitter<number>());
 	readonly onDidCreatePullRequest = this._onDidCreatePullRequest.event;
@@ -70,7 +70,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		this._stateModel = new CopilotStateModel();
 		this._register(new CopilotPRWatcher(this.repositoriesManager, this._stateModel));
 		this._register(this._stateModel.onDidChangeStates(() => this._onDidChangeStates.fire()));
-		this._register(this._stateModel.onDidChangeNotifications(() => this._onDidChangeNotifications.fire()));
+		this._register(this._stateModel.onDidChangeNotifications(items => this._onDidChangeNotifications.fire(items)));
 
 		this._register(this.repositoriesManager.onDidChangeFolderRepositories((event) => {
 			if (event.added) {
@@ -627,7 +627,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 		this._stateModel.clearNotifications();
 	}
 
-	get notifications(): ReadonlySet<string> {
-		return this._stateModel.notifications;
+	get notificationsCount(): number {
+		return this._stateModel.notifications.size;
+	}
+
+	hasNotification(owner: string, repo: string, pullRequestNumber: number): boolean {
+		const key = this._stateModel.makeKey(owner, repo, pullRequestNumber);
+		return this._stateModel.notifications.has(key);
 	}
 }

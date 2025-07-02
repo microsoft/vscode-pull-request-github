@@ -146,7 +146,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		this.prs = new Map();
 
-		const hasCopilotChanges = _categoryQuery && isCopilotQuery(_categoryQuery) && this._copilotManager.notifications.size > 0;
+		const hasCopilotChanges = _categoryQuery && isCopilotQuery(_categoryQuery) && this._copilotManager.notificationsCount > 0;
 
 		switch (this.type) {
 			case PRType.All:
