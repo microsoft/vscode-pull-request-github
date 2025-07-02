@@ -339,16 +339,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 
 		const { webviewUri, link, number } = result;
-
-		if (source === 'prompt') {
-			const VIEW = vscode.l10n.t('View');
-			const finished = vscode.l10n.t('Coding agent has begun work on your prompt in #{0}', number);
-			vscode.window.showInformationMessage(finished, VIEW).then((value) => {
-				if (value === VIEW) {
-					vscode.commands.executeCommand('vscode.open', webviewUri);
-				}
-			});
-		}
+		vscode.commands.executeCommand('vscode.open', webviewUri);
 
 		// allow-any-unicode-next-line
 		return vscode.l10n.t('🚀 Coding agent will continue work in [#{0}]({1}).  Track progress [here]({2}).', number, link, webviewUri.toString());
