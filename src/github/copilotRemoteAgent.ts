@@ -259,7 +259,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		if (!args) {
 			return;
 		}
-		const { userPrompt, summary, source } = args;
+		const { userPrompt, summary, source, followup } = args;
 
 		/* __GDPR__
 			"remoteAgent.command.args" : {
