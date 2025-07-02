@@ -13,7 +13,7 @@ import PullRequestContext from '../common/context';
 import emitter from '../common/events';
 import { useStateProp } from '../common/hooks';
 import { ContextDropdown } from './contextDropdown';
-import { commentIcon, deleteIcon, editIcon, quoteIcon } from './icon';
+import { deleteIcon, editIcon, quoteIcon } from './icon';
 import { nbsp, Spaced } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
