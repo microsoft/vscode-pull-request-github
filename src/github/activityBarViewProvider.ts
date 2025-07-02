@@ -364,8 +364,9 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			this.updateReviewers(review);
 			const reviewMessage: SubmitReviewReply & { command: string } = {
 				command: 'pr.append-review',
-				event: review,
-				reviewers: this._existingReviewers
+				events: [],
+				reviewers: this._existingReviewers,
+				reviewedEvent: review,
 			};
 			await this._postMessage(reviewMessage);
 		} catch (e) {
@@ -380,7 +381,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			const review = await action(message.args);
 			this.updateReviewers(review);
 			const reviewMessage: SubmitReviewReply = {
-				event: review,
+				events: [],
+				reviewedEvent: review,
 				reviewers: this._existingReviewers,
 			};
 			this._replyMessage(message, reviewMessage);

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ReviewEvent, TimelineEvent } from '../common/timelineEvent';
+import { CommentEvent, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import {
 	GithubItemStateEnum,
 	IAccount,
@@ -110,7 +110,8 @@ export interface ChangeAssigneesReply {
 }
 
 export interface SubmitReviewReply {
-	event?: ReviewEvent | TimelineEvent;
+	events?: TimelineEvent[];
+	reviewedEvent: ReviewEvent | CommentEvent;
 	reviewers?: ReviewState[];
 }
 
