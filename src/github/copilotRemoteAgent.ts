@@ -284,7 +284,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		let autoPushAndCommit = false;
 		const message = vscode.l10n.t('Copilot coding agent will continue your work in \'{0}\'.', repoName);
-		const detail = vscode.l10n.t('Your current chat session will end and work will continue in a new pull request.');
+		const detail = vscode.l10n.t('Your current chat session will end, and its context will be used to continue your work in a new pull request.');
 		if (source !== 'prompt' && hasChanges && this.autoCommitAndPushEnabled()) {
 			// Pending changes modal
 			const modalResult = await vscode.window.showInformationMessage(
