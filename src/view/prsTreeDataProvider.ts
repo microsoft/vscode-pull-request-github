@@ -74,16 +74,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 		this._register(this._view.onDidChangeVisibility(e => {
 			if (e.visible) {
-				// Clear notifications with a delay of 5 seconds
-				if (this._notificationClearTimeout) {
-					clearTimeout(this._notificationClearTimeout);
-				}
-				this._notificationClearTimeout = setTimeout(() => {
-					_copilotManager.clearNotifications();
-					this._view.badge = undefined;
-					this._notificationClearTimeout = undefined;
-				}, 5000);
-
+				this._clearNotificationsWithDelay();
 				// Sync with currently active PR when view becomes visible
 				const currentPR = PullRequestOverviewPanel.getCurrentPullRequest();
 				if (currentPR) {
@@ -167,6 +158,18 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._register(this._view.onDidCollapseElement(collapsed => {
 			this.prsTreeModel.updateExpandedQueries(collapsed.element, false);
 		}));
+	}
+
+	private _clearNotificationsWithDelay() {
+		if (this._notificationClearTimeout) {
+			return;
+		}
+		// Clear notifications with a delay of 5 seconds)
+		this._notificationClearTimeout = setTimeout(() => {
+			this._copilotManager.clearNotifications();
+			this._view.badge = undefined;
+			this._notificationClearTimeout = undefined;
+		}, 5000);
 	}
 
 	public async expandPullRequest(pullRequest: PullRequestModel) {
