@@ -540,10 +540,6 @@ body button .icon {
 	flex: 1;
 }
 
-.danger {
-	background-color: var(--vscode-errorForeground);
-}
-
 :not(.status-item)>.small-button {
 	font-weight: 600;
 }
