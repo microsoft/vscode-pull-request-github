@@ -95,6 +95,7 @@ export function App() {
 
 async function registerMonacoTheme(themeData: any) {
 	const langs = [
+		'bash',
 		'css',
 		'html',
 		'ini',
