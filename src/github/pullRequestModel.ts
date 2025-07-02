@@ -457,6 +457,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				threadWithComment.viewerCanResolve = true;
 				this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
 			}
+			this._onDidChangeComments.fire();
 			return reviewEvent;
 		} else {
 			throw new Error(`Submitting review failed, no pending review for current pull request: ${this.number}.`);
@@ -558,7 +559,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			throw new Error('Failed to start review');
 		}
 		this.hasPendingReview = true;
-		this._onDidChangeComments.fire();
 		return data.addPullRequestReview.pullRequestReview.id;
 	}
 
@@ -681,6 +681,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
 		}
 
+		this._onDidChangeComments.fire();
 		return newComment;
 	}
 
