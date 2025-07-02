@@ -516,7 +516,8 @@
 					"default": false,
 					"markdownDescription": "%githubPullRequests.codingAgent.uiIntegration.description%",
 					"tags": [
-						"experimental"
+						"experimental",
+						"onExP"
 					]
 				},
 				"githubPullRequests.experimental.notificationsMarkPullRequests": {
