@@ -65,12 +65,6 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 		const existingPullRequest = options.input.existingPullRequest || '';
 		const targetRepo = await this.manager.repoInfo();
 		if (!targetRepo) {
-			this.telemetry.sendTelemetryErrorEvent('copilot.remoteAgent.tool.invoke', {
-				hasExistingPR: (!!existingPullRequest).toString(),
-				hasBody: (!!body).toString(),
-				outcome: 'error',
-				errorType: 'noRepositoryInfo'
-			});
 			return new vscode.LanguageModelToolResult([
 				new vscode.LanguageModelTextPart(vscode.l10n.t('No repository information found. Please open a workspace with a Git repository.'))
 			]);
@@ -82,17 +76,14 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 				"hasBody" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 			},
 		*/
-		this.telemetry.sendTelemetryEvent('copilot.remoteAgent.tool.invoke', {});
+		this.telemetry.sendTelemetryEvent('copilot.remoteAgent.tool.invoke', {
+			hasExistingPR: existingPullRequest ? 'true' : 'false',
+			hasBody: body ? 'true' : 'false'
+		});
 
 		if (existingPullRequest) {
 			const pullRequestNumber = parseInt(existingPullRequest, 10);
 			if (isNaN(pullRequestNumber)) {
-				/* __GDPR__
-					"remoteAgent.tool.invoke" : {
-						"reason" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-					}
-				*/
-				this.telemetry.sendTelemetryErrorEvent('copilot.remoteAgent.tool.error', { reason: 'invalidPRNumber' });
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart(vscode.l10n.t('Invalid pull request number: {0}', existingPullRequest))
 				]);
