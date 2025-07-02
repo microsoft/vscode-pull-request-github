@@ -104,7 +104,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._register(this._copilotManager.onDidChangeStates(() => {
 			if (this._copilotManager.notifications.size > 0) {
 				this._view.badge = {
-					tooltip: this._copilotManager.notifications.size === 1 ? vscode.l10n.t('Coding agent has 1 change to view') : vscode.l10n.t('Coding agent has {0} changes to view', this._copilotManager.notifications.size),
+					tooltip: this._copilotManager.notifications.size === 1 ? vscode.l10n.t('Coding agent has 1 pull request to view') : vscode.l10n.t('Coding agent has {0} pull requests to view', this._copilotManager.notifications.size),
 					value: this._copilotManager.notifications.size
 				};
 				this.refresh();
