@@ -39,15 +39,25 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 		this._register(vscode.window.registerWebviewPanelSerializer(SessionLogViewManager.viewType, this));
 
 		this._register(vscode.commands.registerCommand('codingAgent.openSessionLog', async () => {
-			const copilotApi = await getCopilotApi(credentialStore);
-			if (!copilotApi) {
-				vscode.window.showErrorMessage(vscode.l10n.t('You must be authenticated to view sessions.'));
-				return;
-			}
+			const allSessions = await vscode.window.withProgress({
+				location: vscode.ProgressLocation.Window,
+				title: vscode.l10n.t('Loading sessions...')
+			}, async () => {
+				const copilotApi = await getCopilotApi(credentialStore);
+				if (!copilotApi) {
+					vscode.window.showErrorMessage(vscode.l10n.t('You must be authenticated to view sessions.'));
+					return;
+				}
 
-			const allSessions = await copilotApi.getAllSessions(undefined);
-			if (!allSessions.length) {
-				vscode.window.showErrorMessage(vscode.l10n.t('No sessions found.'));
+				const allSessions = await copilotApi.getAllSessions(undefined);
+				if (!allSessions?.length) {
+					vscode.window.showErrorMessage(vscode.l10n.t('No sessions found.'));
+					return;
+				}
+				return allSessions;
+			});
+
+			if (!allSessions?.length) {
 				return;
 			}
 
