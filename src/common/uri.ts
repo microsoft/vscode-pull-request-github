@@ -426,6 +426,20 @@ export function createPRNodeIdentifier(pullRequest: PullRequestModel | { remote:
 	return identifier;
 }
 
+export function parsePRNodeIdentifier(identifier: string): { remote: string, prNumber: number } | undefined {
+	const lastColon = identifier.lastIndexOf(':');
+	if (lastColon === -1) {
+		return undefined;
+	}
+	const remote = identifier.substring(0, lastColon);
+	const prNumberStr = identifier.substring(lastColon + 1);
+	const prNumber = Number(prNumberStr);
+	if (!remote || isNaN(prNumber) || prNumber <= 0) {
+		return undefined;
+	}
+	return { remote, prNumber };
+}
+
 export function createPRNodeUri(
 	pullRequest: PullRequestModel | { remote: string, prNumber: number } | string
 ): vscode.Uri {

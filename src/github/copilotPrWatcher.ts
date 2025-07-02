@@ -8,6 +8,7 @@ import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus } from '../common
 import { Disposable } from '../common/lifecycle';
 import { PR_SETTINGS_NAMESPACE, QUERIES } from '../common/settingKeys';
 import { FolderRepositoryManager } from './folderRepositoryManager';
+import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
 import { variableSubstitution } from './utils';
 
@@ -18,11 +19,11 @@ export function isCopilotQuery(query: string): boolean {
 
 export class CopilotStateModel extends Disposable {
 	private _isInitialized = false;
-	private readonly _states: Map<string, CopilotPRStatus> = new Map();
+	private readonly _states: Map<string, { item: PullRequestModel, status: CopilotPRStatus }> = new Map();
 	private readonly _showNotification: Set<string> = new Set();
 	private readonly _onDidChangeStates = this._register(new vscode.EventEmitter<void>());
 	readonly onDidChangeStates = this._onDidChangeStates.event;
-	private readonly _onDidChangeNotifications = this._register(new vscode.EventEmitter<void>());
+	private readonly _onDidChangeNotifications = this._register(new vscode.EventEmitter<PullRequestModel[]>());
 	readonly onDidChangeNotifications = this._onDidChangeNotifications.event;
 
 	makeKey(owner: string, repo: string, prNumber: number): string {
@@ -37,30 +38,31 @@ export class CopilotStateModel extends Disposable {
 		if (this._states.has(key)) {
 			this._states.delete(key);
 			if (this._showNotification.has(key)) {
+				const item = this._states.get(key)!;
 				this._showNotification.delete(key);
-				this._onDidChangeNotifications.fire();
+				this._onDidChangeNotifications.fire([item.item]);
 			}
 			this._onDidChangeStates.fire();
 		}
 	}
 
-	set(owner: string, repo: string, prNumber: number, status: CopilotPRStatus): void {
-		const key = this.makeKey(owner, repo, prNumber);
+	set(pullRequestModel: PullRequestModel, status: CopilotPRStatus): void {
+		const key = this.makeKey(pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName, pullRequestModel.number);
 		const currentStatus = this._states.get(key);
-		if (currentStatus === status) {
+		if (currentStatus?.status === status) {
 			return;
 		}
-		this._states.set(key, status);
+		this._states.set(key, { item: pullRequestModel, status });
 		if (this._isInitialized) {
 			this._showNotification.add(key);
-			this._onDidChangeNotifications.fire();
+			this._onDidChangeNotifications.fire(pullRequestModel ? [pullRequestModel] : []);
 		}
 		this._onDidChangeStates.fire();
 	}
 
 	get(owner: string, repo: string, prNumber: number): CopilotPRStatus {
 		const key = this.makeKey(owner, repo, prNumber);
-		return this._states.get(key) ?? CopilotPRStatus.None;
+		return this._states.get(key)?.status ?? CopilotPRStatus.None;
 	}
 
 	keys(): string[] {
@@ -68,8 +70,9 @@ export class CopilotStateModel extends Disposable {
 	}
 
 	clearNotifications(): void {
+		const items = Array.from(this._showNotification).map(key => this._states.get(key)?.item).filter((item): item is PullRequestModel => !!item);
 		this._showNotification.clear();
-		this._onDidChangeNotifications.fire();
+		this._onDidChangeNotifications.fire(items);
 	}
 
 	get notifications(): ReadonlySet<string> {
@@ -158,7 +161,7 @@ export class CopilotPRWatcher extends Disposable {
 						prNumber: pr.number,
 						status: latestEvent
 					});
-					this._model.set(pr.remote.owner, pr.remote.repositoryName, pr.number, latestEvent);
+					this._model.set(pr, latestEvent);
 				}
 			}
 
