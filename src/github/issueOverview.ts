@@ -144,6 +144,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				this.pollForUpdates(this._panel.visible, true);
 			}
 		}));
+		this._register({ dispose: () => clearTimeout(this.timeout) });
 
 	}
 
