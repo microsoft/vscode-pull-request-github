@@ -176,25 +176,19 @@ export class PRContext {
 	};
 
 	private appendReview(reply: SubmitReviewReply) {
-		const { event, reviewers } = reply;
+		const { events, reviewers, reviewedEvent } = reply;
 		const state = this.pr;
 		state.busy = false;
-		if (!event) {
+		if (!events) {
 			this.updatePR(state);
 			return;
 		}
-		const events = state.events.filter(e => e.event !== EventType.Reviewed || e.state?.toLowerCase() !== 'pending');
-		events.forEach(event => {
-			if (event.event === EventType.Reviewed) {
-				event.comments.forEach(c => (c.isDraft = false));
-			}
-		});
 		if (reviewers) {
 			state.reviewers = reviewers;
 		}
-		state.events = [...state.events.filter(e => (e.event === EventType.Reviewed ? e.state !== 'PENDING' : e)), event];
-		if (event.event === EventType.Reviewed) {
-			state.currentUserReviewState = event.state;
+		state.events = events;
+		if (reviewedEvent.event === EventType.Reviewed) {
+			state.currentUserReviewState = reviewedEvent.state;
 		}
 		state.pendingCommentText = '';
 		state.pendingReviewType = undefined;

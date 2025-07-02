@@ -164,7 +164,7 @@ function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boole
 					View Session
 				</button>
 			)}
-			<button title="Cancel Coding Agent" disabled={isBusy} className="small-button danger" onClick={cancel}>
+			<button title="Cancel Coding Agent" disabled={isBusy} className="small-button" onClick={cancel}>
 				Cancel Coding Agent
 			</button>
 		</div>

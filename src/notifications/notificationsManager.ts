@@ -274,7 +274,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 
 	public async markPullRequests(markAsDone: boolean = false): Promise<void> {
 		const filteredNotifications = Array.from(this._notifications.values()).filter(notification => notification.notification.subject.type === NotificationSubjectType.PullRequest);
-		const timlines = await Promise.all(filteredNotifications.map(notification => (notification.model as PullRequestModel).getTimelineEvents()));
+		const timlines = await Promise.all(filteredNotifications.map(notification => (notification.model as PullRequestModel).githubRepository.getTimelineEvents(notification.model as PullRequestModel)));
 
 		const markPromises: Promise<void>[] = [];
 

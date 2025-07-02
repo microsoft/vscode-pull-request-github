@@ -79,7 +79,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		} while (attemptsRemaining > 0 && mergability === PullRequestMergeability.Unknown);
 
 		const result: Partial<PullRequest> = {
-			events: await this._item.getTimelineEvents(),
+			events: await this._item.githubRepository.getTimelineEvents(this._item),
 			mergeable: mergability,
 		};
 		await this.refresh();
@@ -213,7 +213,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 				pullRequestModel.number,
 			),
 			this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(pullRequestModel),
-			pullRequestModel.getTimelineEvents(),
+			pullRequestModel.githubRepository.getTimelineEvents(pullRequestModel),
 			pullRequestModel.getReviewRequests(),
 			this._folderRepositoryManager.getBranchNameForPullRequest(pullRequestModel),
 			this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
@@ -364,8 +364,9 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			this.updateReviewers(review);
 			const reviewMessage: SubmitReviewReply & { command: string } = {
 				command: 'pr.append-review',
-				event: review,
-				reviewers: this._existingReviewers
+				events: [],
+				reviewers: this._existingReviewers,
+				reviewedEvent: review,
 			};
 			await this._postMessage(reviewMessage);
 		} catch (e) {
@@ -380,7 +381,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			const review = await action(message.args);
 			this.updateReviewers(review);
 			const reviewMessage: SubmitReviewReply = {
-				event: review,
+				events: [],
+				reviewedEvent: review,
 				reviewers: this._existingReviewers,
 			};
 			this._replyMessage(message, reviewMessage);

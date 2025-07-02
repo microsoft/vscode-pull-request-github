@@ -16,7 +16,7 @@ import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
-import { ClosedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
+import { ClosedEvent, EventType, ReviewEvent } from '../common/timelineEvent';
 import { resolvePath, Schemes, toPRUri, toReviewUri } from '../common/uri';
 import { formatError, isDescendant } from '../common/utils';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
@@ -47,7 +47,6 @@ import {
 	ReviewThread,
 	StartReviewResponse,
 	SubmitReviewResponse,
-	TimelineEventsResponse,
 	UnresolveReviewThreadResponse,
 } from './graphql';
 import {
@@ -74,9 +73,7 @@ import {
 	convertRESTPullRequestToRawPullRequest,
 	convertRESTReviewEvent,
 	getReactionGroup,
-	insertNewCommitsSinceReview,
 	parseAccount,
-	parseCombinedTimelineEvents,
 	parseGraphQLComment,
 	parseGraphQLReaction,
 	parseGraphQLReviewers,
@@ -460,6 +457,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				threadWithComment.viewerCanResolve = true;
 				this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
 			}
+			this._onDidChangeComments.fire();
 			return reviewEvent;
 		} else {
 			throw new Error(`Submitting review failed, no pending review for current pull request: ${this.number}.`);
@@ -561,7 +559,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			throw new Error('Failed to start review');
 		}
 		this.hasPendingReview = true;
-		this._onDidChangeComments.fire();
 		return data.addPullRequestReview.pullRequestReview.id;
 	}
 
@@ -684,6 +681,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
 		}
 
+		this._onDidChangeComments.fire();
 		return newComment;
 	}
 
@@ -1158,113 +1156,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return workStartedInitiator ? [parseAccount(workStartedInitiator, this.githubRepository)] : [];
 	}
 
-	/**
-	 * Get the timeline events of a pull request, including comments, reviews, commits, merges, deletes, and assigns.
-	 */
-	async getTimelineEvents(): Promise<TimelineEvent[]> {
-		const getTimelineEvents = async () => {
-			Logger.debug(`Fetch timeline events of PR #${this.number} - enter`, PullRequestModel.ID);
-			const { query, remote, schema } = await this.githubRepository.ensure();
-			try {
-				const { data } = await query<TimelineEventsResponse>({
-					query: schema.TimelineEvents,
-					variables: {
-						owner: remote.owner,
-						name: remote.repositoryName,
-						number: this.number,
-					},
-				});
-
-				if (data.repository === null) {
-					Logger.error('Unexpected null repository when fetching timeline', PullRequestModel.ID);
-				}
-				return data;
-			} catch (e) {
-				Logger.error(`Failed to get pull request timeline events: ${e}`, PullRequestModel.ID);
-				console.log(e);
-				return undefined;
-			}
-		};
-
-		const [data, latestReviewCommitInfo, currentUser, reviewThreads] = await Promise.all([
-			getTimelineEvents(),
-			this.getViewerLatestReviewCommit(),
-			(await this.githubRepository.getAuthenticatedUser()).login,
-			this.getReviewThreads()
-		]);
-
-
-		const ret = data?.repository?.pullRequest.timelineItems.nodes ?? [];
-		const events = await parseCombinedTimelineEvents(ret, await this.githubRepository.getCopilotTimelineEvents(this), this.githubRepository);
-
-		this.addReviewTimelineEventComments(events, reviewThreads);
-		insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, this.head);
-		Logger.debug(`Fetch timeline events of PR #${this.number} - done`, PullRequestModel.ID);
-		return events;
-	}
-
 	protected override getUpdatesQuery(schema: any): any {
 		return schema.LatestUpdates;
-	}
-
-	private addReviewTimelineEventComments(events: TimelineEvent[], reviewThreads: IReviewThread[]): void {
-		interface CommentNode extends IComment {
-			childComments?: CommentNode[];
-		}
-
-		const reviewEvents = events.filter((e): e is ReviewEvent => e.event === EventType.Reviewed);
-		const reviewComments = reviewThreads.reduce((previous, current) => (previous as IComment[]).concat(current.comments), []);
-
-		const reviewEventsById = reviewEvents.reduce((index, evt) => {
-			index[evt.id] = evt;
-			evt.comments = [];
-			return index;
-		}, {} as { [key: number]: ReviewEvent });
-
-		const commentsById = reviewComments.reduce((index, evt) => {
-			index[evt.id] = evt;
-			return index;
-		}, {} as { [key: number]: CommentNode });
-
-		const roots: CommentNode[] = [];
-		let i = reviewComments.length;
-		while (i-- > 0) {
-			const c: CommentNode = reviewComments[i];
-			if (!c.inReplyToId) {
-				roots.unshift(c);
-				continue;
-			}
-			const parent = commentsById[c.inReplyToId];
-			parent.childComments = parent.childComments || [];
-			parent.childComments = [c, ...(c.childComments || []), ...parent.childComments];
-		}
-
-		roots.forEach(c => {
-			const review = reviewEventsById[c.pullRequestReviewId!];
-			if (review) {
-				review.comments = review.comments.concat(c).concat(c.childComments || []);
-			}
-		});
-
-		reviewThreads.forEach(thread => {
-			if (!thread.prReviewDatabaseId || !reviewEventsById[thread.prReviewDatabaseId]) {
-				return;
-			}
-			const prReviewThreadEvent = reviewEventsById[thread.prReviewDatabaseId];
-			prReviewThreadEvent.reviewThread = {
-				threadId: thread.id,
-				canResolve: thread.viewerCanResolve,
-				canUnresolve: thread.viewerCanUnresolve,
-				isResolved: thread.isResolved
-			};
-
-		});
-
-		const pendingReview = reviewEvents.filter(r => r.state?.toLowerCase() === 'pending')[0];
-		if (pendingReview) {
-			// Ensures that pending comments made in reply to other reviews are included for the pending review
-			pendingReview.comments = reviewComments.filter(c => c.isDraft);
-		}
 	}
 
 	/**

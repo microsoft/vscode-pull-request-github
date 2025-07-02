@@ -19,7 +19,7 @@ import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, IProjectIt
 import { IssueModel } from './issueModel';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
 import { isInCodespaces, vscodeDevPrLink } from './utils';
-import { ChangeAssigneesReply, Issue, ProjectItemsReply } from './views';
+import { ChangeAssigneesReply, Issue, ProjectItemsReply, SubmitReviewReply } from './views';
 
 export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends WebviewBase {
 	public static ID: string = 'IssueOverviewPanel';
@@ -144,6 +144,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				this.pollForUpdates(this._panel.visible, true);
 			}
 		}));
+		this._register({ dispose: () => clearTimeout(this.timeout) });
 
 	}
 
@@ -603,14 +604,17 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	private createComment(message: IRequestMessage<string>) {
-		return this._item.createIssueComment(message.args).then(comment => {
+		return this._item.createIssueComment(message.args).then(async (comment) => {
 			const commentedEvent: CommentEvent = {
 				...comment,
 				event: EventType.Commented
 			};
-			return this._replyMessage(message, {
-				event: commentedEvent,
-			});
+			const allEvents = await this._item.githubRepository.getIssueTimelineEvents(this._item);
+			const reply: SubmitReviewReply = {
+				events: allEvents,
+				reviewedEvent: commentedEvent,
+			};
+			return this._replyMessage(message, reply);
 		});
 	}
 
