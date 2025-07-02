@@ -18,6 +18,7 @@ export const skipIcon = <Icon src={require('../../resources/icons/skip.svg')} cl
 export const chevronIcon = <Icon src={require('../../resources/icons/chevron.svg')} />;
 export const chevronDownIcon = <Icon src={require('../../resources/icons/chevron_down.svg')} />;
 export const commentIcon = <Icon src={require('../../resources/icons/comment.svg')} />;
+export const quoteIcon = <Icon src={require('../../resources/icons/quote.svg')} />;
 export const commitIcon = <Icon src={require('../../resources/icons/commit_icon.svg')} />;
 export const copyIcon = <Icon src={require('../../resources/icons/copy.svg')} />;
 export const deleteIcon = <Icon src={require('../../resources/icons/delete.svg')} />;
