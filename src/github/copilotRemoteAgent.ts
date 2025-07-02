@@ -259,7 +259,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		if (!args) {
 			return;
 		}
-		const { userPrompt, summary, source, followup } = args;
+		const { userPrompt, summary, source } = args;
 
 		/* __GDPR__
 			"remoteAgent.command.args" : {
@@ -291,14 +291,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return;
 		}
 		const { repository, owner, repo } = repoInfo;
-
-		// If this is a followup, parse out the necessary data
-		// Group 2 is this, url-encoded:
-		// {"owner":"monalisa","repo":"app","pullRequestNumber":18}
-		let followUpPR: number | undefined = this.parseFollowup(followup, repoInfo);
-		if (followUpPR) {
-			return this.addFollowUpToExistingPR(followUpPR, userPrompt, summary);
-		}
 
 		const repoName = `${owner}/${repo}`;
 		const hasChanges = repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0;
@@ -388,15 +380,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			outcome: 'success'
 		});
 
-		if (source === 'prompt') {
-			const VIEW = vscode.l10n.t('View');
-			const finished = vscode.l10n.t('Coding agent has begun work on your prompt in #{0}', number);
-			vscode.window.showInformationMessage(finished, VIEW).then((value) => {
-				if (value === VIEW) {
-					vscode.commands.executeCommand('vscode.open', webviewUri);
-				}
-			});
-		}
+		vscode.commands.executeCommand('vscode.open', webviewUri);
 
 		// allow-any-unicode-next-line
 		return vscode.l10n.t('🚀 Coding agent will continue work in [#{0}]({1}).  Track progress [here]({2}).', number, link, webviewUri.toString());
