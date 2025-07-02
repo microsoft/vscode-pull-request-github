@@ -49,16 +49,9 @@ export class CopilotApi {
 		name: string,
 		payload: RemoteAgentJobPayload,
 	): Promise<RemoteAgentJobResponse> {
-		/* __GDPR__
-			"copilot.remoteAgent.apiCall" : {
-				"status" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-				"repoSlug" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-				"outcome" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-			}
-		*/
 		const repoSlug = `${owner}/${name}`;
 		const apiUrl = `${this.baseUrl}/agents/swe/v0/jobs/${repoSlug}`;
-		
+		let status: number | undefined;
 		try {
 			const response = await fetch(apiUrl, {
 				method: 'POST',
@@ -70,43 +63,40 @@ export class CopilotApi {
 				},
 				body: JSON.stringify(payload)
 			});
-			
-			const status = response.status;
-			
+
+			status = response.status;
 			if (!response.ok) {
-				this.telemetry.sendTelemetryEvent('copilot.remoteAgent.apiCall', {
-					status: status.toString(),
-					repoSlug,
-					outcome: 'error'
-				});
-				throw new Error(await this.formatRemoteAgentJobError(response.status, repoSlug, response));
+				throw new Error(await this.formatRemoteAgentJobError(status, repoSlug, response));
 			}
-			
-			this.telemetry.sendTelemetryEvent('copilot.remoteAgent.apiCall', {
-				status: status.toString(),
-				repoSlug,
-				outcome: 'success'
-			});
-			
+
 			const data = await response.json();
 			this.validateRemoteAgentJobResponse(data);
+			/*
+				__GDPR__
+				"remoteAgent.postRemoteAgentJob" : {
+					"status" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
+			*/
+			this.telemetry.sendTelemetryEvent('remoteAgent.postRemoteAgentJob', {
+				status: status.toString(),
+			});
 			return data;
 		} catch (error) {
-			// If we haven't already logged the error status, log it as a generic error
-			if (!(error instanceof Error && error.message.includes('Error: '))) {
-				this.telemetry.sendTelemetryErrorEvent('copilot.remoteAgent.apiCall', {
-					repoSlug,
-					outcome: 'exception',
-					errorType: error instanceof Error ? error.constructor.name : 'unknown'
-				});
-			}
+			/* __GDPR__
+				"remoteAgent.postRemoteAgentJob" : {
+					"status" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
+			*/
+			this.telemetry.sendTelemetryErrorEvent('remoteAgent.postRemoteAgentJob', {
+				status: status?.toString() || '999',
+			});
 			throw error;
 		}
 	}
 
-
 	// https://github.com/github/sweagentd/blob/371ea6db280b9aecf790ccc20660e39a7ecb8d1c/internal/api/jobapi/handler.go#L110-L120
 	private async formatRemoteAgentJobError(status: number, repoSlug: string, response: Response): Promise<string> {
+		Logger.error(`Error in remote agent job: ${await response.text()}`, CopilotApi.ID);
 		switch (status) {
 			case 400:
 				return vscode.l10n.t('Bad request');
@@ -121,10 +111,9 @@ export class CopilotApi {
 			case 409:
 				return vscode.l10n.t('A coding agent pull request already exists');
 			case 500:
-				Logger.error(`Server error in remote agent job: ${await response.text()}`, CopilotApi.ID);
-				return vscode.l10n.t('Server error. Please try again later.');
+				return vscode.l10n.t('Server error. Please see logs for details.');
 			default:
-				return vscode.l10n.t('Error: {0}', status);
+				return vscode.l10n.t('Error: {0}. Please see logs for details', status);
 		}
 	}
 

@@ -5,7 +5,6 @@
 
 import vscode from 'vscode';
 import { Repository } from '../api/api';
-import { AuthProvider } from '../common/authentication';
 import { COPILOT_LOGINS } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
@@ -257,34 +256,38 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	async commandImpl(args?: ICopilotRemoteAgentCommandArgs): Promise<string | undefined> {
-		/* __GDPR__
-			"copilot.remoteAgent.command" : {
-				"source" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-				"hasFollowup" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-				"outcome" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-			}
-		*/
 		if (!args) {
 			return;
 		}
-
 		const { userPrompt, summary, source, followup } = args;
+
+		/* __GDPR__
+			"remoteAgent.command.args" : {
+				"source" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"isFollowup" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"userPromptLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"summaryLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		this.telemetry.sendTelemetryEvent('remoteAgent.command.args', {
+			source: source?.toString() || 'unknown',
+			isFollowup: !!followup ? 'true' : 'false',
+			userPromptLength: userPrompt.length.toString(),
+			summaryLength: summary ? summary.length.toString() : '0'
+		});
+
 		if (!userPrompt || userPrompt.trim().length === 0) {
-			this.telemetry.sendTelemetryErrorEvent('copilot.remoteAgent.command', {
-				source: source || 'unknown',
-				outcome: 'error',
-				errorType: 'emptyPrompt'
-			});
 			return;
 		}
 
 		const repoInfo = await this.repoInfo();
 		if (!repoInfo) {
-			this.telemetry.sendTelemetryErrorEvent('copilot.remoteAgent.command', {
-				source: source || 'unknown', 
-				outcome: 'error',
-				errorType: 'noRepositoryInfo'
-			});
+			/* __GDPR__
+				"remoteAgent.command.result" : {
+					"reason" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
+			*/
+			this.telemetry.sendTelemetryErrorEvent('remoteAgent.command.result', { reason: 'noRepositoryInfo' });
 			return;
 		}
 		const { repository, owner, repo } = repoInfo;
@@ -300,6 +303,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const repoName = `${owner}/${repo}`;
 		const hasChanges = repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0;
 		const learnMoreCb = async () => {
+			/* __GDPR__
+				"remoteAgent.command.result" : {
+					"reason" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
+			*/
+			this.telemetry.sendTelemetryErrorEvent('remoteAgent.command.result', { reason: 'learnMore' });
 			vscode.env.openExternal(vscode.Uri.parse('https://docs.github.com/copilot/using-github-copilot/coding-agent'));
 		};
 
@@ -318,6 +327,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 			);
 
 			if (!modalResult) {
+				/* __GDPR__
+					"remoteAgent.command.result" : {
+						"reason" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+					}
+				*/
+				this.telemetry.sendTelemetryErrorEvent('remoteAgent.command.result', { reason: 'cancel' });
 				return;
 			}
 
@@ -355,19 +370,19 @@ export class CopilotRemoteAgentManager extends Disposable {
 		);
 
 		if (result.state !== 'success') {
-			this.telemetry.sendTelemetryErrorEvent('copilot.remoteAgent.command', {
-				source: source || 'unknown',
-				hasFollowup: (!!followup).toString(),
-				outcome: 'error',
-				errorType: 'invocationFailure'
-			});
+			/* __GDPR__
+				"remoteAgent.command.result" : {
+					"reason" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
+			*/
+			this.telemetry.sendTelemetryErrorEvent('remoteAgent.command.result', { reason: 'invocationFailure' });
 			vscode.window.showErrorMessage(result.error);
 			return;
 		}
 
 		const { webviewUri, link, number } = result;
 
-		this.telemetry.sendTelemetryEvent('copilot.remoteAgent.command', {
+		this.telemetry.sendTelemetryEvent('remoteAgent.command', {
 			source: source || 'unknown',
 			hasFollowup: (!!followup).toString(),
 			outcome: 'success'
@@ -458,30 +473,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	async invokeRemoteAgent(prompt: string, problemContext: string, autoPushAndCommit = true): Promise<RemoteAgentResult> {
-		/* __GDPR__
-			"copilot.remoteAgent.invoke" : {
-				"hasChanges" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-				"hasExistingBranch" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-				"outcome" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-			}
-		*/
-		const startTime = Date.now();
-		
 		const capiClient = await this.copilotApi;
 		if (!capiClient) {
-			this.telemetry.sendTelemetryErrorEvent('copilot.remoteAgent.invoke', {
-				outcome: 'error',
-				errorType: 'apiInitializationFailure'
-			});
 			return { error: vscode.l10n.t('Failed to initialize Copilot API'), state: 'error' };
 		}
 
 		const repoInfo = await this.repoInfo();
 		if (!repoInfo) {
-			this.telemetry.sendTelemetryErrorEvent('copilot.remoteAgent.invoke', {
-				outcome: 'error',
-				errorType: 'noRepositoryInfo'
-			});
 			return { error: vscode.l10n.t('No repository information found. Please open a workspace with a GitHub repository.'), state: 'error' };
 		}
 		const { owner, repo, remote, repository, ghRepository, baseRef } = repoInfo;
@@ -494,11 +492,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const hasChanges = autoPushAndCommit && (repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0);
 		if (hasChanges) {
 			if (!this.autoCommitAndPushEnabled()) {
-				this.telemetry.sendTelemetryErrorEvent('copilot.remoteAgent.invoke', {
-					hasChanges: 'true',
-					outcome: 'error',
-					errorType: 'uncommittedChanges'
-				});
 				return { error: vscode.l10n.t('Uncommitted changes detected. Please commit or stash your changes before starting the remote agent. Enable \'{0}\' to push your changes automatically.', CODING_AGENT_AUTO_COMMIT_AND_PUSH), state: 'error' };
 			}
 			const asyncBranch = `copilot/vscode${Date.now()}`;
@@ -588,15 +581,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			this._onDidCreatePullRequest.fire(pull_request.number);
 			const webviewUri = await toOpenPullRequestWebviewUri({ owner, repo, pullRequestNumber: pull_request.number });
 			const prLlmString = `The remote agent has begun work. The user can track progress on GitHub.com by visiting ${pull_request.html_url} and within VS Code by visiting ${webviewUri.toString()}. Format all links as markdown (eg: [link text](url)).`;
-			
-			this.telemetry.sendTelemetryEvent('copilot.remoteAgent.invoke', {
-				hasChanges: hasChanges.toString(),
-				hasExistingBranch: (ref !== baseRef).toString(),
-				outcome: 'success'
-			}, {
-				duration: Date.now() - startTime
-			});
-			
 			return {
 				state: 'success',
 				number: pull_request.number,
@@ -605,11 +589,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 				llmDetails: hasChanges ? `The pending changes have been pushed to branch '${ref}'. ${prLlmString}` : prLlmString
 			};
 		} catch (error) {
-			this.telemetry.sendTelemetryErrorEvent('copilot.remoteAgent.invoke', {
-				hasChanges: hasChanges.toString(),
-				outcome: 'error',
-				errorType: 'apiCall'
-			});
 			return { error: error.message, state: 'error' };
 		}
 	}
