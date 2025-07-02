@@ -265,7 +265,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return;
 		}
 
-		const { userPrompt, summary, source, followup } = args;
+		const { userPrompt, summary, source } = args;
 		if (!userPrompt || userPrompt.trim().length === 0) {
 			return;
 		}
@@ -275,14 +275,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return;
 		}
 		const { repository, owner, repo } = repoInfo;
-
-		// If this is a followup, parse out the necessary data
-		// Group 2 is this, url-encoded:
-		// {"owner":"monalisa","repo":"app","pullRequestNumber":18}
-		let followUpPR: number | undefined = this.parseFollowup(followup, repoInfo);
-		if (followUpPR) {
-			return this.addFollowUpToExistingPR(followUpPR, userPrompt, summary);
-		}
 
 		const repoName = `${owner}/${repo}`;
 		const hasChanges = repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0;
