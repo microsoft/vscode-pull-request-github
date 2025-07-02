@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as OctokitTypes from '@octokit/types';
 import * as crypto from 'crypto';
+import * as OctokitTypes from '@octokit/types';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { GitApiImpl } from '../api/api1';

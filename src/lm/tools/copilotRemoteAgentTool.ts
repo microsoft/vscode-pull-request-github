@@ -70,7 +70,7 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 					new vscode.LanguageModelTextPart(vscode.l10n.t('Invalid pull request number: {0}', existingPullRequest))
 				]);
 			}
-			const result = await this.manager.addFollowUpToExistingPR(pullRequestNumber, title, body);
+			await this.manager.addFollowUpToExistingPR(pullRequestNumber, title, body);
 			return new vscode.LanguageModelToolResult([
 				new vscode.LanguageModelTextPart(vscode.l10n.t('Follow-up added to pull request #{0}.', pullRequestNumber)),
 			]);
