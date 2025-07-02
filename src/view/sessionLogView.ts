@@ -39,7 +39,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 		this._register(vscode.window.registerWebviewPanelSerializer(SessionLogViewManager.viewType, this));
 
 		this._register(vscode.commands.registerCommand('codingAgent.openSessionLog', async () => {
-			const copilotApi = await getCopilotApi(credentialStore);
+			const copilotApi = await getCopilotApi(credentialStore, telemetry);
 			if (!copilotApi) {
 				vscode.window.showErrorMessage(vscode.l10n.t('You must be authenticated to view sessions.'));
 				return;
@@ -115,7 +115,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 	}
 
 	private async open(source: SessionLogSource, openToTheSide?: boolean): Promise<void> {
-		const copilotApi = await getCopilotApi(this.credentialStore);
+		const copilotApi = await getCopilotApi(this.credentialStore, this.telemetry);
 		if (!copilotApi) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Could not get copilot API for this pull request.'));
 			return;
@@ -141,7 +141,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 			return;
 		}
 
-		const copilotApi = await getCopilotApi(this.credentialStore);
+		const copilotApi = await getCopilotApi(this.credentialStore, this.telemetry);
 		if (!copilotApi) {
 			webviewPanel.dispose();
 			return;
