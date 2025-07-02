@@ -13,7 +13,7 @@ import PullRequestContext from '../common/context';
 import emitter from '../common/events';
 import { useStateProp } from '../common/hooks';
 import { ContextDropdown } from './contextDropdown';
-import { commentIcon, deleteIcon, editIcon } from './icon';
+import { deleteIcon, editIcon, quoteIcon } from './icon';
 import { nbsp, Spaced } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -93,7 +93,7 @@ export function CommentView(commentProps: Props) {
 					className="icon-button"
 					onClick={() => emitter.emit('quoteReply', bodyMd)}
 				>
-					{commentIcon}
+					{quoteIcon}
 				</button>
 				{canEdit ? (
 					<button title="Edit comment" className="icon-button" onClick={() => setEditMode(true)}>
