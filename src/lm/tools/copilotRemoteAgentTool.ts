@@ -63,13 +63,23 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 			]);
 		}
 
+		let pullRequestNumber: number | undefined;
 		if (existingPullRequest) {
-			const pullRequestNumber = parseInt(existingPullRequest, 10);
+			pullRequestNumber = parseInt(existingPullRequest, 10);
 			if (isNaN(pullRequestNumber)) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart(vscode.l10n.t('Invalid pull request number: {0}', existingPullRequest))
 				]);
 			}
+		} else {
+			const { repo, owner } = targetRepo;
+			const activePR = targetRepo.fm.activePullRequest;
+			if (activePR && this.manager._stateModel.get(owner, repo, activePR.number)) {
+				pullRequestNumber = activePR.number;
+			}
+		}
+
+		if (pullRequestNumber) {
 			await this.manager.addFollowUpToExistingPR(pullRequestNumber, title, body);
 			return new vscode.LanguageModelToolResult([
 				new vscode.LanguageModelTextPart(vscode.l10n.t('Follow-up added to pull request #{0}.', pullRequestNumber)),
