@@ -377,7 +377,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			case 'pr.update-branch':
 				return this.updateBranch(message);
 			case 'pr.gotoChangesSinceReview':
-				return this.gotoChangesSinceReview();
+				return this.gotoChangesSinceReview(message);
 			case 'pr.re-request-review':
 				return this.reRequestReview(message);
 			case 'pr.revert':
@@ -389,8 +389,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private gotoChangesSinceReview() {
+	private gotoChangesSinceReview(message: IRequestMessage<void>): Promise<void> {
 		this._item.showChangesSinceReview = true;
+		return this._replyMessage(message, {});
 	}
 
 	private async changeReviewers(message: IRequestMessage<void>): Promise<void> {
