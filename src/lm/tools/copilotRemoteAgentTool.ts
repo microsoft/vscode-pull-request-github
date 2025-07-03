@@ -72,18 +72,6 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 			]);
 		}
 
-
-		/* __GDPR__
-			"remoteAgent.tool.invoke" : {
-				"hasExistingPR" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-				"hasBody" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-			},
-		*/
-		this.telemetry.sendTelemetryEvent('copilot.remoteAgent.tool.invoke', {
-			hasExistingPR: existingPullRequest ? 'true' : 'false',
-			hasBody: body ? 'true' : 'false'
-		});
-
 		let pullRequestNumber: number | undefined;
 		if (existingPullRequest) {
 			pullRequestNumber = parseInt(existingPullRequest, 10);
@@ -95,6 +83,17 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 		} else {
 			pullRequestNumber = await this.getActivePullRequestWithSession(targetRepo);
 		}
+
+		/* __GDPR__
+			"remoteAgent.tool.invoke" : {
+				"hasExistingPR" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"hasBody" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			},
+		*/
+		this.telemetry.sendTelemetryEvent('copilot.remoteAgent.tool.invoke', {
+			hasExistingPR: pullRequestNumber ? 'true' : 'false',
+			hasBody: body ? 'true' : 'false'
+		});
 
 		if (pullRequestNumber) {
 			await this.manager.addFollowUpToExistingPR(pullRequestNumber, title, body);
