@@ -105,28 +105,37 @@ export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue
 
 export default Timeline;
 
-const CommitEventView = (event: CommitEvent) => (
-	<div className="comment-container commit">
-		<div className="commit-message">
-			{commitIcon}
-			{nbsp}
-			<div className="avatar-container">
-				<Avatar for={event.author} />
+const CommitEventView = (event: CommitEvent) => {
+	const context = useContext(PullRequestContext);
+	
+	const handleCommitClick = (e: React.MouseEvent) => {
+		e.preventDefault();
+		context.openCommitChanges(event.htmlUrl);
+	};
+
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				{commitIcon}
+				{nbsp}
+				<div className="avatar-container">
+					<Avatar for={event.author} />
+				</div>
+				<div className="message-container">
+					<a className="message" onClick={handleCommitClick} style={{ cursor: 'pointer' }} title={event.htmlUrl}>
+						{event.message.substr(0, event.message.indexOf('\n') > -1 ? event.message.indexOf('\n') : event.message.length)}
+					</a>
+				</div>
 			</div>
-			<div className="message-container">
-				<a className="message" href={event.htmlUrl} title={event.htmlUrl}>
-					{event.message.substr(0, event.message.indexOf('\n') > -1 ? event.message.indexOf('\n') : event.message.length)}
+			<div className="timeline-detail">
+				<a className="sha" onClick={handleCommitClick} style={{ cursor: 'pointer' }} title={event.htmlUrl}>
+					{event.sha.slice(0, 7)}
 				</a>
+				<Timestamp date={event.committedDate} />
 			</div>
 		</div>
-		<div className="timeline-detail">
-			<a className="sha" href={event.htmlUrl} title={event.htmlUrl}>
-				{event.sha.slice(0, 7)}
-			</a>
-			<Timestamp date={event.committedDate} />
-		</div>
-	</div>
-);
+	);
+};
 
 const NewCommitsSinceReviewEventView = () => {
 	const { gotoChangesSinceReview } = useContext(PullRequestContext);
@@ -300,7 +309,12 @@ function AddReviewSummaryComment() {
 const CommentEventView = (event: CommentEvent) => <CommentView headerInEditMode comment={event} />;
 
 const MergedEventView = (event: MergedEvent) => {
-	const { revert, pr } = useContext(PullRequestContext);
+	const { revert, pr, openCommitChanges } = useContext(PullRequestContext);
+
+	const handleCommitClick = (e: React.MouseEvent) => {
+		e.preventDefault();
+		openCommitChanges(event.commitUrl);
+	};
 
 	return (
 		<div className="comment-container commit">
@@ -313,7 +327,7 @@ const MergedEventView = (event: MergedEvent) => {
 				<AuthorLink for={event.user} />
 				<div className="message">
 					merged commit{nbsp}
-					<a className="sha" href={event.commitUrl} title={event.commitUrl}>
+					<a className="sha" onClick={handleCommitClick} style={{ cursor: 'pointer' }} title={event.commitUrl}>
 						{event.sha.substr(0, 7)}
 					</a>
 					{nbsp}

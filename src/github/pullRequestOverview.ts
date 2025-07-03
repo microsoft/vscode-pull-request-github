@@ -386,6 +386,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.openSessionLog(message);
 			case 'pr.cancel-coding-agent':
 				return this.cancelCodingAgent(message);
+			case 'pr.openCommitChanges':
+				return this.openCommitChanges(message);
 		}
 	}
 
@@ -522,6 +524,16 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				events: [],
 			};
 			this._replyMessage(message, reply);
+		}
+	}
+
+	private async openCommitChanges(message: IRequestMessage<{ commitShaOrUrl: string }>): Promise<void> {
+		try {
+			const { commitShaOrUrl } = message.args;
+			await vscode.commands.executeCommand('pr.openCommitChanges', commitShaOrUrl, this._folderRepositoryManager);
+		} catch (error) {
+			Logger.error(`Failed to open commit changes: ${formatError(error)}`, PullRequestOverviewPanel.ID);
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to open commit changes: {0}', formatError(error)));
 		}
 	}
 
