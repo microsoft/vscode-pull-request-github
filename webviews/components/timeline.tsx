@@ -129,7 +129,18 @@ const CommitEventView = (event: CommitEvent) => (
 );
 
 const NewCommitsSinceReviewEventView = () => {
-	const { gotoChangesSinceReview } = useContext(PullRequestContext);
+	const { gotoChangesSinceReview, pr } = useContext(PullRequestContext);
+	if (!pr.isCurrentlyCheckedOut) {
+		return null;
+	}
+
+	const [busy, setBusy] = useState(false);
+	const viewChanges = async () => {
+		setBusy(true);
+		await gotoChangesSinceReview();
+		setBusy(false);
+	};
+
 	return (
 		<div className="comment-container commit">
 			<div className="commit-message">
@@ -140,7 +151,8 @@ const NewCommitsSinceReviewEventView = () => {
 			<button
 				aria-live="polite"
 				title="View the changes since your last review"
-				onClick={() => gotoChangesSinceReview()}
+				onClick={viewChanges}
+				disabled={busy}
 			>
 				View Changes
 			</button>
