@@ -170,7 +170,7 @@ body img.avatar {
 .icon-button:focus,
 .section .icon-button:focus {
 	outline: 1px solid var(--vscode-focusBorder);
-	outline-offset: unset;
+	outline-offset: 1px;
 }
 
 .label .icon-button:hover,
