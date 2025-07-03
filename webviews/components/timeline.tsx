@@ -107,10 +107,14 @@ export default Timeline;
 
 const CommitEventView = (event: CommitEvent) => {
 	const context = useContext(PullRequestContext);
+	const pr = context.pr;
 	
 	const handleCommitClick = (e: React.MouseEvent) => {
-		e.preventDefault();
-		context.openCommitChanges(event.sha);
+		if (pr.isCurrentlyCheckedOut) {
+			e.preventDefault();
+			context.openCommitChanges(event.sha);
+		}
+		// If not checked out, let the default href behavior proceed
 	};
 
 	return (
@@ -122,13 +126,25 @@ const CommitEventView = (event: CommitEvent) => {
 					<Avatar for={event.author} />
 				</div>
 				<div className="message-container">
-					<a className="message" onClick={handleCommitClick} style={{ cursor: 'pointer' }} title={event.htmlUrl}>
+					<a 
+						className="message" 
+						onClick={handleCommitClick} 
+						href={pr.isCurrentlyCheckedOut ? undefined : event.htmlUrl}
+						style={{ cursor: 'pointer' }} 
+						title={event.htmlUrl}
+					>
 						{event.message.substr(0, event.message.indexOf('\n') > -1 ? event.message.indexOf('\n') : event.message.length)}
 					</a>
 				</div>
 			</div>
 			<div className="timeline-detail">
-				<a className="sha" onClick={handleCommitClick} style={{ cursor: 'pointer' }} title={event.htmlUrl}>
+				<a 
+					className="sha" 
+					onClick={handleCommitClick} 
+					href={pr.isCurrentlyCheckedOut ? undefined : event.htmlUrl}
+					style={{ cursor: 'pointer' }} 
+					title={event.htmlUrl}
+				>
 					{event.sha.slice(0, 7)}
 				</a>
 				<Timestamp date={event.committedDate} />
