@@ -497,7 +497,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			if (message.args.event !== EventType.CopilotStarted) {
 				return this._replyMessage(message, { success: false, error: 'Invalid event type' });
 			} else {
-				const copilotApi = await getCopilotApi(this._folderRepositoryManager.credentialStore, this._item.remote.authProviderId);
+				const copilotApi = await getCopilotApi(this._folderRepositoryManager.credentialStore, this._telemetry, this._item.remote.authProviderId);
 				if (copilotApi) {
 					const session = (await copilotApi.getAllSessions(this._item.id))[0];
 					if (session.state !== 'completed') {

@@ -5,16 +5,16 @@
 
 import vscode from 'vscode';
 import { Repository } from '../api/api';
-import { AuthProvider } from '../common/authentication';
 import { COPILOT_LOGINS } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { GitHubRemote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
+import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { OctokitCommon } from './common';
-import { CopilotApi, RemoteAgentJobPayload, SessionInfo } from './copilotApi';
+import { CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -59,7 +59,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	private readonly _onDidCreatePullRequest = this._register(new vscode.EventEmitter<number>());
 	readonly onDidCreatePullRequest = this._onDidCreatePullRequest.event;
 
-	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager) {
+	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, private telemetry: ITelemetry) {
 		super();
 		this._register(this.credentialStore.onDidChangeSessions((e: vscode.AuthenticationSessionsChangeEvent) => {
 			if (e.provider.id === 'github') {
@@ -104,12 +104,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	private async initializeCopilotApi(): Promise<CopilotApi | undefined> {
-		const gh = await this.credentialStore.getHubOrLogin(AuthProvider.github);
-		const { token } = await gh?.octokit.api.auth() as { token: string };
-		if (!token || !gh?.octokit) {
-			return;
-		}
-		return new CopilotApi(gh.octokit, token);
+		return await getCopilotApi(this.credentialStore, this.telemetry);
 	}
 
 	enabled(): boolean {
@@ -264,14 +259,35 @@ export class CopilotRemoteAgentManager extends Disposable {
 		if (!args) {
 			return;
 		}
+		const { userPrompt, summary, source, followup } = args;
 
-		const { userPrompt, summary, source } = args;
+		/* __GDPR__
+			"remoteAgent.command.args" : {
+				"source" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"isFollowup" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"userPromptLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"summaryLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			}
+		*/
+		this.telemetry.sendTelemetryEvent('remoteAgent.command.args', {
+			source: source?.toString() || 'unknown',
+			isFollowup: !!followup ? 'true' : 'false',
+			userPromptLength: userPrompt.length.toString(),
+			summaryLength: summary ? summary.length.toString() : '0'
+		});
+
 		if (!userPrompt || userPrompt.trim().length === 0) {
 			return;
 		}
 
 		const repoInfo = await this.repoInfo();
 		if (!repoInfo) {
+			/* __GDPR__
+				"remoteAgent.command.result" : {
+					"reason" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
+			*/
+			this.telemetry.sendTelemetryErrorEvent('remoteAgent.command.result', { reason: 'noRepositoryInfo' });
 			return;
 		}
 		const { repository, owner, repo } = repoInfo;
@@ -279,6 +295,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const repoName = `${owner}/${repo}`;
 		const hasChanges = repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0;
 		const learnMoreCb = async () => {
+			/* __GDPR__
+				"remoteAgent.command.result" : {
+					"reason" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
+			*/
+			this.telemetry.sendTelemetryErrorEvent('remoteAgent.command.result', { reason: 'learnMore' });
 			vscode.env.openExternal(vscode.Uri.parse('https://docs.github.com/copilot/using-github-copilot/coding-agent'));
 		};
 
@@ -299,6 +321,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 			);
 
 			if (!modalResult) {
+				/* __GDPR__
+					"remoteAgent.command.result" : {
+						"reason" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+					}
+				*/
+				this.telemetry.sendTelemetryErrorEvent('remoteAgent.command.result', { reason: 'cancel' });
 				return;
 			}
 
@@ -338,11 +366,24 @@ export class CopilotRemoteAgentManager extends Disposable {
 		);
 
 		if (result.state !== 'success') {
+			/* __GDPR__
+				"remoteAgent.command.result" : {
+					"reason" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				}
+			*/
+			this.telemetry.sendTelemetryErrorEvent('remoteAgent.command.result', { reason: 'invocationFailure' });
 			vscode.window.showErrorMessage(result.error);
 			return;
 		}
 
 		const { webviewUri, link, number } = result;
+
+		this.telemetry.sendTelemetryEvent('remoteAgent.command', {
+			source: source || 'unknown',
+			hasFollowup: (!!followup).toString(),
+			outcome: 'success'
+		});
+
 		vscode.commands.executeCommand('vscode.open', webviewUri);
 
 		// allow-any-unicode-next-line

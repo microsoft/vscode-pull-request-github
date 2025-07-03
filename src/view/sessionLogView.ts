@@ -43,12 +43,11 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 				location: vscode.ProgressLocation.Window,
 				title: vscode.l10n.t('Loading sessions...')
 			}, async () => {
-				const copilotApi = await getCopilotApi(credentialStore);
+				const copilotApi = await getCopilotApi(credentialStore, telemetry);
 				if (!copilotApi) {
 					vscode.window.showErrorMessage(vscode.l10n.t('You must be authenticated to view sessions.'));
 					return;
 				}
-
 				const allSessions = await copilotApi.getAllSessions(undefined);
 				if (!allSessions?.length) {
 					vscode.window.showErrorMessage(vscode.l10n.t('No sessions found.'));
@@ -125,7 +124,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 	}
 
 	private async open(source: SessionLogSource, openToTheSide?: boolean): Promise<void> {
-		const copilotApi = await getCopilotApi(this.credentialStore);
+		const copilotApi = await getCopilotApi(this.credentialStore, this.telemetry);
 		if (!copilotApi) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Could not get copilot API for this pull request.'));
 			return;
@@ -151,7 +150,7 @@ export class SessionLogViewManager extends Disposable implements vscode.WebviewP
 			return;
 		}
 
-		const copilotApi = await getCopilotApi(this.credentialStore);
+		const copilotApi = await getCopilotApi(this.credentialStore, this.telemetry);
 		if (!copilotApi) {
 			webviewPanel.dispose();
 			return;
