@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IAccount, IActor } from '../github/interface';
+import { IAccount, IActor, Reaction } from '../github/interface';
 import { IComment } from './comment';
 
 export enum EventType {
@@ -45,6 +45,7 @@ export interface CommentEvent {
 	canEdit?: boolean;
 	canDelete?: boolean;
 	createdAt: string;
+	reactions?: Reaction[];
 }
 
 export interface ReviewResolveInfo {
@@ -68,6 +69,7 @@ export interface ReviewEvent {
 	user: IAccount;
 	authorAssociation: string;
 	state?: ReviewStateValue;
+	reactions?: Reaction[];
 }
 
 export interface CommitEvent {

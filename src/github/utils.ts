@@ -444,6 +444,7 @@ export function convertRESTReviewEvent(
 		authorAssociation: review.user!.type,
 		state: review.state as 'COMMENTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING',
 		id: review.id,
+		reactions: undefined // reactions only available through GraphQL API
 	};
 }
 
@@ -560,6 +561,7 @@ export function parseGraphQlIssueComment(comment: GraphQL.IssueComment, githubRe
 		htmlUrl: comment.url,
 		graphNodeId: comment.id,
 		diffHunk: '',
+		reactions: parseGraphQLReaction(comment.reactionGroups),
 	};
 }
 
@@ -994,6 +996,7 @@ export function parseGraphQLReviewEvent(
 		authorAssociation: review.authorAssociation,
 		state: review.state,
 		id: review.databaseId,
+		reactions: parseGraphQLReaction(review.reactionGroups),
 	};
 }
 
@@ -1129,6 +1132,7 @@ export async function parseCombinedTimelineEvents(
 					id: commentEvent.databaseId,
 					graphNodeId: commentEvent.id,
 					createdAt: commentEvent.createdAt,
+					reactions: parseGraphQLReaction(commentEvent.reactionGroups),
 				});
 				break;
 			case Common.EventType.Reviewed:
@@ -1144,6 +1148,7 @@ export async function parseCombinedTimelineEvents(
 					authorAssociation: reviewEvent.authorAssociation,
 					state: reviewEvent.state,
 					id: reviewEvent.databaseId,
+					reactions: parseGraphQLReaction(reviewEvent.reactionGroups),
 				});
 				break;
 			case Common.EventType.Committed:

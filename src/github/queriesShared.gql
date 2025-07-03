@@ -103,6 +103,7 @@ fragment Comment on IssueComment {
 	viewerCanUpdate
 	viewerCanReact
 	viewerCanDelete
+	...Reactable
 }
 
 fragment Commit on PullRequestCommit {
@@ -223,6 +224,7 @@ fragment Review on PullRequestReview {
 	submittedAt
 	updatedAt
 	createdAt
+	...Reactable
 }
 
 fragment Reactable on Reactable {
