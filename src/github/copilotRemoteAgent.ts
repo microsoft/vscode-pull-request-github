@@ -559,6 +559,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			pull_request: {
 				title,
 				body_placeholder: problemContext,
+				body_suffix: '\n\n---\n\n*This pull request was created by the [GitHub Copilot coding agent](https://docs.github.com/en/copilot/using-github-copilot/coding-agent) via [GitHub Pull Requests](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github) for VS Code.*',
 				base_ref,
 				...(hasChanges && { head_ref: ref })
 			}
