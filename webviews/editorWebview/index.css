@@ -201,7 +201,8 @@ body .comment-container .review-comment-header {
 }
 
 .comment-actions .icon-button {
-	padding: 2px;
+	padding-left: 2px;
+	padding-top: 2px;
 }
 
 .status-scroll {

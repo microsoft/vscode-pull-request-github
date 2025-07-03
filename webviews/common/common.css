@@ -155,8 +155,6 @@ body img.avatar {
 
 .icon-button {
 	display: flex;
-	align-items: center;
-	justify-content: center;
 	padding: 2px;
 	background: transparent;
 	border-radius: 4px;
