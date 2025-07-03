@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import { ITelemetry } from '../../common/telemetry';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
+import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 
 export interface CopilotRemoteAgentToolParameters {
 	// The LLM is inconsistent in providing repo information.
@@ -36,6 +37,7 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 
 		const targetRepo = await this.manager.repoInfo();
 		const autoPushEnabled = this.manager.autoCommitAndPushEnabled();
+		const openPR = existingPullRequest || await this.getActivePullRequestWithSession(targetRepo);
 
 		/* __GDPR__
 			"remoteAgent.tool.prepare" : {}
@@ -46,8 +48,8 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 			pastTenseMessage: vscode.l10n.t('Launched coding agent'),
 			invocationMessage: vscode.l10n.t('Launching coding agent'),
 			confirmationMessages: {
-				message: existingPullRequest
-					? vscode.l10n.t('The coding agent will incorporate your feedback on existing pull request **#{0}**.', existingPullRequest)
+				message: openPR
+					? vscode.l10n.t('The coding agent will incorporate your feedback on existing pull request **#{0}**.', openPR)
 					: (targetRepo && autoPushEnabled
 						? vscode.l10n.t('The coding agent will continue work on "**{0}**" in a new branch on "**{1}/{2}**". Any uncommitted changes will be **automatically pushed**.', title, targetRepo.owner, targetRepo.repo)
 						: vscode.l10n.t('The coding agent will start working on "**{0}**"', title)),
@@ -70,18 +72,6 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 			]);
 		}
 
-
-		/* __GDPR__
-			"remoteAgent.tool.invoke" : {
-				"hasExistingPR" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-				"hasBody" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-			},
-		*/
-		this.telemetry.sendTelemetryEvent('copilot.remoteAgent.tool.invoke', {
-			hasExistingPR: existingPullRequest ? 'true' : 'false',
-			hasBody: body ? 'true' : 'false'
-		});
-
 		let pullRequestNumber: number | undefined;
 		if (existingPullRequest) {
 			pullRequestNumber = parseInt(existingPullRequest, 10);
@@ -91,12 +81,19 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 				]);
 			}
 		} else {
-			const { repo, owner } = targetRepo;
-			const activePR = targetRepo.fm.activePullRequest;
-			if (activePR && this.manager.getStateForPR(owner, repo, activePR.number)) {
-				pullRequestNumber = activePR.number;
-			}
+			pullRequestNumber = await this.getActivePullRequestWithSession(targetRepo);
 		}
+
+		/* __GDPR__
+			"remoteAgent.tool.invoke" : {
+				"hasExistingPR" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"hasBody" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+			},
+		*/
+		this.telemetry.sendTelemetryEvent('copilot.remoteAgent.tool.invoke', {
+			hasExistingPR: pullRequestNumber ? 'true' : 'false',
+			hasBody: body ? 'true' : 'false'
+		});
 
 		if (pullRequestNumber) {
 			await this.manager.addFollowUpToExistingPR(pullRequestNumber, title, body);
@@ -118,5 +115,15 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 		return new vscode.LanguageModelToolResult([
 			new vscode.LanguageModelTextPart(result.llmDetails)
 		]);
+	}
+
+	private async getActivePullRequestWithSession(repoInfo: { repo: string; owner: string; fm: FolderRepositoryManager } | undefined): Promise<number | undefined> {
+		if (!repoInfo) {
+			return;
+		}
+		const activePR = repoInfo.fm.activePullRequest;
+		if (activePR && this.manager.getStateForPR(repoInfo.owner, repoInfo.repo, activePR.number)) {
+			return activePR.number;
+		}
 	}
 }
