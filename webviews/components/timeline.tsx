@@ -110,7 +110,7 @@ const CommitEventView = (event: CommitEvent) => {
 	
 	const handleCommitClick = (e: React.MouseEvent) => {
 		e.preventDefault();
-		context.openCommitChanges(event.htmlUrl);
+		context.openCommitChanges(event.sha);
 	};
 
 	return (
@@ -309,12 +309,7 @@ function AddReviewSummaryComment() {
 const CommentEventView = (event: CommentEvent) => <CommentView headerInEditMode comment={event} />;
 
 const MergedEventView = (event: MergedEvent) => {
-	const { revert, pr, openCommitChanges } = useContext(PullRequestContext);
-
-	const handleCommitClick = (e: React.MouseEvent) => {
-		e.preventDefault();
-		openCommitChanges(event.commitUrl);
-	};
+	const { revert, pr } = useContext(PullRequestContext);
 
 	return (
 		<div className="comment-container commit">
@@ -327,7 +322,7 @@ const MergedEventView = (event: MergedEvent) => {
 				<AuthorLink for={event.user} />
 				<div className="message">
 					merged commit{nbsp}
-					<a className="sha" onClick={handleCommitClick} style={{ cursor: 'pointer' }} title={event.commitUrl}>
+					<a className="sha" href={event.commitUrl} title={event.commitUrl}>
 						{event.sha.substr(0, 7)}
 					</a>
 					{nbsp}

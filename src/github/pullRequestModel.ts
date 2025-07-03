@@ -1190,6 +1190,53 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
 	}
 
+	static async openCommitChanges(folderManager: FolderRepositoryManager, commitSha: string): Promise<void> {
+		try {
+			// Get the repository from the folder manager
+			const repository = folderManager.repository;
+			if (!repository) {
+				vscode.window.showErrorMessage(vscode.l10n.t('No repository found'));
+				return;
+			}
+
+			// Get the changes between the commit and its parent
+			const changes = await repository.diffBetween(commitSha + '~1', commitSha);
+			if (!changes || changes.length === 0) {
+				vscode.window.showInformationMessage(vscode.l10n.t('No changes found in commit {0}', commitSha.substring(0, 7)));
+				return;
+			}
+
+			// Create URI pairs for the multi diff editor
+			const args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
+			for (const change of changes) {
+				const workspaceUri = vscode.Uri.file(path.resolve(repository.rootUri.fsPath, change.uri.fsPath));
+				
+				if (change.status === GitChangeType.ADD) {
+					// For added files, show against empty
+					args.push([workspaceUri, undefined, workspaceUri]);
+				} else if (change.status === GitChangeType.DELETE) {
+					// For deleted files, show old version against empty
+					const beforeUri = change.originalUri || change.uri;
+					args.push([workspaceUri, beforeUri, undefined]);
+				} else {
+					// For modified files, show before and after
+					const beforeUri = change.originalUri || change.uri;
+					args.push([workspaceUri, beforeUri, workspaceUri]);
+				}
+			}
+
+			/* __GDPR__
+				"pr.openCommitChanges" : {}
+			*/
+			folderManager.telemetry.sendTelemetryEvent('pr.openCommitChanges');
+
+			return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Commit {0}', commitSha.substring(0, 7)), args);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to open commit changes: {0}', errorMessage));
+		}
+	}
+
 	static async openDiffFromComment(
 		folderManager: FolderRepositoryManager,
 		pullRequestModel: PullRequestModel,

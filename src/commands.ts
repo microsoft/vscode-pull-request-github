@@ -6,6 +6,7 @@
 
 import * as pathLib from 'path';
 import * as vscode from 'vscode';
+import { Repository } from './api/api';
 import { GitErrorCodes } from './api/api1';
 import { CommentReply, findActiveHandler, resolveCommentHandler } from './commentHandlerResolver';
 import { COPILOT_LOGINS } from './common/copilot';
@@ -55,7 +56,7 @@ const DISCARD_CHANGES = vscode.l10n.t('Discard changes');
  * @param repository The git repository with uncommitted changes
  * @returns Promise<boolean> true if user chose to proceed (after staging/discarding), false if cancelled
  */
-async function handleUncommittedChanges(repository: any): Promise<boolean> {
+async function handleUncommittedChanges(repository: Repository): Promise<boolean> {
 	const hasWorkingTreeChanges = repository.state.workingTreeChanges.length > 0;
 	const hasIndexChanges = repository.state.indexChanges.length > 0;
 
@@ -520,19 +521,19 @@ export function registerCommands(
 		);
 	}
 
-	function isSourceControl(x: any): x is any {
+	function isSourceControl(x: any): x is Repository {
 		return !!x?.rootUri;
 	}
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.create',
-			async (args?: { repoPath: string; compareBranch: string } | any) => {
+			async (args?: { repoPath: string; compareBranch: string } | Repository) => {
 				// The arguments this is called with are either from the SCM view, or manually passed.
 				if (isSourceControl(args)) {
 					(await chooseReviewManager(args.rootUri.fsPath))?.createPullRequest();
 				} else {
-					(await chooseReviewManager((args as any)?.repoPath))?.createPullRequest((args as any)?.compareBranch);
+					(await chooseReviewManager(args?.repoPath))?.createPullRequest(args?.compareBranch);
 				}
 			},
 		),
@@ -541,7 +542,7 @@ export function registerCommands(
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.pushAndCreate',
-			async (args?: any) => {
+			async (args?: any | Repository) => {
 				if (isSourceControl(args)) {
 					const reviewManager = await chooseReviewManager(args.rootUri.fsPath);
 					const folderManager = reposManager.getManagerForFile(args.rootUri);
@@ -576,7 +577,7 @@ export function registerCommands(
 			}
 
 			let pullRequestModel: PullRequestModel;
-			let repository: any | undefined;
+			let repository: Repository | undefined;
 
 			if (pr instanceof PRNode || pr instanceof RepositoryChangesNode) {
 				pullRequestModel = pr.pullRequestModel;
@@ -654,75 +655,15 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openCommitChanges', async (commitShaOrUrl: string, folderManager?: FolderRepositoryManager) => {
-			try {
-				// Extract commit SHA from GitHub URL if needed
-				let commitSha: string;
-				if (commitShaOrUrl.includes('github.com') && commitShaOrUrl.includes('/commit/')) {
-					const match = commitShaOrUrl.match(/\/commit\/([a-f0-9]{7,40})/);
-					if (!match) {
-						vscode.window.showErrorMessage(vscode.l10n.t('Invalid commit URL: {0}', commitShaOrUrl));
-						return;
-					}
-					commitSha = match[1];
-				} else {
-					commitSha = commitShaOrUrl;
-				}
-
-				// Use provided folder manager or try to find one for the active workspace
-				if (!folderManager) {
-					folderManager = reposManager.folderManagers.find(fm => fm.repository.rootUri.fsPath === vscode.workspace.workspaceFolders?.[0]?.uri.fsPath);
-					if (!folderManager) {
-						vscode.window.showErrorMessage(vscode.l10n.t('No repository found to show commit changes.'));
-						return;
-					}
-				}
-
-				const repository = folderManager.repository;
-				
-				// Get the changes for this commit
-				const changes = await repository.diffBetween(commitSha + '^', commitSha);
-				
-				if (changes.length === 0) {
-					vscode.window.showInformationMessage(vscode.l10n.t('No file changes found in commit {0}', commitSha.substring(0, 7)));
-					return;
-				}
-
-				// Build arguments for vscode.changes command
-				const args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
-				for (const change of changes) {
-					// For each changed file, create URIs for before and after
-					const parentCommit = commitSha + '^';
-					let beforeUri: vscode.Uri | undefined;
-					let afterUri: vscode.Uri | undefined;
-
-					if (change.status === 7) { // DELETED
-						// File was deleted, show old version vs empty
-						beforeUri = change.uri.with({ scheme: 'git', authority: parentCommit });
-						afterUri = undefined;
-					} else if (change.status === 1 || change.status === 11) { // INDEX_ADDED || ADDED_BY_US
-						// File was added, show empty vs new version
-						beforeUri = undefined;
-						afterUri = change.uri.with({ scheme: 'git', authority: commitSha });
-					} else {
-						// File was modified, show old vs new
-						beforeUri = change.uri.with({ scheme: 'git', authority: parentCommit });
-						afterUri = change.uri.with({ scheme: 'git', authority: commitSha });
-					}
-
-					args.push([change.uri, beforeUri, afterUri]);
-				}
-
-				// Send telemetry
-				folderManager.telemetry.sendTelemetryEvent('pr.openCommitChanges');
-
-				// Open multi diff editor
-				return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Commit {0}', commitSha.substring(0, 7)), args);
-
-			} catch (error) {
-				Logger.error(`Failed to open commit changes: ${formatError(error)}`, 'Commands');
-				vscode.window.showErrorMessage(vscode.l10n.t('Failed to open commit changes: {0}', formatError(error)));
+		vscode.commands.registerCommand('pr.openCommitChanges', async (commitSha: string, folderManager?: FolderRepositoryManager) => {
+			if (!folderManager) {
+				folderManager = reposManager.folderManagers[0];
 			}
+			if (!folderManager) {
+				vscode.window.showErrorMessage(vscode.l10n.t('No repository found'));
+				return;
+			}
+			return PullRequestModel.openCommitChanges(folderManager, commitSha);
 		}),
 	);
 
