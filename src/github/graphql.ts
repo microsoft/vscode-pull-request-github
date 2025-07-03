@@ -75,6 +75,7 @@ export interface AbbreviatedIssueComment {
 	reactions: {
 		totalCount: number;
 	};
+	reactionGroups: ReactionGroup[]
 	createdAt: string;
 }
 
@@ -227,6 +228,7 @@ export interface Review {
 	submittedAt: string;
 	updatedAt: string;
 	createdAt: string;
+	reactionGroups: ReactionGroup[];
 }
 
 export interface ReviewThread {
