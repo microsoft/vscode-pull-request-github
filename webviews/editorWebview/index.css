@@ -200,6 +200,10 @@ body .comment-container .review-comment-header {
 	height: 14px;
 }
 
+.comment-actions .icon-button {
+	padding: 2px;
+}
+
 .status-scroll {
 	max-height: 220px;
 	overflow-y: auto;

@@ -155,6 +155,8 @@ body img.avatar {
 
 .icon-button {
 	display: flex;
+	align-items: center;
+	justify-content: center;
 	padding: 2px;
 	background: transparent;
 	border-radius: 4px;
@@ -170,7 +172,7 @@ body img.avatar {
 .icon-button:focus,
 .section .icon-button:focus {
 	outline: 1px solid var(--vscode-focusBorder);
-	outline-offset: unset;
+	outline-offset: 1px;
 }
 
 .label .icon-button:hover,
