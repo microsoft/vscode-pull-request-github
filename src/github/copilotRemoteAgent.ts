@@ -5,7 +5,7 @@
 
 import vscode from 'vscode';
 import { Repository } from '../api/api';
-import { COPILOT_LOGINS } from '../common/copilot';
+import { COPILOT_LOGINS, CopilotPRStatus } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -662,5 +662,9 @@ export class CopilotRemoteAgentManager extends Disposable {
 	hasNotification(owner: string, repo: string, pullRequestNumber: number): boolean {
 		const key = this._stateModel.makeKey(owner, repo, pullRequestNumber);
 		return this._stateModel.notifications.has(key);
+	}
+
+	public getStateForPR(owner: string, repo: string, prNumber: number): CopilotPRStatus {
+		return this._stateModel.get(owner, repo, prNumber);
 	}
 }
