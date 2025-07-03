@@ -74,7 +74,7 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 		} else {
 			const { repo, owner } = targetRepo;
 			const activePR = targetRepo.fm.activePullRequest;
-			if (activePR && this.manager._stateModel.get(owner, repo, activePR.number)) {
+			if (activePR && this.manager.getStateForPR(owner, repo, activePR.number)) {
 				pullRequestNumber = activePR.number;
 			}
 		}
