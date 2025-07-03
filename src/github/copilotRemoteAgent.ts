@@ -283,13 +283,15 @@ export class CopilotRemoteAgentManager extends Disposable {
 		};
 
 		let autoPushAndCommit = false;
-		const message = vscode.l10n.t('Copilot coding agent will continue your work in \'{0}\'', repoName);
+		const message = vscode.l10n.t('Copilot coding agent will continue your work in \'{0}\'.', repoName);
+		const detail = vscode.l10n.t('Your current chat session will end, and its context will be used to continue your work in a new pull request.');
 		if (source !== 'prompt' && hasChanges && this.autoCommitAndPushEnabled()) {
+			// Pending changes modal
 			const modalResult = await vscode.window.showInformationMessage(
 				message,
 				{
 					modal: true,
-					detail: vscode.l10n.t('Local changes detected'),
+					detail,
 				},
 				PUSH_CHANGES,
 				CONTINUE_WITHOUT_PUSHING,
@@ -309,10 +311,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 				autoPushAndCommit = true;
 			}
 		} else {
+			// No pending changes modal
 			const modalResult = await vscode.window.showInformationMessage(
-				(source !== 'prompt' ? message : vscode.l10n.t('Copilot coding agent will implement the specification outlined in this prompt file')),
+				source !== 'prompt' ? message : vscode.l10n.t('Copilot coding agent will implement the specification outlined in this prompt file'),
 				{
 					modal: true,
+					detail: source !== 'prompt' ? detail : undefined
 				},
 				CONTINUE,
 				LEARN_MORE,
