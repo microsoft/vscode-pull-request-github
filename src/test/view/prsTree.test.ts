@@ -58,7 +58,7 @@ describe('GitHub Pull Requests view', function () {
 			telemetry,
 		);
 		credentialStore = new CredentialStore(telemetry, context);
-		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager);
+		copilotManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry);
 		provider = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotManager);
 		createPrHelper = new CreatePullRequestHelper();
 
