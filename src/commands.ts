@@ -654,19 +654,6 @@ export function registerCommands(
 		}),
 	);
 
-	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.openCommitChanges', async (commitSha: string, folderManager?: FolderRepositoryManager) => {
-			if (!folderManager) {
-				folderManager = reposManager.folderManagers[0];
-			}
-			if (!folderManager) {
-				vscode.window.showErrorMessage(vscode.l10n.t('No repository found'));
-				return;
-			}
-			return PullRequestModel.openCommitChanges(folderManager, commitSha);
-		}),
-	);
-
 	let isCheckingOutFromReadonlyFile = false;
 	context.subscriptions.push(vscode.commands.registerCommand('pr.checkoutFromReadonlyFile', async () => {
 		const uri = vscode.window.activeTextEditor?.document.uri;
