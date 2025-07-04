@@ -1620,7 +1620,7 @@ export class GitHubRepository extends Disposable {
 
 
 		const ret = data?.repository?.pullRequest.timelineItems.nodes ?? [];
-		const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(pullRequestModel), this);
+		const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(pullRequestModel, true), this);
 
 		this.addReviewTimelineEventComments(events, reviewThreads);
 		insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, pullRequestModel.head);
