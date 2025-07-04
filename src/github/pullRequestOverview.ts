@@ -390,7 +390,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	}
 
 	private gotoChangesSinceReview(message: IRequestMessage<void>): Promise<void> {
-		this._item.showChangesSinceReview = true;
+		if (!this._item.showChangesSinceReview) {
+			this._item.showChangesSinceReview = true;
+		} else {
+			PullRequestModel.openChanges(this._folderRepositoryManager, this._item);
+		}
 		return this._replyMessage(message, {});
 	}
 
