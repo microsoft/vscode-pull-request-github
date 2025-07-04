@@ -1479,7 +1479,7 @@ export class GitHubRepository extends Disposable {
 	/**
 	 * TODO: @alexr00 we should delete this https://github.com/microsoft/vscode-pull-request-github/issues/6965
 	 */
-	async getCopilotTimelineEvents(issueModel: IssueModel, willBeUpdated: boolean = false): Promise<Common.TimelineEvent[]> {
+	async getCopilotTimelineEvents(issueModel: IssueModel, skipMerge: boolean = false): Promise<Common.TimelineEvent[]> {
 		if (!COPILOT_ACCOUNTS[issueModel.author.login]) {
 			return [];
 		}
@@ -1499,16 +1499,18 @@ export class GitHubRepository extends Disposable {
 			if (timelineEvents.length === 0) {
 				return [];
 			}
-			if (!willBeUpdated) {
+			if (!skipMerge) {
 				const oldLastEvent = issueModel.timelineEvents.length > 0 ? issueModel.timelineEvents[issueModel.timelineEvents.length - 1] : undefined;
-				const oldEventTime = oldLastEvent ? (eventTime(oldLastEvent) ?? 0) : 0;
-				const newEvents = timelineEvents.filter(event => (eventTime(event) ?? 0) > oldEventTime);
-				if (newEvents.length > 0) {
-					// Update the issue model with the new events
-					const allEvents = [...issueModel.timelineEvents, ...newEvents];
-					issueModel.timelineEvents = allEvents;
-					this._onDidChangePullRequests.fire();
+				let allEvents: Common.TimelineEvent[];
+				if (!oldLastEvent) {
+					allEvents = timelineEvents;
+				} else {
+					const oldEventTime = (eventTime(oldLastEvent) ?? 0);
+					const newEvents = timelineEvents.filter(event => (eventTime(event) ?? 0) > oldEventTime);
+					allEvents = [...issueModel.timelineEvents, ...newEvents];
 				}
+				issueModel.timelineEvents = allEvents;
+				this._onDidChangePullRequests.fire();
 			}
 			return timelineEvents;
 		} catch (e) {
