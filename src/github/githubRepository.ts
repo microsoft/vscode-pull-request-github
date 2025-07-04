@@ -67,6 +67,7 @@ import * as limitedSchema from './queriesLimited.gql';
 import * as sharedSchema from './queriesShared.gql';
 import {
 	convertRESTPullRequestToRawPullRequest,
+	eventTime,
 	getAvatarWithEnterpriseFallback,
 	getOverrideBranch,
 	insertNewCommitsSinceReview,
@@ -1478,7 +1479,7 @@ export class GitHubRepository extends Disposable {
 	/**
 	 * TODO: @alexr00 we should delete this https://github.com/microsoft/vscode-pull-request-github/issues/6965
 	 */
-	async getCopilotTimelineEvents(issueModel: IssueModel): Promise<Common.TimelineEvent[]> {
+	async getCopilotTimelineEvents(issueModel: IssueModel, skipMerge: boolean = false): Promise<Common.TimelineEvent[]> {
 		if (!COPILOT_ACCOUNTS[issueModel.author.login]) {
 			return [];
 		}
@@ -1494,7 +1495,24 @@ export class GitHubRepository extends Disposable {
 				per_page: 100
 			});
 
-			return parseSelectRestTimelineEvents(issueModel, timeline);
+			const timelineEvents = parseSelectRestTimelineEvents(issueModel, timeline);
+			if (timelineEvents.length === 0) {
+				return [];
+			}
+			if (!skipMerge) {
+				const oldLastEvent = issueModel.timelineEvents.length > 0 ? issueModel.timelineEvents[issueModel.timelineEvents.length - 1] : undefined;
+				let allEvents: Common.TimelineEvent[];
+				if (!oldLastEvent) {
+					allEvents = timelineEvents;
+				} else {
+					const oldEventTime = (eventTime(oldLastEvent) ?? 0);
+					const newEvents = timelineEvents.filter(event => (eventTime(event) ?? 0) > oldEventTime);
+					allEvents = [...issueModel.timelineEvents, ...newEvents];
+				}
+				issueModel.timelineEvents = allEvents;
+				this._onDidChangePullRequests.fire();
+			}
+			return timelineEvents;
 		} catch (e) {
 			Logger.error(`Error fetching Copilot timeline events of issue #${issueModel.number} - ${formatError(e)}`, GitHubRepository.ID);
 			return [];
@@ -1520,7 +1538,7 @@ export class GitHubRepository extends Disposable {
 				return [];
 			}
 			const ret = data.repository.pullRequest.timelineItems.nodes;
-			const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(issueModel), this);
+			const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(issueModel, true), this);
 
 			const crossRefs = new Map(events
 				.filter((event): event is Common.CrossReferencedEvent => {
@@ -1604,7 +1622,7 @@ export class GitHubRepository extends Disposable {
 
 
 		const ret = data?.repository?.pullRequest.timelineItems.nodes ?? [];
-		const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(pullRequestModel), this);
+		const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(pullRequestModel, true), this);
 
 		this.addReviewTimelineEventComments(events, reviewThreads);
 		insertNewCommitsSinceReview(events, latestReviewCommitInfo?.sha, currentUser, pullRequestModel.head);
