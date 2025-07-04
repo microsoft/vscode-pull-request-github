@@ -254,6 +254,8 @@ export class PRContext {
 
 	public openSessionLog = (link: SessionLinkInfo, openToTheSide?: boolean) => this.postMessage({ command: 'pr.open-session-log', args: { link, openToTheSide } });
 
+	public openCommitChanges = (commitSha: string) => this.postMessage({ command: 'pr.openCommitChanges', args: { commitSha } });
+
 	setPR = (pr: PullRequest) => {
 		this.pr = pr;
 		setState(this.pr);
