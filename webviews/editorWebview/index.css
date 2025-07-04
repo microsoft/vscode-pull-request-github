@@ -1382,3 +1382,31 @@ code {
 .blob-code-marker-deletion::before {
 	content: "- ";
 }
+
+.markdown-alert {
+	padding: .5rem .5rem;
+	margin-bottom: 1rem;
+	color: inherit;
+	border-left: .25em solid var(--vscode-editorWarning-foreground);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+	color: var(--vscode-editorWarning-foreground);
+}
+
+.markdown-alert .markdown-alert-title {
+	display: flex;
+	align-items: center;
+	line-height: 1;
+}
+
+.markdown-alert>:first-child {
+	margin-top: 0;
+}
+
+svg.octicon path {
+	display: inline-block;
+	overflow: visible !important;
+	vertical-align: text-bottom;
+	fill: currentColor;
+}
