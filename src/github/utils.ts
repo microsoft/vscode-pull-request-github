@@ -1056,7 +1056,7 @@ export function parseSelectRestTimelineEvents(
 	return parsedEvents;
 }
 
-function eventTime(event: Common.TimelineEvent): Date | undefined {
+export function eventTime(event: Common.TimelineEvent): Date | undefined {
 	switch (event.event) {
 		case Common.EventType.Committed:
 			return new Date(event.committedDate);
