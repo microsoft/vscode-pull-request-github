@@ -18,6 +18,8 @@
 
 - You can start a new Coding Agent session by invoking the `#copilotCodingAgent` tool in chat. This tool automatically pushes pending changes to a remote branch and initiates a coding agent session from that branch along with the user's instruction. **Experimental:** Deeper UI integration can be enabled with the `setting(githubPullRequests.codingAgent.uiIntegration)` setting.  Once enabled, a new **Delegate to coding agent** button appears in the Chat view for repositories that have the coding agent enabled.
 
+![Coding Agent Start](./documentation/changelog/0.114.0/coding-agent-start.png)
+
 ### Fixes
 
 - Leaving a comment shows a pending comment box with an empty input. https://github.com/microsoft/vscode-pull-request-github/issues/7200
