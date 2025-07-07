@@ -1509,8 +1509,11 @@ export class GitHubRepository extends Disposable {
 					const newEvents = timelineEvents.filter(event => (eventTime(event) ?? 0) > oldEventTime);
 					allEvents = [...issueModel.timelineEvents, ...newEvents];
 				}
+				const oldTimeline = issueModel.timelineEvents;
 				issueModel.timelineEvents = allEvents;
-				this._onDidChangePullRequests.fire();
+				if (!oldLastEvent || (allEvents.length !== oldTimeline.length)) {
+					this._onDidChangePullRequests.fire();
+				}
 			}
 			return timelineEvents;
 		} catch (e) {
