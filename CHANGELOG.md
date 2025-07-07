@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.114.0
+
+### Changes
+
+- We have expanded the integration with GitHub's [Copilot coding agent](https://docs.github.com/en/copilot/how-tos/agents/copilot-coding-agent) (enablement [instructions](https://docs.github.com/en/copilot/how-tos/agents/copilot-coding-agent/enabling-copilot-coding-agent)). You can see the status of all your Coding Agent pull requests in the "Pull Requests" view, and you'll get a badge indicating when a pull request from the Coding Agent has changes.
+
+![Pull Requests view with Copilot status](./documentation/changelog/0.114.0/copilot-pr-status.png)
+
+- Links for viewing the Coding Agent session log now open within VS Code instead of opening in the browser.
+
+![Coding Agent Session Log](./documentation/changelog/0.114.0/session-log.png)
+
+- The `#activePullRequest` tool in Copilot chat now knows more about the active pull request: changes and Coding Agent session information. This tool is automatically attached to chat when opening a pull request created through the coding agent experience, so you can maintain the context and keep working on the pull request if needed to.
+
+- When checking out a pull request which doesn't have any diff from the parent branch, the pull request description will be opened, instead of the changes when `"githubPullRequests.focusedMode"` is set to `"multiDiff"` or `"firstDiff"`.
+
+- You can start a new Coding Agent session by invoking the `#copilotCodingAgent` tool in chat. This tool automatically pushes pending changes to a remote branch and initiates a coding agent session from that branch along with the user's instruction. **Experimental:** Deeper UI integration can be enabled with the `setting(githubPullRequests.codingAgent.uiIntegration)` setting.  Once enabled, a new **Delegate to coding agent** button appears in the Chat view for repositories that have the coding agent enabled.
+
+### Fixes
+
+- Leaving a comment shows a pending comment box with an empty input. https://github.com/microsoft/vscode-pull-request-github/issues/7200
+- Lack of 👀 reaction in PR view is important for coding agent. https://github.com/microsoft/vscode-pull-request-github/issues/7213
+- Don't use comment icon to mean quote. https://github.com/microsoft/vscode-pull-request-github/issues/7185
+- PR view always expands and fetches "All Open". https://github.com/microsoft/vscode-pull-request-github/issues/7150
+- Expect option to Open issue in editor after creating new issue. https://github.com/microsoft/vscode-pull-request-github/issues/7034
+- Consider setting a default githubIssues.issueCompletionFormatScm. https://github.com/microsoft/vscode-pull-request-github/issues/7017
+- Times are inconsistent with .com. https://github.com/microsoft/vscode-pull-request-github/issues/7007
+- Padawan Start/Stop Events/Icons. https://github.com/microsoft/vscode-pull-request-github/issues/7004
+- Can't check out a local pull request branch. https://github.com/microsoft/vscode-pull-request-github/issues/6994
+- Unable to get the currently logged-in user. https://github.com/microsoft/vscode-pull-request-github/issues/6971
+- Stuck at creating fork. https://github.com/microsoft/vscode-pull-request-github/issues/6968
+
+**_Thank You_**
+
+* [@dyhagho (Dyhagho Briceño)](https://github.com/dyhagho): fix: Allow Github.com auth when `github-enterprise.uri` is set [PR #7002](https://github.com/microsoft/vscode-pull-request-github/pull/7002)
+
 ## 0.112.0
 
 ### Changes
