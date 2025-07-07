@@ -292,7 +292,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 	refresh(node?: TreeNode, reset?: boolean): void {
 		if (reset) {
-			this.prsTreeModel.clearCache();
+			this.prsTreeModel.clearCache(true);
 		}
 		return node ? this._onDidChangeTreeData.fire(node) : this._onDidChangeTreeData.fire();
 	}
