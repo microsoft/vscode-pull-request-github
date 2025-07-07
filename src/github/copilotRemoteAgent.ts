@@ -292,6 +292,28 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 		const { repository, owner, repo } = repoInfo;
 
+		// Handle follow-up to existing PR
+		if (followup) {
+			const pullRequestNumber = this.parseFollowup(followup, { owner, repo });
+			if (pullRequestNumber) {
+				/* __GDPR__
+					"remoteAgent.command.result" : {
+						"reason" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+					}
+				*/
+				this.telemetry.sendTelemetryEvent('remoteAgent.command.result', { reason: 'followup' });
+				return await this.addFollowUpToExistingPR(pullRequestNumber, userPrompt, summary);
+			} else {
+				/* __GDPR__
+					"remoteAgent.command.result" : {
+						"reason" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+					}
+				*/
+				this.telemetry.sendTelemetryErrorEvent('remoteAgent.command.result', { reason: 'invalidFollowup' });
+				return;
+			}
+		}
+
 		const repoName = `${owner}/${repo}`;
 		const hasChanges = repository.state.workingTreeChanges.length > 0 || repository.state.indexChanges.length > 0;
 		const learnMoreCb = async () => {
