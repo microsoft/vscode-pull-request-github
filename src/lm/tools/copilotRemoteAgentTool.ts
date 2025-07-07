@@ -85,10 +85,10 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 		}
 
 		/* __GDPR__
-			"remoteAgent.tool.invoke" : {
+			"copilot.remoteAgent.tool.invoke" : {
 				"hasExistingPR" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
 				"hasBody" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-			},
+			}
 		*/
 		this.telemetry.sendTelemetryEvent('copilot.remoteAgent.tool.invoke', {
 			hasExistingPR: pullRequestNumber ? 'true' : 'false',
@@ -105,7 +105,7 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 		const result = await this.manager.invokeRemoteAgent(title, body);
 		if (result.state === 'error') {
 			/* __GDPR__
-				"remoteAgent.tool.invoke" : {
+				"copilot.remoteAgent.tool.error" : {
 					"reason" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 				}
 			*/
