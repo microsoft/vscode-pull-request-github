@@ -57,9 +57,9 @@ export class CopilotApi {
 				method: 'POST',
 				headers: {
 					'Copilot-Integration-Id': 'copilot-developer-dev',
-					'Authorization': `Bearer ${this.token}`,
+					Authorization: `Bearer ${this.token}`,
 					'Content-Type': 'application/json',
-					'Accept': 'application/json'
+					Accept: 'application/json'
 				},
 				body: JSON.stringify(payload)
 			});
@@ -136,7 +136,7 @@ export class CopilotApi {
 		const logsZip = await fetch(logsUrl, {
 			headers: {
 				Authorization: `Bearer ${this.token}`,
-				Accept: 'application/json',
+				Accept: 'application/zip',
 			},
 		});
 		if (!logsZip.ok) {
@@ -178,7 +178,7 @@ export class CopilotApi {
 			method: 'GET',
 			headers: {
 				Authorization: `Bearer ${this.token}`,
-				'Accept': 'application/json'
+				Accept: 'application/json'
 			}
 		});
 		if (!response.ok) {
@@ -192,8 +192,8 @@ export class CopilotApi {
 		const logsResponse = await fetch(`https://api.githubcopilot.com/agents/sessions/${sessionId}/logs`, {
 			method: 'GET',
 			headers: {
-				'Authorization': `Bearer ${this.token}`,
-				'Content-Type': 'application/json',
+				Authorization: `Bearer ${this.token}`,
+				Accept: 'text/plain',
 			},
 		});
 		if (!logsResponse.ok) {
