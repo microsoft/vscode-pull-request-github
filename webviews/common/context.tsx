@@ -186,7 +186,7 @@ export class PRContext {
 		if (reviewers) {
 			state.reviewers = reviewers;
 		}
-		state.events = events;
+		state.events = events.length === 0 ? state.events : [...state.events, ...events];
 		if (reviewedEvent.event === EventType.Reviewed) {
 			state.currentUserReviewState = reviewedEvent.state;
 		}
