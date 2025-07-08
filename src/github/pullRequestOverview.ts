@@ -475,6 +475,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
+	protected override _getTimeline(): Promise<TimelineEvent[]> {
+		return this._item.githubRepository.getTimelineEvents(this._item);
+	}
+
 	private async openDiff(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
 		try {
 			const comment = message.args.comment;
@@ -511,7 +515,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			let events: TimelineEvent[] = [];
 			if (result) {
 				do {
-					events = await this._item.githubRepository.getTimelineEvents(this._item);
+					events = await this._getTimeline();
 				} while (copilotEventToStatus(mostRecentCopilotEvent(events)) !== CopilotPRStatus.Completed && await new Promise<boolean>(c => setTimeout(() => c(true), 2000)));
 			}
 			const reply: CancelCodingAgentReply = {
@@ -541,7 +545,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			else {
 				await this._item.unresolveReviewThread(message.args.threadId);
 			}
-			const timelineEvents = await this._item.githubRepository.getTimelineEvents(this._item);
+			const timelineEvents = await this._getTimeline();
 			this._replyMessage(message, timelineEvents);
 		} catch (e) {
 			vscode.window.showErrorMessage(e);
@@ -658,7 +662,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		try {
 			const review = await action(context.body);
 			this.updateReviewers(review);
-			const allEvents = await this._item.githubRepository.getTimelineEvents(this._item);
+			const allEvents = await this._getTimeline();
 			const reviewMessage: SubmitReviewReply & { command: string } = {
 				command: 'pr.append-review',
 				reviewedEvent: review,
@@ -679,7 +683,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		try {
 			const review = await action(message.args);
 			this.updateReviewers(review);
-			const allEvents = await this._item.githubRepository.getTimelineEvents(this._item);
+			const allEvents = await this._getTimeline();
 			const reply: SubmitReviewReply = {
 				reviewedEvent: review,
 				events: allEvents,
@@ -817,7 +821,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		} while (attemptsRemaining > 0 && mergability === PullRequestMergeability.Unknown);
 
 		const result: Partial<PullRequest> = {
-			events: await this._item.githubRepository.getTimelineEvents(this._item),
+			events: await this._getTimeline(),
 			mergeable: mergability,
 		};
 		await this.refreshPanel();
