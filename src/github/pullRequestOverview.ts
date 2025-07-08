@@ -221,7 +221,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				isBranchUpToDateWithBase,
 				mergeability,
 				emailForCommit,
-				coAuthors
 			] = await Promise.all([
 				this._folderRepositoryManager.resolvePullRequest(
 					pullRequestModel.remote.owner,
@@ -241,7 +240,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel),
 				pullRequestModel.getMergeability(),
 				this._folderRepositoryManager.getPreferredEmail(pullRequestModel),
-				pullRequestModel.getCoAuthors()
 			]);
 			if (!pullRequest) {
 				throw new Error(
@@ -265,7 +263,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 			const reviewState = this.getCurrentUserReviewState(this._existingReviewers, currentUser);
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
-			const baseContext = this.getInitializeContext(currentUser, pullRequest, coAuthors, timelineEvents, repositoryAccess, viewerCanEdit, []);
+			const baseContext = this.getInitializeContext(currentUser, pullRequest, timelineEvents, repositoryAccess, viewerCanEdit, []);
 
 			const context: Partial<PullRequest> = {
 				...baseContext,
@@ -667,6 +665,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				events: allEvents,
 				reviewers: this._existingReviewers
 			};
+			this.tryScheduleCopilotRefresh(review.body, review.state);
 			await this._postMessage(reviewMessage);
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
@@ -686,6 +685,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				events: allEvents,
 				reviewers: this._existingReviewers,
 			};
+			this.tryScheduleCopilotRefresh(review.body, review.state);
 			this._replyMessage(message, reply);
 		} catch (e) {
 			vscode.window.showErrorMessage(vscode.l10n.t('Submitting review failed. {0}', formatError(e)));
