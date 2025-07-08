@@ -1020,8 +1020,10 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 				const { commitMessages, patches } = await this.getCommitsAndPatches();
 				const issues = await this.findIssueContext(commitMessages);
 
+				const pullRequestTemplate = await this.getPullRequestTemplate();
+
 				const provider = this._folderRepositoryManager.getTitleAndDescriptionProvider(searchTerm);
-				const result = await provider?.provider.provideTitleAndDescription({ commitMessages, patches, issues }, token);
+				const result = await provider?.provider.provideTitleAndDescription({ commitMessages, patches, issues, pullRequestTemplate }, token);
 
 				if (provider) {
 					this.lastGeneratedTitleAndDescription = { ...result, providerTitle: provider.title };
