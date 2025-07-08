@@ -11,6 +11,7 @@ import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { COPILOT_ACCOUNTS, DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
 import { getModifiedContentFromDiffHunk, parseDiff } from '../common/diffHunk';
+import { commands } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
@@ -1190,7 +1191,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
 	}
 
-	static async openCommitChanges(folderManager: FolderRepositoryManager, commitSha: string): Promise<void> {
+	static async openCommitChanges(folderManager: FolderRepositoryManager, commitSha: string) {
 		try {
 			// Get the repository from the folder manager
 			const repository = folderManager.repository;
@@ -1241,7 +1242,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			*/
 			folderManager.telemetry.sendTelemetryEvent('pr.openCommitChanges');
 
-			return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Commit {0}', commitSha.substring(0, 7)), args);
+			return commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Commit {0}', commitSha.substring(0, 7)), args);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			vscode.window.showErrorMessage(vscode.l10n.t('Failed to open commit changes: {0}', errorMessage));
