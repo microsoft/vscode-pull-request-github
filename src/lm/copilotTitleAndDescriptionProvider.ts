@@ -128,8 +128,8 @@ export class CopilotTitleAndDescriptionProvider implements TitleAndDescriptionPr
 
 			// Latest advanced models (highest priority)
 			{ vendor: 'copilot', family: 'o3-mini', priority: 15 },
-			{ vendor: 'copilot', family: 'claude-sonnet-4', priority: 16 },
-			{ vendor: 'copilot', family: 'o4-mini', priority: 17 },
+			{ vendor: 'copilot', family: 'o4-mini', priority: 16 },
+			{ vendor: 'copilot', family: 'claude-sonnet-4', priority: 17 },
 		];
 
 		// Find the highest priority model available
@@ -162,17 +162,37 @@ export class CopilotTitleAndDescriptionProvider implements TitleAndDescriptionPr
 		issues?: { reference: string; content: string }[];
 		pullRequestTemplate?: string;
 	}): string {
-		let prompt = `You are an expert at writing clear, concise pull request titles and descriptions. Please generate a suitable title and description for this pull request based on the provided information.
+		console.log('Building prompt for Copilot Title and Description generation');
 
-**Requirements:**
-1. Title should be concise (under 50 characters when possible) and descriptive
-2. Title should follow conventional commit format when appropriate (e.g., "feat:", "fix:", "docs:", etc.)
-3. Description should be comprehensive but focused
-4. If a pull request template is provided, follow its structure and fill in the sections appropriately
-5. Reference any related issues mentioned in commits
-6. Summarize the key changes without being overly technical
+		let prompt = `
+		You are an expert at writing clear, concise, and structured pull request titles and descriptions.
 
-`;
+		Your task is to generate a PR title and description that strictly follows the provided PR Template.
+
+		---
+		Guidelines:
+		- Use the PR Template as-is. Do not omit, rename, or reformat any section or checkbox.
+		- Fill in each section with appropriate content based on the context provided below.
+		- Use Conventional Commit format for the title (e.g., "feat:", "fix:", "docs:").
+		- Keep the title under 50 characters if possible.
+		- Mention related issues using "Closes #123" or similar format.
+		- If no information is available for a section, write "N/A".
+
+		---
+		You will be given the following context:
+		- The PR Template (in Markdown format)
+		- A list of commit messages
+		- A summary of file changes
+		- A list of related issues (with title and reference)
+
+		---
+		Your output must include only:
+		1. The PR title
+		2. The PR description with the PR Template structure filled in
+
+		Do not add any commentary or explanation.
+
+		`;
 
 		// Add commit information
 		if (context.commitMessages && context.commitMessages.length > 0) {
@@ -210,27 +230,35 @@ export class CopilotTitleAndDescriptionProvider implements TitleAndDescriptionPr
 		if (context.pullRequestTemplate) {
 			prompt += `**Pull Request Template to Follow:**\n`;
 			prompt += '```\n' + context.pullRequestTemplate + '\n```\n\n';
-			prompt += `Please structure the description according to this template. Fill in each section with relevant information based on the commits and changes. If a section is not applicable, you may omit it or note "N/A".\n\n`;
+			prompt += `Please copy the following PR template structure exactly and fill in each section with relevant content. If a section is not applicable, write "N/A" but do not remove the heading.\n\n`;
 		}
 
 		prompt += `**Output Format:**
-Please respond with the title and description in the following format:
+		Please respond with the pull request title and description in the following format:
 
-TITLE: [Your generated title here]
+		TITLE: [your generated title here]
 
-DESCRIPTION:
-[Your generated description here]
+		DESCRIPTION:
+		[your generated description here, using the PR template above]
 
-Make sure the title is on a single line after "TITLE:" and the description follows after "DESCRIPTION:" on subsequent lines.`;
+		Notes:
+		- The title must be on a single line immediately after "TITLE:"
+		- The description must begin after "DESCRIPTION:" and strictly follow the provided PR template structure
+		- Do not include any text before or after this format
+		`;
 
 		return prompt;
 	}
 
 	private parseResponse(responseText: string): { title: string; description?: string } | undefined {
 		try {
-			// Look for TITLE: and DESCRIPTION: markers
-			const titleMatch = responseText.match(/TITLE:\s*(.+?)(?=\n|$)/i);
-			const descriptionMatch = responseText.match(/DESCRIPTION:\s*([\s\S]*?)(?=\n\n|$)/i);
+			console.log(`Received response: ${responseText}`);
+
+			// Extract title after "TITLE:" until the end of the line
+			const titleMatch = responseText.match(/^TITLE:\s*(.+)$/m);
+
+			// Extract description after "DESCRIPTION:\n"
+			const descriptionMatch = responseText.match(/^DESCRIPTION:\s*\n([\s\S]*)$/m);
 
 			if (!titleMatch) {
 				Logger.warn('Could not parse title from response', CopilotTitleAndDescriptionProvider.ID);
@@ -238,23 +266,18 @@ Make sure the title is on a single line after "TITLE:" and the description follo
 			}
 
 			const title = titleMatch[1].trim();
-			const description = descriptionMatch ? descriptionMatch[1].trim() : undefined;
-
-			// Validate title
 			if (!title || title.length === 0) {
 				Logger.warn('Generated title is empty', CopilotTitleAndDescriptionProvider.ID);
 				return undefined;
 			}
 
-			// Clean up description
+			const description = descriptionMatch?.[1].trim();
 			const cleanDescription = description && description.length > 0
-				? description.replace(/^[\s\n]+|[\s\n]+$/g, '') // Trim whitespace and newlines
+				? description.replace(/^[\s\n]+|[\s\n]+$/g, '')
 				: undefined;
 
-			return {
-				title,
-				description: cleanDescription
-			};
+			return { title, description: cleanDescription };
+
 		} catch (error) {
 			Logger.error(`Error parsing response: ${error}`, CopilotTitleAndDescriptionProvider.ID);
 			return undefined;
