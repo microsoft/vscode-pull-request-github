@@ -227,5 +227,76 @@ describe('GitHub Pull Requests view', function () {
 			assert.strictEqual(localItem1.contextValue, 'pullrequest:local:active:hasHeadRef');
 			assert.deepStrictEqual(localItem1.iconPath!.toString(), 'https://avatars.com/you.jpg');
 		});
+
+		it('displays PR numbers in labels when setting is enabled', async function () {
+			const url = 'git@github.com:aaa/bbb';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const gitHubRepository = new MockGitHubRepository(remote, credentialStore, telemetry, sinon);
+			gitHubRepository.buildMetadata(m => {
+				m.clone_url('https://github.com/aaa/bbb');
+			});
+
+			const pr0 = gitHubRepository.addGraphQLPullRequest(builder => {
+				builder.pullRequest(pr => {
+					pr.repository(r =>
+						r.pullRequest(p => {
+							p.databaseId(1234);
+							p.number(1234);
+							p.title('Test PR Title');
+							p.author(a => a.login('me').avatarUrl('https://avatars.com/me.jpg').url('https://github.com/me'));
+							p.baseRef!(b => b.repository(br => br.url('https://github.com/aaa/bbb')));
+							p.baseRepository(r => r.url('https://github.com/aaa/bbb'));
+						}),
+					);
+				});
+			}).pullRequest;
+			const prItem0 = await parseGraphQLPullRequest(pr0.repository.pullRequest, gitHubRepository);
+			const pullRequest0 = new PullRequestModel(credentialStore, telemetry, gitHubRepository, remote, prItem0);
+
+			const repository = new MockRepository();
+			await repository.addRemote(remote.remoteName, remote.url);
+			await repository.createBranch('pr-branch-0', false);
+			await PullRequestGitHelper.associateBranchWithPullRequest(repository, pullRequest0, 'pr-branch-0');
+
+			const manager = new FolderRepositoryManager(0, context, repository, telemetry, new GitApiImpl(reposManager), credentialStore, createPrHelper, mockThemeWatcher);
+			reposManager.insertFolderManager(manager);
+			sinon.stub(manager, 'createGitHubRepository').callsFake((r, cs) => {
+				assert.deepStrictEqual(r, remote);
+				assert.strictEqual(cs, credentialStore);
+				return Promise.resolve(gitHubRepository);
+			});
+			sinon.stub(credentialStore, 'isAuthenticated').returns(true);
+			sinon.stub(DataUri, 'avatarCirclesAsImageDataUris').callsFake((context: vscode.ExtensionContext, users: (IAccount | ITeam)[], height: number, width: number, localOnly?: boolean) => {
+				return Promise.resolve(users.map(user => user.avatarUrl ? vscode.Uri.parse(user.avatarUrl) : undefined));
+			});
+
+			// Mock the configuration to enable PR number display
+			const mockConfiguration = {
+				get: sinon.stub().callsFake((key: string, defaultValue?: any) => {
+					if (key === 'showPullRequestNumberInTree') {
+						return true;
+					}
+					return defaultValue;
+				})
+			};
+			sinon.stub(vscode.workspace, 'getConfiguration').returns(mockConfiguration as any);
+
+			await manager.updateRepositories();
+			provider.initialize([], credentialStore);
+
+			const rootNodes = await provider.getChildren();
+			const rootTreeItems = await Promise.all(rootNodes.map(node => node.getTreeItem()));
+			const localNode = rootNodes.find((_node, index) => rootTreeItems[index].label === 'Local Pull Request Branches');
+			assert(localNode);
+
+			await localNode!.getChildren();
+			await asPromise(provider.prsTreeModel.onLoaded);
+			const localChildren = await localNode!.getChildren();
+			assert.strictEqual(localChildren.length, 1);
+			const [localItem0] = await Promise.all(localChildren.map(node => node.getTreeItem()));
+
+			// Verify that the PR number is displayed with the new format: "#1234 - PR title"
+			assert.strictEqual(localItem0.label, '#1234 - Test PR Title');
+		});
 	});
 });

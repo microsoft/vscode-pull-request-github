@@ -311,7 +311,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 				.getConfiguration(PR_SETTINGS_NAMESPACE)
 				.get<boolean>(SHOW_PULL_REQUEST_NUMBER_IN_TREE, false)
 		) {
-			labelPrefix += `#${formattedPRNumber}: `;
+			labelPrefix += `#${formattedPRNumber} - `;
 		}
 
 		const label = `${labelPrefix}${isDraft ? '[DRAFT] ' : ''}${labelTitle}`;
