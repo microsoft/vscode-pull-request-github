@@ -1211,20 +1211,24 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			for (const change of changes) {
 				const uri = vscode.Uri.file(path.resolve(repository.rootUri.fsPath, change.uri.fsPath));
 				const fileName = change.uri.fsPath;
-				
+
 				if (change.status === GitChangeType.ADD) {
 					// For added files, show against empty
 					const headUri = toReviewUri(uri, fileName, undefined, commitSha, false, { base: false }, repository.rootUri);
 					args.push([headUri, undefined, headUri]);
 				} else if (change.status === GitChangeType.DELETE) {
 					// For deleted files, show old version against empty
-					const baseFileName = change.status === GitChangeType.RENAME ? change.previousFileName : fileName;
-					const baseUri = toReviewUri(uri, baseFileName, undefined, commitSha + '~1', false, { base: true }, repository.rootUri);
+					const baseUri = toReviewUri(uri, fileName, undefined, commitSha + '~1', false, { base: true }, repository.rootUri);
 					args.push([uri, baseUri, undefined]);
+				} else if (change.status === GitChangeType.RENAME) {
+					// For renamed files, show old name against new name
+					const baseFileName = change.originalUri.fsPath;
+					const baseUri = toReviewUri(uri, baseFileName, undefined, commitSha + '~1', false, { base: true }, repository.rootUri);
+					const headUri = toReviewUri(uri, fileName, undefined, commitSha, false, { base: false }, repository.rootUri);
+					args.push([headUri, baseUri, headUri]);
 				} else {
 					// For modified files, show before and after
-					const baseFileName = change.status === GitChangeType.RENAME ? change.previousFileName : fileName;
-					const baseUri = toReviewUri(uri, baseFileName, undefined, commitSha + '~1', false, { base: true }, repository.rootUri);
+					const baseUri = toReviewUri(uri, fileName, undefined, commitSha + '~1', false, { base: true }, repository.rootUri);
 					const headUri = toReviewUri(uri, fileName, undefined, commitSha, false, { base: false }, repository.rootUri);
 					args.push([headUri, baseUri, headUri]);
 				}
