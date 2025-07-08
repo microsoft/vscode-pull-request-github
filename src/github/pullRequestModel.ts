@@ -1199,8 +1199,16 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				return;
 			}
 
+			// Get the commit to find its parent
+			const commit = await repository.getCommit(commitSha);
+			if (!commit.parents || commit.parents.length === 0) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Commit {0} has no parent', commitSha.substring(0, 7)));
+				return;
+			}
+			const parentSha = commit.parents[0];
+
 			// Get the changes between the commit and its parent
-			const changes = await repository.diffBetween(commitSha + '~1', commitSha);
+			const changes = await repository.diffBetween(parentSha, commitSha);
 			if (!changes || changes.length === 0) {
 				vscode.window.showInformationMessage(vscode.l10n.t('No changes found in commit {0}', commitSha.substring(0, 7)));
 				return;
@@ -1218,17 +1226,17 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					args.push([headUri, undefined, headUri]);
 				} else if (change.status === GitChangeType.DELETE) {
 					// For deleted files, show old version against empty
-					const baseUri = toReviewUri(uri, fileName, undefined, commitSha + '~1', false, { base: true }, repository.rootUri);
+					const baseUri = toReviewUri(uri, fileName, undefined, parentSha, false, { base: true }, repository.rootUri);
 					args.push([uri, baseUri, undefined]);
 				} else if (change.status === GitChangeType.RENAME) {
 					// For renamed files, show old name against new name
 					const baseFileName = change.originalUri.fsPath;
-					const baseUri = toReviewUri(uri, baseFileName, undefined, commitSha + '~1', false, { base: true }, repository.rootUri);
+					const baseUri = toReviewUri(uri, baseFileName, undefined, parentSha, false, { base: true }, repository.rootUri);
 					const headUri = toReviewUri(uri, fileName, undefined, commitSha, false, { base: false }, repository.rootUri);
 					args.push([headUri, baseUri, headUri]);
 				} else {
 					// For modified files, show before and after
-					const baseUri = toReviewUri(uri, fileName, undefined, commitSha + '~1', false, { base: true }, repository.rootUri);
+					const baseUri = toReviewUri(uri, fileName, undefined, parentSha, false, { base: true }, repository.rootUri);
 					const headUri = toReviewUri(uri, fileName, undefined, commitSha, false, { base: false }, repository.rootUri);
 					args.push([headUri, baseUri, headUri]);
 				}
