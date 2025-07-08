@@ -382,11 +382,13 @@ button.input-box {
 
 body .comment-container .review-comment-header>span,
 body .comment-container .review-comment-header>a,
-body .commit .commit-message>a,
 body .merged .merged-message>a {
 	margin-right: 6px;
 }
 
+body .commit .commit-message>a {
+	margin-right: 3px;
+}
 body .comment-container .review-comment-container .pending-label,
 body .resolved-container .outdatedLabel {
 	background: var(--vscode-badge-background);
@@ -1381,4 +1383,69 @@ code {
 
 .blob-code-marker-deletion::before {
 	content: "- ";
+}
+
+.markdown-alert.markdown-alert-warning {
+	border-left: .25em solid var(--vscode-editorWarning-foreground);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+	color: var(--vscode-editorWarning-foreground);
+}
+
+.markdown-alert.markdown-alert-note {
+	border-left: .25em solid var(--vscode-editorInfo-foreground);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+	color: var(--vscode-editorInfo-foreground);
+}
+
+.markdown-alert.markdown-alert-tip {
+	border-left: .25em solid var(--vscode-testing-iconPassed);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+	color: var(--vscode-testing-iconPassed);
+}
+
+.markdown-alert.markdown-alert-important {
+	border-left: .25em solid var(--vscode-statusBar-debuggingBackground);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+	color: var(--vscode-statusBar-debuggingBackground);
+}
+
+.markdown-alert.markdown-alert-caution {
+	border-left: .25em solid var(--vscode-editorError-foreground);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+	color: var(--vscode-editorError-foreground);
+}
+
+.markdown-alert {
+	padding: .5rem .5rem;
+	margin-bottom: 1rem;
+	color: inherit;
+}
+.markdown-alert .markdown-alert-title {
+	display: flex;
+	align-items: center;
+	line-height: 1;
+}
+
+.markdown-alert-title svg {
+	padding-right: 3px;
+}
+.markdown-alert>:first-child {
+	margin-top: 0;
+}
+
+svg.octicon path {
+	display: inline-block;
+	overflow: visible !important;
+	vertical-align: text-bottom;
+	fill: currentColor;
 }
