@@ -10,6 +10,7 @@ import {
 	ISSUES_SETTINGS_NAMESPACE,
 } from '../common/settingKeys';
 import { fromNewIssueUri, Schemes } from '../common/uri';
+import { EXTENSION_ID } from '../constants';
 import { FolderRepositoryManager, PullRequestDefaults } from '../github/folderRepositoryManager';
 import { IMilestone } from '../github/interface';
 import { IssueModel } from '../github/issueModel';
@@ -25,6 +26,20 @@ import {
 class IssueCompletionItem extends vscode.CompletionItem {
 	constructor(public readonly issue: IssueModel) {
 		super(`${issue.number}: ${issue.title}`, vscode.CompletionItemKind.Issue);
+	}
+}
+
+class ConfigureIssueQueriesCompletionItem extends vscode.CompletionItem {
+	constructor() {
+		super(vscode.l10n.t('Configure issue queries...'), vscode.CompletionItemKind.Text);
+		this.detail = vscode.l10n.t('No issues found. Set up queries to see relevant issues.');
+		this.insertText = '';
+		this.command = {
+			command: 'workbench.action.openSettings',
+			title: vscode.l10n.t('Open Settings'),
+			arguments: [`@ext:${EXTENSION_ID} githubIssues.queries`]
+		};
+		this.sortText = '~'; // Sort to bottom of list
 	}
 }
 
@@ -163,6 +178,12 @@ export class IssueCompletionProvider implements vscode.CompletionItemProvider {
 			}
 
 		}
+		
+		// If no issues were found, show a configuration prompt
+		if (completionItems.size === 0) {
+			return [new ConfigureIssueQueriesCompletionItem()];
+		}
+		
 		return [...completionItems.values()];
 	}
 
