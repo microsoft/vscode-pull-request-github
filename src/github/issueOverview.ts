@@ -11,7 +11,7 @@ import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import Logger from '../common/logger';
 import { PR_SETTINGS_NAMESPACE, WEBVIEW_REFRESH_INTERVAL } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
-import { CommentEvent, EventType, TimelineEvent } from '../common/timelineEvent';
+import { CommentEvent, EventType, ReviewStateValue, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -191,7 +191,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return isInCodespaces();
 	}
 
-	protected getInitializeContext(currentUser: IAccount, issue: IssueModel, coAuthors: IAccount[], timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Issue {
+	protected getInitializeContext(currentUser: IAccount, issue: IssueModel, timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Issue {
 		const hasWritePermission = repositoryAccess!.hasWritePermission;
 		const canEdit = hasWritePermission || viewerCanEdit;
 		const context: Issue = {
@@ -217,7 +217,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			isDarkTheme: vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark,
 			canAssignCopilot: assignableUsers.find(user => COPILOT_ACCOUNTS[user.login]) !== undefined,
 			reactions: issue.item.reactions,
-			isAuthor: [issue.author, ...coAuthors].find(user => user.login === currentUser.login) !== undefined,
+			isAuthor: issue.author.login === currentUser.login,
 		};
 
 		return context;
@@ -257,7 +257,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			Logger.debug('pr.initialize', IssueOverviewPanel.ID);
 			this._postMessage({
 				command: 'pr.initialize',
-				pullrequest: this.getInitializeContext(currentUser, issue, [], timelineEvents, repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []),
+				pullrequest: this.getInitializeContext(currentUser, issue, timelineEvents, repositoryAccess, viewerCanEdit, assignableUsers[this._item.remote.remoteName] ?? []),
 			});
 
 		} catch (e) {
@@ -335,8 +335,34 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 	}
 
-	protected submitReviewMessage(message: IRequestMessage<string>) {
-		return this.createComment(message);
+	protected async submitReviewMessage(message: IRequestMessage<string>) {
+		const comment = await this._item.createIssueComment(message.args);
+		const commentedEvent: CommentEvent = {
+			...comment,
+			event: EventType.Commented
+		};
+		const allEvents = await this._getTimeline();
+		const reply: SubmitReviewReply = {
+			events: allEvents,
+			reviewedEvent: commentedEvent,
+		};
+		this.tryScheduleCopilotRefresh(comment.body);
+		return this._replyMessage(message, reply);
+	}
+
+	protected async tryScheduleCopilotRefresh(commentBody: string, reviewType?: ReviewStateValue) {
+		if (!COPILOT_ACCOUNTS[this._item.author.login]) {
+			return;
+		}
+
+		if (!commentBody.includes('@copilot') && !commentBody.includes('@Copilot') && reviewType !== 'CHANGES_REQUESTED') {
+			return;
+		}
+
+		await new Promise(resolve => setTimeout(resolve, 1000));
+		if (!this._isDisposed) {
+			this.refreshPanel();
+		}
 	}
 
 	private async addLabels(message: IRequestMessage<void>): Promise<void> {
@@ -605,21 +631,6 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			closeEvent: closeUpdate.closedEvent
 		};
 		this._replyMessage(message, result);
-	}
-
-	private createComment(message: IRequestMessage<string>) {
-		return this._item.createIssueComment(message.args).then(async (comment) => {
-			const commentedEvent: CommentEvent = {
-				...comment,
-				event: EventType.Commented
-			};
-			const allEvents = await this._getTimeline();
-			const reply: SubmitReviewReply = {
-				events: allEvents,
-				reviewedEvent: commentedEvent,
-			};
-			return this._replyMessage(message, reply);
-		});
 	}
 
 	protected set _currentPanel(panel: IssueOverviewPanel | undefined) {
