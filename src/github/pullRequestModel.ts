@@ -17,7 +17,7 @@ import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { ClosedEvent, EventType, ReviewEvent } from '../common/timelineEvent';
-import { resolvePath, Schemes, toPRUri, toReviewUri } from '../common/uri';
+import { resolvePath, reviewPath, Schemes, toPRUri, toReviewUri } from '../common/uri';
 import { formatError, isDescendant } from '../common/utils';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
 import { OctokitCommon } from './common';
@@ -1217,28 +1217,22 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			// Create URI pairs for the multi diff editor using review scheme
 			const args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
 			for (const change of changes) {
-				const uri = vscode.Uri.file(path.resolve(repository.rootUri.fsPath, change.uri.fsPath));
-				const fileName = change.uri.fsPath;
+				const rightRelativePath = path.relative(repository.rootUri.fsPath, change.uri.fsPath);
+				const rightPath = reviewPath(rightRelativePath, commitSha);
+				let rightUri = toReviewUri(rightPath, rightRelativePath, undefined, commitSha, false, { base: false }, repository.rootUri);
+
+				const leftRelativePath = path.relative(repository.rootUri.fsPath, change.originalUri.fsPath);
+				const leftPath = reviewPath(leftRelativePath, parentSha);
+				let leftUri = toReviewUri(leftPath, (change.status === GitChangeType.RENAME) ? path.relative(repository.rootUri.fsPath, change.originalUri.fsPath) : leftRelativePath, undefined, parentSha, false, { base: true }, repository.rootUri);
 
 				if (change.status === GitChangeType.ADD) {
 					// For added files, show against empty
-					const headUri = toReviewUri(uri, fileName, undefined, commitSha, false, { base: false }, repository.rootUri);
-					args.push([headUri, undefined, headUri]);
+					args.push([rightUri, undefined, rightUri]);
 				} else if (change.status === GitChangeType.DELETE) {
 					// For deleted files, show old version against empty
-					const baseUri = toReviewUri(uri, fileName, undefined, parentSha, false, { base: true }, repository.rootUri);
-					args.push([uri, baseUri, undefined]);
-				} else if (change.status === GitChangeType.RENAME) {
-					// For renamed files, show old name against new name
-					const baseFileName = change.originalUri.fsPath;
-					const baseUri = toReviewUri(uri, baseFileName, undefined, parentSha, false, { base: true }, repository.rootUri);
-					const headUri = toReviewUri(uri, fileName, undefined, commitSha, false, { base: false }, repository.rootUri);
-					args.push([headUri, baseUri, headUri]);
+					args.push([rightPath, leftUri, undefined]);
 				} else {
-					// For modified files, show before and after
-					const baseUri = toReviewUri(uri, fileName, undefined, parentSha, false, { base: true }, repository.rootUri);
-					const headUri = toReviewUri(uri, fileName, undefined, commitSha, false, { base: false }, repository.rootUri);
-					args.push([headUri, baseUri, headUri]);
+					args.push([rightUri, leftUri, rightUri]);
 				}
 			}
 
