@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import { TitleAndDescriptionProvider } from '../api/api';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
-import { CredentialStore } from '../github/credentials';
 
 /**
  * Provides PR title and description generation using VS Code's built-in Copilot language models.
@@ -18,7 +17,6 @@ export class CopilotTitleAndDescriptionProvider implements TitleAndDescriptionPr
 	private static readonly ID = 'CopilotTitleAndDescriptionProvider';
 
 	constructor(
-		private readonly credentialStore: CredentialStore,
 		private readonly telemetry: ITelemetry
 	) { }
 
@@ -34,6 +32,7 @@ export class CopilotTitleAndDescriptionProvider implements TitleAndDescriptionPr
 		try {
 			Logger.debug('Starting Copilot PR title and description generation', CopilotTitleAndDescriptionProvider.ID);
 
+			// FIXME: The model which the user selected should be used here.
 			// Select the appropriate language model (use user's preference from all available models)
 			const models = await vscode.lm.selectChatModels();
 			console.log(`Available models: ${models.map(m => `${m.vendor}:${m.family} (${m.name})`).join(', ')}`);
