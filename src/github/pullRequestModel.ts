@@ -1206,22 +1206,27 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				return;
 			}
 
-			// Create URI pairs for the multi diff editor
+			// Create URI pairs for the multi diff editor using review scheme
 			const args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
 			for (const change of changes) {
-				const workspaceUri = vscode.Uri.file(path.resolve(repository.rootUri.fsPath, change.uri.fsPath));
+				const uri = vscode.Uri.file(path.resolve(repository.rootUri.fsPath, change.uri.fsPath));
+				const fileName = change.uri.fsPath;
 				
 				if (change.status === GitChangeType.ADD) {
 					// For added files, show against empty
-					args.push([workspaceUri, undefined, workspaceUri]);
+					const headUri = toReviewUri(uri, fileName, undefined, commitSha, false, { base: false }, repository.rootUri);
+					args.push([headUri, undefined, headUri]);
 				} else if (change.status === GitChangeType.DELETE) {
 					// For deleted files, show old version against empty
-					const beforeUri = change.originalUri || change.uri;
-					args.push([workspaceUri, beforeUri, undefined]);
+					const baseFileName = change.status === GitChangeType.RENAME ? change.previousFileName : fileName;
+					const baseUri = toReviewUri(uri, baseFileName, undefined, commitSha + '~1', false, { base: true }, repository.rootUri);
+					args.push([uri, baseUri, undefined]);
 				} else {
 					// For modified files, show before and after
-					const beforeUri = change.originalUri || change.uri;
-					args.push([workspaceUri, beforeUri, workspaceUri]);
+					const baseFileName = change.status === GitChangeType.RENAME ? change.previousFileName : fileName;
+					const baseUri = toReviewUri(uri, baseFileName, undefined, commitSha + '~1', false, { base: true }, repository.rootUri);
+					const headUri = toReviewUri(uri, fileName, undefined, commitSha, false, { base: false }, repository.rootUri);
+					args.push([headUri, baseUri, headUri]);
 				}
 			}
 
