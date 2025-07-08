@@ -16,6 +16,7 @@ import { ITelemetry } from '../common/telemetry';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
+import { OpenCommitChangesArgs } from '../../common/views';
 import { SessionLogViewManager } from '../view/sessionLogView';
 import { getCopilotApi } from './copilotApi';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -527,7 +528,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async openCommitChanges(message: IRequestMessage<{ commitSha: string }>): Promise<void> {
+	private async openCommitChanges(message: IRequestMessage<OpenCommitChangesArgs>): Promise<void> {
 		try {
 			const { commitSha } = message.args;
 			await PullRequestModel.openCommitChanges(this._folderRepositoryManager, commitSha);
