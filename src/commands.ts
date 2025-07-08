@@ -1477,14 +1477,18 @@ ${contents}
 			const prNumber = await vscode.window.showInputBox({
 				ignoreFocusOut: true, prompt: vscode.l10n.t('Enter the pull request number or URL'),
 				validateInput: (input: string) => {
+					const prNumberMatcher = /^#?(\d*)$/;
 					const numberMatches = input.match(prNumberMatcher);
 					if (numberMatches && (numberMatches.length === 2) && !Number.isNaN(Number(numberMatches[1]))) {
-						return undefined; // Valid number
+						const num = Number(numberMatches[1]);
+						if (num > 0) {
+							return undefined; // Valid number
+						}
 					}
 					
 					const urlMatches = input.match(ISSUE_OR_URL_EXPRESSION);
 					const parsed = parseIssueExpressionOutput(urlMatches);
-					if (parsed && parsed.issueNumber) {
+					if (parsed && parsed.issueNumber && parsed.issueNumber > 0) {
 						return undefined; // Valid URL
 					}
 					
@@ -1499,11 +1503,16 @@ ${contents}
 			let extractedPrNumber: number;
 			const numberMatches = prNumber.match(prNumberMatcher);
 			if (numberMatches && (numberMatches.length === 2) && !Number.isNaN(Number(numberMatches[1]))) {
-				extractedPrNumber = Number(numberMatches[1]);
+				const num = Number(numberMatches[1]);
+				if (num > 0) {
+					extractedPrNumber = num;
+				} else {
+					return vscode.window.showErrorMessage(vscode.l10n.t('Invalid pull request number or URL'));
+				}
 			} else {
 				const urlMatches = prNumber.match(ISSUE_OR_URL_EXPRESSION);
 				const parsed = parseIssueExpressionOutput(urlMatches);
-				if (!parsed || !parsed.issueNumber) {
+				if (!parsed || !parsed.issueNumber || parsed.issueNumber <= 0) {
 					return vscode.window.showErrorMessage(vscode.l10n.t('Invalid pull request number or URL'));
 				}
 				extractedPrNumber = parsed.issueNumber;
