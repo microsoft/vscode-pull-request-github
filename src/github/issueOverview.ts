@@ -420,6 +420,10 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			});
 	}
 
+	protected _getTimeline(): Promise<TimelineEvent[]> {
+		return this._item.githubRepository.getIssueTimelineEvents(this._item);
+	}
+
 	private async changeAssignees(message: IRequestMessage<void>): Promise<void> {
 		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem & { user?: IAccount }>();
 
@@ -443,7 +447,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			if (allAssignees) {
 				const newAssignees: IAccount[] = allAssignees.map(item => item.user);
 				await this._item.replaceAssignees(newAssignees);
-				const events = await this._item.githubRepository.getIssueTimelineEvents(this._item);
+				const events = await this._getTimeline();
 				const reply: ChangeAssigneesReply = {
 					assignees: newAssignees,
 					events
@@ -510,7 +514,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				const newAssignees = (this._item.assignees ?? []).concat(currentUser);
 				await this._item.replaceAssignees(newAssignees);
 			}
-			const events = await this._item.githubRepository.getIssueTimelineEvents(this._item);
+			const events = await this._getTimeline();
 			const reply: ChangeAssigneesReply = {
 				assignees: this._item.assignees ?? [],
 				events
@@ -528,7 +532,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				const newAssignees = (this._item.assignees ?? []).concat(copilotUser);
 				await this._item.replaceAssignees(newAssignees);
 			}
-			const events = await this._item.githubRepository.getIssueTimelineEvents(this._item);
+			const events = await this._getTimeline();
 			const reply: ChangeAssigneesReply = {
 				assignees: this._item.assignees ?? [],
 				events
@@ -609,7 +613,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				...comment,
 				event: EventType.Commented
 			};
-			const allEvents = await this._item.githubRepository.getIssueTimelineEvents(this._item);
+			const allEvents = await this._getTimeline();
 			const reply: SubmitReviewReply = {
 				events: allEvents,
 				reviewedEvent: commentedEvent,
