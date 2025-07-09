@@ -1456,6 +1456,31 @@ ${contents}
 			}
 		}));
 
+	function validateAndParseInput(input: string, expectedOwner: string, expectedRepo: string): { isValid: boolean; prNumber?: number; errorMessage?: string } {
+		const prNumberMatcher = /^#?(\d*)$/;
+		const numberMatches = input.match(prNumberMatcher);
+		if (numberMatches && (numberMatches.length === 2) && !Number.isNaN(Number(numberMatches[1]))) {
+			const num = Number(numberMatches[1]);
+			if (num > 0) {
+				return { isValid: true, prNumber: num };
+			}
+		}
+		
+		const urlMatches = input.match(ISSUE_OR_URL_EXPRESSION);
+		const parsed = parseIssueExpressionOutput(urlMatches);
+		if (parsed && parsed.issueNumber && parsed.issueNumber > 0) {
+			// Check if the repository owner and name match
+			if (parsed.owner && parsed.name) {
+				if (parsed.owner !== expectedOwner || parsed.name !== expectedRepo) {
+					return { isValid: false, errorMessage: vscode.l10n.t('Repository in URL does not match the selected repository') };
+				}
+			}
+			return { isValid: true, prNumber: parsed.issueNumber };
+		}
+		
+		return { isValid: false, errorMessage: vscode.l10n.t('Value must be a pull request number or GitHub URL') };
+	}
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.checkoutByNumber', async () => {
 
@@ -1473,26 +1498,11 @@ ${contents}
 			if (!githubRepo) {
 				return;
 			}
-			const prNumberMatcher = /^#?(\d*)$/;
 			const prNumber = await vscode.window.showInputBox({
 				ignoreFocusOut: true, prompt: vscode.l10n.t('Enter the pull request number or URL'),
 				validateInput: (input: string) => {
-					const prNumberMatcher = /^#?(\d*)$/;
-					const numberMatches = input.match(prNumberMatcher);
-					if (numberMatches && (numberMatches.length === 2) && !Number.isNaN(Number(numberMatches[1]))) {
-						const num = Number(numberMatches[1]);
-						if (num > 0) {
-							return undefined; // Valid number
-						}
-					}
-					
-					const urlMatches = input.match(ISSUE_OR_URL_EXPRESSION);
-					const parsed = parseIssueExpressionOutput(urlMatches);
-					if (parsed && parsed.issueNumber && parsed.issueNumber > 0) {
-						return undefined; // Valid URL
-					}
-					
-					return vscode.l10n.t('Value must be a pull request number or GitHub URL');
+					const result = validateAndParseInput(input, githubRepo.repo.remote.owner, githubRepo.repo.remote.repositoryName);
+					return result.isValid ? undefined : result.errorMessage;
 				}
 			});
 			if ((prNumber === undefined) || prNumber === '#') {
@@ -1500,25 +1510,12 @@ ${contents}
 			}
 			
 			// Extract PR number from input (either direct number or URL)
-			let extractedPrNumber: number;
-			const numberMatches = prNumber.match(prNumberMatcher);
-			if (numberMatches && (numberMatches.length === 2) && !Number.isNaN(Number(numberMatches[1]))) {
-				const num = Number(numberMatches[1]);
-				if (num > 0) {
-					extractedPrNumber = num;
-				} else {
-					return vscode.window.showErrorMessage(vscode.l10n.t('Invalid pull request number or URL'));
-				}
-			} else {
-				const urlMatches = prNumber.match(ISSUE_OR_URL_EXPRESSION);
-				const parsed = parseIssueExpressionOutput(urlMatches);
-				if (!parsed || !parsed.issueNumber || parsed.issueNumber <= 0) {
-					return vscode.window.showErrorMessage(vscode.l10n.t('Invalid pull request number or URL'));
-				}
-				extractedPrNumber = parsed.issueNumber;
+			const parseResult = validateAndParseInput(prNumber, githubRepo.repo.remote.owner, githubRepo.repo.remote.repositoryName);
+			if (!parseResult.isValid || !parseResult.prNumber) {
+				return vscode.window.showErrorMessage(parseResult.errorMessage || vscode.l10n.t('Invalid pull request number or URL'));
 			}
 			
-			const prModel = await githubRepo.manager.fetchById(githubRepo.repo, extractedPrNumber);
+			const prModel = await githubRepo.manager.fetchById(githubRepo.repo, parseResult.prNumber);
 			if (prModel) {
 				return ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, githubRepo.manager)?.switch(prModel);
 			}
