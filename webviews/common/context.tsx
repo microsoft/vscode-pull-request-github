@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createContext } from 'react';
-import { CloseResult } from '../../common/views';
+import { CloseResult, OpenCommitChangesArgs } from '../../common/views';
 import { IComment } from '../../src/common/comment';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../../src/common/timelineEvent';
 import { IProjectItem, MergeMethod, ReadyForReview } from '../../src/github/interface';
@@ -253,6 +253,8 @@ export class PRContext {
 	};
 
 	public openSessionLog = (link: SessionLinkInfo, openToTheSide?: boolean) => this.postMessage({ command: 'pr.open-session-log', args: { link, openToTheSide } });
+
+	public openCommitChanges = (commitSha: string) => this.postMessage({ command: 'pr.openCommitChanges', args: { commitSha } as OpenCommitChangesArgs });
 
 	setPR = (pr: PullRequest) => {
 		this.pr = pr;
