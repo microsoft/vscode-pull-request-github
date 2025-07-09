@@ -29,7 +29,7 @@ import { GHPRComment, GHPRCommentThread, TemporaryComment } from './github/prCom
 import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
-import { getIssuesUrl, getPullsUrl, isInCodespaces, vscodeDevPrLink, parseIssueExpressionOutput, ISSUE_OR_URL_EXPRESSION } from './github/utils';
+import { getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewCommentController } from './view/reviewCommentController';
@@ -1456,7 +1456,7 @@ ${contents}
 			}
 		}));
 
-	function validateAndParseInput(input: string, expectedOwner: string, expectedRepo: string): { isValid: boolean; prNumber?: number; errorMessage?: string } {
+	function validateAndParseInput(input: string, expectedOwner: string, expectedRepo: string): { isValid: true; prNumber: number; errorMessage?: string } | { isValid: false; prNumber?: number; errorMessage: string } {
 		const prNumberMatcher = /^#?(\d*)$/;
 		const numberMatches = input.match(prNumberMatcher);
 		if (numberMatches && (numberMatches.length === 2) && !Number.isNaN(Number(numberMatches[1]))) {
@@ -1465,7 +1465,7 @@ ${contents}
 				return { isValid: true, prNumber: num };
 			}
 		}
-		
+
 		const urlMatches = input.match(ISSUE_OR_URL_EXPRESSION);
 		const parsed = parseIssueExpressionOutput(urlMatches);
 		if (parsed && parsed.issueNumber && parsed.issueNumber > 0) {
@@ -1477,7 +1477,7 @@ ${contents}
 			}
 			return { isValid: true, prNumber: parsed.issueNumber };
 		}
-		
+
 		return { isValid: false, errorMessage: vscode.l10n.t('Value must be a pull request number or GitHub URL') };
 	}
 
@@ -1508,13 +1508,13 @@ ${contents}
 			if ((prNumber === undefined) || prNumber === '#') {
 				return;
 			}
-			
+
 			// Extract PR number from input (either direct number or URL)
 			const parseResult = validateAndParseInput(prNumber, githubRepo.repo.remote.owner, githubRepo.repo.remote.repositoryName);
-			if (!parseResult.isValid || !parseResult.prNumber) {
+			if (!parseResult.isValid) {
 				return vscode.window.showErrorMessage(parseResult.errorMessage || vscode.l10n.t('Invalid pull request number or URL'));
 			}
-			
+
 			const prModel = await githubRepo.manager.fetchById(githubRepo.repo, parseResult.prNumber);
 			if (prModel) {
 				return ReviewManager.getReviewManagerForFolderManager(reviewsManager.reviewManagers, githubRepo.manager)?.switch(prModel);
