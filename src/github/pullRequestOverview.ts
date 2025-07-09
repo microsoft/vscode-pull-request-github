@@ -5,6 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { OpenCommitChangesArgs } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
 import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
@@ -16,7 +17,6 @@ import { ITelemetry } from '../common/telemetry';
 import { EventType, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import { asPromise, formatError } from '../common/utils';
 import { IRequestMessage, PULL_REQUEST_OVERVIEW_VIEW_TYPE } from '../common/webview';
-import { OpenCommitChangesArgs } from '../../common/views';
 import { SessionLogViewManager } from '../view/sessionLogView';
 import { getCopilotApi } from './copilotApi';
 import { FolderRepositoryManager } from './folderRepositoryManager';

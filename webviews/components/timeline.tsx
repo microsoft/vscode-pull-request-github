@@ -108,7 +108,7 @@ export default Timeline;
 const CommitEventView = (event: CommitEvent) => {
 	const context = useContext(PullRequestContext);
 	const pr = context.pr;
-	
+
 	const handleCommitClick = (e: React.MouseEvent) => {
 		if (pr.isCurrentlyCheckedOut) {
 			e.preventDefault();
@@ -126,11 +126,10 @@ const CommitEventView = (event: CommitEvent) => {
 					<Avatar for={event.author} />
 				</div>
 				<div className="message-container">
-					<a 
-						className="message" 
-						onClick={handleCommitClick} 
+					<a
+						className="message"
+						onClick={handleCommitClick}
 						href={pr.isCurrentlyCheckedOut ? undefined : event.htmlUrl}
-						style={{ cursor: 'pointer' }} 
 						title={event.htmlUrl}
 					>
 						{event.message.substr(0, event.message.indexOf('\n') > -1 ? event.message.indexOf('\n') : event.message.length)}
@@ -138,11 +137,10 @@ const CommitEventView = (event: CommitEvent) => {
 				</div>
 			</div>
 			<div className="timeline-detail">
-				<a 
-					className="sha" 
-					onClick={handleCommitClick} 
+				<a
+					className="sha"
+					onClick={handleCommitClick}
 					href={pr.isCurrentlyCheckedOut ? undefined : event.htmlUrl}
-					style={{ cursor: 'pointer' }} 
 					title={event.htmlUrl}
 				>
 					{event.sha.slice(0, 7)}
