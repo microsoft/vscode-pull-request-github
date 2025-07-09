@@ -44,6 +44,7 @@ const CONTINUE = vscode.l10n.t('Continue');
 // With Pending Changes
 const PUSH_CHANGES = vscode.l10n.t('Include changes');
 const CONTINUE_WITHOUT_PUSHING = vscode.l10n.t('Ignore changes');
+const COMMIT_YOUR_CHANGES = vscode.l10n.t('Commit your changes to continue coding agent session. Close integrated terminal to cancel.');
 
 const FOLLOW_UP_REGEX = /open-pull-request-webview.*((%7B.*?%7D)|(\{.*?\}))/;
 const COPILOT = '@copilot';
@@ -394,7 +395,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	 * Opens a terminal and waits for user to successfully commit
 	 * This is a fallback for when the commit cannot be done automatically (eg: GPG signing password needed)
 	 */
-	private async handleInteractiveCommit(repository: Repository, commitMessage: string): Promise<boolean> {
+	private async handleInteractiveCommit(repository: Repository, cancellationToken?: vscode.CancellationToken): Promise<boolean> {
 		return new Promise<boolean>((resolve) => {
 			const startingCommit = repository.state.HEAD?.commit;
 
@@ -402,18 +403,16 @@ export class CopilotRemoteAgentManager extends Disposable {
 			const terminal = vscode.window.createTerminal({
 				name: 'GitHub Coding Agent',
 				cwd: repository.rootUri.fsPath,
-				message: vscode.l10n.t('Commit your changes to continue coding agent session')
+				message: `\x1b[1m${vscode.l10n.t(COMMIT_YOUR_CHANGES)}\x1b[0m`
 			});
 
 			// Show terminal and send commit command
 			terminal.show();
-			terminal.sendText(`# Complete this commit to continue with your coding agent session. Ctrl+C to cancel.`);
-			terminal.sendText(`git commit -m "${commitMessage}"`);
-
 			let disposed = false;
 			let timeoutId: NodeJS.Timeout;
 			let stateListener: vscode.Disposable | undefined;
 			let disposalListener: vscode.Disposable | undefined;
+			let cancellationListener: vscode.Disposable | undefined;
 
 			const cleanup = () => {
 				if (disposed) return;
@@ -421,14 +420,22 @@ export class CopilotRemoteAgentManager extends Disposable {
 				clearTimeout(timeoutId);
 				stateListener?.dispose();
 				disposalListener?.dispose();
+				cancellationListener?.dispose();
 				terminal.dispose();
 			};
+
+			// Listen for cancellation if token is provided
+			if (cancellationToken) {
+				cancellationListener = cancellationToken.onCancellationRequested(() => {
+					cleanup();
+					resolve(false);
+				});
+			}
 
 			// Listen for repository state changes
 			stateListener = repository.state.onDidChange(() => {
 				// Check if commit was successful (HEAD changed and no more staged changes)
-				if (repository.state.HEAD?.commit !== startingCommit &&
-					repository.state.indexChanges.length === 0) {
+				if (repository.state.HEAD?.commit !== startingCommit) {
 					cleanup();
 					resolve(true);
 				}
@@ -437,22 +444,17 @@ export class CopilotRemoteAgentManager extends Disposable {
 			// Set a timeout to avoid waiting forever
 			timeoutId = setTimeout(() => {
 				cleanup();
-				vscode.window.showWarningMessage(
-					vscode.l10n.t('Commit timeout. Please try the operation again after committing your changes.')
-				);
 				resolve(false);
 			}, 5 * 60 * 1000); // 5 minutes timeout
 
 			// Listen for terminal disposal (user closed it)
 			disposalListener = vscode.window.onDidCloseTerminal((closedTerminal) => {
 				if (closedTerminal === terminal) {
-					// Give a brief moment for potential state changes to propagate
 					setTimeout(() => {
 						if (!disposed) {
 							cleanup();
 							// Check one more time if commit happened just before terminal was closed
-							resolve(repository.state.HEAD?.commit !== startingCommit &&
-								repository.state.indexChanges.length === 0);
+							resolve(repository.state.HEAD?.commit !== startingCommit);
 						}
 					}, 1000);
 				}
@@ -494,31 +496,20 @@ export class CopilotRemoteAgentManager extends Disposable {
 				} catch (e) {
 					// Instead of immediately failing, open terminal for interactive commit
 					const commitSuccessful = await vscode.window.withProgress({
-						title: vscode.l10n.t('Waiting for commit to complete in the integrated terminal...'),
+						title: COMMIT_YOUR_CHANGES,
 						cancellable: true,
 						location: vscode.ProgressLocation.Notification
 					}, async (progress, token) => {
-						const commitPromise = this.handleInteractiveCommit(repository, commitMessage);
-						if (token) {
-							token.onCancellationRequested(() => {
-								return false;
-							});
-						}
+						const commitPromise = this.handleInteractiveCommit(repository, token);
 						return await commitPromise;
 					});
 					if (!commitSuccessful) {
-						return { error: vscode.l10n.t('Commit was unsuccessful.  Manually commit or stash your changes and try again.'), state: 'error' };
+						return { error: vscode.l10n.t('Exclude your uncommitted changes and try again.'), state: 'error' };
 					}
 				}
 				await repository.push(remote.remoteName, asyncBranch, true);
 				ref = asyncBranch;
-			} catch (e) {
-				return { error: vscode.l10n.t('Could not auto-push pending changes. Manually commit or stash your changes and try again. ({0})', e.message), state: 'error' };
-			} finally {
-				// Swap back to the original branch without your pending changes
-				// TODO: Better if we show a confirmation dialog in chat
 				if (repository.state.HEAD?.name !== baseRef) {
-					// show notification asking the user if they want to switch back to the original branch
 					const SWAP_BACK_TO_ORIGINAL_BRANCH = vscode.l10n.t(`Swap back to '{0}'`, baseRef);
 					vscode.window.showInformationMessage(
 						vscode.l10n.t(`Pending changes pushed to remote branch '{0}'.`, ref),
@@ -529,6 +520,16 @@ export class CopilotRemoteAgentManager extends Disposable {
 						}
 					});
 				}
+			} catch (e) {
+				if (repository.state.HEAD?.name !== baseRef) {
+					try {
+						await repository.checkout(baseRef);
+					} catch (checkoutError) {
+						Logger.error(`Failed to checkout back to original branch '${baseRef}': ${checkoutError}`, CopilotRemoteAgentManager.ID);
+					}
+				}
+				Logger.error(`Failed to auto-commit and push pending changes: ${e}`, CopilotRemoteAgentManager.ID);
+				return { error: vscode.l10n.t('Could not auto-push pending changes. Manually commit or stash your changes and try again. ({0})', e.message), state: 'error' };
 			}
 		}
 
