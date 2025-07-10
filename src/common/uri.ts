@@ -323,6 +323,13 @@ export namespace DataUri {
 	}
 }
 
+/**
+ * @param fileName The repo relative path to the file
+ */
+export function reviewPath(fileName: string, commitSha: string) {
+	return vscode.Uri.parse(pathUtils.posix.join(`commit~${commitSha.substr(0, 8)}`, fileName));
+}
+
 export function toReviewUri(
 	uri: vscode.Uri,
 	filePath: string | undefined,

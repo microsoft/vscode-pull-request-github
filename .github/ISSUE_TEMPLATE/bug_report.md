@@ -11,7 +11,7 @@ about: Create a report to help us improve
 - VSCode Version:
 - OS:
 - Repository Clone Configuration (single repository/fork of an upstream repository):
-- Github Product (Github.com/Github Enterprise version x.x.x):
+- GitHub Product (GitHub.com/GitHub Enterprise version x.x.x):
 
 Steps to Reproduce:
 

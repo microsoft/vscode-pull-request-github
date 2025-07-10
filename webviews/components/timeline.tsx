@@ -105,28 +105,51 @@ export const Timeline = ({ events, isIssue }: { events: TimelineEvent[], isIssue
 
 export default Timeline;
 
-const CommitEventView = (event: CommitEvent) => (
-	<div className="comment-container commit">
-		<div className="commit-message">
-			{commitIcon}
-			{nbsp}
-			<div className="avatar-container">
-				<Avatar for={event.author} />
+const CommitEventView = (event: CommitEvent) => {
+	const context = useContext(PullRequestContext);
+	const pr = context.pr;
+
+	const handleCommitClick = (e: React.MouseEvent) => {
+		if (pr.isCurrentlyCheckedOut) {
+			e.preventDefault();
+			context.openCommitChanges(event.sha);
+		}
+		// If not checked out, let the default href behavior proceed
+	};
+
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				{commitIcon}
+				{nbsp}
+				<div className="avatar-container">
+					<Avatar for={event.author} />
+				</div>
+				<div className="message-container">
+					<a
+						className="message"
+						onClick={handleCommitClick}
+						href={pr.isCurrentlyCheckedOut ? undefined : event.htmlUrl}
+						title={event.htmlUrl}
+					>
+						{event.message.substr(0, event.message.indexOf('\n') > -1 ? event.message.indexOf('\n') : event.message.length)}
+					</a>
+				</div>
 			</div>
-			<div className="message-container">
-				<a className="message" href={event.htmlUrl} title={event.htmlUrl}>
-					{event.message.substr(0, event.message.indexOf('\n') > -1 ? event.message.indexOf('\n') : event.message.length)}
+			<div className="timeline-detail">
+				<a
+					className="sha"
+					onClick={handleCommitClick}
+					href={pr.isCurrentlyCheckedOut ? undefined : event.htmlUrl}
+					title={event.htmlUrl}
+				>
+					{event.sha.slice(0, 7)}
 				</a>
+				<Timestamp date={event.committedDate} />
 			</div>
 		</div>
-		<div className="timeline-detail">
-			<a className="sha" href={event.htmlUrl} title={event.htmlUrl}>
-				{event.sha.slice(0, 7)}
-			</a>
-			<Timestamp date={event.committedDate} />
-		</div>
-	</div>
-);
+	);
+};
 
 const NewCommitsSinceReviewEventView = () => {
 	const { gotoChangesSinceReview, pr } = useContext(PullRequestContext);

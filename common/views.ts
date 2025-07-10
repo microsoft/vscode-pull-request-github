@@ -175,4 +175,8 @@ export interface CloseResult {
 	closeEvent: ClosedEvent;
 }
 
+export interface OpenCommitChangesArgs {
+	commitSha: string;
+}
+
 // #endregion
