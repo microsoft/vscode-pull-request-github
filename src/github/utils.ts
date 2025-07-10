@@ -309,7 +309,7 @@ export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListRespons
 
 async function transformHtmlUrlsToExtensionUrls(body: string, githubRepository: GitHubRepository): Promise<string> {
 	const issueRegex = new RegExp(
-		`href="https?:\/\/${escapeRegExp(githubRepository.remote.gitProtocol.url.authority)}\\/${escapeRegExp(githubRepository.remote.owner)}\\/${escapeRegExp(githubRepository.remote.repositoryName)}\\/(issues|pull)\\/([0-9]+)"`);
+		`href="https?:\/\/${escapeRegExp(githubRepository.remote.gitProtocol.url.authority)}\\/${escapeRegExp(githubRepository.remote.owner)}\\/${escapeRegExp(githubRepository.remote.repositoryName)}\\/(issues|pull)\\/([0-9]+)"`, 'g');
 	return stringReplaceAsync(body, issueRegex, async (match: string, issuesOrPull: string, number: string) => {
 		if (issuesOrPull === 'issues') {
 			return `href="${(await toOpenIssueWebviewUri({ owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, issueNumber: Number(number) })).toString()}""`;
