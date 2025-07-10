@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 import { EDITOR, WORD_WRAP } from '../common/settingKeys';
+import { toOpenIssueWebviewUri, toOpenPullRequestWebviewUri } from '../common/uri';
 import { ReposManagerState } from '../github/folderRepositoryManager';
+import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { ISSUE_EXPRESSION, ParsedIssue, parseIssueExpressionOutput } from '../github/utils';
 import { StateManager } from './stateManager';
@@ -81,7 +83,22 @@ export class IssueLinkProvider implements vscode.DocumentLinkProvider {
 				link.mappedLink.parsed,
 			);
 			if (issue) {
-				link.target = await vscode.env.asExternalUri(vscode.Uri.parse(issue.html_url));
+				// Check if it's a pull request or an issue
+				if (issue instanceof PullRequestModel) {
+					// Use pull request webview URI
+					link.target = await toOpenPullRequestWebviewUri({
+						owner: issue.remote.owner,
+						repo: issue.remote.repositoryName,
+						pullRequestNumber: issue.number,
+					});
+				} else {
+					// Use issue webview URI
+					link.target = await toOpenIssueWebviewUri({
+						owner: issue.remote.owner,
+						repo: issue.remote.repositoryName,
+						issueNumber: issue.number,
+					});
+				}
 			}
 			return link;
 		}
