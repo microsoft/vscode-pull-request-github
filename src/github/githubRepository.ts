@@ -1114,7 +1114,7 @@ export class GitHubRepository extends Disposable {
 		return buff;
 	}
 
-	async hasBranch(branchName: string): Promise<boolean> {
+	async hasBranch(branchName: string): Promise<string | undefined> {
 		Logger.appendLine(`Fetch branch ${branchName} - enter`, this.id);
 		const { query, remote, schema } = await this.ensure();
 
@@ -1127,7 +1127,7 @@ export class GitHubRepository extends Disposable {
 			}
 		});
 		Logger.appendLine(`Fetch branch ${branchName} - done: ${data.repository?.ref !== null}`, this.id);
-		return data.repository?.ref !== null;
+		return data.repository?.ref?.target.oid;
 	}
 
 	async listBranches(owner: string, repositoryName: string): Promise<string[]> {

@@ -618,8 +618,13 @@ export class CreatePullRequestViewProvider extends BaseCreatePullRequestViewProv
 	}
 
 	private async existingPRMessage(): Promise<string | undefined> {
-		const existingPR = await PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._folderRepositoryManager.repository, this.model.compareBranch);
-		return existingPR ? vscode.l10n.t('A pull request already exists for this branch.') : '';
+		const [existingPR, hasUpstream] = await Promise.all([PullRequestGitHelper.getMatchingPullRequestMetadataForBranch(this._folderRepositoryManager.repository, this.model.compareBranch), this.model.getCompareHasUpstream()]);
+		if (!existingPR || !hasUpstream) {
+			return undefined;
+		}
+
+		const [pr, compareBranch] = await Promise.all([await this._folderRepositoryManager.resolvePullRequest(existingPR.owner, existingPR.repositoryName, existingPR.prNumber), this._folderRepositoryManager.repository.getBranch(this.model.compareBranch)]);
+		return (pr?.head?.sha === compareBranch.commit) ? vscode.l10n.t('A pull request already exists for this branch.') : undefined;
 	}
 
 	public async setDefaultCompareBranch(compareBranch: Branch | undefined) {
