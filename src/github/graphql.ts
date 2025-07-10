@@ -576,7 +576,7 @@ export interface GetBranchResponse {
 			target: {
 				oid: string;
 			}
-		}
+		} | null;
 	} | null;
 }
 
