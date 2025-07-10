@@ -308,15 +308,31 @@ export function convertRESTHeadToIGitHubRef(head: OctokitCommon.PullsListRespons
 }
 
 async function transformHtmlUrlsToExtensionUrls(body: string, githubRepository: GitHubRepository): Promise<string> {
+	// Handle full GitHub URLs (https://github.com/owner/repo/issues/123)
 	const issueRegex = new RegExp(
 		`href="https?:\/\/${escapeRegExp(githubRepository.remote.gitProtocol.url.authority)}\\/${escapeRegExp(githubRepository.remote.owner)}\\/${escapeRegExp(githubRepository.remote.repositoryName)}\\/(issues|pull)\\/([0-9]+)"`);
-	return stringReplaceAsync(body, issueRegex, async (match: string, issuesOrPull: string, number: string) => {
+	
+	// Handle relative GitHub URLs (href="/owner/repo/issues/123" or href="issues/123")
+	const relativeIssueRegex = new RegExp(
+		`href="\\/?${escapeRegExp(githubRepository.remote.owner)}\\/${escapeRegExp(githubRepository.remote.repositoryName)}\\/(issues|pull)\\/([0-9]+)"`);
+	
+	let result = await stringReplaceAsync(body, issueRegex, async (match: string, issuesOrPull: string, number: string) => {
 		if (issuesOrPull === 'issues') {
-			return `href="${(await toOpenIssueWebviewUri({ owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, issueNumber: Number(number) })).toString()}""`;
+			return `href="${(await toOpenIssueWebviewUri({ owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, issueNumber: Number(number) })).toString()}"`;
 		} else {
 			return `href="${(await toOpenPullRequestWebviewUri({ owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, pullRequestNumber: Number(number) })).toString()}"`;
 		}
 	});
+	
+	result = await stringReplaceAsync(result, relativeIssueRegex, async (match: string, issuesOrPull: string, number: string) => {
+		if (issuesOrPull === 'issues') {
+			return `href="${(await toOpenIssueWebviewUri({ owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, issueNumber: Number(number) })).toString()}"`;
+		} else {
+			return `href="${(await toOpenPullRequestWebviewUri({ owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName, pullRequestNumber: Number(number) })).toString()}"`;
+		}
+	});
+	
+	return result;
 }
 
 export function convertRESTPullRequestToRawPullRequest(
