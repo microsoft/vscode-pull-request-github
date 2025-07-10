@@ -39,6 +39,9 @@ async function makeQueriesScopedToRepo(context: vscode.ExtensionContext) {
 
 	const addRepoScope = (queries: IQueryInfo[]) => {
 		return queries.map(query => {
+			if (isLocalQuery(query) || isAllQuery(query)) {
+				return query;
+			}
 			return {
 				label: query.label,
 				query: query.query.includes('repo:') ? query.query : `repo:\${owner}/\${repository} ${query.query}`,
