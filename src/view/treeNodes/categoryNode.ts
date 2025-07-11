@@ -130,6 +130,7 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	public repositoryPageInformation: Map<string, PageInformation> = new Map<string, PageInformation>();
 	public contextValue: string;
 	public resourceUri: vscode.Uri;
+	public tooltip?: string | vscode.MarkdownString | undefined;
 
 	constructor(
 		parent: TreeNodeParent,
@@ -145,8 +146,8 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 		super(parent);
 
 		this.prs = new Map();
-
-		const hasCopilotChanges = _categoryQuery && isCopilotQuery(_categoryQuery) && this._copilotManager.notificationsCount > 0;
+		const isCopilot = _categoryQuery && isCopilotQuery(_categoryQuery);
+		const hasCopilotChanges = isCopilot && this._copilotManager.notificationsCount > 0;
 
 		switch (this.type) {
 			case PRType.All:
@@ -181,6 +182,18 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 		if (this._categoryQuery) {
 			this.contextValue = 'query';
+		}
+
+		if (isCopilot) {
+			this.tooltip = vscode.l10n.t('Pull requests you asked the coding agent to create');
+		} else if (this.type === PRType.LocalPullRequest) {
+			this.tooltip = vscode.l10n.t('Pull requests for branches you have locally');
+		} else if (this.type === PRType.All) {
+			this.tooltip = vscode.l10n.t('All open pull requests in the current repository');
+		} else if (_categoryQuery) {
+			this.tooltip = new vscode.MarkdownString(vscode.l10n.t('Pull requests for query: `{0}`', _categoryQuery));
+		} else {
+			this.tooltip = this.label;
 		}
 	}
 
