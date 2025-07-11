@@ -29,6 +29,7 @@ import { registerBuiltinGitProvider, registerLiveShareGitProvider } from './gitP
 import { GitHubContactServiceProvider } from './gitProviders/GitHubContactServiceProvider';
 import { GitLensIntegration } from './integrations/gitlens/gitlensImpl';
 import { IssueFeatureRegistrar } from './issues/issueFeatureRegistrar';
+import { CopilotTitleAndDescriptionProvider } from './lm/copilotTitleAndDescriptionProvider';
 import { ChatParticipant, ChatParticipantState } from './lm/participants';
 import { registerTools } from './lm/tools/tools';
 import { migrate } from './migrations';
@@ -396,6 +397,11 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	// API
 	const apiImpl = new GitApiImpl(reposManager);
 	context.subscriptions.push(apiImpl);
+
+	// Register Copilot Title and Description Provider
+	Logger.debug('Registering Copilot Title and Description Provider.', 'Activation');
+	const copilotProvider = new CopilotTitleAndDescriptionProvider(credentialStore, telemetry);
+	apiImpl.registerTitleAndDescriptionProvider('Copilot', copilotProvider);
 
 	deferredActivateRegisterBuiltInGitProvider(context, apiImpl, credentialStore);
 
