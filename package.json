@@ -1769,8 +1769,13 @@
 			},
 			{
 				"view": "notifications:github",
-				"when": "!github:notificationCount",
+				"when": "!github:notificationCount && workspaceFolderCount > 0",
 				"contents": "%welcome.github.notificationsLoading.contents%"
+			},
+			{
+				"view": "notifications:github",
+				"when": "workspaceFolderCount == 0",
+				"contents": "%welcome.issues.github.noFolder.contents%"
 			},
 			{
 				"view": "notifications:github",
