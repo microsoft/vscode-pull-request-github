@@ -350,7 +350,17 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return this._replyMessage(message, reply);
 	}
 
+	private _scheduledRefresh: Promise<void> | undefined;
 	protected async tryScheduleCopilotRefresh(commentBody: string, reviewType?: ReviewStateValue) {
+		if (!this._scheduledRefresh) {
+			this._scheduledRefresh = this.doScheduleCopilotRefresh(commentBody, reviewType)
+				.finally(() => {
+					this._scheduledRefresh = undefined;
+				});
+		}
+	}
+
+	private async doScheduleCopilotRefresh(commentBody: string, reviewType?: ReviewStateValue) {
 		if (!COPILOT_ACCOUNTS[this._item.author.login]) {
 			return;
 		}
@@ -359,7 +369,31 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			return;
 		}
 
-		await new Promise(resolve => setTimeout(resolve, 1000));
+		const initialTimeline = await this._getTimeline();
+		const delays = [250, 500, 1000, 2000];
+
+		for (const delay of delays) {
+			await new Promise(resolve => setTimeout(resolve, delay));
+			if (this._isDisposed) {
+				return;
+			}
+
+			try {
+				const currentTimeline = await this._getTimeline();
+
+				// Check if we have any new CopilotStarted events
+				if (currentTimeline.length > initialTimeline.length) {
+					// Found a new CopilotStarted event, refresh and stop
+					this.refreshPanel();
+					return;
+				}
+			} catch (error) {
+				// If timeline fetch fails, continue with the next retry
+				Logger.warn(`Failed to fetch timeline during Copilot refresh retry: ${error}`, IssueOverviewPanel.ID);
+			}
+		}
+
+		// If no new CopilotStarted events were found after all retries, still refresh once
 		if (!this._isDisposed) {
 			this.refreshPanel();
 		}
