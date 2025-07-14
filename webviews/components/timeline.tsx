@@ -365,22 +365,26 @@ const MergedEventView = (event: MergedEvent) => {
 	);
 };
 
-const HeadDeleteEventView = (event: HeadRefDeleteEvent) => (
-	<div className="comment-container commit">
-		<div className="commit-message">
-			<div className="avatar-container">
-				<Avatar for={event.actor} />
+const HeadDeleteEventView = (event: HeadRefDeleteEvent) => {
+	const { pr } = useContext(PullRequestContext);
+	return (
+		<div className="comment-container commit">
+			<div className="commit-message">
+				<div className="avatar-container">
+					<Avatar for={event.actor} />
+				</div>
+				<AuthorLink for={event.actor} />
+				<div className="message">
+					deleted the {event.headRef} branch{nbsp}
+				</div>
 			</div>
-			<AuthorLink for={event.actor} />
-			<div className="message">
-				deleted the {event.headRef} branch{nbsp}
-			</div>
+			<Timestamp href={pr.url} date={event.createdAt} />
 		</div>
-		<Timestamp date={event.createdAt} />
-	</div>
-);
+	);
+};
 
 const CrossReferencedEventView = (event: CrossReferencedEvent) => {
+	const { pr } = useContext(PullRequestContext);
 	const { source } = event;
 	return (
 		<div className="comment-container commit">
@@ -395,7 +399,7 @@ const CrossReferencedEventView = (event: CrossReferencedEvent) => {
 					{event.willCloseTarget ? 'which will close this issue' : ''}
 				</div>
 			</div>
-			<Timestamp date={event.createdAt} />
+			<Timestamp href={pr.url} date={event.createdAt} />
 		</div>
 	);
 };
@@ -408,6 +412,7 @@ function joinWithAnd(arr: JSX.Element[]): JSX.Element {
 }
 
 const AssignUnassignEventView = ({ event }: { event: AssignEvent | UnassignEvent | ConsolidatedAssignUnassignEvent }) => {
+	const { pr } = useContext(PullRequestContext);
 	const { actor } = event;
 	const assignees = (event as AssignEvent).assignees || [];
 	const unassignees = (event as UnassignEvent).unassignees || [];
@@ -434,12 +439,13 @@ const AssignUnassignEventView = ({ event }: { event: AssignEvent | UnassignEvent
 					{message}
 				</div>
 			</div>
-			<Timestamp date={event.createdAt} />
+			<Timestamp href={pr.url} date={event.createdAt} />
 		</div>
 	);
 };
 
 const ClosedEventView = ({ event, isIssue }: { event: ClosedEvent, isIssue: boolean }) => {
+	const { pr } = useContext(PullRequestContext);
 	const { actor, createdAt } = event;
 	return (
 		<div className="comment-container commit">
@@ -450,12 +456,13 @@ const ClosedEventView = ({ event, isIssue }: { event: ClosedEvent, isIssue: bool
 				<AuthorLink for={actor} />
 				<div className="message">{isIssue ? 'closed this issue' : 'closed this pull request'}</div>
 			</div>
-			<Timestamp date={createdAt} />
+			<Timestamp href={pr.url} date={createdAt} />
 		</div>
 	);
 };
 
 const ReopenedEventView = ({ event, isIssue }: { event: ReopenedEvent, isIssue: boolean }) => {
+	const { pr } = useContext(PullRequestContext);
 	const { actor, createdAt } = event;
 	return (
 		<div className="comment-container commit">
@@ -466,12 +473,13 @@ const ReopenedEventView = ({ event, isIssue }: { event: ReopenedEvent, isIssue: 
 				<AuthorLink for={actor} />
 				<div className="message">{isIssue ? 'reopened this issue' : 'reopened this pull request'}</div>
 			</div>
-			<Timestamp date={createdAt} />
+			<Timestamp href={pr.url} date={createdAt} />
 		</div>
 	);
 };
 
 const CopilotStartedEventView = (event: CopilotStartedEvent) => {
+	const { pr } = useContext(PullRequestContext);
 	const { createdAt, onBehalfOf, sessionLink } = event;
 	const { openSessionLog } = useContext(PullRequestContext);
 
@@ -494,12 +502,13 @@ const CopilotStartedEventView = (event: CopilotStartedEvent) => {
 					<a onClick={handleSessionLogClick}><button className='secondary' title="View session log (Ctrl/Cmd+Click to open in second editor group)">View session</button></a>
 				</div>)
 				: null}
-			<Timestamp date={createdAt} />
+			<Timestamp href={pr.url} date={createdAt} />
 		</div>
 	);
 };
 
 const CopilotFinishedEventView = (event: CopilotFinishedEvent) => {
+	const { pr } = useContext(PullRequestContext);
 	const { createdAt, onBehalfOf } = event;
 	return (
 		<div className="comment-container commit">
@@ -508,12 +517,13 @@ const CopilotFinishedEventView = (event: CopilotFinishedEvent) => {
 				{nbsp}
 				<div className="message">Copilot finished work on behalf of <AuthorLink for={onBehalfOf} /></div>
 			</div>
-			<Timestamp date={createdAt} />
+			<Timestamp href={pr.url} date={createdAt} />
 		</div>
 	);
 };
 
 const CopilotFinishedErrorEventView = (event: CopilotFinishedErrorEvent) => {
+	const { pr } = useContext(PullRequestContext);
 	const { createdAt, onBehalfOf } = event;
 	const { openSessionLog } = useContext(PullRequestContext);
 
@@ -534,7 +544,7 @@ const CopilotFinishedErrorEventView = (event: CopilotFinishedErrorEvent) => {
 					<a onClick={handleSessionLogClick} title="View session log (Ctrl/Cmd+Click to open in second editor group)">Copilot has encountered an error. See logs for additional details.</a>
 				</div>
 			</div>
-			<Timestamp date={createdAt} />
+			<Timestamp href={pr.url} date={createdAt} />
 		</div>
 	);
 };
