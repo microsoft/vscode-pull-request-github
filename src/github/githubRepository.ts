@@ -168,8 +168,8 @@ export class GitHubRepository extends Disposable {
 
 	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = this._register(new vscode.EventEmitter());
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
-	private _onDidChangePullRequests: vscode.EventEmitter<void> = this._register(new vscode.EventEmitter());
-	public readonly onDidChangePullRequests: vscode.Event<void> = this._onDidChangePullRequests.event;
+	private _onDidChangePullRequests: vscode.EventEmitter<IssueModel[]> = this._register(new vscode.EventEmitter());
+	public readonly onDidChangePullRequests: vscode.Event<IssueModel[]> = this._onDidChangePullRequests.event;
 
 	public get hub(): GitHub {
 		if (!this._hub) {
@@ -1511,8 +1511,8 @@ export class GitHubRepository extends Disposable {
 				}
 				const oldTimeline = issueModel.timelineEvents;
 				issueModel.timelineEvents = allEvents;
-				if (!oldLastEvent || (allEvents.length !== oldTimeline.length)) {
-					this._onDidChangePullRequests.fire();
+				if (oldLastEvent && (allEvents.length !== oldTimeline.length)) {
+					this._onDidChangePullRequests.fire([issueModel]);
 				}
 			}
 			return timelineEvents;
@@ -1562,9 +1562,9 @@ export class GitHubRepository extends Disposable {
 			const oldEvents = issueModel.timelineEvents;
 			issueModel.timelineEvents = events;
 			if (crossRefs.size > 0) {
-				this._onDidChangePullRequests.fire();
+				this._onDidChangePullRequests.fire([issueModel]);
 			} else if (oldEvents.length !== events.length) {
-				this._onDidChangePullRequests.fire();
+				this._onDidChangePullRequests.fire([issueModel]);
 			}
 			return events;
 		} catch (e) {
@@ -1633,7 +1633,7 @@ export class GitHubRepository extends Disposable {
 		const oldEvents = pullRequestModel.timelineEvents;
 		pullRequestModel.timelineEvents = events;
 		if (oldEvents.length !== events.length) {
-			this._onDidChangePullRequests.fire();
+			this._onDidChangePullRequests.fire([pullRequestModel]);
 		}
 		return events;
 	}

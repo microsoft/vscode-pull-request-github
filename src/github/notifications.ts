@@ -153,19 +153,29 @@ export class NotificationProvider extends Disposable {
 		} : undefined;
 	}
 
-	private adaptPRNotifications(node: TreeNode | void) {
+	private adaptPRNotifications(node: TreeNode | TreeNode[] | void) {
 		if (this._pollingHandler === undefined) {
 			this.startPolling();
 		}
 
-		if (node instanceof PRNode) {
-			const prNotifications = this._notifications.get(this.getPrIdentifier(node.pullRequestModel));
+		const updateWithPRModel = (prModel: PullRequestModel) => {
+			const prNotifications = this._notifications.get(this.getPrIdentifier(prModel));
 			if (prNotifications) {
 				for (const prNotification of prNotifications) {
 					if (prNotification) {
-						prNotification.pullRequestModel = node.pullRequestModel;
+						prNotification.pullRequestModel = prModel;
 						return;
 					}
+				}
+			}
+		};
+
+		if (node instanceof PRNode) {
+			updateWithPRModel(node.pullRequestModel);
+		} else if (Array.isArray(node)) {
+			for (const n of node) {
+				if (n instanceof PRNode) {
+					updateWithPRModel(n.pullRequestModel);
 				}
 			}
 		}

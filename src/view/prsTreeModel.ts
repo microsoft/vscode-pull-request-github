@@ -10,6 +10,7 @@ import { ITelemetry } from '../common/telemetry';
 import { createPRNodeIdentifier } from '../common/uri';
 import { FolderRepositoryManager, ItemsResponseResult } from '../github/folderRepositoryManager';
 import { CheckState, PRType, PullRequestChecks, PullRequestReviewRequirement } from '../github/interface';
+import { IssueModel } from '../github/issueModel';
 import { PullRequestModel } from '../github/pullRequestModel';
 import { RepositoriesManager } from '../github/repositoriesManager';
 import { UnsatisfiedChecks } from '../github/utils';
@@ -27,7 +28,7 @@ export class PrsTreeModel extends Disposable {
 	private _activePRDisposables: Map<FolderRepositoryManager, vscode.Disposable[]> = new Map();
 	private readonly _onDidChangePrStatus: vscode.EventEmitter<string[]> = this._register(new vscode.EventEmitter<string[]>());
 	public readonly onDidChangePrStatus = this._onDidChangePrStatus.event;
-	private readonly _onDidChangeData: vscode.EventEmitter<FolderRepositoryManager | void> = this._register(new vscode.EventEmitter<FolderRepositoryManager | void>());
+	private readonly _onDidChangeData: vscode.EventEmitter<IssueModel[] | FolderRepositoryManager | void> = this._register(new vscode.EventEmitter<IssueModel[] | FolderRepositoryManager | void>());
 	public readonly onDidChangeData = this._onDidChangeData.event;
 	private _expandedQueries: Set<string> | undefined;
 	private _hasLoaded: boolean = false;
@@ -49,8 +50,16 @@ export class PrsTreeModel extends Disposable {
 				this._repoEvents.set(manager, []);
 			}
 
-			this._repoEvents.get(manager)!.push(manager.onDidChangeActivePullRequest(() => {
-				this.clearRepo(manager);
+			this._repoEvents.get(manager)!.push(manager.onDidChangeActivePullRequest(e => {
+				const prs: IssueModel[] = [];
+				if (e.old) {
+					prs.push(e.old);
+				}
+				if (e.new) {
+					prs.push(e.new);
+				}
+				this._onDidChangeData.fire(prs);
+
 				if (this._activePRDisposables.has(manager)) {
 					disposeAll(this._activePRDisposables.get(manager)!);
 					this._activePRDisposables.delete(manager);
@@ -58,12 +67,14 @@ export class PrsTreeModel extends Disposable {
 				if (manager.activePullRequest) {
 					this._activePRDisposables.set(manager, [
 						manager.activePullRequest.onDidChangeComments(() => {
-							this.clearRepo(manager);
+							if (manager.activePullRequest) {
+								this._onDidChangeData.fire([manager.activePullRequest]);
+							}
 						})]);
 				}
 			}));
-			this._repoEvents.get(manager)!.push(manager.onDidChangeAnyPullRequests(() => {
-				this._onDidChangeData.fire(manager);
+			this._repoEvents.get(manager)!.push(manager.onDidChangeAnyPullRequests(e => {
+				this._onDidChangeData.fire(e);
 			}));
 		};
 		this._register({ dispose: () => this._repoEvents.forEach((disposables) => disposeAll(disposables)) });

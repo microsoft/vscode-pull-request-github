@@ -96,8 +96,8 @@ export class RepositoryChangesNode extends TreeNode implements vscode.TreeItem {
 				this.pullRequestModel,
 			);
 		}
-		this.children = [this._filesCategoryNode, this._commitsCategoryNode];
-		return this.children;
+		this._children = [this._filesCategoryNode, this._commitsCategoryNode];
+		return this._children;
 	}
 
 	private setLabel() {

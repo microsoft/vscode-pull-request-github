@@ -69,7 +69,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 		dirNode.finalize();
 		if (dirNode.label === '') {
 			// nothing on the root changed, pull children to parent
-			this.directories = dirNode.children;
+			this.directories = dirNode._children;
 		} else {
 			this.directories = [dirNode];
 		}
@@ -82,7 +82,7 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 			nodes = fileNodes;
 		}
 		Logger.appendLine(`Got all children for Files node`, PR_TREE);
-		this.children = nodes;
+		this._children = nodes;
 		return nodes;
 	}
 }

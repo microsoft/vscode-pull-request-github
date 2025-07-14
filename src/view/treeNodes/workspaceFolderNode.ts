@@ -22,7 +22,7 @@ export interface IQueryInfo {
 }
 
 export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
-	protected override children: CategoryTreeNode[] | undefined = undefined;
+	protected override _children: CategoryTreeNode[] | undefined = undefined;
 	public collapsibleState: vscode.TreeItemCollapsibleState;
 	public iconPath?: { light: string | vscode.Uri; dark: string | vscode.Uri };
 
@@ -43,8 +43,8 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	public async expandPullRequest(pullRequest: PullRequestModel): Promise<boolean> {
-		if (this.children) {
-			for (const child of this.children) {
+		if (this._children) {
+			for (const child of this._children) {
 				if (child.type === PRType.All) {
 					return child.expandPullRequest(pullRequest);
 				}
@@ -65,11 +65,11 @@ export class WorkspaceFolderNode extends TreeNode implements vscode.TreeItem {
 
 	override async getChildren(shouldDispose: boolean = true): Promise<TreeNode[]> {
 		super.getChildren(shouldDispose);
-		if (!shouldDispose && this.children) {
-			return this.children;
+		if (!shouldDispose && this._children) {
+			return this._children;
 		}
-		this.children = await WorkspaceFolderNode.getCategoryTreeNodes(this.folderManager, this.telemetry, this, this.notificationProvider, this.context, this._prsTreeModel, this._copilotMananger);
-		return this.children;
+		this._children = await WorkspaceFolderNode.getCategoryTreeNodes(this.folderManager, this.telemetry, this, this.notificationProvider, this.context, this._prsTreeModel, this._copilotMananger);
+		return this._children;
 	}
 
 	public static async getCategoryTreeNodes(
