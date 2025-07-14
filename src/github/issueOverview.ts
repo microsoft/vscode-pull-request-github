@@ -369,15 +369,11 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			return;
 		}
 
-		// Get current timeline to compare against for new events
 		const initialTimeline = await this._getTimeline();
-
-		// Exponential backoff delays: 500ms, 1s, 2s, 4s
-		const delays = [500, 1000, 2000, 4000];
+		const delays = [250, 500, 1000, 2000];
 
 		for (const delay of delays) {
 			await new Promise(resolve => setTimeout(resolve, delay));
-
 			if (this._isDisposed) {
 				return;
 			}
