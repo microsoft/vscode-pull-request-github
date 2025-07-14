@@ -350,7 +350,17 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		return this._replyMessage(message, reply);
 	}
 
+	private _scheduledRefresh: Promise<void> | undefined;
 	protected async tryScheduleCopilotRefresh(commentBody: string, reviewType?: ReviewStateValue) {
+		if (!this._scheduledRefresh) {
+			this._scheduledRefresh = this.doScheduleCopilotRefresh(commentBody, reviewType)
+				.finally(() => {
+					this._scheduledRefresh = undefined;
+				});
+		}
+	}
+
+	private async doScheduleCopilotRefresh(commentBody: string, reviewType?: ReviewStateValue) {
 		if (!COPILOT_ACCOUNTS[this._item.author.login]) {
 			return;
 		}
@@ -361,31 +371,29 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 		// Get current timeline to compare against for new events
 		const initialTimeline = await this._getTimeline();
-		const initialCopilotStartedEvents = initialTimeline.filter(event => event.event === EventType.CopilotStarted);
 
-		// Exponential backoff delays: 500ms, 1s, 2s, 5s
-		const delays = [500, 1000, 2000, 5000];
-		
+		// Exponential backoff delays: 500ms, 1s, 2s, 4s
+		const delays = [500, 1000, 2000, 4000];
+
 		for (const delay of delays) {
 			await new Promise(resolve => setTimeout(resolve, delay));
-			
+
 			if (this._isDisposed) {
 				return;
 			}
 
 			try {
 				const currentTimeline = await this._getTimeline();
-				const currentCopilotStartedEvents = currentTimeline.filter(event => event.event === EventType.CopilotStarted);
-				
+
 				// Check if we have any new CopilotStarted events
-				if (currentCopilotStartedEvents.length > initialCopilotStartedEvents.length) {
+				if (currentTimeline.length > initialTimeline.length) {
 					// Found a new CopilotStarted event, refresh and stop
 					this.refreshPanel();
 					return;
 				}
 			} catch (error) {
 				// If timeline fetch fails, continue with the next retry
-				Logger.warn(`Failed to fetch timeline during Copilot refresh retry: ${error}`, this.constructor.name);
+				Logger.warn(`Failed to fetch timeline during Copilot refresh retry: ${error}`, IssueOverviewPanel.ID);
 			}
 		}
 
