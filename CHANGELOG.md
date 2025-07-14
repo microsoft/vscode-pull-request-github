@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.114.1
+
+- Element with id Local Pull Request Branches is already registered. https://github.com/microsoft/vscode-pull-request-github/issues/7264
+
 ## 0.114.0
 
 ### Changes
