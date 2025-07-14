@@ -14,5 +14,8 @@
 - **Commands**: Register new commands in `package.json` and implement them in `src/commands.ts` or a relevant module.
 - **Logging**: Use the `Logger` utility for all logging purposes. Don't use console.log or similar methods directly.
 
+## Pull Request Guidelines
+- Never touch the yarn.lock file.
+
 ---
 _Last updated: 2025-06-20_
