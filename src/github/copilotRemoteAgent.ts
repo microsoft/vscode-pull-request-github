@@ -49,6 +49,8 @@ const COMMIT_YOUR_CHANGES = vscode.l10n.t('Commit your changes to continue codin
 const FOLLOW_UP_REGEX = /open-pull-request-webview.*((%7B.*?%7D)|(\{.*?\}))/;
 const COPILOT = '@copilot';
 
+const body_suffix = vscode.l10n.t('Created from VS Code via the [GitHub Pull Request](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github) extension.');
+
 export class CopilotRemoteAgentManager extends Disposable {
 	public static ID = 'CopilotRemoteAgentManager';
 
@@ -561,6 +563,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				title,
 				body_placeholder: problemContext,
 				base_ref,
+				body_suffix,
 				...(hasChanges && { head_ref: ref })
 			}
 		};
