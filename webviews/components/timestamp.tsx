@@ -21,22 +21,31 @@ export const Timestamp = ({ date, href }: { date: Date | string; href?: string }
 			const timestamp = typeof date === 'string' ? new Date(date).getTime() : date.getTime();
 			const ageInMinutes = (now - timestamp) / (1000 * 60);
 			
-			// For very recent timestamps (< 1 hour), update every minute
-			if (ageInMinutes < 60) {
-				return 60000; // 1 minute
+			// For very recent timestamps (< 1 minute), update every 20 seconds
+			if (ageInMinutes < 1) {
+				return 20000; // 20 seconds
 			}
-			// For timestamps < 1 day old, update every 5 minutes
-			else if (ageInMinutes < 60 * 24) {
-				return 5 * 60000; // 5 minutes
+			// For timestamps < 1 hour old, update every 2 minutes
+			else if (ageInMinutes < 60) {
+				return 2 * 60000; // 2 minutes
 			}
-			// For older timestamps, update less frequently or not at all
-			// since they likely show absolute dates
+			// For older timestamps (> 1 day), don't update at all
+			else if (ageInMinutes >= 60 * 24) {
+				return null; // Don't update
+			}
+			// For timestamps between 1 hour and 1 day, update every 2 minutes
 			else {
-				return 15 * 60000; // 15 minutes
+				return 2 * 60000; // 2 minutes
 			}
 		};
 
 		const intervalDuration = getUpdateInterval();
+		
+		// If intervalDuration is null, don't set up any updates for very old timestamps
+		if (intervalDuration === null) {
+			return;
+		}
+		
 		let intervalId: number;
 
 		const updateTimeString = () => {
