@@ -16,6 +16,7 @@ import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { CredentialStore } from '../github/credentials';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
 import { PRType } from '../github/interface';
+import { IssueModel } from '../github/issueModel';
 import { issueMarkdown } from '../github/markdownUtils';
 import { NotificationProvider } from '../github/notifications';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -33,7 +34,7 @@ import { TreeUtils } from './treeNodes/treeUtils';
 import { WorkspaceFolderNode } from './treeNodes/workspaceFolderNode';
 
 export class PullRequestsTreeDataProvider extends Disposable implements vscode.TreeDataProvider<TreeNode>, BaseTreeNode {
-	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode | void>();
+	private _onDidChangeTreeData = new vscode.EventEmitter<TreeNode[] | TreeNode | void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
 	get onDidChange(): vscode.Event<vscode.Uri> {
@@ -56,7 +57,15 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 	constructor(private readonly _telemetry: ITelemetry, private readonly _context: vscode.ExtensionContext, private readonly _reposManager: RepositoriesManager, private readonly _copilotManager: CopilotRemoteAgentManager) {
 		super();
 		this.prsTreeModel = this._register(new PrsTreeModel(this._telemetry, this._reposManager, _context));
-		this._register(this.prsTreeModel.onDidChangeData(folderManager => folderManager ? this.refreshRepo(folderManager) : this.refresh()));
+		this._register(this.prsTreeModel.onDidChangeData(e => {
+			if (e instanceof FolderRepositoryManager) {
+				this.refreshRepo(e);
+			} else if (Array.isArray(e) && e[0] instanceof IssueModel) {
+				this.refreshPullRequests(e);
+			} else {
+				this.refresh();
+			}
+		}));
 		this._register(new PRStatusDecorationProvider(this.prsTreeModel, this._copilotManager));
 		this._register(vscode.commands.registerCommand('pr.refreshList', _ => {
 			this.refresh(undefined, true);
@@ -98,7 +107,6 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 					tooltip: this._copilotManager.notificationsCount === 1 ? vscode.l10n.t('Coding agent has 1 pull request to view') : vscode.l10n.t('Coding agent has {0} pull requests to view', this._copilotManager.notificationsCount),
 					value: this._copilotManager.notificationsCount
 				};
-				this.refresh();
 			} else {
 				this._view.badge = undefined;
 			}
@@ -308,6 +316,39 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 				this._onDidChangeTreeData.fire(node);
 				return;
 			}
+		}
+	}
+
+	private refreshPullRequests(pullRequests: IssueModel[]): void {
+		if (!this._children?.length || !pullRequests?.length) {
+			return;
+		}
+		const toRefresh: TreeNode[] = [];
+		// Yes, multiple PRs can exist in different repos with the same number, but at worst we'll refresh all the duplicate numbers, which shouldn't be many.
+		const prNumbers = new Set(pullRequests.map(pr => pr.number));
+		const collectPRNodes = (node: TreeNode) => {
+			const prNodes = node.children ?? [];
+			for (const prNode of prNodes) {
+				if (prNode instanceof PRNode && prNumbers.has(prNode.pullRequestModel.number)) {
+					toRefresh.push(prNode);
+				}
+			}
+		};
+
+		for (const child of this._children) {
+			if (child instanceof WorkspaceFolderNode) {
+				const categories = child.children ?? [];
+				for (const category of categories) {
+					if (category instanceof CategoryTreeNode) {
+						collectPRNodes(category);
+					}
+				}
+			} else if (child instanceof CategoryTreeNode) {
+				collectPRNodes(child);
+			}
+		}
+		if (toRefresh.length) {
+			this._onDidChangeTreeData.fire(toRefresh);
 		}
 	}
 

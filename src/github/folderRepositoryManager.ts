@@ -197,8 +197,8 @@ export class FolderRepositoryManager extends Disposable {
 	private _onDidMergePullRequest = this._register(new vscode.EventEmitter<void>());
 	readonly onDidMergePullRequest = this._onDidMergePullRequest.event;
 
-	private _onDidChangeActivePullRequest = this._register(new vscode.EventEmitter<{ new: number | undefined, old: number | undefined }>());
-	readonly onDidChangeActivePullRequest: vscode.Event<{ new: number | undefined, old: number | undefined }> = this._onDidChangeActivePullRequest.event;
+	private _onDidChangeActivePullRequest = this._register(new vscode.EventEmitter<{ new: PullRequestModel | undefined, old: PullRequestModel | undefined }>());
+	readonly onDidChangeActivePullRequest: vscode.Event<{ new: PullRequestModel | undefined, old: PullRequestModel | undefined }> = this._onDidChangeActivePullRequest.event;
 	private _onDidChangeActiveIssue = this._register(new vscode.EventEmitter<void>());
 	readonly onDidChangeActiveIssue: vscode.Event<void> = this._onDidChangeActiveIssue.event;
 
@@ -215,8 +215,8 @@ export class FolderRepositoryManager extends Disposable {
 	readonly onDidChangeGithubRepositories: vscode.Event<GitHubRepository[]> = this._onDidChangeGithubRepositories.event;
 
 	private _onDidChangePullRequestsEvents: vscode.Disposable[] = [];
-	private readonly _onDidChangeAnyPullRequests = this._register(new vscode.EventEmitter<void>());
-	readonly onDidChangeAnyPullRequests: vscode.Event<void> = this._onDidChangeAnyPullRequests.event;
+	private readonly _onDidChangeAnyPullRequests = this._register(new vscode.EventEmitter<IssueModel[]>());
+	readonly onDidChangeAnyPullRequests: vscode.Event<IssueModel[]> = this._onDidChangeAnyPullRequests.event;
 
 	private _onDidDispose = this._register(new vscode.EventEmitter<void>());
 	readonly onDidDispose: vscode.Event<void> = this._onDidDispose.event;
@@ -361,7 +361,7 @@ export class FolderRepositoryManager extends Disposable {
 		if (pullRequest === this._activePullRequest) {
 			return;
 		}
-		const oldNumber = this._activePullRequest?.number;
+		const oldPR = this._activePullRequest;
 		if (this._activePullRequest) {
 			this._activePullRequest.isActive = false;
 		}
@@ -370,10 +370,9 @@ export class FolderRepositoryManager extends Disposable {
 			pullRequest.isActive = true;
 			pullRequest.githubRepository.commentsHandler?.unregisterCommentController(pullRequest.number);
 		}
-		const newNumber = pullRequest?.number;
 
 		this._activePullRequest = pullRequest;
-		this._onDidChangeActivePullRequest.fire({ old: oldNumber, new: newNumber });
+		this._onDidChangeActivePullRequest.fire({ old: oldPR, new: pullRequest });
 	}
 
 	get repository(): Repository {
@@ -534,7 +533,7 @@ export class FolderRepositoryManager extends Disposable {
 			disposeAll(this._onDidChangePullRequestsEvents);
 			this._githubRepositories = repositories;
 			for (const repo of this._githubRepositories) {
-				this._onDidChangePullRequestsEvents.push(repo.onDidChangePullRequests(() => this._onDidChangeAnyPullRequests.fire()));
+				this._onDidChangePullRequestsEvents.push(repo.onDidChangePullRequests(e => this._onDidChangeAnyPullRequests.fire(e)));
 			}
 			oldRepositories.filter(old => this._githubRepositories.indexOf(old) < 0).forEach(repo => repo.dispose());
 

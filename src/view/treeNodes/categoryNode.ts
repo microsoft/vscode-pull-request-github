@@ -198,12 +198,12 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 	}
 
 	public async expandPullRequest(pullRequest: PullRequestModel, retry: boolean = true): Promise<boolean> {
-		if (!this.children && retry) {
+		if (!this._children && retry) {
 			await this.getChildren();
 			retry = false;
 		}
-		if (this.children) {
-			for (const child of this.children) {
+		if (this._children) {
+			for (const child of this._children) {
 				if (child instanceof PRNode) {
 					if (child.pullRequestModel.equals(pullRequest)) {
 						this.reveal(child, { expand: true, select: true });
@@ -222,8 +222,8 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 
 	override async getChildren(shouldDispose: boolean = true): Promise<TreeNode[]> {
 		await super.getChildren(shouldDispose);
-		if (!shouldDispose && this.children) {
-			return this.children;
+		if (!shouldDispose && this._children) {
+			return this._children;
 		}
 		const isFirstLoad = !this._firstLoad;
 		if (isFirstLoad) {
@@ -293,13 +293,13 @@ export class CategoryTreeNode extends TreeNode implements vscode.TreeItem {
 				nodes.push(new PRCategoryActionNode(this, PRCategoryActionType.TryOtherRemotes, this));
 			}
 
-			this.children = nodes;
+			this._children = nodes;
 			return nodes;
 		} else {
 			const category = needLogin ? PRCategoryActionType.Login : PRCategoryActionType.Empty;
 			const result = [new PRCategoryActionNode(this, category)];
 
-			this.children = result;
+			this._children = result;
 			return result;
 		}
 	}
