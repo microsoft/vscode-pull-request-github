@@ -110,6 +110,9 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			} else {
 				this._view.badge = undefined;
 			}
+
+			// also need to refresh the Copilot query category to update the status
+			this.refresh(undefined);
 		}));
 
 		this._register(this._copilotManager.onDidCreatePullRequest(() => this.refresh(undefined, true)));

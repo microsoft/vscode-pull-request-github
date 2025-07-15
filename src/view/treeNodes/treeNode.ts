@@ -22,6 +22,7 @@ export abstract class TreeNode extends Disposable {
 	label?: string;
 	accessibilityInformation?: vscode.AccessibilityInformation;
 	id?: string;
+	description?: string | boolean;
 
 	constructor(public parent: TreeNodeParent) {
 		super();
