@@ -21,6 +21,11 @@ export function Root({ children }) {
 		ctx.onchange = setPR;
 		setPR(ctx.pr);
 	}, []);
+
+	// Removed keyboard handling for Cmd+R refresh to avoid conflicts with VSCode keybindings
+	// The refresh functionality is now handled exclusively through the VSCode keybinding:
+	// "pr.refreshDescription" command with "when": "github:pullRequestDescriptionVisible"
+
 	window.onscroll = debounce(() => {
 		ctx.postMessage({
 			command: 'scroll',
