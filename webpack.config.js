@@ -188,7 +188,8 @@ async function getExtensionConfig(target, mode, env) {
 			typescript: {
 				configFile: path.join(__dirname, target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json'),
 			},
-		})
+		}),
+		new webpack.ContextReplacementPlugin(/mocha/, /^$/)
 	];
 
 	if (target === 'webworker') {
