@@ -668,7 +668,11 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return this._stateModel.notifications.has(key);
 	}
 
-	public getStateForPR(owner: string, repo: string, prNumber: number): CopilotPRStatus {
+	getStateForPR(owner: string, repo: string, prNumber: number): CopilotPRStatus {
 		return this._stateModel.get(owner, repo, prNumber);
+	}
+
+	getCounts(): { total: number; inProgress: number; error: number } {
+		return this._stateModel.getCounts();
 	}
 }

@@ -46,18 +46,26 @@ export class CopilotStateModel extends Disposable {
 		}
 	}
 
-	set(pullRequestModel: PullRequestModel, status: CopilotPRStatus): void {
-		const key = this.makeKey(pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName, pullRequestModel.number);
-		const currentStatus = this._states.get(key);
-		if (currentStatus?.status === status) {
-			return;
+	set(statuses: { pullRequestModel: PullRequestModel, status: CopilotPRStatus }[]): void {
+		const changedModels: PullRequestModel[] = [];
+		const changedKeys: string[] = [];
+		for (const { pullRequestModel, status } of statuses) {
+			const key = this.makeKey(pullRequestModel.remote.owner, pullRequestModel.remote.repositoryName, pullRequestModel.number);
+			const currentStatus = this._states.get(key);
+			if (currentStatus?.status === status) {
+				continue;
+			}
+			this._states.set(key, { item: pullRequestModel, status });
+			changedModels.push(pullRequestModel);
+			changedKeys.push(key);
 		}
-		this._states.set(key, { item: pullRequestModel, status });
 		if (this._isInitialized) {
-			this._showNotification.add(key);
-			this._onDidChangeNotifications.fire(pullRequestModel ? [pullRequestModel] : []);
+			changedKeys.forEach(key => this._showNotification.add(key));
+			this._onDidChangeNotifications.fire(changedModels);
 		}
-		this._onDidChangeStates.fire();
+		if (changedModels.length > 0) {
+			this._onDidChangeStates.fire();
+		}
 	}
 
 	get(owner: string, repo: string, prNumber: number): CopilotPRStatus {
@@ -86,13 +94,42 @@ export class CopilotStateModel extends Disposable {
 	get isInitialized(): boolean {
 		return this._isInitialized;
 	}
+
+	getCounts(): { total: number; inProgress: number; error: number } {
+		let inProgressCount = 0;
+		let errorCount = 0;
+
+		for (const state of this._states.values()) {
+			if (state.status === CopilotPRStatus.Started) {
+				inProgressCount++;
+			} else if (state.status === CopilotPRStatus.Failed) {
+				errorCount++;
+			}
+		}
+
+		return {
+			total: this._states.size,
+			inProgress: inProgressCount,
+			error: errorCount
+		};
+	}
 }
 
 export class CopilotPRWatcher extends Disposable {
 
 	constructor(private readonly _reposManager: RepositoriesManager, private readonly _model: CopilotStateModel) {
 		super();
+		if (this._reposManager.folderManagers.length === 0) {
+			const initDisposable = this._reposManager.onDidChangeAnyGitHubRepository(() => {
+				initDisposable.dispose();
+				this._initialize();
+			});
+		} else {
+			this._initialize();
+		}
+	}
 
+	private _initialize() {
 		this._getStateChanges();
 		this._pollForChanges();
 		this._register(this._reposManager.onDidChangeAnyPullRequests(() => this._getStateChanges()));
@@ -138,6 +175,7 @@ export class CopilotPRWatcher extends Disposable {
 		const unseenKeys: Set<string> = new Set(this._model.keys());
 		let initialized = 0;
 
+		const changes: { pullRequestModel: PullRequestModel, status: CopilotPRStatus }[] = [];
 		for (const folderManager of this._reposManager.folderManagers) {
 			// It doesn't matter which repo we use since the query will specify the owner/repo.
 			const githubRepository = folderManager.gitHubRepositories[0];
@@ -161,7 +199,7 @@ export class CopilotPRWatcher extends Disposable {
 						prNumber: pr.number,
 						status: latestEvent
 					});
-					this._model.set(pr, latestEvent);
+					changes.push({ pullRequestModel: pr, status: latestEvent });
 				}
 			}
 
@@ -169,6 +207,7 @@ export class CopilotPRWatcher extends Disposable {
 				this._model.deleteKey(key);
 			}
 		}
+		this._model.set(changes);
 		if (!this._model.isInitialized) {
 			if ((initialized === this._reposManager.folderManagers.length) && (this._reposManager.folderManagers.length > 0)) {
 				this._model.setInitialized();
