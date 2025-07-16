@@ -356,7 +356,7 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 			if (e.graphQLErrors?.length && e.graphQLErrors[0].type === 'NOT_FOUND') {
 				vscode.window.showWarningMessage('The comment that you\'re replying to was deleted. Refresh to update.', 'Refresh').then(result => {
 					if (result === 'Refresh') {
-						this.pullRequestModel.invalidate();
+						this.pullRequestModel.githubRepository.getPullRequest(this.pullRequestModel.number);
 					}
 				});
 			} else {

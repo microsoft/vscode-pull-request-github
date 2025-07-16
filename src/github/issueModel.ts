@@ -34,6 +34,9 @@ export interface IssueChangeEvent {
 	projects?: true;
 
 	timeline?: true;
+
+	draft?: true;
+	reviewers?: true;
 }
 
 export class IssueModel<TItem extends Issue = Issue> extends Disposable {
@@ -58,9 +61,6 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 
 	private _timelineEvents: readonly TimelineEvent[] | undefined;
 
-	private _onDidInvalidate = this._register(new vscode.EventEmitter<void>());
-	public onDidInvalidate = this._onDidInvalidate.event;
-
 	protected _onDidChange = this._register(new vscode.EventEmitter<IssueChangeEvent>());
 	public onDidChange = this._onDidChange.event;
 
@@ -84,11 +84,6 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 			this._timelineEvents = timelineEvents;
 			this._onDidChange.fire({ timeline: true });
 		}
-	}
-
-	public invalidate() {
-		// Something about the PR data is stale
-		this._onDidInvalidate.fire();
 	}
 
 	public get isOpen(): boolean {
@@ -242,7 +237,6 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 					this.title = data.updateIssue.issue.title;
 					this.titleHTML = data.updateIssue.issue.titleHTML;
 				}
-				this.invalidate();
 				this._onDidChange.fire(changes);
 			}
 			return data!.updateIssue.issue;
