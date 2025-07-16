@@ -9,6 +9,8 @@ import { ITelemetry } from '../../common/telemetry';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 
+const CODING_AGENT_DOCS_URL = 'https://docs.github.com/copilot/using-github-copilot/coding-agent';
+
 export interface CopilotRemoteAgentToolParameters {
 	// The LLM is inconsistent in providing repo information.
 	// For now, we only support the active repository in the current workspace.
@@ -32,7 +34,7 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 		// Check if the coding agent is available (enabled and assignable)
 		const isAvailable = await this.manager.isAvailable();
 		if (!isAvailable) {
-			throw new Error(vscode.l10n.t('Copilot coding agent is not available for this repository. Make sure the agent is enabled and assignable to this repository.'));
+			throw new Error(vscode.l10n.t('Copilot coding agent is not available for this repository. Make sure the agent is enabled and assignable to this repository. [Learn more about coding agent]({0}).', CODING_AGENT_DOCS_URL));
 		}
 
 		const targetRepo = await this.manager.repoInfo();
