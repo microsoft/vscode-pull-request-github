@@ -111,11 +111,6 @@ export type FileViewedState = { [key: string]: ViewedState };
 
 const BATCH_SIZE = 100;
 
-interface PullRequestChangeEvent extends IssueChangeEvent {
-	draft?: true;
-	reviewers?: true;
-}
-
 export class PullRequestModel extends IssueModel<PullRequest> implements IPullRequestModel {
 	static override ID = 'PullRequestModel';
 
@@ -150,8 +145,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 	private _comments: readonly IComment[] | undefined;
 	private _onDidChangeComments: vscode.EventEmitter<void> = this._register(new vscode.EventEmitter<void>());
 	public readonly onDidChangeComments: vscode.Event<void> = this._onDidChangeComments.event;
-
-	protected override _onDidChange = this._register(new vscode.EventEmitter<PullRequestChangeEvent>());
 
 	// Whether the pull request is currently checked out locally
 	private _isActive: boolean;
@@ -252,8 +245,8 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return newState;
 	}
 
-	protected override doUpdate(item: PullRequest): PullRequestChangeEvent {
-		const changes = super.doUpdate(item) as PullRequestChangeEvent;
+	protected override doUpdate(item: PullRequest): IssueChangeEvent {
+		const changes = super.doUpdate(item) as IssueChangeEvent;
 		if (this.isDraft !== item.isDraft) {
 			changes.draft = true;
 			this.isDraft = item.isDraft;

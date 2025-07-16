@@ -960,7 +960,6 @@ export class GitHubRepository extends Disposable {
 		} else {
 			model = new PullRequestModel(this._credentialStore, this._telemetry, this, this.remote, pullRequest);
 			const prModel = model;
-			model.onDidInvalidate(() => this.getPullRequest(pullRequest.number));
 			const disposables: vscode.Disposable[] = [];
 			disposables.push(model.onDidChange(() => this._onPullRequestModelChanged(prModel)));
 			this._pullRequestModelsByNumber.set(pullRequest.number, { model, disposables });

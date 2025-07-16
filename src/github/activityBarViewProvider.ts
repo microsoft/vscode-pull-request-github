@@ -188,7 +188,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			disposeAll(this._prDisposables);
 		}
 		this._prDisposables = [];
-		this._prDisposables.push(pullRequestModel.onDidInvalidate(() => this.updatePullRequest(pullRequestModel)));
+		this._prDisposables.push(pullRequestModel.onDidChange(() => this.updatePullRequest(pullRequestModel)));
 		this._prDisposables.push(pullRequestModel.onDidChangePendingReviewState(() => this.updatePullRequest(pullRequestModel)));
 	}
 
