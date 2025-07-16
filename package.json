@@ -3966,7 +3966,7 @@
 		"@typescript-eslint/eslint-plugin": "6.10.0",
 		"@typescript-eslint/parser": "6.10.0",
 		"@vscode/test-electron": "^2.3.8",
-		"@vscode/test-web": "^0.0.29",
+		"@vscode/test-web": "^0.0.71",
 		"assert": "^2.0.0",
 		"buffer": "^6.0.3",
 		"constants-browserify": "^1.0.0",
