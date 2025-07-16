@@ -5,10 +5,11 @@
 
 import * as buffer from 'buffer';
 import { ApolloQueryResult, DocumentNode, FetchResult, MutationOptions, NetworkStatus, QueryOptions } from 'apollo-boost';
+import LRUCache from 'lru-cache';
 import * as vscode from 'vscode';
 import { AuthenticationError, AuthProvider, GitHubServerType, isSamlError } from '../common/authentication';
 import { COPILOT_ACCOUNTS, IComment, IReviewThread } from '../common/comment';
-import { Disposable } from '../common/lifecycle';
+import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { GitHubRemote, parseRemote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
@@ -43,6 +44,7 @@ import {
 	RevertPullRequestResponse,
 	SuggestedActorsResponse,
 	TimelineEventsResponse,
+	UserResponse,
 	ViewerPermissionResponse,
 } from './graphql';
 import {
@@ -57,6 +59,7 @@ import {
 	PullRequestChecks,
 	PullRequestReviewRequirement,
 	RepoAccessAndMergeMethods,
+	User,
 } from './interface';
 import { IssueModel } from './issueModel';
 import { LoggingOctokit } from './loggingOctokit';
@@ -76,6 +79,7 @@ import {
 	parseCombinedTimelineEvents,
 	parseGraphQLIssue,
 	parseGraphQLPullRequest,
+	parseGraphQLUser,
 	parseGraphQLViewerPermission,
 	parseMergeMethod,
 	parseMilestone,
@@ -162,7 +166,13 @@ export class GitHubRepository extends Disposable {
 	protected _metadata: Promise<IMetadata> | undefined;
 	public commentsController?: vscode.CommentController;
 	public commentsHandler?: PRCommentControllerRegistry;
-	private _pullRequestModels = new Map<number, PullRequestModel>();
+	private _pullRequestModelsByNumber: LRUCache<number, { model: PullRequestModel, disposables: vscode.Disposable[] }> = new LRUCache({
+		maxAge: 1000 * 60 * 60 * 4 /* 4 hours */, stale: true, updateAgeOnGet: true,
+		dispose: (_key, value) => {
+			disposeAll(value.disposables);
+			value.model.dispose();
+		}
+	});
 	private _queriesSchema: any;
 	private _areQueriesLimited: boolean = false;
 
@@ -186,8 +196,12 @@ export class GitHubRepository extends Disposable {
 		return this.remote.equals(repo.remote);
 	}
 
-	get pullRequestModels(): Map<number, PullRequestModel> {
-		return this._pullRequestModels;
+	getExistingPullRequestModel(prNumber: number): PullRequestModel | undefined {
+		return this._pullRequestModelsByNumber.get(prNumber)?.model;
+	}
+
+	get pullRequestModels(): PullRequestModel[] {
+		return Array.from(this._pullRequestModelsByNumber.values().map(value => value.model));
 	}
 
 	public async ensureCommentsController(): Promise<void> {
@@ -940,17 +954,24 @@ export class GitHubRepository extends Disposable {
 	}
 
 	createOrUpdatePullRequestModel(pullRequest: PullRequest): PullRequestModel {
-		let model = this._pullRequestModels.get(pullRequest.number);
+		let model = this._pullRequestModelsByNumber.get(pullRequest.number)?.model;
 		if (model) {
 			model.update(pullRequest);
 		} else {
 			model = new PullRequestModel(this._credentialStore, this._telemetry, this, this.remote, pullRequest);
+			const prModel = model;
 			model.onDidInvalidate(() => this.getPullRequest(pullRequest.number));
-			this._pullRequestModels.set(pullRequest.number, model);
+			const disposables: vscode.Disposable[] = [];
+			disposables.push(model.onDidChange(() => this._onPullRequestModelChanged(prModel)));
+			this._pullRequestModelsByNumber.set(pullRequest.number, { model, disposables });
 			this._onDidAddPullRequest.fire(model);
 		}
 
 		return model;
+	}
+
+	private _onPullRequestModelChanged(model: PullRequestModel): void {
+		this._onDidChangePullRequests.fire([model]);
 	}
 
 	async createPullRequest(params: OctokitCommon.PullsCreateParams): Promise<PullRequestModel> {
@@ -1231,6 +1252,27 @@ export class GitHubRepository extends Disposable {
 		} while (hasNextPage);
 
 		return ret;
+	}
+
+	async resolveUser(login: string): Promise<User | undefined> {
+		Logger.debug(`Fetch user ${login}`, this.id);
+		const { query, schema } = await this.ensure();
+
+		try {
+			const { data } = await query<UserResponse>({
+				query: schema.GetUser,
+				variables: {
+					login,
+				},
+			});
+			return parseGraphQLUser(data, this);
+		} catch (e) {
+			// Ignore cases where the user doesn't exist
+			if (!(e.message as (string | undefined))?.startsWith('GraphQL error: Could not resolve to a User with the login of')) {
+				Logger.warn(e.message);
+			}
+		}
+		return undefined;
 	}
 
 	async getAssignableUsers(): Promise<IAccount[]> {
@@ -1554,9 +1596,9 @@ export class GitHubRepository extends Disposable {
 					return [event.source.url, event];
 				}));
 
-			for (const model of this._pullRequestModels.values()) {
-				if (crossRefs.has(model.html_url)) {
-					crossRefs.delete(model.html_url);
+			for (const pr of this._pullRequestModelsByNumber.values()) {
+				if (crossRefs.has(pr.model.html_url)) {
+					crossRefs.delete(pr.model.html_url);
 				}
 			}
 			const oldEvents = issueModel.timelineEvents;

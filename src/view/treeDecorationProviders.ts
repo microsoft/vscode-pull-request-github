@@ -63,7 +63,7 @@ export class TreeDecorationProviders extends Disposable {
 			this._pullRequestListeners.push(gitHubRepo.onDidAddPullRequest(model => {
 				this._pullRequestPropertyChangeListeners.push(...this._registerPullRequestPropertyListeners(folderManager, model));
 			}));
-			const models = Array.from(gitHubRepo.pullRequestModels.values());
+			const models = gitHubRepo.pullRequestModels;
 			const listeners = models.map(model => {
 				return this._registerPullRequestPropertyListeners(folderManager, model);
 			}).flat();

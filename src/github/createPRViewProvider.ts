@@ -278,8 +278,10 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			return;
 		}
 		try {
-			// TODO: We need to resolve the user and then use the replace function.
-			await pr.addAssignees([resolved]);
+			const user = await pr.githubRepository.resolveUser(resolved);
+			if (user) {
+				await pr.replaceAssignees([user]);
+			}
 		} catch (e) {
 			Logger.error(`Unable to assign pull request to user ${resolved}.`, BaseCreatePullRequestViewProvider.ID);
 		}

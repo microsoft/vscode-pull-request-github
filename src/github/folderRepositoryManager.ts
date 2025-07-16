@@ -43,7 +43,7 @@ import { ConflictResolutionCoordinator } from './conflictResolutionCoordinator';
 import { Conflict, ConflictResolutionModel } from './conflictResolutionModel';
 import { CredentialStore } from './credentials';
 import { CopilotWorkingStatus, GitHubRepository, GraphQLError, GraphQLErrorType, IMetadata, ItemsData, PULL_REQUEST_PAGE_SIZE, PullRequestData, TeamReviewerRefreshKind, ViewerPermission } from './githubRepository';
-import { MergeMethod as GraphQLMergeMethod, MergePullRequestInput, MergePullRequestResponse, PullRequestResponse, PullRequestState, UserResponse } from './graphql';
+import { MergeMethod as GraphQLMergeMethod, MergePullRequestInput, MergePullRequestResponse, PullRequestResponse, PullRequestState } from './graphql';
 import { IAccount, ILabel, IMilestone, IProject, IPullRequestsPagingOptions, Issue, ITeam, MergeMethod, PRType, PullRequestMergeability, RepoAccessAndMergeMethods, User } from './interface';
 import { IssueModel } from './issueModel';
 import { PullRequestGitHelper, PullRequestMetadata } from './pullRequestGitHelper';
@@ -56,7 +56,6 @@ import {
 	loginComparator,
 	parseCombinedTimelineEvents,
 	parseGraphQLPullRequest,
-	parseGraphQLUser,
 	teamComparator,
 	variableSubstitution,
 } from './utils';
@@ -2221,23 +2220,7 @@ export class FolderRepositoryManager extends Disposable {
 	async resolveUser(owner: string, repositoryName: string, login: string): Promise<User | undefined> {
 		Logger.debug(`Fetch user ${login}`, this.id);
 		const githubRepository = await this.createGitHubRepositoryFromOwnerName(owner, repositoryName);
-		const { query, schema } = await githubRepository.ensure();
-
-		try {
-			const { data } = await query<UserResponse>({
-				query: schema.GetUser,
-				variables: {
-					login,
-				},
-			});
-			return parseGraphQLUser(data, githubRepository);
-		} catch (e) {
-			// Ignore cases where the user doesn't exist
-			if (!(e.message as (string | undefined))?.startsWith('GraphQL error: Could not resolve to a User with the login of')) {
-				Logger.warn(e.message);
-			}
-		}
-		return undefined;
+		return githubRepository.resolveUser(login);
 	}
 
 	async getMatchingPullRequestMetadataForBranch() {

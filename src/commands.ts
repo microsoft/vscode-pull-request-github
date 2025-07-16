@@ -1347,9 +1347,7 @@ ${contents}
 			if (prQuery) {
 				for (const githubRepos of (manager?.gitHubRepositories ?? [])) {
 					const prNumber = Number(prQuery.prNumber);
-					if (githubRepos.pullRequestModels.has(prNumber)) {
-						return githubRepos.pullRequestModels.get(prNumber);
-					}
+					return githubRepos.getExistingPullRequestModel(prNumber);
 				}
 			}
 		} else {
@@ -1732,8 +1730,8 @@ ${contents}
 		for (const folderManager of reposManager.folderManagers) {
 			for (const githubRepository of folderManager.gitHubRepositories) {
 				for (const pullRequest of githubRepository.pullRequestModels) {
-					if (pullRequest[1].isResolved() && pullRequest[1].reviewThreadsCacheReady) {
-						pullRequest[1].initializeReviewThreadCache();
+					if (pullRequest.isResolved() && pullRequest.reviewThreadsCacheReady) {
+						pullRequest.initializeReviewThreadCache();
 					}
 				}
 			}
