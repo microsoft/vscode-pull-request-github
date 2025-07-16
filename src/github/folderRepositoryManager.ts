@@ -1737,7 +1737,7 @@ export class FolderRepositoryManager extends Disposable {
 				*/
 				this.telemetry.sendTelemetryEvent('pr.merge.success');
 				this._onDidMergePullRequest.fire();
-				return { merged: true, message: '', timeline: await parseCombinedTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], await pullRequest.githubRepository.getCopilotTimelineEvents(pullRequest), pullRequest.githubRepository) };
+				return { merged: true, message: '', timeline: await parseCombinedTimelineEvents(result.data?.mergePullRequest.pullRequest.timelineItems.nodes ?? [], await pullRequest.getCopilotTimelineEvents(pullRequest), pullRequest.githubRepository) };
 			})
 			.catch(e => {
 				/* __GDPR__
@@ -2524,7 +2524,7 @@ export class FolderRepositoryManager extends Disposable {
 	private async promptPullBrach(pr: PullRequestModel, branch: Branch, autoStashSetting?: boolean) {
 		if (!this._updateMessageShown || autoStashSetting) {
 			// When the PR is from Copilot, we only want to show the notification when Copilot is done working
-			const copilotStatus = await pr.githubRepository.copilotWorkingStatus(pr);
+			const copilotStatus = await pr.copilotWorkingStatus(pr);
 			if (copilotStatus === CopilotWorkingStatus.InProgress) {
 				return;
 			}

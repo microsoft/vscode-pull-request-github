@@ -118,6 +118,7 @@ describe('PullRequestOverview', function () {
 			const prModel0 = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem0);
 			const resolveStub = sinon.stub(pullRequestManager, 'resolvePullRequest').resolves(prModel0);
 			sinon.stub(prModel0, 'getReviewRequests').resolves([]);
+			sinon.stub(prModel0, 'getTimelineEvents').resolves([]);
 			sinon.stub(prModel0, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
 			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel0);
 
@@ -130,6 +131,7 @@ describe('PullRequestOverview', function () {
 			const prModel1 = new PullRequestModel(credentialStore, telemetry, repo, remote, prItem1);
 			resolveStub.resolves(prModel1);
 			sinon.stub(prModel1, 'getReviewRequests').resolves([]);
+			sinon.stub(prModel1, 'getTimelineEvents').resolves([]);
 			sinon.stub(prModel1, 'getStatusChecks').resolves([{ state: CheckState.Success, statuses: [] }, null]);
 			await PullRequestOverviewPanel.createOrShow(telemetry, EXTENSION_URI, pullRequestManager, prModel1);
 

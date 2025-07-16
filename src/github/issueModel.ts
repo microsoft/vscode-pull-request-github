@@ -4,13 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IComment } from '../common/comment';
+import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { ClosedEvent, EventType, TimelineEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
-import { GitHubRepository } from './githubRepository';
+import { OctokitCommon } from './common';
+import { CopilotWorkingStatus, GitHubRepository } from './githubRepository';
 import {
 	AddIssueCommentResponse,
 	AddPullRequestToProjectResponse,
@@ -18,10 +19,11 @@ import {
 	LatestCommit,
 	LatestReviewThread,
 	LatestUpdatesResponse,
+	TimelineEventsResponse,
 	UpdateIssueResponse,
 } from './graphql';
 import { GithubItemStateEnum, IAccount, IIssueEditData, IMilestone, IProject, IProjectItem, Issue } from './interface';
-import { convertRESTIssueToRawPullRequest, parseGraphQlIssueComment, parseMilestone } from './utils';
+import { convertRESTIssueToRawPullRequest, eventTime, parseCombinedTimelineEvents, parseGraphQlIssueComment, parseMilestone, parseSelectRestTimelineEvents, restPaginate } from './utils';
 
 export interface IssueChangeEvent {
 	title?: true;
@@ -79,7 +81,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 		return this._timelineEvents ?? [];
 	}
 
-	set timelineEvents(timelineEvents: readonly TimelineEvent[]) {
+	protected set timelineEvents(timelineEvents: readonly TimelineEvent[]) {
 		if (!this._timelineEvents || this._timelineEvents.length !== timelineEvents.length) {
 			this._timelineEvents = timelineEvents;
 			this._onDidChange.fire({ timeline: true });
@@ -448,6 +450,95 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 			Logger.error(`Error fetching timeline events of issue #${this.number} - ${formatError(e)}`, IssueModel.ID);
 			return time; // Return the original time in case of an error
 		}
+	}
+
+	async getIssueTimelineEvents(issueModel: IssueModel): Promise<TimelineEvent[]> {
+		Logger.debug(`Fetch timeline events of issue #${issueModel.number} - enter`, GitHubRepository.ID);
+		const { query, remote, schema } = await this.githubRepository.ensure();
+
+		try {
+			const { data } = await query<TimelineEventsResponse>({
+				query: schema.IssueTimelineEvents,
+				variables: {
+					owner: remote.owner,
+					name: remote.repositoryName,
+					number: issueModel.number,
+				},
+			});
+
+			if (data.repository === null) {
+				Logger.error('Unexpected null repository when getting issue timeline events', GitHubRepository.ID);
+				return [];
+			}
+			const ret = data.repository.pullRequest.timelineItems.nodes;
+			const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(issueModel, true), this.githubRepository);
+			issueModel.timelineEvents = events;
+			return events;
+		} catch (e) {
+			console.log(e);
+			return [];
+		}
+	}
+
+	/**
+	 * TODO: @alexr00 we should delete this https://github.com/microsoft/vscode-pull-request-github/issues/6965
+	 */
+	async getCopilotTimelineEvents(issueModel: IssueModel, skipMerge: boolean = false): Promise<TimelineEvent[]> {
+		if (!COPILOT_ACCOUNTS[issueModel.author.login]) {
+			return [];
+		}
+
+		Logger.debug(`Fetch Copilot timeline events of issue #${issueModel.number} - enter`, GitHubRepository.ID);
+
+		const { octokit, remote } = await this.githubRepository.ensure();
+		try {
+			const timeline = await restPaginate<typeof octokit.api.issues.listEventsForTimeline, OctokitCommon.ListEventsForTimelineResponse>(octokit.api.issues.listEventsForTimeline, {
+				issue_number: issueModel.number,
+				owner: remote.owner,
+				repo: remote.repositoryName,
+				per_page: 100
+			});
+
+			const timelineEvents = parseSelectRestTimelineEvents(issueModel, timeline);
+			if (timelineEvents.length === 0) {
+				return [];
+			}
+			if (!skipMerge) {
+				const oldLastEvent = issueModel.timelineEvents.length > 0 ? issueModel.timelineEvents[issueModel.timelineEvents.length - 1] : undefined;
+				let allEvents: TimelineEvent[];
+				if (!oldLastEvent) {
+					allEvents = timelineEvents;
+				} else {
+					const oldEventTime = (eventTime(oldLastEvent) ?? 0);
+					const newEvents = timelineEvents.filter(event => (eventTime(event) ?? 0) > oldEventTime);
+					allEvents = [...issueModel.timelineEvents, ...newEvents];
+				}
+				const oldTimeline = issueModel.timelineEvents;
+				issueModel.timelineEvents = allEvents;
+				if (oldLastEvent && (allEvents.length !== oldTimeline.length)) {
+					this._onDidChange.fire({ timeline: true });
+				}
+			}
+			return timelineEvents;
+		} catch (e) {
+			Logger.error(`Error fetching Copilot timeline events of issue #${issueModel.number} - ${formatError(e)}`, GitHubRepository.ID);
+			return [];
+		}
+	}
+
+	async copilotWorkingStatus(issueModel: IssueModel): Promise<CopilotWorkingStatus | undefined> {
+		const copilotEvents = await this.getCopilotTimelineEvents(issueModel);
+		if (copilotEvents.length > 0) {
+			const lastEvent = copilotEvents[copilotEvents.length - 1];
+			if (lastEvent.event === EventType.CopilotFinished) {
+				return CopilotWorkingStatus.Done;
+			} else if (lastEvent.event === EventType.CopilotStarted) {
+				return CopilotWorkingStatus.InProgress;
+			} else if (lastEvent.event === EventType.CopilotFinishedError) {
+				return CopilotWorkingStatus.Error;
+			}
+		}
+		return CopilotWorkingStatus.NotCopilotIssue;
 	}
 
 	async updateMilestone(id: string): Promise<void> {

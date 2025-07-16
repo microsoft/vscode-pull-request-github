@@ -238,7 +238,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 					issueModel.remote.repositoryName,
 					issueModel.number,
 				),
-				issueModel.githubRepository.getIssueTimelineEvents(issueModel),
+				issueModel.getIssueTimelineEvents(issueModel),
 				this._folderRepositoryManager.getPullRequestRepositoryAccessAndMergeMethods(issueModel),
 				issueModel.canEdit(),
 				this._folderRepositoryManager.getAssignableUsers(),
@@ -475,7 +475,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	protected _getTimeline(): Promise<TimelineEvent[]> {
-		return this._item.githubRepository.getIssueTimelineEvents(this._item);
+		return this._item.getIssueTimelineEvents(this._item);
 	}
 
 	private async changeAssignees(message: IRequestMessage<void>): Promise<void> {
