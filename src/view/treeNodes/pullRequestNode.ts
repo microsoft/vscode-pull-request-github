@@ -270,7 +270,7 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 	}
 
 	private async _getIcon(): Promise<vscode.Uri | vscode.ThemeIcon | { light: string | vscode.Uri; dark: string | vscode.Uri }> {
-		const copilotWorkingStatus = await this.pullRequestModel.githubRepository.copilotWorkingStatus(this.pullRequestModel);
+		const copilotWorkingStatus = await this.pullRequestModel.copilotWorkingStatus(this.pullRequestModel);
 		const theme = this._folderReposManager.themeWatcher.themeData;
 		if (!theme || copilotWorkingStatus === CopilotWorkingStatus.NotCopilotIssue) {
 			return (await DataUri.avatarCirclesAsImageDataUris(this._folderReposManager.context, [this.pullRequestModel.author], 16, 16))[0]
