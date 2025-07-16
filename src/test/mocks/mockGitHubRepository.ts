@@ -160,8 +160,4 @@ export class MockGitHubRepository extends GitHubRepository {
 			responses.reviewRequestsREST,
 		);
 	}
-
-	override async getTimelineEvents(pullRequestModel: PullRequestModel): Promise<TimelineEvent[]> {
-		return [];
-	}
 }
