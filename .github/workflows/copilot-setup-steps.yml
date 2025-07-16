@@ -1,0 +1,68 @@
+name: "Copilot Setup Steps"
+
+# Automatically run the setup steps when they are changed to allow for easy validation, and
+# allow manual testing through the repository's "Actions" tab
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  # The job MUST be called `copilot-setup-steps` or it will not be picked up by Copilot.
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+
+    # Set the permissions to the lowest permissions possible needed for your steps.
+    # Copilot will be given its own token for its operations.
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "yarn"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+        env:
+          # Skip Playwright browser downloads to avoid installation failures
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+
+      - name: Install Playwright browsers (if needed)
+        run: |
+          if [ -d "node_modules/playwright" ]; then
+            echo "Installing Playwright browsers..."
+            npx playwright install --with-deps
+          else
+            echo "Playwright not found, skipping browser installation"
+          fi
+        continue-on-error: true
+
+      - name: Update VS Code type definitions
+        run: yarn update-dts
+
+      - name: Basic build verification
+        run: |
+          echo "Verifying basic setup..."
+          if [ ! -d "node_modules" ]; then
+            echo "❌ node_modules not found"
+            exit 1
+          fi
+          if [ ! -f "node_modules/.bin/tsc" ]; then
+            echo "❌ TypeScript compiler not found"
+            exit 1
+          fi
+          if [ ! -f "node_modules/.bin/webpack" ]; then
+            echo "❌ Webpack not found"
+            exit 1
+          fi
+          echo "✅ Basic setup verification successful"
