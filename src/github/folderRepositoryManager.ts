@@ -216,6 +216,8 @@ export class FolderRepositoryManager extends Disposable {
 	private _onDidChangePullRequestsEvents: vscode.Disposable[] = [];
 	private readonly _onDidChangeAnyPullRequests = this._register(new vscode.EventEmitter<IssueModel[]>());
 	readonly onDidChangeAnyPullRequests: vscode.Event<IssueModel[]> = this._onDidChangeAnyPullRequests.event;
+	private readonly _onDidAddPullRequest = this._register(new vscode.EventEmitter<IssueModel>());
+	readonly onDidAddPullRequest: vscode.Event<IssueModel> = this._onDidAddPullRequest.event;
 
 	private _onDidDispose = this._register(new vscode.EventEmitter<void>());
 	readonly onDidDispose: vscode.Event<void> = this._onDidDispose.event;
@@ -533,6 +535,7 @@ export class FolderRepositoryManager extends Disposable {
 			this._githubRepositories = repositories;
 			for (const repo of this._githubRepositories) {
 				this._onDidChangePullRequestsEvents.push(repo.onDidChangePullRequests(e => this._onDidChangeAnyPullRequests.fire(e)));
+				this._onDidChangePullRequestsEvents.push(repo.onDidAddPullRequest(e => this._onDidAddPullRequest.fire(e)));
 			}
 			oldRepositories.filter(old => this._githubRepositories.indexOf(old) < 0).forEach(repo => repo.dispose());
 

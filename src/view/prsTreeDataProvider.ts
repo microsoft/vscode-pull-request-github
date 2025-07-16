@@ -63,7 +63,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			} else if (Array.isArray(e) && e[0] instanceof IssueModel) {
 				this.refreshPullRequests(e);
 			} else {
-				this.refresh();
+				this.refresh(undefined, true);
 			}
 		}));
 		this._register(new PRStatusDecorationProvider(this.prsTreeModel, this._copilotManager));

@@ -8,8 +8,8 @@ import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
-import { ClosedEvent, EventType, TimelineEvent } from '../common/timelineEvent';
-import { formatError } from '../common/utils';
+import { ClosedEvent, CrossReferencedEvent, EventType, TimelineEvent } from '../common/timelineEvent';
+import { compareIgnoreCase, formatError } from '../common/utils';
 import { OctokitCommon } from './common';
 import { CopilotWorkingStatus, GitHubRepository } from './githubRepository';
 import {
@@ -470,8 +470,23 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 				Logger.error('Unexpected null repository when getting issue timeline events', GitHubRepository.ID);
 				return [];
 			}
+
 			const ret = data.repository.pullRequest.timelineItems.nodes;
 			const events = await parseCombinedTimelineEvents(ret, await this.getCopilotTimelineEvents(issueModel, true), this.githubRepository);
+
+			const crossRefs = events.filter((event): event is CrossReferencedEvent => {
+				if ((event.event === EventType.CrossReferenced) && !event.source.isIssue) {
+					return !this.githubRepository.getExistingPullRequestModel(event.source.number) && (compareIgnoreCase(event.source.owner, issueModel.remote.owner) === 0 && compareIgnoreCase(event.source.repo, issueModel.remote.repositoryName) === 0);
+				}
+				return false;
+
+			});
+
+			for (const unseenPrs of crossRefs) {
+				// Kick off getting the new PRs so that the system knows about them (and refreshes the tree when they're found)
+				this.githubRepository.getPullRequest(unseenPrs.source.number);
+			}
+
 			issueModel.timelineEvents = events;
 			return events;
 		} catch (e) {
