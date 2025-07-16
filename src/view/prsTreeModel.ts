@@ -84,6 +84,12 @@ export class PrsTreeModel extends Disposable {
 			this._onDidChangeData.fire(prs);
 		}));
 
+		this._register(this._reposManager.onDidAddPullRequest(() => {
+			if (this._hasLoaded) {
+				this._onDidChangeData.fire();
+			}
+		}));
+
 		this._register(this._reposManager.onDidChangeFolderRepositories((changed) => {
 			if (changed.added) {
 				repoEvents(changed.added);
@@ -132,6 +138,9 @@ export class PrsTreeModel extends Disposable {
 	}
 
 	public clearCache(silent: boolean = false) {
+		if (this._cachedPRs.size === 0) {
+			return;
+		}
 		this._cachedPRs.clear();
 		if (!silent) {
 			this._onDidChangeData.fire();
