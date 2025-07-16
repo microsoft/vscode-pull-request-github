@@ -1134,6 +1134,13 @@ mutation UpdateIssue($input: UpdateIssueInput!) {
 			bodyHTML
 			title
 			titleHTML
+			milestone {
+				title
+				dueOn
+				createdAt
+				id
+				number
+			}
 		}
 	}
 }
@@ -1145,6 +1152,13 @@ mutation UpdatePullRequest($input: UpdatePullRequestInput!) {
 			bodyHTML
 			title
 			titleHTML
+			milestone {
+				title
+				dueOn
+				createdAt
+				id
+				number
+			}
 		}
 	}
 }

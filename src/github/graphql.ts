@@ -558,6 +558,13 @@ export interface UpdateIssueResponse {
 			bodyHTML: string;
 			title: string;
 			titleHTML: string;
+			milestone?: {
+				title: string;
+				dueOn?: string;
+				id: string;
+				createdAt: string;
+				number: number;
+			};
 		};
 	};
 }

@@ -73,15 +73,17 @@ export class PrsTreeModel extends Disposable {
 						})]);
 				}
 			}));
-			this._repoEvents.get(manager)!.push(manager.onDidChangeAnyPullRequests(e => {
-				this._onDidChangeData.fire(e);
-			}));
 		};
 		this._register({ dispose: () => this._repoEvents.forEach((disposables) => disposeAll(disposables)) });
 
 		for (const manager of this._reposManager.folderManagers) {
 			repoEvents(manager);
 		}
+
+		this._register(this._reposManager.onDidChangeAnyPullRequests((prs) => {
+			this._onDidChangeData.fire(prs);
+		}));
+
 		this._register(this._reposManager.onDidChangeFolderRepositories((changed) => {
 			if (changed.added) {
 				repoEvents(changed.added);

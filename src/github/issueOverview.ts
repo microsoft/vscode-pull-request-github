@@ -426,8 +426,6 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				await this._item.setLabels(labelsToAdd.map(r => r.label));
 				const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
 
-				this._item.item.labels = addedLabels;
-
 				await this._replyMessage(message, {
 					added: addedLabels,
 				});
@@ -443,10 +441,6 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	private async removeLabel(message: IRequestMessage<string>): Promise<void> {
 		try {
 			await this._item.removeLabel(message.args);
-
-			const index = this._item.item.labels.findIndex(label => label.name === message.args);
-			this._item.item.labels.splice(index, 1);
-
 			this._replyMessage(message, {});
 		} catch (e) {
 			vscode.window.showErrorMessage(formatError(e));
