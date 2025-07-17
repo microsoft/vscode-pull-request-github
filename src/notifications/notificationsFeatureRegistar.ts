@@ -22,13 +22,14 @@ export class NotificationsFeatureRegister extends Disposable {
 	constructor(
 		readonly credentialStore: CredentialStore,
 		private readonly _repositoriesManager: RepositoriesManager,
-		private readonly _telemetry: ITelemetry
+		private readonly _telemetry: ITelemetry,
+		private readonly _context: vscode.ExtensionContext
 	) {
 		super();
 		const notificationsProvider = new NotificationsProvider(credentialStore, this._repositoriesManager);
 		this._register(notificationsProvider);
 
-		const notificationsManager = new NotificationsManager(notificationsProvider, credentialStore);
+		const notificationsManager = new NotificationsManager(notificationsProvider, credentialStore, this._repositoriesManager, this._context);
 		this._register(notificationsManager);
 
 		// Decorations
