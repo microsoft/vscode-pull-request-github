@@ -83,7 +83,7 @@ fragment IssueBase on Issue {
 		id
 		number
 	}
-	assignees(first: 10) {
+	assignees: assignedActors(first: 10) {
 		nodes {
 			...Node
 			...Actor
@@ -170,7 +170,7 @@ fragment PullRequestFragment on PullRequest {
 		id
 		number
 	}
-	assignees(first: 10) {
+	assignees: assignedActors(first: 10) {
 		nodes {
 			...Node
 			...Actor
@@ -381,7 +381,7 @@ mutation CreatePullRequest($input: CreatePullRequestInput!) {
 mutation ReplaceActorsForAssignable($input: ReplaceActorsForAssignableInput!) {
 	replaceActorsForAssignable(input: $input) {
 		assignable {
-			assignees(first: 100) {
+			assignees: assignedActors(first: 100) {
 				nodes {
 					...Node
 					...Actor
