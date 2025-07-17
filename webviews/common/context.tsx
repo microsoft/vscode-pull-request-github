@@ -145,6 +145,25 @@ export class PRContext {
 
 	public submit = (body: string) => this.submitReviewCommand('pr.submit', body);
 
+	public deleteReview = async () => {
+		try {
+			const result: { deletedReviewId: number; deletedReviewComments: IComment[] } = await this.postMessage({ command: 'pr.delete-review' });
+			// Update the PR state to reflect the deleted review
+			const state = this.pr;
+			state.busy = false;
+			state.pendingCommentText = '';
+			state.pendingCommentDrafts = {};
+			// Remove the deleted review from events
+			state.events = state.events.filter(event => 
+				!(event.event === EventType.Reviewed && event.id === result.deletedReviewId)
+			);
+			this.updatePR(state);
+			return result;
+		} catch (error) {
+			return this.updatePR({ busy: false });
+		}
+	};
+
 	public close = async (body?: string) => {
 		try {
 			const result: CloseResult = await this.postMessage({ command: 'pr.close', args: body });
