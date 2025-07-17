@@ -85,7 +85,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		element: NotificationTreeDataItem,
 	): Promise<vscode.TreeItem> {
 		if (isNotificationTreeItem(element)) {
-			item.tooltip = await this._generateNotificationMarkdownHover(element);
+			item.tooltip = await this._notificationMarkdownHover(element);
 		}
 		return item;
 	}
@@ -137,7 +137,7 @@ export class NotificationsManager extends Disposable implements vscode.TreeDataP
 		return item;
 	}
 
-	private async _generateNotificationMarkdownHover(element: NotificationTreeItem): Promise<vscode.MarkdownString> {
+	private async _notificationMarkdownHover(element: NotificationTreeItem): Promise<vscode.MarkdownString> {
 		const markdown = new vscode.MarkdownString(undefined, true);
 		markdown.supportHtml = true;
 
