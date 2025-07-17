@@ -56,7 +56,7 @@ function hygiene(some) {
 	const indentation = es.through(function (file) {
 		const lines = file.__lines;
 
-		lines.forEach((line, i) => {
+		lines?.forEach((line, i) => {
 			if (/^\s*$/.test(line)) {
 				// empty or whitespace lines are OK
 			} else if (/^[\t]*[^\s]/.test(line)) {

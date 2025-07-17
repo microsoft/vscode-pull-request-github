@@ -188,7 +188,8 @@ async function getExtensionConfig(target, mode, env) {
 			typescript: {
 				configFile: path.join(__dirname, target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json'),
 			},
-		})
+		}),
+		new webpack.ContextReplacementPlugin(/mocha/, /^$/)
 	];
 
 	if (target === 'webworker') {
@@ -294,11 +295,7 @@ async function getExtensionConfig(target, mode, env) {
 					exclude: /node_modules/,
 					test: /\.(graphql|gql)$/,
 					loader: 'graphql-tag/loader',
-				},
-				// {
-				// 	test: /webview-*\.js/,
-				// 	use: 'raw-loader'
-				// },
+				}
 			],
 		},
 		resolve: {
@@ -352,6 +349,7 @@ async function getExtensionConfig(target, mode, env) {
 			'@opentelemetry/instrumentation': '@opentelemetry/instrumentation',
 			'@azure/opentelemetry-instrumentation-azure-sdk': '@azure/opentelemetry-instrumentation-azure-sdk',
 			'fs': 'fs',
+			'mocha': 'commonjs mocha',
 		},
 		plugins: plugins,
 		stats: {
@@ -362,7 +360,7 @@ async function getExtensionConfig(target, mode, env) {
 			errorsCount: true,
 			warningsCount: true,
 			timings: true,
-		},
+		}
 	};
 }
 
