@@ -73,7 +73,7 @@ fragment IssueBase on Issue {
 		id
 		number
 	}
-	assignees(first: 10) {
+	assignedActors(first: 10) {
 		nodes {
 			...Node
 			...Actor
@@ -151,7 +151,7 @@ fragment PullRequestFragment on PullRequest {
 		id
 		number
 	}
-	assignees(first: 10) {
+	assignedActors(first: 10) {
 		nodes {
 			...Node
 			...Actor
@@ -218,7 +218,7 @@ fragment PullRequestFragment on PullRequest {
 	viewerCanDisableAutoMerge
 	viewerCanUpdate
 	isDraft
-	suggestedReviewers {
+	suggestedReviewerActors {
 		isAuthor
 		isCommenter
 		reviewer {
