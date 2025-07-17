@@ -1111,6 +1111,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 					pullRequestId: this.graphNodeId,
 					teamIds: teamReviewers.map(t => t.id),
 					userIds: reviewers.filter(r => r.accountType !== AccountType.Bot).map(r => r.id),
+					botIds: reviewers.filter(r => r.accountType === AccountType.Bot).map(r => r.id),
 					union
 				},
 			},
