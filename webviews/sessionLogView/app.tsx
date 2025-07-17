@@ -16,7 +16,7 @@ const themeName = 'vscode-theme';
 
 type SessionViewState =
 	| { state: 'loading' }
-	| { state: 'ready'; readonly info: SessionInfo; readonly logs: readonly SessionResponseLogChunk[]; readonly pullInfo: messages.PullInfo | undefined }
+	| { state: 'ready'; readonly info: SessionInfo; readonly logs: readonly SessionResponseLogChunk[]; readonly pullInfo: messages.PullInfo | undefined; readonly setupLogs?: readonly string[] }
 	| { state: 'error'; readonly url: string | undefined }
 	;
 
@@ -49,7 +49,8 @@ export function App() {
 						state: 'ready',
 						info: message.info,
 						logs: parseSessionLogs(message.logs),
-						pullInfo: message.pullInfo
+						pullInfo: message.pullInfo,
+						setupLogs: message.setupLogs
 					});
 					break;
 				}
@@ -89,7 +90,7 @@ export function App() {
 			</div>
 		);
 	} else {
-		return <SessionView info={state.info} logs={state.logs} pullInfo={state.pullInfo} />;
+		return <SessionView info={state.info} logs={state.logs} pullInfo={state.pullInfo} setupLogs={state.setupLogs} />;
 	}
 }
 

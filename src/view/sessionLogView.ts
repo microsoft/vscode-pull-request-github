@@ -409,7 +409,8 @@ class SessionLogView extends Disposable {
 			type: 'loaded',
 			pullInfo: this._source.type === 'pull' ? this._source.pullRequest : undefined,
 			info: apiResponse.info,
-			logs: apiResponse.logs
+			logs: apiResponse.logs,
+			setupLogs: apiResponse.setupLogs
 		} as messages.LoadedMessage);
 
 		if (apiResponse.info.state === 'in_progress') {
@@ -430,7 +431,8 @@ class SessionLogView extends Disposable {
 					type: 'update',
 					pullInfo: this._source.type === 'pull' ? this._source.pullRequest : undefined,
 					info: apiResult.info,
-					logs: apiResult.logs
+					logs: apiResult.logs,
+					setupLogs: apiResult.setupLogs
 				} as messages.UpdateMessage);
 
 				if (apiResult.info.state !== 'in_progress') {
