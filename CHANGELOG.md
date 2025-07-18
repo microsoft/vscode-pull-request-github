@@ -1,6 +1,14 @@
 # Changelog
 
+## 0.114.2
+
+### Fixes
+
+- Copilot never shows as assignee. https://github.com/microsoft/vscode-pull-request-github/issues/7324
+
 ## 0.114.1
+
+### Fixes
 
 - Element with id Local Pull Request Branches is already registered. https://github.com/microsoft/vscode-pull-request-github/issues/7264
 
