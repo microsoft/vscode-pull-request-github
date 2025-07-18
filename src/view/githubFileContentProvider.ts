@@ -17,9 +17,8 @@ export class GitHubCommitFileSystemProvider extends RepositoryFileSystemProvider
 
 	override async readFile(uri: vscode.Uri): Promise<Uint8Array> {
 		await this.waitForAuth();
-		if ((this.gitAPI.state !== 'initialized') || (this.gitAPI.repositories.length === 0)) {
-			await this.waitForRepos(10000);
-		}
+		await this.waitForAnyGitHubRepos(this.repos);
+
 		const params = fromGitHubCommitUri(uri);
 		if (!params) {
 			throw new Error(`Invalid GitHub commit URI: ${uri.toString()}`);
