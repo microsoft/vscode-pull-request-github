@@ -10,7 +10,7 @@ import gql from 'graphql-tag';
 import * as vscode from 'vscode';
 import { Repository } from '../api/api';
 import { COPILOT_ACCOUNTS, DiffSide, IComment, IReviewThread, SubjectType, ViewedState } from '../common/comment';
-import { getModifiedContentFromDiffHunk, parseDiff } from '../common/diffHunk';
+import { getGitChangeType, getModifiedContentFromDiffHunk, parseDiff } from '../common/diffHunk';
 import { commands } from '../common/executeCommands';
 import { GitChangeType, InMemFileChange, SlimFileChange } from '../common/file';
 import { GitHubRef } from '../common/githubRef';
@@ -18,7 +18,7 @@ import Logger from '../common/logger';
 import { Remote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
 import { ClosedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
-import { resolvePath, reviewPath, Schemes, toPRUri, toReviewUri } from '../common/uri';
+import { resolvePath, Schemes, toGitHubCommitUri, toPRUri, toReviewUri } from '../common/uri';
 import { formatError, isDescendant } from '../common/utils';
 import { InMemFileChangeModel, RemoteFileChangeModel } from '../view/fileChangeModel';
 import { OctokitCommon } from './common';
@@ -1333,47 +1333,32 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		return vscode.commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Pull Request #{0}', pullRequestModel.number), args);
 	}
 
-	static async openCommitChanges(folderManager: FolderRepositoryManager, commitSha: string) {
+	static async openCommitChanges(githubRepository: GitHubRepository, commitSha: string) {
 		try {
-			// Get the repository from the folder manager
-			const repository = folderManager.repository;
-			if (!repository) {
-				vscode.window.showErrorMessage(vscode.l10n.t('No repository found'));
-				return;
-			}
-
-			// Get the commit to find its parent
-			const commit = await repository.getCommit(commitSha);
-			if (!commit.parents || commit.parents.length === 0) {
+			const parentCommit = await githubRepository.getCommitParent(commitSha);
+			if (!parentCommit) {
 				vscode.window.showErrorMessage(vscode.l10n.t('Commit {0} has no parent', commitSha.substring(0, 7)));
 				return;
 			}
-			const parentSha = commit.parents[0];
 
-			// Get the changes between the commit and its parent
-			const changes = await repository.diffBetween(parentSha, commitSha);
-			if (!changes || changes.length === 0) {
+			const changes = await githubRepository.compareCommits(parentCommit, commitSha);
+			if (!changes?.files || changes.files.length === 0) {
 				vscode.window.showInformationMessage(vscode.l10n.t('No changes found in commit {0}', commitSha.substring(0, 7)));
 				return;
 			}
 
 			// Create URI pairs for the multi diff editor using review scheme
 			const args: [vscode.Uri, vscode.Uri | undefined, vscode.Uri | undefined][] = [];
-			for (const change of changes) {
-				const rightRelativePath = path.relative(repository.rootUri.fsPath, change.uri.fsPath);
-				const rightPath = reviewPath(rightRelativePath, commitSha);
-				let rightUri = toReviewUri(rightPath, rightRelativePath, undefined, commitSha, false, { base: false }, repository.rootUri);
-
-				const leftRelativePath = path.relative(repository.rootUri.fsPath, change.originalUri.fsPath);
-				const leftPath = reviewPath(leftRelativePath, parentSha);
-				let leftUri = toReviewUri(leftPath, (change.status === GitChangeType.RENAME) ? path.relative(repository.rootUri.fsPath, change.originalUri.fsPath) : leftRelativePath, undefined, parentSha, false, { base: true }, repository.rootUri);
-
-				if (change.status === GitChangeType.ADD) {
+			for (const change of changes.files) {
+				const rightUri = toGitHubCommitUri(change.filename, { commit: commitSha, owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName });
+				const leftUri = toGitHubCommitUri(change.previous_filename ?? change.filename, { commit: parentCommit, owner: githubRepository.remote.owner, repo: githubRepository.remote.repositoryName });
+				const changeType = getGitChangeType(change.status);
+				if (changeType === GitChangeType.ADD) {
 					// For added files, show against empty
 					args.push([rightUri, undefined, rightUri]);
-				} else if (change.status === GitChangeType.DELETE) {
+				} else if (changeType === GitChangeType.DELETE) {
 					// For deleted files, show old version against empty
-					args.push([rightPath, leftUri, undefined]);
+					args.push([rightUri, leftUri, undefined]);
 				} else {
 					args.push([rightUri, leftUri, rightUri]);
 				}
@@ -1382,7 +1367,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			/* __GDPR__
 				"pr.openCommitChanges" : {}
 			*/
-			folderManager.telemetry.sendTelemetryEvent('pr.openCommitChanges');
+			githubRepository.telemetry.sendTelemetryEvent('pr.openCommitChanges');
 
 			return commands.executeCommand('vscode.changes', vscode.l10n.t('Changes in Commit {0}', commitSha.substring(0, 7)), args);
 		} catch (error) {

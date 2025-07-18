@@ -538,7 +538,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async openCommitChanges(message: IRequestMessage<OpenCommitChangesArgs>): Promise<void> {
 		try {
 			const { commitSha } = message.args;
-			await PullRequestModel.openCommitChanges(this._folderRepositoryManager, commitSha);
+			await PullRequestModel.openCommitChanges(this._item.githubRepository, commitSha);
 		} catch (error) {
 			Logger.error(`Failed to open commit changes: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			vscode.window.showErrorMessage(vscode.l10n.t('Failed to open commit changes: {0}', formatError(error)));

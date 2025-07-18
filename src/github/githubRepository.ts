@@ -207,7 +207,7 @@ export class GitHubRepository extends Disposable {
 				`github-browse-${this.remote.normalizedHost}-${this.remote.owner}-${this.remote.repositoryName}`,
 				`Pull Request (${this.remote.owner}/${this.remote.repositoryName})`,
 			);
-			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController, this._telemetry);
+			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController, this.telemetry);
 			this._register(this.commentsHandler);
 			this._register(this.commentsController);
 		} catch (e) {
@@ -234,7 +234,7 @@ export class GitHubRepository extends Disposable {
 		public remote: GitHubRemote,
 		public readonly rootUri: vscode.Uri,
 		private readonly _credentialStore: CredentialStore,
-		private readonly _telemetry: ITelemetry,
+		public readonly telemetry: ITelemetry,
 		silent: boolean = false
 	) {
 		super();
@@ -264,7 +264,7 @@ export class GitHubRepository extends Disposable {
 					"action": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
 				}
 			*/
-			this._telemetry.sendTelemetryErrorEvent('pr.codespacesTokenError', {
+			this.telemetry.sendTelemetryErrorEvent('pr.codespacesTokenError', {
 				action: action.context
 			});
 
@@ -565,6 +565,19 @@ export class GitHubRepository extends Disposable {
 
 		return success;
 	}
+
+	async getCommitParent(ref: string): Promise<string | undefined> {
+		Logger.debug(`Fetch commit for ref ${ref} - enter`, this.id);
+		try {
+			const { octokit, remote } = await this.ensure();
+			const commit = (await octokit.call(octokit.api.repos.getCommit, { owner: remote.owner, repo: remote.repositoryName, ref })).data;
+			return commit.parents[0].sha;
+		} catch (e) {
+			Logger.error(`Fetching commit for ref ${ref} failed: ${e}`, this.id);
+		}
+		Logger.debug(`Fetch commit for ref ${ref} - done`, this.id);
+	}
+
 
 	async getAllPullRequests(page?: number): Promise<PullRequestData | undefined> {
 		let remote: GitHubRemote | undefined;
@@ -950,7 +963,7 @@ export class GitHubRepository extends Disposable {
 		if (model) {
 			model.update(pullRequest);
 		} else {
-			model = new PullRequestModel(this._credentialStore, this._telemetry, this, this.remote, pullRequest);
+			model = new PullRequestModel(this._credentialStore, this.telemetry, this, this.remote, pullRequest);
 			const prModel = model;
 			const disposables: vscode.Disposable[] = [];
 			disposables.push(model.onDidChange(() => this._onPullRequestModelChanged(prModel)));
