@@ -63,6 +63,7 @@ export interface Issue {
 }
 
 export interface PullRequest extends Issue {
+	isCopilotOnMyBehalf: boolean;
 	isCurrentlyCheckedOut: boolean;
 	isRemoteBaseDeleted?: boolean;
 	base: string;

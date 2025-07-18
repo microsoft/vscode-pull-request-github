@@ -12,6 +12,7 @@ import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { GitHubRemote, parseRemote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
+import { PullRequestCommentController } from '../view/pullRequestCommentController';
 import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
 import { mergeQuerySchemaWithShared, OctokitCommon, Schema } from './common';
 import { CredentialStore, GitHub } from './credentials';
@@ -204,7 +205,7 @@ export class GitHubRepository extends Disposable {
 
 			await this.ensure();
 			this.commentsController = vscode.comments.createCommentController(
-				`github-browse-${this.remote.normalizedHost}-${this.remote.owner}-${this.remote.repositoryName}`,
+				`${PullRequestCommentController.PREFIX}-${this.remote.gitProtocol.normalizeUri()?.authority}-${this.remote.owner}-${this.remote.repositoryName}`,
 				`Pull Request (${this.remote.owner}/${this.remote.repositoryName})`,
 			);
 			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController, this.telemetry);
