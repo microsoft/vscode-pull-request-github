@@ -58,6 +58,9 @@ export const EXPERIMENTAL_NOTIFICATIONS_PAGE_SIZE = 'experimental.notificationsV
 export const EXPERIMENTAL_NOTIFICATIONS_SCORE = 'experimental.notificationsScore';
 export const WEBVIEW_REFRESH_INTERVAL = 'webviewRefreshInterval';
 
+export const TREE_VIEW_ICON_MODE = 'treeViewIconMode';
+export type TreeViewIconMode = 'author' | 'state' | 'generic';
+
 // git
 export const GIT = 'git';
 export const PULL_BEFORE_CHECKOUT = 'pullBeforeCheckout';
