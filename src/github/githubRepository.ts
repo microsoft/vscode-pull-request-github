@@ -1346,16 +1346,44 @@ export class GitHubRepository extends Disposable {
 			try {
 				let result: { data: AssignableUsersResponse | SuggestedActorsResponse } | undefined;
 				if (schema.GetSuggestedActors) {
-					result = await query<SuggestedActorsResponse>({
-						query: schema.GetSuggestedActors,
-						variables: {
-							owner: remote.owner,
-							name: remote.repositoryName,
-							capabilities: ['CAN_BE_REQUESTED_FOR_REVIEW'],
-							first: 100,
-							after: after,
-						},
-					});
+					// Try different reviewer capabilities, starting with the most likely ones
+					const reviewerCapabilities = ['CAN_BE_REQUESTED_FOR_REVIEW', 'CAN_REVIEW', 'CAN_BE_ASSIGNED'];
+					let capabilityWorked = false;
+
+					for (const capability of reviewerCapabilities) {
+						try {
+							result = await query<SuggestedActorsResponse>({
+								query: schema.GetSuggestedActors,
+								variables: {
+									owner: remote.owner,
+									name: remote.repositoryName,
+									capabilities: [capability],
+									first: 100,
+									after: after,
+								},
+							});
+							capabilityWorked = true;
+							Logger.debug(`Successfully used capability: ${capability} for reviewer users`, this.id);
+							break;
+						} catch (capabilityError) {
+							Logger.debug(`Capability ${capability} failed, trying next: ${capabilityError}`, this.id);
+							continue;
+						}
+					}
+
+					if (!capabilityWorked) {
+						// If none of the specific capabilities work, fall back to assignable users
+						Logger.debug('All reviewer capabilities failed, falling back to assignable users', this.id);
+						result = await query<AssignableUsersResponse>({
+							query: schema.GetAssignableUsers,
+							variables: {
+								owner: remote.owner,
+								name: remote.repositoryName,
+								first: 100,
+								after: after,
+							},
+						}, true);
+					}
 
 				} else {
 					// Fall back to assignable users if suggested actors not available
