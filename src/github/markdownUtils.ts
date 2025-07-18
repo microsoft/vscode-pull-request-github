@@ -168,8 +168,9 @@ export async function issueMarkdown(
 			year: 'numeric',
 		})}  \n`,
 	);
+	const titleWithDraft = (issue instanceof PullRequestModel && issue.isDraft) ? `\[DRAFT\] ${issue.title}` : issue.title;
 	const title = marked
-		.parse(issue.title, {
+		.parse(titleWithDraft, {
 			renderer: new PlainTextRenderer(),
 		})
 		.trim();
