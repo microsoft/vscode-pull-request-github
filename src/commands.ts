@@ -7,7 +7,7 @@
 import * as pathLib from 'path';
 import * as vscode from 'vscode';
 import { Repository } from './api/api';
-import { GitErrorCodes } from './api/api1';
+import { GitErrorCodes, Status } from './api/api1';
 import { CommentReply, findActiveHandler, resolveCommentHandler } from './commentHandlerResolver';
 import { COPILOT_LOGINS } from './common/copilot';
 import { commands } from './common/executeCommands';
@@ -57,11 +57,13 @@ const DISCARD_CHANGES = vscode.l10n.t('Discard changes');
  * @returns Promise<boolean> true if user chose to proceed (after staging/discarding), false if cancelled
  */
 async function handleUncommittedChanges(repository: Repository): Promise<boolean> {
-	const hasWorkingTreeChanges = repository.state.workingTreeChanges.length > 0;
+	// Filter out untracked files as they typically don't conflict with PR checkout
+	const trackedWorkingTreeChanges = repository.state.workingTreeChanges.filter(change => change.status !== Status.UNTRACKED);
+	const hasTrackedWorkingTreeChanges = trackedWorkingTreeChanges.length > 0;
 	const hasIndexChanges = repository.state.indexChanges.length > 0;
 
-	if (!hasWorkingTreeChanges && !hasIndexChanges) {
-		return true; // No uncommitted changes, proceed
+	if (!hasTrackedWorkingTreeChanges && !hasIndexChanges) {
+		return true; // No tracked uncommitted changes, proceed
 	}
 
 	const modalResult = await vscode.window.showInformationMessage(
@@ -82,7 +84,7 @@ async function handleUncommittedChanges(repository: Repository): Promise<boolean
 		if (modalResult === STASH_CHANGES) {
 			// Stash all changes (working tree changes + any unstaged changes)
 			const allChangedFiles = [
-				...repository.state.workingTreeChanges.map(change => change.uri.fsPath),
+				...trackedWorkingTreeChanges.map(change => change.uri.fsPath),
 				...repository.state.indexChanges.map(change => change.uri.fsPath),
 			];
 			if (allChangedFiles.length > 0) {
@@ -90,10 +92,10 @@ async function handleUncommittedChanges(repository: Repository): Promise<boolean
 				await vscode.commands.executeCommand('git.stash', repository);
 			}
 		} else if (modalResult === DISCARD_CHANGES) {
-			// Discard all working tree changes
-			const workingTreeFiles = repository.state.workingTreeChanges.map(change => change.uri.fsPath);
-			if (workingTreeFiles.length > 0) {
-				await repository.clean(workingTreeFiles);
+			// Discard all tracked working tree changes
+			const trackedWorkingTreeFiles = trackedWorkingTreeChanges.map(change => change.uri.fsPath);
+			if (trackedWorkingTreeFiles.length > 0) {
+				await repository.clean(trackedWorkingTreeFiles);
 			}
 		}
 		return true; // Successfully handled changes, proceed with checkout
