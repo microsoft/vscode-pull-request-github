@@ -186,3 +186,40 @@ button.codeview-expand:hover {
 		transform: rotate(360deg);
 	}
 }
+
+.setup-stage-log {
+	margin: 1em 0;
+	border: 1px solid var(--vscode-widget-border);
+	border-radius: 4px;
+	overflow: hidden;
+}
+
+.setup-stage-title {
+	display: flex;
+	align-items: center;
+	padding: 8px 12px;
+	background: var(--vscode-sideBarSectionHeader-background);
+	border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+	color: var(--vscode-sideBarSectionHeader-foreground);
+	font-size: 13px;
+	font-weight: 600;
+	margin: 0;
+	gap: 8px;
+}
+
+.setup-log-content {
+	padding: 8px 12px;
+	background: var(--vscode-notebook-cellEditorBackground);
+	max-height: 200px;
+	overflow-y: auto;
+}
+
+.setup-log-line {
+	font-family: var(--vscode-editor-font-family);
+	font-size: var(--vscode-editor-font-size);
+	line-height: 1.4;
+	color: var(--vscode-foreground);
+	margin: 2px 0;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+}

@@ -20,6 +20,7 @@ export interface LoadedMessage {
 	pullInfo: PullInfo | undefined;
 	info: SessionInfo;
 	logs: string;
+	setupLogs?: string[];
 }
 
 export interface UpdateMessage {
@@ -27,6 +28,7 @@ export interface UpdateMessage {
 	pullInfo: PullInfo | undefined;
 	info: SessionInfo;
 	logs: string;
+	setupLogs?: string[];
 }
 
 export interface ResetMessage {

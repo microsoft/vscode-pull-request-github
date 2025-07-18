@@ -19,17 +19,25 @@ interface SessionViewProps {
 	readonly pullInfo: PullInfo | undefined;
 	readonly info: SessionInfo;
 	readonly logs: readonly SessionResponseLogChunk[];
+	readonly setupLogs?: readonly string[];
 }
 
 export const SessionView: React.FC<SessionViewProps> = (props) => {
 	return (
 		<div className="session-container">
 			<SessionHeader info={props.info} pullInfo={props.pullInfo} />
+			{props.setupLogs && props.setupLogs.length > 0 && (
+				<SetupStageLog setupLogs={props.setupLogs} />
+			)}
 			<SessionLog logs={props.logs} />
 			{props.info.state === 'in_progress' && (
 				<div className="session-in-progress-indicator">
 					<span className="icon"><i className="codicon codicon-loading"></i></span>
-					Session is in progress...</div>
+					{props.logs.length === 0 && props.setupLogs && props.setupLogs.length > 0
+						? 'Configuring environment...'
+						: 'Session is in progress...'
+					}
+				</div>
 			)}
 		</div>
 	);
@@ -268,3 +276,34 @@ function toFileLabel(file: string): string {
 	const parts = file.split('/');
 	return parts.slice(6).join('/');
 }
+
+// Setup Stage Log component
+interface SetupStageLogProps {
+	readonly setupLogs: readonly string[];
+}
+
+const SetupStageLog: React.FC<SetupStageLogProps> = ({ setupLogs }) => {
+	if (!setupLogs || setupLogs.length === 0) {
+		return null;
+	}
+
+	const setupSteps = setupLogs
+		.filter(line => line.trim().length > 0)
+		.map((line, index) => (
+			<div key={index} className="setup-log-line">
+				{line}
+			</div>
+		));
+
+	return (
+		<div className="setup-stage-log">
+			<h3 className="setup-stage-title">
+				<span className="icon"><i className="codicon codicon-gear"></i></span>
+				Environment Setup
+			</h3>
+			<div className="setup-log-content">
+				{setupSteps}
+			</div>
+		</div>
+	);
+};

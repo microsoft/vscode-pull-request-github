@@ -29,6 +29,7 @@ type RemoteAgentResult = RemoteAgentSuccessResult | RemoteAgentErrorResult;
 export interface IAPISessionLogs {
 	readonly info: SessionInfo;
 	readonly logs: string;
+	readonly setupLogs?: string[];
 }
 
 export interface ICopilotRemoteAgentCommandArgs {
@@ -629,7 +630,23 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 
 		const logs = await capi.getLogsFromSession(session.id);
-		return { info: session, logs };
+
+		// If session is in progress, try to fetch setup logs from workflow
+		let setupLogs: string[] | undefined;
+		if (session.state === 'in_progress' || logs.trim().length === 0) {
+			try {
+				// Get the pull request model to access workflow logs
+				const pullRequest = await this.findPullRequestForSession(pullRequestId);
+				if (pullRequest) {
+					setupLogs = await this.getSessionLogsFromAction(pullRequest);
+				}
+			} catch (error) {
+				// If we can't fetch setup logs, don't fail the entire request
+				Logger.warn(`Failed to fetch setup logs for session ${session.id}: ${error}`, CopilotRemoteAgentManager.ID);
+			}
+		}
+
+		return { info: session, logs, setupLogs };
 	}
 
 	async getSessionUrlFromPullRequest(pullRequest: PullRequestModel): Promise<string | undefined> {
@@ -643,6 +660,28 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return;
 		}
 		return sessions.html_url;
+	}
+
+	private async findPullRequestForSession(pullRequestId: number): Promise<PullRequestModel | undefined> {
+		// Search through all repository managers to find the pull request
+		for (const manager of this.repositoriesManager.folderManagers) {
+			if (manager.gitHubRepositories.length === 0) {
+				continue;
+			}
+
+			for (const githubRepo of manager.gitHubRepositories) {
+				try {
+					const pullRequest = await githubRepo.getPullRequest(pullRequestId);
+					if (pullRequest) {
+						return pullRequest;
+					}
+				} catch (error) {
+					// Continue searching in other repositories
+					continue;
+				}
+			}
+		}
+		return undefined;
 	}
 
 	private getLatestRun<T extends { last_updated_at?: string; updated_at?: string }>(runs: T[]): T {
