@@ -110,11 +110,8 @@ const CommitEventView = (event: CommitEvent) => {
 	const pr = context.pr;
 
 	const handleCommitClick = (e: React.MouseEvent) => {
-		if (pr.isCurrentlyCheckedOut) {
-			e.preventDefault();
-			context.openCommitChanges(event.sha);
-		}
-		// If not checked out, let the default href behavior proceed
+		e.preventDefault();
+		context.openCommitChanges(event.sha);
 	};
 
 	return (
@@ -129,7 +126,6 @@ const CommitEventView = (event: CommitEvent) => {
 					<a
 						className="message"
 						onClick={handleCommitClick}
-						href={pr.isCurrentlyCheckedOut ? undefined : event.htmlUrl}
 						title={event.htmlUrl}
 					>
 						{event.message.substr(0, event.message.indexOf('\n') > -1 ? event.message.indexOf('\n') : event.message.length)}
@@ -140,7 +136,6 @@ const CommitEventView = (event: CommitEvent) => {
 				<a
 					className="sha"
 					onClick={handleCommitClick}
-					href={pr.isCurrentlyCheckedOut ? undefined : event.htmlUrl}
 					title={event.htmlUrl}
 				>
 					{event.sha.slice(0, 7)}

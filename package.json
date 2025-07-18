@@ -52,6 +52,7 @@
 		"onFileSystem:newIssue",
 		"onFileSystem:pr",
 		"onFileSystem:githubpr",
+		"onFileSystem:githubcommit",
 		"onFileSystem:review",
 		"onWebviewPanel:pr.codingAgentSessionLogView"
 	],
