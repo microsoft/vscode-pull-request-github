@@ -2081,3 +2081,18 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		};
 	}
 }
+
+export async function isCopilotOnMyBehalf(pullRequestModel: PullRequestModel, currentUser: IAccount, coAuthors?: IAccount[]): Promise<boolean> {
+	if (!COPILOT_ACCOUNTS[pullRequestModel.author.login]) {
+		return false;
+	}
+
+	if (!coAuthors) {
+		coAuthors = await pullRequestModel.getCoAuthors();
+	}
+	if (!coAuthors || coAuthors.length === 0) {
+		return false;
+	}
+
+	return coAuthors.some(c => c.login === currentUser.login);
+}

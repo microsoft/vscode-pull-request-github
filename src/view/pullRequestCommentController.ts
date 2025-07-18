@@ -32,6 +32,8 @@ import { CommentControllerBase } from './commentControllBase';
 
 export class PullRequestCommentController extends CommentControllerBase implements CommentHandler, CommentReactionHandler {
 	private static ID = 'PullRequestCommentController';
+	static readonly PREFIX = 'github-browse';
+
 	private _pendingCommentThreadAdds: GHPRCommentThread[] = [];
 	private _commentHandlerId: string;
 	private _commentThreadCache: { [key: string]: GHPRCommentThread[] } = {};
@@ -296,6 +298,22 @@ export class PullRequestCommentController extends CommentControllerBase implemen
 				matchingThread.dispose();
 			}
 		});
+	}
+
+	protected override onDidChangeActiveTextEditor(editor: vscode.TextEditor | undefined) {
+		const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab;
+		const activeUri = activeTab?.input instanceof vscode.TabInputText ? activeTab.input.uri : (activeTab?.input instanceof vscode.TabInputTextDiff ? activeTab.input.original : undefined);
+
+		if (editor === undefined || !editor.document.uri.authority.startsWith(PullRequestCommentController.PREFIX) || !activeUri || (activeUri.scheme !== Schemes.Pr)) {
+			return;
+		}
+
+		const params = fromPRUri(activeUri);
+		if (!params || params.prNumber !== this.pullRequestModel.number) {
+			return;
+		}
+
+		return this.tryAddCopilotMention(editor, this.pullRequestModel);
 	}
 
 	hasCommentThread(thread: GHPRCommentThread): boolean {
