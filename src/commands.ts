@@ -12,7 +12,7 @@ import { CommentReply, findActiveHandler, resolveCommentHandler } from './commen
 import { COPILOT_LOGINS } from './common/copilot';
 import { commands } from './common/executeCommands';
 import Logger from './common/logger';
-import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
+import { CLOSE_ON_MARK_FILE_AS_VIEWED, FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
 import { editQuery } from './common/settingsUtils';
 import { ITelemetry } from './common/telemetry';
 import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes, toPRUri } from './common/uri';
@@ -1366,18 +1366,23 @@ ${contents}
 				if (treeNode instanceof FileChangeNode) {
 					await treeNode.markFileAsViewed(false);
 				} else if (treeNode) {
-					// When the argument is a uri it came from the editor menu and we should also close the file
-					// Do the close first to improve perceived performance of marking as viewed.
-					const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
-					if (tab) {
-						let compareUri: vscode.Uri | undefined = undefined;
-						if (tab.input instanceof vscode.TabInputTextDiff) {
-							compareUri = tab.input.modified;
-						} else if (tab.input instanceof vscode.TabInputText) {
-							compareUri = tab.input.uri;
-						}
-						if (compareUri && treeNode.toString() === compareUri.toString()) {
-							vscode.window.tabGroups.close(tab);
+					// When the argument is a uri it came from the editor menu. By default we close the editor
+					// after marking the file as viewed, but this can be controlled by a setting.
+					const shouldCloseEditor = vscode.workspace.getConfiguration(PR_SETTINGS_NAMESPACE)
+						.get<boolean>(CLOSE_ON_MARK_FILE_AS_VIEWED, true);
+					if (shouldCloseEditor) {
+						// Do the close first to improve perceived performance of marking as viewed.
+						const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+						if (tab) {
+							let compareUri: vscode.Uri | undefined = undefined;
+							if (tab.input instanceof vscode.TabInputTextDiff) {
+								compareUri = tab.input.modified;
+							} else if (tab.input instanceof vscode.TabInputText) {
+								compareUri = tab.input.uri;
+							}
+							if (compareUri && treeNode.toString() === compareUri.toString()) {
+								vscode.window.tabGroups.close(tab);
+							}
 						}
 					}
 
