@@ -752,6 +752,36 @@
 					"default": false,
 					"description": "%githubPullRequests.showPullRequestNumberInTree.description%"
 				},
+				"githubPullRequests.treeViewIconMode": {
+					"type": "string",
+					"enum": [
+						"author",
+						"state",
+						"generic"
+					],
+					"enumDescriptions": [
+						"%githubPullRequests.treeViewIconMode.author%",
+						"%githubPullRequests.treeViewIconMode.state%",
+						"%githubPullRequests.treeViewIconMode.generic%"
+					],
+					"default": "author",
+					"description": "%githubPullRequests.treeViewIconMode.description%"
+				},
+				"githubIssues.treeViewIconMode": {
+					"type": "string",
+					"enum": [
+						"author",
+						"state",
+						"generic"
+					],
+					"enumDescriptions": [
+						"%githubIssues.treeViewIconMode.author%",
+						"%githubIssues.treeViewIconMode.state%",
+						"%githubIssues.treeViewIconMode.generic%"
+					],
+					"default": "author",
+					"description": "%githubIssues.treeViewIconMode.description%"
+				},
 				"githubIssues.alwaysPromptForNewIssueRepo": {
 					"type": "boolean",
 					"default": false,
