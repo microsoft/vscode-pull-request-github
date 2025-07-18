@@ -131,12 +131,12 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 		return [];
 	}
 
-	const allAssignableUsers = await folderRepositoryManager.getAssignableUsers();
+	const allReviewerUsers = await folderRepositoryManager.getReviewerUsers();
 	const allTeamReviewers = isInOrganization ? await folderRepositoryManager.getTeamReviewers(refreshKind) : [];
 	const teamReviewers: ITeam[] = allTeamReviewers[remoteName] ?? [];
-	const assignableUsers: (IAccount | ITeam)[] = [...teamReviewers];
-	if (allAssignableUsers[remoteName]) {
-		assignableUsers.push(...allAssignableUsers[remoteName]);
+	const reviewerUsers: (IAccount | ITeam)[] = [...teamReviewers];
+	if (allReviewerUsers[remoteName]) {
+		reviewerUsers.push(...allReviewerUsers[remoteName]);
 	}
 
 	// used to track logins that shouldn't be added to pick list
@@ -155,8 +155,8 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 	// Suggested reviewers
 	reviewersPromises.push(getItems<ISuggestedReviewer>(folderRepositoryManager.context, skipList, suggestedReviewers, false));
 
-	const tooManyAssignable = assignableUsers.length > 60;
-	reviewersPromises.push(getItems<IAccount | ITeam>(folderRepositoryManager.context, skipList, assignableUsers, false, tooManyAssignable));
+	const tooManyReviewers = reviewerUsers.length > 60;
+	reviewersPromises.push(getItems<IAccount | ITeam>(folderRepositoryManager.context, skipList, reviewerUsers, false, tooManyReviewers));
 
 	const reviewers = (await Promise.all(reviewersPromises)).flat();
 

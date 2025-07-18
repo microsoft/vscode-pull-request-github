@@ -52,4 +52,14 @@ describe('GitHubRepository', function () {
 			// assert(! dotcomRepository.isGitHubDotCom);
 		});
 	});
+
+	describe('getReviewerUsers', function () {
+		it('should have getReviewerUsers method', function () {
+			const url = 'https://github.com/some/repo';
+			const remote = new GitHubRemote('origin', url, new Protocol(url), GitHubServerType.GitHubDotCom);
+			const rootUri = Uri.file('C:\\users\\test\\repo');
+			const repository = new GitHubRepository(1, remote, rootUri, credentialStore, telemetry);
+			assert(typeof repository.getReviewerUsers === 'function', 'getReviewerUsers method should exist');
+		});
+	});
 });

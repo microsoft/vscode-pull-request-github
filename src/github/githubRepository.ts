@@ -1334,6 +1334,75 @@ export class GitHubRepository extends Disposable {
 		return ret;
 	}
 
+	async getReviewerUsers(): Promise<IAccount[]> {
+		Logger.debug(`Fetch reviewer users - enter`, this.id);
+		const { query, remote, schema } = await this.ensure();
+
+		let after: string | null = null;
+		let hasNextPage = false;
+		const ret: IAccount[] = [];
+
+		do {
+			try {
+				let result: { data: AssignableUsersResponse | SuggestedActorsResponse } | undefined;
+				if (schema.GetSuggestedActors) {
+					result = await query<SuggestedActorsResponse>({
+						query: schema.GetSuggestedActors,
+						variables: {
+							owner: remote.owner,
+							name: remote.repositoryName,
+							capabilities: ['CAN_BE_REQUESTED_FOR_REVIEW'],
+							first: 100,
+							after: after,
+						},
+					});
+
+				} else {
+					// Fall back to assignable users if suggested actors not available
+					result = await query<AssignableUsersResponse>({
+						query: schema.GetAssignableUsers,
+						variables: {
+							owner: remote.owner,
+							name: remote.repositoryName,
+							first: 100,
+							after: after,
+						},
+					}, true); // we ignore SAML errors here because this query can happen at startup
+				}
+
+				if (result.data.repository === null) {
+					Logger.error('Unexpected null repository when getting reviewer users', this.id);
+					return [];
+				}
+
+				const users = (result.data as AssignableUsersResponse).repository?.assignableUsers ?? (result.data as SuggestedActorsResponse).repository?.suggestedActors;
+
+				ret.push(
+					...users?.nodes.map(node => {
+						return parseAccount(node, this);
+					}),
+				);
+
+				hasNextPage = users?.pageInfo.hasNextPage;
+				after = users?.pageInfo.endCursor;
+			} catch (e) {
+				Logger.debug(`Unable to fetch reviewer users: ${e}`, this.id);
+				if (
+					e.graphQLErrors &&
+					e.graphQLErrors.length > 0 &&
+					e.graphQLErrors[0].type === 'INSUFFICIENT_SCOPES'
+				) {
+					vscode.window.showWarningMessage(
+						`GitHub user features will not work. ${e.graphQLErrors[0].message}`,
+					);
+				}
+				return ret;
+			}
+		} while (hasNextPage);
+
+		return ret;
+	}
+
 	async cancelWorkflow(workflowRunId: number): Promise<boolean> {
 		Logger.debug(`Cancel workflow run - enter`, this.id);
 		const { octokit, remote } = await this.ensure();

@@ -185,8 +185,10 @@ export class FolderRepositoryManager extends Disposable {
 	private _mentionableUsers?: { [key: string]: IAccount[] };
 	private _fetchMentionableUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
 	private _assignableUsers?: { [key: string]: IAccount[] };
+	private _reviewerUsers?: { [key: string]: IAccount[] };
 	private _teamReviewers?: { [key: string]: ITeam[] };
 	private _fetchAssignableUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
+	private _fetchReviewerUsersPromise?: Promise<{ [key: string]: IAccount[] }>;
 	private _fetchTeamReviewersPromise?: Promise<{ [key: string]: ITeam[] }>;
 	private _gitBlameCache: { [key: string]: string } = {};
 	private _githubManager: GitHubManager;
@@ -561,6 +563,7 @@ export class FolderRepositoryManager extends Disposable {
 			}
 
 			this.getAssignableUsers(repositoriesAdded.length > 0);
+			this.getReviewerUsers(repositoriesAdded.length > 0);
 			if (isAuthenticated && activeRemotes.length) {
 				this._onDidLoadRepositories.fire(ReposManagerState.RepositoriesLoaded);
 			} else if (!isAuthenticated) {
@@ -632,7 +635,7 @@ export class FolderRepositoryManager extends Disposable {
 		return undefined;
 	}
 
-	private async getCachedFromGlobalState<T>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects'): Promise<{ [key: string]: T[] } | undefined> {
+	private async getCachedFromGlobalState<T>(userKind: 'assignableUsers' | 'reviewerUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects'): Promise<{ [key: string]: T[] } | undefined> {
 		Logger.appendLine(`Trying to use globalState for ${userKind}.`, this.id);
 
 		const usersCacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, userKind);
@@ -676,7 +679,7 @@ export class FolderRepositoryManager extends Disposable {
 		return undefined;
 	}
 
-	private async saveInGlobalState<T>(userKind: 'assignableUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects', cache: { [key: string]: T[] }): Promise<void> {
+	private async saveInGlobalState<T>(userKind: 'assignableUsers' | 'reviewerUsers' | 'teamReviewers' | 'mentionableUsers' | 'orgProjects', cache: { [key: string]: T[] }): Promise<void> {
 		const cacheLocation = vscode.Uri.joinPath(this.context.globalStorageUri, userKind);
 		await Promise.all(this._githubRepositories.map(async (repo) => {
 			const key = `${repo.remote.owner}/${repo.remote.repositoryName}.json`;
@@ -758,6 +761,42 @@ export class FolderRepositoryManager extends Disposable {
 		}
 
 		return this._fetchAssignableUsersPromise;
+	}
+
+	async getReviewerUsers(clearCache?: boolean): Promise<{ [key: string]: IAccount[] }> {
+		if (clearCache) {
+			delete this._reviewerUsers;
+		}
+
+		if (this._reviewerUsers) {
+			Logger.appendLine('Using in-memory cached reviewer users.', this.id);
+			return this._reviewerUsers;
+		}
+
+		const globalStateReviewerUsers = await this.getCachedFromGlobalState<IAccount>('reviewerUsers');
+
+		if (!this._fetchReviewerUsersPromise) {
+			const cache: { [key: string]: IAccount[] } = {};
+			const allReviewerUsers: IAccount[] = [];
+			this._fetchReviewerUsersPromise = new Promise(resolve => {
+				const promises = this._githubRepositories.map(async githubRepository => {
+					const data = await githubRepository.getReviewerUsers();
+					cache[githubRepository.remote.remoteName] = data.sort(loginComparator);
+					allReviewerUsers.push(...data);
+					return;
+				});
+
+				Promise.all(promises).then(() => {
+					this._reviewerUsers = cache;
+					this._fetchReviewerUsersPromise = undefined;
+					this.saveInGlobalState('reviewerUsers', cache);
+					resolve(cache);
+				});
+			});
+			return globalStateReviewerUsers ?? this._fetchReviewerUsersPromise;
+		}
+
+		return this._fetchReviewerUsersPromise;
 	}
 
 	async getTeamReviewers(refreshKind: TeamReviewerRefreshKind): Promise<{ [key: string]: ITeam[] }> {
