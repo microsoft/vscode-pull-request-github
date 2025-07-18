@@ -68,6 +68,12 @@ describe('PullRequestManager', function () {
 			assert.deepStrictEqual(manager.activePullRequest, pr);
 		});
 	});
+
+	describe('getReviewerUsers', function () {
+		it('has getReviewerUsers method', function () {
+			assert(typeof manager.getReviewerUsers === 'function', 'getReviewerUsers method should exist');
+		});
+	});
 });
 
 describe('titleAndBodyFrom', function () {
