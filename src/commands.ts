@@ -18,6 +18,7 @@ import { ITelemetry } from './common/telemetry';
 import { asTempStorageURI, fromPRUri, fromReviewUri, Schemes, toPRUri } from './common/uri';
 import { formatError } from './common/utils';
 import { EXTENSION_ID } from './constants';
+import { ChatSessionWithPR } from './github/copilotApi';
 import { CopilotRemoteAgentManager, ICopilotRemoteAgentCommandArgs } from './github/copilotRemoteAgent';
 import { FolderRepositoryManager } from './github/folderRepositoryManager';
 import { GitHubRepository } from './github/githubRepository';
@@ -836,7 +837,7 @@ export function registerCommands(
 		}),
 	);
 
-	async function openDescriptionCommand(argument: RepositoryChangesNode | PRNode | IssueModel | undefined) {
+	async function openDescriptionCommand(argument: RepositoryChangesNode | PRNode | IssueModel | ChatSessionWithPR | undefined) {
 		let issueModel: IssueModel | undefined;
 		if (!argument) {
 			const activePullRequests: PullRequestModel[] = reposManager.folderManagers
@@ -853,8 +854,10 @@ export function registerCommands(
 				issueModel = argument.pullRequestModel;
 			} else if (argument instanceof PRNode) {
 				issueModel = argument.pullRequestModel;
+			} else if (argument && 'pullRequest' in argument) {
+				issueModel = argument.pullRequest;
 			} else {
-				issueModel = argument;
+				issueModel = argument as IssueModel;
 			}
 		}
 

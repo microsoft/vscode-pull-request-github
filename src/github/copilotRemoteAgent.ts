@@ -14,7 +14,7 @@ import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED }
 import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { OctokitCommon } from './common';
-import { CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo } from './copilotApi';
+import { ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -108,6 +108,11 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	private async initializeCopilotApi(): Promise<CopilotApi | undefined> {
 		return await getCopilotApi(this.credentialStore, this.telemetry);
+	}
+
+	public async getUserLogin(): Promise<string | undefined> {
+		const capi = await this.copilotApi;
+		return await capi?.getUserLogin();
 	}
 
 	enabled(): boolean {
@@ -674,5 +679,32 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	getCounts(): { total: number; inProgress: number; error: number } {
 		return this._stateModel.getCounts();
+	}
+
+	public async provideChatSessions(token: vscode.CancellationToken): Promise<ChatSessionWithPR[]> {
+		try {
+			const capi = await this.copilotApi;
+			if (!capi) {
+				return [];
+			}
+
+			// Check if the token is already cancelled
+			if (token.isCancellationRequested) {
+				return [];
+			}
+
+			const sessions = await capi.getAllCodingAgentPRs(this.repositoriesManager);
+			return sessions.map(session => {
+				return {
+					uri: vscode.Uri.parse(`github://coding-agent/${session.id}`),
+					label: session.title || `Session ${session.id}`,
+					iconPath: undefined,
+					pullRequest: session
+				};
+			});
+		} catch (error) {
+			Logger.error(`Failed to provide coding agents information: ${error}`, CopilotRemoteAgentManager.ID);
+		}
+		return [];
 	}
 }

@@ -11,6 +11,8 @@ import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { CredentialStore } from './credentials';
 import { LoggingOctokit } from './loggingOctokit';
+import { PullRequestModel } from './pullRequestModel';
+import { RepositoriesManager } from './repositoriesManager';
 import { hasEnterpriseUri } from './utils';
 
 const LEARN_MORE_URL = 'https://docs.github.com/en/copilot/how-tos/agents/copilot-coding-agent';
@@ -33,6 +35,10 @@ export interface RemoteAgentJobResponse {
 		html_url: string;
 		number: number;
 	}
+}
+
+export interface ChatSessionWithPR extends vscode.ChatSessionContent {
+	pullRequest: PullRequestModel;
 }
 
 export class CopilotApi {
@@ -171,6 +177,28 @@ export class CopilotApi {
 		}
 		const sessions = await response.json();
 		return sessions.sessions;
+	}
+
+	public async getUserLogin(): Promise<string> {
+		return (await this.octokit.call(this.octokit.api.users.getAuthenticated)).data.login;
+	}
+
+	public async getAllCodingAgentPRs(repositoriesManager: RepositoriesManager): Promise<PullRequestModel[]> {
+		const username = await this.getUserLogin();
+		if (!username) {
+			Logger.error('Failed to get GitHub username from auth provider', CopilotApi.ID);
+			return [];
+		}
+		const query = `is:open is:pr assignee:${username} archived:false`;
+		const allItems = await Promise.all(
+			repositoriesManager.folderManagers.map(async fm => {
+				const result = await fm.getPullRequests(0, undefined, query);
+				return result.items;
+			})
+		);
+		const items = allItems.flat();
+		const sessions = items.filter((item) => item.author.name === 'Copilot');
+		return sessions;
 	}
 
 	public async getSessionInfo(sessionId: string): Promise<SessionInfo> {
