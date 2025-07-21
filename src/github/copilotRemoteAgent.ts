@@ -556,12 +556,18 @@ export class CopilotRemoteAgentManager extends Disposable {
 			title = titleMatch[1].trim();
 		}
 
+		const formatBodyPlaceholder = (problemContext: string): string => {
+			const header = vscode.l10n.t('Coding agent has begun work on **{0}** and will replace this description as work progresses.', title);
+			const collapsedContext = `<details><summary>${vscode.l10n.t('See problem context')}</summary>\n\n${problemContext}\n\n</details>`;
+			return `${header}\n\n${collapsedContext}`;
+		};
+
 		const problemStatement: string = `${prompt} ${problemContext ? `: ${problemContext}` : ''}`;
 		const payload: RemoteAgentJobPayload = {
 			problem_statement: problemStatement,
 			pull_request: {
 				title,
-				body_placeholder: problemContext,
+				body_placeholder: formatBodyPlaceholder(problemContext),
 				base_ref,
 				body_suffix,
 				...(hasChanges && { head_ref: ref })
