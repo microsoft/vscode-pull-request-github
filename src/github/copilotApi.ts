@@ -192,14 +192,16 @@ export class CopilotApi {
 			Logger.error('Failed to get GitHub username from auth provider', CopilotApi.ID);
 			return [];
 		}
-		const query = `is:open author:copilot-swe-agent[bot] involves:${username} is:pr`;
+		const query = `is:open is:pr assignee:${username} archived:false`;
 		const allItems = await Promise.all(
 			repositoriesManager.folderManagers.map(async fm => {
 				const result = await fm.getPullRequests(PRType.Query, undefined, query);
 				return result.items;
 			})
 		);
-		return allItems.flat();
+		const items = allItems.flat();
+		const sessions = items.filter((item) => item.author.name === 'Copilot');
+		return sessions;
 	}
 
 	public async getSessionInfo(sessionId: string): Promise<SessionInfo> {
