@@ -1208,7 +1208,7 @@ export class FolderRepositoryManager extends Disposable {
 					// Pull requests fetched with a query can be from any repo.
 					// We need to use the correct GitHubRepository for this PR.
 					return response.repo.createOrUpdatePullRequestModel(
-						await parseGraphQLPullRequest(response.data.repository.pullRequest, response.repo),
+						await parseGraphQLPullRequest(response.data.repository.pullRequest, response.repo)
 					);
 				})))
 				.filter(item => item !== null) as PullRequestModel[];
