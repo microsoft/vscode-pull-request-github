@@ -199,9 +199,7 @@ export class CopilotApi {
 				return result.items;
 			})
 		);
-		const items = allItems.flat();
-		const sessions = items.filter((item) => item.author.name === 'Copilot');
-		return sessions;
+		return allItems.flat();
 	}
 
 	public async getSessionInfo(sessionId: string): Promise<SessionInfo> {
