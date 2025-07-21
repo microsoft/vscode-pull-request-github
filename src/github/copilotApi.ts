@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
-import { CredentialStore } from './credentials';
+import { CredentialStore, GitHub } from './credentials';
 import { PRType } from './interface';
 import { LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
@@ -231,7 +231,7 @@ export class CopilotApi {
 		return await logsResponse.text();
 	}
 
-	private getHub() {
+	private getHub(): GitHub | undefined {
 		let authProvider: AuthProvider | undefined;
 		if (this.credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
 			authProvider = AuthProvider.githubEnterprise;
@@ -241,11 +241,7 @@ export class CopilotApi {
 			return;
 		}
 
-		const github = this.credentialStore.getHub(authProvider);
-		if (!github) {
-			return;
-		}
-		return github;
+		return this.credentialStore.getHub(authProvider);
 	}
 }
 
