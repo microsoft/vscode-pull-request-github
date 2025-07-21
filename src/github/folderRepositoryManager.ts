@@ -1165,6 +1165,12 @@ export class FolderRepositoryManager extends Disposable {
 			Logger.debug(`Fetch pull request category ${categoryQuery} - enter`, this.id);
 			const { octokit, query, schema } = await githubRepository.ensure();
 
+			/* __GDPR__
+				"pr.search.category" : {
+				}
+			*/
+			this.telemetry.sendTelemetryEvent('pr.search.category');
+
 			const user = (await githubRepository.getAuthenticatedUser()).login;
 			// Search api will not try to resolve repo that redirects, so get full name first
 			repo = await githubRepository.getMetadata();
@@ -1202,7 +1208,7 @@ export class FolderRepositoryManager extends Disposable {
 					// Pull requests fetched with a query can be from any repo.
 					// We need to use the correct GitHubRepository for this PR.
 					return response.repo.createOrUpdatePullRequestModel(
-						await parseGraphQLPullRequest(response.data.repository.pullRequest, response.repo),
+						await parseGraphQLPullRequest(response.data.repository.pullRequest, response.repo)
 					);
 				})))
 				.filter(item => item !== null) as PullRequestModel[];

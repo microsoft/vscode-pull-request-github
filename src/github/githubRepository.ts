@@ -1511,7 +1511,7 @@ export class GitHubRepository extends Disposable {
 				}
 				const oldTimeline = issueModel.timelineEvents;
 				issueModel.timelineEvents = allEvents;
-				if (!oldLastEvent || (allEvents.length !== oldTimeline.length)) {
+				if (oldTimeline.length > 0 && allEvents.length !== oldTimeline.length) {
 					this._onDidChangePullRequests.fire();
 				}
 			}
@@ -1632,7 +1632,7 @@ export class GitHubRepository extends Disposable {
 		Logger.debug(`Fetch timeline events of PR #${pullRequestModel.number} - done`, PullRequestModel.ID);
 		const oldEvents = pullRequestModel.timelineEvents;
 		pullRequestModel.timelineEvents = events;
-		if (oldEvents.length !== events.length) {
+		if ((oldEvents.length > 0) && oldEvents.length !== events.length) {
 			this._onDidChangePullRequests.fire();
 		}
 		return events;

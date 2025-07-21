@@ -50,16 +50,10 @@ export class PrsTreeModel extends Disposable {
 			}
 
 			this._repoEvents.get(manager)!.push(manager.onDidChangeActivePullRequest(() => {
-				this.clearRepo(manager);
+				this._onDidChangeData.fire(manager);
 				if (this._activePRDisposables.has(manager)) {
 					disposeAll(this._activePRDisposables.get(manager)!);
 					this._activePRDisposables.delete(manager);
-				}
-				if (manager.activePullRequest) {
-					this._activePRDisposables.set(manager, [
-						manager.activePullRequest.onDidChangeComments(() => {
-							this.clearRepo(manager);
-						})]);
 				}
 			}));
 			this._repoEvents.get(manager)!.push(manager.onDidChangeAnyPullRequests(() => {

@@ -117,7 +117,7 @@ export class CopilotPRWatcher extends Disposable {
 		if (shouldContinue) {
 			this._timeout = setTimeout(() => {
 				this._pollForChanges();
-			}, 60 * 1000); // Poll every minute
+			}, 3 * 60 * 1000); // Poll every 3 minute
 		}
 	}
 
