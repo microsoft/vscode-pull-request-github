@@ -26,7 +26,7 @@ export const SessionView: React.FC<SessionViewProps> = (props) => {
 	return (
 		<div className="session-container">
 			<SessionHeader info={props.info} pullInfo={props.pullInfo} />
-			{props.setupLogs && props.setupLogs.length > 0 && (
+			{props.logs.length === 0 && props.setupLogs && props.setupLogs.length > 0 && (
 				<SetupStageLog setupLogs={props.setupLogs} />
 			)}
 			<SessionLog logs={props.logs} />
