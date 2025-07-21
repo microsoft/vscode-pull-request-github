@@ -441,8 +441,6 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 		this._item
 			.setReadyForReview()
 			.then(result => {
-				vscode.commands.executeCommand('pr.refreshList');
-
 				this._replyMessage(message, result);
 			})
 			.catch(e => {

@@ -959,7 +959,7 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	createOrUpdatePullRequestModel(pullRequest: PullRequest): PullRequestModel {
+	createOrUpdatePullRequestModel(pullRequest: PullRequest, silent: boolean = false): PullRequestModel {
 		let model = this._pullRequestModelsByNumber.get(pullRequest.number)?.model;
 		if (model) {
 			model.update(pullRequest);
@@ -969,7 +969,9 @@ export class GitHubRepository extends Disposable {
 			const disposables: vscode.Disposable[] = [];
 			disposables.push(model.onDidChange(() => this._onPullRequestModelChanged(prModel)));
 			this._pullRequestModelsByNumber.set(pullRequest.number, { model, disposables });
-			this._onDidAddPullRequest.fire(model);
+			if (!silent) {
+				this._onDidAddPullRequest.fire(model);
+			}
 		}
 
 		return model;
