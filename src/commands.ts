@@ -812,7 +812,6 @@ export function registerCommands(
 					if (value === yes) {
 						try {
 							isDraft = (await pullRequest.setReadyForReview()).isDraft;
-							vscode.commands.executeCommand('pr.refreshList');
 							return isDraft;
 						} catch (e) {
 							vscode.window.showErrorMessage(
