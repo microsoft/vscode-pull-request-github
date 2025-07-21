@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.114.3
+
+### Fixes
+
+- Overusing GitHub search API. https://github.com/microsoft/vscode-pull-request-github/issues/7358
+
 ## 0.114.2
 
 ### Fixes
