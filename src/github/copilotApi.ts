@@ -10,6 +10,7 @@ import { AuthProvider } from '../common/authentication';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
 import { CredentialStore } from './credentials';
+import { PRType } from './interface';
 import { LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
@@ -44,7 +45,12 @@ export interface ChatSessionWithPR extends vscode.ChatSessionContent {
 export class CopilotApi {
 	protected static readonly ID = 'copilotApi';
 
-	constructor(private octokit: LoggingOctokit, private token: string, private telemetry: ITelemetry) { }
+	constructor(
+		private octokit: LoggingOctokit,
+		private token: string,
+		private credentialStore: CredentialStore,
+		private telemetry: ITelemetry
+	) { }
 
 	private get baseUrl(): string {
 		return 'https://api.githubcopilot.com';
@@ -179,20 +185,17 @@ export class CopilotApi {
 		return sessions.sessions;
 	}
 
-	public async getUserLogin(): Promise<string> {
-		return (await this.octokit.call(this.octokit.api.users.getAuthenticated)).data.login;
-	}
-
 	public async getAllCodingAgentPRs(repositoriesManager: RepositoriesManager): Promise<PullRequestModel[]> {
-		const username = await this.getUserLogin();
+		const hub = this.getHub();
+		const username = (await hub?.currentUser)?.login;
 		if (!username) {
 			Logger.error('Failed to get GitHub username from auth provider', CopilotApi.ID);
 			return [];
 		}
-		const query = `is:open is:pr assignee:${username} archived:false`;
+		const query = `is:open author:copilot-swe-agent[bot] involves:${username} is:pr`;
 		const allItems = await Promise.all(
 			repositoriesManager.folderManagers.map(async fm => {
-				const result = await fm.getPullRequests(0, undefined, query);
+				const result = await fm.getPullRequests(PRType.Query, undefined, query);
 				return result.items;
 			})
 		);
@@ -228,6 +231,23 @@ export class CopilotApi {
 			throw new Error(`Failed to fetch logs: ${logsResponse.statusText}`);
 		}
 		return await logsResponse.text();
+	}
+
+	private getHub() {
+		let authProvider: AuthProvider | undefined;
+		if (this.credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
+			authProvider = AuthProvider.githubEnterprise;
+		} else if (this.credentialStore.isAuthenticated(AuthProvider.github)) {
+			authProvider = AuthProvider.github;
+		} else {
+			return;
+		}
+
+		const github = this.credentialStore.getHub(authProvider);
+		if (!github) {
+			return;
+		}
+		return github;
 	}
 }
 
@@ -270,5 +290,5 @@ export async function getCopilotApi(credentialStore: CredentialStore, telemetry:
 	}
 
 	const { token } = await github.octokit.api.auth() as { token: string };
-	return new CopilotApi(github.octokit, token, telemetry);
+	return new CopilotApi(github.octokit, token, credentialStore, telemetry);
 }

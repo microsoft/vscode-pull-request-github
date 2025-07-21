@@ -110,11 +110,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return await getCopilotApi(this.credentialStore, this.telemetry);
 	}
 
-	public async getUserLogin(): Promise<string | undefined> {
-		const capi = await this.copilotApi;
-		return await capi?.getUserLogin();
-	}
-
 	enabled(): boolean {
 		return vscode.workspace
 			.getConfiguration(CODING_AGENT).get(CODING_AGENT_ENABLED, false);

@@ -202,6 +202,11 @@ export async function closeAllPrAndReviewEditors() {
 	}
 }
 
+function isChatSessionWithPR(value: any): value is ChatSessionWithPR {
+	const asChatSessionWithPR = value as Partial<ChatSessionWithPR>;
+	return !!asChatSessionWithPR.pullRequest;
+}
+
 export function registerCommands(
 	context: vscode.ExtensionContext,
 	reposManager: RepositoriesManager,
@@ -854,10 +859,10 @@ export function registerCommands(
 				issueModel = argument.pullRequestModel;
 			} else if (argument instanceof PRNode) {
 				issueModel = argument.pullRequestModel;
-			} else if (argument && 'pullRequest' in argument) {
+			} else if (isChatSessionWithPR(argument)) {
 				issueModel = argument.pullRequest;
 			} else {
-				issueModel = argument as IssueModel;
+				issueModel = argument;
 			}
 		}
 
