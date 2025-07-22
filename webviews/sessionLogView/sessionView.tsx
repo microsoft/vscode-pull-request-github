@@ -9,11 +9,12 @@ import * as monaco from 'monaco-editor/esm/vs/editor/editor.main';
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 import { Temporal } from 'temporal-polyfill';
+import { parseToolCallDetails, SessionResponseLogChunk } from '../../common/sessionParsing';
 import { vscode } from '../common/message';
 import { CodeView } from './codeView';
 import './index.css'; // Create this file for styling
 import { PullInfo } from './messages';
-import { parseDiff, type SessionInfo, type SessionResponseLogChunk, type SessionSetupStepResponse } from './sessionsApi';
+import { parseDiff, type SessionInfo, type SessionSetupStepResponse } from './sessionsApi';
 
 interface SessionViewProps {
 	readonly pullInfo: PullInfo | undefined;
@@ -126,8 +127,9 @@ const SessionLog: React.FC<SessionLogProps> = ({ logs }) => {
 				return;
 			}
 
-			const args = JSON.parse(choice.delta.tool_calls[0].function.arguments);
-			name = choice.delta.tool_calls[0].function.name;
+			const toolCall = choice.delta.tool_calls[0];
+			const args = JSON.parse(toolCall.function.arguments);
+			name = toolCall.function.name;
 
 			if (name === 'str_replace_editor') {
 				if (args.command === 'view') {

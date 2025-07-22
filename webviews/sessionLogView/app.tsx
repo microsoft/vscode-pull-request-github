@@ -9,8 +9,9 @@ import * as React from 'react';
 import { createHighlighter } from 'shiki';
 import { vscode } from '../common/message';
 import type * as messages from './messages';
-import { parseSessionLogs, SessionInfo, SessionResponseLogChunk, SessionSetupStepResponse } from './sessionsApi';
+import { SessionInfo, SessionSetupStepResponse } from './sessionsApi';
 import { SessionView } from './sessionView';
+import { parseSessionLogs, SessionResponseLogChunk } from '../../common/sessionParsing';
 
 const themeName = 'vscode-theme';
 

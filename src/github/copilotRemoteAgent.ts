@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import vscode from 'vscode';
+import { parseSessionLogs, parseToolCallDetails } from '../../common/sessionParsing';
 import { Repository } from '../api/api';
 import { COPILOT_LOGINS, CopilotPRStatus } from '../common/copilot';
 import { commands } from '../common/executeCommands';
@@ -900,49 +901,32 @@ export class CopilotRemoteAgentManager extends Disposable {
 									toolPart.isError = false;
 									toolPart.isConfirmed = true;
 
-									// Parse tool arguments and set tool-specific metadata following sessionView.tsx patterns
+									// Parse tool arguments and set tool-specific metadata using shared utility
 									const name = toolCall.function.name;
 									const content = delta.content || '';
 
 									try {
-										const args = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
+										const toolDetails = parseToolCallDetails(toolCall, content);
 
-										if (name === 'str_replace_editor') {
-											if (args.command === 'view') {
-												toolPart.toolName = args.path ? `View ${this.toFileLabel(args.path)}` : 'View repository';
-												toolPart.invocationMessage = `View ${args.path}`;
-												toolPart.pastTenseMessage = `View ${args.path}`;
-											} else {
-												toolPart.toolName = 'Edit';
-												toolPart.invocationMessage = `Edit: ${args.path}`;
-												toolPart.pastTenseMessage = `Edit: ${args.path}`;
-											}
-										} else if (name === 'think') {
-											toolPart.toolName = 'Thought';
-											toolPart.invocationMessage = content;
-										} else if (name === 'report_progress') {
-											toolPart.toolName = 'Progress Update';
-											toolPart.invocationMessage = args.prDescription || content;
-											if (args.commitMessage) {
-												toolPart.originMessage = `Commit: ${args.commitMessage}`;
-											}
-										} else if (name === 'bash') {
-											toolPart.toolName = 'Run Bash command';
-											const command = args.command ? `$ ${args.command}` : undefined;
-											const bashContent = [command, content].filter(Boolean).join('\n');
-											toolPart.invocationMessage = new vscode.MarkdownString(`\`\`\`bash\n${bashContent}\n\`\`\``);
+										toolPart.toolName = toolDetails.toolName;
 
-											// Use the terminal-specific data for bash commands
-											if (args.command) {
-												toolPart.toolSpecificData = {
-													command: args.command,
-													language: 'bash'
-												};
-											}
+										// Handle different invocation message types
+										if (name === 'bash') {
+											toolPart.invocationMessage = new vscode.MarkdownString(`\`\`\`bash\n${toolDetails.invocationMessage}\n\`\`\``);
 										} else {
-											// Unknown tool type
-											toolPart.toolName = name || 'unknown';
-											toolPart.invocationMessage = new vscode.MarkdownString(`\`\`\`plaintext\n${content}\n\`\`\``);
+											toolPart.invocationMessage = toolDetails.invocationMessage;
+										}
+
+										if (toolDetails.pastTenseMessage) {
+											toolPart.pastTenseMessage = toolDetails.pastTenseMessage;
+										}
+
+										if (toolDetails.originMessage) {
+											toolPart.originMessage = toolDetails.originMessage;
+										}
+
+										if (toolDetails.toolSpecificData) {
+											toolPart.toolSpecificData = toolDetails.toolSpecificData;
 										}
 									} catch (error) {
 										// Fallback for parsing errors
@@ -987,111 +971,4 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return [];
 		}
 	}
-
-	/**
-	 * Helper method to convert absolute file paths to relative labels
-	 * Following the pattern from sessionView.tsx
-	 */
-	private toFileLabel(file: string): string {
-		// File paths are absolute and look like: `/home/runner/work/repo/repo/<path>`
-		const parts = file.split('/');
-		return parts.slice(6).join('/');
-	}
-
-	/**
-	 * Helper method to get language for a file based on its extension
-	 * Following the pattern from sessionView.tsx
-	 */
-	private getLanguageForFile(filePath: string): string {
-		const extension = filePath.split('.').pop()?.toLowerCase();
-
-		// Common language mappings
-		const languageMap: { [ext: string]: string } = {
-			'ts': 'typescript',
-			'tsx': 'tsx',
-			'js': 'javascript',
-			'jsx': 'jsx',
-			'py': 'python',
-			'json': 'json',
-			'md': 'markdown',
-			'yml': 'yaml',
-			'yaml': 'yaml',
-			'xml': 'xml',
-			'html': 'html',
-			'css': 'css',
-			'scss': 'scss',
-			'less': 'less',
-			'sh': 'bash',
-			'bash': 'bash',
-			'zsh': 'bash',
-			'fish': 'bash',
-			'ps1': 'powershell',
-			'sql': 'sql',
-			'go': 'go',
-			'rs': 'rust',
-			'cpp': 'cpp',
-			'c': 'c',
-			'h': 'c',
-			'hpp': 'cpp',
-			'java': 'java',
-			'kt': 'kotlin',
-			'swift': 'swift',
-			'rb': 'ruby',
-			'php': 'php',
-			'cs': 'csharp',
-			'fs': 'fsharp',
-			'vb': 'vb',
-			'r': 'r',
-			'scala': 'scala',
-			'clj': 'clojure',
-			'elm': 'elm',
-			'dart': 'dart',
-			'lua': 'lua',
-			'perl': 'perl',
-			'vim': 'vim'
-		};
-
-		return extension ? languageMap[extension] || 'plaintext' : 'plaintext';
-	}
-}
-
-function parseSessionLogs(rawText: string): SessionResponseLogChunk[] {
-	const parts = rawText
-		.split(/\r?\n/)
-		.filter(part => part.startsWith('data: '))
-		.map(part => part.slice('data: '.length).trim())
-		.map(part => JSON.parse(part));
-
-	return parts as SessionResponseLogChunk[];
-}
-
-export interface SessionResponseLogChunk {
-	choices: Array<{
-		finish_reason: string;
-		delta: {
-			content?: string;
-			role: string;
-			tool_calls?: Array<{
-				function: {
-					arguments: string;
-					name: string;
-				};
-				id: string;
-				type: string;
-				index: number;
-			}>;
-		};
-	}>;
-	created: number;
-	id: string;
-	usage: {
-		completion_tokens: number;
-		prompt_tokens: number;
-		prompt_tokens_details: {
-			cached_tokens: number;
-		};
-		total_tokens: number;
-	};
-	model: string;
-	object: string;
 }

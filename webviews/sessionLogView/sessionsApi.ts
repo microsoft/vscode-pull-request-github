@@ -3,37 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-export interface SessionResponseLogChunk {
-	choices: Array<{
-		finish_reason: string;
-		delta: {
-			content?: string;
-			role: string;
-			tool_calls?: Array<{
-				function: {
-					arguments: string;
-					name: string;
-				};
-				id: string;
-				type: string;
-				index: number;
-			}>;
-		};
-	}>;
-	created: number;
-	id: string;
-	usage: {
-		completion_tokens: number;
-		prompt_tokens: number;
-		prompt_tokens_details: {
-			cached_tokens: number;
-		};
-		total_tokens: number;
-	};
-	model: string;
-	object: string;
-}
-
 export interface SessionSetupStepResponse {
 	name: string;
 	status: 'completed' | 'in_progress' | 'queued';
@@ -58,16 +27,6 @@ export interface SessionInfo {
 	workflow_run_id: number;
 	premium_requests: number;
 	error: string | null;
-}
-
-export function parseSessionLogs(rawText: string): SessionResponseLogChunk[] {
-	const parts = rawText
-		.split(/\r?\n/)
-		.filter(part => part.startsWith('data: '))
-		.map(part => part.slice('data: '.length).trim())
-		.map(part => JSON.parse(part));
-
-	return parts as SessionResponseLogChunk[];
 }
 
 export function parseDiff(content: string): { content: string; fileA: string | undefined; fileB: string | undefined; } | undefined {
