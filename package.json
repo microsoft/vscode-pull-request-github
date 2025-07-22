@@ -38,7 +38,7 @@
 	"version": "0.114.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.102.0"
+		"vscode": "^1.103.0"
 	},
 	"categories": [
 		"Other",
