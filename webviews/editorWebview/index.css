@@ -845,7 +845,7 @@ textarea {
 .editing-form {
 	padding: 5px 0;
 	display: flex;
-	flex-direction: column;
+	flex-direction: row;
 	min-width: 300px;
 }
 
@@ -869,8 +869,7 @@ textarea {
 	justify-content: right;
 }
 
-.form-actions {
-	display: flex;
+:not(.title-editing-form)>.form-actions {
 	justify-content: flex-end;
 	padding-top: 10px;
 }
@@ -1282,7 +1281,7 @@ code {
 }
 
 .title-editing-form>.form-actions {
-	margin-left: 0;
+	margin-left: 8px;
 }
 
 /* permalinks */
