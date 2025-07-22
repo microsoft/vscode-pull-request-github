@@ -267,6 +267,11 @@ export interface SessionInfo {
 	error: string | null;
 }
 
+export interface SessionSetupStep {
+	name: string;
+	status: 'completed' | 'in_progress' | 'queued';
+}
+
 export async function getCopilotApi(credentialStore: CredentialStore, telemetry: ITelemetry, authProvider?: AuthProvider): Promise<CopilotApi | undefined> {
 	if (!authProvider) {
 		if (credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
