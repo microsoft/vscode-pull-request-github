@@ -215,6 +215,8 @@ button.codeview-expand:hover {
 }
 
 .setup-log-line {
+	display: flex;
+	align-items: center;
 	font-family: var(--vscode-editor-font-family);
 	font-size: var(--vscode-editor-font-size);
 	line-height: 1.4;
@@ -222,4 +224,31 @@ button.codeview-expand:hover {
 	margin: 2px 0;
 	white-space: pre-wrap;
 	word-wrap: break-word;
+	gap: 8px;
+}
+
+.setup-step-icon {
+	flex-shrink: 0;
+	font-size: 14px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+}
+
+.setup-step-name {
+	flex: 1;
+}
+
+.setup-step-completed {
+	opacity: 0.8;
+}
+
+.setup-step-in-progress {
+	font-weight: 500;
+}
+
+.setup-step-queued {
+	opacity: 0.6;
 }

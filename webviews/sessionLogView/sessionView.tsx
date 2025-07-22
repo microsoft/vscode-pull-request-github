@@ -13,30 +13,27 @@ import { vscode } from '../common/message';
 import { CodeView } from './codeView';
 import './index.css'; // Create this file for styling
 import { PullInfo } from './messages';
-import { parseDiff, type SessionInfo, type SessionResponseLogChunk } from './sessionsApi';
+import { parseDiff, type SessionInfo, type SessionResponseLogChunk, type SessionSetupStepResponse } from './sessionsApi';
 
 interface SessionViewProps {
 	readonly pullInfo: PullInfo | undefined;
 	readonly info: SessionInfo;
 	readonly logs: readonly SessionResponseLogChunk[];
-	readonly setupLogs?: readonly string[];
+	readonly setupSteps?: readonly SessionSetupStepResponse[];
 }
 
 export const SessionView: React.FC<SessionViewProps> = (props) => {
 	return (
 		<div className="session-container">
 			<SessionHeader info={props.info} pullInfo={props.pullInfo} />
-			{props.logs.length === 0 && props.setupLogs && props.setupLogs.length > 0 && (
-				<SetupStageLog setupLogs={props.setupLogs} />
+			{props.logs.length === 0 && props.setupSteps && props.setupSteps.length > 0 && (
+				<SetupStageLog setupSteps={props.setupSteps} />
 			)}
 			<SessionLog logs={props.logs} />
-			{props.info.state === 'in_progress' && (
+			{props.info.state === 'in_progress' && !(props.logs.length === 0 && props.setupSteps && props.setupSteps.length > 0) && (
 				<div className="session-in-progress-indicator">
 					<span className="icon"><i className="codicon codicon-loading"></i></span>
-					{props.logs.length === 0 && props.setupLogs && props.setupLogs.length > 0
-						? 'Configuring environment...'
-						: 'Session is in progress...'
-					}
+					Session is in progress...
 				</div>
 			)}
 		</div>
@@ -279,21 +276,57 @@ function toFileLabel(file: string): string {
 
 // Setup Stage Log component
 interface SetupStageLogProps {
-	readonly setupLogs: readonly string[];
+	readonly setupSteps: readonly SessionSetupStepResponse[];
 }
 
-const SetupStageLog: React.FC<SetupStageLogProps> = ({ setupLogs }) => {
-	if (!setupLogs || setupLogs.length === 0) {
+const SetupStageLog: React.FC<SetupStageLogProps> = ({ setupSteps }) => {
+	if (!setupSteps || setupSteps.length === 0) {
 		return null;
 	}
 
-	const setupSteps = setupLogs
-		.filter(line => line.trim().length > 0)
-		.map((line, index) => (
-			<div key={index} className="setup-log-line">
-				{line}
-			</div>
-		));
+	const getStatusIcon = (step: SessionSetupStepResponse) => {
+		switch (step.status) {
+			case 'completed':
+				return <i className="codicon codicon-check"></i>;
+			case 'in_progress':
+				return <i className="codicon codicon-loading codicon-modifier-spin"></i>;
+			case 'queued':
+			default:
+				return <i className="codicon codicon-clock"></i>;
+		}
+	};
+
+	const getStatusClass = (step: SessionSetupStepResponse) => {
+		switch (step.status) {
+			case 'completed':
+				return 'setup-step-completed';
+			case 'in_progress':
+				return 'setup-step-in-progress';
+			case 'queued':
+			default:
+				return 'setup-step-queued';
+		}
+	};
+
+	// Show completed steps and the first non-completed step (in_progress or queued)
+	const stepsToShow: Array<SessionSetupStepResponse> = [];
+	let foundNonCompleted = false;
+
+	for (const step of setupSteps) {
+		if (step.status === 'completed') {
+			stepsToShow.push(step);
+		} else if (!foundNonCompleted) {
+			stepsToShow.push(step);
+			foundNonCompleted = true;
+		}
+	}
+
+	const setupStepsElements = stepsToShow.map((step, index) => (
+		<div key={index} className={`setup-log-line ${getStatusClass(step)}`}>
+			<span className="setup-step-icon">{getStatusIcon(step)}</span>
+			<span className="setup-step-name">{step.name}</span>
+		</div>
+	));
 
 	return (
 		<div className="setup-stage-log">
@@ -302,7 +335,7 @@ const SetupStageLog: React.FC<SetupStageLogProps> = ({ setupLogs }) => {
 				Environment Setup
 			</h3>
 			<div className="setup-log-content">
-				{setupSteps}
+				{setupStepsElements}
 			</div>
 		</div>
 	);
