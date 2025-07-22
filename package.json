@@ -3278,7 +3278,7 @@
 			"chat/chatSessions": [
 				{
 					"command": "pr.openDescription",
-					"when": "chatSessionType == github.pullRequest.codingAgent"
+					"when": "chatSessionType == copilot-swe-agent"
 				}
 			]
 		},
