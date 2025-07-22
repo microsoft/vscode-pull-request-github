@@ -815,15 +815,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			const history: Array<vscode.ChatRequestTurn | vscode.ChatResponseTurn2> = [];
 
-			// Insert the initial user request with the PR title
-			// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-			// @ts-ignore - Constructor will be made public
-			const initialUserRequest = new vscode.ChatRequestTurn(
+			const initialUserRequest = new vscode.ChatRequestTurn2(
 				prTitle,
 				undefined, // command
 				[], // references
 				'copilot-swe-agent',
-				[] // toolReferences
+				[], // toolReferences
+				[]
 			);
 			history.push(initialUserRequest);
 
