@@ -195,6 +195,8 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		const hasWritePermission = repositoryAccess!.hasWritePermission;
 		const canEdit = hasWritePermission || viewerCanEdit;
 		const context: Issue = {
+			owner: issue.remote.owner,
+			repo: issue.remote.repositoryName,
 			number: issue.number,
 			title: issue.title,
 			titleHTML: issue.titleHTML,

@@ -31,6 +31,7 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
+import { CopyContext } from './github/views';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewCommentController } from './view/reviewCommentController';
@@ -1447,17 +1448,33 @@ ${contents}
 		}));
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('pr.copyVscodeDevPrLink', async () => {
-			const activePullRequests: PullRequestModel[] = reposManager.folderManagers
-				.map(folderManager => folderManager.activePullRequest!)
-				.filter(activePR => !!activePR);
-			const pr = await chooseItem<PullRequestModel>(
-				activePullRequests,
-				itemValue => `${itemValue.number}: ${itemValue.title}`,
-				{ placeHolder: vscode.l10n.t('Pull request to create a link for') },
-			);
+		vscode.commands.registerCommand('pr.copyVscodeDevPrLink', async (params: CopyContext | undefined) => {
+			let pr: PullRequestModel | undefined;
+			if (params) {
+				pr = await reposManager.getManagerForRepository(params.owner, params.repo)?.resolvePullRequest(params.owner, params.repo, params.number, true);
+			} else {
+				const activePullRequests: PullRequestModel[] = reposManager.folderManagers
+					.map(folderManager => folderManager.activePullRequest!)
+					.filter(activePR => !!activePR);
+				pr = await chooseItem<PullRequestModel>(
+					activePullRequests,
+					itemValue => `${itemValue.number}: ${itemValue.title}`,
+					{ placeHolder: vscode.l10n.t('Pull request to create a link for') },
+				);
+			}
 			if (pr) {
 				return vscode.env.clipboard.writeText(vscodeDevPrLink(pr));
+			}
+		}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.copyPrLink', async (params: CopyContext | undefined) => {
+			let pr: PullRequestModel | undefined;
+			if (params) {
+				pr = await reposManager.getManagerForRepository(params.owner, params.repo)?.resolvePullRequest(params.owner, params.repo, params.number, true);
+			}
+			if (pr) {
+				return vscode.env.clipboard.writeText(pr.html_url);
 			}
 		}));
 

@@ -1419,6 +1419,11 @@
 				"category": "%command.issues.category%"
 			},
 			{
+				"command": "pr.copyPrLink",
+				"title": "%command.pr.copyPrLink.title%",
+				"category": "%command.issues.category%"
+			},
+			{
 				"command": "pr.refreshComments",
 				"title": "%command.pr.refreshComments.title%",
 				"category": "%command.pull.request.category%",
@@ -3273,6 +3278,14 @@
 				{
 					"command": "review.requestChangesOnDotComDescription",
 					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentRequestChangesOnDotCom"
+				},
+				{
+					"command": "pr.copyPrLink",
+					"when": "webviewId == PullRequestOverview && github:copyMenu"
+				},
+				{
+					"command": "pr.copyVscodeDevPrLink",
+					"when": "webviewId == PullRequestOverview && github:copyMenu"
 				}
 			],
 			"chat/chatSessions": [

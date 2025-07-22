@@ -2202,11 +2202,12 @@ export class FolderRepositoryManager extends Disposable {
 		owner: string,
 		repositoryName: string,
 		pullRequestNumber: number,
+		useCache: boolean = false,
 	): Promise<PullRequestModel | undefined> {
 		const githubRepo = await this.resolveItem(owner, repositoryName);
 		Logger.appendLine(`Found GitHub repo for pr #${pullRequestNumber}: ${githubRepo ? 'yes' : 'no'}`, this.id);
 		if (githubRepo) {
-			const pr = await githubRepo.getPullRequest(pullRequestNumber);
+			const pr = await githubRepo.getPullRequest(pullRequestNumber, useCache);
 			Logger.appendLine(`Found GitHub pr repo for pr #${pullRequestNumber}: ${pr ? 'yes' : 'no'}`, this.id);
 			return pr;
 		}

@@ -7,7 +7,7 @@ import React, { useContext, useState } from 'react';
 import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../../src/common/copilot';
 import { CopilotStartedEvent, TimelineEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum } from '../../src/github/interface';
-import { PullRequest } from '../../src/github/views';
+import { CopyContext, PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
 import { checkIcon, editIcon, issueClosedIcon, issueIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
@@ -28,7 +28,9 @@ export function Header({
 	isDraft,
 	isIssue,
 	repositoryDefaultBranch,
-	events
+	events,
+	owner,
+	repo
 }: PullRequest) {
 	const [currentTitle, setCurrentTitle] = useStateProp(title);
 	const [inEditMode, setEditMode] = useState(false);
@@ -44,6 +46,8 @@ export function Header({
 				setEditMode={setEditMode}
 				setCurrentTitle={setCurrentTitle}
 				canEdit={canEdit}
+				owner={owner}
+				repo={repo}
 			/>
 			<Subtitle state={state} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} />
 			<div className="header-actions">
@@ -58,7 +62,7 @@ export function Header({
 	);
 }
 
-function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle, canEdit }) {
+function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle, canEdit, owner, repo }) {
 	const { setTitle } = useContext(PullRequestContext);
 
 	const titleForm = (
@@ -85,12 +89,20 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 		</form>
 	);
 
+	const context: CopyContext = {
+		'github:copyMenu': true,
+		'preventDefaultContextMenuItems': true,
+		owner,
+		repo,
+		number
+	};
+
 	const displayTitle = (
 		<div className="overview-title">
 			<h2>
 				<span dangerouslySetInnerHTML={{ __html: titleHTML }} />
 				{' '}
-				<a href={url} title={url}>
+				<a href={url} title={url} data-vscode-context={JSON.stringify(context)}>
 					#{number}
 				</a>
 			</h2>
@@ -124,12 +136,6 @@ function ButtonGroup({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }
 			)}
 			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary small-button">
 				Refresh
-			</button>
-			<button title="Copy GitHub pull request link" onClick={copyPrLink} className="secondary small-button">
-				Copy Link
-			</button>
-			<button title="Copy vscode.dev link for viewing this pull request in VS Code for the Web" onClick={copyVscodeDevLink} className="secondary small-button">
-				Copy vscode.dev Link
 			</button>
 		</div>
 	);

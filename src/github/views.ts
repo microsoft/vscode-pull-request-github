@@ -27,6 +27,8 @@ export enum ReviewType {
 }
 
 export interface Issue {
+	owner: string;
+	repo: string;
 	number: number;
 	title: string;
 	titleHTML: string;
@@ -138,4 +140,12 @@ export enum PreReviewState {
 
 export interface CancelCodingAgentReply {
 	events: TimelineEvent[];
+}
+
+export interface CopyContext {
+	'github:copyMenu': true;
+	'preventDefaultContextMenuItems': true;
+	owner: string;
+	repo: string;
+	number: number;
 }
