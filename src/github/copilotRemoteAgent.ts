@@ -14,7 +14,7 @@ import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED }
 import { ITelemetry } from '../common/telemetry';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { OctokitCommon } from './common';
-import { CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo } from './copilotApi';
+import { ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager } from './folderRepositoryManager';
@@ -29,6 +29,7 @@ type RemoteAgentResult = RemoteAgentSuccessResult | RemoteAgentErrorResult;
 export interface IAPISessionLogs {
 	readonly info: SessionInfo;
 	readonly logs: string;
+	readonly setupSteps: SessionSetupStep[] | undefined;
 }
 
 export interface ICopilotRemoteAgentCommandArgs {
@@ -556,12 +557,18 @@ export class CopilotRemoteAgentManager extends Disposable {
 			title = titleMatch[1].trim();
 		}
 
+		const formatBodyPlaceholder = (problemContext: string): string => {
+			const header = vscode.l10n.t('Coding agent has begun work on **{0}** and will replace this description as work progresses.', title);
+			const collapsedContext = `<details><summary>${vscode.l10n.t('See problem context')}</summary>\n\n${problemContext}\n\n</details>`;
+			return `${header}\n\n${collapsedContext}`;
+		};
+
 		const problemStatement: string = `${prompt} ${problemContext ? `: ${problemContext}` : ''}`;
 		const payload: RemoteAgentJobPayload = {
 			problem_statement: problemStatement,
 			pull_request: {
 				title,
-				body_placeholder: problemContext,
+				body_placeholder: formatBodyPlaceholder(problemContext),
 				base_ref,
 				body_suffix,
 				...(hasChanges && { head_ref: ref })
@@ -598,13 +605,39 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return await capi.getLogsFromZipUrl(lastRun.logs_url);
 	}
 
+	async getWorkflowStepsFromAction(pullRequest: PullRequestModel): Promise<SessionSetupStep[]> {
+		const lastRun = await this.getLatestCodingAgentFromAction(pullRequest, 0, false);
+		if (!lastRun) {
+			return [];
+		}
+
+		try {
+			const jobs = await pullRequest.githubRepository.getWorkflowJobs(lastRun.id);
+			const steps: SessionSetupStep[] = [];
+
+			for (const job of jobs) {
+				if (job.steps) {
+					for (const step of job.steps) {
+						steps.push({ name: step.name, status: step.status });
+					}
+				}
+			}
+
+			return steps;
+		} catch (error) {
+			Logger.error(`Failed to get workflow steps: ${error}`, CopilotRemoteAgentManager.ID);
+			return [];
+		}
+	}
+
 	async getLatestCodingAgentFromAction(pullRequest: PullRequestModel, sessionIndex = 0, completedOnly = true): Promise<OctokitCommon.WorkflowRun | undefined> {
 		const capi = await this.copilotApi;
 		if (!capi) {
 			return;
 		}
 		const runs = await pullRequest.githubRepository.getWorkflowRunsFromAction(pullRequest.createdAt);
-		const padawanRuns = runs
+		const workflowRuns = runs.flatMap(run => run.workflow_runs);
+		const padawanRuns = workflowRuns
 			.filter(run => run.path && run.path.startsWith('dynamic/copilot-swe-agent'))
 			.filter(run => run.pull_requests?.some(pr => pr.id === pullRequest.id));
 
@@ -616,20 +649,33 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return this.getLatestRun(padawanRuns);
 	}
 
-	async getSessionLogFromPullRequest(pullRequestId: number, sessionIndex = 0, completedOnly = true): Promise<IAPISessionLogs | undefined> {
+	async getSessionLogFromPullRequest(pullRequest: PullRequestModel, sessionIndex = 0, completedOnly = true): Promise<IAPISessionLogs | undefined> {
 		const capi = await this.copilotApi;
 		if (!capi) {
 			return undefined;
 		}
 
-		const sessions = await capi.getAllSessions(pullRequestId);
+		const sessions = await capi.getAllSessions(pullRequest.id);
 		const session = sessions.filter(s => !completedOnly || s.state === 'completed').at(sessionIndex);
 		if (!session) {
 			return undefined;
 		}
 
 		const logs = await capi.getLogsFromSession(session.id);
-		return { info: session, logs };
+
+		// If session is in progress, try to fetch workflow steps to show setup progress
+		let setupSteps: SessionSetupStep[] | undefined;
+		if (session.state === 'in_progress' || logs.trim().length === 0 || true) {
+			try {
+				// Get workflow steps instead of logs
+				setupSteps = await this.getWorkflowStepsFromAction(pullRequest);
+			} catch (error) {
+				// If we can't fetch workflow steps, don't fail the entire request
+				Logger.warn(`Failed to fetch workflow steps for session ${session.id}: ${error}`, CopilotRemoteAgentManager.ID);
+			}
+		}
+
+		return { info: session, logs, setupSteps };
 	}
 
 	async getSessionUrlFromPullRequest(pullRequest: PullRequestModel): Promise<string | undefined> {
@@ -674,5 +720,32 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	getCounts(): { total: number; inProgress: number; error: number } {
 		return this._stateModel.getCounts();
+	}
+
+	public async provideChatSessions(token: vscode.CancellationToken): Promise<ChatSessionWithPR[]> {
+		try {
+			const capi = await this.copilotApi;
+			if (!capi) {
+				return [];
+			}
+
+			// Check if the token is already cancelled
+			if (token.isCancellationRequested) {
+				return [];
+			}
+
+			const sessions = await capi.getAllCodingAgentPRs(this.repositoriesManager);
+			return sessions.map(session => {
+				return {
+					id: `${session.id}`,
+					label: session.title || `Session ${session.id}`,
+					iconPath: undefined,
+					pullRequest: session
+				};
+			});
+		} catch (error) {
+			Logger.error(`Failed to provide coding agents information: ${error}`, CopilotRemoteAgentManager.ID);
+		}
+		return [];
 	}
 }
