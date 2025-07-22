@@ -38,7 +38,7 @@ export interface RemoteAgentJobResponse {
 	}
 }
 
-export interface ChatSessionWithPR extends vscode.ChatSessionContent {
+export interface ChatSessionWithPR extends vscode.ChatSessionItem {
 	pullRequest: PullRequestModel;
 }
 

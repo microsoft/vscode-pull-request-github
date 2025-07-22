@@ -737,7 +737,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			const sessions = await capi.getAllCodingAgentPRs(this.repositoriesManager);
 			return sessions.map(session => {
 				return {
-					uri: vscode.Uri.parse(`github://coding-agent/${session.id}`),
+					id: `${session.id}`,
 					label: session.title || `Session ${session.id}`,
 					iconPath: undefined,
 					pullRequest: session
