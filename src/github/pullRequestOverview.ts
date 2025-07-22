@@ -390,6 +390,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				return this.cancelCodingAgent(message);
 			case 'pr.openCommitChanges':
 				return this.openCommitChanges(message);
+			case 'pr.delete-review':
+				return this.deleteReview(message);
 		}
 	}
 
@@ -849,6 +851,17 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 	protected override deleteCommentPromise(comment: IComment): Promise<void> {
 		return this._item.deleteReviewComment(comment.id.toString());
+	}
+
+	private async deleteReview(message: IRequestMessage<void>) {
+		try {
+			const result = await this._item.deleteReview();
+			await this._replyMessage(message, result);
+		} catch (e) {
+			Logger.error(formatError(e), PullRequestOverviewPanel.ID);
+			vscode.window.showErrorMessage(vscode.l10n.t('Deleting review failed. {0}', formatError(e)));
+			this._throwError(message, `${formatError(e)}`);
+		}
 	}
 
 	override dispose() {
