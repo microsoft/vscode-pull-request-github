@@ -34,6 +34,11 @@ export interface SessionResponseLogChunk {
 	object: string;
 }
 
+export interface SessionSetupStepResponse {
+	name: string;
+	status: 'completed' | 'in_progress' | 'queued';
+}
+
 export interface SessionInfo {
 	id: string;
 	name: string;
