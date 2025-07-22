@@ -411,15 +411,6 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 
 	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry);
 	context.subscriptions.push(copilotRemoteAgentManager);
-	context.subscriptions.push(vscode.chat.registerChatSessionsProvider({
-		chatSessionType: 'github.pullRequest.codingAgent',
-		provideChatSessions: async (token) => {
-			return await copilotRemoteAgentManager.provideChatSessions(token);
-		},
-		// Events not used yet, but required by interface.
-		onDidChangeChatSessionContent: new vscode.EventEmitter<void>().event,
-		dispose: () => { }
-	}));
 
 	const prTree = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotRemoteAgentManager);
 	context.subscriptions.push(prTree);

@@ -14,7 +14,6 @@
 		"activeComment",
 		"chatParticipantAdditions",
 		"chatParticipantPrivate",
-		"chatSessionsProvider",
 		"codiconDecoration",
 		"codeActionRanges",
 		"commentingRangeHint",
@@ -3273,12 +3272,6 @@
 				{
 					"command": "review.requestChangesOnDotComDescription",
 					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentRequestChangesOnDotCom"
-				}
-			],
-			"chat/chatSessions": [
-				{
-					"command": "pr.openDescription",
-					"when": "chatSessionType == github.pullRequest.codingAgent"
 				}
 			]
 		},
