@@ -10,7 +10,7 @@ import { GithubItemStateEnum } from '../../src/github/interface';
 import { PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
-import { checkIcon, issueClosedIcon, issueIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
+import { checkIcon, editIcon, issueClosedIcon, issueIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
 import { nbsp } from './space';
 import { AuthorLink, Avatar } from './user';
 
@@ -43,15 +43,14 @@ export function Header({
 				inEditMode={inEditMode}
 				setEditMode={setEditMode}
 				setCurrentTitle={setCurrentTitle}
+				canEdit={canEdit}
 			/>
 			<Subtitle state={state} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} />
 			<div className="header-actions">
 				<ButtonGroup
 					isCurrentlyCheckedOut={isCurrentlyCheckedOut}
 					isIssue={isIssue}
-					canEdit={canEdit}
 					repositoryDefaultBranch={repositoryDefaultBranch}
-					setEditMode={setEditMode}
 				/>
 				<CancelCodingAgentButton canEdit={canEdit} codingAgentEvent={mostRecentCopilotEvent(events)} />
 			</div>
@@ -59,7 +58,7 @@ export function Header({
 	);
 }
 
-function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle }) {
+function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurrentTitle, canEdit }) {
 	const { setTitle } = useContext(PullRequestContext);
 
 	const titleForm = (
@@ -95,6 +94,11 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 					#{number}
 				</a>
 			</h2>
+			{canEdit ?
+				<button title="Rename" onClick={setEditMode} className="icon-button">
+					{editIcon}
+				</button>
+				: null}
 		</div>
 	);
 
@@ -102,7 +106,7 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 	return editableTitle;
 }
 
-function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaultBranch, setEditMode }) {
+function ButtonGroup({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }) {
 	const { refresh, copyPrLink, copyVscodeDevLink, openChanges } = useContext(PullRequestContext);
 
 	const handleOpenChangesClick = (e: React.MouseEvent) => {
@@ -121,19 +125,12 @@ function ButtonGroup({ isCurrentlyCheckedOut, canEdit, isIssue, repositoryDefaul
 			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary small-button">
 				Refresh
 			</button>
-			{canEdit && (
-				<>
-					<button title="Rename" onClick={setEditMode} className="secondary small-button">
-						Rename
-					</button>
-					<button title="Copy GitHub pull request link" onClick={copyPrLink} className="secondary small-button">
-						Copy Link
-					</button>
-					<button title="Copy vscode.dev link for viewing this pull request in VS Code for the Web" onClick={copyVscodeDevLink} className="secondary small-button">
-						Copy vscode.dev Link
-					</button>
-				</>
-			)}
+			<button title="Copy GitHub pull request link" onClick={copyPrLink} className="secondary small-button">
+				Copy Link
+			</button>
+			<button title="Copy vscode.dev link for viewing this pull request in VS Code for the Web" onClick={copyVscodeDevLink} className="secondary small-button">
+				Copy vscode.dev Link
+			</button>
 		</div>
 	);
 }

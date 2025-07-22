@@ -477,8 +477,14 @@ body button .icon {
 	margin-top: 18px;
 }
 
+.overview-title {
+	display: flex;
+	align-items: center;
+}
+
 .overview-title h2 {
 	font-size: 32px;
+	margin-right: 6px;
 }
 
 .overview-title textarea {
