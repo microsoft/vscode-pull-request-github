@@ -665,7 +665,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		// If session is in progress, try to fetch workflow steps to show setup progress
 		let setupSteps: SessionSetupStep[] | undefined;
-		if (session.state === 'in_progress' || logs.trim().length === 0 || true) {
+		if (session.state === 'in_progress' || logs.trim().length === 0) {
 			try {
 				// Get workflow steps instead of logs
 				setupSteps = await this.getWorkflowStepsFromAction(pullRequest);
@@ -828,19 +828,31 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			let currentRequestContent = '';
 			let currentResponseContent = '';
+			let currentResponseParts: Array<vscode.ChatResponseMarkdownPart | vscode.ChatToolInvocationPart> = [];
 			let isCollectingUserMessage = false;
 
 			for (const chunk of logChunks) {
 				for (const choice of chunk.choices) {
 					const delta = choice.delta;
 
+					// Log finish_reason for debugging
+					if (choice.finish_reason) {
+						console.log(`Tool call finish_reason: ${choice.finish_reason}`);
+						Logger.appendLine(`Tool call finish_reason: ${choice.finish_reason}`, CopilotRemoteAgentManager.ID);
+					}
+
 					if (delta.role === 'user') {
 						// If we were collecting a response, finalize it
-						if (currentResponseContent.trim()) {
-							const responseParts = [new vscode.ChatResponseMarkdownPart(currentResponseContent.trim())];
+						if (currentResponseContent.trim() || currentResponseParts.length > 0) {
+							// Add any remaining content as markdown
+							if (currentResponseContent.trim()) {
+								currentResponseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
+							}
+
 							const responseResult: vscode.ChatResult = {};
-							history.push(new vscode.ChatResponseTurn2(responseParts, responseResult, 'copilot-swe-agent'));
+							history.push(new vscode.ChatResponseTurn2(currentResponseParts, responseResult, 'copilot-swe-agent'));
 							currentResponseContent = '';
+							currentResponseParts = [];
 						}
 
 						isCollectingUserMessage = true;
@@ -865,14 +877,81 @@ export class CopilotRemoteAgentManager extends Disposable {
 						}
 
 						if (delta.content) {
-							currentResponseContent += delta.content;
+							if (delta.content.startsWith('<pr_title>')) {
+								// the end
+							} else {
+								currentResponseContent += delta.content;
+							}
 						}
 
-						// Handle tool calls as code blocks in the response
+						// Handle tool calls by creating parts immediately
 						if (delta.tool_calls) {
+							// If there's accumulated content, add it as markdown first
+							if (currentResponseContent.trim()) {
+								currentResponseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
+								currentResponseContent = '';
+							}
+
 							for (const toolCall of delta.tool_calls) {
-								if (toolCall.function?.name && toolCall.function?.arguments) {
-									currentResponseContent += `\n\n**Tool Call: ${toolCall.function.name}**\n\`\`\`json\n${toolCall.function.arguments}\n\`\`\`\n`;
+								console.log(`toolcall ${JSON.stringify(toolCall)}`);
+								if (toolCall.function?.name && toolCall.id) {
+									const toolPart = new vscode.ChatToolInvocationPart(toolCall.function.name, toolCall.id);
+									toolPart.isComplete = true;
+									toolPart.isError = false;
+									toolPart.isConfirmed = true;
+
+									// Parse tool arguments and set tool-specific metadata following sessionView.tsx patterns
+									const name = toolCall.function.name;
+									const content = delta.content || '';
+
+									try {
+										const args = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
+
+										if (name === 'str_replace_editor') {
+											if (args.command === 'view') {
+												toolPart.toolName = args.path ? `View ${this.toFileLabel(args.path)}` : 'View repository';
+												toolPart.invocationMessage = `View ${args.path}`;
+												toolPart.pastTenseMessage = `View ${args.path}`;
+											} else {
+												toolPart.toolName = 'Edit';
+												toolPart.invocationMessage = `Edit: ${args.path}`;
+												toolPart.pastTenseMessage = `Edit: ${args.path}`;
+											}
+										} else if (name === 'think') {
+											toolPart.toolName = 'Thought';
+											toolPart.invocationMessage = content;
+										} else if (name === 'report_progress') {
+											toolPart.toolName = 'Progress Update';
+											toolPart.invocationMessage = args.prDescription || content;
+											if (args.commitMessage) {
+												toolPart.originMessage = `Commit: ${args.commitMessage}`;
+											}
+										} else if (name === 'bash') {
+											toolPart.toolName = 'Run Bash command';
+											const command = args.command ? `$ ${args.command}` : undefined;
+											const bashContent = [command, content].filter(Boolean).join('\n');
+											toolPart.invocationMessage = new vscode.MarkdownString(`\`\`\`bash\n${bashContent}\n\`\`\``);
+
+											// Use the terminal-specific data for bash commands
+											if (args.command) {
+												toolPart.toolSpecificData = {
+													command: args.command,
+													language: 'bash'
+												};
+											}
+										} else {
+											// Unknown tool type
+											toolPart.toolName = name || 'unknown';
+											toolPart.invocationMessage = new vscode.MarkdownString(`\`\`\`plaintext\n${content}\n\`\`\``);
+										}
+									} catch (error) {
+										// Fallback for parsing errors
+										toolPart.toolName = name || 'unknown';
+										toolPart.invocationMessage = new vscode.MarkdownString(`\`\`\`plaintext\n${content}\n\`\`\``);
+										toolPart.isError = true;
+									}
+
+									currentResponseParts.push(toolPart);
 								}
 							}
 						}
@@ -892,10 +971,14 @@ export class CopilotRemoteAgentManager extends Disposable {
 					[] // toolReferences
 				);
 				history.push(userMessage);
-			} else if (currentResponseContent.trim()) {
-				const responseParts = [new vscode.ChatResponseMarkdownPart(currentResponseContent.trim())];
+			} else if (currentResponseContent.trim() || currentResponseParts.length > 0) {
+				// Add any remaining content as markdown
+				if (currentResponseContent.trim()) {
+					currentResponseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
+				}
+
 				const responseResult: vscode.ChatResult = {};
-				history.push(new vscode.ChatResponseTurn2(responseParts, responseResult, 'copilot-swe-agent'));
+				history.push(new vscode.ChatResponseTurn2(currentResponseParts, responseResult, 'copilot-swe-agent'));
 			}
 
 			return history;
@@ -903,6 +986,72 @@ export class CopilotRemoteAgentManager extends Disposable {
 			Logger.error(`Failed to parse chat history from logs: ${error}`, CopilotRemoteAgentManager.ID);
 			return [];
 		}
+	}
+
+	/**
+	 * Helper method to convert absolute file paths to relative labels
+	 * Following the pattern from sessionView.tsx
+	 */
+	private toFileLabel(file: string): string {
+		// File paths are absolute and look like: `/home/runner/work/repo/repo/<path>`
+		const parts = file.split('/');
+		return parts.slice(6).join('/');
+	}
+
+	/**
+	 * Helper method to get language for a file based on its extension
+	 * Following the pattern from sessionView.tsx
+	 */
+	private getLanguageForFile(filePath: string): string {
+		const extension = filePath.split('.').pop()?.toLowerCase();
+
+		// Common language mappings
+		const languageMap: { [ext: string]: string } = {
+			'ts': 'typescript',
+			'tsx': 'tsx',
+			'js': 'javascript',
+			'jsx': 'jsx',
+			'py': 'python',
+			'json': 'json',
+			'md': 'markdown',
+			'yml': 'yaml',
+			'yaml': 'yaml',
+			'xml': 'xml',
+			'html': 'html',
+			'css': 'css',
+			'scss': 'scss',
+			'less': 'less',
+			'sh': 'bash',
+			'bash': 'bash',
+			'zsh': 'bash',
+			'fish': 'bash',
+			'ps1': 'powershell',
+			'sql': 'sql',
+			'go': 'go',
+			'rs': 'rust',
+			'cpp': 'cpp',
+			'c': 'c',
+			'h': 'c',
+			'hpp': 'cpp',
+			'java': 'java',
+			'kt': 'kotlin',
+			'swift': 'swift',
+			'rb': 'ruby',
+			'php': 'php',
+			'cs': 'csharp',
+			'fs': 'fsharp',
+			'vb': 'vb',
+			'r': 'r',
+			'scala': 'scala',
+			'clj': 'clojure',
+			'elm': 'elm',
+			'dart': 'dart',
+			'lua': 'lua',
+			'perl': 'perl',
+			'vim': 'vim'
+		};
+
+		return extension ? languageMap[extension] || 'plaintext' : 'plaintext';
 	}
 }
 
