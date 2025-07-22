@@ -411,6 +411,7 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 
 	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry);
 	context.subscriptions.push(copilotRemoteAgentManager);
+<<<<<<< Updated upstream
 	if (vscode.chat?.registerChatSessionItemProvider) {
 		context.subscriptions.push(vscode.chat?.registerChatSessionItemProvider(
 			'copilot-swe-agent',
@@ -424,6 +425,22 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 			}
 		));
 	}
+=======
+	context.subscriptions.push(vscode.chat.registerChatSessionItemProvider(
+		'copilot-swe-agent',
+		{
+			label: vscode.l10n.t('GitHub Copilot Coding Agent'),
+			provideChatSessionItems: async (token) => {
+				return await copilotRemoteAgentManager.provideChatSessions(token);
+			},
+			provideChatSessionContent: async (id, token) => {
+				return await copilotRemoteAgentManager.provideChatSessionContent(id, token);
+			},
+			// Events not used yet, but required by interface.
+			onDidChangeChatSessionItems: new vscode.EventEmitter<void>().event,
+		}
+	));
+>>>>>>> Stashed changes
 
 	const prTree = new PullRequestsTreeDataProvider(telemetry, context, reposManager, copilotRemoteAgentManager);
 	context.subscriptions.push(prTree);

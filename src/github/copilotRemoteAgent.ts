@@ -748,4 +748,201 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 		return [];
 	}
+
+	public async provideChatSessionContent(id: string, token: vscode.CancellationToken): Promise<vscode.ChatSession> {
+		try {
+			const capi = await this.copilotApi;
+			if (!capi || token.isCancellationRequested) {
+				return this.createEmptySession();
+			}
+
+			const pullRequestId = parseInt(id);
+			if (isNaN(pullRequestId)) {
+				Logger.error(`Invalid pull request ID: ${id}`, CopilotRemoteAgentManager.ID);
+				return this.createEmptySession();
+			}
+
+			// Find the pull request model
+			const pullRequest = this.findPullRequestById(pullRequestId);
+			if (!pullRequest) {
+				Logger.error(`Pull request not found: ${pullRequestId}`, CopilotRemoteAgentManager.ID);
+				return this.createEmptySession();
+			}
+
+			// Get session logs
+			const sessionLogs = await this.getSessionLogFromPullRequest(pullRequest);
+			if (!sessionLogs) {
+				Logger.warn(`No session logs found for pull request ${pullRequestId}`, CopilotRemoteAgentManager.ID);
+				return this.createEmptySession();
+			}
+
+			// Parse logs and create chat history
+			const history = await this.parseChatHistoryFromLogs(sessionLogs.logs, pullRequest.title);
+
+			return {
+				history,
+				requestHandler: undefined // Read-only session
+			};
+		} catch (error) {
+			Logger.error(`Failed to provide chat session content: ${error}`, CopilotRemoteAgentManager.ID);
+			return this.createEmptySession();
+		}
+	}
+
+	private createEmptySession(): vscode.ChatSession {
+		return {
+			history: [],
+			requestHandler: undefined
+		};
+	}
+
+	private findPullRequestById(id: number): PullRequestModel | undefined {
+		for (const folderManager of this.repositoriesManager.folderManagers) {
+			for (const githubRepo of folderManager.gitHubRepositories) {
+				const pullRequest = githubRepo.pullRequestModels.find(pr => pr.id === id);
+				if (pullRequest) {
+					return pullRequest;
+				}
+			}
+		}
+		return undefined;
+	}
+
+	private async parseChatHistoryFromLogs(logs: string, prTitle: string): Promise<ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn2>> {
+		try {
+			const logChunks = parseSessionLogs(logs);
+
+			const history: Array<vscode.ChatRequestTurn | vscode.ChatResponseTurn2> = [];
+
+			// Insert the initial user request with the PR title
+			// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+			// @ts-ignore - Constructor will be made public
+			const initialUserRequest = new vscode.ChatRequestTurn(
+				prTitle,
+				undefined, // command
+				[], // references
+				'copilot-swe-agent',
+				[] // toolReferences
+			);
+			history.push(initialUserRequest);
+
+			let currentRequestContent = '';
+			let currentResponseContent = '';
+			let isCollectingUserMessage = false;
+
+			for (const chunk of logChunks) {
+				for (const choice of chunk.choices) {
+					const delta = choice.delta;
+
+					if (delta.role === 'user') {
+						// If we were collecting a response, finalize it
+						if (currentResponseContent.trim()) {
+							const responseParts = [new vscode.ChatResponseMarkdownPart(currentResponseContent.trim())];
+							const responseResult: vscode.ChatResult = {};
+							history.push(new vscode.ChatResponseTurn2(responseParts, responseResult, 'copilot-swe-agent'));
+							currentResponseContent = '';
+						}
+
+						isCollectingUserMessage = true;
+						if (delta.content) {
+							currentRequestContent += delta.content;
+						}
+					} else if (delta.role === 'assistant') {
+						// If we were collecting a user message, finalize it
+						if (isCollectingUserMessage && currentRequestContent.trim()) {
+							// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+							// @ts-ignore - Constructor will be made public
+							const userMessage = new vscode.ChatRequestTurn(
+								currentRequestContent.trim(),
+								undefined, // command
+								[], // references
+								'copilot-swe-agent',
+								[] // toolReferences
+							);
+							history.push(userMessage);
+							currentRequestContent = '';
+							isCollectingUserMessage = false;
+						}
+
+						if (delta.content) {
+							currentResponseContent += delta.content;
+						}
+
+						// Handle tool calls as code blocks in the response
+						if (delta.tool_calls) {
+							for (const toolCall of delta.tool_calls) {
+								if (toolCall.function?.name && toolCall.function?.arguments) {
+									currentResponseContent += `\n\n**Tool Call: ${toolCall.function.name}**\n\`\`\`json\n${toolCall.function.arguments}\n\`\`\`\n`;
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// Finalize any remaining content
+			if (isCollectingUserMessage && currentRequestContent.trim()) {
+				// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+				// @ts-ignore - Constructor will be made public
+				const userMessage = new vscode.ChatRequestTurn(
+					currentRequestContent.trim(),
+					undefined, // command
+					[], // references
+					'copilot-swe-agent',
+					[] // toolReferences
+				);
+				history.push(userMessage);
+			} else if (currentResponseContent.trim()) {
+				const responseParts = [new vscode.ChatResponseMarkdownPart(currentResponseContent.trim())];
+				const responseResult: vscode.ChatResult = {};
+				history.push(new vscode.ChatResponseTurn2(responseParts, responseResult, 'copilot-swe-agent'));
+			}
+
+			return history;
+		} catch (error) {
+			Logger.error(`Failed to parse chat history from logs: ${error}`, CopilotRemoteAgentManager.ID);
+			return [];
+		}
+	}
+}
+
+function parseSessionLogs(rawText: string): SessionResponseLogChunk[] {
+	const parts = rawText
+		.split(/\r?\n/)
+		.filter(part => part.startsWith('data: '))
+		.map(part => part.slice('data: '.length).trim())
+		.map(part => JSON.parse(part));
+
+	return parts as SessionResponseLogChunk[];
+}
+
+export interface SessionResponseLogChunk {
+	choices: Array<{
+		finish_reason: string;
+		delta: {
+			content?: string;
+			role: string;
+			tool_calls?: Array<{
+				function: {
+					arguments: string;
+					name: string;
+				};
+				id: string;
+				type: string;
+				index: number;
+			}>;
+		};
+	}>;
+	created: number;
+	id: string;
+	usage: {
+		completion_tokens: number;
+		prompt_tokens: number;
+		prompt_tokens_details: {
+			cached_tokens: number;
+		};
+		total_tokens: number;
+	};
+	model: string;
+	object: string;
 }
