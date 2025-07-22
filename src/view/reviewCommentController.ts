@@ -49,6 +49,7 @@ export interface SuggestionInformation {
 
 export class ReviewCommentController extends CommentControllerBase implements CommentHandler, vscode.CommentingRangeProvider2, CommentReactionHandler {
 	private static readonly ID = 'ReviewCommentController';
+	private static readonly PREFIX = 'github-review';
 	private _commentHandlerId: string;
 
 	// Note: marked as protected so that tests can verify caches have been updated correctly without breaking type safety
@@ -73,7 +74,7 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 		super(folderRepoManager, telemetry);
 		this._context = this._folderRepoManager.context;
 		this._commentController = this._register(vscode.comments.createCommentController(
-			`github-review-${folderRepoManager.activePullRequest?.remote.owner}-${folderRepoManager.activePullRequest?.remote.owner}-${folderRepoManager.activePullRequest!.number}`,
+			`${ReviewCommentController.PREFIX}-${folderRepoManager.activePullRequest?.remote.owner}-${folderRepoManager.activePullRequest?.remote.owner}-${folderRepoManager.activePullRequest!.number}`,
 			vscode.l10n.t('Pull Request ({0})', folderRepoManager.activePullRequest!.title),
 		));
 		this._commentController.commentingRangeProvider = this as vscode.CommentingRangeProvider;
@@ -345,7 +346,6 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 				this.updateResourcesWithCommentingRanges();
 			}),
 		);
-		this._register(vscode.window.onDidChangeActiveTextEditor(e => this.onDidChangeActiveTextEditor(e)));
 	}
 
 	private _findMatchingThread(thread: IReviewThread): { threadMap: { [key: string]: GHPRCommentThread[] }, index: number } {
@@ -371,9 +371,19 @@ export class ReviewCommentController extends CommentControllerBase implements Co
 	}
 
 	private _commentContentChangedListener: vscode.Disposable | undefined;
-	private onDidChangeActiveTextEditor(editor: vscode.TextEditor | undefined) {
+	protected onDidChangeActiveTextEditor(editor: vscode.TextEditor | undefined) {
 		this._commentContentChangedListener?.dispose();
 		this._commentContentChangedListener = undefined;
+
+		const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab;
+		const activeUri = activeTab?.input instanceof vscode.TabInputText ? activeTab.input.uri : (activeTab?.input instanceof vscode.TabInputTextDiff ? activeTab.input.modified : undefined);
+
+		if (editor && activeUri && editor.document.uri.authority.startsWith(ReviewCommentController.PREFIX) && (activeUri.scheme === Schemes.File)) {
+			if (this._folderRepoManager.activePullRequest && activeUri.toString().startsWith(this._repository.rootUri.toString())) {
+				this.tryAddCopilotMention(editor, this._folderRepoManager.activePullRequest);
+			}
+		}
+
 		if (editor?.document.uri.scheme !== Schemes.Comment) {
 			return;
 		}

@@ -92,6 +92,29 @@ export interface GitUriOptions {
 	base: boolean;
 }
 
+export interface GitHubCommitUriParams {
+	commit: string;
+	owner: string;
+	repo: string;
+}
+
+export function fromGitHubCommitUri(uri: vscode.Uri): GitHubCommitUriParams | undefined {
+	if (uri.scheme !== Schemes.GitHubCommit || uri.query === '') {
+		return undefined;
+	}
+	try {
+		return JSON.parse(uri.query) as GitHubCommitUriParams;
+	} catch (e) { }
+}
+
+export function toGitHubCommitUri(fileName: string, params: GitHubCommitUriParams): vscode.Uri {
+	return vscode.Uri.from({
+		scheme: Schemes.GitHubCommit,
+		path: `/${fileName}`,
+		query: JSON.stringify(params)
+	});
+}
+
 const ImageMimetypes = ['image/png', 'image/gif', 'image/jpeg', 'image/webp', 'image/tiff', 'image/bmp'];
 // Known media types that VS Code can handle: https://github.com/microsoft/vscode/blob/a64e8e5673a44e5b9c2d493666bde684bd5a135c/src/vs/base/common/mime.ts#L33-L84
 export const KnownMediaExtensions = [
@@ -651,6 +674,7 @@ export enum Schemes {
 	Repo = 'repo', // New issue file for passing data
 	Git = 'git', // File content from the git extension
 	PRQuery = 'prquery', // PR query tree item
+	GitHubCommit = 'githubcommit' // file content from GitHub for a commit
 }
 
 export const COPILOT_QUERY = vscode.Uri.from({ scheme: Schemes.PRQuery, path: 'copilot' });

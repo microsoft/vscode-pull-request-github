@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { Repository } from '../../api/api';
+import { COPILOT_ACCOUNTS } from '../../common/comment';
 import { getCommentingRanges } from '../../common/commentingRanges';
 import { InMemFileChange, SlimFileChange } from '../../common/file';
 import Logger from '../../common/logger';
@@ -302,7 +303,10 @@ export class PRNode extends TreeNode implements vscode.CommentingRangeProvider2 
 		const currentBranchIsForThisPR = this.pullRequestModel.equals(this._folderReposManager.activePullRequest);
 
 		const { title, number, author, isDraft, html_url } = this.pullRequestModel;
-		const labelTitle = this.pullRequestModel.title.length > 50 ? `${this.pullRequestModel.title.substring(0, 50)}...` : this.pullRequestModel.title;
+		let labelTitle = this.pullRequestModel.title.length > 50 ? `${this.pullRequestModel.title.substring(0, 50)}...` : this.pullRequestModel.title;
+		if (COPILOT_ACCOUNTS[this.pullRequestModel.author.login]) {
+			labelTitle = labelTitle.replace('[WIP]', '');
+		}
 		const login = author.specialDisplayName ?? author.login;
 
 		const hasNotification = this._notificationProvider.hasNotification(this.pullRequestModel);

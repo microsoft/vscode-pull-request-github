@@ -12,6 +12,7 @@ import { Disposable, disposeAll } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { GitHubRemote, parseRemote } from '../common/remote';
 import { ITelemetry } from '../common/telemetry';
+import { PullRequestCommentController } from '../view/pullRequestCommentController';
 import { PRCommentControllerRegistry } from '../view/pullRequestCommentControllerRegistry';
 import { mergeQuerySchemaWithShared, OctokitCommon, Schema } from './common';
 import { CredentialStore, GitHub } from './credentials';
@@ -204,10 +205,10 @@ export class GitHubRepository extends Disposable {
 
 			await this.ensure();
 			this.commentsController = vscode.comments.createCommentController(
-				`github-browse-${this.remote.normalizedHost}-${this.remote.owner}-${this.remote.repositoryName}`,
+				`${PullRequestCommentController.PREFIX}-${this.remote.gitProtocol.normalizeUri()?.authority}-${this.remote.owner}-${this.remote.repositoryName}`,
 				`Pull Request (${this.remote.owner}/${this.remote.repositoryName})`,
 			);
-			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController, this._telemetry);
+			this.commentsHandler = new PRCommentControllerRegistry(this.commentsController, this.telemetry);
 			this._register(this.commentsHandler);
 			this._register(this.commentsController);
 		} catch (e) {
@@ -234,7 +235,7 @@ export class GitHubRepository extends Disposable {
 		public remote: GitHubRemote,
 		public readonly rootUri: vscode.Uri,
 		private readonly _credentialStore: CredentialStore,
-		private readonly _telemetry: ITelemetry,
+		public readonly telemetry: ITelemetry,
 		silent: boolean = false
 	) {
 		super();
@@ -264,7 +265,7 @@ export class GitHubRepository extends Disposable {
 					"action": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
 				}
 			*/
-			this._telemetry.sendTelemetryErrorEvent('pr.codespacesTokenError', {
+			this.telemetry.sendTelemetryErrorEvent('pr.codespacesTokenError', {
 				action: action.context
 			});
 
@@ -565,6 +566,19 @@ export class GitHubRepository extends Disposable {
 
 		return success;
 	}
+
+	async getCommitParent(ref: string): Promise<string | undefined> {
+		Logger.debug(`Fetch commit for ref ${ref} - enter`, this.id);
+		try {
+			const { octokit, remote } = await this.ensure();
+			const commit = (await octokit.call(octokit.api.repos.getCommit, { owner: remote.owner, repo: remote.repositoryName, ref })).data;
+			return commit.parents[0].sha;
+		} catch (e) {
+			Logger.error(`Fetching commit for ref ${ref} failed: ${e}`, this.id);
+		}
+		Logger.debug(`Fetch commit for ref ${ref} - done`, this.id);
+	}
+
 
 	async getAllPullRequests(page?: number): Promise<PullRequestData | undefined> {
 		let remote: GitHubRemote | undefined;
@@ -955,17 +969,19 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	createOrUpdatePullRequestModel(pullRequest: PullRequest): PullRequestModel {
+	createOrUpdatePullRequestModel(pullRequest: PullRequest, silent: boolean = false): PullRequestModel {
 		let model = this._pullRequestModelsByNumber.get(pullRequest.number)?.model;
 		if (model) {
 			model.update(pullRequest);
 		} else {
-			model = new PullRequestModel(this._credentialStore, this._telemetry, this, this.remote, pullRequest);
+			model = new PullRequestModel(this._credentialStore, this.telemetry, this, this.remote, pullRequest);
 			const prModel = model;
 			const disposables: vscode.Disposable[] = [];
 			disposables.push(model.onDidChange(() => this._onPullRequestModelChanged(prModel)));
 			this._pullRequestModelsByNumber.set(pullRequest.number, { model, disposables });
-			this._onDidAddPullRequest.fire(model);
+			if (!silent) {
+				this._onDidAddPullRequest.fire(model);
+			}
 		}
 
 		return model;

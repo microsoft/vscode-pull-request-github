@@ -33,7 +33,7 @@ import {
 	ReviewState,
 } from './interface';
 import { IssueOverviewPanel } from './issueOverview';
-import { PullRequestModel } from './pullRequestModel';
+import { isCopilotOnMyBehalf, PullRequestModel } from './pullRequestModel';
 import { PullRequestView } from './pullRequestOverviewCommon';
 import { pickEmail, reviewersQuickPick } from './quickPicks';
 import { parseReviewers } from './utils';
@@ -222,6 +222,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				isBranchUpToDateWithBase,
 				mergeability,
 				emailForCommit,
+				coAuthors,
 			] = await Promise.all([
 				this._folderRepositoryManager.resolvePullRequest(
 					pullRequestModel.remote.owner,
@@ -241,6 +242,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				this._folderRepositoryManager.isHeadUpToDateWithBase(pullRequestModel),
 				pullRequestModel.getMergeability(),
 				this._folderRepositoryManager.getPreferredEmail(pullRequestModel),
+				pullRequestModel.getCoAuthors()
 			]);
 			if (!pullRequest) {
 				throw new Error(
@@ -293,7 +295,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 				isIssue: false,
 				emailForCommit,
 				currentUserReviewState: reviewState,
-				revertable: pullRequest.state === GithubItemStateEnum.Merged
+				revertable: pullRequest.state === GithubItemStateEnum.Merged,
+				isCopilotOnMyBehalf: await isCopilotOnMyBehalf(pullRequest, currentUser, coAuthors)
 			};
 			this._postMessage({
 				command: 'pr.initialize',
@@ -538,7 +541,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 	private async openCommitChanges(message: IRequestMessage<OpenCommitChangesArgs>): Promise<void> {
 		try {
 			const { commitSha } = message.args;
-			await PullRequestModel.openCommitChanges(this._folderRepositoryManager, commitSha);
+			await PullRequestModel.openCommitChanges(this._item.githubRepository, commitSha);
 		} catch (error) {
 			Logger.error(`Failed to open commit changes: ${formatError(error)}`, PullRequestOverviewPanel.ID);
 			vscode.window.showErrorMessage(vscode.l10n.t('Failed to open commit changes: {0}', formatError(error)));
@@ -627,8 +630,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this._item
 			.setReadyForReview()
 			.then(result => {
-				vscode.commands.executeCommand('pr.refreshList');
-
 				this._replyMessage(message, result);
 			})
 			.catch(e => {
