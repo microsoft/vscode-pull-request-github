@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CommentEvent, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
+import { CommentEvent, ReviewEvent, SessionLinkInfo, TimelineEvent } from '../common/timelineEvent';
 import {
 	GithubItemStateEnum,
 	IAccount,
@@ -147,4 +147,8 @@ export interface OverviewContext {
 	owner: string;
 	repo: string;
 	number: number;
+}
+
+export interface CodingAgentContext extends SessionLinkInfo {
+	'preventDefaultContextMenuItems': true;
 }

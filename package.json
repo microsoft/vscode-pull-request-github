@@ -1302,6 +1302,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.openSessionLogFromDescription",
+				"title": "%command.pr.openSessionLogFromDescription.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "review.diffWithPrHead",
 				"title": "%command.review.diffWithPrHead.title%",
 				"category": "%command.pull.request.category%"
@@ -3306,6 +3311,10 @@
 					"command": "pr.checkoutOnVscodeDevFromDescription",
 					"group": "checkout@1",
 					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
+				},
+				{
+					"command": "pr.openSessionLogFromDescription",
+					"when": "webviewId == PullRequestOverview && github:codingAgentMenu"
 				}
 
 			],

@@ -7,7 +7,7 @@ import React, { useContext, useState } from 'react';
 import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../../src/common/copilot';
 import { CopilotStartedEvent, TimelineEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum } from '../../src/github/interface';
-import { OverviewContext, PullRequest } from '../../src/github/views';
+import { CodingAgentContext, OverviewContext, PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
 import { ContextDropdown } from './contextDropdown';
@@ -127,7 +127,7 @@ function ButtonGroup({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, 
 	return (
 		<div className="button-group">
 			<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number }} />
-			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary small-button">
+			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary">
 				Refresh
 			</button>
 		</div>
@@ -153,18 +153,48 @@ function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boole
 	// Extract sessionLink from the coding agent event
 	const sessionLink = (codingAgentEvent as CopilotStartedEvent)?.sessionLink;
 
-	return (canEdit && codingAgentEvent && copilotEventToStatus(codingAgentEvent) === CopilotPRStatus.Started)
-		? <div className="button-group">
-			{sessionLink && (
-				<button title="View Session" className="secondary small-button" onClick={() => openSessionLog(sessionLink)}>
-					View Session
-				</button>
-			)}
-			<button title="Cancel Coding Agent" disabled={isBusy} className="small-button" onClick={cancel}>
-				Cancel Coding Agent
-			</button>
-		</div>
-		: null;
+	if (!codingAgentEvent || copilotEventToStatus(codingAgentEvent) !== CopilotPRStatus.Started) {
+		return null;
+	}
+
+	const context: CodingAgentContext = {
+		'preventDefaultContextMenuItems': true,
+		...sessionLink
+	};
+
+	context['github:codingAgentMenu'] = true;
+	const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
+
+	if (sessionLink) {
+		actions.push({
+			label: 'View Session',
+			value: '',
+			action: () => openSessionLog(sessionLink)
+		});
+	}
+
+	if (canEdit) {
+		actions.unshift({
+			label: 'Cancel Coding Agent',
+			value: '',
+			action: cancel
+		});
+	}
+
+	return <ContextDropdown
+		optionsContext={() => JSON.stringify(context)}
+		defaultAction={actions[0].action}
+		defaultOptionLabel={() => actions[0].label}
+		defaultOptionValue={() => actions[0].value}
+		allOptions={() => {
+			return actions;
+		}}
+		optionsTitle={actions[0].label}
+		disabled={isBusy}
+		hasSingleAction={false}
+		spreadable={false}
+		isSecondary={true}
+	/>;
 }
 
 function Subtitle({ state, isDraft, isIssue, author, base, head }) {
@@ -249,7 +279,7 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBran
 		action: () => onClick('openChanges')
 	});
 
-	return (<ContextDropdown
+	return <ContextDropdown
 		optionsContext={() => JSON.stringify(context)}
 		defaultAction={actions[0].action}
 		defaultOptionLabel={() => actions[0].label}
@@ -261,8 +291,7 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBran
 		disabled={isBusy}
 		hasSingleAction={false}
 		spreadable={false}
-		isSmall={true}
-	/>);
+	/>;
 };
 
 export function getStatus(state: GithubItemStateEnum, isDraft: boolean, isIssue: boolean) {

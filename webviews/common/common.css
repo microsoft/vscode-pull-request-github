@@ -360,6 +360,13 @@ button.split-left {
 	opacity: 0.5;
 }
 
+.split.secondary {
+	width: 1px;
+	height: 100%;
+	background-color: var(--vscode-button-secondaryBackground);
+	opacity: 0.5;
+}
+
 button.split-right {
 	border-radius: 0 2px 2px 0;
 	cursor: pointer;

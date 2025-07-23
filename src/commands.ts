@@ -5,7 +5,6 @@
 'use strict';
 
 import * as pathLib from 'path';
-import { folder } from 'jszip';
 import * as vscode from 'vscode';
 import { Repository } from './api/api';
 import { GitErrorCodes } from './api/api1';
@@ -32,12 +31,13 @@ import { PullRequestModel } from './github/pullRequestModel';
 import { PullRequestOverviewPanel } from './github/pullRequestOverview';
 import { RepositoriesManager } from './github/repositoriesManager';
 import { getIssuesUrl, getPullsUrl, isInCodespaces, ISSUE_OR_URL_EXPRESSION, parseIssueExpressionOutput, vscodeDevPrLink } from './github/utils';
-import { OverviewContext } from './github/views';
+import { CodingAgentContext, OverviewContext } from './github/views';
 import { isNotificationTreeItem, NotificationTreeItem } from './notifications/notificationItem';
 import { PullRequestsTreeDataProvider } from './view/prsTreeDataProvider';
 import { ReviewCommentController } from './view/reviewCommentController';
 import { ReviewManager } from './view/reviewManager';
 import { ReviewsManager } from './view/reviewsManager';
+import { SessionLogViewManager } from './view/sessionLogView';
 import { CategoryTreeNode } from './view/treeNodes/categoryNode';
 import { CommitNode } from './view/treeNodes/commitNode';
 import {
@@ -764,6 +764,18 @@ export function registerCommands(
 			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
 		}
 		return vscode.env.openExternal(vscode.Uri.parse(vscodeDevPrLink(resolved.pr)));
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('pr.openSessionLogFromDescription', async (context: CodingAgentContext | undefined) => {
+		if (!context) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('No pull request context provided for checkout.'));
+		}
+		const resolved = await resolvePr({ ...context, number: context.pullNumber });
+		if (!resolved) {
+			return vscode.window.showErrorMessage(vscode.l10n.t('Unable to resolve pull request for checkout.'));
+		}
+		return SessionLogViewManager.instance?.openForPull(resolved.pr, context, context.openToTheSide);
+
 	}));
 
 	context.subscriptions.push(
