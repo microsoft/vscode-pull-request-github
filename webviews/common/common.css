@@ -385,11 +385,6 @@ button.split-right .icon {
 	right: 4px;
 }
 
-.small-button button.split-right .icon {
-	top: 2px;
-	right: 1px;
-}
-
 button.split-right .icon svg path {
 	fill: unset;
 }

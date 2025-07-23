@@ -539,7 +539,7 @@ body button .icon {
 	align-items: flex-start;
 }
 
-button.small-button {
+small-button {
 	display: flex;
 	font-size: 11px;
 	padding: 0 5px;
@@ -870,15 +870,6 @@ textarea {
 
 .primary-split-button {
 	flex-grow: unset;
-}
-
-.small-button .primary-split-button button {
-	padding: 0px 5px;
-	font-size: 11px;
-}
-
-.small-button .primary-split-button button.split-right {
-	width: 18px;
 }
 
 :not(.button-group) .dropdown-container {

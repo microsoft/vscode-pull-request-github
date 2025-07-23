@@ -1974,6 +1974,18 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.checkoutFromDescription",
+					"when": "false"
+				},
+				{
+					"command": "pr.checkoutOnVscodeDevFromDescription",
+					"when": "false"
+				},
+				{
+					"command": "pr.openSessionLogFromDescription",
+					"when": "false"
+				},
+				{
 					"command": "review.suggestDiff",
 					"when": "false"
 				},
@@ -2132,6 +2144,10 @@
 				{
 					"command": "pr.copyVscodeDevPrLink",
 					"when": "github:inReviewMode && remoteName != codespaces && embedderIdentifier != github.dev"
+				},
+{
+					"command": "pr.copyPrLink",
+					"when": "false"
 				},
 				{
 					"command": "pr.goToNextDiffInPr",
