@@ -183,7 +183,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 
 	public async refreshPanel(): Promise<void> {
 		if (this._panel && this._panel.visible) {
-			this.update(this._folderRepositoryManager, this._item);
+			await this.update(this._folderRepositoryManager, this._item);
 		}
 	}
 

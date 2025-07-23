@@ -440,3 +440,21 @@ button.inlined-dropdown {
 	display: inline-block;
 	text-align: center;
 }
+
+.spinner {
+	margin-top: 5px;
+	margin-left: 5px;
+}
+
+.loading {
+	animation: spinner-rotate 1s linear infinite;
+}
+
+@keyframes spinner-rotate {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}

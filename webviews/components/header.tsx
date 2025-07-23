@@ -11,7 +11,7 @@ import { CodingAgentContext, OverviewContext, PullRequest } from '../../src/gith
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
 import { ContextDropdown } from './contextDropdown';
-import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, editIcon, issueClosedIcon, issueIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
+import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, editIcon, issueClosedIcon, issueIcon, loadingIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
 import { AuthorLink, Avatar } from './user';
 
 export function Header({
@@ -30,7 +30,8 @@ export function Header({
 	repositoryDefaultBranch,
 	events,
 	owner,
-	repo
+	repo,
+	busy
 }: PullRequest) {
 	const [currentTitle, setCurrentTitle] = useStateProp(title);
 	const [inEditMode, setEditMode] = useState(false);
@@ -59,6 +60,7 @@ export function Header({
 					owner={owner}
 					repo={repo}
 					number={number}
+					busy={busy}
 				/>
 				<CancelCodingAgentButton canEdit={canEdit} codingAgentEvent={codingAgentEvent} />
 			</div>
@@ -122,15 +124,20 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 	return editableTitle;
 }
 
-function ButtonGroup({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number }) {
+function ButtonGroup({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number, busy }) {
 	const { refresh } = useContext(PullRequestContext);
 
 	return (
 		<div className="button-group">
-			<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number }} />
+			<CheckoutButton {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number }} />
 			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary">
 				Refresh
 			</button>
+			{busy ? (
+				<div className='spinner'>
+					{loadingIcon}
+				</div>
+			) : null}
 		</div>
 	);
 }
@@ -229,7 +236,7 @@ function Subtitle({ state, isDraft, isIssue, author, base, head, codingAgentEven
 	);
 }
 
-const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number }) => {
+const CheckoutButton = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number }) => {
 	const { exitReviewMode, checkout, openChanges } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 
