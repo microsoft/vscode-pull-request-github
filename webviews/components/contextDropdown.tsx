@@ -15,6 +15,8 @@ interface ContextDropdownProps {
 	optionsTitle: string;
 	disabled?: boolean;
 	hasSingleAction?: boolean;
+	spreadable: boolean;
+	isSmall?: boolean;
 }
 
 function useWindowSize() {
@@ -30,7 +32,7 @@ function useWindowSize() {
 	return size;
 }
 
-export const ContextDropdown = ({ optionsContext, defaultOptionLabel, defaultOptionValue, defaultAction, allOptions: options, optionsTitle, disabled, hasSingleAction }: ContextDropdownProps) => {
+export const ContextDropdown = ({ optionsContext, defaultOptionLabel, defaultOptionValue, defaultAction, allOptions: options, optionsTitle, disabled, hasSingleAction, spreadable, isSmall }: ContextDropdownProps) => {
 	const [expanded, setExpanded] = useState(false);
 	const onHideAction = (e: MouseEvent | KeyboardEvent) => {
 		if (e.target instanceof HTMLElement && e.target.classList.contains('split-right')) {
@@ -52,8 +54,8 @@ export const ContextDropdown = ({ optionsContext, defaultOptionLabel, defaultOpt
 	const divRef = useRef<HTMLDivElement>();
 	useWindowSize();
 
-	return <div className='dropdown-container' ref={divRef}>
-		{divRef.current && (divRef.current.clientWidth > 375) && options && !hasSingleAction ? options().map(({ label, value, action }) => {
+	return <div className={`dropdown-container${spreadable ? ' spreadable' : ''}${isSmall ? ' small-button' : ''}`} ref={divRef}>
+		{divRef.current && spreadable && (divRef.current.clientWidth > 375) && options && !hasSingleAction ? options().map(({ label, value, action }) => {
 			return <button className='inlined-dropdown' key={value} title={label} disabled={disabled} onClick={action} value={value}>{label}</button>;
 		})
 			:

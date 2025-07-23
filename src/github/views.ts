@@ -142,8 +142,7 @@ export interface CancelCodingAgentReply {
 	events: TimelineEvent[];
 }
 
-export interface CopyContext {
-	'github:copyMenu': true;
+export interface OverviewContext {
 	'preventDefaultContextMenuItems': true;
 	owner: string;
 	repo: string;

@@ -271,6 +271,8 @@
 	"command.pr.closeRelatedEditors.title": "Close All Pull Request Editors",
 	"command.pr.toggleEditorCommentingOn.title": "Toggle Editor Commenting On",
 	"command.pr.toggleEditorCommentingOff.title": "Toggle Editor Commenting Off",
+	"command.pr.checkoutFromDescription.title": "Checkout",
+	"command.pr.checkoutOnVscodeDevFromDescription.title": "Checkout on vscode.dev",
 	"command.issue.openDescription.title": "View Issue Description",
 	"command.issue.copyGithubDevLink.title": "Copy github.dev Link",
 	"command.issue.copyGithubPermalink.title": "Copy GitHub Permalink",

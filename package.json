@@ -1292,6 +1292,16 @@
 				"icon": "$(eye)"
 			},
 			{
+				"command": "pr.checkoutFromDescription",
+				"title": "%command.pr.checkoutFromDescription.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.checkoutOnVscodeDevFromDescription",
+				"title": "%command.pr.checkoutOnVscodeDevFromDescription.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "review.diffWithPrHead",
 				"title": "%command.review.diffWithPrHead.title%",
 				"category": "%command.pull.request.category%"
@@ -3286,7 +3296,18 @@
 				{
 					"command": "pr.copyVscodeDevPrLink",
 					"when": "webviewId == PullRequestOverview && github:copyMenu"
+				},
+				{
+					"command": "pr.openChanges",
+					"group": "checkout@0",
+					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
+				},
+				{
+					"command": "pr.checkoutOnVscodeDevFromDescription",
+					"group": "checkout@1",
+					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
 				}
+
 			],
 			"chat/chatSessions": [
 				{

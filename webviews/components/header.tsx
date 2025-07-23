@@ -7,11 +7,11 @@ import React, { useContext, useState } from 'react';
 import { copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../../src/common/copilot';
 import { CopilotStartedEvent, TimelineEvent } from '../../src/common/timelineEvent';
 import { GithubItemStateEnum } from '../../src/github/interface';
-import { CopyContext, PullRequest } from '../../src/github/views';
+import { OverviewContext, PullRequest } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
-import { checkIcon, editIcon, issueClosedIcon, issueIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
-import { nbsp } from './space';
+import { ContextDropdown } from './contextDropdown';
+import { editIcon, issueClosedIcon, issueIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
 import { AuthorLink, Avatar } from './user';
 
 export function Header({
@@ -55,6 +55,9 @@ export function Header({
 					isCurrentlyCheckedOut={isCurrentlyCheckedOut}
 					isIssue={isIssue}
 					repositoryDefaultBranch={repositoryDefaultBranch}
+					owner={owner}
+					repo={repo}
+					number={number}
 				/>
 				<CancelCodingAgentButton canEdit={canEdit} codingAgentEvent={mostRecentCopilotEvent(events)} />
 			</div>
@@ -89,13 +92,13 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 		</form>
 	);
 
-	const context: CopyContext = {
-		'github:copyMenu': true,
+	const context: OverviewContext = {
 		'preventDefaultContextMenuItems': true,
 		owner,
 		repo,
 		number
 	};
+	context['github:copyMenu'] = true;
 
 	const displayTitle = (
 		<div className="overview-title">
@@ -118,22 +121,12 @@ function Title({ title, titleHTML, number, url, inEditMode, setEditMode, setCurr
 	return editableTitle;
 }
 
-function ButtonGroup({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }) {
-	const { refresh, copyPrLink, copyVscodeDevLink, openChanges } = useContext(PullRequestContext);
-
-	const handleOpenChangesClick = (e: React.MouseEvent) => {
-		const openToTheSide = e.ctrlKey || e.metaKey;
-		openChanges(openToTheSide);
-	};
+function ButtonGroup({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number }) {
+	const { refresh } = useContext(PullRequestContext);
 
 	return (
 		<div className="button-group">
-			<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }} />
-			{!isIssue && (
-				<button title="Open Changes (Ctrl/Cmd+Click to open in second editor group)" onClick={handleOpenChangesClick} className="small-button">
-					Open Changes
-				</button>
-			)}
+			<CheckoutButtons {...{ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number }} />
 			<button title="Refresh with the latest data from GitHub" onClick={refresh} className="secondary small-button">
 				Refresh
 			</button>
@@ -196,8 +189,8 @@ function Subtitle({ state, isDraft, isIssue, author, base, head }) {
 	);
 }
 
-const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch }) => {
-	const { exitReviewMode, checkout } = useContext(PullRequestContext);
+const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBranch, owner, repo, number }) => {
+	const { exitReviewMode, checkout, openChanges } = useContext(PullRequestContext);
 	const [isBusy, setBusy] = useState(false);
 
 	const onClick = async (command: string) => {
@@ -211,6 +204,9 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBran
 				case 'exitReviewMode':
 					await exitReviewMode();
 					break;
+				case 'openChanges':
+					await openChanges();
+					break;
 				default:
 					throw new Error(`Can't find action ${command}`);
 			}
@@ -219,35 +215,54 @@ const CheckoutButtons = ({ isCurrentlyCheckedOut, isIssue, repositoryDefaultBran
 		}
 	};
 
-	if (isCurrentlyCheckedOut) {
-		return (
-			<>
-				<button
-					aria-live="polite"
-					title="Switch to a different branch than this pull request branch"
-					disabled={isBusy}
-					className='small-button'
-					onClick={() => onClick('exitReviewMode')}
-				>
-					{checkIcon}{nbsp} Checkout '{repositoryDefaultBranch}'
-				</button>
-			</>
-		);
-	} else if (!isIssue) {
-		return (
-			<button
-				aria-live="polite"
-				title="Checkout a local copy of this pull request branch to verify or edit changes"
-				disabled={isBusy}
-				className='small-button'
-				onClick={() => onClick('checkout')}
-			>
-				Checkout
-			</button>
-		);
-	} else {
+	if (isIssue) {
 		return null;
 	}
+
+	const context: OverviewContext = {
+		'preventDefaultContextMenuItems': true,
+		owner,
+		repo,
+		number
+	};
+
+	context['github:checkoutMenu'] = true;
+	const actions: { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[] = [];
+
+	if (isCurrentlyCheckedOut) {
+		actions.push({
+			label: `Checkout '${repositoryDefaultBranch}'`,
+			value: '',
+			action: () => onClick('exitReviewMode')
+		});
+	} else {
+		actions.push({
+			label: 'Checkout',
+			value: '',
+			action: () => onClick('checkout')
+		});
+	}
+
+	actions.push({
+		label: 'Open Changes',
+		value: '',
+		action: () => onClick('openChanges')
+	});
+
+	return (<ContextDropdown
+		optionsContext={() => JSON.stringify(context)}
+		defaultAction={actions[0].action}
+		defaultOptionLabel={() => actions[0].label}
+		defaultOptionValue={() => actions[0].value}
+		allOptions={() => {
+			return actions;
+		}}
+		optionsTitle={actions[0].label}
+		disabled={isBusy}
+		hasSingleAction={false}
+		spreadable={false}
+		isSmall={true}
+	/>);
 };
 
 export function getStatus(state: GithubItemStateEnum, isDraft: boolean, isIssue: boolean) {
