@@ -45,6 +45,14 @@ input.select-left {
 
 button.select-right {
 	border-radius: 0 2px 2px 0;
+	width: 24px;
+	position: relative;
+}
+
+button.select-right span {
+	position: absolute;
+	top: 2px;
+	right: 4px;
 }
 
 button:focus,
@@ -354,17 +362,26 @@ button.split-left {
 }
 
 .split {
-	width: 1px;
-	height: 100%;
 	background-color: var(--vscode-button-background);
-	opacity: 0.5;
+	border-top: 1px solid var(--vscode-button-border);
+	border-bottom: 1px solid var(--vscode-button-border);
+	padding: 4px 0;
+}
+
+.split .separator {
+	height: 100%;
+	width: 1px;
+	background-color: var(--vscode-button-separator);
+}
+
+.split.disabled {
+	opacity: 0.4;
 }
 
 .split.secondary {
-	width: 1px;
-	height: 100%;
 	background-color: var(--vscode-button-secondaryBackground);
-	opacity: 0.5;
+	border-top: 1px solid var(--vscode-button-secondaryBorder);
+	border-bottom: 1px solid var(--vscode-button-secondaryBorder);
 }
 
 button.split-right {
@@ -381,7 +398,7 @@ button.split-right:disabled {
 button.split-right .icon {
 	pointer-events: none;
 	position: absolute;
-	top: 6px;
+	top: 4px;
 	right: 4px;
 }
 
@@ -449,6 +466,7 @@ button.inlined-dropdown {
 	0% {
 		transform: rotate(0deg);
 	}
+
 	100% {
 		transform: rotate(360deg);
 	}
