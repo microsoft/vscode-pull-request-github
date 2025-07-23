@@ -494,10 +494,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo; openToTheSide?: boolean }>): Promise<void> {
+	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo }>): Promise<void> {
 		try {
-			const openToTheSide = message.args.openToTheSide || false;
-			await SessionLogViewManager.instance?.openForPull(this._item, message.args.link, openToTheSide);
+			await SessionLogViewManager.instance?.openForPull(this._item, message.args.link, message.args.link.openToTheSide ?? false);
 		} catch (e) {
 			Logger.error(`Open session log view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}

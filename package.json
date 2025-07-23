@@ -67,6 +67,14 @@
 		"virtualWorkspaces": true
 	},
 	"contributes": {
+		"chatSessions": [
+			{
+				"id": "copilot-swe-agent",
+				"name": "copilot",
+				"displayName": "GitHub Copilot Coding Agent",
+				"description": "Chat session for GitHub Copilot coding agent"
+			}
+		],
 		"remoteCodingAgents": [
 			{
 				"id": "githubCodingAgent",
@@ -1292,6 +1300,21 @@
 				"icon": "$(eye)"
 			},
 			{
+				"command": "pr.checkoutFromDescription",
+				"title": "%command.pr.checkoutFromDescription.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.checkoutOnVscodeDevFromDescription",
+				"title": "%command.pr.checkoutOnVscodeDevFromDescription.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.openSessionLogFromDescription",
+				"title": "%command.pr.openSessionLogFromDescription.title%",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "review.diffWithPrHead",
 				"title": "%command.review.diffWithPrHead.title%",
 				"category": "%command.pull.request.category%"
@@ -1416,6 +1439,11 @@
 			{
 				"command": "pr.copyVscodeDevPrLink",
 				"title": "%command.pr.copyVscodeDevPrLink.title%",
+				"category": "%command.issues.category%"
+			},
+			{
+				"command": "pr.copyPrLink",
+				"title": "%command.pr.copyPrLink.title%",
 				"category": "%command.issues.category%"
 			},
 			{
@@ -1954,6 +1982,18 @@
 					"when": "false"
 				},
 				{
+					"command": "pr.checkoutFromDescription",
+					"when": "false"
+				},
+				{
+					"command": "pr.checkoutOnVscodeDevFromDescription",
+					"when": "false"
+				},
+				{
+					"command": "pr.openSessionLogFromDescription",
+					"when": "false"
+				},
+				{
 					"command": "review.suggestDiff",
 					"when": "false"
 				},
@@ -2112,6 +2152,10 @@
 				{
 					"command": "pr.copyVscodeDevPrLink",
 					"when": "github:inReviewMode && remoteName != codespaces && embedderIdentifier != github.dev"
+				},
+{
+					"command": "pr.copyPrLink",
+					"when": "false"
 				},
 				{
 					"command": "pr.goToNextDiffInPr",
@@ -3273,7 +3317,30 @@
 				{
 					"command": "review.requestChangesOnDotComDescription",
 					"when": "webviewId == PullRequestOverview && github:reviewCommentMenu && github:reviewCommentRequestChangesOnDotCom"
+				},
+				{
+					"command": "pr.copyPrLink",
+					"when": "webviewId == PullRequestOverview && github:copyMenu"
+				},
+				{
+					"command": "pr.copyVscodeDevPrLink",
+					"when": "webviewId == PullRequestOverview && github:copyMenu"
+				},
+				{
+					"command": "pr.openChanges",
+					"group": "checkout@0",
+					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
+				},
+				{
+					"command": "pr.checkoutOnVscodeDevFromDescription",
+					"group": "checkout@1",
+					"when": "webviewId == PullRequestOverview && github:checkoutMenu"
+				},
+				{
+					"command": "pr.openSessionLogFromDescription",
+					"when": "webviewId == PullRequestOverview && github:codingAgentMenu"
 				}
+
 			],
 			"chat/chatSessions": [
 				{

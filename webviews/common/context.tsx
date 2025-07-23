@@ -53,7 +53,13 @@ export class PRContext {
 
 	public gotoChangesSinceReview = () => this.postMessage({ command: 'pr.gotoChangesSinceReview' });
 
-	public refresh = () => this.postMessage({ command: 'pr.refresh' });
+	public refresh = async () =>{
+		this.pr.busy = true;
+		this.updatePR(this.pr);
+		await this.postMessage({ command: 'pr.refresh' });
+		this.pr.busy = false;
+		this.updatePR(this.pr);
+	};
 
 	public checkMergeability = () => this.postMessage({ command: 'pr.checkMergeability' });
 
@@ -252,7 +258,7 @@ export class PRContext {
 		});
 	};
 
-	public openSessionLog = (link: SessionLinkInfo, openToTheSide?: boolean) => this.postMessage({ command: 'pr.open-session-log', args: { link, openToTheSide } });
+	public openSessionLog = (link: SessionLinkInfo) => this.postMessage({ command: 'pr.open-session-log', args: { link } });
 
 	public openCommitChanges = (commitSha: string) => this.postMessage({ command: 'pr.openCommitChanges', args: { commitSha } as OpenCommitChangesArgs });
 
