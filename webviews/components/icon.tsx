@@ -50,3 +50,6 @@ export const copilotIcon = <Icon src={require('../../resources/icons/copilot.svg
 export const threeBars = <Icon src={require('../../resources/icons/three-bars.svg')} />;
 export const tasklistIcon = <Icon src={require('../../resources/icons/tasklist.svg')} />;
 export const errorIcon = <Icon src={require('../../resources/icons/error.svg')} />;
+export const copilotSuccessIcon = <Icon className="copilot-icon" src={require('../../resources/icons/copilot-success.svg')} />;
+export const copilotErrorIcon = <Icon className="copilot-icon" src={require('../../resources/icons/copilot-error.svg')} />;
+export const copilotInProgressIcon = <Icon className="copilot-icon" src={require('../../resources/icons/copilot-in-progress.svg')} />;

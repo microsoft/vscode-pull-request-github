@@ -11,7 +11,7 @@ import { CodingAgentContext, OverviewContext, PullRequest } from '../../src/gith
 import PullRequestContext from '../common/context';
 import { useStateProp } from '../common/hooks';
 import { ContextDropdown } from './contextDropdown';
-import { editIcon, issueClosedIcon, issueIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
+import { copilotErrorIcon, copilotInProgressIcon, copilotSuccessIcon, editIcon, issueClosedIcon, issueIcon, mergeIcon, prClosedIcon, prDraftIcon, prOpenIcon } from './icon';
 import { AuthorLink, Avatar } from './user';
 
 export function Header({
@@ -34,6 +34,7 @@ export function Header({
 }: PullRequest) {
 	const [currentTitle, setCurrentTitle] = useStateProp(title);
 	const [inEditMode, setEditMode] = useState(false);
+	const codingAgentEvent = mostRecentCopilotEvent(events);
 
 	return (
 		<>
@@ -49,7 +50,7 @@ export function Header({
 				owner={owner}
 				repo={repo}
 			/>
-			<Subtitle state={state} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} />
+			<Subtitle state={state} head={head} base={base} author={author} isIssue={isIssue} isDraft={isDraft} codingAgentEvent={codingAgentEvent} />
 			<div className="header-actions">
 				<ButtonGroup
 					isCurrentlyCheckedOut={isCurrentlyCheckedOut}
@@ -59,7 +60,7 @@ export function Header({
 					repo={repo}
 					number={number}
 				/>
-				<CancelCodingAgentButton canEdit={canEdit} codingAgentEvent={mostRecentCopilotEvent(events)} />
+				<CancelCodingAgentButton canEdit={canEdit} codingAgentEvent={codingAgentEvent} />
 			</div>
 		</>
 	);
@@ -197,8 +198,17 @@ function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boole
 	/>;
 }
 
-function Subtitle({ state, isDraft, isIssue, author, base, head }) {
+function Subtitle({ state, isDraft, isIssue, author, base, head, codingAgentEvent }) {
 	const { text, color, icon } = getStatus(state, isDraft, isIssue);
+	const copilotStatus = copilotEventToStatus(codingAgentEvent);
+	let copilotStatusIcon: JSX.Element | undefined;
+	if (copilotStatus === CopilotPRStatus.Started) {
+		copilotStatusIcon = copilotInProgressIcon;
+	} else if (copilotStatus === CopilotPRStatus.Completed) {
+		copilotStatusIcon = copilotSuccessIcon;
+	} else if (copilotStatus === CopilotPRStatus.Failed) {
+		copilotStatusIcon = copilotErrorIcon;
+	}
 
 	return (
 		<div className="subtitle">
@@ -207,7 +217,7 @@ function Subtitle({ state, isDraft, isIssue, author, base, head }) {
 				<span>{text}</span>
 			</div>
 			<div className="author">
-				{<Avatar for={author} />}
+				{<Avatar for={author} substituteIcon={copilotStatusIcon} />}
 				<div className="merge-branches">
 					<AuthorLink for={author} /> {!isIssue ? (<>
 						{getActionText(state)} into{' '}

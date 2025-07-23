@@ -1268,6 +1268,10 @@ code {
 	display: flex;
 }
 
+.icon.copilot-icon {
+	margin-right: 6px;
+}
+
 .action-bar {
 	position: absolute;
 	display: flex;

@@ -125,7 +125,7 @@ input[type='checkbox'] {
 	outline: 1px solid var(--vscode-contrastActiveBorder);
 }
 
-svg path {
+svg path:first-of-type {
 	fill: var(--vscode-foreground);
 }
 
