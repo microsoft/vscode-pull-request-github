@@ -83,12 +83,8 @@ declare module 'vscode' {
 		toolName: string;
 		constructor(toolName: string);
 	}
-	export interface ChatTerminalToolInvocationData {
-		command: string;
-		language: string;
-	}
 
-	export interface ChatTerminalToolInvocationData2 {
+	export interface ChatTerminalToolInvocationData {
 		commandLine: {
 			original: string;
 			userEdited?: string;
@@ -106,12 +102,12 @@ declare module 'vscode' {
 		pastTenseMessage?: string | MarkdownString;
 		isConfirmed?: boolean;
 		isComplete?: boolean;
-		toolSpecificData?: ChatTerminalToolInvocationData | ChatTerminalToolInvocationData2;
+		toolSpecificData?: ChatTerminalToolInvocationData;
 
 		constructor(toolName: string, toolCallId: string, isError?: boolean);
 	}
 
-	export type ExtendedChatResponsePart = ChatResponsePart | ChatResponseTextEditPart | ChatResponseNotebookEditPart | ChatResponseConfirmationPart | ChatResponseCodeCitationPart | ChatResponseReferencePart2 | ChatResponseMovePart | ChatResponseExtensionsPart | ChatPrepareToolInvocationPart | ChatToolInvocationPart;
+	export type ExtendedChatResponsePart = ChatResponsePart | ChatResponseTextEditPart | ChatResponseNotebookEditPart | ChatResponseConfirmationPart | ChatResponseCodeCitationPart | ChatResponseReferencePart2 | ChatResponseMovePart | ChatResponseExtensionsPart | ChatPrepareToolInvocationPart;
 
 	export class ChatResponseWarningPart {
 		value: MarkdownString;

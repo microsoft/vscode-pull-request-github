@@ -117,7 +117,9 @@ export function parseToolCallDetails(
 		// Use the terminal-specific data for bash commands
 		if (args.command) {
 			details.toolSpecificData = {
-				command: args.command,
+				commandLine: {
+					original: args.command,
+				},
 				language: 'bash'
 			};
 		}

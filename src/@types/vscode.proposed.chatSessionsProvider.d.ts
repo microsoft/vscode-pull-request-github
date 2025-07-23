@@ -11,15 +11,28 @@ declare module 'vscode' {
 		/**
 		 * Label of the extension that registers the provider.
 		 */
-		readonly label: string;
+		readonly label: string; // TODO: move to contribution or registration
 
 		/**
 		 * Event that the provider can fire to signal that chat sessions have changed.
 		 */
 		readonly onDidChangeChatSessionItems: Event<void>;
 
+		// /**
+		//  * Create a new chat session item
+		//  */
+		// provideNewChatSessionItem(context: {
+		// 	// This interface should be extracted
+		// 	readonly triggerChat?: {
+		// 		readonly prompt: string;
+		// 		readonly history: ReadonlyArray<ChatRequestTurn | ChatResponseTurn>;
+		// 	};
+		// }, token: CancellationToken): Thenable<ChatSessionItem> | ChatSessionItem;
+
 		/**
 		 * Provides a list of chat sessions.
+		 *
+		 * TODO: Do we need a flag to try auth if needed?
 		 */
 		provideChatSessionItems(token: CancellationToken): ProviderResult<ChatSessionItem[]>;
 	}
@@ -113,6 +126,19 @@ declare module 'vscode' {
 		 * @param chatSessionType A unique identifier for the chat session type. This is used to differentiate between different chat session providers.
 		 */
 		export function registerChatSessionContentProvider(chatSessionType: string, provider: ChatSessionContentProvider): Disposable;
+	}
 
+	export interface ChatSessionShowOptions {
+		/**
+		 * The editor view column to show the chat session in.
+		 *
+		 * If not provided, the chat session will be shown in the chat panel instead.
+		 */
+		readonly viewColumn?: ViewColumn;
+	}
+
+	export namespace window {
+
+		export function showChatSession(chatSessionType: string, id: string, options: ChatSessionShowOptions): Thenable<void>;
 	}
 }
