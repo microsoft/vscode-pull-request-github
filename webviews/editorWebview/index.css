@@ -521,6 +521,7 @@ body button .icon {
 }
 
 .branch-tag {
+	margin-top: 3px;
 	padding: 2px 4px;
 	background: var(--vscode-editorInlayHint-background);
 	color: var(--vscode-editorInlayHint-foreground);
