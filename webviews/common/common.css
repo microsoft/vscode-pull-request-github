@@ -125,7 +125,7 @@ input[type='checkbox'] {
 	outline: 1px solid var(--vscode-contrastActiveBorder);
 }
 
-svg path {
+svg path:first-of-type {
 	fill: var(--vscode-foreground);
 }
 
@@ -360,11 +360,17 @@ button.split-left {
 	opacity: 0.5;
 }
 
+.split.secondary {
+	width: 1px;
+	height: 100%;
+	background-color: var(--vscode-button-secondaryBackground);
+	opacity: 0.5;
+}
+
 button.split-right {
 	border-radius: 0 2px 2px 0;
 	cursor: pointer;
 	width: 24px;
-	height: 28px;
 	position: relative;
 }
 
@@ -382,6 +388,7 @@ button.split-right .icon {
 button.split-right .icon svg path {
 	fill: unset;
 }
+
 button.input-box {
 	display: block;
 	height: 24px;
@@ -412,9 +419,12 @@ button.input-box:focus {
 
 .dropdown-container {
 	display: flex;
-	flex-grow: 1;
 	min-width: 0;
 	margin: 0;
+}
+
+.dropdown-container.spreadable {
+	flex-grow: 1;
 	width: 100%;
 }
 
@@ -424,4 +434,22 @@ button.inlined-dropdown {
 	margin-right: 5px;
 	display: inline-block;
 	text-align: center;
+}
+
+.spinner {
+	margin-top: 5px;
+	margin-left: 5px;
+}
+
+.loading {
+	animation: spinner-rotate 1s linear infinite;
+}
+
+@keyframes spinner-rotate {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
 }

@@ -15,6 +15,8 @@ interface ContextDropdownProps {
 	optionsTitle: string;
 	disabled?: boolean;
 	hasSingleAction?: boolean;
+	spreadable: boolean;
+	isSecondary?: boolean;
 }
 
 function useWindowSize() {
@@ -30,7 +32,7 @@ function useWindowSize() {
 	return size;
 }
 
-export const ContextDropdown = ({ optionsContext, defaultOptionLabel, defaultOptionValue, defaultAction, allOptions: options, optionsTitle, disabled, hasSingleAction }: ContextDropdownProps) => {
+export const ContextDropdown = ({ optionsContext, defaultOptionLabel, defaultOptionValue, defaultAction, allOptions: options, optionsTitle, disabled, hasSingleAction, spreadable, isSecondary }: ContextDropdownProps) => {
 	const [expanded, setExpanded] = useState(false);
 	const onHideAction = (e: MouseEvent | KeyboardEvent) => {
 		if (e.target instanceof HTMLElement && e.target.classList.contains('split-right')) {
@@ -52,19 +54,19 @@ export const ContextDropdown = ({ optionsContext, defaultOptionLabel, defaultOpt
 	const divRef = useRef<HTMLDivElement>();
 	useWindowSize();
 
-	return <div className='dropdown-container' ref={divRef}>
-		{divRef.current && (divRef.current.clientWidth > 375) && options && !hasSingleAction ? options().map(({ label, value, action }) => {
+	return <div className={`dropdown-container${spreadable ? ' spreadable' : ''}`} ref={divRef}>
+		{divRef.current && spreadable && (divRef.current.clientWidth > 375) && options && !hasSingleAction ? options().map(({ label, value, action }) => {
 			return <button className='inlined-dropdown' key={value} title={label} disabled={disabled} onClick={action} value={value}>{label}</button>;
 		})
 			:
 			<div className='primary-split-button'>
-				<button className='split-left' disabled={disabled} onClick={defaultAction} value={defaultOptionValue()}
+				<button className={`split-left${isSecondary ? ' secondary' : ''}`} disabled={disabled} onClick={defaultAction} value={defaultOptionValue()}
 					title={defaultOptionLabel()}>
 					{defaultOptionLabel()}
 				</button>
-				<div className='split'></div>
+				<div className={`split${isSecondary ? ' secondary' : ''}`}></div>
 				{hasSingleAction ? null :
-					<button className='split-right' title={optionsTitle} disabled={disabled} aria-expanded={expanded} onClick={(e) => {
+					<button className={`split-right${isSecondary ? ' secondary' : ''}`} title={optionsTitle} disabled={disabled} aria-expanded={expanded} onClick={(e) => {
 						e.preventDefault();
 						const rect = (e.target as HTMLElement).getBoundingClientRect();
 						const x = rect.left;
