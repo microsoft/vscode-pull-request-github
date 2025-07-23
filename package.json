@@ -67,6 +67,14 @@
 		"virtualWorkspaces": true
 	},
 	"contributes": {
+		"chatSessions": [
+			{
+				"id": "copilot-swe-agent",
+				"name": "copilot",
+				"displayName": "GitHub Copilot Coding Agent",
+				"description": "Chat session for GitHub Copilot coding agent"
+			}
+		],
 		"remoteCodingAgents": [
 			{
 				"id": "githubCodingAgent",
