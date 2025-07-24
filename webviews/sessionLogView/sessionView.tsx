@@ -9,7 +9,7 @@ import * as monaco from 'monaco-editor/esm/vs/editor/editor.main';
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 import { Temporal } from 'temporal-polyfill';
-import { parseToolCallDetails, SessionResponseLogChunk } from '../../common/sessionParsing';
+import { SessionResponseLogChunk } from '../../common/sessionParsing';
 import { vscode } from '../common/message';
 import { CodeView } from './codeView';
 import './index.css'; // Create this file for styling
