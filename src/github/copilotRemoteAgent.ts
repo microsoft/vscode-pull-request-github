@@ -62,6 +62,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 	readonly onDidChangeNotifications = this._onDidChangeNotifications.event;
 	private readonly _onDidCreatePullRequest = this._register(new vscode.EventEmitter<number>());
 	readonly onDidCreatePullRequest = this._onDidCreatePullRequest.event;
+	private readonly _onDidChangeChatSessions = this._register(new vscode.EventEmitter<void>());
+	readonly onDidChangeChatSessions = this._onDidChangeChatSessions.event;
 
 	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, private telemetry: ITelemetry) {
 		super();
@@ -388,6 +390,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			outcome: 'success'
 		});
 
+		this._onDidChangeChatSessions.fire();
 		vscode.commands.executeCommand('vscode.open', webviewUri);
 
 		// allow-any-unicode-next-line
