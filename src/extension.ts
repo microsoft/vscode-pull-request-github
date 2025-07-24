@@ -420,7 +420,7 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 					return await copilotRemoteAgentManager.provideChatSessions(token);
 				},
 				// Events not used yet, but required by interface.
-				onDidChangeChatSessionItems: new vscode.EventEmitter<void>().event,
+				onDidChangeChatSessionItems: copilotRemoteAgentManager.onDidChangeChatSessions
 			}
 		));
 	}

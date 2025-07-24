@@ -62,6 +62,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 	readonly onDidChangeNotifications = this._onDidChangeNotifications.event;
 	private readonly _onDidCreatePullRequest = this._register(new vscode.EventEmitter<number>());
 	readonly onDidCreatePullRequest = this._onDidCreatePullRequest.event;
+	private readonly _onDidChangeChatSessions = this._register(new vscode.EventEmitter<void>());
+	readonly onDidChangeChatSessions = this._onDidChangeChatSessions.event;
 
 	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, private telemetry: ITelemetry) {
 		super();
@@ -251,6 +253,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				return;
 			}
 			Logger.appendLine(`Added comment ${commentResult.htmlUrl}`, CopilotRemoteAgentManager.ID);
+			this._onDidChangeChatSessions.fire();
 			// allow-any-unicode-next-line
 			return vscode.l10n.t('🚀 Follow-up comment added to [#{0}]({1})', pullRequestNumber, commentResult.htmlUrl);
 		} catch (err) {
