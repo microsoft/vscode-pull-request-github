@@ -210,6 +210,7 @@
 	"command.review.createSuggestionFromChange.title": "Convert to Pull Request Suggestion",
 	"command.review.copyPrLink.title": "Copy Pull Request Link",
 	"command.pr.refreshList.title": "Refresh Pull Requests List",
+	"command.pr.refreshChatSessions.title": "Refresh Chat Sessions",
 	"command.pr.setFileListLayoutAsTree.title": "View as Tree",
 	"command.pr.setFileListLayoutAsFlat.title": "View as List",
 	"command.pr.refreshChanges.title": "Refresh",
