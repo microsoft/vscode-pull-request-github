@@ -1,7 +1,20 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { default as assert } from 'assert';
+import * as vscode from 'vscode';
 import { parseDiffHunk } from '../common/diffHunk';
 
 describe('Extension Tests', function () {
+	describe('Hello World Command', () => {
+		it('should be registered and executable', async () => {
+			const commands = await vscode.commands.getCommands(true);
+			assert(commands.includes('pr.helloWorld'), 'Hello World command should be registered');
+		});
+	});
+
 	describe('parseDiffHunk', () => {
 		it('should handle empty string', () => {
 			const diffHunk = parseDiffHunk('');
