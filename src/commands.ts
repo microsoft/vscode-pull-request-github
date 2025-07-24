@@ -972,6 +972,13 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'pr.openDescriptionFromChatSession',
+			openDescriptionCommand
+		)
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand('pr.refreshDescription', async () => {
 			if (PullRequestOverviewPanel.currentPanel) {
 				PullRequestOverviewPanel.refresh();
