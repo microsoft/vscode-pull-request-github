@@ -63,6 +63,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 	readonly onDidChangeNotifications = this._onDidChangeNotifications.event;
 	private readonly _onDidCreatePullRequest = this._register(new vscode.EventEmitter<number>());
 	readonly onDidCreatePullRequest = this._onDidCreatePullRequest.event;
+	private readonly _onDidChangeChatSessions = this._register(new vscode.EventEmitter<void>());
+	readonly onDidChangeChatSessions = this._onDidChangeChatSessions.event;
 
 	constructor(private credentialStore: CredentialStore, public repositoriesManager: RepositoriesManager, private telemetry: ITelemetry) {
 		super();
@@ -750,6 +752,11 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return [];
 	}
 
+	/*
+	 * Note: ChatSession type is not yet available in the current VS Code API types.
+	 * This functionality is commented out until the types are available.
+	 */
+	/*
 	public async provideChatSessionContent(id: string, token: vscode.CancellationToken): Promise<vscode.ChatSession> {
 		try {
 			const capi = await this.copilotApi;
@@ -803,6 +810,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			requestHandler: undefined
 		};
 	}
+	*/
 
 	private createActiveResponseCallback(pullRequest: PullRequestModel, _sessionId: string): (stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => Thenable<void> {
 		return async (stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
@@ -1083,5 +1091,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 			Logger.error(`Failed to parse chat history from logs: ${error}`, CopilotRemoteAgentManager.ID);
 			return [];
 		}
+	}
+
+	/**
+	 * Refreshes the chat sessions by firing the onDidChangeChatSessions event.
+	 * This will cause the chat session provider to update its list of sessions.
+	 */
+	public refreshChatSessions(): void {
+		this._onDidChangeChatSessions.fire();
 	}
 }

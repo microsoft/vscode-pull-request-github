@@ -1849,4 +1849,10 @@ ${contents}
 			}
 		})
 	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.refreshChatSessions', async () => {
+			copilotRemoteAgentManager.refreshChatSessions();
+		})
+	);
 }

@@ -1020,6 +1020,12 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.refreshChatSessions",
+				"title": "%command.pr.refreshChatSessions.title%",
+				"icon": "$(refresh)",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.setFileListLayoutAsTree",
 				"title": "%command.pr.setFileListLayoutAsTree.title%",
 				"icon": "$(list-tree)",
@@ -3346,6 +3352,11 @@
 				{
 					"command": "pr.openDescription",
 					"when": "chatSessionType == copilot-swe-agent"
+				},
+				{
+					"command": "pr.refreshChatSessions",
+					"when": "chatSessionType == copilot-swe-agent",
+					"group": "navigation"
 				}
 			]
 		},
