@@ -13,6 +13,7 @@ import Logger from '../common/logger';
 import { GitHubRemote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
+import { CommentEvent, CopilotFinishedEvent, CopilotStartedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { toOpenPullRequestWebviewUri } from '../common/uri';
 import { OctokitCommon } from './common';
 import { ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
@@ -20,6 +21,7 @@ import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
+import { GithubItemStateEnum } from './interface';
 import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
 
@@ -389,7 +391,24 @@ export class CopilotRemoteAgentManager extends Disposable {
 			outcome: 'success'
 		});
 
-		vscode.commands.executeCommand('vscode.open', webviewUri);
+		if (vscode.workspace.getConfiguration('chat').get('agentSessionsViewLocation') === 'disabled') {
+			vscode.commands.executeCommand('vscode.open', webviewUri);
+		} else {
+			await this.provideChatSessions(new vscode.CancellationTokenSource().token);
+
+			const capi = await this.copilotApi;
+			if (!capi) {
+				return;
+			}
+
+			const sessions = await capi.getAllCodingAgentPRs(this.repositoriesManager);
+			const pr = sessions.find(session => session.number === number);
+
+			if (pr) {
+				vscode.window.showChatSession('copilot-swe-agent', `${pr.id}`, {});
+			}
+		}
+
 
 		// allow-any-unicode-next-line
 		return vscode.l10n.t('🚀 Coding agent will continue work in [#{0}]({1}).  Track progress [here]({2}).', number, link, webviewUri.toString());
@@ -750,6 +769,25 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return [];
 	}
 
+	private extractPromptFromEvent(event: TimelineEvent): string {
+		let body = '';
+		if (event.event === EventType.Commented) {
+			body = (event as CommentEvent).body;
+		} else if (event.event === EventType.Reviewed) {
+			body = (event as ReviewEvent).body;
+		}
+
+		// Extract the prompt before any separator pattern (used in addFollowUpToExistingPR)
+		// but keep the @copilot mention
+		const separatorMatch = body.match(/^(.*?)\s*\n\n\s*---\s*\n\n/s);
+		if (separatorMatch) {
+			return separatorMatch[1].trim();
+		}
+
+		// Return the full body, including @copilot mention
+		return body.trim();
+	}
+
 	public async provideChatSessionContent(id: string, token: vscode.CancellationToken): Promise<vscode.ChatSession> {
 		try {
 			const capi = await this.copilotApi;
@@ -770,26 +808,187 @@ export class CopilotRemoteAgentManager extends Disposable {
 				return this.createEmptySession();
 			}
 
-			// Get session logs (including in-progress sessions)
-			const sessionLogs = await this.getSessionLogFromPullRequest(pullRequest, 0, false);
-			if (!sessionLogs) {
-				Logger.warn(`No session logs found for pull request ${pullRequestId}`, CopilotRemoteAgentManager.ID);
+			// Get all sessions for this PR
+			const sessions = await capi.getAllSessions(pullRequest.id);
+			if (!sessions || sessions.length === 0) {
+				Logger.warn(`No sessions found for pull request ${pullRequestId}`, CopilotRemoteAgentManager.ID);
 				return this.createEmptySession();
 			}
 
-			// Parse logs and create chat history
-			const history = await this.parseChatHistoryFromLogs(sessionLogs.logs, pullRequest.title);
+			// Ensure sessions is an array
+			if (!Array.isArray(sessions)) {
+				Logger.error(`getAllSessions returned non-array: ${typeof sessions}`, CopilotRemoteAgentManager.ID);
+				return this.createEmptySession();
+			}
 
-			// Check if the session is in progress and provide activeResponseCallback if needed
-			const isInProgress = sessionLogs.info.state === 'in_progress';
-			const activeResponseCallback = isInProgress
-				? this.createActiveResponseCallback(pullRequest, sessionLogs.info.id)
+			// Sort sessions by created_at to ensure chronological order
+			const sortedSessions = sessions.slice().sort((a, b) =>
+				new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+			);
+
+			// Parse all sessions into chat history
+			const history: Array<vscode.ChatRequestTurn | vscode.ChatResponseTurn2> = [];
+			let activeResponseCallback: ((stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => Thenable<void>) | undefined;
+
+			// Get timeline events to match sessions with comments
+			let timelineEvents: readonly TimelineEvent[] = await pullRequest.getTimelineEvents(pullRequest);
+
+
+			const copilotComments = timelineEvents
+				.filter((event): event is CommentEvent => event.event === EventType.Commented)
+				.filter(comment => comment.body.includes('@copilot') || comment.body.includes(COPILOT))
+				.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+			Logger.appendLine(`Found ${copilotComments.length} copilot comments in timeline`, CopilotRemoteAgentManager.ID);
+
+			for (const [sessionIndex, session] of sortedSessions.entries()) {
+				// Get logs for this session
+				const logs = await capi.getLogsFromSession(session.id);
+
+				// Try to find a matching comment for this session
+				let sessionPrompt = session.name || `Session ${sessionIndex + 1} (ID: ${session.id})`;
+
+				// For the first session, try to get the problem statement from the Jobs API
+				if (sessionIndex === 0) {
+					try {
+						const jobInfo = await capi.getJobBySessionId(pullRequest.base.repositoryCloneUrl.owner, pullRequest.base.repositoryCloneUrl.repositoryName, session.id);
+						if (jobInfo && jobInfo.problem_statement) {
+							sessionPrompt = jobInfo.problem_statement;
+							const titleMatch = jobInfo.problem_statement.match(/TITLE: \s*(.*)/i);
+							if (titleMatch && titleMatch[1]) {
+								sessionPrompt = titleMatch[1].trim();
+							}
+							Logger.appendLine(`Session ${sessionIndex}: Found problem_statement from Jobs API: ${sessionPrompt}`, CopilotRemoteAgentManager.ID);
+						}
+					} catch (error) {
+						Logger.warn(`Failed to get job info for session ${session.id}: ${error}`, CopilotRemoteAgentManager.ID);
+					}
+				}
+
+				// Find all CopilotStarted and CopilotFinished events
+				const copilotStartedEvents = timelineEvents
+					.filter((event): event is CopilotStartedEvent => event.event === EventType.CopilotStarted)
+					.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+				const copilotFinishedEvents = timelineEvents
+					.filter((event): event is CopilotFinishedEvent => event.event === EventType.CopilotFinished)
+					.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+				Logger.appendLine(`Session ${sessionIndex}: Found ${copilotStartedEvents.length} CopilotStarted events and ${copilotFinishedEvents.length} CopilotFinished events`, CopilotRemoteAgentManager.ID);
+
+				// For secondary sessions, try to match with timeline events
+				if (sessionIndex > 0) {
+					const copilotStartedEvent = copilotStartedEvents[sessionIndex];
+					if (copilotStartedEvent) {
+
+						// Find the time boundaries for this session
+						const currentSessionStartTime = new Date(copilotStartedEvent.createdAt).getTime();
+
+						// Find the end time of the previous session (if any)
+						let previousSessionEndTime = 0;
+						if (sessionIndex > 0 && copilotFinishedEvents[sessionIndex - 1]) {
+							previousSessionEndTime = new Date(copilotFinishedEvents[sessionIndex - 1].createdAt).getTime();
+						}
+
+						// Find comments/reviews that are:
+						// 1. After the previous session ended
+						// 2. Before the current session started
+						// 3. Contain @copilot mention
+						const relevantEvents = timelineEvents
+							.filter(event => {
+								if (event.event !== EventType.Commented && event.event !== EventType.Reviewed) {
+									return false;
+								}
+
+								const eventTime = new Date(
+									event.event === EventType.Commented ? (event as CommentEvent).createdAt :
+										event.event === EventType.Reviewed ? (event as ReviewEvent).submittedAt : ''
+								).getTime();
+
+								// Must be after previous session and before current session
+								return eventTime > previousSessionEndTime && eventTime < currentSessionStartTime;
+							})
+							.filter(event => {
+								if (event.event === EventType.Commented) {
+									const comment = event as CommentEvent;
+									return comment.body.includes('@copilot') || comment.body.includes(COPILOT);
+								} else if (event.event === EventType.Reviewed) {
+									const review = event as ReviewEvent;
+									return review.body.includes('@copilot') || review.body.includes(COPILOT);
+								}
+								return false;
+							})
+							.sort((a, b) => {
+								const timeA = new Date(
+									a.event === EventType.Commented ? (a as CommentEvent).createdAt :
+										a.event === EventType.Reviewed ? (a as ReviewEvent).submittedAt : ''
+								).getTime();
+								const timeB = new Date(
+									b.event === EventType.Commented ? (b as CommentEvent).createdAt :
+										b.event === EventType.Reviewed ? (b as ReviewEvent).submittedAt : ''
+								).getTime();
+								return timeB - timeA; // Most recent first (closest to session start)
+							});
+
+
+						const matchingEvent = relevantEvents[0];
+						if (matchingEvent) {
+							sessionPrompt = this.extractPromptFromEvent(matchingEvent);
+							Logger.appendLine(`Session ${sessionIndex}: Found matching event - ${matchingEvent.event}`, CopilotRemoteAgentManager.ID);
+						} else {
+							Logger.appendLine(`Session ${sessionIndex}: No matching event found between times ${previousSessionEndTime} and ${currentSessionStartTime}`, CopilotRemoteAgentManager.ID);
+							Logger.appendLine(`Session ${sessionIndex}: Relevant events found: ${relevantEvents.length}`, CopilotRemoteAgentManager.ID);
+						}
+					} else {
+						Logger.appendLine(`Session ${sessionIndex}: No CopilotStarted event found at index ${sessionIndex}`, CopilotRemoteAgentManager.ID);
+					}
+				}
+
+
+				// Create request turn for this session
+				const sessionRequest = new vscode.ChatRequestTurn2(
+					sessionPrompt,
+					undefined, // command
+					[], // references
+					'copilot-swe-agent',
+					[], // toolReferences
+					[]
+				);
+				history.push(sessionRequest);
+
+				// Parse session logs into response turn
+				if (logs.trim().length > 0) {
+					const sessionHistory = await this.parseSessionLogsIntoResponseTurn(logs, session);
+					if (sessionHistory) {
+						history.push(sessionHistory);
+					}
+				} else if (session.state === 'in_progress') {
+					// For in-progress sessions without logs, create a placeholder response
+					const placeholderParts = [new vscode.ChatResponseMarkdownPart('Session is initializing...')];
+					const responseResult: vscode.ChatResult = {};
+					history.push(new vscode.ChatResponseTurn2(placeholderParts, responseResult, 'copilot-swe-agent'));
+				} else {
+					// For completed sessions without logs, add an empty response to maintain pairing
+					const emptyParts = [new vscode.ChatResponseMarkdownPart('_No logs available for this session_')];
+					const responseResult: vscode.ChatResult = {};
+					history.push(new vscode.ChatResponseTurn2(emptyParts, responseResult, 'copilot-swe-agent'));
+				}
+
+				// Only the latest in-progress session gets activeResponseCallback
+				if (session.state === 'in_progress' && !activeResponseCallback) {
+					activeResponseCallback = this.createActiveResponseCallback(pullRequest, session.id);
+				}
+			}
+
+			// Create request handler if PR is open and allows follow-ups
+			const requestHandler = (pullRequest.state === GithubItemStateEnum.Open)
+				? this.createRequestHandler(pullRequest)
 				: undefined;
 
 			return {
 				history,
 				activeResponseCallback,
-				requestHandler: undefined // Read-only session
+				requestHandler
 			};
 		} catch (error) {
 			Logger.error(`Failed to provide chat session content: ${error}`, CopilotRemoteAgentManager.ID);
@@ -804,83 +1003,22 @@ export class CopilotRemoteAgentManager extends Disposable {
 		};
 	}
 
-	private createActiveResponseCallback(pullRequest: PullRequestModel, _sessionId: string): (stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => Thenable<void> {
+	private createActiveResponseCallback(pullRequest: PullRequestModel, sessionId: string): (stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => Thenable<void> {
 		return async (stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
-			const capi = await this.copilotApi;
-			if (!capi || token.isCancellationRequested) {
-				return;
-			}
-
-			let lastLogLength = 0;
-			let lastProcessedLength = 0;
-			const pollingInterval = 3000; // 3 seconds
-
-			return new Promise<void>((resolve, reject) => {
-				const pollForUpdates = async (): Promise<void> => {
-					try {
-						if (token.isCancellationRequested) {
-							resolve();
-							return;
-						}
-
-						// Get latest session logs
-						const sessionLogs = await this.getSessionLogFromPullRequest(pullRequest, 0, false);
-						if (!sessionLogs || token.isCancellationRequested) {
-							resolve();
-							return;
-						}
-
-						// Check if session is still in progress
-						if (sessionLogs.info.state !== 'in_progress') {
-							// Session completed, parse any remaining logs and stream final content
-							if (sessionLogs.logs.length > lastProcessedLength) {
-								const newLogContent = sessionLogs.logs.slice(lastProcessedLength);
-								await this.streamNewLogContent(stream, newLogContent);
-							}
-							resolve(); // Resolve the promise when session is complete
-							return;
-						}
-
-						// Stream new content if logs have grown
-						if (sessionLogs.logs.length > lastLogLength) {
-							const newLogContent = sessionLogs.logs.slice(lastProcessedLength);
-							await this.streamNewLogContent(stream, newLogContent);
-							lastProcessedLength = sessionLogs.logs.length;
-						}
-
-						lastLogLength = sessionLogs.logs.length;
-
-						// Schedule next poll if still in progress and not cancelled
-						if (!token.isCancellationRequested && sessionLogs.info.state === 'in_progress') {
-							setTimeout(pollForUpdates, pollingInterval);
-						} else {
-							resolve();
-						}
-					} catch (error) {
-						Logger.error(`Error polling for session updates: ${error}`, CopilotRemoteAgentManager.ID);
-						// Continue polling despite errors
-						if (!token.isCancellationRequested) {
-							setTimeout(pollForUpdates, pollingInterval);
-						} else {
-							reject(error);
-						}
-					}
-				};
-
-				// Start polling
-				setTimeout(pollForUpdates, pollingInterval);
-			});
+			// Use the shared streaming logic
+			return this.streamSessionLogs(stream, pullRequest, sessionId, token);
 		};
 	}
 
-	private async streamNewLogContent(stream: vscode.ChatResponseStream, newLogContent: string): Promise<void> {
+	private async streamNewLogContent(stream: vscode.ChatResponseStream, newLogContent: string): Promise<boolean> {
 		try {
 			if (!newLogContent.trim()) {
-				return;
+				return false;
 			}
 
 			// Parse the new log content
 			const logChunks = parseSessionLogs(newLogContent);
+			let hasStreamedContent = false;
 
 			for (const chunk of logChunks) {
 				for (const choice of chunk.choices) {
@@ -889,14 +1027,20 @@ export class CopilotRemoteAgentManager extends Disposable {
 					if (delta.role === 'assistant') {
 						// Stream assistant content
 						if (delta.content) {
-							stream.markdown(delta.content);
+							if (!delta.content.startsWith('<pr_title>')) {
+								stream.markdown(delta.content);
+								hasStreamedContent = true;
+							}
 						}
 
 						// Handle tool calls
 						if (delta.tool_calls) {
 							for (const toolCall of delta.tool_calls) {
-								const toolDetails = parseToolCallDetails(toolCall, '');
-								stream.push(new vscode.ChatToolInvocationPart(toolCall.id, toolDetails.toolName));
+								const toolPart = this.createToolInvocationPart(toolCall, delta.content || '');
+								if (toolPart) {
+									stream.push(toolPart);
+									hasStreamedContent = true;
+								}
 							}
 						}
 					}
@@ -907,9 +1051,119 @@ export class CopilotRemoteAgentManager extends Disposable {
 					}
 				}
 			}
+
+			if (hasStreamedContent) {
+				Logger.appendLine(`Streamed content (markdown or tool parts), progress should be cleared`, CopilotRemoteAgentManager.ID);
+			} else {
+				Logger.appendLine(`No actual content streamed, progress may still be showing`, CopilotRemoteAgentManager.ID);
+			}
+			return hasStreamedContent;
 		} catch (error) {
 			Logger.error(`Error streaming new log content: ${error}`, CopilotRemoteAgentManager.ID);
+			return false;
 		}
+	}
+
+	private async streamSessionLogs(stream: vscode.ChatResponseStream, pullRequest: PullRequestModel, sessionId: string, token: vscode.CancellationToken): Promise<void> {
+		const capi = await this.copilotApi;
+		if (!capi || token.isCancellationRequested) {
+			return;
+		}
+
+		let lastLogLength = 0;
+		let lastProcessedLength = 0;
+		let hasActiveProgress = false;
+		const pollingInterval = 3000; // 3 seconds
+
+		return new Promise<void>((resolve, reject) => {
+			const complete = () => {
+				stream.push(new vscode.ChatResponseCommandButtonPart({
+					title: vscode.l10n.t('Open Changes'),
+					command: 'pr.openChanges',
+					arguments: [pullRequest]
+				}));
+
+				resolve();
+			};
+			const pollForUpdates = async (): Promise<void> => {
+				try {
+					if (token.isCancellationRequested) {
+						complete();
+						return;
+					}
+
+					// Get the specific session info
+					const sessionInfo = await capi.getSessionInfo(sessionId);
+					if (!sessionInfo || token.isCancellationRequested) {
+						complete();
+						return;
+					}
+
+					// Get session logs
+					const logs = await capi.getLogsFromSession(sessionId);
+
+					// Check if session is still in progress
+					if (sessionInfo.state !== 'in_progress') {
+						// Session completed, parse any remaining logs and stream final content
+						if (logs.length > lastProcessedLength) {
+							const newLogContent = logs.slice(lastProcessedLength);
+							const didStreamContent = await this.streamNewLogContent(stream, newLogContent);
+							if (didStreamContent) {
+								hasActiveProgress = false;
+							}
+						}
+						// Progress will be cleared by any final content streamed above
+						hasActiveProgress = false;
+						complete(); // Resolve the promise when session is complete
+						return;
+					}
+
+					// Stream new content if logs have grown
+					if (logs.length > lastLogLength) {
+						Logger.appendLine(`New logs detected, attempting to stream content`, CopilotRemoteAgentManager.ID);
+						const newLogContent = logs.slice(lastProcessedLength);
+						const didStreamContent = await this.streamNewLogContent(stream, newLogContent);
+						lastProcessedLength = logs.length;
+
+						// Only reset progress state if we actually streamed content
+						if (didStreamContent) {
+							Logger.appendLine(`Content was streamed, resetting hasActiveProgress to false`, CopilotRemoteAgentManager.ID);
+							hasActiveProgress = false;
+						} else {
+							Logger.appendLine(`No content was streamed, keeping hasActiveProgress as ${hasActiveProgress}`, CopilotRemoteAgentManager.ID);
+						}
+					}
+
+					lastLogLength = logs.length;
+
+					// Schedule next poll if still in progress and not cancelled
+					if (!token.isCancellationRequested && sessionInfo.state === 'in_progress') {
+						// Show progress indicator only if we don't already have one
+						if (!hasActiveProgress) {
+							Logger.appendLine(`Showing progress indicator (hasActiveProgress was false)`, CopilotRemoteAgentManager.ID);
+							stream.progress('Working...');
+							hasActiveProgress = true;
+						} else {
+							Logger.appendLine(`NOT showing progress indicator (hasActiveProgress was true)`, CopilotRemoteAgentManager.ID);
+						}
+						setTimeout(pollForUpdates, pollingInterval);
+					} else {
+						complete();
+					}
+				} catch (error) {
+					Logger.error(`Error polling for session updates: ${error}`, CopilotRemoteAgentManager.ID);
+					// Continue polling despite errors
+					if (!token.isCancellationRequested) {
+						setTimeout(pollForUpdates, pollingInterval);
+					} else {
+						reject(error);
+					}
+				}
+			};
+
+			// Start polling
+			setTimeout(pollForUpdates, pollingInterval);
+		});
 	}
 
 	private findPullRequestById(id: number): PullRequestModel | undefined {
@@ -924,131 +1178,78 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return undefined;
 	}
 
-	private async parseChatHistoryFromLogs(logs: string, prTitle: string): Promise<ReadonlyArray<vscode.ChatRequestTurn | vscode.ChatResponseTurn2>> {
+	private createToolInvocationPart(toolCall: any, deltaContent: string = ''): vscode.ChatToolInvocationPart | undefined {
+		if (!toolCall.function?.name || !toolCall.id) {
+			return undefined;
+		}
+
+		// Hide reply_to_comment tool
+		if (toolCall.function.name === 'reply_to_comment') {
+			return undefined;
+		}
+
+		const toolPart = new vscode.ChatToolInvocationPart(toolCall.function.name, toolCall.id);
+		toolPart.isComplete = true;
+		toolPart.isError = false;
+		toolPart.isConfirmed = true;
+
+		try {
+			const toolDetails = parseToolCallDetails(toolCall, deltaContent);
+			toolPart.toolName = toolDetails.toolName;
+
+			if (toolCall.function.name === 'bash') {
+				toolPart.invocationMessage = new vscode.MarkdownString(`\`\`\`bash\n${toolDetails.invocationMessage}\n\`\`\``);
+			} else {
+				toolPart.invocationMessage = toolDetails.invocationMessage;
+			}
+
+			if (toolDetails.pastTenseMessage) {
+				toolPart.pastTenseMessage = toolDetails.pastTenseMessage;
+			}
+			if (toolDetails.originMessage) {
+				toolPart.originMessage = toolDetails.originMessage;
+			}
+			if (toolDetails.toolSpecificData) {
+				toolPart.toolSpecificData = toolDetails.toolSpecificData;
+			}
+		} catch (error) {
+			toolPart.toolName = toolCall.function.name || 'unknown';
+			toolPart.invocationMessage = new vscode.MarkdownString(`Tool: ${toolCall.function.name}`);
+			toolPart.isError = true;
+		}
+
+		return toolPart;
+	}
+
+	private async parseSessionLogsIntoResponseTurn(logs: string, _session: SessionInfo): Promise<vscode.ChatResponseTurn2 | undefined> {
 		try {
 			const logChunks = parseSessionLogs(logs);
-
-			const history: Array<vscode.ChatRequestTurn | vscode.ChatResponseTurn2> = [];
-
-			const initialUserRequest = new vscode.ChatRequestTurn2(
-				prTitle,
-				undefined, // command
-				[], // references
-				'copilot-swe-agent',
-				[], // toolReferences
-				[]
-			);
-			history.push(initialUserRequest);
-
-			let currentRequestContent = '';
+			const responseParts: Array<vscode.ChatResponseMarkdownPart | vscode.ChatToolInvocationPart> = [];
 			let currentResponseContent = '';
-			let currentResponseParts: Array<vscode.ChatResponseMarkdownPart | vscode.ChatToolInvocationPart> = [];
-			let isCollectingUserMessage = false;
 
 			for (const chunk of logChunks) {
 				for (const choice of chunk.choices) {
 					const delta = choice.delta;
 
-					// Log finish_reason for debugging
-					if (choice.finish_reason) {
-						console.log(`Tool call finish_reason: ${choice.finish_reason}`);
-						Logger.appendLine(`Tool call finish_reason: ${choice.finish_reason}`, CopilotRemoteAgentManager.ID);
-					}
-
-					if (delta.role === 'user') {
-						// If we were collecting a response, finalize it
-						if (currentResponseContent.trim() || currentResponseParts.length > 0) {
-							// Add any remaining content as markdown
-							if (currentResponseContent.trim()) {
-								currentResponseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
-							}
-
-							const responseResult: vscode.ChatResult = {};
-							history.push(new vscode.ChatResponseTurn2(currentResponseParts, responseResult, 'copilot-swe-agent'));
-							currentResponseContent = '';
-							currentResponseParts = [];
-						}
-
-						isCollectingUserMessage = true;
+					if (delta.role === 'assistant') {
 						if (delta.content) {
-							currentRequestContent += delta.content;
-						}
-					} else if (delta.role === 'assistant') {
-						// If we were collecting a user message, finalize it
-						if (isCollectingUserMessage && currentRequestContent.trim()) {
-							// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-							// @ts-ignore - Constructor will be made public
-							const userMessage = new vscode.ChatRequestTurn(
-								currentRequestContent.trim(),
-								undefined, // command
-								[], // references
-								'copilot-swe-agent',
-								[] // toolReferences
-							);
-							history.push(userMessage);
-							currentRequestContent = '';
-							isCollectingUserMessage = false;
-						}
-
-						if (delta.content) {
-							if (delta.content.startsWith('<pr_title>')) {
-								// the end
-							} else {
+							if (!delta.content.startsWith('<pr_title>')) {
 								currentResponseContent += delta.content;
 							}
 						}
 
-						// Handle tool calls by creating parts immediately
+						// Handle tool calls
 						if (delta.tool_calls) {
-							// If there's accumulated content, add it as markdown first
+							// Add any accumulated content as markdown first
 							if (currentResponseContent.trim()) {
-								currentResponseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
+								responseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
 								currentResponseContent = '';
 							}
 
 							for (const toolCall of delta.tool_calls) {
-								console.log(`toolcall ${JSON.stringify(toolCall)}`);
-								if (toolCall.function?.name && toolCall.id) {
-									const toolPart = new vscode.ChatToolInvocationPart(toolCall.function.name, toolCall.id);
-									toolPart.isComplete = true;
-									toolPart.isError = false;
-									toolPart.isConfirmed = true;
-
-									// Parse tool arguments and set tool-specific metadata using shared utility
-									const name = toolCall.function.name;
-									const content = delta.content || '';
-
-									try {
-										const toolDetails = parseToolCallDetails(toolCall, content);
-
-										toolPart.toolName = toolDetails.toolName;
-
-										// Handle different invocation message types
-										if (name === 'bash') {
-											toolPart.invocationMessage = new vscode.MarkdownString(`\`\`\`bash\n${toolDetails.invocationMessage}\n\`\`\``);
-										} else {
-											toolPart.invocationMessage = toolDetails.invocationMessage;
-										}
-
-										if (toolDetails.pastTenseMessage) {
-											toolPart.pastTenseMessage = toolDetails.pastTenseMessage;
-										}
-
-										if (toolDetails.originMessage) {
-											toolPart.originMessage = toolDetails.originMessage;
-										}
-
-										if (toolDetails.toolSpecificData) {
-											toolPart.toolSpecificData = toolDetails.toolSpecificData;
-										}
-									} catch (error) {
-										// Fallback for parsing errors
-										toolPart.toolName = name || 'unknown';
-										toolPart.invocationMessage = new vscode.MarkdownString(`\`\`\`plaintext\n${content}\n\`\`\``);
-										toolPart.isError = true;
-									}
-
-									currentResponseParts.push(toolPart);
+								const toolPart = this.createToolInvocationPart(toolCall, delta.content || '');
+								if (toolPart) {
+									responseParts.push(toolPart);
 								}
 							}
 						}
@@ -1056,32 +1257,101 @@ export class CopilotRemoteAgentManager extends Disposable {
 				}
 			}
 
-			// Finalize any remaining content
-			if (isCollectingUserMessage && currentRequestContent.trim()) {
-				// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-				// @ts-ignore - Constructor will be made public
-				const userMessage = new vscode.ChatRequestTurn(
-					currentRequestContent.trim(),
-					undefined, // command
-					[], // references
-					'copilot-swe-agent',
-					[] // toolReferences
-				);
-				history.push(userMessage);
-			} else if (currentResponseContent.trim() || currentResponseParts.length > 0) {
-				// Add any remaining content as markdown
-				if (currentResponseContent.trim()) {
-					currentResponseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
-				}
-
-				const responseResult: vscode.ChatResult = {};
-				history.push(new vscode.ChatResponseTurn2(currentResponseParts, responseResult, 'copilot-swe-agent'));
+			// Add any remaining content
+			if (currentResponseContent.trim()) {
+				responseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
 			}
 
-			return history;
+			// Only create response turn if we have content
+			if (responseParts.length > 0) {
+				const responseResult: vscode.ChatResult = {};
+				return new vscode.ChatResponseTurn2(responseParts, responseResult, 'copilot-swe-agent');
+			}
+
+			return undefined;
 		} catch (error) {
-			Logger.error(`Failed to parse chat history from logs: ${error}`, CopilotRemoteAgentManager.ID);
-			return [];
+			Logger.error(`Failed to parse session logs into response turn: ${error}`, CopilotRemoteAgentManager.ID);
+			return undefined;
 		}
+	}
+
+	private createRequestHandler(pullRequest: PullRequestModel): vscode.ChatRequestHandler {
+		return async (request: vscode.ChatRequest, _context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<vscode.ChatResult> => {
+			try {
+				if (token.isCancellationRequested) {
+					return {};
+				}
+
+				const userPrompt = request.prompt;
+				if (!userPrompt || userPrompt.trim().length === 0) {
+					stream.markdown(vscode.l10n.t('Please provide a message for the coding agent.'));
+					return {};
+				}
+
+				stream.progress('Working on your request...');
+
+				// Add follow-up comment to the PR
+				const result = await this.addFollowUpToExistingPR(pullRequest.number, userPrompt);
+
+				if (!result) {
+					stream.markdown(vscode.l10n.t('Failed to add follow-up comment to the pull request.'));
+					return {};
+				}
+
+				// Show initial success message
+				stream.markdown(result);
+				stream.markdown('\n\n');
+
+				// Get the current number of sessions
+				const capi = await this.copilotApi;
+				if (!capi) {
+					stream.markdown(vscode.l10n.t('Failed to connect to Copilot API.'));
+					return {};
+				}
+
+				const initialSessions = await capi.getAllSessions(pullRequest.id);
+				const initialSessionCount = initialSessions.length;
+
+				// Poll for a new session to start
+				const maxWaitTime = 5 * 60 * 1000; // 5 minutes
+				const pollInterval = 3000; // 3 seconds
+				const startTime = Date.now();
+				let newSession: SessionInfo | undefined;
+
+				while (Date.now() - startTime < maxWaitTime && !token.isCancellationRequested) {
+					const currentSessions = await capi.getAllSessions(pullRequest.id);
+
+					// Check if a new session has started
+					if (currentSessions.length > initialSessionCount) {
+						// Find the new session (should be the last one)
+						newSession = currentSessions
+							.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+						break;
+					}
+
+					// Wait before polling again
+					await new Promise(resolve => setTimeout(resolve, pollInterval));
+				}
+
+				if (!newSession) {
+					// Progress will be cleared by the markdown message
+					stream.markdown(vscode.l10n.t('Timed out waiting for the coding agent to respond. The agent may still be processing your request.'));
+					return {};
+				}
+
+				// Stream the new session logs
+				stream.markdown(vscode.l10n.t('Coding agent is now working on your request...'));
+				stream.markdown('\n\n');
+
+				// Use the same streaming logic as for in-progress sessions
+				await this.streamSessionLogs(stream, pullRequest, newSession.id, token);
+
+				return {};
+			} catch (error) {
+				Logger.error(`Error in request handler: ${error}`, CopilotRemoteAgentManager.ID);
+				stream.markdown(vscode.l10n.t('An error occurred while processing your request.'));
+				return { errorDetails: { message: error.message } };
+			}
+		};
 	}
 }
