@@ -254,6 +254,12 @@ export function registerCommands(
 	);
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand('pr.helloWorld', () => {
+			vscode.window.showInformationMessage('Hello World from GitHub Pull Request extension!');
+		}),
+	);
+
+	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'pr.openAllDiffs',
 			async () => {

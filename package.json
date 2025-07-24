@@ -862,6 +862,11 @@
 				"category": "%command.pull.request.category%"
 			},
 			{
+				"command": "pr.helloWorld",
+				"title": "Hello World",
+				"category": "%command.pull.request.category%"
+			},
+			{
 				"command": "pr.create",
 				"title": "%command.pr.create.title%",
 				"icon": "$(git-pull-request-create)",

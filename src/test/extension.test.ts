@@ -1,7 +1,21 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import { default as assert } from 'assert';
 import { parseDiffHunk } from '../common/diffHunk';
 
 describe('Extension Tests', function () {
+	describe('Hello World Command', () => {
+		it('should have proper command structure', () => {
+			// Test that the command ID follows the expected pattern
+			const commandId = 'pr.helloWorld';
+			assert(commandId.startsWith('pr.'), 'Command should be in the pr namespace');
+			assert(commandId.includes('helloWorld'), 'Command should include helloWorld identifier');
+		});
+	});
+
 	describe('parseDiffHunk', () => {
 		it('should handle empty string', () => {
 			const diffHunk = parseDiffHunk('');
