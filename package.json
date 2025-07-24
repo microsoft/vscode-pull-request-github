@@ -968,6 +968,12 @@
 				"icon": "$(note)"
 			},
 			{
+				"command": "pr.openDescriptionFromChatSession",
+				"title": "%command.pr.openDescriptionFromChatSession.title%",
+				"category": "%command.pull.request.category%",
+				"icon": "$(note)"
+			},
+			{
 				"command": "pr.openDescriptionToTheSide",
 				"title": "%command.pr.openDescriptionToTheSide.title%",
 				"icon": "$(split-horizontal)"
@@ -2844,6 +2850,11 @@
 				{
 					"command": "issue.editQuery",
 					"when": "view == issues:github && viewItem == query"
+				},
+				{
+					"command": "pr.openDescriptionFromChatSession",
+					"when": "viewItem =~ /chatSession/",
+					"group": "github@1"
 				}
 			],
 			"commentsView/commentThread/context": [
