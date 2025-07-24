@@ -394,9 +394,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		});
 
 		this._onDidChangeChatSessions.fire();
-		if (vscode.workspace.getConfiguration('chat').get('agentSessionsViewLocation') === 'disabled') {
-			vscode.commands.executeCommand('vscode.open', webviewUri);
-		} else {
+		if (vscode.workspace.getConfiguration('chat').get('agentSessionsViewLocation') !== 'disabled') {
 			await this.provideChatSessions(new vscode.CancellationTokenSource().token);
 
 			const capi = await this.copilotApi;
@@ -410,6 +408,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 			if (pr) {
 				vscode.window.showChatSession('copilot-swe-agent', `${pr.id}`, {});
 			}
+		} else {
+			vscode.commands.executeCommand('vscode.open', webviewUri);
 		}
 
 
