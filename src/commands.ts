@@ -703,6 +703,32 @@ export function registerCommands(
 			}
 			return PullRequestModel.openChanges(folderReposManager, pullRequestModel);
 		}),
+
+		vscode.commands.registerCommand('pr.openChat', async (pr: PRNode | RepositoryChangesNode | PullRequestModel | OverviewContext | undefined) => {
+			if (pr === undefined) {
+				// This is unexpected, but has happened a few times.
+				Logger.error('Unexpectedly received undefined when picking a PR.', logId);
+				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request was selected to checkout, please try again.'));
+			}
+
+			let pullRequestModel: PullRequestModel | undefined;
+
+			if (pr instanceof PRNode || pr instanceof RepositoryChangesNode) {
+				pullRequestModel = pr.pullRequestModel;
+			} else if (pr instanceof PullRequestModel) {
+				pullRequestModel = pr;
+			} else {
+				const resolved = await resolvePr(pr as OverviewContext);
+				pullRequestModel = resolved?.pr;
+			}
+
+			if (!pullRequestModel) {
+				return vscode.window.showErrorMessage(vscode.l10n.t('No pull request found to open chat.'));
+			}
+
+			vscode.window.showChatSession('copilot-swe-agent', `${pullRequestModel.id}`, {});
+
+		}),
 	);
 
 	let isCheckingOutFromReadonlyFile = false;

@@ -887,6 +887,12 @@
 				"icon": "$(diff-multiple)"
 			},
 			{
+				"command": "pr.openChat",
+				"title": "Open Chat",
+				"category": "%command.pull.request.category%",
+				"icon": "$(arrow-right)"
+			},
+			{
 				"command": "pr.pickOnVscodeDev",
 				"title": "%command.pr.pickOnVscodeDev.title%",
 				"category": "%command.pull.request.category%",
@@ -2661,6 +2667,11 @@
 					"command": "pr.openChanges",
 					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/ && config.multiDiffEditor.experimental.enabled",
 					"group": "inline@0"
+				},
+				{
+					"command": "pr.openChat",
+					"when": "view =~ /(pr|prStatus):github/ && viewItem =~ /(pullrequest|description)/ && config.multiDiffEditor.experimental.enabled",
+					"group": "context@0"
 				},
 				{
 					"command": "pr.showDiffSinceLastReview",
