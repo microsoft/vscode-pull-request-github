@@ -247,30 +247,7 @@ export class CopilotApi {
 				return undefined;
 			}
 			const data = await response.json() as JobInfo;
-			const jobId = data.job_id;
-
-			if (!jobId) {
-				Logger.warn(`Job ID is missing in the response for session ${sessionId}`, CopilotApi.ID);
-				return undefined;
-			}
-
-			const jobResponse = await fetch(`${this.baseUrl}/agents/swe/v0/jobs/${owner}/${repo}/${jobId}`, {
-				method: 'GET',
-				headers: {
-					'Copilot-Integration-Id': 'copilot-developer-dev',
-					'Authorization': `Bearer ${this.token}`,
-					'Content-Type': 'application/json',
-					'Accept': 'application/json'
-				}
-			});
-
-			if (!jobResponse.ok) {
-				Logger.warn(`Failed to fetch job details for session ${sessionId}: ${jobResponse.statusText}`, CopilotApi.ID);
-				return undefined;
-			}
-
-			const jobData = await jobResponse.json() as JobInfo;
-			return jobData;
+			return data;
 		} catch (error) {
 			Logger.warn(`Error fetching job info for session ${sessionId}: ${error}`, CopilotApi.ID);
 			return undefined;
