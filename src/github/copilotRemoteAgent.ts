@@ -3,9 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import vscode from 'vscode';
+import vscode, { ThemeIcon } from 'vscode';
 import { Repository } from '../api/api';
-import { COPILOT_LOGINS, CopilotPRStatus } from '../common/copilot';
+import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
@@ -738,17 +738,37 @@ export class CopilotRemoteAgentManager extends Disposable {
 			}
 
 			const sessions = await capi.getAllCodingAgentPRs(this.repositoriesManager);
-			return sessions.map(session => {
+			return await Promise.all(sessions.map(async session => {
+				const timeline = await session.getTimelineEvents(session);
+				const status = copilotEventToStatus(mostRecentCopilotEvent(timeline));
+				if (status !== CopilotPRStatus.Completed && status !== CopilotPRStatus.Failed) {
+					const disposable = session.onDidChange(() => {
+						this._onDidChangeChatSessions.fire();
+						disposable.dispose(); // Clean up listener after firing
+					});
+					this._register(disposable);
+				}
 				return {
 					id: `${session.id}`,
 					label: session.title || `Session ${session.id}`,
-					iconPath: undefined,
+					iconPath: this.getIconForSession(status),
 					pullRequest: session
 				};
-			});
+			}));
 		} catch (error) {
 			Logger.error(`Failed to provide coding agents information: ${error}`, CopilotRemoteAgentManager.ID);
 		}
 		return [];
+	}
+
+	private getIconForSession(status: CopilotPRStatus): ThemeIcon {
+		switch (status) {
+			case CopilotPRStatus.Completed:
+				return new ThemeIcon('pass-filled', new vscode.ThemeColor('testing.iconPassed'));
+			case CopilotPRStatus.Failed:
+				return new ThemeIcon('close', new vscode.ThemeColor('testing.iconFailed'));
+			default:
+				return new ThemeIcon('circle-filled', new vscode.ThemeColor('list.warningForeground'));
+		}
 	}
 }
