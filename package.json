@@ -2605,6 +2605,11 @@
 					"command": "notifications.refresh",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
 					"group": "navigation@1"
+				},
+				{
+					"command": "pr.refreshChatSessions",
+					"when": "view == workbench.view.chat.sessions.copilot-swe-agent",
+					"group": "navigation@1"
 				}
 			],
 			"view/item/context": [
@@ -3352,11 +3357,6 @@
 				{
 					"command": "pr.openDescription",
 					"when": "chatSessionType == copilot-swe-agent"
-				},
-				{
-					"command": "pr.refreshChatSessions",
-					"when": "chatSessionType == copilot-swe-agent",
-					"group": "navigation"
 				}
 			]
 		},

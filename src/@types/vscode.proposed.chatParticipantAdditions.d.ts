@@ -107,7 +107,8 @@ declare module 'vscode' {
 		constructor(toolName: string, toolCallId: string, isError?: boolean);
 	}
 
-	export type ExtendedChatResponsePart = ChatResponsePart | ChatResponseTextEditPart | ChatResponseNotebookEditPart | ChatResponseConfirmationPart | ChatResponseCodeCitationPart | ChatResponseReferencePart2 | ChatResponseMovePart | ChatResponseExtensionsPart | ChatPrepareToolInvocationPart | ChatToolInvocationPart;
+	export type ExtendedChatResponsePart = ChatResponsePart | ChatResponseTextEditPart | ChatResponseNotebookEditPart | ChatResponseConfirmationPart | ChatResponseCodeCitationPart | ChatResponseReferencePart2 | ChatResponseMovePart | ChatResponseExtensionsPart | ChatPrepareToolInvocationPart;
+
 	export class ChatResponseWarningPart {
 		value: MarkdownString;
 		constructor(value: string | MarkdownString);
@@ -373,10 +374,6 @@ declare module 'vscode' {
 			participant?: string;
 			command?: string;
 		};
-		/**
-		 * An optional detail string that will be rendered at the end of the response in certain UI contexts.
-		 */
-		details?: string;
 	}
 
 	export namespace chat {
@@ -471,15 +468,6 @@ declare module 'vscode' {
 		outcome: ChatEditingSessionActionOutcome;
 	}
 
-	export interface ChatEditingHunkAction {
-		// eslint-disable-next-line local/vscode-dts-string-type-literals
-		kind: 'chatEditingHunkAction';
-		uri: Uri;
-		lineCount: number;
-		outcome: ChatEditingSessionActionOutcome;
-		hasRemainingEdits: boolean;
-	}
-
 	export enum ChatEditingSessionActionOutcome {
 		Accepted = 1,
 		Rejected = 2,
@@ -488,7 +476,7 @@ declare module 'vscode' {
 
 	export interface ChatUserActionEvent {
 		readonly result: ChatResult;
-		readonly action: ChatCopyAction | ChatInsertAction | ChatApplyAction | ChatTerminalAction | ChatCommandAction | ChatFollowupAction | ChatBugReportAction | ChatEditorAction | ChatEditingSessionAction | ChatEditingHunkAction;
+		readonly action: ChatCopyAction | ChatInsertAction | ChatApplyAction | ChatTerminalAction | ChatCommandAction | ChatFollowupAction | ChatBugReportAction | ChatEditorAction | ChatEditingSessionAction;
 	}
 
 	export interface ChatPromptReference {
