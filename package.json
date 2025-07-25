@@ -40,7 +40,7 @@
 	"version": "0.116.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.103.0-20250728"
+		"vscode": "^1.103.0"
 	},
 	"categories": [
 		"Other",
