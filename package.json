@@ -1710,6 +1710,12 @@
 				"command": "codingAgent.openSessionLog",
 				"title": "%command.codingAgent.openSessionLog.title%",
 				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.refreshChatSessions",
+				"title": "%command.pr.refreshChatSessions.title%",
+				"icon": "$(refresh)",
+				"category": "%command.pull.request.category%"
 			}
 		],
 		"viewsWelcome": [
@@ -2598,6 +2604,11 @@
 				{
 					"command": "notifications.refresh",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
+					"group": "navigation@1"
+				},
+				{
+					"command": "pr.refreshChatSessions",
+					"when": "view == workbench.view.chat.sessions.copilot-swe-agent",
 					"group": "navigation@1"
 				}
 			],
