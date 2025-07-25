@@ -231,6 +231,29 @@ export class CopilotApi {
 		return await logsResponse.text();
 	}
 
+	public async getJobBySessionId(owner: string, repo: string, sessionId: string): Promise<JobInfo | undefined> {
+		try {
+			const response = await fetch(`${this.baseUrl}/agents/swe/v0/jobs/${owner}/${repo}/session/${sessionId}`, {
+				method: 'GET',
+				headers: {
+					'Copilot-Integration-Id': 'copilot-developer-dev',
+					'Authorization': `Bearer ${this.token}`,
+					'Content-Type': 'application/json',
+					'Accept': 'application/json'
+				}
+			});
+			if (!response.ok) {
+				Logger.warn(`Failed to fetch job info for session ${sessionId}: ${response.statusText}`, CopilotApi.ID);
+				return undefined;
+			}
+			const data = await response.json() as JobInfo;
+			return data;
+		} catch (error) {
+			Logger.warn(`Error fetching job info for session ${sessionId}: ${error}`, CopilotApi.ID);
+			return undefined;
+		}
+	}
+
 	private getHub(): GitHub | undefined {
 		let authProvider: AuthProvider | undefined;
 		if (this.credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
@@ -270,6 +293,34 @@ export interface SessionInfo {
 export interface SessionSetupStep {
 	name: string;
 	status: 'completed' | 'in_progress' | 'queued';
+}
+
+export interface JobInfo {
+	job_id: string;
+	session_id: string;
+	problem_statement: string;
+	content_filter_mode?: string;
+	status: string;
+	result?: string;
+	actor: {
+		id: number;
+		login: string;
+	};
+	created_at: string;
+	updated_at: string;
+	pull_request: {
+		id: number;
+		number: number;
+	};
+	workflow_run?: {
+		id: number;
+	};
+	error?: {
+		message: string;
+	};
+	event_type?: string;
+	event_url?: string;
+	event_identifiers?: string[];
 }
 
 export async function getCopilotApi(credentialStore: CredentialStore, telemetry: ITelemetry, authProvider?: AuthProvider): Promise<CopilotApi | undefined> {
