@@ -170,6 +170,7 @@ export interface ILabel {
 	name: string;
 	color: string;
 	description?: string;
+	displayName?: string;
 }
 
 export interface IIssueComment {

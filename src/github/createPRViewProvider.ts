@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { ChooseBaseRemoteAndBranchResult, ChooseCompareRemoteAndBranchResult, ChooseRemoteAndBranchArgs, CreateParamsNew, CreatePullRequestNew, RemoteInfo, TitleAndDescriptionArgs } from '../../common/views';
 import type { Branch, Ref } from '../api/api';
 import { GitHubServerType } from '../common/authentication';
+import { emojify } from '../common/emoji';
 import { commands, contexts } from '../common/executeCommands';
 import Logger from '../common/logger';
 import { Protocol } from '../common/protocol';
@@ -447,7 +448,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 			this.labels = addedLabels;
 			this._postMessage({
 				command: 'set-labels',
-				params: { labels: this.labels }
+				params: { labels: this.labels.map(label => ({ ...label, displayName: emojify(label.name) })) }
 			});
 		}
 	}
@@ -464,7 +465,7 @@ export abstract class BaseCreatePullRequestViewProvider<T extends BasePullReques
 
 		this._postMessage({
 			command: 'set-labels',
-			params: { labels: this.labels }
+			params: { labels: this.labels.map(label => ({ ...label, displayName: emojify(label.name) })) }
 		});
 	}
 

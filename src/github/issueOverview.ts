@@ -198,7 +198,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		const canEdit = hasWritePermission || viewerCanEdit;
 		const labels = issue.item.labels.map(label => ({
 			...label,
-			name: emojify(label.name)
+			displayName: emojify(label.name)
 		}));
 
 		const context: Issue = {
