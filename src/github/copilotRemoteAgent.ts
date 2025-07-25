@@ -1350,4 +1350,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 				return new ThemeIcon('circle-filled', new vscode.ThemeColor('list.warningForeground'));
 		}
 	}
+
+	public refreshChatSessions(): void {
+		this._onDidChangeChatSessions.fire();
+	}
 }
