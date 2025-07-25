@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import vscode, { ThemeIcon } from 'vscode';
+import vscode from 'vscode';
 import { parseSessionLogs, parseToolCallDetails } from '../../common/sessionParsing';
 import { Repository } from '../api/api';
 import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
