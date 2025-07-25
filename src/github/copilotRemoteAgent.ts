@@ -796,7 +796,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return separatorMatch[1].trim();
 		}
 
-		// Return the full body, including @copilot mention
 		return body.trim();
 	}
 
@@ -813,36 +812,30 @@ export class CopilotRemoteAgentManager extends Disposable {
 				return this.createEmptySession();
 			}
 
-			// Find the pull request model
 			const pullRequest = this.findPullRequestById(pullRequestId);
 			if (!pullRequest) {
 				Logger.error(`Pull request not found: ${pullRequestId}`, CopilotRemoteAgentManager.ID);
 				return this.createEmptySession();
 			}
 
-			// Get all sessions for this PR
 			const sessions = await capi.getAllSessions(pullRequest.id);
 			if (!sessions || sessions.length === 0) {
 				Logger.warn(`No sessions found for pull request ${pullRequestId}`, CopilotRemoteAgentManager.ID);
 				return this.createEmptySession();
 			}
 
-			// Ensure sessions is an array
 			if (!Array.isArray(sessions)) {
 				Logger.error(`getAllSessions returned non-array: ${typeof sessions}`, CopilotRemoteAgentManager.ID);
 				return this.createEmptySession();
 			}
 
-			// Sort sessions by created_at to ensure chronological order
 			const sortedSessions = sessions.slice().sort((a, b) =>
 				new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
 			);
 
-			// Parse all sessions into chat history
 			const history: Array<vscode.ChatRequestTurn | vscode.ChatResponseTurn2> = [];
 			let activeResponseCallback: ((stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => Thenable<void>) | undefined;
 
-			// Get timeline events to match sessions with comments
 			let timelineEvents: readonly TimelineEvent[] = await pullRequest.getTimelineEvents(pullRequest);
 
 
@@ -854,13 +847,10 @@ export class CopilotRemoteAgentManager extends Disposable {
 			Logger.appendLine(`Found ${copilotComments.length} copilot comments in timeline`, CopilotRemoteAgentManager.ID);
 
 			for (const [sessionIndex, session] of sortedSessions.entries()) {
-				// Get logs for this session
 				const logs = await capi.getLogsFromSession(session.id);
 
-				// Try to find a matching comment for this session
 				let sessionPrompt = session.name || `Session ${sessionIndex + 1} (ID: ${session.id})`;
 
-				// For the first session, try to get the problem statement from the Jobs API
 				if (sessionIndex === 0) {
 					try {
 						const jobInfo = await capi.getJobBySessionId(pullRequest.base.repositoryCloneUrl.owner, pullRequest.base.repositoryCloneUrl.repositoryName, session.id);
@@ -877,7 +867,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 					}
 				}
 
-				// Find all CopilotStarted and CopilotFinished events
 				const copilotStartedEvents = timelineEvents
 					.filter((event): event is CopilotStartedEvent => event.event === EventType.CopilotStarted)
 					.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
@@ -1037,7 +1026,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 					const delta = choice.delta;
 
 					if (delta.role === 'assistant') {
-						// Stream assistant content
 						if (delta.content) {
 							if (!delta.content.startsWith('<pr_title>')) {
 								stream.markdown(delta.content);
@@ -1045,7 +1033,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 							}
 						}
 
-						// Handle tool calls
 						if (delta.tool_calls) {
 							for (const toolCall of delta.tool_calls) {
 								const toolPart = this.createToolInvocationPart(toolCall, delta.content || '');
@@ -1116,7 +1103,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 					// Check if session is still in progress
 					if (sessionInfo.state !== 'in_progress') {
-						// Session completed, parse any remaining logs and stream final content
 						if (logs.length > lastProcessedLength) {
 							const newLogContent = logs.slice(lastProcessedLength);
 							const didStreamContent = await this.streamNewLogContent(stream, newLogContent);
@@ -1124,20 +1110,17 @@ export class CopilotRemoteAgentManager extends Disposable {
 								hasActiveProgress = false;
 							}
 						}
-						// Progress will be cleared by any final content streamed above
 						hasActiveProgress = false;
-						complete(); // Resolve the promise when session is complete
+						complete();
 						return;
 					}
 
-					// Stream new content if logs have grown
 					if (logs.length > lastLogLength) {
 						Logger.appendLine(`New logs detected, attempting to stream content`, CopilotRemoteAgentManager.ID);
 						const newLogContent = logs.slice(lastProcessedLength);
 						const didStreamContent = await this.streamNewLogContent(stream, newLogContent);
 						lastProcessedLength = logs.length;
 
-						// Only reset progress state if we actually streamed content
 						if (didStreamContent) {
 							Logger.appendLine(`Content was streamed, resetting hasActiveProgress to false`, CopilotRemoteAgentManager.ID);
 							hasActiveProgress = false;
@@ -1148,9 +1131,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 					lastLogLength = logs.length;
 
-					// Schedule next poll if still in progress and not cancelled
 					if (!token.isCancellationRequested && sessionInfo.state === 'in_progress') {
-						// Show progress indicator only if we don't already have one
 						if (!hasActiveProgress) {
 							Logger.appendLine(`Showing progress indicator (hasActiveProgress was false)`, CopilotRemoteAgentManager.ID);
 							stream.progress('Working...');
@@ -1164,7 +1145,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 					}
 				} catch (error) {
 					Logger.error(`Error polling for session updates: ${error}`, CopilotRemoteAgentManager.ID);
-					// Continue polling despite errors
 					if (!token.isCancellationRequested) {
 						setTimeout(pollForUpdates, pollingInterval);
 					} else {
@@ -1250,7 +1230,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 							}
 						}
 
-						// Handle tool calls
 						if (delta.tool_calls) {
 							// Add any accumulated content as markdown first
 							if (currentResponseContent.trim()) {
@@ -1269,12 +1248,10 @@ export class CopilotRemoteAgentManager extends Disposable {
 				}
 			}
 
-			// Add any remaining content
 			if (currentResponseContent.trim()) {
 				responseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
 			}
 
-			// Only create response turn if we have content
 			if (responseParts.length > 0) {
 				const responseResult: vscode.ChatResult = {};
 				return new vscode.ChatResponseTurn2(responseParts, responseResult, 'copilot-swe-agent');
@@ -1335,18 +1312,15 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 					// Check if a new session has started
 					if (currentSessions.length > initialSessionCount) {
-						// Find the new session (should be the last one)
 						newSession = currentSessions
 							.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
 						break;
 					}
 
-					// Wait before polling again
 					await new Promise(resolve => setTimeout(resolve, pollInterval));
 				}
 
 				if (!newSession) {
-					// Progress will be cleared by the markdown message
 					stream.markdown(vscode.l10n.t('Timed out waiting for the coding agent to respond. The agent may still be processing your request.'));
 					return {};
 				}
@@ -1355,7 +1329,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 				stream.markdown(vscode.l10n.t('Coding agent is now working on your request...'));
 				stream.markdown('\n\n');
 
-				// Use the same streaming logic as for in-progress sessions
 				await this.streamSessionLogs(stream, pullRequest, newSession.id, token);
 
 				return {};
