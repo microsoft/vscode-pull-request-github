@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { CloseResult } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
+import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { PR_SETTINGS_NAMESPACE, WEBVIEW_REFRESH_INTERVAL } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
@@ -42,6 +43,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		issue: IssueModel,
 		toTheSide: Boolean = false,
 	) {
+		await ensureEmojis(folderRepositoryManager.context);
 		const activeColumn = toTheSide
 			? vscode.ViewColumn.Beside
 			: vscode.window.activeTextEditor
@@ -194,6 +196,11 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	protected getInitializeContext(currentUser: IAccount, issue: IssueModel, timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Issue {
 		const hasWritePermission = repositoryAccess!.hasWritePermission;
 		const canEdit = hasWritePermission || viewerCanEdit;
+		const labels = issue.item.labels.map(label => ({
+			...label,
+			name: emojify(label.name)
+		}));
+
 		const context: Issue = {
 			owner: issue.remote.owner,
 			repo: issue.remote.repositoryName,
@@ -204,7 +211,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			createdAt: issue.createdAt,
 			body: issue.body,
 			bodyHTML: issue.bodyHTML,
-			labels: issue.item.labels,
+			labels: labels,
 			author: issue.author,
 			state: issue.state,
 			events: timelineEvents,
