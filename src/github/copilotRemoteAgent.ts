@@ -14,7 +14,8 @@ import { GitHubRemote } from '../common/remote';
 import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { CommentEvent, CopilotFinishedEvent, CopilotStartedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
-import { toOpenPullRequestWebviewUri } from '../common/uri';
+import { DataUri, toOpenPullRequestWebviewUri } from '../common/uri';
+import { getIconForeground, getListErrorForeground, getListWarningForeground, getNotebookStatusSuccessIconForeground } from '../view/theme';
 import { OctokitCommon } from './common';
 import { ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
@@ -781,7 +782,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 		return [];
 	}
-
+  
 	private extractPromptFromEvent(event: TimelineEvent): string {
 		let body = '';
 		if (event.event === EventType.Commented) {
@@ -1407,14 +1408,42 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return undefined;
 	}
 
-	private getIconForSession(status: CopilotPRStatus): ThemeIcon {
+	private getIconForSession(status: CopilotPRStatus): vscode.Uri | vscode.ThemeIcon {
+		// Use the same icons as webview components for consistency
+		const themeData = this.repositoriesManager.folderManagers[0]?.themeWatcher?.themeData;
+		if (!themeData) {
+			// Fallback to theme icons if no theme data available
+			switch (status) {
+				case CopilotPRStatus.Completed:
+					return new vscode.ThemeIcon('pass-filled', new vscode.ThemeColor('testing.iconPassed'));
+				case CopilotPRStatus.Failed:
+					return new vscode.ThemeIcon('close', new vscode.ThemeColor('testing.iconFailed'));
+				default:
+					return new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('list.warningForeground'));
+			}
+		}
+
+		// Use the same SVG icons as webview components with theme-appropriate colors
+		const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ||
+			vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.HighContrast;
+		const themeKind = isDark ? 'dark' : 'light';
+    
 		switch (status) {
 			case CopilotPRStatus.Completed:
-				return new ThemeIcon('pass-filled', new vscode.ThemeColor('testing.iconPassed'));
+				return DataUri.copilotSuccessAsImageDataURI(
+					getIconForeground(themeData, themeKind),
+					getNotebookStatusSuccessIconForeground(themeData, themeKind)
+				);
 			case CopilotPRStatus.Failed:
-				return new ThemeIcon('close', new vscode.ThemeColor('testing.iconFailed'));
+				return DataUri.copilotErrorAsImageDataURI(
+					getIconForeground(themeData, themeKind),
+					getListErrorForeground(themeData, themeKind)
+				);
 			default:
-				return new ThemeIcon('circle-filled', new vscode.ThemeColor('list.warningForeground'));
+				return DataUri.copilotInProgressAsImageDataURI(
+					getIconForeground(themeData, themeKind),
+					getListWarningForeground(themeData, themeKind)
+				);
 		}
 	}
 
