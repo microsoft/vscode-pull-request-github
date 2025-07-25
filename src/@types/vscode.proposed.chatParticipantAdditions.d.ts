@@ -84,6 +84,29 @@ declare module 'vscode' {
 		constructor(toolName: string);
 	}
 
+	export interface ChatTerminalToolInvocationData {
+		commandLine: {
+			original: string;
+			userEdited?: string;
+			toolEdited?: string;
+		};
+		language: string;
+	}
+
+	export class ChatToolInvocationPart {
+		toolName: string;
+		toolCallId: string;
+		isError?: boolean;
+		invocationMessage?: string | MarkdownString;
+		originMessage?: string | MarkdownString;
+		pastTenseMessage?: string | MarkdownString;
+		isConfirmed?: boolean;
+		isComplete?: boolean;
+		toolSpecificData?: ChatTerminalToolInvocationData;
+
+		constructor(toolName: string, toolCallId: string, isError?: boolean);
+	}
+
 	export type ExtendedChatResponsePart = ChatResponsePart | ChatResponseTextEditPart | ChatResponseNotebookEditPart | ChatResponseConfirmationPart | ChatResponseCodeCitationPart | ChatResponseReferencePart2 | ChatResponseMovePart | ChatResponseExtensionsPart | ChatPrepareToolInvocationPart;
 
 	export class ChatResponseWarningPart {
