@@ -394,7 +394,11 @@ export class CopilotRemoteAgentManager extends Disposable {
 		});
 
 		this._onDidChangeChatSessions.fire();
-		if (vscode.workspace.getConfiguration('chat').get('agentSessionsViewLocation') !== 'disabled') {
+		const viewLocationSetting = vscode.workspace.getConfiguration('chat').get('agentSessionsViewLocation');
+
+		if (!viewLocationSetting || viewLocationSetting === 'disabled') {
+			vscode.commands.executeCommand('vscode.open', webviewUri);
+		} else {
 			await this.provideChatSessions(new vscode.CancellationTokenSource().token);
 
 			const capi = await this.copilotApi;
@@ -408,10 +412,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			if (pr) {
 				vscode.window.showChatSession('copilot-swe-agent', `${pr.id}`, {});
 			}
-		} else {
-			vscode.commands.executeCommand('vscode.open', webviewUri);
 		}
-
 
 		// allow-any-unicode-next-line
 		return vscode.l10n.t('🚀 Coding agent will continue work in [#{0}]({1}).  Track progress [here]({2}).', number, link, webviewUri.toString());
