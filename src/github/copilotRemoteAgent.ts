@@ -20,7 +20,7 @@ import { OctokitCommon } from './common';
 import { ChatSessionWithPR, CopilotApi, getCopilotApi, RemoteAgentJobPayload, SessionInfo, SessionSetupStep } from './copilotApi';
 import { CopilotPRWatcher, CopilotStateModel } from './copilotPrWatcher';
 import { CredentialStore } from './credentials';
-import { FolderRepositoryManager } from './folderRepositoryManager';
+import { FolderRepositoryManager, ReposManagerState } from './folderRepositoryManager';
 import { GitHubRepository } from './githubRepository';
 import { GithubItemStateEnum } from './interface';
 import { PullRequestModel } from './pullRequestModel';
@@ -115,6 +115,26 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 	private async initializeCopilotApi(): Promise<CopilotApi | undefined> {
 		return await getCopilotApi(this.credentialStore, this.telemetry);
+	}
+
+	private _repoManagerInitializationPromise: Promise<void> | undefined;
+	private async waitRepoManagerInitialization() {
+		if (this.repositoriesManager.state === ReposManagerState.RepositoriesLoaded || this.repositoriesManager.state === ReposManagerState.NeedsAuthentication) {
+			return;
+		}
+
+		if (!this._repoManagerInitializationPromise) {
+			this._repoManagerInitializationPromise = new Promise((resolve) => {
+				const disposable = this.repositoriesManager.onDidChangeState(() => {
+					if (this.repositoriesManager.state === ReposManagerState.RepositoriesLoaded || this.repositoriesManager.state === ReposManagerState.NeedsAuthentication) {
+						disposable.dispose();
+						resolve();
+					}
+				});
+			});
+		}
+
+		return this._repoManagerInitializationPromise;
 	}
 
 	enabled(): boolean {
@@ -759,8 +779,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 				return [];
 			}
 
-			const sessions = await capi.getAllCodingAgentPRs(this.repositoriesManager);
-			return await Promise.all(sessions.map(async session => {
+			const codingAgentPRs = await capi.getAllCodingAgentPRs(this.repositoriesManager);
+			return await Promise.all(codingAgentPRs.map(async session => {
 				const timeline = await session.getTimelineEvents(session);
 				const status = copilotEventToStatus(mostRecentCopilotEvent(timeline));
 				if (status !== CopilotPRStatus.Completed && status !== CopilotPRStatus.Failed) {
@@ -771,8 +791,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 					this._register(disposable);
 				}
 				return {
-					id: `${session.id}`,
-					label: session.title || `Session ${session.id}`,
+					id: `${session.number}`,
+					label: session.title || `Session ${session.number}`,
 					iconPath: this.getIconForSession(status),
 					pullRequest: session
 				};
@@ -808,21 +828,23 @@ export class CopilotRemoteAgentManager extends Disposable {
 				return this.createEmptySession();
 			}
 
-			const pullRequestId = parseInt(id);
-			if (isNaN(pullRequestId)) {
-				Logger.error(`Invalid pull request ID: ${id}`, CopilotRemoteAgentManager.ID);
+			const pullRequestNumber = parseInt(id);
+			if (isNaN(pullRequestNumber)) {
+				Logger.error(`Invalid pull request number: ${id}`, CopilotRemoteAgentManager.ID);
 				return this.createEmptySession();
 			}
 
-			const pullRequest = this.findPullRequestById(pullRequestId);
+			await this.waitRepoManagerInitialization();
+
+			const pullRequest = await this.findPullRequestById(pullRequestNumber, true);
 			if (!pullRequest) {
-				Logger.error(`Pull request not found: ${pullRequestId}`, CopilotRemoteAgentManager.ID);
+				Logger.error(`Pull request not found: ${pullRequestNumber}`, CopilotRemoteAgentManager.ID);
 				return this.createEmptySession();
 			}
 
 			const sessions = await capi.getAllSessions(pullRequest.id);
 			if (!sessions || sessions.length === 0) {
-				Logger.warn(`No sessions found for pull request ${pullRequestId}`, CopilotRemoteAgentManager.ID);
+				Logger.warn(`No sessions found for pull request ${pullRequestNumber}`, CopilotRemoteAgentManager.ID);
 				return this.createEmptySession();
 			}
 
@@ -1254,12 +1276,24 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
-	private findPullRequestById(id: number): PullRequestModel | undefined {
+	private async findPullRequestById(number: number, fetch: boolean): Promise<PullRequestModel | undefined> {
 		for (const folderManager of this.repositoriesManager.folderManagers) {
 			for (const githubRepo of folderManager.gitHubRepositories) {
-				const pullRequest = githubRepo.pullRequestModels.find(pr => pr.id === id);
+				const pullRequest = githubRepo.pullRequestModels.find(pr => pr.number === number);
 				if (pullRequest) {
 					return pullRequest;
+				}
+
+				if (fetch) {
+					try {
+						const pullRequest = await githubRepo.getPullRequest(number, false);
+						if (pullRequest) {
+							return pullRequest;
+						}
+					} catch (error) {
+						// Continue to next repository if this one doesn't have the PR
+						Logger.debug(`PR ${number} not found in ${githubRepo.remote.owner}/${githubRepo.remote.repositoryName}: ${error}`, CopilotRemoteAgentManager.ID);
+					}
 				}
 			}
 		}
