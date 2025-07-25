@@ -6,6 +6,7 @@
 import vscode from 'vscode';
 import { parseSessionLogs, parseToolCallDetails } from '../../common/sessionParsing';
 import { Repository } from '../api/api';
+import { COPILOT_ACCOUNTS } from '../common/comment';
 import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus, mostRecentCopilotEvent } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
@@ -41,6 +42,15 @@ export interface ICopilotRemoteAgentCommandArgs {
 	summary?: string;
 	source?: string;
 	followup?: string;
+	_version?: number; // TODO(jospicer): Remove once stabilized/engine version enforced
+}
+
+export interface ICopilotRemoteAgentCommandResponse {
+	uri: string;
+	title: string;
+	description: string;
+	author: string;
+	linkTag: string;
 }
 
 const LEARN_MORE = vscode.l10n.t('Learn about coding agent');
@@ -210,33 +220,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return { owner, repo, baseRef, remote, repository, ghRepository, fm };
 	}
 
-	private parseFollowup(followup: string | undefined, repoInfo: { owner: string; repo: string }): number | undefined {
-		if (!followup) {
-			return;
-		}
-		const match = followup.match(FOLLOW_UP_REGEX);
-		if (!match || match.length < 2) {
-			Logger.error(`Ignoring. Invalid followup format: ${followup}`, CopilotRemoteAgentManager.ID);
-			return;
-		}
-
-		try {
-			const followUpData = JSON.parse(decodeURIComponent(match[1]));
-			if (!followUpData || !followUpData.owner || !followUpData.repo || !followUpData.pullRequestNumber) {
-				Logger.error(`Ignoring. Invalid followup data: ${followUpData}`, CopilotRemoteAgentManager.ID);
-				return;
-			}
-
-			if (repoInfo.owner !== followUpData.owner || repoInfo.repo !== followUpData.repo) {
-				Logger.error(`Ignoring. Follow up data does not match current repository: ${JSON.stringify(followUpData)}`, CopilotRemoteAgentManager.ID);
-				return;
-			}
-			return followUpData.pullRequestNumber;
-		} catch (error) {
-			Logger.error(`Ignoring. Error while parsing follow up data: ${followup}`, CopilotRemoteAgentManager.ID);
-		}
-	}
-
 	async addFollowUpToExistingPR(pullRequestNumber: number, userPrompt: string, summary?: string): Promise<string | undefined> {
 		const repoInfo = await this.repoInfo();
 		if (!repoInfo) {
@@ -265,25 +248,27 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
-	async commandImpl(args?: ICopilotRemoteAgentCommandArgs): Promise<string | undefined> {
+	async commandImpl(args?: ICopilotRemoteAgentCommandArgs): Promise<string | ICopilotRemoteAgentCommandResponse | undefined> {
 		if (!args) {
 			return;
 		}
-		const { userPrompt, summary, source, followup } = args;
+		const { userPrompt, summary, source, followup, _version } = args;
 
 		/* __GDPR__
 			"remoteAgent.command.args" : {
 				"source" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
 				"isFollowup" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
 				"userPromptLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-				"summaryLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				"summaryLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"version" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 			}
 		*/
 		this.telemetry.sendTelemetryEvent('remoteAgent.command.args', {
 			source: source?.toString() || 'unknown',
 			isFollowup: !!followup ? 'true' : 'false',
 			userPromptLength: userPrompt.length.toString(),
-			summaryLength: summary ? summary.length.toString() : '0'
+			summaryLength: summary ? summary.length.toString() : '0',
+			version: _version?.toString() || 'unknown'
 		});
 
 		if (!userPrompt || userPrompt.trim().length === 0) {
@@ -396,23 +381,32 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		this._onDidChangeChatSessions.fire();
 		const viewLocationSetting = vscode.workspace.getConfiguration('chat').get('agentSessionsViewLocation');
+		const pr = await (async () => {
+			const capi = await this.copilotApi;
+			if (!capi) {
+				return;
+			}
+			const sessions = await capi.getAllCodingAgentPRs(this.repositoriesManager);
+			return sessions.find(session => session.number === number);
+		})();
 
 		if (!viewLocationSetting || viewLocationSetting === 'disabled') {
 			vscode.commands.executeCommand('vscode.open', webviewUri);
 		} else {
 			await this.provideChatSessions(new vscode.CancellationTokenSource().token);
-
-			const capi = await this.copilotApi;
-			if (!capi) {
-				return;
-			}
-
-			const sessions = await capi.getAllCodingAgentPRs(this.repositoriesManager);
-			const pr = sessions.find(session => session.number === number);
-
 			if (pr) {
 				vscode.window.showChatSession('copilot-swe-agent', `${pr.id}`, {});
 			}
+		}
+
+		if (pr && (_version && _version === 2)) { /* version 2 means caller knows how to render this */
+			return {
+				uri: webviewUri.toString(),
+				title: pr.title,
+				description: pr.body,
+				author: COPILOT_ACCOUNTS[pr.author.login].name,
+				linkTag: `#${pr.number}`
+			};
 		}
 
 		// allow-any-unicode-next-line
