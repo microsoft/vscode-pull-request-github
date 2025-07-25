@@ -945,6 +945,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 					}
 				}
 
+				// TODO:@rebornix, remove @copilot prefix for now
+				sessionPrompt = sessionPrompt.replace(/@copilot\s*/gi, '').trim();
 
 				// Create request turn for this session
 				const sessionRequest = new vscode.ChatRequestTurn2(
