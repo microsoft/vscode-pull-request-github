@@ -5,7 +5,9 @@
 
 
 import * as vscode from 'vscode';
+import { COPILOT_ACCOUNTS } from '../../common/comment';
 import { ITelemetry } from '../../common/telemetry';
+import { toOpenPullRequestWebviewUri } from '../../common/uri';
 import { CopilotRemoteAgentManager } from '../../github/copilotRemoteAgent';
 import { FolderRepositoryManager } from '../../github/folderRepositoryManager';
 
@@ -112,9 +114,23 @@ export class CopilotRemoteAgentTool implements vscode.LanguageModelTool<CopilotR
 			this.telemetry.sendTelemetryErrorEvent('copilot.remoteAgent.tool.error', { reason: 'invocationError' });
 			throw new Error(result.error);
 		}
-		return new vscode.LanguageModelToolResult([
-			new vscode.LanguageModelTextPart(result.llmDetails)
-		]);
+
+		let lmResult: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [new vscode.LanguageModelTextPart(result.llmDetails)];
+		const pr = await targetRepo.fm.resolvePullRequest(targetRepo.owner, targetRepo.repo, result.number);
+		if (pr) {
+			const preferredRendering = {
+				uri: (await toOpenPullRequestWebviewUri({ owner: pr.githubRepository.remote.owner, repo: pr.githubRepository.remote.repositoryName, pullRequestNumber: pr.number })).toString(),
+				title: pr.title,
+				description: pr.body,
+				author: COPILOT_ACCOUNTS[pr.author.login].name,
+				linkTag: `#${pr.number}`
+			};
+			const buffer: Buffer = Buffer.from(JSON.stringify(preferredRendering));
+			const data: Uint8Array = Uint8Array.from(buffer);
+			lmResult.push(new vscode.LanguageModelDataPart2(data, 'application/pull-request+json', [vscode.ToolResultAudience.User]));
+		}
+
+		return new vscode.LanguageModelToolResult2(lmResult);
 	}
 
 	private async getActivePullRequestWithSession(repoInfo: { repo: string; owner: string; fm: FolderRepositoryManager } | undefined): Promise<number | undefined> {
