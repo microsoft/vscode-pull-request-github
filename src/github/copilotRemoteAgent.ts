@@ -782,7 +782,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 		return [];
 	}
-  
+
 	private extractPromptFromEvent(event: TimelineEvent): string {
 		let body = '';
 		if (event.event === EventType.Commented) {
@@ -876,7 +876,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			history.push(sessionRequest);
 
 			// Create response turn
-			const responseHistory = await this.createResponseTurn(logs, session);
+			const responseHistory = await this.createResponseTurn(pullRequest, logs, session);
 			if (responseHistory) {
 				history.push(responseHistory);
 			}
@@ -1019,9 +1019,9 @@ export class CopilotRemoteAgentManager extends Disposable {
 			});
 	}
 
-	private async createResponseTurn(logs: string, session: SessionInfo): Promise<vscode.ChatResponseTurn2 | undefined> {
+	private async createResponseTurn(pullRequest: PullRequestModel, logs: string, session: SessionInfo): Promise<vscode.ChatResponseTurn2 | undefined> {
 		if (logs.trim().length > 0) {
-			return await this.parseSessionLogsIntoResponseTurn(logs, session);
+			return await this.parseSessionLogsIntoResponseTurn(pullRequest, logs, session);
 		} else if (session.state === 'in_progress') {
 			// For in-progress sessions without logs, create a placeholder response
 			const placeholderParts = [new vscode.ChatResponseMarkdownPart('Session is initializing...')];
@@ -1135,7 +1135,12 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const pollingInterval = 3000; // 3 seconds
 
 		return new Promise<void>((resolve, reject) => {
-			const complete = () => {
+			const complete = async () => {
+				const multiDiffPart = await this.getFileChangesMultiDiffPart(pullRequest);
+				if (multiDiffPart) {
+					stream.push(multiDiffPart);
+				}
+
 				stream.push(new vscode.ChatResponseCommandButtonPart({
 					title: vscode.l10n.t('Open Changes'),
 					command: 'pr.openChanges',
@@ -1218,6 +1223,37 @@ export class CopilotRemoteAgentManager extends Disposable {
 		});
 	}
 
+	private async getFileChangesMultiDiffPart(pullRequest: PullRequestModel): Promise<vscode.ChatResponseMultiDiffPart | undefined> {
+		try {
+			const repoInfo = await this.repoInfo();
+			if (!repoInfo) {
+				return undefined;
+			}
+
+			const { fm: folderManager } = repoInfo;
+			const changeModels = await PullRequestModel.getChangeModels(folderManager, pullRequest);
+
+			if (changeModels.length === 0) {
+				return undefined;
+			}
+
+			const diffEntries: vscode.ChatResponseDiffEntry[] = [];
+			for (const changeModel of changeModels) {
+				diffEntries.push({
+					originalUri: changeModel.parentFilePath,
+					modifiedUri: changeModel.filePath,
+					goToFileUri: changeModel.filePath
+				});
+			}
+
+			const title = `Changes in Pull Request #${pullRequest.number}`;
+			return new vscode.ChatResponseMultiDiffPart(diffEntries, title);
+		} catch (error) {
+			Logger.error(`Failed to get file changes multi diff part: ${error}`, CopilotRemoteAgentManager.ID);
+			return undefined;
+		}
+	}
+
 	private findPullRequestById(id: number): PullRequestModel | undefined {
 		for (const folderManager of this.repositoriesManager.folderManagers) {
 			for (const githubRepo of folderManager.gitHubRepositories) {
@@ -1273,10 +1309,10 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return toolPart;
 	}
 
-	private async parseSessionLogsIntoResponseTurn(logs: string, _session: SessionInfo): Promise<vscode.ChatResponseTurn2 | undefined> {
+	private async parseSessionLogsIntoResponseTurn(pullRequest: PullRequestModel, logs: string, session: SessionInfo): Promise<vscode.ChatResponseTurn2 | undefined> {
 		try {
 			const logChunks = parseSessionLogs(logs);
-			const responseParts: Array<vscode.ChatResponseMarkdownPart | vscode.ChatToolInvocationPart> = [];
+			const responseParts: Array<vscode.ChatResponseMarkdownPart | vscode.ChatToolInvocationPart | vscode.ChatResponseMultiDiffPart> = [];
 			let currentResponseContent = '';
 
 			for (const chunk of logChunks) {
@@ -1310,6 +1346,13 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			if (currentResponseContent.trim()) {
 				responseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
+			}
+
+			if (session.state === 'completed') {
+				const fileChangesPart = await this.getFileChangesMultiDiffPart(pullRequest);
+				if (fileChangesPart) {
+					responseParts.push(fileChangesPart);
+				}
 			}
 
 			if (responseParts.length > 0) {
@@ -1427,7 +1470,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark ||
 			vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.HighContrast;
 		const themeKind = isDark ? 'dark' : 'light';
-    
+
 		switch (status) {
 			case CopilotPRStatus.Completed:
 				return DataUri.copilotSuccessAsImageDataURI(
