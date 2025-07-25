@@ -58,7 +58,7 @@ import {
 	RepoAccessAndMergeMethods,
 	User,
 } from './interface';
-import { IssueModel } from './issueModel';
+import { IssueChangeEvent, IssueModel } from './issueModel';
 import { LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
 import defaultSchema from './queries.gql';
@@ -152,6 +152,11 @@ export enum CopilotWorkingStatus {
 	Done = 'Done',
 }
 
+export interface PullRequestChangeEvent {
+	model: IssueModel;
+	event: IssueChangeEvent;
+}
+
 export class GitHubRepository extends Disposable {
 	static ID = 'GitHubRepository';
 	protected _initialized: boolean = false;
@@ -171,8 +176,8 @@ export class GitHubRepository extends Disposable {
 
 	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = this._register(new vscode.EventEmitter());
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
-	private _onDidChangePullRequests: vscode.EventEmitter<IssueModel[]> = this._register(new vscode.EventEmitter());
-	public readonly onDidChangePullRequests: vscode.Event<IssueModel[]> = this._onDidChangePullRequests.event;
+	private _onDidChangePullRequests: vscode.EventEmitter<PullRequestChangeEvent[]> = this._register(new vscode.EventEmitter());
+	public readonly onDidChangePullRequests: vscode.Event<PullRequestChangeEvent[]> = this._onDidChangePullRequests.event;
 
 	public get hub(): GitHub {
 		if (!this._hub) {
@@ -977,7 +982,7 @@ export class GitHubRepository extends Disposable {
 			model = new PullRequestModel(this._credentialStore, this.telemetry, this, this.remote, pullRequest);
 			const prModel = model;
 			const disposables: vscode.Disposable[] = [];
-			disposables.push(model.onDidChange(() => this._onPullRequestModelChanged(prModel)));
+			disposables.push(model.onDidChange(e => this._onPullRequestModelChanged(prModel, e)));
 			this._pullRequestModelsByNumber.set(pullRequest.number, { model, disposables });
 			if (!silent) {
 				this._onDidAddPullRequest.fire(model);
@@ -987,8 +992,8 @@ export class GitHubRepository extends Disposable {
 		return model;
 	}
 
-	private _onPullRequestModelChanged(model: PullRequestModel): void {
-		this._onDidChangePullRequests.fire([model]);
+	private _onPullRequestModelChanged(model: PullRequestModel, change: IssueChangeEvent): void {
+		this._onDidChangePullRequests.fire([{ model, event: change }]);
 	}
 
 	async createPullRequest(params: OctokitCommon.PullsCreateParams): Promise<PullRequestModel> {

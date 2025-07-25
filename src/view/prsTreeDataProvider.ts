@@ -15,8 +15,8 @@ import { EXTENSION_ID } from '../constants';
 import { CopilotRemoteAgentManager } from '../github/copilotRemoteAgent';
 import { CredentialStore } from '../github/credentials';
 import { FolderRepositoryManager, ReposManagerState } from '../github/folderRepositoryManager';
+import { PullRequestChangeEvent } from '../github/githubRepository';
 import { PRType } from '../github/interface';
-import { IssueModel } from '../github/issueModel';
 import { issueMarkdown } from '../github/markdownUtils';
 import { NotificationProvider } from '../github/notifications';
 import { PullRequestModel } from '../github/pullRequestModel';
@@ -60,7 +60,7 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._register(this.prsTreeModel.onDidChangeData(e => {
 			if (e instanceof FolderRepositoryManager) {
 				this.refreshRepo(e);
-			} else if (Array.isArray(e) && e[0] instanceof IssueModel) {
+			} else if (Array.isArray(e)) {
 				this.refreshPullRequests(e);
 			} else {
 				this.refresh(undefined, true);
@@ -322,18 +322,52 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		}
 	}
 
-	private refreshPullRequests(pullRequests: IssueModel[]): void {
+	private refreshPullRequests(pullRequests: PullRequestChangeEvent[]): void {
 		if (!this._children?.length || !pullRequests?.length) {
 			return;
 		}
-		const toRefresh: TreeNode[] = [];
+		const prNodesToRefresh: TreeNode[] = [];
+		const prsWithStateChange = new Set();
+		const prNumbers = new Set();
+
+		for (const prChange of pullRequests) {
+			prNumbers.add(prChange.model.number);
+			if (prChange.event.state) {
+				prsWithStateChange.add(prChange.model.number);
+			}
+		}
+
+		const hasPRNode = (node: TreeNode) => {
+			const prNodes = node.children ?? [];
+			for (const prNode of prNodes) {
+				if (prNode instanceof PRNode && prsWithStateChange.has(prNode.pullRequestModel.number)) {
+					return true;
+				}
+			}
+			return false;
+		};
+
+		const categoriesToRefresh: Set<CategoryTreeNode> = new Set();
+		// First find the categories to refresh, since if we refresh a category we don't need to specifically refresh its children
+		for (const child of this._children) {
+			if (child instanceof WorkspaceFolderNode) {
+				const categories = child.children ?? [];
+				for (const category of categories) {
+					if (category instanceof CategoryTreeNode && !categoriesToRefresh.has(category) && hasPRNode(category)) {
+						categoriesToRefresh.add(category);
+					}
+				}
+			} else if (child instanceof CategoryTreeNode && !categoriesToRefresh.has(child) && hasPRNode(child)) {
+				categoriesToRefresh.add(child);
+			}
+		}
+
 		// Yes, multiple PRs can exist in different repos with the same number, but at worst we'll refresh all the duplicate numbers, which shouldn't be many.
-		const prNumbers = new Set(pullRequests.map(pr => pr.number));
 		const collectPRNodes = (node: TreeNode) => {
 			const prNodes = node.children ?? [];
 			for (const prNode of prNodes) {
 				if (prNode instanceof PRNode && prNumbers.has(prNode.pullRequestModel.number)) {
-					toRefresh.push(prNode);
+					prNodesToRefresh.push(prNode);
 				}
 			}
 		};
@@ -342,16 +376,16 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			if (child instanceof WorkspaceFolderNode) {
 				const categories = child.children ?? [];
 				for (const category of categories) {
-					if (category instanceof CategoryTreeNode) {
+					if (category instanceof CategoryTreeNode && !categoriesToRefresh.has(category)) {
 						collectPRNodes(category);
 					}
 				}
-			} else if (child instanceof CategoryTreeNode) {
+			} else if (child instanceof CategoryTreeNode && !categoriesToRefresh.has(child)) {
 				collectPRNodes(child);
 			}
 		}
-		if (toRefresh.length) {
-			this._onDidChangeTreeData.fire(toRefresh);
+		if (prNodesToRefresh.length || categoriesToRefresh.size > 0) {
+			this._onDidChangeTreeData.fire([...Array.from(categoriesToRefresh), ...prNodesToRefresh]);
 		}
 	}
 
