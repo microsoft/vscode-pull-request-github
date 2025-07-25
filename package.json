@@ -2159,7 +2159,7 @@
 					"command": "pr.copyVscodeDevPrLink",
 					"when": "github:inReviewMode && remoteName != codespaces && embedderIdentifier != github.dev"
 				},
-{
+				{
 					"command": "pr.copyPrLink",
 					"when": "false"
 				},
@@ -3351,7 +3351,6 @@
 					"command": "pr.openSessionLogFromDescription",
 					"when": "webviewId == PullRequestOverview && github:codingAgentMenu"
 				}
-
 			],
 			"chat/chatSessions": [
 				{
@@ -4073,6 +4072,7 @@
 		"eslint": "7.22.0",
 		"eslint-cli": "1.1.1",
 		"eslint-plugin-import": "2.22.1",
+		"eslint-plugin-rulesdir": "^0.2.2",
 		"event-stream": "^4.0.1",
 		"fork-ts-checker-webpack-plugin": "6.1.1",
 		"glob": "7.1.6",
