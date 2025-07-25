@@ -16,11 +16,11 @@ import { CommentEvent, EventType, ReviewStateValue, TimelineEvent } from '../com
 import { asPromise, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
+import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
 import { isInCodespaces, vscodeDevPrLink } from './utils';
-import { ChangeAssigneesReply, Issue, ProjectItemsReply, SubmitReviewReply } from './views';
+import { ChangeAssigneesReply, DisplayLabel, Issue, ProjectItemsReply, SubmitReviewReply } from './views';
 
 export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends WebviewBase {
 	public static ID: string = 'IssueOverviewPanel';
@@ -409,9 +409,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	private async addLabels(message: IRequestMessage<void>): Promise<void> {
-		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem>();
+		const quickPick = vscode.window.createQuickPick<(vscode.QuickPickItem & { name: string })>();
 		try {
-			let newLabels: ILabel[] = [];
+			let newLabels: DisplayLabel[] = [];
 
 			quickPick.busy = true;
 			quickPick.canSelectMany = true;
@@ -427,13 +427,13 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				return quickPick.selectedItems;
 			});
 			const hidePromise = asPromise<void>(quickPick.onDidHide);
-			const labelsToAdd = await Promise.race<readonly vscode.QuickPickItem[] | void>([acceptPromise, hidePromise]);
+			const labelsToAdd = await Promise.race<readonly (vscode.QuickPickItem & { name: string })[] | void>([acceptPromise, hidePromise]);
 			quickPick.busy = true;
 			quickPick.enabled = false;
 
 			if (labelsToAdd) {
-				await this._item.setLabels(labelsToAdd.map(r => r.label));
-				const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
+				await this._item.setLabels(labelsToAdd.map(r => r.name));
+				const addedLabels: DisplayLabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.name)!);
 
 				await this._replyMessage(message, {
 					added: addedLabels,
