@@ -29,13 +29,15 @@
 		"contribEditorContentMenu",
 		"contribShareMenu",
 		"diffCommand",
+		"languageModelDataPart",
+		"languageModelToolResultAudience",
 		"quickDiffProvider",
 		"remoteCodingAgents",
 		"shareProvider",
 		"tokenInformation",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.114.0",
+	"version": "0.116.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.103.0"
