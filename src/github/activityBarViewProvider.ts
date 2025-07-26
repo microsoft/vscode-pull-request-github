@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { openPullRequestOnGitHub } from '../commands';
 import { IComment } from '../common/comment';
+import { emojify, ensureEmojis } from '../common/emoji';
 import { disposeAll } from '../common/lifecycle';
 import { ReviewEvent } from '../common/timelineEvent';
 import { formatError } from '../common/utils';
@@ -219,7 +220,8 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 			this._folderRepositoryManager.getPullRequestRepositoryDefaultBranch(pullRequestModel),
 			this._folderRepositoryManager.getCurrentUser(pullRequestModel.githubRepository),
 			pullRequestModel.canEdit(),
-			pullRequestModel.validateDraftMode()
+			pullRequestModel.validateDraftMode(),
+			ensureEmojis(this._folderRepositoryManager.context)
 		])
 			.then(result => {
 				const [pullRequest, repositoryAccess, timelineEvents, requestedReviewers, branchInfo, defaultBranch, currentUser, viewerCanEdit, hasReviewDraft] = result;
@@ -267,7 +269,7 @@ export class PullRequestViewProvider extends WebviewViewBase implements vscode.W
 					createdAt: pullRequest.createdAt,
 					body: pullRequest.body,
 					bodyHTML: pullRequest.bodyHTML,
-					labels: pullRequest.item.labels,
+					labels: pullRequest.item.labels.map(label => ({ ...label, displayName: emojify(label.name) })),
 					author: {
 						login: pullRequest.author.login,
 						name: pullRequest.author.name,

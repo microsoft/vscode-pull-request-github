@@ -12,6 +12,7 @@ import { GitApiImpl } from '../api/api1';
 import { AuthProvider, GitHubServerType } from '../common/authentication';
 import { COPILOT_ACCOUNTS, IComment, IReviewThread, SubjectType } from '../common/comment';
 import { DiffHunk, parseDiffHunk } from '../common/diffHunk';
+import { emojify } from '../common/emoji';
 import { GitHubRef } from '../common/githubRef';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
@@ -1746,7 +1747,8 @@ export function vscodeDevPrLink(pullRequest: IssueModel) {
 export function makeLabel(label: ILabel): string {
 	const isDarkTheme = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
 	const labelColor = gitHubLabelColor(label.color, isDarkTheme, true);
-	return `<span style="color:${labelColor.textColor};background-color:${labelColor.backgroundColor};border-radius:10px;">&nbsp;&nbsp;${label.name.trim()}&nbsp;&nbsp;</span>`;
+	const labelName = emojify(label.name.trim());
+	return `<span style="color:${labelColor.textColor};background-color:${labelColor.backgroundColor};border-radius:10px;">&nbsp;&nbsp;${labelName}&nbsp;&nbsp;</span>`;
 }
 
 

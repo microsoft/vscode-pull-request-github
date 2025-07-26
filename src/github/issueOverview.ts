@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { CloseResult } from '../../common/views';
 import { openPullRequestOnGitHub } from '../commands';
 import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
+import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { PR_SETTINGS_NAMESPACE, WEBVIEW_REFRESH_INTERVAL } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
@@ -15,11 +16,11 @@ import { CommentEvent, EventType, ReviewStateValue, TimelineEvent } from '../com
 import { asPromise, formatError } from '../common/utils';
 import { getNonce, IRequestMessage, WebviewBase } from '../common/webview';
 import { FolderRepositoryManager } from './folderRepositoryManager';
-import { GithubItemStateEnum, IAccount, ILabel, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
+import { GithubItemStateEnum, IAccount, IMilestone, IProject, IProjectItem, RepoAccessAndMergeMethods } from './interface';
 import { IssueModel } from './issueModel';
 import { getAssigneesQuickPickItems, getLabelOptions, getMilestoneFromQuickPick, getProjectFromQuickPick } from './quickPicks';
 import { isInCodespaces, vscodeDevPrLink } from './utils';
-import { ChangeAssigneesReply, Issue, ProjectItemsReply, SubmitReviewReply } from './views';
+import { ChangeAssigneesReply, DisplayLabel, Issue, ProjectItemsReply, SubmitReviewReply } from './views';
 
 export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends WebviewBase {
 	public static ID: string = 'IssueOverviewPanel';
@@ -42,6 +43,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		issue: IssueModel,
 		toTheSide: Boolean = false,
 	) {
+		await ensureEmojis(folderRepositoryManager.context);
 		const activeColumn = toTheSide
 			? vscode.ViewColumn.Beside
 			: vscode.window.activeTextEditor
@@ -194,6 +196,11 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	protected getInitializeContext(currentUser: IAccount, issue: IssueModel, timelineEvents: TimelineEvent[], repositoryAccess: RepoAccessAndMergeMethods, viewerCanEdit: boolean, assignableUsers: IAccount[]): Issue {
 		const hasWritePermission = repositoryAccess!.hasWritePermission;
 		const canEdit = hasWritePermission || viewerCanEdit;
+		const labels = issue.item.labels.map(label => ({
+			...label,
+			displayName: emojify(label.name)
+		}));
+
 		const context: Issue = {
 			owner: issue.remote.owner,
 			repo: issue.remote.repositoryName,
@@ -204,7 +211,7 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 			createdAt: issue.createdAt,
 			body: issue.body,
 			bodyHTML: issue.bodyHTML,
-			labels: issue.item.labels,
+			labels: labels,
 			author: issue.author,
 			state: issue.state,
 			events: timelineEvents,
@@ -402,9 +409,9 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 	}
 
 	private async addLabels(message: IRequestMessage<void>): Promise<void> {
-		const quickPick = vscode.window.createQuickPick<vscode.QuickPickItem>();
+		const quickPick = vscode.window.createQuickPick<(vscode.QuickPickItem & { name: string })>();
 		try {
-			let newLabels: ILabel[] = [];
+			let newLabels: DisplayLabel[] = [];
 
 			quickPick.busy = true;
 			quickPick.canSelectMany = true;
@@ -420,13 +427,13 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 				return quickPick.selectedItems;
 			});
 			const hidePromise = asPromise<void>(quickPick.onDidHide);
-			const labelsToAdd = await Promise.race<readonly vscode.QuickPickItem[] | void>([acceptPromise, hidePromise]);
+			const labelsToAdd = await Promise.race<readonly (vscode.QuickPickItem & { name: string })[] | void>([acceptPromise, hidePromise]);
 			quickPick.busy = true;
 			quickPick.enabled = false;
 
 			if (labelsToAdd) {
-				await this._item.setLabels(labelsToAdd.map(r => r.label));
-				const addedLabels: ILabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.label)!);
+				await this._item.setLabels(labelsToAdd.map(r => r.name));
+				const addedLabels: DisplayLabel[] = labelsToAdd.map(label => newLabels.find(l => l.name === label.name)!);
 
 				await this._replyMessage(message, {
 					added: addedLabels,

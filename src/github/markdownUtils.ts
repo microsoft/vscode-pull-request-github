@@ -6,6 +6,7 @@
 import * as marked from 'marked';
 import 'url-search-params-polyfill';
 import * as vscode from 'vscode';
+import { ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { CODE_PERMALINK, findCodeLinkLocally } from '../issues/issueLinkLookup';
 import { PullRequestDefaults } from './folderRepositoryManager';
@@ -188,6 +189,7 @@ export async function issueMarkdown(
 	markdown.appendMarkdown(body + '  \n');
 
 	if (issue.item.labels.length > 0) {
+		await ensureEmojis(context);
 		markdown.appendMarkdown('&nbsp;  \n');
 		issue.item.labels.forEach(label => {
 			markdown.appendMarkdown(
