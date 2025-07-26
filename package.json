@@ -746,6 +746,11 @@
 					"type": "boolean",
 					"default": false,
 					"description": "%githubIssues.alwaysPromptForNewIssueRepo.description%"
+				},
+				"githubPullRequests.closeFileOnMarkFileAsViewed": {
+					"type": "boolean",
+					"description": "Close the diff editor automatically when marking a file as viewed from the editor title menu or via shortcut.",
+					"default": true
 				}
 			}
 		},
