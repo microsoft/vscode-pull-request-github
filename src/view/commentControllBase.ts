@@ -59,7 +59,7 @@ export abstract class CommentControllerBase extends Disposable {
 		}
 
 		return editor.edit(editBuilder => {
-			editBuilder.insert(new vscode.Position(0, 0), '@copilot');
+			editBuilder.insert(new vscode.Position(0, 0), '@copilot ');
 		});
 	}
 }

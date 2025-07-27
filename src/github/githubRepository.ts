@@ -58,7 +58,7 @@ import {
 	RepoAccessAndMergeMethods,
 	User,
 } from './interface';
-import { IssueModel } from './issueModel';
+import { IssueChangeEvent, IssueModel } from './issueModel';
 import { LoggingOctokit } from './loggingOctokit';
 import { PullRequestModel } from './pullRequestModel';
 import defaultSchema from './queries.gql';
@@ -152,6 +152,11 @@ export enum CopilotWorkingStatus {
 	Done = 'Done',
 }
 
+export interface PullRequestChangeEvent {
+	model: IssueModel;
+	event: IssueChangeEvent;
+}
+
 export class GitHubRepository extends Disposable {
 	static ID = 'GitHubRepository';
 	protected _initialized: boolean = false;
@@ -171,8 +176,8 @@ export class GitHubRepository extends Disposable {
 
 	private _onDidAddPullRequest: vscode.EventEmitter<PullRequestModel> = this._register(new vscode.EventEmitter());
 	public readonly onDidAddPullRequest: vscode.Event<PullRequestModel> = this._onDidAddPullRequest.event;
-	private _onDidChangePullRequests: vscode.EventEmitter<IssueModel[]> = this._register(new vscode.EventEmitter());
-	public readonly onDidChangePullRequests: vscode.Event<IssueModel[]> = this._onDidChangePullRequests.event;
+	private _onDidChangePullRequests: vscode.EventEmitter<PullRequestChangeEvent[]> = this._register(new vscode.EventEmitter());
+	public readonly onDidChangePullRequests: vscode.Event<PullRequestChangeEvent[]> = this._onDidChangePullRequests.event;
 
 	public get hub(): GitHub {
 		if (!this._hub) {
@@ -872,11 +877,11 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	public async getWorkflowRunsFromAction(fromDate: string): Promise<OctokitCommon.ListWorkflowRunsForRepo> {
+	public async getWorkflowRunsFromAction(fromDate: string): Promise<OctokitCommon.ListWorkflowRunsForRepo[]> {
 		const { octokit, remote } = await this.ensure();
 		const createdDate = new Date(fromDate);
 		const created = `>=${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}-${String(createdDate.getDate()).padStart(2, '0')}`;
-		const allRuns = await restPaginate<typeof octokit.api.actions.listWorkflowRunsForRepo, OctokitCommon.ListWorkflowRunsForRepo[0]>(octokit.api.actions.listWorkflowRunsForRepo, {
+		const allRuns = await restPaginate<typeof octokit.api.actions.listWorkflowRunsForRepo, OctokitCommon.ListWorkflowRunsForRepo>(octokit.api.actions.listWorkflowRunsForRepo, {
 			owner: remote.owner,
 			repo: remote.repositoryName,
 			event: 'dynamic',
@@ -884,6 +889,16 @@ export class GitHubRepository extends Disposable {
 		});
 
 		return allRuns;
+	}
+
+	public async getWorkflowJobs(workflowRunId: number): Promise<OctokitCommon.WorkflowJob[]> {
+		const { octokit, remote } = await this.ensure();
+		const jobs = await octokit.call(octokit.api.actions.listJobsForWorkflowRun, {
+			owner: remote.owner,
+			repo: remote.repositoryName,
+			run_id: workflowRunId
+		});
+		return jobs.data.jobs;
 	}
 
 	async fork(): Promise<string | undefined> {
@@ -959,7 +974,7 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	createOrUpdatePullRequestModel(pullRequest: PullRequest): PullRequestModel {
+	createOrUpdatePullRequestModel(pullRequest: PullRequest, silent: boolean = false): PullRequestModel {
 		let model = this._pullRequestModelsByNumber.get(pullRequest.number)?.model;
 		if (model) {
 			model.update(pullRequest);
@@ -967,16 +982,18 @@ export class GitHubRepository extends Disposable {
 			model = new PullRequestModel(this._credentialStore, this.telemetry, this, this.remote, pullRequest);
 			const prModel = model;
 			const disposables: vscode.Disposable[] = [];
-			disposables.push(model.onDidChange(() => this._onPullRequestModelChanged(prModel)));
+			disposables.push(model.onDidChange(e => this._onPullRequestModelChanged(prModel, e)));
 			this._pullRequestModelsByNumber.set(pullRequest.number, { model, disposables });
-			this._onDidAddPullRequest.fire(model);
+			if (!silent) {
+				this._onDidAddPullRequest.fire(model);
+			}
 		}
 
 		return model;
 	}
 
-	private _onPullRequestModelChanged(model: PullRequestModel): void {
-		this._onDidChangePullRequests.fire([model]);
+	private _onPullRequestModelChanged(model: PullRequestModel, change: IssueChangeEvent): void {
+		this._onDidChangePullRequests.fire([{ model, event: change }]);
 	}
 
 	async createPullRequest(params: OctokitCommon.PullsCreateParams): Promise<PullRequestModel> {
@@ -1036,7 +1053,12 @@ export class GitHubRepository extends Disposable {
 		}
 	}
 
-	async getPullRequest(id: number): Promise<PullRequestModel | undefined> {
+	async getPullRequest(id: number, useCache: boolean = false): Promise<PullRequestModel | undefined> {
+		if (useCache && this._pullRequestModelsByNumber.has(id)) {
+			Logger.debug(`Using cached pull request model for ${id}`, this.id);
+			return this._pullRequestModelsByNumber.get(id)!.model;
+		}
+
 		try {
 			const { query, remote, schema } = await this.ensure();
 			Logger.debug(`Fetch pull request ${remote.owner}/${remote.repositoryName} ${id} - enter`, this.id);

@@ -17,13 +17,13 @@ const InnerAvatar = ({ for: author }: { for: Partial<IAccount> }) => (
 	</>
 );
 
-export const Avatar = ({ for: author, link = true }: { for: Partial<IAccount>, link?: boolean }) => {
+export const Avatar = ({ for: author, link = true, substituteIcon }: { for: Partial<IAccount>, link?: boolean, substituteIcon?: JSX.Element }) => {
 	if (link) {
 		return <a className="avatar-link" href={author.url} title={author.url}>
-			<InnerAvatar for={author} />
+			{substituteIcon ?? <InnerAvatar for={author} />}
 		</a>;
 	} else {
-		return <InnerAvatar for={author} />;
+		return substituteIcon ?? <InnerAvatar for={author} />;
 	}
 };
 

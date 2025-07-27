@@ -15,6 +15,7 @@ import { fromPRUri, fromRepoUri, Schemes } from '../common/uri';
 import { compareIgnoreCase, isDescendant } from '../common/utils';
 import { CredentialStore } from './credentials';
 import { FolderRepositoryManager, ReposManagerState, ReposManagerStateContext } from './folderRepositoryManager';
+import { PullRequestChangeEvent } from './githubRepository';
 import { IssueModel } from './issueModel';
 import { findDotComAndEnterpriseRemotes, getEnterpriseUri, hasEnterpriseUri, setEnterpriseUri } from './utils';
 
@@ -45,7 +46,7 @@ export class RepositoriesManager extends Disposable {
 	private _onDidLoadAnyRepositories = new vscode.EventEmitter<void>();
 	readonly onDidLoadAnyRepositories = this._onDidLoadAnyRepositories.event;
 
-	private _onDidChangeAnyPullRequests = new vscode.EventEmitter<IssueModel[]>();
+	private _onDidChangeAnyPullRequests = new vscode.EventEmitter<PullRequestChangeEvent[]>();
 	readonly onDidChangeAnyPullRequests = this._onDidChangeAnyPullRequests.event;
 
 	private _onDidAddPullRequest = new vscode.EventEmitter<IssueModel>();

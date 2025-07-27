@@ -33,9 +33,11 @@ export class FilesCategoryNode extends TreeNode implements vscode.TreeItem {
 			Logger.appendLine(`Review threads have changed, refreshing Files node`, PR_TREE);
 			this.refresh(this);
 		}));
-		this.childrenDisposables.push(_pullRequestModel.onDidChangeComments(() => {
-			Logger.appendLine(`Comments have changed, refreshing Files node`, PR_TREE);
-			this.refresh(this);
+		this.childrenDisposables.push(_pullRequestModel.onDidChange(e => {
+			if (e.comments) {
+				Logger.appendLine(`Comments have changed, refreshing Files node`, PR_TREE);
+				this.refresh(this);
+			}
 		}));
 	}
 

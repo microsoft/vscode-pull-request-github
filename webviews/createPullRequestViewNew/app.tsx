@@ -359,6 +359,7 @@ export function main() {
 							defaultOptionValue={() => createMethodLabel(ctx.createParams.isDraft, ctx.createParams.autoMerge, ctx.createParams.autoMergeMethod, ctx.createParams.baseHasMergeQueue).value}
 							optionsTitle='Create with Option'
 							disabled={isBusy || isGeneratingTitle || params.reviewing || !ctx.isCreatable || !ctx.initialized}
+							spreadable={true}
 						/>
 
 					</div>

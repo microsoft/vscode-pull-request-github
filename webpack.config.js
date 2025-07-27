@@ -109,7 +109,7 @@ async function getWebviewConfig(mode, env, entry) {
 			rules: [
 				{
 					exclude: /node_modules/,
-					include: [basePath, path.join(__dirname, 'src')],
+					include: [basePath, path.join(__dirname, 'src'), path.join(__dirname, 'common')],
 					test: /\.tsx?$/,
 					use: env.esbuild
 						? {
@@ -252,7 +252,7 @@ async function getExtensionConfig(target, mode, env) {
 			rules: [
 				{
 					exclude: /node_modules/,
-					include: path.join(__dirname, 'src'),
+					include: [path.join(__dirname, 'src'), path.join(__dirname, 'common')],
 					test: /\.tsx?$/,
 					use: env.esbuild
 						? {

@@ -160,8 +160,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}));
 
 		if (this._item) {
-			this._prListeners.push(this._item.onDidChangeComments(() => {
-				if (!this._isUpdating) {
+			this._prListeners.push(this._item.onDidChange(e => {
+				if (e.comments && !this._isUpdating) {
 					this.refreshPanel();
 				}
 			}));
@@ -494,10 +494,9 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}
 	}
 
-	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo; openToTheSide?: boolean }>): Promise<void> {
+	private async openSessionLog(message: IRequestMessage<{ link: SessionLinkInfo }>): Promise<void> {
 		try {
-			const openToTheSide = message.args.openToTheSide || false;
-			await SessionLogViewManager.instance?.openForPull(this._item, message.args.link, openToTheSide);
+			await SessionLogViewManager.instance?.openForPull(this._item, message.args.link, message.args.link.openToTheSide ?? false);
 		} catch (e) {
 			Logger.error(`Open session log view failed: ${formatError(e)}`, PullRequestOverviewPanel.ID);
 		}
@@ -630,8 +629,6 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		this._item
 			.setReadyForReview()
 			.then(result => {
-				vscode.commands.executeCommand('pr.refreshList');
-
 				this._replyMessage(message, result);
 			})
 			.catch(e => {

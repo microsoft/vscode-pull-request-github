@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { SessionLinkInfo } from '../../src/common/timelineEvent';
-import { SessionInfo } from './sessionsApi';
+import { SessionInfo, SessionSetupStepResponse } from './sessionsApi';
 
 export type PullInfo = SessionLinkInfo & {
 	title: string;
@@ -20,6 +20,7 @@ export interface LoadedMessage {
 	pullInfo: PullInfo | undefined;
 	info: SessionInfo;
 	logs: string;
+	setupSteps: SessionSetupStepResponse[] | undefined;
 }
 
 export interface UpdateMessage {
@@ -27,6 +28,7 @@ export interface UpdateMessage {
 	pullInfo: PullInfo | undefined;
 	info: SessionInfo;
 	logs: string;
+	setupSteps: SessionSetupStepResponse[] | undefined;
 }
 
 export interface ResetMessage {

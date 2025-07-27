@@ -146,8 +146,6 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	private _hasComments: boolean;
 	private _comments: readonly IComment[] | undefined;
-	private _onDidChangeComments: vscode.EventEmitter<void> = this._register(new vscode.EventEmitter<void>());
-	public readonly onDidChangeComments: vscode.Event<void> = this._onDidChangeComments.event;
 
 	// Whether the pull request is currently checked out locally
 	private _isActive: boolean;
@@ -226,7 +224,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 
 	set comments(comments: readonly IComment[]) {
 		this._comments = comments;
-		this._onDidChangeComments.fire();
+		this._onDidChange.fire({ comments: true });
 	}
 
 	get fileChangeViewedState(): FileViewedState {
@@ -356,7 +354,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				"pr.approve" : {}
 			*/
 			this._telemetry.sendTelemetryEvent('pr.approve');
-			this._onDidChangeComments.fire();
+			this._onDidChange.fire({ comments: true, timeline: true });
 			return x;
 		});
 	}
@@ -374,8 +372,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			"pr.requestChanges" : {}
 		*/
 		this._telemetry.sendTelemetryEvent('pr.requestChanges');
-		this._onDidChangeComments.fire();
-		this._onDidChange.fire({ timeline: true });
+		this._onDidChange.fire({ timeline: true, comments: true });
 		return action;
 	}
 
@@ -470,8 +467,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 				threadWithComment.viewerCanResolve = true;
 				this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
 			}
-			this._onDidChangeComments.fire();
-			this._onDidChange.fire({ timeline: true });
+			this._onDidChange.fire({ timeline: true, comments: true });
 			return reviewEvent;
 		} else {
 			throw new Error(`Submitting review failed, no pending review for current pull request: ${this.number}.`);
@@ -696,8 +692,7 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 			this._onDidChangeReviewThreads.fire({ added: [], changed: [threadWithComment], removed: [] });
 		}
 
-		this._onDidChangeComments.fire();
-		this._onDidChange.fire({ timeline: true });
+		this._onDidChange.fire({ timeline: true, comments: true });
 		return newComment;
 	}
 

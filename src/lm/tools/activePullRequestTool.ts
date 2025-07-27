@@ -90,7 +90,7 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 	): Promise<string | string[]> {
 		let copilotSteps: string | string[] = [];
 		try {
-			const logs = await this.copilotRemoteAgentManager.getSessionLogFromPullRequest(pullRequest.id);
+			const logs = await this.copilotRemoteAgentManager.getSessionLogFromPullRequest(pullRequest);
 			if (!logs) {
 				throw new Error('Could not get session logs');
 			}

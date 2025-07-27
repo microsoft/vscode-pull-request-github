@@ -31,9 +31,11 @@ export class CommitsNode extends TreeNode implements vscode.TreeItem {
 			Logger.appendLine(`Review threads have changed, refreshing Commits node`, PR_TREE);
 			this.refresh(this);
 		}));
-		this.childrenDisposables.push(this._pr.onDidChangeComments(() => {
-			Logger.appendLine(`Comments have changed, refreshing Commits node`, PR_TREE);
-			this.refresh(this);
+		this.childrenDisposables.push(this._pr.onDidChange(e => {
+			if (e.comments) {
+				Logger.appendLine(`Comments have changed, refreshing Commits node`, PR_TREE);
+				this.refresh(this);
+			}
 		}));
 	}
 

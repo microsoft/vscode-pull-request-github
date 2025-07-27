@@ -9,8 +9,11 @@ import * as vscode from 'vscode';
 import { AuthProvider } from '../common/authentication';
 import Logger from '../common/logger';
 import { ITelemetry } from '../common/telemetry';
-import { CredentialStore } from './credentials';
+import { CredentialStore, GitHub } from './credentials';
+import { PRType } from './interface';
 import { LoggingOctokit } from './loggingOctokit';
+import { PullRequestModel } from './pullRequestModel';
+import { RepositoriesManager } from './repositoriesManager';
 import { hasEnterpriseUri } from './utils';
 
 const LEARN_MORE_URL = 'https://docs.github.com/en/copilot/how-tos/agents/copilot-coding-agent';
@@ -35,10 +38,19 @@ export interface RemoteAgentJobResponse {
 	}
 }
 
+export interface ChatSessionWithPR extends vscode.ChatSessionItem {
+	pullRequest: PullRequestModel;
+}
+
 export class CopilotApi {
 	protected static readonly ID = 'copilotApi';
 
-	constructor(private octokit: LoggingOctokit, private token: string, private telemetry: ITelemetry) { }
+	constructor(
+		private octokit: LoggingOctokit,
+		private token: string,
+		private credentialStore: CredentialStore,
+		private telemetry: ITelemetry
+	) { }
 
 	private get baseUrl(): string {
 		return 'https://api.githubcopilot.com';
@@ -173,6 +185,23 @@ export class CopilotApi {
 		return sessions.sessions;
 	}
 
+	public async getAllCodingAgentPRs(repositoriesManager: RepositoriesManager): Promise<PullRequestModel[]> {
+		const hub = this.getHub();
+		const username = (await hub?.currentUser)?.login;
+		if (!username) {
+			Logger.error('Failed to get GitHub username from auth provider', CopilotApi.ID);
+			return [];
+		}
+		const query = `is:open author:copilot-swe-agent[bot] assignee:${username} is:pr repo:\${owner}/\${repository}`;
+		const allItems = await Promise.all(
+			repositoriesManager.folderManagers.map(async fm => {
+				const result = await fm.getPullRequests(PRType.Query, undefined, query);
+				return result.items;
+			})
+		);
+		return allItems.flat();
+	}
+
 	public async getSessionInfo(sessionId: string): Promise<SessionInfo> {
 		const response = await fetch(`https://api.githubcopilot.com/agents/sessions/${sessionId}`, {
 			method: 'GET',
@@ -201,6 +230,42 @@ export class CopilotApi {
 		}
 		return await logsResponse.text();
 	}
+
+	public async getJobBySessionId(owner: string, repo: string, sessionId: string): Promise<JobInfo | undefined> {
+		try {
+			const response = await fetch(`${this.baseUrl}/agents/swe/v0/jobs/${owner}/${repo}/session/${sessionId}`, {
+				method: 'GET',
+				headers: {
+					'Copilot-Integration-Id': 'copilot-developer-dev',
+					'Authorization': `Bearer ${this.token}`,
+					'Content-Type': 'application/json',
+					'Accept': 'application/json'
+				}
+			});
+			if (!response.ok) {
+				Logger.warn(`Failed to fetch job info for session ${sessionId}: ${response.statusText}`, CopilotApi.ID);
+				return undefined;
+			}
+			const data = await response.json() as JobInfo;
+			return data;
+		} catch (error) {
+			Logger.warn(`Error fetching job info for session ${sessionId}: ${error}`, CopilotApi.ID);
+			return undefined;
+		}
+	}
+
+	private getHub(): GitHub | undefined {
+		let authProvider: AuthProvider | undefined;
+		if (this.credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
+			authProvider = AuthProvider.githubEnterprise;
+		} else if (this.credentialStore.isAuthenticated(AuthProvider.github)) {
+			authProvider = AuthProvider.github;
+		} else {
+			return;
+		}
+
+		return this.credentialStore.getHub(authProvider);
+	}
 }
 
 
@@ -225,6 +290,39 @@ export interface SessionInfo {
 	error: string | null;
 }
 
+export interface SessionSetupStep {
+	name: string;
+	status: 'completed' | 'in_progress' | 'queued';
+}
+
+export interface JobInfo {
+	job_id: string;
+	session_id: string;
+	problem_statement: string;
+	content_filter_mode?: string;
+	status: string;
+	result?: string;
+	actor: {
+		id: number;
+		login: string;
+	};
+	created_at: string;
+	updated_at: string;
+	pull_request: {
+		id: number;
+		number: number;
+	};
+	workflow_run?: {
+		id: number;
+	};
+	error?: {
+		message: string;
+	};
+	event_type?: string;
+	event_url?: string;
+	event_identifiers?: string[];
+}
+
 export async function getCopilotApi(credentialStore: CredentialStore, telemetry: ITelemetry, authProvider?: AuthProvider): Promise<CopilotApi | undefined> {
 	if (!authProvider) {
 		if (credentialStore.isAuthenticated(AuthProvider.githubEnterprise) && hasEnterpriseUri()) {
@@ -242,5 +340,5 @@ export async function getCopilotApi(credentialStore: CredentialStore, telemetry:
 	}
 
 	const { token } = await github.octokit.api.auth() as { token: string };
-	return new CopilotApi(github.octokit, token, telemetry);
+	return new CopilotApi(github.octokit, token, credentialStore, telemetry);
 }

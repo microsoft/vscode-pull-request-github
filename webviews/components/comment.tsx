@@ -413,7 +413,7 @@ export function AddComment({
 			}
 			: commentMethods(isIssue);
 
-	const commentStartingText = pendingCommentText ?? (isCopilotOnMyBehalf ? '@copilot' : '');
+	const commentStartingText = pendingCommentText ?? (isCopilotOnMyBehalf ? '@copilot ' : '');
 
 	return (
 		<form id="comment-form" ref={form as React.MutableRefObject<HTMLFormElement>} className="comment-form main-comment-form" onSubmit={() => submit(textareaRef.current?.value ?? '')}>
@@ -461,6 +461,7 @@ export function AddComment({
 					optionsTitle='Submit pull request review'
 					disabled={isBusy || busy}
 					hasSingleAction={Object.keys(availableActions).length === 1}
+					spreadable={true}
 				/>
 			</div>
 		</form>
@@ -597,6 +598,7 @@ export const AddCommentSimple = (pr: PullRequest) => {
 					optionsTitle='Submit pull request review'
 					disabled={isBusy || pr.busy}
 					hasSingleAction={Object.keys(availableActions).length === 1}
+					spreadable={true}
 				/>
 			</div>
 		</span>

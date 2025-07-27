@@ -29,11 +29,12 @@ export interface IssueChangeEvent {
 	title?: true;
 	body?: true;
 	milestone?: true;
-	updatedAt?: true;
+	// updatedAt?: true;
 	state?: true;
 	labels?: true;
 	assignees?: true;
 	projects?: true;
+	comments?: true;
 
 	timeline?: true;
 
@@ -164,7 +165,6 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 			this.milestone = issue.milestone;
 		}
 		if (this.updatedAt !== issue.updatedAt) {
-			changes.updatedAt = true;
 			this.updatedAt = issue.updatedAt;
 		}
 		const newState = this.stateToStateEnum(issue.state);
@@ -528,11 +528,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 					const newEvents = timelineEvents.filter(event => (eventTime(event) ?? 0) > oldEventTime);
 					allEvents = [...issueModel.timelineEvents, ...newEvents];
 				}
-				const oldTimeline = issueModel.timelineEvents;
 				issueModel.timelineEvents = allEvents;
-				if (oldLastEvent && (allEvents.length !== oldTimeline.length)) {
-					this._onDidChange.fire({ timeline: true });
-				}
 			}
 			return timelineEvents;
 		} catch (e) {
