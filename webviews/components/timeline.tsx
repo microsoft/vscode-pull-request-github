@@ -107,7 +107,6 @@ export default Timeline;
 
 const CommitEventView = (event: CommitEvent) => {
 	const context = useContext(PullRequestContext);
-	const pr = context.pr;
 
 	const handleCommitClick = (e: React.MouseEvent) => {
 		e.preventDefault();
