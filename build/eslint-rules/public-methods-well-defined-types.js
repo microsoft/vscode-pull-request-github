@@ -11,8 +11,6 @@
  * from any public method.
  */
 
-const { ESLintUtils } = require('@typescript-eslint/utils');
-
 module.exports = {
 	meta: {
 		type: 'problem',
@@ -108,7 +106,7 @@ module.exports = {
 				}
 
 				const returnTypeNode = functionNode.returnType.typeAnnotation;
-				
+
 				// Check if the return type is an inline type
 				if (isInlineType(returnTypeNode)) {
 					const methodName = node.key.type === 'Identifier' ? node.key.name : '<computed>';
@@ -138,14 +136,14 @@ module.exports = {
 				// Check if the property is an arrow function
 				if (node.value && node.value.type === 'ArrowFunctionExpression') {
 					const arrowFunction = node.value;
-					
+
 					// Check if the arrow function has a return type annotation
 					if (!arrowFunction.returnType) {
 						return; // No explicit return type, skip
 					}
 
 					const returnTypeNode = arrowFunction.returnType.typeAnnotation;
-					
+
 					// Check if the return type is an inline type
 					if (isInlineType(returnTypeNode)) {
 						const methodName = node.key.type === 'Identifier' ? node.key.name : '<computed>';
