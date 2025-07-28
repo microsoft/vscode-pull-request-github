@@ -908,7 +908,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		if (sessionIndex === 0) {
 			sessionPrompt = await this.getInitialSessionPrompt(session, pullRequest, capi, sessionPrompt);
 		} else {
-			sessionPrompt = await this.getFollowUpSessionPrompt(sessionIndex, timelineEvents, sessionPrompt);
+			sessionPrompt = await this.getFollowUpSessionPrompt(session, sessionIndex, pullRequest, timelineEvents, capi, sessionPrompt);
 		}
 
 		// TODO: @rebornix, remove @copilot prefix from session prompt for now
@@ -944,10 +944,34 @@ export class CopilotRemoteAgentManager extends Disposable {
 	}
 
 	private async getFollowUpSessionPrompt(
+		session: SessionInfo,
 		sessionIndex: number,
+		pullRequest: PullRequestModel,
 		timelineEvents: readonly TimelineEvent[],
+		capi: CopilotApi,
 		defaultPrompt: string
 	): Promise<string> {
+		// First, try to get problem statement from Jobs API (similar to initial session)
+		try {
+			const jobInfo = await capi.getJobBySessionId(
+				pullRequest.base.repositoryCloneUrl.owner,
+				pullRequest.base.repositoryCloneUrl.repositoryName,
+				session.id
+			);
+			if (jobInfo && jobInfo.problem_statement) {
+				let prompt = jobInfo.problem_statement;
+				const titleMatch = jobInfo.problem_statement.match(/TITLE: \s*(.*)/i);
+				if (titleMatch && titleMatch[1]) {
+					prompt = titleMatch[1].trim();
+				}
+				Logger.appendLine(`Session ${sessionIndex}: Found problem_statement from Jobs API: ${prompt}`, CopilotRemoteAgentManager.ID);
+				return prompt;
+			}
+		} catch (error) {
+			Logger.warn(`Failed to get job info for session ${session.id}: ${error}`, CopilotRemoteAgentManager.ID);
+		}
+
+		// If no problem statement found, fall back to timeline event-based logic
 		const copilotStartedEvents = timelineEvents
 			.filter((event): event is CopilotStartedEvent => event.event === EventType.CopilotStarted)
 			.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
