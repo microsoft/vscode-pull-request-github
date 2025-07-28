@@ -276,7 +276,7 @@ export interface SessionInfo {
 	agent_id: number;
 	logs: string;
 	logs_blob_id: string;
-	state: 'completed' | 'in_progress' | string;
+	state: 'completed' | 'in_progress' | 'failed' | string;
 	owner_id: number;
 	repo_id: number;
 	resource_type: string;

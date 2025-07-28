@@ -1376,7 +1376,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				responseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
 			}
 
-			if (session.state === 'completed') {
+			if (session.state === 'completed' || session.state === 'failed' /** session can fail with proposed changes */) {
 				const fileChangesPart = await this.getFileChangesMultiDiffPart(pullRequest);
 				if (fileChangesPart) {
 					responseParts.push(fileChangesPart);
