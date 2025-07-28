@@ -1152,6 +1152,22 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		return new Promise<void>((resolve, reject) => {
 			const complete = async () => {
+				// Generate and add pull request reference link for the active response callback stream
+				try {
+					const prLinkUri = await toOpenPullRequestWebviewUri({
+						owner: pullRequest.remote.owner,
+						repo: pullRequest.remote.repositoryName,
+						pullRequestNumber: pullRequest.number
+					});
+					const referencePart = new vscode.ChatResponseReferencePart2(
+						prLinkUri,
+						new vscode.ThemeIcon('git-pull-request')
+					);
+					stream.push(referencePart);
+				} catch (error) {
+					Logger.error(`Failed to generate pull request reference link in stream: ${error}`, CopilotRemoteAgentManager.ID);
+				}
+
 				const multiDiffPart = await this.getFileChangesMultiDiffPart(pullRequest);
 				if (multiDiffPart) {
 					stream.push(multiDiffPart);
@@ -1340,7 +1356,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	private async parseSessionLogsIntoResponseTurn(pullRequest: PullRequestModel, logs: string, session: SessionInfo): Promise<vscode.ChatResponseTurn2 | undefined> {
 		try {
 			const logChunks = parseSessionLogs(logs);
-			const responseParts: Array<vscode.ChatResponseMarkdownPart | vscode.ChatToolInvocationPart | vscode.ChatResponseMultiDiffPart> = [];
+			const responseParts: Array<vscode.ChatResponseMarkdownPart | vscode.ChatToolInvocationPart | vscode.ChatResponseMultiDiffPart | vscode.ChatResponseReferencePart2> = [];
 			let currentResponseContent = '';
 
 			for (const chunk of logChunks) {
@@ -1374,6 +1390,22 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			if (currentResponseContent.trim()) {
 				responseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
+			}
+
+			// Generate and add pull request reference link for the last stream session (active response callback stream)
+			try {
+				const prLinkUri = await toOpenPullRequestWebviewUri({
+					owner: pullRequest.remote.owner,
+					repo: pullRequest.remote.repositoryName,
+					pullRequestNumber: pullRequest.number
+				});
+				const referencePart = new vscode.ChatResponseReferencePart2(
+					prLinkUri,
+					new vscode.ThemeIcon('git-pull-request')
+				);
+				responseParts.push(referencePart);
+			} catch (error) {
+				Logger.error(`Failed to generate pull request reference link: ${error}`, CopilotRemoteAgentManager.ID);
 			}
 
 			if (session.state === 'completed') {
