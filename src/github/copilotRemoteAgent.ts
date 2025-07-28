@@ -781,7 +781,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				}
 				return {
 					id: `${session.number}`,
-					label: session.title || `Session ${session.number}`,
+					label: session.title || this.generateSessionIdentifier(session.number),
 					iconPath: this.getIconForSession(status),
 					pullRequest: session
 				};
@@ -903,7 +903,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		timelineEvents: readonly TimelineEvent[],
 		capi: CopilotApi
 	): Promise<string> {
-		let sessionPrompt = session.name || `Session ${sessionIndex + 1} (ID: ${session.id})`;
+		let sessionPrompt = session.name || this.generateSessionIdentifier(sessionIndex + 1, session.id);
 
 		if (sessionIndex === 0) {
 			sessionPrompt = await this.getInitialSessionPrompt(session, pullRequest, capi, sessionPrompt);
@@ -986,6 +986,19 @@ export class CopilotRemoteAgentManager extends Disposable {
 			return new Date(copilotFinishedEvents[sessionIndex - 1].createdAt).getTime();
 		}
 		return 0;
+	}
+
+	/**
+	 * Generates a session identifier string in various formats
+	 * @param sessionNumber The session number (1-based)
+	 * @param sessionId Optional session ID to include in the identifier
+	 * @returns Formatted session identifier string
+	 */
+	private generateSessionIdentifier(sessionNumber: number, sessionId?: string): string {
+		if (sessionId) {
+			return `Session ${sessionNumber} (ID: ${sessionId})`;
+		}
+		return `Session ${sessionNumber}`;
 	}
 
 	private findRelevantTimelineEvents(
