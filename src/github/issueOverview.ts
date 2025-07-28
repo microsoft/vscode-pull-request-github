@@ -274,15 +274,32 @@ export class IssueOverviewPanel<TItem extends IssueModel = IssueModel> extends W
 		}
 	}
 
-	public async update(foldersManager: FolderRepositoryManager, issueModel: TItem): Promise<void> {
-		this._folderRepositoryManager = foldersManager;
+	protected registerPrListeners() {
+		// none for issues
+	}
+
+	public async update(foldersManager: FolderRepositoryManager, issueModel: TItem, progressLocation?: string): Promise<void> {
+		if (this._folderRepositoryManager !== foldersManager) {
+			this._folderRepositoryManager = foldersManager;
+			this.registerPrListeners();
+		}
+
 		this._postMessage({
 			command: 'set-scroll',
 			scrollPosition: this._scrollPosition,
 		});
 
-		this._panel.webview.html = this.getHtmlForWebview();
-		return this.updateItem(issueModel);
+		if (!this._item || (this._item.number !== issueModel.number) || !this._panel.webview.html) {
+			this._panel.webview.html = this.getHtmlForWebview();
+			this._postMessage({ command: 'pr.clear' });
+
+		}
+
+		if (progressLocation) {
+			return vscode.window.withProgress({ location: { viewId: progressLocation } }, () => this.updateItem(issueModel));
+		} else {
+			return this.updateItem(issueModel);
+		}
 	}
 
 	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
