@@ -71,7 +71,7 @@
 	"contributes": {
 		"chatSessions": [
 			{
-				"id": "copilot-swe-agent",
+				"type": "copilot-swe-agent",
 				"name": "copilot",
 				"displayName": "GitHub Copilot Coding Agent",
 				"description": "Chat session for GitHub Copilot coding agent"
