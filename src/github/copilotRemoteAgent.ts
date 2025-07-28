@@ -61,7 +61,6 @@ const PUSH_CHANGES = vscode.l10n.t('Include changes');
 const CONTINUE_WITHOUT_PUSHING = vscode.l10n.t('Ignore changes');
 const COMMIT_YOUR_CHANGES = vscode.l10n.t('Commit your changes to continue coding agent session. Close integrated terminal to cancel.');
 
-const FOLLOW_UP_REGEX = /open-pull-request-webview.*((%7B.*?%7D)|(\{.*?\}))/;
 const COPILOT = '@copilot';
 
 const body_suffix = vscode.l10n.t('Created from VS Code via the [GitHub Pull Request](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github) extension.');

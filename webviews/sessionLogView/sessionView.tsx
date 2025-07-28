@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import MarkdownIt from 'markdown-it';
-import type monacoType from 'monaco-editor';
+import type { languages as monacoLanguages } from 'monaco-editor/esm/vs/editor/editor.api';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.main';
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
@@ -260,7 +260,7 @@ const MarkdownContent: React.FC<MarkdownContentProps> = ({ content }) => {
 };
 
 function getLanguageForResource(filePath: string): string | undefined {
-	const langs = (monaco.languages as typeof monacoType.languages).getLanguages();
+	const langs = (monaco.languages as typeof monacoLanguages).getLanguages();
 	for (const lang of langs) {
 		if (lang.extensions && lang.extensions.some(ext => filePath.endsWith(ext))) {
 			return lang.id;
