@@ -12,7 +12,7 @@ import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { GitHubRemote } from '../common/remote';
-import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED } from '../common/settingKeys';
+import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_PROMPT_FOR_CONFIRMATION, CODING_AGENT_ENABLED } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { CommentEvent, CopilotFinishedEvent, CopilotStartedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { DataUri, toOpenPullRequestWebviewUri } from '../common/uri';
@@ -59,6 +59,7 @@ const CONTINUE = vscode.l10n.t('Continue');
 // With Pending Changes
 const PUSH_CHANGES = vscode.l10n.t('Include changes');
 const CONTINUE_WITHOUT_PUSHING = vscode.l10n.t('Ignore changes');
+const CONTINUE_AND_DO_NOT_ASK_AGAIN = vscode.l10n.t('Continue and don\'t ask again');
 const COMMIT_YOUR_CHANGES = vscode.l10n.t('Commit your changes to continue coding agent session. Close integrated terminal to cancel.');
 
 const COPILOT = '@copilot';
@@ -150,6 +151,11 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return vscode.workspace
 			.getConfiguration(CODING_AGENT).get(CODING_AGENT_ENABLED, false);
 	}
+
+	promptForConfirmation(): boolean {
+		return vscode.workspace
+			.getConfiguration(CODING_AGENT).get(CODING_AGENT_PROMPT_FOR_CONFIRMATION, true);
+	};
 
 	async isAssignable(): Promise<boolean> {
 		const repoInfo = await this.repoInfo();
@@ -320,7 +326,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 		let autoPushAndCommit = false;
 		const message = vscode.l10n.t('Copilot coding agent will continue your work in \'{0}\'.', repoName);
-		const detail = vscode.l10n.t('Your current chat session will end, and its context will be used to continue your work in a new pull request.');
+		const detail = vscode.l10n.t('Your chat context will be used to continue work in a new pull request.');
 		if (source !== 'prompt' && hasChanges && this.autoCommitAndPushEnabled()) {
 			// Pending changes modal
 			const modalResult = await vscode.window.showInformationMessage(
@@ -352,7 +358,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 			if (modalResult === PUSH_CHANGES) {
 				autoPushAndCommit = true;
 			}
-		} else {
+		} else if (this.promptForConfirmation()) {
 			// No pending changes modal
 			const modalResult = await vscode.window.showInformationMessage(
 				source !== 'prompt' ? message : vscode.l10n.t('Copilot coding agent will implement the specification outlined in this prompt file'),
@@ -361,10 +367,15 @@ export class CopilotRemoteAgentManager extends Disposable {
 					detail: source !== 'prompt' ? detail : undefined
 				},
 				CONTINUE,
+				CONTINUE_AND_DO_NOT_ASK_AGAIN,
 				LEARN_MORE,
 			);
 			if (!modalResult) {
 				return;
+			}
+
+			if (modalResult === CONTINUE_AND_DO_NOT_ASK_AGAIN) {
+				await vscode.workspace.getConfiguration(CODING_AGENT).update(CODING_AGENT_PROMPT_FOR_CONFIRMATION, false, vscode.ConfigurationTarget.Global);
 			}
 
 			if (modalResult === LEARN_MORE) {
