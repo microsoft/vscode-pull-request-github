@@ -2161,7 +2161,7 @@
 					"command": "pr.copyVscodeDevPrLink",
 					"when": "github:inReviewMode && remoteName != codespaces && embedderIdentifier != github.dev"
 				},
-{
+				{
 					"command": "pr.copyPrLink",
 					"when": "false"
 				},
@@ -3353,7 +3353,6 @@
 					"command": "pr.openSessionLogFromDescription",
 					"when": "webviewId == PullRequestOverview && github:codingAgentMenu"
 				}
-
 			],
 			"chat/chatSessions": [
 				{
@@ -4032,7 +4031,7 @@
 		"compile:test": "tsc -p tsconfig.test.json",
 		"compile:node": "webpack --mode development --config-name extension:node --config-name webviews",
 		"compile:web": "webpack --mode development --config-name extension:webworker --config-name webviews",
-		"lint": "eslint --fix --cache --config .eslintrc.json --ignore-pattern src/env/browser/**/* \"{src,webviews}/**/*.{ts,tsx}\"",
+		"lint": "eslint --fix --cache --config .eslintrc.js --ignore-pattern src/env/browser/**/* \"{src,webviews}/**/*.{ts,tsx}\"",
 		"lint:browser": "eslint --fix --cache --cache-location .eslintcache.browser --config .eslintrc.browser.json --ignore-pattern src/env/node/**/* \"{src,webviews}/**/*.{ts,tsx}\"",
 		"package": "npx vsce package --yarn",
 		"test": "yarn run test:preprocess && node ./out/src/test/runTests.js",
@@ -4075,6 +4074,7 @@
 		"eslint": "7.22.0",
 		"eslint-cli": "1.1.1",
 		"eslint-plugin-import": "2.22.1",
+		"eslint-plugin-rulesdir": "^0.2.2",
 		"event-stream": "^4.0.1",
 		"fork-ts-checker-webpack-plugin": "6.1.1",
 		"glob": "7.1.6",
