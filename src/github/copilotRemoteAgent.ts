@@ -768,6 +768,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 				return [];
 			}
 
+			await this.waitRepoManagerInitialization();
+
 			const codingAgentPRs = await capi.getAllCodingAgentPRs(this.repositoriesManager);
 			return await Promise.all(codingAgentPRs.map(async session => {
 				const timeline = await session.getTimelineEvents(session);
