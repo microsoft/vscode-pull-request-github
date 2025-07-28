@@ -2796,6 +2796,11 @@ eslint-plugin-import@2.22.1:
     resolve "^1.17.0"
     tsconfig-paths "^3.9.0"
 
+eslint-plugin-rulesdir@^0.2.2:
+  version "0.2.2"
+  resolved "https://registry.yarnpkg.com/eslint-plugin-rulesdir/-/eslint-plugin-rulesdir-0.2.2.tgz#84756ec39cd8503b1fe8af6a02a5da361e2bd076"
+  integrity sha512-qhBtmrWgehAIQeMDJ+Q+PnOz1DWUZMPeVrI0wE9NZtnpIMFUfh3aPKFYt2saeMSemZRrvUtjWfYwepsC8X+mjQ==
+
 eslint-scope@5.1.1, eslint-scope@^5.1.1:
   version "5.1.1"
   resolved "https://registry.yarnpkg.com/eslint-scope/-/eslint-scope-5.1.1.tgz#e786e59a66cb92b3f6c1fb0d508aab174848f48c"
