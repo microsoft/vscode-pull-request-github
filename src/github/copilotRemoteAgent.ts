@@ -1139,6 +1139,43 @@ export class CopilotRemoteAgentManager extends Disposable {
 		}
 	}
 
+	private async streamSetupSteps(stream: vscode.ChatResponseStream, pullRequest: PullRequestModel): Promise<boolean> {
+		try {
+			const setupSteps = await this.getWorkflowStepsFromAction(pullRequest);
+			if (!setupSteps || setupSteps.length === 0) {
+				return false;
+			}
+
+			// Stream setup steps as markdown
+			stream.markdown('### Environment Setup\n\n');
+			
+			// Show completed steps and the first non-completed step (similar to session log editor)
+			const stepsToShow: SessionSetupStep[] = [];
+			let foundNonCompleted = false;
+
+			for (const step of setupSteps) {
+				if (step.status === 'completed') {
+					stepsToShow.push(step);
+				} else if (!foundNonCompleted) {
+					stepsToShow.push(step);
+					foundNonCompleted = true;
+				}
+			}
+
+			for (const step of stepsToShow) {
+				const icon = step.status === 'completed' ? '✅' : 
+							step.status === 'in_progress' ? '🔄' : '⏳';
+				stream.markdown(`${icon} ${step.name}\n`);
+			}
+
+			stream.markdown('\n');
+			return true;
+		} catch (error) {
+			Logger.warn(`Failed to stream setup steps: ${error}`, CopilotRemoteAgentManager.ID);
+			return false;
+		}
+	}
+
 	private async streamSessionLogs(stream: vscode.ChatResponseStream, pullRequest: PullRequestModel, sessionId: string, token: vscode.CancellationToken): Promise<void> {
 		const capi = await this.copilotApi;
 		if (!capi || token.isCancellationRequested) {
@@ -1148,6 +1185,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		let lastLogLength = 0;
 		let lastProcessedLength = 0;
 		let hasActiveProgress = false;
+		let hasStreamedSetupSteps = false;
 		const pollingInterval = 3000; // 3 seconds
 
 		return new Promise<void>((resolve, reject) => {
@@ -1213,9 +1251,22 @@ export class CopilotRemoteAgentManager extends Disposable {
 					lastLogLength = logs.length;
 
 					if (!token.isCancellationRequested && sessionInfo.state === 'in_progress') {
+						// If we have no logs yet and haven't streamed setup steps, try to show setup progress
+						if (logs.trim().length === 0 && !hasStreamedSetupSteps) {
+							Logger.appendLine(`No logs available, attempting to stream setup steps`, CopilotRemoteAgentManager.ID);
+							const didStreamSetupSteps = await this.streamSetupSteps(stream, pullRequest);
+							if (didStreamSetupSteps) {
+								hasStreamedSetupSteps = true;
+								hasActiveProgress = false; // Reset progress since we showed content
+								Logger.appendLine(`Setup steps streamed successfully`, CopilotRemoteAgentManager.ID);
+							}
+						}
+
+						// Only show generic progress if we haven't shown setup steps and no active progress
 						if (!hasActiveProgress) {
-							Logger.appendLine(`Showing progress indicator (hasActiveProgress was false)`, CopilotRemoteAgentManager.ID);
-							stream.progress('Working...');
+							const progressMessage = hasStreamedSetupSteps ? 'Initializing session...' : 'Working...';
+							Logger.appendLine(`Showing progress indicator: ${progressMessage}`, CopilotRemoteAgentManager.ID);
+							stream.progress(progressMessage);
 							hasActiveProgress = true;
 						} else {
 							Logger.appendLine(`NOT showing progress indicator (hasActiveProgress was true)`, CopilotRemoteAgentManager.ID);
