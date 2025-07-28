@@ -57,6 +57,14 @@ module.exports = {
 				case 'TSConditionalType':
 					return true;
 
+				// Type references with inline type arguments: Promise<{x: string}>, Array<{y: number}>
+				case 'TSTypeReference':
+					// Check if any type arguments contain inline types
+					if (typeNode.typeParameters && typeNode.typeParameters.params) {
+						return typeNode.typeParameters.params.some(isInlineType);
+					}
+					return false;
+
 				default:
 					return false;
 			}
