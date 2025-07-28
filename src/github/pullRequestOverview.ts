@@ -147,7 +147,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		}));
 	}
 
-	registerPrListeners() {
+	protected override registerPrListeners() {
 		disposeAll(this._prListeners);
 		this._prListeners.push(this._folderRepositoryManager.onDidChangeActivePullRequest(_ => {
 			if (this._folderRepositoryManager && this._item) {
@@ -321,22 +321,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		folderRepositoryManager: FolderRepositoryManager,
 		pullRequestModel: PullRequestModel,
 	): Promise<void> {
+		const result = super.update(folderRepositoryManager, pullRequestModel, 'pr:github');
 		if (this._folderRepositoryManager !== folderRepositoryManager) {
-			this._folderRepositoryManager = folderRepositoryManager;
 			this.registerPrListeners();
 		}
 
-		this._postMessage({
-			command: 'set-scroll',
-			scrollPosition: this._scrollPosition,
-		});
-
-		if (!this._item || (this._item.number !== pullRequestModel.number) || !this._panel.webview.html) {
-			this._panel.webview.html = this.getHtmlForWebview();
-		}
-
-		const result = vscode.window.withProgress({ location: { viewId: 'pr:github' } }, () => this.updateItem(pullRequestModel));
-
+		await result;
 		// Notify that this PR overview is now active
 		PullRequestOverviewPanel._onVisible.fire(pullRequestModel);
 
