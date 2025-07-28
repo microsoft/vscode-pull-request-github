@@ -112,6 +112,17 @@ const SessionLog: React.FC<SessionLogProps> = ({ logs }) => {
 		if (choice.delta.role === 'assistant') {
 			if (choice.finish_reason === 'stop' && choice.delta.content.startsWith('<pr_title>')) {
 				return;
+			} if (choice.finish_reason === 'tool_calls' && choice.delta.tool_calls?.length && choice.delta.tool_calls[0].function.name === 'run_custom_setup_step') {
+				const toolCall = choice.delta.tool_calls[0];
+				const args = JSON.parse(toolCall.function.arguments);
+
+				return (
+					<CodeView
+						key={`setup-steps-${index}`}
+						label={args.name || 'Setup Step'}
+						content={{ value: choice.delta.content, lang: 'markdown' }}
+					/>
+				);
 			} else {
 				// For markdown content, use a custom renderer component
 				return (

@@ -1082,34 +1082,59 @@ export class CopilotRemoteAgentManager extends Disposable {
 		};
 	}
 
-	private async streamNewLogContent(stream: vscode.ChatResponseStream, newLogContent: string): Promise<boolean> {
+	private async streamNewLogContent(stream: vscode.ChatResponseStream, newLogContent: string): Promise<{ hasStreamedContent: boolean; hasSetupStepProgress: boolean }> {
 		try {
 			if (!newLogContent.trim()) {
-				return false;
+				return { hasStreamedContent: false, hasSetupStepProgress: false };
 			}
 
 			// Parse the new log content
 			const logChunks = parseSessionLogs(newLogContent);
 			let hasStreamedContent = false;
+			let hasSetupStepProgress = false;
 
 			for (const chunk of logChunks) {
 				for (const choice of chunk.choices) {
 					const delta = choice.delta;
 
 					if (delta.role === 'assistant') {
-						if (delta.content) {
-							if (!delta.content.startsWith('<pr_title>')) {
-								stream.markdown(delta.content);
-								hasStreamedContent = true;
+						// Handle special case for run_custom_setup_step
+						if (choice.finish_reason === 'tool_calls' && delta.tool_calls?.length && delta.tool_calls[0].function.name === 'run_custom_setup_step') {
+							const toolCall = delta.tool_calls[0];
+							let args: any = {};
+							try {
+								args = JSON.parse(toolCall.function.arguments);
+							} catch {
+								// fallback to empty args
 							}
-						}
 
-						if (delta.tool_calls) {
-							for (const toolCall of delta.tool_calls) {
-								const toolPart = this.createToolInvocationPart(toolCall, delta.content || '');
+							if (delta.content && delta.content.trim()) {
+								// Finished setup step - create/update tool part
+								const toolPart = this.createToolInvocationPart(toolCall, args.name || delta.content);
 								if (toolPart) {
 									stream.push(toolPart);
 									hasStreamedContent = true;
+								}
+							} else {
+								// Running setup step - just track progress
+								hasSetupStepProgress = true;
+								Logger.appendLine(`Setup step in progress: ${args.name || 'Unknown step'}`, CopilotRemoteAgentManager.ID);
+							}
+						} else {
+							if (delta.content) {
+								if (!delta.content.startsWith('<pr_title>')) {
+									stream.markdown(delta.content);
+									hasStreamedContent = true;
+								}
+							}
+
+							if (delta.tool_calls) {
+								for (const toolCall of delta.tool_calls) {
+									const toolPart = this.createToolInvocationPart(toolCall, delta.content || '');
+									if (toolPart) {
+										stream.push(toolPart);
+										hasStreamedContent = true;
+									}
 								}
 							}
 						}
@@ -1124,13 +1149,15 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 			if (hasStreamedContent) {
 				Logger.appendLine(`Streamed content (markdown or tool parts), progress should be cleared`, CopilotRemoteAgentManager.ID);
+			} else if (hasSetupStepProgress) {
+				Logger.appendLine(`Setup step progress detected, keeping progress indicator`, CopilotRemoteAgentManager.ID);
 			} else {
 				Logger.appendLine(`No actual content streamed, progress may still be showing`, CopilotRemoteAgentManager.ID);
 			}
-			return hasStreamedContent;
+			return { hasStreamedContent, hasSetupStepProgress };
 		} catch (error) {
 			Logger.error(`Error streaming new log content: ${error}`, CopilotRemoteAgentManager.ID);
-			return false;
+			return { hasStreamedContent: false, hasSetupStepProgress: false };
 		}
 	}
 
@@ -1181,8 +1208,8 @@ export class CopilotRemoteAgentManager extends Disposable {
 					if (sessionInfo.state !== 'in_progress') {
 						if (logs.length > lastProcessedLength) {
 							const newLogContent = logs.slice(lastProcessedLength);
-							const didStreamContent = await this.streamNewLogContent(stream, newLogContent);
-							if (didStreamContent) {
+							const streamResult = await this.streamNewLogContent(stream, newLogContent);
+							if (streamResult.hasStreamedContent) {
 								hasActiveProgress = false;
 							}
 						}
@@ -1194,12 +1221,15 @@ export class CopilotRemoteAgentManager extends Disposable {
 					if (logs.length > lastLogLength) {
 						Logger.appendLine(`New logs detected, attempting to stream content`, CopilotRemoteAgentManager.ID);
 						const newLogContent = logs.slice(lastProcessedLength);
-						const didStreamContent = await this.streamNewLogContent(stream, newLogContent);
+						const streamResult = await this.streamNewLogContent(stream, newLogContent);
 						lastProcessedLength = logs.length;
 
-						if (didStreamContent) {
+						if (streamResult.hasStreamedContent) {
 							Logger.appendLine(`Content was streamed, resetting hasActiveProgress to false`, CopilotRemoteAgentManager.ID);
 							hasActiveProgress = false;
+						} else if (streamResult.hasSetupStepProgress) {
+							Logger.appendLine(`Setup step progress detected, keeping progress active`, CopilotRemoteAgentManager.ID);
+							// Keep hasActiveProgress as is, don't reset it
 						} else {
 							Logger.appendLine(`No content was streamed, keeping hasActiveProgress as ${hasActiveProgress}`, CopilotRemoteAgentManager.ID);
 						}
@@ -1343,23 +1373,49 @@ export class CopilotRemoteAgentManager extends Disposable {
 					const delta = choice.delta;
 
 					if (delta.role === 'assistant') {
-						if (delta.content) {
-							if (!delta.content.startsWith('<pr_title>')) {
-								currentResponseContent += delta.content;
-							}
-						}
-
-						if (delta.tool_calls) {
-							// Add any accumulated content as markdown first
-							if (currentResponseContent.trim()) {
-								responseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
-								currentResponseContent = '';
+						// Handle special case for run_custom_setup_step
+						if (choice.finish_reason === 'tool_calls' && delta.tool_calls?.length && delta.tool_calls[0].function.name === 'run_custom_setup_step') {
+							const toolCall = delta.tool_calls[0];
+							let args: any = {};
+							try {
+								args = JSON.parse(toolCall.function.arguments);
+							} catch {
+								// fallback to empty args
 							}
 
-							for (const toolCall of delta.tool_calls) {
-								const toolPart = this.createToolInvocationPart(toolCall, delta.content || '');
+							// Ignore if delta.content is empty/undefined (running state)
+							if (delta.content && delta.content.trim()) {
+								// Add any accumulated content as markdown first
+								if (currentResponseContent.trim()) {
+									responseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
+									currentResponseContent = '';
+								}
+
+								const toolPart = this.createToolInvocationPart(toolCall, args.name || delta.content);
 								if (toolPart) {
 									responseParts.push(toolPart);
+								}
+							}
+							// Skip if content is empty (running state)
+						} else {
+							if (delta.content) {
+								if (!delta.content.startsWith('<pr_title>')) {
+									currentResponseContent += delta.content;
+								}
+							}
+
+							if (delta.tool_calls) {
+								// Add any accumulated content as markdown first
+								if (currentResponseContent.trim()) {
+									responseParts.push(new vscode.ChatResponseMarkdownPart(currentResponseContent.trim()));
+									currentResponseContent = '';
+								}
+
+								for (const toolCall of delta.tool_calls) {
+									const toolPart = this.createToolInvocationPart(toolCall, delta.content || '');
+									if (toolPart) {
+										responseParts.push(toolPart);
+									}
 								}
 							}
 						}
