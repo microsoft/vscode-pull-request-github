@@ -4,11 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { COPILOT_ACCOUNTS } from '../common/comment';
 import { COPILOT_LOGINS, copilotEventToStatus, CopilotPRStatus } from '../common/copilot';
 import { Disposable } from '../common/lifecycle';
 import { PR_SETTINGS_NAMESPACE, QUERIES } from '../common/settingKeys';
 import { FolderRepositoryManager } from './folderRepositoryManager';
 import { PullRequestModel } from './pullRequestModel';
+import { PullRequestOverviewPanel } from './pullRequestOverview';
 import { RepositoriesManager } from './repositoriesManager';
 import { variableSubstitution } from './utils';
 
@@ -77,10 +79,15 @@ export class CopilotStateModel extends Disposable {
 		return Array.from(this._states.keys());
 	}
 
-	clearNotifications(): void {
-		const items = Array.from(this._showNotification).map(key => this._states.get(key)?.item).filter((item): item is PullRequestModel => !!item);
-		this._showNotification.clear();
-		this._onDidChangeNotifications.fire(items);
+	clearNotification(owner: string, repo: string, prNumber: number): void {
+		const key = this.makeKey(owner, repo, prNumber);
+		if (this._showNotification.has(key)) {
+			this._showNotification.delete(key);
+			const item = this._states.get(key)?.item;
+			if (item) {
+				this._onDidChangeNotifications.fire([item]);
+			}
+		}
 	}
 
 	get notifications(): ReadonlySet<string> {
@@ -133,6 +140,7 @@ export class CopilotPRWatcher extends Disposable {
 		this._getStateChanges();
 		this._pollForChanges();
 		this._register(this._reposManager.onDidChangeAnyPullRequests(() => this._getStateChanges()));
+		this._register(PullRequestOverviewPanel.onVisible(e => this._model.clearNotification(e.remote.owner, e.remote.repositoryName, e.number)));
 
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(`${PR_SETTINGS_NAMESPACE}.${QUERIES}`)) {
@@ -187,11 +195,14 @@ export class CopilotPRWatcher extends Disposable {
 			for (const pr of prs?.items ?? []) {
 				unseenKeys.delete(this._model.makeKey(pr.remote.owner, pr.remote.repositoryName, pr.number));
 				const copilotEvents = await pr.getCopilotTimelineEvents(pr);
-				if (copilotEvents.length === 0) {
-					continue;
+				let latestEvent = copilotEventToStatus(copilotEvents[copilotEvents.length - 1]);
+				if (latestEvent === CopilotPRStatus.None) {
+					if (!COPILOT_ACCOUNTS[pr.author.login]) {
+						continue;
+					}
+					latestEvent = CopilotPRStatus.Started;
 				}
 				const lastStatus = this._model.get(pr.remote.owner, pr.remote.repositoryName, pr.number) ?? CopilotPRStatus.None;
-				const latestEvent = copilotEventToStatus(copilotEvents[copilotEvents.length - 1]);
 				if (latestEvent !== lastStatus) {
 					stateChanges.push({
 						owner: pr.remote.owner,

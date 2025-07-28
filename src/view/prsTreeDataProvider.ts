@@ -83,7 +83,6 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 
 		this._register(this._view.onDidChangeVisibility(e => {
 			if (e.visible) {
-				this._clearNotificationsWithDelay();
 				// Sync with currently active PR when view becomes visible
 				const currentPR = PullRequestOverviewPanel.getCurrentPullRequest();
 				if (currentPR) {
@@ -102,6 +101,10 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		});
 
 		this._register(this._copilotManager.onDidChangeStates(() => {
+			this.refresh(undefined);
+		}));
+
+		this._register(this._copilotManager.onDidChangeNotifications(() => {
 			if (this._copilotManager.notificationsCount > 0) {
 				this._view.badge = {
 					tooltip: this._copilotManager.notificationsCount === 1 ? vscode.l10n.t('Coding agent has 1 pull request to view') : vscode.l10n.t('Coding agent has {0} pull requests to view', this._copilotManager.notificationsCount),
@@ -110,9 +113,6 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 			} else {
 				this._view.badge = undefined;
 			}
-
-			// also need to refresh the Copilot query category to update the status
-			this.refresh(undefined);
 		}));
 
 		this._register(this._copilotManager.onDidCreatePullRequest(() => this.refresh(undefined, true)));
@@ -169,18 +169,6 @@ export class PullRequestsTreeDataProvider extends Disposable implements vscode.T
 		this._register(this._view.onDidCollapseElement(collapsed => {
 			this.prsTreeModel.updateExpandedQueries(collapsed.element, false);
 		}));
-	}
-
-	private _clearNotificationsWithDelay() {
-		if (this._notificationClearTimeout) {
-			return;
-		}
-		// Clear notifications with a delay of 5 seconds)
-		this._notificationClearTimeout = setTimeout(() => {
-			this._copilotManager.clearNotifications();
-			this._view.badge = undefined;
-			this._notificationClearTimeout = undefined;
-		}, 5000);
 	}
 
 	public async expandPullRequest(pullRequest: PullRequestModel) {
