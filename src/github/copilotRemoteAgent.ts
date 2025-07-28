@@ -414,7 +414,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		} else {
 			await this.provideChatSessions(new vscode.CancellationTokenSource().token);
 			if (pr) {
-				vscode.window.showChatSession('copilot-swe-agent', `${pr.id}`, {});
+				vscode.window.showChatSession('copilot-swe-agent', `${pr.number}`, {});
 			}
 		}
 
