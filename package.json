@@ -524,6 +524,14 @@
 						"experimental"
 					]
 				},
+				"githubPullRequests.codingAgent.promptForConfirmation": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "%githubPullRequests.codingAgent.promptForConfirmation.description%",
+					"tags": [
+						"experimental"
+					]
+				},
 				"githubPullRequests.codingAgent.uiIntegration": {
 					"type": "boolean",
 					"default": false,
