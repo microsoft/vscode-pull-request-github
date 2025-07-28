@@ -4031,7 +4031,7 @@
 		"compile:test": "tsc -p tsconfig.test.json",
 		"compile:node": "webpack --mode development --config-name extension:node --config-name webviews",
 		"compile:web": "webpack --mode development --config-name extension:webworker --config-name webviews",
-		"lint": "eslint --fix --cache --config .eslintrc.json --ignore-pattern src/env/browser/**/* \"{src,webviews}/**/*.{ts,tsx}\"",
+		"lint": "eslint --fix --cache --config .eslintrc.js --ignore-pattern src/env/browser/**/* \"{src,webviews}/**/*.{ts,tsx}\"",
 		"lint:browser": "eslint --fix --cache --cache-location .eslintcache.browser --config .eslintrc.browser.json --ignore-pattern src/env/node/**/* \"{src,webviews}/**/*.{ts,tsx}\"",
 		"package": "npx vsce package --yarn",
 		"test": "yarn run test:preprocess && node ./out/src/test/runTests.js",

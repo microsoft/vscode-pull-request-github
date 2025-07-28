@@ -18,7 +18,12 @@ module.exports = {
 		project: 'tsconfig.eslint.json'
 	},
 	plugins: ['rulesdir'],
-	rules: {
-		'rulesdir/public-methods-well-defined-types': 'error'
-	}
+	overrides: [
+		{
+			files: ['webviews/**/*.ts', 'webviews/**/*.tsx'],
+			rules: {
+				'rulesdir/public-methods-well-defined-types': 'error'
+			}
+		}
+	]
 };
