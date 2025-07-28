@@ -205,6 +205,11 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 		return super.continueOnGitHub() && isCrossRepository;
 	}
 
+	private preLoadInfoNotRequiredForOverview(pullRequest: PullRequestModel): void {
+		// Load some more info in the background, don't await.
+		pullRequest.getFileChangesInfo();
+	}
+
 	protected override async updateItem(pullRequestModel: PullRequestModel): Promise<void> {
 		try {
 			const [
@@ -267,6 +272,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel<PullRequestMode
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
 			const baseContext = this.getInitializeContext(currentUser, pullRequest, timelineEvents, repositoryAccess, viewerCanEdit, []);
+
+			this.preLoadInfoNotRequiredForOverview(pullRequest);
 
 			const context: Partial<PullRequest> = {
 				...baseContext,
