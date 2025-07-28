@@ -7,6 +7,7 @@
 import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
 import { COPILOT_ACCOUNTS } from '../common/comment';
+import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
 import { formatError } from '../common/utils';
@@ -14,6 +15,7 @@ import { FolderRepositoryManager } from './folderRepositoryManager';
 import { GitHubRepository, TeamReviewerRefreshKind } from './githubRepository';
 import { AccountType, IAccount, ILabel, IMilestone, IProject, isSuggestedReviewer, isTeam, ISuggestedReviewer, ITeam, reviewerId, ReviewState } from './interface';
 import { IssueModel } from './issueModel';
+import { DisplayLabel } from './views';
 
 async function getItems<T extends IAccount | ITeam | ISuggestedReviewer>(context: vscode.ExtensionContext, skipList: Set<string>, users: T[], picked: boolean, tooManyAssignable: boolean = false): Promise<(vscode.QuickPickItem & { user?: T })[]> {
 	const alreadyAssignedItems: (vscode.QuickPickItem & { user?: T })[] = [];
@@ -392,12 +394,14 @@ export async function getLabelOptions(
 	labels: ILabel[],
 	baseOwner: string,
 	repositoryName: string
-): Promise<{ newLabels: ILabel[], labelPicks: vscode.QuickPickItem[] }> {
-	const newLabels = await folderRepoManager.getLabels(undefined, { owner: baseOwner, repo: repositoryName });
+): Promise<{ newLabels: DisplayLabel[], labelPicks: (vscode.QuickPickItem & { name: string })[] }> {
+	await ensureEmojis(folderRepoManager.context);
+	const newLabels = (await folderRepoManager.getLabels(undefined, { owner: baseOwner, repo: repositoryName })).map(label => ({ ...label, displayName: emojify(label.name) }));
 
 	const labelPicks = newLabels.map(label => {
 		return {
-			label: label.name,
+			label: label.displayName,
+			name: label.name,
 			description: label.description ?? undefined,
 			picked: labels.some(existingLabel => existingLabel.name === label.name),
 			iconPath: DataUri.asImageDataURI(Buffer.from(`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">

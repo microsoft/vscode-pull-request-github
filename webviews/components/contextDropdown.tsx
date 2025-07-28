@@ -64,7 +64,9 @@ export const ContextDropdown = ({ optionsContext, defaultOptionLabel, defaultOpt
 					title={defaultOptionLabel()}>
 					{defaultOptionLabel()}
 				</button>
-				<div className={`split${isSecondary ? ' secondary' : ''}`}></div>
+				{hasSingleAction ? null :
+					<div className={`split${isSecondary ? ' secondary' : ''}${disabled ? ' disabled' : ''}`}><div className={`separator${disabled ? ' disabled' : ''}`}></div></div>
+				}
 				{hasSingleAction ? null :
 					<button className={`split-right${isSecondary ? ' secondary' : ''}`} title={optionsTitle} disabled={disabled} aria-expanded={expanded} onClick={(e) => {
 						e.preventDefault();

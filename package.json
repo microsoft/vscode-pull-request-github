@@ -29,13 +29,15 @@
 		"contribEditorContentMenu",
 		"contribShareMenu",
 		"diffCommand",
+		"languageModelDataPart",
+		"languageModelToolResultAudience",
 		"quickDiffProvider",
 		"remoteCodingAgents",
 		"shareProvider",
 		"tokenInformation",
 		"treeViewMarkdownMessage"
 	],
-	"version": "0.114.0",
+	"version": "0.116.0",
 	"publisher": "GitHub",
 	"engines": {
 		"vscode": "^1.103.0"
@@ -67,6 +69,14 @@
 		"virtualWorkspaces": true
 	},
 	"contributes": {
+		"chatSessions": [
+			{
+				"id": "copilot-swe-agent",
+				"name": "copilot",
+				"displayName": "GitHub Copilot Coding Agent",
+				"description": "Chat session for GitHub Copilot coding agent"
+			}
+		],
 		"remoteCodingAgents": [
 			{
 				"id": "githubCodingAgent",
@@ -1702,6 +1712,12 @@
 				"command": "codingAgent.openSessionLog",
 				"title": "%command.codingAgent.openSessionLog.title%",
 				"category": "%command.pull.request.category%"
+			},
+			{
+				"command": "pr.refreshChatSessions",
+				"title": "%command.pr.refreshChatSessions.title%",
+				"icon": "$(refresh)",
+				"category": "%command.pull.request.category%"
 			}
 		],
 		"viewsWelcome": [
@@ -2590,6 +2606,11 @@
 				{
 					"command": "notifications.refresh",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == notifications:github",
+					"group": "navigation@1"
+				},
+				{
+					"command": "pr.refreshChatSessions",
+					"when": "view == workbench.view.chat.sessions.copilot-swe-agent",
 					"group": "navigation@1"
 				}
 			],

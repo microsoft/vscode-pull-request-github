@@ -7,9 +7,10 @@ import { shikiToMonaco } from '@shikijs/monaco';
 import * as monaco from 'monaco-editor';
 import * as React from 'react';
 import { createHighlighter } from 'shiki';
+import { parseSessionLogs, SessionResponseLogChunk } from '../../common/sessionParsing';
 import { vscode } from '../common/message';
 import type * as messages from './messages';
-import { parseSessionLogs, SessionInfo, SessionResponseLogChunk, SessionSetupStepResponse } from './sessionsApi';
+import { SessionInfo, SessionSetupStepResponse } from './sessionsApi';
 import { SessionView } from './sessionView';
 
 const themeName = 'vscode-theme';

@@ -412,16 +412,25 @@ async function deferredActivate(context: vscode.ExtensionContext, showPRControll
 	const copilotRemoteAgentManager = new CopilotRemoteAgentManager(credentialStore, reposManager, telemetry);
 	context.subscriptions.push(copilotRemoteAgentManager);
 	if (vscode.chat?.registerChatSessionItemProvider) {
+		const provider = new class implements vscode.ChatSessionContentProvider, vscode.ChatSessionItemProvider {
+			label = vscode.l10n.t('GitHub Copilot Coding Agent');
+			provideChatSessionItems = async (token) => {
+				return await copilotRemoteAgentManager.provideChatSessions(token);
+			};
+			provideChatSessionContent = async (id, token) => {
+				return await copilotRemoteAgentManager.provideChatSessionContent(id, token);
+			};
+			onDidChangeChatSessionItems = copilotRemoteAgentManager.onDidChangeChatSessions;
+		}();
+
 		context.subscriptions.push(vscode.chat?.registerChatSessionItemProvider(
 			'copilot-swe-agent',
-			{
-				label: vscode.l10n.t('GitHub Copilot Coding Agent'),
-				provideChatSessionItems: async (token) => {
-					return await copilotRemoteAgentManager.provideChatSessions(token);
-				},
-				// Events not used yet, but required by interface.
-				onDidChangeChatSessionItems: new vscode.EventEmitter<void>().event,
-			}
+			provider
+		));
+
+		context.subscriptions.push(vscode.chat?.registerChatSessionContentProvider(
+			'copilot-swe-agent',
+			provider
 		));
 	}
 
