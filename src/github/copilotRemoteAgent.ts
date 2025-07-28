@@ -739,10 +739,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 			})[0];
 	}
 
-	clearNotifications() {
-		this._stateModel.clearNotifications();
-	}
-
 	get notificationsCount(): number {
 		return this._stateModel.notifications.size;
 	}
