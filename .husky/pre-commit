@@ -1,4 +1,20 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
+# Get list of staged TypeScript/TSX files (excluding browser-specific files as per lint script)
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' | grep -v 'src/env/browser/' | tr '\n' ' ')
+
+# Run ESLint on staged TypeScript/TSX files
+if [ -n "$STAGED_FILES" ]; then
+	echo "Running ESLint on staged files..."
+	npx eslint --config .eslintrc.json $STAGED_FILES
+	if [ $? -ne 0 ]; then
+		echo "ESLint failed. Please fix the errors before committing."
+		exit 1
+	fi
+else
+	echo "No TypeScript/TSX files staged for commit, skipping ESLint."
+fi
+
+# Run existing hygiene checks
 npm run hygiene
