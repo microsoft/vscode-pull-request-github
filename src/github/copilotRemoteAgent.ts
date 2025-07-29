@@ -1201,12 +1201,6 @@ export class CopilotRemoteAgentManager extends Disposable {
 					stream.push(multiDiffPart);
 				}
 
-				stream.push(new vscode.ChatResponseCommandButtonPart({
-					title: vscode.l10n.t('Open Changes'),
-					command: 'pr.openChanges',
-					arguments: [pullRequest]
-				}));
-
 				resolve();
 			};
 
