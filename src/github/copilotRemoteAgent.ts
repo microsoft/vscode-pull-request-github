@@ -1206,7 +1206,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 					const sessionInfo = await capi.getSessionInfo(sessionId);
 					if (sessionInfo && sessionInfo.state !== 'completed' && sessionInfo.workflow_run_id) {
 						await pullRequest.githubRepository.cancelWorkflow(sessionInfo.workflow_run_id);
-						stream.markdown('Session has been cancelled.');
+						stream.markdown(vscode.l10n.t('Session has been cancelled.'));
 						complete();
 					}
 				} catch (error) {
