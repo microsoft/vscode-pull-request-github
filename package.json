@@ -3460,7 +3460,7 @@
 				"displayName": "%languageModelTools.github-pull-request_copilot-coding-agent.displayName%",
 				"modelDescription": "Completes the provided task using an asynchronous coding agent. Use when the user wants copilot continue completing a task in the background or asynchronously. IMPORTANT: Use this tool LAST/FINAL when users mention '#github-pull-request_copilot-coding-agent' in their query. This indicates they want the task/job implemented by the remote coding agent after all other analysis, planning, and preparation is complete. Call this tool at the END to hand off the fully-scoped task to the asynchronous GitHub Copilot coding agent. The agent will create a new branch, implement the changes, and open a pull request. Always use this tool as the final step when the hashtag is mentioned, after completing any other necessary tools or analysis first.",
 				"when": "config.githubPullRequests.codingAgent.enabled",
-				"icon": "resources/icons/copilot.svg",
+				"icon": "$(send-to-remote-agent)",
 				"canBeReferencedInPrompt": true,
 				"toolReferenceName": "copilotCodingAgent",
 				"userDescription": "%languageModelTools.github-pull-request_copilot-coding-agent.userDescription%",
