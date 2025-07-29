@@ -12,7 +12,7 @@ import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { GitHubRemote } from '../common/remote';
-import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_PROMPT_FOR_CONFIRMATION, CODING_AGENT_ENABLED } from '../common/settingKeys';
+import { CODING_AGENT, CODING_AGENT_AUTO_COMMIT_AND_PUSH, CODING_AGENT_ENABLED, CODING_AGENT_PROMPT_FOR_CONFIRMATION } from '../common/settingKeys';
 import { ITelemetry } from '../common/telemetry';
 import { CommentEvent, CopilotFinishedEvent, CopilotStartedEvent, EventType, ReviewEvent, TimelineEvent } from '../common/timelineEvent';
 import { DataUri, toOpenPullRequestWebviewUri } from '../common/uri';
@@ -155,7 +155,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 	promptForConfirmation(): boolean {
 		return vscode.workspace
 			.getConfiguration(CODING_AGENT).get(CODING_AGENT_PROMPT_FOR_CONFIRMATION, true);
-	};
+	}
 
 	async isAssignable(): Promise<boolean> {
 		const repoInfo = await this.repoInfo();
