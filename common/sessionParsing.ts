@@ -54,7 +54,65 @@ export interface ParsedToolCallDetails {
 	invocationMessage: string;
 	pastTenseMessage?: string;
 	originMessage?: string;
-	toolSpecificData?: any;
+	toolSpecificData?: StrReplaceEditorToolData | BashToolData;
+}
+
+export interface StrReplaceEditorToolData {
+	command: 'view' | 'edit' | string;
+	filePath?: string;
+	fileLabel?: string;
+	parsedContent?: { content: string; fileA: string | undefined; fileB: string | undefined; };
+}
+
+export interface BashToolData {
+	commandLine: {
+		original: string;
+	};
+	language: 'bash';
+}
+
+/**
+ * Parse diff content and extract file information
+ */
+export function parseDiff(content: string): { content: string; fileA: string | undefined; fileB: string | undefined; } | undefined {
+	const lines = content.split(/\r?\n/g);
+	let fileA: string | undefined;
+	let fileB: string | undefined;
+
+	let startDiffLineIndex = -1;
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		if (line.startsWith('diff --git')) {
+			const match = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
+			if (match) {
+				fileA = match[1];
+				fileB = match[2];
+			}
+		} else if (line.startsWith('@@ ')) {
+			startDiffLineIndex = i + 1;
+			break;
+		}
+	}
+	if (startDiffLineIndex < 0) {
+		return undefined;
+	}
+
+	return {
+		content: lines.slice(startDiffLineIndex).join('\n'),
+		fileA: typeof fileA === 'string' ? '/' + fileA : undefined,
+		fileB: typeof fileB === 'string' ? '/' + fileB : undefined
+	};
+}
+
+
+
+/**
+ * Convert absolute file path to relative file label
+ * File paths are absolute and look like: `/home/runner/work/repo/repo/<path>`
+ */
+export function toFileLabel(file: string): string {
+	const parts = file.split('/');
+	return parts.slice(6).join('/');
 }
 
 /**
@@ -80,16 +138,64 @@ export function parseToolCallDetails(
 
 	if (name === 'str_replace_editor') {
 		if (args.command === 'view') {
-			return {
-				toolName: args.path ? `View ${args.path}` : 'View repository',
-				invocationMessage: `View ${args.path}`,
-				pastTenseMessage: `View ${args.path}`
-			};
+			const parsedContent = parseDiff(content);
+			if (parsedContent) {
+				const file = parsedContent.fileA ?? parsedContent.fileB;
+				const fileLabel = file && toFileLabel(file);
+				return {
+					toolName: fileLabel === '' ? 'View repository' : 'View',
+					invocationMessage: fileLabel ? `View [](${fileLabel})` : 'View repository',
+					pastTenseMessage: fileLabel ? `View [](${fileLabel})` : 'View repository',
+					toolSpecificData: fileLabel ? {
+						command: 'view',
+						filePath: file,
+						fileLabel: fileLabel,
+						parsedContent: parsedContent
+					} : undefined
+				};
+			} else {
+				const filePath = args.path;
+				let fileLabel = filePath ? toFileLabel(filePath) : undefined;
+
+				if (fileLabel === undefined) {
+					fileLabel = filePath;
+
+					return {
+						toolName: fileLabel ? `View ${fileLabel}` : 'View repository',
+						invocationMessage: fileLabel ? `View ${fileLabel}` : 'View repository',
+						pastTenseMessage: fileLabel ? `View ${fileLabel}` : 'View repository',
+					};
+				} else if (fileLabel === '') {
+					return {
+						toolName: 'View repository',
+						invocationMessage: 'View repository',
+						pastTenseMessage: 'View repository',
+					};
+				} else {
+					return {
+						toolName: `View`,
+						invocationMessage: `View ${fileLabel}`,
+						pastTenseMessage: `View ${fileLabel}`,
+						toolSpecificData: {
+							command: 'view',
+							filePath: filePath,
+							fileLabel: fileLabel
+						}
+					};
+				}
+			}
 		} else {
+			const filePath = args.path;
+			const fileLabel = filePath && toFileLabel(filePath);
 			return {
 				toolName: 'Edit',
-				invocationMessage: `Edit: ${args.path}`,
-				pastTenseMessage: `Edit: ${args.path}`
+				invocationMessage: fileLabel ? `Edit [](${fileLabel})` : 'Edit',
+				pastTenseMessage: fileLabel ? `Edit [](${fileLabel})` : 'Edit',
+				toolSpecificData: fileLabel ? {
+					command: args.command || 'edit',
+					filePath: filePath,
+					fileLabel: fileLabel
+				} : undefined
 			};
 		}
 	} else if (name === 'think') {
@@ -100,7 +206,7 @@ export function parseToolCallDetails(
 	} else if (name === 'report_progress') {
 		const details: ParsedToolCallDetails = {
 			toolName: 'Progress Update',
-			invocationMessage: args.prDescription || content
+			invocationMessage: `\`\`\`\n${args.prDescription}\`\`\`` || content
 		};
 		if (args.commitMessage) {
 			details.originMessage = `Commit: ${args.commitMessage}`;
@@ -116,12 +222,13 @@ export function parseToolCallDetails(
 
 		// Use the terminal-specific data for bash commands
 		if (args.command) {
-			details.toolSpecificData = {
+			const bashToolData: BashToolData = {
 				commandLine: {
 					original: args.command,
 				},
 				language: 'bash'
 			};
+			details.toolSpecificData = bashToolData;
 		}
 		return details;
 	} else {

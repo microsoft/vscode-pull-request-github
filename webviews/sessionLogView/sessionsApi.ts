@@ -29,33 +29,3 @@ export interface SessionInfo {
 	error: string | null;
 }
 
-export function parseDiff(content: string): { content: string; fileA: string | undefined; fileB: string | undefined; } | undefined {
-	const lines = content.split(/\r?\n/g);
-	let fileA: string | undefined;
-	let fileB: string | undefined;
-
-	let startDiffLineIndex = -1;
-	for (let i = 0; i < lines.length; i++) {
-		const line = lines[i];
-		if (line.startsWith('diff --git')) {
-			const match = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
-			if (match) {
-				fileA = match[1];
-				fileB = match[2];
-			}
-		} else if (line.startsWith('@@ ')) {
-			startDiffLineIndex = i + 1;
-			break;
-		}
-	}
-	if (startDiffLineIndex < 0) {
-		return undefined;
-	}
-
-	return {
-		content: lines.slice(startDiffLineIndex).join('\n'),
-		fileA: typeof fileA === 'string' ? '/' + fileA : undefined,
-		fileB: typeof fileB === 'string' ? '/' + fileB : undefined
-	};
-}
-
