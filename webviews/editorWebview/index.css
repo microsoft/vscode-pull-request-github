@@ -735,6 +735,9 @@ small-button {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.commit .commit-message a.message {
 	cursor: pointer;
 }
 
