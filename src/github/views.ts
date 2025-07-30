@@ -66,7 +66,6 @@ export interface Issue {
 	canAssignCopilot: boolean;
 	reactions: Reaction[];
 	busy?: boolean;
-	loadingCommit?: string;
 }
 
 export interface PullRequest extends Issue {
@@ -106,6 +105,7 @@ export interface PullRequest extends Issue {
 	lastReviewType?: ReviewType;
 	revertable?: boolean;
 	busy?: boolean;
+	loadingCommit?: string;
 }
 
 export interface ProjectItemsReply {

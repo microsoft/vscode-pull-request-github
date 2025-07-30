@@ -107,13 +107,13 @@ export default Timeline;
 
 const CommitEventView = (event: CommitEvent) => {
 	const context = useContext(PullRequestContext);
-	const [clickedElement, setClickedElement] = useState<'title' | 'sha' | null>(null);
+	const [clickedElement, setClickedElement] = useState<'title' | 'sha' | undefined>(undefined);
 
 	const handleCommitClick = (e: React.MouseEvent, elementType: 'title' | 'sha') => {
 		e.preventDefault();
 		setClickedElement(elementType);
 		context.openCommitChanges(event.sha).finally(() => {
-			setClickedElement(null);
+			setClickedElement(undefined);
 		});
 	};
 
