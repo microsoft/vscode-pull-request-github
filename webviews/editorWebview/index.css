@@ -66,6 +66,12 @@ textarea:focus,
 	transform: translate(-50%, -50%);
 }
 
+.loading-button {
+	display: inline-flex;
+	align-items: center;
+	margin-right: 4px;
+}
+
 .comment-body li div {
 	display: inline;
 }

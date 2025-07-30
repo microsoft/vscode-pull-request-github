@@ -184,9 +184,5 @@ button .icon svg {
 }
 
 button.split-left {
-	border-radius: 2px 0 0 2px;
-	flex-grow: 1;
-	overflow: hidden;
-	white-space: nowrap;
-	text-overflow: ellipsis;
+	display: block;
 }
