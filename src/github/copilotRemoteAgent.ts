@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as nodePath from 'path';
 import vscode from 'vscode';
 import { parseSessionLogs, parseToolCallDetails } from '../../common/sessionParsing';
 import { Repository } from '../api/api';
@@ -1082,7 +1083,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		};
 	}
 
-	private async streamNewLogContent(stream: vscode.ChatResponseStream, newLogContent: string): Promise<{ hasStreamedContent: boolean; hasSetupStepProgress: boolean }> {
+	private async streamNewLogContent(pullRequest: PullRequestModel, stream: vscode.ChatResponseStream, newLogContent: string): Promise<{ hasStreamedContent: boolean; hasSetupStepProgress: boolean }> {
 		try {
 			if (!newLogContent.trim()) {
 				return { hasStreamedContent: false, hasSetupStepProgress: false };
@@ -1110,7 +1111,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 							if (delta.content && delta.content.trim()) {
 								// Finished setup step - create/update tool part
-								const toolPart = this.createToolInvocationPart(toolCall, args.name || delta.content);
+								const toolPart = this.createToolInvocationPart(pullRequest, toolCall, args.name || delta.content);
 								if (toolPart) {
 									stream.push(toolPart);
 									hasStreamedContent = true;
@@ -1130,7 +1131,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 
 							if (delta.tool_calls) {
 								for (const toolCall of delta.tool_calls) {
-									const toolPart = this.createToolInvocationPart(toolCall, delta.content || '');
+									const toolPart = this.createToolInvocationPart(pullRequest, toolCall, delta.content || '');
 									if (toolPart) {
 										stream.push(toolPart);
 										hasStreamedContent = true;
@@ -1208,7 +1209,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 					if (sessionInfo.state !== 'in_progress') {
 						if (logs.length > lastProcessedLength) {
 							const newLogContent = logs.slice(lastProcessedLength);
-							const streamResult = await this.streamNewLogContent(stream, newLogContent);
+							const streamResult = await this.streamNewLogContent(pullRequest, stream, newLogContent);
 							if (streamResult.hasStreamedContent) {
 								hasActiveProgress = false;
 							}
@@ -1221,7 +1222,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 					if (logs.length > lastLogLength) {
 						Logger.appendLine(`New logs detected, attempting to stream content`, CopilotRemoteAgentManager.ID);
 						const newLogContent = logs.slice(lastProcessedLength);
-						const streamResult = await this.streamNewLogContent(stream, newLogContent);
+						const streamResult = await this.streamNewLogContent(pullRequest, stream, newLogContent);
 						lastProcessedLength = logs.length;
 
 						if (streamResult.hasStreamedContent) {
@@ -1319,7 +1320,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 		return undefined;
 	}
 
-	private createToolInvocationPart(toolCall: any, deltaContent: string = ''): vscode.ChatToolInvocationPart | undefined {
+	private createToolInvocationPart(pullRequest: PullRequestModel, toolCall: any, deltaContent: string = ''): vscode.ChatToolInvocationPart | undefined {
 		if (!toolCall.function?.name || !toolCall.id) {
 			return undefined;
 		}
@@ -1341,17 +1342,26 @@ export class CopilotRemoteAgentManager extends Disposable {
 			if (toolCall.function.name === 'bash') {
 				toolPart.invocationMessage = new vscode.MarkdownString(`\`\`\`bash\n${toolDetails.invocationMessage}\n\`\`\``);
 			} else {
-				toolPart.invocationMessage = toolDetails.invocationMessage;
+				toolPart.invocationMessage = new vscode.MarkdownString(toolDetails.invocationMessage);
 			}
 
 			if (toolDetails.pastTenseMessage) {
-				toolPart.pastTenseMessage = toolDetails.pastTenseMessage;
+				toolPart.pastTenseMessage = new vscode.MarkdownString(toolDetails.pastTenseMessage);
 			}
 			if (toolDetails.originMessage) {
-				toolPart.originMessage = toolDetails.originMessage;
+				toolPart.originMessage = new vscode.MarkdownString(toolDetails.originMessage);
 			}
 			if (toolDetails.toolSpecificData) {
-				toolPart.toolSpecificData = toolDetails.toolSpecificData;
+				if ('command' in toolDetails.toolSpecificData) {
+					if ((toolDetails.toolSpecificData.command === 'view' || toolDetails.toolSpecificData.command === 'edit') && toolDetails.toolSpecificData.fileLabel) {
+						const uri = vscode.Uri.file(nodePath.join(pullRequest.githubRepository.rootUri.fsPath, toolDetails.toolSpecificData.fileLabel));
+						toolPart.invocationMessage = new vscode.MarkdownString(`${toolPart.toolName} [](${uri.toString()})`);
+						toolPart.invocationMessage.supportHtml = true;
+						toolPart.pastTenseMessage = new vscode.MarkdownString(`${toolPart.toolName} [](${uri.toString()})`);
+					}
+				} else {
+					toolPart.toolSpecificData = toolDetails.toolSpecificData;
+				}
 			}
 		} catch (error) {
 			toolPart.toolName = toolCall.function.name || 'unknown';
@@ -1391,7 +1401,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 									currentResponseContent = '';
 								}
 
-								const toolPart = this.createToolInvocationPart(toolCall, args.name || delta.content);
+								const toolPart = this.createToolInvocationPart(pullRequest, toolCall, args.name || delta.content);
 								if (toolPart) {
 									responseParts.push(toolPart);
 								}
@@ -1412,7 +1422,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 								}
 
 								for (const toolCall of delta.tool_calls) {
-									const toolPart = this.createToolInvocationPart(toolCall, delta.content || '');
+									const toolPart = this.createToolInvocationPart(pullRequest, toolCall, delta.content || '');
 									if (toolPart) {
 										responseParts.push(toolPart);
 									}

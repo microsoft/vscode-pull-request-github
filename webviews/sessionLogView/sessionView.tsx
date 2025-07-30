@@ -9,12 +9,12 @@ import * as monaco from 'monaco-editor/esm/vs/editor/editor.main';
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 import { Temporal } from 'temporal-polyfill';
-import { SessionResponseLogChunk } from '../../common/sessionParsing';
+import { parseDiff, SessionResponseLogChunk, toFileLabel } from '../../common/sessionParsing';
 import { vscode } from '../common/message';
 import { CodeView } from './codeView';
 import './index.css'; // Create this file for styling
 import { PullInfo } from './messages';
-import { parseDiff, type SessionInfo, type SessionSetupStepResponse } from './sessionsApi';
+import { type SessionInfo, type SessionSetupStepResponse } from './sessionsApi';
 
 interface SessionViewProps {
 	readonly pullInfo: PullInfo | undefined;
@@ -278,13 +278,6 @@ function getLanguageForResource(filePath: string): string | undefined {
 		}
 	}
 	return undefined;
-}
-
-
-function toFileLabel(file: string): string {
-	// File paths are absolute and look like: `/home/runner/work/repo/repo/<path>`
-	const parts = file.split('/');
-	return parts.slice(6).join('/');
 }
 
 // Setup Stage Log component
