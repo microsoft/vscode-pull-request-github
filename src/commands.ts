@@ -9,7 +9,6 @@ import * as vscode from 'vscode';
 import { Repository } from './api/api';
 import { GitErrorCodes } from './api/api1';
 import { CommentReply, findActiveHandler, resolveCommentHandler } from './commentHandlerResolver';
-import { COPILOT_LOGINS } from './common/copilot';
 import { commands } from './common/executeCommands';
 import Logger from './common/logger';
 import { FILE_LIST_LAYOUT, PR_SETTINGS_NAMESPACE } from './common/settingKeys';
@@ -604,14 +603,6 @@ export function registerCommands(
 					pullRequestModel.githubRepository,
 					repository
 				)?.switch(pullRequestModel);
-
-				if (copilotRemoteAgentManager.enabled() && COPILOT_LOGINS.includes(pullRequestModel.author.login)) {
-					vscode.commands.executeCommand('workbench.action.chat.open', {
-						toolIds: [
-							'github-pull-request_activePullRequest',
-						]
-					});
-				}
 			});
 	};
 
