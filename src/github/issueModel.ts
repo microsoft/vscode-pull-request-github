@@ -8,6 +8,7 @@ import { COPILOT_ACCOUNTS, IComment } from '../common/comment';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
 import { Remote } from '../common/remote';
+import { ITelemetry } from '../common/telemetry';
 import { ClosedEvent, CrossReferencedEvent, EventType, TimelineEvent } from '../common/timelineEvent';
 import { compareIgnoreCase, formatError } from '../common/utils';
 import { OctokitCommon } from './common';
@@ -57,6 +58,7 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	public updatedAt: string;
 	public milestone?: IMilestone;
 	public readonly githubRepository: GitHubRepository;
+	protected readonly _telemetry: ITelemetry;
 	public readonly remote: Remote;
 	public item: TItem;
 	public body: string;
@@ -67,8 +69,9 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 	protected _onDidChange = this._register(new vscode.EventEmitter<IssueChangeEvent>());
 	public onDidChange = this._onDidChange.event;
 
-	constructor(githubRepository: GitHubRepository, remote: Remote, item: TItem, skipUpdate: boolean = false) {
+	constructor(telemetry: ITelemetry, githubRepository: GitHubRepository, remote: Remote, item: TItem, skipUpdate: boolean = false) {
 		super();
+		this._telemetry = telemetry;
 		this.githubRepository = githubRepository;
 		this.remote = remote;
 		this.item = item;
@@ -579,6 +582,15 @@ export class IssueModel<TItem extends Issue = Issue> extends Disposable {
 
 		try {
 			if (schema.ReplaceActorsForAssignable) {
+				const assignToCopilot = allAssignees.find(assignee => COPILOT_ACCOUNTS[assignee.login]);
+				const alreadyHasCopilot = this.assignees?.find(assignee => COPILOT_ACCOUNTS[assignee.login]) !== undefined;
+				if (assignToCopilot && !alreadyHasCopilot) {
+					/* __GDPR__
+						"pr.assignCopilot" : {}
+					*/
+					this._telemetry.sendTelemetryEvent('pr.assignCopilot');
+				}
+
 				const assigneeIds = allAssignees.map(assignee => assignee.id);
 				await mutate({
 					mutation: schema.ReplaceActorsForAssignable,
