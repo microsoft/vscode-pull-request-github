@@ -394,7 +394,9 @@ export class PullRequestModel extends IssueModel<PullRequest> implements IPullRe
 		this._telemetry.sendTelemetryEvent('pr.close');
 		const user = await this.githubRepository.getAuthenticatedUser();
 		this.state = this.stateToStateEnum(ret.data.state);
-		this._onDidChange.fire({ state: true });
+
+		// Fire the event with a delay as GitHub needs some time to propagate the changes, we want to make sure any listeners of the event will get the right info when they query
+		setTimeout(() => this._onDidChange.fire({ state: true }), 1500);
 
 		return {
 			item: convertRESTPullRequestToRawPullRequest(ret.data, this.githubRepository),
