@@ -206,7 +206,7 @@ export function parseToolCallDetails(
 	} else if (name === 'report_progress') {
 		const details: ParsedToolCallDetails = {
 			toolName: 'Progress Update',
-			invocationMessage: `\`\`\`\n${args.prDescription}\`\`\`` || content
+			invocationMessage: `${args.prDescription}` || content
 		};
 		if (args.commitMessage) {
 			details.originMessage = `Commit: ${args.commitMessage}`;
