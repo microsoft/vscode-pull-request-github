@@ -737,6 +737,10 @@ small-button {
 	white-space: nowrap;
 }
 
+.commit .commit-message a.message {
+	cursor: pointer;
+}
+
 .timeline-detail {
 	display: flex;
 	align-items: center;
@@ -747,6 +751,7 @@ small-button {
 	min-width: 50px;
 	font-family: var(--vscode-editor-font-family);
 	margin-bottom: -2px;
+	cursor: pointer;
 }
 
 .merged .merged-message .message,
