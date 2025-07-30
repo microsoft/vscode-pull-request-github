@@ -194,7 +194,7 @@ function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boole
 		defaultAction={actions[0].action}
 		defaultOptionLabel={() => isBusy ? (
 			<>
-				<span style={{ display: 'inline-flex', alignItems: 'center', marginRight: '4px' }}>{loadingIcon}</span>
+				<span className='loading-button'>{loadingIcon}</span>
 				{actions[0].label}
 			</>
 		) : actions[0].label}
