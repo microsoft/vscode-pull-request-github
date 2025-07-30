@@ -293,7 +293,10 @@ export class PRContext {
 
 	public openSessionLog = (link: SessionLinkInfo) => this.postMessage({ command: 'pr.open-session-log', args: { link } });
 
-	public openCommitChanges = (commitSha: string) => this.postMessage({ command: 'pr.openCommitChanges', args: { commitSha } as OpenCommitChangesArgs });
+	public openCommitChanges = (commitSha: string) => {
+		const args: OpenCommitChangesArgs = { commitSha };
+		return this.postMessage({ command: 'pr.openCommitChanges', args });
+	};
 
 	setPR = (pr: PullRequest | undefined) => {
 		this.pr = pr;
