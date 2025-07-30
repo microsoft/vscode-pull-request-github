@@ -192,7 +192,12 @@ function CancelCodingAgentButton({ canEdit, codingAgentEvent }: { canEdit: boole
 	return <ContextDropdown
 		optionsContext={() => JSON.stringify(context)}
 		defaultAction={actions[0].action}
-		defaultOptionLabel={() => actions[0].label}
+		defaultOptionLabel={() => isBusy ? (
+			<>
+				<span style={{ display: 'inline-flex', alignItems: 'center', marginRight: '4px' }}>{loadingIcon}</span>
+				{actions[0].label}
+			</>
+		) : actions[0].label}
 		defaultOptionValue={() => actions[0].value}
 		allOptions={() => {
 			return actions;
