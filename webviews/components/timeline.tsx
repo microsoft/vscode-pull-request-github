@@ -28,7 +28,7 @@ import { ReviewType } from '../../src/github/views';
 import PullRequestContext from '../common/context';
 import { CommentView } from './comment';
 import Diff from './diff';
-import { commitIcon, errorIcon, mergeIcon, plusIcon, tasklistIcon, threeBars } from './icon';
+import { commitIcon, errorIcon, loadingIcon, mergeIcon, plusIcon, tasklistIcon, threeBars } from './icon';
 import { nbsp } from './space';
 import { Timestamp } from './timestamp';
 import { AuthorLink, Avatar } from './user';
@@ -107,11 +107,17 @@ export default Timeline;
 
 const CommitEventView = (event: CommitEvent) => {
 	const context = useContext(PullRequestContext);
+	const [clickedElement, setClickedElement] = useState<'title' | 'sha' | null>(null);
 
-	const handleCommitClick = (e: React.MouseEvent) => {
+	const handleCommitClick = (e: React.MouseEvent, elementType: 'title' | 'sha') => {
 		e.preventDefault();
-		context.openCommitChanges(event.sha);
+		setClickedElement(elementType);
+		context.openCommitChanges(event.sha).finally(() => {
+			setClickedElement(null);
+		});
 	};
+
+	const isLoading = context.pr?.loadingCommit === event.sha;
 
 	return (
 		<div className="comment-container commit">
@@ -124,17 +130,19 @@ const CommitEventView = (event: CommitEvent) => {
 				<div className="message-container">
 					<a
 						className="message"
-						onClick={handleCommitClick}
+						onClick={(e) => handleCommitClick(e, 'title')}
 						title={event.htmlUrl}
 					>
 						{event.message.substr(0, event.message.indexOf('\n') > -1 ? event.message.indexOf('\n') : event.message.length)}
 					</a>
+					{isLoading && clickedElement === 'title' && <span className="spinner">{loadingIcon}</span>}
 				</div>
 			</div>
 			<div className="timeline-detail">
+				{isLoading && clickedElement === 'sha' && <span className="spinner">{loadingIcon}</span>}
 				<a
 					className="sha"
-					onClick={handleCommitClick}
+					onClick={(e) => handleCommitClick(e, 'sha')}
 					title={event.htmlUrl}
 				>
 					{event.sha.slice(0, 7)}

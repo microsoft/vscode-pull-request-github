@@ -66,6 +66,7 @@ export interface Issue {
 	canAssignCopilot: boolean;
 	reactions: Reaction[];
 	busy?: boolean;
+	loadingCommit?: string;
 }
 
 export interface PullRequest extends Issue {
