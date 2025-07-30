@@ -135,16 +135,16 @@ const CommitEventView = (event: CommitEvent) => {
 					>
 						{event.message.substr(0, event.message.indexOf('\n') > -1 ? event.message.indexOf('\n') : event.message.length)}
 					</a>
-					{isLoading && clickedElement === 'title' && <span className="spinner">{loadingIcon}</span>}
+					{isLoading && clickedElement === 'title' && <span className="commit-spinner-inline">{loadingIcon}</span>}
 				</div>
 			</div>
 			<div className="timeline-detail">
-				{isLoading && clickedElement === 'sha' && <span className="spinner">{loadingIcon}</span>}
 				<a
 					className="sha"
 					onClick={(e) => handleCommitClick(e, 'sha')}
 					title={event.htmlUrl}
 				>
+					{isLoading && clickedElement === 'sha' && <span className="commit-spinner-before">{loadingIcon}</span>}
 					{event.sha.slice(0, 7)}
 				</a>
 				<Timestamp date={event.committedDate} />
