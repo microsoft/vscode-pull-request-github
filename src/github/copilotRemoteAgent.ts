@@ -6,7 +6,7 @@
 import vscode from 'vscode';
 import { Repository } from '../api/api';
 import { AuthProvider } from '../common/authentication';
-import { COPILOT_LOGINS, CopilotPRStatus } from '../common/copilot';
+import { COPILOT_LOGINS } from '../common/copilot';
 import { commands } from '../common/executeCommands';
 import { Disposable } from '../common/lifecycle';
 import Logger from '../common/logger';
