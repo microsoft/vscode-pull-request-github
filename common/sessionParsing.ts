@@ -143,9 +143,9 @@ export function parseToolCallDetails(
 				const file = parsedContent.fileA ?? parsedContent.fileB;
 				const fileLabel = file && toFileLabel(file);
 				return {
-					toolName: fileLabel === '' ? 'View repository' : 'View',
-					invocationMessage: fileLabel ? `View [](${fileLabel})` : 'View repository',
-					pastTenseMessage: fileLabel ? `View [](${fileLabel})` : 'View repository',
+					toolName: fileLabel === '' ? 'Read repository' : 'Read',
+					invocationMessage: fileLabel ? `Read [](${fileLabel})` : 'Read repository',
+					pastTenseMessage: fileLabel ? `Read [](${fileLabel})` : 'Read repository',
 					toolSpecificData: fileLabel ? {
 						command: 'view',
 						filePath: file,
@@ -161,21 +161,21 @@ export function parseToolCallDetails(
 					fileLabel = filePath;
 
 					return {
-						toolName: fileLabel ? `View ${fileLabel}` : 'View repository',
-						invocationMessage: fileLabel ? `View ${fileLabel}` : 'View repository',
-						pastTenseMessage: fileLabel ? `View ${fileLabel}` : 'View repository',
+						toolName: fileLabel ? `Read ${fileLabel}` : 'Read repository',
+						invocationMessage: fileLabel ? `Read ${fileLabel}` : 'Read repository',
+						pastTenseMessage: fileLabel ? `Read ${fileLabel}` : 'Read repository',
 					};
 				} else if (fileLabel === '') {
 					return {
-						toolName: 'View repository',
-						invocationMessage: 'View repository',
-						pastTenseMessage: 'View repository',
+						toolName: 'Read repository',
+						invocationMessage: 'Read repository',
+						pastTenseMessage: 'Read repository',
 					};
 				} else {
 					return {
-						toolName: `View`,
-						invocationMessage: `View ${fileLabel}`,
-						pastTenseMessage: `View ${fileLabel}`,
+						toolName: `Read`,
+						invocationMessage: `Read ${fileLabel}`,
+						pastTenseMessage: `Read ${fileLabel}`,
 						toolSpecificData: {
 							command: 'view',
 							filePath: filePath,
