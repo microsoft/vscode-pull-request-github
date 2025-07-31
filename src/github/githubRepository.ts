@@ -1104,7 +1104,7 @@ export class GitHubRepository extends Disposable {
 			}
 			Logger.debug(`Fetch issue ${id} - done`, this.id);
 
-			return new IssueModel(this, remote, await parseGraphQLIssue(data.repository.issue, this));
+			return new IssueModel(this.telemetry, this, remote, await parseGraphQLIssue(data.repository.issue, this));
 		} catch (e) {
 			Logger.error(`Unable to fetch issue: ${e}`, this.id);
 			return;

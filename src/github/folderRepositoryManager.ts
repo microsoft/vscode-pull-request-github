@@ -1304,7 +1304,7 @@ export class FolderRepositoryManager extends Disposable {
 			};
 			for (const issue of data.items) {
 				const githubRepository = await this.getRepoForIssue(issue);
-				mappedData.items.push(new IssueModel(githubRepository, githubRepository.remote, issue));
+				mappedData.items.push(new IssueModel(this.telemetry, githubRepository, githubRepository.remote, issue));
 			}
 			return mappedData;
 		} catch (e) {
@@ -1601,7 +1601,7 @@ export class FolderRepositoryManager extends Disposable {
 			// Create PR
 			const { data } = await repo.octokit.call(repo.octokit.api.issues.create, params);
 			const item = convertRESTIssueToRawPullRequest(data, repo);
-			const issueModel = new IssueModel(repo, repo.remote, item);
+			const issueModel = new IssueModel(this.telemetry, repo, repo.remote, item);
 
 			/* __GDPR__
 				"issue.create.success" : {

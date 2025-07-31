@@ -293,10 +293,11 @@ export class PRContext {
 
 	public openSessionLog = (link: SessionLinkInfo) => this.postMessage({ command: 'pr.open-session-log', args: { link } });
 
-	public openCommitChanges = async (commitSha: string) => {
+		public openCommitChanges = async (commitSha: string) => {
 		this.updatePR({ loadingCommit: commitSha });
 		try {
-			await this.postMessage({ command: 'pr.openCommitChanges', args: { commitSha } as OpenCommitChangesArgs });
+			const args: OpenCommitChangesArgs = { commitSha };
+			await this.postMessage({ command: 'pr.openCommitChanges', args });
 		} finally {
 			this.updatePR({ loadingCommit: undefined });
 		}

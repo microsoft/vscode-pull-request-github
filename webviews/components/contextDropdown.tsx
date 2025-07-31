@@ -8,7 +8,7 @@ import { chevronDownIcon } from './icon';
 
 interface ContextDropdownProps {
 	optionsContext: () => string;
-	defaultOptionLabel: () => string;
+	defaultOptionLabel: () => string | React.ReactNode;
 	defaultOptionValue: () => string;
 	defaultAction: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
 	allOptions?: () => { label: string; value: string; action: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void }[];
@@ -61,7 +61,7 @@ export const ContextDropdown = ({ optionsContext, defaultOptionLabel, defaultOpt
 			:
 			<div className='primary-split-button'>
 				<button className={`split-left${isSecondary ? ' secondary' : ''}`} disabled={disabled} onClick={defaultAction} value={defaultOptionValue()}
-					title={defaultOptionLabel()}>
+					title={typeof defaultOptionLabel() === 'string' ? defaultOptionLabel() as string : optionsTitle}>
 					{defaultOptionLabel()}
 				</button>
 				{hasSingleAction ? null :
