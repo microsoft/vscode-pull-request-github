@@ -16,7 +16,7 @@ import { PullRequestModel } from './pullRequestModel';
 import { RepositoriesManager } from './repositoriesManager';
 import { hasEnterpriseUri } from './utils';
 
-const LEARN_MORE_URL = 'https://docs.github.com/en/copilot/how-tos/agents/copilot-coding-agent';
+const LEARN_MORE_URL = 'https://aka.ms/coding-agent-docs';
 const PREMIUM_REQUESTS_URL = 'https://docs.github.com/en/copilot/concepts/copilot-billing/understanding-and-managing-requests-in-copilot#what-are-premium-requests';
 
 export interface RemoteAgentJobPayload {
