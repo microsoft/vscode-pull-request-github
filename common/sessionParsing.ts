@@ -201,12 +201,12 @@ export function parseToolCallDetails(
 	} else if (name === 'think') {
 		return {
 			toolName: 'Thought',
-			invocationMessage: content
+			invocationMessage: content || 'Thought',
 		};
 	} else if (name === 'report_progress') {
 		const details: ParsedToolCallDetails = {
 			toolName: 'Progress Update',
-			invocationMessage: `${args.prDescription}` || content
+			invocationMessage: `${args.prDescription}` || content || 'Progress Update'
 		};
 		if (args.commitMessage) {
 			details.originMessage = `Commit: ${args.commitMessage}`;
@@ -217,7 +217,7 @@ export function parseToolCallDetails(
 		const bashContent = [command, content].filter(Boolean).join('\n');
 		const details: ParsedToolCallDetails = {
 			toolName: 'Run Bash command',
-			invocationMessage: bashContent
+			invocationMessage: bashContent || 'Run Bash command',
 		};
 
 		// Use the terminal-specific data for bash commands
@@ -235,7 +235,7 @@ export function parseToolCallDetails(
 		// Unknown tool type
 		return {
 			toolName: name || 'unknown',
-			invocationMessage: content
+			invocationMessage: content || name || 'unknown'
 		};
 	}
 }
