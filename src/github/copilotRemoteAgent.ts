@@ -322,7 +322,7 @@ export class CopilotRemoteAgentManager extends Disposable {
 				}
 			*/
 			this.telemetry.sendTelemetryErrorEvent('remoteAgent.command.result', { reason: 'learnMore' });
-			vscode.env.openExternal(vscode.Uri.parse('https://docs.github.com/copilot/using-github-copilot/coding-agent'));
+			vscode.env.openExternal(vscode.Uri.parse('https://aka.ms/coding-agent-docs'));
 		};
 
 		let autoPushAndCommit = false;
