@@ -293,9 +293,14 @@ export class PRContext {
 
 	public openSessionLog = (link: SessionLinkInfo) => this.postMessage({ command: 'pr.open-session-log', args: { link } });
 
-	public openCommitChanges = (commitSha: string) => {
-		const args: OpenCommitChangesArgs = { commitSha };
-		return this.postMessage({ command: 'pr.openCommitChanges', args });
+		public openCommitChanges = async (commitSha: string) => {
+		this.updatePR({ loadingCommit: commitSha });
+		try {
+			const args: OpenCommitChangesArgs = { commitSha };
+			await this.postMessage({ command: 'pr.openCommitChanges', args });
+		} finally {
+			this.updatePR({ loadingCommit: undefined });
+		}
 	};
 
 	setPR = (pr: PullRequest | undefined) => {

@@ -459,6 +459,21 @@ button.inlined-dropdown {
 	margin-left: 5px;
 }
 
+.commit-spinner-inline {
+	margin-left: 8px;
+	display: inline-flex;
+	align-items: center;
+	vertical-align: middle;
+	grid-column: none;
+}
+
+.commit-spinner-before {
+	margin-right: 6px;
+	display: inline-flex;
+	align-items: center;
+	vertical-align: middle;
+}
+
 .loading {
 	animation: spinner-rotate 1s linear infinite;
 }
