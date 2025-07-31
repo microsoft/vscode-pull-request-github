@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { parseSessionLogs } from '../../common/sessionParsing';
 import type * as messages from '../../webviews/sessionLogView/messages';
 import { Disposable, disposeAll } from '../common/lifecycle';
 import { ITelemetry } from '../common/telemetry';
@@ -413,7 +414,7 @@ class SessionLogView extends Disposable {
 			type: 'loaded',
 			pullInfo: this._source.type === 'pull' ? this._source.pullRequest : undefined,
 			info: apiResponse.info,
-			logs: apiResponse.logs,
+			logs: parseSessionLogs(apiResponse.logs),
 			setupSteps: apiResponse.setupSteps
 		} as messages.LoadedMessage);
 
@@ -435,7 +436,7 @@ class SessionLogView extends Disposable {
 					type: 'update',
 					pullInfo: this._source.type === 'pull' ? this._source.pullRequest : undefined,
 					info: apiResult.info,
-					logs: apiResult.logs,
+					logs: parseSessionLogs(apiResult.logs),
 					setupSteps: apiResult.setupSteps
 				} as messages.UpdateMessage);
 

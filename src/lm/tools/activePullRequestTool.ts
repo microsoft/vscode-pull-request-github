@@ -5,6 +5,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import { parseSessionLogs } from '../../../common/sessionParsing';
 import { COPILOT_LOGINS } from '../../common/copilot';
 import { GitChangeType, InMemFileChange } from '../../common/file';
 import Logger from '../../common/logger';
@@ -40,23 +41,17 @@ export class ActivePullRequestTool implements vscode.LanguageModelTool<FetchIssu
 
 	private parseCopilotEventStream(logsResponseText: string): string[] {
 		const result: string[] = [];
-		logsResponseText
-			.split('\n')
-			.filter(line => line.startsWith('data:'))
-			.forEach(line => {
-				try {
-					const obj = JSON.parse(line.replace(/^data:\s*/, ''));
-					if (Array.isArray(obj.choices)) {
-						for (const choice of obj.choices) {
-							const delta = choice.delta || {};
-							if (typeof delta.content === 'string' && !!delta.role) {
-								result.push(delta.content);
-							}
-						}
-					}
-				} catch { /* ignore parse errors */ }
-			});
-
+		const logChunks = parseSessionLogs(logsResponseText);
+		
+		for (const chunk of logChunks) {
+			for (const choice of chunk.choices) {
+				const delta = choice.delta || {};
+				if (typeof delta.content === 'string' && !!delta.role) {
+					result.push(delta.content);
+				}
+			}
+		}
+		
 		return result;
 	}
 
