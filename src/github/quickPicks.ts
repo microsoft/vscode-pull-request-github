@@ -7,6 +7,7 @@
 import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
 import { COPILOT_ACCOUNTS } from '../common/comment';
+import { COPILOT_LOGINS } from '../common/copilot';
 import { emojify, ensureEmojis } from '../common/emoji';
 import Logger from '../common/logger';
 import { DataUri } from '../common/uri';
@@ -137,8 +138,11 @@ async function getReviewersQuickPickItems(folderRepositoryManager: FolderReposit
 	const allTeamReviewers = isInOrganization ? await folderRepositoryManager.getTeamReviewers(refreshKind) : [];
 	const teamReviewers: ITeam[] = allTeamReviewers[remoteName] ?? [];
 	const assignableUsers: (IAccount | ITeam)[] = [...teamReviewers];
-	if (allAssignableUsers[remoteName]) {
-		assignableUsers.push(...allAssignableUsers[remoteName]);
+
+	// Remove the swe agent as it can't do reviews
+	const assignableUsersForRemote = allAssignableUsers[remoteName].filter(user => user.login !== COPILOT_LOGINS[1]);
+	if (assignableUsersForRemote) {
+		assignableUsers.push(...assignableUsersForRemote);
 	}
 
 	// used to track logins that shouldn't be added to pick list
